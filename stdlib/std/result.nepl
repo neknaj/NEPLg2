@@ -7,13 +7,13 @@
 
 // Result layout: ptr -> [tag:i32][val:i32], tag 0=Ok, 1=Err
 
-fn ok <(i32)->i32> (v):
+fn ok <(i32)*>i32> (v):
     let p <i32> alloc 8;
     store_i32 p 0;
     store_i32 add p 4 v;
     p
 
-fn err <(i32)->i32> (e):
+fn err <(i32)*>i32> (e):
     let p <i32> alloc 8;
     store_i32 p 1;
     store_i32 add p 4 e;

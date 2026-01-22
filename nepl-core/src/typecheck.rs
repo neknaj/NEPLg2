@@ -31,7 +31,17 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
 
     let mut entry = None;
     let mut externs: Vec<HirExtern> = Vec::new();
+    let mut pending_if: Option<bool> = None;
     for d in &module.directives {
+        if let Directive::IfTarget { target: gate, .. } = d {
+            pending_if = Some(target_allows(gate.as_str(), target));
+            continue;
+        }
+        let allowed = pending_if.unwrap_or(true);
+        pending_if = None;
+        if !allowed {
+            continue;
+        }
         if let Directive::Entry { name } = d {
             entry = Some(name.name.clone());
         } else if let Directive::Extern {
@@ -72,13 +82,6 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             } else {
                 diagnostics.push(Diagnostic::error(
                     "extern signature must be a function type",
-                    *span,
-                ));
-            }
-        } else if let Directive::Import { path, span } = d {
-            if target == CompileTarget::Wasm && path == "std/stdio" {
-                diagnostics.push(Diagnostic::error(
-                    "std/stdio is only available for target=wasi",
                     *span,
                 ));
             }

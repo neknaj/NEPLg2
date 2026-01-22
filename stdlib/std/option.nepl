@@ -5,13 +5,13 @@
 
 // option layout: [tag:i32][val:i32], tag 0=None, 1=Some
 
-fn none <()->i32> ():
+fn none <()*>i32> ():
     let p <i32> alloc 8;
     store_i32 p 0;
     store_i32 add p 4 0;
     p
 
-fn some <(i32)->i32> (v):
+fn some <(i32)*>i32> (v):
     let p <i32> alloc 8;
     store_i32 p 1;
     store_i32 add p 4 v;

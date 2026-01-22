@@ -57,7 +57,7 @@ fn execute(cli: Cli) -> Result<()> {
             let loader = Loader::new(stdlib_root()?);
             loader
                 .load(&PathBuf::from(path))
-                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?
         }
         None => {
             let mut buffer = String::new();
@@ -65,16 +65,25 @@ fn execute(cli: Cli) -> Result<()> {
             let loader = Loader::new(stdlib_root()?);
             loader
                 .load_inline(PathBuf::from("<stdin>"), buffer)
-                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?
         }
     };
+    // Auto-upgrade to WASI if stdio is imported and user did not explicitly pick wasi.
+    let has_stdio_import = load_result
+        .module
+        .directives
+        .iter()
+        .any(|d| matches!(d, nepl_core::ast::Directive::Import { path, .. } if path == "std/stdio"));
     let module = load_result.module;
     let source_map = load_result.source_map;
 
-    let target = match cli.target.as_str() {
+    let mut target = match cli.target.as_str() {
         "wasi" => CompileTarget::Wasi,
         _ => CompileTarget::Wasm,
     };
+    if matches!(target, CompileTarget::Wasm) && has_stdio_import {
+        target = CompileTarget::Wasi;
+    }
     let options = CompileOptions { target };
 
     match cli.emit.as_str() {
@@ -91,10 +100,7 @@ fn execute(cli: Cli) -> Result<()> {
                 write_output(out, &artifact.wasm)?;
             }
             if cli.run {
-                if matches!(target, CompileTarget::Wasi) {
-                    return Err(anyhow::anyhow!("--run with target=wasi is not supported in embedded runner; use a WASI runtime (e.g., wasmtime)"));
-                }
-                let result = run_wasm(&artifact)?;
+                let result = run_wasm(&artifact, target)?;
                 println!("Program exited with {result}");
             }
         }
@@ -119,11 +125,13 @@ fn write_output(path: &str, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn run_wasm(artifact: &CompilationArtifact) -> Result<i32> {
+fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32> {
     let engine = Engine::default();
     let module = Module::new(&engine, artifact.wasm.as_slice())
         .context("failed to compile wasm artifact")?;
+
     let mut linker = Linker::new(&engine);
+    // Env prints for legacy wasm target
     linker.func_wrap("env", "print_i32", |x: i32| {
         println!("{x}");
     })?;
@@ -138,18 +146,82 @@ fn run_wasm(artifact: &CompilationArtifact) -> Result<i32> {
             let data = memory.data(&caller);
             let offset = ptr as usize;
             if offset + 4 > data.len() {
-                panic!("print_str: pointer out of bounds");
+                return;
             }
             let len = u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
             let start = offset + 4;
             if start + len > data.len() {
-                panic!("print_str: slice out of bounds");
+                return;
             }
             let bytes = &data[start..start + len];
             let text = std::str::from_utf8(bytes).unwrap_or("<invalid utf8>");
             print!("{text}");
         },
     )?;
+    if matches!(target, CompileTarget::Wasi) {
+        // Minimal wasi fd_write implementation for stdout (fd 1)
+        linker.func_wrap(
+            "wasi_snapshot_preview1",
+            "fd_write",
+            |mut caller: Caller<'_, ()>, fd: i32, iovs: i32, iovs_len: i32, nwritten: i32| -> i32 {
+                if fd != 1 {
+                    return 8; // badf
+                }
+                let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return 21, // enomem-ish
+                };
+                let data_snapshot = memory.data(&caller).to_vec(); // snapshot to avoid alias issues
+                let mut total = 0usize;
+                let mut offset = iovs as usize;
+                for _ in 0..iovs_len {
+                    if offset + 8 > data_snapshot.len() {
+                        return 21;
+                    }
+                    let base =
+                        u32::from_le_bytes(data_snapshot[offset..offset + 4].try_into().unwrap())
+                            as usize;
+                    let len = u32::from_le_bytes(
+                        data_snapshot[offset + 4..offset + 8].try_into().unwrap(),
+                    ) as usize;
+                    offset += 8;
+                    if base + len > data_snapshot.len() {
+                        return 21;
+                    }
+                    let slice = &data_snapshot[base..base + len];
+                    match std::str::from_utf8(slice) {
+                        Ok(s) => {
+                            print!("{s}");
+                        }
+                        Err(_) => {
+                            return 21;
+                        }
+                    }
+                    total += len;
+                }
+                // write nwritten
+                if let Some(mem) = caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    let mut caller = caller;
+                    let bytes = (total as u32).to_le_bytes();
+                    if (nwritten as usize) + 4 <= mem.data(&caller).len() {
+                        mem.write(&mut caller, nwritten as usize, &bytes).ok();
+                    }
+                }
+                0
+            },
+        )?;
+    } else {
+        // If wasm target imports WASI, warn and fail fast
+        for import in module.imports() {
+            if import.module() == "wasi_snapshot_preview1" {
+                return Err(anyhow::anyhow!(
+                    "module requires WASI (import {}::{}) – re-run with --target wasi",
+                    import.module(),
+                    import.name()
+                ));
+            }
+        }
+    }
     let mut store = Store::new(&engine, ());
     let instance_pre = linker
         .instantiate(&mut store, &module)

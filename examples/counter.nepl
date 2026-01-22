@@ -3,13 +3,14 @@
 
 #import "std/math"
 #use std::math::*
+#if[target=wasi]
 #import "std/stdio"
 #use std::stdio::*
 
 fn main <()*> ()> ():
     let mut x <i32> 0;
-    
     while lt x 5:
         print_str "count = ";
         print_i32 x;
         set x add x 1;
+        ()

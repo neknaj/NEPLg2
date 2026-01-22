@@ -1,13 +1,13 @@
 #indent 4
 
-# Primitive memory helpers implemented with raw wasm instructions.
+// Primitive memory helpers implemented with raw wasm instructions.
 
 fn load_u8 <(i32)->i32> (p):
     #wasm:
         local.get $p
         i32.load8_u
 
-fn store_u8 <(i32,i32)->()> (p, v):
+fn store_u8 <(i32,i32)*>()> (p, v):
     #wasm:
         local.get $p
         local.get $v
@@ -18,19 +18,19 @@ fn load_i32 <(i32)->i32> (p):
         local.get $p
         i32.load
 
-fn store_i32 <(i32,i32)->()> (p, v):
+fn store_i32 <(i32,i32)*>()> (p, v):
     #wasm:
         local.get $p
         local.get $v
         i32.store
 
-fn memory_grow <(i32)->i32> (pages):
+fn memory_grow <(i32)*>i32> (pages):
     #wasm:
         local.get $pages
         memory.grow
 
 // Extremely simple bump allocator: allocate one new page per call and return its base address.
-fn alloc <(i32)->i32> (size):
+fn alloc <(i32)*>i32> (size):
     #wasm:
         // grow one page; ignore requested size for now
         memory.grow 1

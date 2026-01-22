@@ -1,35 +1,4 @@
 #indent 4
 
-#if[target=wasi]
-#extern "wasi_snapshot_preview1" "fd_write" fn wasi_fd_write <(i32,i32,i32,i32)->i32>
-
-// write a string located at ptr (len is at ptr[0..4], bytes follow) to fd=1
-#if[target=wasi]
-fn print_str <(str)*>()> (s):
-    #import "std/mem"
-    #use std::mem::*
-
-    // layout: iov_base (ptr), iov_len (len)
-    let len <i32> load_i32 s;
-    let buf <i32> add s 4;
-    let iov <i32> alloc 8;
-    store_i32 iov buf;
-    store_i32 add iov 4 len;
-
-    let nwritten <i32> alloc 4;
-    let rc <i32> wasi_fd_write 1 iov 1 nwritten;
-    // ignore rc for now
-    ()
-
-#if[target=wasi]
-fn print_i32 <(i32)*>()> (x):
-    #import "std/string"
-    #use std::string::*
-    let s <str> from_i32 x;
-    print_str s;
-
-#if[target=wasm]
-fn print_str <(str)*>()> (s):
-    // stdio is not available on pure wasm target
-    // using this function under wasm should be a compile-time error via missing import
-    print_str s
+#extern "env" "print_i32" fn print_i32 <(i32)*>()>
+#extern "env" "print_str" fn print_str <(str)*>()>

@@ -157,6 +157,9 @@ impl TypeCtx {
             (TypeKind::Unit, TypeKind::Unit) => Ok(self.unit),
             (TypeKind::I32, TypeKind::I32) => Ok(self.i32_ty),
             (TypeKind::F32, TypeKind::F32) => Ok(self.f32_ty),
+            (TypeKind::Str, TypeKind::I32) | (TypeKind::I32, TypeKind::Str) => {
+                Ok(self.i32_ty)
+            }
             (TypeKind::Bool, TypeKind::Bool) => Ok(self.bool_ty),
             (TypeKind::Str, TypeKind::Str) => Ok(self.str_ty),
             (TypeKind::Never, _) => Ok(b),

@@ -23,3 +23,4 @@
 - import/use の厳密化（モジュール境界保持、衝突検出、値/型名前空間分離、hoisting 整理）。
 - string/list/mem/stdio の境界テストを追加（特に wasi で fd_write import があることを確認）。
 - wasm target で stdio を使った場合にコンパイル時に明確なエラーを出す仕組み。
+- Updated stdlib: stdio now uses env print_* for CLI runner; string simplified; math/mem adjustments.\n- Examples fib.nepl and counter.nepl now print via env host and run with --run.\n- Tests passing (cargo test --workspace --locked).
