@@ -92,6 +92,19 @@ pub enum HirExprKind {
         cond: Box<HirExpr>,
         body: Box<HirExpr>,
     },
+    Match {
+        scrutinee: Box<HirExpr>,
+        arms: Vec<HirMatchArm>,
+    },
+    EnumConstruct {
+        name: String,
+        variant: String,
+        payload: Option<Box<HirExpr>>,
+    },
+    StructConstruct {
+        name: String,
+        fields: Vec<HirExpr>,
+    },
     Block(HirBlock),
     Let {
         name: String,
@@ -108,4 +121,11 @@ pub enum HirExprKind {
 pub enum FuncRef {
     Builtin(String),
     User(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct HirMatchArm {
+    pub variant: String,
+    pub bind_local: Option<String>,
+    pub body: HirExpr,
 }

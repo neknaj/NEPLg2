@@ -3,28 +3,33 @@
 #import "std/mem"
 #use std::mem::*
 
-// option layout: [tag:i32][val:i32], tag 0=None, 1=Some
+enum OptionI32:
+    None
+    Some <i32>
 
-fn none <()*>i32> ():
-    let p <i32> alloc 8;
-    store_i32 p 0;
-    store_i32 add p 4 0;
-    p
+fn none <()->OptionI32> ():
+    OptionI32::None
 
-fn some <(i32)*>i32> (v):
-    let p <i32> alloc 8;
-    store_i32 p 1;
-    store_i32 add p 4 v;
-    p
+fn some <(i32)->OptionI32> (v):
+    OptionI32::Some v
 
-fn is_some <(i32)->bool> (o):
-    eq load_i32 o 1
+fn is_some <(OptionI32)->bool> (o):
+    match o:
+        Some v:
+            true
+        None:
+            false
 
-fn is_none <(i32)->bool> (o):
-    eq load_i32 o 0
+fn is_none <(OptionI32)->bool> (o):
+    match o:
+        Some v:
+            false
+        None:
+            true
 
-fn unwrap_or <(i32,i32)->i32> (o, default):
-    if eq load_i32 o 1:
-        load_i32 add o 4
-    :
-        default
+fn unwrap_or <(OptionI32,i32)->i32> (o, default):
+    match o:
+        Some v:
+            v
+        None:
+            default

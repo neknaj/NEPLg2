@@ -4,6 +4,10 @@
 #use std::mem::*
 #import "std/math"
 #use std::math::*
+#import "std/option"
+#use std::option::*
+#import "std/result"
+#use std::result::*
 
 fn len <(str)->i32> (s):
     load_i32 s
@@ -40,3 +44,48 @@ fn from_i32 <(i32)*>str> (x):
     if eq sign 1:
         store_u8 add out 4 45;
     out
+
+fn to_i32 <(str)->ResultI32> (s):
+    let l <i32> len s;
+    if eq l 0:
+        ResultI32::Err 1
+    :
+        let mut i <i32> 0;
+        let mut sign <i32> 1;
+        let mut acc <i32> 0;
+        let first load_u8 add s 4;
+        if eq first 45:
+            set sign -1;
+            set i 1;
+            ();
+        while lt i l:
+            let d <i32> sub load_u8 add s add 4 i 48;
+            if lt d 0:
+                ResultI32::Err 1
+            :
+                if lt 9 d:
+                    ResultI32::Err 1
+                :
+                    set acc add mul acc 10 d;
+                    set i add i 1;
+                    ();
+        ResultI32::Ok mul acc sign
+
+fn find <(str,str)->OptionI32> (s, pat):
+    let l <i32> len s;
+    let lp <i32> len pat;
+    if lt l lp:
+        OptionI32::None
+    :
+        let mut i <i32> 0;
+        while le add i lp l:
+            let mut j <i32> 0;
+            let mut ok <bool> true;
+            while lt j lp:
+                if ne load_u8 add s add 4 add i j load_u8 add pat add 4 j:
+                    set ok false;
+                set j add j 1;
+            if ok:
+                OptionI32::Some i
+            set i add i 1;
+        OptionI32::None

@@ -329,6 +329,9 @@ fn valtype(kind: &TypeKind) -> Option<ValType> {
         TypeKind::Unit => None,
         TypeKind::I32 | TypeKind::Bool | TypeKind::Str => Some(ValType::I32),
         TypeKind::F32 => Some(ValType::F32),
+        TypeKind::Enum { .. } | TypeKind::Struct { .. } | TypeKind::Named(_) => {
+            Some(ValType::I32)
+        }
         _ => None,
     }
 }
@@ -537,6 +540,184 @@ fn gen_expr(
         HirExprKind::Block(b) => {
             gen_block(ctx, b, name_map, strings, locals, insts, diags).flatten()
         }
+        HirExprKind::EnumConstruct {
+            name,
+            variant,
+            payload,
+        } => {
+            let payload_vt = payload
+                .as_ref()
+                .and_then(|p| valtype(&ctx.get(p.ty)))
+                .unwrap_or(ValType::I32);
+            let size = if payload.is_some() { 8 } else { 4 };
+            insts.push(Instruction::I32Const(size));
+            if let Some(idx) = name_map.get("alloc") {
+                insts.push(Instruction::Call(*idx));
+            } else {
+                diags.push(Diagnostic::error(
+                    "alloc function not found (import std/mem)",
+                    expr.span,
+                ));
+                return None;
+            }
+            let ptr_local = locals.alloc_temp(ValType::I32);
+            insts.push(Instruction::LocalTee(ptr_local));
+            // store tag
+            insts.push(Instruction::I32Const(enum_variant_tag(ctx, expr.ty, variant) as i32));
+            insts.push(Instruction::I32Store(MemArg {
+                offset: 0,
+                align: 2,
+                memory_index: 0,
+            }));
+            if let Some(p) = payload {
+                // evaluate payload and store at offset 4
+                gen_expr(ctx, p, name_map, strings, locals, insts, diags);
+                insts.push(Instruction::LocalGet(ptr_local));
+                insts.push(Instruction::I32Const(4));
+                insts.push(Instruction::I32Add);
+                match payload_vt {
+                    ValType::I32 => insts.push(Instruction::I32Store(MemArg {
+                        offset: 0,
+                        align: 2,
+                        memory_index: 0,
+                    })),
+                    ValType::F32 => insts.push(Instruction::F32Store(MemArg {
+                        offset: 0,
+                        align: 2,
+                        memory_index: 0,
+                    })),
+                    _ => {
+                        diags.push(Diagnostic::error(
+                            "unsupported enum payload type",
+                            expr.span,
+                        ));
+                        return None;
+                    }
+                }
+            }
+            Some(ValType::I32)
+        }
+        HirExprKind::StructConstruct { name, fields } => {
+            let size = (fields.len() as i32) * 4;
+            insts.push(Instruction::I32Const(size));
+            if let Some(idx) = name_map.get("alloc") {
+                insts.push(Instruction::Call(*idx));
+            } else {
+                diags.push(Diagnostic::error(
+                    "alloc function not found (import std/mem)",
+                    expr.span,
+                ));
+                return None;
+            }
+            let ptr_local = locals.alloc_temp(ValType::I32);
+            insts.push(Instruction::LocalTee(ptr_local));
+            for (i, f) in fields.iter().enumerate() {
+                let offset = (i as u32) * 4;
+                let vk = ctx.get(f.ty);
+                let vt = valtype(&vk).unwrap_or(ValType::I32);
+                let temp = locals.alloc_temp(vt);
+                gen_expr(ctx, f, name_map, strings, locals, insts, diags);
+                insts.push(Instruction::LocalSet(temp));
+                insts.push(Instruction::LocalGet(ptr_local));
+                insts.push(Instruction::I32Const(offset as i32));
+                insts.push(Instruction::I32Add);
+                match vt {
+                    ValType::I32 => {
+                        insts.push(Instruction::LocalGet(temp));
+                        insts.push(Instruction::I32Store(MemArg {
+                            offset: 0,
+                            align: 2,
+                            memory_index: 0,
+                        }))
+                    }
+                    ValType::F32 => {
+                        insts.push(Instruction::LocalGet(temp));
+                        insts.push(Instruction::F32Store(MemArg {
+                            offset: 0,
+                            align: 2,
+                            memory_index: 0,
+                        }))
+                    }
+                    _ => {
+                        diags.push(Diagnostic::error(
+                            "unsupported struct field type for codegen",
+                            expr.span,
+                        ));
+                        return None;
+                    }
+                }
+            }
+            Some(ValType::I32)
+        }
+        HirExprKind::Match { scrutinee, arms } => {
+            // evaluate scrutinee pointer once
+            gen_expr(ctx, scrutinee, name_map, strings, locals, insts, diags);
+            let ptr_local = locals.alloc_temp(ValType::I32);
+            insts.push(Instruction::LocalSet(ptr_local));
+            let result_ty = valtype(&ctx.get(expr.ty));
+            insts.push(Instruction::Block(match result_ty {
+                Some(vt) => wasm_encoder::BlockType::Result(vt),
+                None => wasm_encoder::BlockType::Empty,
+            }));
+            // chain arms
+            for (idx, arm) in arms.iter().enumerate() {
+                // load tag
+                insts.push(Instruction::LocalGet(ptr_local));
+                insts.push(Instruction::I32Load(MemArg {
+                    offset: 0,
+                    align: 2,
+                    memory_index: 0,
+                }));
+                let tag = enum_variant_tag(ctx, scrutinee.ty, &arm.variant);
+                insts.push(Instruction::I32Const(tag as i32));
+                insts.push(Instruction::I32Eq);
+                insts.push(Instruction::If(match result_ty {
+                    Some(vt) => wasm_encoder::BlockType::Result(vt),
+                    None => wasm_encoder::BlockType::Empty,
+                }));
+                if let Some(bind) = &arm.bind_local {
+                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm.variant) {
+                        let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
+                        insts.push(Instruction::LocalGet(ptr_local));
+                        insts.push(Instruction::I32Const(4));
+                        insts.push(Instruction::I32Add);
+                        match valtype(&ctx.get(payload_ty)).unwrap_or(ValType::I32) {
+                            ValType::I32 => insts.push(Instruction::I32Load(MemArg {
+                                offset: 0,
+                                align: 2,
+                                memory_index: 0,
+                            })),
+                            ValType::F32 => insts.push(Instruction::F32Load(MemArg {
+                                offset: 0,
+                                align: 2,
+                                memory_index: 0,
+                            })),
+                            _ => {
+                                diags.push(Diagnostic::error(
+                                    "unsupported enum payload type",
+                                    expr.span,
+                                ));
+                            }
+                        }
+                        insts.push(Instruction::LocalSet(lidx));
+                    }
+                }
+                gen_expr(ctx, &arm.body, name_map, strings, locals, insts, diags);
+                insts.push(Instruction::Br(1)); // jump out of outer block
+                insts.push(Instruction::End);
+                if idx == arms.len() - 1 {
+                    // last arm fallback: nothing extra
+                }
+            }
+            // if no arm matched, push unreachable default
+            if result_ty.is_some() {
+                insts.push(Instruction::Unreachable);
+            } else {
+                insts.push(Instruction::Unreachable);
+            }
+            insts.push(Instruction::End);
+            result_ty
+        }
         HirExprKind::Let { name, value, .. } => {
             let idx = locals.ensure_local(name.clone(), value.ty, ctx);
             gen_expr(ctx, value, name_map, strings, locals, insts, diags);
@@ -563,7 +744,7 @@ fn gen_expr(
 struct LocalInfo {
     name: String,
     idx: u32,
-    ty: TypeId,
+    ty: Option<TypeId>,
     is_param: bool,
 }
 
@@ -588,7 +769,7 @@ impl LocalMap {
         self.locals.push(LocalInfo {
             name,
             idx,
-            ty,
+            ty: Some(ty),
             is_param: true,
         });
     }
@@ -602,7 +783,7 @@ impl LocalMap {
             self.locals.push(LocalInfo {
                 name,
                 idx,
-                ty,
+                ty: Some(ty),
                 is_param: false,
             });
             if let Some(vt) = valtype(&ctx.get(ty)) {
@@ -610,6 +791,19 @@ impl LocalMap {
             }
             idx
         }
+    }
+
+    fn alloc_temp(&mut self, vt: ValType) -> u32 {
+        let idx = self.next_idx;
+        self.next_idx += 1;
+        self.locals.push(LocalInfo {
+            name: format!("$t{}", idx),
+            idx,
+            ty: None,
+            is_param: false,
+        });
+        self.decls.push(vt);
+        idx
     }
 
     fn lookup(&self, name: &str) -> Option<u32> {
@@ -629,7 +823,7 @@ impl LocalMap {
         self.locals
             .iter()
             .find(|l| l.idx == idx)
-            .and_then(|l| valtype(&ctx.get(l.ty)))
+            .and_then(|l| l.ty.and_then(|t| valtype(&ctx.get(t))))
     }
 }
 
@@ -696,6 +890,27 @@ fn parse_local(text: &str, locals: &LocalMap) -> Option<u32> {
         }
     } else {
         text.parse::<u32>().ok()
+    }
+}
+
+fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> u32 {
+    match ctx.get(enum_ty) {
+        TypeKind::Enum { variants, .. } => variants
+            .iter()
+            .position(|v| v.name == variant)
+            .map(|i| i as u32)
+            .unwrap_or(0),
+        _ => 0,
+    }
+}
+
+fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option<TypeId> {
+    match ctx.get(enum_ty) {
+        TypeKind::Enum { variants, .. } => variants
+            .iter()
+            .find(|v| v.name == variant)
+            .and_then(|v| v.payload),
+        _ => None,
     }
 }
 

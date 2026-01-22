@@ -24,6 +24,7 @@ pub enum TypeExpr {
     Never,
     Str,
     Label(Option<String>), // . or .label
+    Named(String),
     Function {
         params: Vec<TypeExpr>,
         result: Box<TypeExpr>,
@@ -62,6 +63,7 @@ pub enum PrefixItem {
     Literal(Literal, Span),
     TypeAnnotation(TypeExpr, Span),
     Block(Block, Span),
+    Match(MatchExpr, Span),
     Pipe(Span),
     Semi(Span),
 }
@@ -74,6 +76,7 @@ pub enum Symbol {
     Set { name: Ident },
     If(Span),
     While(Span),
+    MatchKw(Span),
 }
 
 /// A block of statements (introduced by `:` or the file root).
@@ -150,6 +153,8 @@ pub enum Directive {
 pub enum Stmt {
     Directive(Directive),
     FnDef(FnDef),
+    StructDef(StructDef),
+    EnumDef(EnumDef),
     Wasm(WasmBlock),
     Expr(PrefixExpr),
 }
@@ -160,4 +165,41 @@ pub struct Module {
     pub indent_width: usize,
     pub directives: Vec<Directive>,
     pub root: Block,
+}
+
+/// Struct definition (simple positional fields).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructDef {
+    pub name: Ident,
+    pub fields: Vec<(Ident, TypeExpr)>,
+}
+
+/// Enum definition with optional single payload per variant.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumVariant {
+    pub name: Ident,
+    pub payload: Option<TypeExpr>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumDef {
+    pub name: Ident,
+    pub variants: Vec<EnumVariant>,
+}
+
+/// Match expression arms.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub variant: Ident,
+    pub bind: Option<Ident>,
+    pub body: Block,
+    pub span: Span,
+}
+
+/// Match expression.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchExpr {
+    pub scrutinee: PrefixExpr,
+    pub arms: Vec<MatchArm>,
+    pub span: Span,
 }

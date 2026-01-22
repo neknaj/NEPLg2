@@ -272,6 +272,65 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn match_option_some_returns_value() {
+    let src = r#"
+#entry main
+#indent 4
+#import "std/option"
+#use std::option::*
+
+fn main <()->i32> ():
+    match some 5:
+        Some v:
+            v
+        None:
+            0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 5);
+}
+
+#[test]
+fn list_get_out_of_bounds_err() {
+    let src = r#"
+#entry main
+#indent 4
+#import "std/list"
+#use std::list::*
+#import "std/result"
+#use std::result::*
+
+fn main <()->i32> ():
+    let lst new;
+    push lst 1;
+    let r get lst 10;
+    match r:
+        Ok v:
+            v
+        Err e:
+            0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
+fn non_exhaustive_match_is_error() {
+    let src = r#"
+#entry main
+#indent 4
+#import "std/option"
+#use std::option::*
+
+fn main <()->i32> ():
+    match some 1:
+        Some v:
+            v
+"#;
+    compile_err(src);
+}
+
+#[test]
 fn target_directive_sets_default_to_wasi() {
     let src = r#"
 #target wasi

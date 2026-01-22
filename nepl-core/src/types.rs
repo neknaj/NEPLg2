@@ -17,6 +17,15 @@ pub enum TypeKind {
     Bool,
     Str,
     Never,
+    Named(String),
+    Enum {
+        name: String,
+        variants: Vec<EnumVariantInfo>,
+    },
+    Struct {
+        name: String,
+        fields: Vec<TypeId>,
+    },
     Function {
         params: Vec<TypeId>,
         result: TypeId,
@@ -31,6 +40,12 @@ pub struct TypeVar {
     pub binding: Option<TypeId>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnumVariantInfo {
+    pub name: alloc::string::String,
+    pub payload: Option<TypeId>,
+}
+
 /// Arena-based type context with simple unification.
 #[derive(Debug)]
 pub struct TypeCtx {
@@ -41,6 +56,7 @@ pub struct TypeCtx {
     bool_ty: TypeId,
     str_ty: TypeId,
     never_ty: TypeId,
+    named: alloc::collections::BTreeMap<alloc::string::String, TypeId>,
 }
 
 impl TypeCtx {
@@ -67,6 +83,7 @@ impl TypeCtx {
             bool_ty,
             str_ty,
             never_ty,
+            named: alloc::collections::BTreeMap::new(),
         }
     }
 
@@ -96,6 +113,21 @@ impl TypeCtx {
             binding: None,
         }));
         id
+    }
+
+    pub fn register_named(&mut self, name: alloc::string::String, kind: TypeKind) -> TypeId {
+        if let Some(existing) = self.named.get(&name) {
+            *existing
+        } else {
+            let id = TypeId(self.arena.len());
+            self.arena.push(kind);
+            self.named.insert(name, id);
+            id
+        }
+    }
+
+    pub fn lookup_named(&self, name: &str) -> Option<TypeId> {
+        self.named.get(name).copied()
     }
 
     pub fn function(&mut self, params: Vec<TypeId>, result: TypeId, effect: Effect) -> TypeId {
@@ -164,6 +196,50 @@ impl TypeCtx {
             (TypeKind::Str, TypeKind::Str) => Ok(self.str_ty),
             (TypeKind::Never, _) => Ok(b),
             (_, TypeKind::Never) => Ok(a),
+            (TypeKind::Named(na), TypeKind::Named(nb)) => {
+                if na == nb {
+                    Ok(a)
+                } else {
+                    Err(UnifyError::Mismatch)
+                }
+            }
+            (
+                TypeKind::Enum {
+                    name: na,
+                    variants: va,
+                },
+                TypeKind::Enum {
+                    name: nb,
+                    variants: vb,
+                },
+            ) => {
+                if na != nb || va.len() != vb.len() {
+                    return Err(UnifyError::Mismatch);
+                }
+                for (a_var, b_var) in va.iter().zip(vb.iter()) {
+                    if a_var.name != b_var.name {
+                        return Err(UnifyError::Mismatch);
+                    }
+                    if let (Some(pa), Some(pb)) = (a_var.payload, b_var.payload) {
+                        self.unify(pa, pb)?;
+                    } else if a_var.payload.is_some() || b_var.payload.is_some() {
+                        return Err(UnifyError::Mismatch);
+                    }
+                }
+                Ok(a)
+            }
+            (
+                TypeKind::Struct { name: na, fields: fa },
+                TypeKind::Struct { name: nb, fields: fb },
+            ) => {
+                if na != nb || fa.len() != fb.len() {
+                    return Err(UnifyError::Mismatch);
+                }
+                for (ta, tb) in fa.iter().zip(fb.iter()) {
+                    self.unify(*ta, *tb)?;
+                }
+                Ok(a)
+            }
             (
                 TypeKind::Function {
                     params: pa,

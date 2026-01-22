@@ -47,6 +47,9 @@ pub enum TokenKind {
     KwSet,
     KwIf,
     KwWhile,
+    KwStruct,
+    KwEnum,
+    KwMatch,
 
     // directives
     DirEntry(String),
@@ -591,6 +594,9 @@ impl<'a> LexState<'a> {
                             "set" => self.push_token(TokenKind::KwSet, span_start, span_end),
                             "if" => self.push_token(TokenKind::KwIf, span_start, span_end),
                             "while" => self.push_token(TokenKind::KwWhile, span_start, span_end),
+                            "struct" => self.push_token(TokenKind::KwStruct, span_start, span_end),
+                            "enum" => self.push_token(TokenKind::KwEnum, span_start, span_end),
+                            "match" => self.push_token(TokenKind::KwMatch, span_start, span_end),
                             "true" => {
                                 self.push_token(TokenKind::BoolLiteral(true), span_start, span_end)
                             }

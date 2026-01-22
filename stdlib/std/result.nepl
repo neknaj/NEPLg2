@@ -2,31 +2,34 @@
 
 #import "std/mem"
 #use std::mem::*
-#import "std/math"
-#use std::math::*
 
-// Result layout: ptr -> [tag:i32][val:i32], tag 0=Ok, 1=Err
+enum ResultI32:
+    Ok <i32>
+    Err <i32>
 
-fn ok <(i32)*>i32> (v):
-    let p <i32> alloc 8;
-    store_i32 p 0;
-    store_i32 add p 4 v;
-    p
+fn ok <(i32)->ResultI32> (v):
+    ResultI32::Ok v
 
-fn err <(i32)*>i32> (e):
-    let p <i32> alloc 8;
-    store_i32 p 1;
-    store_i32 add p 4 e;
-    p
+fn err <(i32)->ResultI32> (e):
+    ResultI32::Err e
 
-fn is_ok <(i32)->bool> (r):
-    eq load_i32 r 0
+fn is_ok <(ResultI32)->bool> (r):
+    match r:
+        Ok v:
+            true
+        Err e:
+            false
 
-fn is_err <(i32)->bool> (r):
-    eq load_i32 r 1
+fn is_err <(ResultI32)->bool> (r):
+    match r:
+        Ok v:
+            false
+        Err e:
+            true
 
-fn unwrap_or <(i32,i32)->i32> (r, default):
-    if eq load_i32 r 0:
-        load_i32 add r 4
-    :
-        default
+fn unwrap_or <(ResultI32,i32)->i32> (r, default):
+    match r:
+        Ok v:
+            v
+        Err e:
+            default

@@ -2,7 +2,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -13,7 +13,8 @@ use crate::compiler::CompileTarget;
 use crate::diagnostic::Diagnostic;
 use crate::hir::*;
 use crate::span::Span;
-use crate::types::{TypeCtx, TypeId, TypeKind};
+use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
+use alloc::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct TypeCheckResult {
@@ -22,12 +23,26 @@ pub struct TypeCheckResult {
     pub types: TypeCtx,
 }
 
+#[derive(Debug, Clone)]
+struct EnumInfo {
+    ty: TypeId,
+    variants: Vec<EnumVariantInfo>,
+}
+
+#[derive(Debug, Clone)]
+struct StructInfo {
+    ty: TypeId,
+    fields: Vec<TypeId>,
+}
+
 pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeCheckResult {
     let mut ctx = TypeCtx::new();
     let mut label_env = LabelEnv::new();
     let mut env = Env::new();
     let mut diagnostics = Vec::new();
     let mut strings = StringTable::new();
+    let mut enums: BTreeMap<String, EnumInfo> = BTreeMap::new();
+    let mut structs: BTreeMap<String, StructInfo> = BTreeMap::new();
 
     let mut entry = None;
     let mut externs: Vec<HirExtern> = Vec::new();
@@ -89,6 +104,122 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
     }
 
     // Collect top-level function signatures (hoist)
+    // Also hoist struct/enum definitions
+    let mut pending_if: Option<bool> = None;
+    for item in &module.root.items {
+        if let Stmt::Directive(Directive::IfTarget { target: gate, .. }) = item {
+            pending_if = Some(target_allows(gate.as_str(), target));
+            continue;
+        }
+        let allowed = pending_if.unwrap_or(true);
+        pending_if = None;
+        if !allowed {
+            continue;
+        }
+        match item {
+            Stmt::EnumDef(e) => {
+                if enums.contains_key(&e.name.name) {
+                    diagnostics.push(Diagnostic::error(
+                        "duplicate enum definition",
+                        e.name.span,
+                    ));
+                    continue;
+                }
+                let mut vars = Vec::new();
+                for v in &e.variants {
+                    let payload_ty = v
+                        .payload
+                        .as_ref()
+                        .map(|p| type_from_expr(&mut ctx, &mut label_env, p));
+                    vars.push(EnumVariantInfo {
+                        name: v.name.name.clone(),
+                        payload: payload_ty,
+                    });
+                }
+                let ty = ctx.register_named(
+                    e.name.name.clone(),
+                    TypeKind::Enum {
+                        name: e.name.name.clone(),
+                        variants: vars.clone(),
+                    },
+                );
+                enums.insert(
+                    e.name.name.clone(),
+                    EnumInfo {
+                        ty,
+                        variants: vars,
+                    },
+                );
+            }
+            Stmt::StructDef(s) => {
+                if structs.contains_key(&s.name.name) {
+                    diagnostics.push(Diagnostic::error(
+                        "duplicate struct definition",
+                        s.name.span,
+                    ));
+                    continue;
+                }
+                let mut fs = Vec::new();
+                for (_, ty_expr) in &s.fields {
+                    fs.push(type_from_expr(&mut ctx, &mut label_env, ty_expr));
+                }
+                let ty = ctx.register_named(
+                    s.name.name.clone(),
+                    TypeKind::Struct {
+                        name: s.name.name.clone(),
+                        fields: fs.clone(),
+                    },
+                );
+                structs.insert(
+                    s.name.name.clone(),
+                    StructInfo {
+                        ty,
+                        fields: fs,
+                    },
+                );
+            }
+            _ => {}
+        }
+    }
+
+    // Constructors for enums/structs
+    for (name, info) in enums.iter() {
+        for (idx, var) in info.variants.iter().enumerate() {
+            let params = var
+                .payload
+                .iter()
+                .copied()
+                .collect::<Vec<TypeId>>();
+            let func_ty = ctx.function(params.clone(), info.ty, Effect::Pure);
+            let vname = format!("{}::{}", name, var.name);
+            env.insert_global(Binding {
+                name: vname.clone(),
+                ty: func_ty,
+                mutable: false,
+                defined: true,
+                kind: BindingKind::Func {
+                    effect: Effect::Pure,
+                    arity: params.len(),
+                    builtin: None,
+                },
+            });
+        }
+    }
+    for (name, info) in structs.iter() {
+        let func_ty = ctx.function(info.fields.clone(), info.ty, Effect::Pure);
+        env.insert_global(Binding {
+            name: name.clone(),
+            ty: func_ty,
+            mutable: false,
+            defined: true,
+            kind: BindingKind::Func {
+                effect: Effect::Pure,
+                arity: info.fields.len(),
+                builtin: None,
+            },
+        });
+    }
+
     let mut pending_if: Option<bool> = None;
     for item in &module.root.items {
         if let Stmt::Directive(Directive::IfTarget { target: gate, .. }) = item {
@@ -141,7 +272,15 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             continue;
         }
         if let Stmt::FnDef(f) = item {
-            match check_function(f, &mut ctx, &mut env, &mut label_env, &mut strings) {
+            match check_function(
+                f,
+                &mut ctx,
+                &mut env,
+                &mut label_env,
+                &mut strings,
+                &enums,
+                &structs,
+            ) {
                 Ok(func) => functions.push(func),
                 Err(mut diags) => diagnostics.append(&mut diags),
             }
@@ -177,6 +316,8 @@ fn check_function(
     env: &mut Env,
     labels: &mut LabelEnv,
     strings: &mut StringTable,
+    enums: &BTreeMap<String, EnumInfo>,
+    structs: &BTreeMap<String, StructInfo>,
 ) -> Result<HirFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let sig_ty = type_from_expr(ctx, labels, &f.signature);
@@ -221,10 +362,12 @@ fn check_function(
             string_table: strings,
             diagnostics: Vec::new(),
             current_effect: effect,
+            enums,
+            structs,
         };
 
         let body_res = match &f.body {
-            FnBody::Parsed(b) => match checker.check_block(b, 0) {
+            FnBody::Parsed(b) => match checker.check_block(b, 0, true) {
                 Some((blk, _val)) => {
                     if checker.ctx.unify(blk.ty, result_ty).is_err() {
                         checker.diagnostics.push(Diagnostic::error(
@@ -278,6 +421,8 @@ struct BlockChecker<'a> {
     string_table: &'a mut StringTable,
     diagnostics: Vec<Diagnostic>,
     current_effect: Effect,
+    enums: &'a BTreeMap<String, EnumInfo>,
+    structs: &'a BTreeMap<String, StructInfo>,
 }
 
 impl<'a> BlockChecker<'a> {
@@ -285,8 +430,11 @@ impl<'a> BlockChecker<'a> {
         &mut self,
         block: &Block,
         base_depth: usize,
+        new_scope: bool,
     ) -> Option<(HirBlock, Option<TypeId>)> {
-        self.env.push_scope();
+        if new_scope {
+            self.env.push_scope();
+        }
 
         // Hoist let (non-mut) and nested fn signatures
         for stmt in &block.items {
@@ -381,7 +529,9 @@ impl<'a> BlockChecker<'a> {
             (self.ctx.unit(), None)
         };
 
-        self.env.pop_scope();
+        if new_scope {
+            self.env.pop_scope();
+        }
 
         if self.diagnostics.is_empty() {
             Some((
@@ -597,8 +747,21 @@ impl<'a> BlockChecker<'a> {
                         span: *span,
                     });
                 }
+                PrefixItem::Match(mexpr, sp) => {
+                    if let Some((hexpr, ty)) = self.check_match_expr(mexpr) {
+                        stack.push(StackEntry {
+                            ty,
+                            expr: hexpr,
+                            assign: None,
+                        });
+                        if let Some(t) = pending_ascription.take() {
+                            self.apply_ascription(stack, t, *sp);
+                        }
+                        last_expr = Some(stack.last().unwrap().expr.clone());
+                    }
+                }
                 PrefixItem::Block(b, sp) => {
-                    let (blk, val_ty) = self.check_block(b, stack.len())?;
+                    let (blk, val_ty) = self.check_block(b, stack.len(), true)?;
                     if let Some(ty) = val_ty {
                         stack.push(StackEntry {
                             ty,
@@ -763,6 +926,111 @@ impl<'a> BlockChecker<'a> {
                 break;
             }
         }
+    }
+
+    fn check_match_expr(&mut self, m: &MatchExpr) -> Option<(HirExpr, TypeId)> {
+        // evaluate scrutinee
+        let mut tmp_stack = Vec::new();
+        if let Some((scrut_expr, _)) = self.check_prefix(&m.scrutinee, 0, &mut tmp_stack) {
+            let scrut_ty = scrut_expr.ty;
+            let enum_info = match self.ctx.get(scrut_ty) {
+                TypeKind::Enum { name, .. } => self.enums.get(&name),
+                TypeKind::Named(name) => self.enums.get(&name),
+                _ => None,
+            };
+            if enum_info.is_none() {
+                self.diagnostics
+                    .push(Diagnostic::error("match scrutinee must be an enum", m.span));
+                return None;
+            }
+            let enum_info = enum_info.unwrap();
+            let mut seen = alloc::collections::BTreeSet::new();
+            let mut arms_hir = Vec::new();
+            let mut result_ty: Option<TypeId> = None;
+            for arm in &m.arms {
+                if !seen.insert(arm.variant.name.clone()) {
+                    self.diagnostics.push(Diagnostic::error(
+                        "duplicate match arm",
+                        arm.variant.span,
+                    ));
+                    continue;
+                }
+                let var_info = enum_info
+                    .variants
+                    .iter()
+                    .find(|v| v.name == arm.variant.name);
+                if var_info.is_none() {
+                    self.diagnostics.push(Diagnostic::error(
+                        "unknown enum variant in match",
+                        arm.variant.span,
+                    ));
+                    continue;
+                }
+                let var_info = var_info.unwrap();
+                self.env.push_scope();
+                if let Some(bind) = &arm.bind {
+                    if let Some(pty) = var_info.payload {
+                        let _ = self.env.insert_local(Binding {
+                            name: bind.name.clone(),
+                            ty: pty,
+                            mutable: false,
+                            defined: true,
+                            kind: BindingKind::Var,
+                        });
+                    } else {
+                        self.diagnostics.push(Diagnostic::error(
+                            "variant has no payload to bind",
+                            bind.span,
+                        ));
+                    }
+                }
+                let (blk, val_ty) = self.check_block(&arm.body, 0, false)?;
+                self.env.pop_scope();
+                let body_ty = val_ty.unwrap_or(self.ctx.unit());
+                if let Some(t) = result_ty {
+                    if let Err(_) = self.ctx.unify(t, body_ty) {
+                        self.diagnostics.push(Diagnostic::error(
+                            "match arms have incompatible types",
+                            arm.span,
+                        ));
+                    }
+                } else {
+                    result_ty = Some(body_ty);
+                }
+                arms_hir.push(HirMatchArm {
+                    variant: arm.variant.name.clone(),
+                    bind_local: arm.bind.as_ref().map(|b| b.name.clone()),
+                    body: HirExpr {
+                        ty: body_ty,
+                        kind: HirExprKind::Block(blk),
+                        span: arm.span,
+                    },
+                });
+            }
+            // exhaustiveness
+            for v in &enum_info.variants {
+                if !seen.contains(&v.name) {
+                    self.diagnostics.push(Diagnostic::error(
+                        "non-exhaustive match",
+                        m.span,
+                    ));
+                    break;
+                }
+            }
+            let rty = result_ty.unwrap_or(self.ctx.unit());
+            return Some((
+                HirExpr {
+                    ty: rty,
+                    kind: HirExprKind::Match {
+                        scrutinee: Box::new(scrut_expr),
+                        arms: arms_hir,
+                    },
+                    span: m.span,
+                },
+                rty,
+            ));
+        }
+        None
     }
 
     fn apply_function(
@@ -940,6 +1208,88 @@ impl<'a> BlockChecker<'a> {
                         return None;
                     }
                     BindingKind::Func { builtin, .. } => {
+                        // Enum/struct constructors
+                        if let Some((enm, var)) = parse_variant_name(name) {
+                            if let Some(info) = self.enums.get(enm) {
+                                if let Some(vinfo) =
+                                    info.variants.iter().find(|v| v.name == var)
+                                {
+                                    // arity check
+                                    if vinfo.payload.is_some() && args.len() != 1 {
+                                        self.diagnostics.push(Diagnostic::error(
+                                            "constructor expects one argument",
+                                            func.expr.span,
+                                        ));
+                                        return None;
+                                    }
+                                    if vinfo.payload.is_none() && !args.is_empty() {
+                                        self.diagnostics.push(Diagnostic::error(
+                                            "constructor takes no arguments",
+                                            func.expr.span,
+                                        ));
+                                        return None;
+                                    }
+                                    let payload_expr = if let Some(pty) = vinfo.payload {
+                                        if let Some(a0) = args.first() {
+                                            if let Err(_) = self.ctx.unify(a0.ty, pty) {
+                                                self.diagnostics.push(Diagnostic::error(
+                                                    "constructor payload type mismatch",
+                                                    func.expr.span,
+                                                ));
+                                            }
+                                            Some(Box::new(a0.expr.clone()))
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    };
+                                    return Some(StackEntry {
+                                        ty: info.ty,
+                                        expr: HirExpr {
+                                            ty: info.ty,
+                                            kind: HirExprKind::EnumConstruct {
+                                                name: enm.to_string(),
+                                                variant: var.to_string(),
+                                                payload: payload_expr,
+                                            },
+                                            span: func.expr.span,
+                                        },
+                                        assign: None,
+                                    });
+                                }
+                            }
+                        }
+                        if self.structs.contains_key(name) {
+                            let s = self.structs.get(name).unwrap();
+                            if args.len() != s.fields.len() {
+                                self.diagnostics.push(Diagnostic::error(
+                                    "struct constructor arity mismatch",
+                                    func.expr.span,
+                                ));
+                                return None;
+                            }
+                            for (arg, fty) in args.iter().zip(s.fields.iter()) {
+                                if let Err(_) = self.ctx.unify(arg.ty, *fty) {
+                                    self.diagnostics.push(Diagnostic::error(
+                                        "struct field type mismatch",
+                                        arg.expr.span,
+                                    ));
+                                }
+                            }
+                            return Some(StackEntry {
+                                ty: s.ty,
+                                expr: HirExpr {
+                                    ty: s.ty,
+                                    kind: HirExprKind::StructConstruct {
+                                        name: name.clone(),
+                                        fields: args.into_iter().map(|a| a.expr).collect(),
+                                    },
+                                    span: func.expr.span,
+                                },
+                                assign: None,
+                            });
+                        }
                         // General call (builtin or user)
                         for (arg, param_ty) in args.iter().zip(params.iter()) {
                             if let Err(_) = self.ctx.unify(arg.ty, *param_ty) {
@@ -1109,6 +1459,13 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
         TypeExpr::Bool => ctx.bool(),
         TypeExpr::Str => ctx.str(),
         TypeExpr::Never => ctx.never(),
+        TypeExpr::Named(name) => {
+            if let Some(id) = ctx.lookup_named(name) {
+                id
+            } else {
+                ctx.register_named(name.clone(), TypeKind::Named(name.clone()))
+            }
+        }
         TypeExpr::Label(label) => {
             if let Some(name) = label {
                 if let Some(existing) = labels.get(name) {
@@ -1142,6 +1499,13 @@ fn func_arity(ctx: &TypeCtx, ty: TypeId) -> usize {
         TypeKind::Function { params, .. } => params.len(),
         _ => 0,
     }
+}
+
+fn parse_variant_name(name: &str) -> Option<(&str, &str)> {
+    let mut parts = name.splitn(2, "::");
+    let a = parts.next()?;
+    let b = parts.next()?;
+    Some((a, b))
 }
 
 fn target_allows(target: &str, active: CompileTarget) -> bool {
