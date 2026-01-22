@@ -63,7 +63,9 @@ impl Parser {
             if self.consume_if(TokenKind::Newline) {
                 continue;
             }
-            if matches!(self.peek_kind(), Some(TokenKind::Dedent)) && matches!(end, TokenEnd::Dedent) {
+            if matches!(self.peek_kind(), Some(TokenKind::Dedent))
+                && matches!(end, TokenEnd::Dedent)
+            {
                 break;
             }
 
@@ -145,7 +147,12 @@ impl Parser {
                 let span = self.next().unwrap().span;
                 Some(Stmt::Directive(Directive::IndentWidth { width, span }))
             }
-            TokenKind::DirExtern { module, name, func, signature } => {
+            TokenKind::DirExtern {
+                module,
+                name,
+                func,
+                signature,
+            } => {
                 let span = self.next().unwrap().span;
                 let sig = parse_type_expr_str(&signature, span, &mut self.diagnostics)?;
                 Some(Stmt::Directive(Directive::Extern {
@@ -236,10 +243,8 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(Diagnostic::error(
-                        "expected wasm text line",
-                        span,
-                    ));
+                    self.diagnostics
+                        .push(Diagnostic::error("expected wasm text line", span));
                     self.next();
                 }
             }
@@ -256,10 +261,8 @@ impl Parser {
     fn parse_block_after_colon(&mut self) -> Option<Block> {
         if !self.consume_if(TokenKind::Newline) {
             let span = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics.push(Diagnostic::error(
-                "expected newline after ':'",
-                span,
-            ));
+            self.diagnostics
+                .push(Diagnostic::error("expected newline after ':'", span));
         }
         self.expect(TokenKind::Indent)?;
         let block = self.parse_block_until(TokenEnd::Dedent)?;
@@ -293,12 +296,17 @@ impl Parser {
                     let span = start.join(end).unwrap_or(start);
                     items.push(PrefixItem::TypeAnnotation(ty, span));
                 }
-                TokenKind::IntLiteral(_) | TokenKind::FloatLiteral(_) | TokenKind::BoolLiteral(_) | TokenKind::UnitLiteral => {
+                TokenKind::IntLiteral(_)
+                | TokenKind::FloatLiteral(_)
+                | TokenKind::BoolLiteral(_)
+                | TokenKind::UnitLiteral
+                | TokenKind::StringLiteral(_) => {
                     let tok = self.next().unwrap();
                     let lit = match tok.kind {
                         TokenKind::IntLiteral(v) => Literal::Int(v),
                         TokenKind::FloatLiteral(v) => Literal::Float(v),
                         TokenKind::BoolLiteral(b) => Literal::Bool(b),
+                        TokenKind::StringLiteral(s) => Literal::Str(s),
                         TokenKind::UnitLiteral => Literal::Unit,
                         _ => unreachable!(),
                     };
@@ -385,6 +393,7 @@ impl Parser {
                     "i32" => Some(TypeExpr::I32),
                     "f32" => Some(TypeExpr::F32),
                     "bool" => Some(TypeExpr::Bool),
+                    "str" => Some(TypeExpr::Str),
                     _ => Some(TypeExpr::Label(Some(name.clone()))),
                 }
             }
@@ -534,8 +543,14 @@ impl Parser {
     fn is_end(&self, end: &TokenEnd) -> bool {
         match end {
             TokenEnd::Eof => self.is_eof(),
-            TokenEnd::Dedent => matches!(self.peek_kind(), Some(TokenKind::Dedent)|Some(TokenKind::Eof)),
-            TokenEnd::Line => matches!(self.peek_kind(), Some(TokenKind::Newline)|Some(TokenKind::Dedent)|Some(TokenKind::Eof)),
+            TokenEnd::Dedent => matches!(
+                self.peek_kind(),
+                Some(TokenKind::Dedent) | Some(TokenKind::Eof)
+            ),
+            TokenEnd::Line => matches!(
+                self.peek_kind(),
+                Some(TokenKind::Newline) | Some(TokenKind::Dedent) | Some(TokenKind::Eof)
+            ),
         }
     }
 
@@ -607,7 +622,10 @@ fn parse_type_expr_str(s: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Opti
     let (eff, split_idx) = effect;
     let (params_part, ret_part) = inner.split_at(split_idx);
     let ret_part = &ret_part[2..];
-    let params_clean = params_part.trim().trim_start_matches('(').trim_end_matches(')');
+    let params_clean = params_part
+        .trim()
+        .trim_start_matches('(')
+        .trim_end_matches(')');
     let mut params = Vec::new();
     if !params_clean.is_empty() {
         for p in params_clean.split(',') {
@@ -627,8 +645,11 @@ fn simple_type_atom(t: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Option<
         "i32" => Some(TypeExpr::I32),
         "f32" => Some(TypeExpr::F32),
         "bool" => Some(TypeExpr::Bool),
+        "str" => Some(TypeExpr::Str),
         "()" => Some(TypeExpr::Unit),
-        _ if t.starts_with('.') => Some(TypeExpr::Label(Some(t.trim_start_matches('.').to_string()))),
+        _ if t.starts_with('.') => {
+            Some(TypeExpr::Label(Some(t.trim_start_matches('.').to_string())))
+        }
         _ if t.is_empty() => Some(TypeExpr::Label(None)),
         _ => {
             diags.push(Diagnostic::error("unknown type in signature", span));

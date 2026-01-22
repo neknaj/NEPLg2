@@ -10,12 +10,45 @@ use crate::parser;
 use crate::span::FileId;
 use crate::typecheck;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompileTarget {
+    Wasm,
+    Wasi,
+}
+
+impl CompileTarget {
+    pub fn allows(&self, gate: &str) -> bool {
+        match gate {
+            "wasm" => true, // wasi includes wasm
+            "wasi" => matches!(self, CompileTarget::Wasi),
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CompileOptions {
+    pub target: CompileTarget,
+}
+
+impl Default for CompileOptions {
+    fn default() -> Self {
+        Self {
+            target: CompileTarget::Wasm,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CompilationArtifact {
     pub wasm: Vec<u8>,
 }
 
-pub fn compile_wasm(file_id: FileId, source: &str) -> Result<CompilationArtifact, CoreError> {
+pub fn compile_wasm(
+    file_id: FileId,
+    source: &str,
+    options: CompileOptions,
+) -> Result<CompilationArtifact, CoreError> {
     let lex = lexer::lex(file_id, source);
     let parse = parser::parse_tokens(file_id, lex);
     let module = match parse.module {
@@ -23,7 +56,7 @@ pub fn compile_wasm(file_id: FileId, source: &str) -> Result<CompilationArtifact
         None => return Err(CoreError::from_diagnostics(parse.diagnostics)),
     };
 
-    let tc = typecheck::typecheck(&module);
+    let tc = typecheck::typecheck(&module, options.target);
     if tc.module.is_none() {
         let mut diags = parse.diagnostics;
         diags.extend(tc.diagnostics);

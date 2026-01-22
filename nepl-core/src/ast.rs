@@ -21,6 +21,7 @@ pub enum TypeExpr {
     I32,
     F32,
     Bool,
+    Str,
     Label(Option<String>), // . or .label
     Function {
         params: Vec<TypeExpr>,
@@ -35,6 +36,7 @@ pub enum Literal {
     Int(String),
     Float(String),
     Bool(bool),
+    Str(String),
     Unit,
 }
 
@@ -105,11 +107,25 @@ pub struct WasmBlock {
 /// Top-level directives.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Directive {
-    Entry { name: Ident },
-    Import { path: String, span: Span },
-    Use { path: String, span: Span },
-    IfTarget { target: String, span: Span },
-    IndentWidth { width: usize, span: Span },
+    Entry {
+        name: Ident,
+    },
+    Import {
+        path: String,
+        span: Span,
+    },
+    Use {
+        path: String,
+        span: Span,
+    },
+    IfTarget {
+        target: String,
+        span: Span,
+    },
+    IndentWidth {
+        width: usize,
+        span: Span,
+    },
     Extern {
         module: String,
         name: String,

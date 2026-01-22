@@ -1,3 +1,7 @@
 #indent 4
 
 #extern "env" "print_i32" fn print_i32 <(i32)*>()>
+#extern "env" "print_str" fn print_str_raw <(str)*>()>
+
+fn print_str <(str)*>()> (s):
+    print_str_raw s

@@ -12,11 +12,16 @@ fn main <()*> ()> ():
     let mut i <i32> 0;
 
     while lt i 10:
+        print_str "fib = ";
+        ;
         print_i32 a;
-
+        ;
         let mut next <i32> add a b;
+        ;
         set a b;
+        ;
         set b next;
+        ;
         set i add i 1;
-
-    ()
+        ;
+        ();

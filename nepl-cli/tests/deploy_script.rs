@@ -12,10 +12,7 @@ fn script_path() -> PathBuf {
 }
 
 fn run_git(repo: &Path, args: &[&str]) -> Result<()> {
-    let status = Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .status()?;
+    let status = Command::new("git").args(args).current_dir(repo).status()?;
     ensure!(status.success(), "git command {:?} failed", args);
     Ok(())
 }

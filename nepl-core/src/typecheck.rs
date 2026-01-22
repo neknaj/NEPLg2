@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 
 use crate::ast::*;
 use crate::builtins::BuiltinKind;
+use crate::compiler::CompileTarget;
 use crate::diagnostic::Diagnostic;
 use crate::hir::*;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -20,20 +21,33 @@ pub struct TypeCheckResult {
     pub types: TypeCtx,
 }
 
-pub fn typecheck(module: &crate::ast::Module) -> TypeCheckResult {
+pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeCheckResult {
     let mut ctx = TypeCtx::new();
     let mut label_env = LabelEnv::new();
     let mut env = Env::new();
     let mut diagnostics = Vec::new();
+    let mut strings = StringTable::new();
 
     let mut entry = None;
     let mut externs: Vec<HirExtern> = Vec::new();
     for d in &module.directives {
         if let Directive::Entry { name } = d {
             entry = Some(name.name.clone());
-        } else if let Directive::Extern { module: m, name: n, func, signature, span } = d {
+        } else if let Directive::Extern {
+            module: m,
+            name: n,
+            func,
+            signature,
+            span,
+        } = d
+        {
             let ty = type_from_expr(&mut ctx, &mut label_env, signature);
-            if let TypeKind::Function { params, result, effect } = ctx.get(ty) {
+            if let TypeKind::Function {
+                params,
+                result,
+                effect,
+            } = ctx.get(ty)
+            {
                 env.insert_global(Binding {
                     name: func.name.clone(),
                     ty,
@@ -66,8 +80,8 @@ pub fn typecheck(module: &crate::ast::Module) -> TypeCheckResult {
     // Collect top-level function signatures (hoist)
     let mut pending_if: Option<bool> = None;
     for item in &module.root.items {
-        if let Stmt::Directive(Directive::IfTarget { target, .. }) = item {
-            pending_if = Some(target == "wasm");
+        if let Stmt::Directive(Directive::IfTarget { target: gate, .. }) = item {
+            pending_if = Some(target_allows(gate.as_str(), target));
             continue;
         }
         let allowed = pending_if.unwrap_or(true);
@@ -77,7 +91,12 @@ pub fn typecheck(module: &crate::ast::Module) -> TypeCheckResult {
         }
         if let Stmt::FnDef(f) = item {
             let ty = type_from_expr(&mut ctx, &mut label_env, &f.signature);
-            if let TypeKind::Function { params, result, effect } = ctx.get(ty) {
+            if let TypeKind::Function {
+                params,
+                result,
+                effect,
+            } = ctx.get(ty)
+            {
                 env.insert_global(Binding {
                     name: f.name.name.clone(),
                     ty,
@@ -101,8 +120,8 @@ pub fn typecheck(module: &crate::ast::Module) -> TypeCheckResult {
     let mut functions = Vec::new();
     let mut pending_if = None;
     for item in &module.root.items {
-        if let Stmt::Directive(Directive::IfTarget { target, .. }) = item {
-            pending_if = Some(target == "wasm");
+        if let Stmt::Directive(Directive::IfTarget { target: gate, .. }) = item {
+            pending_if = Some(target_allows(gate.as_str(), target));
             continue;
         }
         let allowed = pending_if.unwrap_or(true);
@@ -111,16 +130,27 @@ pub fn typecheck(module: &crate::ast::Module) -> TypeCheckResult {
             continue;
         }
         if let Stmt::FnDef(f) = item {
-            match check_function(f, &mut ctx, &mut env, &mut label_env) {
+            match check_function(f, &mut ctx, &mut env, &mut label_env, &mut strings) {
                 Ok(func) => functions.push(func),
                 Err(mut diags) => diagnostics.append(&mut diags),
             }
         }
     }
 
-    let has_error = diagnostics.iter().any(|d| matches!(d.severity, crate::diagnostic::Severity::Error));
+    let has_error = diagnostics
+        .iter()
+        .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error));
     TypeCheckResult {
-        module: if has_error { None } else { Some(HirModule { functions, entry, externs }) },
+        module: if has_error {
+            None
+        } else {
+            Some(HirModule {
+                functions,
+                entry,
+                externs,
+                string_literals: strings.into_vec(),
+            })
+        },
         diagnostics,
         types: ctx,
     }
@@ -135,11 +165,16 @@ fn check_function(
     ctx: &mut TypeCtx,
     env: &mut Env,
     labels: &mut LabelEnv,
+    strings: &mut StringTable,
 ) -> Result<HirFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let sig_ty = type_from_expr(ctx, labels, &f.signature);
     let (params_ty, result_ty, effect) = match ctx.get(sig_ty) {
-        TypeKind::Function { params, result, effect } => (params, result, effect),
+        TypeKind::Function {
+            params,
+            result,
+            effect,
+        } => (params, result, effect),
         _ => {
             diags.push(Diagnostic::error(
                 "function signature must be a function type",
@@ -172,27 +207,26 @@ fn check_function(
             ctx,
             env,
             labels,
+            string_table: strings,
             diagnostics: Vec::new(),
             current_effect: effect,
         };
 
         let body_res = match &f.body {
-            FnBody::Parsed(b) => {
-                match checker.check_block(b, 0) {
-                    Some((blk, _val)) => {
-                        if checker.ctx.unify(blk.ty, result_ty).is_err() {
-                            checker.diagnostics.push(Diagnostic::error(
-                                "return type does not match signature",
-                                f.name.span,
-                            ));
-                        }
-                        HirBody::Block(blk)
+            FnBody::Parsed(b) => match checker.check_block(b, 0) {
+                Some((blk, _val)) => {
+                    if checker.ctx.unify(blk.ty, result_ty).is_err() {
+                        checker.diagnostics.push(Diagnostic::error(
+                            "return type does not match signature",
+                            f.name.span,
+                        ));
                     }
-                    None => {
-                        return Err(checker.diagnostics);
-                    }
+                    HirBody::Block(blk)
                 }
-            }
+                None => {
+                    return Err(checker.diagnostics);
+                }
+            },
             FnBody::Wasm(wb) => HirBody::Wasm(wb.clone()),
         };
         (body_res, checker.diagnostics)
@@ -230,18 +264,27 @@ struct BlockChecker<'a> {
     ctx: &'a mut TypeCtx,
     env: &'a mut Env,
     labels: &'a mut LabelEnv,
+    string_table: &'a mut StringTable,
     diagnostics: Vec<Diagnostic>,
     current_effect: Effect,
 }
 
 impl<'a> BlockChecker<'a> {
-    fn check_block(&mut self, block: &Block, base_depth: usize) -> Option<(HirBlock, Option<TypeId>)> {
+    fn check_block(
+        &mut self,
+        block: &Block,
+        base_depth: usize,
+    ) -> Option<(HirBlock, Option<TypeId>)> {
         self.env.push_scope();
 
         // Hoist let (non-mut) and nested fn signatures
         for stmt in &block.items {
             if let Stmt::Expr(PrefixExpr { items, .. }) = stmt {
-                if let Some(PrefixItem::Symbol(Symbol::Let { name, mutable: false })) = items.first() {
+                if let Some(PrefixItem::Symbol(Symbol::Let {
+                    name,
+                    mutable: false,
+                })) = items.first()
+                {
                     let ty = self.ctx.fresh_var(None);
                     let _ = self.env.insert_local(Binding {
                         name: name.name.clone(),
@@ -285,17 +328,15 @@ impl<'a> BlockChecker<'a> {
 
         for stmt in &block.items {
             match stmt {
-                Stmt::Expr(expr) => {
-                    match self.check_prefix(expr, base_depth, &mut stack) {
-                        Some((typed, dropped)) => {
-                            lines.push(HirLine {
-                                expr: typed,
-                                drop_result: dropped,
-                            });
-                        }
-                        None => {}
+                Stmt::Expr(expr) => match self.check_prefix(expr, base_depth, &mut stack) {
+                    Some((typed, dropped)) => {
+                        lines.push(HirLine {
+                            expr: typed,
+                            drop_result: dropped,
+                        });
                     }
-                }
+                    None => {}
+                },
                 Stmt::Directive(_) => {}
                 Stmt::FnDef(_) => {
                     // Nested function bodies are not type-checked here
@@ -360,6 +401,10 @@ impl<'a> BlockChecker<'a> {
                             (self.ctx.f32(), HirExprKind::LiteralF32(v))
                         }
                         Literal::Bool(b) => (self.ctx.bool(), HirExprKind::LiteralBool(*b)),
+                        Literal::Str(s) => {
+                            let id = self.string_table.intern(s.clone());
+                            (self.ctx.str(), HirExprKind::LiteralStr(id))
+                        }
                         Literal::Unit => (self.ctx.unit(), HirExprKind::Unit),
                     };
                     stack.push(StackEntry {
@@ -377,36 +422,38 @@ impl<'a> BlockChecker<'a> {
                     Symbol::Ident(id) => {
                         if let Some(binding) = self.env.lookup(&id.name) {
                             match &binding.kind {
-                                BindingKind::Func { effect, arity, builtin } => {
+                                BindingKind::Func {
+                                    effect,
+                                    arity,
+                                    builtin,
+                                } => {
                                     stack.push(StackEntry {
                                         ty: binding.ty,
                                         expr: HirExpr {
                                             ty: binding.ty,
-                                        kind: HirExprKind::Var(id.name.clone()),
-                                        span: id.span,
-                                    },
-                                    assign: None,
-                                });
-                                last_expr = Some(stack.last().unwrap().expr.clone());
-                            }
-                            BindingKind::Var => {
-                                stack.push(StackEntry {
-                                    ty: binding.ty,
-                                    expr: HirExpr {
+                                            kind: HirExprKind::Var(id.name.clone()),
+                                            span: id.span,
+                                        },
+                                        assign: None,
+                                    });
+                                    last_expr = Some(stack.last().unwrap().expr.clone());
+                                }
+                                BindingKind::Var => {
+                                    stack.push(StackEntry {
+                                        ty: binding.ty,
+                                        expr: HirExpr {
                                             ty: binding.ty,
                                             kind: HirExprKind::Var(id.name.clone()),
-                                        span: id.span,
-                                    },
-                                    assign: None,
-                                });
-                                last_expr = Some(stack.last().unwrap().expr.clone());
+                                            span: id.span,
+                                        },
+                                        assign: None,
+                                    });
+                                    last_expr = Some(stack.last().unwrap().expr.clone());
+                                }
                             }
-                        }
                         } else {
-                            self.diagnostics.push(Diagnostic::error(
-                                "undefined identifier",
-                                id.span,
-                            ));
+                            self.diagnostics
+                                .push(Diagnostic::error("undefined identifier", id.span));
                         }
                     }
                     Symbol::Let { name, mutable } => {
@@ -443,8 +490,11 @@ impl<'a> BlockChecker<'a> {
                                     name.span,
                                 ));
                             }
-                            let func_ty =
-                                self.ctx.function(vec![binding.ty], self.ctx.unit(), Effect::Impure);
+                            let func_ty = self.ctx.function(
+                                vec![binding.ty],
+                                self.ctx.unit(),
+                                Effect::Impure,
+                            );
                             stack.push(StackEntry {
                                 ty: func_ty,
                                 expr: HirExpr {
@@ -456,18 +506,18 @@ impl<'a> BlockChecker<'a> {
                             });
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
-                            self.diagnostics.push(Diagnostic::error(
-                                "undefined variable",
-                                name.span,
-                            ));
+                            self.diagnostics
+                                .push(Diagnostic::error("undefined variable", name.span));
                         }
                     }
                     Symbol::If(sp) => {
                         let t_cond = self.ctx.bool();
                         let t_branch = self.ctx.fresh_var(None);
-                        let func_ty = self
-                            .ctx
-                            .function(vec![t_cond, t_branch, t_branch], t_branch, Effect::Pure);
+                        let func_ty = self.ctx.function(
+                            vec![t_cond, t_branch, t_branch],
+                            t_branch,
+                            Effect::Pure,
+                        );
                         stack.push(StackEntry {
                             ty: func_ty,
                             expr: HirExpr {
@@ -481,8 +531,11 @@ impl<'a> BlockChecker<'a> {
                     }
                     Symbol::While(sp) => {
                         let t_cond = self.ctx.bool();
-                        let func_ty =
-                            self.ctx.function(vec![t_cond, self.ctx.unit()], self.ctx.unit(), Effect::Pure);
+                        let func_ty = self.ctx.function(
+                            vec![t_cond, self.ctx.unit()],
+                            self.ctx.unit(),
+                            Effect::Pure,
+                        );
                         stack.push(StackEntry {
                             ty: func_ty,
                             expr: HirExpr {
@@ -581,7 +634,11 @@ impl<'a> BlockChecker<'a> {
             };
             let func_ty = self.ctx.get(stack[func_pos].ty);
             let (params, result, effect) = match func_ty {
-                TypeKind::Function { params, result, effect } => (params, result, effect),
+                TypeKind::Function {
+                    params,
+                    result,
+                    effect,
+                } => (params, result, effect),
                 _ => break,
             };
             if stack.len() < func_pos + 1 + params.len() {
@@ -621,7 +678,9 @@ impl<'a> BlockChecker<'a> {
         // Type annotation is represented as an identity function; drop the call and forward the value.
         if matches!(func.expr.kind, HirExprKind::Unit) && params.len() == 1 {
             if let Some(arg) = args.first() {
-                if self.ctx.unify(params[0], arg.ty).is_ok() && self.ctx.unify(result, arg.ty).is_ok() {
+                if self.ctx.unify(params[0], arg.ty).is_ok()
+                    && self.ctx.unify(result, arg.ty).is_ok()
+                {
                     return Some(arg.clone());
                 }
             }
@@ -640,7 +699,8 @@ impl<'a> BlockChecker<'a> {
                 HirExprKind::Var(n) => n.clone(),
                 _ => "_".to_string(),
             };
-            if let Some(binding_vals) = self.env.lookup(&name).map(|b| (b.ty, b.mutable, b.defined)) {
+            if let Some(binding_vals) = self.env.lookup(&name).map(|b| (b.ty, b.mutable, b.defined))
+            {
                 let (b_ty, b_mut, b_defined) = binding_vals;
                 if let Err(_) = self.ctx.unify(b_ty, args[0].ty) {
                     self.diagnostics.push(Diagnostic::error(
@@ -676,10 +736,8 @@ impl<'a> BlockChecker<'a> {
                             ));
                         }
                         if !b_mut {
-                            self.diagnostics.push(Diagnostic::error(
-                                "variable is not mutable",
-                                func.expr.span,
-                            ));
+                            self.diagnostics
+                                .push(Diagnostic::error("variable is not mutable", func.expr.span));
                         }
                         return Some(StackEntry {
                             ty: self.ctx.unit(),
@@ -863,7 +921,9 @@ struct Env {
 
 impl Env {
     fn new() -> Self {
-        Self { scopes: vec![Vec::new()] }
+        Self {
+            scopes: vec![Vec::new()],
+        }
     }
 
     fn push_scope(&mut self) {
@@ -915,12 +975,43 @@ impl Env {
 
 type LabelEnv = BTreeMap<String, TypeId>;
 
+#[derive(Debug)]
+struct StringTable {
+    map: BTreeMap<String, u32>,
+    items: Vec<String>,
+}
+
+impl StringTable {
+    fn new() -> Self {
+        Self {
+            map: BTreeMap::new(),
+            items: Vec::new(),
+        }
+    }
+
+    fn intern(&mut self, s: String) -> u32 {
+        if let Some(id) = self.map.get(&s) {
+            *id
+        } else {
+            let id = self.items.len() as u32;
+            self.items.push(s.clone());
+            self.map.insert(s, id);
+            id
+        }
+    }
+
+    fn into_vec(self) -> Vec<String> {
+        self.items
+    }
+}
+
 fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> TypeId {
     match t {
         TypeExpr::Unit => ctx.unit(),
         TypeExpr::I32 => ctx.i32(),
         TypeExpr::F32 => ctx.f32(),
         TypeExpr::Bool => ctx.bool(),
+        TypeExpr::Str => ctx.str(),
         TypeExpr::Label(label) => {
             if let Some(name) = label {
                 if let Some(existing) = labels.get(name) {
@@ -934,7 +1025,11 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
                 ctx.fresh_var(None)
             }
         }
-        TypeExpr::Function { params, result, effect } => {
+        TypeExpr::Function {
+            params,
+            result,
+            effect,
+        } => {
             let mut p = Vec::new();
             for ty in params {
                 p.push(type_from_expr(ctx, labels, ty));
@@ -949,6 +1044,14 @@ fn func_arity(ctx: &TypeCtx, ty: TypeId) -> usize {
     match ctx.get(ty) {
         TypeKind::Function { params, .. } => params.len(),
         _ => 0,
+    }
+}
+
+fn target_allows(target: &str, active: CompileTarget) -> bool {
+    match target {
+        "wasm" => true,
+        "wasi" => matches!(active, CompileTarget::Wasi),
+        _ => false,
     }
 }
 

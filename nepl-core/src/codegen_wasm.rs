@@ -10,8 +10,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use wasm_encoder::{
-    CodeSection, EntityType, ExportKind, ExportSection, Function, FunctionSection, ImportSection,
-    Instruction, Module, TypeSection, ValType,
+    CodeSection, ConstExpr, DataSection, EntityType, ExportKind, ExportSection, Function,
+    FunctionSection, ImportSection, Instruction, MemorySection, MemoryType, Module, TypeSection,
+    ValType,
 };
 
 use crate::diagnostic::Diagnostic;
@@ -24,8 +25,54 @@ pub struct CodegenResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Debug, Clone)]
+struct StringLower {
+    offsets: Vec<u32>,
+    segments: Vec<(u32, Vec<u8>)>,
+    min_pages: u32,
+}
+
+impl StringLower {
+    fn offset(&self, idx: u32) -> Option<u32> {
+        self.offsets.get(idx as usize).copied()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.offsets.is_empty()
+    }
+}
+
+fn lower_strings(strings: &[String]) -> StringLower {
+    let mut offsets = Vec::new();
+    let mut segments = Vec::new();
+    let mut cursor: u32 = 0;
+    for s in strings {
+        cursor = align_to(cursor, 4);
+        offsets.push(cursor);
+        let mut data = Vec::new();
+        let bytes = s.as_bytes();
+        let len = bytes.len() as u32;
+        data.extend_from_slice(&len.to_le_bytes());
+        data.extend_from_slice(bytes);
+        segments.push((cursor, data));
+        cursor = cursor.saturating_add(4 + len);
+    }
+    let min_pages = ((cursor + 0xFFFF) / 0x10000).max(1);
+    StringLower {
+        offsets,
+        segments,
+        min_pages,
+    }
+}
+
+fn align_to(x: u32, align: u32) -> u32 {
+    let mask = align - 1;
+    (x + mask) & !mask
+}
+
 pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     let mut diags = Vec::new();
+    let strings = lower_strings(&module.string_literals);
 
     // Build imports / function list (builtins first)
     let mut imports: Vec<ImportLower> = Vec::new();
@@ -79,7 +126,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         let key = (f.params.clone(), f.results.clone());
         if !sig_map.contains_key(&key) {
             let idx = type_section.len();
-            type_section.ty().function(f.params.clone(), f.results.clone());
+            type_section
+                .ty()
+                .function(f.params.clone(), f.results.clone());
             sig_map.insert(key.clone(), idx);
         }
     }
@@ -87,7 +136,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         let key = (imp.params.clone(), imp.results.clone());
         if !sig_map.contains_key(&key) {
             let idx = type_section.len();
-            type_section.ty().function(imp.params.clone(), imp.results.clone());
+            type_section
+                .ty()
+                .function(imp.params.clone(), imp.results.clone());
             sig_map.insert(key.clone(), idx);
         }
     }
@@ -108,7 +159,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
 
     let mut code_section = CodeSection::new();
     for f in &functions {
-        match lower_body(ctx, f, &name_to_index) {
+        match lower_body(ctx, f, &name_to_index, &strings) {
             Ok(body) => {
                 code_section.function(&body);
             }
@@ -118,7 +169,17 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         }
     }
 
+    let mut memory_section = MemorySection::new();
+    memory_section.memory(MemoryType {
+        minimum: strings.min_pages as u64,
+        maximum: None,
+        memory64: false,
+        shared: false,
+        page_size_log2: Some(16),
+    });
+
     let mut export_section = ExportSection::new();
+    export_section.export("memory", ExportKind::Memory, 0);
     if let Some(entry) = &module.entry {
         if let Some(idx) = name_to_index.get(entry) {
             export_section.export("main", ExportKind::Func, *idx);
@@ -126,6 +187,11 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
                 export_section.export(entry, ExportKind::Func, *idx);
             }
         }
+    }
+
+    let mut data_section = DataSection::new();
+    for (offset, bytes) in &strings.segments {
+        data_section.active(0, &ConstExpr::i32_const(*offset as i32), bytes.clone());
     }
 
     if diags
@@ -144,8 +210,12 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         module_bytes.section(&import_section);
     }
     module_bytes.section(&func_section);
+    module_bytes.section(&memory_section);
     module_bytes.section(&export_section);
     module_bytes.section(&code_section);
+    if !strings.segments.is_empty() {
+        module_bytes.section(&data_section);
+    }
 
     CodegenResult {
         bytes: Some(module_bytes.finish()),
@@ -191,7 +261,13 @@ impl FuncLower {
 }
 
 impl ImportLower {
-    fn function(module: String, field: String, local_name: String, params: Vec<ValType>, results: Vec<ValType>) -> Self {
+    fn function(
+        module: String,
+        field: String,
+        local_name: String,
+        params: Vec<ValType>,
+        results: Vec<ValType>,
+    ) -> Self {
         Self {
             module,
             field,
@@ -202,7 +278,11 @@ impl ImportLower {
     }
 }
 
-fn wasm_sig(ctx: &TypeCtx, result: TypeId, params: &[HirParam]) -> Option<(Vec<ValType>, Vec<ValType>)> {
+fn wasm_sig(
+    ctx: &TypeCtx,
+    result: TypeId,
+    params: &[HirParam],
+) -> Option<(Vec<ValType>, Vec<ValType>)> {
     let mut param_types = Vec::new();
     for p in params {
         let vk = ctx.get(p.ty);
@@ -221,7 +301,11 @@ fn wasm_sig(ctx: &TypeCtx, result: TypeId, params: &[HirParam]) -> Option<(Vec<V
     Some((param_types, res))
 }
 
-fn wasm_sig_ids(ctx: &TypeCtx, result: TypeId, params: &[TypeId]) -> Option<(Vec<ValType>, Vec<ValType>)> {
+fn wasm_sig_ids(
+    ctx: &TypeCtx,
+    result: TypeId,
+    params: &[TypeId],
+) -> Option<(Vec<ValType>, Vec<ValType>)> {
     let mut param_types = Vec::new();
     for p in params {
         let vk = ctx.get(*p);
@@ -243,7 +327,7 @@ fn wasm_sig_ids(ctx: &TypeCtx, result: TypeId, params: &[TypeId]) -> Option<(Vec
 fn valtype(kind: &TypeKind) -> Option<ValType> {
     match kind {
         TypeKind::Unit => None,
-        TypeKind::I32 | TypeKind::Bool => Some(ValType::I32),
+        TypeKind::I32 | TypeKind::Bool | TypeKind::Str => Some(ValType::I32),
         TypeKind::F32 => Some(ValType::F32),
         _ => None,
     }
@@ -253,9 +337,10 @@ fn lower_body(
     ctx: &TypeCtx,
     func: &FuncLower,
     name_map: &BTreeMap<String, u32>,
+    strings: &StringLower,
 ) -> Result<Function, Vec<Diagnostic>> {
     match &func.body {
-        FuncBodyLower::User(f) => lower_user(ctx, f, name_map),
+        FuncBodyLower::User(f) => lower_user(ctx, f, name_map, strings),
     }
 }
 
@@ -267,6 +352,7 @@ fn lower_user(
     ctx: &TypeCtx,
     func: &HirFunction,
     name_map: &BTreeMap<String, u32>,
+    strings: &StringLower,
 ) -> Result<Function, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let mut locals = LocalMap::new(func.params.len());
@@ -278,7 +364,15 @@ fn lower_user(
 
     match &func.body {
         HirBody::Block(block) => {
-            let produced = gen_block(ctx, block, name_map, &mut locals, &mut insts, &mut diags);
+            let produced = gen_block(
+                ctx,
+                block,
+                name_map,
+                strings,
+                &mut locals,
+                &mut insts,
+                &mut diags,
+            );
             let expected = valtype(&ctx.get(func.result));
             if expected.is_some() && produced.flatten().is_none() {
                 diags.push(Diagnostic::error(
@@ -318,13 +412,14 @@ fn gen_block(
     ctx: &TypeCtx,
     block: &HirBlock,
     name_map: &BTreeMap<String, u32>,
+    strings: &StringLower,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
     diags: &mut Vec<Diagnostic>,
 ) -> Option<Option<ValType>> {
     let mut last_val: Option<ValType> = None;
     for line in &block.lines {
-        let val = gen_expr(ctx, &line.expr, name_map, locals, insts, diags);
+        let val = gen_expr(ctx, &line.expr, name_map, strings, locals, insts, diags);
         if line.drop_result {
             if val.is_some() {
                 insts.push(Instruction::Drop);
@@ -341,6 +436,7 @@ fn gen_expr(
     ctx: &TypeCtx,
     expr: &HirExpr,
     name_map: &BTreeMap<String, u32>,
+    strings: &StringLower,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
     diags: &mut Vec<Diagnostic>,
@@ -358,6 +454,18 @@ fn gen_expr(
             insts.push(Instruction::I32Const(if *b { 1 } else { 0 }));
             Some(ValType::I32)
         }
+        HirExprKind::LiteralStr(id) => {
+            if let Some(off) = strings.offset(*id) {
+                insts.push(Instruction::I32Const(off as i32));
+                Some(ValType::I32)
+            } else {
+                diags.push(Diagnostic::error(
+                    "string literal not found during codegen",
+                    expr.span,
+                ));
+                None
+            }
+        }
         HirExprKind::Unit => None,
         HirExprKind::Var(name) => {
             if let Some(idx) = locals.lookup(name) {
@@ -367,13 +475,16 @@ fn gen_expr(
                 insts.push(Instruction::Call(*fidx));
                 valtype(&ctx.get(expr.ty))
             } else {
-                diags.push(Diagnostic::error(format!("unknown variable {}", name), expr.span));
+                diags.push(Diagnostic::error(
+                    format!("unknown variable {}", name),
+                    expr.span,
+                ));
                 None
             }
         }
         HirExprKind::Call { callee, args } => {
             for arg in args {
-                gen_expr(ctx, arg, name_map, locals, insts, diags);
+                gen_expr(ctx, arg, name_map, strings, locals, insts, diags);
             }
             if let Some(idx) = match callee {
                 FuncRef::Builtin(n) | FuncRef::User(n) => name_map.get(n),
@@ -384,39 +495,45 @@ fn gen_expr(
             }
             valtype(&ctx.get(expr.ty))
         }
-        HirExprKind::If { cond, then_branch, else_branch } => {
-            gen_expr(ctx, cond, name_map, locals, insts, diags);
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            gen_expr(ctx, cond, name_map, strings, locals, insts, diags);
             let result_ty = valtype(&ctx.get(expr.ty));
             match result_ty {
                 Some(vt) => insts.push(Instruction::If(wasm_encoder::BlockType::Result(vt))),
                 None => insts.push(Instruction::If(wasm_encoder::BlockType::Empty)),
             }
-            gen_expr(ctx, then_branch, name_map, locals, insts, diags);
+            gen_expr(ctx, then_branch, name_map, strings, locals, insts, diags);
             insts.push(Instruction::Else);
-            gen_expr(ctx, else_branch, name_map, locals, insts, diags);
+            gen_expr(ctx, else_branch, name_map, strings, locals, insts, diags);
             insts.push(Instruction::End);
             result_ty
         }
         HirExprKind::While { cond, body } => {
             insts.push(Instruction::Loop(wasm_encoder::BlockType::Empty));
-            gen_expr(ctx, cond, name_map, locals, insts, diags);
+            gen_expr(ctx, cond, name_map, strings, locals, insts, diags);
             insts.push(Instruction::I32Eqz);
             insts.push(Instruction::BrIf(1)); // exit loop
-            gen_expr(ctx, body, name_map, locals, insts, diags);
+            gen_expr(ctx, body, name_map, strings, locals, insts, diags);
             insts.push(Instruction::Br(0));
             insts.push(Instruction::End);
             None
         }
-        HirExprKind::Block(b) => gen_block(ctx, b, name_map, locals, insts, diags).flatten(),
+        HirExprKind::Block(b) => {
+            gen_block(ctx, b, name_map, strings, locals, insts, diags).flatten()
+        }
         HirExprKind::Let { name, value, .. } => {
             let idx = locals.ensure_local(name.clone(), value.ty, ctx);
-            gen_expr(ctx, value, name_map, locals, insts, diags);
+            gen_expr(ctx, value, name_map, strings, locals, insts, diags);
             insts.push(Instruction::LocalSet(idx));
             None
         }
         HirExprKind::Set { name, value } => {
             if let Some(idx) = locals.lookup(name) {
-                gen_expr(ctx, value, name_map, locals, insts, diags);
+                gen_expr(ctx, value, name_map, strings, locals, insts, diags);
                 insts.push(Instruction::LocalSet(idx));
             } else {
                 diags.push(Diagnostic::error("unknown variable", expr.span));

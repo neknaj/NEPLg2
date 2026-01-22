@@ -27,7 +27,11 @@ pub struct Span {
 impl Span {
     /// Construct a new span for the given file and byte range.
     pub fn new(file_id: FileId, start: u32, end: u32) -> Span {
-        Span { file_id, start, end }
+        Span {
+            file_id,
+            start,
+            end,
+        }
     }
 
     /// Construct an empty span at the given position.

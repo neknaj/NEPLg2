@@ -27,8 +27,8 @@ pub enum TokenKind {
     Comma,
     LAngle,
     RAngle,
-    Arrow(Effect),      // -> (Pure) or *> (Impure)
-    PathSep,            // ::
+    Arrow(Effect), // -> (Pure) or *> (Impure)
+    PathSep,       // ::
     Dot,
 
     // literals / identifiers
@@ -36,6 +36,7 @@ pub enum TokenKind {
     IntLiteral(String),
     FloatLiteral(String),
     BoolLiteral(bool),
+    StringLiteral(String),
     UnitLiteral,
 
     // keywords
@@ -103,7 +104,11 @@ pub fn lex(file_id: FileId, src: &str) -> LexResult {
     let mut offset = 0usize;
     for part in src.split_inclusive('\n') {
         let has_newline = part.ends_with('\n');
-        let mut line = if has_newline { &part[..part.len() - 1] } else { part };
+        let mut line = if has_newline {
+            &part[..part.len() - 1]
+        } else {
+            part
+        };
         if line.ends_with('\r') {
             line = &line[..line.len() - 1];
         }
@@ -252,7 +257,11 @@ impl<'a> LexState<'a> {
         let body = text.trim_start_matches('#').trim();
         if body.starts_with("entry") {
             let name = body.strip_prefix("entry").unwrap().trim();
-            let span = Span::new(self.file_id, line_offset as u32, (line_offset + body.len()) as u32);
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + body.len()) as u32,
+            );
             self.tokens.push(Token {
                 kind: TokenKind::DirEntry(name.to_string()),
                 span,
@@ -261,28 +270,46 @@ impl<'a> LexState<'a> {
             let arg = body.strip_prefix("indent").unwrap().trim();
             if let Ok(width) = arg.parse::<usize>() {
                 self.indent_unit = width.max(1);
-                let span = Span::new(self.file_id, line_offset as u32, (line_offset + body.len()) as u32);
+                let span = Span::new(
+                    self.file_id,
+                    line_offset as u32,
+                    (line_offset + body.len()) as u32,
+                );
                 self.tokens.push(Token {
                     kind: TokenKind::DirIndentWidth(width),
                     span,
                 });
             } else {
-                let span = Span::new(self.file_id, line_offset as u32, (line_offset + body.len()) as u32);
-                self.diagnostics.push(Diagnostic::error(
-                    "invalid #indent argument",
-                    span,
-                ));
+                let span = Span::new(
+                    self.file_id,
+                    line_offset as u32,
+                    (line_offset + body.len()) as u32,
+                );
+                self.diagnostics
+                    .push(Diagnostic::error("invalid #indent argument", span));
             }
         } else if body.starts_with("import") {
-            let arg = body.strip_prefix("import").unwrap().trim().trim_matches('"');
-            let span = Span::new(self.file_id, line_offset as u32, (line_offset + body.len()) as u32);
+            let arg = body
+                .strip_prefix("import")
+                .unwrap()
+                .trim()
+                .trim_matches('"');
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + body.len()) as u32,
+            );
             self.tokens.push(Token {
                 kind: TokenKind::DirImport(arg.to_string()),
                 span,
             });
         } else if body.starts_with("use") {
             let arg = body.strip_prefix("use").unwrap().trim();
-            let span = Span::new(self.file_id, line_offset as u32, (line_offset + body.len()) as u32);
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + body.len()) as u32,
+            );
             self.tokens.push(Token {
                 kind: TokenKind::DirUse(arg.to_string()),
                 span,
@@ -290,7 +317,11 @@ impl<'a> LexState<'a> {
         } else if body.starts_with("if[target=") {
             if let Some(end) = body.find(']') {
                 let target = &body[10..end];
-                let span = Span::new(self.file_id, line_offset as u32, (line_offset + end + 1) as u32);
+                let span = Span::new(
+                    self.file_id,
+                    line_offset as u32,
+                    (line_offset + end + 1) as u32,
+                );
                 self.tokens.push(Token {
                     kind: TokenKind::DirIfTarget(target.to_string()),
                     span,
@@ -298,9 +329,18 @@ impl<'a> LexState<'a> {
             }
         } else if body.starts_with("extern") {
             // format: extern "env" "sym" fn name <signature>
-            let span = Span::new(self.file_id, line_offset as u32, (line_offset + body.len()) as u32);
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + body.len()) as u32,
+            );
             let parts: Vec<&str> = body.split_whitespace().collect();
-            if parts.len() >= 5 && parts[0] == "extern" && parts[2].starts_with('"') && parts[1].starts_with('"') && parts[3] == "fn" {
+            if parts.len() >= 5
+                && parts[0] == "extern"
+                && parts[2].starts_with('"')
+                && parts[1].starts_with('"')
+                && parts[3] == "fn"
+            {
                 let module = parts[1].trim_matches('"').to_string();
                 let name = parts[2].trim_matches('"').to_string();
                 let func = parts[4].to_string();
@@ -311,18 +351,25 @@ impl<'a> LexState<'a> {
                     String::new()
                 };
                 self.tokens.push(Token {
-                    kind: TokenKind::DirExtern { module, name, func, signature: sig },
+                    kind: TokenKind::DirExtern {
+                        module,
+                        name,
+                        func,
+                        signature: sig,
+                    },
                     span,
                 });
             } else {
-                self.diagnostics.push(Diagnostic::error(
-                    "invalid #extern syntax",
-                    span,
-                ));
+                self.diagnostics
+                    .push(Diagnostic::error("invalid #extern syntax", span));
             }
         } else if body.starts_with("wasm") {
             // expect trailing colon
-            let span = Span::new(self.file_id, line_offset as u32, (line_offset + body.len()) as u32);
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + body.len()) as u32,
+            );
             self.tokens.push(Token {
                 kind: TokenKind::DirWasm,
                 span,
@@ -331,11 +378,13 @@ impl<'a> LexState<'a> {
             let current_indent = *self.indent_stack.last().unwrap();
             self.pending_wasm_base = Some(current_indent + self.indent_unit);
         } else {
-            let span = Span::new(self.file_id, line_offset as u32, (line_offset + content_len) as u32);
-            self.diagnostics.push(Diagnostic::error(
-                "unknown directive",
-                span,
-            ));
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + content_len) as u32,
+            );
+            self.diagnostics
+                .push(Diagnostic::error("unknown directive", span));
         }
     }
 
@@ -393,11 +442,66 @@ impl<'a> LexState<'a> {
                 }
                 b'*' => {
                     if i + 1 < bytes.len() && bytes[i + 1] == b'>' {
-                        self.push_token(TokenKind::Arrow(Effect::Impure), offset + i, offset + i + 2);
+                        self.push_token(
+                            TokenKind::Arrow(Effect::Impure),
+                            offset + i,
+                            offset + i + 2,
+                        );
                         i += 2;
                     } else {
                         self.unknown(offset + i, offset + i + 1);
                         i += 1;
+                    }
+                }
+                b'"' => {
+                    let start = i;
+                    i += 1;
+                    let mut buf = String::new();
+                    let mut closed = false;
+                    while i < bytes.len() {
+                        match bytes[i] {
+                            b'\"' => {
+                                closed = true;
+                                i += 1;
+                                break;
+                            }
+                            b'\\' if i + 1 < bytes.len() => {
+                                let esc = bytes[i + 1];
+                                let ch = match esc {
+                                    b'n' => '\n',
+                                    b'r' => '\r',
+                                    b't' => '\t',
+                                    b'\\' => '\\',
+                                    b'"' => '"',
+                                    b'0' => '\0',
+                                    other => {
+                                        self.diagnostics.push(Diagnostic::error(
+                                            "invalid escape in string literal",
+                                            Span::new(
+                                                self.file_id,
+                                                (offset + i) as u32,
+                                                (offset + i + 2) as u32,
+                                            ),
+                                        ));
+                                        other as char
+                                    }
+                                };
+                                buf.push(ch);
+                                i += 2;
+                            }
+                            b => {
+                                buf.push(b as char);
+                                i += 1;
+                            }
+                        }
+                    }
+                    if closed {
+                        self.push_token(TokenKind::StringLiteral(buf), offset + start, offset + i);
+                    } else {
+                        self.diagnostics.push(Diagnostic::error(
+                            "unterminated string literal",
+                            Span::new(self.file_id, (offset + start) as u32, (offset + i) as u32),
+                        ));
                     }
                 }
                 b'.' => {
@@ -449,9 +553,17 @@ impl<'a> LexState<'a> {
                             "set" => self.push_token(TokenKind::KwSet, span_start, span_end),
                             "if" => self.push_token(TokenKind::KwIf, span_start, span_end),
                             "while" => self.push_token(TokenKind::KwWhile, span_start, span_end),
-                            "true" => self.push_token(TokenKind::BoolLiteral(true), span_start, span_end),
-                            "false" => self.push_token(TokenKind::BoolLiteral(false), span_start, span_end),
-                            _ => self.push_token(TokenKind::Ident(lexeme.to_string()), span_start, span_end),
+                            "true" => {
+                                self.push_token(TokenKind::BoolLiteral(true), span_start, span_end)
+                            }
+                            "false" => {
+                                self.push_token(TokenKind::BoolLiteral(false), span_start, span_end)
+                            }
+                            _ => self.push_token(
+                                TokenKind::Ident(lexeme.to_string()),
+                                span_start,
+                                span_end,
+                            ),
                         }
                     } else {
                         self.unknown(offset + i, offset + i + 1);
@@ -471,7 +583,8 @@ impl<'a> LexState<'a> {
 
     fn unknown(&mut self, start: usize, end: usize) {
         let span = Span::new(self.file_id, start as u32, end as u32);
-        self.diagnostics.push(Diagnostic::error("unknown token", span));
+        self.diagnostics
+            .push(Diagnostic::error("unknown token", span));
     }
 
     fn flush_dedent(&mut self, pos: usize) {

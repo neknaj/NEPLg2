@@ -14,6 +14,7 @@ pub struct HirModule {
     pub functions: Vec<HirFunction>,
     pub entry: Option<String>,
     pub externs: Vec<HirExtern>,
+    pub string_literals: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +76,7 @@ pub enum HirExprKind {
     LiteralI32(i32),
     LiteralF32(f32),
     LiteralBool(bool),
+    LiteralStr(u32),
     Unit,
     Var(String),
     Call {

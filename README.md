@@ -1,47 +1,46 @@
 # NEPLG2
 
-Prefix + off-side rule language that targets WebAssembly only. All operators, control forms, and type annotations are prefix; blocks are introduced with `:` and indentation. The repository ships a minimal core compiler (`nepl-core`) and a CLI (`nepl-cli`) that compiles to WASM and can run it via wasmi.
+Prefix + off-side rule language targeting WebAssembly. Everything is prefix; blocks use `:` + indentation; almost everything is an expression.
 
-## Language in 30 seconds
-- Prefix everything; function names alone are not expressions.
-- Off-side rule blocks: put `:` at line end, indent the next line; the block closes when indent returns. A block is an expression.
-- `;` is allowed only directly under a `:` block and pops the last value (stack restore). Without `;`, the block’s last value is its result.
-- Effects: `a->b` is pure; `a*>b` is impure. Pure code cannot call impure code.
-- Unit is `()`; `<T>` is an identity annotation treated like a prefix operator.
-
-Example:
+## Quick example
 ```neplg2
 #entry main
 #indent 4
 
+#import "std/math"
+#use std::math::*
 #import "std/stdio"
 #use std::stdio::*
 
-fn main <()*> ()> ():
+fn main <()*>()> ():
     let mut x <i32> 0;
     while lt x 5:
-        <()> print_i32 x;
+        print_str "count = ";
+        print_i32 x;
         set x add x 1;
     ()
 ```
 
 ## CLI
-Compile and run:
+Compile and/or run:
 ```bash
+# run directly (no output file) targeting wasm
+cargo run -p nepl-cli -- --input examples/counter.nepl --run
+
+# write wasm and run
 cargo run -p nepl-cli -- --input examples/counter.nepl --output target/counter.wasm --run
+
+# choose target (wasm|wasi), default wasm
+cargo run -p nepl-cli -- --input examples/counter.nepl --target wasi --output target/counter.wasm
 ```
-`#import` resolves relative to the source file; `std/*` paths come from `./stdlib`. `#use` is handled after inlining imports.
+`--run` with `--target wasi` is not supported in the embedded runner; use an external WASI runtime.
 
-## Standard library
-- `stdlib/std.nepl`: basic arithmetic/comparison ops (`add`, `sub`, `lt`) implemented with `#wasm`.
-- `stdlib/std/stdio.nepl`: placeholder module; the runtime provides host import `env.print_i32 : (i32)*>()`.
+## Imports
+No built-in functions. Use std modules explicitly:
+- `std/math` – i32 arithmetic/comparison (pure)
+- `std/stdio` – `print_i32` / `print_str` via host imports (`env.print_i32`, `env.print_str`)
 
-## Examples
-- `examples/counter.nepl` – print 0..4.
-- `examples/fib.nepl` – print the first ten Fibonacci numbers.
-
-## Testing
-Run all tests:
+## Tests
 ```bash
 cargo test --workspace --locked
 ```

@@ -14,7 +14,3 @@ note.mdは自由に書き換えて構いません
 エッジケースを想定しながら適切なテストを書くこと  
 大きくなってきたファイルは適宜適切な形に分割すること  
 ファイル名やファイル分割、クラス名や関数名など、適宜リファクタリングを行うこと  
-
-## test
-CARGO_NET_OFFLINE=true cargo test --workspace --locked
-CARGO_NET_OFFLINE=true cargo test -p nepl-web-playground --locked

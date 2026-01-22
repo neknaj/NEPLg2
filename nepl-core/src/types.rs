@@ -15,6 +15,7 @@ pub enum TypeKind {
     I32,
     F32,
     Bool,
+    Str,
     Function {
         params: Vec<TypeId>,
         result: TypeId,
@@ -37,6 +38,7 @@ pub struct TypeCtx {
     i32_ty: TypeId,
     f32_ty: TypeId,
     bool_ty: TypeId,
+    str_ty: TypeId,
 }
 
 impl TypeCtx {
@@ -50,6 +52,8 @@ impl TypeCtx {
         arena.push(TypeKind::F32);
         let bool_ty = TypeId(arena.len());
         arena.push(TypeKind::Bool);
+        let str_ty = TypeId(arena.len());
+        arena.push(TypeKind::Str);
 
         Self {
             arena,
@@ -57,6 +61,7 @@ impl TypeCtx {
             i32_ty,
             f32_ty,
             bool_ty,
+            str_ty,
         }
     }
 
@@ -71,6 +76,9 @@ impl TypeCtx {
     }
     pub fn bool(&self) -> TypeId {
         self.bool_ty
+    }
+    pub fn str(&self) -> TypeId {
+        self.str_ty
     }
 
     pub fn fresh_var(&mut self, label: Option<alloc::string::String>) -> TypeId {
@@ -142,6 +150,7 @@ impl TypeCtx {
             (TypeKind::I32, TypeKind::I32) => Ok(self.i32_ty),
             (TypeKind::F32, TypeKind::F32) => Ok(self.f32_ty),
             (TypeKind::Bool, TypeKind::Bool) => Ok(self.bool_ty),
+            (TypeKind::Str, TypeKind::Str) => Ok(self.str_ty),
             (
                 TypeKind::Function {
                     params: pa,
