@@ -12,6 +12,7 @@ use crate::builtins::BuiltinKind;
 use crate::compiler::CompileTarget;
 use crate::diagnostic::Diagnostic;
 use crate::hir::*;
+use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 #[derive(Debug)]
@@ -71,6 +72,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             } else {
                 diagnostics.push(Diagnostic::error(
                     "extern signature must be a function type",
+                    *span,
+                ));
+            }
+        } else if let Directive::Import { path, span } = d {
+            if target == CompileTarget::Wasm && path == "std/stdio" {
+                diagnostics.push(Diagnostic::error(
+                    "std/stdio is only available for target=wasi",
                     *span,
                 ));
             }
@@ -395,6 +403,7 @@ impl<'a> BlockChecker<'a> {
         let mut dropped = false;
         let mut last_expr: Option<HirExpr> = None;
         let mut pipe_pending: Option<StackEntry> = None;
+        let mut pending_ascription: Option<TypeId> = None;
         for item in &expr.items {
             match item {
                 PrefixItem::Literal(lit, span) => {
@@ -423,6 +432,9 @@ impl<'a> BlockChecker<'a> {
                         },
                         assign: None,
                     });
+                    if let Some(t) = pending_ascription.take() {
+                        self.apply_ascription(stack, t, *span);
+                    }
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
                 PrefixItem::Symbol(sym) => match sym {
@@ -443,6 +455,9 @@ impl<'a> BlockChecker<'a> {
                                         },
                                         assign: None,
                                     });
+                                    if let Some(t) = pending_ascription.take() {
+                                        self.apply_ascription(stack, t, id.span);
+                                    }
                                     last_expr = Some(stack.last().unwrap().expr.clone());
                                 }
                                 BindingKind::Var => {
@@ -455,6 +470,9 @@ impl<'a> BlockChecker<'a> {
                                         },
                                         assign: None,
                                     });
+                                    if let Some(t) = pending_ascription.take() {
+                                        self.apply_ascription(stack, t, id.span);
+                                    }
                                     last_expr = Some(stack.last().unwrap().expr.clone());
                                 }
                             }
@@ -487,6 +505,9 @@ impl<'a> BlockChecker<'a> {
                             },
                             assign: Some(AssignKind::Let),
                         });
+                        if let Some(t) = pending_ascription.take() {
+                            self.apply_ascription(stack, t, name.span);
+                        }
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
                     Symbol::Set { name } => {
@@ -511,6 +532,9 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 assign: Some(AssignKind::Set),
                             });
+                            if let Some(t) = pending_ascription.take() {
+                                self.apply_ascription(stack, t, name.span);
+                            }
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
                             self.diagnostics
@@ -534,6 +558,9 @@ impl<'a> BlockChecker<'a> {
                             },
                             assign: None,
                         });
+                        if let Some(t) = pending_ascription.take() {
+                            self.apply_ascription(stack, t, *sp);
+                        }
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
                     Symbol::While(sp) => {
@@ -552,22 +579,20 @@ impl<'a> BlockChecker<'a> {
                             },
                             assign: None,
                         });
+                        if let Some(t) = pending_ascription.take() {
+                            self.apply_ascription(stack, t, *sp);
+                        }
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
                 },
                 PrefixItem::TypeAnnotation(ty_expr, span) => {
                     let ty = type_from_expr(self.ctx, self.labels, ty_expr);
-                    let func_ty = self.ctx.function(vec![ty], ty, Effect::Pure);
-                    stack.push(StackEntry {
-                        ty: func_ty,
-                        expr: HirExpr {
-                            ty: func_ty,
-                            kind: HirExprKind::Unit,
-                            span: *span,
-                        },
-                        assign: None,
+                    pending_ascription = Some(ty);
+                    last_expr = Some(HirExpr {
+                        ty,
+                        kind: HirExprKind::Unit,
+                        span: *span,
                     });
-                    last_expr = Some(stack.last().unwrap().expr.clone());
                 }
                 PrefixItem::Block(b, sp) => {
                     let (blk, val_ty) = self.check_block(b, stack.len())?;
@@ -581,6 +606,9 @@ impl<'a> BlockChecker<'a> {
                             },
                             assign: None,
                         });
+                        if let Some(t) = pending_ascription.take() {
+                            self.apply_ascription(stack, t, *sp);
+                        }
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     } else {
                         last_expr = Some(HirExpr {
@@ -646,6 +674,17 @@ impl<'a> BlockChecker<'a> {
             }
 
             self.reduce_calls(stack);
+
+            if let Some(t) = pending_ascription {
+                if stack.len() > base_depth {
+                    if let Some(top) = stack.last() {
+                        if !matches!(self.ctx.get(top.ty), TypeKind::Function { .. }) {
+                            self.apply_ascription(stack, t, expr.span);
+                            pending_ascription = None;
+                        }
+                    }
+                }
+            }
         }
 
         let result_expr = if stack.len() == base_depth + 1 {
@@ -674,6 +713,18 @@ impl<'a> BlockChecker<'a> {
         }
 
         Some((result_expr, dropped))
+    }
+
+    fn apply_ascription(&mut self, stack: &mut [StackEntry], target: TypeId, span: Span) {
+        if let Some(top) = stack.last_mut() {
+            if let Err(_) = self.ctx.unify(top.ty, target) {
+                self.diagnostics
+                    .push(Diagnostic::error("type annotation mismatch", span));
+            } else {
+                top.ty = target;
+                top.expr.ty = target;
+            }
+        }
     }
 
     fn reduce_calls(&mut self, stack: &mut Vec<StackEntry>) {

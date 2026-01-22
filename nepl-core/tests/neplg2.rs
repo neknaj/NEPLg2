@@ -1,5 +1,7 @@
 use nepl_core::span::FileId;
 use nepl_core::{compile_wasm, CompileOptions, CompileTarget};
+mod harness;
+use harness::run_main_i32;
 
 fn compile_ok(src: &str) {
     let result = compile_wasm(
@@ -220,5 +222,20 @@ fn wasm_cannot_use_stdio() {
 fn main <()->()> ():
     print_str "hi"
 "#;
-    compile_err(src);
+    compile_err_target(src, CompileTarget::Wasm);
+}
+
+#[test]
+fn run_add_returns_12() {
+    let src = r#"
+#entry main
+#indent 4
+#import "std/math"
+#use std::math::*
+
+fn main <()->i32> ():
+    add 10 2
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 12);
 }
