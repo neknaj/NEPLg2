@@ -208,3 +208,17 @@ fn main <()->i32> ():
 "#;
     compile_err(src);
 }
+
+#[test]
+fn wasm_cannot_use_stdio() {
+    let src = r#"
+#entry main
+#indent 4
+#import "std/stdio"
+#use std::stdio::*
+
+fn main <()->()> ():
+    print_str "hi"
+"#;
+    compile_err(src);
+}

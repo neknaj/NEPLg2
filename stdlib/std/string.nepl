@@ -1,0 +1,120 @@
+#indent 4
+
+#import "std/mem"
+#use std::mem::*
+#import "std/math"
+#use std::math::*
+#import "std/result"
+#use std::result::*
+
+fn len <(str)->i32> (s):
+    load_i32 s
+
+fn eq <(str,str)->bool> (a,b):
+    let la <i32> len a;
+    let lb <i32> len b;
+    if eq la lb:
+        let mut i <i32> 0;
+        while lt i la:
+            let ca <i32> load_u8 add a add 4 i;
+            let cb <i32> load_u8 add b add 4 i;
+            if eq ca cb 1 0;
+            if eq 0 1 0; // unreachable
+            set i add i 1;
+        1
+    :
+        0
+
+fn concat <(str,str)->str> (a,b):
+    let la <i32> len a;
+    let lb <i32> len b;
+    let total <i32> add la lb;
+    let out <i32> alloc add total 4;
+    store_i32 out total;
+    let mut i <i32> 0;
+    while lt i la:
+        let v <i32> load_u8 add a add 4 i;
+        store_u8 add out add 4 i v;
+        set i add i 1;
+    let mut j <i32> 0;
+    while lt j lb:
+        let v <i32> load_u8 add b add 4 j;
+        store_u8 add out add 4 add la j v;
+        set j add j 1;
+    out
+
+// slice returns Result<str, err_code>
+// err_code: 1 = range error
+fn slice <(str,i32,i32)->i32> (s, start, len_req):
+    let ls <i32> len s;
+    if lt start 0 err 1;
+    if lt len_req 0 err 1;
+    if lt ls add start len_req err 1;
+    let out <i32> alloc add len_req 4;
+    store_i32 out len_req;
+    let mut i <i32> 0;
+    while lt i len_req:
+        let v <i32> load_u8 add s add 4 add start i;
+        store_u8 add out add 4 i v;
+        set i add i 1;
+    ok out
+
+fn from_i32 <(i32)->str> (x):
+    // very small itoa for non-negative numbers
+    let mut n <i32> x;
+    if lt n 0 0; // TODO: handle negatives
+    let mut digits <i32> 0;
+    let mut tmp <i32> n;
+    while lt 0 tmp:
+        set tmp div_s tmp 10;
+        set digits add digits 1;
+    if eq digits 0:
+        set digits 1;
+    let out <i32> alloc add digits 4;
+    store_i32 out digits;
+    let mut i <i32> 0;
+    let mut v <i32> n;
+    while lt i digits:
+        let d <i32> mod_s v 10;
+        let ch <i32> add d 48;
+        store_u8 add out add 4 sub digits add i 1 ch;
+        set v div_s v 10;
+        set i add i 1;
+    out
+
+// to_i32 with Result: ok(value) or err(code:1=empty,2=invalid)
+fn to_i32 <(str)->i32> (s):
+    let l <i32> len s;
+    if eq l 0 err 1;
+    let mut i <i32> 0;
+    let mut acc <i32> 0;
+    while lt i l:
+        let ch <i32> load_u8 add s add 4 i;
+        if lt ch 48 err 2;
+        if lt 57 ch err 2;
+        set acc add mul acc 10 sub ch 48;
+        set i add i 1;
+    ok acc
+
+// find substring (naive). Returns Result<index, err=1 not found>.
+fn find <(str,str)->i32> (s, pat):
+    let ls <i32> len s;
+    let lp <i32> len pat;
+    if eq lp 0 ok 0;
+    if lt ls lp err 1;
+    let mut i <i32> 0;
+    while lt add i lp ls:
+        let mut j <i32> 0;
+        let mut matched <i32> 1;
+        while lt j lp:
+            let a <i32> load_u8 add s add 4 add i j;
+            let b <i32> load_u8 add pat add 4 j;
+            if eq a b 1:
+                ();
+            :
+                set matched 0;
+                set j lp; // break inner
+            set j add j 1;
+        if eq matched 1 ok i;
+        set i add i 1;
+    err 1

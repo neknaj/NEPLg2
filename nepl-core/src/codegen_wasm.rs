@@ -11,8 +11,8 @@ use alloc::vec::Vec;
 
 use wasm_encoder::{
     CodeSection, ConstExpr, DataSection, EntityType, ExportKind, ExportSection, Function,
-    FunctionSection, ImportSection, Instruction, MemorySection, MemoryType, Module, TypeSection,
-    ValType,
+    FunctionSection, ImportSection, Instruction, MemArg, MemorySection, MemoryType, Module,
+    TypeSection, ValType,
 };
 
 use crate::diagnostic::Diagnostic;
@@ -667,7 +667,21 @@ fn parse_wasm_line(line: &str, locals: &LocalMap) -> Result<Vec<Instruction<'sta
         }
         "i32.add" => insts.push(Instruction::I32Add),
         "i32.sub" => insts.push(Instruction::I32Sub),
+        "i32.mul" => insts.push(Instruction::I32Mul),
+        "i32.div_s" => insts.push(Instruction::I32DivS),
+        "i32.rem_s" => insts.push(Instruction::I32RemS),
         "i32.lt_s" => insts.push(Instruction::I32LtS),
+        "i32.eq" => insts.push(Instruction::I32Eq),
+        "i32.ne" => insts.push(Instruction::I32Ne),
+        "i32.le_u" => insts.push(Instruction::I32LeU),
+        "i32.ge_u" => insts.push(Instruction::I32GeU),
+        "i32.load" => insts.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 })),
+        "i32.store" => insts.push(Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 })),
+        "i32.load8_u" => insts.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 })),
+        "i32.store8" => insts.push(Instruction::I32Store8(MemArg { offset: 0, align: 0, memory_index: 0 })),
+        "memory.grow" => insts.push(Instruction::MemoryGrow(0)),
+        "memory.size" => insts.push(Instruction::MemorySize(0)),
+        "drop" => insts.push(Instruction::Drop),
         other => return Err(format!("unsupported wasm instruction: {}", other)),
     }
     Ok(insts)
@@ -722,17 +736,73 @@ fn validate_wasm_stack(
                 }
             }
             Instruction::I32Const(_) => stack.push(ValType::I32),
-            Instruction::I32Add | Instruction::I32Sub | Instruction::I32LtS => {
+            Instruction::I32Add
+            | Instruction::I32Sub
+            | Instruction::I32Mul
+            | Instruction::I32DivS
+            | Instruction::I32RemS
+            | Instruction::I32LtS
+            | Instruction::I32Eq
+            | Instruction::I32Ne
+            | Instruction::I32LeU
+            | Instruction::I32GeU => {
                 let a = stack.pop();
                 let b = stack.pop();
                 if a == Some(ValType::I32) && b == Some(ValType::I32) {
-                    stack.push(ValType::I32);
+                    // comparisons return i32
+                    let result = match inst {
+                        Instruction::I32LtS
+                        | Instruction::I32Eq
+                        | Instruction::I32Ne
+                        | Instruction::I32LeU
+                        | Instruction::I32GeU => ValType::I32,
+                        _ => ValType::I32,
+                    };
+                    stack.push(result);
                 } else {
                     return Err(Diagnostic::error(
                         "i32 arithmetic expects two i32 values on stack",
                         func.span,
                     ));
                 }
+            }
+            Instruction::I32Load(_) | Instruction::I32Load8U(_) => {
+                if stack.pop() == Some(ValType::I32) {
+                    stack.push(ValType::I32);
+                } else {
+                    return Err(Diagnostic::error(
+                        "i32.load expects address i32 on stack",
+                        func.span,
+                    ));
+                }
+            }
+            Instruction::I32Store(_) | Instruction::I32Store8(_) => {
+                let v = stack.pop();
+                let a = stack.pop();
+                if v == Some(ValType::I32) && a == Some(ValType::I32) {
+                    // ok
+                } else {
+                    return Err(Diagnostic::error(
+                        "i32.store expects (addr i32, val i32)",
+                        func.span,
+                    ));
+                }
+            }
+            Instruction::MemoryGrow(_) => {
+                if stack.pop() == Some(ValType::I32) {
+                    stack.push(ValType::I32);
+                } else {
+                    return Err(Diagnostic::error(
+                        "memory.grow expects pages i32",
+                        func.span,
+                    ));
+                }
+            }
+            Instruction::MemorySize(_) => {
+                stack.push(ValType::I32);
+            }
+            Instruction::Drop => {
+                stack.pop();
             }
             other => {
                 return Err(Diagnostic::error(

@@ -15,8 +15,43 @@ fn sub <(i32,i32)->i32> (a,b):
         i32.sub
 
 #if[target=wasm]
+fn mul <(i32,i32)->i32> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.mul
+
+#if[target=wasm]
+fn div_s <(i32,i32)->i32> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.div_s
+
+#if[target=wasm]
+fn mod_s <(i32,i32)->i32> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rem_s
+
+#if[target=wasm]
 fn lt <(i32,i32)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         i32.lt_s
+
+#if[target=wasm]
+fn eq <(i32,i32)->bool> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.eq
+
+#if[target=wasm]
+fn le <(i32,i32)->bool> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.le_u

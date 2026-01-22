@@ -1,0 +1,46 @@
+#indent 4
+
+#import "std/mem"
+#use std::mem::*
+#import "std/math"
+#use std::math::*
+
+// list header: [len:i32][cap:i32][data_ptr:i32]
+fn new <()->i32> ():
+    let ptr <i32> alloc 12;
+    store_i32 ptr 0;
+    store_i32 add ptr 4 0;
+    store_i32 add ptr 8 0;
+    ptr
+
+fn len <(i32)->i32> (lst):
+    load_i32 lst
+
+fn push <(i32,i32)->()> (lst, val):
+    let l <i32> load_i32 lst;
+    let c <i32> load_i32 add lst 4;
+    if lt l c:
+        ();
+    :
+        let newc <i32> add mul c 2 1; // double or set to 1
+        if lt newc 1:
+            set newc 1;
+        let data <i32> alloc mul newc 4;
+        let oldp <i32> load_i32 add lst 8;
+        let mut i <i32> 0;
+        while lt i l:
+            store_i32 add data mul i 4 load_i32 add oldp mul i 4;
+            set i add i 1;
+        store_i32 add lst 8 data;
+        store_i32 add lst 4 newc;
+    let dp <i32> load_i32 add lst 8;
+    store_i32 add dp mul l 4 val;
+    store_i32 lst add l 1;
+    ()
+
+fn get <(i32,i32)->i32> (lst, idx):
+    let l <i32> len lst;
+    if lt idx 0 0;
+    if lt l add idx 1 0;
+    let dp <i32> load_i32 add lst 8;
+    load_i32 add dp mul idx 4
