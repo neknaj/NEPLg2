@@ -1,0 +1,15 @@
+[package]
+name = "nepl-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["NEPL Team"]
+
+[dependencies]
+thiserror.workspace = true
+wasm-encoder.workspace = true
+walkdir.workspace = true
+
+[dev-dependencies]
+wasmi.workspace = true
+tempfile.workspace = true
+wasmparser = "0.241"

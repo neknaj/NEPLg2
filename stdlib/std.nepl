@@ -1,0 +1,28 @@
+#indent 4
+
+#if[target=wasm]
+fn add <(i32,i32)->i32> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.add
+
+#if[target=wasm]
+fn sub <(i32,i32)->i32> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.sub
+
+#if[target=wasm]
+fn lt <(i32,i32)->bool> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.lt_s
+
+#if[target=wasm]
+fn print_i32 <(i32)*>()> (x):
+    #wasm:
+        ;; placeholder: host import expected
+        local.get $x
