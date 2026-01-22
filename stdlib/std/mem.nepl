@@ -29,23 +29,67 @@ fn memory_grow <(i32)*>i32> (pages):
         local.get $pages
         memory.grow
 
+fn memory_size <()->i32> ():
+    #wasm:
+        memory.size
+
 fn alloc <(i32)*>i32> (size):
     #wasm:
-        ;; pages_needed = ceil(size / 65536)
-        local.get $size
-        i32.const 65535
-        i32.add
-        i32.const 65536
-        i32.div_s
-        local.tee $size       ;; reuse $size as pages_needed
-        memory.grow           ;; grow and push old_pages
-        local.tee $size       ;; reuse $size as old_pages
-        i32.const -1
+        ;; initialize heap_ptr at 4 if zero
+        i32.const 0
+        i32.load
+        local.tee $size        ;; reuse $size as heap_ptr temp
+        i32.const 0
         i32.eq
         if
-            i32.const -1
-            return
+            i32.const 4
+            i32.const 0
+            i32.store
+            i32.const 4
+            local.set $size
+        else
+            local.set $size
         end
+        ;; aligned = ((heap+3)/4)*4
         local.get $size
+        i32.const 3
+        i32.add
+        i32.const 4
+        i32.div_s
+        i32.const 4
+        i32.mul
+        local.set $size        ;; reuse $size as aligned
+        ;; new_ptr = aligned + size(param)
+        local.get $size
+        local.get $0
+        i32.add
+        local.tee $0           ;; reuse $0 as new_ptr
+        ;; ensure capacity: if new_ptr > pages*65536 => grow
+        memory.size
+        local.tee $size        ;; reuse $size as cur_pages
         i32.const 65536
         i32.mul
+        i32.lt_s
+        if
+            ;; need pages = ceil(new_ptr/65536) - cur_pages
+            local.get $0
+            i32.const 65535
+            i32.add
+            i32.const 65536
+            i32.div_s
+            local.get $size
+            i32.sub
+            memory.grow
+            i32.const -1
+            i32.eq
+            if
+                i32.const -1
+                return
+            end
+        end
+        ;; store new heap_ptr
+        i32.const 0
+        local.get $0
+        i32.store
+        ;; return aligned
+        local.get $size

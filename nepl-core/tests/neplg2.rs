@@ -274,6 +274,36 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn wasi_import_rejected_on_wasm_target() {
+    let src = r#"
+#entry main
+#indent 4
+#extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)->i32>
+fn main <()->()> ():
+    ()
+"#;
+    compile_err_target(src, CompileTarget::Wasm);
+}
+
+#[test]
+fn name_conflict_enum_fn_is_error() {
+    let src = r#"
+#entry main
+#indent 4
+
+enum Foo:
+    A
+
+fn Foo <()->i32> ():
+    0
+
+fn main <()->i32> ():
+    Foo
+"#;
+    compile_err(src);
+}
+
+#[test]
 fn wasm_cannot_use_stdio() {
     let src = r#"
 #entry main

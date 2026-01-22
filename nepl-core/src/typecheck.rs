@@ -67,6 +67,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             span,
         } = d
         {
+            if matches!(target, CompileTarget::Wasm) && m == "wasi_snapshot_preview1" {
+                diagnostics.push(Diagnostic::error(
+                    "WASI import not allowed for wasm target (use #target wasi)",
+                    *span,
+                ));
+                continue;
+            }
             let ty = type_from_expr(&mut ctx, &mut label_env, signature);
             if let TypeKind::Function {
                 params,
@@ -125,6 +132,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                     ));
                     continue;
                 }
+                if env.lookup(&e.name.name).is_some() || structs.contains_key(&e.name.name) {
+                    diagnostics.push(Diagnostic::error(
+                        "name already used by another item",
+                        e.name.span,
+                    ));
+                    continue;
+                }
                 let mut vars = Vec::new();
                 for v in &e.variants {
                     let payload_ty = v
@@ -155,6 +169,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                 if structs.contains_key(&s.name.name) {
                     diagnostics.push(Diagnostic::error(
                         "duplicate struct definition",
+                        s.name.span,
+                    ));
+                    continue;
+                }
+                if env.lookup(&s.name.name).is_some() || enums.contains_key(&s.name.name) {
+                    diagnostics.push(Diagnostic::error(
+                        "name already used by another item",
                         s.name.span,
                     ));
                     continue;
@@ -242,6 +263,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                 if env.lookup(&f.name.name).is_some() {
                     diagnostics.push(Diagnostic::error(
                         "duplicate function definition",
+                        f.name.span,
+                    ));
+                    continue;
+                }
+                if enums.contains_key(&f.name.name) || structs.contains_key(&f.name.name) {
+                    diagnostics.push(Diagnostic::error(
+                        "name already used by another item",
                         f.name.span,
                     ));
                     continue;
@@ -614,29 +642,37 @@ impl<'a> BlockChecker<'a> {
                                             ty: binding.ty,
                                             kind: HirExprKind::Var(id.name.clone()),
                                             span: id.span,
-                                        },
-                                        assign: None,
-                                    });
-                                    if let Some(t) = pending_ascription.take() {
-                                        self.apply_ascription(stack, t, id.span);
-                                    }
-                                    last_expr = Some(stack.last().unwrap().expr.clone());
+                                },
+                                assign: None,
+                            });
+                            if let Some(t) = pending_ascription.take() {
+                                if !matches!(self.ctx.get(binding.ty), TypeKind::Function { .. }) {
+                                    self.apply_ascription(stack, t, id.span);
+                                } else {
+                                    pending_ascription = Some(t);
                                 }
-                                BindingKind::Var => {
-                                    stack.push(StackEntry {
-                                        ty: binding.ty,
+                            }
+                            last_expr = Some(stack.last().unwrap().expr.clone());
+                        }
+                        BindingKind::Var => {
+                            stack.push(StackEntry {
+                                ty: binding.ty,
                                         expr: HirExpr {
                                             ty: binding.ty,
                                             kind: HirExprKind::Var(id.name.clone()),
                                             span: id.span,
-                                        },
-                                        assign: None,
-                                    });
-                                    if let Some(t) = pending_ascription.take() {
-                                        self.apply_ascription(stack, t, id.span);
-                                    }
-                                    last_expr = Some(stack.last().unwrap().expr.clone());
+                                },
+                                assign: None,
+                            });
+                            if let Some(t) = pending_ascription.take() {
+                                if !matches!(self.ctx.get(binding.ty), TypeKind::Function { .. }) {
+                                    self.apply_ascription(stack, t, id.span);
+                                } else {
+                                    pending_ascription = Some(t);
                                 }
+                            }
+                            last_expr = Some(stack.last().unwrap().expr.clone());
+                        }
                             }
                         } else {
                             self.diagnostics
@@ -668,7 +704,11 @@ impl<'a> BlockChecker<'a> {
                             assign: Some(AssignKind::Let),
                         });
                         if let Some(t) = pending_ascription.take() {
-                            self.apply_ascription(stack, t, name.span);
+                            if !matches!(self.ctx.get(func_ty), TypeKind::Function { .. }) {
+                                self.apply_ascription(stack, t, name.span);
+                            } else {
+                                pending_ascription = Some(t);
+                            }
                         }
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
@@ -695,7 +735,11 @@ impl<'a> BlockChecker<'a> {
                                 assign: Some(AssignKind::Set),
                             });
                             if let Some(t) = pending_ascription.take() {
-                                self.apply_ascription(stack, t, name.span);
+                                if !matches!(self.ctx.get(func_ty), TypeKind::Function { .. }) {
+                                    self.apply_ascription(stack, t, name.span);
+                                } else {
+                                    pending_ascription = Some(t);
+                                }
                             }
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
@@ -721,7 +765,11 @@ impl<'a> BlockChecker<'a> {
                             assign: None,
                         });
                         if let Some(t) = pending_ascription.take() {
-                            self.apply_ascription(stack, t, *sp);
+                            if !matches!(self.ctx.get(func_ty), TypeKind::Function { .. }) {
+                                self.apply_ascription(stack, t, *sp);
+                            } else {
+                                pending_ascription = Some(t);
+                            }
                         }
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
@@ -742,7 +790,11 @@ impl<'a> BlockChecker<'a> {
                             assign: None,
                         });
                         if let Some(t) = pending_ascription.take() {
-                            self.apply_ascription(stack, t, *sp);
+                            if !matches!(self.ctx.get(func_ty), TypeKind::Function { .. }) {
+                                self.apply_ascription(stack, t, *sp);
+                            } else {
+                                pending_ascription = Some(t);
+                            }
                         }
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
