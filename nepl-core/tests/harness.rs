@@ -8,13 +8,19 @@ pub fn compile_src(src: &str) -> Vec<u8> {
     let loaded = loader
         .load_inline("<test>".into(), src.to_string())
         .expect("load");
-    let artifact = compile_module(
-        loaded.module,
-        CompileOptions {
-            target: Some(CompileTarget::Wasm),
-        },
-    )
-    .expect("compile failure");
+    let artifact =
+        compile_module(loaded.module, CompileOptions { target: Some(CompileTarget::Wasm) })
+            .expect("compile failure");
+    artifact.wasm
+}
+
+/// Compile source with explicit options (uses Loader to resolve imports).
+pub fn compile_src_with_options(src: &str, options: CompileOptions) -> Vec<u8> {
+    let loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline("<test>".into(), src.to_string())
+        .expect("load");
+    let artifact = compile_module(loaded.module, options).expect("compile failure");
     artifact.wasm
 }
 

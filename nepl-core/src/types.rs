@@ -2,6 +2,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+use alloc::string::String;
 
 use crate::ast::Effect;
 
@@ -117,7 +118,15 @@ impl TypeCtx {
 
     pub fn register_named(&mut self, name: alloc::string::String, kind: TypeKind) -> TypeId {
         if let Some(existing) = self.named.get(&name) {
-            *existing
+            // upgrade placeholder Named to concrete kind
+            let eid = *existing;
+            match &self.arena[eid.0] {
+                TypeKind::Named(_) => {
+                    self.arena[eid.0] = kind;
+                }
+                _ => {}
+            }
+            eid
         } else {
             let id = TypeId(self.arena.len());
             self.arena.push(kind);

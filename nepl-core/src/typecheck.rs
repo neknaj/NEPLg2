@@ -3,6 +3,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -14,7 +15,6 @@ use crate::diagnostic::Diagnostic;
 use crate::hir::*;
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
-use alloc::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct TypeCheckResult {
@@ -239,6 +239,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                 effect,
             } = ctx.get(ty)
             {
+                if env.lookup(&f.name.name).is_some() {
+                    diagnostics.push(Diagnostic::error(
+                        "duplicate function definition",
+                        f.name.span,
+                    ));
+                    continue;
+                }
                 env.insert_global(Binding {
                     name: f.name.name.clone(),
                     ty,
@@ -506,6 +513,8 @@ impl<'a> BlockChecker<'a> {
                 Stmt::FnDef(_) => {
                     // Nested function bodies are not type-checked here
                 }
+                Stmt::StructDef(_) => {}
+                Stmt::EnumDef(_) => {}
                 Stmt::Wasm(_) => {
                     self.diagnostics.push(Diagnostic::error(
                         "wasm block is only allowed as a function body",
@@ -817,7 +826,7 @@ impl<'a> BlockChecker<'a> {
                 }
             }
 
-            if !matches!(item, PrefixItem::Pipe(_)) {
+            if !matches!(item, PrefixItem::Pipe(_) | PrefixItem::TypeAnnotation(_, _)) {
                 if let Some(val) = pipe_pending.take() {
                     // The last pushed element should be a callable (function type)
                     if let Some(top) = stack.last() {

@@ -1,7 +1,7 @@
 use nepl_core::span::FileId;
 use nepl_core::{compile_wasm, CompileOptions, CompileTarget};
 mod harness;
-use harness::run_main_i32;
+use harness::{compile_src_with_options, run_main_i32};
 
 fn compile_ok(src: &str) {
     let result = compile_wasm(
@@ -243,6 +243,37 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn pipe_with_double_type_annotation_is_ok() {
+    let src = r#"
+#entry main
+#indent 4
+
+#if[target=wasm]
+fn add <(i32,i32)->i32> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.add
+
+fn main <()->i32> ():
+    1 |> <i32> <i32> add 4
+"#;
+    compile_ok(src);
+}
+
+#[test]
+fn pipe_target_missing_after_annotation_is_error() {
+    let src = r#"
+#entry main
+#indent 4
+
+fn main <()->i32> ():
+    1 |> <i32> 2
+"#;
+    compile_err(src);
+}
+
+#[test]
 fn wasm_cannot_use_stdio() {
     let src = r#"
 #entry main
@@ -342,9 +373,13 @@ fn target_directive_sets_default_to_wasi() {
 fn main <()->()> ():
     print_str "ok"
 "#;
-    // No explicit CompileOptions target (None) should pick wasi from #target.
-    let result = compile_wasm(FileId(0), src, CompileOptions { target: None });
-    assert!(result.is_ok(), "expected success, got {:?}", result);
+    let wasm = compile_src_with_options(
+        src,
+        CompileOptions {
+            target: None,
+        },
+    );
+    assert!(!wasm.is_empty());
 }
 
 #[test]

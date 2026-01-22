@@ -76,7 +76,6 @@ pub enum Symbol {
     Set { name: Ident },
     If(Span),
     While(Span),
-    MatchKw(Span),
 }
 
 /// A block of statements (introduced by `:` or the file root).
