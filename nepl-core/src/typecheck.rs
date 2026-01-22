@@ -327,6 +327,12 @@ impl<'a> BlockChecker<'a> {
         }
 
         for stmt in &block.items {
+            // Drop stray unit between lines: [X, ()] -> [X]
+            if stack.len() == base_depth + 1 {
+                if matches!(self.ctx.get(stack.last().unwrap().ty), TypeKind::Unit) {
+                    stack.pop();
+                }
+            }
             match stmt {
                 Stmt::Expr(expr) => match self.check_prefix(expr, base_depth, &mut stack) {
                     Some((typed, dropped)) => {

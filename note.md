@@ -6,6 +6,7 @@
 - README を最新仕様（ビルトインなし／std import 前提／print_str 追加）に更新。
 - `nepl-core` HIR に文字列リテラルと string table を追加。コード生成でメモリ・データセクションを生成し、全モジュールでメモリをエクスポート。型システムに `str` を追加し、型注釈/extern シグネチャ/型推論が対応。
 - テスト: `nepl-core/tests/neplg2.rs` に string_literal_compiles を追加。既存ターゲットゲートテストを wasi/wasi包含仕様に合わせて維持。
+- `:`ブロックと`;`の仕様に合わせて型検査を修正（Unitの暗黙破棄・`;`は値を捨てるだけで式本体は維持）。`while` のWASM生成を block+loop の2段構造にし、構造化制御のラベル深さを修正。examples の while 本体を `;`付きの行末とし、最後を `()` で閉じる形に整備。
 
 # これからの作業方針
 - 文字列以外の型/命令（例: f32 演算や追加の wasm 命令）のスタック検査を拡充する場合は `parse_wasm_line`/`validate_wasm_stack` に命令効果を追加する。

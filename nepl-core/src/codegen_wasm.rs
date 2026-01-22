@@ -175,7 +175,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         maximum: None,
         memory64: false,
         shared: false,
-        page_size_log2: Some(16),
+        page_size_log2: None,
     });
 
     let mut export_section = ExportSection::new();
@@ -513,12 +513,24 @@ fn gen_expr(
             result_ty
         }
         HirExprKind::While { cond, body } => {
+            // while cond body:
+            // block  ;; break target depth=1
+            //   loop ;; continue target depth=0
+            //     cond
+            //     i32.eqz
+            //     br_if 1  ;; break
+            //     body
+            //     br 0     ;; continue
+            //   end
+            // end
+            insts.push(Instruction::Block(wasm_encoder::BlockType::Empty));
             insts.push(Instruction::Loop(wasm_encoder::BlockType::Empty));
             gen_expr(ctx, cond, name_map, strings, locals, insts, diags);
             insts.push(Instruction::I32Eqz);
-            insts.push(Instruction::BrIf(1)); // exit loop
+            insts.push(Instruction::BrIf(1));
             gen_expr(ctx, body, name_map, strings, locals, insts, diags);
             insts.push(Instruction::Br(0));
+            insts.push(Instruction::End);
             insts.push(Instruction::End);
             None
         }

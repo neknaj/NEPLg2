@@ -11,9 +11,6 @@ fn main <()*> ()> ():
     
     while lt x 5:
         print_str "count = ";
-        ;
         print_i32 x;
-        ;
         set x add x 1;
-        ;
         ();
