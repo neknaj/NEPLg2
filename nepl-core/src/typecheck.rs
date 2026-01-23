@@ -110,6 +110,42 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
         }
     }
 
+    // Register builtins (allocator / memory helpers) into the environment
+    for b in crate::builtins::builtins(&mut ctx) {
+        // insert into env
+        env.insert_global(Binding {
+            name: b.name.to_string(),
+            ty: b.ty,
+            mutable: false,
+            defined: true,
+            kind: BindingKind::Func {
+                effect: b.effect,
+                arity: func_arity(&ctx, b.ty),
+                builtin: Some(b.kind),
+            },
+        });
+
+        // add to externs so codegen imports them from the runtime module
+        if let TypeKind::Function { params, result, effect } = ctx.get(b.ty) {
+            externs.push(HirExtern {
+                module: "nepl_alloc".to_string(),
+                name: match b.name {
+                    "alloc" => "alloc".to_string(),
+                    "dealloc" => "dealloc".to_string(),
+                    "realloc" => "realloc".to_string(),
+                    "load_i32" => "load_i32".to_string(),
+                    "store_i32" => "store_i32".to_string(),
+                    _ => b.name.to_string(),
+                },
+                local_name: b.name.to_string(),
+                params: params.clone(),
+                result: result,
+                effect: b.effect,
+                span: crate::span::Span::dummy(),
+            });
+        }
+    }
+
     // Collect top-level function signatures (hoist)
     // Also hoist struct/enum definitions
     let mut pending_if: Option<bool> = None;
