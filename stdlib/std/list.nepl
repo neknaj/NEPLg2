@@ -43,10 +43,10 @@ fn push <(i32,i32)*>()> (lst, val):
 fn get <(i32,i32)->ResultI32> (lst, idx):
     let l <i32> len lst;
     if lt idx 0:
-        ResultI32::Err -1
+        ResultI32::Err 1
     :
         if lt idx l:
             let dp <i32> load_i32 add lst 8;
             ResultI32::Ok load_i32 add dp mul idx 4
         :
-            ResultI32::Err -1
+            ResultI32::Err 1

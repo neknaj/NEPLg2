@@ -671,10 +671,7 @@ fn gen_expr(
                 let tag = enum_variant_tag(ctx, scrutinee.ty, &arm.variant);
                 insts.push(Instruction::I32Const(tag as i32));
                 insts.push(Instruction::I32Eq);
-                insts.push(Instruction::If(match result_ty {
-                    Some(vt) => wasm_encoder::BlockType::Result(vt),
-                    None => wasm_encoder::BlockType::Empty,
-                }));
+                insts.push(Instruction::If(wasm_encoder::BlockType::Empty));
                 if let Some(bind) = &arm.bind_local {
                     if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm.variant) {
                         let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
@@ -835,6 +832,9 @@ fn parse_wasm_line(line: &str, locals: &LocalMap) -> Result<Vec<Instruction<'sta
     let mut insts = Vec::new();
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.is_empty() {
+        return Ok(insts);
+    }
+    if parts[0].starts_with(";;") {
         return Ok(insts);
     }
     match parts[0] {

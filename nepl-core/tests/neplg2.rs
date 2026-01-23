@@ -340,7 +340,7 @@ fn match_option_some_returns_value() {
 #import "std/option"
 #use std::option::*
 
-fn main <()->i32> ():
+fn main <()* >i32> ():
     match some 5:
         Some v:
             v
@@ -361,7 +361,7 @@ fn list_get_out_of_bounds_err() {
 #import "std/result"
 #use std::result::*
 
-fn main <()->i32> ():
+fn main <()* >i32> ():
     let lst new;
     push lst 1;
     let r get lst 10;
@@ -400,7 +400,7 @@ fn target_directive_sets_default_to_wasi() {
 #import "std/stdio"
 #use std::stdio::*
 
-fn main <()->()> ():
+fn main <()* >()> ():
     print_str "ok"
 "#;
     let wasm = compile_src_with_options(

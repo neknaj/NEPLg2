@@ -13,7 +13,7 @@
 #if[target=wasi]
 fn print_str <(str)*>()> (s):
     let iov <i32> alloc 8;
-    store_i32 iov s;
+    store_i32 iov add s 4;
     store_i32 add iov 4 len s;
     let nw <i32> alloc 4;
     store_i32 nw 0;

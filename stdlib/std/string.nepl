@@ -52,12 +52,12 @@ fn to_i32 <(str)->ResultI32> (s):
     :
         let mut i <i32> 0;
         let mut sign <i32> 1;
-        let mut acc <i32> 0;
-        let first load_u8 add s 4;
-        if eq first 45:
-            set sign -1;
-            set i 1;
-            ();
+    let mut acc <i32> 0;
+    let first load_u8 add s 4;
+    if eq first 45:
+        set sign sub 0 1;
+        set i 1;
+        ();
         while lt i l:
             let d <i32> sub load_u8 add s add 4 i 48;
             if lt d 0:

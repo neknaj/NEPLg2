@@ -186,15 +186,36 @@ impl Loader {
                     if imported_once.insert(target.clone()) {
                         let imp_mod =
                             self.load_file(&target, sm, cache, processing, imported_once)?;
-                        directives.extend(imp_mod.directives.clone());
-                        items.extend(imp_mod.root.items.clone());
+                        // Do not propagate file-scoped directives like #entry/#target/#indent
+                        for it in imp_mod.root.items.clone() {
+                            if let Stmt::Directive(Directive::Entry { .. }) = it {
+                                continue;
+                            }
+                            if let Stmt::Directive(Directive::Target { .. }) = it {
+                                continue;
+                            }
+                            if let Stmt::Directive(Directive::IndentWidth { .. }) = it {
+                                continue;
+                            }
+                            items.push(it);
+                        }
                     }
                 }
                 Stmt::Directive(Directive::Include { path, .. }) => {
                     let target = self.resolve_path(&base, path);
                     let inc_mod = self.load_file(&target, sm, cache, processing, imported_once)?;
-                    directives.extend(inc_mod.directives.clone());
-                    items.extend(inc_mod.root.items.clone());
+                    for it in inc_mod.root.items.clone() {
+                        if let Stmt::Directive(Directive::Entry { .. }) = it {
+                            continue;
+                        }
+                        if let Stmt::Directive(Directive::Target { .. }) = it {
+                            continue;
+                        }
+                        if let Stmt::Directive(Directive::IndentWidth { .. }) = it {
+                            continue;
+                        }
+                        items.push(it);
+                    }
                 }
                 _ => items.push(stmt),
             }
