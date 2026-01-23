@@ -1,19 +1,33 @@
 #indent 4
 
-#if[target=wasi]
 #extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)->i32>
 
-#if[target=wasi]
 #import "std/mem"
 #use std::mem::*
-#if[target=wasi]
 #import "std/string"
 #use std::string::*
 
-#if[target=wasi]
 fn print_str <(str)*>()> (s):
+    // iovec = { buf: i32, buf_len: i32 }
+    let iov <i32> alloc 8;
+
+    // buf = s + 4  (skip the 4-byte length header)
+    store_i32 iov add s 4;
+
+    // buf_len = string.len(s)
+    store_i32 add iov 4 len s;
+
+    // nwritten out-param (unused, but required by ABI)
+    let nwritten <i32> alloc 4;
+    store_i32 nwritten 0;
+
+    // errno = fd_write(1, &iov, 1, &nwritten)
+    let _errno <i32> fd_write 1 iov 1 nwritten;
+
+    // ignore errno for now
     ()
 
-#if[target=wasi]
 fn print_i32 <(i32)*>()> (v):
+    let s <i32> from_i32 v;
+    print_str s;
     ()

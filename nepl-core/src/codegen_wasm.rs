@@ -30,6 +30,7 @@ struct StringLower {
     offsets: Vec<u32>,
     segments: Vec<(u32, Vec<u8>)>,
     min_pages: u32,
+    heap_base: u32,
 }
 
 impl StringLower {
@@ -45,7 +46,8 @@ impl StringLower {
 fn lower_strings(strings: &[String]) -> StringLower {
     let mut offsets = Vec::new();
     let mut segments = Vec::new();
-    let mut cursor: u32 = 0;
+    // Reserve the first 4 bytes for the runtime heap pointer.
+    let mut cursor: u32 = 4;
     for s in strings {
         cursor = align_to(cursor, 4);
         offsets.push(cursor);
@@ -57,11 +59,13 @@ fn lower_strings(strings: &[String]) -> StringLower {
         segments.push((cursor, data));
         cursor = cursor.saturating_add(4 + len);
     }
-    let min_pages = ((cursor + 0xFFFF) / 0x10000).max(1);
+    let heap_base = align_to(cursor, 4);
+    let min_pages = ((heap_base + 0xFFFF) / 0x10000).max(1);
     StringLower {
         offsets,
         segments,
         min_pages,
+        heap_base,
     }
 }
 
@@ -190,6 +194,12 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     }
 
     let mut data_section = DataSection::new();
+    // Store initial heap pointer (aligned end of static data) at address 0.
+    data_section.active(
+        0,
+        &ConstExpr::i32_const(0),
+        strings.heap_base.to_le_bytes().to_vec(),
+    );
     for (offset, bytes) in &strings.segments {
         data_section.active(0, &ConstExpr::i32_const(*offset as i32), bytes.clone());
     }

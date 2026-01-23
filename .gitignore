@@ -2,3 +2,4 @@
 /dist
 /web/vendor
 /tmp
+/*.wasm

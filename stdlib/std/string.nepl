@@ -6,6 +6,8 @@
 #use std::result::*
 #import "std/option"
 #use std::option::*
+#import "std/math"
+#use std::math::*
 
 // Minimal safe string helpers (placeholders)
 

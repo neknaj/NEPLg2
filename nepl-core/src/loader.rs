@@ -25,16 +25,6 @@ impl SourceMap {
         Self { files: Vec::new() }
     }
 
-    pub fn add(&mut self, path: PathBuf, src: String) -> FileId {
-        let id = FileId(self.files.len() as u32);
-        self.files.push((path, src));
-        id
-    }
-
-    pub fn get(&self, id: FileId) -> Option<&str> {
-        self.files.get(id.0 as usize).map(|(_, s)| s.as_str())
-    }
-
     pub fn path(&self, id: FileId) -> Option<&PathBuf> {
         self.files.get(id.0 as usize).map(|(p, _)| p)
     }
@@ -67,6 +57,16 @@ impl SourceMap {
     pub fn line_str(&self, id: FileId, line: usize) -> Option<&str> {
         let src = self.get(id)?;
         src.lines().nth(line)
+    }
+
+    pub fn get(&self, id: FileId) -> Option<&str> {
+        self.files.get(id.0 as usize).map(|(_, s)| s.as_str())
+    }
+
+    pub fn add(&mut self, path: PathBuf, src: String) -> FileId {
+        let id = self.files.len() as u32;
+        self.files.push((path, src));
+        FileId(id)
     }
 }
 
@@ -186,6 +186,21 @@ impl Loader {
                     if imported_once.insert(target.clone()) {
                         let imp_mod =
                             self.load_file(&target, sm, cache, processing, imported_once)?;
+                        // Propagate non-file-scoped directives (e.g., externs) so
+                        // symbols declared in stdlib become visible to the parent
+                        // module during later compilation phases.
+                        for d in imp_mod.directives.clone() {
+                            if let Directive::Entry { .. } = d {
+                                continue;
+                            }
+                            if let Directive::Target { .. } = d {
+                                continue;
+                            }
+                            if let Directive::IndentWidth { .. } = d {
+                                continue;
+                            }
+                            directives.push(d);
+                        }
                         // Do not propagate file-scoped directives like #entry/#target/#indent
                         for it in imp_mod.root.items.clone() {
                             if let Stmt::Directive(Directive::Entry { .. }) = it {
@@ -204,6 +219,19 @@ impl Loader {
                 Stmt::Directive(Directive::Include { path, .. }) => {
                     let target = self.resolve_path(&base, path);
                     let inc_mod = self.load_file(&target, sm, cache, processing, imported_once)?;
+                    // Propagate non-file-scoped directives from included modules as well.
+                    for d in inc_mod.directives.clone() {
+                        if let Directive::Entry { .. } = d {
+                            continue;
+                        }
+                        if let Directive::Target { .. } = d {
+                            continue;
+                        }
+                        if let Directive::IndentWidth { .. } = d {
+                            continue;
+                        }
+                        directives.push(d);
+                    }
                     for it in inc_mod.root.items.clone() {
                         if let Stmt::Directive(Directive::Entry { .. }) = it {
                             continue;
