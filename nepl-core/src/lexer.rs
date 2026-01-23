@@ -32,6 +32,9 @@ pub enum TokenKind {
     PathSep,       // ::
     Dot,
     Ampersand,     // &
+    Star,          // *
+    Minus,         // -
+    Equals,        // =
 
     // literals / identifiers
     Ident(String),
@@ -442,6 +445,10 @@ impl<'a> LexState<'a> {
                     self.push_token(TokenKind::RParen, offset + i, offset + i + 1);
                     i += 1;
                 }
+                b'&' => {
+                    self.push_token(TokenKind::Ampersand, offset + i, offset + i + 1);
+                    i += 1;
+                }
                 b',' => {
                     self.push_token(TokenKind::Comma, offset + i, offset + i + 1);
                     i += 1;
@@ -472,6 +479,14 @@ impl<'a> LexState<'a> {
                     self.push_token(TokenKind::LAngle, offset + i, offset + i + 1);
                     i += 1;
                 }
+                b'.' => {
+                    self.push_token(TokenKind::Dot, offset + i, offset + i + 1);
+                    i += 1;
+                }
+                b'=' => {
+                    self.push_token(TokenKind::Equals, offset + i, offset + i + 1);
+                    i += 1;
+                }
                 b'>' => {
                     self.push_token(TokenKind::RAngle, offset + i, offset + i + 1);
                     i += 1;
@@ -487,8 +502,8 @@ impl<'a> LexState<'a> {
                         self.push_token(TokenKind::Arrow(Effect::Pure), offset + start, offset + i + 1);
                         i += 1;
                     } else {
-                        // treat solitary '-' as unknown token
-                        self.unknown(offset + start, offset + start + 1);
+                        self.push_token(TokenKind::Minus, offset + start, offset + start + 1);
+                        i = start + 1;
                     }
                 }
                 b'*' => {
@@ -506,8 +521,8 @@ impl<'a> LexState<'a> {
                         );
                         i += 1;
                     } else {
-                        // treat solitary '*' as unknown token
-                        self.unknown(offset + start, offset + start + 1);
+                        self.push_token(TokenKind::Star, offset + start, offset + start + 1);
+                        i = start + 1;
                     }
                 }
                 b'"' => {
@@ -560,14 +575,6 @@ impl<'a> LexState<'a> {
                             Span::new(self.file_id, (offset + start) as u32, (offset + i) as u32),
                         ));
                     }
-                }
-                b'.' => {
-                    self.push_token(TokenKind::Dot, offset + i, offset + i + 1);
-                    i += 1;
-                }
-                b'&' => {
-                    self.push_token(TokenKind::Ampersand, offset + i, offset + i + 1);
-                    i += 1;
                 }
                 b'0'..=b'9' => {
                     let start = i;

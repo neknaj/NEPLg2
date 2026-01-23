@@ -35,6 +35,12 @@ pub enum TypeExpr {
     },
 }
 
+impl TypeExpr {
+    pub fn span(&self) -> Span {
+        Span::dummy()
+    }
+}
+
 /// Literal values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Literal {

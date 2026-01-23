@@ -24,7 +24,6 @@ fn drop_simple_let() {
 
 fn main <()*>()>():
     let x <i32> 42;
-    ()
 "#;
     let artifact = compile_drop_test(source).expect("compilation succeeded");
     assert!(!artifact.is_empty(), "generated wasm should not be empty");
@@ -40,7 +39,6 @@ fn drop_nested_scopes() {
 fn main <()*>()>():
     let x <i32> 1;
     let y <i32> 2;
-    ()
 "#;
     let artifact = compile_drop_test(source).expect("compilation succeeded");
     assert!(!artifact.is_empty(), "generated wasm should not be empty");
@@ -63,7 +61,6 @@ fn main <()*>()>():
     else:
         let y <i32> 20;
         y
-    ()
 "#;
     let artifact = compile_drop_test(source).expect("compilation succeeded");
     assert!(!artifact.is_empty(), "generated wasm should not be empty");
@@ -80,7 +77,6 @@ fn main <()*>()>():
     let a <i32> 1;
     let b <i32> 2;
     let c <i32> 3;
-    ()
 "#;
     let artifact = compile_drop_test(source).expect("compilation succeeded");
     assert!(!artifact.is_empty(), "generated wasm should not be empty");

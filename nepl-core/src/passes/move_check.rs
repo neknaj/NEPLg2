@@ -81,7 +81,7 @@ impl MoveCheckContext {
 
     fn check_use(&mut self, name: &str, span: Span, is_copy: bool) {
         // Ignore builtins
-        if matches!(name, "if" | "while" | "let" | "set") {
+        if matches!(name, "if" | "while" | "let" | "set" | "print_i32" | "print_str") {
             return;
         }
 
@@ -93,7 +93,7 @@ impl MoveCheckContext {
             }
             Some(VarState::Moved) => {
                 self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("use of moved value: `{}`", name),
+                    alloc::format!("use of moved value: `{}` (is_copy={})", name, is_copy),
                     span,
                 ));
             }
@@ -115,6 +115,8 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
     let is_copy = match tctx.get(expr.ty) {
         crate::types::TypeKind::I32 | crate::types::TypeKind::F32 | 
         crate::types::TypeKind::Bool | crate::types::TypeKind::Unit => true,
+        crate::types::TypeKind::Reference(_, _) => true,
+        crate::types::TypeKind::Box(_) => false,
         _ => false,
     };
 
@@ -229,5 +231,6 @@ pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic>
         ctx.diagnostics.extend(f_ctx.diagnostics);
     }
     
+    ctx.diagnostics.push(Diagnostic::error("DEBUG: move_check finished", Span::dummy()));
     ctx.diagnostics
 }

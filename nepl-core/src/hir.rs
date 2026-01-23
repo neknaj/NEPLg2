@@ -15,6 +15,8 @@ pub struct HirModule {
     pub entry: Option<String>,
     pub externs: Vec<HirExtern>,
     pub string_literals: Vec<String>,
+    pub traits: Vec<HirTrait>,
+    pub impls: Vec<HirImpl>,
 }
 
 #[derive(Debug, Clone)]
@@ -134,4 +136,20 @@ pub struct HirMatchArm {
     pub variant: String,
     pub bind_local: Option<String>,
     pub body: HirExpr,
+}
+#[derive(Debug, Clone)]
+pub struct HirTrait {
+    pub name: String,
+    pub type_params: Vec<TypeId>,
+    pub methods: alloc::collections::BTreeMap<String, TypeId>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct HirImpl {
+    pub trait_name: String,
+    pub type_args: Vec<TypeId>,
+    pub target_ty: TypeId,
+    pub methods: Vec<HirFunction>,
+    pub span: Span,
 }

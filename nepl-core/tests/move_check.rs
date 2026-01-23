@@ -27,7 +27,6 @@ enum Wrapper:
 fn main <()*>()>():
     let x Wrapper::Val 1;
     let y <Wrapper> x; // x moved to y
-    ()
 "#;
     compile_move_test(source).expect("should succeed");
 }
@@ -45,7 +44,6 @@ fn main <()*>()>():
     let x Wrapper::Val 1;
     let y <Wrapper> x; // x moved to y
     let z <Wrapper> x; // error: use of moved value x
-    ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs.iter().any(|d| d.message.contains("use of moved value")));
@@ -64,11 +62,9 @@ fn main <()*>()>():
     let x Wrapper::Val 1;
     if 1:
         let y <Wrapper> x; // x moved
-        ()
     else:
         ()
     let z <Wrapper> x; // error: x moved in 'then' branch, so it's potentially moved
-    ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs.iter().any(|d| d.message.contains("use of moved value")));
@@ -87,8 +83,6 @@ fn main <()*>()>():
     let x Wrapper::Val 1;
     while 1:
         let y <Wrapper> x; // moved in first iteration
-        ()
-    ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs.iter().any(|d| d.message.contains("use of moved value")));
@@ -101,11 +95,10 @@ fn move_reassign() {
 #indent 4
 
 fn main <()*>()>():
-    let x <i32> 1;
+    let mut x <i32> 1;
     let y <i32> x; // i32 is Copy, so x is NOT moved
     set x = 2;     // still valid
     let z <i32> x; // ok
-    ()
 "#;
     compile_move_test(source).expect("should succeed");
 }

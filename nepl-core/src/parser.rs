@@ -540,6 +540,7 @@ impl Parser {
                     let _ = self.next();
                     let is_mut = self.consume_if(TokenKind::KwMut);
                     let (name, span) = self.expect_ident()?;
+                    self.consume_if(TokenKind::Equals);
                     items.push(PrefixItem::Symbol(Symbol::Let {
                         name: Ident { name, span },
                         mutable: is_mut,
@@ -548,6 +549,7 @@ impl Parser {
                 TokenKind::KwSet => {
                     let set_span = self.next().unwrap().span;
                     let (name, span) = self.expect_ident()?;
+                    self.consume_if(TokenKind::Equals);
                     items.push(PrefixItem::Symbol(Symbol::Set {
                         name: Ident { name, span },
                     }));

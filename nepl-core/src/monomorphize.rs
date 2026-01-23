@@ -55,6 +55,8 @@ pub fn monomorphize(
         entry: module.entry,
         externs: module.externs,
         string_literals: module.string_literals,
+        traits: module.traits,
+        impls: module.impls,
     }
 }
 

@@ -42,6 +42,7 @@ struct TraitInfo {
     name: String,
     type_params: Vec<TypeId>,
     methods: BTreeMap<String, TypeId>,
+    span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -148,7 +149,7 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
         });
 
         // add to externs so codegen imports them from the runtime module
-        if let TypeKind::Function { params, result, effect, type_params: _ } = ctx.get(b.ty) {
+        if let TypeKind::Function { params, result, effect: _, type_params: _ } = ctx.get(b.ty) {
             externs.push(HirExtern {
                 module: "nepl_alloc".to_string(),
                 name: match b.name {
@@ -292,6 +293,7 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                     name: t.name.name.clone(),
                     type_params: tps,
                     methods,
+                    span: t.name.span,
                 });
             }
             Stmt::Impl(_) => {} // handled in later pass
@@ -301,7 +303,7 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
 
     // Constructors for enums/structs
     for (name, info) in enums.iter() {
-        for (idx, var) in info.variants.iter().enumerate() {
+        for (_idx, var) in info.variants.iter().enumerate() {
             let params = var
                 .payload
                 .iter()
@@ -406,9 +408,9 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             }
 
             if let TypeKind::Function {
-                type_params,
+                type_params: _,
                 params,
-                result,
+                result: _,
                 effect,
             } = ctx.get(ty)
             {
@@ -478,6 +480,79 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
         }
     }
 
+    let mut final_traits = Vec::new();
+    for (name, info) in traits {
+        final_traits.push(HirTrait {
+            name,
+            type_params: info.type_params,
+            methods: info.methods,
+            span: info.span,
+        });
+    }
+
+    let mut final_impls = Vec::new();
+    pending_if = None;
+    for item in &module.root.items {
+        if let Stmt::Directive(Directive::IfTarget { target: gate, .. }) = item {
+            pending_if = Some(target_allows(gate.as_str(), target));
+            continue;
+        }
+        let allowed = pending_if.unwrap_or(true);
+        pending_if = None;
+        if !allowed {
+            continue;
+        }
+        if let Stmt::Impl(i) = item {
+            let mut impl_methods = Vec::new();
+            // We need to re-find the ImplInfo or just re-typecheck
+            // Actually, we can just check the methods here.
+            let mut f_labels = LabelEnv::new();
+            let mut tps = Vec::new();
+            for p in &i.type_params {
+                let id = ctx.fresh_var(Some(p.name.clone()));
+                f_labels.insert(p.name.clone(), id);
+                tps.push(id);
+            }
+            let target_ty = type_from_expr(&mut ctx, &mut f_labels, &i.target_ty);
+
+            for m in &i.methods {
+                let mut m_sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
+                if !tps.is_empty() {
+                    if let TypeKind::Function { params, result, effect, .. } = ctx.get(m_sig) {
+                        m_sig = ctx.function(tps.clone(), params, result, effect);
+                    }
+                }
+
+                match check_function(
+                    m,
+                    m_sig,
+                    &mut ctx,
+                    &mut env,
+                    &mut label_env,
+                    &mut strings,
+                    &enums,
+                    &structs,
+                    &mut instantiations,
+                ) {
+                    Ok(mut func) => {
+                        // Mangle method name? For now just keep it.
+                        // Ideally "Trait::method" or "Type::method"
+                        impl_methods.push(func);
+                    }
+                    Err(mut diags) => diagnostics.append(&mut diags),
+                }
+            }
+
+            final_impls.push(HirImpl {
+                trait_name: i.trait_name.as_ref().map(|tn| tn.name.clone()).unwrap_or_else(|| String::from("")),
+                type_args: tps,
+                target_ty,
+                methods: impl_methods,
+                span: i.target_ty.span(), // or some span
+            });
+        }
+    }
+
     let has_error = diagnostics
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error));
@@ -490,6 +565,8 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                 entry,
                 externs,
                 string_literals: strings.into_vec(),
+                traits: final_traits,
+                impls: final_impls,
             })
         },
         diagnostics,
@@ -721,8 +798,8 @@ impl<'a> BlockChecker<'a> {
         // extra values on the stack, drop them with a warning rather than
         // failing hard. This keeps `:`-blocks and `if` branch combinations
         // usable while preserving diagnostics for surprising code.
-        let mut final_ty: TypeId;
-        let mut value_ty: Option<TypeId>;
+        let final_ty: TypeId;
+        let value_ty: Option<TypeId>;
         if stack.len() == base_depth {
             let u = self.ctx.unit();
             final_ty = u;
@@ -827,9 +904,9 @@ impl<'a> BlockChecker<'a> {
                         if let Some(binding) = self.env.lookup(&id.name) {
                             match &binding.kind {
                                 BindingKind::Func {
-                                    effect,
-                                    arity,
-                                    builtin,
+                                    effect: _,
+                                    arity: _,
+                                    builtin: _,
                                 } => {
                                     stack.push(StackEntry {
                                         ty: binding.ty,
