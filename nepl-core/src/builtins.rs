@@ -25,7 +25,12 @@ pub fn builtins(ctx: &mut TypeCtx) -> alloc::vec::Vec<Builtin> {
     let mut v = alloc::vec::Vec::new();
 
     // alloc(size: i32) -> i32 (ptr)
-    let alloc_ty = ctx.function(alloc::vec![], alloc::vec![ctx.i32()], ctx.i32(), Effect::Impure);
+    let alloc_ty = ctx.function(
+        alloc::vec![],
+        alloc::vec![ctx.i32()],
+        ctx.i32(),
+        Effect::Impure,
+    );
     v.push(Builtin {
         name: "alloc",
         ty: alloc_ty,
@@ -34,7 +39,12 @@ pub fn builtins(ctx: &mut TypeCtx) -> alloc::vec::Vec<Builtin> {
     });
 
     // dealloc(ptr: i32, size: i32) -> ()
-    let dealloc_ty = ctx.function(alloc::vec![], alloc::vec![ctx.i32(), ctx.i32()], ctx.unit(), Effect::Impure);
+    let dealloc_ty = ctx.function(
+        alloc::vec![],
+        alloc::vec![ctx.i32(), ctx.i32()],
+        ctx.unit(),
+        Effect::Impure,
+    );
     v.push(Builtin {
         name: "dealloc",
         ty: dealloc_ty,
@@ -43,7 +53,12 @@ pub fn builtins(ctx: &mut TypeCtx) -> alloc::vec::Vec<Builtin> {
     });
 
     // realloc(ptr: i32, old: i32, new: i32) -> i32
-    let realloc_ty = ctx.function(alloc::vec![], alloc::vec![ctx.i32(), ctx.i32(), ctx.i32()], ctx.i32(), Effect::Impure);
+    let realloc_ty = ctx.function(
+        alloc::vec![],
+        alloc::vec![ctx.i32(), ctx.i32(), ctx.i32()],
+        ctx.i32(),
+        Effect::Impure,
+    );
     v.push(Builtin {
         name: "realloc",
         ty: realloc_ty,

@@ -1,6 +1,6 @@
 use nepl_core::loader::Loader;
 use nepl_core::{compile_module, CompileOptions, CompileTarget};
-use wasmi::{Engine, Extern, Linker, Module, Store, Caller};
+use wasmi::{Caller, Engine, Extern, Linker, Module, Store};
 
 /// Compile source to wasm bytes.
 pub fn compile_src(src: &str) -> Vec<u8> {
@@ -8,8 +8,13 @@ pub fn compile_src(src: &str) -> Vec<u8> {
     let loaded = loader
         .load_inline("<test>".into(), src.to_string())
         .expect("load");
-    let artifact = compile_module(loaded.module, CompileOptions { target: Some(CompileTarget::Wasm) })
-        .expect("compile failure");
+    let artifact = compile_module(
+        loaded.module,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+        },
+    )
+    .expect("compile failure");
     artifact.wasm
 }
 
@@ -44,8 +49,8 @@ pub fn run_main_i32(src: &str) -> i32 {
                     let data = mem.data(&caller);
                     let offset = ptr as usize;
                     if offset + 4 <= data.len() {
-                        let len =
-                            u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
+                        let len = u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap())
+                            as usize;
                         let start = offset + 4;
                         if start + len <= data.len() {
                             let s = std::str::from_utf8(&data[start..start + len])
@@ -59,108 +64,171 @@ pub fn run_main_i32(src: &str) -> i32 {
         .unwrap();
     // Provide simple host allocator (nepl_alloc) for tests: uses linear memory at 0: heap_ptr, 4: free_head
     linker
-        .func_wrap("nepl_alloc", "alloc", |mut caller: Caller<'_, ()>, size: i32| -> i32 {
-            let header = 8u32;
-            let size = size as u32;
-            let total = ((size + header + 7) / 8) * 8;
-            if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
-                let data = mem.data(&caller);
-                // traverse free list
-                let mut cur = if data.len() >= 8 { u32::from_le_bytes(data[4..8].try_into().unwrap()) } else { 0 };
-                let mut prev: Option<u32> = None;
-                while cur != 0 {
-                    if (cur as usize) + 8 > data.len() { break; }
-                    let blk_sz = u32::from_le_bytes(data[cur as usize..cur as usize + 4].try_into().unwrap());
-                    let next = u32::from_le_bytes(data[cur as usize + 4..cur as usize + 8].try_into().unwrap());
-                    if blk_sz >= total {
-                        // remove
-                        if let Some(p) = prev {
-                            mem.write(&mut caller, (p + 4) as usize, &next.to_le_bytes()).ok();
+        .func_wrap(
+            "nepl_alloc",
+            "alloc",
+            |mut caller: Caller<'_, ()>, size: i32| -> i32 {
+                let header = 8u32;
+                let size = size as u32;
+                let total = ((size + header + 7) / 8) * 8;
+                if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
+                    let data = mem.data(&caller);
+                    // traverse free list
+                    let mut cur = if data.len() >= 8 {
+                        u32::from_le_bytes(data[4..8].try_into().unwrap())
+                    } else {
+                        0
+                    };
+                    let mut prev: Option<u32> = None;
+                    while cur != 0 {
+                        if (cur as usize) + 8 > data.len() {
+                            break;
+                        }
+                        let blk_sz = u32::from_le_bytes(
+                            data[cur as usize..cur as usize + 4].try_into().unwrap(),
+                        );
+                        let next = u32::from_le_bytes(
+                            data[cur as usize + 4..cur as usize + 8].try_into().unwrap(),
+                        );
+                        if blk_sz >= total {
+                            // remove
+                            if let Some(p) = prev {
+                                mem.write(&mut caller, (p + 4) as usize, &next.to_le_bytes())
+                                    .ok();
+                            } else {
+                                mem.write(&mut caller, 4usize, &next.to_le_bytes()).ok();
+                            }
+                            // possibly split
+                            let remain = blk_sz - total;
+                            if remain >= 16 {
+                                let new_blk = cur + total;
+                                mem.write(&mut caller, new_blk as usize, &remain.to_le_bytes())
+                                    .ok();
+                                mem.write(&mut caller, (new_blk + 4) as usize, &next.to_le_bytes())
+                                    .ok();
+                                mem.write(&mut caller, cur as usize, &total.to_le_bytes())
+                                    .ok();
+                            }
+                            return (cur + header) as i32;
+                        }
+                        prev = Some(cur);
+                        cur = next;
+                    }
+                    // bump
+                    if data.len() < 4 {
+                        return 0;
+                    }
+                    let heap = u32::from_le_bytes(data[0..4].try_into().unwrap());
+                    let alloc_start = ((heap + 7) / 8) * 8;
+                    let new_heap = alloc_start.saturating_add(total);
+                    if new_heap as usize > data.len() {
+                        return 0;
+                    }
+                    mem.write(&mut caller, alloc_start as usize, &total.to_le_bytes())
+                        .ok();
+                    mem.write(&mut caller, 0usize, &new_heap.to_le_bytes()).ok();
+                    return (alloc_start + header) as i32;
+                }
+                0
+            },
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            "nepl_alloc",
+            "dealloc",
+            |mut caller: Caller<'_, ()>, ptr: i32, size: i32| {
+                let header = 8u32;
+                let ptr = ptr as u32;
+                let _size = size as u32;
+                if ptr < header {
+                    return;
+                }
+                if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
+                    let header_ptr = ptr - header;
+                    let data = mem.data(&caller);
+                    let cur_head = if data.len() >= 8 {
+                        u32::from_le_bytes(data[4..8].try_into().unwrap())
+                    } else {
+                        0
+                    };
+                    let sz = ((_size + header + 7) / 8 * 8) as u32;
+                    mem.write(&mut caller, header_ptr as usize, &sz.to_le_bytes())
+                        .ok();
+                    mem.write(
+                        &mut caller,
+                        (header_ptr + 4) as usize,
+                        &cur_head.to_le_bytes(),
+                    )
+                    .ok();
+                    mem.write(&mut caller, 4usize, &header_ptr.to_le_bytes())
+                        .ok();
+                }
+            },
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            "nepl_alloc",
+            "realloc",
+            |mut caller: Caller<'_, ()>, ptr: i32, old_size: i32, new_size: i32| -> i32 {
+                let header = 8u32;
+                let ptr = ptr as u32;
+                let old = old_size as u32;
+                let new = new_size as u32;
+                if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
+                    let data = mem.data(&caller);
+                    if data.len() < 4 {
+                        return 0;
+                    }
+                    let heap = u32::from_le_bytes(data[0..4].try_into().unwrap());
+                    let total_new = ((new + header + 7) / 8) * 8;
+                    let alloc_start = ((heap + 7) / 8) * 8;
+                    let new_heap = alloc_start.saturating_add(total_new);
+                    if new_heap as usize > data.len() {
+                        return 0;
+                    }
+                    mem.write(&mut caller, alloc_start as usize, &total_new.to_le_bytes())
+                        .ok();
+                    mem.write(&mut caller, 0usize, &new_heap.to_le_bytes()).ok();
+                    let new_ptr = alloc_start + header;
+                    let copy_len = core::cmp::min(old, new) as usize;
+                    if copy_len > 0 {
+                        let snapshot = mem.data(&caller).to_vec();
+                        let src = ptr as usize;
+                        let dst = new_ptr as usize;
+                        if src + copy_len <= snapshot.len() && dst + copy_len <= snapshot.len() {
+                            mem.write(&mut caller, dst, &snapshot[src..src + copy_len])
+                                .ok();
+                        }
+                    }
+                    // simplistic dealloc: push old to free list
+                    if ptr != 0 {
+                        let hdr = ptr - header;
+                        let sz = if (hdr as usize) + 4 <= mem.data(&caller).len() {
+                            u32::from_le_bytes(
+                                mem.data(&caller)[hdr as usize..hdr as usize + 4]
+                                    .try_into()
+                                    .unwrap(),
+                            )
                         } else {
-                            mem.write(&mut caller, 4usize, &next.to_le_bytes()).ok();
-                        }
-                        // possibly split
-                        let remain = blk_sz - total;
-                        if remain >= 16 {
-                            let new_blk = cur + total;
-                            mem.write(&mut caller, new_blk as usize, &remain.to_le_bytes()).ok();
-                            mem.write(&mut caller, (new_blk + 4) as usize, &next.to_le_bytes()).ok();
-                            mem.write(&mut caller, cur as usize, &total.to_le_bytes()).ok();
-                        }
-                        return (cur + header) as i32;
+                            0
+                        };
+                        let cur_head = if mem.data(&caller).len() >= 8 {
+                            u32::from_le_bytes(mem.data(&caller)[4..8].try_into().unwrap())
+                        } else {
+                            0
+                        };
+                        mem.write(&mut caller, (hdr + 4) as usize, &cur_head.to_le_bytes())
+                            .ok();
+                        mem.write(&mut caller, hdr as usize, &sz.to_le_bytes()).ok();
+                        mem.write(&mut caller, 4usize, &hdr.to_le_bytes()).ok();
                     }
-                    prev = Some(cur);
-                    cur = next;
+                    return new_ptr as i32;
                 }
-                // bump
-                if data.len() < 4 { return 0; }
-                let heap = u32::from_le_bytes(data[0..4].try_into().unwrap());
-                let alloc_start = ((heap + 7) / 8) * 8;
-                let new_heap = alloc_start.saturating_add(total);
-                if new_heap as usize > data.len() { return 0; }
-                mem.write(&mut caller, alloc_start as usize, &total.to_le_bytes()).ok();
-                mem.write(&mut caller, 0usize, &new_heap.to_le_bytes()).ok();
-                return (alloc_start + header) as i32;
-            }
-            0
-        })
-        .unwrap();
-    linker
-        .func_wrap("nepl_alloc", "dealloc", |mut caller: Caller<'_, ()>, ptr: i32, size: i32| {
-            let header = 8u32;
-            let ptr = ptr as u32;
-            let _size = size as u32;
-            if ptr < header { return; }
-            if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
-                let header_ptr = ptr - header;
-                let data = mem.data(&caller);
-                let cur_head = if data.len() >= 8 { u32::from_le_bytes(data[4..8].try_into().unwrap()) } else { 0 };
-                let sz = ((_size + header + 7) / 8 * 8) as u32;
-                mem.write(&mut caller, header_ptr as usize, &sz.to_le_bytes()).ok();
-                mem.write(&mut caller, (header_ptr + 4) as usize, &cur_head.to_le_bytes()).ok();
-                mem.write(&mut caller, 4usize, &header_ptr.to_le_bytes()).ok();
-            }
-        })
-        .unwrap();
-    linker
-        .func_wrap("nepl_alloc", "realloc", |mut caller: Caller<'_, ()>, ptr: i32, old_size: i32, new_size: i32| -> i32 {
-            let header = 8u32;
-            let ptr = ptr as u32;
-            let old = old_size as u32;
-            let new = new_size as u32;
-            if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
-                let data = mem.data(&caller);
-                if data.len() < 4 { return 0; }
-                let heap = u32::from_le_bytes(data[0..4].try_into().unwrap());
-                let total_new = ((new + header + 7) / 8) * 8;
-                let alloc_start = ((heap + 7) / 8) * 8;
-                let new_heap = alloc_start.saturating_add(total_new);
-                if new_heap as usize > data.len() { return 0; }
-                mem.write(&mut caller, alloc_start as usize, &total_new.to_le_bytes()).ok();
-                mem.write(&mut caller, 0usize, &new_heap.to_le_bytes()).ok();
-                let new_ptr = alloc_start + header;
-                let copy_len = core::cmp::min(old, new) as usize;
-                if copy_len > 0 {
-                    let snapshot = mem.data(&caller).to_vec();
-                    let src = ptr as usize;
-                    let dst = new_ptr as usize;
-                    if src + copy_len <= snapshot.len() && dst + copy_len <= snapshot.len() {
-                        mem.write(&mut caller, dst, &snapshot[src..src + copy_len]).ok();
-                    }
-                }
-                // simplistic dealloc: push old to free list
-                if ptr != 0 {
-                    let hdr = ptr - header;
-                    let sz = if (hdr as usize) + 4 <= mem.data(&caller).len() { u32::from_le_bytes(mem.data(&caller)[hdr as usize..hdr as usize +4].try_into().unwrap()) } else { 0 };
-                    let cur_head = if mem.data(&caller).len() >= 8 { u32::from_le_bytes(mem.data(&caller)[4..8].try_into().unwrap()) } else { 0 };
-                    mem.write(&mut caller, (hdr + 4) as usize, &cur_head.to_le_bytes()).ok();
-                    mem.write(&mut caller, hdr as usize, &sz.to_le_bytes()).ok();
-                    mem.write(&mut caller, 4usize, &hdr.to_le_bytes()).ok();
-                }
-                return new_ptr as i32;
-            }
-            0
-        })
+                0
+            },
+        )
         .unwrap();
     let mut store = Store::new(&engine, ());
     let instance = linker

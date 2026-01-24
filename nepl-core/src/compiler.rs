@@ -39,9 +39,7 @@ pub struct CompileOptions {
 
 impl Default for CompileOptions {
     fn default() -> Self {
-        Self {
-            target: None,
-        }
+        Self { target: None }
     }
 }
 
@@ -106,7 +104,10 @@ pub fn compile_wasm(
     }
 }
 
-fn resolve_target(module: &ast::Module, options: CompileOptions) -> Result<CompileTarget, CoreError> {
+fn resolve_target(
+    module: &ast::Module,
+    options: CompileOptions,
+) -> Result<CompileTarget, CoreError> {
     if let Some(t) = options.target {
         return Ok(t);
     }
@@ -121,11 +122,10 @@ fn resolve_target(module: &ast::Module, options: CompileOptions) -> Result<Compi
             };
             if let Some(t) = parsed {
                 if let Some((_, prev_span)) = found {
-                    diags.push(Diagnostic::error(
-                        "multiple #target directives are not allowed",
-                        *span,
-                    )
-                    .with_secondary_label(prev_span, Some("previous #target here".into())));
+                    diags.push(
+                        Diagnostic::error("multiple #target directives are not allowed", *span)
+                            .with_secondary_label(prev_span, Some("previous #target here".into())),
+                    );
                 } else {
                     found = Some((t, *span));
                 }

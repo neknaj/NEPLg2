@@ -75,19 +75,26 @@ fn execute(cli: Cli) -> Result<()> {
         }
     };
     // Auto-upgrade to WASI if stdio is imported and user did not explicitly pick wasm/wasi.
-    let has_stdio_import = load_result
-        .module
-        .directives
-        .iter()
-        .any(|d| matches!(d, nepl_core::ast::Directive::Import { path, .. } if path == "std/stdio"));
+    let has_stdio_import = load_result.module.directives.iter().any(
+        |d| matches!(d, nepl_core::ast::Directive::Import { path, .. } if path == "std/stdio"),
+    );
     let module = load_result.module;
     let source_map = load_result.source_map;
 
-    let cli_target = cli
-        .target
-        .as_deref()
-        .map(|t| if t == "wasi" { CompileTarget::Wasi } else { CompileTarget::Wasm });
-    let target_override = cli_target.or_else(|| if has_stdio_import { Some(CompileTarget::Wasi) } else { None });
+    let cli_target = cli.target.as_deref().map(|t| {
+        if t == "wasi" {
+            CompileTarget::Wasi
+        } else {
+            CompileTarget::Wasm
+        }
+    });
+    let target_override = cli_target.or_else(|| {
+        if has_stdio_import {
+            Some(CompileTarget::Wasi)
+        } else {
+            None
+        }
+    });
     let module_decl_target = module.directives.iter().find_map(|d| {
         if let nepl_core::ast::Directive::Target { target, .. } = d {
             match target.as_str() {
@@ -102,7 +109,9 @@ fn execute(cli: Cli) -> Result<()> {
     let run_target = target_override
         .or(module_decl_target)
         .unwrap_or(CompileTarget::Wasm);
-    let options = CompileOptions { target: target_override };
+    let options = CompileOptions {
+        target: target_override,
+    };
 
     match cli.emit.as_str() {
         "wasm" => {
@@ -209,8 +218,11 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
                 if (cur as usize) + 4 > data.len() {
                     break;
                 }
-                let blk_sz = u32::from_le_bytes(data[cur as usize..cur as usize + 4].try_into().unwrap());
-                let next = u32::from_le_bytes(data[cur as usize + 4..cur as usize + 8].try_into().unwrap());
+                let blk_sz =
+                    u32::from_le_bytes(data[cur as usize..cur as usize + 4].try_into().unwrap());
+                let next = u32::from_le_bytes(
+                    data[cur as usize + 4..cur as usize + 8].try_into().unwrap(),
+                );
                 if blk_sz >= total {
                     // remove from free list
                     if let Some(prev) = prev_ptr {
@@ -228,7 +240,8 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
                         let new_sz_bytes = remain.to_le_bytes();
                         mem.write(&mut caller, new_blk as usize, &new_sz_bytes).ok();
                         let new_next = next.to_le_bytes();
-                        mem.write(&mut caller, (new_blk + 4) as usize, &new_next).ok();
+                        mem.write(&mut caller, (new_blk + 4) as usize, &new_next)
+                            .ok();
                         // set allocated block size to total
                         let total_bytes = total.to_le_bytes();
                         mem.write(&mut caller, cur as usize, &total_bytes).ok();
@@ -255,7 +268,8 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
             }
             // write header size
             let total_bytes = total.to_le_bytes();
-            mem.write(&mut caller, alloc_start as usize, &total_bytes).ok();
+            mem.write(&mut caller, alloc_start as usize, &total_bytes)
+                .ok();
             // store new heap_ptr
             let nb = new_heap.to_le_bytes();
             mem.write(&mut caller, 0usize, &nb).ok();
@@ -263,27 +277,39 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
         },
     )?;
 
-    linker.func_wrap("nepl_alloc", "dealloc", |mut caller: Caller<'_, AllocState>, ptr: i32, size: i32| {
-        let header = 8u32;
-        let ptr = ptr as u32;
-        let _size = size as u32;
-        let mem = match caller.get_export("memory").and_then(|e| e.into_memory()) {
-            Some(m) => m,
-            None => return,
-        };
-        if ptr < header { return; }
-        let header_ptr = ptr - header;
-        // read current free_head
-        let data = mem.data(&caller);
-        let cur_head = if data.len() >= 8 { u32::from_le_bytes(data[4..8].try_into().unwrap()) } else { caller.data().free_head };
-        // write block header: size and next
-        let sz_bytes = ( (_size + header + 7) / 8 * 8 ).to_le_bytes();
-        mem.write(&mut caller, header_ptr as usize, &sz_bytes).ok();
-        let next_bytes = cur_head.to_le_bytes();
-        mem.write(&mut caller, (header_ptr + 4) as usize, &next_bytes).ok();
-        // update free_head in memory
-        mem.write(&mut caller, 4usize, &header_ptr.to_le_bytes()).ok();
-    })?;
+    linker.func_wrap(
+        "nepl_alloc",
+        "dealloc",
+        |mut caller: Caller<'_, AllocState>, ptr: i32, size: i32| {
+            let header = 8u32;
+            let ptr = ptr as u32;
+            let _size = size as u32;
+            let mem = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                Some(m) => m,
+                None => return,
+            };
+            if ptr < header {
+                return;
+            }
+            let header_ptr = ptr - header;
+            // read current free_head
+            let data = mem.data(&caller);
+            let cur_head = if data.len() >= 8 {
+                u32::from_le_bytes(data[4..8].try_into().unwrap())
+            } else {
+                caller.data().free_head
+            };
+            // write block header: size and next
+            let sz_bytes = ((_size + header + 7) / 8 * 8).to_le_bytes();
+            mem.write(&mut caller, header_ptr as usize, &sz_bytes).ok();
+            let next_bytes = cur_head.to_le_bytes();
+            mem.write(&mut caller, (header_ptr + 4) as usize, &next_bytes)
+                .ok();
+            // update free_head in memory
+            mem.write(&mut caller, 4usize, &header_ptr.to_le_bytes())
+                .ok();
+        },
+    )?;
 
     linker.func_wrap(
         "nepl_alloc",
@@ -300,11 +326,18 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
             let header = 8u32;
             let total_new = ((new + header + 7) / 8) * 8;
             let data = mem.data(&caller);
-            let heap_ptr = if data.len() >= 4 { u32::from_le_bytes(data[0..4].try_into().unwrap()) } else { 0 };
+            let heap_ptr = if data.len() >= 4 {
+                u32::from_le_bytes(data[0..4].try_into().unwrap())
+            } else {
+                0
+            };
             let alloc_start = ((heap_ptr + 7) / 8) * 8;
             let new_heap = alloc_start.saturating_add(total_new);
-            if new_heap as usize > data.len() { return 0; }
-            mem.write(&mut caller, alloc_start as usize, &total_new.to_le_bytes()).ok();
+            if new_heap as usize > data.len() {
+                return 0;
+            }
+            mem.write(&mut caller, alloc_start as usize, &total_new.to_le_bytes())
+                .ok();
             mem.write(&mut caller, 0usize, &new_heap.to_le_bytes()).ok();
             let new_ptr = alloc_start + header;
             // copy min(old,new)
@@ -321,11 +354,24 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
             // dealloc old
             if ptr != 0 {
                 let hdr = ptr - header;
-                let sz = if (hdr as usize) + 4 <= mem.data(&caller).len() { u32::from_le_bytes(mem.data(&caller)[hdr as usize..hdr as usize +4].try_into().unwrap()) } else { 0 };
+                let sz = if (hdr as usize) + 4 <= mem.data(&caller).len() {
+                    u32::from_le_bytes(
+                        mem.data(&caller)[hdr as usize..hdr as usize + 4]
+                            .try_into()
+                            .unwrap(),
+                    )
+                } else {
+                    0
+                };
                 let sz_bytes = sz.to_le_bytes();
                 // push to free list
-                let cur_head = if mem.data(&caller).len() >= 8 { u32::from_le_bytes(mem.data(&caller)[4..8].try_into().unwrap()) } else { caller.data().free_head };
-                mem.write(&mut caller, (hdr + 4) as usize, &cur_head.to_le_bytes()).ok();
+                let cur_head = if mem.data(&caller).len() >= 8 {
+                    u32::from_le_bytes(mem.data(&caller)[4..8].try_into().unwrap())
+                } else {
+                    caller.data().free_head
+                };
+                mem.write(&mut caller, (hdr + 4) as usize, &cur_head.to_le_bytes())
+                    .ok();
                 mem.write(&mut caller, hdr as usize, &sz_bytes).ok();
                 mem.write(&mut caller, 4usize, &hdr.to_le_bytes()).ok();
             }
@@ -338,7 +384,12 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
         linker.func_wrap(
             "wasi_snapshot_preview1",
             "fd_write",
-            |mut caller: Caller<'_, AllocState>, fd: i32, iovs: i32, iovs_len: i32, nwritten: i32| -> i32 {
+            |mut caller: Caller<'_, AllocState>,
+             fd: i32,
+             iovs: i32,
+             iovs_len: i32,
+             nwritten: i32|
+             -> i32 {
                 if fd != 1 {
                     return 8; // badf
                 }
@@ -447,7 +498,11 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) {
         eprintln!("{severity}{code_display}: {message}", message = d.message);
         eprintln!(" --> {path}:{line}:{col}", line = line + 1, col = col + 1);
         if let Some(line_str) = sm.line_str(primary.span.file_id, line) {
-            eprintln!("  {line_num:>4} | {text}", line_num = line + 1, text = line_str);
+            eprintln!(
+                "  {line_num:>4} | {text}",
+                line_num = line + 1,
+                text = line_str
+            );
             let caret_pos = col;
             eprintln!(
                 "       | {spaces}{carets}",
@@ -463,11 +518,7 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) {
                 .path(label.span.file_id)
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| "<unknown>".into());
-            let msg = label
-                .message
-                .as_ref()
-                .map(|m| m.as_str())
-                .unwrap_or("");
+            let msg = label.message.as_ref().map(|m| m.as_str()).unwrap_or("");
             eprintln!(" note: {p}:{line}:{col}: {msg}", line = l + 1, col = c + 1);
         }
         eprintln!();

@@ -8,10 +8,7 @@ use alloc::vec::Vec;
 use crate::hir::*;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-pub fn monomorphize(
-    ctx: &mut TypeCtx,
-    module: HirModule,
-) -> HirModule {
+pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
     let mut mono = Monomorphizer {
         ctx,
         funcs: BTreeMap::new(),
@@ -75,16 +72,18 @@ impl<'a> Monomorphizer<'a> {
             let mut s = name.clone();
             s.push('_');
             for (i, arg) in args.iter().enumerate() {
-                if i > 0 { s.push('_'); }
+                if i > 0 {
+                    s.push('_');
+                }
                 s.push_str(&self.ctx.type_to_string(*arg));
             }
             s
         };
 
         if !self.specialized.contains_key(&mangled) {
-             if !self.worklist.iter().any(|(n, a)| n == &name && a == &args) {
-                 self.worklist.push((name, args));
-             }
+            if !self.worklist.iter().any(|(n, a)| n == &name && a == &args) {
+                self.worklist.push((name, args));
+            }
         }
         mangled
     }
@@ -96,7 +95,9 @@ impl<'a> Monomorphizer<'a> {
             let mut s = orig_name.clone();
             s.push('_');
             for (i, arg) in args.iter().enumerate() {
-                if i > 0 { s.push('_'); }
+                if i > 0 {
+                    s.push('_');
+                }
                 s.push_str(&self.ctx.type_to_string(*arg));
             }
             s
@@ -144,7 +145,11 @@ impl<'a> Monomorphizer<'a> {
     fn substitute_expr(&mut self, expr: &mut HirExpr, mapping: &BTreeMap<TypeId, TypeId>) {
         expr.ty = self.ctx.substitute(expr.ty, mapping);
         match &mut expr.kind {
-            HirExprKind::Unit | HirExprKind::LiteralI32(_) | HirExprKind::LiteralF32(_) | HirExprKind::LiteralBool(_) | HirExprKind::LiteralStr(_) => {}
+            HirExprKind::Unit
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_) => {}
             HirExprKind::Var(_) => {}
             HirExprKind::Call { callee, args } => {
                 for arg in args {
@@ -159,7 +164,11 @@ impl<'a> Monomorphizer<'a> {
                     type_args.clear(); // Call site in WASM doesn't need type_args anymore
                 }
             }
-            HirExprKind::If { cond, then_branch, else_branch } => {
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
                 self.substitute_expr(cond, mapping);
                 self.substitute_expr(then_branch, mapping);
                 self.substitute_expr(else_branch, mapping);
@@ -174,7 +183,12 @@ impl<'a> Monomorphizer<'a> {
                     self.substitute_expr(&mut arm.body, mapping);
                 }
             }
-            HirExprKind::EnumConstruct { variant: _, type_args, payload, .. } => {
+            HirExprKind::EnumConstruct {
+                variant: _,
+                type_args,
+                payload,
+                ..
+            } => {
                 for arg in type_args.iter_mut() {
                     *arg = self.ctx.substitute(*arg, mapping);
                 }
@@ -182,7 +196,9 @@ impl<'a> Monomorphizer<'a> {
                     self.substitute_expr(p, mapping);
                 }
             }
-            HirExprKind::StructConstruct { type_args, fields, .. } => {
+            HirExprKind::StructConstruct {
+                type_args, fields, ..
+            } => {
                 for arg in type_args.iter_mut() {
                     *arg = self.ctx.substitute(*arg, mapping);
                 }
@@ -197,4 +213,3 @@ impl<'a> Monomorphizer<'a> {
         }
     }
 }
-

@@ -6,9 +6,13 @@ mod harness;
 
 fn compile_move_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let file_id = FileId(0);
-    match compile_wasm(file_id, source, CompileOptions {
-        target: Some(CompileTarget::Wasi),
-    }) {
+    match compile_wasm(
+        file_id,
+        source,
+        CompileOptions {
+            target: Some(CompileTarget::Wasi),
+        },
+    ) {
         Ok(artifact) => Ok(artifact.wasm),
         Err(nepl_core::error::CoreError::Diagnostics(ds)) => {
             for d in &ds {
@@ -54,7 +58,9 @@ fn main <()*>()>():
     let z <Wrapper> x; // error: use of moved value x
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("use of moved value")));
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("use of moved value")));
 }
 
 #[test]

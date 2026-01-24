@@ -339,9 +339,7 @@ fn valtype(kind: &TypeKind) -> Option<ValType> {
         TypeKind::Unit => None,
         TypeKind::I32 | TypeKind::Bool | TypeKind::Str => Some(ValType::I32),
         TypeKind::F32 => Some(ValType::F32),
-        TypeKind::Enum { .. } | TypeKind::Struct { .. } | TypeKind::Named(_) => {
-            Some(ValType::I32)
-        }
+        TypeKind::Enum { .. } | TypeKind::Struct { .. } | TypeKind::Named(_) => Some(ValType::I32),
         _ => None,
     }
 }
@@ -399,10 +397,16 @@ fn lower_user(
                 for (i, line) in block.lines.iter().enumerate() {
                     let kind = format!("{:?}", &line.expr.kind);
                     let ty = format!("{:?}", ctx.get(line.expr.ty));
-                    let entry = format!("line {}: kind={} ty={} drop_result={}\n", i, kind, ty, line.drop_result);
+                    let entry = format!(
+                        "line {}: kind={} ty={} drop_result={}\n",
+                        i, kind, ty, line.drop_result
+                    );
                     dump.push_str(&entry);
                 }
-                diags.push(Diagnostic::warning(format!("HIR dump for {}:\n{}", func.name, dump), func.span));
+                diags.push(Diagnostic::warning(
+                    format!("HIR dump for {}:\n{}", func.name, dump),
+                    func.span,
+                ));
             }
         }
         HirBody::Wasm(wb) => {
@@ -600,7 +604,9 @@ fn gen_expr(
             let ptr_local = locals.alloc_temp(ValType::I32);
             insts.push(Instruction::LocalTee(ptr_local));
             // store tag
-            insts.push(Instruction::I32Const(enum_variant_tag(ctx, expr.ty, variant) as i32));
+            insts.push(Instruction::I32Const(
+                enum_variant_tag(ctx, expr.ty, variant) as i32,
+            ));
             insts.push(Instruction::I32Store(MemArg {
                 offset: 0,
                 align: 2,
@@ -636,7 +642,11 @@ fn gen_expr(
             insts.push(Instruction::LocalGet(ptr_local));
             Some(ValType::I32)
         }
-        HirExprKind::StructConstruct { name: _, fields, type_args: _ } => {
+        HirExprKind::StructConstruct {
+            name: _,
+            fields,
+            type_args: _,
+        } => {
             let size = (fields.len() as i32) * 4;
             insts.push(Instruction::I32Const(size));
             if let Some(idx) = name_map.get("alloc") {
@@ -715,7 +725,8 @@ fn gen_expr(
                     None => wasm_encoder::BlockType::Empty,
                 }));
                 if let Some(bind) = &arm0.bind_local {
-                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm0.variant) {
+                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm0.variant)
+                    {
                         let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(4));
@@ -744,7 +755,8 @@ fn gen_expr(
                 // arm1 (fallback)
                 let arm1 = &arms[1];
                 if let Some(bind) = &arm1.bind_local {
-                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm1.variant) {
+                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm1.variant)
+                    {
                         let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(4));
@@ -940,10 +952,26 @@ fn parse_wasm_line(line: &str, locals: &LocalMap) -> Result<Vec<Instruction<'sta
         "i32.ne" => insts.push(Instruction::I32Ne),
         "i32.le_u" => insts.push(Instruction::I32LeU),
         "i32.ge_u" => insts.push(Instruction::I32GeU),
-        "i32.load" => insts.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 })),
-        "i32.store" => insts.push(Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 })),
-        "i32.load8_u" => insts.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 })),
-        "i32.store8" => insts.push(Instruction::I32Store8(MemArg { offset: 0, align: 0, memory_index: 0 })),
+        "i32.load" => insts.push(Instruction::I32Load(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        })),
+        "i32.store" => insts.push(Instruction::I32Store(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        })),
+        "i32.load8_u" => insts.push(Instruction::I32Load8U(MemArg {
+            offset: 0,
+            align: 0,
+            memory_index: 0,
+        })),
+        "i32.store8" => insts.push(Instruction::I32Store8(MemArg {
+            offset: 0,
+            align: 0,
+            memory_index: 0,
+        })),
         "memory.grow" => insts.push(Instruction::MemoryGrow(0)),
         "memory.size" => insts.push(Instruction::MemorySize(0)),
         "drop" => insts.push(Instruction::Drop),

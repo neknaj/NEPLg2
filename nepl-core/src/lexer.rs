@@ -31,10 +31,10 @@ pub enum TokenKind {
     Arrow(Effect), // -> (Pure) or *> (Impure)
     PathSep,       // ::
     Dot,
-    Ampersand,     // &
-    Star,          // *
-    Minus,         // -
-    Equals,        // =
+    Ampersand, // &
+    Star,      // *
+    Minus,     // -
+    Equals,    // =
 
     // literals / identifiers
     Ident(String),
@@ -499,7 +499,11 @@ impl<'a> LexState<'a> {
                         i += 1;
                     }
                     if i < bytes.len() && bytes[i] == b'>' {
-                        self.push_token(TokenKind::Arrow(Effect::Pure), offset + start, offset + i + 1);
+                        self.push_token(
+                            TokenKind::Arrow(Effect::Pure),
+                            offset + start,
+                            offset + i + 1,
+                        );
                         i += 1;
                     } else {
                         self.push_token(TokenKind::Minus, offset + start, offset + start + 1);

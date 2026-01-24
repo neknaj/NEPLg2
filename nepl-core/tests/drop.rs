@@ -6,9 +6,13 @@ mod harness;
 
 fn compile_drop_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let file_id = FileId(0);
-    match compile_wasm(file_id, source, CompileOptions {
-        target: Some(CompileTarget::Wasi),
-    }) {
+    match compile_wasm(
+        file_id,
+        source,
+        CompileOptions {
+            target: Some(CompileTarget::Wasi),
+        },
+    ) {
         Ok(artifact) => Ok(artifact.wasm),
         Err(nepl_core::error::CoreError::Diagnostics(ds)) => Err(ds),
         Err(_) => Err(Vec::new()),
@@ -82,5 +86,3 @@ fn main <()*>()>():
     let artifact = compile_drop_test(source).expect("compilation succeeded");
     assert!(!artifact.is_empty(), "generated wasm should not be empty");
 }
-
-

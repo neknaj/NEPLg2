@@ -403,12 +403,7 @@ fn target_directive_sets_default_to_wasi() {
 fn main <()* >()> ():
     print_str "ok"
 "#;
-    let wasm = compile_src_with_options(
-        src,
-        CompileOptions {
-            target: None,
-        },
-    );
+    let wasm = compile_src_with_options(src, CompileOptions { target: None });
     assert!(!wasm.is_empty());
 }
 

@@ -1,8 +1,8 @@
 #![no_std]
 extern crate alloc;
 
-use alloc::vec::Vec;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use crate::ast::Effect;
 
@@ -148,7 +148,13 @@ impl TypeCtx {
         self.named.get(name).copied()
     }
 
-    pub fn function(&mut self, type_params: Vec<TypeId>, params: Vec<TypeId>, result: TypeId, effect: Effect) -> TypeId {
+    pub fn function(
+        &mut self,
+        type_params: Vec<TypeId>,
+        params: Vec<TypeId>,
+        result: TypeId,
+        effect: Effect,
+    ) -> TypeId {
         let id = TypeId(self.arena.len());
         self.arena.push(TypeKind::Function {
             type_params,
@@ -161,7 +167,12 @@ impl TypeCtx {
 
     pub fn is_copy(&self, id: TypeId) -> bool {
         match self.get_ref(id) {
-            TypeKind::Unit | TypeKind::I32 | TypeKind::F32 | TypeKind::Bool | TypeKind::Str | TypeKind::Never => true,
+            TypeKind::Unit
+            | TypeKind::I32
+            | TypeKind::F32
+            | TypeKind::Bool
+            | TypeKind::Str
+            | TypeKind::Never => true,
             TypeKind::Reference(_, _) => true,
             TypeKind::Box(_) => false,
             TypeKind::Enum { .. } => false,
@@ -232,9 +243,7 @@ impl TypeCtx {
             (TypeKind::Unit, TypeKind::Unit) => Ok(self.unit),
             (TypeKind::I32, TypeKind::I32) => Ok(self.i32_ty),
             (TypeKind::F32, TypeKind::F32) => Ok(self.f32_ty),
-            (TypeKind::Str, TypeKind::I32) | (TypeKind::I32, TypeKind::Str) => {
-                Ok(self.i32_ty)
-            }
+            (TypeKind::Str, TypeKind::I32) | (TypeKind::I32, TypeKind::Str) => Ok(self.i32_ty),
             (TypeKind::Bool, TypeKind::Bool) => Ok(self.bool_ty),
             (TypeKind::Str, TypeKind::Str) => Ok(self.str_ty),
             (TypeKind::Never, _) => Ok(b),
@@ -274,8 +283,16 @@ impl TypeCtx {
                 Ok(a)
             }
             (
-                TypeKind::Struct { name: na, fields: fa, type_params: _ },
-                TypeKind::Struct { name: nb, fields: fb, type_params: _ },
+                TypeKind::Struct {
+                    name: na,
+                    fields: fa,
+                    type_params: _,
+                },
+                TypeKind::Struct {
+                    name: nb,
+                    fields: fb,
+                    type_params: _,
+                },
             ) => {
                 if na != nb || fa.len() != fb.len() {
                     return Err(UnifyError::Mismatch);
@@ -360,17 +377,32 @@ impl TypeCtx {
         id
     }
 
-    pub fn substitute(&mut self, ty: TypeId, mapping: &alloc::collections::BTreeMap<TypeId, TypeId>) -> TypeId {
+    pub fn substitute(
+        &mut self,
+        ty: TypeId,
+        mapping: &alloc::collections::BTreeMap<TypeId, TypeId>,
+    ) -> TypeId {
         if let Some(target) = mapping.get(&ty) {
             return *target;
         }
         match self.get(ty) {
-            TypeKind::Unit | TypeKind::I32 | TypeKind::F32 | TypeKind::Bool | TypeKind::Str | TypeKind::Never => ty,
+            TypeKind::Unit
+            | TypeKind::I32
+            | TypeKind::F32
+            | TypeKind::Bool
+            | TypeKind::Str
+            | TypeKind::Never => ty,
             TypeKind::Named(_) => ty,
             TypeKind::Var(_) => ty,
-            TypeKind::Enum { name, type_params, variants } => {
+            TypeKind::Enum {
+                name,
+                type_params,
+                variants,
+            } => {
                 let mut new_tps = Vec::new();
-                for tp in type_params { new_tps.push(self.substitute(tp, mapping)); }
+                for tp in type_params {
+                    new_tps.push(self.substitute(tp, mapping));
+                }
                 let mut new_vars = Vec::new();
                 for v in variants {
                     new_vars.push(EnumVariantInfo {
@@ -378,26 +410,53 @@ impl TypeCtx {
                         payload: v.payload.map(|p| self.substitute(p, mapping)),
                     });
                 }
-                self.store(TypeKind::Enum { name, type_params: new_tps, variants: new_vars })
+                self.store(TypeKind::Enum {
+                    name,
+                    type_params: new_tps,
+                    variants: new_vars,
+                })
             }
-            TypeKind::Struct { name, type_params, fields } => {
+            TypeKind::Struct {
+                name,
+                type_params,
+                fields,
+            } => {
                 let mut new_tps = Vec::new();
-                for tp in type_params { new_tps.push(self.substitute(tp, mapping)); }
+                for tp in type_params {
+                    new_tps.push(self.substitute(tp, mapping));
+                }
                 let mut new_fs = Vec::new();
-                for f in fields { new_fs.push(self.substitute(f, mapping)); }
-                self.store(TypeKind::Struct { name, type_params: new_tps, fields: new_fs })
+                for f in fields {
+                    new_fs.push(self.substitute(f, mapping));
+                }
+                self.store(TypeKind::Struct {
+                    name,
+                    type_params: new_tps,
+                    fields: new_fs,
+                })
             }
-            TypeKind::Function { type_params, params, result, effect } => {
+            TypeKind::Function {
+                type_params,
+                params,
+                result,
+                effect,
+            } => {
                 let mut new_tps = Vec::new();
-                for tp in type_params { new_tps.push(self.substitute(tp, mapping)); }
+                for tp in type_params {
+                    new_tps.push(self.substitute(tp, mapping));
+                }
                 let mut new_ps = Vec::new();
-                for p in params { new_ps.push(self.substitute(p, mapping)); }
+                for p in params {
+                    new_ps.push(self.substitute(p, mapping));
+                }
                 let new_r = self.substitute(result, mapping);
                 self.function(new_tps, new_ps, new_r, effect)
             }
             TypeKind::Apply { base, args } => {
                 let mut new_args = Vec::new();
-                for a in args { new_args.push(self.substitute(a, mapping)); }
+                for a in args {
+                    new_args.push(self.substitute(a, mapping));
+                }
                 let new_base = self.substitute(base, mapping);
                 self.apply(new_base, new_args)
             }
@@ -417,14 +476,16 @@ impl TypeCtx {
             TypeKind::Apply { base, args } => {
                 let base_ty = self.resolve(base);
                 match self.get(base_ty) {
-                    TypeKind::Enum { type_params, .. } | TypeKind::Struct { type_params, .. } | TypeKind::Function { type_params, .. } => {
+                    TypeKind::Enum { type_params, .. }
+                    | TypeKind::Struct { type_params, .. }
+                    | TypeKind::Function { type_params, .. } => {
                         if type_params.len() != args.len() {
-                             // This should be a diagnostic, but here we just return ty
-                             return ty;
+                            // This should be a diagnostic, but here we just return ty
+                            return ty;
                         }
                         let mut mapping = alloc::collections::BTreeMap::new();
                         for (tp, arg) in type_params.iter().zip(args.iter()) {
-                             mapping.insert(*tp, *arg);
+                            mapping.insert(*tp, *arg);
                         }
                         // We want to substitute into the base, but we need to avoid infinite recursion if base is Apply again (unlikely)
                         // Actually, substitute into the base KIND but without the type_params becoming empty.
@@ -438,46 +499,75 @@ impl TypeCtx {
                                         payload: v.payload.map(|p| self.substitute(p, &mapping)),
                                     });
                                 }
-                                self.store(TypeKind::Enum { name, type_params: Vec::new(), variants: new_vars })
+                                self.store(TypeKind::Enum {
+                                    name,
+                                    type_params: Vec::new(),
+                                    variants: new_vars,
+                                })
                             }
                             TypeKind::Struct { name, fields, .. } => {
                                 let mut new_fs = Vec::new();
-                                for f in fields { new_fs.push(self.substitute(f, &mapping)); }
-                                self.store(TypeKind::Struct { name, type_params: Vec::new(), fields: new_fs })
+                                for f in fields {
+                                    new_fs.push(self.substitute(f, &mapping));
+                                }
+                                self.store(TypeKind::Struct {
+                                    name,
+                                    type_params: Vec::new(),
+                                    fields: new_fs,
+                                })
                             }
-                            TypeKind::Function { params, result, effect, .. } => {
+                            TypeKind::Function {
+                                params,
+                                result,
+                                effect,
+                                ..
+                            } => {
                                 let mut new_ps = Vec::new();
-                                for p in params { new_ps.push(self.substitute(p, &mapping)); }
+                                for p in params {
+                                    new_ps.push(self.substitute(p, &mapping));
+                                }
                                 let new_r = self.substitute(result, &mapping);
                                 self.function(Vec::new(), new_ps, new_r, effect)
                             }
-                            _ => ty
+                            _ => ty,
                         }
                     }
-                    _ => ty
+                    _ => ty,
                 }
             }
-            _ => ty
+            _ => ty,
         }
     }
 
     pub fn instantiate(&mut self, ty: TypeId) -> (TypeId, Vec<TypeId>) {
-        if let TypeKind::Function { type_params, params, result, effect } = self.get(ty) {
-             if type_params.is_empty() {
-                 return (ty, Vec::new());
-             }
-             let mut mapping = alloc::collections::BTreeMap::new();
-             let mut fresh_args = Vec::new();
-             for tp in &type_params {
-                  let fresh = self.fresh_var(None);
-                  mapping.insert(*tp, fresh);
-                  fresh_args.push(fresh);
-             }
-             let new_params = params.iter().map(|p| self.substitute(*p, &mapping)).collect();
-             let new_result = self.substitute(result, &mapping);
-             (self.function(Vec::new(), new_params, new_result, effect), fresh_args)
+        if let TypeKind::Function {
+            type_params,
+            params,
+            result,
+            effect,
+        } = self.get(ty)
+        {
+            if type_params.is_empty() {
+                return (ty, Vec::new());
+            }
+            let mut mapping = alloc::collections::BTreeMap::new();
+            let mut fresh_args = Vec::new();
+            for tp in &type_params {
+                let fresh = self.fresh_var(None);
+                mapping.insert(*tp, fresh);
+                fresh_args.push(fresh);
+            }
+            let new_params = params
+                .iter()
+                .map(|p| self.substitute(*p, &mapping))
+                .collect();
+            let new_result = self.substitute(result, &mapping);
+            (
+                self.function(Vec::new(), new_params, new_result, effect),
+                fresh_args,
+            )
         } else {
-             (ty, Vec::new())
+            (ty, Vec::new())
         }
     }
 
@@ -498,7 +588,9 @@ impl TypeCtx {
                 let mut s = self.type_to_string(base);
                 s.push('_');
                 for (i, arg) in args.iter().enumerate() {
-                    if i > 0 { s.push('_'); }
+                    if i > 0 {
+                        s.push('_');
+                    }
                     s.push_str(&self.type_to_string(*arg));
                 }
                 s
@@ -509,7 +601,11 @@ impl TypeCtx {
                 s
             }
             TypeKind::Reference(inner, is_mut) => {
-                let mut s = if is_mut { String::from("refmut_") } else { String::from("ref_") };
+                let mut s = if is_mut {
+                    String::from("refmut_")
+                } else {
+                    String::from("ref_")
+                };
                 s.push_str(&self.type_to_string(inner));
                 s
             }

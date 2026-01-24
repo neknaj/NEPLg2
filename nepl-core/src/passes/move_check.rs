@@ -1,15 +1,15 @@
 #![no_std]
 extern crate alloc;
 
+use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::vec;
-use alloc::boxed::Box;
+use alloc::vec::Vec;
 
+use crate::diagnostic::Diagnostic;
 use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirModule};
 use crate::span::Span;
-use crate::diagnostic::Diagnostic;
 use crate::types::TypeId;
 
 /// Tracks ownership state of variables.
@@ -57,12 +57,15 @@ impl MoveCheckContext {
     }
 
     fn declare_var(&mut self, name: String) {
-        self.var_stacks.entry(name.clone()).or_default().push(VarState::Valid);
+        self.var_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(VarState::Valid);
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name);
         }
     }
-    
+
     // For function params
     fn declare_param(&mut self, name: String) {
         self.declare_var(name);
@@ -125,68 +128,72 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
 
     match &expr.kind {
         HirExprKind::Var(name) => {
-             if name == "x" {
-                 // println!("DEBUG: checking x at {:?}, state is {:?}", expr.span, ctx.get_state(name));
-             }
-             ctx.check_use(name, expr.span, is_copy);
+            if name == "x" {
+                // println!("DEBUG: checking x at {:?}, state is {:?}", expr.span, ctx.get_state(name));
+            }
+            ctx.check_use(name, expr.span, is_copy);
         }
-        HirExprKind::Call { callee, args } => {
-            match callee {
-                FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "if" => {
-                    if args.len() == 3 {
-                        visit_expr(&args[0], ctx, tctx);
-                        
-                        let start_vars = ctx.var_stacks.clone();
-                        visit_expr(&args[1], ctx, tctx);
-                        let then_vars = ctx.var_stacks.clone();
-                        
-                        ctx.var_stacks = start_vars.clone();
-                        visit_expr(&args[2], ctx, tctx);
-                        let else_vars = ctx.var_stacks.clone();
-                        
-                        let keys: Vec<_> = ctx.var_stacks.keys().cloned().collect();
-                        for name in keys {
-                            let start_state = get_top(&start_vars, &name).unwrap_or(VarState::Valid);
-                            let then_state = get_top(&then_vars, &name).unwrap_or(start_state);
-                            let else_state = get_top(&else_vars, &name).unwrap_or(start_state);
-                            
-                            let merged = match (then_state, else_state) {
-                                (VarState::Valid, VarState::Valid) => VarState::Valid,
-                                (VarState::Moved, VarState::Moved) => VarState::Moved,
-                                _ => VarState::PossiblyMoved,
-                            };
-                            ctx.set_state(&name, merged);
-                        }
+        HirExprKind::Call { callee, args } => match callee {
+            FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "if" => {
+                if args.len() == 3 {
+                    visit_expr(&args[0], ctx, tctx);
+
+                    let start_vars = ctx.var_stacks.clone();
+                    visit_expr(&args[1], ctx, tctx);
+                    let then_vars = ctx.var_stacks.clone();
+
+                    ctx.var_stacks = start_vars.clone();
+                    visit_expr(&args[2], ctx, tctx);
+                    let else_vars = ctx.var_stacks.clone();
+
+                    let keys: Vec<_> = ctx.var_stacks.keys().cloned().collect();
+                    for name in keys {
+                        let start_state = get_top(&start_vars, &name).unwrap_or(VarState::Valid);
+                        let then_state = get_top(&then_vars, &name).unwrap_or(start_state);
+                        let else_state = get_top(&else_vars, &name).unwrap_or(start_state);
+
+                        let merged = match (then_state, else_state) {
+                            (VarState::Valid, VarState::Valid) => VarState::Valid,
+                            (VarState::Moved, VarState::Moved) => VarState::Moved,
+                            _ => VarState::PossiblyMoved,
+                        };
+                        ctx.set_state(&name, merged);
                     }
-                }
-                FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "while" => {
-                    if args.len() == 2 {
-                        visit_expr(&args[0], ctx, tctx);
-                        
-                        let start_vars = ctx.var_stacks.clone();
-                        visit_expr(&args[1], ctx, tctx);
-                        
-                        let keys: Vec<_> = ctx.var_stacks.keys().cloned().collect();
-                        for name in keys {
-                            let start_state = get_top(&start_vars, &name).unwrap_or(VarState::Valid);
-                            let end_state = ctx.get_state(&name).unwrap_or(start_state);
-                            if end_state != start_state && start_state == VarState::Valid {
-                                ctx.set_state(&name, VarState::PossiblyMoved);
-                                ctx.diagnostics.push(Diagnostic::error(
-                                    alloc::format!("potentially moved value: `{}`", name),
-                                    args[1].span,
-                                ));
-                            }
-                        }
-                        visit_expr(&args[0], ctx, tctx);
-                    }
-                }
-                _ => {
-                    for arg in args { visit_expr(arg, ctx, tctx); }
                 }
             }
-        }
-        HirExprKind::If { cond, then_branch, else_branch } => {
+            FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "while" => {
+                if args.len() == 2 {
+                    visit_expr(&args[0], ctx, tctx);
+
+                    let start_vars = ctx.var_stacks.clone();
+                    visit_expr(&args[1], ctx, tctx);
+
+                    let keys: Vec<_> = ctx.var_stacks.keys().cloned().collect();
+                    for name in keys {
+                        let start_state = get_top(&start_vars, &name).unwrap_or(VarState::Valid);
+                        let end_state = ctx.get_state(&name).unwrap_or(start_state);
+                        if end_state != start_state && start_state == VarState::Valid {
+                            ctx.set_state(&name, VarState::PossiblyMoved);
+                            ctx.diagnostics.push(Diagnostic::error(
+                                alloc::format!("potentially moved value: `{}`", name),
+                                args[1].span,
+                            ));
+                        }
+                    }
+                    visit_expr(&args[0], ctx, tctx);
+                }
+            }
+            _ => {
+                for arg in args {
+                    visit_expr(arg, ctx, tctx);
+                }
+            }
+        },
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
             visit_expr(cond, ctx, tctx);
             let start_vars = ctx.var_stacks.clone();
             visit_expr(then_branch, ctx, tctx);
@@ -194,7 +201,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             ctx.var_stacks = start_vars.clone();
             visit_expr(else_branch, ctx, tctx);
             let else_vars = ctx.var_stacks.clone();
-            
+
             let keys: Vec<_> = ctx.var_stacks.keys().cloned().collect();
             for name in keys {
                 let start_state = get_top(&start_vars, &name).unwrap_or(VarState::Valid);
@@ -231,12 +238,14 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             let start_vars = ctx.var_stacks.clone();
             let mut branch_states = Vec::new();
             for arm in arms {
-                 ctx.var_stacks = start_vars.clone();
-                 ctx.push_scope();
-                 if let Some(bind) = &arm.bind_local { ctx.declare_var(bind.clone()); }
-                 visit_expr(&arm.body, ctx, tctx);
-                 ctx.pop_scope();
-                 branch_states.push(ctx.var_stacks.clone());
+                ctx.var_stacks = start_vars.clone();
+                ctx.push_scope();
+                if let Some(bind) = &arm.bind_local {
+                    ctx.declare_var(bind.clone());
+                }
+                visit_expr(&arm.body, ctx, tctx);
+                ctx.pop_scope();
+                branch_states.push(ctx.var_stacks.clone());
             }
             let keys: Vec<_> = ctx.var_stacks.keys().cloned().collect();
             for name in keys {
@@ -244,13 +253,22 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 let mut all_valid = true;
                 let mut all_moved = true;
                 for branch in &branch_states {
-                     match get_top(branch, &name).unwrap_or(start_state) {
-                         VarState::Valid => all_moved = false,
-                         VarState::Moved => all_valid = false,
-                         _ => { all_valid = false; all_moved = false; }
-                     }
+                    match get_top(branch, &name).unwrap_or(start_state) {
+                        VarState::Valid => all_moved = false,
+                        VarState::Moved => all_valid = false,
+                        _ => {
+                            all_valid = false;
+                            all_moved = false;
+                        }
+                    }
                 }
-                let merged = if all_valid { VarState::Valid } else if all_moved { VarState::Moved } else { VarState::PossiblyMoved };
+                let merged = if all_valid {
+                    VarState::Valid
+                } else if all_moved {
+                    VarState::Moved
+                } else {
+                    VarState::PossiblyMoved
+                };
                 ctx.set_state(&name, merged);
             }
         }
@@ -260,8 +278,8 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
         //     ctx.declare_var(name.clone());
         // }
         HirExprKind::Set { value, name } => {
-             visit_expr(value, ctx, tctx);
-             ctx.set_state(name, VarState::Valid);
+            visit_expr(value, ctx, tctx);
+            ctx.set_state(name, VarState::Valid);
         }
         HirExprKind::Let { name, value, .. } => {
             visit_expr(value, ctx, tctx);
@@ -271,10 +289,14 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             ctx.set_state(name, VarState::Valid);
         }
         HirExprKind::StructConstruct { fields, .. } => {
-            for f in fields { visit_expr(f, ctx, tctx); }
+            for f in fields {
+                visit_expr(f, ctx, tctx);
+            }
         }
         HirExprKind::EnumConstruct { payload, .. } => {
-            if let Some(p) = payload { visit_expr(p, ctx, tctx); }
+            if let Some(p) = payload {
+                visit_expr(p, ctx, tctx);
+            }
         }
         _ => {}
     }
@@ -286,20 +308,20 @@ fn get_top(map: &BTreeMap<String, Vec<VarState>>, name: &str) -> Option<VarState
 
 pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic> {
     let mut ctx = MoveCheckContext::new();
-    
+
     for func in &module.functions {
         let mut f_ctx = MoveCheckContext::new();
         for param in &func.params {
             f_ctx.declare_param(param.name.clone());
         }
-        
+
         match &func.body {
-             crate::hir::HirBody::Block(b) => visit_block(b, &mut f_ctx, types),
-             _ => {}
+            crate::hir::HirBody::Block(b) => visit_block(b, &mut f_ctx, types),
+            _ => {}
         }
-        
-    ctx.diagnostics.extend(f_ctx.diagnostics);
+
+        ctx.diagnostics.extend(f_ctx.diagnostics);
     }
-    
+
     ctx.diagnostics
 }

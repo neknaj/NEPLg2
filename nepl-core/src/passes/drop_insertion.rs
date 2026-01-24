@@ -10,7 +10,7 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 /// Insert automatic `drop` calls at end of scopes and on early returns.
-/// 
+///
 /// This pass walks the HIR and inserts `Drop` expressions to deallocate
 /// heap-owned values at scope boundaries. The pass operates lexically:
 /// - At the end of a block, drops are inserted for all live bindings.
@@ -101,7 +101,11 @@ fn insert_drops_in_block(block: &mut HirBlock, ctx: &mut DropInsertionContext) {
 
 fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext) {
     match &mut expr.kind {
-        HirExprKind::If { cond, then_branch, else_branch } => {
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
             // Process condition.
             insert_drops_in_expr(cond, ctx);
 
@@ -147,22 +151,35 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext) {
                                     kind: HirExprKind::Drop { name: var.clone() },
                                     span: arm.body.span,
                                 };
-                                b.lines.push(HirLine { expr: drop_expr, drop_result: true });
+                                b.lines.push(HirLine {
+                                    expr: drop_expr,
+                                    drop_result: true,
+                                });
                             }
                         }
                         _ => {
                             // Replace the arm body with a block containing the
                             // original expression followed by the drops.
                             let original = arm.body.clone();
-                            let mut new_block = HirBlock { lines: Vec::new(), ty: ctx.unit_ty, span: original.span };
-                            new_block.lines.push(HirLine { expr: original, drop_result: false });
+                            let mut new_block = HirBlock {
+                                lines: Vec::new(),
+                                ty: ctx.unit_ty,
+                                span: original.span,
+                            };
+                            new_block.lines.push(HirLine {
+                                expr: original,
+                                drop_result: false,
+                            });
                             for var in scope_vars.iter().rev() {
                                 let drop_expr = HirExpr {
                                     ty: ctx.unit_ty,
                                     kind: HirExprKind::Drop { name: var.clone() },
                                     span: arm.body.span,
                                 };
-                                new_block.lines.push(HirLine { expr: drop_expr, drop_result: true });
+                                new_block.lines.push(HirLine {
+                                    expr: drop_expr,
+                                    drop_result: true,
+                                });
                             }
                             arm.body.kind = HirExprKind::Block(new_block);
                         }

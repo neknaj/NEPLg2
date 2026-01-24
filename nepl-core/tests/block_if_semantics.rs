@@ -91,7 +91,6 @@ fn main <()->i32> ():
     assert_eq!(v, 11);
 }
 
-
 #[test]
 fn multiple_semicolons_on_line_allowed() {
     let src = r#"

@@ -149,7 +149,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
         });
 
         // add to externs so codegen imports them from the runtime module
-        if let TypeKind::Function { params, result, effect: _, type_params: _ } = ctx.get(b.ty) {
+        if let TypeKind::Function {
+            params,
+            result,
+            effect: _,
+            type_params: _,
+        } = ctx.get(b.ty)
+        {
             externs.push(HirExtern {
                 module: "nepl_alloc".to_string(),
                 name: match b.name {
@@ -185,10 +191,7 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
         match item {
             Stmt::EnumDef(e) => {
                 if enums.contains_key(&e.name.name) {
-                    diagnostics.push(Diagnostic::error(
-                        "duplicate enum definition",
-                        e.name.span,
-                    ));
+                    diagnostics.push(Diagnostic::error("duplicate enum definition", e.name.span));
                     continue;
                 }
                 if env.lookup(&e.name.name).is_some() || structs.contains_key(&e.name.name) {
@@ -286,15 +289,18 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                 }
                 let mut methods = BTreeMap::new();
                 for m in &t.methods {
-                     let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
-                     methods.insert(m.name.name.clone(), sig);
+                    let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
+                    methods.insert(m.name.name.clone(), sig);
                 }
-                traits.insert(t.name.name.clone(), TraitInfo {
-                    name: t.name.name.clone(),
-                    type_params: tps,
-                    methods,
-                    span: t.name.span,
-                });
+                traits.insert(
+                    t.name.name.clone(),
+                    TraitInfo {
+                        name: t.name.name.clone(),
+                        type_params: tps,
+                        methods,
+                        span: t.name.span,
+                    },
+                );
             }
             Stmt::Impl(_) => {} // handled in later pass
             _ => {}
@@ -304,13 +310,14 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
     // Constructors for enums/structs
     for (name, info) in enums.iter() {
         for (_idx, var) in info.variants.iter().enumerate() {
-            let params = var
-                .payload
-                .iter()
-                .copied()
-                .collect::<Vec<TypeId>>();
+            let params = var.payload.iter().copied().collect::<Vec<TypeId>>();
             // 4 arguments: type_params, params, result, effect
-            let func_ty = ctx.function(info.type_params.clone(), params.clone(), info.ty, Effect::Pure);
+            let func_ty = ctx.function(
+                info.type_params.clone(),
+                params.clone(),
+                info.ty,
+                Effect::Pure,
+            );
             let vname = format!("{}::{}", name, var.name);
             env.insert_global(Binding {
                 name: vname.clone(),
@@ -350,11 +357,11 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             }
             let target_ty = type_from_expr(&mut ctx, &mut f_labels, &i.target_ty);
             let trait_name = i.trait_name.as_ref().map(|tn| tn.name.clone());
-            
+
             let mut methods = BTreeMap::new();
             for m in &i.methods {
-                 let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
-                 methods.insert(m.name.name.clone(), (m.name.name.clone(), sig));
+                let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
+                methods.insert(m.name.name.clone(), (m.name.name.clone(), sig));
             }
             impls.push(ImplInfo {
                 trait_name,
@@ -364,7 +371,12 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
         }
     }
     for (name, info) in structs.iter() {
-        let func_ty = ctx.function(info.type_params.clone(), info.fields.clone(), info.ty, Effect::Pure);
+        let func_ty = ctx.function(
+            info.type_params.clone(),
+            info.fields.clone(),
+            info.ty,
+            Effect::Pure,
+        );
         env.insert_global(Binding {
             name: name.clone(),
             ty: func_ty,
@@ -402,7 +414,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             let mut ty = type_from_expr(&mut ctx, &mut f_labels, &f.signature);
             // If it's a function type, we need to inject the type parameters
             if !tps.is_empty() {
-                if let TypeKind::Function { params, result, effect, .. } = ctx.get(ty) {
+                if let TypeKind::Function {
+                    params,
+                    result,
+                    effect,
+                    ..
+                } = ctx.get(ty)
+                {
                     ty = ctx.function(tps, params, result, effect);
                 }
             }
@@ -525,7 +543,13 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             for m in &i.methods {
                 let mut m_sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
                 if !tps.is_empty() {
-                    if let TypeKind::Function { params, result, effect, .. } = ctx.get(m_sig) {
+                    if let TypeKind::Function {
+                        params,
+                        result,
+                        effect,
+                        ..
+                    } = ctx.get(m_sig)
+                    {
                         m_sig = ctx.function(tps.clone(), params, result, effect);
                     }
                 }
@@ -551,7 +575,11 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
             }
 
             final_impls.push(HirImpl {
-                trait_name: i.trait_name.as_ref().map(|tn| tn.name.clone()).unwrap_or_else(|| String::from("")),
+                trait_name: i
+                    .trait_name
+                    .as_ref()
+                    .map(|tn| tn.name.clone())
+                    .unwrap_or_else(|| String::from("")),
                 type_args: tps,
                 target_ty,
                 methods: impl_methods,
@@ -719,7 +747,9 @@ impl<'a> BlockChecker<'a> {
 
         // Hoist let (non-mut) and nested fn signatures
         for stmt in &block.items {
-            if let Stmt::Expr(PrefixExpr { items, .. }) | Stmt::ExprSemi(PrefixExpr { items, .. }, _) = stmt {
+            if let Stmt::Expr(PrefixExpr { items, .. })
+            | Stmt::ExprSemi(PrefixExpr { items, .. }, _) = stmt
+            {
                 if let Some(PrefixItem::Symbol(Symbol::Let {
                     name,
                     mutable: false,
@@ -769,7 +799,10 @@ impl<'a> BlockChecker<'a> {
         }
 
         // Find the last expression statement index (it determines the block result)
-        let last_expr_idx = block.items.iter().rposition(|s| matches!(s, Stmt::Expr(_) | Stmt::ExprSemi(_, _)));
+        let last_expr_idx = block
+            .items
+            .iter()
+            .rposition(|s| matches!(s, Stmt::Expr(_) | Stmt::ExprSemi(_, _)));
 
         for (idx, stmt) in block.items.iter().enumerate() {
             // Drop stray unit between lines: [X, ()] -> [X]
@@ -809,7 +842,10 @@ impl<'a> BlockChecker<'a> {
                                 }
                             }
 
-                            lines.push(HirLine { expr: typed, drop_result });
+                            lines.push(HirLine {
+                                expr: typed,
+                                drop_result,
+                            });
                         }
                         None => {}
                     }
@@ -910,7 +946,9 @@ impl<'a> BlockChecker<'a> {
             stack: &mut Vec<StackEntry>,
             pending: &mut Option<(TypeId, usize)>,
         ) {
-            let Some((target_ty, base_len)) = *pending else { return };
+            let Some((target_ty, base_len)) = *pending else {
+                return;
+            };
             // The next expression is complete exactly when the stack returns to base_len + 1
             if stack.len() == base_len + 1 {
                 let top = stack.last().unwrap();
@@ -967,25 +1005,25 @@ impl<'a> BlockChecker<'a> {
                                             ty: binding.ty,
                                             kind: HirExprKind::Var(id.name.clone()),
                                             span: id.span,
-                                },
-                                assign: None,
-                            });
-                            // defer applying ascription until the expression is complete
-                            last_expr = Some(stack.last().unwrap().expr.clone());
-                        }
-                        BindingKind::Var => {
-                            stack.push(StackEntry {
-                                ty: binding.ty,
+                                        },
+                                        assign: None,
+                                    });
+                                    // defer applying ascription until the expression is complete
+                                    last_expr = Some(stack.last().unwrap().expr.clone());
+                                }
+                                BindingKind::Var => {
+                                    stack.push(StackEntry {
+                                        ty: binding.ty,
                                         expr: HirExpr {
                                             ty: binding.ty,
                                             kind: HirExprKind::Var(id.name.clone()),
                                             span: id.span,
-                                },
-                                assign: None,
-                            });
-                            // defer applying ascription until the expression is complete
-                            last_expr = Some(stack.last().unwrap().expr.clone());
-                        }
+                                        },
+                                        assign: None,
+                                    });
+                                    // defer applying ascription until the expression is complete
+                                    last_expr = Some(stack.last().unwrap().expr.clone());
+                                }
                             }
                         } else {
                             self.diagnostics
@@ -1009,7 +1047,9 @@ impl<'a> BlockChecker<'a> {
                             });
                             t
                         };
-                        let func_ty = self.ctx.function(Vec::new(), vec![ty], self.ctx.unit(), Effect::Pure);
+                        let func_ty =
+                            self.ctx
+                                .function(Vec::new(), vec![ty], self.ctx.unit(), Effect::Pure);
                         stack.push(StackEntry {
                             ty: func_ty,
                             expr: HirExpr {
@@ -1024,7 +1064,11 @@ impl<'a> BlockChecker<'a> {
                     }
                     Symbol::Set { name } => {
                         // Resolve set against current scope first, then outer scopes.
-                        if let Some(binding) = self.env.lookup_current(&name.name).or_else(|| self.env.lookup(&name.name)) {
+                        if let Some(binding) = self
+                            .env
+                            .lookup_current(&name.name)
+                            .or_else(|| self.env.lookup(&name.name))
+                        {
                             if !binding.mutable {
                                 self.diagnostics.push(Diagnostic::error(
                                     "cannot set immutable variable",
@@ -1144,16 +1188,13 @@ impl<'a> BlockChecker<'a> {
                         continue;
                     }
                     if stack.len() == base_depth {
-                        self.diagnostics.push(Diagnostic::error(
-                            "pipe requires a value on the stack",
-                            *sp,
-                        ));
+                        self.diagnostics
+                            .push(Diagnostic::error("pipe requires a value on the stack", *sp));
                         continue;
                     }
                     pipe_pending = stack.pop();
                     last_expr = pipe_pending.as_ref().map(|se| se.expr.clone());
                 }
-                
             }
 
             if !matches!(item, PrefixItem::Pipe(_) | PrefixItem::TypeAnnotation(_, _)) {
@@ -1294,15 +1335,11 @@ impl<'a> BlockChecker<'a> {
             let mut result_ty: Option<TypeId> = None;
             for arm in &m.arms {
                 if !seen.insert(arm.variant.name.clone()) {
-                    self.diagnostics.push(Diagnostic::error(
-                        "duplicate match arm",
-                        arm.variant.span,
-                    ));
+                    self.diagnostics
+                        .push(Diagnostic::error("duplicate match arm", arm.variant.span));
                     continue;
                 }
-                let var_info = variants
-                    .iter()
-                    .find(|v| v.name == arm.variant.name);
+                let var_info = variants.iter().find(|v| v.name == arm.variant.name);
                 if var_info.is_none() {
                     self.diagnostics.push(Diagnostic::error(
                         "unknown enum variant in match",
@@ -1355,10 +1392,8 @@ impl<'a> BlockChecker<'a> {
             // exhaustiveness
             for v in variants {
                 if !seen.contains(&v.name) {
-                    self.diagnostics.push(Diagnostic::error(
-                        "non-exhaustive match",
-                        m.span,
-                    ));
+                    self.diagnostics
+                        .push(Diagnostic::error("non-exhaustive match", m.span));
                     break;
                 }
             }
@@ -1406,41 +1441,89 @@ impl<'a> BlockChecker<'a> {
                     if id.name == "then" {
                         // drop leading marker and convert remaining items into block
                         let mut items = e.items;
-                        if !items.is_empty() { items.remove(0); }
+                        if !items.is_empty() {
+                            items.remove(0);
+                        }
                         if items.len() == 1 {
                             if let PrefixItem::Block(bb, _) = items.remove(0) {
                                 bb
                             } else {
-                                Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
+                                Block {
+                                    items: alloc::vec![Stmt::Expr(PrefixExpr {
+                                        items,
+                                        trailing_semis: 0,
+                                        trailing_semi_span: None,
+                                        span: e.span
+                                    })],
+                                    span: e.span,
+                                }
                             }
                         } else {
-                            Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
+                            Block {
+                                items: alloc::vec![Stmt::Expr(PrefixExpr {
+                                    items,
+                                    trailing_semis: 0,
+                                    trailing_semi_span: None,
+                                    span: e.span
+                                })],
+                                span: e.span,
+                            }
                         }
                     } else {
-                        Block { items: alloc::vec![Stmt::Expr(e)], span: b.span }
+                        Block {
+                            items: alloc::vec![Stmt::Expr(e)],
+                            span: b.span,
+                        }
                     }
                 } else {
-                    Block { items: alloc::vec![Stmt::Expr(e)], span: b.span }
+                    Block {
+                        items: alloc::vec![Stmt::Expr(e)],
+                        span: b.span,
+                    }
                 }
             } else {
-                Block { items: then_items, span: b.span }
+                Block {
+                    items: then_items,
+                    span: b.span,
+                }
             }
         } else {
-            Block { items: then_items, span: b.span }
+            Block {
+                items: then_items,
+                span: b.span,
+            }
         };
 
         let else_block = match else_stmt {
             Stmt::Expr(e) => {
                 let mut items = e.items;
-                if !items.is_empty() { items.remove(0); }
+                if !items.is_empty() {
+                    items.remove(0);
+                }
                 if items.len() == 1 {
                     if let PrefixItem::Block(bb, _) = items.remove(0) {
                         bb
                     } else {
-                        Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
+                        Block {
+                            items: alloc::vec![Stmt::Expr(PrefixExpr {
+                                items,
+                                trailing_semis: 0,
+                                trailing_semi_span: None,
+                                span: e.span
+                            })],
+                            span: e.span,
+                        }
                     }
                 } else {
-                    Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
+                    Block {
+                        items: alloc::vec![Stmt::Expr(PrefixExpr {
+                            items,
+                            trailing_semis: 0,
+                            trailing_semi_span: None,
+                            span: e.span
+                        })],
+                        span: e.span,
+                    }
                 }
             }
             _ => return None,
@@ -1628,9 +1711,7 @@ impl<'a> BlockChecker<'a> {
                         // Enum/struct constructors
                         if let Some((enm, var)) = parse_variant_name(name) {
                             if let Some(info) = self.enums.get(enm) {
-                                if let Some(vinfo) =
-                                    info.variants.iter().find(|v| v.name == var)
-                                {
+                                if let Some(vinfo) = info.variants.iter().find(|v| v.name == var) {
                                     // arity check
                                     if vinfo.payload.is_some() && args.len() != 1 {
                                         self.diagnostics.push(Diagnostic::error(
@@ -1723,7 +1804,8 @@ impl<'a> BlockChecker<'a> {
                         } else {
                             // Register instantiation for monomorphization
                             if !type_args.is_empty() {
-                                self.instantiations.entry(name.clone())
+                                self.instantiations
+                                    .entry(name.clone())
                                     .or_insert_with(Vec::new)
                                     .push(type_args.clone());
                             }

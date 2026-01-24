@@ -6,8 +6,8 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::string::ToString;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
@@ -201,7 +201,11 @@ impl Parser {
             _ => {
                 let expr = self.parse_prefix_expr()?;
                 // semicolons are collected into PrefixExpr.trailing_semis
-                let semi_span = if expr.trailing_semis > 0 { expr.trailing_semi_span } else { None };
+                let semi_span = if expr.trailing_semis > 0 {
+                    expr.trailing_semi_span
+                } else {
+                    None
+                };
                 if expr.trailing_semis > 0 {
                     Some(Stmt::ExprSemi(expr, semi_span))
                 } else {
@@ -219,8 +223,10 @@ impl Parser {
         let mut fields = Vec::new();
         if !self.consume_if(TokenKind::Newline) {
             let span = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics
-                .push(Diagnostic::error("expected newline after struct header", span));
+            self.diagnostics.push(Diagnostic::error(
+                "expected newline after struct header",
+                span,
+            ));
         }
         self.expect(TokenKind::Indent)?;
         while !self.check(TokenKind::Dedent) && !self.is_eof() {
@@ -242,10 +248,7 @@ impl Parser {
         }
         self.expect(TokenKind::Dedent)?;
         Some(Stmt::StructDef(StructDef {
-            name: Ident {
-                name,
-                span: nspan,
-            },
+            name: Ident { name, span: nspan },
             type_params,
             fields,
         }))
@@ -258,8 +261,10 @@ impl Parser {
         self.expect(TokenKind::Colon)?;
         if !self.consume_if(TokenKind::Newline) {
             let span = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics
-                .push(Diagnostic::error("expected newline after enum header", span));
+            self.diagnostics.push(Diagnostic::error(
+                "expected newline after enum header",
+                span,
+            ));
         }
         self.expect(TokenKind::Indent)?;
         let mut variants = Vec::new();
@@ -286,10 +291,7 @@ impl Parser {
         }
         self.expect(TokenKind::Dedent)?;
         Some(Stmt::EnumDef(EnumDef {
-            name: Ident {
-                name,
-                span: nspan,
-            },
+            name: Ident { name, span: nspan },
             type_params,
             variants,
         }))
@@ -306,7 +308,7 @@ impl Parser {
         // If next is LAngle, it could be generics OR signature.
         let mut type_params = Vec::new();
         if self.check(TokenKind::LAngle) {
-            // Peek further if needed? 
+            // Peek further if needed?
             // In NEPL, if there are two < > blocks, the first is always generics.
             // If only one, it's signature.
             // This is a bit tricky to look ahead with the current parser.
@@ -444,21 +446,27 @@ impl Parser {
     fn parse_impl(&mut self) -> Option<Stmt> {
         let kw_span = self.next()?.span;
         let type_params = self.parse_generic_params();
-        
+
         let first_ty = self.parse_type_expr()?;
-        
+
         let (trait_name, target_ty) = if self.consume_if(TokenKind::KwFor) {
-             let target = self.parse_type_expr()?;
-             let trait_ident = match first_ty {
-                 TypeExpr::Named(n) => Some(Ident { name: n, span: kw_span }), // Approximation
-                 _ => {
-                     self.diagnostics.push(Diagnostic::error("expected trait name before 'for'", kw_span));
-                     None
-                 }
-             };
-             (trait_ident, target)
+            let target = self.parse_type_expr()?;
+            let trait_ident = match first_ty {
+                TypeExpr::Named(n) => Some(Ident {
+                    name: n,
+                    span: kw_span,
+                }), // Approximation
+                _ => {
+                    self.diagnostics.push(Diagnostic::error(
+                        "expected trait name before 'for'",
+                        kw_span,
+                    ));
+                    None
+                }
+            };
+            (trait_ident, target)
         } else {
-             (None, first_ty)
+            (None, first_ty)
         };
 
         self.expect(TokenKind::Colon)?;
@@ -525,13 +533,20 @@ impl Parser {
                     let span = colon_span.join(block.span).unwrap_or(colon_span);
                     // If this prefix line contains an `if`, try to split the following
                     // block into then/else branch blocks when top-level `else:` markers exist.
-                    if items.iter().any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_)))) {
+                    if items
+                        .iter()
+                        .any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
+                    {
                         // Handle `if:` / `if <cond>:` layout forms by extracting
                         // 2 or 3 expressions from the indented block and splicing
                         // their items into this prefix expression. This desugars
                         // the layout into normal prefix arguments so later passes
                         // don't need a special-case split.
-                        let expected = if Self::if_layout_needs_cond(&items) { 3 } else { 2 };
+                        let expected = if Self::if_layout_needs_cond(&items) {
+                            3
+                        } else {
+                            2
+                        };
                         match self.extract_if_layout_exprs(block.clone(), expected, colon_span) {
                             Ok(mut args) => {
                                 for a in args.drain(..) {
@@ -663,7 +678,12 @@ impl Parser {
         self.normalize_then_else(&mut items);
 
         let end_span = if trailing_semis > 0 {
-            last_semi_span.unwrap_or(items.last().map(|i| self.item_span(i)).unwrap_or(start_span))
+            last_semi_span.unwrap_or(
+                items
+                    .last()
+                    .map(|i| self.item_span(i))
+                    .unwrap_or(start_span),
+            )
         } else {
             items
                 .last()
@@ -713,7 +733,8 @@ impl Parser {
                 TokenKind::Colon => break,
                 TokenKind::Semicolon => {
                     let sp = self.next().unwrap().span;
-                    self.diagnostics.push(Diagnostic::error("';' must appear at end of a line", sp));
+                    self.diagnostics
+                        .push(Diagnostic::error("';' must appear at end of a line", sp));
                     // recovery: skip until colon or end of line
                     while !self.is_end(&TokenEnd::Line) {
                         self.next();
@@ -785,8 +806,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics
-                        .push(Diagnostic::error("unexpected token in match scrutinee", span));
+                    self.diagnostics.push(Diagnostic::error(
+                        "unexpected token in match scrutinee",
+                        span,
+                    ));
                     self.next();
                 }
             }
@@ -827,8 +850,6 @@ impl Parser {
         }
     }
 
-    
-
     fn take_role_from_expr(expr: &mut PrefixExpr) -> Option<IfRole> {
         match expr.items.first() {
             Some(PrefixItem::Symbol(Symbol::Ident(id))) if id.name == "cond" => {
@@ -857,7 +878,10 @@ impl Parser {
         match tail.as_slice() {
             [.., PrefixItem::Symbol(Symbol::If(_))] => true,
             [.., PrefixItem::Symbol(Symbol::If(_)), PrefixItem::Symbol(Symbol::Ident(id))]
-                if id.name == "cond" => true,
+                if id.name == "cond" =>
+            {
+                true
+            }
             _ => false,
         }
     }

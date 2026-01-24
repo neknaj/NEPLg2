@@ -96,8 +96,18 @@ impl Loader {
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
-        let module = self.load_from_contents(path, src, &mut sm, &mut cache, &mut processing, &mut imported)?;
-        Ok(LoadResult { module, source_map: sm })
+        let module = self.load_from_contents(
+            path,
+            src,
+            &mut sm,
+            &mut cache,
+            &mut processing,
+            &mut imported,
+        )?;
+        Ok(LoadResult {
+            module,
+            source_map: sm,
+        })
     }
 
     pub fn load(&self, entry: &PathBuf) -> Result<LoadResult, CoreError> {
@@ -106,7 +116,10 @@ impl Loader {
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let module = self.load_file(entry, &mut sm, &mut cache, &mut processing, &mut imported)?;
-        Ok(LoadResult { module, source_map: sm })
+        Ok(LoadResult {
+            module,
+            source_map: sm,
+        })
     }
 
     fn load_from_contents(
@@ -119,9 +132,7 @@ impl Loader {
         imported_once: &mut BTreeSet<PathBuf>,
     ) -> Result<Module, CoreError> {
         // For pseudo files (stdin) canonicalize may fail; fall back to provided path.
-        let canon = path
-            .canonicalize()
-            .unwrap_or(path.clone());
+        let canon = path.canonicalize().unwrap_or(path.clone());
         if let Some(m) = cache.get(&canon) {
             return Ok(m.clone());
         }
@@ -133,7 +144,8 @@ impl Loader {
         }
         let file_id = sm.add(canon.clone(), src.clone());
         let module = self.parse_module(file_id, src)?;
-        let module = self.process_directives(canon.clone(), module, sm, cache, processing, imported_once)?;
+        let module =
+            self.process_directives(canon.clone(), module, sm, cache, processing, imported_once)?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
         Ok(module)
@@ -162,7 +174,8 @@ impl Loader {
         let src = fs::read_to_string(&canon).map_err(|e| CoreError::Io(e.to_string()))?;
         let file_id = sm.add(canon.clone(), src.clone());
         let module = self.parse_module(file_id, src)?;
-        let module = self.process_directives(canon.clone(), module, sm, cache, processing, imported_once)?;
+        let module =
+            self.process_directives(canon.clone(), module, sm, cache, processing, imported_once)?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
         Ok(module)
