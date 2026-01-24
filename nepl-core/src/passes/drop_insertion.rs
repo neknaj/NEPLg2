@@ -5,8 +5,7 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::hir::{HirBlock, HirExpr, HirExprKind, HirFunction, HirLine, HirModule};
-use crate::span::Span;
+use crate::hir::{HirBlock, HirExpr, HirExprKind, HirLine, HirModule};
 use crate::types::TypeId;
 
 /// Insert automatic `drop` calls at end of scopes and on early returns.
