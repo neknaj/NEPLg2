@@ -909,6 +909,7 @@ fn parse_wasm_line(line: &str, locals: &LocalMap) -> Result<Vec<Instruction<'sta
         "i32.div_s" => insts.push(Instruction::I32DivS),
         "i32.rem_s" => insts.push(Instruction::I32RemS),
         "i32.lt_s" => insts.push(Instruction::I32LtS),
+        "i32.le_s" => insts.push(Instruction::I32LeS),
         "i32.eq" => insts.push(Instruction::I32Eq),
         "i32.ne" => insts.push(Instruction::I32Ne),
         "i32.le_u" => insts.push(Instruction::I32LeU),
@@ -1001,6 +1002,7 @@ fn validate_wasm_stack(
             | Instruction::I32DivS
             | Instruction::I32RemS
             | Instruction::I32LtS
+            | Instruction::I32LeS
             | Instruction::I32Eq
             | Instruction::I32Ne
             | Instruction::I32LeU
@@ -1011,6 +1013,7 @@ fn validate_wasm_stack(
                     // comparisons return i32
                     let result = match inst {
                         Instruction::I32LtS
+                        | Instruction::I32LeS
                         | Instruction::I32Eq
                         | Instruction::I32Ne
                         | Instruction::I32LeU
