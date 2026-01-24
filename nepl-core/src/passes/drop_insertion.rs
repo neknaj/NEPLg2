@@ -16,16 +16,18 @@ use crate::types::TypeId;
 /// - At the end of a block, drops are inserted for all live bindings.
 /// - On early returns (If, Match arms), drops are inserted before exit.
 /// - Variable scope is tracked through Let/Set statements.
-pub fn insert_drops(module: &mut HirModule) {
+pub fn insert_drops(module: &mut HirModule, unit_ty: TypeId) {
     for func in &mut module.functions {
         if let crate::hir::HirBody::Block(ref mut block) = func.body {
-            let mut ctx = DropInsertionContext::new();
+            let mut ctx = DropInsertionContext::new(unit_ty);
             insert_drops_in_block(block, &mut ctx);
         }
     }
 }
 
 struct DropInsertionContext {
+    /// Unit type id to use for inserted Drop expressions.
+    unit_ty: TypeId,
     /// Variables in scope at the current depth (names).
     live_vars: Vec<String>,
     /// Stack of variable scopes (for nested blocks).
@@ -33,8 +35,9 @@ struct DropInsertionContext {
 }
 
 impl DropInsertionContext {
-    fn new() -> Self {
+    fn new(unit_ty: TypeId) -> Self {
         Self {
+            unit_ty,
             live_vars: Vec::new(),
             scopes: Vec::new(),
         }
@@ -83,7 +86,7 @@ fn insert_drops_in_block(block: &mut HirBlock, ctx: &mut DropInsertionContext) {
     let scope_vars = ctx.get_scope_vars();
     for var in scope_vars.iter().rev() {
         let drop_expr = HirExpr {
-            ty: TypeId(0), // Unit type
+            ty: ctx.unit_ty,
             kind: HirExprKind::Drop { name: var.clone() },
             span: block.span,
         };
@@ -123,11 +126,48 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext) {
         HirExprKind::Match { scrutinee, arms } => {
             insert_drops_in_expr(scrutinee, ctx);
             for arm in arms {
-                // Each arm might bind a variable; treat it as a scope.
+                // Each arm is a lexical scope: push, declare bind, recurse,
+                // then pop and insert drops for that arm specifically.
+                ctx.push_scope();
                 if let Some(ref bind) = arm.bind_local {
                     ctx.declare_var(bind.clone());
                 }
                 insert_drops_in_expr(&mut arm.body, ctx);
+
+                // Collect vars from this arm's scope and append drop
+                // expressions to the arm body. If the arm body is not a
+                // block, wrap it into a block so we can append lines.
+                let scope_vars = ctx.pop_scope();
+                if !scope_vars.is_empty() {
+                    match &mut arm.body.kind {
+                        HirExprKind::Block(ref mut b) => {
+                            for var in scope_vars.iter().rev() {
+                                let drop_expr = HirExpr {
+                                    ty: ctx.unit_ty,
+                                    kind: HirExprKind::Drop { name: var.clone() },
+                                    span: arm.body.span,
+                                };
+                                b.lines.push(HirLine { expr: drop_expr, drop_result: true });
+                            }
+                        }
+                        _ => {
+                            // Replace the arm body with a block containing the
+                            // original expression followed by the drops.
+                            let original = arm.body.clone();
+                            let mut new_block = HirBlock { lines: Vec::new(), ty: ctx.unit_ty, span: original.span };
+                            new_block.lines.push(HirLine { expr: original, drop_result: false });
+                            for var in scope_vars.iter().rev() {
+                                let drop_expr = HirExpr {
+                                    ty: ctx.unit_ty,
+                                    kind: HirExprKind::Drop { name: var.clone() },
+                                    span: arm.body.span,
+                                };
+                                new_block.lines.push(HirLine { expr: drop_expr, drop_result: true });
+                            }
+                            arm.body.kind = HirExprKind::Block(new_block);
+                        }
+                    }
+                }
             }
         }
         HirExprKind::Block(ref mut block) => {

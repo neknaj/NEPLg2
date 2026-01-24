@@ -392,6 +392,17 @@ fn lower_user(
                     "function expected to return value",
                     func.span,
                 ));
+                // Dump the HIR for this function to aid debugging of
+                // missing-return problems. This is only emitted when the
+                // error occurs so it doesn't clutter normal output.
+                let mut dump = String::new();
+                for (i, line) in block.lines.iter().enumerate() {
+                    let kind = format!("{:?}", &line.expr.kind);
+                    let ty = format!("{:?}", ctx.get(line.expr.ty));
+                    let entry = format!("line {}: kind={} ty={} drop_result={}\n", i, kind, ty, line.drop_result);
+                    dump.push_str(&entry);
+                }
+                diags.push(Diagnostic::warning(format!("HIR dump for {}:\n{}", func.name, dump), func.span));
             }
         }
         HirBody::Wasm(wb) => {
@@ -430,6 +441,18 @@ fn gen_block(
     insts: &mut Vec<Instruction<'static>>,
     diags: &mut Vec<Diagnostic>,
 ) -> Option<Option<ValType>> {
+    // gen_block semantics:
+    // - Each `HirLine` may set `drop_result` to indicate that the
+    //   value produced by that line should be dropped (emit `drop`).
+    // - `drop_result` only means "drop the value produced by this line".
+    // - The block's return candidate (`last_val`) is NOT destroyed by a
+    //   `drop_result` line — only non-drop lines update the return candidate.
+    //
+    // Rationale: `drop_result` is a statement-level side effect; the
+    // block return value should be managed as a separate concern so that
+    // epilogue drops (or drop-inserted housekeeping) cannot accidentally
+    // erase the function's return value. In future the HIR should be
+    // evolved to explicitly separate `result_expr` from drop lines.
     let mut last_val: Option<ValType> = None;
     for line in &block.lines {
         let val = gen_expr(ctx, &line.expr, name_map, strings, locals, insts, diags);

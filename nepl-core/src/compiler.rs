@@ -71,7 +71,7 @@ pub fn compile_module(
     }
 
     // Insert drop calls for automatic cleanup
-    passes::insert_drops(&mut hir_module);
+    passes::insert_drops(&mut hir_module, types.unit());
 
     let cg = codegen_wasm::generate_wasm(&types, &hir_module);
     let mut diagnostics = tc.diagnostics;
