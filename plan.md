@@ -44,11 +44,12 @@ fn main <()*>()> ():
     <()> print_i32 if lt x 80 sub x 20 add 20 x;
     print_i32:
         <i32> if:
-            lt x 80
-        then:
-            sub x 20
-        else:
-            add 20 x
+            cond:
+                lt x 80
+            then:
+                sub x 20
+            else:
+                add 20 x
 
 #if[target=wasm]
 fn add <(i32,i32)->i32> (a,b):
@@ -111,7 +112,10 @@ setではletやlet mutで定義した`.x`に則る (`.label`の説明でおこ�
 インデントの不正はエラーになります  
 `:`は任意の行末で使用できます  
 `:`ブロックの`:`の後ろには空白とコメントしか使えません  
-`:`ブロックは式であるため、他の式と同様に関数呼び出しの引数などに使うことができます  
+`:`ブロックは式であるため、他の式と同様に関数呼び出しの引数などに使うことができます 
+
+`:` が1つの式となるのは、無名のブロックと、`while`、および`if`の`then``else`に適用される  
+`if`や`struct`、`enum`などは式を成すものではない  
 
 ## 型注釈
 `<T>`のように`<``>`で囲まれた型名は型注釈である  
@@ -173,13 +177,68 @@ entryに指定された関数は、`.label`を含まない、完全に具体的�
 ベースが`if true 0 1`,`if true 0 if true 1 2`だとして
 これに
 「`:`つけたら改行してもいいよ」と
-「`if`には`then`と`else`つけてもいいよ」
+「`if`には`cond`と`then`と`else`つけてもいいよ」
 を追加したらこうなりました
 
-`"if" <cond_expr> "then"? <then_expr> "else"? <else_expr>`  
-"then"キーワードと"else"キーワードは省略可能 (というよりは追加可能) であるが、 then_exprとelse_exprは省略不可能  
+`"if" "cond"? <cond_expr> "then"? <then_expr> "else"? <else_expr>`  
+"cond"キーワードと"then"キーワードと"else"キーワードは省略可能 (というよりは追加可能) であるが、 cond_exprとthen_exprとelse_exprは省略不可能  
 それぞれで`:`による改行が適用可能になる  
 
+ベースは`"if" <cond_expr> <then_expr> <else_expr>`
+ここに、cond then else などのキーワードを適切に追加することができる
+具体的には`<cond_expr>`を`"cond" <cond_expr>`のようにキーワードを付与できる
+また、`if`に対する`:` つまり `if:` については、ブロックを成すものではなく、cond_expr then_expr else_expr を改行して表示できるようにするものである
+`if:`は、具体的には、その次の行から式3つ分だけインデントを1つふやしてcond_expr then_expr else_expr とする 3行分ではなく式3つ分であるのは、cond_expr then_expr else_exprのそれぞれで通常の`:`ブロックを使用して複数行となる可能性があるためである
+`cond`や`then`や`else`に対して付与された`:`は、`if`に対する付与ではないため、通常の`:`ブロックである
+`cond:` は 通常の`:`と同じであり、1つのブロック式である
+また、`"if" <cond_expr>`の後ろの`:`、`"if" <cond_expr> :`では、then_exprとelse_exprを改行して表示できるようにする
+`"if" <cond_expr> :`は、具体的には、その次の行から式2つ分だけインデントを1つふやしてthen_expr else_expr とする
+この`<cond_expr>`にもcondキーワードを付与できるようにするが、実用上は不要であろう
+
+```
+// 1行
+if <cond_expr> <then_expr> <else_expr>
+// cond_expr then_expr else_expr にはそれぞれキーワードを付与可能
+if cond <cond_expr> then <then_expr> else <else_expr>
+// 改行 `if:`では続くcond then elseをインデント付きで改行して記述可能
+if:
+    <cond_expr>
+    <then_expr>
+    <else_expr>
+// 改行 `if <cond_expr>:`では続くcond then elseをインデント付きで改行して記述可能
+if <cond_expr>:
+    <then_expr>
+    <else_expr>
+// cond_expr then_expr else_expr にはそれぞれキーワードを付与可能
+if:
+    cond <cond_expr>
+    then <then_expr>
+    else <else_expr>
+if <cond_expr>
+    then <then_expr>
+    else <else_expr>
+if cond <cond_expr>
+    then <then_expr>
+    else <else_expr>
+// cond then else に対する `:` は通常の`:`ブロック
+if:
+    cond:
+        <cond_expr>
+    then:
+        <then_expr>
+    else:
+        <else_expr>
+if <cond_expr>
+    then:
+        <then_expr>
+    else:
+        <else_expr>
+if cond <cond_expr>
+    then:
+        <then_expr>
+    else:
+        <else_expr>
+```
 
 ```neplg2
 
@@ -204,6 +263,20 @@ if true:
 // 複数行 if then else
 if:
     true
+    0
+    1
+
+// 複数行 if then else
+if:
+    true
+    then:
+        0
+    else:
+        1
+
+if:
+    cond:
+        true
     then:
         0
     else:
@@ -228,7 +301,8 @@ if:
         0
     else:
         if:
-            true
+            cond:
+                true
             then:
                 1
             else:
@@ -239,7 +313,8 @@ if:
     then:
         0
     else if:
-        true
+        cond:
+            true
         then:
             1
         else:

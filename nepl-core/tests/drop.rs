@@ -52,15 +52,16 @@ fn drop_if_branch() {
 #indent 4
 
 fn main <()*>()>():
-    let cond <i32> 1;
+    let con <i32> 1;
     let result <i32> if:
-        cond
-    then:
-        let x <i32> 10;
-        x
-    else:
-        let y <i32> 20;
-        y
+        cond:
+            con
+        then:
+            let x <i32> 10;
+            x
+        else:
+            let y <i32> 20;
+            y
 "#;
     let artifact = compile_drop_test(source).expect("compilation succeeded");
     assert!(!artifact.is_empty(), "generated wasm should not be empty");

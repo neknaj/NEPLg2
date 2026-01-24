@@ -20,7 +20,8 @@ fn from_i32 <(i32)*>str> (x):
     let mut n <i32> x;
     let mut neg <bool> lt n 0;
     
-    if neg:
+    if:
+        neg
         then:
             set n sub 0 n;
         else:
@@ -29,7 +30,8 @@ fn from_i32 <(i32)*>str> (x):
     let mut idx <i32> 0;
     
     // handle 0
-    if eq n 0:
+    if:
+        eq n 0
         then:
             store_u8 tmp 48;   // '0'
             set idx 1;
@@ -42,7 +44,8 @@ fn from_i32 <(i32)*>str> (x):
     
     // total length = digits + (neg ? 1 : 0)
     let mut sign_len <i32> 0;
-    if neg:
+    if:
+        neg
         set sign_len 1;
         else:
             ()
@@ -53,7 +56,8 @@ fn from_i32 <(i32)*>str> (x):
     store_i32 out out_len;
     
     // write '-' if negative
-    if neg:
+    if:
+        neg
         then:
             store_u8 add out 4 45;  // '-'
         else:

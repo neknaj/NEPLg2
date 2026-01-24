@@ -30,10 +30,12 @@ fn push <(i32,i32)*>()> (lst, val):
 fn get <(i32,i32)->ResultI32> (lst, idx):
     let len <i32> load_i32 lst;
     
-    if lt idx 0:
+    if:
+        lt idx 0
         ResultI32::Err 1
         else:
-            if le len idx:
+            if:
+                le len idx
                 ResultI32::Err 1
                 else:
                     let data <i32> load_i32 add lst 8;

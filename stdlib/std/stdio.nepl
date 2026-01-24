@@ -30,4 +30,3 @@ fn print_str <(str)*>()> (s):
 fn print_i32 <(i32)*>()> (v):
     let s <i32> from_i32 v;
     print_str s;
-    ()
