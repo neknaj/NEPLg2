@@ -200,13 +200,9 @@ impl Parser {
             TokenKind::KwImpl => self.parse_impl(),
             _ => {
                 let expr = self.parse_prefix_expr()?;
-                // If a semicolon follows at statement-level, consume it here
-                let semi_span = if self.check(TokenKind::Semicolon) {
-                    Some(self.next().unwrap().span)
-                } else {
-                    None
-                };
-                if semi_span.is_some() {
+                // semicolons are collected into PrefixExpr.trailing_semis
+                let semi_span = if expr.trailing_semis > 0 { expr.trailing_semi_span } else { None };
+                if expr.trailing_semis > 0 {
                     Some(Stmt::ExprSemi(expr, semi_span))
                 } else {
                     Some(Stmt::Expr(expr))
@@ -493,9 +489,35 @@ impl Parser {
     fn parse_prefix_expr(&mut self) -> Option<PrefixExpr> {
         let start_span = self.peek_span().unwrap_or_else(Span::dummy);
         let mut items = Vec::new();
+        let mut trailing_semis: u32 = 0;
+        let mut in_trailing_semis = false;
+        let mut last_semi_span: Option<Span> = None;
 
         while !self.is_end(&TokenEnd::Line) {
             match self.peek_kind()? {
+                TokenKind::Semicolon => {
+                    // semicolon marks statement end; collect and ensure nothing follows on same line
+                    let sp = self.next().unwrap().span;
+                    trailing_semis += 1;
+                    in_trailing_semis = true;
+                    last_semi_span = Some(sp);
+                    continue;
+                }
+
+                // If we've seen trailing semicolons, any other token on the same
+                // line is an error: only one statement per line is allowed.
+                _ if in_trailing_semis => {
+                    let sp = self.peek_span().unwrap_or_else(Span::dummy);
+                    self.diagnostics.push(Diagnostic::error(
+                        "unexpected token after ';' (only one statement per line)",
+                        sp,
+                    ));
+                    // recovery: skip to end of line
+                    while !self.is_end(&TokenEnd::Line) {
+                        self.next();
+                    }
+                    break;
+                }
                 TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof => break,
                 TokenKind::Colon => {
                     let colon_span = self.next().unwrap().span;
@@ -640,12 +662,18 @@ impl Parser {
         // to the basic `if cond A B` shape expected by later passes.
         self.normalize_then_else(&mut items);
 
-        let end_span = items
-            .last()
-            .map(|i| self.item_span(i))
-            .unwrap_or(start_span);
+        let end_span = if trailing_semis > 0 {
+            last_semi_span.unwrap_or(items.last().map(|i| self.item_span(i)).unwrap_or(start_span))
+        } else {
+            items
+                .last()
+                .map(|i| self.item_span(i))
+                .unwrap_or(start_span)
+        };
         Some(PrefixExpr {
             items,
+            trailing_semis,
+            trailing_semi_span: last_semi_span,
             span: start_span.join(end_span).unwrap_or(start_span),
         })
     }
@@ -674,6 +702,8 @@ impl Parser {
     fn parse_prefix_expr_until_colon(&mut self) -> Option<PrefixExpr> {
         let start_span = self.peek_span().unwrap_or_else(Span::dummy);
         let mut items = Vec::new();
+        let mut trailing_semis: u32 = 0;
+        let mut last_semi_span: Option<Span> = None;
         while !self.is_end(&TokenEnd::Line) {
             if matches!(self.peek_kind(), Some(TokenKind::Colon)) {
                 break;
@@ -681,6 +711,17 @@ impl Parser {
             match self.peek_kind()? {
                 TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof => break,
                 TokenKind::Colon => break,
+                TokenKind::Semicolon => {
+                    let sp = self.next().unwrap().span;
+                    self.diagnostics.push(Diagnostic::error("';' must appear at end of a line", sp));
+                    // recovery: skip until colon or end of line
+                    while !self.is_end(&TokenEnd::Line) {
+                        self.next();
+                    }
+                    trailing_semis += 1;
+                    last_semi_span = Some(sp);
+                    break;
+                }
                 TokenKind::Pipe => {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Pipe(span));
@@ -759,6 +800,8 @@ impl Parser {
             .unwrap_or(start_span);
         Some(PrefixExpr {
             items,
+            trailing_semis,
+            trailing_semi_span: last_semi_span,
             span: start_span.join(end_span).unwrap_or(start_span),
         })
     }
@@ -1172,7 +1215,6 @@ impl Parser {
             PrefixItem::Block(_, sp) => *sp,
             PrefixItem::Match(_, sp) => *sp,
             PrefixItem::Pipe(sp) => *sp,
-            PrefixItem::Semi(sp) => *sp,
         }
     }
 

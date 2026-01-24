@@ -62,6 +62,8 @@ pub struct Ident {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrefixExpr {
     pub items: Vec<PrefixItem>,
+    pub trailing_semis: u32,
+    pub trailing_semi_span: Option<Span>,
     pub span: Span,
 }
 
@@ -74,7 +76,6 @@ pub enum PrefixItem {
     Block(Block, Span),
     Match(MatchExpr, Span),
     Pipe(Span),
-    Semi(Span),
 }
 
 /// Special symbols in the language.

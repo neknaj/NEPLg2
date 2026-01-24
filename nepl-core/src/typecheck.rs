@@ -761,43 +761,52 @@ impl<'a> BlockChecker<'a> {
             });
         }
 
-        for stmt in &block.items {
+        // Find the last expression statement index (it determines the block result)
+        let last_expr_idx = block.items.iter().rposition(|s| matches!(s, Stmt::Expr(_) | Stmt::ExprSemi(_, _)));
+
+        for (idx, stmt) in block.items.iter().enumerate() {
             // Drop stray unit between lines: [X, ()] -> [X]
             if stack.len() == base_depth + 1 {
                 if matches!(self.ctx.get(stack.last().unwrap().ty), TypeKind::Unit) {
                     stack.pop();
                 }
             }
+
             match stmt {
-                Stmt::Expr(expr) => match self.check_prefix(expr, base_depth, &mut stack) {
-                    Some((typed, dropped_from_prefix)) => {
-                        // Preserve prefix-level drop result when no statement-level semicolon
-                        lines.push(HirLine { expr: typed, drop_result: dropped_from_prefix });
-                    }
-                    None => {}
-                },
-                Stmt::ExprSemi(expr, semi_span) => match self.check_prefix(expr, base_depth, &mut stack) {
-                    Some((typed, _dropped_from_prefix)) => {
-                        // Enforce semicolon semantics at statement level: require exactly one value on the stack
-                        if stack.len() == base_depth + 1 {
-                            // Pop the value and mark as dropped
-                            let _se = stack.pop().unwrap();
-                            lines.push(HirLine { expr: typed, drop_result: true });
-                        } else {
-                            let sp = semi_span.unwrap_or(typed.span);
-                            self.diagnostics.push(Diagnostic::error(
-                                "semicolon requires exactly one value on the stack",
-                                sp,
-                            ));
-                            // Recovery: reset to base_depth
-                            while stack.len() > base_depth {
-                                stack.pop();
+                Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
+                    match self.check_prefix(expr, base_depth, &mut stack) {
+                        Some((typed, _dropped_from_prefix)) => {
+                            let is_last_expr = Some(idx) == last_expr_idx;
+                            let mut drop_result = !is_last_expr;
+
+                            // If there was an explicit semicolon token, require that the
+                            // statement left exactly one value on the stack; otherwise
+                            // emit a diagnostic and recover.
+                            if let Stmt::ExprSemi(_, semi_span) = stmt {
+                                if stack.len() != base_depth + 1 {
+                                    let sp = semi_span.unwrap_or(typed.span);
+                                    self.diagnostics.push(Diagnostic::error(
+                                        "statement must leave exactly one value on the stack",
+                                        sp,
+                                    ));
+                                    while stack.len() > base_depth {
+                                        stack.pop();
+                                    }
+                                    drop_result = true;
+                                }
                             }
-                            lines.push(HirLine { expr: typed, drop_result: true });
+
+                            if drop_result {
+                                if stack.len() > base_depth {
+                                    let _ = stack.pop();
+                                }
+                            }
+
+                            lines.push(HirLine { expr: typed, drop_result });
                         }
+                        None => {}
                     }
-                    None => {}
-                },
+                }
                 Stmt::Directive(_) => {}
                 Stmt::FnDef(_) => {
                     // Nested function bodies are not type-checked here
@@ -1137,24 +1146,7 @@ impl<'a> BlockChecker<'a> {
                     pipe_pending = stack.pop();
                     last_expr = pipe_pending.as_ref().map(|se| se.expr.clone());
                 }
-                PrefixItem::Semi(sp) => {
-                    if stack.len() == base_depth + 1 {
-                        if let Some(se) = stack.pop() {
-                            last_expr = Some(se.expr);
-                        }
-                        dropped = true;
-                    } else {
-                        self.diagnostics.push(Diagnostic::error(
-                            "semicolon requires exactly one value on the stack",
-                            *sp,
-                        ));
-                        // Recovery: reset to base_depth to avoid cascaded errors
-                        while stack.len() > base_depth {
-                            stack.pop();
-                        }
-                        dropped = true;
-                    }
-                }
+                
             }
 
             if !matches!(item, PrefixItem::Pipe(_) | PrefixItem::TypeAnnotation(_, _)) {
@@ -1412,10 +1404,10 @@ impl<'a> BlockChecker<'a> {
                             if let PrefixItem::Block(bb, _) = items.remove(0) {
                                 bb
                             } else {
-                                Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, span: e.span })], span: e.span }
+                                Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
                             }
                         } else {
-                            Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, span: e.span })], span: e.span }
+                            Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
                         }
                     } else {
                         Block { items: alloc::vec![Stmt::Expr(e)], span: b.span }
@@ -1438,10 +1430,10 @@ impl<'a> BlockChecker<'a> {
                     if let PrefixItem::Block(bb, _) = items.remove(0) {
                         bb
                     } else {
-                        Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, span: e.span })], span: e.span }
+                        Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
                     }
                 } else {
-                    Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, span: e.span })], span: e.span }
+                    Block { items: alloc::vec![Stmt::Expr(PrefixExpr { items, trailing_semis: 0, trailing_semi_span: None, span: e.span })], span: e.span }
                 }
             }
             _ => return None,
