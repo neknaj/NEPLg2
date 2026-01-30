@@ -17,6 +17,8 @@ use wasmi::{Caller, Engine, Linker, Module, Store};
 struct AllocState {
     // head of free list (address in linear memory), 0 == null
     free_head: u32,
+    stdin: Vec<u8>,
+    stdin_pos: usize,
 }
 
 /// コマンドライン引数を定義するための構造体
@@ -153,6 +155,12 @@ fn write_output(path: &str, bytes: &[u8]) -> Result<()> {
 }
 
 fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32> {
+    let mut stdin_buf = Vec::new();
+    if matches!(target, CompileTarget::Wasi) {
+        io::stdin()
+            .read_to_end(&mut stdin_buf)
+            .context("failed to read stdin")?;
+    }
     let engine = Engine::default();
     let module = Module::new(&engine, artifact.wasm.as_slice())
         .context("failed to compile wasm artifact")?;
@@ -380,6 +388,66 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
     )?;
 
     if matches!(target, CompileTarget::Wasi) {
+        linker.func_wrap(
+            "wasi_snapshot_preview1",
+            "fd_read",
+            |mut caller: Caller<'_, AllocState>,
+             fd: i32,
+             iovs: i32,
+             iovs_len: i32,
+             nread: i32|
+             -> i32 {
+                if fd != 0 {
+                    return 8;
+                }
+                let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return 21,
+                };
+                let data_snapshot = memory.data(&caller).to_vec();
+                let mut total = 0usize;
+                let mut offset = iovs as usize;
+                let count = if iovs_len > 0 { iovs_len as usize } else { 0 };
+                let stdin_snapshot = caller.data().stdin.clone();
+                let mut pos = caller.data().stdin_pos;
+                for _ in 0..count {
+                    if offset + 8 > data_snapshot.len() {
+                        return 21;
+                    }
+                    let base = u32::from_le_bytes(
+                        data_snapshot[offset..offset + 4].try_into().unwrap(),
+                    ) as usize;
+                    let len = u32::from_le_bytes(
+                        data_snapshot[offset + 4..offset + 8].try_into().unwrap(),
+                    ) as usize;
+                    offset += 8;
+                    if base + len > data_snapshot.len() {
+                        return 21;
+                    }
+                    if pos >= stdin_snapshot.len() {
+                        break;
+                    }
+                    let avail = stdin_snapshot.len() - pos;
+                    let take = if len < avail { len } else { avail };
+                    if take == 0 {
+                        break;
+                    }
+                    memory
+                        .write(&mut caller, base, &stdin_snapshot[pos..pos + take])
+                        .ok();
+                    pos += take;
+                    total += take;
+                }
+                caller.data_mut().stdin_pos = pos;
+                if let Some(mem) = caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    let bytes = (total as u32).to_le_bytes();
+                    if (nread as usize) + 4 <= mem.data(&caller).len() {
+                        mem.write(&mut caller, nread as usize, &bytes).ok();
+                    }
+                }
+                0
+            },
+        )?;
         // Minimal wasi fd_write implementation for stdout (fd 1)
         linker.func_wrap(
             "wasi_snapshot_preview1",
@@ -448,7 +516,14 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
             }
         }
     }
-    let mut store = Store::new(&engine, AllocState::default());
+    let mut store = Store::new(
+        &engine,
+        AllocState {
+            free_head: 0,
+            stdin: stdin_buf,
+            stdin_pos: 0,
+        },
+    );
     let instance_pre = linker
         .instantiate(&mut store, &module)
         .context("failed to instantiate module")?;

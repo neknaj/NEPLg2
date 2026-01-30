@@ -13,19 +13,26 @@ fn main <()*> ()> ():
     // Reverse Polish evaluator for a space-separated ASCII string.
     // Supported tokens: non-negative integers and + - * operators.
     // Input string is space-separated RPN tokens.
-    let input <str> "13 5 6 + - ";
+    let mut input <str> read_all;
+    let mut input_len <i32> load_i32 input;
+    if:
+        eq input_len 0
+        then:
+            set input "13 5 6 + - ";
+            set input_len load_i32 input;
+        else:
+            ()
     let stack <i32> alloc mul 16 4;
     let mut sp <i32> 0;
     let mut a <i32> 0;
     let mut b <i32> 0;
-    let len <i32> load_i32 input;
     let mut i <i32> 0;
 
-    while lt i len:
+    while lt i input_len:
         let ch <i32> load_u8 add input add 4 i;
 
         if:
-            eq ch 32
+            le ch 32
             then:
                 set i add i 1;
                 ()
@@ -68,7 +75,7 @@ fn main <()*> ()> ():
                                 let mut parsing <bool> true;
                                 while parsing:
                                     if:
-                                        lt i len
+                                        lt i input_len
                                         then:
                                             let digit <i32> load_u8 add input add 4 i;
                                             if:

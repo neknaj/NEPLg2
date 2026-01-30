@@ -1,5 +1,6 @@
 #indent 4
 
+#extern "wasi_snapshot_preview1" "fd_read" fn fd_read <(i32,i32,i32,i32)->i32>
 #extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)->i32>
 
 #import "std/mem"
@@ -26,6 +27,28 @@ fn print <(str)*>()> (s):
 
     // ignore errno for now
     ()
+
+fn read_all <()*>str> ():
+    // Read up to a fixed number of bytes from stdin (UTF-8 expected).
+    let cap <i32> 4096;
+    let out <i32> alloc add 4 cap;
+    let iov <i32> alloc 8;
+    store_i32 iov add out 4;
+    store_i32 add iov 4 cap;
+
+    let nread <i32> alloc 4;
+    store_i32 nread 0;
+    let errno <i32> fd_read 0 iov 1 nread;
+
+    if:
+        eq errno 0
+        then:
+            let n <i32> load_i32 nread;
+            store_i32 out n;
+            out
+        else:
+            store_i32 out 0;
+            out
 
 fn println <(str)*>()> (s):
     print s;

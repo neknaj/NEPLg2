@@ -1,0 +1,10 @@
+#entry main
+#indent 4
+#target wasi
+#import "std/stdio"
+#use std::stdio::*
+
+fn main <()*>()> ():
+    let s <str> read_all;
+    print s;
+    ()
