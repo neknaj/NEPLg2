@@ -1,9 +1,9 @@
 use std::fs;
 use std::io::{self, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use nepl_core::{
     compile_module,
     diagnostic::{Diagnostic, Severity},
@@ -26,6 +26,9 @@ struct AllocState {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+
     #[arg(short, long)]
     input: Option<String>,
 
@@ -52,12 +55,28 @@ struct Cli {
     target: Option<String>,
 }
 
+#[derive(Subcommand, Debug)]
+enum Command {
+    Test(TestArgs),
+}
+
+#[derive(Args, Debug)]
+struct TestArgs {
+    #[arg(value_name = "FILTER")]
+    filter: Option<String>,
+    #[arg(long, default_value = "tests", help = "Relative path inside stdlib to scan for .nepl tests")]
+    dir: String,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     execute(cli)
 }
 
 fn execute(cli: Cli) -> Result<()> {
+    if let Some(Command::Test(args)) = cli.command {
+        return run_tests(args);
+    }
     if !cli.run && cli.output.is_none() {
         return Err(anyhow::anyhow!("Either --run or --output is required"));
     }
@@ -141,6 +160,95 @@ fn execute(cli: Cli) -> Result<()> {
         eprintln!("--lib is acknowledged but not yet implemented in the placeholder pipeline");
     }
 
+    Ok(())
+}
+
+fn run_tests(args: TestArgs) -> Result<()> {
+    let std_root = stdlib_root()?;
+    let dir = PathBuf::from(&args.dir);
+    let base = if dir.is_absolute() {
+        dir
+    } else {
+        std_root.join(dir)
+    };
+    if !base.exists() {
+        return Err(anyhow::anyhow!(
+            "tests directory not found: {}",
+            base.display()
+        ));
+    }
+    let mut files = Vec::new();
+    collect_nepl_files(&base, &mut files)?;
+    files.sort();
+    if let Some(filter) = &args.filter {
+        files.retain(|p| p.display().to_string().contains(filter));
+    }
+    if files.is_empty() {
+        return Err(anyhow::anyhow!("no tests found"));
+    }
+
+    let mut failed = 0usize;
+    for file in files {
+        let name = file
+            .strip_prefix(&base)
+            .unwrap_or(&file)
+            .display()
+            .to_string();
+        print!("test {name} ... ");
+        match run_test_file(&file, &std_root) {
+            Ok(()) => {
+                println!("ok");
+            }
+            Err(e) => {
+                println!("FAILED");
+                eprintln!("{e}");
+                failed += 1;
+            }
+        }
+    }
+
+    if failed > 0 {
+        Err(anyhow::anyhow!("{failed} tests failed"))
+    } else {
+        Ok(())
+    }
+}
+
+fn run_test_file(path: &Path, std_root: &Path) -> Result<()> {
+    let loader = Loader::new(std_root.to_path_buf());
+    let loaded = loader
+        .load(&path.to_path_buf())
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let artifact = match compile_module(
+        loaded.module,
+        CompileOptions {
+            target: Some(CompileTarget::Wasi),
+        },
+    ) {
+        Ok(a) => a,
+        Err(CoreError::Diagnostics(diags)) => {
+            render_diagnostics(&diags, &loaded.source_map);
+            return Err(anyhow::anyhow!("compilation failed"));
+        }
+        Err(e) => return Err(anyhow::anyhow!(e.to_string())),
+    };
+    let result = run_wasm(&artifact, CompileTarget::Wasi)?;
+    if result != 0 {
+        return Err(anyhow::anyhow!("non-zero exit code: {result}"));
+    }
+    Ok(())
+}
+
+fn collect_nepl_files(dir: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_nepl_files(&path, out)?;
+        } else if path.extension().and_then(|s| s.to_str()) == Some("nepl") {
+            out.push(path);
+        }
+    }
     Ok(())
 }
 

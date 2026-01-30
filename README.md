@@ -35,10 +35,16 @@ cargo run -p nepl-cli -- --input examples/counter.nepl --target wasi --output ta
 ```
 `--run` with `--target wasi` is not supported in the embedded runner; use an external WASI runtime.
 
+Run stdlib tests:
+```bash
+cargo run -p nepl-cli -- test
+```
+
 ## Imports
 No built-in functions. Use std modules explicitly:
 - `std/math` – i32 arithmetic/comparison (pure)
 - `std/stdio` – `print` / `println` / `print_i32` / `println_i32` via WASI `fd_write`
+- `std/test` – `assert` / `assert_eq_i32` / `assert_str_eq` helpers for stdlib tests
 
 ## Tests
 ```bash

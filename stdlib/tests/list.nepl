@@ -1,0 +1,25 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/list"
+#use std::list::*
+#import "std/result"
+#use std::result::*
+#import "std/test"
+#use std::test::*
+
+fn main <()*> ()> ():
+    let l <i32> new;
+    push l 10;
+    push l 20;
+    assert_eq_i32 2 len l;
+
+    let r1 <ResultI32> get l 1;
+    assert_ok_i32 r1;
+    let r2 <ResultI32> get l 1;
+    assert_eq_i32 20 unwrap_or r2 0;
+
+    let r3 <ResultI32> get l 5;
+    assert_err_i32 r3;
+    ()

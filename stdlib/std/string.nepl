@@ -13,6 +13,25 @@
 fn len <(str)->i32> (s):
     load_i32 s
 
+fn str_eq <(str,str)->bool> (a,b):
+    let la <i32> load_i32 a;
+    let lb <i32> load_i32 b;
+    if eq la lb:
+        str_eq_loop a b la 0
+        else:
+            false
+
+fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
+    if eq i len:
+        true
+        else:
+            let ba <i32> load_u8 add a add 4 i;
+            let bb <i32> load_u8 add b add 4 i;
+            if eq ba bb:
+                str_eq_loop a b len add i 1
+                else:
+                    false
+
 
 fn from_i32 <(i32)*>str> (x):
     // Convert i32 to UTF-8 string with layout: [len:i32][bytes...]

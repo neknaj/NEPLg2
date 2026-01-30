@@ -1,9 +1,9 @@
 #entry main
 #indent 4
+#target wasi
 
 #import "std/math"
 #use std::math::*
-#if[target=wasi]
 #import "std/stdio"
 #use std::stdio::*
 

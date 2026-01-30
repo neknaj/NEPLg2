@@ -1,0 +1,17 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/string"
+#use std::string::*
+#import "std/test"
+#use std::test::*
+
+fn main <()*> ()> ():
+    let s "abc";
+    assert_eq_i32 3 len s;
+    let t from_i32 1234;
+    assert_eq_i32 4 len t;
+    assert str_eq "hi" "hi";
+    assert str_eq "" "";
+    ()

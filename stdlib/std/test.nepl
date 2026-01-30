@@ -1,0 +1,69 @@
+#indent 4
+
+#import "std/math"
+#use std::math::*
+#import "std/mem"
+#use std::mem::*
+#import "std/result"
+#use std::result::*
+
+fn test_str_eq <(str,str)->bool> (a,b):
+    let la <i32> load_i32 a;
+    let lb <i32> load_i32 b;
+    if eq la lb:
+        test_str_eq_loop a b la 0
+        else:
+            false
+
+fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
+    if eq i len:
+        true
+        else:
+            let ba <i32> load_u8 add a add 4 i;
+            let bb <i32> load_u8 add b add 4 i;
+            if eq ba bb:
+                test_str_eq_loop a b len add i 1
+                else:
+                    false
+
+fn trap <()->()> ():
+    #wasm:
+        i32.const 1
+        i32.const 0
+        i32.div_s
+        drop
+
+fn fail <(str)->()> (msg):
+    trap
+
+fn assert <(bool)->()> (ok):
+    if ok:
+        ()
+        else:
+            trap
+
+fn assert_eq_i32 <(i32,i32)->()> (expected, actual):
+    if eq expected actual:
+        ()
+        else:
+            trap
+
+fn assert_str_eq <(str,str)->()> (expected, actual):
+    if test_str_eq expected actual:
+        ()
+        else:
+            trap
+
+fn assert_ok_i32 <(ResultI32)->()> (r):
+    match r:
+        Ok v:
+            ()
+        Err e:
+            trap
+
+fn assert_err_i32 <(ResultI32)->()> (r):
+    match r:
+        Ok v:
+            trap
+        Err e:
+            ()
