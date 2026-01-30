@@ -113,6 +113,7 @@ fn resolve_target(
     }
     let mut found: Option<(CompileTarget, Span)> = None;
     let mut diags = Vec::new();
+    // First, check explicit module-level directives parsed into module.directives
     for d in &module.directives {
         if let ast::Directive::Target { target, span } = d {
             let parsed = match target.as_str() {
@@ -131,6 +132,33 @@ fn resolve_target(
                 }
             } else {
                 diags.push(Diagnostic::error("unknown target in #target", *span));
+            }
+        }
+    }
+
+    // Fallback: some parsers/merging steps may leave a file-scoped #target as a top-level
+    // statement rather than in module.directives; inspect root items as a safeguard.
+    if found.is_none() {
+        for it in &module.root.items {
+            if let ast::Stmt::Directive(ast::Directive::Target { target, span }) = it {
+                let parsed = match target.as_str() {
+                    "wasm" => Some(CompileTarget::Wasm),
+                    "wasi" => Some(CompileTarget::Wasi),
+                    _ => None,
+                };
+                if let Some(t) = parsed {
+                    if let Some((_, prev_span)) = found {
+                        diags.push(Diagnostic::error(
+                            "multiple #target directives are not allowed",
+                            *span,
+                        )
+                        .with_secondary_label(prev_span, Some("previous #target here".into())));
+                    } else {
+                        found = Some((t, *span));
+                    }
+                } else {
+                    diags.push(Diagnostic::error("unknown target in #target", *span));
+                }
             }
         }
     }
