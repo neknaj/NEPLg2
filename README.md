@@ -15,7 +15,7 @@ Prefix + off-side rule language targeting WebAssembly. Everything is prefix; blo
 fn main <()*>()> ():
     let mut x <i32> 0;
     while lt x 5:
-        print_str "count = ";
+        print "count = ";
         print_i32 x;
         set x add x 1;
     ()
@@ -38,7 +38,7 @@ cargo run -p nepl-cli -- --input examples/counter.nepl --target wasi --output ta
 ## Imports
 No built-in functions. Use std modules explicitly:
 - `std/math` – i32 arithmetic/comparison (pure)
-- `std/stdio` – `print_i32` / `print_str` via host imports (`env.print_i32`, `env.print_str`)
+- `std/stdio` – `print` / `println` / `print_i32` / `println_i32` via WASI `fd_write`
 
 ## Tests
 ```bash

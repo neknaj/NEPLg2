@@ -7,7 +7,7 @@
 #import "std/string"
 #use std::string::*
 
-fn print_str <(str)*>()> (s):
+fn print <(str)*>()> (s):
     // iovec = { buf: i32, buf_len: i32 }
     let iov <i32> alloc 8;
 
@@ -27,6 +27,16 @@ fn print_str <(str)*>()> (s):
     // ignore errno for now
     ()
 
+fn println <(str)*>()> (s):
+    print s;
+    print "\n";
+    ()
+
 fn print_i32 <(i32)*>()> (v):
     let s <i32> from_i32 v;
-    print_str s;
+    print s;
+    ()
+
+fn println_i32 <(i32)*>()> (v):
+    print_i32 v;
+    print "\n";

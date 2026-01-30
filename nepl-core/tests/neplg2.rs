@@ -183,10 +183,10 @@ fn string_literal_compiles() {
     let src = r#"
 #entry main
 #indent 4
-#extern "env" "print_str" fn print_str <(str)*>()>
+#extern "env" "print_str" fn print <(str)*>()>
 
 fn main <()*> ()> ():
-    print_str "hello";
+    print "hello";
     ()
 "#;
     compile_ok(src);
@@ -312,7 +312,7 @@ fn wasm_cannot_use_stdio() {
 #use std::stdio::*
 
 fn main <()->()> ():
-    print_str "hi"
+    print "hi"
 "#;
     compile_err_target(src, CompileTarget::Wasm);
 }
@@ -401,7 +401,7 @@ fn target_directive_sets_default_to_wasi() {
 #use std::stdio::*
 
 fn main <()* >()> ():
-    print_str "ok"
+    print "ok"
 "#;
     let wasm = compile_src_with_options(src, CompileOptions { target: None });
     assert!(!wasm.is_empty());

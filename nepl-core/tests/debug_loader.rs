@@ -10,7 +10,7 @@ fn show_loaded_files() {
 #use std::stdio::*
 
 fn main <()* >()> ():
-    print_str "ok"
+    print "ok"
 "#;
     let loader = Loader::new(
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
