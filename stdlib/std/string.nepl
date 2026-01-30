@@ -105,8 +105,8 @@ fn to_i32 <(str)*>ResultI32> (s):
                                         set ok 0;
                                         set i n;
 
-                if eq ok 1:
-                    ResultI32::Ok res
+            if eq ok 1:
+                ResultI32::Ok res
                 else:
                     ResultI32::Err 1
 

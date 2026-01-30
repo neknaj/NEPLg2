@@ -46,8 +46,8 @@ impl StringLower {
 fn lower_strings(strings: &[String]) -> StringLower {
     let mut offsets = Vec::new();
     let mut segments = Vec::new();
-    // Reserve the first 4 bytes for the runtime heap pointer.
-    let mut cursor: u32 = 4;
+    // Reserve the first 8 bytes for allocator metadata (heap ptr + free list head).
+    let mut cursor: u32 = 8;
     for s in strings {
         cursor = align_to(cursor, 4);
         offsets.push(cursor);
@@ -200,6 +200,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         &ConstExpr::i32_const(0),
         strings.heap_base.to_le_bytes().to_vec(),
     );
+    data_section.active(0, &ConstExpr::i32_const(4), 0u32.to_le_bytes().to_vec());
     for (offset, bytes) in &strings.segments {
         data_section.active(0, &ConstExpr::i32_const(*offset as i32), bytes.clone());
     }
@@ -223,9 +224,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     module_bytes.section(&memory_section);
     module_bytes.section(&export_section);
     module_bytes.section(&code_section);
-    if !strings.segments.is_empty() {
-        module_bytes.section(&data_section);
-    }
+    module_bytes.section(&data_section);
 
     CodegenResult {
         bytes: Some(module_bytes.finish()),

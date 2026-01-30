@@ -1,0 +1,11 @@
+#entry main
+#indent 4
+#target wasi
+#import "std/stdio"
+#use std::stdio::*
+
+fn main <()*>()> ():
+    print_str "a:";
+    print_i32 12;
+    print_str ":b";
+    ()
