@@ -19,6 +19,7 @@ struct AllocState {
     free_head: u32,
     stdin: Vec<u8>,
     stdin_pos: usize,
+    stdin_eof: bool,
 }
 
 /// コマンドライン引数を定義するための構造体
@@ -155,12 +156,6 @@ fn write_output(path: &str, bytes: &[u8]) -> Result<()> {
 }
 
 fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32> {
-    let mut stdin_buf = Vec::new();
-    if matches!(target, CompileTarget::Wasi) {
-        io::stdin()
-            .read_to_end(&mut stdin_buf)
-            .context("failed to read stdin")?;
-    }
     let engine = Engine::default();
     let module = Module::new(&engine, artifact.wasm.as_slice())
         .context("failed to compile wasm artifact")?;
@@ -408,6 +403,23 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
                 let mut total = 0usize;
                 let mut offset = iovs as usize;
                 let count = if iovs_len > 0 { iovs_len as usize } else { 0 };
+                if caller.data().stdin_pos >= caller.data().stdin.len()
+                    && !caller.data().stdin_eof
+                {
+                    let mut buf = vec![0u8; 4096];
+                    let read = match io::stdin().read(&mut buf) {
+                        Ok(n) => n,
+                        Err(_) => 0,
+                    };
+                    if read == 0 {
+                        caller.data_mut().stdin_eof = true;
+                        caller.data_mut().stdin.clear();
+                        caller.data_mut().stdin_pos = 0;
+                    } else {
+                        caller.data_mut().stdin = buf[..read].to_vec();
+                        caller.data_mut().stdin_pos = 0;
+                    }
+                }
                 let stdin_snapshot = caller.data().stdin.clone();
                 let mut pos = caller.data().stdin_pos;
                 for _ in 0..count {
@@ -520,8 +532,9 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
         &engine,
         AllocState {
             free_head: 0,
-            stdin: stdin_buf,
+            stdin: Vec::new(),
             stdin_pos: 0,
+            stdin_eof: false,
         },
     );
     let instance_pre = linker

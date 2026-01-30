@@ -50,6 +50,46 @@ fn read_all <()*>str> ():
             store_i32 out 0;
             out
 
+fn read_line <()*>str> ():
+    // Read a single line from stdin, stopping at newline or EOF.
+    let cap <i32> 1024;
+    let out <i32> alloc add 4 cap;
+    let iov <i32> alloc 8;
+    let nread <i32> alloc 4;
+    let mut len <i32> 0;
+    let mut done <i32> 0;
+
+    while eq done 0:
+        if:
+            lt len cap
+            then:
+                store_i32 iov add out add 4 len;
+                store_i32 add iov 4 1;
+                store_i32 nread 0;
+                let errno <i32> fd_read 0 iov 1 nread;
+                if:
+                    eq errno 0
+                    then:
+                        let n <i32> load_i32 nread;
+                        if:
+                            eq n 0
+                            then:
+                                set done 1;
+                            else:
+                                let b <i32> load_u8 add out add 4 len;
+                                if:
+                                    eq b 10
+                                    then:
+                                        set done 1;
+                                    else:
+                                        set len add len 1;
+                    else:
+                        set done 1;
+            else:
+                set done 1;
+    store_i32 out len;
+    out
+
 fn println <(str)*>()> (s):
     print s;
     print "\n";

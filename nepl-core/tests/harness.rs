@@ -262,6 +262,29 @@ pub fn run_main_capture_stdout(src: &str) -> String {
     linker
         .func_wrap(
             "wasi_snapshot_preview1",
+            "fd_read",
+            move |mut caller: Caller<'_, ()>,
+                  fd: i32,
+                  _iovs_ptr: i32,
+                  _iovs_len: i32,
+                  nread_ptr: i32|
+                  -> i32 {
+                if fd != 0 {
+                    return 8;
+                }
+                if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
+                    if nread_ptr != 0 {
+                        mem.write(&mut caller, nread_ptr as usize, &0u32.to_le_bytes())
+                            .ok();
+                    }
+                }
+                0
+            },
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
             "fd_write",
             move |mut caller: Caller<'_, ()>,
                   fd: i32,
