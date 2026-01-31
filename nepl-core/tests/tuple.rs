@@ -7,6 +7,8 @@ fn tuple_construct_and_pass() {
 #entry main
 #indent 4
 #target wasm
+#import "std/mem"
+#use std::mem::*
 #import "std/math"
 #use std::math::*
 
@@ -27,6 +29,8 @@ fn tuple_generic_and_nested() {
 #entry main
 #indent 4
 #target wasm
+#import "std/mem"
+#use std::mem::*
 #import "std/math"
 #use std::math::*
 

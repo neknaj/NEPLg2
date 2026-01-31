@@ -134,3 +134,26 @@
 # 2026-01-31 作業メモ (verbose フラグ)
 - `nepl-cli` に `--verbose` を追加し、詳細なコンパイラログを必要時のみ出力できるようにした。
 - `CompileOptions.verbose` で制御し、typecheck/unify/monomorphize/wasm_sig のログをフラグ連動にした。
+
+# 2026-01-31 作業メモ (メモリアロケータ)
+- `std/mem` の allocator を wasm モジュール内実装に変更し、`nepl_alloc` のホスト依存を除去。
+- free list + bump 併用の簡易 allocator を実装し、`memory.grow` で拡張。
+- `doc/runtime.md` に WASM/WASI のターゲット方針とメモリレイアウトを追加。
+
+# 2026-01-31 作業メモ (nepl_alloc 自動 import の撤去)
+- コンパイラが `nepl_alloc` を自動で extern に追加する処理を削除し、WASM 生成物がホスト依存の import を持たないようにした。
+- `alloc`/`dealloc`/`realloc` は `std/mem` の定義か `#extern` により解決される前提になったため、モジュール側で `std/mem` を import していない場合は codegen でエラーになる。
+- 既存の `a.wasm` などは再コンパイルが必要（古いバイナリには `nepl_alloc` import が残る）。
+- `alloc` などのビルトイン自動登録も外したため、`std/mem` の関数定義がそのまま使用される。`alloc` を使うコードは `std/mem` を明示的に import する必要がある。
+
+# 2026-01-31 作業メモ (std/mem の効果注釈)
+- `std/mem` の `alloc`/`dealloc`/`realloc`/`mem_grow`/`store` を `*` 付きに変更し、純粋コンテキストから呼べないことを明示した。
+- これにより `std/mem` 内部の `set`/`store_*` 呼び出しが純粋関数扱いになっていた問題を解消し、`match_arm_local_drop_preserves_return` の失敗原因を修正した。
+
+# 2026-01-31 作業メモ (monomorphize のランタイム関数保持)
+- エントリ起点の単相化で `alloc` が落ちる問題を避けるため、`monomorphize` の初期 worklist に `alloc`/`dealloc`/`realloc` を追加した。
+- enum/struct/tuple の codegen が `alloc` を呼ぶ前提でも、未参照の `alloc` が除去されないようにした。
+
+# 2026-01-31 作業メモ (テスト側の std/mem 明示)
+- enum/struct/tuple を使うテストソースに `std/mem` の import を追加し、`alloc` が解決される前提を明確化した。
+- `move_check` テストは Loader 経由で compile するように変更し、`#import` を解決できるようにした。

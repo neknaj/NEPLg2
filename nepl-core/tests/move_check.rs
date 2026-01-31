@@ -1,14 +1,17 @@
 use nepl_core::diagnostic::Diagnostic;
-use nepl_core::span::FileId;
-use nepl_core::{compile_wasm, CompileOptions, CompileTarget};
+use nepl_core::loader::Loader;
+use nepl_core::{compile_module, CompileOptions, CompileTarget};
+use std::path::PathBuf;
 
 mod harness;
 
 fn compile_move_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    let file_id = FileId(0);
-    match compile_wasm(
-        file_id,
-        source,
+    let loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline("<test>".into(), source.to_string())
+        .expect("load");
+    match compile_module(
+        loaded.module,
         CompileOptions {
             target: Some(CompileTarget::Wasi),
             verbose: false,
@@ -28,11 +31,19 @@ fn compile_move_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
     }
 }
 
+fn stdlib_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("stdlib")
+}
+
 #[test]
 fn move_simple_ok() {
     let source = r#"
 #target wasi
 #indent 4
+#import "std/mem"
+#use std::mem::*
 
 enum Wrapper:
     Val <i32>
@@ -49,6 +60,8 @@ fn move_use_after_move() {
     let source = r#"
 #target wasi
 #indent 4
+#import "std/mem"
+#use std::mem::*
 
 enum Wrapper:
     Val <i32>
@@ -69,6 +82,8 @@ fn move_in_branch() {
     let source = r#"
 #target wasi
 #indent 4
+#import "std/mem"
+#use std::mem::*
 
 enum Wrapper:
     Val <i32>
@@ -92,6 +107,8 @@ fn move_in_loop() {
     let source = r#"
 #target wasi
 #indent 4
+#import "std/mem"
+#use std::mem::*
 
 enum Wrapper:
     Val <i32>
@@ -111,6 +128,8 @@ fn move_reassign_non_copy() {
     let source = r#"
 #target wasi
 #indent 4
+#import "std/mem"
+#use std::mem::*
 
 enum Wrapper:
     Val <i32>

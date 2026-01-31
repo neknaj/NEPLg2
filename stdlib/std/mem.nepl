@@ -1,12 +1,153 @@
 #indent 4
 
-// Memory primitives. The actual allocator is provided by the runtime
-// module `nepl_alloc`. We import alloc/dealloc/realloc here so that
-// stdlib and user code can call them directly.
+// Memory primitives. The allocator is implemented inside the wasm module
+// so the output can run on any runtime without host-provided imports.
 
-#extern "nepl_alloc" "alloc" fn alloc <(i32)->i32>
-#extern "nepl_alloc" "dealloc" fn dealloc <(i32,i32)->()>
-#extern "nepl_alloc" "realloc" fn realloc <(i32,i32,i32)->i32>
+#import "std/math"
+#use std::math::*
+
+// Linear memory layout:
+// - [0..4): heap_ptr (u32)
+// - [4..8): free_list_head (u32)
+// Blocks are [size:u32][next:u32] followed by payload.
+
+fn mem_size <()->i32> ():
+    #wasm:
+        memory.size
+
+fn mem_grow <(i32)*>i32> (pages):
+    #wasm:
+        local.get $pages
+        memory.grow
+
+fn align8 <(i32)->i32> (n):
+    let t <i32> add n 7
+    mul div_s t 8 8
+
+fn alloc <(i32)*>i32> (size):
+    if:
+        cond:
+            le size 0
+        then:
+            0
+        else:
+            let header <i32> 8
+            let total <i32> align8 add size header
+            let mut prev <i32> 0
+            let mut cur <i32> load_i32 4
+            let mut found <i32> 0
+            while ne cur 0:
+                let blk_sz <i32> load_i32 cur
+                let next <i32> load_i32 add cur 4
+                if:
+                    cond:
+                        le total blk_sz
+                    then:
+                        if:
+                            cond:
+                                eq prev 0
+                            then:
+                                store_i32 4 next
+                            else:
+                                store_i32 add prev 4 next
+                        let remain <i32> sub blk_sz total
+                        if:
+                            cond:
+                                le 16 remain
+                            then:
+                                let new_blk <i32> add cur total
+                                store_i32 new_blk remain
+                                store_i32 add new_blk 4 next
+                                store_i32 cur total
+                            else:
+                                store_i32 cur blk_sz
+                        set found add cur header
+                        set cur 0
+                    else:
+                        set prev cur
+                        set cur next
+            if:
+                cond:
+                    ne found 0
+                then:
+                    found
+                else:
+                    let heap_ptr <i32> load_i32 0
+                    let start <i32> align8 heap_ptr
+                    let new_heap <i32> add start total
+                    let cur_pages <i32> mem_size
+                    let cur_bytes <i32> mul cur_pages 65536
+                    let mut ok <bool> true
+                    if:
+                        cond:
+                            le new_heap cur_bytes
+                        then:
+                            ()
+                        else:
+                            let need_bytes <i32> sub new_heap cur_bytes
+                            let grow_pages <i32> div_s add need_bytes 65535 65536
+                            let prev_pages <i32> mem_grow grow_pages
+                            if:
+                                cond:
+                                    lt prev_pages 0
+                                then:
+                                    set ok false
+                                else:
+                                    ()
+                    if:
+                        cond:
+                            ok
+                        then:
+                            store_i32 0 new_heap
+                            store_i32 start total
+                            add start header
+                        else:
+                            0
+
+fn dealloc <(i32,i32)*>()> (ptr, size):
+    if:
+        cond:
+            le ptr 0
+        then:
+            ()
+        else:
+            let header <i32> 8
+            let total <i32> align8 add size header
+            let blk <i32> sub ptr header
+            let head <i32> load_i32 4
+            store_i32 blk total
+            store_i32 add blk 4 head
+            store_i32 4 blk
+
+fn realloc <(i32,i32,i32)*>i32> (ptr, old_size, new_size):
+    if:
+        cond:
+            le ptr 0
+        then:
+            alloc new_size
+        else:
+            if:
+                cond:
+                    le new_size 0
+                then:
+                    dealloc ptr old_size
+                    0
+                else:
+                    let new_ptr <i32> alloc new_size
+                    if:
+                        cond:
+                            le new_ptr 0
+                        then:
+                            0
+                        else:
+                            let copy_bytes <i32> if lt new_size old_size new_size old_size
+                            let mut i <i32> 0
+                            while lt i copy_bytes:
+                                let b <i32> load_u8 add ptr i
+                                store_u8 add new_ptr i b
+                                set i add i 1
+                            dealloc ptr old_size
+                            new_ptr
 
 // Low-level load/store use wasm ops implemented inline.
 fn load_i32 <(i32)->i32> (p):
@@ -42,5 +183,5 @@ fn align_of <.T> <()->i32> ():
 fn load <.T> <(i32)->.T> (ptr):
     #intrinsic "load" <.T> (ptr)
 
-fn store <.T> <(i32,.T)->()> (ptr, val):
+fn store <.T> <(i32,.T)*>()> (ptr, val):
     #intrinsic "store" <.T> (ptr, val)

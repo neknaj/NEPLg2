@@ -42,6 +42,14 @@ pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
         }
     }
 
+    // Ensure runtime-required helpers are retained even if not explicitly referenced.
+    // Enum/struct/tuple codegen depends on alloc being present.
+    for name in ["alloc", "dealloc", "realloc"] {
+        if mono.funcs.contains_key(name) && !initial.iter().any(|n| n == name) {
+            initial.push(String::from(name));
+        }
+    }
+
     for name in initial {
         if crate::log::is_verbose() {
             std::eprintln!("monomorphize: initial function {}", name);
