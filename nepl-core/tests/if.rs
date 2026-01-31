@@ -213,3 +213,55 @@ fn main <()->i32> ():
     let v = run_main_i32(src);
     assert_eq!(v, 31);
 }
+
+#[test]
+fn if_inline_false_returns_expected() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let x <i32> if false 0 1;
+    x
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 1);
+}
+
+#[test]
+fn if_block_false_returns_expected() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let x <i32> if:
+        false
+        100
+        200
+    x
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 200);
+}
+
+#[test]
+fn if_mixed_cond_false_then_block_else_inline() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let x <i32> if:
+        cond lt 2 1
+        then:
+            55
+        else 66
+    x
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 66);
+}
