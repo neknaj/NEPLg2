@@ -27,13 +27,37 @@ Compile and/or run:
 # run directly (no output file) targeting wasm
 cargo run -p nepl-cli -- --input examples/counter.nepl --run
 
-# write wasm and run
+# write wasm and run with embedded runner
 cargo run -p nepl-cli -- --input examples/counter.nepl --output target/counter.wasm --run
+
+# compile to wasi and run with external WASI runtime
+cargo run -p nepl-cli -- -i examples/rpn.nepl --run --target wasi
 
 # choose target (wasm|wasi), default wasm
 cargo run -p nepl-cli -- --input examples/counter.nepl --target wasi --output target/counter.wasm
 ```
-`--run` with `--target wasi` is not supported in the embedded runner; use an external WASI runtime.
+
+### Running with external WASI runtimes
+
+After compiling to WASM, you can run with `wasmtime` or `wasmer`:
+
+```bash
+# Compile to WASI binary
+cargo run -p nepl-cli -- -i examples/counter.nepl -o counter.wasm --target wasi
+
+# Run with wasmtime
+wasmtime run counter.wasm
+
+# Run with wasmer
+wasmer run counter.wasm
+
+# With stdin/stdout interaction (e.g., rpn.nepl)
+cargo run -p nepl-cli -- -i examples/rpn.nepl -o rpn.wasm --target wasi
+echo "3 5 +" | wasmtime run rpn.wasm
+echo "3 5 +" | wasmer run rpn.wasm
+```
+
+`#entry` directive specifies which function serves as the entry point (exported as `_start` for WASI compliance).
 
 Run stdlib tests:
 ```bash

@@ -199,6 +199,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
             if entry != "main" {
                 export_section.export(entry, ExportKind::Func, *idx);
             }
+            export_section.export("_start", ExportKind::Func, *idx);
         }
     }
 
