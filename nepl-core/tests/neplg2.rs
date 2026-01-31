@@ -358,17 +358,17 @@ fn list_get_out_of_bounds_err() {
 #indent 4
 #import "std/list"
 #use std::list::*
-#import "std/result"
-#use std::result::*
+#import "std/option"
+#use std::option::*
 
 fn main <()* >i32> ():
-    let lst new;
-    push lst 1;
-    let r get lst 10;
+    let lst list_nil<i32>;
+    let lst list_cons<i32> 1 lst;
+    let r list_get<i32> lst 10;
     match r:
-        Ok v:
+        Some v:
             v
-        Err e:
+        None:
             0
 "#;
     let v = run_main_i32(src);

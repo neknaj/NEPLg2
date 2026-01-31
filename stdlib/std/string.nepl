@@ -86,37 +86,51 @@ fn to_i32 <(str)*>Result<i32,i32>> (s):
     // Incremental safety: accept non-negative only.
 
     let n <i32> load_i32 s;
-    if eq n 0:
-        Result::Err <i32,i32> 1
-        else:
-            let mut i <i32> 0;
-            let mut res <i32> 0;
-            let mut ok <i32> 1;
+    let mut i <i32> 0;
+    let mut res <i32> 0;
+    let mut ok <i32> 1;
 
-            // Reject negative for now
+    if:
+        cond:
+            eq n 0
+        then:
+            set ok 0;
+        else:
             let first <i32> load_u8 add s 4;
-            if eq first 45:
-                Result::Err <i32,i32> 1
+            if:
+                cond:
+                    eq first 45
+                then:
+                    set ok 0;
                 else:
                     while lt i n:
                         let b <i32> load_u8 add s add 4 i;
                         let digit <i32> sub b 48;
 
-                        if lt digit 0:
-                            set ok 0;
-                            set i n;
+                        if:
+                            cond:
+                                lt digit 0
+                            then:
+                                set ok 0;
+                                set i n;
                             else:
-                                if le digit 9:
-                                    set res add mul res 10 digit;
-                                    set i add i 1;
+                                if:
+                                    cond:
+                                        le digit 9
+                                    then:
+                                        set res add mul res 10 digit;
+                                        set i add i 1;
                                     else:
                                         set ok 0;
                                         set i n;
 
-            if eq ok 1:
-                Result::Ok <i32,i32> res
-                else:
-                    Result::Err <i32,i32> 1
+    if:
+        cond:
+            eq ok 1
+        then:
+            Result::Ok <i32,i32> res
+        else:
+            Result::Err <i32,i32> 1
 
 
 fn find <(str,str)*>Option<i32>> (_s, _pat):

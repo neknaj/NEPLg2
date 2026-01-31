@@ -682,6 +682,9 @@ fn gen_expr(
                     }
                     _ => None,
                 }
+            } else if name == "unreachable" {
+                insts.push(Instruction::Unreachable);
+                None
             } else {
                 diags.push(Diagnostic::error("unknown codegen intrinsic", expr.span));
                 None
@@ -1138,22 +1141,32 @@ fn parse_local(text: &str, locals: &LocalMap) -> Option<u32> {
 }
 
 fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> u32 {
+    let name = if let Some(pos) = variant.rfind("::") {
+        &variant[pos + 2..]
+    } else {
+        variant
+    };
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => variants
             .iter()
-            .position(|v| v.name == variant)
+            .position(|v| v.name == name)
             .map(|i| i as u32)
             .unwrap_or(0),
-        TypeKind::Apply { base, .. } => enum_variant_tag(ctx, base, variant),
+        TypeKind::Apply { base, .. } => enum_variant_tag(ctx, base, name),
         _ => 0,
     }
 }
 
 fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option<TypeId> {
+    let name = if let Some(pos) = variant.rfind("::") {
+        &variant[pos + 2..]
+    } else {
+        variant
+    };
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => variants
             .iter()
-            .find(|v| v.name == variant)
+            .find(|v| v.name == name)
             .and_then(|v| v.payload),
         TypeKind::Apply { base, args } => match ctx.get(base) {
             TypeKind::Enum {
@@ -1163,7 +1176,7 @@ fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option
             } => {
                 let payload = variants
                     .iter()
-                    .find(|v| v.name == variant)
+                    .find(|v| v.name == name)
                     .and_then(|v| v.payload);
                 payload.map(|pty| {
                     if let Some(pos) = type_params.iter().position(|tp| *tp == pty) {

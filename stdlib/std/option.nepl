@@ -16,36 +16,36 @@ fn some <.T> <(.T)->Option<.T>> (v):
 
 fn is_some <.T> <(Option<.T>)->bool> (o):
     match o:
-        Some v:
+        Option::Some v:
             true
-        None:
+        Option::None:
             false
 
 fn is_none <.T> <(Option<.T>)->bool> (o):
     match o:
-        Some v:
+        Option::Some v:
             false
-        None:
+        Option::None:
             true
 
 fn unwrap <.T> <(Option<.T>)->.T> (o):
     match o:
-        Some v:
+        Option::Some v:
             v
-        None:
+        Option::None:
             // TODO: panic intrinsic
             #intrinsic "unreachable" <> ()
 
-fn unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
+fn option_unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
     match o:
-        Some v:
+        Option::Some v:
             v
-        None:
+        Option::None:
             default
 
-fn map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
+fn option_map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
     match o:
-        Some v:
+        Option::Some v:
             some<.U> f v
-        None:
+        Option::None:
             none<.U>

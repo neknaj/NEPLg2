@@ -2,6 +2,8 @@
 
 #import "std/mem"
 #use std::mem::*
+#import "std/math"
+#use std::math::*
 #import "std/option"
 #use std::option::*
 
@@ -19,21 +21,27 @@ fn list_cons <.T> <(.T,i32)*>i32> (head, tail):
     node
 
 fn list_head <.T> <(i32)->Option<.T>> (lst):
-    if eq lst 0:
-        none<.T>
-    else:
-        some<.T> load<.T> lst
+    if:
+        cond:
+            eq lst 0
+        then:
+            none<.T>
+        else:
+            some<.T> load<.T> lst
 
 fn list_tail <.T> <(i32)->i32> (lst):
-    if eq lst 0:
-        0
-    else:
-        load_i32 add lst size_of<.T>
+    if:
+        cond:
+            eq lst 0
+        then:
+            0
+        else:
+            load_i32 add lst size_of<.T>
 
 fn list_is_empty <.T> <(i32)->bool> (lst):
     eq lst 0
 
-fn list_len <.T> <(i32)->i32> (lst):
+fn list_len <.T> <(i32)*>i32> (lst):
     let mut count <i32> 0
     let mut cur <i32> lst
     while ne cur 0:
@@ -41,23 +49,32 @@ fn list_len <.T> <(i32)->i32> (lst):
         set cur load_i32 add cur size_of<.T>
     count
 
-fn list_get <.T> <(i32,i32)->Option<.T>> (lst, idx):
-    if lt idx 0:
-        none<.T>
-    else:
-        let mut cur <i32> lst
-        let mut i <i32> 0
-        while lt i idx:
-            if eq cur 0:
-                // return early via break would be nice; use flag instead
-                set i idx
-            else:
-                set cur load_i32 add cur size_of<.T>
-                set i add i 1
-        if eq cur 0:
+fn list_get <.T> <(i32,i32)*>Option<.T>> (lst, idx):
+    if:
+        cond:
+            lt idx 0
+        then:
             none<.T>
         else:
-            some<.T> load<.T> cur
+            let mut cur <i32> lst
+            let mut i <i32> 0
+            while lt i idx:
+                if:
+                    cond:
+                        eq cur 0
+                    then:
+                        // return early via break would be nice; use flag instead
+                        set i idx
+                    else:
+                        set cur load_i32 add cur size_of<.T>
+                        set i add i 1
+            if:
+                cond:
+                    eq cur 0
+                then:
+                    none<.T>
+                else:
+                    some<.T> load<.T> cur
 
 fn list_free <.T> <(i32)*>()> (lst):
     let node_size <i32> add size_of<.T> 4

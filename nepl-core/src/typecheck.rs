@@ -829,6 +829,7 @@ impl<'a> BlockChecker<'a> {
                     kind: HirExprKind::Unit,
                     span: block.span,
                 },
+                type_args: Vec::new(),
                 assign: None,
             });
         }
@@ -1022,6 +1023,7 @@ impl<'a> BlockChecker<'a> {
                             kind: hir,
                             span: *span,
                         },
+                        type_args: Vec::new(),
                         assign: None,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1082,6 +1084,7 @@ impl<'a> BlockChecker<'a> {
                                             kind: HirExprKind::Var(id.name.clone()),
                                             span: id.span,
                                         },
+                                        type_args: fresh_args,
                                         assign: None,
                                     });
                                     // defer applying ascription until the expression is complete
@@ -1095,6 +1098,7 @@ impl<'a> BlockChecker<'a> {
                                             kind: HirExprKind::Var(id.name.clone()),
                                             span: id.span,
                                         },
+                                        type_args: Vec::new(),
                                         assign: None,
                                     });
                                     // defer applying ascription until the expression is complete
@@ -1133,6 +1137,7 @@ impl<'a> BlockChecker<'a> {
                                 kind: HirExprKind::Var(name.name.clone()),
                                 span: name.span,
                             },
+                            type_args: Vec::new(),
                             assign: Some(AssignKind::Let),
                         });
                         // defer applying ascription until the expression is complete
@@ -1164,6 +1169,7 @@ impl<'a> BlockChecker<'a> {
                                     kind: HirExprKind::Var(name.name.clone()),
                                     span: name.span,
                                 },
+                                type_args: Vec::new(),
                                 assign: Some(AssignKind::Set),
                             });
                             // defer applying ascription until the expression is complete
@@ -1189,6 +1195,7 @@ impl<'a> BlockChecker<'a> {
                                 kind: HirExprKind::Var("if".to_string()),
                                 span: *sp,
                             },
+                            type_args: Vec::new(),
                             assign: None,
                         });
                         // defer applying ascription until the expression is complete
@@ -1209,6 +1216,7 @@ impl<'a> BlockChecker<'a> {
                                 kind: HirExprKind::Var("while".to_string()),
                                 span: *sp,
                             },
+                            type_args: Vec::new(),
                             assign: None,
                         });
                         // defer applying ascription until the expression is complete
@@ -1259,6 +1267,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             span: *sp,
                         },
+                        type_args: Vec::new(),
                         assign: None,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1273,6 +1282,7 @@ impl<'a> BlockChecker<'a> {
                         stack.push(StackEntry {
                             ty,
                             expr: hexpr,
+                            type_args: Vec::new(),
                             assign: None,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1298,6 +1308,7 @@ impl<'a> BlockChecker<'a> {
                             kind: HirExprKind::TupleConstruct { items: elems },
                             span: *sp,
                         },
+                        type_args: Vec::new(),
                         assign: None,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1308,6 +1319,7 @@ impl<'a> BlockChecker<'a> {
                         stack.push(StackEntry {
                             ty: hexpr.ty,
                             expr: hexpr,
+                            type_args: Vec::new(),
                             assign: None,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1328,6 +1340,7 @@ impl<'a> BlockChecker<'a> {
                                 kind: HirExprKind::Block(blk),
                                 span: *sp,
                             },
+                            type_args: Vec::new(),
                             assign: None,
                         });
                         // defer applying ascription until the expression is complete
@@ -1461,7 +1474,11 @@ impl<'a> BlockChecker<'a> {
                 None => break,
             };
 
-            let (inst_ty, fresh_args) = self.ctx.instantiate(stack[func_pos].ty);
+            let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
+                (stack[func_pos].ty, stack[func_pos].type_args.clone())
+            } else {
+                self.ctx.instantiate(stack[func_pos].ty)
+            };
             let func_ty = self.ctx.get(inst_ty);
             let (params, result, effect) = match func_ty {
                 TypeKind::Function {
@@ -1505,7 +1522,11 @@ impl<'a> BlockChecker<'a> {
                 None => break,
             };
 
-            let (inst_ty, fresh_args) = self.ctx.instantiate(stack[func_pos].ty);
+            let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
+                (stack[func_pos].ty, stack[func_pos].type_args.clone())
+            } else {
+                self.ctx.instantiate(stack[func_pos].ty)
+            };
             let func_ty = self.ctx.get(inst_ty);
             let (params, result, effect) = match func_ty {
                 TypeKind::Function {
@@ -1572,10 +1593,10 @@ impl<'a> BlockChecker<'a> {
                 }
                 let var_info = variants.iter().find(|v| v.name == arm_var_name);
                 if var_info.is_none() {
-                    self.diagnostics.push(Diagnostic::error(
-                        alloc::format!("unknown enum variant '{}' in match", arm.variant.name),
-                        arm.variant.span,
-                    ));
+                self.diagnostics.push(Diagnostic::error(
+                    alloc::format!("unknown enum variant '{}' in match", arm.variant.name),
+                    arm.variant.span,
+                ));
                     continue;
                 }
                 let var_info = var_info.unwrap();
@@ -1825,6 +1846,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 span: func.expr.span,
                             },
+                            type_args: Vec::new(),
                             assign: None,
                         });
                     }
@@ -1849,6 +1871,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 span: func.expr.span,
                             },
+                            type_args: Vec::new(),
                             assign: None,
                         });
                     }
@@ -1890,6 +1913,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         span: func.expr.span,
                     },
+                    type_args: Vec::new(),
                     assign: None,
                 });
             }
@@ -1923,6 +1947,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         span: func.expr.span,
                     },
+                    type_args: Vec::new(),
                     assign: None,
                 });
             }
@@ -2002,6 +2027,7 @@ impl<'a> BlockChecker<'a> {
                                             },
                                             span: func.expr.span,
                                         },
+                                        type_args: Vec::new(),
                                         assign: None,
                                     });
                                 }
@@ -2043,6 +2069,7 @@ impl<'a> BlockChecker<'a> {
                                     },
                                     span: func.expr.span,
                                 },
+                                type_args: Vec::new(),
                                 assign: None,
                             });
                         }
@@ -2083,6 +2110,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 span: func.expr.span,
                             },
+                            type_args: Vec::new(),
                             assign: None,
                         });
                     }
@@ -2101,6 +2129,7 @@ impl<'a> BlockChecker<'a> {
                 },
                 span: func.expr.span,
             },
+            type_args: Vec::new(),
             assign: None,
         })
     }
@@ -2343,5 +2372,6 @@ enum AssignKind {
 struct StackEntry {
     ty: TypeId,
     expr: HirExpr,
+    type_args: Vec<TypeId>,
     assign: Option<AssignKind>,
 }

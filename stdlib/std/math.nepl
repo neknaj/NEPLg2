@@ -50,6 +50,13 @@ fn eq <(i32,i32)->bool> (a,b):
         i32.eq
 
 #if[target=wasm]
+fn ne <(i32,i32)->bool> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ne
+
+#if[target=wasm]
 fn le <(i32,i32)->bool> (a,b):
     #wasm:
         local.get $a

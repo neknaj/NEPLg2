@@ -4,22 +4,23 @@
 
 #import "std/list"
 #use std::list::*
-#import "std/result"
-#use std::result::*
+#import "std/option"
+#use std::option::*
 #import "std/test"
 #use std::test::*
 
 fn main <()*> ()> ():
-    let l <i32> new;
-    push l 10;
-    push l 20;
-    assert_eq_i32 2 len l;
+    let l0 <i32> list_nil<i32>;
+    let l1 <i32> list_cons<i32> 10 l0;
+    let l2 <i32> list_cons<i32> 20 l1;
+    assert_eq_i32 2 list_len<i32> l2;
 
-    let r1 <ResultI32> get l 1;
-    assert_ok_i32 r1;
-    let r2 <ResultI32> get l 1;
-    assert_eq_i32 20 unwrap_or r2 0;
+    let o1 <Option<i32>> list_get<i32> l2 1;
+    assert is_some<i32> o1;
+    let o2 <Option<i32>> list_get<i32> l2 1;
+    assert_eq_i32 10 unwrap<i32> o2;
 
-    let r3 <ResultI32> get l 5;
-    assert_err_i32 r3;
+    let o3 <Option<i32>> list_get<i32> l2 5;
+    assert is_none<i32> o3;
+    list_free<i32> l2;
     ()

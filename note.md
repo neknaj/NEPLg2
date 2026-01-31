@@ -122,3 +122,7 @@
 - `generics_multi_type_params_function` の期待値は if の振る舞いに合わせて 3 に修正（false 分岐の確認）。
 - `cargo test` は全件通過を確認。
 - plan2.md と doc/starting_detail.md は引き続きリポジトリ内に存在しないため参照不可。
+
+# 2026-01-31 作業メモ (テスト整合)
+- nepl-core の `list_get_out_of_bounds_err` テストを現行 stdlib に合わせ、`list_nil/list_cons/list_get` と `Option` の `Some/None` マッチに更新。
+- `cargo test` と `cargo run -p nepl-cli -- test` の両方が成功することを確認。
