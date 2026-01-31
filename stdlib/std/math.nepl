@@ -927,3 +927,31 @@ fn ne <(i32,i32)->bool> (a,b):
 #if[target=wasm]
 fn le <(i32,i32)->bool> (a,b):
     i32_le_s a b
+
+#if[target=wasm]
+fn gt <(i32,i32)->bool> (a,b):
+    i32_gt_s a b
+
+#if[target=wasm]
+fn ge <(i32,i32)->bool> (a,b):
+    i32_ge_s a b
+
+#if[target=wasm]
+fn and <(bool,bool)->bool> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.and
+
+#if[target=wasm]
+fn or <(bool,bool)->bool> (a,b):
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.or
+
+#if[target=wasm]
+fn not <(bool)->bool> (a):
+    #wasm:
+        local.get $a
+        i32.eqz

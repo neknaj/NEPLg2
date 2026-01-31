@@ -206,10 +206,10 @@ impl TypeCtx {
             | TypeKind::Never => true,
             TypeKind::Reference(_, _) => true,
             TypeKind::Box(_) => false,
-            TypeKind::Enum { .. } => false,
-            TypeKind::Struct { .. } => false,
+            TypeKind::Enum { .. } => true,
+            TypeKind::Struct { .. } => true,
             TypeKind::Tuple { items } => items.iter().all(|t| self.is_copy_inner(*t, seen)),
-            TypeKind::Apply { .. } => false,
+            TypeKind::Apply { .. } => true,
             TypeKind::Function { .. } => false,
             TypeKind::Var(v) => {
                 if let Some(b) = v.binding {

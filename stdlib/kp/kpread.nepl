@@ -1,0 +1,156 @@
+#indent 4
+#target wasi
+#import "std/mem"
+#use std::mem::*
+#import "std/math"
+#use std::math::*
+#import "std/stdio"
+#use std::stdio::*
+#import "std/string"
+#use std::string::*
+#import "std/vec"
+#use std::vec::*
+
+struct Scanner:
+    buf <i32>
+    len <i32>
+    pos <i32>
+
+fn scanner_new <()*>Scanner> ():
+    let mut cap <i32> 65536;
+    let mut buf <i32> alloc cap;
+    let mut len <i32> 0;
+    let iov <i32> alloc 8;
+    let nread_ptr <i32> alloc 4;
+    let mut done <i32> 0;
+    while eq done 0:
+        if:
+            eq len cap
+            then:
+                let new_cap <i32> mul cap 2;
+                let new_buf <i32> realloc buf cap new_cap;
+                set buf new_buf;
+                set cap new_cap;
+            else:
+                ()
+        store_i32 iov add buf len;
+        store_i32 add iov 4 sub cap len;
+        store_i32 nread_ptr 0;
+        let errno <i32> fd_read 0 iov 1 nread_ptr;
+        if:
+            ne errno 0
+            then:
+                set done 1;
+            else:
+                let n <i32> load_i32 nread_ptr;
+                if:
+                    eq n 0
+                    then:
+                        set done 1;
+                    else:
+                        set len add len n;
+    Scanner buf len 0
+
+fn scanner_skip_ws <(Scanner)*>()> (sc):
+    let mut p <i32> sc.pos;
+    let mut done <i32> 0;
+    while eq done 0:
+        if:
+            lt p sc.len
+            then:
+                let byte <i32> load_u8 add sc.buf p;
+                if:
+                    or eq byte 32 or eq byte 10 or eq byte 13 eq byte 9
+                    then:
+                        set p add p 1;
+                    else:
+                        set done 1;
+            else:
+                set done 1;
+    set sc.pos p;
+    ()
+
+fn scanner_read_token <(Scanner)*>str> (sc):
+    scanner_skip_ws sc;
+    let start <i32> sc.pos;
+    let mut p <i32> start;
+    let mut done <i32> 0;
+    while eq done 0:
+        if:
+            lt p sc.len
+            then:
+                let byte <i32> load_u8 add sc.buf p;
+                if:
+                    or eq byte 32 or eq byte 10 or eq byte 13 eq byte 9
+                    then:
+                        set done 1;
+                    else:
+                        set p add p 1;
+            else:
+                set done 1;
+    let tlen <i32> sub p start;
+    if:
+        eq tlen 0
+        then:
+            ""
+        else:
+            let s <i32> alloc add 4 tlen;
+            store_i32 s tlen;
+            let mut i <i32> 0;
+            while lt i tlen:
+                store_u8 add s add 4 i load_u8 add sc.buf add start i;
+                set i add i 1;
+            set sc.pos p;
+            s
+
+fn scanner_read_i32 <(Scanner)*>i32> (sc):
+    scanner_skip_ws sc;
+    let mut p <i32> sc.pos;
+    if:
+        ge p sc.len
+        then:
+            0
+        else:
+            let mut sign <i32> 1;
+            let b0 <i32> load_u8 add sc.buf p;
+            if:
+                eq b0 45
+                then:
+                    set sign -1;
+                    set p add p 1;
+                else:
+                    ();
+            let mut val <i32> 0;
+            let mut done <i32> 0;
+            while eq done 0:
+                if:
+                    lt p sc.len
+                    then:
+                        let byte <i32> load_u8 add sc.buf p;
+                        if:
+                            and ge byte 48 le byte 57
+                            then:
+                                set val add mul val 10 sub byte 48;
+                                set p add p 1;
+                            else:
+                                set done 1;
+                    else:
+                        set done 1;
+            set sc.pos p;
+            mul val sign
+
+fn scanner_read_vec_i32 <(Scanner, i32)*>Vec<i32>> (sc, n):
+    let mut v <Vec<i32>> vec_new <i32>;
+    let mut i <i32> 0;
+    while lt i n:
+        set v vec_push <i32> v scanner_read_i32 sc;
+        set i add i 1;
+    v
+
+fn scanner_read_matrix_i32 <(Scanner, i32, i32)*>Vec<Vec<i32>>> (sc, h, w):
+    let mut res <Vec<Vec<i32>>> vec_new <Vec<i32>>;
+    let mut i <i32> 0;
+    while lt i h:
+        set res vec_push <Vec<i32>> res scanner_read_vec_i32 sc w;
+        set i add i 1;
+    res
