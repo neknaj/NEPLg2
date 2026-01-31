@@ -36,7 +36,6 @@ struct StructInfo {
     ty: TypeId,
     type_params: Vec<TypeId>,
     fields: Vec<TypeId>,
-    field_names: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -202,12 +201,7 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                     if let Some(pty) = v.payload {
                         params.push(pty);
                     }
-                    let ret_ty = if tps.is_empty() {
-                        ty
-                    } else {
-                        ctx.apply(ty, tps.clone())
-                    };
-                    let func_ty = ctx.function(tps.clone(), params.clone(), ret_ty, Effect::Pure);
+                    let func_ty = ctx.function(tps.clone(), params.clone(), ty, Effect::Pure);
                     
                     // Simple name (e.g. "Some")
                     env.insert_global(Binding {
@@ -257,10 +251,8 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                     tps.push(id);
                 }
                 let mut fs = Vec::new();
-                let mut f_names = Vec::new();
-                for (ident, ty_expr) in &s.fields {
+                for (_, ty_expr) in &s.fields {
                     fs.push(type_from_expr(&mut ctx, &mut s_labels, ty_expr));
-                    f_names.push(ident.name.clone());
                 }
                 let ty = ctx.register_named(
                     s.name.name.clone(),
@@ -268,37 +260,14 @@ pub fn typecheck(module: &crate::ast::Module, target: CompileTarget) -> TypeChec
                         name: s.name.name.clone(),
                         type_params: tps.clone(),
                         fields: fs.clone(),
-                        field_names: f_names.clone(),
                     },
                 );
-                
-                // Register constructor in environment
-                let ret_ty = if tps.is_empty() {
-                    ty
-                } else {
-                    ctx.apply(ty, tps.clone())
-                };
-                let constructor_ty = ctx.function(tps.clone(), fs.clone(), ret_ty, Effect::Pure);
-                env.insert_global(Binding {
-                    name: s.name.name.clone(),
-                    ty: constructor_ty,
-                    mutable: false,
-                    defined: true,
-                    moved: false,
-                    kind: BindingKind::Func {
-                        effect: Effect::Pure,
-                        arity: fs.len(),
-                        builtin: None,
-                    },
-                });
-
                 structs.insert(
                     s.name.name.clone(),
                     StructInfo {
                         ty,
                         type_params: tps,
                         fields: fs,
-                        field_names: f_names,
                     },
                 );
             }
@@ -962,7 +931,7 @@ impl<'a> BlockChecker<'a> {
         base_depth: usize,
         stack: &mut Vec<StackEntry>,
     ) -> Option<(HirExpr, bool)> {
-        let dropped = false;
+        let mut dropped = false;
         let mut last_expr: Option<HirExpr> = None;
         let mut pipe_pending: Option<StackEntry> = None;
         // (target_type, stack_depth_when_annotation_appeared)
@@ -1022,100 +991,7 @@ impl<'a> BlockChecker<'a> {
                 }
                 PrefixItem::Symbol(sym) => match sym {
                     Symbol::Ident(id, type_args) => {
-
-                        if id.name.contains('.') {
-                            let parts: Vec<&str> = id.name.split('.').collect();
-                            let base_name = parts[0];
-                            if let Some(binding) = self.env.lookup(base_name) {
-                                let mut current_ty = binding.ty;
-                                let mut current_expr = HirExpr {
-                                    ty: current_ty,
-                                    kind: HirExprKind::Var(base_name.to_string()),
-                                    span: id.span,
-                                };
-
-                                for field_name in &parts[1..] {
-                                    let resolved_ty = self.ctx.resolve(current_ty);
-                                    let (name, fields, field_names) = match self.ctx.get(resolved_ty) {
-                                        TypeKind::Struct { name, fields, field_names, .. } => (name, fields, field_names),
-                                        TypeKind::Apply { base, args } => {
-                                            let base_ty = self.ctx.resolve(base);
-                                            match self.ctx.get(base_ty) {
-                                                TypeKind::Struct { name, type_params, fields, field_names } => {
-                                                    let mut mapping = BTreeMap::new();
-                                                    for (tp, arg) in type_params.iter().zip(args.iter()) {
-                                                        mapping.insert(*tp, *arg);
-                                                    }
-                                                    let substituted_fields = fields.iter().map(|f| self.ctx.substitute(*f, &mapping)).collect::<Vec<_>>();
-                                                    (name, substituted_fields, field_names)
-                                                }
-                                                _ => {
-                                                    self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-struct type", field_name), id.span));
-                                                    return None;
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-struct type", field_name), id.span));
-                                            return None;
-                                        }
-                                    };
-
-                                    if let Some(idx) = field_names.iter().position(|n| *n == *field_name) {
-                                        let f_ty = fields[idx];
-                                        // Simple offset: 4 bytes per field for now (i32/f32/enum/struct-ptr)
-                                        let offset = idx * 4;
-                                        
-                                        // address = current_expr + offset
-                                        let addr_expr = if offset == 0 {
-                                            current_expr
-                                        } else {
-                                            HirExpr {
-                                                ty: self.ctx.i32(),
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "add".to_string(), // assuming there is an add intrinsic or use builtins
-                                                    type_args: vec![self.ctx.i32()],
-                                                    args: vec![
-                                                        current_expr,
-                                                        HirExpr {
-                                                            ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(offset as i32),
-                                                            span: id.span,
-                                                        }
-                                                    ],
-                                                },
-                                                span: id.span,
-                                            }
-                                        };
-
-                                        current_ty = f_ty;
-                                        current_expr = HirExpr {
-                                            ty: f_ty,
-                                            kind: HirExprKind::Intrinsic {
-                                                name: "load".to_string(),
-                                                type_args: vec![f_ty],
-                                                args: vec![addr_expr],
-                                            },
-                                            span: id.span,
-                                        };
-                                    } else {
-                                        self.diagnostics.push(Diagnostic::error(format!("struct {} has no field {}", name, field_name), id.span));
-                                        return None;
-                                    }
-                                }
-
-                                stack.push(StackEntry {
-                                    ty: current_ty,
-                                    expr: current_expr.clone(),
-                                    type_args: Vec::new(),
-                                    assign: None,
-                                });
-                                last_expr = Some(current_expr);
-                            } else {
-                                self.diagnostics.push(Diagnostic::error(format!("undefined variable: {}", base_name), id.span));
-                                return None;
-                            }
-                        } else if let Some(binding) = self.env.lookup(&id.name) {
+                        if let Some(binding) = self.env.lookup(&id.name) {
                             let mut ty = binding.ty;
                             let mut fresh_args = Vec::new();
                             
@@ -1229,112 +1105,8 @@ impl<'a> BlockChecker<'a> {
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
                     Symbol::Set { name } => {
-                        if name.name.contains('.') {
-                            let parts: Vec<&str> = name.name.split('.').collect();
-                            let base_name = parts[0];
-                            if let Some(binding) = self.env.lookup(base_name) {
-                                let mut current_ty = binding.ty;
-                                let mut current_expr = HirExpr {
-                                    ty: current_ty,
-                                    kind: HirExprKind::Var(base_name.to_string()),
-                                    span: name.span,
-                                };
-
-                                for i in 1..parts.len() {
-                                    let field_name = parts[i];
-                                    let resolved_ty = self.ctx.resolve(current_ty);
-                                    let (s_name, fields, field_names) = match self.ctx.get(resolved_ty) {
-                                        TypeKind::Struct { name: n, fields: f, field_names: fnm, .. } => (n, f, fnm),
-                                        TypeKind::Apply { base, args } => {
-                                            let base_ty = self.ctx.resolve(base);
-                                            match self.ctx.get(base_ty) {
-                                                TypeKind::Struct { name: n, type_params, fields: f, field_names: fnm } => {
-                                                    let mut mapping = BTreeMap::new();
-                                                    for (tp, arg) in type_params.iter().zip(args.iter()) {
-                                                        mapping.insert(*tp, *arg);
-                                                    }
-                                                    let substituted_fields = f.iter().map(|sf| self.ctx.substitute(*sf, &mapping)).collect::<Vec<_>>();
-                                                    (n, substituted_fields, fnm)
-                                                }
-                                                _ => {
-                                                    self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-struct type", field_name), name.span));
-                                                    return None;
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-struct type", field_name), name.span));
-                                            return None;
-                                        }
-                                    };
-
-                                    if let Some(idx) = field_names.iter().position(|n| *n == *field_name) {
-                                        let f_ty = fields[idx];
-                                        let offset = idx * 4;
-                                        
-                                        let addr_expr = if offset == 0 {
-                                            current_expr
-                                        } else {
-                                            HirExpr {
-                                                ty: self.ctx.i32(),
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "add".to_string(),
-                                                    type_args: vec![self.ctx.i32()],
-                                                    args: vec![
-                                                        current_expr,
-                                                        HirExpr {
-                                                            ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(offset as i32),
-                                                            span: name.span,
-                                                        }
-                                                    ],
-                                                },
-                                                span: name.span,
-                                            }
-                                        };
-
-                                        if i == parts.len() - 1 {
-                                            let func_ty = self.ctx.function(
-                                                Vec::new(),
-                                                vec![f_ty],
-                                                self.ctx.unit(),
-                                                Effect::Impure,
-                                            );
-                                            stack.push(StackEntry {
-                                                ty: func_ty,
-                                                expr: HirExpr {
-                                                    ty: func_ty,
-                                                    kind: HirExprKind::Var(name.name.clone()),
-                                                    span: name.span,
-                                                },
-                                                type_args: Vec::new(),
-                                                assign: Some(AssignKind::Store(addr_expr)),
-                                            });
-                                            last_expr = Some(stack.last().unwrap().expr.clone());
-                                            break;
-                                        } else {
-                                            current_ty = f_ty;
-                                            current_expr = HirExpr {
-                                                ty: f_ty,
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "load".to_string(),
-                                                    type_args: vec![f_ty],
-                                                    args: vec![addr_expr],
-                                                },
-                                                span: name.span,
-                                            };
-                                        }
-                                    } else {
-                                        self.diagnostics.push(Diagnostic::error(format!("struct {} has no field {}", s_name, field_name), name.span));
-                                        return None;
-                                    }
-                                }
-                            } else {
-                                self.diagnostics
-                                    .push(Diagnostic::error("undefined variable", name.span));
-                            }
-                            last_expr = Some(stack.last().unwrap().expr.clone());
-                        } else if let Some(binding) = self
+                        // Resolve set against current scope first, then outer scopes.
+                        if let Some(binding) = self
                             .env
                             .lookup_current(&name.name)
                             .or_else(|| self.env.lookup(&name.name))
@@ -1509,7 +1281,7 @@ impl<'a> BlockChecker<'a> {
                     // record target type and current stack depth; do NOT treat as an expression
                     pending_ascription = Some((ty, stack.len()));
                 }
-                PrefixItem::Match(mexpr, _sp) => {
+                PrefixItem::Match(mexpr, sp) => {
                     if let Some((hexpr, ty)) = self.check_match_expr(mexpr) {
                         stack.push(StackEntry {
                             ty,
@@ -1698,9 +1470,9 @@ impl<'a> BlockChecker<'a> {
 
     fn reduce_calls(&mut self, stack: &mut Vec<StackEntry>) {
         loop {
-            let func_pos = match stack.iter().enumerate().rposition(|(_, e)| {
-                let rty = self.ctx.resolve(e.ty);
-                matches!(self.ctx.get(rty), TypeKind::Function { .. })
+            let func_pos = match stack.iter().rposition(|e| match self.ctx.get(e.ty) {
+                TypeKind::Function { .. } => true,
+                _ => false,
             }) {
                 Some(p) => p,
                 None => break,
@@ -2072,32 +1844,6 @@ impl<'a> BlockChecker<'a> {
                 ));
                 return None;
             }
-            // Handle field store first since it doesn't need variable lookup
-            if let AssignKind::Store(addr) = assign {
-                if !params.is_empty() {
-                    if let Err(_) = self.ctx.unify(params[0], args[0].ty) {
-                        self.diagnostics.push(Diagnostic::error(
-                             "type mismatch in field assignment",
-                             func.expr.span,
-                        ));
-                    }
-                }
-                return Some(StackEntry {
-                    ty: self.ctx.unit(),
-                    expr: HirExpr {
-                        ty: self.ctx.unit(),
-                        kind: HirExprKind::Intrinsic {
-                            name: "store".to_string(),
-                            type_args: vec![args[0].ty],
-                            args: vec![addr, args[0].expr.clone()],
-                        },
-                        span: func.expr.span,
-                    },
-                    type_args: Vec::new(),
-                    assign: None,
-                });
-            }
-
             let name = match &func.expr.kind {
                 HirExprKind::Var(n) => n.clone(),
                 _ => "_".to_string(),
@@ -2157,16 +1903,14 @@ impl<'a> BlockChecker<'a> {
                             assign: None,
                         });
                     }
-                    _ => unreachable!(),
                 }
             } else {
-                 self.diagnostics.push(Diagnostic::error(
-                    format!("undefined variable: {}", name),
+                self.diagnostics.push(Diagnostic::error(
+                    "assignment target not found",
                     func.expr.span,
                 ));
                 return None;
             }
-
         }
 
         // Special-cased symbols (if / while)
@@ -2653,11 +2397,10 @@ fn target_allows(target: &str, active: CompileTarget) -> bool {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum AssignKind {
     Let,
     Set,
-    Store(HirExpr),
 }
 
 #[derive(Debug, Clone)]

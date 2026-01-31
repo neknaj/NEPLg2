@@ -7,7 +7,7 @@
 #import "std/test"
 #use std::test::*
 
-fn main <() -> ()> ():
+fn main <() *> ()> ():
     // Test ok and is_ok
     let r1 <Result<i32,i32>> ok<i32,i32> 5;
     assert is_ok<i32,i32> r1;

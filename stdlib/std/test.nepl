@@ -12,22 +12,23 @@ fn test_str_eq <(str,str)->bool> (a,b):
     let lb <i32> load_i32 b;
     if:
         eq la lb
-        test_str_eq_loop a b la 0
+        then:
+            test_str_eq_loop a b la 0
         else:
             false
 
 fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
     if:
         eq i len
-        true
+        then:
+            true
         else:
             let ba <i32> load_u8 add a add 4 i;
             let bb <i32> load_u8 add b add 4 i;
             if:
                 eq ba bb
-                test_str_eq_loop a b len add i 1
-                else:
-                    false
+                then test_str_eq_loop a b len add i 1
+                else false
 
 fn trap <()->()> ():
     #wasm:
@@ -42,35 +43,31 @@ fn fail <(str)->()> (msg):
 fn assert <(bool)->()> (ok):
     if:
         ok
-        ()
-        else:
-            trap
+        then ()
+        else trap
 
 fn assert_eq_i32 <(i32,i32)->()> (expected, actual):
     if:
         eq expected actual
-        ()
-        else:
-            trap
+        then ()
+        else trap
 
 fn assert_ne <(bool,bool)->()> (a, b):
     if:
-        cond a
-        then if:
-            cond b
-            then trap
-            else ()
-        else if:
-            cond b
-            then ()
-            else trap
+        a
+        then:
+            if:
+                b
+                then trap
+                else ()
+        else:
+            if:
+                b
+                then ()
+                else trap
 
 fn assert_str_eq <(str,str)->()> (expected, actual):
-    if:
-        test_str_eq expected actual
-        ()
-        else:
-            trap
+    if test_str_eq expected actual () trap
 
 fn assert_ok_i32 <(Result<i32,i32>)->()> (r):
     match r:

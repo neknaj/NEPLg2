@@ -13,37 +13,37 @@
 
 fn main <()*> ()> ():
     // Test vec_new
-    let v vec_new<.i32>;
-    assert_eq_i32 0 vec_len<.i32> v;
-    assert vec_is_empty<.i32> v;
+    let v vec_new<i32>;
+    assert_eq_i32 0 vec_len<.32> v;
+    assert vec_is_empty<i32> v;
 
     // Test vec_push and vec_len
-    let v1 vec_push<.i32> v 10;
-    assert_eq_i32 1 vec_len<.i32> v1;
-    assert_ne true vec_is_empty<.i32> v1;
+    let v1 vec_push<i32> v 10;
+    assert_eq_i32 1 vec_len<i32> v1;
+    assert_ne true vec_is_empty<i32> v1;
 
     // Test vec_push multiple times
-    let v2 vec_push<.i32> v1 20;
-    let v3 vec_push<.i32> v2 30;
-    assert_eq_i32 3 vec_len<.i32> v3;
+    let v2 vec_push<i32> v1 20;
+    let v3 vec_push<i32> v2 30;
+    assert_eq_i32 3 vec_len<i32> v3;
 
     // Test vec_get on valid indices
-    match vec_get<.i32> v3 0:
+    match vec_get<i32> v3 0:
         Option::Some x:
             assert_eq_i32 10 x
         Option::None:
             trap;
 
-    match vec_get<.i32> v3 1:
+    match vec_get<i32> v3 1:
         Option::Some x:
             assert_eq_i32 20 x
         Option::None:
             trap;
 
     // Test vec_get on invalid index (negative)
-    assert is_none<.i32> vec_get<.i32> v3 -1;
+    assert is_none<i32> vec_get<i32> v3 -1;
 
     // Test vec_get on out of bounds
-    assert is_none<.i32> vec_get<.i32> v3 10;
+    assert is_none<i32> vec_get<i32> v3 10;
 
     ()
