@@ -1,75 +1,103 @@
-use nepl_core::{compile_module, loader::Loader};
+mod harness;
+use harness::run_main_i32;
 
 #[test]
-fn compile_various_if_forms() {
+fn if_a_returns_expected() {
     let src = r#"
-#target wasi
 #entry main
 #indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let a <i32> if true 0 1;
+    a
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
+fn if_b_returns_expected() {
+    let src = r#"
 #entry main
 #indent 4
+#target wasm
 
-fn main <()*>()> ():
-    // 1-line if
-    let _ <i32> if true 0 1;
+fn main <()->i32> ():
+    let b <i32> if true then 0 else 1;
+    b
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
 
-    // 1-line with then/else
-    let _ <i32> if true then 0 else 1;
+#[test]
+fn if_c_returns_expected() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
 
-    // multi-line with markers
-    let _ <i32> if true:
+fn main <()->i32> ():
+    let c <i32> if:
+        true
+        0
+        1
+    c
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
+fn if_d_returns_expected() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let d <i32> if:
+        cond true
         then 0
         else 1
+    d
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
 
-    // multi-line with labeled blocks
-    let _ <i32> if true:
+#[test]
+fn if_e_returns_expected() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let e <i32> if:
+        true
         then:
             0
         else:
             1
-
-    // nested/combined
-    let _ <i32> if true 0 if true 1 2;
+    e
 "#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
 
-    let mut loader = Loader::new(
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("stdlib"),
-    );
-    let loaded = loader
-        .load_inline("<test>".into(), src.to_string())
-        .expect("load");
+#[test]
+fn if_f_returns_expected() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
 
-    match compile_module(
-        loaded.module.clone(),
-        nepl_core::CompileOptions {
-            target: None,
-            verbose: false,
-        },
-    ) {
-        Ok(_) => {}
-        Err(nepl_core::CoreError::Diagnostics(diags)) => {
-            eprintln!("Diagnostics({})", diags.len());
-            for d in diags {
-                eprintln!("{}", d.message);
-                let fid = d.primary.span.file_id;
-                let start = d.primary.span.start;
-                if let Some((line, col)) = loaded.source_map.line_col(fid, start) {
-                    if let Some(path) = loaded.source_map.path(fid) {
-                        eprintln!(" --> {}:{}:{}", path.display(), line + 1, col + 1);
-                        if let Some(src) = loaded.source_map.get(fid) {
-                            let s = d.primary.span.start as usize;
-                            let e = d.primary.span.end as usize;
-                            let e = e.min(src.len());
-                            let snippet = &src[s..e];
-                            eprintln!("> snippet: '{}'", snippet.replace("\n", " "));
-                        }
-                    }
-                }
-            }
-            panic!("compile failed with diagnostics");
-        }
-        Err(e) => panic!("compile failed: {:?}", e),
-    }
+fn main <()->i32> ():
+    let f <i32> if true 0 if true 1 2;
+    f
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
 }
