@@ -338,7 +338,10 @@ fn valtype(kind: &TypeKind) -> Option<ValType> {
         TypeKind::Unit => None,
         TypeKind::I32 | TypeKind::Bool | TypeKind::Str => Some(ValType::I32),
         TypeKind::F32 => Some(ValType::F32),
-        TypeKind::Enum { .. } | TypeKind::Struct { .. } | TypeKind::Named(_) => Some(ValType::I32),
+        TypeKind::Enum { .. }
+        | TypeKind::Struct { .. }
+        | TypeKind::Tuple { .. }
+        | TypeKind::Named(_) => Some(ValType::I32),
         TypeKind::Apply { .. } => Some(ValType::I32),
         _ => None,
     }
@@ -690,6 +693,58 @@ fn gen_expr(
                     _ => {
                         diags.push(Diagnostic::error(
                             "unsupported struct field type for codegen",
+                            expr.span,
+                        ));
+                        return None;
+                    }
+                }
+            }
+            Some(ValType::I32)
+        }
+        HirExprKind::TupleConstruct { items } => {
+            let size = (items.len() as i32) * 4;
+            insts.push(Instruction::I32Const(size));
+            if let Some(idx) = name_map.get("alloc") {
+                insts.push(Instruction::Call(*idx));
+            } else {
+                diags.push(Diagnostic::error(
+                    "alloc function not found (import std/mem)",
+                    expr.span,
+                ));
+                return None;
+            }
+            let ptr_local = locals.alloc_temp(ValType::I32);
+            insts.push(Instruction::LocalTee(ptr_local));
+            for (i, item) in items.iter().enumerate() {
+                let offset = (i as u32) * 4;
+                let vk = ctx.get(item.ty);
+                let vt = valtype(&vk).unwrap_or(ValType::I32);
+                let temp = locals.alloc_temp(vt);
+                gen_expr(ctx, item, name_map, strings, locals, insts, diags);
+                insts.push(Instruction::LocalSet(temp));
+                insts.push(Instruction::LocalGet(ptr_local));
+                insts.push(Instruction::I32Const(offset as i32));
+                insts.push(Instruction::I32Add);
+                match vt {
+                    ValType::I32 => {
+                        insts.push(Instruction::LocalGet(temp));
+                        insts.push(Instruction::I32Store(MemArg {
+                            offset: 0,
+                            align: 2,
+                            memory_index: 0,
+                        }))
+                    }
+                    ValType::F32 => {
+                        insts.push(Instruction::LocalGet(temp));
+                        insts.push(Instruction::F32Store(MemArg {
+                            offset: 0,
+                            align: 2,
+                            memory_index: 0,
+                        }))
+                    }
+                    _ => {
+                        diags.push(Diagnostic::error(
+                            "unsupported tuple element type for codegen",
                             expr.span,
                         ));
                         return None;

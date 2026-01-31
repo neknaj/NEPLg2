@@ -216,6 +216,11 @@ impl<'a> Monomorphizer<'a> {
                     self.substitute_expr(f, mapping);
                 }
             }
+            HirExprKind::TupleConstruct { items } => {
+                for item in items {
+                    self.substitute_expr(item, mapping);
+                }
+            }
             HirExprKind::Block(b) => self.substitute_block(b, mapping),
             HirExprKind::Let { value, .. } => self.substitute_expr(value, mapping),
             HirExprKind::Set { value, .. } => self.substitute_expr(value, mapping),

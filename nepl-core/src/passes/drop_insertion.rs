@@ -210,6 +210,11 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext) {
                 insert_drops_in_expr(field, ctx);
             }
         }
+        HirExprKind::TupleConstruct { items } => {
+            for item in items {
+                insert_drops_in_expr(item, ctx);
+            }
+        }
         _ => {}
     }
 }

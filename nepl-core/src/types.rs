@@ -30,6 +30,9 @@ pub enum TypeKind {
         type_params: Vec<TypeId>, // TypeId(Var)
         fields: Vec<TypeId>,
     },
+    Tuple {
+        items: Vec<TypeId>,
+    },
     Function {
         type_params: Vec<TypeId>, // new
         params: Vec<TypeId>,
@@ -166,6 +169,12 @@ impl TypeCtx {
         id
     }
 
+    pub fn tuple(&mut self, items: Vec<TypeId>) -> TypeId {
+        let id = TypeId(self.arena.len());
+        self.arena.push(TypeKind::Tuple { items });
+        id
+    }
+
     pub fn is_copy(&self, id: TypeId) -> bool {
         let mut seen = BTreeSet::new();
         self.is_copy_inner(id, &mut seen)
@@ -187,6 +196,7 @@ impl TypeCtx {
             TypeKind::Box(_) => false,
             TypeKind::Enum { .. } => false,
             TypeKind::Struct { .. } => false,
+            TypeKind::Tuple { items } => items.iter().all(|t| self.is_copy_inner(*t, seen)),
             TypeKind::Apply { .. } => false,
             TypeKind::Function { .. } => false,
             TypeKind::Var(v) => {
@@ -334,6 +344,15 @@ impl TypeCtx {
                 }
                 for (ta, tb) in fa.iter().zip(fb.iter()) {
                     self.unify(*ta, *tb)?;
+                }
+                Ok(a)
+            }
+            (TypeKind::Tuple { items: ta }, TypeKind::Tuple { items: tb }) => {
+                if ta.len() != tb.len() {
+                    return Err(UnifyError::Mismatch);
+                }
+                for (xa, xb) in ta.iter().zip(tb.iter()) {
+                    self.unify(*xa, *xb)?;
                 }
                 Ok(a)
             }
@@ -486,6 +505,13 @@ impl TypeCtx {
                     type_params: new_tps,
                     fields: new_fs,
                 })
+            }
+            TypeKind::Tuple { items } => {
+                let mut new_items = Vec::new();
+                for item in items {
+                    new_items.push(self.substitute_inner(item, mapping, seen));
+                }
+                self.store(TypeKind::Tuple { items: new_items })
             }
             TypeKind::Function {
                 type_params,
@@ -698,6 +724,14 @@ impl TypeCtx {
                     s
                 }
             }
+            TypeKind::Tuple { items } => {
+                let mut s = String::from("tuple");
+                for item in items {
+                    s.push('_');
+                    s.push_str(&self.type_to_string(item));
+                }
+                s
+            }
             TypeKind::Function { .. } => String::from("func"),
             TypeKind::Var(_) => String::from("var"),
             TypeKind::Apply { base, args } => {
@@ -805,6 +839,14 @@ impl TypeCtx {
                 }
                 for f in fields {
                     if self.occurs_in(var, f, seen) {
+                        return true;
+                    }
+                }
+                false
+            }
+            TypeKind::Tuple { items } => {
+                for item in items {
+                    if self.occurs_in(var, item, seen) {
                         return true;
                     }
                 }

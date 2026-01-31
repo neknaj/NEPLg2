@@ -1155,6 +1155,30 @@ impl<'a> BlockChecker<'a> {
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
                 }
+                PrefixItem::Tuple(items, sp) => {
+                    let mut elems = Vec::new();
+                    let mut elem_tys = Vec::new();
+                    for elem in items {
+                        let mut elem_stack = Vec::new();
+                        if let Some((hexpr, _)) = self.check_prefix(elem, 0, &mut elem_stack) {
+                            elem_tys.push(hexpr.ty);
+                            elems.push(hexpr);
+                        } else {
+                            return None;
+                        }
+                    }
+                    let ty = self.ctx.tuple(elem_tys);
+                    stack.push(StackEntry {
+                        ty,
+                        expr: HirExpr {
+                            ty,
+                            kind: HirExprKind::TupleConstruct { items: elems },
+                            span: *sp,
+                        },
+                        assign: None,
+                    });
+                    last_expr = Some(stack.last().unwrap().expr.clone());
+                }
                 PrefixItem::Block(b, sp) => {
                     // Treat blocks uniformly; parser now desugars `if:`/`if <cond>:`
                     // layout forms into ordinary prefix items, so the checker
@@ -2103,6 +2127,13 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
             }
             let r = type_from_expr(ctx, labels, result);
             ctx.function(Vec::new(), p, r, *effect)
+        }
+        TypeExpr::Tuple(items) => {
+            let mut elems = Vec::new();
+            for ty in items {
+                elems.push(type_from_expr(ctx, labels, ty));
+            }
+            ctx.tuple(elems)
         }
         TypeExpr::Boxed(inner) => {
             let i = type_from_expr(ctx, labels, inner);

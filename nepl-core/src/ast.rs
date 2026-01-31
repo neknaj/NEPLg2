@@ -28,6 +28,7 @@ pub enum TypeExpr {
     Apply(Box<TypeExpr>, Vec<TypeExpr>),
     Boxed(Box<TypeExpr>),
     Reference(Box<TypeExpr>, bool), // (inner, is_mut)
+    Tuple(Vec<TypeExpr>),
     Function {
         params: Vec<TypeExpr>,
         result: Box<TypeExpr>,
@@ -76,6 +77,7 @@ pub enum PrefixItem {
     Block(Block, Span),
     Match(MatchExpr, Span),
     Pipe(Span),
+    Tuple(Vec<PrefixExpr>, Span),
 }
 
 /// Special symbols in the language.

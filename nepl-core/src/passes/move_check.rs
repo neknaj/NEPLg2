@@ -298,6 +298,11 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 visit_expr(p, ctx, tctx);
             }
         }
+        HirExprKind::TupleConstruct { items } => {
+            for item in items {
+                visit_expr(item, ctx, tctx);
+            }
+        }
         _ => {}
     }
 }

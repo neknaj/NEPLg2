@@ -600,14 +600,26 @@ impl Parser {
                         let span = lp.join(rp).unwrap_or(lp);
                         items.push(PrefixItem::Literal(Literal::Unit, span));
                     } else {
-                        let span = self.peek_span().unwrap_or(lp);
-                        self.diagnostics.push(Diagnostic::error(
-                            "parenthesized expressions are not supported; use prefix syntax",
-                            span,
-                        ));
-                        // attempt to recover by consuming until line end
-                        while !self.is_end(&TokenEnd::Line) {
-                            self.next();
+                        if let Some((elems, tup_span, saw_comma)) =
+                            self.parse_tuple_items(lp)
+                        {
+                            if saw_comma {
+                                items.push(PrefixItem::Tuple(elems, tup_span));
+                            } else {
+                                let span = self.peek_span().unwrap_or(lp);
+                                self.diagnostics.push(Diagnostic::error(
+                                    "parenthesized expressions are not supported; use tuple syntax with commas",
+                                    span,
+                                ));
+                                if let Some(first) = elems.into_iter().next() {
+                                    items.extend(first.items);
+                                }
+                            }
+                        } else {
+                            // recovery: skip to end of line
+                            while !self.is_end(&TokenEnd::Line) {
+                                self.next();
+                            }
                         }
                     }
                 }
@@ -676,6 +688,242 @@ impl Parser {
         // Normalize `cond`/`then`/`else` markers so forms like
         // `if cond then A else B` and the layout `if:` forms are reduced
         // to the basic `if cond A B` shape expected by later passes.
+        self.normalize_then_else(&mut items);
+
+        let end_span = if trailing_semis > 0 {
+            last_semi_span.unwrap_or(
+                items
+                    .last()
+                    .map(|i| self.item_span(i))
+                    .unwrap_or(start_span),
+            )
+        } else {
+            items
+                .last()
+                .map(|i| self.item_span(i))
+                .unwrap_or(start_span)
+        };
+        Some(PrefixExpr {
+            items,
+            trailing_semis,
+            trailing_semi_span: last_semi_span,
+            span: start_span.join(end_span).unwrap_or(start_span),
+        })
+    }
+
+    fn parse_tuple_items(&mut self, lp_span: Span) -> Option<(Vec<PrefixExpr>, Span, bool)> {
+        let mut elems = Vec::new();
+        let mut saw_comma = false;
+        loop {
+            let elem = self.parse_prefix_expr_until_tuple_delim()?;
+            elems.push(elem);
+            if self.consume_if(TokenKind::Comma) {
+                saw_comma = true;
+                if self.check(TokenKind::RParen) {
+                    let sp = self.peek_span().unwrap_or_else(Span::dummy);
+                    self.diagnostics.push(Diagnostic::error(
+                        "tuple literal cannot end with a comma",
+                        sp,
+                    ));
+                    let rp = self.next().unwrap().span;
+                    let span = lp_span.join(rp).unwrap_or(lp_span);
+                    return Some((elems, span, saw_comma));
+                }
+                continue;
+            }
+            let rp = if self.consume_if(TokenKind::RParen) {
+                self.peek_span().unwrap_or(lp_span)
+            } else {
+                let sp = self.peek_span().unwrap_or_else(Span::dummy);
+                self.diagnostics
+                    .push(Diagnostic::error("expected ')' after tuple literal", sp));
+                sp
+            };
+            let span = lp_span.join(rp).unwrap_or(lp_span);
+            return Some((elems, span, saw_comma));
+        }
+    }
+
+    fn parse_prefix_expr_until_tuple_delim(&mut self) -> Option<PrefixExpr> {
+        let start_span = self.peek_span().unwrap_or_else(Span::dummy);
+        let mut items = Vec::new();
+        let mut trailing_semis: u32 = 0;
+        let mut in_trailing_semis = false;
+        let mut last_semi_span: Option<Span> = None;
+
+        while !self.is_end(&TokenEnd::Line)
+            && !matches!(self.peek_kind(), Some(TokenKind::Comma | TokenKind::RParen))
+        {
+            match self.peek_kind()? {
+                TokenKind::Semicolon => {
+                    let sp = self.next().unwrap().span;
+                    trailing_semis += 1;
+                    in_trailing_semis = true;
+                    last_semi_span = Some(sp);
+                    continue;
+                }
+                _ if in_trailing_semis => {
+                    let sp = self.peek_span().unwrap_or_else(Span::dummy);
+                    self.diagnostics.push(Diagnostic::error(
+                        "unexpected token after ';' (only one statement per line)",
+                        sp,
+                    ));
+                    while !self.is_end(&TokenEnd::Line)
+                        && !matches!(self.peek_kind(), Some(TokenKind::Comma | TokenKind::RParen))
+                    {
+                        self.next();
+                    }
+                    break;
+                }
+                TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof => break,
+                TokenKind::Colon => {
+                    let colon_span = self.next().unwrap().span;
+                    let block = self.parse_block_after_colon()?;
+                    let span = colon_span.join(block.span).unwrap_or(colon_span);
+                    if items
+                        .iter()
+                        .any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
+                    {
+                        let expected = if Self::if_layout_needs_cond(&items) {
+                            3
+                        } else {
+                            2
+                        };
+                        match self.extract_if_layout_exprs(block.clone(), expected, colon_span) {
+                            Ok(mut args) => {
+                                for a in args.drain(..) {
+                                    items.extend(a.items);
+                                }
+                            }
+                            Err(diag) => {
+                                self.diagnostics.push(diag);
+                                items.push(PrefixItem::Block(block, span));
+                            }
+                        }
+                    } else {
+                        items.push(PrefixItem::Block(block, span));
+                    }
+                    break;
+                }
+                TokenKind::Pipe => {
+                    let span = self.next().unwrap().span;
+                    items.push(PrefixItem::Pipe(span));
+                }
+                TokenKind::LAngle => {
+                    let start = self.next().unwrap().span;
+                    let ty = self.parse_type_expr()?;
+                    self.expect(TokenKind::RAngle)?;
+                    let end = self.peek_span().unwrap_or(start);
+                    let span = start.join(end).unwrap_or(start);
+                    items.push(PrefixItem::TypeAnnotation(ty, span));
+                }
+                TokenKind::IntLiteral(_)
+                | TokenKind::FloatLiteral(_)
+                | TokenKind::BoolLiteral(_)
+                | TokenKind::UnitLiteral
+                | TokenKind::StringLiteral(_) => {
+                    let tok = self.next().unwrap();
+                    let lit = match tok.kind {
+                        TokenKind::IntLiteral(v) => Literal::Int(v),
+                        TokenKind::FloatLiteral(v) => Literal::Float(v),
+                        TokenKind::BoolLiteral(b) => Literal::Bool(b),
+                        TokenKind::StringLiteral(s) => Literal::Str(s),
+                        TokenKind::UnitLiteral => Literal::Unit,
+                        _ => unreachable!(),
+                    };
+                    items.push(PrefixItem::Literal(lit, tok.span));
+                }
+                TokenKind::LParen => {
+                    let lp = self.next().unwrap().span;
+                    if self.consume_if(TokenKind::RParen) {
+                        let rp = self.peek_span().unwrap_or(lp);
+                        let span = lp.join(rp).unwrap_or(lp);
+                        items.push(PrefixItem::Literal(Literal::Unit, span));
+                    } else {
+                        if let Some((elems, tup_span, saw_comma)) =
+                            self.parse_tuple_items(lp)
+                        {
+                            if saw_comma {
+                                items.push(PrefixItem::Tuple(elems, tup_span));
+                            } else {
+                                let span = self.peek_span().unwrap_or(lp);
+                                self.diagnostics.push(Diagnostic::error(
+                                    "parenthesized expressions are not supported; use tuple syntax with commas",
+                                    span,
+                                ));
+                                if let Some(first) = elems.into_iter().next() {
+                                    items.extend(first.items);
+                                }
+                            }
+                        } else {
+                            while !self.is_end(&TokenEnd::Line)
+                                && !matches!(self.peek_kind(), Some(TokenKind::Comma | TokenKind::RParen))
+                            {
+                                self.next();
+                            }
+                        }
+                    }
+                }
+                TokenKind::KwLet => {
+                    let _ = self.next();
+                    let is_mut = self.consume_if(TokenKind::KwMut);
+                    let (name, span) = self.expect_ident()?;
+                    self.consume_if(TokenKind::Equals);
+                    items.push(PrefixItem::Symbol(Symbol::Let {
+                        name: Ident { name, span },
+                        mutable: is_mut,
+                    }));
+                }
+                TokenKind::KwSet => {
+                    let _ = self.next();
+                    let (name, span) = self.expect_ident()?;
+                    items.push(PrefixItem::Symbol(Symbol::Set {
+                        name: Ident { name, span },
+                    }));
+                }
+                TokenKind::KwIf => {
+                    let span = self.next().unwrap().span;
+                    items.push(PrefixItem::Symbol(Symbol::If(span)));
+                }
+                TokenKind::KwWhile => {
+                    let span = self.next().unwrap().span;
+                    items.push(PrefixItem::Symbol(Symbol::While(span)));
+                }
+                TokenKind::KwMatch => {
+                    let m = self.parse_match_expr()?;
+                    let sp = m.span;
+                    items.push(PrefixItem::Match(m, sp));
+                    break;
+                }
+                TokenKind::Ident(name) => {
+                    let tok = self.next().unwrap();
+                    let mut full = name.clone();
+                    let mut end_span = tok.span;
+                    while self.check(TokenKind::PathSep) {
+                        let _ = self.next();
+                        if let Some(TokenKind::Ident(n2)) = self.peek_kind() {
+                            let tok2 = self.next().unwrap();
+                            full.push_str("::");
+                            full.push_str(&n2);
+                            end_span = end_span.join(tok2.span).unwrap_or(tok2.span);
+                        } else {
+                            break;
+                        }
+                    }
+                    items.push(PrefixItem::Symbol(Symbol::Ident(Ident {
+                        name: full,
+                        span: end_span,
+                    })));
+                }
+                _ => {
+                    let span = self.peek_span().unwrap_or_else(Span::dummy);
+                    self.diagnostics
+                        .push(Diagnostic::error("unexpected token in expression", span));
+                    self.next();
+                }
+            }
+        }
+
         self.normalize_then_else(&mut items);
 
         let end_span = if trailing_semis > 0 {
@@ -773,6 +1021,35 @@ impl Parser {
                         _ => unreachable!(),
                     };
                     items.push(PrefixItem::Literal(lit, tok.span));
+                }
+                TokenKind::LParen => {
+                    let lp = self.next().unwrap().span;
+                    if self.consume_if(TokenKind::RParen) {
+                        let rp = self.peek_span().unwrap_or(lp);
+                        let span = lp.join(rp).unwrap_or(lp);
+                        items.push(PrefixItem::Literal(Literal::Unit, span));
+                    } else {
+                        if let Some((elems, tup_span, saw_comma)) =
+                            self.parse_tuple_items(lp)
+                        {
+                            if saw_comma {
+                                items.push(PrefixItem::Tuple(elems, tup_span));
+                            } else {
+                                let span = self.peek_span().unwrap_or(lp);
+                                self.diagnostics.push(Diagnostic::error(
+                                    "parenthesized expressions are not supported; use tuple syntax with commas",
+                                    span,
+                                ));
+                                if let Some(first) = elems.into_iter().next() {
+                                    items.extend(first.items);
+                                }
+                            }
+                        } else {
+                            while !self.is_end(&TokenEnd::Line) {
+                                self.next();
+                            }
+                        }
+                    }
                 }
                 TokenKind::Ident(name) => {
                     let tok = self.next().unwrap();
@@ -1107,36 +1384,31 @@ impl Parser {
                     }
                 } else {
                     let mut params = Vec::new();
+                    let mut saw_comma = false;
                     loop {
                         let ty = self.parse_type_expr()?;
                         params.push(ty);
                         if self.consume_if(TokenKind::Comma) {
+                            saw_comma = true;
                             continue;
                         }
                         break;
                     }
                     self.expect(TokenKind::RParen)?;
-                    let effect = match self.peek_kind() {
-                        Some(TokenKind::Arrow(eff)) => {
-                            let eff_copy = eff;
-                            self.next();
-                            eff_copy
-                        }
-                        _ => {
-                            let span = self.peek_span().unwrap_or_else(Span::dummy);
-                            self.diagnostics.push(Diagnostic::error(
-                                "expected -> or *> after parameter list",
-                                span,
-                            ));
-                            Effect::Pure
-                        }
-                    };
-                    let result = self.parse_type_expr()?;
-                    Some(TypeExpr::Function {
-                        params,
-                        result: Box::new(result),
-                        effect,
-                    })
+                    if let Some(TokenKind::Arrow(eff)) = self.peek_kind() {
+                        let eff_copy = eff;
+                        self.next();
+                        let result = self.parse_type_expr()?;
+                        Some(TypeExpr::Function {
+                            params,
+                            result: Box::new(result),
+                            effect: eff_copy,
+                        })
+                    } else if saw_comma || params.len() > 1 {
+                        Some(TypeExpr::Tuple(params))
+                    } else {
+                        params.into_iter().next()
+                    }
                 }
             }
             TokenKind::Ampersand => {
@@ -1252,6 +1524,7 @@ impl Parser {
             PrefixItem::Block(_, sp) => *sp,
             PrefixItem::Match(_, sp) => *sp,
             PrefixItem::Pipe(sp) => *sp,
+            PrefixItem::Tuple(_, sp) => *sp,
         }
     }
 

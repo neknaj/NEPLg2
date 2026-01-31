@@ -42,7 +42,8 @@ Failure behavior:
 - This makes the program exit with a non-zero status under WASI.
 
 Important syntax rule:
-- NEPL does not support parenthesized expressions; use prefix calls directly.
+- NEPL does not support parenthesized expressions for grouping; use prefix calls directly.
+- Tuple literals are allowed using commas, e.g. `(a, b)`.
 
 Example:
 

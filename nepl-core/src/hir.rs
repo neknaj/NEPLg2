@@ -110,6 +110,9 @@ pub enum HirExprKind {
         type_args: Vec<TypeId>,
         fields: Vec<HirExpr>,
     },
+    TupleConstruct {
+        items: Vec<HirExpr>,
+    },
     Block(HirBlock),
     Let {
         name: String,
