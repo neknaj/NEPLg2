@@ -83,43 +83,53 @@ pub struct LoadResult {
 #[derive(Debug)]
 pub struct Loader {
     stdlib_root: PathBuf,
+    source_map: SourceMap,
 }
 
 impl Loader {
     pub fn new(stdlib_root: PathBuf) -> Self {
-        Self { stdlib_root }
+        Self {
+            stdlib_root,
+            source_map: SourceMap::new(),
+        }
+    }
+
+    pub fn source_map(&self) -> &SourceMap {
+        &self.source_map
     }
 
     /// Load an already-provided source string as a pseudo file (for stdin use).
-    pub fn load_inline(&self, path: PathBuf, src: String) -> Result<LoadResult, CoreError> {
+    pub fn load_inline(&mut self, path: PathBuf, src: String) -> Result<Module, CoreError> {
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
-        let module = self.load_from_contents(
+        let res = self.load_from_contents(
             path,
             src,
             &mut sm,
             &mut cache,
             &mut processing,
             &mut imported,
-        )?;
-        Ok(LoadResult {
-            module,
-            source_map: sm,
-        })
+        );
+        self.source_map = sm;
+        res
     }
 
-    pub fn load(&self, entry: &PathBuf) -> Result<LoadResult, CoreError> {
+    pub fn load(&mut self, entry: &PathBuf) -> Result<Module, CoreError> {
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
-        let module = self.load_file(entry, &mut sm, &mut cache, &mut processing, &mut imported)?;
-        Ok(LoadResult {
-            module,
-            source_map: sm,
-        })
+        let res = self.load_file(
+            entry,
+            &mut sm,
+            &mut cache,
+            &mut processing,
+            &mut imported,
+        );
+        self.source_map = sm;
+        res
     }
 
     fn load_from_contents(
@@ -284,7 +294,8 @@ impl Loader {
     }
 
     fn resolve_path(&self, base: &PathBuf, spec: &str) -> PathBuf {
-        let mut p = if spec.starts_with("std/") {
+        let is_std_import = !spec.starts_with('.') && !spec.starts_with('/');
+        let mut p = if is_std_import {
             self.stdlib_root.join(spec)
         } else {
             base.parent()

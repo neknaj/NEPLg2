@@ -84,28 +84,42 @@ fn execute(cli: Cli) -> Result<()> {
     if !cli.run && cli.output.is_none() {
         return Err(anyhow::anyhow!("Either --run or --output is required"));
     }
-    let load_result = match cli.input {
+    let (module, source_map) = match cli.input {
         Some(path) => {
-            let loader = Loader::new(stdlib_root()?);
-            loader
-                .load(&PathBuf::from(path))
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            let mut loader = Loader::new(stdlib_root()?);
+            match loader.load(&PathBuf::from(path)) {
+                Ok(m) => (m, loader.source_map().clone()),
+                Err(e) => {
+                    if let CoreError::Diagnostics(diags) = &e {
+                        render_diagnostics(diags, loader.source_map());
+                        std::process::exit(1);
+                    }
+                    return Err(anyhow::anyhow!(e.to_string()));
+                }
+            }
         }
         None => {
             let mut buffer = String::new();
             io::stdin().read_to_string(&mut buffer)?;
-            let loader = Loader::new(stdlib_root()?);
-            loader
-                .load_inline(PathBuf::from("<stdin>"), buffer)
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            let mut loader = Loader::new(stdlib_root()?);
+            match loader.load_inline(PathBuf::from("<stdin>"), buffer) {
+                Ok(m) => (m, loader.source_map().clone()),
+                Err(e) => {
+                    if let CoreError::Diagnostics(diags) = &e {
+                        render_diagnostics(diags, loader.source_map());
+                        std::process::exit(1);
+                    }
+                    return Err(anyhow::anyhow!(e.to_string()));
+                }
+            }
         }
     };
+
     // Auto-upgrade to WASI if stdio is imported and user did not explicitly pick wasm/wasi.
-    let has_stdio_import = load_result.module.directives.iter().any(
+    let has_stdio_import = module.directives.iter().any(
         |d| matches!(d, nepl_core::ast::Directive::Import { path, .. } if path == "std/stdio"),
     );
-    let module = load_result.module;
-    let source_map = load_result.source_map;
+
 
     let cli_target = cli.target.as_deref().map(|t| {
         if t == "wasi" {
@@ -220,29 +234,19 @@ fn run_tests(args: TestArgs, verbose: bool) -> Result<()> {
 }
 
 fn run_test_file(path: &Path, std_root: &Path, verbose: bool) -> Result<()> {
-    let loader = Loader::new(std_root.to_path_buf());
+    let mut loader = Loader::new(std_root.to_path_buf());
     println!("[nepl-cli] run_test_file: loading {}", path.display());
-    let loaded = match loader.load(&path.to_path_buf()) {
-        Ok(l) => l,
+    let module = match loader.load(&path.to_path_buf()) {
+        Ok(m) => m,
         Err(CoreError::Diagnostics(diags)) => {
-            // We need to provide a source map for rendering, but loader.load failed.
-            // Actually Loader should provide the source map even on failure in its Ok branch,
-            // but here we only have the error.
-            // Let's assume the error rendering can happen if we have a way to get the source map.
-            // For now, just print the error and hope for the best, or better:
-            // The loader.load implementation could be changed to return (LoadResult, Vec<Diagnostic>).
-            // But for now, I'll just use a workaround:
-            eprintln!("Parse error in {}", path.display());
-            for d in diags {
-                eprintln!("{:?}: {}", d.primary.span, d.message);
-            }
+            render_diagnostics(&diags, loader.source_map());
             return Err(anyhow::anyhow!("parsing failed"));
         }
         Err(e) => return Err(anyhow::anyhow!(e.to_string())),
     };
     println!("[nepl-cli] compile_module for {}", path.display());
     let artifact = match compile_module(
-        loaded.module,
+        module,
         CompileOptions {
             target: Some(CompileTarget::Wasi),
             verbose,
@@ -250,7 +254,7 @@ fn run_test_file(path: &Path, std_root: &Path, verbose: bool) -> Result<()> {
     ) {
         Ok(a) => a,
         Err(CoreError::Diagnostics(diags)) => {
-            render_diagnostics(&diags, &loaded.source_map);
+            render_diagnostics(&diags, loader.source_map());
             return Err(anyhow::anyhow!("compilation failed"));
         }
         Err(e) => return Err(anyhow::anyhow!(e.to_string())),
@@ -309,7 +313,7 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
     linker.func_wrap(
         "env",
         "print_str",
-        |mut caller: Caller<'_, AllocState>, ptr: i32| {
+        |caller: Caller<'_, AllocState>, ptr: i32| {
             let memory = caller
                 .get_export("memory")
                 .and_then(|e| e.into_memory())
@@ -605,7 +609,7 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
         linker.func_wrap(
             "wasi_snapshot_preview1",
             "fd_write",
-            |mut caller: Caller<'_, AllocState>,
+            |caller: Caller<'_, AllocState>,
              fd: i32,
              iovs: i32,
              iovs_len: i32,
@@ -699,9 +703,11 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
 }
 
 fn stdlib_root() -> Result<PathBuf> {
-    Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
-        .join("stdlib"))
+        .join("stdlib");
+    path.canonicalize()
+        .context(format!("stdlib directory not found at {}", path.display()))
 }
 
 fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) {
