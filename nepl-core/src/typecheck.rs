@@ -865,7 +865,8 @@ impl<'a> BlockChecker<'a> {
                             }
 
                             if drop_result {
-                                if stack.len() > base_depth {
+                                // Pop all values down to base_depth
+                                while stack.len() > base_depth {
                                     let _ = stack.pop();
                                 }
                             }
@@ -989,6 +990,7 @@ impl<'a> BlockChecker<'a> {
             }
         }
         for (idx, item) in expr.items.iter().enumerate() {
+            // std::eprintln!("  Item: {:?}", item);
             let next_is_pipe = matches!(expr.items.get(idx + 1), Some(PrefixItem::Pipe(_)));
             match item {
                 PrefixItem::Literal(lit, span) => {
@@ -1642,6 +1644,7 @@ impl<'a> BlockChecker<'a> {
             } else {
                 self.reduce_calls(stack);
             }
+            // std::eprintln!("  Stack after reduce: {:?}", stack.iter().map(|e| self.ctx.type_to_string(e.ty)).collect::<Vec<_>>());
 
             // Try applying pending ascription after call reduction
             try_apply_pending_ascription(self, stack, &mut pending_ascription);
@@ -1732,6 +1735,7 @@ impl<'a> BlockChecker<'a> {
             let mut func_entry = stack.remove(func_pos);
             func_entry.ty = inst_ty;
             func_entry.expr.ty = inst_ty;
+            // std::eprintln!("    Reducing: {} at pos {} with {} args", self.ctx.type_to_string(inst_ty), func_pos, params.len());
             let applied = self.apply_function(func_entry, params, result, effect, args, fresh_args);
             if let Some(val) = applied {
                 stack.insert(func_pos, val);
@@ -1747,8 +1751,9 @@ impl<'a> BlockChecker<'a> {
                 .iter()
                 .enumerate()
                 .rposition(|(i, e)| {
+                    let rty = self.ctx.resolve(e.ty);
                     i >= min_func_pos
-                        && matches!(self.ctx.get(e.ty), TypeKind::Function { .. })
+                        && matches!(self.ctx.get(rty), TypeKind::Function { .. })
                 }) {
                 Some(p) => p,
                 None => break,

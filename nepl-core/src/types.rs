@@ -804,6 +804,7 @@ impl TypeCtx {
     }
 
     pub fn instantiate(&mut self, ty: TypeId) -> (TypeId, Vec<TypeId>) {
+        let ty = self.resolve_id(ty);
         if let TypeKind::Function {
             type_params,
             params,
