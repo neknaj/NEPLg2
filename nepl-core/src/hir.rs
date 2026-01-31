@@ -48,33 +48,33 @@ pub struct HirExtern {
     pub span: Span,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum HirBody {
     Block(HirBlock),
     Wasm(WasmBlock),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HirBlock {
     pub lines: Vec<HirLine>,
     pub ty: TypeId,
     pub span: Span,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HirLine {
     pub expr: HirExpr,
     pub drop_result: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HirExpr {
     pub ty: TypeId,
     pub kind: HirExprKind,
     pub span: Span,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum HirExprKind {
     LiteralI32(i32),
     LiteralF32(f32),
@@ -133,13 +133,13 @@ pub enum HirExprKind {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FuncRef {
     Builtin(String),
     User(String, Vec<TypeId>), // new: added type_args
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HirMatchArm {
     pub variant: String,
     pub bind_local: Option<String>,

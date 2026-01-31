@@ -41,20 +41,25 @@ fn hashset_insert <(i32,i32)*>bool> (hs, key):
     while eq done 0:
         let entry <i32> add entries mul cur entry_size
         let occupied <i32> load_i32 entry
-        if eq occupied 0:
-            store_i32 entry 1
-            store_i32 add entry 4 key
-            store_i32 hs add load_i32 hs 1
-            set result true
-            set done 1
-        else:
-            let ekey <i32> load_i32 add entry 4
-            if eq ekey key:
-                set done 1  // already present
+        if:
+            eq occupied 0
+            then:
+                store_i32 entry 1
+                store_i32 add entry 4 key
+                store_i32 hs add load_i32 hs 1
+                set result true
+                set done 1
             else:
-                set cur mod_s add cur 1 cap
-                if eq cur idx:
-                    set done 1
+                let ekey <i32> load_i32 add entry 4
+                if:
+                    eq ekey key
+                    then set done 1  // already present
+                    else:
+                        set cur mod_s add cur 1 cap
+                        if:
+                            eq cur idx
+                            then set done 1
+                            else ()
     result
 
 fn hashset_contains <(i32,i32)->bool> (hs, key):
@@ -68,17 +73,22 @@ fn hashset_contains <(i32,i32)->bool> (hs, key):
     while eq done 0:
         let entry <i32> add entries mul cur entry_size
         let occupied <i32> load_i32 entry
-        if eq occupied 0:
-            set done 1
-        else:
-            let ekey <i32> load_i32 add entry 4
-            if eq ekey key:
-                set result true
-                set done 1
+        if:
+            eq occupied 0
+            then set done 1
             else:
-                set cur mod_s add cur 1 cap
-                if eq cur idx:
-                    set done 1
+                let ekey <i32> load_i32 add entry 4
+                if:
+                    eq ekey key
+                    then:
+                        set result true
+                        set done 1
+                    else:
+                        set cur mod_s add cur 1 cap
+                        if:
+                            eq cur idx
+                            then set done 1
+                            else ()
     result
 
 fn hashset_remove <(i32,i32)*>bool> (hs, key):
@@ -92,19 +102,24 @@ fn hashset_remove <(i32,i32)*>bool> (hs, key):
     while eq done 0:
         let entry <i32> add entries mul cur entry_size
         let occupied <i32> load_i32 entry
-        if eq occupied 0:
-            set done 1
-        else:
-            let ekey <i32> load_i32 add entry 4
-            if eq ekey key:
-                store_i32 entry 0
-                store_i32 hs sub load_i32 hs 1
-                set result true
-                set done 1
+        if:
+            eq occupied 0
+            then set done 1
             else:
-                set cur mod_s add cur 1 cap
-                if eq cur idx:
-                    set done 1
+                let ekey <i32> load_i32 add entry 4
+                if:
+                    eq ekey key
+                    then:
+                        store_i32 entry 0
+                        store_i32 hs sub load_i32 hs 1
+                        set result true
+                        set done 1
+                    else:
+                        set cur mod_s add cur 1 cap
+                        if:
+                            eq cur idx
+                            then set done 1
+                            else ()
     result
 
 fn hashset_len <(i32)->i32> (hs):
@@ -117,7 +132,7 @@ fn hashset_free <(i32)*>()> (hs):
     dealloc hs 12
 
 fn abs <(i32)->i32> (x):
-    if lt x 0:
-        sub 0 x
-    else:
-        x
+    if:
+        lt x 0
+        then sub 0 x
+        else x

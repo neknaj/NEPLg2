@@ -772,6 +772,11 @@ fn gen_expr(
                 gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
                 insts.push(Instruction::I32ReinterpretF32);
                 Some(ValType::I32)
+            } else if name == "add" {
+                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[1], name_map, strings, locals, insts, diags);
+                insts.push(Instruction::I32Add);
+                Some(ValType::I32)
             } else if name == "unreachable" {
                 insts.push(Instruction::Unreachable);
                 None

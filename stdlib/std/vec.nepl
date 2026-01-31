@@ -34,7 +34,8 @@ fn vec_is_empty <.T> <(Vec<.T>)->bool> (v):
     eq v.len 0
 
 fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
-    if eq v.len v.cap:
+    if:
+        eq v.len v.cap
         // grow
         let new_cap <i32> mul v.cap 2
         let new_data <i32> realloc v.data mul v.cap size_of<.T> mul new_cap size_of<.T>
@@ -47,33 +48,38 @@ fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
         Vec<.T> add v.len 1 v.cap v.data
 
 fn vec_get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
-    if lt idx 0:
-        none<.T>
-    else:
-        if le v.len idx:
-            none<.T>
+    if:
+        lt idx 0
+        then none<.T>
         else:
-            let offset <i32> mul idx size_of<.T>
-            some<.T> load<.T> add v.data offset
+            if:
+                le v.len idx
+                then none<.T>
+                else:
+                    let offset <i32> mul idx size_of<.T>
+                    some<.T> load<.T> add v.data offset
 
 fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
-    if lt idx 0:
+    if:
+        lt idx 0
         ()
-    else:
-        if le v.len idx:
-            ()
         else:
-            let offset <i32> mul idx size_of<.T>
-            store<.T> add v.data offset item
+            if:
+                le v.len idx
+                ()
+                else:
+                    let offset <i32> mul idx size_of<.T>
+                    store<.T> add v.data offset item
 
 fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
-    if eq v.len 0:
+    if:
+        eq v.len 0
         (v, none<.T>)
-    else:
-        let new_len <i32> sub v.len 1
-        let offset <i32> mul new_len size_of<.T>
-        let item <.T> load<.T> add v.data offset
-        (Vec<.T> new_len v.cap v.data, some<.T> item)
+        else:
+            let new_len <i32> sub v.len 1
+            let offset <i32> mul new_len size_of<.T>
+            let item <.T> load<.T> add v.data offset
+            (Vec<.T> new_len v.cap v.data, some<.T> item)
 
 fn vec_clear <.T> <(Vec<.T>)*>Vec<.T>> (v):
     Vec<.T> 0 v.cap v.data

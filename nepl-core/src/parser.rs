@@ -798,6 +798,14 @@ impl Parser {
                                 self.diagnostics.truncate(saved_diags);
                                 break;
                             }
+                        } else if self.consume_if(TokenKind::Dot) {
+                            if let Some((field, fspan)) = self.expect_ident() {
+                                full.push('.');
+                                full.push_str(&field);
+                                end_span = end_span.join(fspan).unwrap_or(end_span);
+                            } else {
+                                break;
+                            }
                         } else if self.check(TokenKind::PathSep) {
                             let _ = self.next();
                             if let Some(TokenKind::Ident(n2)) = self.peek_kind() {
@@ -1082,7 +1090,17 @@ impl Parser {
                 }
                 TokenKind::KwSet => {
                     let _ = self.next();
-                    let (name, span) = self.expect_ident()?;
+                    let (mut name, mut span) = self.expect_ident()?;
+                    // Handle field access in set: set v.len = 10
+                    while self.consume_if(TokenKind::Dot) {
+                        if let Some((field, fspan)) = self.expect_ident() {
+                            name.push('.');
+                            name.push_str(&field);
+                            span = span.join(fspan).unwrap_or(span);
+                        } else {
+                            break;
+                        }
+                    }
                     items.push(PrefixItem::Symbol(Symbol::Set {
                         name: Ident { name, span },
                     }));
@@ -1116,12 +1134,38 @@ impl Parser {
                             break;
                         }
                     }
+                    // Handle field access: v.len, v.data
+                    while self.consume_if(TokenKind::Dot) {
+                        if let Some((field, fspan)) = self.expect_ident() {
+                            full.push('.');
+                            full.push_str(&field);
+                            end_span = end_span.join(fspan).unwrap_or(end_span);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // Handle type arguments: vec_new<.i32>
+                    let mut type_args = Vec::new();
+                    if self.consume_if(TokenKind::LAngle) {
+                        loop {
+                            if let Some(ty) = self.parse_type_expr() {
+                                type_args.push(ty);
+                            }
+                            if self.consume_if(TokenKind::Comma) {
+                                continue;
+                            }
+                            break;
+                        }
+                        self.expect(TokenKind::RAngle)?;
+                    }
+
                     items.push(PrefixItem::Symbol(Symbol::Ident(
                         Ident {
                             name: full,
                             span: end_span,
                         },
-                        Vec::new(),
+                        type_args,
                     )));
                 }
                 _ => {
@@ -1205,8 +1249,6 @@ impl Parser {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Pipe(span));
                 }
-                // Semicolons are handled at statement level (parse_stmt),
-                // do not include them inside PrefixExpr items.
                 TokenKind::LAngle => {
                     let start = self.next().unwrap().span;
                     let ty = self.parse_type_expr()?;
@@ -1262,12 +1304,41 @@ impl Parser {
                 }
                 TokenKind::Ident(name) => {
                     let tok = self.next().unwrap();
+                    let mut full_name = name.clone();
+                    let mut span = tok.span;
+                    
+                    // Handle field access: v.len, self.foo.bar
+                    while self.consume_if(TokenKind::Dot) {
+                        if let Some((field, fspan)) = self.expect_ident() {
+                            full_name.push('.');
+                            full_name.push_str(&field);
+                            span = span.join(fspan).unwrap_or(span);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // Handle type arguments: vec_new<.i32>
+                    let mut type_args = Vec::new();
+                    if self.consume_if(TokenKind::LAngle) {
+                        loop {
+                            if let Some(ty) = self.parse_type_expr() {
+                                type_args.push(ty);
+                            }
+                            if self.consume_if(TokenKind::Comma) {
+                                continue;
+                            }
+                            break;
+                        }
+                        self.expect(TokenKind::RAngle)?;
+                    }
+
                     items.push(PrefixItem::Symbol(Symbol::Ident(
                         Ident {
-                            name: name.clone(),
-                            span: tok.span,
+                            name: full_name,
+                            span: span,
                         },
-                        Vec::new(),
+                        type_args,
                     )));
                 }
                 TokenKind::KwLet => {
@@ -1281,7 +1352,17 @@ impl Parser {
                 }
                 TokenKind::KwSet => {
                     let _ = self.next();
-                    let (name, span) = self.expect_ident()?;
+                    let (mut name, mut span) = self.expect_ident()?;
+                    // Handle field access in set: set v.len = 10
+                    while self.consume_if(TokenKind::Dot) {
+                        if let Some((field, fspan)) = self.expect_ident() {
+                            name.push('.');
+                            name.push_str(&field);
+                            span = span.join(fspan).unwrap_or(span);
+                        } else {
+                            break;
+                        }
+                    }
                     items.push(PrefixItem::Symbol(Symbol::Set {
                         name: Ident { name, span },
                     }));
@@ -1297,7 +1378,7 @@ impl Parser {
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
                     self.diagnostics.push(Diagnostic::error(
-                        "unexpected token in match scrutinee",
+                        "unexpected token in expression",
                         span,
                     ));
                     self.next();
@@ -1306,6 +1387,7 @@ impl Parser {
         }
         // Normalize 'then'/'else' markers inside scrutinee/prefix until colon.
         self.normalize_then_else(&mut items);
+
 
         let end_span = items
             .last()

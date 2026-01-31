@@ -31,6 +31,7 @@ pub enum TypeKind {
         name: String,
         type_params: Vec<TypeId>, // TypeId(Var)
         fields: Vec<TypeId>,
+        field_names: Vec<String>,
     },
     Tuple {
         items: Vec<TypeId>,
@@ -367,11 +368,13 @@ impl TypeCtx {
                     name: na,
                     fields: fa,
                     type_params: _,
+                    field_names: _,
                 },
                 TypeKind::Struct {
                     name: nb,
                     fields: fb,
                     type_params: _,
+                    field_names: _,
                 },
             ) => {
                 if na != nb || fa.len() != fb.len() {
@@ -659,6 +662,7 @@ impl TypeCtx {
                 name,
                 type_params,
                 fields,
+                field_names,
             } => {
                 let mut new_tps = Vec::new();
                 let mut changed = false;
@@ -680,6 +684,7 @@ impl TypeCtx {
                         name,
                         type_params: new_tps,
                         fields: new_fs,
+                        field_names,
                     })
                 } else {
                     ty

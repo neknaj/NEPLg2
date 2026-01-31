@@ -21,40 +21,46 @@ fn stack_push <.T> <(i32,.T)*>()> (stk, item):
     let len <i32> load_i32 stk
     let cap <i32> load_i32 add stk 4
     let data <i32> load_i32 add stk 8
-    if eq len cap:
-        // grow
-        let new_cap <i32> mul cap 2
-        let new_data <i32> realloc data mul cap size_of<.T> mul new_cap size_of<.T>
-        store_i32 add stk 4 new_cap
-        store_i32 add stk 8 new_data
-        let offset <i32> mul len size_of<.T>
-        store<.T> add new_data offset item
-        store_i32 stk add len 1
-    else:
-        let offset <i32> mul len size_of<.T>
-        store<.T> add data offset item
-        store_i32 stk add len 1
+    if:
+        eq len cap
+        then:
+            // grow
+            let new_cap <i32> mul cap 2
+            let new_data <i32> realloc data mul cap size_of<.T> mul new_cap size_of<.T>
+            store_i32 add stk 4 new_cap
+            store_i32 add stk 8 new_data
+            let offset <i32> mul len size_of<.T>
+            store<.T> add new_data offset item
+            store_i32 stk add len 1
+        else:
+            let offset <i32> mul len size_of<.T>
+            store<.T> add data offset item
+            store_i32 stk add len 1
 
 fn stack_pop <.T> <(i32)*>Option<.T>> (stk):
     let len <i32> load_i32 stk
-    if eq len 0:
-        none<.T>
-    else:
-        let new_len <i32> sub len 1
-        let data <i32> load_i32 add stk 8
-        let offset <i32> mul new_len size_of<.T>
-        let item <.T> load<.T> add data offset
-        store_i32 stk new_len
-        some<.T> item
+    if:
+        eq len 0
+        then:
+            none<.T>
+        else:
+            let new_len <i32> sub len 1
+            let data <i32> load_i32 add stk 8
+            let offset <i32> mul new_len size_of<.T>
+            let item <.T> load<.T> add data offset
+            store_i32 stk new_len
+            some<.T> item
 
 fn stack_peek <.T> <(i32)->Option<.T>> (stk):
     let len <i32> load_i32 stk
-    if eq len 0:
-        none<.T>
-    else:
-        let data <i32> load_i32 add stk 8
-        let offset <i32> mul sub len 1 size_of<.T>
-        some<.T> load<.T> add data offset
+    if:
+        eq len 0
+        then:
+            none<.T>
+        else:
+            let data <i32> load_i32 add stk 8
+            let offset <i32> mul sub len 1 size_of<.T>
+            some<.T> load<.T> add data offset
 
 fn stack_len <.T> <(i32)->i32> (stk):
     load_i32 stk

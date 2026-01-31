@@ -22,10 +22,12 @@ fn json_null <()->JsonValue> ():
     JsonValue::Null
 
 fn json_bool <(bool)->JsonValue> (v):
-    if v:
-        JsonValue::Bool 1
-    else:
-        JsonValue::Bool 0
+    if:
+        v
+        then:
+            JsonValue::Bool 1
+        else:
+            JsonValue::Bool 0
 
 fn json_number <(i32)->JsonValue> (n):
     JsonValue::Number n
@@ -57,10 +59,12 @@ fn json_is_null <(JsonValue)->bool> (v):
 fn json_as_bool <(JsonValue)->Option<bool>> (v):
     match v:
         Bool b:
-            if eq b 0:
-                some<bool> false
-            else:
-                some<bool> true
+            if:
+                eq b 0
+                then:
+                    some<bool> false
+                else:
+                    some<bool> true
         Null:
             none<bool>
         Number n:

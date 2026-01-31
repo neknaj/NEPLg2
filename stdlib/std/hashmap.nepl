@@ -45,25 +45,30 @@ fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
     while eq found 0:
         let entry <i32> add entries mul cur entry_size
         let occupied <i32> load_i32 entry
-        if eq occupied 0:
-            // empty slot
-            store_i32 entry 1
-            store_i32 add entry 4 key
-            store<.V> add entry 8 val
-            store_i32 hm add load_i32 hm 1
-            set found 1
-        else:
-            let ekey <i32> load_i32 add entry 4
-            if eq ekey key:
-                // update
+        if:
+            then:
+                eq occupied 0
+                // empty slot
+                store_i32 entry 1
+                store_i32 add entry 4 key
                 store<.V> add entry 8 val
+                store_i32 hm add load_i32 hm 1
                 set found 1
             else:
-                // probe next
-                set cur mod_s add cur 1 cap
-                if eq cur idx:
-                    // full, need resize (not implemented for simplicity)
-                    set found 1
+                let ekey <i32> load_i32 add entry 4
+                if:
+                    then:
+                        eq ekey key
+                        // update
+                        store<.V> add entry 8 val
+                        set found 1
+                    else:
+                        // probe next
+                        set cur mod_s add cur 1 cap
+                        if:
+                            eq cur idx
+                            // full, need resize (not implemented for simplicity)
+                            set found 1
 
 fn hashmap_get <.V> <(i32,i32)->Option<.V>> (hm, key):
     let cap <i32> load_i32 add hm 4
@@ -76,17 +81,22 @@ fn hashmap_get <.V> <(i32,i32)->Option<.V>> (hm, key):
     while eq done 0:
         let entry <i32> add entries mul cur entry_size
         let occupied <i32> load_i32 entry
-        if eq occupied 0:
-            set done 1
-        else:
-            let ekey <i32> load_i32 add entry 4
-            if eq ekey key:
-                set result some<.V> load<.V> add entry 8
-                set done 1
+        if:
+            eq occupied 0
+            then set done 1
             else:
-                set cur mod_s add cur 1 cap
-                if eq cur idx:
-                    set done 1
+                let ekey <i32> load_i32 add entry 4
+                if:
+                    eq ekey key
+                    then:
+                        set result some<.V> load<.V> add entry 8
+                        set done 1
+                    else:
+                        set cur mod_s add cur 1 cap
+                        if:
+                            eq cur idx
+                            set done 1
+                            ()
     result
 
 fn hashmap_contains <.V> <(i32,i32)->bool> (hm, key):
@@ -103,19 +113,24 @@ fn hashmap_remove <.V> <(i32,i32)*>Option<.V>> (hm, key):
     while eq done 0:
         let entry <i32> add entries mul cur entry_size
         let occupied <i32> load_i32 entry
-        if eq occupied 0:
-            set done 1
-        else:
-            let ekey <i32> load_i32 add entry 4
-            if eq ekey key:
-                set result some<.V> load<.V> add entry 8
-                store_i32 entry 0  // mark empty
-                store_i32 hm sub load_i32 hm 1
-                set done 1
+        if:
+            eq occupied 0
+            then set done 1
             else:
-                set cur mod_s add cur 1 cap
-                if eq cur idx:
-                    set done 1
+                let ekey <i32> load_i32 add entry 4
+                if:
+                    eq ekey key
+                    then:
+                        set result some<.V> load<.V> add entry 8
+                        store_i32 entry 0  // mark empty
+                        store_i32 hm sub load_i32 hm 1
+                        set done 1
+                    else:
+                        set cur mod_s add cur 1 cap
+                        if:
+                            eq cur idx
+                            set done 1
+                            ()
     result
 
 fn hashmap_len <.V> <(i32)->i32> (hm):
@@ -130,7 +145,7 @@ fn hashmap_free <.V> <(i32)*>()> (hm):
 
 // abs helper
 fn abs <(i32)->i32> (x):
-    if lt x 0:
-        sub 0 x
-    else:
-        x
+    if:
+        lt x 0
+        then sub 0 x
+        else x
