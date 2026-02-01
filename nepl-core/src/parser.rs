@@ -1487,23 +1487,6 @@ impl Parser {
             if let Stmt::Expr(e) = &stmt {
                 let mut e_copy = e.clone();
                 let role_opt = Self::take_role_from_expr(&mut e_copy);
-                if role_opt.is_none() {
-                    // Help debugging: emit warning if a potential marker was expected but not detected.
-                    if let Some(first) = e.items.first() {
-                        let lbl = match first {
-                            PrefixItem::Symbol(sym) => match sym {
-                                Symbol::Ident(id, _) => id.name.clone(),
-                                Symbol::If(_) => "<if>".to_string(),
-                                Symbol::Let { name, .. } => name.name.clone(),
-                                _ => "<sym>".to_string(),
-                            },
-                            PrefixItem::Literal(_, _) => "<lit>".to_string(),
-                            PrefixItem::Block(_, _) => "<block>".to_string(),
-                            _ => "<other>".to_string(),
-                        };
-                        self.diagnostics.push(Diagnostic::warning(alloc::format!("take_role_from_expr did not detect marker; first_item={} items_count={}", lbl, e.items.len()), e.span));
-                    }
-                }
                 if let Some(role) = role_opt {
                     // It's a marker! Finish previous branch if not empty.
                     if !current_branch.is_empty() || current_role.is_some() {
@@ -1530,22 +1513,6 @@ impl Parser {
         }
         if !current_branch.is_empty() || current_role.is_some() {
             branches.push((current_role, current_branch));
-        }
-
-        // Debug: show roles discovered in branches
-        {
-            let mut roles_desc = alloc::string::String::new();
-            for (r, stmts) in &branches {
-                if !roles_desc.is_empty() { roles_desc.push_str(", "); }
-                match r {
-                    Some(IfRole::Cond) => roles_desc.push_str("Cond"),
-                    Some(IfRole::Then) => roles_desc.push_str("Then"),
-                    Some(IfRole::Else) => roles_desc.push_str("Else"),
-                    None => roles_desc.push_str("Positional"),
-                }
-                roles_desc.push_str(alloc::format!("(stmts={})", stmts.len()).as_str());
-            }
-            self.diagnostics.push(Diagnostic::warning(alloc::format!("if-layout branches: {}", roles_desc), header_span));
         }
 
         // Expand branches so that positional groups with multiple statements are

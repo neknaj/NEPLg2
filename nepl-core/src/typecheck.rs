@@ -1844,7 +1844,17 @@ impl<'a> BlockChecker<'a> {
     }
 
     fn reduce_calls(&mut self, stack: &mut Vec<StackEntry>) {
+        let max_iterations = 1000; // Safety limit to prevent infinite loops
+        let mut iterations = 0;
         loop {
+            iterations += 1;
+            if iterations > max_iterations {
+                self.diagnostics.push(Diagnostic::error(
+                    "reduce_calls exceeded maximum iterations (possible infinite loop)",
+                    Span::dummy(),
+                ));
+                break;
+            }
             dump!("reduce_calls: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
             let func_pos = match stack.iter().enumerate().rposition(|(_, e)| {
                 let rty = self.ctx.resolve(e.ty);
@@ -1893,7 +1903,17 @@ impl<'a> BlockChecker<'a> {
     }
 
     fn reduce_calls_guarded(&mut self, stack: &mut Vec<StackEntry>, min_func_pos: usize) {
+        let max_iterations = 1000; // Safety limit to prevent infinite loops
+        let mut iterations = 0;
         loop {
+            iterations += 1;
+            if iterations > max_iterations {
+                self.diagnostics.push(Diagnostic::error(
+                    "reduce_calls_guarded exceeded maximum iterations (possible infinite loop)",
+                    Span::dummy(),
+                ));
+                break;
+            }
             dump!("reduce_calls_guarded: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
             let func_pos = match stack
                 .iter()
