@@ -856,35 +856,6 @@ impl Parser {
         // to the basic `if cond A B` shape expected by later passes.
         self.normalize_then_else(&mut items);
 
-        // Debug: if this prefix contains an If marker, emit a diagnostic showing item shapes
-        if items.iter().any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_)))) {
-            let mut shapes = alloc::string::String::new();
-            for (i, it) in items.iter().enumerate() {
-                if i > 0 { shapes.push_str(", "); }
-                let label = match it {
-                    PrefixItem::Symbol(sym) => match sym {
-                        Symbol::Ident(id, _) => alloc::format!("Ident({})", id.name),
-                        Symbol::If(_) => alloc::format!("If"),
-                        Symbol::While(_) => alloc::format!("While"),
-                        Symbol::Let { .. } => alloc::format!("Let"),
-                        Symbol::Set { .. } => alloc::format!("Set"),
-                        Symbol::AddrOf(_) => alloc::format!("AddrOf"),
-                        Symbol::Deref(_) => alloc::format!("Deref"),
-                    },
-                    PrefixItem::Literal(_, _) => alloc::format!("Literal"),
-                    PrefixItem::Block(_, _) => alloc::format!("Block"),
-                    PrefixItem::Match(_, _) => alloc::format!("Match"),
-                    PrefixItem::TypeAnnotation(_, _) => alloc::format!("TypeAnnotation"),
-                    PrefixItem::Pipe(_) => alloc::format!("Pipe"),
-                    PrefixItem::Tuple(_, _) => alloc::format!("Tuple"),
-                    PrefixItem::Group(_, _) => alloc::format!("Group"),
-                    PrefixItem::Intrinsic(_, _) => alloc::format!("Intrinsic"),
-                };
-                shapes.push_str(&label);
-            }
-            self.diagnostics.push(Diagnostic::warning(alloc::format!("prefix-if items=[{}]", shapes), items.first().map(|i| self.item_span(i)).unwrap_or(start_span)));
-        }
-
         let end_span = if trailing_semis > 0 {
             last_semi_span.unwrap_or(
                 items

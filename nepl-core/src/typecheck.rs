@@ -2380,11 +2380,11 @@ impl<'a> BlockChecker<'a> {
                         args[0].expr.span,
                     ));
                 }
-                let t = self.ctx.unify(args[1].ty, args[2].ty).unwrap_or(args[1].ty);
+                let branch_ty = self.ctx.unify(args[1].ty, args[2].ty).unwrap_or(args[1].ty);
                 return Some(StackEntry {
-                    ty: t,
+                    ty: branch_ty,
                     expr: HirExpr {
-                        ty: t,
+                        ty: branch_ty,
                         kind: HirExprKind::If {
                             cond: Box::new(args[0].expr.clone()),
                             then_branch: Box::new(args[1].expr.clone()),

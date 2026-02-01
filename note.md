@@ -48,6 +48,29 @@
 - stdlib/std/string.nepl の to_i32 内で if: ブロックに誤って if eq ok 1: / else: が混入するインデントになっており、if-layout 解析が "too many expressions" になる状態だったため、if eq ok 1: ブロックを1段デデントし、else ブロックのインデントを整えて if-layout が正しく分解されるよう修正。
 - これにより std/string の cond/then/else 未定義エラーと block stack エラーが解消。cargo test は全件通過、examples/counter.nepl を wasi 実行しても完走することを確認。
 - 文字列リテラルが allocator のメタ領域と衝突していたため、codegen_wasm の文字列配置開始オフセットを 8 バイト（heap_ptr + free_list_head）に変更し、data section で free_list_head=0 を明示。併せて data section を常に出力して heap_ptr を初期化するよう修正。
+
+# 2026-02-01 if/while テスト無限ループ対応
+## 問題発見
+- ifテストが16GB以上のメモリ使用となり、実行が停止する無限ループ問題を発見。
+- パーサー側は`if` ブロック分解で正常に動作している（テスト通過確認）。
+- 無限ループはタイプチェック段階で発生している模様。
+
+## 原因特定と修正
+- `apply_function()` の `if` ケースで、関数型 `(bool, T, T) -> T` の `result` 型変数が統一されていなかった。
+- 2つのブランチ型を統一した後、その結果を `result` 型変数に統一する必要があった。
+- 修正: `let final_ty = self.ctx.unify(result, t).unwrap_or(t);` を追加し、結果型を関数の result 型パラメータと統一。
+- 同じく `while` も同様の問題があったため、`let final_ty = self.ctx.unify(result, self.ctx.unit()).unwrap_or(self.ctx.unit());` で修正。
+
+## テスト実行結果
+- 修正後、部分的にテストが成功開始（8個テスト確認: if_mixed_cond_then_block_else_block など）
+- 残り7個のテストでメモリスパイク続行
+  - 失敗テスト: if_a_returns_expected, if_b_returns_expected, if_c_returns_expected, if_d_returns_expected, if_e_returns_expected, if_f_returns_expected, if_c_variant_lt_condition
+  - これらは全て `#import "std/math"` と `#use std::math::*` を含む
+
+## 次のステップ
+- 失敗しているテストの共通点は import/use ステートメント
+- ローダー或いはモノモルファイゼーション段階での無限ループの可能性を調査中
+
 - これにより WASI 実行時の print（文字列リテラル）の無出力／ゴミ出力が解消。stdout の回帰検出用に `nepl-core/tests/fixtures/stdout.nepl` を追加し、`nepl-core/tests/stdout.rs` と `run_main_capture_stdout` を実装。
 - 文字列操作のテストとして `nepl-core/tests/stdlib.rs` に len(文字列リテラル) と from_i32→len を追加。`cargo test -p nepl-core --test stdlib --test stdout` で確認。
 - plan2.md と doc/starting_detail.md はリポジトリ内に存在しないため、参照できない状態のまま。
@@ -192,3 +215,43 @@
   - **result**: ok/err/is_ok/is_err/unwrap_or
   - **list**: cons/nil/get/head/tail/reverse/len
 
+# 2026-02-01 作業メモ (if式の無限メモリ割り当てバグ修正)
+## 問題分析
+- if テストで 15 個中 8 個が成功だが、残り 7 個でメモリ割り当てエラー（5.5GB）発生
+- **失敗パターン**: `#import "std/math"` + `#use std::math::*` を含むすべてのテストケース
+  - `if_a_returns_expected` (キーワード形式: `if true 0 1`)
+  - `if_b_returns_expected` (キーワード形式: `if true then 0 else 1`)
+  - `if_c_returns_expected` (レイアウト形式、マーカーなし)
+  - その他 `if_d/e/f` とバリアント
+
+- **成功パターン**: 同じく `#import "std/math"` を含むが、if: レイアウト形式で role マーカー(`cond`/`then`/`else`)を使用
+  - `if_c_variant_cond_keyword` (cond マーカーあり)
+  - `if_mixed_cond_then_block_else_block` (cond/then/else ブロック形式)
+  - その他レイアウト形式マーカーあり
+
+## 原因特定
+- **根本原因は typecheck の apply_function における if / while ハンドラ内で result 型変数を unify する際に生じた型の循環参照**
+- parser の修正により以下の 2 つのバグを fix 済み:
+  1. マーカーに inline 式がある場合、ブランチが即座に finalize されず、後続の positional 行と grouping される
+  2. 複数ステートメント positional ブランチが個別ブランチに split されない
+
+- 新たに typecheck 内の if/while ケースで result 型との unify により**無限型構造**が生成されていた
+
+## 修正内容
+1. `typecheck.rs` 行 2369-2397 (if ケース):
+   - 元: `let final_ty = self.ctx.unify(result, t).unwrap_or(t);`
+   - 修: `let branch_ty = self.ctx.unify(args[1].ty, args[2].ty).unwrap_or(args[1].ty);` のみで result 型変数は使用しない
+   - 理由: result は fresh 型変数で、これと unify すると型の循環参照が発生し、monomorphize 段階での型 substitution で exponential explosion
+
+2. `typecheck.rs` 行 2400-2427 (while ケース):
+   - 同様に `self.ctx.unify(result, self.ctx.unit()).unwrap_or(self.ctx.unit())` を削除
+   - 修: `self.ctx.unit()` を直接返す
+
+3. parser.rs debug 診断の削除:
+   - 行 859-890: if 形式のアイテムシェイプをダンプする diagnostic を削除
+   - 行 1536-1550: if-layout ブランチ役割情報ダンプ diagnostic を削除
+   - 行 1515-1530: marker 未検出の warning を削除
+
+## 状態
+- 全 if テスト 15 個が成功し、合計実行時間 5.12 秒でコンプリート（以前は一部でメモリ割り当てエラー）
+- debug ファイル削除済み: `parse_if_debug.rs`、`compile_if_a.rs`
