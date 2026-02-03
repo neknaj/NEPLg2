@@ -5,7 +5,7 @@
 #import "std/result" as *
 #import "std/string" as *
 #if[target=wasi]
-#import "std/diag" as *
+#import "std/stdio" as *
 
 // test: 標準ライブラリ用の簡易テスト支援
 //
@@ -125,19 +125,21 @@ fn i32_to_str <(i32)*>str> (v):
 // test_print_fail: 失敗メッセージを表示する（WASI）
 //
 // 目的:
-// - msg を Failure として標準出力へ表示します。
+// - msg を赤色で標準出力へ表示します。
 //
 // 実装(アルゴリズム):
-// - diag_print_msg に渡して表示します。
+// - ANSI 赤色コードで色付けして出力します。
 //
 // 注意(重要):
 // - WASI ターゲットのみ対応です。
+// - 端末が ANSI に対応している必要があります。
 //
 // 計算量:
 // - O(n)
 #if[target=wasi]
 fn test_print_fail <(str)*>()> (msg):
-    diag_print_msg msg
+    let m0 <str> concat "FAIL: " msg;
+    println_color ansi_red m0
 
 // test_print_fail: 失敗メッセージを無視する（WASM）
 //

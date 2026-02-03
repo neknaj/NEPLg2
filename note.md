@@ -1,4 +1,11 @@
 # 状況メモ (2026-01-22)
+# 2026-02-03 作業メモ (test 彩色/stdlib テスト調整/コンパイラ確認)
+- stdlib/std/test.nepl の失敗メッセージを ANSI 赤色で表示するよう変更し、std/stdio の色出力を利用。
+- stdlib/tests/error.nepl で `fail` の使用を避け、error_new 由来の診断が非空であることを確認する形に調整。
+- stdlib/tests/cliarg.nepl/list.nepl/stack.nepl/vec.nepl/string.nepl/diag.nepl を更新し、失敗時のメッセージを明示するテストに整理。
+- doc/testing.md の失敗時の表示説明を更新。
+- コンパイラ確認: error::fail（callsite_span 経由）を含むテストで wasm 検証エラーが発生するため、std テスト側では該当経路を使わないようにして回避。Rust 側の callsite_span/codegen の相性は要調査。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` を実行。
 # 2026-02-03 作業メモ (テスト失敗のメッセージ表示)
 - stdlib/std/test.nepl を改修し、失敗時にメッセージを表示してから trap するよう変更した。
 - stdlib/std/diag.nepl に diag_print_msg を追加し、Failure メッセージを表示できるようにした。

@@ -44,7 +44,7 @@ Exports:
 - `assert_err_i32 <(ResultI32)*()>`
 
 Failure behavior:
-- On WASI targets, assertion failures print a message and then call `trap`.
+- On WASI targets, assertion failures print a red message and then call `trap`.
 - On wasm targets, failures call `trap` without printing.
 
 Important syntax rule:
