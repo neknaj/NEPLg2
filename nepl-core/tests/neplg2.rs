@@ -86,7 +86,7 @@ fn compiles_literal_main() {
     let src = r#"
 #entry main
 fn main <() -> i32> ():
-    #import "std/math" as *
+    #import "core/math" as *
     1
 "#;
     compile_ok(src);
@@ -106,7 +106,7 @@ fn add <(i32, i32) -> i32> (a, b):
         i32.add
 
 fn main <() -> i32> ():
-    #import "std/math" as *
+    #import "core/math" as *
     add 1:
         add 2 3
 "#;
@@ -131,7 +131,7 @@ fn pure_cannot_call_impure() {
 #indent 4
 
 fn imp <(i32) *> i32> (x):
-    #import "std/math" as *
+    #import "core/math" as *
     add x 1
 
 fn pure <(i32) -> i32> (x):
@@ -203,7 +203,7 @@ fn add_one <(i32)->i32> (a):
         i32.add
 
 fn main <() -> i32> ():
-    #import "std/math" as *
+    #import "core/math" as *
     add_one 1
 "#;
     compile_err(src);
@@ -246,7 +246,7 @@ fn import_and_prelude_directives_are_accepted() {
 #entry main
 #prelude std/prelude_base
 #no_prelude
-#import "std/math" as { add as plus, math::* }
+#import "core/math" as { add as plus, math::* }
 #import "./part" as @merge
 
 fn main <() -> i32> ():
@@ -398,7 +398,7 @@ fn run_add_returns_12() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()->i32> ():
     add 10 2
@@ -412,7 +412,7 @@ fn match_option_some_returns_value() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/option" as *
+#import "core/option" as *
 
 fn main <()* >i32> ():
     match some 5:
@@ -430,8 +430,8 @@ fn list_get_out_of_bounds_err() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/list" as *
-#import "std/option" as *
+#import "alloc/collections/list" as *
+#import "core/option" as *
 
 fn main <()* >i32> ():
     let lst list_nil<i32>;
@@ -452,7 +452,7 @@ fn non_exhaustive_match_is_error() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/option" as *
+#import "core/option" as *
 
 fn main <()->i32> ():
     match some 1:

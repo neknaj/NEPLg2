@@ -6,7 +6,7 @@ fn string_len_literal_returns_3() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/string" as *
+#import "alloc/string" as *
 
 fn main <()*>i32> ():
     let s "abc";
@@ -22,7 +22,7 @@ fn string_from_i32_len_matches_digits() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/string" as *
+#import "alloc/string" as *
 
 fn main <()*>i32> ():
     let s from_i32 1234;
@@ -38,8 +38,8 @@ fn string_from_to_roundtrip() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/string" as *
-#import "std/result" as *
+#import "alloc/string" as *
+#import "core/result" as *
 
 fn main <()*>i32> ():
     let s0 from_i32 0;

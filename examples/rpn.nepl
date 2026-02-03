@@ -2,8 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/mem" as *
-#import "std/math" as *
+#import "core/mem" as *
+#import "core/math" as *
 #import "std/stdio" as *
 
 

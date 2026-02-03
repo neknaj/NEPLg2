@@ -2,9 +2,9 @@
 #indent 4
 #target wasi
 
-#import "std/mem"
+#import "core/mem"
 #use std::mem::*
-#import "std/math"
+#import "core/math"
 #use std::math::*
 #import "std/stdio"
 #use std::stdio::*

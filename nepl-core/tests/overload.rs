@@ -12,7 +12,7 @@ fn test_overload_cast_like() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 // val_cast: Same name, same input type, different return type.
 // Case 1: i32 -> i32 (identity)
@@ -45,7 +45,7 @@ fn test_overload_print_like() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 // my_print: Same name, different input types.
 // Case 1: i32 -> i32 (returns 1 to signal "printed i32")
@@ -72,7 +72,7 @@ fn test_explicit_type_annotation_prefix() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 // magic: Same input, different return types
 fn magic <(i32)->i32> (v):

@@ -10,7 +10,7 @@ fn test_type_annot_basic() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // 基本的なリテラルへの型注釈
@@ -30,7 +30,7 @@ fn test_type_annot_nested_expr() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // 計算式全体への型注釈
@@ -53,7 +53,7 @@ fn test_type_annot_on_let() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // plan.md 94行目の例: let mut neg <bool> lt n 0
@@ -79,7 +79,7 @@ fn test_type_annot_block() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // ブロック式全体への型注釈
@@ -102,7 +102,7 @@ fn test_type_annot_nested_annot() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // 型注釈は重ねても良い
@@ -120,7 +120,7 @@ fn test_type_annot_function_call() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn id <(i32)->i32> (x):
     x
@@ -141,7 +141,7 @@ fn test_type_annot_complex_expr() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // 複雑な式の中での型注釈
@@ -160,7 +160,7 @@ fn test_type_annot_if_expr() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // if式全体、あるいは各ブランチへの型注釈
@@ -180,7 +180,7 @@ fn test_type_annot_while_condition() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut i 0
@@ -203,8 +203,8 @@ fn test_type_annot_generic_like() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
-#import "std/option" as *
+#import "core/math" as *
+#import "core/option" as *
 
 fn main <()*>i32> ():
     // ジェネリック型に対する型注釈
@@ -227,7 +227,7 @@ fn test_type_annot_deeply_nested() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // 深くネストされた関数呼び出しと型注釈
@@ -246,7 +246,7 @@ fn test_type_annot_mixed_with_blocks() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     // ブロックとインラインの混在

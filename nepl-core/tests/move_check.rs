@@ -45,7 +45,7 @@ fn move_simple_ok() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -62,7 +62,7 @@ fn move_use_after_move() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -83,7 +83,7 @@ fn move_in_branch() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -107,7 +107,7 @@ fn move_in_loop() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -127,7 +127,7 @@ fn move_reassign_non_copy() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -160,7 +160,7 @@ fn move_reference_ok() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -178,7 +178,7 @@ fn move_borrow_after_move_err() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -197,7 +197,7 @@ fn move_pass_to_function_err() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -219,7 +219,7 @@ fn move_struct_field_err() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -241,7 +241,7 @@ fn move_branch_reinit_mixed() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -265,7 +265,7 @@ fn move_nested_match_potentially_moved() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
@@ -296,7 +296,7 @@ fn move_in_match_arms() {
     let source = r#"
 #target wasi
 #indent 4
-#import "std/mem" as *
+#import "core/mem" as *
 
 enum Wrapper:
     Val <i32>
