@@ -1,10 +1,3 @@
-import init, {
-    compile_source,
-    compile_to_wat,
-    compile_test,
-    list_tests,
-} from "./nepl_web.js";
-
 const frame = document.getElementById("editor-frame");
 const fallback = document.getElementById("fallback");
 const fallbackEditor = document.getElementById("fallback-editor");
@@ -22,6 +15,7 @@ const terminalCommand = document.getElementById("terminal-command");
 const terminalStdin = document.getElementById("terminal-stdin");
 const terminalOutput = document.getElementById("terminal-output");
 
+let wasmBindings = null;
 let wasmReady = false;
 let testList = [];
 
@@ -41,6 +35,35 @@ function markReady() {
 function setStatus(message, isError = false) {
     statusElement.textContent = message;
     statusElement.classList.toggle("status--error", isError);
+}
+
+function readBindings() {
+    if (wasmBindings) {
+        return wasmBindings;
+    }
+    if (window.wasmBindings) {
+        wasmBindings = window.wasmBindings;
+    }
+    return wasmBindings;
+}
+
+function initializeWasmBindings() {
+    if (wasmReady) {
+        return;
+    }
+    const bindings = readBindings();
+    if (!bindings) {
+        return;
+    }
+    wasmReady = true;
+    try {
+        testList = bindings.list_tests().split("\n").filter((name) => name.length > 0);
+    } catch (error) {
+        setStatus(`テスト一覧の取得に失敗しました: ${error}`, true);
+        testList = [];
+    }
+    setStatus("WASM の初期化が完了しました。");
+    appendLine("type 'help' for available commands");
 }
 
 function appendOutput(text) {
@@ -82,17 +105,25 @@ function getEditorSource() {
 }
 
 async function ensureWasmReady() {
+    if (!wasmReady) {
+        initializeWasmBindings();
+    }
     if (wasmReady) {
         return true;
     }
-    setStatus("WASM が初期化されていません。再読み込みしてください。", true);
+    setStatus("WASM が初期化されていません。読み込みを待っています。", true);
     return false;
 }
 
 async function runProgram(source, stdin) {
+    const bindings = readBindings();
+    if (!bindings) {
+        appendLine("WASM が初期化されていません。");
+        return;
+    }
     let wasmBytes;
     try {
-        wasmBytes = compile_source(source);
+        wasmBytes = bindings.compile_source(source);
     } catch (error) {
         appendLine(String(error));
         return;
@@ -117,6 +148,11 @@ async function runProgram(source, stdin) {
 }
 
 async function runTests() {
+    const bindings = readBindings();
+    if (!bindings) {
+        appendLine("WASM が初期化されていません。");
+        return;
+    }
     if (testList.length === 0) {
         appendLine("テストが見つかりません。");
         return;
@@ -126,7 +162,7 @@ async function runTests() {
         appendLine(`test ${name} ...`);
         let wasmBytes;
         try {
-            wasmBytes = compile_test(name);
+            wasmBytes = bindings.compile_test(name);
         } catch (error) {
             failures += 1;
             appendLine(String(error));
@@ -153,7 +189,12 @@ async function handleCompile() {
         return;
     }
     try {
-        const wat = compile_to_wat(source);
+        const bindings = readBindings();
+        if (!bindings) {
+            setStatus("WASM が初期化されていません。", true);
+            return;
+        }
+        const wat = bindings.compile_to_wat(source);
         watOutput.value = wat;
         setStatus("WAT を生成しました。");
     } catch (error) {
@@ -309,10 +350,41 @@ async function runWasm(wasmBytes, stdinText) {
     return { stdout, stderr, exitCode };
 }
 
-const timeout = window.setTimeout(showFallback, 1500);
+let fallbackTimer = window.setTimeout(showFallback, 3000);
+
+function clearFallbackTimer() {
+    if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+    }
+}
+
+async function initEditorFrame() {
+    if (!frame) {
+        showFallback();
+        return;
+    }
+    const rawSrc = frame.dataset.src;
+    if (!rawSrc) {
+        showFallback();
+        return;
+    }
+    const resolved = new URL(rawSrc, window.location.href).toString();
+    try {
+        const response = await fetch(resolved, { method: "GET" });
+        if (!response.ok) {
+            showFallback();
+            return;
+        }
+        frame.src = resolved;
+        return;
+    } catch (_error) {
+        showFallback();
+    }
+}
 
 frame.addEventListener("load", () => {
-    window.clearTimeout(timeout);
+    clearFallbackTimer();
     try {
         const doc = frame.contentDocument;
         if (!doc || doc.body.children.length === 0) {
@@ -345,19 +417,8 @@ if (docsLink) {
     docsLink.href = fallbackUrl;
     docsLink.rel = "noopener noreferrer";
 }
-
-(async () => {
-    try {
-        await init();
-        wasmReady = true;
-        testList = list_tests().split("\n").filter((name) => name.length > 0);
-        setStatus("WASM の初期化が完了しました。");
-        appendLine("type 'help' for available commands");
-    } catch (error) {
-        wasmReady = false;
-        setStatus(`初期化に失敗しました: ${error}`, true);
-        [compileButton, runButton, testButton, clearButton].forEach((btn) => {
-            btn.disabled = true;
-        });
-    }
-})();
+initializeWasmBindings();
+window.addEventListener("TrunkApplicationStarted", () => {
+    initializeWasmBindings();
+});
+initEditorFrame();

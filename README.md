@@ -96,3 +96,7 @@ cargo test --workspace --locked
 ## Web playground
 The `web/` playground includes WAT generation plus a terminal that can `run` the current source
 and execute `test` for stdlib tests in the browser (WASM).
+
+Local usage:
+- Start `trunk serve` and open `http://127.0.0.1:8080/`.
+- The embedded editor is optional. If `web/vendor/editorsample` is missing, the fallback textarea is used.

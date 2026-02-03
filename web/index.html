@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEPLg2 Web Playground</title>
-    <link rel="stylesheet" href="styles.css">
+    <link data-trunk rel="css" href="styles.css">
+    <link data-trunk rel="copy-dir" href="vendor">
+    <link data-trunk rel="copy-file" href="main.js">
     <link data-trunk rel="rust" href="../nepl-web/Cargo.toml" data-bindgen-target="web">
     <script type="module" src="main.js"></script>
 </head>
@@ -36,9 +38,9 @@
                 <span id="editor-status" class="status-pill status-warning">エディタの読み込みを待機中...</span>
             </div>
             <div class="editor-frame-wrapper">
-                <iframe id="editor-frame" title="NEPL Editor" src="vendor/editorsample/index.html"></iframe>
+                <iframe id="editor-frame" title="NEPL Editor" data-src="vendor/editorsample/index.html"></iframe>
                 <div id="fallback" class="fallback" hidden>
-                    <p>エディタを読み込めませんでした。<code>scripts/fetch_editorsample.sh</code> を実行してから再度開いてください。</p>
+                    <p>エディタが見つからないため、簡易エディタを表示しています。</p>
                     <textarea id="fallback-editor" aria-label="Fallback editor" spellcheck="false"></textarea>
                 </div>
             </div>
