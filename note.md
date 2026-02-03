@@ -231,6 +231,7 @@
 - `doc/web_playground.md` を追加し、Web playground の実行仕様を整理。
 - Trunk 0.20 互換のため、`web/index.html` の `<link data-trunk>` から `data-type="wasm-bindgen"` を削除。
 - `nepl-web` の `include_str!` パスを修正し、`nepl-core` ローダーに wasm 向けのファイルアクセス抑制を追加。
+- Web UI を mlang playground の構成に合わせて整理し、WAT 出力パネルと操作ボタンを追加。
 - 後方互換性のため、i32 のみの alias 関数（add/sub/mul/div_s/lt/eq など）を提供。
 
 # 2026-01-31 作業メモ (stdlib テストの充実化)

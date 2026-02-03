@@ -5,12 +5,20 @@ use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::error::CoreError;
 use nepl_core::loader::{Loader, SourceMap};
 use nepl_core::{compile_module, CompileOptions, CompileTarget};
+use wasmprinter::print_bytes;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn compile_source(source: &str) -> Result<Vec<u8>, JsValue> {
-    compile_with_entry("/virtual/entry.nepl", source)
+    compile_wasm_with_entry("/virtual/entry.nepl", source)
         .map_err(|msg| JsValue::from_str(&msg))
+}
+
+#[wasm_bindgen]
+pub fn compile_to_wat(source: &str) -> Result<String, JsValue> {
+    let wasm = compile_wasm_with_entry("/virtual/entry.nepl", source)
+        .map_err(|msg| JsValue::from_str(&msg))?;
+    print_bytes(&wasm).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 #[wasm_bindgen]
@@ -29,11 +37,11 @@ pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
         .find(|(n, _)| *n == name)
         .map(|(_, src)| *src)
         .ok_or_else(|| JsValue::from_str("unknown test"))?;
-    compile_with_entry(&format!("/virtual/tests/{name}.nepl"), src)
+    compile_wasm_with_entry(&format!("/virtual/tests/{name}.nepl"), src)
         .map_err(|msg| JsValue::from_str(&msg))
 }
 
-fn compile_with_entry(entry_path: &str, source: &str) -> Result<Vec<u8>, String> {
+fn compile_wasm_with_entry(entry_path: &str, source: &str) -> Result<Vec<u8>, String> {
     let stdlib_root = PathBuf::from("/stdlib");
     let sources = stdlib_sources(&stdlib_root);
     let mut loader = Loader::new(stdlib_root);
@@ -41,7 +49,12 @@ fn compile_with_entry(entry_path: &str, source: &str) -> Result<Vec<u8>, String>
         sources
             .get(path)
             .cloned()
-            .ok_or_else(|| nepl_core::loader::LoaderError::Io(format!("missing source: {}", path.display())))
+            .ok_or_else(|| {
+                nepl_core::loader::LoaderError::Io(format!(
+                    "missing source: {}",
+                    path.display()
+                ))
+            })
     };
     let loaded = loader
         .load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)

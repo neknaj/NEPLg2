@@ -3,29 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEPLg1 Web Playground</title>
+    <title>NEPLg2 Web Playground</title>
     <link rel="stylesheet" href="styles.css">
     <link data-trunk rel="rust" href="../nepl-web/Cargo.toml" data-bindgen-target="web">
     <script type="module" src="main.js"></script>
 </head>
 <body>
     <header class="page-header">
-        <h1>NEPLg1 Web Playground</h1>
-        <p class="lead">NEPL のコードをブラウザ上で編集するための試験的なプレイグラウンドです。</p>
+        <div class="page-header__inner">
+            <div class="page-header__intro">
+                <h1>NEPLg2 Playground</h1>
+                <p>ブラウザ上で NEPL のコードを編集し、WAT 生成や実行、テストを試せます。</p>
+            </div>
+            <nav class="page-header__actions" aria-label="Additional resources">
+                <a
+                    id="docs-link"
+                    class="page-header__link"
+                    data-docs-url="../doc/"
+                    href="../doc/"
+                    target="_blank"
+                    rel="noopener"
+                >
+                    Documentation
+                </a>
+            </nav>
+        </div>
     </header>
     <main class="layout">
-        <section class="panel instructions">
-            <h2>セットアップ</h2>
-            <ol>
-                <li>レポジトリルートで <code>scripts/fetch_editorsample.sh</code> を実行して、エディタ用リポジトリを <code>web/vendor/editorsample</code> にクローンします。</li>
-                <li>Trunk などの静的サーバーで <code>web/index.html</code> を配信します。</li>
-            </ol>
-            <p class="note">エディタが読み込めない場合は、クローンが成功しているか、配置パスが正しいかを確認してください。</p>
-        </section>
-        <section class="panel editor-panel">
-            <div class="panel-heading">
-                <h2>エディタ</h2>
-                <span id="editor-status" class="status status-warning">エディタの読み込みを待機中...</span>
+        <section class="panel panel--editor">
+            <div class="panel__header">
+                <label for="editor-frame" class="panel__label">ソースコード</label>
+                <span id="editor-status" class="status-pill status-warning">エディタの読み込みを待機中...</span>
             </div>
             <div class="editor-frame-wrapper">
                 <iframe id="editor-frame" title="NEPL Editor" src="vendor/editorsample/index.html"></iframe>
@@ -34,21 +42,24 @@
                     <textarea id="fallback-editor" aria-label="Fallback editor" spellcheck="false"></textarea>
                 </div>
             </div>
-        </section>
-        <section class="panel terminal-panel">
-            <div class="panel-heading">
-                <h2>ターミナル</h2>
-                <span id="terminal-status" class="status status-warning">WASM を初期化中...</span>
+            <div class="panel__controls">
+                <button type="button" id="compile">WATを生成</button>
+                <button type="button" id="run" class="primary">Run</button>
+                <button type="button" id="test">Test</button>
+                <button type="button" id="clear" class="danger">Clear</button>
             </div>
+            <div id="status" class="status" role="status" aria-live="polite"></div>
+        </section>
+        <section class="panel">
+            <label for="wat" class="panel__label">生成されたWAT</label>
+            <textarea id="wat" class="panel__textarea" readonly spellcheck="false"></textarea>
+        </section>
+        <section class="panel panel--terminal">
+            <label for="terminal-output" class="panel__label">実行結果 (ターミナル)</label>
             <div class="terminal-controls">
                 <div class="terminal-command">
                     <label for="terminal-command">コマンド</label>
                     <input id="terminal-command" type="text" placeholder="run / test / clear / help" autocomplete="off">
-                    <div class="terminal-buttons">
-                        <button type="button" id="terminal-run">Run</button>
-                        <button type="button" id="terminal-test">Test</button>
-                        <button type="button" id="terminal-clear">Clear</button>
-                    </div>
                 </div>
                 <div class="terminal-stdin">
                     <label for="terminal-stdin">stdin</label>
@@ -57,10 +68,9 @@
             </div>
             <pre id="terminal-output" class="terminal-output" aria-live="polite"></pre>
         </section>
-        <section class="panel output-panel">
-            <h2>メモ</h2>
-            <p>ターミナルから <code>run</code> でコード実行、<code>test</code> で stdlib テストを実行できます。実行結果は WASM 上で評価され、標準入出力はこのパネルに表示されます。</p>
-        </section>
     </main>
+    <footer class="page-footer">
+        <p>wasm32ターゲット向けにビルドされたコンパイラとWASMランタイムを利用しています。</p>
+    </footer>
 </body>
 </html>

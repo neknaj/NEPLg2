@@ -94,5 +94,5 @@ cargo test --workspace --locked
 ```
 
 ## Web playground
-The `web/` playground includes a terminal that can `run` the current source and execute `test`
-for stdlib tests in the browser (WASM).
+The `web/` playground includes WAT generation plus a terminal that can `run` the current source
+and execute `test` for stdlib tests in the browser (WASM).

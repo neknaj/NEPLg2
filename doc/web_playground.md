@@ -11,6 +11,8 @@ The embedded terminal can:
 - `test`: compile and execute stdlib tests (from `stdlib/tests`).
 - `clear`: clear terminal output.
 
+WAT generation is provided by the "WATを生成" button in the editor panel.
+
 Standard input is provided via the terminal `stdin` textarea. Output is captured
 from WASI `fd_write` and rendered in the terminal pane.
 

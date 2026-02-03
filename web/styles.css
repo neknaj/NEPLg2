@@ -1,13 +1,29 @@
 :root {
-    --bg: #0f172a;
-    --panel: #111827;
-    --text: #e5e7eb;
-    --muted: #9ca3af;
-    --accent: #06b6d4;
-    --warning: #f59e0b;
-    --border: #1f2937;
+    --background: #1e1e1e;
+    --text-primary: #d4d4d4;
+    --text-secondary: #a0a0a0;
+    --panel-background: #252526;
+    --panel-border: #3c3c3c;
+    --input-background: #3c3c3c;
+    --button-background: #3a3d41;
+    --button-hover-background: #4a4d51;
+    --primary-button-background: linear-gradient(135deg, #0e639c, #007acc);
+    --primary-button-hover-background: linear-gradient(135deg, #1f73ac, #108ad6);
+    --danger-button-background: linear-gradient(135deg, #a12622, #cd3131);
+    --danger-button-hover-background: linear-gradient(135deg, #b13632, #dd4141);
+    --focus-outline: #007acc;
+    --status-info: #3794ff;
+    --status-error: #f44747;
+    --status-warning-bg: rgba(245, 158, 11, 0.2);
+    --status-warning: #fcd34d;
+    --status-success-bg: rgba(16, 185, 129, 0.18);
+    --status-success: #6ee7b7;
     --shadow: rgba(0, 0, 0, 0.4);
-    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+    color: var(--text-primary);
+    background: var(--background);
+    font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    line-height: 1.5;
 }
 
 * {
@@ -16,97 +32,223 @@
 
 body {
     margin: 0;
-    background: radial-gradient(circle at 10% 10%, rgba(6, 182, 212, 0.15), transparent 25%),
-        radial-gradient(circle at 90% 10%, rgba(245, 158, 11, 0.15), transparent 25%),
-        radial-gradient(circle at 30% 80%, rgba(59, 130, 246, 0.12), transparent 30%),
-        var(--bg);
-    color: var(--text);
     min-height: 100vh;
-    padding: 24px;
+    display: flex;
+    flex-direction: column;
 }
 
-.page-header {
-    max-width: 1024px;
-    margin: 0 auto 24px;
+.page-header,
+.page-footer {
+    padding: 1.5rem clamp(1rem, 4vw, 3rem);
+    background: #000000;
+    color: #ffffff;
 }
 
-.lead {
-    color: var(--muted);
+.page-header__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.page-header__intro {
+    max-width: 48rem;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.page-header p {
+    margin: 0.5rem 0 0;
+    color: var(--text-secondary);
+}
+
+.page-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.page-header__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 1.25rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.page-header__link::after {
+    content: "↗";
+    font-size: 0.85em;
+}
+
+.page-header__link:hover,
+.page-header__link:focus-visible {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.page-footer {
+    font-size: 0.875rem;
+    background: #000000;
+    color: var(--text-secondary);
+    text-align: center;
 }
 
 .layout {
-    max-width: 1200px;
-    margin: 0 auto;
+    flex: 1;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 1.5rem;
+    padding: clamp(1rem, 4vw, 3rem);
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: var(--panel-background);
+    border-radius: 0.75rem;
+    border: 1px solid var(--panel-border);
+    padding: 1.25rem;
     box-shadow: 0 10px 30px var(--shadow);
 }
 
-.panel h2 {
-    margin-top: 0;
-}
-
-.instructions ol {
-    padding-left: 20px;
-}
-
-.instructions .note {
-    color: var(--muted);
-    margin-top: 12px;
-}
-
-.editor-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.panel-heading {
+.panel__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 0.75rem;
 }
 
-.status {
+.panel__label {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+}
+
+.panel__textarea {
+    width: 100%;
+    min-height: 240px;
+    resize: vertical;
+    font-family: "Fira Code", "Source Code Pro", monospace;
+    font-size: 0.95rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--panel-border);
+    background: var(--input-background);
+    color: var(--text-primary);
+}
+
+.panel__textarea:focus {
+    outline: 2px solid var(--focus-outline);
+    background: #2d2d2d;
+}
+
+.panel__textarea[readonly] {
+    background: #2a2a2a;
+}
+
+.panel__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+button {
+    appearance: none;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    padding: 0.6rem 1.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+    background: var(--button-background);
+    color: var(--text-primary);
+}
+
+button.primary {
+    background: var(--primary-button-background);
+    color: #ffffff;
+    border: none;
+}
+
+button.primary:hover:not(:disabled) {
+    background: var(--primary-button-hover-background);
+}
+
+button.danger {
+    background: var(--danger-button-background);
+    color: #ffffff;
+    border: none;
+}
+
+button.danger:hover:not(:disabled) {
+    background: var(--danger-button-hover-background);
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: var(--button-hover-background);
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.status-pill {
     padding: 6px 10px;
     border-radius: 999px;
-    font-size: 14px;
+    font-size: 0.85rem;
+    border: 1px solid transparent;
 }
 
 .status-warning {
-    background: rgba(245, 158, 11, 0.2);
-    color: #fcd34d;
-    border: 1px solid rgba(245, 158, 11, 0.4);
+    background: var(--status-warning-bg);
+    color: var(--status-warning);
+    border-color: rgba(245, 158, 11, 0.4);
 }
 
 .status-success {
-    background: rgba(16, 185, 129, 0.18);
-    color: #6ee7b7;
-    border: 1px solid rgba(16, 185, 129, 0.4);
+    background: var(--status-success-bg);
+    color: var(--status-success);
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+.status {
+    min-height: 1.5rem;
+    font-size: 0.9rem;
+    color: var(--status-info);
+}
+
+.status--error {
+    color: var(--status-error);
 }
 
 .editor-frame-wrapper {
     position: relative;
-    min-height: 420px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    min-height: 360px;
+    border: 1px solid var(--panel-border);
+    border-radius: 0.5rem;
     overflow: hidden;
-    background: #0b1221;
+    background: #1b1b1b;
 }
 
 #editor-frame {
     width: 100%;
     height: 100%;
-    min-height: 420px;
+    min-height: 360px;
     border: none;
 }
 
@@ -117,30 +259,23 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+    background: #1b1b1b;
 }
 
 #fallback-editor {
     flex: 1;
-    background: #0a0f1a;
-    color: var(--text);
-    border: 1px dashed var(--border);
-    border-radius: 8px;
+    background: #2a2a2a;
+    color: var(--text-primary);
+    border: 1px dashed var(--panel-border);
+    border-radius: 0.5rem;
     padding: 12px;
-    font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 14px;
+    font-family: "Fira Code", "Source Code Pro", monospace;
+    font-size: 0.95rem;
     resize: none;
 }
 
-.output-panel p {
-    color: var(--muted);
-    margin: 0;
-}
-
-.terminal-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.panel--terminal {
+    min-height: 420px;
 }
 
 .terminal-controls {
@@ -152,78 +287,45 @@ body {
 .terminal-command label,
 .terminal-stdin label {
     display: block;
-    font-size: 14px;
-    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
     margin-bottom: 6px;
 }
 
-.terminal-command input {
+.terminal-command input,
+.terminal-stdin textarea {
     width: 100%;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    padding: 10px 12px;
-    background: #0a0f1a;
-    color: var(--text);
-    font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 14px;
-}
-
-.terminal-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.terminal-buttons button {
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    padding: 6px 14px;
-    background: #0b1221;
-    color: var(--text);
-    cursor: pointer;
-}
-
-.terminal-buttons button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-radius: 0.5rem;
+    border: 1px solid var(--panel-border);
+    padding: 0.65rem 0.8rem;
+    background: var(--input-background);
+    color: var(--text-primary);
+    font-family: "Fira Code", "Source Code Pro", monospace;
+    font-size: 0.9rem;
 }
 
 .terminal-stdin textarea {
-    width: 100%;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    padding: 10px 12px;
-    background: #0a0f1a;
-    color: var(--text);
-    font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 14px;
     resize: vertical;
 }
 
 .terminal-output {
+    flex: 1;
     min-height: 200px;
-    background: #05070f;
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    background: #151515;
+    border: 1px solid var(--panel-border);
+    border-radius: 0.5rem;
     padding: 12px;
-    font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 13px;
-    color: var(--text);
+    font-family: "Fira Code", "Source Code Pro", monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
     white-space: pre-wrap;
     overflow: auto;
 }
 
-@media (min-width: 960px) {
-    .layout {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .terminal-panel {
-        grid-column: span 2;
-    }
-
-    .output-panel {
-        grid-column: span 2;
+@media (max-width: 720px) {
+    .panel__textarea,
+    .panel--terminal {
+        min-height: 200px;
     }
 }

@@ -1,38 +1,46 @@
-import init, { compile_source, compile_test, list_tests } from "./nepl_web.js";
+import init, {
+    compile_source,
+    compile_to_wat,
+    compile_test,
+    list_tests,
+} from "./nepl_web.js";
 
 const frame = document.getElementById("editor-frame");
 const fallback = document.getElementById("fallback");
 const fallbackEditor = document.getElementById("fallback-editor");
-const status = document.getElementById("editor-status");
+const statusBadge = document.getElementById("editor-status");
+const docsLink = document.getElementById("docs-link");
 
-const terminalStatus = document.getElementById("terminal-status");
-const terminalOutput = document.getElementById("terminal-output");
+const compileButton = document.getElementById("compile");
+const runButton = document.getElementById("run");
+const testButton = document.getElementById("test");
+const clearButton = document.getElementById("clear");
+const statusElement = document.getElementById("status");
+const watOutput = document.getElementById("wat");
+
 const terminalCommand = document.getElementById("terminal-command");
 const terminalStdin = document.getElementById("terminal-stdin");
-const terminalRun = document.getElementById("terminal-run");
-const terminalTest = document.getElementById("terminal-test");
-const terminalClear = document.getElementById("terminal-clear");
+const terminalOutput = document.getElementById("terminal-output");
 
 let wasmReady = false;
 let testList = [];
 
 function showFallback() {
     fallback.hidden = false;
-    status.textContent = "エディタが見つかりません";
-    status.classList.remove("status-success");
-    status.classList.add("status-warning");
+    statusBadge.textContent = "エディタが見つかりません";
+    statusBadge.classList.remove("status-success");
+    statusBadge.classList.add("status-warning");
 }
 
 function markReady() {
-    status.textContent = "エディタを読み込みました";
-    status.classList.remove("status-warning");
-    status.classList.add("status-success");
+    statusBadge.textContent = "エディタを読み込みました";
+    statusBadge.classList.remove("status-warning");
+    statusBadge.classList.add("status-success");
 }
 
-function setTerminalStatus(message, ok) {
-    terminalStatus.textContent = message;
-    terminalStatus.classList.remove("status-warning", "status-success");
-    terminalStatus.classList.add(ok ? "status-success" : "status-warning");
+function setStatus(message, isError = false) {
+    statusElement.textContent = message;
+    statusElement.classList.toggle("status--error", isError);
 }
 
 function appendOutput(text) {
@@ -77,8 +85,7 @@ async function ensureWasmReady() {
     if (wasmReady) {
         return true;
     }
-    setTerminalStatus("WASM が初期化されていません", false);
-    appendLine("WASM の初期化に失敗しています。ページを再読み込みしてください。");
+    setStatus("WASM が初期化されていません。再読み込みしてください。", true);
     return false;
 }
 
@@ -136,6 +143,24 @@ async function runTests() {
     appendLine(`tests: ${testList.length}, failed: ${failures}`);
 }
 
+async function handleCompile() {
+    if (!(await ensureWasmReady())) {
+        return;
+    }
+    const source = getEditorSource().trim();
+    if (!source) {
+        setStatus("ソースが空です。", true);
+        return;
+    }
+    try {
+        const wat = compile_to_wat(source);
+        watOutput.value = wat;
+        setStatus("WAT を生成しました。");
+    } catch (error) {
+        setStatus(`コンパイルに失敗しました: ${error}`, true);
+    }
+}
+
 async function handleRun() {
     if (!(await ensureWasmReady())) {
         return;
@@ -146,7 +171,9 @@ async function handleRun() {
         return;
     }
     appendLine("$ run");
+    setStatus("実行中...");
     await runProgram(source, terminalStdin.value);
+    setStatus("実行が完了しました。");
 }
 
 async function handleTest() {
@@ -154,7 +181,9 @@ async function handleTest() {
         return;
     }
     appendLine("$ test");
+    setStatus("テストを実行中...");
     await runTests();
+    setStatus("テストが完了しました。");
 }
 
 function handleHelp() {
@@ -171,8 +200,7 @@ function handleCommand() {
         return;
     }
     terminalCommand.value = "";
-    const parts = raw.split(/\s+/);
-    const cmd = parts[0];
+    const cmd = raw.split(/\s+/)[0];
     if (cmd === "run") {
         handleRun();
         return;
@@ -199,6 +227,7 @@ async function runWasm(wasmBytes, stdinText) {
     let stdout = "";
     let stderr = "";
     const decoder = new TextDecoder("utf-8");
+    let instance;
     const imports = {
         wasi_snapshot_preview1: {
             fd_write(fd, iovs, iovsLen, nwritten) {
@@ -254,7 +283,6 @@ async function runWasm(wasmBytes, stdinText) {
             },
         },
     };
-    let instance;
     try {
         const result = await WebAssembly.instantiate(wasmBytes, imports);
         instance = result.instance;
@@ -299,9 +327,10 @@ frame.addEventListener("load", () => {
     markReady();
 });
 
-terminalRun.addEventListener("click", handleRun);
-terminalTest.addEventListener("click", handleTest);
-terminalClear.addEventListener("click", clearOutput);
+compileButton.addEventListener("click", handleCompile);
+runButton.addEventListener("click", handleRun);
+testButton.addEventListener("click", handleTest);
+clearButton.addEventListener("click", clearOutput);
 terminalCommand.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
         event.preventDefault();
@@ -309,17 +338,26 @@ terminalCommand.addEventListener("keydown", (event) => {
     }
 });
 
+if (docsLink) {
+    const fallbackUrl = docsLink.dataset.docsUrl
+        ? new URL(docsLink.dataset.docsUrl, window.location.href).toString()
+        : new URL("../doc/", window.location.href).toString();
+    docsLink.href = fallbackUrl;
+    docsLink.rel = "noopener noreferrer";
+}
+
 (async () => {
     try {
         await init();
         wasmReady = true;
-        const rawList = list_tests();
-        testList = rawList.split("\n").filter((name) => name.length > 0);
-        setTerminalStatus("WASM 準備完了", true);
+        testList = list_tests().split("\n").filter((name) => name.length > 0);
+        setStatus("WASM の初期化が完了しました。");
         appendLine("type 'help' for available commands");
     } catch (error) {
         wasmReady = false;
-        setTerminalStatus("WASM 初期化に失敗しました", false);
-        appendLine(String(error));
+        setStatus(`初期化に失敗しました: ${error}`, true);
+        [compileButton, runButton, testButton, clearButton].forEach((btn) => {
+            btn.disabled = true;
+        });
     }
 })();
