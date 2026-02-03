@@ -1,0 +1,36 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/btreeset" as *
+#import "std/test" as *
+
+fn main <()*> ()> ():
+    let s0 <i32> btreeset_new
+    assert_eq_i32 0 btreeset_len s0
+    test_checked "new"
+
+    assert btreeset_insert s0 5
+
+    assert btreeset_insert s0 1
+
+    assert btreeset_insert s0 3
+
+    assert_eq_i32 3 btreeset_len s0
+    assert btreeset_contains s0 1
+    assert btreeset_contains s0 3
+    assert btreeset_contains s0 5
+    assert_ne true btreeset_contains s0 2
+    test_checked "insert"
+
+    assert_ne true btreeset_insert s0 3
+    assert_eq_i32 3 btreeset_len s0
+
+    assert btreeset_remove s0 1
+    assert_ne true btreeset_contains s0 1
+    assert_eq_i32 2 btreeset_len s0
+    test_checked "remove"
+
+    assert_ne true btreeset_remove s0 42
+    btreeset_free s0
+    ()

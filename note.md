@@ -1,4 +1,8 @@
 # 状況メモ (2026-01-22)
+# 2026-02-03 作業メモ (btreemap/btreeset 追加)
+- stdlib/std/btreemap.nepl と stdlib/std/btreeset.nepl を追加し、i32 キー/要素の順序付きコレクションを配列ベースで実装した（検索は二分探索、挿入/削除はシフト）。
+- stdlib/tests/btreemap.nepl と stdlib/tests/btreeset.nepl を追加し、基本操作（挿入/更新/削除/検索/長さ）を検証した。
+- doc/testing.md の stdlib 一覧に std/btreemap と std/btreeset を追記した。
 # 2026-02-03 作業メモ (test 彩色/stdlib テスト調整/コンパイラ確認)
 - stdlib/std/test.nepl の失敗メッセージを ANSI 赤色で表示するよう変更し、std/stdio の色出力を利用。
 - stdlib/tests/error.nepl で `fail` の使用を避け、error_new 由来の診断が非空であることを確認する形に調整。

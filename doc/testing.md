@@ -90,6 +90,8 @@ The current stdlib is intentionally minimal and i32-focused:
   `read_line`
 - `std/cliarg`: WASI `args_sizes_get/args_get` argument access (`cliarg_count`,
   `cliarg_get`, `cliarg_program`)
+- `std/btreemap`: i32 キーの順序付きマップ（配列ベース、二分探索）
+- `std/btreeset`: i32 要素の順序付き集合（配列ベース、二分探索）
 - `std/test`: basic assertions for stdlib tests
 
 If you extend stdlib behavior, add a matching `.nepl` test under

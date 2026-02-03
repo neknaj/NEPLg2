@@ -1,0 +1,296 @@
+#indent 4
+
+#import "std/mem" as *
+#import "std/option" as *
+
+// btreemap: i32 キーの順序付きマップ
+//
+// 目的:
+// - i32 キーと .V 値の対応を順序付きで保持します。
+//
+// 実装(アルゴリズム):
+// - ヘッダに len/cap と keys/vals 配列へのポインタを保持します。
+// - keys は昇順に保ち、二分探索で位置を求めます。
+// - 挿入/削除時は配列をシフトします。
+//
+// 注意(重要):
+// - 実装は配列ベースです（本物の B 木ではありません）。
+// - キーは i32 固定です。
+// - 挿入/削除は O(n) です。
+//
+// 計算量:
+// - 検索: O(log n)
+// - 挿入/削除: O(n)
+
+// btreemap_new: 空のマップを作る
+//
+// 目的:
+// - 既定容量で空のマップを返します。
+//
+// 実装(アルゴリズム):
+// - ヘッダ 16 バイトと keys/vals 配列を確保します。
+// - ヘッダは [len][cap][keys_ptr][vals_ptr] です。
+//
+// 注意(重要):
+// - 返り値はヘッダのポインタです。
+//
+// 計算量:
+// - O(1)
+fn btreemap_new <.V> <()*>i32> ():
+    let cap <i32> 8
+    let keys <i32> alloc mul cap 4
+    let vals <i32> alloc mul cap size_of<.V>
+    let header <i32> alloc 16
+    store_i32 header 0
+    store_i32 add header 4 cap
+    store_i32 add header 8 keys
+    store_i32 add header 12 vals
+    header
+
+// btreemap_len: 要素数を返す
+//
+// 目的:
+// - マップの要素数を返します。
+//
+// 実装(アルゴリズム):
+// - ヘッダ先頭の len を返します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
+fn btreemap_len <.V> <(i32)->i32> (hm):
+    load_i32 hm
+
+// btreemap_is_empty: 空か判定する
+//
+// 目的:
+// - 要素数が 0 なら true を返します。
+//
+// 実装(アルゴリズム):
+// - len==0 を判定します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
+fn btreemap_is_empty <.V> <(i32)->bool> (hm):
+    eq load_i32 hm 0
+
+// btreemap_lower_bound: 二分探索で挿入位置を求める
+//
+// 目的:
+// - key を挿入すべき位置（lower_bound）を返します。
+//
+// 実装(アルゴリズム):
+// - 再帰で [low,high) を二分します。
+//
+// 注意(重要):
+// - keys はソート済みである必要があります。
+//
+// 計算量:
+// - O(log n)
+fn btreemap_lower_bound <(i32,i32,i32,i32)->i32> (keys, key, low, high):
+    if:
+        lt low high
+        then:
+            let mid <i32> div_s add low high 2
+            let k <i32> load_i32 add keys mul mid 4
+            if:
+                lt k key
+                then btreemap_lower_bound keys key add mid 1 high
+                else btreemap_lower_bound keys key low mid
+        else:
+            low
+
+// btreemap_is_at: idx が key と一致するか判定する
+//
+// 目的:
+// - idx が範囲内かつ keys[idx]==key なら true を返します。
+//
+// 実装(アルゴリズム):
+// - idx<len を確認し、キーを比較します。
+//
+// 注意(重要):
+// - keys はソート済みである必要があります。
+//
+// 計算量:
+// - O(1)
+fn btreemap_is_at <(i32,i32,i32,i32)->bool> (keys, len, idx, key):
+    if:
+        lt idx len
+        then:
+            let k2 <i32> load_i32 add keys mul idx 4
+            eq k2 key
+        else:
+            false
+
+// btreemap_get: キーから値を取得する
+//
+// 目的:
+// - key に対応する値を Option で返します。
+//
+// 実装(アルゴリズム):
+// - lower_bound で位置を求め、一致なら値を返します。
+//
+// 注意(重要):
+// - 見つからない場合は None です。
+//
+// 計算量:
+// - O(log n)
+fn btreemap_get <.V> <(i32,i32)->Option<.V>> (hm, key):
+    let len <i32> load_i32 hm
+    let keys <i32> load_i32 add hm 8
+    let vals <i32> load_i32 add hm 12
+    let idx <i32> btreemap_lower_bound keys key 0 len
+    if:
+        btreemap_is_at keys len idx key
+        then:
+            let v <.V> load<.V> add vals mul idx size_of<.V>
+            some<.V> v
+        else:
+            none<.V>
+
+// btreemap_contains: キーの存在確認
+//
+// 目的:
+// - key が存在するかを返します。
+//
+// 実装(アルゴリズム):
+// - lower_bound で位置を求め、一致を確認します。
+//
+// 注意(重要):
+// - 値は取り出しません。
+//
+// 計算量:
+// - O(log n)
+fn btreemap_contains <.V> <(i32,i32)->bool> (hm, key):
+    let len <i32> load_i32 hm
+    let keys <i32> load_i32 add hm 8
+    let idx <i32> btreemap_lower_bound keys key 0 len
+    btreemap_is_at keys len idx key
+
+// btreemap_insert: キーに値を設定する
+//
+// 目的:
+// - key に val を格納します（既存なら上書き）。
+//
+// 実装(アルゴリズム):
+// - lower_bound で位置を求めます。
+// - 既存なら上書きして旧値を返します。
+// - 新規なら配列をシフトして挿入します。
+//
+// 注意(重要):
+// - 返り値は旧値の Option です。
+//
+// 計算量:
+// - O(n)
+fn btreemap_insert <.V> <(i32,i32,.V)*>Option<.V>> (hm, key, val):
+    let len <i32> load_i32 hm
+    let mut cap <i32> load_i32 add hm 4
+    let mut keys <i32> load_i32 add hm 8
+    let mut vals <i32> load_i32 add hm 12
+    let idx <i32> btreemap_lower_bound keys key 0 len
+    if:
+        btreemap_is_at keys len idx key
+        then:
+            let old <.V> load<.V> add vals mul idx size_of<.V>
+            store<.V> add vals mul idx size_of<.V> val
+            some<.V> old
+        else:
+            if:
+                eq len cap
+                then:
+                    let new_cap <i32> mul cap 2
+                    set keys realloc keys mul cap 4 mul new_cap 4
+                    set vals realloc vals mul cap size_of<.V> mul new_cap size_of<.V>
+                    set cap new_cap
+                    store_i32 add hm 4 cap
+                    store_i32 add hm 8 keys
+                    store_i32 add hm 12 vals
+                else:
+                    ()
+            let mut i <i32> sub len 1
+            while le idx i:
+                let k <i32> load_i32 add keys mul i 4
+                store_i32 add keys mul add i 1 4 k
+                let v <.V> load<.V> add vals mul i size_of<.V>
+                store<.V> add vals mul add i 1 size_of<.V> v
+                set i sub i 1
+            store_i32 add keys mul idx 4 key
+            store<.V> add vals mul idx size_of<.V> val
+            store_i32 hm add len 1
+            none<.V>
+
+// btreemap_remove: キーを削除する
+//
+// 目的:
+// - key を削除し、値があれば Some で返します。
+//
+// 実装(アルゴリズム):
+// - lower_bound で位置を求め、一致なら左詰めします。
+//
+// 注意(重要):
+// - 返り値は削除した値の Option です。
+//
+// 計算量:
+// - O(n)
+fn btreemap_remove <.V> <(i32,i32)*>Option<.V>> (hm, key):
+    let len <i32> load_i32 hm
+    let keys <i32> load_i32 add hm 8
+    let vals <i32> load_i32 add hm 12
+    let idx <i32> btreemap_lower_bound keys key 0 len
+    if:
+        btreemap_is_at keys len idx key
+        then:
+            let old <.V> load<.V> add vals mul idx size_of<.V>
+            let mut i <i32> add idx 1
+            while lt i len:
+                let k <i32> load_i32 add keys mul i 4
+                store_i32 add keys mul sub i 1 4 k
+                let v <.V> load<.V> add vals mul i size_of<.V>
+                store<.V> add vals mul sub i 1 size_of<.V> v
+                set i add i 1
+            store_i32 hm sub len 1
+            some<.V> old
+        else:
+            none<.V>
+
+// btreemap_clear: すべての要素を削除する
+//
+// 目的:
+// - len を 0 にして空にします。
+//
+// 実装(アルゴリズム):
+// - len だけを 0 にします。
+//
+// 注意(重要):
+// - メモリは解放されません。
+//
+// 計算量:
+// - O(1)
+fn btreemap_clear <.V> <(i32)*>()> (hm):
+    store_i32 hm 0
+
+// btreemap_free: メモリを解放する
+//
+// 目的:
+// - keys/vals とヘッダを解放します。
+//
+// 実装(アルゴリズム):
+// - cap に基づいて領域を解放します。
+//
+// 注意(重要):
+// - この後 hm を使うと未定義です。
+//
+// 計算量:
+// - O(1)
+fn btreemap_free <.V> <(i32)*>()> (hm):
+    let cap <i32> load_i32 add hm 4
+    let keys <i32> load_i32 add hm 8
+    let vals <i32> load_i32 add hm 12
+    dealloc keys mul cap 4
+    dealloc vals mul cap size_of<.V>
+    dealloc hm 16

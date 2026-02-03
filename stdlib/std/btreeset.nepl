@@ -1,0 +1,251 @@
+#indent 4
+
+#import "std/mem" as *
+
+// btreeset: i32 要素の順序付き集合
+//
+// 目的:
+// - i32 の集合を順序付きで保持します。
+//
+// 実装(アルゴリズム):
+// - ヘッダに len/cap と keys 配列へのポインタを保持します。
+// - keys は昇順に保ち、二分探索で位置を求めます。
+// - 挿入/削除時は配列をシフトします。
+//
+// 注意(重要):
+// - 実装は配列ベースです（本物の B 木ではありません）。
+// - 要素は i32 固定です。
+// - 挿入/削除は O(n) です。
+//
+// 計算量:
+// - 検索: O(log n)
+// - 挿入/削除: O(n)
+
+// btreeset_new: 空の集合を作る
+//
+// 目的:
+// - 既定容量で空の集合を返します。
+//
+// 実装(アルゴリズム):
+// - ヘッダ 12 バイトと keys 配列を確保します。
+// - ヘッダは [len][cap][keys_ptr] です。
+//
+// 注意(重要):
+// - 返り値はヘッダのポインタです。
+//
+// 計算量:
+// - O(1)
+fn btreeset_new <()*>i32> ():
+    let cap <i32> 8
+    let keys <i32> alloc mul cap 4
+    let header <i32> alloc 12
+    store_i32 header 0
+    store_i32 add header 4 cap
+    store_i32 add header 8 keys
+    header
+
+// btreeset_len: 要素数を返す
+//
+// 目的:
+// - 集合の要素数を返します。
+//
+// 実装(アルゴリズム):
+// - ヘッダ先頭の len を返します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
+fn btreeset_len <(i32)->i32> (s):
+    load_i32 s
+
+// btreeset_is_empty: 空か判定する
+//
+// 目的:
+// - 要素数が 0 なら true を返します。
+//
+// 実装(アルゴリズム):
+// - len==0 を判定します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
+fn btreeset_is_empty <(i32)->bool> (s):
+    eq load_i32 s 0
+
+// btreeset_lower_bound: 二分探索で挿入位置を求める
+//
+// 目的:
+// - key を挿入すべき位置（lower_bound）を返します。
+//
+// 実装(アルゴリズム):
+// - 再帰で [low,high) を二分します。
+//
+// 注意(重要):
+// - keys はソート済みである必要があります。
+//
+// 計算量:
+// - O(log n)
+fn btreeset_lower_bound <(i32,i32,i32,i32)->i32> (keys, key, low, high):
+    if:
+        lt low high
+        then:
+            let mid <i32> div_s add low high 2
+            let k <i32> load_i32 add keys mul mid 4
+            if:
+                lt k key
+                then btreeset_lower_bound keys key add mid 1 high
+                else btreeset_lower_bound keys key low mid
+        else:
+            low
+
+// btreeset_is_at: idx が key と一致するか判定する
+//
+// 目的:
+// - idx が範囲内かつ keys[idx]==key なら true を返します。
+//
+// 実装(アルゴリズム):
+// - idx<len を確認し、キーを比較します。
+//
+// 注意(重要):
+// - keys はソート済みである必要があります。
+//
+// 計算量:
+// - O(1)
+fn btreeset_is_at <(i32,i32,i32,i32)->bool> (keys, len, idx, key):
+    if:
+        lt idx len
+        then:
+            let k2 <i32> load_i32 add keys mul idx 4
+            eq k2 key
+        else:
+            false
+
+// btreeset_contains: 要素の存在確認
+//
+// 目的:
+// - key が存在するかを返します。
+//
+// 実装(アルゴリズム):
+// - lower_bound で位置を求め、一致を確認します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(log n)
+fn btreeset_contains <(i32,i32)->bool> (s, key):
+    let len <i32> load_i32 s
+    let keys <i32> load_i32 add s 8
+    let idx <i32> btreeset_lower_bound keys key 0 len
+    btreeset_is_at keys len idx key
+
+// btreeset_insert: 要素を追加する
+//
+// 目的:
+// - key を集合に追加します。
+//
+// 実装(アルゴリズム):
+// - lower_bound で位置を求め、未存在なら配列をシフトして挿入します。
+//
+// 注意(重要):
+// - 返り値は追加成功フラグです。
+//
+// 計算量:
+// - O(n)
+fn btreeset_insert <(i32,i32)*>bool> (s, key):
+    let len <i32> load_i32 s
+    let mut cap <i32> load_i32 add s 4
+    let mut keys <i32> load_i32 add s 8
+    let idx <i32> btreeset_lower_bound keys key 0 len
+    if:
+        btreeset_is_at keys len idx key
+        then:
+            false
+        else:
+            if:
+                eq len cap
+                then:
+                    let new_cap <i32> mul cap 2
+                    set keys realloc keys mul cap 4 mul new_cap 4
+                    set cap new_cap
+                    store_i32 add s 4 cap
+                    store_i32 add s 8 keys
+                else:
+                    ()
+            let mut i <i32> sub len 1
+            while le idx i:
+                let k <i32> load_i32 add keys mul i 4
+                store_i32 add keys mul add i 1 4 k
+                set i sub i 1
+            store_i32 add keys mul idx 4 key
+            store_i32 s add len 1
+            true
+
+// btreeset_remove: 要素を削除する
+//
+// 目的:
+// - key を削除します。
+//
+// 実装(アルゴリズム):
+// - lower_bound で位置を求め、一致なら左詰めします。
+//
+// 注意(重要):
+// - 返り値は削除成功フラグです。
+//
+// 計算量:
+// - O(n)
+fn btreeset_remove <(i32,i32)*>bool> (s, key):
+    let len <i32> load_i32 s
+    let keys <i32> load_i32 add s 8
+    let idx <i32> btreeset_lower_bound keys key 0 len
+    if:
+        btreeset_is_at keys len idx key
+        then:
+            let mut i <i32> add idx 1
+            while lt i len:
+                let k <i32> load_i32 add keys mul i 4
+                store_i32 add keys mul sub i 1 4 k
+                set i add i 1
+            store_i32 s sub len 1
+            true
+        else:
+            false
+
+// btreeset_clear: すべての要素を削除する
+//
+// 目的:
+// - len を 0 にして空にします。
+//
+// 実装(アルゴリズム):
+// - len だけを 0 にします。
+//
+// 注意(重要):
+// - メモリは解放されません。
+//
+// 計算量:
+// - O(1)
+fn btreeset_clear <(i32)*>()> (s):
+    store_i32 s 0
+
+// btreeset_free: メモリを解放する
+//
+// 目的:
+// - keys とヘッダを解放します。
+//
+// 実装(アルゴリズム):
+// - cap に基づいて領域を解放します。
+//
+// 注意(重要):
+// - この後 s を使うと未定義です。
+//
+// 計算量:
+// - O(1)
+fn btreeset_free <(i32)*>()> (s):
+    let cap <i32> load_i32 add s 4
+    let keys <i32> load_i32 add s 8
+    dealloc keys mul cap 4
+    dealloc s 12

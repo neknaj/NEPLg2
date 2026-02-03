@@ -1,0 +1,47 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/btreemap" as *
+#import "std/option" as *
+#import "std/test" as *
+
+fn main <()*> ()> ():
+    let m0 <i32> btreemap_new<i32>
+    assert_eq_i32 0 btreemap_len<i32> m0
+    test_checked "new"
+
+    assert is_none<i32> btreemap_insert<i32> m0 5 50
+    assert is_none<i32> btreemap_insert<i32> m0 1 10
+    assert is_none<i32> btreemap_insert<i32> m0 3 30
+    assert_eq_i32 3 btreemap_len<i32> m0
+    test_checked "insert"
+
+    match btreemap_get<i32> m0 1:
+        Option::Some v:
+            assert_eq_i32 10 v
+        Option::None:
+            test_fail "btreemap_get 1 returned None"
+
+    assert is_none<i32> btreemap_get<i32> m0 2
+
+    match btreemap_insert<i32> m0 3 31:
+        Option::Some v:
+            assert_eq_i32 30 v
+        Option::None:
+            test_fail "insert update returned None"
+    assert_eq_i32 3 btreemap_len<i32> m0
+    test_checked "update"
+
+    match btreemap_remove<i32> m0 1:
+        Option::Some v:
+            assert_eq_i32 10 v
+        Option::None:
+            test_fail "remove existing returned None"
+    assert_eq_i32 2 btreemap_len<i32> m0
+    assert is_none<i32> btreemap_get<i32> m0 1
+    test_checked "remove"
+
+    assert is_none<i32> btreemap_remove<i32> m0 42
+    btreemap_free<i32> m0
+    ()
