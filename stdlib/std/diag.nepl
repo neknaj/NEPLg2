@@ -4,6 +4,8 @@
 #import "std/math" as *
 #import "std/option" as *
 #import "std/string" as *
+#if[target=wasi]
+#import "std/stdio" as *
 
 // diag: Error の文字列化と表示
 //
@@ -50,6 +52,40 @@ fn kind_str <(ErrorKind)->str> (k):
             "IoError"
         ErrorKind::Other:
             "Other"
+
+// kind_color: ErrorKind に対応する色コードを返す
+//
+// 目的:
+// - エラー種別に応じた表示色を返します。
+//
+// 実装(アルゴリズム):
+// - match で色コードを選択します。
+//
+// 注意(重要):
+// - WASI ターゲット専用です。
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
+#if[target=wasi]
+fn kind_color <(ErrorKind)->str> (k):
+    match k:
+        ErrorKind::Failure:
+            ansi_red
+        ErrorKind::OutOfMemory:
+            ansi_magenta
+        ErrorKind::IndexOutOfBounds:
+            ansi_yellow
+        ErrorKind::KeyNotFound:
+            ansi_yellow
+        ErrorKind::InvalidUtf8:
+            ansi_cyan
+        ErrorKind::ParseError:
+            ansi_blue
+        ErrorKind::IoError:
+            ansi_green
+        ErrorKind::Other:
+            ansi_gray
 
 // span_to_string: Span を "file:start-end" に整形する
 //
@@ -114,9 +150,6 @@ fn diag_to_string <(Error)*>str> (e):
 
     out
 
-#if[target=wasi]
-#import "std/stdio" as *
-
 // diag_print: Error を標準出力へ表示する
 //
 // 目的:
@@ -132,8 +165,11 @@ fn diag_to_string <(Error)*>str> (e):
 // - O(n)
 #if[target=wasi]
 fn diag_print <(Error)*>()> (e):
+    let p <i32> e.ptr;
+    let k <ErrorKind> kind_from_i32 load_i32 p;
+    let c <str> kind_color k;
     let s <str> diag_to_string e;
-    print s
+    print_color c s
 
 // diag_print_msg: メッセージを Failure として表示する
 //
@@ -168,8 +204,11 @@ fn diag_print_msg <(str)*>()> (msg):
 // - O(n)
 #if[target=wasi]
 fn diag_println <(Error)*>()> (e):
+    let p <i32> e.ptr;
+    let k <ErrorKind> kind_from_i32 load_i32 p;
+    let c <str> kind_color k;
     let s <str> diag_to_string e;
-    println s
+    println_color c s
 
 // diag_debug_print: デバッグ出力
 //
@@ -186,8 +225,11 @@ fn diag_println <(Error)*>()> (e):
 // - O(n)
 #if[target=wasi]
 fn diag_debug_print <(Error)*>()> (e):
+    let p <i32> e.ptr;
+    let k <ErrorKind> kind_from_i32 load_i32 p;
+    let c <str> kind_color k;
     let s <str> diag_to_string e;
-    debug s
+    debug_color c s
 
 // diag_debug_println: デバッグ出力（改行付き）
 //
@@ -204,5 +246,8 @@ fn diag_debug_print <(Error)*>()> (e):
 // - O(n)
 #if[target=wasi]
 fn diag_debug_println <(Error)*>()> (e):
+    let p <i32> e.ptr;
+    let k <ErrorKind> kind_from_i32 load_i32 p;
+    let c <str> kind_color k;
     let s <str> diag_to_string e;
-    debugln s
+    debugln_color c s

@@ -141,6 +141,44 @@ fn test_print_fail <(str)*>()> (msg):
     let m0 <str> concat "FAIL: " msg;
     println_color ansi_red m0
 
+// test_checked: 成功ログを無視する（WASM）
+//
+// 目的:
+// - WASM ターゲットでのダミー実装です。
+//
+// 実装(アルゴリズム):
+// - 何もしません。
+//
+// 注意(重要):
+// - 表示は行いません。
+//
+// 計算量:
+// - O(1)
+#if[target=wasm]
+fn test_checked <(str)*>()> (msg):
+    let m0 <str> concat "Checked -wasm- " msg;
+    println_color ansi_green m0
+    ()
+
+// test_checked: 成功ログを表示する（WASI）
+//
+// 目的:
+// - "Checked " 付きの成功ログを色付きで表示します。
+//
+// 実装(アルゴリズム):
+// - 文字列を連結し、ansi_green で出力します。
+//
+// 注意(重要):
+// - WASI ターゲットのみ対応です。
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(n)
+#if[target=wasi]
+fn test_checked <(str)*>()> (msg):
+    print_color ansi_green "Checked ";
+    println msg;
+
 // test_print_fail: 失敗メッセージを無視する（WASM）
 //
 // 目的:

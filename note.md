@@ -9,6 +9,14 @@
 # 2026-02-03 作業メモ (nepl-cli test の色付け)
 - nepl-cli のテスト出力を ANSI 色付きにし、test/ok/FAILED の視認性を上げた。
 - doc/testing.md に色付き出力の注記を追記。
+# 2026-02-03 作業メモ (stdlib/diag 色分け)
+- stdlib/std/diag.nepl に ErrorKind ごとの色割り当てを追加し、diag_print/diag_println/diag_debug_print で色付き表示に変更。
+- stdlib/std/stdio.nepl に debug_color/debugln_color を追加。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` を実行。
+# 2026-02-03 作業メモ (Checked ログの色付け)
+- stdlib/std/test.nepl に test_checked を追加し、"Checked ..." の成功ログを緑色で出すようにした。
+- stdlib/tests/list.nepl と stdlib/tests/math.nepl の Checked ログを test_checked に置き換えた。
+- doc/testing.md に test_checked を追記。
 # 2026-02-03 作業メモ (テスト失敗のメッセージ表示)
 - stdlib/std/test.nepl を改修し、失敗時にメッセージを表示してから trap するよう変更した。
 - stdlib/std/diag.nepl に diag_print_msg を追加し、Failure メッセージを表示できるようにした。

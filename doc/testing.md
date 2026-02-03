@@ -43,6 +43,7 @@ Exports:
 - `assert_str_eq <(str,str)*()>`
 - `assert_ok_i32 <(ResultI32)*()>`
 - `assert_err_i32 <(ResultI32)*()>`
+- `test_checked <(str)*()>` (WASI: prints green "Checked ...")
 
 Failure behavior:
 - On WASI targets, assertion failures print a red message and then call `trap`.

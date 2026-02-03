@@ -453,6 +453,24 @@ fn debug <(str)*>()> (s):
     print s;
     ()
 
+// debug_color: 色付きデバッグ出力
+//
+// 目的:
+// - debug ビルド時のみ色付きで出力します。
+//
+// 実装(アルゴリズム):
+// - print_color を呼びます。
+//
+// 注意(重要):
+// - ANSI 対応端末が必要です。
+// - release では no-op です。
+//
+// 計算量:
+// - O(n)
+fn debug_color <(str,str)*>()> (color, s):
+    print_color color s;
+    ()
+
 #if[profile=release]
 // debug: デバッグ出力（release では無効）
 //
@@ -468,6 +486,22 @@ fn debug <(str)*>()> (s):
 // 計算量:
 // - O(1)
 fn debug <(str)*>()> (_s):
+    ()
+
+// debug_color: 色付きデバッグ出力（release では無効）
+//
+// 目的:
+// - release では何もしません。
+//
+// 実装(アルゴリズム):
+// - 空関数です。
+//
+// 注意(重要):
+// - 文字列は使用されません。
+//
+// 計算量:
+// - O(1)
+fn debug_color <(str,str)*>()> (_color, _s):
     ()
 
 #if[profile=debug]
@@ -488,6 +522,25 @@ fn debugln <(str)*>()> (s):
     println s;
     ()
 
+// debugln_color: 色付きデバッグ出力（改行付き）
+//
+// 目的:
+// - debug ビルド時のみ色付きで改行出力します。
+//
+// 実装(アルゴリズム):
+// - print_color と print("\n") を呼びます。
+//
+// 注意(重要):
+// - ANSI 対応端末が必要です。
+// - release では no-op です。
+//
+// 計算量:
+// - O(n)
+fn debugln_color <(str,str)*>()> (color, s):
+    print_color color s;
+    print "\n";
+    ()
+
 #if[profile=release]
 // debugln: デバッグ出力（release では無効）
 //
@@ -503,4 +556,20 @@ fn debugln <(str)*>()> (s):
 // 計算量:
 // - O(1)
 fn debugln <(str)*>()> (_s):
+    ()
+
+// debugln_color: 色付きデバッグ出力（release では無効）
+//
+// 目的:
+// - release では何もしません。
+//
+// 実装(アルゴリズム):
+// - 空関数です。
+//
+// 注意(重要):
+// - 文字列は使用されません。
+//
+// 計算量:
+// - O(1)
+fn debugln_color <(str,str)*>()> (_color, _s):
     ()
