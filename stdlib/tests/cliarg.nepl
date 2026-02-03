@@ -3,7 +3,9 @@
 #target wasi
 
 #import "std/cliarg" as *
+#import "std/math" as *
 #import "std/option" as *
+#import "std/string" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():
@@ -12,15 +14,21 @@ fn main <()*> ()> ():
     assert is_none<str> cliarg_get -1;
     assert is_none<str> cliarg_get c;
 
+    match cliarg_program:
+        Option::Some s:
+            assert gt len s 0;
+        Option::None:
+            test_fail "cliarg_program returned None";
+
     match cliarg_get 1:
         Option::Some s:
             assert_str_eq "--flag" s;
         Option::None:
-            trap;
+            test_fail "cliarg_get 1 returned None";
 
     match cliarg_get 2:
         Option::Some s:
             assert_str_eq "value" s;
         Option::None:
-            trap;
+            test_fail "cliarg_get 2 returned None";
     ()

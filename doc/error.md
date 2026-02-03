@@ -10,10 +10,10 @@ WASM and WASI targets without relying on GC.
 
 - `ErrorKind`: classification (Failure, IoError, ParseError, etc.).
 - `Span`: `(file_id, start, end)` byte range.
-- `Error`: `{ kind, msg, span, source }` with optional source chaining.
+- `Error`: heap-backed record referenced by a pointer (`{kind,msg,span}` inline).
 
-Errors are values carried through `Result<T, Error>`. A source chain allows
-context to be attached while preserving the original cause.
+Errors are values carried through `Result<T, Error>`. Source chaining is not
+implemented yet; context is represented by creating a new `Error`.
 
 ## Source Locations
 
@@ -33,5 +33,4 @@ diagnostics can be printed to stdout/stderr via `std/stdio`.
 ## Ownership / No GC
 
 All error values are explicit. There is no hidden global error state. Error
-objects and their source chains are heap-allocated and managed through the
-existing allocator (`std/mem`).
+records live in the heap via `std/mem::alloc` and do not rely on GC.

@@ -29,19 +29,19 @@ fn main <()*> ()> ():
         Option::Some x:
             assert_eq_i32 30 x
         Option::None:
-            trap;
+            test_fail "list_get 0 returned None";
 
     match list_get<i32> l3 1:
         Option::Some x:
             assert_eq_i32 20 x
         Option::None:
-            trap;
+            test_fail "list_get 1 returned None";
 
     match list_get<i32> l3 2:
         Option::Some x:
             assert_eq_i32 10 x
         Option::None:
-            trap;
+            test_fail "list_get 2 returned None";
 
     // Test list_get on out of bounds
     assert is_none<i32> list_get<i32> l3 3;
@@ -55,7 +55,7 @@ fn main <()*> ()> ():
         Option::Some x:
             assert_eq_i32 30 x
         Option::None:
-            trap;
+            test_fail "list_head returned None";
 
     println "Checked head"
     match list_tail<i32> l3:
@@ -64,9 +64,9 @@ fn main <()*> ()> ():
                 Option::Some x:
                     assert_eq_i32 20 x
                 Option::None:
-                    trap;
+                    test_fail "list_head tail returned None";
         Option::None:
-            trap;
+            test_fail "list_tail returned None";
 
     // Test list_reverse
     println "Checked tail"
@@ -75,13 +75,13 @@ fn main <()*> ()> ():
         Option::Some x:
             assert_eq_i32 10 x
         Option::None:
-            trap;
+            test_fail "list_get reverse 0 returned None";
 
     match list_get<i32> l_rev 2:
         Option::Some x:
             assert_eq_i32 30 x
         Option::None:
-            trap;
+            test_fail "list_get reverse 2 returned None";
 
     println "Checked reverse"
     list_free<i32> l3;

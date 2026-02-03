@@ -187,29 +187,29 @@ fn test_fail <(str)*>()> (msg):
 //
 // 計算量:
 // - O(1)
-fn trap <()->()> ():
+fn trap <()*>()> ():
     #wasm:
         i32.const 1
         i32.const 0
         i32.div_s
         drop
 
-// fail: unreachable に到達する
+// fail: 失敗時に異常終了する
 //
 // 目的:
 // - 失敗時の到達不能箇所として使います。
 //
 // 実装(アルゴリズム):
-// - wasm の unreachable を呼びます。
+// - trap を呼びます。
 //
 // 注意(重要):
 // - 呼び出すと即座に異常終了します。
 //
 // 計算量:
 // - O(1)
-fn fail <(str)->()> (msg):
-    #wasm:
-        unreachable
+fn fail <(str)*>()> (msg):
+    test_print_fail msg;
+    trap
 
 // assert: 条件が false のとき失敗する
 //

@@ -1,6 +1,7 @@
 #indent 4
 
 #import "std/error" as *
+#import "std/math" as *
 #import "std/option" as *
 #import "std/string" as *
 
@@ -86,19 +87,29 @@ fn span_to_string <(Span)*>str> (sp):
 // 計算量:
 // - O(n)
 fn diag_to_string <(Error)*>str> (e):
-    let k <str> kind_str e.kind;
-    let h0 <str> concat "error[" k;
+    let p <i32> e.ptr;
+    let k <ErrorKind> kind_from_i32 load_i32 p;
+    let msg <str> load_i32 add p 4;
+    let has <i32> load_i32 add p 8;
+    let ks <str> kind_str k;
+    let h0 <str> concat "error[" ks;
     let h1 <str> concat h0 "]: ";
-    let h2 <str> concat h1 e.msg;
+    let h2 <str> concat h1 msg;
     let mut out <str> concat h2 "\n";
 
-    match e.span:
-        Option::Some sp:
+    if:
+        cond:
+            eq has 1
+        then:
+            let fid <i32> load_i32 add p 12;
+            let st <i32> load_i32 add p 16;
+            let en <i32> load_i32 add p 20;
+            let sp <Span> Span fid st en;
             let loc <str> span_to_string sp;
             let l0 <str> concat "at " loc;
             let l1 <str> concat l0 "\n";
             set out concat out l1;
-        Option::None:
+        else:
             ()
 
     out
@@ -130,7 +141,7 @@ fn diag_print <(Error)*>()> (e):
 // - msg を Failure エラーとして表示します。
 //
 // 実装(アルゴリズム):
-// - error_new で Error を作り、diag_print に渡します。
+// - error_new で Error を作り、diag_println に渡します。
 //
 // 注意(重要):
 // - WASI ターゲットのみ利用可能です。
@@ -140,7 +151,7 @@ fn diag_print <(Error)*>()> (e):
 #if[target=wasi]
 fn diag_print_msg <(str)*>()> (msg):
     let e <Error> error_new ErrorKind::Failure msg;
-    diag_print e
+    diag_println e
 
 // diag_println: Error を標準出力へ表示する（改行付き）
 //

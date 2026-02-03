@@ -27,7 +27,7 @@ fn main <()*> ()> ():
         Option::Some x:
             assert_eq_i32 300 x
         Option::None:
-            trap;
+            test_fail "stack_peek returned None";
 
     // stack_len should still be 3 after peek
     assert_eq_i32 3 stack_len<.i32> s;
@@ -37,7 +37,7 @@ fn main <()*> ()> ():
         Option::Some x:
             assert_eq_i32 300 x
         Option::None:
-            trap;
+            test_fail "stack_pop 1 returned None";
 
     assert_eq_i32 2 stack_len<.i32> s;
 
@@ -46,18 +46,18 @@ fn main <()*> ()> ():
         Option::Some x:
             assert_eq_i32 200 x
         Option::None:
-            trap;
+            test_fail "stack_pop 2 returned None";
 
     // Test stack_pop on empty should return None
     match stack_pop<.i32> s:
         Option::Some x:
             assert_eq_i32 100 x
         Option::None:
-            trap;
+            test_fail "stack_pop 3 returned None";
 
     match stack_pop<.i32> s:
         Option::Some x:
-            trap
+            test_fail "stack_pop on empty returned Some"
         Option::None:
             ();
 

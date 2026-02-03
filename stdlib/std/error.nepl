@@ -1,6 +1,7 @@
 #indent 4
 
 #import "std/mem" as *
+#import "std/math" as *
 #import "std/option" as *
 #import "std/result" as *
 
@@ -10,7 +11,7 @@
 // - ErrorKind/Span/Error を定義し、Result と合わせて失敗情報を扱います。
 //
 // 実装(アルゴリズム):
-// - Error は kind/msg/span を持つ構造体です。
+// - Error は kind/msg/span を持つレコードを指します。
 // - context は新しい Error を作り、元の Error を捨てます（循環を避ける）。
 //
 // 注意(重要):
@@ -66,7 +67,8 @@ struct Span:
 // - kind/msg/span をまとめて保持します。
 //
 // 実装(アルゴリズム):
-// - span は Option で保持します。
+// - ヒープ上のレコードを指すポインタを保持します。
+// - レコードは [kind][msg][has_span][file][start][end] の 6 i32 です。
 //
 // 注意(重要):
 // - source を保持する設計は未実装です。
@@ -74,9 +76,97 @@ struct Span:
 // 計算量:
 // - O(1)
 struct Error:
-    kind <ErrorKind>
-    msg <str>
-    span <Option<Span>>
+    ptr <i32>
+
+// kind_to_i32: ErrorKind を i32 に変換する
+//
+// 目的:
+// - ErrorKind を保存用の数値に変換します。
+//
+// 実装(アルゴリズム):
+// - match で各種別に番号を割り当てます。
+//
+// 注意(重要):
+// - kind_from_i32 と対応する番号を保ちます。
+//
+// 計算量:
+// - O(1)
+fn kind_to_i32 <(ErrorKind)->i32> (k):
+    match k:
+        ErrorKind::Failure:
+            0
+        ErrorKind::OutOfMemory:
+            1
+        ErrorKind::IndexOutOfBounds:
+            2
+        ErrorKind::KeyNotFound:
+            3
+        ErrorKind::InvalidUtf8:
+            4
+        ErrorKind::ParseError:
+            5
+        ErrorKind::IoError:
+            6
+        ErrorKind::Other:
+            7
+
+// kind_from_i32: i32 を ErrorKind に変換する
+//
+// 目的:
+// - 保存用の数値から ErrorKind を復元します。
+//
+// 実装(アルゴリズム):
+// - if を連ねて対応する種別を返します。
+//
+// 注意(重要):
+// - 未知の値は Other とみなします。
+//
+// 計算量:
+// - O(1)
+fn kind_from_i32 <(i32)->ErrorKind> (v):
+    if:
+        cond:
+            eq v 0
+        then:
+            ErrorKind::Failure
+        else:
+            if:
+                cond:
+                    eq v 1
+                then:
+                    ErrorKind::OutOfMemory
+                else:
+                    if:
+                        cond:
+                            eq v 2
+                        then:
+                            ErrorKind::IndexOutOfBounds
+                        else:
+                            if:
+                                cond:
+                                    eq v 3
+                                then:
+                                    ErrorKind::KeyNotFound
+                                else:
+                                    if:
+                                        cond:
+                                            eq v 4
+                                        then:
+                                            ErrorKind::InvalidUtf8
+                                        else:
+                                            if:
+                                                cond:
+                                                    eq v 5
+                                                then:
+                                                    ErrorKind::ParseError
+                                                else:
+                                                    if:
+                                                        cond:
+                                                            eq v 6
+                                                        then:
+                                                            ErrorKind::IoError
+                                                        else:
+                                                            ErrorKind::Other
 
 // callsite_span: 呼び出し位置を取得する
 //
@@ -94,21 +184,62 @@ struct Error:
 fn callsite_span <()->Span> ():
     #intrinsic "callsite_span" <Span> ()
 
+// error_alloc: エラーレコードを確保して格納する
+//
+// 目的:
+// - kind/msg/span をヒープに保存し、Error を返します。
+//
+// 実装(アルゴリズム):
+// - 24 バイトを確保し、固定オフセットへ書き込みます。
+//
+// 注意(重要):
+// - alloc 失敗時は到達不能として扱います。
+// - レイアウトは Error コメントの説明に依存します。
+//
+// 計算量:
+// - O(1)
+fn error_alloc <(ErrorKind,str,Option<Span>)*>Error> (kind, msg, sp):
+    let p <i32> alloc 24;
+    if:
+        cond:
+            eq p 0
+        then:
+            #intrinsic "unreachable" <> ()
+        else:
+            ()
+
+    store_i32 p kind_to_i32 kind;
+    store_i32 add p 4 msg;
+
+    match sp:
+        Option::Some s:
+            store_i32 add p 8 1;
+            store_i32 add p 12 s.file_id;
+            store_i32 add p 16 s.start;
+            store_i32 add p 20 s.end;
+        Option::None:
+            store_i32 add p 8 0;
+            store_i32 add p 12 0;
+            store_i32 add p 16 0;
+            store_i32 add p 20 0;
+
+    Error p
+
 // error_new: Error を作る
 //
 // 目的:
 // - kind と msg から Error を作成します。
 //
 // 実装(アルゴリズム):
-// - span を None にして構築します。
+// - エラーレコードを確保して保存します。
 //
 // 注意(重要):
 // - span は後で付与できます。
 //
 // 計算量:
 // - O(1)
-fn error_new <(ErrorKind,str)->Error> (kind, msg):
-    Error kind msg none<Span>
+fn error_new <(ErrorKind,str)*>Error> (kind, msg):
+    error_alloc kind msg none<Span>
 
 // error_with_span: span を付与する
 //
@@ -116,15 +247,18 @@ fn error_new <(ErrorKind,str)->Error> (kind, msg):
 // - Error に Span を付けた新しい Error を返します。
 //
 // 実装(アルゴリズム):
-// - span を Some にして再構築します。
+// - 既存の kind/msg を読み出して再構築します。
 //
 // 注意(重要):
-// - Error は値として再構築します。
+// - 既存の span は上書きされます。
 //
 // 計算量:
 // - O(1)
-fn error_with_span <(Error,Span)->Error> (e, sp):
-    Error e.kind e.msg some<Span> sp
+fn error_with_span <(Error,Span)*>Error> (e, sp):
+    let p <i32> e.ptr;
+    let k <ErrorKind> kind_from_i32 load_i32 p;
+    let m <str> load_i32 add p 4;
+    error_alloc k m some<Span> sp
 
 // error_with_source: 原因を付与する（未実装）
 //
@@ -140,7 +274,7 @@ fn error_with_span <(Error,Span)->Error> (e, sp):
 // 計算量:
 // - O(1)
 fn error_with_source <(Error,Error)->Error> (outer, inner):
-    Error outer.kind outer.msg outer.span
+    outer
 
 // fail: 失敗エラーを作る
 //
@@ -155,10 +289,9 @@ fn error_with_source <(Error,Error)->Error> (outer, inner):
 //
 // 計算量:
 // - O(1)
-fn fail <(str)->Error> (msg):
-    let e <Error> error_new ErrorKind::Failure msg;
+fn fail <(str)*>Error> (msg):
     let s <Span> callsite_span;
-    error_with_span e s
+    error_alloc ErrorKind::Failure msg some<Span> s
 
 // context: エラーに文脈を付与する
 //
@@ -173,7 +306,7 @@ fn fail <(str)->Error> (msg):
 //
 // 計算量:
 // - O(1)
-fn context <(Error,str)->Error> (cause, msg):
+fn context <(Error,str)*>Error> (cause, msg):
     let e <Error> error_new ErrorKind::Other msg;
     let s <Span> callsite_span;
     let outer <Error> error_with_span e s;
@@ -192,7 +325,7 @@ fn context <(Error,str)->Error> (cause, msg):
 //
 // 計算量:
 // - O(1)
-fn result_context <.T> <(Result<.T, Error>, str)->Result<.T, Error>> (r, msg):
+fn result_context <.T> <(Result<.T, Error>, str)*>Result<.T, Error>> (r, msg):
     match r:
         Result::Ok v:
             ok<.T, Error> v

@@ -8,20 +8,21 @@
 
 fn main <()*> ()> ():
     // Test kind_str for various error kinds
-    assert str_eq "Failure" kind_str ErrorKind::Failure;
-    assert str_eq "OutOfMemory" kind_str ErrorKind::OutOfMemory;
-    assert str_eq "IndexOutOfBounds" kind_str ErrorKind::IndexOutOfBounds;
-    assert str_eq "KeyNotFound" kind_str ErrorKind::KeyNotFound;
-    assert str_eq "ParseError" kind_str ErrorKind::ParseError;
-    assert str_eq "IoError" kind_str ErrorKind::IoError;
-    assert str_eq "Other" kind_str ErrorKind::Other;
+    assert_str_eq "Failure" kind_str ErrorKind::Failure;
+    assert_str_eq "OutOfMemory" kind_str ErrorKind::OutOfMemory;
+    assert_str_eq "IndexOutOfBounds" kind_str ErrorKind::IndexOutOfBounds;
+    assert_str_eq "KeyNotFound" kind_str ErrorKind::KeyNotFound;
+    assert_str_eq "ParseError" kind_str ErrorKind::ParseError;
+    assert_str_eq "IoError" kind_str ErrorKind::IoError;
+    assert_str_eq "Other" kind_str ErrorKind::Other;
 
     let e <Error> error_new ErrorKind::Failure "oops";
     let s <str> diag_to_string e;
     assert_str_eq "error[Failure]: oops\n" s;
 
     let sp <Span> Span 1 2 3;
-    let e2 <Error> error_with_span e sp;
+    let e1 <Error> error_new ErrorKind::Failure "oops";
+    let e2 <Error> error_with_span e1 sp;
     let s2 <str> diag_to_string e2;
     assert_str_eq "error[Failure]: oops\nat 1:2-3\n" s2;
 

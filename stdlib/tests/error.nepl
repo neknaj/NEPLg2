@@ -3,52 +3,31 @@
 #target wasi
 
 #import "std/error" as *
+#import "std/diag" as *
+#import "std/math" as *
+#import "std/string" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():
-    // Test error_new
-    let e1 error_new ErrorKind::Failure "test failure";
-    // We can only validate by not crashing
+    // Test error_new formatting
+    let e1 <Error> error_new ErrorKind::Failure "test failure";
+    let s1 <str> diag_to_string e1;
+    assert_str_eq "error[Failure]: test failure\n" s1;
 
-    // Test error_new with OutOfMemory
-    let e2 error_new ErrorKind::OutOfMemory "ran out of memory";
-    // Basic smoke test to ensure it doesn't trap
+    let e2 <Error> error_new ErrorKind::OutOfMemory "ran out of memory";
+    let s2 <str> diag_to_string e2;
+    assert_str_eq "error[OutOfMemory]: ran out of memory\n" s2;
 
-    // Test error_new with other kinds
-    let e3 error_new ErrorKind::ParseError "parse error";
-    let e4 error_new ErrorKind::IoError "io failed";
-    let e5 error_new ErrorKind::IndexOutOfBounds "index out of range";
-
+    // Test error_with_span formatting
     let sp <Span> Span 4 5 6;
-    let e6 <Error> error_with_span e1 sp;
-    match e6.span:
-        Option::Some s:
-            assert_eq_i32 4 s.file_id;
-            assert_eq_i32 5 s.start;
-            assert_eq_i32 6 s.end;
-        Option::None:
-            trap;
+    let e3 <Error> error_new ErrorKind::Failure "with span";
+    let e4 <Error> error_with_span e3 sp;
+    let s3 <str> diag_to_string e4;
+    assert_str_eq "error[Failure]: with span\nat 4:5-6\n" s3;
 
+    // Test fail returns a non-empty diagnostic
     let ef <Error> fail "boom";
-    match ef.kind:
-        ErrorKind::Failure:
-            ()
-        ErrorKind::OutOfMemory:
-            trap;
-        ErrorKind::IndexOutOfBounds:
-            trap;
-        ErrorKind::KeyNotFound:
-            trap;
-        ErrorKind::InvalidUtf8:
-            trap;
-        ErrorKind::ParseError:
-            trap;
-        ErrorKind::IoError:
-            trap;
-        ErrorKind::Other:
-            trap;
-
-    // Just ensure we can create errors without crashing
-    assert true;
+    let sf <str> diag_to_string ef;
+    assert gt len sf 0;
 
     ()

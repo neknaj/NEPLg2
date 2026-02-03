@@ -12,9 +12,9 @@ fn main <()*> ()> ():
     assert_eq_i32 5 len "hello";
 
     // Test str_eq with same strings
-    assert str_eq "hello" "hello";
-    assert str_eq "" "";
-    assert str_eq "a" "a";
+    assert_str_eq "hello" "hello";
+    assert_str_eq "" "";
+    assert_str_eq "a" "a";
 
     // Test str_eq with different strings
     assert_ne true str_eq "hello" "world";
@@ -43,4 +43,3 @@ fn main <()*> ()> ():
     assert_eq_i32 4 len test;
 
     ()
-
