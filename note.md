@@ -210,6 +210,11 @@
 - 文字列リテラルの通常文字の読み取りを UTF-8 `char` 単位に変更し、`i` を `len_utf8` 分進めるよう修正。
 - 回帰テストとして `nepl-core/tests/fixtures/stdout_japanese.nepl` と `stdout_japanese_utf8` を追加。
 - 動作確認: `cargo run -p nepl-cli -- -i examples/helloworld.nepl --run -o a`
+
+# 2026-02-03 作業メモ (CLI --run の stdio プロンプト)
+- `nepl-cli --run` の WASI `fd_write` が `print!` のみで flush しておらず、プロンプト `"> "` が入力後に表示される問題を確認。
+- `fd_write` を raw bytes で `stdout.write_all` し、最後に `flush` するよう修正。
+- 動作確認: `printf "3 5 3\n" | cargo run -p nepl-cli -- -i examples/stdio.nepl --run -o a`
 - 後方互換性のため、i32 のみの alias 関数（add/sub/mul/div_s/lt/eq など）を提供。
 
 # 2026-01-31 作業メモ (stdlib テストの充実化)

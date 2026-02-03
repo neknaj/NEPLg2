@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -780,7 +780,7 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
         linker.func_wrap(
             "wasi_snapshot_preview1",
             "fd_write",
-            |caller: Caller<'_, AllocState>,
+            |mut caller: Caller<'_, AllocState>,
              fd: i32,
              iovs: i32,
              iovs_len: i32,
@@ -796,6 +796,7 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
                 let data_snapshot = memory.data(&caller).to_vec(); // snapshot to avoid alias issues
                 let mut total = 0usize;
                 let mut offset = iovs as usize;
+                let mut stdout = io::stdout().lock();
                 for _ in 0..iovs_len {
                     if offset + 8 > data_snapshot.len() {
                         return 21;
@@ -811,19 +812,14 @@ fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32
                         return 21;
                     }
                     let slice = &data_snapshot[base..base + len];
-                    match std::str::from_utf8(slice) {
-                        Ok(s) => {
-                            print!("{s}");
-                        }
-                        Err(_) => {
-                            return 21;
-                        }
+                    if stdout.write_all(slice).is_err() {
+                        return 21;
                     }
                     total += len;
                 }
+                let _ = stdout.flush();
                 // write nwritten
                 if let Some(mem) = caller.get_export("memory").and_then(|e| e.into_memory()) {
-                    let mut caller = caller;
                     let bytes = (total as u32).to_le_bytes();
                     if (nwritten as usize) + 4 <= mem.data(&caller).len() {
                         mem.write(&mut caller, nwritten as usize, &bytes).ok();
