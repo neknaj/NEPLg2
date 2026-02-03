@@ -449,7 +449,8 @@ mod tests {
         assert_eq!(g.nodes.len(), 2);
         assert_eq!(g.topo.len(), 2);
         // main should re-export foo
-        let root_id = g.nodes.iter().find(|n| n.path == root).unwrap().id;
+        let root_path = canonicalize_path(&root);
+        let root_id = g.nodes.iter().find(|n| n.path == root_path).unwrap().id;
         let root_exports = exports.map.get(&root_id).unwrap();
         assert!(root_exports.contains_key("foo"));
     }
@@ -473,7 +474,8 @@ mod tests {
         let builder = ModuleGraphBuilder::new(dir.path().to_path_buf());
         let g = builder.build(&root).unwrap();
         let exports = ModuleGraphBuilder::build_exports(&g).unwrap();
-        let root_id = g.nodes.iter().find(|n| n.path == root).unwrap().id;
+        let root_path = canonicalize_path(&root);
+        let root_id = g.nodes.iter().find(|n| n.path == root_path).unwrap().id;
         let root_exports = exports.map.get(&root_id).unwrap();
         assert!(root_exports.contains_key("bar"));
         assert!(!root_exports.contains_key("foo"));

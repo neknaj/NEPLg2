@@ -1,4 +1,24 @@
 # 状況メモ (2026-01-22)
+# 2026-02-03 作業メモ (Windows path canonicalization for tests)
+- module_graph の lib テストで path 比較が Windows の canonicalize 差分で失敗するため、root path を canonicalize して比較するよう修正。
+- resolve.rs 側の ModuleGraph 参照テストも同様に canonicalize を適用し、クロスプラットフォームで一致するようにした。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` がどちらも成功。
+
+# 2026-02-03 作業メモ (resolve import tests fix)
+- nepl-core/tests/resolve.rs のテスト用ソースを `:` ブロック形式に修正し、parser の期待するインデント構造に合わせた。
+- selective glob（`name::*`）が open import に反映されることを確認するテストを追加。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` がどちらも成功。
+
+# 2026-02-03 作業メモ (resolve/import test expansion)
+- nepl-core/tests/resolve.rs を追加実装し、prelude 指令の解析、merge clause 保持、alias/open/selective の解決、open import の曖昧性診断、std パッケージ解決のテストを追加。
+- nepl-core/tests/neplg2.rs に prelude/import/merge 指令の受理確認テストを追加。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` がどちらも成功。
+
+# 2026-02-03 作業メモ (tests import syntax migration)
+- nepl-core/tests と stdlib 配下の #import/#use を新仕様（`#import "..." as *`）へ統一し、#use を除去した。
+- loader_cycle のテストは `#import "./a"`/`#import "./b"` に変更して相対 import の仕様に合わせた。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` がどちらも成功。
+
 # 2026-02-03 作業メモ (selective re-export test)
 - module_graph の pub selective re-export の挙動を確認するテストを追加（alias のみ公開され、元名や未選択の公開項目は再エクスポートされないことを検証）。
 - テスト: `cargo test` と `cargo run -p nepl-cli -- test` がどちらも成功。

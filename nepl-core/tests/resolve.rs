@@ -6,7 +6,12 @@ use nepl_core::parser;
 use nepl_core::resolve::{build_visible_map, collect_defs, compose_exports, resolve_imports};
 use nepl_core::span::FileId;
 use std::fs;
+use std::path::PathBuf;
 use tempfile::tempdir;
+
+fn canonicalize_path(path: &PathBuf) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.clone())
+}
 
 #[test]
 fn parse_prelude_directives() {
@@ -62,7 +67,8 @@ fn import_clause_merge_is_preserved() {
 
     let builder = ModuleGraphBuilder::new(dir.path().to_path_buf());
     let g = builder.build(&root).unwrap();
-    let root_id = g.nodes.iter().find(|n| n.path == root).unwrap().id;
+    let root_path = canonicalize_path(&root);
+    let root_id = g.nodes.iter().find(|n| n.path == root_path).unwrap().id;
     let node = g.nodes.iter().find(|n| n.id == root_id).unwrap();
     assert_eq!(node.imports.len(), 1);
     assert!(matches!(node.imports[0].clause, ImportClause::Merge));
@@ -91,10 +97,14 @@ fn resolve_import_alias_open_selective() {
     let export_defs = compose_exports(&defs, &exports);
     let resolved = resolve_imports(&g, &export_defs);
 
-    let root_id = g.nodes.iter().find(|n| n.path == root).unwrap().id;
-    let lib_id = g.nodes.iter().find(|n| n.path == lib).unwrap().id;
-    let lib2_id = g.nodes.iter().find(|n| n.path == lib2).unwrap().id;
-    let lib3_id = g.nodes.iter().find(|n| n.path == lib3).unwrap().id;
+    let root_path = canonicalize_path(&root);
+    let lib_path = canonicalize_path(&lib);
+    let lib2_path = canonicalize_path(&lib2);
+    let lib3_path = canonicalize_path(&lib3);
+    let root_id = g.nodes.iter().find(|n| n.path == root_path).unwrap().id;
+    let lib_id = g.nodes.iter().find(|n| n.path == lib_path).unwrap().id;
+    let lib2_id = g.nodes.iter().find(|n| n.path == lib2_path).unwrap().id;
+    let lib3_id = g.nodes.iter().find(|n| n.path == lib3_path).unwrap().id;
 
     let rm = resolved.modules.get(&root_id).unwrap();
     assert_eq!(rm.imports.alias_map.get("util"), Some(&lib_id));
@@ -151,8 +161,10 @@ fn selective_glob_opens_module() {
     let exports = ModuleGraphBuilder::build_exports(&g).unwrap();
     let export_defs = compose_exports(&defs, &exports);
     let resolved = resolve_imports(&g, &export_defs);
-    let root_id = g.nodes.iter().find(|n| n.path == root).unwrap().id;
-    let lib_id = g.nodes.iter().find(|n| n.path == lib).unwrap().id;
+    let root_path = canonicalize_path(&root);
+    let lib_path = canonicalize_path(&lib);
+    let root_id = g.nodes.iter().find(|n| n.path == root_path).unwrap().id;
+    let lib_id = g.nodes.iter().find(|n| n.path == lib_path).unwrap().id;
     let rm = resolved.modules.get(&root_id).unwrap();
     assert!(rm.imports.open_modules.contains(&lib_id));
 }
@@ -181,5 +193,6 @@ fn package_import_resolves_std() {
         .iter()
         .find(|n| n.spec.package == "std" && n.spec.module == "util")
         .expect("std util module not found");
-    assert_eq!(std_node.path, stdlib.join("util.nepl"));
+    let util_path = canonicalize_path(&stdlib.join("util.nepl"));
+    assert_eq!(std_node.path, util_path);
 }
