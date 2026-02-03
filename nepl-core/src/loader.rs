@@ -10,6 +10,7 @@ use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::result::Result;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 use std::path::PathBuf;
 extern crate std;
@@ -142,6 +143,32 @@ impl Loader {
         })
     }
 
+    pub fn load_inline_with_provider(
+        &mut self,
+        path: PathBuf,
+        src: String,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+    ) -> Result<LoadResult, LoaderError> {
+        let mut sm = SourceMap::new();
+        let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
+        let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
+        let module = self.load_from_contents_with(
+            path,
+            src,
+            &mut sm,
+            &mut cache,
+            &mut processing,
+            &mut imported,
+            provider,
+        )?;
+        self.source_map = sm.clone();
+        Ok(LoadResult {
+            module,
+            source_map: sm,
+        })
+    }
+
     pub fn load(&mut self, entry: &PathBuf) -> Result<LoadResult, LoaderError> {
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
@@ -171,7 +198,7 @@ impl Loader {
         imported_once: &mut BTreeSet<PathBuf>,
     ) -> Result<Module, LoaderError> {
         // For pseudo files (stdin) canonicalize may fail; fall back to provided path.
-        let canon = path.canonicalize().unwrap_or(path.clone());
+        let canon = canonicalize_path(&path);
         if let Some(m) = cache.get(&canon) {
             return Ok(m.clone());
         }
@@ -190,17 +217,17 @@ impl Loader {
         Ok(module)
     }
 
-    fn load_file(
+    fn load_from_contents_with(
         &self,
-        path: &PathBuf,
+        path: PathBuf,
+        src: String,
         sm: &mut SourceMap,
         cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
         imported_once: &mut BTreeSet<PathBuf>,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
     ) -> Result<Module, LoaderError> {
-        let canon = path
-            .canonicalize()
-            .map_err(|e| LoaderError::Io(e.to_string()))?;
+        let canon = canonicalize_path(&path);
         if let Some(m) = cache.get(&canon) {
             return Ok(m.clone());
         }
@@ -210,11 +237,81 @@ impl Loader {
                 canon
             )));
         }
-        let src = fs::read_to_string(&canon).map_err(|e| LoaderError::Io(e.to_string()))?;
+        let file_id = sm.add(canon.clone(), src.clone());
+        let module = self.parse_module(file_id, src)?;
+        let module = self.process_directives_with(
+            canon.clone(),
+            module,
+            sm,
+            cache,
+            processing,
+            imported_once,
+            provider,
+        )?;
+        processing.remove(&canon);
+        cache.insert(canon.clone(), module.clone());
+        Ok(module)
+    }
+
+    fn load_file(
+        &self,
+        path: &PathBuf,
+        sm: &mut SourceMap,
+        cache: &mut BTreeMap<PathBuf, Module>,
+        processing: &mut BTreeSet<PathBuf>,
+        imported_once: &mut BTreeSet<PathBuf>,
+    ) -> Result<Module, LoaderError> {
+        let canon = canonicalize_path(&path);
+        if let Some(m) = cache.get(&canon) {
+            return Ok(m.clone());
+        }
+        if !processing.insert(canon.clone()) {
+            return Err(LoaderError::Io(format!(
+                "circular import/include detected at {:?}",
+                canon
+            )));
+        }
+        let src = read_file_to_string(&canon)?;
         let file_id = sm.add(canon.clone(), src.clone());
         let module = self.parse_module(file_id, src)?;
         let module =
             self.process_directives(canon.clone(), module, sm, cache, processing, imported_once)?;
+        processing.remove(&canon);
+        cache.insert(canon.clone(), module.clone());
+        Ok(module)
+    }
+
+    fn load_file_with(
+        &self,
+        path: &PathBuf,
+        sm: &mut SourceMap,
+        cache: &mut BTreeMap<PathBuf, Module>,
+        processing: &mut BTreeSet<PathBuf>,
+        imported_once: &mut BTreeSet<PathBuf>,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+    ) -> Result<Module, LoaderError> {
+        let canon = canonicalize_path(&path);
+        if let Some(m) = cache.get(&canon) {
+            return Ok(m.clone());
+        }
+        if !processing.insert(canon.clone()) {
+            return Err(LoaderError::Io(format!(
+                "circular import/include detected at {:?}",
+                canon
+            )));
+        }
+        let src = provider(&canon)?;
+        let file_id = sm.add(canon.clone(), src.clone());
+        let module = self.parse_module(file_id, src)?;
+        let module = self.process_directives_with(
+            canon.clone(),
+            module,
+            sm,
+            cache,
+            processing,
+            imported_once,
+            provider,
+        )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
         Ok(module)
@@ -306,6 +403,101 @@ impl Loader {
         Ok(module)
     }
 
+    fn process_directives_with(
+        &self,
+        base: PathBuf,
+        module: Module,
+        sm: &mut SourceMap,
+        cache: &mut BTreeMap<PathBuf, Module>,
+        processing: &mut BTreeSet<PathBuf>,
+        imported_once: &mut BTreeSet<PathBuf>,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+    ) -> Result<Module, LoaderError> {
+        let mut directives = module.directives.clone();
+        let mut items = Vec::new();
+        for stmt in module.root.items.clone() {
+            match &stmt {
+                Stmt::Directive(Directive::Import { path, .. }) => {
+                    let target = self.resolve_path(&base, path);
+                    if imported_once.insert(target.clone()) {
+                        let imp_mod = self.load_file_with(
+                            &target,
+                            sm,
+                            cache,
+                            processing,
+                            imported_once,
+                            provider,
+                        )?;
+                        for d in imp_mod.directives.clone() {
+                            if let Directive::Entry { .. } = d {
+                                continue;
+                            }
+                            if let Directive::Target { .. } = d {
+                                continue;
+                            }
+                            if let Directive::IndentWidth { .. } = d {
+                                continue;
+                            }
+                            directives.push(d);
+                        }
+                        for it in imp_mod.root.items.clone() {
+                            if let Stmt::Directive(Directive::Entry { .. }) = it {
+                                continue;
+                            }
+                            if let Stmt::Directive(Directive::Target { .. }) = it {
+                                continue;
+                            }
+                            if let Stmt::Directive(Directive::IndentWidth { .. }) = it {
+                                continue;
+                            }
+                            items.push(it);
+                        }
+                    }
+                }
+                Stmt::Directive(Directive::Include { path, .. }) => {
+                    let target = self.resolve_path(&base, path);
+                    let inc_mod = self.load_file_with(
+                        &target,
+                        sm,
+                        cache,
+                        processing,
+                        imported_once,
+                        provider,
+                    )?;
+                    for d in inc_mod.directives.clone() {
+                        if let Directive::Entry { .. } = d {
+                            continue;
+                        }
+                        if let Directive::Target { .. } = d {
+                            continue;
+                        }
+                        if let Directive::IndentWidth { .. } = d {
+                            continue;
+                        }
+                        directives.push(d);
+                    }
+                    for it in inc_mod.root.items.clone() {
+                        if let Stmt::Directive(Directive::Entry { .. }) = it {
+                            continue;
+                        }
+                        if let Stmt::Directive(Directive::Target { .. }) = it {
+                            continue;
+                        }
+                        if let Stmt::Directive(Directive::IndentWidth { .. }) = it {
+                            continue;
+                        }
+                        items.push(it);
+                    }
+                }
+                _ => items.push(stmt),
+            }
+        }
+        let mut module = module.clone();
+        module.directives = directives;
+        module.root.items = items;
+        Ok(module)
+    }
+
     fn parse_module(&self, file_id: FileId, src: String) -> Result<Module, CoreError> {
         let lex = lexer::lex(file_id, &src);
         if lex
@@ -336,4 +528,26 @@ impl Loader {
         }
         p
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn read_file_to_string(path: &PathBuf) -> Result<String, LoaderError> {
+    fs::read_to_string(path).map_err(|e| LoaderError::Io(e.to_string()))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn read_file_to_string(_path: &PathBuf) -> Result<String, LoaderError> {
+    Err(LoaderError::Io(
+        "filesystem access is not available on this target".into(),
+    ))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn canonicalize_path(path: &PathBuf) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.clone())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn canonicalize_path(path: &PathBuf) -> PathBuf {
+    path.clone()
 }

@@ -223,6 +223,14 @@
 # 2026-02-03 作業メモ (std/stdio の ANSI 色ヘルパー)
 - `std/stdio` に `ansi_red` などの色コード関数と `print_color` / `println_color` を追加。
 - 回帰テストとして `nepl-core/tests/fixtures/stdout_color.nepl` と `stdout_ansi_helpers` を追加。
+
+# 2026-02-03 作業メモ (Web playground terminal)
+- `nepl-core` に `load_inline_with_provider` を追加し、仮想 stdlib ソースからのロードを可能にした。
+- `nepl-web` (wasm-bindgen) を新設し、ブラウザ内でのコンパイルと stdlib テスト実行を提供。
+- `web/` にターミナル UI を追加し、`run`/`test`/`clear` コマンドと stdin 入力を実装。
+- `doc/web_playground.md` を追加し、Web playground の実行仕様を整理。
+- Trunk 0.20 互換のため、`web/index.html` の `<link data-trunk>` から `data-type="wasm-bindgen"` を削除。
+- `nepl-web` の `include_str!` パスを修正し、`nepl-core` ローダーに wasm 向けのファイルアクセス抑制を追加。
 - 後方互換性のため、i32 のみの alias 関数（add/sub/mul/div_s/lt/eq など）を提供。
 
 # 2026-01-31 作業メモ (stdlib テストの充実化)

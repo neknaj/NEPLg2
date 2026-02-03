@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEPLg1 Web Playground</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="main.js" defer></script>
+    <link data-trunk rel="rust" href="../nepl-web/Cargo.toml" data-bindgen-target="web">
+    <script type="module" src="main.js"></script>
 </head>
 <body>
     <header class="page-header">
@@ -34,9 +35,31 @@
                 </div>
             </div>
         </section>
+        <section class="panel terminal-panel">
+            <div class="panel-heading">
+                <h2>ターミナル</h2>
+                <span id="terminal-status" class="status status-warning">WASM を初期化中...</span>
+            </div>
+            <div class="terminal-controls">
+                <div class="terminal-command">
+                    <label for="terminal-command">コマンド</label>
+                    <input id="terminal-command" type="text" placeholder="run / test / clear / help" autocomplete="off">
+                    <div class="terminal-buttons">
+                        <button type="button" id="terminal-run">Run</button>
+                        <button type="button" id="terminal-test">Test</button>
+                        <button type="button" id="terminal-clear">Clear</button>
+                    </div>
+                </div>
+                <div class="terminal-stdin">
+                    <label for="terminal-stdin">stdin</label>
+                    <textarea id="terminal-stdin" rows="4" placeholder="標準入力をここに入力"></textarea>
+                </div>
+            </div>
+            <pre id="terminal-output" class="terminal-output" aria-live="polite"></pre>
+        </section>
         <section class="panel output-panel">
             <h2>メモ</h2>
-            <p>現在はエディタの組み込みのみを提供しています。今後、コンパイラの WebAssembly 版と接続してブラウザ内でコードを実行できるように拡張する予定です。</p>
+            <p>ターミナルから <code>run</code> でコード実行、<code>test</code> で stdlib テストを実行できます。実行結果は WASM 上で評価され、標準入出力はこのパネルに表示されます。</p>
         </section>
     </main>
 </body>
