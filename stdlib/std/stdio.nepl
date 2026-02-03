@@ -187,20 +187,22 @@ fn print_i32 <(i32)*>()> (v):
                         let mut n <i32> v;
 
                         while lt 0 n:
-                            let rem <i32> mod_s n 10;
-                            store_u8 add scratch idx add 48 rem;
-                            set idx add idx 1;
-                            set n div_s n 10;
+                            do:
+                                let rem <i32> mod_s n 10;
+                                store_u8 add scratch idx add 48 rem;
+                                set idx add idx 1;
+                                set n div_s n 10;
 
                         let out <i32> alloc add 4 idx;
                         store_i32 out idx;
 
                         let mut i <i32> 0;
                         while lt i idx:
-                            let rev <i32> sub idx add i 1;
-                            let b <i32> load_u8 add scratch rev;
-                            store_u8 add out add 4 i b;
-                            set i add i 1;
+                            do:
+                                let rev <i32> sub idx add i 1;
+                                let b <i32> load_u8 add scratch rev;
+                                store_u8 add out add 4 i b;
+                                set i add i 1;
 
                         out
     print s;

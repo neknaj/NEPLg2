@@ -14,31 +14,32 @@ fn scanner_new <()*>i32> ():
     let nread_ptr <i32> alloc 4;
     let mut done <i32> 0;
     while eq done 0:
-        if:
-            eq len cap
-            then:
-                let new_cap <i32> mul cap 2;
-                let new_buf <i32> realloc buf cap new_cap;
-                set buf new_buf;
-                set cap new_cap;
-            else:
-                ()
-        store_i32 iov add buf len;
-        store_i32 add iov 4 sub cap len;
-        store_i32 nread_ptr 0;
-        let errno <i32> fd_read 0 iov 1 nread_ptr;
-        if:
-            ne errno 0
-            then:
-                set done 1;
-            else:
-                let n <i32> load_i32 nread_ptr;
-                if:
-                    eq n 0
-                    then:
-                        set done 1;
-                    else:
-                        set len add len n;
+        do:
+            if:
+                eq len cap
+                then:
+                    let new_cap <i32> mul cap 2;
+                    let new_buf <i32> realloc buf cap new_cap;
+                    set buf new_buf;
+                    set cap new_cap;
+                else:
+                    ()
+            store_i32 iov add buf len;
+            store_i32 add iov 4 sub cap len;
+            store_i32 nread_ptr 0;
+            let errno <i32> fd_read 0 iov 1 nread_ptr;
+            if:
+                ne errno 0
+                then:
+                    set done 1;
+                else:
+                    let n <i32> load_i32 nread_ptr;
+                    if:
+                        eq n 0
+                        then:
+                            set done 1;
+                        else:
+                            set len add len n;
     let sc <i32> alloc 12;
     store_i32 sc buf;
     store_i32 add sc 4 len;
@@ -135,8 +136,9 @@ fn scanner_read_token <(i32)*>str> (sc):
             store_i32 s tlen;
             let mut i <i32> 0;
             while lt i tlen:
-                store_u8 add s add 4 i load_u8 add buf add start i;
-                set i add i 1;
+                do:
+                    store_u8 add s add 4 i load_u8 add buf add start i;
+                    set i add i 1;
             store_i32 add sc 8 p;
             s
 
@@ -187,14 +189,16 @@ fn scanner_read_vec_i32 <(i32, i32)*>Vec<i32>> (sc, n):
     let mut v <Vec<i32>> vec_new<i32>;
     let mut i <i32> 0;
     while lt i n:
-        set v vec_push<i32> v scanner_read_i32 sc;
-        set i add i 1;
+        do:
+            set v vec_push<i32> v scanner_read_i32 sc;
+            set i add i 1;
     v
 
 fn scanner_read_matrix_i32 <(i32, i32, i32)*>Vec<Vec<i32>>> (sc, h, w):
     let mut res <Vec<Vec<i32>>> vec_new<Vec<i32>>;
     let mut i <i32> 0;
     while lt i h:
-        set res vec_push<Vec<i32>> res scanner_read_vec_i32 sc w;
-        set i add i 1;
+        do:
+            set res vec_push<Vec<i32>> res scanner_read_vec_i32 sc w;
+            set i add i 1;
     res

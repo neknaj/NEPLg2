@@ -178,9 +178,10 @@ fn btreeset_insert <(i32,i32)*>bool> (s, key):
                     ()
             let mut i <i32> sub len 1
             while le idx i:
-                let k <i32> load_i32 add keys mul i 4
-                store_i32 add keys mul add i 1 4 k
-                set i sub i 1
+                do:
+                    let k <i32> load_i32 add keys mul i 4
+                    store_i32 add keys mul add i 1 4 k
+                    set i sub i 1
             store_i32 add keys mul idx 4 key
             store_i32 s add len 1
             true
@@ -207,9 +208,10 @@ fn btreeset_remove <(i32,i32)*>bool> (s, key):
         then:
             let mut i <i32> add idx 1
             while lt i len:
-                let k <i32> load_i32 add keys mul i 4
-                store_i32 add keys mul sub i 1 4 k
-                set i add i 1
+                do:
+                    let k <i32> load_i32 add keys mul i 4
+                    store_i32 add keys mul sub i 1 4 k
+                    set i add i 1
             store_i32 s sub len 1
             true
         else:

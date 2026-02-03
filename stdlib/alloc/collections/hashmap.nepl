@@ -57,8 +57,9 @@ fn hashmap_new <.V> <()*>i32> ():
     let entries <i32> alloc mul cap entry_size
     let mut i <i32> 0
     while lt i cap:
-        store_i32 add entries mul i entry_size 0
-        set i add i 1
+        do:
+            store_i32 add entries mul i entry_size 0
+            set i add i 1
     let header <i32> alloc 12
     store_i32 header 0  // count
     store_i32 add header 4 cap
@@ -86,29 +87,30 @@ fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
     let mut cur <i32> idx
     let mut found <i32> 0
     while eq found 0:
-        let entry <i32> add entries mul cur entry_size
-        let occupied <i32> load_i32 entry
-        if:
-            eq occupied 0
-            then:
-                store_i32 entry 1
-                store_i32 add entry 4 key
-                store<.V> add entry 8 val
-                store_i32 hm add load_i32 hm 1
-                set found 1
-            else:
-                let ekey <i32> load_i32 add entry 4
-                if:
-                    eq ekey key
-                    then:
-                        store<.V> add entry 8 val
-                        set found 1
-                    else:
-                        set cur mod_s add cur 1 cap
-                        if:
-                            eq cur idx
+        do:
+            let entry <i32> add entries mul cur entry_size
+            let occupied <i32> load_i32 entry
+            if:
+                eq occupied 0
+                then:
+                    store_i32 entry 1
+                    store_i32 add entry 4 key
+                    store<.V> add entry 8 val
+                    store_i32 hm add load_i32 hm 1
+                    set found 1
+                else:
+                    let ekey <i32> load_i32 add entry 4
+                    if:
+                        eq ekey key
+                        then:
+                            store<.V> add entry 8 val
                             set found 1
-                            ()
+                        else:
+                            set cur mod_s add cur 1 cap
+                            if:
+                                eq cur idx
+                                set found 1
+                                ()
 
 // hashmap_get_loop: 線形探索の内部ループ
 //
@@ -205,26 +207,27 @@ fn hashmap_remove <.V> <(i32,i32)*>Option<.V>> (hm, key):
     let mut result <Option<.V>> none<.V>
     let mut done <i32> 0
     while eq done 0:
-        let entry <i32> add entries mul cur entry_size
-        let occupied <i32> load_i32 entry
-        if:
-            eq occupied 0
-            then set done 1
-            else:
-                let ekey <i32> load_i32 add entry 4
-                if:
-                    eq ekey key
-                    then:
-                        set result some<.V> load<.V> add entry 8
-                        store_i32 entry 0  // mark empty
-                        store_i32 hm sub load_i32 hm 1
-                        set done 1
-                    else:
-                        set cur mod_s add cur 1 cap
-                        if:
-                            eq cur idx
+        do:
+            let entry <i32> add entries mul cur entry_size
+            let occupied <i32> load_i32 entry
+            if:
+                eq occupied 0
+                then set done 1
+                else:
+                    let ekey <i32> load_i32 add entry 4
+                    if:
+                        eq ekey key
+                        then:
+                            set result some<.V> load<.V> add entry 8
+                            store_i32 entry 0  // mark empty
+                            store_i32 hm sub load_i32 hm 1
                             set done 1
-                            ()
+                        else:
+                            set cur mod_s add cur 1 cap
+                            if:
+                                eq cur idx
+                                set done 1
+                                ()
     result
 
 // hashmap_len: 要素数を返す

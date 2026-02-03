@@ -92,8 +92,9 @@ fn hashset_new <()*>i32> ():
     let entries <i32> alloc mul cap entry_size
     let mut i <i32> 0
     while lt i cap:
-        store_i32 add entries mul i entry_size 0
-        set i add i 1
+        do:
+            store_i32 add entries mul i entry_size 0
+            set i add i 1
     let header <i32> alloc 12
     store_i32 header 0
     store_i32 add header 4 cap
@@ -122,27 +123,28 @@ fn hashset_insert <(i32,i32)*>bool> (hs, key):
     let mut result <bool> false
     let mut done <i32> 0
     while eq done 0:
-        let entry <i32> add entries mul cur entry_size
-        let occupied <i32> load_i32 entry
-        if:
-            eq occupied 0
-            then:
-                store_i32 entry 1
-                store_i32 add entry 4 key
-                store_i32 hs add load_i32 hs 1
-                set result true
-                set done 1
-            else:
-                let ekey <i32> load_i32 add entry 4
-                if:
-                    eq ekey key
-                    then set done 1
-                    else:
-                        set cur mod_s add cur 1 cap
-                        if:
-                            eq cur idx
-                            then set done 1
-                            else ()
+        do:
+            let entry <i32> add entries mul cur entry_size
+            let occupied <i32> load_i32 entry
+            if:
+                eq occupied 0
+                then:
+                    store_i32 entry 1
+                    store_i32 add entry 4 key
+                    store_i32 hs add load_i32 hs 1
+                    set result true
+                    set done 1
+                else:
+                    let ekey <i32> load_i32 add entry 4
+                    if:
+                        eq ekey key
+                        then set done 1
+                        else:
+                            set cur mod_s add cur 1 cap
+                            if:
+                                eq cur idx
+                                then set done 1
+                                else ()
     result
 
 // hashset_contains: 要素の存在確認
@@ -187,26 +189,27 @@ fn hashset_remove <(i32,i32)*>bool> (hs, key):
     let mut result <bool> false
     let mut done <i32> 0
     while eq done 0:
-        let entry <i32> add entries mul cur entry_size
-        let occupied <i32> load_i32 entry
-        if:
-            eq occupied 0
-            then set done 1
-            else:
-                let ekey <i32> load_i32 add entry 4
-                if:
-                    eq ekey key
-                    then:
-                        store_i32 entry 0
-                        store_i32 hs sub load_i32 hs 1
-                        set result true
-                        set done 1
-                    else:
-                        set cur mod_s add cur 1 cap
-                        if:
-                            eq cur idx
-                            then set done 1
-                            else ()
+        do:
+            let entry <i32> add entries mul cur entry_size
+            let occupied <i32> load_i32 entry
+            if:
+                eq occupied 0
+                then set done 1
+                else:
+                    let ekey <i32> load_i32 add entry 4
+                    if:
+                        eq ekey key
+                        then:
+                            store_i32 entry 0
+                            store_i32 hs sub load_i32 hs 1
+                            set result true
+                            set done 1
+                        else:
+                            set cur mod_s add cur 1 cap
+                            if:
+                                eq cur idx
+                                then set done 1
+                                else ()
     result
 
 // hashset_len: 要素数を返す

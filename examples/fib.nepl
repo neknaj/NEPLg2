@@ -12,9 +12,10 @@ fn main <()*> ()> ():
     let mut b <i32> 1;
     let mut i <i32> 0;
     while lt i 10:
-        print "fib = ";
-        println_i32 a;
-        let mut next add a b;
-        set a b;
-        set b next;
-        set i add i 1;
+        do:
+            print "fib = ";
+            println_i32 a;
+            let mut next add a b;
+            set a b;
+            set b next;
+            set i add i 1;

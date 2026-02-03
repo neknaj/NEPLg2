@@ -135,8 +135,9 @@ fn list_len <.T> <(i32)*>i32> (lst):
     let mut count <i32> 0
     let mut cur <i32> lst
     while ne cur 0:
-        set count add count 1
-        set cur load_i32 add cur size_of<.T>
+        do:
+            set count add count 1
+            set cur load_i32 add cur size_of<.T>
     count
 
 // list_get: 指定位置の要素を取得する
@@ -199,9 +200,10 @@ fn list_free <.T> <(i32)*>()> (lst):
     let node_size <i32> add size_of<.T> 4
     let mut cur <i32> lst
     while ne cur 0:
-        let next <i32> load_i32 add cur size_of<.T>
-        dealloc cur node_size
-        set cur next
+        do:
+            let next <i32> load_i32 add cur size_of<.T>
+            dealloc cur node_size
+            set cur next
 
 // list_reverse: リストを逆順にする
 //
@@ -220,7 +222,8 @@ fn list_reverse <.T> <(i32)*>i32> (lst):
     let mut new_list <i32> 0;
     let mut cur <i32> lst;
     while ne cur 0:
-        let val <.T> load<.T> cur;
-        set new_list list_cons<.T> val new_list;
-        set cur load_i32 add cur size_of<.T>;
+        do:
+            let val <.T> load<.T> cur;
+            set new_list list_cons<.T> val new_list;
+            set cur load_i32 add cur size_of<.T>;
     new_list

@@ -2,7 +2,7 @@
 //
 // This test suite is meant to validate the *core* language semantics described in plan.md:
 // - Offside rule / indentation blocks
-// - `:` block expressions
+// - `block:` block expressions
 // - Statement semantics and `;` (including multiple semicolons)
 // - `if` newline/layout variants (cond/then/else keywords and sugar)
 // - `while` as an expression returning unit, used as a statement
@@ -39,7 +39,7 @@ fn plan_block_returns_last_statement_value() {
 #import "core/math" as *
 
 fn main <()->i32> ():
-    let y <i32> :
+    let y <i32> block:
         add 1 2;
         add 3 4
         add 5 6
@@ -108,7 +108,7 @@ fn main <()->i32> ():
 
 #[test]
 fn plan_block_used_as_function_argument() {
-    // plan.md: `:` block is an expression and can be used as a function argument.
+    // plan.md: `block:` is an expression and can be used as a function argument.
     //
     // add 1 (block returning 5) => 6
     let src = r#"
@@ -118,7 +118,7 @@ fn plan_block_used_as_function_argument() {
 #import "core/math" as *
 
 fn main <()->i32> ():
-    add 1:
+    add 1 block:
         add 2 3
 "#;
 
@@ -178,7 +178,7 @@ fn main <()->i32> ():
 
 #[test]
 fn plan_if_multiline_then_else_with_blocks() {
-    // plan.md: `then:` and `else:` are sugar for `:` but only in if.
+    // plan.md: `then:` and `else:` are sugar for `block:` but only in if.
     let src = r#"
 #entry main
 #indent 4
@@ -324,7 +324,7 @@ fn main <()*>i32> ():
 
 #[test]
 fn plan_nested_colon_blocks_in_set_expression() {
-    // Exercise the "nested `:` block as expression" style used in plan.md.
+    // Exercise the "nested `block:` expression" style used in plan.md.
     //
     // Use blocks as the second argument to add/sub to ensure parsing + indentation works.
     // This also validates that blocks work inside arguments and do not break return value.
@@ -343,10 +343,11 @@ fn main <()*>i32> ():
     let mut x <i32> 0;
 
     while lt x 10:
-        set x add x:
-            2
-        set x sub x:
-            1
+        do:
+            set x add x block:
+                2
+            set x sub x block:
+                1
 
     x
 "#;

@@ -97,35 +97,36 @@ fn alloc <(i32)*>i32> (size):
             let mut cur <i32> load_i32 4
             let mut found <i32> 0
             while ne cur 0:
-                let blk_sz <i32> load_i32 cur
-                let next <i32> load_i32 add cur 4
-                if:
-                    cond:
-                        le total blk_sz
-                    then:
-                        if:
-                            cond:
-                                eq prev 0
-                            then:
-                                store_i32 4 next
-                            else:
-                                store_i32 add prev 4 next
-                        let remain <i32> sub blk_sz total
-                        if:
-                            cond:
-                                le 16 remain
-                            then:
-                                let new_blk <i32> add cur total
-                                store_i32 new_blk remain
-                                store_i32 add new_blk 4 next
-                                store_i32 cur total
-                            else:
-                                store_i32 cur blk_sz
-                        set found add cur header
-                        set cur 0
-                    else:
-                        set prev cur
-                        set cur next
+                do:
+                    let blk_sz <i32> load_i32 cur
+                    let next <i32> load_i32 add cur 4
+                    if:
+                        cond:
+                            le total blk_sz
+                        then:
+                            if:
+                                cond:
+                                    eq prev 0
+                                then:
+                                    store_i32 4 next
+                                else:
+                                    store_i32 add prev 4 next
+                            let remain <i32> sub blk_sz total
+                            if:
+                                cond:
+                                    le 16 remain
+                                then:
+                                    let new_blk <i32> add cur total
+                                    store_i32 new_blk remain
+                                    store_i32 add new_blk 4 next
+                                    store_i32 cur total
+                                else:
+                                    store_i32 cur blk_sz
+                            set found add cur header
+                            set cur 0
+                        else:
+                            set prev cur
+                            set cur next
             if:
                 cond:
                     ne found 0
@@ -231,9 +232,10 @@ fn realloc <(i32,i32,i32)*>i32> (ptr, old_size, new_size):
                             let copy_bytes <i32> if lt new_size old_size new_size old_size
                             let mut i <i32> 0
                             while lt i copy_bytes:
-                                let b <i32> load_u8 add ptr i
-                                store_u8 add new_ptr i b
-                                set i add i 1
+                                do:
+                                    let b <i32> load_u8 add ptr i
+                                    store_u8 add new_ptr i b
+                                    set i add i 1
                             dealloc ptr old_size
                             new_ptr
 

@@ -42,14 +42,15 @@ fn cstr_len <(i32)*>i32> (p):
     let mut i <i32> 0
     let mut done <i32> 0
     while eq done 0:
-        let b <i32> load_u8 add p i;
-        if:
-            cond:
-                eq b 0
-            then:
-                set done 1;
-            else:
-                set i add i 1;
+        do:
+            let b <i32> load_u8 add p i;
+            if:
+                cond:
+                    eq b 0
+                then:
+                    set done 1;
+                else:
+                    set i add i 1;
     i
 
 // cstr_to_str: NUL 終端文字列を str にコピーする
@@ -71,9 +72,10 @@ fn cstr_to_str <(i32)*>str> (p):
     store_i32 out len
     let mut i <i32> 0
     while lt i len:
-        let b <i32> load_u8 add p i;
-        store_u8 add out add 4 i b;
-        set i add i 1;
+        do:
+            let b <i32> load_u8 add p i;
+            store_u8 add out add 4 i b;
+            set i add i 1;
     out
 
 // cliarg_count: 引数の個数を返す

@@ -214,11 +214,12 @@ fn btreemap_insert <.V> <(i32,i32,.V)*>Option<.V>> (hm, key, val):
                     ()
             let mut i <i32> sub len 1
             while le idx i:
-                let k <i32> load_i32 add keys mul i 4
-                store_i32 add keys mul add i 1 4 k
-                let v <.V> load<.V> add vals mul i size_of<.V>
-                store<.V> add vals mul add i 1 size_of<.V> v
-                set i sub i 1
+                do:
+                    let k <i32> load_i32 add keys mul i 4
+                    store_i32 add keys mul add i 1 4 k
+                    let v <.V> load<.V> add vals mul i size_of<.V>
+                    store<.V> add vals mul add i 1 size_of<.V> v
+                    set i sub i 1
             store_i32 add keys mul idx 4 key
             store<.V> add vals mul idx size_of<.V> val
             store_i32 hm add len 1
@@ -248,11 +249,12 @@ fn btreemap_remove <.V> <(i32,i32)*>Option<.V>> (hm, key):
             let old <.V> load<.V> add vals mul idx size_of<.V>
             let mut i <i32> add idx 1
             while lt i len:
-                let k <i32> load_i32 add keys mul i 4
-                store_i32 add keys mul sub i 1 4 k
-                let v <.V> load<.V> add vals mul i size_of<.V>
-                store<.V> add vals mul sub i 1 size_of<.V> v
-                set i add i 1
+                do:
+                    let k <i32> load_i32 add keys mul i 4
+                    store_i32 add keys mul sub i 1 4 k
+                    let v <.V> load<.V> add vals mul i size_of<.V>
+                    store<.V> add vals mul sub i 1 size_of<.V> v
+                    set i add i 1
             store_i32 hm sub len 1
             some<.V> old
         else:

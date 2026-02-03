@@ -21,6 +21,12 @@ enum IfRole {
     Else,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WhileRole {
+    Cond,
+    Do,
+}
+
 #[derive(Debug)]
 pub struct ParseResult {
     pub module: Option<Module>,
@@ -708,17 +714,15 @@ impl Parser {
                     let block = self.parse_block_after_colon()?;
                     let span = colon_span.join(block.span).unwrap_or(colon_span);
 
-                    // If this prefix line contains an `if`, try to split the following
-                    // block into then/else branch blocks when top-level `else:` markers exist.
-                    if items
+                    if let Some(marker) = Self::tail_block_marker(&items) {
+                        if marker == "block" {
+                            items.pop();
+                        }
+                        items.push(PrefixItem::Block(block, span));
+                    } else if items
                         .iter()
                         .any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
                     {
-                        // Handle `if:` / `if <cond>:` layout forms by extracting
-                        // 2 or 3 expressions from the indented block and splicing
-                        // their items into this prefix expression. This desugars
-                        // the layout into normal prefix arguments so later passes
-                        // don't need a special-case split.
                         let expected = if Self::if_layout_needs_cond(&items) {
                             3
                         } else {
@@ -726,14 +730,40 @@ impl Parser {
                         };
                         match self.extract_if_layout_exprs(block.clone(), expected, colon_span) {
                             Ok(mut args) => {
-
                                 for mut a in args.drain(..) {
                                     if a.items.len() == 1 {
-                                        // single item: splice it in
                                         let only = a.items.remove(0);
                                         items.push(only);
                                     } else {
-                                        // multiple items: wrap into a single Block item
+                                        let wrapped = Block {
+                                            items: vec![Stmt::Expr(a.clone())],
+                                            span: a.span,
+                                        };
+                                        items.push(PrefixItem::Block(wrapped, a.span));
+                                    }
+                                }
+                            }
+                            Err(diag) => {
+                                self.diagnostics.push(diag);
+                                items.push(PrefixItem::Block(block, span));
+                            }
+                        }
+                    } else if items
+                        .iter()
+                        .any(|it| matches!(it, PrefixItem::Symbol(Symbol::While(_))))
+                    {
+                        let expected = if Self::while_layout_needs_cond(&items) {
+                            2
+                        } else {
+                            1
+                        };
+                        match self.extract_while_layout_exprs(block.clone(), expected, colon_span) {
+                            Ok(mut args) => {
+                                for mut a in args.drain(..) {
+                                    if a.items.len() == 1 {
+                                        let only = a.items.remove(0);
+                                        items.push(only);
+                                    } else {
                                         let wrapped = Block {
                                             items: vec![Stmt::Expr(a.clone())],
                                             span: a.span,
@@ -748,7 +778,26 @@ impl Parser {
                             }
                         }
                     } else {
-                        items.push(PrefixItem::Block(block, span));
+                        match self.extract_arg_layout_exprs(block.clone(), colon_span) {
+                            Ok(mut args) => {
+                                for mut a in args.drain(..) {
+                                    if a.items.len() == 1 {
+                                        let only = a.items.remove(0);
+                                        items.push(only);
+                                    } else {
+                                        let wrapped = Block {
+                                            items: vec![Stmt::Expr(a.clone())],
+                                            span: a.span,
+                                        };
+                                        items.push(PrefixItem::Block(wrapped, a.span));
+                                    }
+                                }
+                            }
+                            Err(diag) => {
+                                self.diagnostics.push(diag);
+                                items.push(PrefixItem::Block(block, span));
+                            }
+                        }
                     }
                     break;
                 }
@@ -1107,7 +1156,12 @@ impl Parser {
                     let colon_span = self.next().unwrap().span;
                     let block = self.parse_block_after_colon()?;
                     let span = colon_span.join(block.span).unwrap_or(colon_span);
-                    if items
+                    if let Some(marker) = Self::tail_block_marker(&items) {
+                        if marker == "block" {
+                            items.pop();
+                        }
+                        items.push(PrefixItem::Block(block, span));
+                    } else if items
                         .iter()
                         .any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
                     {
@@ -1118,14 +1172,40 @@ impl Parser {
                         };
                         match self.extract_if_layout_exprs(block.clone(), expected, colon_span) {
                             Ok(mut args) => {
-
                                 for mut a in args.drain(..) {
                                     if a.items.len() == 1 {
-                                        // single item: splice it in
                                         let only = a.items.remove(0);
                                         items.push(only);
                                     } else {
-                                        // multiple items: wrap into a single Block item
+                                        let wrapped = Block {
+                                            items: vec![Stmt::Expr(a.clone())],
+                                            span: a.span,
+                                        };
+                                        items.push(PrefixItem::Block(wrapped, a.span));
+                                    }
+                                }
+                            }
+                            Err(diag) => {
+                                self.diagnostics.push(diag);
+                                items.push(PrefixItem::Block(block, span));
+                            }
+                        }
+                    } else if items
+                        .iter()
+                        .any(|it| matches!(it, PrefixItem::Symbol(Symbol::While(_))))
+                    {
+                        let expected = if Self::while_layout_needs_cond(&items) {
+                            2
+                        } else {
+                            1
+                        };
+                        match self.extract_while_layout_exprs(block.clone(), expected, colon_span) {
+                            Ok(mut args) => {
+                                for mut a in args.drain(..) {
+                                    if a.items.len() == 1 {
+                                        let only = a.items.remove(0);
+                                        items.push(only);
+                                    } else {
                                         let wrapped = Block {
                                             items: vec![Stmt::Expr(a.clone())],
                                             span: a.span,
@@ -1140,7 +1220,26 @@ impl Parser {
                             }
                         }
                     } else {
-                        items.push(PrefixItem::Block(block, span));
+                        match self.extract_arg_layout_exprs(block.clone(), colon_span) {
+                            Ok(mut args) => {
+                                for mut a in args.drain(..) {
+                                    if a.items.len() == 1 {
+                                        let only = a.items.remove(0);
+                                        items.push(only);
+                                    } else {
+                                        let wrapped = Block {
+                                            items: vec![Stmt::Expr(a.clone())],
+                                            span: a.span,
+                                        };
+                                        items.push(PrefixItem::Block(wrapped, a.span));
+                                    }
+                                }
+                            }
+                            Err(diag) => {
+                                self.diagnostics.push(diag);
+                                items.push(PrefixItem::Block(block, span));
+                            }
+                        }
                     }
                     break;
                 }
@@ -1564,13 +1663,24 @@ impl Parser {
                     if ident.name == "then" || ident.name == "else"
             )
         });
+        let has_do = items.iter().any(|item| {
+            matches!(
+                item,
+                PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _)) if ident.name == "do"
+            )
+        });
+        let has_while = items
+            .iter()
+            .any(|item| matches!(item, PrefixItem::Symbol(Symbol::While(_))));
         let mut i = 0;
         while i < items.len() {
             let remove = match &items[i] {
                 PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _)) => {
                     let n = ident.name.as_str();
                     // remove only if not the first item (i != 0)
-                    ((n == "then" || n == "else") && i != 0) || (n == "cond" && i != 0 && has_then_else)
+                    ((n == "then" || n == "else") && i != 0)
+                        || (n == "cond" && i != 0 && (has_then_else || (has_do && has_while)))
+                        || (n == "do" && i != 0 && has_while)
                 }
                 _ => false,
             };
@@ -1632,6 +1742,85 @@ impl Parser {
         None
     }
 
+    fn take_while_role_from_expr(expr: &mut PrefixExpr) -> Option<WhileRole> {
+        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = expr.items.first() {
+            if id.name == "cond" {
+                expr.items.remove(0);
+                return Some(WhileRole::Cond);
+            } else if id.name == "do" {
+                expr.items.remove(0);
+                return Some(WhileRole::Do);
+            }
+        }
+        for i in 0..expr.items.len() {
+            if let PrefixItem::Block(block, block_span) = &mut expr.items[i] {
+                if let Some(stmt) = block.items.first_mut() {
+                    if let Stmt::Expr(inner) = stmt {
+                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = inner.items.first() {
+                            let role = if id.name == "cond" {
+                                WhileRole::Cond
+                            } else if id.name == "do" {
+                                WhileRole::Do
+                            } else {
+                                continue;
+                            };
+                            inner.items.remove(0);
+                            let wrapped_block = Block {
+                                items: vec![Stmt::Expr(inner.clone())],
+                                span: *block_span,
+                            };
+                            expr.items = vec![PrefixItem::Block(wrapped_block, *block_span)];
+                            return Some(role);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn block_marker_name<'a>(item: &'a PrefixItem) -> Option<&'a str> {
+        if let PrefixItem::Symbol(Symbol::Ident(id, _)) = item {
+            match id.name.as_str() {
+                "block" | "cond" | "then" | "else" | "do" => Some(id.name.as_str()),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn sole_non_type_marker(items: &[PrefixItem]) -> Option<&str> {
+        let mut marker: Option<&PrefixItem> = None;
+        for item in items {
+            if matches!(item, PrefixItem::TypeAnnotation(_, _)) {
+                continue;
+            }
+            if marker.is_some() {
+                return None;
+            }
+            marker = Some(item);
+        }
+        marker.and_then(Self::block_marker_name)
+    }
+
+    fn tail_block_marker(items: &[PrefixItem]) -> Option<&str> {
+        let mut last_non_type: Option<&PrefixItem> = None;
+        for item in items.iter().rev() {
+            if matches!(item, PrefixItem::TypeAnnotation(_, _)) {
+                continue;
+            }
+            last_non_type = Some(item);
+            break;
+        }
+        if let Some(item) = last_non_type {
+            if let Some("block") = Self::block_marker_name(item) {
+                return Some("block");
+            }
+        }
+        Self::sole_non_type_marker(items)
+    }
+
     fn if_layout_needs_cond(items: &[PrefixItem]) -> bool {
         // Detect `... if:` or `... if cond:` (no real cond-expr yet)
         // Ignore trailing type annotations for detection.
@@ -1641,6 +1830,17 @@ impl Parser {
         }
         match tail.as_slice() {
             [.., PrefixItem::Symbol(Symbol::If(_))] => true,
+            _ => false,
+        }
+    }
+
+    fn while_layout_needs_cond(items: &[PrefixItem]) -> bool {
+        let mut tail: Vec<&PrefixItem> = items.iter().collect();
+        while let Some(PrefixItem::TypeAnnotation(_, _)) = tail.last().copied() {
+            tail.pop();
+        }
+        match tail.as_slice() {
+            [.., PrefixItem::Symbol(Symbol::While(_))] => true,
             _ => false,
         }
     }
@@ -1720,10 +1920,9 @@ impl Parser {
         for (role, stmts) in expanded {
             // Convert statements into a single PrefixExpr (wrapped in Block if multiple)
             let expr = if stmts.len() == 1 {
-                if let Stmt::Expr(e) = stmts.into_iter().next().unwrap() {
-                    e
-                } else {
-                    unreachable!()
+                match stmts.into_iter().next().unwrap() {
+                    Stmt::Expr(e) | Stmt::ExprSemi(e, _) => e,
+                    _ => unreachable!(),
                 }
             } else {
                 let span = if let (Some(f), Some(l)) = (stmts.first(), stmts.last()) {
@@ -1770,6 +1969,153 @@ impl Parser {
         }
 
         Ok(slots.into_iter().map(|s| s.unwrap()).collect())
+    }
+
+    fn extract_while_layout_exprs(
+        &mut self,
+        block: Block,
+        expected: usize,
+        header_span: Span,
+    ) -> Result<Vec<PrefixExpr>, Diagnostic> {
+        let mut branches: Vec<(Option<WhileRole>, Vec<Stmt>)> = Vec::new();
+        let mut current_branch: Vec<Stmt> = Vec::new();
+        let mut current_role: Option<WhileRole> = None;
+
+        for stmt in block.items {
+            let mut is_marker = false;
+            if let Stmt::Expr(e) = &stmt {
+                let mut e_copy = e.clone();
+                let role_opt = Self::take_while_role_from_expr(&mut e_copy);
+                if let Some(role) = role_opt {
+                    if !current_branch.is_empty() || current_role.is_some() {
+                        branches.push((current_role, current_branch));
+                    }
+                    current_role = Some(role);
+                    current_branch = Vec::new();
+                    if !e_copy.items.is_empty() {
+                        current_branch.push(Stmt::Expr(e_copy));
+                        branches.push((current_role, current_branch));
+                        current_role = None;
+                        current_branch = Vec::new();
+                    }
+                    is_marker = true;
+                }
+            }
+            if !is_marker {
+                current_branch.push(stmt);
+            }
+        }
+        if !current_branch.is_empty() || current_role.is_some() {
+            branches.push((current_role, current_branch));
+        }
+
+        let mut expanded: Vec<(Option<WhileRole>, Vec<Stmt>)> = Vec::new();
+        for (role, stmts) in branches {
+            if role.is_some() {
+                expanded.push((role, stmts));
+            } else {
+                for s in stmts {
+                    expanded.push((None, vec![s]));
+                }
+            }
+        }
+
+        let mut slots: Vec<Option<PrefixExpr>> = vec![None; expected];
+
+        let role_to_index = |role: WhileRole| -> Option<usize> {
+            match (expected, role) {
+                (2, WhileRole::Cond) => Some(0),
+                (2, WhileRole::Do) => Some(1),
+                (1, WhileRole::Do) => Some(0),
+                _ => None,
+            }
+        };
+
+        let mut next_unfilled = 0usize;
+        for (role, stmts) in expanded {
+            let expr = if stmts.len() == 1 {
+                match stmts.into_iter().next().unwrap() {
+                    Stmt::Expr(e) | Stmt::ExprSemi(e, _) => e,
+                    _ => unreachable!(),
+                }
+            } else {
+                let span = if let (Some(f), Some(l)) = (stmts.first(), stmts.last()) {
+                    self.stmt_span(f).join(self.stmt_span(l)).unwrap_or_else(|| self.stmt_span(f))
+                } else {
+                    header_span
+                };
+                PrefixExpr {
+                    items: vec![PrefixItem::Block(Block { items: stmts, span }, span)],
+                    trailing_semis: 0,
+                    trailing_semi_span: None,
+                    span,
+                }
+            };
+
+            if let Some(r) = role {
+                let idx = match role_to_index(r) {
+                    Some(i) => i,
+                    None => {
+                        return Err(Diagnostic::error(
+                            "invalid marker in this while-layout form",
+                            expr.span,
+                        ));
+                    }
+                };
+                if slots[idx].is_some() {
+                    return Err(Diagnostic::error("duplicate marker in while-layout block", expr.span));
+                }
+                slots[idx] = Some(expr);
+            } else {
+                while next_unfilled < expected && slots[next_unfilled].is_some() {
+                    next_unfilled += 1;
+                }
+                if next_unfilled >= expected {
+                    return Err(Diagnostic::error(
+                        "too many expressions in while-layout block",
+                        expr.span,
+                    ));
+                }
+                slots[next_unfilled] = Some(expr);
+                next_unfilled += 1;
+            }
+        }
+
+        if slots.iter().any(|s| s.is_none()) {
+            return Err(Diagnostic::error(
+                "missing expression(s) in while-layout block",
+                header_span,
+            ));
+        }
+
+        Ok(slots.into_iter().map(|s| s.unwrap()).collect())
+    }
+
+    fn extract_arg_layout_exprs(
+        &mut self,
+        block: Block,
+        header_span: Span,
+    ) -> Result<Vec<PrefixExpr>, Diagnostic> {
+        let mut exprs: Vec<PrefixExpr> = Vec::new();
+        for stmt in block.items {
+            match stmt {
+                Stmt::Expr(e) | Stmt::ExprSemi(e, _) => exprs.push(e),
+                other => {
+                    let sp = self.stmt_span(&other);
+                    return Err(Diagnostic::error(
+                        "only expressions are allowed in argument layout",
+                        sp,
+                    ));
+                }
+            }
+        }
+        if exprs.is_empty() {
+            return Err(Diagnostic::error(
+                "argument layout block must contain expressions",
+                header_span,
+            ));
+        }
+        Ok(exprs)
     }
 
     fn parse_match_arms(&mut self) -> Option<Vec<MatchArm>> {

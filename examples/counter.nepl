@@ -10,6 +10,7 @@
 fn main <()*> ()> ():
     let mut x <i32> 0;
     while lt x 5:
-        print "count = ";
-        println_i32 x;
-        set x add x 1;
+        do:
+            print "count = ";
+            println_i32 x;
+            set x add x 1;

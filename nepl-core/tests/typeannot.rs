@@ -85,7 +85,7 @@ fn main <()*>i32> ():
     // ブロック式全体への型注釈
     // ブロックの評価結果（最後の式の値）に対して型注釈がかかる
     
-    let v <i32> :
+    let v <i32> block:
         let x 1
         let y 2
         i32_add x y
@@ -188,8 +188,9 @@ fn main <()*>i32> ():
     
     // while の条件式に型注釈
     while <bool> i32_lt_s i 3:
-        set sum i32_add sum i
-        set i i32_add i <i32> 1
+        do:
+            set sum i32_add sum i
+            set i i32_add i <i32> 1
     
     sum
 "#;
@@ -252,7 +253,7 @@ fn main <()*>i32> ():
     // ブロックとインラインの混在
     
     let v <i32> i32_add: // 関数の引数で改行しているのは正しい インデントは各引数の先頭が+1で揃う
-        <i32> : // 型注釈付きの無名ブロックも正しい ブロックなので返り値はx
+        <i32> block: // 型注釈付きの無名ブロックも正しい ブロックなので返り値はx
             let x 10
             x
         <i32> 20

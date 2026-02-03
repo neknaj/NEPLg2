@@ -1,4 +1,10 @@
 # 状況メモ (2026-01-22)
+# 2026-02-03 作業メモ (block ルール更新対応)
+- block: がブロック式、`:` が引数レイアウトという新ルールに合わせ、パーサの `:` 処理を整理。`block` は末尾ならマーカー扱い、`cond/then/else/do` は単独（型注釈のみ許可）でマーカー扱いにし、`if cond:` のような通常識別子を誤判定しないようにした。
+- `if`/`while` のレイアウト展開で `ExprSemi` を許可し、`while` 本体に `;` を書いたテストが panic しないよう修正。
+- stdlib/例: `while ...:` の複数文ボディを `do:` ブロック化（stdlib/alloc/*, core/mem, std/stdio, std/env/cliarg, kp/kpread, examples/counter/fib/rpn など）。`examples/rpn.nepl` の入れ子 while も `do:` に統一。
+- tests: `nepl-core/tests/plan.rs` を `block:` 使用に更新、`nepl-core/tests/typeannot.rs` の while を `do:` に更新。`stdlib/tests/vec.nepl` の match arm から誤った `block` マーカーを除去。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` を実行し、両方成功（警告は既存のまま）。
 # 2026-02-03 作業メモ (依存更新/online cargo test)
 - workspace 依存を最新安定版へ更新（thiserror 2.0.18、anyhow 1.0.100、clap 4.5.56、wasm-bindgen 0.2.108、assert_cmd 2.1.2、tempfile 3.24.0 など）。rand は最新安定の 0.8.5 のまま。
 - wasmi 1.0.8 への更新を試したが、rustc 1.83.0 では 1.86 以上が必要で不可。wasmi は 0.31.2 に戻して Cargo.lock を更新。

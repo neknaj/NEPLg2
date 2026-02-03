@@ -57,14 +57,16 @@ fn concat <(str,str)*>str> (a,b):
     store_i32 out total;
     let mut i <i32> 0;
     while lt i la:
-        let ch <i32> load_u8 add a add 4 i;
-        store_u8 add out add 4 i ch;
-        set i add i 1;
+        do:
+            let ch <i32> load_u8 add a add 4 i;
+            store_u8 add out add 4 i ch;
+            set i add i 1;
     let mut j <i32> 0;
     while lt j lb:
-        let ch <i32> load_u8 add b add 4 j;
-        store_u8 add out add 4 add la j ch;
-        set j add j 1;
+        do:
+            let ch <i32> load_u8 add b add 4 j;
+            store_u8 add out add 4 add la j ch;
+            set j add j 1;
     out
 
 // concat3: 3つの文字列を連結する
@@ -167,20 +169,22 @@ fn from_i32 <(i32)*>str> (x):
                     let mut n <i32> x;
 
                     while lt 0 n:
-                        let rem <i32> mod_s n 10;
-                        store_u8 add scratch idx add 48 rem;
-                        set idx add idx 1;
-                        set n div_s n 10;
+                        do:
+                            let rem <i32> mod_s n 10;
+                            store_u8 add scratch idx add 48 rem;
+                            set idx add idx 1;
+                            set n div_s n 10;
 
                     let out <i32> alloc add 4 idx;
                     store_i32 out idx;
 
                     let mut i <i32> 0;
                     while lt i idx:
-                        let rev <i32> sub idx add i 1;
-                        let b <i32> load_u8 add scratch rev;
-                        store_u8 add out add 4 i b;
-                        set i add i 1;
+                        do:
+                            let rev <i32> sub idx add i 1;
+                            let b <i32> load_u8 add scratch rev;
+                            store_u8 add out add 4 i b;
+                            set i add i 1;
 
                     out
 
@@ -218,25 +222,26 @@ fn to_i32 <(str)*>Result<i32,i32>> (s):
                     set ok 0;
                 else:
                     while lt i n:
-                        let b <i32> load_u8 add s add 4 i;
-                        let digit <i32> sub b 48;
+                        do:
+                            let b <i32> load_u8 add s add 4 i;
+                            let digit <i32> sub b 48;
 
-                        if:
-                            cond:
-                                lt digit 0
-                            then:
-                                set ok 0;
-                                set i n;
-                            else:
-                                if:
-                                    cond:
-                                        le digit 9
-                                    then:
-                                        set res add mul res 10 digit;
-                                        set i add i 1;
-                                    else:
-                                        set ok 0;
-                                        set i n;
+                            if:
+                                cond:
+                                    lt digit 0
+                                then:
+                                    set ok 0;
+                                    set i n;
+                                else:
+                                    if:
+                                        cond:
+                                            le digit 9
+                                        then:
+                                            set res add mul res 10 digit;
+                                            set i add i 1;
+                                        else:
+                                            set ok 0;
+                                            set i n;
 
     if:
         cond:
