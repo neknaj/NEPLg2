@@ -19,6 +19,35 @@ fn main <()*> ()> ():
     let e4 error_new ErrorKind::IoError "io failed";
     let e5 error_new ErrorKind::IndexOutOfBounds "index out of range";
 
+    let sp <Span> Span 4 5 6;
+    let e6 <Error> error_with_span e1 sp;
+    match e6.span:
+        Option::Some s:
+            assert_eq_i32 4 s.file_id;
+            assert_eq_i32 5 s.start;
+            assert_eq_i32 6 s.end;
+        Option::None:
+            trap;
+
+    let ef <Error> fail "boom";
+    match ef.kind:
+        ErrorKind::Failure:
+            ()
+        ErrorKind::OutOfMemory:
+            trap;
+        ErrorKind::IndexOutOfBounds:
+            trap;
+        ErrorKind::KeyNotFound:
+            trap;
+        ErrorKind::InvalidUtf8:
+            trap;
+        ErrorKind::ParseError:
+            trap;
+        ErrorKind::IoError:
+            trap;
+        ErrorKind::Other:
+            trap;
+
     // Just ensure we can create errors without crashing
     assert true;
 

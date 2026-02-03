@@ -1,4 +1,11 @@
 # 状況メモ (2026-01-22)
+# 2026-02-03 作業メモ (テスト失敗のメッセージ表示)
+- stdlib/std/test.nepl を改修し、失敗時にメッセージを表示してから trap するよう変更した。
+- stdlib/std/diag.nepl に diag_print_msg を追加し、Failure メッセージを表示できるようにした。
+- stdlib/std/error.nepl の fail/context を callsite_span 付与に更新した。
+- stdlib/tests/diag.nepl と stdlib/tests/error.nepl を強化し、文字列化や span の検証を追加した。
+- doc/testing.md の assert 仕様を更新した。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` を実行。
 # 2026-02-03 作業メモ (cliarg 追加)
 - stdlib/std/cliarg.nepl を追加し、WASI args_sizes_get/args_get で argv を取得できるようにした。
 - stdlib/tests/cliarg.nepl を追加し、範囲外/負の index が None になることを確認するテストを用意した。

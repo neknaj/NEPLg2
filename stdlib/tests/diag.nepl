@@ -16,4 +16,13 @@ fn main <()*> ()> ():
     assert str_eq "IoError" kind_str ErrorKind::IoError;
     assert str_eq "Other" kind_str ErrorKind::Other;
 
+    let e <Error> error_new ErrorKind::Failure "oops";
+    let s <str> diag_to_string e;
+    assert_str_eq "error[Failure]: oops\n" s;
+
+    let sp <Span> Span 1 2 3;
+    let e2 <Error> error_with_span e sp;
+    let s2 <str> diag_to_string e2;
+    assert_str_eq "error[Failure]: oops\nat 1:2-3\n" s2;
+
     ()

@@ -3,6 +3,10 @@
 #import "std/math" as *
 #import "std/mem" as *
 #import "std/result" as *
+#import "std/string" as *
+#import "std/error" as *
+#if[target=wasi]
+#import "std/diag" as *
 
 // test: 標準ライブラリ用の簡易テスト支援
 //
@@ -10,10 +14,11 @@
 // - assert 系関数と、文字列比較を提供します。
 //
 // 実装(アルゴリズム):
-// - 失敗時は trap で異常終了させます。
+// - 失敗時はメッセージを表示して trap で異常終了させます。
 //
 // 注意(重要):
 // - 失敗は回復不能です。テスト用途に限定してください。
+// - 表示は WASI ターゲットのみ対応です。
 //
 // 計算量:
 // - 文字列比較は O(n)、その他は O(1)
@@ -67,6 +72,108 @@ fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
                 then test_str_eq_loop a b len add i 1
                 else false
 
+// bool_to_str: bool を "true"/"false" に変換する
+//
+// 目的:
+// - 失敗メッセージ用に bool を文字列化します。
+//
+// 実装(アルゴリズム):
+// - if で分岐して固定文字列を返します。
+//
+// 注意(重要):
+// - 文字列は定数です。
+//
+// 計算量:
+// - O(1)
+fn bool_to_str <(bool)->str> (b):
+    if:
+        b
+        then:
+            "true"
+        else:
+            "false"
+
+// i32_to_str: i32 を文字列に変換する（符号対応）
+//
+// 目的:
+// - 失敗メッセージ用に i32 を文字列化します。
+//
+// 実装(アルゴリズム):
+// - 0 は "0" を返します。
+// - 負数は符号を付け、正の値は from_i32 を使います。
+//
+// 注意(重要):
+// - 最小値の符号反転は未定義になり得ます。
+//
+// 計算量:
+// - O(d)
+fn i32_to_str <(i32)*>str> (v):
+    if:
+        eq v 0
+        then:
+            "0"
+        else:
+            if:
+                cond:
+                    lt v 0
+                then:
+                    let a <i32> sub 0 v;
+                    let s <str> from_i32 a;
+                    concat "-" s
+                else:
+                    from_i32 v
+
+// test_print_fail: 失敗メッセージを表示する（WASI）
+//
+// 目的:
+// - msg を Failure として標準出力へ表示します。
+//
+// 実装(アルゴリズム):
+// - diag_print_msg に渡して表示します。
+//
+// 注意(重要):
+// - WASI ターゲットのみ対応です。
+//
+// 計算量:
+// - O(n)
+#if[target=wasi]
+fn test_print_fail <(str)*>()> (msg):
+    diag_print_msg msg
+
+// test_print_fail: 失敗メッセージを無視する（WASM）
+//
+// 目的:
+// - WASM ターゲットでのダミー実装です。
+//
+// 実装(アルゴリズム):
+// - 何もしません。
+//
+// 注意(重要):
+// - 表示は行いません。
+//
+// 計算量:
+// - O(1)
+#if[target=wasm]
+fn test_print_fail <(str)*>()> (msg):
+    ()
+
+// test_fail: 失敗メッセージを出して異常終了する
+//
+// 目的:
+// - msg を表示して trap で終了します。
+//
+// 実装(アルゴリズム):
+// - test_print_fail を呼び、最後に trap を実行します。
+//
+// 注意(重要):
+// - 失敗は回復不能です。
+//
+// 計算量:
+// - O(n)
+fn test_fail <(str)*>()> (msg):
+    test_print_fail msg;
+    trap;
+
 // trap: 異常終了させる
 //
 // 目的:
@@ -107,22 +214,22 @@ fn fail <(str)->()> (msg):
 // assert: 条件が false のとき失敗する
 //
 // 目的:
-// - ok が false なら trap します。
+// - ok が false ならメッセージを表示して trap します。
 //
 // 実装(アルゴリズム):
-// - if で分岐し、false なら trap します。
+// - if で分岐し、false なら test_fail を呼びます。
 //
 // 注意(重要):
 // - ok は bool である必要があります。
 //
 // 計算量:
 // - O(1)
-fn assert <(bool)->()> (ok):
+fn assert <(bool)*>()> (ok):
     if:
         ok
         then ()
         else:
-            trap;
+            test_fail "assert failed";
 
 // assert_eq_i32: i32 の等値を検証する
 //
@@ -130,24 +237,29 @@ fn assert <(bool)->()> (ok):
 // - expected と actual が等しいことを保証します。
 //
 // 実装(アルゴリズム):
-// - eq の結果が false なら trap します。
+// - eq の結果が false なら詳細メッセージを作って test_fail します。
 //
 // 注意(重要):
 // - i32 専用です。
 //
 // 計算量:
 // - O(1)
-fn assert_eq_i32 <(i32,i32)->()> (expected, actual):
+fn assert_eq_i32 <(i32,i32)*>()> (expected, actual):
     if:
         eq expected actual
         then ()
         else:
-            trap;
+            let se <str> i32_to_str expected;
+            let sa <str> i32_to_str actual;
+            let m0 <str> concat "assert_eq_i32 failed: expected=" se;
+            let m1 <str> concat m0 " actual=";
+            let m2 <str> concat m1 sa;
+            test_fail m2;
 
 // assert_ne: bool が等しくないことを検証する
 //
 // 目的:
-// - a と b が同じなら trap します。
+// - a と b が同じなら詳細メッセージを作って test_fail します。
 //
 // 実装(アルゴリズム):
 // - a の値で分岐し、b との一致を確認します。
@@ -157,21 +269,31 @@ fn assert_eq_i32 <(i32,i32)->()> (expected, actual):
 //
 // 計算量:
 // - O(1)
-fn assert_ne <(bool,bool)->()> (a, b):
+fn assert_ne <(bool,bool)*>()> (a, b):
     if:
         a
         then:
             if:
                 b
                 then:
-                    trap;
+                    let sa <str> bool_to_str a;
+                    let sb <str> bool_to_str b;
+                    let m0 <str> concat "assert_ne failed: a=" sa;
+                    let m1 <str> concat m0 " b=";
+                    let m2 <str> concat m1 sb;
+                    test_fail m2;
                 else ()
         else:
             if:
                 b
                 then ()
                 else:
-                    trap;
+                    let sa <str> bool_to_str a;
+                    let sb <str> bool_to_str b;
+                    let m0 <str> concat "assert_ne failed: a=" sa;
+                    let m1 <str> concat m0 " b=";
+                    let m2 <str> concat m1 sb;
+                    test_fail m2;
 
 // assert_str_eq: 文字列が等しいことを検証する
 //
@@ -179,24 +301,28 @@ fn assert_ne <(bool,bool)->()> (a, b):
 // - expected と actual が同じであることを保証します。
 //
 // 実装(アルゴリズム):
-// - test_str_eq で比較し、false なら trap します。
+// - test_str_eq で比較し、false なら詳細メッセージを作って test_fail します。
 //
 // 注意(重要):
 // - UTF-8 のバイト列として比較します。
 //
 // 計算量:
 // - O(n)
-fn assert_str_eq <(str,str)->()> (expected, actual):
+fn assert_str_eq <(str,str)*>()> (expected, actual):
     if:
         test_str_eq expected actual
         then ()
         else:
-            trap;
+            let m0 <str> concat "assert_str_eq failed: expected=\"" expected;
+            let m1 <str> concat m0 "\" actual=\"";
+            let m2 <str> concat m1 actual;
+            let m3 <str> concat m2 "\"";
+            test_fail m3;
 
 // assert_ok_i32: Result が Ok であることを検証する
 //
 // 目的:
-// - Result::Ok を受け付け、Err なら trap します。
+// - Result::Ok を受け付け、Err なら詳細メッセージを作って test_fail します。
 //
 // 実装(アルゴリズム):
 // - match で Ok/Err を分岐します。
@@ -206,17 +332,19 @@ fn assert_str_eq <(str,str)->()> (expected, actual):
 //
 // 計算量:
 // - O(1)
-fn assert_ok_i32 <(Result<i32,i32>)->()> (r):
+fn assert_ok_i32 <(Result<i32,i32>)*>()> (r):
     match r:
         Result::Ok v:
             ()
         Result::Err e:
-            trap;
+            let se <str> i32_to_str e;
+            let m0 <str> concat "assert_ok_i32 failed: Err=" se;
+            test_fail m0;
 
 // assert_err_i32: Result が Err であることを検証する
 //
 // 目的:
-// - Result::Err を受け付け、Ok なら trap します。
+// - Result::Err を受け付け、Ok なら詳細メッセージを作って test_fail します。
 //
 // 実装(アルゴリズム):
 // - match で Ok/Err を分岐します。
@@ -226,9 +354,11 @@ fn assert_ok_i32 <(Result<i32,i32>)->()> (r):
 //
 // 計算量:
 // - O(1)
-fn assert_err_i32 <(Result<i32,i32>)->()> (r):
+fn assert_err_i32 <(Result<i32,i32>)*>()> (r):
     match r:
         Result::Ok v:
-            trap;
+            let sv <str> i32_to_str v;
+            let m0 <str> concat "assert_err_i32 failed: Ok=" sv;
+            test_fail m0;
         Result::Err e:
             ()

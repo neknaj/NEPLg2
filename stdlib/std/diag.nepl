@@ -124,6 +124,24 @@ fn diag_print <(Error)*>()> (e):
     let s <str> diag_to_string e;
     print s
 
+// diag_print_msg: メッセージを Failure として表示する
+//
+// 目的:
+// - msg を Failure エラーとして表示します。
+//
+// 実装(アルゴリズム):
+// - error_new で Error を作り、diag_print に渡します。
+//
+// 注意(重要):
+// - WASI ターゲットのみ利用可能です。
+//
+// 計算量:
+// - O(n)
+#if[target=wasi]
+fn diag_print_msg <(str)*>()> (msg):
+    let e <Error> error_new ErrorKind::Failure msg;
+    diag_print e
+
 // diag_println: Error を標準出力へ表示する（改行付き）
 //
 // 目的:

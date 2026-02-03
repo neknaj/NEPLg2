@@ -148,7 +148,7 @@ fn error_with_source <(Error,Error)->Error> (outer, inner):
 // - Failure 種別の Error を作って返します。
 //
 // 実装(アルゴリズム):
-// - error_new で作り、span を付与します（暫定で 0,0,0）。
+// - error_new で作り、callsite_span の結果を付与します。
 //
 // 注意(重要):
 // - 本来は callsite_span を使う想定です。
@@ -157,7 +157,7 @@ fn error_with_source <(Error,Error)->Error> (outer, inner):
 // - O(1)
 fn fail <(str)->Error> (msg):
     let e <Error> error_new ErrorKind::Failure msg;
-    let s <Span> Span 0 0 0; // callsite_span();
+    let s <Span> callsite_span;
     error_with_span e s
 
 // context: エラーに文脈を付与する
@@ -166,7 +166,7 @@ fn fail <(str)->Error> (msg):
 // - cause に対して追加メッセージを持つ Error を返します。
 //
 // 実装(アルゴリズム):
-// - 新しい Error を作り、source は捨てます。
+// - 新しい Error を作り、callsite_span を付与します。
 //
 // 注意(重要):
 // - 原因の保持は未実装です。
@@ -175,7 +175,7 @@ fn fail <(str)->Error> (msg):
 // - O(1)
 fn context <(Error,str)->Error> (cause, msg):
     let e <Error> error_new ErrorKind::Other msg;
-    let s <Span> Span 0 0 0; // callsite_span();
+    let s <Span> callsite_span;
     let outer <Error> error_with_span e s;
     error_with_source outer cause
 

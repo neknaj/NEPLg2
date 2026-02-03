@@ -37,16 +37,15 @@ Notes:
 The stdlib provides a small `std/test` module for assertions.
 
 Exports:
-- `assert <(bool)->()>`
-- `assert_eq_i32 <(i32,i32)->()>`
-- `assert_str_eq <(str,str)->()>`
-- `assert_ok_i32 <(ResultI32)->()>`
-- `assert_err_i32 <(ResultI32)->()>`
+- `assert <(bool)*()>`
+- `assert_eq_i32 <(i32,i32)*()>`
+- `assert_str_eq <(str,str)*()>`
+- `assert_ok_i32 <(ResultI32)*()>`
+- `assert_err_i32 <(ResultI32)*()>`
 
 Failure behavior:
-- All assertion failures call `trap`, which executes a WASM sequence that
-  traps reliably (division by zero in `#wasm`).
-- This makes the program exit with a non-zero status under WASI.
+- On WASI targets, assertion failures print a message and then call `trap`.
+- On wasm targets, failures call `trap` without printing.
 
 Important syntax rule:
 - NEPL does not support parenthesized expressions for grouping; use prefix calls directly.
