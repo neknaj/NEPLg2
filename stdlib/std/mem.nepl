@@ -1,28 +1,89 @@
 #indent 4
 
-// Memory primitives. The allocator is implemented inside the wasm module
-// so the output can run on any runtime without host-provided imports.
+// mem: メモリ管理と低レベルロード/ストア
+//
+// 目的:
+// - WASM 線形メモリ上でのアロケータと基本的な load/store を提供します。
+//
+// 実装(アルゴリズム):
+// - free list と bump を併用し、8 バイト境界に整列します。
+// - 0..4 に heap_ptr、4..8 に free_list_head を置きます。
+//
+// 注意(重要):
+// - 領域の再利用は簡易的で、細かな最適化は行いません。
+// - 無効なポインタを渡すと未定義動作になります。
+//
+// 計算量:
+// - alloc/free は平均 O(1) ですが、free list の探索で O(n) になり得ます。
 
 #import "std/math" as *
 
-// Linear memory layout:
-// - [0..4): heap_ptr (u32)
-// - [4..8): free_list_head (u32)
-// Blocks are [size:u32][next:u32] followed by payload.
-
+// mem_size: 現在のメモリページ数を返す
+//
+// 目的:
+// - wasm の memory.size を返します。
+//
+// 実装(アルゴリズム):
+// - wasm 命令を直接実行します。
+//
+// 注意(重要):
+// - 1 ページ = 64KiB です。
+//
+// 計算量:
+// - O(1)
 fn mem_size <()->i32> ():
     #wasm:
         memory.size
 
+// mem_grow: メモリを拡張する
+//
+// 目的:
+// - pages だけメモリを拡張し、以前のページ数を返します。
+//
+// 実装(アルゴリズム):
+// - wasm の memory.grow を呼びます。
+//
+// 注意(重要):
+// - 失敗時は -1 を返します。
+//
+// 計算量:
+// - O(1)
 fn mem_grow <(i32)*>i32> (pages):
     #wasm:
         local.get $pages
         memory.grow
 
+// align8: 8 バイト境界に切り上げる
+//
+// 目的:
+// - n を 8 の倍数に切り上げます。
+//
+// 実装(アルゴリズム):
+// - (n+7)/8*8 を計算します。
+//
+// 注意(重要):
+// - 8 バイト整列はアロケータの前提です。
+//
+// 計算量:
+// - O(1)
 fn align8 <(i32)->i32> (n):
     let t <i32> add n 7
     mul div_s t 8 8
 
+// alloc: ヒープから領域を確保する
+//
+// 目的:
+// - size バイトの領域を返します（失敗時は 0）。
+//
+// 実装(アルゴリズム):
+// - free list を探索し、合うブロックが無ければ bump で拡張します。
+//
+// 注意(重要):
+// - size<=0 の場合は 0 を返します。
+// - 返り値 0 は失敗を意味します。
+//
+// 計算量:
+// - 平均 O(1) / 最悪 O(n)
 fn alloc <(i32)*>i32> (size):
     if:
         cond:
@@ -103,6 +164,20 @@ fn alloc <(i32)*>i32> (size):
                         else:
                             0
 
+// dealloc: 領域を解放する
+//
+// 目的:
+// - ptr を free list に戻します。
+//
+// 実装(アルゴリズム):
+// - ブロック先頭に size を書き、free list 先頭へ挿入します。
+//
+// 注意(重要):
+// - ptr<=0 は無視します。
+// - size は alloc 時のサイズと一致させてください。
+//
+// 計算量:
+// - O(1)
 fn dealloc <(i32,i32)*>()> (ptr, size):
     if:
         cond:
@@ -118,6 +193,20 @@ fn dealloc <(i32,i32)*>()> (ptr, size):
             store_i32 add blk 4 head
             store_i32 4 blk
 
+// realloc: 既存領域を再確保する
+//
+// 目的:
+// - サイズ変更した領域を返します。
+//
+// 実装(アルゴリズム):
+// - 新領域を確保し、必要バイトをコピーして旧領域を解放します。
+//
+// 注意(重要):
+// - ptr<=0 は新規 alloc と同等です。
+// - new_size<=0 は解放して 0 を返します。
+//
+// 計算量:
+// - O(n)
 fn realloc <(i32,i32,i32)*>i32> (ptr, old_size, new_size):
     if:
         cond:
@@ -148,39 +237,140 @@ fn realloc <(i32,i32,i32)*>i32> (ptr, old_size, new_size):
                             dealloc ptr old_size
                             new_ptr
 
-// Low-level load/store use wasm ops implemented inline.
+// load_i32: i32 を読み出す
+//
+// 目的:
+// - ptr から i32 をロードします。
+//
+// 実装(アルゴリズム):
+// - wasm の i32.load を実行します。
+//
+// 注意(重要):
+// - アラインメントは呼び出し側の責任です。
+//
+// 計算量:
+// - O(1)
 fn load_i32 <(i32)->i32> (p):
     #wasm:
         local.get $p
         i32.load
 
+// store_i32: i32 を書き込む
+//
+// 目的:
+// - ptr に i32 をストアします。
+//
+// 実装(アルゴリズム):
+// - wasm の i32.store を実行します。
+//
+// 注意(重要):
+// - アラインメントは呼び出し側の責任です。
+//
+// 計算量:
+// - O(1)
 fn store_i32 <(i32,i32)*>()> (p, v):
     #wasm:
         local.get $p
         local.get $v
         i32.store
 
-// byte load/store for strings
+// load_u8: 1 バイトを読み出す
+//
+// 目的:
+// - ptr から unsigned byte を読みます。
+//
+// 実装(アルゴリズム):
+// - wasm の i32.load8_u を実行します。
+//
+// 注意(重要):
+// - 返り値は i32 に拡張されます。
+//
+// 計算量:
+// - O(1)
 fn load_u8 <(i32)->i32> (p):
     #wasm:
         local.get $p
         i32.load8_u
 
+// store_u8: 1 バイトを書き込む
+//
+// 目的:
+// - ptr に 1 バイトを書き込みます。
+//
+// 実装(アルゴリズム):
+// - wasm の i32.store8 を実行します。
+//
+// 注意(重要):
+// - v の下位 8 ビットのみが使われます。
+//
+// 計算量:
+// - O(1)
 fn store_u8 <(i32,i32)*>()> (p, v):
     #wasm:
         local.get $p
         local.get $v
         i32.store8
 
-// Generic intrinsics
+// size_of: 型のサイズを取得する
+//
+// 目的:
+// - .T のサイズ（バイト）を返します。
+//
+// 実装(アルゴリズム):
+// - intrinsic "size_of" を呼びます。
+//
+// 注意(重要):
+// - サイズはコンパイル時に決まります。
+//
+// 計算量:
+// - O(1)
 fn size_of <.T> <()->i32> ():
     #intrinsic "size_of" <.T> ()
 
+// align_of: 型のアラインメントを取得する
+//
+// 目的:
+// - .T のアラインメント（バイト）を返します。
+//
+// 実装(アルゴリズム):
+// - intrinsic "align_of" を呼びます。
+//
+// 注意(重要):
+// - アラインメントはコンパイル時に決まります。
+//
+// 計算量:
+// - O(1)
 fn align_of <.T> <()->i32> ():
     #intrinsic "align_of" <.T> ()
 
+// load: 任意型をロードする
+//
+// 目的:
+// - ptr から .T を読み出します。
+//
+// 実装(アルゴリズム):
+// - intrinsic "load" を呼びます。
+//
+// 注意(重要):
+// - 型とメモリ内容の整合性は呼び出し側の責任です。
+//
+// 計算量:
+// - O(1)
 fn load <.T> <(i32)->.T> (ptr):
     #intrinsic "load" <.T> (ptr)
 
+// store: 任意型をストアする
+//
+// 目的:
+// - ptr に .T を書き込みます。
+//
+// 実装(アルゴリズム):
+// - intrinsic "store" を呼びます。
+//
+// 注意(重要):
+// - 型とメモリ内容の整合性は呼び出し側の責任です。
+//
+// 計算量:
+// - O(1)
 fn store <.T> <(i32,.T)*>()> (ptr, val):
     #intrinsic "store" <.T> (ptr, val)

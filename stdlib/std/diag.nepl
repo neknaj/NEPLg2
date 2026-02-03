@@ -4,6 +4,33 @@
 #import "std/option" as *
 #import "std/string" as *
 
+// diag: Error の文字列化と表示
+//
+// 目的:
+// - Error/Span を文字列化し、必要なら標準出力へ表示します。
+//
+// 実装(アルゴリズム):
+// - kind_str/span_to_string/diag_to_string で組み立てます。
+//
+// 注意(重要):
+// - WASI ターゲットのみ表示関数を提供します。
+//
+// 計算量:
+// - 文字列連結は O(n)
+
+// kind_str: ErrorKind を文字列化する
+//
+// 目的:
+// - ErrorKind を英語の識別文字列に変換します。
+//
+// 実装(アルゴリズム):
+// - match で各種別に対応する文字列を返します。
+//
+// 注意(重要):
+// - ErrorKind 追加時はここも更新してください。
+//
+// 計算量:
+// - O(1)
 fn kind_str <(ErrorKind)->str> (k):
     match k:
         ErrorKind::Failure:
@@ -23,6 +50,19 @@ fn kind_str <(ErrorKind)->str> (k):
         ErrorKind::Other:
             "Other"
 
+// span_to_string: Span を "file:start-end" に整形する
+//
+// 目的:
+// - Span を読みやすい文字列に変換します。
+//
+// 実装(アルゴリズム):
+// - from_i32 と concat を使って連結します。
+//
+// 注意(重要):
+// - file_id の意味づけは呼び出し側に依存します。
+//
+// 計算量:
+// - O(n)
 fn span_to_string <(Span)*>str> (sp):
     let fid <str> from_i32 sp.file_id;
     let s <str> from_i32 sp.start;
@@ -32,6 +72,19 @@ fn span_to_string <(Span)*>str> (sp):
     let t2 <str> concat t1 "-";
     concat t2 e
 
+// diag_to_string: Error を整形した文字列にする
+//
+// 目的:
+// - kind/msg/span を含む文字列を生成します。
+//
+// 実装(アルゴリズム):
+// - ヘッダ行 + 位置行（あれば）を連結します。
+//
+// 注意(重要):
+// - source チェーンは未実装です。
+//
+// 計算量:
+// - O(n)
 fn diag_to_string <(Error)*>str> (e):
     let k <str> kind_str e.kind;
     let h0 <str> concat "error[" k;
@@ -48,33 +101,78 @@ fn diag_to_string <(Error)*>str> (e):
         Option::None:
             ()
 
-    // match e.source:
-    //    Option::Some src:
-    //        let src_str <str> diag_to_string src;
-    //        let p0 <str> concat "caused by: " src_str;
-    //        set out concat out p0;
-    //    Option::None:
-    //        ()
     out
 
 #if[target=wasi]
 #import "std/stdio" as *
 
+// diag_print: Error を標準出力へ表示する
+//
+// 目的:
+// - diag_to_string の結果を print します。
+//
+// 実装(アルゴリズム):
+// - 文字列化して print します。
+//
+// 注意(重要):
+// - WASI ターゲットのみ利用可能です。
+//
+// 計算量:
+// - O(n)
 #if[target=wasi]
 fn diag_print <(Error)*>()> (e):
     let s <str> diag_to_string e;
     print s
 
+// diag_println: Error を標準出力へ表示する（改行付き）
+//
+// 目的:
+// - diag_to_string の結果を println します。
+//
+// 実装(アルゴリズム):
+// - 文字列化して println します。
+//
+// 注意(重要):
+// - WASI ターゲットのみ利用可能です。
+//
+// 計算量:
+// - O(n)
 #if[target=wasi]
 fn diag_println <(Error)*>()> (e):
     let s <str> diag_to_string e;
     println s
 
+// diag_debug_print: デバッグ出力
+//
+// 目的:
+// - debug 出力へ Error を表示します。
+//
+// 実装(アルゴリズム):
+// - 文字列化して debug を呼びます。
+//
+// 注意(重要):
+// - プロファイル設定により出力されない場合があります。
+//
+// 計算量:
+// - O(n)
 #if[target=wasi]
 fn diag_debug_print <(Error)*>()> (e):
     let s <str> diag_to_string e;
     debug s
 
+// diag_debug_println: デバッグ出力（改行付き）
+//
+// 目的:
+// - debugln 出力へ Error を表示します。
+//
+// 実装(アルゴリズム):
+// - 文字列化して debugln を呼びます。
+//
+// 注意(重要):
+// - プロファイル設定により出力されない場合があります。
+//
+// 計算量:
+// - O(n)
 #if[target=wasi]
 fn diag_debug_println <(Error)*>()> (e):
     let s <str> diag_to_string e;

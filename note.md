@@ -1,4 +1,13 @@
 # 状況メモ (2026-01-22)
+# 2026-02-03 作業メモ (stdlib コメント言語統一)
+- stdlib/std/option.nepl と stdlib/std/result.nepl の英語コメント行を削除し、コメントが日本語のみになるよう統一。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` を実行。
+# 2026-02-03 作業メモ (stdlib コメント/Option/Result 改修)
+- stdlib/std の各ファイルに日本語コメント（ファイル概要/各関数の目的・実装・注意・計算量）を追加し、math.nepl は自動生成で関数コメントを挿入。
+- list_tail を Option<i32> 返却に変更し、list_get の走査を unit になるよう調整（デバッグ出力も削除）。
+- stdlib/tests/list.nepl を list_tail の Option 仕様に合わせて更新。
+- テスト: `cargo test` と `cargo run -p nepl-cli -- test` が成功。
+
 # 2026-02-03 作業メモ (import/resolve テスト拡充)
 - nepl-core/tests/resolve.rs に default alias（相対/パッケージ）、selective 欠落名の扱い、merge open、visible map 優先順位（local/ selective/ open）を追加。
 - nepl-core/src/module_graph.rs の unit テストに missing dependency/invalid import/duplicate export/non-pub import/ selective+glob re-export を追加。

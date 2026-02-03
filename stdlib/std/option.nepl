@@ -2,17 +2,82 @@
 
 #import "std/mem" as *
 
-// Generic Option type
+// option: 値の有無を表す型と基本操作
+//
+// 目的:
+// - 存在する値(Some)と不在(None)を安全に扱うための抽象を提供します。
+//
+// 実装(アルゴリズム):
+// - enum Option を定義し、match による分岐で操作します。
+//
+// 注意(重要):
+// - unwrap 系は None で到達不能になります（安全ではありません）。
+//
+// 計算量:
+// - すべて O(1)
+
+// Option: 値がある(Some)か無い(None)かを表す
+//
+// 目的:
+// - 失敗・欠損を明示するための共通型です。
+//
+// 実装(アルゴリズム):
+// - enum の 2 変種で表現します。
+//
+// 注意(重要):
+// - Some は payload を保持します。
+//
+// 計算量:
+// - O(1)
 enum Option<.T>:
     None
     Some <.T>
 
+// none: None を作る
+//
+// 目的:
+// - 値が無いことを表す Option を返します。
+//
+// 実装(アルゴリズム):
+// - Option::None を返すだけです。
+//
+// 注意(重要):
+// - 型引数 .T は文脈で決まります。
+//
+// 計算量:
+// - O(1)
 fn none <.T> <()->Option<.T>> ():
     Option<.T>::None
 
+// some: 値を包んで返す
+//
+// 目的:
+// - v を Some に包んで返します。
+//
+// 実装(アルゴリズム):
+// - Option::Some を構築します。
+//
+// 注意(重要):
+// - v の型が .T になります。
+//
+// 計算量:
+// - O(1)
 fn some <.T> <(.T)->Option<.T>> (v):
     Option<.T>::Some v
 
+// is_some: 値があるか判定する
+//
+// 目的:
+// - Some なら true、None なら false を返します。
+//
+// 実装(アルゴリズム):
+// - match で Some/None を分岐します。
+//
+// 注意(重要):
+// - 値そのものは取り出しません。
+//
+// 計算量:
+// - O(1)
 fn is_some <.T> <(Option<.T>)->bool> (o):
     match o:
         Option::Some v:
@@ -20,6 +85,19 @@ fn is_some <.T> <(Option<.T>)->bool> (o):
         Option::None:
             false
 
+// is_none: 値が無いか判定する
+//
+// 目的:
+// - None なら true、Some なら false を返します。
+//
+// 実装(アルゴリズム):
+// - match で Some/None を分岐します。
+//
+// 注意(重要):
+// - is_some の否定です。
+//
+// 計算量:
+// - O(1)
 fn is_none <.T> <(Option<.T>)->bool> (o):
     match o:
         Option::Some v:
@@ -27,14 +105,39 @@ fn is_none <.T> <(Option<.T>)->bool> (o):
         Option::None:
             true
 
+// unwrap: Some の中身を取り出す（None は到達不能）
+//
+// 目的:
+// - Some(v) なら v を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐し、None は unreachable を呼びます。
+//
+// 注意(重要):
+// - None の可能性がある場合は is_some や option_unwrap_or を使ってください。
+//
+// 計算量:
+// - O(1)
 fn unwrap <.T> <(Option<.T>)->.T> (o):
     match o:
         Option::Some v:
             v
         Option::None:
-            // TODO: panic intrinsic
             #intrinsic "unreachable" <> ()
 
+// option_unwrap_or: デフォルト値を返す
+//
+// 目的:
+// - Some(v) なら v、None なら default を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐します。
+//
+// 注意(重要):
+// - default は eager に評価されます。
+//
+// 計算量:
+// - O(1)
 fn option_unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
     match o:
         Option::Some v:
@@ -42,6 +145,19 @@ fn option_unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
         Option::None:
             default
 
+// option_map: 値がある時だけ関数を適用する
+//
+// 目的:
+// - Some(v) なら f(v) を Some として返し、None はそのまま返します。
+//
+// 実装(アルゴリズム):
+// - match で Some/None を分岐し、Some のときのみ f を適用します。
+//
+// 注意(重要):
+// - f は純粋関数を想定します。
+//
+// 計算量:
+// - O(1)
 fn option_map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
     match o:
         Option::Some v:

@@ -58,10 +58,13 @@ fn main <()*> ()> ():
             trap;
 
     println "Checked head"
-    let l3_tail <i32> list_tail<i32> l3;
-    match list_head<i32> l3_tail:
-        Option::Some x:
-            assert_eq_i32 20 x
+    match list_tail<i32> l3:
+        Option::Some l3_tail:
+            match list_head<i32> l3_tail:
+                Option::Some x:
+                    assert_eq_i32 20 x
+                Option::None:
+                    trap;
         Option::None:
             trap;
 
@@ -83,4 +86,3 @@ fn main <()*> ()> ():
     println "Checked reverse"
     list_free<i32> l3;
     ()
-

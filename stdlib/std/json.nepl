@@ -4,20 +4,73 @@
 #import "std/option" as *
 #import "std/vec" as *
 
+// json: JSON 値の表現（簡易）
+//
+// 目的:
+// - JSON 値の基本的な型とアクセサを提供します。
+//
+// 実装(アルゴリズム):
+// - enum JsonValue で型を区別し、match で判定します。
+//
+// 注意(重要):
+// - Number は i32 として保持します（実数や大きな整数は未対応）。
+// - Array/Object の実装はポインタを保持するだけです。
+//
+// 計算量:
+// - すべて O(1)
+
+// JsonValue: JSON の値表現
+//
+// 目的:
+// - null/bool/number/string/array/object を表現します。
+//
+// 実装(アルゴリズム):
+// - enum で表現します。
+//
+// 注意(重要):
+// - String/Array/Object はポインタを保持します。
+//
+// 計算量:
+// - O(1)
 // JSON value type
 // Tag: 0=null, 1=bool, 2=number, 3=string, 4=array, 5=object
-
 enum JsonValue:
     Null
     Bool <i32>
-    Number <i32>  // fixed-point or i32 for simplicity
-    String <i32>  // pointer to string
-    Array <i32>   // pointer to Vec<JsonValue>
-    Object <i32>  // pointer to key-value list
+    Number <i32>
+    String <i32>
+    Array <i32>
+    Object <i32>
 
+// json_null: null 値を作る
+//
+// 目的:
+// - JsonValue::Null を返します。
+//
+// 実装(アルゴリズム):
+// - 定数コンストラクタを返します。
+//
+// 注意(重要):
+// - 追加の情報は持ちません。
+//
+// 計算量:
+// - O(1)
 fn json_null <()->JsonValue> ():
     JsonValue::Null
 
+// json_bool: bool 値を作る
+//
+// 目的:
+// - bool を JSON の Bool へ変換します。
+//
+// 実装(アルゴリズム):
+// - true/false を 1/0 にして格納します。
+//
+// 注意(重要):
+// - Bool の payload は i32 です。
+//
+// 計算量:
+// - O(1)
 fn json_bool <(bool)->JsonValue> (v):
     if:
         v
@@ -26,18 +79,83 @@ fn json_bool <(bool)->JsonValue> (v):
         else:
             JsonValue::Bool 0
 
+// json_number: 数値を作る
+//
+// 目的:
+// - i32 を JSON の Number として返します。
+//
+// 実装(アルゴリズム):
+// - Number に包むだけです。
+//
+// 注意(重要):
+// - 実数は未対応です。
+//
+// 計算量:
+// - O(1)
 fn json_number <(i32)->JsonValue> (n):
     JsonValue::Number n
 
+// json_string: 文字列を作る
+//
+// 目的:
+// - 文字列ポインタを JSON の String として返します。
+//
+// 実装(アルゴリズム):
+// - String に包むだけです。
+//
+// 注意(重要):
+// - s は [len][bytes] 形式のポインタです。
+//
+// 計算量:
+// - O(1)
 fn json_string <(i32)->JsonValue> (s):
     JsonValue::String s
 
+// json_array: 配列を作る
+//
+// 目的:
+// - 配列（Vec<JsonValue>）のポインタを包みます。
+//
+// 実装(アルゴリズム):
+// - Array に包むだけです。
+//
+// 注意(重要):
+// - 実体は Vec のポインタです。
+//
+// 計算量:
+// - O(1)
 fn json_array <(i32)->JsonValue> (arr):
     JsonValue::Array arr
 
+// json_object: オブジェクトを作る
+//
+// 目的:
+// - キー値リスト等のポインタを包みます。
+//
+// 実装(アルゴリズム):
+// - Object に包むだけです。
+//
+// 注意(重要):
+// - 実体は未定義です（簡易実装）。
+//
+// 計算量:
+// - O(1)
 fn json_object <(i32)->JsonValue> (obj):
     JsonValue::Object obj
 
+// json_is_null: null 判定
+//
+// 目的:
+// - v が Null なら true を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐します。
+//
+// 注意(重要):
+// - 他の値は false です。
+//
+// 計算量:
+// - O(1)
 fn json_is_null <(JsonValue)->bool> (v):
     match v:
         Null:
@@ -53,6 +171,19 @@ fn json_is_null <(JsonValue)->bool> (v):
         Object o:
             false
 
+// json_as_bool: Bool を取り出す
+//
+// 目的:
+// - Bool のときのみ Some を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐し、Bool の payload を bool に変換します。
+//
+// 注意(重要):
+// - それ以外は None です。
+//
+// 計算量:
+// - O(1)
 fn json_as_bool <(JsonValue)->Option<bool>> (v):
     match v:
         Bool b:
@@ -73,6 +204,19 @@ fn json_as_bool <(JsonValue)->Option<bool>> (v):
         Object o:
             none<bool>
 
+// json_as_number: Number を取り出す
+//
+// 目的:
+// - Number のときのみ Some を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐し、Number の payload を返します。
+//
+// 注意(重要):
+// - それ以外は None です。
+//
+// 計算量:
+// - O(1)
 fn json_as_number <(JsonValue)->Option<i32>> (v):
     match v:
         Number n:
@@ -88,6 +232,19 @@ fn json_as_number <(JsonValue)->Option<i32>> (v):
         Object o:
             none<i32>
 
+// json_as_string: String を取り出す
+//
+// 目的:
+// - String のときのみ Some を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐し、String の payload を返します。
+//
+// 注意(重要):
+// - 返り値は文字列ポインタです。
+//
+// 計算量:
+// - O(1)
 fn json_as_string <(JsonValue)->Option<i32>> (v):
     match v:
         String s:

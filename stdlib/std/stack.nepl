@@ -3,9 +3,34 @@
 #import "std/mem" as *
 #import "std/option" as *
 
-// Generic Stack<.T> - LIFO structure backed by Vec
-// Layout: [len:i32][cap:i32][data_ptr:i32]
+// stack: LIFO スタック（可変長配列ベース）
+//
+// 目的:
+// - push/pop/peek などの基本操作を提供します。
+//
+// 実装(アルゴリズム):
+// - [len][cap][data_ptr] を持つヘッダとデータ領域を確保します。
+//
+// 注意(重要):
+// - pop/peek は Option を返します。
+// - スタック本体は i32 ポインタで扱います。
+//
+// 計算量:
+// - push/pop/peek: ならし O(1)
 
+// stack_new: 空のスタックを作る
+//
+// 目的:
+// - 既定容量で空のスタックを返します。
+//
+// 実装(アルゴリズム):
+// - ヘッダ 12 バイトとデータ領域を確保します。
+//
+// 注意(重要):
+// - 返り値はヘッダのポインタです。
+//
+// 計算量:
+// - O(1)
 fn stack_new <.T> <()*>i32> ():
     let cap <i32> 8
     let header <i32> alloc 12
@@ -15,6 +40,19 @@ fn stack_new <.T> <()*>i32> ():
     store_i32 add header 8 data
     header
 
+// stack_push: 末尾に要素を積む
+//
+// 目的:
+// - item を末尾に追加します。
+//
+// 実装(アルゴリズム):
+// - 容量不足なら 2 倍に拡張して realloc します。
+//
+// 注意(重要):
+// - スタックは破壊的に更新されます。
+//
+// 計算量:
+// - ならし O(1)
 fn stack_push <.T> <(i32,.T)*>()> (stk, item):
     let len <i32> load_i32 stk
     let cap <i32> load_i32 add stk 4
@@ -22,7 +60,6 @@ fn stack_push <.T> <(i32,.T)*>()> (stk, item):
     if:
         eq len cap
         then:
-            // grow
             let new_cap <i32> mul cap 2
             let new_data <i32> realloc data mul cap size_of<.T> mul new_cap size_of<.T>
             store_i32 add stk 4 new_cap
@@ -35,6 +72,19 @@ fn stack_push <.T> <(i32,.T)*>()> (stk, item):
             store<.T> add data offset item
             store_i32 stk add len 1
 
+// stack_pop: 末尾要素を取り出す
+//
+// 目的:
+// - 末尾要素を返し、長さを 1 減らします。
+//
+// 実装(アルゴリズム):
+// - len==0 なら None、そうでなければ最後の要素を load します。
+//
+// 注意(重要):
+// - 取り出した値は Option で返します。
+//
+// 計算量:
+// - O(1)
 fn stack_pop <.T> <(i32)*>Option<.T>> (stk):
     let len <i32> load_i32 stk
     if:
@@ -49,6 +99,19 @@ fn stack_pop <.T> <(i32)*>Option<.T>> (stk):
             store_i32 stk new_len
             some<.T> item
 
+// stack_peek: 末尾要素を覗く
+//
+// 目的:
+// - 末尾要素を取り出さずに返します。
+//
+// 実装(アルゴリズム):
+// - len==0 なら None、そうでなければ最後の要素を load します。
+//
+// 注意(重要):
+// - スタックは変更されません。
+//
+// 計算量:
+// - O(1)
 fn stack_peek <.T> <(i32)->Option<.T>> (stk):
     let len <i32> load_i32 stk
     if:
@@ -60,15 +123,67 @@ fn stack_peek <.T> <(i32)->Option<.T>> (stk):
             let offset <i32> mul sub len 1 size_of<.T>
             some<.T> load<.T> add data offset
 
+// stack_len: 長さを返す
+//
+// 目的:
+// - len を返します。
+//
+// 実装(アルゴリズム):
+// - ヘッダ先頭の i32 を読むだけです。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
 fn stack_len <.T> <(i32)->i32> (stk):
     load_i32 stk
 
+// stack_is_empty: 空か判定する
+//
+// 目的:
+// - len==0 なら true を返します。
+//
+// 実装(アルゴリズム):
+// - len を読んで 0 と比較します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
 fn stack_is_empty <.T> <(i32)->bool> (stk):
     eq load_i32 stk 0
 
+// stack_clear: すべての要素を削除する
+//
+// 目的:
+// - len を 0 にして空にします。
+//
+// 実装(アルゴリズム):
+// - ヘッダ先頭を書き換えます。
+//
+// 注意(重要):
+// - メモリは解放されません。
+//
+// 計算量:
+// - O(1)
 fn stack_clear <.T> <(i32)*>()> (stk):
     store_i32 stk 0
 
+// stack_free: メモリを解放する
+//
+// 目的:
+// - データ領域とヘッダを解放します。
+//
+// 実装(アルゴリズム):
+// - cap に基づき data を解放し、ヘッダも dealloc します。
+//
+// 注意(重要):
+// - この後に stk を使うと未定義です。
+//
+// 計算量:
+// - O(1)
 fn stack_free <.T> <(i32)*>()> (stk):
     let cap <i32> load_i32 add stk 4
     let data <i32> load_i32 add stk 8

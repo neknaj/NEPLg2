@@ -4,32 +4,136 @@
 #import "std/math" as *
 #import "std/option" as *
 
-// Generic Vec<.T> - dynamically resizing array
-// Layout: [len:i32][cap:i32][data_ptr:i32]
+// vec: 可変長配列（連続メモリ）
+//
+// 目的:
+// - Vec<.T> を提供し、push/get/pop などの基本操作を行います。
+//
+// 実装(アルゴリズム):
+// - [len][cap][data_ptr] を持つ構造体で表し、必要に応じて realloc します。
+//
+// 注意(重要):
+// - get/pop は Option を返します。
+// - set は範囲外を無視します。
+//
+// 計算量:
+// - get/set: O(1)
+// - push: ならし O(1)
 
+// Vec: 可変長配列のメタ情報
+//
+// 目的:
+// - 長さ・容量・データポインタを保持します。
+//
+// 実装(アルゴリズム):
+// - struct の 3 フィールドで表現します。
+//
+// 注意(重要):
+// - data はヒープ上の連続領域です。
+//
+// 計算量:
+// - O(1)
 struct Vec<.T>:
     len <i32>
     cap <i32>
     data <i32>
 
+// vec_new: 空の Vec を作る
+//
+// 目的:
+// - 既定容量で空の Vec を返します。
+//
+// 実装(アルゴリズム):
+// - cap=8 を確保し、len=0 で初期化します。
+//
+// 注意(重要):
+// - 容量は固定値（8）です。
+//
+// 計算量:
+// - O(1)
 fn vec_new <.T> <()*>Vec<.T>> ():
     let cap <i32> 8
     let data <i32> alloc mul cap size_of<.T>
     Vec<.T> 0 cap data
 
+// vec_with_capacity: 指定容量で Vec を作る
+//
+// 目的:
+// - cap を初期容量として Vec を返します。
+//
+// 実装(アルゴリズム):
+// - cap 分のメモリを確保して len=0 で返します。
+//
+// 注意(重要):
+// - cap が 0 でも動作します。
+//
+// 計算量:
+// - O(1)
 fn vec_with_capacity <.T> <(i32)*>Vec<.T>> (cap):
     let data <i32> alloc mul cap size_of<.T>
     Vec<.T> 0 cap data
 
+// vec_len: 長さを返す
+//
+// 目的:
+// - v の要素数を返します。
+//
+// 実装(アルゴリズム):
+// - フィールド len を返します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
 fn vec_len <.T> <(Vec<.T>)->i32> (v):
     v.len
 
+// vec_cap: 容量を返す
+//
+// 目的:
+// - v の容量を返します。
+//
+// 実装(アルゴリズム):
+// - フィールド cap を返します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
 fn vec_cap <.T> <(Vec<.T>)->i32> (v):
     v.cap
 
+// vec_is_empty: 空か判定する
+//
+// 目的:
+// - len が 0 なら true を返します。
+//
+// 実装(アルゴリズム):
+// - len == 0 を判定します。
+//
+// 注意(重要):
+// - 変更操作ではありません。
+//
+// 計算量:
+// - O(1)
 fn vec_is_empty <.T> <(Vec<.T>)->bool> (v):
     eq v.len 0
 
+// vec_push: 末尾に要素を追加する
+//
+// 目的:
+// - item を末尾に追加し、新しい Vec を返します。
+//
+// 実装(アルゴリズム):
+// - 容量不足なら 2 倍に拡張して realloc します。
+//
+// 注意(重要):
+// - 返り値の Vec を受け取り直してください。
+//
+// 計算量:
+// - ならし O(1)
 fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
     let len <i32> v.len
     let cap <i32> v.cap
@@ -37,7 +141,6 @@ fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
     if:
         eq len cap
         then:
-            // grow
             let new_cap <i32> mul cap 2
             let new_data <i32> realloc data mul cap size_of<.T> mul new_cap size_of<.T>
             let offset <i32> mul len size_of<.T>
@@ -48,6 +151,19 @@ fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
             store<.T> add data offset item
             Vec<.T> add len 1 cap data
 
+// vec_get: 要素を取得する
+//
+// 目的:
+// - idx が範囲内なら Some、範囲外なら None を返します。
+//
+// 実装(アルゴリズム):
+// - idx の範囲を判定し、要素を load します。
+//
+// 注意(重要):
+// - idx が負のときも None です。
+//
+// 計算量:
+// - O(1)
 fn vec_get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
     let len <i32> v.len
     let data <i32> v.data
@@ -62,6 +178,19 @@ fn vec_get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
                     let offset <i32> mul idx size_of<.T>
                     some<.T> load<.T> add data offset
 
+// vec_set: 要素を上書きする（範囲外は無視）
+//
+// 目的:
+// - idx が範囲内なら値を上書きします。
+//
+// 実装(アルゴリズム):
+// - idx の範囲を判定し、範囲内のみ store します。
+//
+// 注意(重要):
+// - 範囲外は何もしません。
+//
+// 計算量:
+// - O(1)
 fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
     let len <i32> v.len
     let data <i32> v.data
@@ -76,6 +205,19 @@ fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
                     let offset <i32> mul idx size_of<.T>
                     store<.T> add data offset item
 
+// vec_pop: 末尾要素を取り出す
+//
+// 目的:
+// - 末尾要素を返し、長さを 1 減らします。
+//
+// 実装(アルゴリズム):
+// - len==0 なら None、そうでなければ最後の要素を load します。
+//
+// 注意(重要):
+// - 返り値は (Vec, Option) のタプルです。
+//
+// 計算量:
+// - O(1)
 fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
     let len <i32> v.len
     let cap <i32> v.cap
@@ -89,11 +231,37 @@ fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
             let item <.T> load<.T> add data offset
             (Vec<.T> new_len cap data, some<.T> item)
 
+// vec_clear: すべての要素を削除する
+//
+// 目的:
+// - len を 0 にして空にします。
+//
+// 実装(アルゴリズム):
+// - data はそのままに len だけを 0 にします。
+//
+// 注意(重要):
+// - メモリは解放されません。
+//
+// 計算量:
+// - O(1)
 fn vec_clear <.T> <(Vec<.T>)*>Vec<.T>> (v):
     let cap <i32> v.cap
     let data <i32> v.data
     Vec<.T> 0 cap data
 
+// vec_free: メモリを解放する
+//
+// 目的:
+// - data を解放します。
+//
+// 実装(アルゴリズム):
+// - cap サイズ分の領域を dealloc します。
+//
+// 注意(重要):
+// - Vec 自体は値なので解放不要です。
+//
+// 計算量:
+// - O(1)
 fn vec_free <.T> <(Vec<.T>)*>()> (v):
     let cap <i32> v.cap
     let data <i32> v.data

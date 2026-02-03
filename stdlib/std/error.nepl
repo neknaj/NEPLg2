@@ -4,6 +4,34 @@
 #import "std/option" as *
 #import "std/result" as *
 
+// error: エラー型と簡易コンテキスト付与
+//
+// 目的:
+// - ErrorKind/Span/Error を定義し、Result と合わせて失敗情報を扱います。
+//
+// 実装(アルゴリズム):
+// - Error は kind/msg/span を持つ構造体です。
+// - context は新しい Error を作り、元の Error を捨てます（循環を避ける）。
+//
+// 注意(重要):
+// - callsite_span は intrinsic を使用します（環境依存）。
+//
+// 計算量:
+// - すべて O(1)
+
+// ErrorKind: エラー種別
+//
+// 目的:
+// - 代表的な失敗理由を列挙します。
+//
+// 実装(アルゴリズム):
+// - enum で表現します。
+//
+// 注意(重要):
+// - 追加時は diag 側の文字列化も更新が必要です。
+//
+// 計算量:
+// - O(1)
 enum ErrorKind:
     Failure
     OutOfMemory
@@ -14,41 +42,156 @@ enum ErrorKind:
     IoError
     Other
 
+// Span: 位置情報
+//
+// 目的:
+// - エラー位置のファイルID/開始/終了を保持します。
+//
+// 実装(アルゴリズム):
+// - 3 つの i32 を持つ構造体です。
+//
+// 注意(重要):
+// - file_id の意味は呼び出し側で定義します。
+//
+// 計算量:
+// - O(1)
 struct Span:
     file_id <i32>
     start <i32>
     end <i32>
 
+// Error: エラー本体
+//
+// 目的:
+// - kind/msg/span をまとめて保持します。
+//
+// 実装(アルゴリズム):
+// - span は Option で保持します。
+//
+// 注意(重要):
+// - source を保持する設計は未実装です。
+//
+// 計算量:
+// - O(1)
 struct Error:
     kind <ErrorKind>
     msg <str>
     span <Option<Span>>
-    // source <Option<Error>>
 
+// callsite_span: 呼び出し位置を取得する
+//
+// 目的:
+// - 呼び出し位置の Span を返します。
+//
+// 実装(アルゴリズム):
+// - intrinsic を呼び出します。
+//
+// 注意(重要):
+// - サポートされない環境では動作しません。
+//
+// 計算量:
+// - O(1)
 fn callsite_span <()->Span> ():
     #intrinsic "callsite_span" <Span> ()
 
+// error_new: Error を作る
+//
+// 目的:
+// - kind と msg から Error を作成します。
+//
+// 実装(アルゴリズム):
+// - span を None にして構築します。
+//
+// 注意(重要):
+// - span は後で付与できます。
+//
+// 計算量:
+// - O(1)
 fn error_new <(ErrorKind,str)->Error> (kind, msg):
     Error kind msg none<Span>
 
+// error_with_span: span を付与する
+//
+// 目的:
+// - Error に Span を付けた新しい Error を返します。
+//
+// 実装(アルゴリズム):
+// - span を Some にして再構築します。
+//
+// 注意(重要):
+// - Error は値として再構築します。
+//
+// 計算量:
+// - O(1)
 fn error_with_span <(Error,Span)->Error> (e, sp):
     Error e.kind e.msg some<Span> sp
 
+// error_with_source: 原因を付与する（未実装）
+//
+// 目的:
+// - 外側の Error に原因情報を付ける想定です。
+//
+// 実装(アルゴリズム):
+// - 現状は inner を捨てます。
+//
+// 注意(重要):
+// - 再帰構造はまだ保持しません。
+//
+// 計算量:
+// - O(1)
 fn error_with_source <(Error,Error)->Error> (outer, inner):
-    // Drop inner cause to avoid recursion
     Error outer.kind outer.msg outer.span
 
+// fail: 失敗エラーを作る
+//
+// 目的:
+// - Failure 種別の Error を作って返します。
+//
+// 実装(アルゴリズム):
+// - error_new で作り、span を付与します（暫定で 0,0,0）。
+//
+// 注意(重要):
+// - 本来は callsite_span を使う想定です。
+//
+// 計算量:
+// - O(1)
 fn fail <(str)->Error> (msg):
     let e <Error> error_new ErrorKind::Failure msg;
     let s <Span> Span 0 0 0; // callsite_span();
     error_with_span e s
 
+// context: エラーに文脈を付与する
+//
+// 目的:
+// - cause に対して追加メッセージを持つ Error を返します。
+//
+// 実装(アルゴリズム):
+// - 新しい Error を作り、source は捨てます。
+//
+// 注意(重要):
+// - 原因の保持は未実装です。
+//
+// 計算量:
+// - O(1)
 fn context <(Error,str)->Error> (cause, msg):
     let e <Error> error_new ErrorKind::Other msg;
     let s <Span> Span 0 0 0; // callsite_span();
     let outer <Error> error_with_span e s;
     error_with_source outer cause
 
+// result_context: Result の Err に文脈を付与する
+//
+// 目的:
+// - Err(e) の場合のみ context を付与して返します。
+//
+// 実装(アルゴリズム):
+// - match で Ok/Err を分岐します。
+//
+// 注意(重要):
+// - Ok はそのまま返します。
+//
+// 計算量:
+// - O(1)
 fn result_context <.T> <(Result<.T, Error>, str)->Result<.T, Error>> (r, msg):
     match r:
         Result::Ok v:

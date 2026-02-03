@@ -2,15 +2,65 @@
 
 #import "std/mem" as *
 
-// Cast intrinsics for type conversions
-// These use compiler intrinsics to perform safe type casts
+// cast: 型変換ユーティリティ
+//
+// 目的:
+// - 数値/ビット/ポインタの変換を提供します。
+//
+// 実装(アルゴリズム):
+// - 多くは intrinsic に委譲します。
+//
+// 注意(重要):
+// - bitcast/ptr_cast は安全性を保証しません。
+//
+// 計算量:
+// - すべて O(1)
 
+// cast_i32_to_f32: i32 -> f32 変換
+//
+// 目的:
+// - i32 を f32 に変換します。
+//
+// 実装(アルゴリズム):
+// - intrinsic "i32_to_f32" を呼びます。
+//
+// 注意(重要):
+// - 丸めは wasm の規則に従います。
+//
+// 計算量:
+// - O(1)
 fn cast_i32_to_f32 <(i32)->f32> (v):
     #intrinsic "i32_to_f32" <> (v)
 
+// cast_f32_to_i32: f32 -> i32 変換
+//
+// 目的:
+// - f32 を i32 に変換します。
+//
+// 実装(アルゴリズム):
+// - intrinsic "f32_to_i32" を呼びます。
+//
+// 注意(重要):
+// - 範囲外や NaN の扱いは intrinsic に依存します。
+//
+// 計算量:
+// - O(1)
 fn cast_f32_to_i32 <(f32)->i32> (v):
     #intrinsic "f32_to_i32" <> (v)
 
+// cast_bool_to_i32: bool -> i32 変換
+//
+// 目的:
+// - true を 1、false を 0 に変換します。
+//
+// 実装(アルゴリズム):
+// - if で分岐します。
+//
+// 注意(重要):
+// - bool は i32 の 0/1 表現に対応します。
+//
+// 計算量:
+// - O(1)
 fn cast_bool_to_i32 <(bool)->i32> (v):
     if:
         v
@@ -19,16 +69,66 @@ fn cast_bool_to_i32 <(bool)->i32> (v):
         else:
             0
 
+// cast_i32_to_bool: i32 -> bool 変換
+//
+// 目的:
+// - 0 以外を true として返します。
+//
+// 実装(アルゴリズム):
+// - ne v 0 を返します。
+//
+// 注意(重要):
+// - 0/1 以外も true 扱いになります。
+//
+// 計算量:
+// - O(1)
 fn cast_i32_to_bool <(i32)->bool> (v):
     ne v 0
 
-// Bitcast operations (reinterpret bytes)
+// bitcast_i32_to_f32: i32 のビット列を f32 として解釈する
+//
+// 目的:
+// - ビット列を保持したまま型だけ変えます。
+//
+// 実装(アルゴリズム):
+// - intrinsic "reinterpret_i32_f32" を呼びます。
+//
+// 注意(重要):
+// - 数値変換ではなく再解釈です。
+//
+// 計算量:
+// - O(1)
 fn bitcast_i32_to_f32 <(i32)->f32> (v):
     #intrinsic "reinterpret_i32_f32" <> (v)
 
+// bitcast_f32_to_i32: f32 のビット列を i32 として解釈する
+//
+// 目的:
+// - ビット列を保持したまま型だけ変えます。
+//
+// 実装(アルゴリズム):
+// - intrinsic "reinterpret_f32_i32" を呼びます。
+//
+// 注意(重要):
+// - 数値変換ではなく再解釈です。
+//
+// 計算量:
+// - O(1)
 fn bitcast_f32_to_i32 <(f32)->i32> (v):
     #intrinsic "reinterpret_f32_i32" <> (v)
 
-// Pointer casts (unsafe)
+// ptr_cast: ポインタの型を変える（unsafe）
+//
+// 目的:
+// - i32 のポインタ値を別型として扱います。
+//
+// 実装(アルゴリズム):
+// - i32 はそのまま返します。
+//
+// 注意(重要):
+// - 型安全性は保証されません。
+//
+// 計算量:
+// - O(1)
 fn ptr_cast <.T,.U> <(i32)->i32> (ptr):
-    ptr  // identity since all pointers are i32
+    ptr

@@ -6,28 +6,59 @@
 #import "std/mem" as *
 #import "std/math" as *
 
+// stdio: WASI 標準入出力
+//
+// 目的:
+// - WASI の fd_read/fd_write を使った簡易 I/O を提供します。
+//
+// 実装(アルゴリズム):
+// - iovec を作って fd_read/fd_write を呼びます。
+// - 文字列は [len][bytes] の形式です。
+//
+// 注意(重要):
+// - 入力は固定長バッファのため長い入力は切り捨てられます。
+// - 失敗時は空文字列や無視で返します（Result 化は未実装）。
+//
+// 計算量:
+// - 文字列長に比例
+
+// print: 文字列を標準出力へ出す
+//
+// 目的:
+// - s をそのまま stdout に書き込みます。
+//
+// 実装(アルゴリズム):
+// - iovec を 1 要素で作り、fd_write を呼びます。
+//
+// 注意(重要):
+// - エラーは無視します。
+//
+// 計算量:
+// - O(n)
 fn print <(str)*>()> (s):
-    // iovec = { buf: i32, buf_len: i32 }
     let iov <i32> alloc 8;
-
-    // buf = s + 4  (skip the 4-byte length header)
     store_i32 iov add s 4;
-
-    // buf_len = string length header
     store_i32 add iov 4 load_i32 s;
-
-    // nwritten out-param (unused, but required by ABI)
     let nwritten <i32> alloc 4;
     store_i32 nwritten 0;
-
-    // errno = fd_write(1, &iov, 1, &nwritten)
     let _errno <i32> fd_write 1 iov 1 nwritten;
-
-    // ignore errno for now
     ()
 
+// read_all: 標準入力を読み込む（固定長）
+//
+// 目的:
+// - stdin から最大 4096 バイト読み込み、文字列として返します。
+//
+// 実装(アルゴリズム):
+// - 1 回の fd_read で読み込みます。
+//
+// 注意(重要):
+// - 失敗時は長さ 0 を返します。
+// - 入力が 4096 バイトを超える場合は切り捨てます。
+//
+// 計算量:
+// - O(n)
 fn read_all <()*>str> ():
-    // Read up to a fixed number of bytes from stdin (UTF-8 expected).
     let cap <i32> 4096;
     let out <i32> alloc add 4 cap;
     let iov <i32> alloc 8;
@@ -48,8 +79,21 @@ fn read_all <()*>str> ():
             store_i32 out 0;
             out
 
+// read_line: 1 行読み込む
+//
+// 目的:
+// - newline か EOF まで読み込み、文字列として返します。
+//
+// 実装(アルゴリズム):
+// - 1 バイトずつ読み取り、改行か EOF で停止します。
+//
+// 注意(重要):
+// - 最大 1024 バイトまでです。
+// - 失敗時は短い文字列になる可能性があります。
+//
+// 計算量:
+// - O(n)
 fn read_line <()*>str> ():
-    // Read a single line from stdin, stopping at newline or EOF.
     let cap <i32> 1024;
     let out <i32> alloc add 4 cap;
     let iov <i32> alloc 8;
@@ -88,13 +132,38 @@ fn read_line <()*>str> ():
     store_i32 out len;
     out
 
+// println: 改行付き出力
+//
+// 目的:
+// - s を出力し、改行を追加します。
+//
+// 実装(アルゴリズム):
+// - print を 2 回呼びます。
+//
+// 注意(重要):
+// - 改行は "\n" 固定です。
+//
+// 計算量:
+// - O(n)
 fn println <(str)*>()> (s):
     print s;
     print "\n";
     ()
 
+// print_i32: i32 を文字列にして出力
+//
+// 目的:
+// - v を 10 進文字列にして出力します。
+//
+// 実装(アルゴリズム):
+// - from_i32 相当の手順で文字列を生成し、print します。
+//
+// 注意(重要):
+// - 負数は未対応のため "0" を出力します（暫定動作）。
+//
+// 計算量:
+// - O(d)
 fn print_i32 <(i32)*>()> (v):
-    // Convert i32 to UTF-8 string with layout: [len:i32][bytes...]
     let s <i32> :
         if:
             eq v 0
@@ -104,7 +173,6 @@ fn print_i32 <(i32)*>()> (v):
                 store_u8 add out0 4 48;
                 out0
             else:
-                // For incremental safety: only handle positives first.
                 if:
                     cond:
                         lt v 0
@@ -138,67 +206,301 @@ fn print_i32 <(i32)*>()> (v):
     print s;
     ()
 
+// println_i32: i32 を改行付きで出力
+//
+// 目的:
+// - print_i32 の後に改行を出力します。
+//
+// 実装(アルゴリズム):
+// - print_i32 と print("\n") を呼びます。
+//
+// 注意(重要):
+// - 改行は常に追加されます。
+//
+// 計算量:
+// - O(d)
 fn println_i32 <(i32)*>()> (v):
     print_i32 v;
     print "\n";
 
+// ansi_reset: 色リセットコード
+//
+// 目的:
+// - ANSI のリセットコードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_reset <()->str> ():
     "\x1b[0m";
 
+// ansi_bold: 太字コード
+//
+// 目的:
+// - ANSI の太字コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_bold <()->str> ():
     "\x1b[1m";
 
+// ansi_underline: 下線コード
+//
+// 目的:
+// - ANSI の下線コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_underline <()->str> ():
     "\x1b[4m";
 
+// ansi_red: 赤色コード
+//
+// 目的:
+// - ANSI の赤色コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_red <()->str> ():
     "\x1b[31m";
 
+// ansi_green: 緑色コード
+//
+// 目的:
+// - ANSI の緑色コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_green <()->str> ():
     "\x1b[32m";
 
+// ansi_yellow: 黄色コード
+//
+// 目的:
+// - ANSI の黄色コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_yellow <()->str> ():
     "\x1b[33m";
 
+// ansi_blue: 青色コード
+//
+// 目的:
+// - ANSI の青色コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_blue <()->str> ():
     "\x1b[34m";
 
+// ansi_magenta: マゼンタコード
+//
+// 目的:
+// - ANSI のマゼンタコードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_magenta <()->str> ():
     "\x1b[35m";
 
+// ansi_cyan: シアンコード
+//
+// 目的:
+// - ANSI のシアンコードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_cyan <()->str> ():
     "\x1b[36m";
 
+// ansi_white: 白色コード
+//
+// 目的:
+// - ANSI の白色コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_white <()->str> ():
     "\x1b[37m";
 
+// ansi_gray: 灰色コード
+//
+// 目的:
+// - ANSI の灰色コードを返します。
+//
+// 実装(アルゴリズム):
+// - 文字列リテラルを返します。
+//
+// 注意(重要):
+// - 端末が ANSI に対応している必要があります。
+//
+// 計算量:
+// - O(1)
 fn ansi_gray <()->str> ():
     "\x1b[90m";
 
+// print_color: 色付きで出力する
+//
+// 目的:
+// - color を適用して s を出力し、最後にリセットします。
+//
+// 実装(アルゴリズム):
+// - color/s/reset の順に print します。
+//
+// 注意(重要):
+// - color は ANSI コード文字列を想定します。
+//
+// 計算量:
+// - O(n)
 fn print_color <(str,str)*>()> (color, s):
     print color;
     print s;
     print ansi_reset;
     ()
 
+// println_color: 色付きで改行出力
+//
+// 目的:
+// - print_color の後に改行を追加します。
+//
+// 実装(アルゴリズム):
+// - print_color と print("\n") を呼びます。
+//
+// 注意(重要):
+// - 改行は常に追加されます。
+//
+// 計算量:
+// - O(n)
 fn println_color <(str,str)*>()> (color, s):
     print_color color s;
     print "\n";
 
 #if[profile=debug]
+// debug: デバッグ出力
+//
+// 目的:
+// - debug ビルド時のみ出力します。
+//
+// 実装(アルゴリズム):
+// - print を呼びます。
+//
+// 注意(重要):
+// - release では no-op です。
+//
+// 計算量:
+// - O(n)
 fn debug <(str)*>()> (s):
     print s;
     ()
 
 #if[profile=release]
+// debug: デバッグ出力（release では無効）
+//
+// 目的:
+// - release では何もしません。
+//
+// 実装(アルゴリズム):
+// - 空関数です。
+//
+// 注意(重要):
+// - 文字列は使用されません。
+//
+// 計算量:
+// - O(1)
 fn debug <(str)*>()> (_s):
     ()
 
 #if[profile=debug]
+// debugln: デバッグ出力（改行付き）
+//
+// 目的:
+// - debug ビルド時のみ改行付きで出力します。
+//
+// 実装(アルゴリズム):
+// - println を呼びます。
+//
+// 注意(重要):
+// - release では no-op です。
+//
+// 計算量:
+// - O(n)
 fn debugln <(str)*>()> (s):
     println s;
     ()
 
 #if[profile=release]
+// debugln: デバッグ出力（release では無効）
+//
+// 目的:
+// - release では何もしません。
+//
+// 実装(アルゴリズム):
+// - 空関数です。
+//
+// 注意(重要):
+// - 文字列は使用されません。
+//
+// 計算量:
+// - O(1)
 fn debugln <(str)*>()> (_s):
     ()

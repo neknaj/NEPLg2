@@ -5,10 +5,50 @@
 #import "std/option" as *
 #import "std/math" as *
 
+// string: 文字列操作（長さ付きUTF-8）
+//
+// 目的:
+// - [len:i32][bytes...] 形式の UTF-8 文字列を扱う関数群を提供します。
+//
+// 実装(アルゴリズム):
+// - 文字列はヒープに確保し、先頭 4 バイトに長さを格納します。
+//
+// 注意(重要):
+// - 文字列は NUL 終端ではありません。
+// - 現状の from_i32/to_i32 は非負の整数のみをサポートします。
+//
+// 計算量:
+// - 連結や変換は O(n)
 
+// len: 文字列の長さを返す
+//
+// 目的:
+// - 文字列のバイト長を返します。
+//
+// 実装(アルゴリズム):
+// - 先頭 4 バイトの長さを読み出します。
+//
+// 注意(重要):
+// - UTF-8 のバイト長であり、文字数とは一致しません。
+//
+// 計算量:
+// - O(1)
 fn len <(str)->i32> (s):
     load_i32 s
 
+// concat: 2つの文字列を連結する
+//
+// 目的:
+// - a と b を連結した新しい文字列を返します。
+//
+// 実装(アルゴリズム):
+// - 長さを計算し、新領域を確保して順にコピーします。
+//
+// 注意(重要):
+// - 新しいバッファを確保するため O(n) のコストがかかります。
+//
+// 計算量:
+// - O(la + lb)
 fn concat <(str,str)*>str> (a,b):
     let la <i32> load_i32 a;
     let lb <i32> load_i32 b;
@@ -27,10 +67,36 @@ fn concat <(str,str)*>str> (a,b):
         set j add j 1;
     out
 
+// concat3: 3つの文字列を連結する
+//
+// 目的:
+// - a,b,c を連結した文字列を返します。
+//
+// 実装(アルゴリズム):
+// - concat を 2 回呼び出します。
+//
+// 注意(重要):
+// - 中間文字列を確保するため余分なコストが発生します。
+//
+// 計算量:
+// - O(la + lb + lc)
 fn concat3 <(str,str,str)*>str> (a,b,c):
     let ab <str> concat a b;
     concat ab c
 
+// str_eq: 文字列が等しいか判定する
+//
+// 目的:
+// - a と b の内容が同じなら true を返します。
+//
+// 実装(アルゴリズム):
+// - 長さが一致する場合のみ、バイト単位で比較します。
+//
+// 注意(重要):
+// - 大文字小文字などの正規化は行いません。
+//
+// 計算量:
+// - O(n)
 fn str_eq <(str,str)->bool> (a,b):
     let la <i32> load_i32 a;
     let lb <i32> load_i32 b;
@@ -39,6 +105,19 @@ fn str_eq <(str,str)->bool> (a,b):
         then str_eq_loop a b la 0
         else false
 
+// str_eq_loop: 文字列比較の内部ループ
+//
+// 目的:
+// - 先頭から len までを比較します。
+//
+// 実装(アルゴリズム):
+// - インデックス i を進めながら 1 バイトずつ比較します。
+//
+// 注意(重要):
+// - 呼び出し側で長さ一致を確認している前提です。
+//
+// 計算量:
+// - O(n)
 fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
     if:
         eq i len
@@ -52,10 +131,20 @@ fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
                 then str_eq_loop a b len add i 1
                 else false
 
-
+// from_i32: i32 を文字列へ変換する
+//
+// 目的:
+// - 非負の i32 を 10 進文字列に変換します。
+//
+// 実装(アルゴリズム):
+// - 10 で割った余りを逆順に保存し、最後に反転して出力します。
+//
+// 注意(重要):
+// - 負数は未対応のため "0" を返します（暫定動作）。
+//
+// 計算量:
+// - O(d)  (d は桁数)
 fn from_i32 <(i32)*>str> (x):
-    // Convert i32 to UTF-8 string with layout: [len:i32][bytes...]
-
     if:
         eq x 0
         then:
@@ -64,18 +153,15 @@ fn from_i32 <(i32)*>str> (x):
             store_u8 add out0 4 48;    // '0'
             out0
         else:
-            // For incremental safety: only handle positives first.
             if:
                 cond:
                     lt x 0
                 then:
-                    // Temporary: reuse "0" to keep behavior well-defined
                     let outn <i32> alloc 5;
                     store_i32 outn 1;
                     store_u8 add outn 4 48;
                     outn
                 else:
-                    // Scratch buffer (LSB-first digits). 16 bytes is enough for i32.
                     let scratch <i32> alloc 16;
                     let mut idx <i32> 0;
                     let mut n <i32> x;
@@ -86,11 +172,9 @@ fn from_i32 <(i32)*>str> (x):
                         set idx add idx 1;
                         set n div_s n 10;
 
-                    // Allocate final string: 4 bytes length + idx bytes
                     let out <i32> alloc add 4 idx;
                     store_i32 out idx;
 
-                    // Reverse digits into output
                     let mut i <i32> 0;
                     while lt i idx:
                         let rev <i32> sub idx add i 1;
@@ -100,11 +184,21 @@ fn from_i32 <(i32)*>str> (x):
 
                     out
 
-
+// to_i32: 文字列を i32 に変換する
+//
+// 目的:
+// - 非負の 10 進文字列を i32 に変換します。
+//
+// 実装(アルゴリズム):
+// - 1 バイトずつ読み取り、数値化して累積します。
+// - 不正な文字があれば Err を返します。
+//
+// 注意(重要):
+// - 符号やオーバーフローの厳密な検証は未対応です。
+//
+// 計算量:
+// - O(n)
 fn to_i32 <(str)*>Result<i32,i32>> (s):
-    // Parse decimal UTF-8 bytes produced by `from_i32`.
-    // Incremental safety: accept non-negative only.
-
     let n <i32> load_i32 s;
     let mut i <i32> 0;
     let mut res <i32> 0;
@@ -152,6 +246,18 @@ fn to_i32 <(str)*>Result<i32,i32>> (s):
         else:
             Result::Err <i32,i32> 1
 
-
+// find: 部分文字列検索（未実装）
+//
+// 目的:
+// - s 内で pat が見つかれば位置を返します。
+//
+// 実装(アルゴリズム):
+// - 現在は未実装のため None を返します。
+//
+// 注意(重要):
+// - 本関数は常に None を返します。
+//
+// 計算量:
+// - O(1)（未実装）
 fn find <(str,str)*>Option<i32>> (_s, _pat):
     Option::None <i32>

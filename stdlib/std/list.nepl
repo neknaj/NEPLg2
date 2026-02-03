@@ -3,15 +3,54 @@
 #import "std/mem" as *
 #import "std/math" as *
 #import "std/option" as *
-#import "std/stdio" as *
-#import "std/string" as *
 
-// Generic linked list
-// Node layout: [value:.T][next:i32]
+// list: 単方向連結リスト（i32 のポインタをノード先頭として扱う）
+//
+// 目的:
+// - 空リストを 0 ポインタで表し、ノードをヒープ上に確保します。
+// - Option を用いて「存在しない値」を明示します。
+//
+// 実装(アルゴリズム):
+// - ノードは [value:.T][next:i32] の順で配置します。
+// - 末尾は 0 を next として表します。
+//
+// 注意(重要):
+// - list_head/list_tail/list_get は空や範囲外のとき None を返します。
+// - list_free はノードを順に解放します（循環リストは未対応）。
+//
+// 計算量:
+// - 参照・挿入: O(1)
+// - 走査系: O(n)
 
+// list_nil: 空リストを表す値を返す
+//
+// 目的:
+// - 空リスト（null ポインタ）を返します。
+//
+// 実装(アルゴリズム):
+// - 定数 0 を返すだけです。
+//
+// 注意(重要):
+// - 0 は「空」を表す特別な値です。
+//
+// 計算量:
+// - O(1)
 fn list_nil <.T> <()->i32> ():
     0
 
+// list_cons: 先頭に要素を追加して新しいリストを作る
+//
+// 目的:
+// - head を値として持つ新ノードを確保し、tail を next に接続します。
+//
+// 実装(アルゴリズム):
+// - size_of<.T> + 4 の領域を確保し、[value][next] を格納します。
+//
+// 注意(重要):
+// - 返り値は新しい先頭ノードのポインタです。
+//
+// 計算量:
+// - O(1)
 fn list_cons <.T> <(.T,i32)*>i32> (head, tail):
     let node_size <i32> add size_of<.T> 4
     let node <i32> alloc node_size
@@ -19,6 +58,19 @@ fn list_cons <.T> <(.T,i32)*>i32> (head, tail):
     store_i32 add node size_of<.T> tail
     node
 
+// list_head: 先頭要素を取得する
+//
+// 目的:
+// - 空なら None、非空なら先頭の値を Some で返します。
+//
+// 実装(アルゴリズム):
+// - lst が 0 かを判定し、非空なら value を load します。
+//
+// 注意(重要):
+// - 空リストでは None を返します。
+//
+// 計算量:
+// - O(1)
 fn list_head <.T> <(i32)->Option<.T>> (lst):
     if:
         cond:
@@ -28,18 +80,57 @@ fn list_head <.T> <(i32)->Option<.T>> (lst):
         else:
             some<.T> load<.T> lst
 
-fn list_tail <.T> <(i32)->i32> (lst):
+// list_tail: 末尾以外の部分（次のノード）を取得する
+//
+// 目的:
+// - 空なら None、非空なら next ポインタを Some で返します。
+//
+// 実装(アルゴリズム):
+// - lst が 0 かを判定し、非空なら next を load します。
+//
+// 注意(重要):
+// - 戻り値の Some は i32 のポインタです。
+//
+// 計算量:
+// - O(1)
+fn list_tail <.T> <(i32)->Option<i32>> (lst):
     if:
         cond:
             eq lst 0
         then:
-            0
+            none<i32>
         else:
-            load_i32 add lst size_of<.T>
+            some<i32> load_i32 add lst size_of<.T>
 
+// list_is_empty: 空リストか判定する
+//
+// 目的:
+// - lst が空なら true を返します。
+//
+// 実装(アルゴリズム):
+// - lst == 0 を判定します。
+//
+// 注意(重要):
+// - 空リストは 0 で表します。
+//
+// 計算量:
+// - O(1)
 fn list_is_empty <.T> <(i32)->bool> (lst):
     eq lst 0
 
+// list_len: 長さを数える
+//
+// 目的:
+// - リストの要素数を返します。
+//
+// 実装(アルゴリズム):
+// - next をたどりながらカウントを増やします。
+//
+// 注意(重要):
+// - 循環リストに対しては無限ループします。
+//
+// 計算量:
+// - O(n)
 fn list_len <.T> <(i32)*>i32> (lst):
     let mut count <i32> 0
     let mut cur <i32> lst
@@ -48,6 +139,20 @@ fn list_len <.T> <(i32)*>i32> (lst):
         set cur load_i32 add cur size_of<.T>
     count
 
+// list_get: 指定位置の要素を取得する
+//
+// 目的:
+// - idx が範囲内なら Some(value)、範囲外なら None を返します。
+//
+// 実装(アルゴリズム):
+// - 先頭から idx 回 next をたどり、到達したノードの value を返します。
+// - 途中で null に到達したら None を返します。
+//
+// 注意(重要):
+// - idx が負のときは None です。
+//
+// 計算量:
+// - O(n)
 fn list_get <.T> <(i32,i32)*>Option<.T>> (lst, idx):
     if:
         cond:
@@ -57,29 +162,39 @@ fn list_get <.T> <(i32,i32)*>Option<.T>> (lst, idx):
         else:
             let mut cur <i32> lst
             let mut i <i32> 0
-            while lt i idx:
-                println "list_get loop"
-                println "idx:"
-                println from_i32 idx
-                println "i:"
-                println from_i32 i
+            let mut done <i32> 0
+            let mut out <Option<.T>> none<.T>
+            while eq done 0:
                 if:
                     cond:
                         eq cur 0
                     then:
-                        // return early via break would be nice; use flag instead
-                        set i idx
+                        set done 1
                     else:
-                        set cur load_i32 add cur size_of<.T>
-                        set i add i 1
-            if:
-                cond:
-                    eq cur 0
-                then:
-                    none<.T>
-                else:
-                    some<.T> load<.T> cur
+                        if:
+                            cond:
+                                eq i idx
+                            then:
+                                set out some<.T> load<.T> cur
+                                set done 1
+                            else:
+                                set cur load_i32 add cur size_of<.T>
+                                set i add i 1
+            out
 
+// list_free: リスト全体を解放する
+//
+// 目的:
+// - 連結リストの全ノードを解放します。
+//
+// 実装(アルゴリズム):
+// - next を保存しながら現在ノードを順に dealloc します。
+//
+// 注意(重要):
+// - 循環リストには対応していません。
+//
+// 計算量:
+// - O(n)
 fn list_free <.T> <(i32)*>()> (lst):
     let node_size <i32> add size_of<.T> 4
     let mut cur <i32> lst
@@ -88,6 +203,19 @@ fn list_free <.T> <(i32)*>()> (lst):
         dealloc cur node_size
         set cur next
 
+// list_reverse: リストを逆順にする
+//
+// 目的:
+// - 逆順の新しいリストを作って返します。
+//
+// 実装(アルゴリズム):
+// - 先頭から走査し、list_cons で新しい先頭へ積み直します。
+//
+// 注意(重要):
+// - 返り値は新しいリストで、元のノードは再利用しません。
+//
+// 計算量:
+// - O(n)
 fn list_reverse <.T> <(i32)*>i32> (lst):
     let mut new_list <i32> 0;
     let mut cur <i32> lst;

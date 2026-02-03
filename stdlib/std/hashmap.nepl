@@ -4,24 +4,58 @@
 #import "std/math" as *
 #import "std/option" as *
 
-// Simple hash function for i32 keys
+// hashmap: i32 キーの簡易ハッシュマップ
+//
+// 目的:
+// - i32 キーと .V 値の対応を保持します。
+//
+// 実装(アルゴリズム):
+// - オープンアドレス法で線形探索します。
+// - エントリは [occupied][key][value] の配置です。
+//
+// 注意(重要):
+// - リサイズは未実装です（満杯時は挿入に失敗します）。
+//
+// 計算量:
+// - 平均 O(1)、最悪 O(n)
+
+// hash_i32: i32 の簡易ハッシュ
+//
+// 目的:
+// - i32 キーを分散させます。
+//
+// 実装(アルゴリズム):
+// - murmur 風の混合を数回適用します。
+//
+// 注意(重要):
+// - 暗号学的強度はありません。
+//
+// 計算量:
+// - O(1)
 fn hash_i32 <(i32)->i32> (key):
-    // murmur-ish mixing
     let mut h <i32> key
     set h mul h 0x5bd1e995
     set h add h div_s h 16
     set h mul h 0x5bd1e995
     h
 
-// HashMap<i32, .V> - simple open-addressing hash map
-// Entry layout: [occupied:i32][key:i32][value:.V]
-// Header: [count:i32][cap:i32][entries_ptr:i32]
-
+// hashmap_new: 新しいマップを作る
+//
+// 目的:
+// - 既定容量で空のマップを作成します。
+//
+// 実装(アルゴリズム):
+// - エントリ領域を確保し occupied を 0 に初期化します。
+//
+// 注意(重要):
+// - 返り値はヘッダのポインタです。
+//
+// 計算量:
+// - O(cap)
 fn hashmap_new <.V> <()*>i32> ():
     let cap <i32> 16
     let entry_size <i32> add 8 size_of<.V>
     let entries <i32> alloc mul cap entry_size
-    // zero all occupied flags
     let mut i <i32> 0
     while lt i cap:
         store_i32 add entries mul i entry_size 0
@@ -32,6 +66,19 @@ fn hashmap_new <.V> <()*>i32> ():
     store_i32 add header 8 entries
     header
 
+// hashmap_insert: キーに値を設定する
+//
+// 目的:
+// - key に val を格納します（既存なら上書き）。
+//
+// 実装(アルゴリズム):
+// - ハッシュ位置から線形探索し、空きか同一キーに格納します。
+//
+// 注意(重要):
+// - 満杯時の拡張は未実装です。
+//
+// 計算量:
+// - 平均 O(1)、最悪 O(n)
 fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
     let cap <i32> load_i32 add hm 4
     let entries <i32> load_i32 add hm 8
@@ -45,7 +92,6 @@ fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
         if:
             then:
                 eq occupied 0
-                // empty slot
                 store_i32 entry 1
                 store_i32 add entry 4 key
                 store<.V> add entry 8 val
@@ -56,17 +102,28 @@ fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
                 if:
                     then:
                         eq ekey key
-                        // update
                         store<.V> add entry 8 val
                         set found 1
                     else:
-                        // probe next
                         set cur mod_s add cur 1 cap
                         if:
                             eq cur idx
-                            // full, need resize (not implemented for simplicity)
                             set found 1
+                            ()
 
+// hashmap_get: キーから値を取得する
+//
+// 目的:
+// - key に対応する値を Option で返します。
+//
+// 実装(アルゴリズム):
+// - ハッシュ位置から線形探索し、見つかれば Some を返します。
+//
+// 注意(重要):
+// - 見つからない場合は None です。
+//
+// 計算量:
+// - 平均 O(1)、最悪 O(n)
 fn hashmap_get <.V> <(i32,i32)->Option<.V>> (hm, key):
     let cap <i32> load_i32 add hm 4
     let entries <i32> load_i32 add hm 8
@@ -96,9 +153,35 @@ fn hashmap_get <.V> <(i32,i32)->Option<.V>> (hm, key):
                             ()
     result
 
+// hashmap_contains: キーの存在確認
+//
+// 目的:
+// - key が存在するかを返します。
+//
+// 実装(アルゴリズム):
+// - hashmap_get の結果を is_some で判定します。
+//
+// 注意(重要):
+// - 値の取得は行いません。
+//
+// 計算量:
+// - 平均 O(1)、最悪 O(n)
 fn hashmap_contains <.V> <(i32,i32)->bool> (hm, key):
     is_some<.V> hashmap_get<.V> hm key
 
+// hashmap_remove: キーを削除する
+//
+// 目的:
+// - key を削除し、値があれば Some で返します。
+//
+// 実装(アルゴリズム):
+// - 線形探索で見つけたら occupied を 0 にします。
+//
+// 注意(重要):
+// - 削除後のクラスタ再配置は未実装です。
+//
+// 計算量:
+// - 平均 O(1)、最悪 O(n)
 fn hashmap_remove <.V> <(i32,i32)*>Option<.V>> (hm, key):
     let cap <i32> load_i32 add hm 4
     let entries <i32> load_i32 add hm 8
@@ -130,9 +213,35 @@ fn hashmap_remove <.V> <(i32,i32)*>Option<.V>> (hm, key):
                             ()
     result
 
+// hashmap_len: 要素数を返す
+//
+// 目的:
+// - 登録済み要素数を返します。
+//
+// 実装(アルゴリズム):
+// - ヘッダの count を返します。
+//
+// 注意(重要):
+// - 削除の扱いにより正確性が低下する可能性があります。
+//
+// 計算量:
+// - O(1)
 fn hashmap_len <.V> <(i32)->i32> (hm):
     load_i32 hm
 
+// hashmap_free: メモリを解放する
+//
+// 目的:
+// - エントリ領域とヘッダを解放します。
+//
+// 実装(アルゴリズム):
+// - cap と entry_size で領域を解放します。
+//
+// 注意(重要):
+// - この後 hm を使うと未定義です。
+//
+// 計算量:
+// - O(1)
 fn hashmap_free <.V> <(i32)*>()> (hm):
     let cap <i32> load_i32 add hm 4
     let entries <i32> load_i32 add hm 8
@@ -140,7 +249,19 @@ fn hashmap_free <.V> <(i32)*>()> (hm):
     dealloc entries mul cap entry_size
     dealloc hm 12
 
-// abs helper
+// abs: 絶対値を返す
+//
+// 目的:
+// - x の絶対値を返します。
+//
+// 実装(アルゴリズム):
+// - 0 と比較して符号を反転します。
+//
+// 注意(重要):
+// - 最小値の取り扱いは未検討です。
+//
+// 計算量:
+// - O(1)
 fn abs <(i32)->i32> (x):
     if:
         lt x 0
