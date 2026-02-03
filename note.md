@@ -1,4 +1,26 @@
 # 状況メモ (2026-01-22)
+# 2026-02-03 作業メモ (stdlib テスト拡充/修正)
+- stdlib/std/hashmap.nepl の if レイアウトを修正し、hash_i32 を純粋関数に書き換え（16進リテラルを10進へ置換）。hashmap_get は再帰ループで純粋化。
+- stdlib/std/hashset.nepl の hash_i32 を純粋関数へ変更し、hashset_contains を再帰ループで純粋化。hashset_contains_loop のシグネチャ不整合も修正。
+- stdlib/std/result.nepl の unwrap_err を Err 分岐先頭に並べ、match の戻り型が never になる問題を回避。
+- stdlib/tests に hashmap.nepl/hashset.nepl/json.nepl を追加し、基本操作（new/insert/get/remove/len/contains など）と JSON の各アクセサを検証。
+- stdlib/tests/result.nepl は map 系を外し、unwrap_ok/unwrap_err の検証に置き換え。json.nepl は move 連鎖を避けるため値を都度生成する形に整理。
+- テスト: `cargo run -p nepl-cli -- test` は成功（警告は残存）。
+- テスト: `cargo test` は 120 秒でタイムアウト（警告出力後に未完了）。
+# 2026-02-03 作業メモ (trait/overload)
+- AST/パーサ: 型パラメータを TypeParam 化し、`.T: TraitA & TraitB` 形式の境界を読めるようにした。
+- HIR: trait 呼び出し (`Trait::method`) を表現できるようにし、impl 側はメソッド一覧を持つ形に変更。
+- 型検査: trait 定義/impl の整合性チェック、Self 型の差し込み、trait bound の満足判定を追加。関数の同名オーバーロードを許可し、mangle したシンボルで内部名を一意化。
+- 単相化: impl マップを構築し、trait 呼び出しを具体的なメソッド実体に解決するようにした。
+- テスト: nepl-core/tests/neplg2.rs にオーバーロード/trait のコンパイルテストを追加。
+- 既知の制限: trait の型パラメータ、inherent impl、impl メソッドのジェネリクスは未対応。オーバーロード解決は引数型のみで行い、戻り値型は使わない。export 名は mangle 後の一意名になる。
+- テスト: `cargo test -p nepl-core --lib` を実行（警告は残存）。
+# 2026-02-03 作業メモ (never 型と unwrap 修正)
+- `unreachable` 分岐で型変数が `never` に束縛され、`Option::unwrap` が `unwrap__Option_never__never__pure` へ潰れる問題を修正。
+- `types::unify` で `Var` と `Never` の統一時に束縛しないよう特例を追加し、`unwrap__Option_T__T__pure` を保持するようにした。
+- codegen の `unknown function` 診断に欠落関数名を含めるよう改善。
+- テスト: `cargo run -p nepl-cli -- test` は成功（警告あり）。
+- テスト: `cargo test` は 240 秒でタイムアウト（コンパイル途中）。再実行が必要。
 # 2026-02-03 作業メモ (btreemap/btreeset 追加)
 - stdlib/std/btreemap.nepl と stdlib/std/btreeset.nepl を追加し、i32 キー/要素の順序付きコレクションを配列ベースで実装した（検索は二分探索、挿入/削除はシフト）。
 - stdlib/tests/btreemap.nepl と stdlib/tests/btreeset.nepl を追加し、基本操作（挿入/更新/削除/検索/長さ）を検証した。

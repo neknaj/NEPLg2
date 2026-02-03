@@ -140,10 +140,10 @@ fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
 // - O(1)
 fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
     match r:
-        Result::Ok v:
-            #intrinsic "unreachable" <> ()
         Result::Err e:
             e
+        Result::Ok v:
+            #intrinsic "unreachable" <> ()
 
 // unwrap_or: 失敗時のデフォルトを返す
 //

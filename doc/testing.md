@@ -90,6 +90,9 @@ The current stdlib is intentionally minimal and i32-focused:
   `read_line`
 - `std/cliarg`: WASI `args_sizes_get/args_get` argument access (`cliarg_count`,
   `cliarg_get`, `cliarg_program`)
+- `std/hashmap`: i32 キーの簡易ハッシュマップ（オープンアドレス法）
+- `std/hashset`: i32 要素の簡易ハッシュ集合（オープンアドレス法）
+- `std/json`: JsonValue の簡易表現とアクセサ
 - `std/btreemap`: i32 キーの順序付きマップ（配列ベース、二分探索）
 - `std/btreeset`: i32 要素の順序付き集合（配列ベース、二分探索）
 - `std/test`: basic assertions for stdlib tests

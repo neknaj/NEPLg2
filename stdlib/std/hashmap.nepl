@@ -33,11 +33,10 @@
 // 計算量:
 // - O(1)
 fn hash_i32 <(i32)->i32> (key):
-    let mut h <i32> key
-    set h mul h 0x5bd1e995
-    set h add h div_s h 16
-    set h mul h 0x5bd1e995
-    h
+    let h1 <i32> mul key 1540483477
+    let h2 <i32> add h1 div_s h1 16
+    let h3 <i32> mul h2 1540483477
+    h3
 
 // hashmap_new: 新しいマップを作る
 //
@@ -90,8 +89,8 @@ fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
         let entry <i32> add entries mul cur entry_size
         let occupied <i32> load_i32 entry
         if:
+            eq occupied 0
             then:
-                eq occupied 0
                 store_i32 entry 1
                 store_i32 add entry 4 key
                 store<.V> add entry 8 val
@@ -100,8 +99,8 @@ fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
             else:
                 let ekey <i32> load_i32 add entry 4
                 if:
+                    eq ekey key
                     then:
-                        eq ekey key
                         store<.V> add entry 8 val
                         set found 1
                     else:
@@ -110,6 +109,43 @@ fn hashmap_insert <.V> <(i32,i32,.V)*>()> (hm, key, val):
                             eq cur idx
                             set found 1
                             ()
+
+// hashmap_get_loop: 線形探索の内部ループ
+//
+// 目的:
+// - cur から開始して key を探索します。
+//
+// 実装(アルゴリズム):
+// - occupied==0 なら None。
+// - key 一致なら Some。
+// - 次スロットへ進み、idx に戻ったら None。
+//
+// 注意(重要):
+// - entries は [occupied][key][value] の配列です。
+//
+// 計算量:
+// - 平均 O(1)、最悪 O(n)
+fn hashmap_get_loop <.V> <(i32,i32,i32,i32,i32,i32)->Option<.V>> (entries, entry_size, cap, idx, cur, key):
+    let entry <i32> add entries mul cur entry_size
+    let occupied <i32> load_i32 entry
+    if:
+        eq occupied 0
+        then:
+            none<.V>
+        else:
+            let ekey <i32> load_i32 add entry 4
+            if:
+                eq ekey key
+                then:
+                    some<.V> load<.V> add entry 8
+                else:
+                    let next <i32> mod_s add cur 1 cap
+                    if:
+                        eq next idx
+                        then:
+                            none<.V>
+                        else:
+                            hashmap_get_loop<.V> entries entry_size cap idx next key
 
 // hashmap_get: キーから値を取得する
 //
@@ -129,29 +165,7 @@ fn hashmap_get <.V> <(i32,i32)->Option<.V>> (hm, key):
     let entries <i32> load_i32 add hm 8
     let entry_size <i32> add 8 size_of<.V>
     let idx <i32> mod_s abs hash_i32 key cap
-    let mut cur <i32> idx
-    let mut result <Option<.V>> none<.V>
-    let mut done <i32> 0
-    while eq done 0:
-        let entry <i32> add entries mul cur entry_size
-        let occupied <i32> load_i32 entry
-        if:
-            eq occupied 0
-            then set done 1
-            else:
-                let ekey <i32> load_i32 add entry 4
-                if:
-                    eq ekey key
-                    then:
-                        set result some<.V> load<.V> add entry 8
-                        set done 1
-                    else:
-                        set cur mod_s add cur 1 cap
-                        if:
-                            eq cur idx
-                            set done 1
-                            ()
-    result
+    hashmap_get_loop<.V> entries entry_size cap idx idx key
 
 // hashmap_contains: キーの存在確認
 //

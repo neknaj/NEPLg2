@@ -3,6 +3,7 @@
 #target wasi
 
 #import "std/result" as *
+#import "std/math" as *
 #import "std/test" as *
 
 fn main <() *> ()> ():
@@ -34,5 +35,12 @@ fn main <() *> ()> ():
     let e4 <Result<i32,i32>> err<i32,i32> 123;
     assert_eq_i32 50 unwrap_or<i32,i32> e4 50;
 
-    ()
+    // Test unwrap_ok
+    let okv <Result<i32,i32>> ok<i32,i32> 11;
+    assert_eq_i32 11 unwrap_ok<i32,i32> okv;
 
+    // Test unwrap_err
+    let errv <Result<i32,i32>> err<i32,i32> 7;
+    assert_eq_i32 7 unwrap_err<i32,i32> errv
+
+    ()

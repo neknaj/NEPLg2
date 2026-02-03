@@ -1,0 +1,65 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/json" as *
+#import "std/option" as *
+#import "std/string" as *
+#import "std/test" as *
+
+fn main <()*> ()> ():
+    let jn1 <JsonValue> json_null
+    assert json_is_null jn1
+    let jn2 <JsonValue> json_null
+    assert is_none<bool> json_as_bool jn2
+    let jn3 <JsonValue> json_null
+    assert is_none<i32> json_as_number jn3
+    test_checked "null"
+
+    let jt1 <JsonValue> json_bool true
+    match json_as_bool jt1:
+        Option::Some v:
+            assert v
+        Option::None:
+            test_fail "json_as_bool true returned None"
+
+    let jf1 <JsonValue> json_bool false
+    match json_as_bool jf1:
+        Option::Some v:
+            assert_ne true v
+        Option::None:
+            test_fail "json_as_bool false returned None"
+    let jt2 <JsonValue> json_bool true
+    assert is_none<i32> json_as_number jt2
+    test_checked "bool"
+
+    let jnum1 <JsonValue> json_number 123
+    match json_as_number jnum1:
+        Option::Some v:
+            assert_eq_i32 123 v
+        Option::None:
+            test_fail "json_as_number returned None"
+    let jnum2 <JsonValue> json_number 123
+    assert is_none<bool> json_as_bool jnum2
+    test_checked "number"
+
+    let s <str> "hello"
+    let js1 <JsonValue> json_string s
+    match json_as_string js1:
+        Option::Some p:
+            assert_str_eq "hello" p
+        Option::None:
+            test_fail "json_as_string returned None"
+    let js2 <JsonValue> json_string s
+    assert is_none<i32> json_as_number js2
+    test_checked "string"
+
+    let ja1 <JsonValue> json_array 0
+    assert_ne true json_is_null ja1
+    let ja2 <JsonValue> json_array 0
+    assert is_none<i32> json_as_string ja2
+
+    let jo1 <JsonValue> json_object 0
+    assert is_none<i32> json_as_string jo1
+    test_checked "other"
+    ()

@@ -1,0 +1,32 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/hashset" as *
+#import "std/test" as *
+
+fn main <()*> ()> ():
+    let hs <i32> hashset_new
+    assert_eq_i32 0 hashset_len hs
+    assert_ne true hashset_contains hs 1
+    test_checked "new"
+
+    assert hashset_insert hs 5
+    assert hashset_insert hs 1
+    assert hashset_insert hs 9
+    assert_eq_i32 3 hashset_len hs
+    assert hashset_contains hs 5
+    assert_ne true hashset_contains hs 2
+    test_checked "insert"
+
+    assert_ne true hashset_insert hs 5
+    assert_eq_i32 3 hashset_len hs
+
+    assert hashset_remove hs 1
+    assert_ne true hashset_contains hs 1
+    assert_eq_i32 2 hashset_len hs
+    assert_ne true hashset_remove hs 123
+    test_checked "remove"
+
+    hashset_free hs
+    ()

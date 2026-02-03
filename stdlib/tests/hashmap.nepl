@@ -1,0 +1,51 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/hashmap" as *
+#import "std/option" as *
+#import "std/test" as *
+
+fn main <()*> ()> ():
+    let hm <i32> hashmap_new<i32>
+    assert_eq_i32 0 hashmap_len<i32> hm
+    assert_ne true hashmap_contains<i32> hm 1
+    assert is_none<i32> hashmap_get<i32> hm 1
+    test_checked "new"
+
+    hashmap_insert<i32> hm 10 100
+    hashmap_insert<i32> hm 5 50
+    hashmap_insert<i32> hm 20 200
+    assert_eq_i32 3 hashmap_len<i32> hm
+    assert hashmap_contains<i32> hm 10
+    assert hashmap_contains<i32> hm 5
+    assert_ne true hashmap_contains<i32> hm 2
+    test_checked "insert"
+
+    match hashmap_get<i32> hm 5:
+        Option::Some v:
+            assert_eq_i32 50 v
+        Option::None:
+            test_fail "hashmap_get 5 returned None"
+
+    hashmap_insert<i32> hm 5 55
+    match hashmap_get<i32> hm 5:
+        Option::Some v:
+            assert_eq_i32 55 v
+        Option::None:
+            test_fail "hashmap_get 5 after update returned None"
+    assert_eq_i32 3 hashmap_len<i32> hm
+    test_checked "update"
+
+    match hashmap_remove<i32> hm 10:
+        Option::Some v:
+            assert_eq_i32 100 v
+        Option::None:
+            test_fail "hashmap_remove 10 returned None"
+    assert_eq_i32 2 hashmap_len<i32> hm
+    assert_ne true hashmap_contains<i32> hm 10
+    assert is_none<i32> hashmap_remove<i32> hm 999
+    test_checked "remove"
+
+    hashmap_free<i32> hm
+    ()
