@@ -220,6 +220,11 @@ fn execute(cli: Cli) -> Result<()> {
 }
 
 fn run_tests(args: TestArgs, verbose: bool) -> Result<()> {
+    const ANSI_RESET: &str = "\x1b[0m";
+    const ANSI_GREEN: &str = "\x1b[32m";
+    const ANSI_RED: &str = "\x1b[31m";
+    const ANSI_CYAN: &str = "\x1b[36m";
+
     let std_root = stdlib_root()?;
     let dir = PathBuf::from(&args.dir);
     let base = if dir.is_absolute() {
@@ -250,13 +255,13 @@ fn run_tests(args: TestArgs, verbose: bool) -> Result<()> {
             .unwrap_or(&file)
             .display()
             .to_string();
-        print!("test {name} ... ");
+        print!("{ANSI_CYAN}test{ANSI_RESET} {name} ... ");
         match run_test_file(&file, &std_root, verbose) {
             Ok(()) => {
-                println!("ok");
+                println!("{ANSI_GREEN}ok{ANSI_RESET}");
             }
             Err(e) => {
-                println!("FAILED");
+                println!("{ANSI_RED}FAILED{ANSI_RESET}");
                 eprintln!("{e}");
                 failed += 1;
             }

@@ -31,6 +31,7 @@ Notes:
 - A non-zero exit code is treated as a failure.
 - The test runner loads stdlib from the repository `stdlib/` directory.
 - The test runner passes fixed arguments `--flag value` (argv[1..]) to WASI programs.
+- The test runner colors `test/ok/FAILED` output using ANSI escape codes when supported.
 
 ## stdlib test module
 

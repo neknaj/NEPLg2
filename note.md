@@ -6,6 +6,9 @@
 - doc/testing.md の失敗時の表示説明を更新。
 - コンパイラ確認: error::fail（callsite_span 経由）を含むテストで wasm 検証エラーが発生するため、std テスト側では該当経路を使わないようにして回避。Rust 側の callsite_span/codegen の相性は要調査。
 - テスト: `cargo test` と `cargo run -p nepl-cli -- test` を実行。
+# 2026-02-03 作業メモ (nepl-cli test の色付け)
+- nepl-cli のテスト出力を ANSI 色付きにし、test/ok/FAILED の視認性を上げた。
+- doc/testing.md に色付き出力の注記を追記。
 # 2026-02-03 作業メモ (テスト失敗のメッセージ表示)
 - stdlib/std/test.nepl を改修し、失敗時にメッセージを表示してから trap するよう変更した。
 - stdlib/std/diag.nepl に diag_print_msg を追加し、Failure メッセージを表示できるようにした。
