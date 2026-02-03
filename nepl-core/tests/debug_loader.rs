@@ -6,8 +6,7 @@ fn show_loaded_files() {
 #target wasi
 #entry main
 #indent 4
-#import "std/stdio"
-#use std::stdio::*
+#import "std/stdio" as *
 
 fn main <()* >()> ():
     print "ok"

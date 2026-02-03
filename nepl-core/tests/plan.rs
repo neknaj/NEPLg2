@@ -36,8 +36,7 @@ fn plan_block_returns_last_statement_value() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     let y <i32> :
@@ -61,8 +60,7 @@ fn plan_block_trailing_semicolon_makes_unit_and_breaks_i32_return() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 1 2;
@@ -79,8 +77,7 @@ fn plan_semicolon_requires_exactly_one_value_growth() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 1 2 3;
@@ -97,8 +94,7 @@ fn plan_multiple_semicolons_allowed() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 1 2;;
@@ -119,8 +115,7 @@ fn plan_block_used_as_function_argument() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 1:
@@ -188,8 +183,7 @@ fn plan_if_multiline_then_else_with_blocks() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     if true:
@@ -210,8 +204,7 @@ fn plan_if_colon_form_three_exprs() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     if:
@@ -231,8 +224,7 @@ fn plan_if_colon_form_with_cond_then_else_keywords() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     if:
@@ -252,8 +244,7 @@ fn plan_if_colon_form_with_then_else_keywords() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     if:
@@ -316,8 +307,7 @@ fn plan_while_is_unit_and_works_as_statement() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()*>i32> ():
     let mut x <i32> 0;
@@ -347,8 +337,7 @@ fn plan_nested_colon_blocks_in_set_expression() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()*>i32> ():
     let mut x <i32> 0;
@@ -376,8 +365,7 @@ fn plan_if_expression_used_as_argument() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     let x <i32> 7;
@@ -395,8 +383,7 @@ fn plan_if_expression_used_as_argument_multiline() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     let x <i32> 7;
@@ -419,8 +406,7 @@ fn plan_compile_only_if_layout_variants() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     let a <i32> if true 1 2;

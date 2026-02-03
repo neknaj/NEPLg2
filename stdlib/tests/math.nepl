@@ -2,14 +2,10 @@
 #indent 4
 #target wasi
 
-#import "std/math"
-#use std::math::*
-#import "std/test"
-#use std::test::*
-#import "std/stdio"
-#use std::stdio::*
-#import "std/string"
-#use std::string::*
+#import "std/math" as *
+#import "std/test" as *
+#import "std/stdio" as *
+#import "std/string" as *
 
 fn main <()*> ()> ():
     // i32 arithmetic

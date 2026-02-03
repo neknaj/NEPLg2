@@ -2,8 +2,7 @@
 #indent 4
 #target wasi
 
-#import "std/stdio"
-#use std::stdio::*
+#import "std/stdio" as *
 
 fn main <()*> ()> ():
     println "こんにちは世界!";

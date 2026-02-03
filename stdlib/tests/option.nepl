@@ -2,10 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/option"
-#use std::option::*
-#import "std/test"
-#use std::test::*
+#import "std/option" as *
+#import "std/test" as *
 
 fn main <()*> ()> ():
     // Test is_some

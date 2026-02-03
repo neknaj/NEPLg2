@@ -2,14 +2,10 @@
 #indent 4
 #target wasi
 
-#import "std/vec"
-#use std::vec::*
-#import "std/mem"
-#use std::mem::*
-#import "std/option"
-#use std::option::*
-#import "std/test"
-#use std::test::*
+#import "std/vec" as *
+#import "std/mem" as *
+#import "std/option" as *
+#import "std/test" as *
 
 fn main <()*> ()> ():
     // Test vec_new

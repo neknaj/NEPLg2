@@ -9,8 +9,8 @@ fn import_cycle_is_error() {
     fs::create_dir_all(&dir).unwrap();
     let a = dir.join("a.nepl");
     let b = dir.join("b.nepl");
-    fs::write(&a, "#import \"b\"\n#entry main\nfn main <()->i32> (): 0\n").unwrap();
-    fs::write(&b, "#import \"a\"\n").unwrap();
+    fs::write(&a, "#import \"./b\"\n#entry main\nfn main <()->i32> (): 0\n").unwrap();
+    fs::write(&b, "#import \"./a\"\n").unwrap();
     let mut loader = Loader::new(stdlib_root());
     let res = loader.load(&a);
     assert!(res.is_err());

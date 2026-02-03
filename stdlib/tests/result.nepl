@@ -2,10 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/result"
-#use std::result::*
-#import "std/test"
-#use std::test::*
+#import "std/result" as *
+#import "std/test" as *
 
 fn main <() *> ()> ():
     // Test ok and is_ok

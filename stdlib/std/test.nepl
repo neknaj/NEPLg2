@@ -1,11 +1,8 @@
 #indent 4
 
-#import "std/math"
-#use std::math::*
-#import "std/mem"
-#use std::mem::*
-#import "std/result"
-#use std::result::*
+#import "std/math" as *
+#import "std/mem" as *
+#import "std/result" as *
 
 fn test_str_eq <(str,str)->bool> (a,b):
     let la <i32> load_i32 a;

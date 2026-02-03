@@ -2,10 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/error"
-#use std::error::*
-#import "std/test"
-#use std::test::*
+#import "std/error" as *
+#import "std/test" as *
 
 fn main <()*> ()> ():
     // Test error_new

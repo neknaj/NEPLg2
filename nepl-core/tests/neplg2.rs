@@ -86,8 +86,7 @@ fn compiles_literal_main() {
     let src = r#"
 #entry main
 fn main <() -> i32> ():
-    #import "std/math"
-    #use std::math::*
+    #import "std/math" as *
     1
 "#;
     compile_ok(src);
@@ -107,8 +106,7 @@ fn add <(i32, i32) -> i32> (a, b):
         i32.add
 
 fn main <() -> i32> ():
-    #import "std/math"
-    #use std::math::*
+    #import "std/math" as *
     add 1:
         add 2 3
 "#;
@@ -133,8 +131,7 @@ fn pure_cannot_call_impure() {
 #indent 4
 
 fn imp <(i32) *> i32> (x):
-    #import "std/math"
-    #use std::math::*
+    #import "std/math" as *
     add x 1
 
 fn pure <(i32) -> i32> (x):
@@ -206,8 +203,7 @@ fn add_one <(i32)->i32> (a):
         i32.add
 
 fn main <() -> i32> ():
-    #import "std/math"
-    #use std::math::*
+    #import "std/math" as *
     add_one 1
 "#;
     compile_err(src);
@@ -374,8 +370,7 @@ fn wasm_cannot_use_stdio() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/stdio"
-#use std::stdio::*
+#import "std/stdio" as *
 
 fn main <()->()> ():
     print "hi"
@@ -388,8 +383,7 @@ fn run_add_returns_12() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 10 2
@@ -403,8 +397,7 @@ fn match_option_some_returns_value() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/option"
-#use std::option::*
+#import "std/option" as *
 
 fn main <()* >i32> ():
     match some 5:
@@ -422,10 +415,8 @@ fn list_get_out_of_bounds_err() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/list"
-#use std::list::*
-#import "std/option"
-#use std::option::*
+#import "std/list" as *
+#import "std/option" as *
 
 fn main <()* >i32> ():
     let lst list_nil<i32>;
@@ -446,8 +437,7 @@ fn non_exhaustive_match_is_error() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/option"
-#use std::option::*
+#import "std/option" as *
 
 fn main <()->i32> ():
     match some 1:
@@ -463,8 +453,7 @@ fn target_directive_sets_default_to_wasi() {
 #target wasi
 #entry main
 #indent 4
-#import "std/stdio"
-#use std::stdio::*
+#import "std/stdio" as *
 
 fn main <()* >()> ():
     print "ok"

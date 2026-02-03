@@ -3,8 +3,7 @@
 // Memory primitives. The allocator is implemented inside the wasm module
 // so the output can run on any runtime without host-provided imports.
 
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 // Linear memory layout:
 // - [0..4): heap_ptr (u32)

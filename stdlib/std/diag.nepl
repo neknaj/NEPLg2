@@ -1,11 +1,8 @@
 #indent 4
 
-#import "std/error"
-#use std::error::*
-#import "std/option"
-#use std::option::*
-#import "std/string"
-#use std::string::*
+#import "std/error" as *
+#import "std/option" as *
+#import "std/string" as *
 
 fn kind_str <(ErrorKind)->str> (k):
     match k:
@@ -61,8 +58,7 @@ fn diag_to_string <(Error)*>str> (e):
     out
 
 #if[target=wasi]
-#import "std/stdio"
-#use std::stdio::*
+#import "std/stdio" as *
 
 #if[target=wasi]
 fn diag_print <(Error)*>()> (e):

@@ -49,8 +49,7 @@ fn match_arm_local_drop_preserves_return() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/option"
-#use std::option::*
+#import "std/option" as *
 
 fn main <()->i32> ():
     match some<i32> 5:
@@ -69,8 +68,7 @@ fn trailing_semicolon_makes_block_unit_and_errors_for_return() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 1 2;
@@ -83,8 +81,7 @@ fn no_semicolons_on_line_allowed() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 1 2
@@ -100,8 +97,7 @@ fn multiple_semicolons_on_line_allowed() {
     let src = r#"
 #entry main
 #indent 4
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn main <()->i32> ():
     add 1 2;;

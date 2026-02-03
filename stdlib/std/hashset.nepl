@@ -1,9 +1,7 @@
 #indent 4
 
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/math" as *
 
 // HashSet<i32> - simple open-addressing set for i32
 // Entry layout: [occupied:i32][key:i32]

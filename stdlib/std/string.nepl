@@ -1,13 +1,9 @@
 #indent 4
 
-#import "std/mem"
-#use std::mem::*
-#import "std/result"
-#use std::result::*
-#import "std/option"
-#use std::option::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/result" as *
+#import "std/option" as *
+#import "std/math" as *
 
 
 fn len <(str)->i32> (s):

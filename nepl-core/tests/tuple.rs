@@ -7,10 +7,8 @@ fn tuple_construct_and_pass() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/math" as *
 
 fn take <((i32,bool))->i32> (t):
     7
@@ -29,10 +27,8 @@ fn tuple_generic_and_nested() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/math" as *
 
 fn make <.A,.B> <(.A,.B)->(.A,.B)> (a,b):
     (a, b)

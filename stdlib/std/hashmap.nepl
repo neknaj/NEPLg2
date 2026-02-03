@@ -1,11 +1,8 @@
 #indent 4
 
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
-#import "std/option"
-#use std::option::*
+#import "std/mem" as *
+#import "std/math" as *
+#import "std/option" as *
 
 // Simple hash function for i32 keys
 fn hash_i32 <(i32)->i32> (key):

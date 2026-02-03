@@ -2,14 +2,10 @@
 #indent 4
 #target wasi
 
-#import "std/list"
-#use std::list::*
-#import "std/option"
-#use std::option::*
-#import "std/test"
-#use std::test::*
-#import "std/stdio"
-#use std::stdio::*
+#import "std/list" as *
+#import "std/option" as *
+#import "std/test" as *
+#import "std/stdio" as *
 
 fn main <()*> ()> ():
     // Test list_nil

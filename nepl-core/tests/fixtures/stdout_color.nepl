@@ -2,8 +2,7 @@
 #indent 4
 #target wasi
 
-#import "std/stdio"
-#use std::stdio::*
+#import "std/stdio" as *
 
 fn main <()*> ()> ():
     print_color ansi_red "red";

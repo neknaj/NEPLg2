@@ -1,15 +1,10 @@
 #indent 4
 
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
-#import "std/option"
-#use std::option::*
-#import "std/stdio"
-#use std::stdio::*
-#import "std/string"
-#use std::string::*
+#import "std/mem" as *
+#import "std/math" as *
+#import "std/option" as *
+#import "std/stdio" as *
+#import "std/string" as *
 
 // Generic linked list
 // Node layout: [value:.T][next:i32]

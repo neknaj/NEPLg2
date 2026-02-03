@@ -1,7 +1,6 @@
 #indent 4
 
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 // Cast intrinsics for type conversions
 // These use compiler intrinsics to perform safe type casts

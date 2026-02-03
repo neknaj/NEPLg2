@@ -1,11 +1,8 @@
 #indent 4
 
-#import "std/mem"
-#use std::mem::*
-#import "std/option"
-#use std::option::*
-#import "std/vec"
-#use std::vec::*
+#import "std/mem" as *
+#import "std/option" as *
+#import "std/vec" as *
 
 // JSON value type
 // Tag: 0=null, 1=bool, 2=number, 3=string, 4=array, 5=object

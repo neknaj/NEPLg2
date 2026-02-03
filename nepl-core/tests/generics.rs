@@ -23,8 +23,7 @@ fn generics_fn_identity_multi_instantiation() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn id <.T> <(.T)->.T> (x):
     x
@@ -48,8 +47,7 @@ fn generics_enum_option_and_match() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 enum Option<.T>:
     None
@@ -87,10 +85,8 @@ fn generics_struct_pair_construction() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/math" as *
 
 struct Pair<.A,.B>:
     first <.A>
@@ -171,10 +167,8 @@ fn generics_enum_payload_arithmetic() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/math" as *
 
 enum Option<.T>:
     None
@@ -201,8 +195,7 @@ fn generics_multi_type_params_function() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn first <.A,.B> <(.A,.B)->.A> (a,b):
     a
@@ -226,8 +219,7 @@ fn generics_enum_none_typed_by_ascription() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 enum Option<.T>:
     None
@@ -255,8 +247,7 @@ fn generics_make_none_from_context() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 enum Option<.T>:
     None
@@ -306,8 +297,7 @@ fn generics_pipe_into_generic() {
 #entry main
 #indent 4
 #target wasm
-#import "std/math"
-#use std::math::*
+#import "std/math" as *
 
 fn id <.T> <(.T)->.T> (x):
     x
@@ -327,8 +317,7 @@ fn generics_option_none_inferred_by_param() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 enum Option<.T>:
     None
@@ -355,8 +344,7 @@ fn generics_pair_inferred_by_param() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 struct Pair<.A,.B>:
     first <.A>
@@ -379,10 +367,8 @@ fn generics_make_pair_wrapper() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/math" as *
 
 struct Pair<.A,.B>:
     first <.A>
@@ -411,10 +397,8 @@ fn generics_make_some_wrapper() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
-#import "std/math"
-#use std::math::*
+#import "std/mem" as *
+#import "std/math" as *
 
 enum Option<.T>:
     None
@@ -449,8 +433,7 @@ fn generics_nested_option_match() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 enum Option<.T>:
     None
@@ -481,8 +464,7 @@ fn generics_enum_two_params_match_payloads() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 enum Either<.A,.B>:
     Left <.A>
@@ -516,8 +498,7 @@ fn generics_nested_apply_in_payload() {
 #entry main
 #indent 4
 #target wasm
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 enum Option<.T>:
     None

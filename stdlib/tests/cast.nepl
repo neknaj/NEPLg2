@@ -2,10 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/cast"
-#use std::cast::*
-#import "std/test"
-#use std::test::*
+#import "std/cast" as *
+#import "std/test" as *
 
 fn main <()*> ()> ():
     // Test bool to i32 conversion

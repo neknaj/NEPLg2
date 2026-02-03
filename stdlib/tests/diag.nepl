@@ -2,12 +2,9 @@
 #indent 4
 #target wasi
 
-#import "std/diag"
-#use std::diag::*
-#import "std/error"
-#use std::error::*
-#import "std/test"
-#use std::test::*
+#import "std/diag" as *
+#import "std/error" as *
+#import "std/test" as *
 
 fn main <()*> ()> ():
     // Test kind_str for various error kinds

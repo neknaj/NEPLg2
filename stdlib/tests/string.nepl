@@ -2,10 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/string"
-#use std::string::*
-#import "std/test"
-#use std::test::*
+#import "std/string" as *
+#import "std/test" as *
 
 fn main <()*> ()> ():
     // Test len with literals

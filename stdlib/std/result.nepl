@@ -1,7 +1,6 @@
 #indent 4
 
-#import "std/mem"
-#use std::mem::*
+#import "std/mem" as *
 
 // Generic Result type
 enum Result<.T, .E>:
