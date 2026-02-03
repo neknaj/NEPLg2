@@ -1,6 +1,6 @@
 #indent 4
 
-#import "std/mem" as *
+#import "core/mem" as *
 
 // result: 成功(Ok)と失敗(Err)を表す型と基本操作
 //

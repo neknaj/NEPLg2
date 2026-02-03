@@ -1,9 +1,9 @@
 #indent 4
 
-#import "std/math" as *
-#import "std/mem" as *
-#import "std/result" as *
-#import "std/string" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "alloc/string" as *
 #if[target=wasi]
 #import "std/stdio" as *
 

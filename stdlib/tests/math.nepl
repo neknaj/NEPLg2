@@ -2,10 +2,10 @@
 #indent 4
 #target wasi
 
-#import "std/math" as *
+#import "core/math" as *
 #import "std/test" as *
 #import "std/stdio" as *
-#import "std/string" as *
+#import "alloc/string" as *
 
 fn main <()*> ()> ():
     // i32 arithmetic

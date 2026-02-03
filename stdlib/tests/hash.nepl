@@ -1,10 +1,10 @@
 #entry test_hash
 #indent 4
-#import "std/hash/fnv1a32" as *
-#import "std/hash/sha256" as *
+#import "alloc/hash/fnv1a32" as *
+#import "alloc/hash/sha256" as *
 #import "std/test" as *
-#import "std/vec" as *
-#import "std/math" as *
+#import "alloc/vec" as *
+#import "core/math" as *
 
 fn test_hash <()*>i32> ():
     // FNV-1a Test

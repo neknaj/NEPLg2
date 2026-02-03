@@ -3,9 +3,9 @@
 #extern "wasi_snapshot_preview1" "args_sizes_get" fn args_sizes_get <(i32,i32)->i32>
 #extern "wasi_snapshot_preview1" "args_get" fn args_get <(i32,i32)->i32>
 
-#import "std/mem" as *
-#import "std/math" as *
-#import "std/option" as *
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/option" as *
 
 // cliarg: WASI のコマンドライン引数取得
 //

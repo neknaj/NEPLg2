@@ -1,5 +1,5 @@
 #indent 4
-#import "std/math" as *
+#import "core/math" as *
 
 // xorshift32: 32bit Xorshift PRNG
 //

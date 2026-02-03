@@ -1,9 +1,9 @@
 #indent 4
 
-#import "std/mem" as *
-#import "std/result" as *
-#import "std/option" as *
-#import "std/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/option" as *
+#import "core/math" as *
 
 // string: 文字列操作（長さ付きUTF-8）
 //

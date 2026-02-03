@@ -2,8 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/result" as *
-#import "std/math" as *
+#import "core/result" as *
+#import "core/math" as *
 #import "std/test" as *
 
 fn main <() *> ()> ():

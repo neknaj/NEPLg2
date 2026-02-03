@@ -2,9 +2,9 @@
 #indent 4
 #target wasi
 
-#import "std/stack" as *
-#import "std/mem" as *
-#import "std/option" as *
+#import "alloc/collections/stack" as *
+#import "core/mem" as *
+#import "core/option" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

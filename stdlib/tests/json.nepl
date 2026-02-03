@@ -2,9 +2,9 @@
 #indent 4
 #target wasi
 
-#import "std/json" as *
-#import "std/option" as *
-#import "std/string" as *
+#import "alloc/encoding/json" as *
+#import "core/option" as *
+#import "alloc/string" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

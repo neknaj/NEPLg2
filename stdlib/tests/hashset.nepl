@@ -2,7 +2,7 @@
 #indent 4
 #target wasi
 
-#import "std/hashset" as *
+#import "alloc/collections/hashset" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

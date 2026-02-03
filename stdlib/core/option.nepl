@@ -1,6 +1,6 @@
 #indent 4
 
-#import "std/mem" as *
+#import "core/mem" as *
 
 // option: 値の有無を表す型と基本操作
 //

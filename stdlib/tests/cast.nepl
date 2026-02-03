@@ -2,7 +2,7 @@
 #indent 4
 #target wasi
 
-#import "std/cast" as *
+#import "core/cast" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

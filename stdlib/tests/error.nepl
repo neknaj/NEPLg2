@@ -2,10 +2,10 @@
 #indent 4
 #target wasi
 
-#import "std/error" as *
-#import "std/diag" as *
-#import "std/math" as *
-#import "std/string" as *
+#import "alloc/diag/error" as *
+#import "alloc/diag/diag" as *
+#import "core/math" as *
+#import "alloc/string" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

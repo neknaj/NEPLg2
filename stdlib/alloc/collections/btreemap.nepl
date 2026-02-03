@@ -1,7 +1,7 @@
 #indent 4
 
-#import "std/mem" as *
-#import "std/option" as *
+#import "core/mem" as *
+#import "core/option" as *
 
 // btreemap: i32 キーの順序付きマップ
 //

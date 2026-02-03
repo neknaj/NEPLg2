@@ -1,9 +1,9 @@
 #indent 4
 
-#import "std/mem" as *
-#import "std/math" as *
-#import "std/option" as *
-#import "std/result" as *
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
 
 // error: エラー型と簡易コンテキスト付与
 //

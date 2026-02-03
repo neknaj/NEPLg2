@@ -2,7 +2,7 @@
 #indent 4
 #target wasi
 
-#import "std/option" as *
+#import "core/option" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

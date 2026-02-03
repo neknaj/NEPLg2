@@ -1,7 +1,7 @@
 #indent 4
 
-#import "std/mem" as *
-#import "std/math" as *
+#import "core/mem" as *
+#import "core/math" as *
 
 // hashset: i32 キーの簡易集合
 //

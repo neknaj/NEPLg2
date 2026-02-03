@@ -1,8 +1,8 @@
 #indent 4
 
-#import "std/mem" as *
-#import "std/math" as *
-#import "std/option" as *
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/option" as *
 
 // hashmap: i32 キーの簡易ハッシュマップ
 //

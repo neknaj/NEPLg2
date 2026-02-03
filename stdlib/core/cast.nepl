@@ -1,6 +1,6 @@
 #indent 4
 
-#import "std/mem" as *
+#import "core/mem" as *
 
 // cast: 型変換ユーティリティ
 //

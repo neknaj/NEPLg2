@@ -1,6 +1,6 @@
 #indent 4
 
-#import "std/mem" as *
+#import "core/mem" as *
 
 // btreeset: i32 要素の順序付き集合
 //

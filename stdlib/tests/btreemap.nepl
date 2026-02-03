@@ -2,8 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/btreemap" as *
-#import "std/option" as *
+#import "alloc/collections/btreemap" as *
+#import "core/option" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

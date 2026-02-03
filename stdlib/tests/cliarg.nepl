@@ -2,10 +2,10 @@
 #indent 4
 #target wasi
 
-#import "std/cliarg" as *
-#import "std/math" as *
-#import "std/option" as *
-#import "std/string" as *
+#import "std/env/cliarg" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "alloc/string" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():

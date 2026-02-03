@@ -1,8 +1,8 @@
 #entry test_rand
 #indent 4
-#import "std/rand/xorshift32" as *
+#import "core/rand/xorshift32" as *
 #import "std/test" as *
-#import "std/math" as *
+#import "core/math" as *
 
 fn test_rand <()*>i32> ():
     // Test 1: init non-zero

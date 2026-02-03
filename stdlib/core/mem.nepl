@@ -16,7 +16,7 @@
 // 計算量:
 // - alloc/free は平均 O(1) ですが、free list の探索で O(n) になり得ます。
 
-#import "std/math" as *
+#import "core/math" as *
 
 // mem_size: 現在のメモリページ数を返す
 //

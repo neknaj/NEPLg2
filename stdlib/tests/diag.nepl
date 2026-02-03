@@ -2,8 +2,8 @@
 #indent 4
 #target wasi
 
-#import "std/diag" as *
-#import "std/error" as *
+#import "alloc/diag/diag" as *
+#import "alloc/diag/error" as *
 #import "std/test" as *
 
 fn main <()*> ()> ():
