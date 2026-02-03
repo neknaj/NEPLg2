@@ -8,6 +8,7 @@ The web playground lives under `web/` and is built by Trunk (`Trunk.toml` target
 - Run `trunk serve` and open `http://127.0.0.1:8080/`.
 - The embedded editor is optional. If `web/vendor/editorsample` is missing, the fallback textarea is used.
 - GitHub Pages builds pass `--public-url /NEPL-g2/` so the published site resolves assets under that prefix.
+- If you set `--public-url` to a subpath (e.g. `/web/dist/`), `trunk serve` will also expect that base path. Open `http://127.0.0.1:8080/web/dist/` or pass `--serve-base / --ws-base /` to serve from root while keeping asset URLs under the subpath.
 
 ## Terminal features
 
