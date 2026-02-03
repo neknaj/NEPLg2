@@ -241,6 +241,21 @@ fn main <() -> i32> ():
 }
 
 #[test]
+fn import_and_prelude_directives_are_accepted() {
+    let src = r#"
+#entry main
+#prelude std/prelude_base
+#no_prelude
+#import "std/math" as { add as plus, math::* }
+#import "./part" as @merge
+
+fn main <() -> i32> ():
+    0
+"#;
+    compile_ok(src);
+}
+
+#[test]
 fn string_literal_compiles() {
     let src = r#"
 #entry main
