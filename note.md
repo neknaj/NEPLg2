@@ -198,6 +198,12 @@
 - **浮動小数点特有**：sqrt/abs/neg/ceil/floor/trunc/nearest/min/max/copysign（f32/f64）
 - **型変換**：i32/i64 <-> f32/f64、符号付き/符号なし対応、飽和変換（trunc_sat）
 - **ビット再解釈**：reinterpret_i32/f32/i64/f64
+
+# 2026-02-03 作業メモ (kpread UTF-8 BOM 対応)
+- PowerShell のパイプ入力が UTF-8 BOM (EF BB BF) を付与する場合、kpread の `scanner_read_i32` が先頭の BOM を数値として扱い、0 を返し続ける問題を確認。
+- `scanner_skip_ws` に UTF-8 BOM のスキップを追加し、既存の UTF-16 BOM/NULL スキップと同じ位置で処理。
+- 回帰テストとして `nepl-core/tests/fixtures/stdin_kpread_i32.nepl` を追加し、`stdin_kpread_utf8_bom` で BOM 付き入力を検証。
+- 動作確認: `printf '\xEF\xBB\xBF1 3\n' | cargo run -p nepl-cli -- -i examples/abc086_a.tmp.nepl --run`
 - 後方互換性のため、i32 のみの alias 関数（add/sub/mul/div_s/lt/eq など）を提供。
 
 # 2026-01-31 作業メモ (stdlib テストの充実化)
@@ -325,3 +331,11 @@
 
 ## テスト実行結果
 - `cargo test -p nepl-core --test neplg2`
+
+# 2026-02-03 作業メモ (kpread UTF-16LE 入力)
+## 修正内容
+- `kp/kpread` の `scanner_skip_ws`/`scanner_read_i32` が UTF-16LE の NUL バイトを文字として扱っていたため、NUL をスキップする処理を追加。
+- PowerShell パイプでの `\"1 3\"` 入力でも `abc086_a.tmp.nepl` が正しく Odd を出すように修正。
+
+## テスト実行結果
+- `printf '1\0 3\0' | cargo run -p nepl-cli -- -i examples/abc086_a.tmp.nepl --run`

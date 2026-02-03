@@ -41,3 +41,11 @@ fn stdin_readline_japanese() {
     let out = run_main_capture_stdout_with_stdin(&src, input.as_bytes());
     assert_eq!(out, "こんにちは");
 }
+
+#[test]
+fn stdin_kpread_utf8_bom() {
+    let src = load_fixture("stdin_kpread_i32.nepl");
+    let input = b"\xEF\xBB\xBF1 3\n";
+    let out = run_main_capture_stdout_with_stdin(&src, input);
+    assert_eq!(out, "1\n3\n");
+}

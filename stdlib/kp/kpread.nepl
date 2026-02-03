@@ -54,6 +54,40 @@ fn scanner_skip_ws <(i32)*>()> (sc):
     let buf <i32> load_i32 sc;
     let len <i32> load_i32 add sc 4;
     let mut p <i32> load_i32 add sc 8;
+    if:
+        eq p 0
+        then:
+            if:
+                ge len 2
+                then:
+                    let b0 <i32> load_u8 buf;
+                    let b1 <i32> load_u8 add buf 1;
+                    if:
+                        ge len 3
+                        then:
+                            let b2 <i32> load_u8 add buf 2;
+                            if:
+                                and and eq b0 239 eq b1 187 eq b2 191
+                                then:
+                                    set p 3;
+                                else:
+                                    if:
+                                        or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255
+                                        then:
+                                            set p 2;
+                                        else:
+                                            ()
+                        else:
+                            if:
+                                or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255
+                                then:
+                                    set p 2;
+                                else:
+                                    ()
+                else:
+                    ()
+        else:
+            ()
     let mut done <i32> 0;
     while eq done 0:
         if:
@@ -61,11 +95,16 @@ fn scanner_skip_ws <(i32)*>()> (sc):
             then:
                 let byte <i32> load_u8 add buf p;
                 if:
-                    or eq byte 32 or eq byte 10 or eq byte 13 eq byte 9
+                    eq byte 0
                     then:
                         set p add p 1;
                     else:
-                        set done 1;
+                        if:
+                            or eq byte 32 or eq byte 10 or eq byte 13 eq byte 9
+                            then:
+                                set p add p 1;
+                            else:
+                                set done 1;
             else:
                 set done 1;
     store_i32 add sc 8 p;
@@ -133,12 +172,17 @@ fn scanner_read_i32 <(i32)*>i32> (sc):
                     then:
                         let byte <i32> load_u8 add buf p;
                         if:
-                            and ge byte 48 le byte 57
+                            eq byte 0
                             then:
-                                set val add mul val 10 sub byte 48;
                                 set p add p 1;
                             else:
-                                set done 1;
+                                if:
+                                    and ge byte 48 le byte 57
+                                    then:
+                                        set val add mul val 10 sub byte 48;
+                                        set p add p 1;
+                                    else:
+                                        set done 1;
                     else:
                         set done 1;
             store_i32 add sc 8 p;

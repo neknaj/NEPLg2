@@ -1,0 +1,15 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "kp/kpread"
+#use kp::kpread::*
+#import "std/stdio"
+#use std::stdio::*
+
+fn main <()*> ()> ():
+    let sc <i32> scanner_new;
+    let a <i32> scanner_read_i32 sc;
+    let b <i32> scanner_read_i32 sc;
+    println_i32 a;
+    println_i32 b;
