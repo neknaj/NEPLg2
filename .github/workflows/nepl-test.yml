@@ -37,3 +37,10 @@ jobs:
 
             - name: NEPL-g2 tests (no run)
               run: cargo run -p nepl-cli -- test
+
+            - name: CLI multi-emit output
+              run: |
+                  cargo run -p nepl-cli -- -i examples/counter.nepl -o target/ci-counter --emit wasm,wat,wat-min
+                  test -f target/ci-counter.wasm
+                  test -f target/ci-counter.wat
+                  test -f target/ci-counter.min.wat

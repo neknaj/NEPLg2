@@ -1,9 +1,10 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use nepl_core::{
     compile_module,
     diagnostic::{Diagnostic, Severity},
@@ -33,16 +34,17 @@ struct Cli {
     #[arg(short, long)]
     input: Option<String>,
 
-    #[arg(short, long)]
+    #[arg(short, long, help = "Output base path (extensionless recommended)")]
     output: Option<String>,
 
     #[arg(
         long,
-        value_name = "FORMAT",
+        value_enum,
+        value_delimiter = ',',
         default_value = "wasm",
-        help = "Output format: wasm"
+        help = "Output formats: wasm, wat, wat-min, all"
     )]
-    emit: String,
+    emit: Vec<Emit>,
 
     #[arg(long, help = "Run the code if the output format is wasm")]
     run: bool,
@@ -57,6 +59,15 @@ struct Cli {
 
     #[arg(short, long, global = true, help = "Enable verbose compiler logging")]
     verbose: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, ValueEnum)]
+enum Emit {
+    Wasm,
+    Wat,
+    #[value(name = "wat-min")]
+    WatMin,
+    All,
 }
 
 #[derive(Subcommand, Debug)]
@@ -84,6 +95,7 @@ fn execute(cli: Cli) -> Result<()> {
     if !cli.run && cli.output.is_none() {
         return Err(anyhow::anyhow!("Either --run or --output is required"));
     }
+    let emits = expand_emits(&cli.emit);
     let (module, source_map) = match cli.input {
         Some(path) => {
             let mut loader = Loader::new(stdlib_root()?);
@@ -154,25 +166,21 @@ fn execute(cli: Cli) -> Result<()> {
         verbose: cli.verbose,
     };
 
-    match cli.emit.as_str() {
-        "wasm" => {
-            let artifact = match compile_module(module, options) {
-                Ok(a) => a,
-                Err(CoreError::Diagnostics(diags)) => {
-                    render_diagnostics(&diags, &source_map);
-                    return Err(anyhow::anyhow!("compilation failed"));
-                }
-                Err(e) => return Err(anyhow::anyhow!(e.to_string())),
-            };
-            if let Some(out) = &cli.output {
-                write_output(out, &artifact.wasm)?;
-            }
-            if cli.run {
-                let result = run_wasm(&artifact, run_target)?;
-                println!("Program exited with {result}");
-            }
+    let artifact = match compile_module(module, options) {
+        Ok(a) => a,
+        Err(CoreError::Diagnostics(diags)) => {
+            render_diagnostics(&diags, &source_map);
+            return Err(anyhow::anyhow!("compilation failed"));
         }
-        other => return Err(anyhow::anyhow!("unsupported emit format: {other}")),
+        Err(e) => return Err(anyhow::anyhow!(e.to_string())),
+    };
+    if let Some(out) = &cli.output {
+        let base = output_base_from_arg(out);
+        write_outputs(&base, &artifact.wasm, &emits)?;
+    }
+    if cli.run {
+        let result = run_wasm(&artifact, run_target)?;
+        println!("Program exited with {result}");
     }
 
     if cli.lib {
@@ -279,25 +287,173 @@ fn collect_nepl_files(dir: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
     Ok(())
 }
 
-fn write_output(path: &str, bytes: &[u8]) -> Result<()> {
-    if let Some(parent) = PathBuf::from(path).parent() {
+fn output_base_from_arg(output: &str) -> PathBuf {
+    if output.ends_with(".min.wat") {
+        return PathBuf::from(output.trim_end_matches(".min.wat"));
+    }
+    let path = PathBuf::from(output);
+    match path.extension().and_then(|s| s.to_str()) {
+        Some("wasm") | Some("wat") => path.with_extension(""),
+        _ => path,
+    }
+}
+
+fn expand_emits(emits: &[Emit]) -> BTreeSet<Emit> {
+    let mut set = BTreeSet::new();
+    for emit in emits {
+        match emit {
+            Emit::All => {
+                set.insert(Emit::Wasm);
+                set.insert(Emit::Wat);
+                set.insert(Emit::WatMin);
+            }
+            other => {
+                set.insert(*other);
+            }
+        }
+    }
+    set
+}
+
+fn output_path(base: &Path, emit: Emit) -> PathBuf {
+    match emit {
+        Emit::Wasm => base.with_extension("wasm"),
+        Emit::Wat => base.with_extension("wat"),
+        Emit::WatMin => PathBuf::from(format!("{}.min.wat", base.display())),
+        Emit::All => base.to_path_buf(),
+    }
+}
+
+fn write_outputs(base: &Path, wasm: &[u8], emits: &BTreeSet<Emit>) -> Result<()> {
+    if emits.contains(&Emit::Wasm) {
+        let path = output_path(base, Emit::Wasm);
+        write_bytes(&path, wasm)?;
+    }
+    if emits.contains(&Emit::Wat) {
+        let path = output_path(base, Emit::Wat);
+        let wat_text = make_wat_pretty(wasm)?;
+        write_bytes(&path, wat_text.as_bytes())?;
+    }
+    if emits.contains(&Emit::WatMin) {
+        let path = output_path(base, Emit::WatMin);
+        let wat_text = make_wat_min(wasm)?;
+        write_bytes(&path, wat_text.as_bytes())?;
+    }
+    Ok(())
+}
+
+fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)
                 .with_context(|| format!("failed to create directory {parent:?}"))?;
         }
     }
-    fs::write(path, bytes).with_context(|| format!("failed to write output file {path}"))?;
+    fs::write(path, bytes)
+        .with_context(|| format!("failed to write output file {}", path.display()))
+}
 
-    // Write WAT (WebAssembly Text Format) as well
-    if path.ends_with(".wasm") {
-        let wat_path = path.trim_end_matches(".wasm").to_string() + ".wat";
-        let wat_text = print_bytes(bytes)
-            .with_context(|| "failed to convert wasm to wat")?;
-        fs::write(&wat_path, wat_text.as_bytes())
-            .with_context(|| format!("failed to write WAT file {wat_path}"))?;
+fn make_wat_pretty(wasm: &[u8]) -> Result<String> {
+    print_bytes(wasm).with_context(|| "failed to convert wasm to wat")
+}
+
+fn make_wat_min(wasm: &[u8]) -> Result<String> {
+    let out = print_bytes(wasm).with_context(|| "failed to convert wasm to wat")?;
+    Ok(minify_wat_text(&out))
+}
+
+fn minify_wat_text(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    let mut in_string = false;
+    let mut comment_depth = 0usize;
+    let mut prev_space = false;
+
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if c == '\\' {
+                if let Some(next) = chars.next() {
+                    out.push(next);
+                }
+                continue;
+            }
+            if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        if comment_depth > 0 {
+            if c == '(' && chars.peek() == Some(&';') {
+                chars.next();
+                comment_depth += 1;
+                continue;
+            }
+            if c == ';' && chars.peek() == Some(&')') {
+                chars.next();
+                comment_depth = comment_depth.saturating_sub(1);
+                if comment_depth == 0 && !prev_space && !out.is_empty() {
+                    out.push(' ');
+                    prev_space = true;
+                }
+                continue;
+            }
+            continue;
+        }
+
+        if c == '"' {
+            in_string = true;
+            out.push(c);
+            prev_space = false;
+            continue;
+        }
+        if c == ';' && chars.peek() == Some(&';') {
+            chars.next();
+            while let Some(next) = chars.next() {
+                if next == '\n' {
+                    break;
+                }
+            }
+            if !prev_space && !out.is_empty() {
+                out.push(' ');
+                prev_space = true;
+            }
+            continue;
+        }
+        if c == '(' && chars.peek() == Some(&';') {
+            chars.next();
+            comment_depth = 1;
+            continue;
+        }
+        if c.is_whitespace() {
+            if !prev_space && !out.is_empty() {
+                out.push(' ');
+                prev_space = true;
+            }
+            continue;
+        }
+        if c == '(' {
+            if out.ends_with(' ') {
+                out.pop();
+            }
+            out.push('(');
+            prev_space = false;
+            continue;
+        }
+        if c == ')' {
+            if out.ends_with(' ') {
+                out.pop();
+            }
+            out.push(')');
+            prev_space = false;
+            continue;
+        }
+        out.push(c);
+        prev_space = false;
     }
 
-    Ok(())
+    out.trim().to_string()
 }
 
 fn run_wasm(artifact: &CompilationArtifact, target: CompileTarget) -> Result<i32> {
@@ -767,8 +923,74 @@ mod tests {
     #[test]
     fn cli_parses_defaults() {
         let cli = Cli::parse_from(["nepl-cli", "--run"]);
-        assert_eq!(cli.emit, "wasm");
+        assert_eq!(cli.emit, vec![Emit::Wasm]);
         assert!(cli.run);
         assert!(cli.output.is_none());
+    }
+
+    #[test]
+    fn cli_parses_emit_list() {
+        let cli = Cli::parse_from(["nepl-cli", "--run", "--emit", "wasm,wat-min"]);
+        assert_eq!(cli.emit, vec![Emit::Wasm, Emit::WatMin]);
+    }
+
+    #[test]
+    fn output_base_handles_extensions() {
+        assert_eq!(
+            output_base_from_arg("out/a.wasm"),
+            PathBuf::from("out/a")
+        );
+        assert_eq!(output_base_from_arg("out/a.wat"), PathBuf::from("out/a"));
+        assert_eq!(
+            output_base_from_arg("out/a.min.wat"),
+            PathBuf::from("out/a")
+        );
+        assert_eq!(
+            output_base_from_arg("out/a.custom"),
+            PathBuf::from("out/a.custom")
+        );
+    }
+
+    #[test]
+    fn minify_wat_removes_comments_and_whitespace() {
+        let input = r#"
+            (module
+                ;; line comment
+                (func (param i32) (result i32)
+                    (i32.add (local.get 0) (i32.const 1))
+                )
+                (; block
+                   comment ;)
+                (export "add one" (func 0))
+            )
+        "#;
+        let out = minify_wat_text(input);
+        assert!(!out.contains(";;"));
+        assert!(!out.contains("block"));
+        assert!(out.contains("(module"));
+        assert!(out.contains("(export \"add one\""));
+        assert!(!out.contains("\n"));
+    }
+
+    #[test]
+    fn write_outputs_creates_files() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("out/test");
+        let wasm = b"\0asm\x01\0\0\0";
+        let mut emits = BTreeSet::new();
+        emits.insert(Emit::Wasm);
+        emits.insert(Emit::Wat);
+        emits.insert(Emit::WatMin);
+
+        write_outputs(&base, wasm, &emits).expect("write outputs");
+
+        let wasm_path = base.with_extension("wasm");
+        let wat_path = base.with_extension("wat");
+        let wat_min_path = PathBuf::from(format!("{}.min.wat", base.display()));
+        assert!(wasm_path.exists());
+        assert!(wat_path.exists());
+        assert!(wat_min_path.exists());
+        assert!(!fs::read_to_string(wat_path).unwrap_or_default().is_empty());
+        assert!(!fs::read_to_string(wat_min_path).unwrap_or_default().is_empty());
     }
 }

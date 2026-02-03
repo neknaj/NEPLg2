@@ -285,3 +285,18 @@
 - トップレベルのディレクティブ行のインデント扱い（`#wasm` ブロック以外は増加を無視する仕様）が plan.md に未記載。
 - 整数リテラルの overflow ルール（`i32` へのラップ）と 16 進表記の仕様が plan.md に未記載。
 - move_check における `load`/`store` の borrow 扱いが plan.md に未記載。
+
+# 2026-02-03 作業メモ (CLI 出力/emit 拡張)
+## 修正内容
+- `--emit` を複数指定可能にし、`wasm`/`wat`/`wat-min`/`all` を選択できるように拡張。
+- `--output` をベースパスとして扱い、`.wasm`/`.wat`/`.min.wat` を派生生成するよう変更。
+- pretty WAT は `wasmprinter::print_bytes` の出力を使用し、minified WAT はその出力を空白圧縮して生成。
+- CLI 出力のユニットテストを追加（emit 解析、出力ベース判定、minify、出力ファイル生成）。
+- `doc/cli.md` と README の CLI 例を更新。
+- GitHub Actions の `nepl-test.yml` に multi-emit の出力確認ステップを追加。
+
+## テスト実行結果
+- `cargo test -p nepl-cli`
+
+## plan.md との差分メモ (追加)
+- `--emit` の複数指定と `wat-min` 出力、`--output` のベースパス運用が plan.md に未記載。

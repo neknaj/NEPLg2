@@ -28,14 +28,21 @@ Compile and/or run:
 cargo run -p nepl-cli -- --input examples/counter.nepl --run
 
 # write wasm and run with embedded runner
-cargo run -p nepl-cli -- --input examples/counter.nepl --output target/counter.wasm --run
+cargo run -p nepl-cli -- --input examples/counter.nepl --output target/counter --run
 
 # compile to wasi and run with external WASI runtime
 cargo run -p nepl-cli -- -i examples/rpn.nepl --run --target wasi
 
 # choose target (wasm|wasi), default wasm
-cargo run -p nepl-cli -- --input examples/counter.nepl --target wasi --output target/counter.wasm
+cargo run -p nepl-cli -- --input examples/counter.nepl --target wasi --output target/counter
+
+# emit multiple outputs (wasm + pretty wat + minified wat)
+cargo run -p nepl-cli -- -i examples/counter.nepl -o target/counter --emit wasm,wat,wat-min
 ```
+
+Notes:
+- `--output` is treated as a base path; extensions are added per `--emit`.
+- `--emit` can be repeated or comma-separated; `all` expands to `wasm, wat, wat-min`.
 
 ### Running with external WASI runtimes
 
@@ -43,7 +50,7 @@ After compiling to WASM, you can run with `wasmtime` or `wasmer`:
 
 ```bash
 # Compile to WASI binary
-cargo run -p nepl-cli -- -i examples/counter.nepl -o counter.wasm --target wasi
+cargo run -p nepl-cli -- -i examples/counter.nepl -o counter --target wasi
 
 # Run with wasmtime
 wasmtime run counter.wasm
@@ -52,7 +59,7 @@ wasmtime run counter.wasm
 wasmer run counter.wasm
 
 # With stdin/stdout interaction (e.g., rpn.nepl)
-cargo run -p nepl-cli -- -i examples/rpn.nepl -o rpn.wasm --target wasi
+cargo run -p nepl-cli -- -i examples/rpn.nepl -o rpn --target wasi
 echo "3 5 +" | wasmtime run rpn.wasm
 echo "3 5 +" | wasmer run rpn.wasm
 ```
