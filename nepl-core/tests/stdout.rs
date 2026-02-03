@@ -36,3 +36,14 @@ fn println_i32_appends_newline() {
     let out = run_main_capture_stdout(&src);
     assert_eq!(out, "12\n3");
 }
+
+#[test]
+fn stdout_japanese_utf8() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("stdout_japanese.nepl");
+    let src = fs::read_to_string(path).expect("read stdout_japanese fixture");
+    let out = run_main_capture_stdout(&src);
+    assert_eq!(out, "こんにちは世界!\n");
+}

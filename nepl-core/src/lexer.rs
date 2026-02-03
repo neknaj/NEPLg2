@@ -611,9 +611,13 @@ impl<'a> LexState<'a> {
                                 buf.push(ch);
                                 i += 2;
                             }
-                            b => {
-                                buf.push(b as char);
-                                i += 1;
+                            _ => {
+                                if let Some(ch) = text[i..].chars().next() {
+                                    buf.push(ch);
+                                    i += ch.len_utf8();
+                                } else {
+                                    i += 1;
+                                }
                             }
                         }
                     }

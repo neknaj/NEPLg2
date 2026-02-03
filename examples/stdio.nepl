@@ -1,0 +1,18 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "std/mem"
+#use std::mem::*
+#import "std/math"
+#use std::math::*
+#import "std/stdio"
+#use std::stdio::*
+
+
+fn main <()*> ()> ():
+    println "accepting input...";
+    print "> ";
+    let input <str> read_line;
+    println "input:";
+    println input;

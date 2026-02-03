@@ -204,6 +204,12 @@
 - `scanner_skip_ws` に UTF-8 BOM のスキップを追加し、既存の UTF-16 BOM/NULL スキップと同じ位置で処理。
 - 回帰テストとして `nepl-core/tests/fixtures/stdin_kpread_i32.nepl` を追加し、`stdin_kpread_utf8_bom` で BOM 付き入力を検証。
 - 動作確認: `printf '\xEF\xBB\xBF1 3\n' | cargo run -p nepl-cli -- -i examples/abc086_a.tmp.nepl --run`
+
+# 2026-02-03 作業メモ (日本語文字列の stdout)
+- 文字列リテラルの lexer が UTF-8 を 1 バイトずつ `char` に変換していたため、日本語が mojibake になる問題を確認。
+- 文字列リテラルの通常文字の読み取りを UTF-8 `char` 単位に変更し、`i` を `len_utf8` 分進めるよう修正。
+- 回帰テストとして `nepl-core/tests/fixtures/stdout_japanese.nepl` と `stdout_japanese_utf8` を追加。
+- 動作確認: `cargo run -p nepl-cli -- -i examples/helloworld.nepl --run -o a`
 - 後方互換性のため、i32 のみの alias 関数（add/sub/mul/div_s/lt/eq など）を提供。
 
 # 2026-01-31 作業メモ (stdlib テストの充実化)
