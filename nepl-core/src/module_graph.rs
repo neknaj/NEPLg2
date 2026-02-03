@@ -481,4 +481,100 @@ mod tests {
         assert!(!root_exports.contains_key("foo"));
         assert!(!root_exports.contains_key("baz"));
     }
+
+    #[test]
+    fn non_pub_import_does_not_reexport() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("main.nepl");
+        let dep = dir.path().join("lib.nepl");
+        fs::write(
+            &root,
+            "#import \"./lib\" as *\n#entry main\nfn main <()*> ()> ():\n    ()\n",
+        )
+        .unwrap();
+        fs::write(&dep, "pub fn foo <()*> ()> ():\n    ()\n").unwrap();
+
+        let builder = ModuleGraphBuilder::new(dir.path().to_path_buf());
+        let g = builder.build(&root).unwrap();
+        let exports = ModuleGraphBuilder::build_exports(&g).unwrap();
+        let root_path = canonicalize_path(&root);
+        let root_id = g.nodes.iter().find(|n| n.path == root_path).unwrap().id;
+        let root_exports = exports.map.get(&root_id).unwrap();
+        assert!(!root_exports.contains_key("foo"));
+    }
+
+    #[test]
+    fn pub_selective_reexport_with_glob_includes_all() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("main.nepl");
+        let dep = dir.path().join("lib.nepl");
+        fs::write(
+            &root,
+            "pub #import \"./lib\" as { foo as bar, baz::* }\n#entry main\nfn main <()*> ()> ():\n    ()\n",
+        )
+        .unwrap();
+        fs::write(
+            &dep,
+            "pub fn foo <()*> ()> ():\n    ()\npub fn baz <()*> ()> ():\n    ()\n",
+        )
+        .unwrap();
+
+        let builder = ModuleGraphBuilder::new(dir.path().to_path_buf());
+        let g = builder.build(&root).unwrap();
+        let exports = ModuleGraphBuilder::build_exports(&g).unwrap();
+        let root_path = canonicalize_path(&root);
+        let root_id = g.nodes.iter().find(|n| n.path == root_path).unwrap().id;
+        let root_exports = exports.map.get(&root_id).unwrap();
+        assert!(root_exports.contains_key("bar"));
+        assert!(root_exports.contains_key("foo"));
+        assert!(root_exports.contains_key("baz"));
+    }
+
+    #[test]
+    fn duplicate_export_is_error() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("main.nepl");
+        let dep = dir.path().join("lib.nepl");
+        fs::write(
+            &root,
+            "pub #import \"./lib\" as *\n#entry main\npub fn foo <()*> ()> ():\n    ()\nfn main <()*> ()> ():\n    ()\n",
+        )
+        .unwrap();
+        fs::write(&dep, "pub fn foo <()*> ()> ():\n    ()\n").unwrap();
+
+        let builder = ModuleGraphBuilder::new(dir.path().to_path_buf());
+        let g = builder.build(&root).unwrap();
+        let err = ModuleGraphBuilder::build_exports(&g).unwrap_err();
+        assert!(matches!(err, ModuleGraphError::DuplicateExport(name) if name == "foo"));
+    }
+
+    #[test]
+    fn missing_dependency_is_error() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("main.nepl");
+        fs::write(
+            &root,
+            "#import \"ext/util\" as *\n#entry main\nfn main <()*> ()> ():\n    ()\n",
+        )
+        .unwrap();
+
+        let builder = ModuleGraphBuilder::new(dir.path().to_path_buf());
+        let err = builder.build(&root).unwrap_err();
+        assert!(matches!(err, ModuleGraphError::MissingDependency(name) if name == "ext"));
+    }
+
+    #[test]
+    fn invalid_import_path_is_error() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("main.nepl");
+        fs::write(
+            &root,
+            "#import \"std\" as *\n#entry main\nfn main <()*> ()> ():\n    ()\n",
+        )
+        .unwrap();
+
+        let builder = ModuleGraphBuilder::new(dir.path().to_path_buf());
+        let err = builder.build(&root).unwrap_err();
+        assert!(matches!(err, ModuleGraphError::InvalidImport(_)));
+    }
 }
