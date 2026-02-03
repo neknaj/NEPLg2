@@ -3,76 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEPLg2 Web Playground</title>
+    <title>NEPLg2 Playground</title>
     <link data-trunk rel="css" href="styles.css">
     <link data-trunk rel="copy-dir" href="vendor">
-    <link data-trunk rel="copy-file" href="main.js">
+    <link data-trunk rel="copy-dir" href="src">
+    <link data-trunk rel="copy-dir" href="examples">
     <link data-trunk rel="rust" href="../nepl-web/Cargo.toml" data-bindgen-target="web">
-    <script type="module" src="main.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header class="page-header">
-        <div class="page-header__inner">
-            <div class="page-header__intro">
-                <h1>NEPLg2 Playground</h1>
-                <p>ブラウザ上で NEPL のコードを編集し、WAT 生成や実行、テストを試せます。</p>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <span class="logo-text">NEPLg2</span> <span class="badge">Playground</span>
             </div>
-            <nav class="page-header__actions" aria-label="Additional resources">
-                <a
-                    id="docs-link"
-                    class="page-header__link"
-                    data-docs-url="../doc/"
-                    href="../doc/"
-                    target="_blank"
-                    rel="noopener"
-                >
-                    Documentation
-                </a>
-            </nav>
-        </div>
-    </header>
-    <main class="layout">
-        <section class="panel panel--editor">
-            <div class="panel__header">
-                <label for="editor-frame" class="panel__label">ソースコード</label>
-                <span id="editor-status" class="status-pill status-warning">エディタの読み込みを待機中...</span>
-            </div>
-            <div class="editor-frame-wrapper">
-                <iframe id="editor-frame" title="NEPL Editor" data-src="vendor/editorsample/index.html"></iframe>
-                <div id="fallback" class="fallback" hidden>
-                    <p>エディタが見つからないため、簡易エディタを表示しています。</p>
-                    <textarea id="fallback-editor" aria-label="Fallback editor" spellcheck="false"></textarea>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="example-select">Example:</label>
+                    <select id="example-select">
+                        <option value="" disabled selected>Select an example...</option>
+                    </select>
                 </div>
+                <!-- Future controls like "Run", "Share" could go here -->
             </div>
-            <div class="panel__controls">
-                <button type="button" id="compile">WATを生成</button>
-                <button type="button" id="run" class="primary">Run</button>
-                <button type="button" id="test">Test</button>
-                <button type="button" id="clear" class="danger">Clear</button>
-            </div>
-            <div id="status" class="status" role="status" aria-live="polite"></div>
-        </section>
-        <section class="panel">
-            <label for="wat" class="panel__label">生成されたWAT</label>
-            <textarea id="wat" class="panel__textarea" readonly spellcheck="false"></textarea>
-        </section>
-        <section class="panel panel--terminal">
-            <label for="terminal-output" class="panel__label">実行結果 (ターミナル)</label>
-            <div class="terminal-controls">
-                <div class="terminal-command">
-                    <label for="terminal-command">コマンド</label>
-                    <input id="terminal-command" type="text" placeholder="run / test / clear / help" autocomplete="off">
+        </header>
+        
+        <main class="workspace">
+            <section class="pane editor-pane">
+                <div class="pane-header">
+                    <span class="pane-title">Editor</span>
+                    <span class="file-status" id="editor-status">examples/rpn.nepl</span>
                 </div>
-                <div class="terminal-stdin">
-                    <label for="terminal-stdin">stdin</label>
-                    <textarea id="terminal-stdin" rows="4" placeholder="標準入力をここに入力"></textarea>
+                <div class="canvas-container" id="editor-container">
+                    <canvas id="editor-canvas"></canvas>
+                    <textarea id="editor-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                    <!-- Completion Popup -->
+                    <ul id="completion-list" class="popup-menu hidden"></ul>
                 </div>
-            </div>
-            <pre id="terminal-output" class="terminal-output" aria-live="polite"></pre>
-        </section>
-    </main>
-    <footer class="page-footer">
-        <p>wasm32ターゲット向けにビルドされたコンパイラとWASMランタイムを利用しています。</p>
-    </footer>
+            </section>
+            
+            <div class="resizer" id="workspace-resizer"></div>
+            
+            <section class="pane terminal-pane">
+                <div class="pane-header">
+                    <span class="pane-title">Terminal</span>
+                    <span class="terminal-status" id="terminal-status">wasi-target</span>
+                </div>
+                <div class="canvas-container" id="terminal-container">
+                    <canvas id="terminal-canvas"></canvas>
+                    <textarea id="terminal-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                </div>
+            </section>
+        </main>
+        
+        <div id="general-popup" class="popup-tooltip hidden"></div>
+    </div>
+
+    <!-- Application Modules -->
+    <script type="module" src="src/main.js"></script>
 </body>
 </html>

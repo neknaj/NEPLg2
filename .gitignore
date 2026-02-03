@@ -6,3 +6,4 @@
 /*.wasm
 /*.wat
 /examples/*.tmp.nepl
+/web/examples

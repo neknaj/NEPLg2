@@ -1,0 +1,16 @@
+{
+  "name": "neplg2-playground",
+  "version": "0.1.0",
+  "description": "Web playground for NEPLg2 programming language",
+  "scripts": {
+    "start": "npx serve .",
+    "copy": "cp ../examples/*.nepl examples/",
+    "build": "npm run copy && echo 'No build step yet'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
