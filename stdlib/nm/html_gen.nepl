@@ -1,0 +1,161 @@
+#indent 4
+
+#import "alloc/string" as *
+#import "alloc/vec" as *
+#import "core/option" as *
+#import "core/mem" as *
+#import "core/math" as *
+
+#import "./parser" as *
+
+fn escape_html <(str)->str> (s):
+    // English comments required by user preference.
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> len s;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> load_u8 add s add 4 i;
+            if:
+                eq ch 38
+                then set sb sb_append sb "&amp;"
+                else:
+                    if:
+                        eq ch 60
+                        then set sb sb_append sb "&lt;"
+                        else:
+                            if:
+                                eq ch 62
+                                then set sb sb_append sb "&gt;"
+                                else:
+                                    if:
+                                        eq ch 34
+                                        then set sb sb_append sb "&quot;"
+                                        else:
+                                            set sb sb_append sb str_slice s i add i 1;
+            set i add i 1;
+    sb_build sb
+
+fn render_inlines <(Vec<Inline>)->str> (v):
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> vec_len<Inline> v;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let it <Inline> unwrap<Inline> vec_get<Inline> v i;
+            match it:
+                Inline::Text s:
+                    set sb sb_append sb escape_html s;
+                Inline::Math m:
+                    // Keep delimiters as-is for KaTeX/MathJax.
+                    set sb sb_append sb m;
+                Inline::Ruby r:
+                    set sb sb_append sb "<ruby>";
+                    set sb sb_append sb escape_html r.base;
+                    set sb sb_append sb "<rt>";
+                    set sb sb_append sb escape_html r.ruby;
+                    set sb sb_append sb "</rt></ruby>";
+                Inline::Gloss g:
+                    // Re-parse to allow ruby inside gloss segments.
+                    set sb sb_append sb "<span class=\"gloss\">";
+                    set sb sb_append sb "<span class=\"gloss-main\">";
+                    set sb sb_append sb render_inlines parse_inlines g.main;
+                    set sb sb_append sb "</span>";
+                    let m <i32> vec_len<str> g.subs;
+                    let mut j <i32> 0;
+                    while lt j m:
+                        do:
+                            let ss <str> unwrap<str> vec_get<str> g.subs j;
+                            set sb sb_append sb "<span class=\"gloss-sub\">";
+                            set sb sb_append sb render_inlines parse_inlines ss;
+                            set sb sb_append sb "</span>";
+                            set j add j 1;
+                    set sb sb_append sb "</span>";
+            set i add i 1;
+    sb_build sb
+
+fn render_nodes <(Vec<Node>)->str> (nodes):
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> vec_len<Node> nodes;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let nd <Node> unwrap<Node> vec_get<Node> nodes i;
+            match nd:
+                Node::Hr:
+                    set sb sb_append sb "<hr/>";
+                Node::Paragraph inl:
+                    set sb sb_append sb "<p>";
+                    set sb sb_append sb render_inlines inl;
+                    set sb sb_append sb "</p>";
+                Node::CodeBlock cb:
+                    set sb sb_append sb "<pre><code";
+                    if:
+                        gt len cb.info 0
+                        then:
+                            set sb sb_append sb " class=\"language-";
+                            set sb sb_append sb escape_html cb.info;
+                            set sb sb_append sb "\"";
+                            ()
+                        else ();
+                    set sb sb_append sb ">";
+                    set sb sb_append sb escape_html cb.code;
+                    set sb sb_append sb "</code></pre>";
+                Node::Section sec:
+                    set sb sb_append sb "<section class=\"nest level-";
+                    set sb sb_append_i32 sb sec.level;
+                    set sb sb_append sb "\">";
+
+                    // Heading tag
+                    if:
+                        eq sec.heading.level 1
+                        then:
+                            set sb sb_append sb "<h1>";
+                            set sb sb_append sb render_inlines sec.heading.inlines;
+                            set sb sb_append sb "</h1>";
+                            ()
+                        else:
+                            if:
+                                eq sec.heading.level 2
+                                then:
+                                    set sb sb_append sb "<h2>";
+                                    set sb sb_append sb render_inlines sec.heading.inlines;
+                                    set sb sb_append sb "</h2>";
+                                    ()
+                                else:
+                                    if:
+                                        eq sec.heading.level 3
+                                        then:
+                                            set sb sb_append sb "<h3>";
+                                            set sb sb_append sb render_inlines sec.heading.inlines;
+                                            set sb sb_append sb "</h3>";
+                                            ()
+                                        else:
+                                            if:
+                                                eq sec.heading.level 4
+                                                then:
+                                                    set sb sb_append sb "<h4>";
+                                                    set sb sb_append sb render_inlines sec.heading.inlines;
+                                                    set sb sb_append sb "</h4>";
+                                                    ()
+                                                else:
+                                                    if:
+                                                        eq sec.heading.level 5
+                                                        then:
+                                                            set sb sb_append sb "<h5>";
+                                                            set sb sb_append sb render_inlines sec.heading.inlines;
+                                                            set sb sb_append sb "</h5>";
+                                                            ()
+                                                        else:
+                                                            set sb sb_append sb "<h6>";
+                                                            set sb sb_append sb render_inlines sec.heading.inlines;
+                                                            set sb sb_append sb "</h6>";
+                                                            ();
+
+                    set sb sb_append sb render_nodes sec.children;
+                    set sb sb_append sb "</section>";
+            set i add i 1;
+    sb_build sb
+
+pub fn render_document <(Document)->str> (doc):
+    render_nodes doc.nodes

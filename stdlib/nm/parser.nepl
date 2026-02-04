@@ -1,0 +1,724 @@
+#indent 4
+
+#import "alloc/string" as *
+#import "alloc/vec" as *
+#import "core/option" as *
+#import "core/mem" as *
+#import "std/math" as *
+#import "alloc/collections/stack" as *
+
+// -----------------------------
+// AST
+// -----------------------------
+
+pub struct Document:
+    nodes <Vec<Node>>
+
+pub struct Heading:
+    level <i32>
+    inlines <Vec<Inline>>
+
+pub struct Section:
+    level <i32>
+    heading <Heading>
+    children <Vec<Node>>
+
+pub struct Ruby:
+    base <str>
+    ruby <str>
+
+pub struct Gloss:
+    main <str>
+    subs <Vec<str>>
+
+pub struct CodeBlock:
+    info <str>
+    code <str>
+
+pub enum Inline:
+    Text <str>
+    Ruby <Ruby>
+    Gloss <Gloss>
+    Math <str>
+
+pub enum Node:
+    Section <Section>
+    Paragraph <Vec<Inline>>
+    Hr
+    CodeBlock <CodeBlock>
+
+// Multi-return helpers (no tuple destructuring)
+struct FenceRes:
+    cb <CodeBlock>
+    next_i <i32>
+
+struct ParaRes:
+    inlines <Vec<Inline>>
+    next_i <i32>
+
+// -----------------------------
+// Small helpers
+// -----------------------------
+
+fn is_empty_line <(str)->bool> (s):
+    let t <str> str_trim s;
+    eq len t 0
+
+fn is_hr_line <(str)->bool> (s):
+    let t <str> str_trim s;
+    str_eq t "---"
+
+fn is_nest_break_line <(str)->bool> (s):
+    let t <str> str_trim s;
+    str_eq t ";;;"
+
+fn is_fence_start <(str)->bool> (s):
+    let t <str> str_trim s;
+    str_starts_with t "```"
+
+fn is_heading_start <(str)->bool> (s):
+    let t <str> str_trim s;
+    or str_starts_with t "# " or str_starts_with t "## " or str_starts_with t "### " or str_starts_with t "#### " or str_starts_with t "##### " str_starts_with t "###### "
+
+fn trim_cr <(str)->str> (s):
+    let n <i32> len s;
+    if:
+        le n 0
+        then s
+        else:
+            let last <i32> load_u8 add s add 4 sub n 1;
+            if:
+                eq last 13
+                then str_slice s 0 sub n 1
+                else s
+
+fn safe_line <(Vec<str>, i32)->str> (lines, i):
+    trim_cr unwrap<str> vec_get<str> lines i
+
+fn close_one_section <(i32, Vec<Node>)->Vec<Node>> (stk, root):
+    match stack_pop<Section> stk:
+        Option::Some sec:
+            let node <Node> Node::Section sec;
+            // Append to parent if exists, else to root
+            match stack_peek<Section> stk:
+                Option::Some _:
+                    match stack_pop<Section> stk:
+                        Option::Some parent:
+                            let kids <Vec<Node>> vec_push<Node> parent.children node;
+                            let parent2 <Section> Section parent.level parent.heading kids;
+                            stack_push<Section> stk parent2;
+                            root
+                        Option::None:
+                            vec_push<Node> root node
+                Option::None:
+                    vec_push<Node> root node
+        Option::None:
+            root
+
+fn close_to_level <(i32, Vec<Node>, i32)->Vec<Node>> (stk, root, new_level):
+    // Close while top.level >= new_level
+    let mut r <Vec<Node>> root;
+    let mut done <bool> false;
+    while eq done false:
+        do:
+            match stack_peek<Section> stk:
+                Option::Some top:
+                    if:
+                        ge top.level new_level
+                        then:
+                            set r close_one_section stk r;
+                            ()
+                        else:
+                            set done true;
+                            ()
+                Option::None:
+                    set done true;
+                    ()
+    r
+
+fn close_all_sections <(i32, Vec<Node>)->Vec<Node>> (stk, root):
+    let mut r <Vec<Node>> root;
+    let mut done <bool> false;
+    while eq done false:
+        do:
+            match stack_peek<Section> stk:
+                Option::Some _:
+                    set r close_one_section stk r;
+                    ()
+                Option::None:
+                    set done true;
+                    ()
+    r
+
+fn parse_heading <(str)->Option<Heading>> (line):
+    let t <str> str_trim line;
+
+    if:
+        str_starts_with t "###### "
+        then:
+            let txt <str> str_slice t 7 len t;
+            Option::Some Heading 6 parse_inlines txt
+        else:
+            if:
+                str_starts_with t "##### "
+                then:
+                    let txt <str> str_slice t 6 len t;
+                    Option::Some Heading 5 parse_inlines txt
+                else:
+                    if:
+                        str_starts_with t "#### "
+                        then:
+                            let txt <str> str_slice t 5 len t;
+                            Option::Some Heading 4 parse_inlines txt
+                        else:
+                            if:
+                                str_starts_with t "### "
+                                then:
+                                    let txt <str> str_slice t 4 len t;
+                                    Option::Some Heading 3 parse_inlines txt
+                                else:
+                                    if:
+                                        str_starts_with t "## "
+                                        then:
+                                            let txt <str> str_slice t 3 len t;
+                                            Option::Some Heading 2 parse_inlines txt
+                                        else:
+                                            if:
+                                                str_starts_with t "# "
+                                                then:
+                                                    let txt <str> str_slice t 2 len t;
+                                                    Option::Some Heading 1 parse_inlines txt
+                                                else:
+                                                    Option::None
+
+fn parse_fence <(Vec<str>, i32)->FenceRes> (lines, i0):
+    let t0 <str> str_trim safe_line lines i0;
+    let info0 <str> str_slice t0 3 len t0;
+    let info <str> str_trim info0;
+
+    let mut sb <StringBuilder> string_builder_new;
+    let mut i <i32> add i0 1;
+    let nlines <i32> vec_len<str> lines;
+
+    let mut done <bool> false;
+    while eq done false:
+        do:
+            if:
+                ge i nlines
+                then:
+                    set done true;
+                    ()
+                else:
+                    let li <str> str_trim safe_line lines i;
+                    if:
+                        str_starts_with li "```"
+                        then:
+                            set i add i 1;
+                            set done true;
+                            ()
+                        else:
+                            set sb sb_append sb safe_line lines i;
+                            set sb sb_append sb "\n";
+                            set i add i 1;
+                            ()
+    let code <str> sb_build sb;
+    let cb <CodeBlock> CodeBlock info code;
+    FenceRes cb i
+
+fn parse_paragraph <(Vec<str>, i32)->ParaRes> (lines, i0):
+    let mut sb <StringBuilder> string_builder_new;
+    let mut i <i32> i0;
+    let nlines <i32> vec_len<str> lines;
+
+    let mut done <bool> false;
+    while eq done false:
+        do:
+            if:
+                ge i nlines
+                then:
+                    set done true;
+                    ()
+                else:
+                    let raw <str> safe_line lines i;
+                    let t <str> str_trim raw;
+
+                    if:
+                        eq len t 0
+                        then:
+                            set done true;
+                            ()
+                        else:
+                            if:
+                                or is_heading_start t or is_hr_line t or is_nest_break_line t is_fence_start t
+                                then:
+                                    set done true;
+                                    ()
+                                else:
+                                    set sb sb_append sb raw;
+                                    set sb sb_append sb "\n";
+                                    set i add i 1;
+                                    ()
+    let text <str> sb_build sb;
+    let inl <Vec<Inline>> parse_inlines text;
+    ParaRes inl i
+
+// -----------------------------
+// Inline parser: Ruby / Gloss / Math
+// -----------------------------
+
+fn parse_inlines <(str)->Vec<Inline>> (s):
+    let mut out <Vec<Inline>> vec_new<Inline>;
+    let n <i32> len s;
+    let mut i <i32> 0;
+    let mut text_start <i32> 0;
+
+    while lt i n:
+        do:
+            let ch <i32> load_u8 add s add 4 i;
+
+            // Math ($ or $$): keep delimiters, do not parse inside
+            if:
+                eq ch 36
+                then:
+                    // Flush pending text
+                    let seg <str> str_slice s text_start i;
+                    if:
+                        gt len seg 0
+                        then set out vec_push<Inline> out Inline::Text seg
+                        else ();
+
+                    let mut delim <i32> 1;
+                    if:
+                        lt add i 1 n
+                        then:
+                            let ch2 <i32> load_u8 add s add 4 add i 1;
+                            if:
+                                eq ch2 36
+                                then set delim 2
+                                else ()
+                        else ();
+
+                    let mut j <i32> add i delim;
+                    let mut found <bool> false;
+
+                    while and lt j n eq found false:
+                        do:
+                            let c0 <i32> load_u8 add s add 4 j;
+                            if:
+                                eq delim 1
+                                then:
+                                    if:
+                                        eq c0 36
+                                        then set found true
+                                        else set j add j 1
+                                else:
+                                    if:
+                                        and eq c0 36 lt add j 1 n
+                                        then:
+                                            let c1 <i32> load_u8 add s add 4 add j 1;
+                                            if:
+                                                eq c1 36
+                                                then set found true
+                                                else set j add j 1
+                                        else:
+                                            set j add j 1
+
+                    if:
+                        eq found true
+                        then:
+                            let endpos <i32> add j delim;
+                            let m <str> str_slice s i endpos;
+                            set out vec_push<Inline> out Inline::Math m;
+                            set i endpos;
+                            set text_start endpos;
+                            ()
+                        else:
+                            // No closing delimiter -> treat '$' as normal text
+                            set i add i 1;
+                            set text_start text_start;
+                            ()
+                else:
+                    // Ruby: [base/ruby] (ignore if looks like markdown link: ]( )
+                    if:
+                        eq ch 91
+                        then:
+                            let mut j <i32> add i 1;
+                            let mut slash <i32> -1;
+                            let mut closed <bool> false;
+
+                            while and lt j n eq closed false:
+                                do:
+                                    let cj <i32> load_u8 add s add 4 j;
+                                    if:
+                                        eq cj 93
+                                        then set closed true
+                                        else:
+                                            if:
+                                                and eq cj 47 lt slash 0
+                                                then set slash j
+                                                else ();
+                                            set j add j 1;
+                                            ()
+                            if:
+                                and eq closed true ge slash 0
+                                then:
+                                    let next_is_paren <bool>
+                                        if:
+                                            lt add j 1 n
+                                            then:
+                                                let nx <i32> load_u8 add s add 4 add j 1;
+                                                eq nx 40
+                                            else false;
+
+                                    if:
+                                        eq next_is_paren true
+                                        then:
+                                            set i add i 1;
+                                            ()
+                                        else:
+                                            let seg <str> str_slice s text_start i;
+                                            if:
+                                                gt len seg 0
+                                                then set out vec_push<Inline> out Inline::Text seg
+                                                else ();
+
+                                            let base <str> str_slice s add i 1 slash;
+                                            let rub <str> str_slice s add slash 1 j;
+                                            let r <Ruby> Ruby base rub;
+                                            set out vec_push<Inline> out Inline::Ruby r;
+
+                                            set i add j 1;
+                                            set text_start i;
+                                            ()
+                                else:
+                                    set i add i 1;
+                                    ()
+                        else:
+                            // Gloss: {main/sub1/sub2...} (split '/' at top level, ignoring inside [...])
+                            if:
+                                eq ch 123
+                                then:
+                                    let mut j <i32> add i 1;
+                                    let mut closed <bool> false;
+                                    while and lt j n eq closed false:
+                                        do:
+                                            let cj <i32> load_u8 add s add 4 j;
+                                            if:
+                                                eq cj 125
+                                                then set closed true
+                                                else set j add j 1
+                                    if:
+                                        eq closed true
+                                        then:
+                                            // Flush pending text
+                                            let seg <str> str_slice s text_start i;
+                                            if:
+                                                gt len seg 0
+                                                then set out vec_push<Inline> out Inline::Text seg
+                                                else ();
+
+                                            // Collect parts
+                                            let mut parts <Vec<str>> vec_new<str>;
+                                            let mut k <i32> add i 1;
+                                            let mut start <i32> k;
+                                            let mut depth <i32> 0;
+
+                                            while lt k j:
+                                                do:
+                                                    let ck <i32> load_u8 add s add 4 k;
+                                                    if:
+                                                        eq ck 91
+                                                        then set depth add depth 1
+                                                        else:
+                                                            if:
+                                                                and eq ck 93 gt depth 0
+                                                                then set depth sub depth 1
+                                                                else ();
+                                                    if:
+                                                        and eq ck 47 eq depth 0
+                                                        then:
+                                                            let p <str> str_slice s start k;
+                                                            set parts vec_push<str> parts p;
+                                                            set start add k 1;
+                                                            set k add k 1;
+                                                            ()
+                                                        else:
+                                                            set k add k 1;
+                                                            ()
+                                            let plast <str> str_slice s start j;
+                                            set parts vec_push<str> parts plast;
+
+                                            if:
+                                                ge vec_len<str> parts 2
+                                                then:
+                                                    let main <str> unwrap<str> vec_get<str> parts 0;
+                                                    let mut subs <Vec<str>> vec_new<str>;
+                                                    let mut idx <i32> 1;
+                                                    while lt idx vec_len<str> parts:
+                                                        do:
+                                                            let p <str> unwrap<str> vec_get<str> parts idx;
+                                                            set subs vec_push<str> subs p;
+                                                            set idx add idx 1;
+                                                    let g <Gloss> Gloss main subs;
+                                                    set out vec_push<Inline> out Inline::Gloss g;
+                                                    set i add j 1;
+                                                    set text_start i;
+                                                    ()
+                                                else:
+                                                    // Not actually gloss -> keep as text
+                                                    set i add i 1;
+                                                    ()
+                                        else:
+                                            set i add i 1;
+                                            ()
+                                else:
+                                    set i add i 1;
+                                    ()
+
+    // Flush tail text
+    let tail <str> str_slice s text_start n;
+    if:
+        gt len tail 0
+        then vec_push<Inline> out Inline::Text tail
+        else out
+
+// -----------------------------
+// Main block parser + Nest builder
+// -----------------------------
+
+pub fn parse_markdown <(str)->Document> (input):
+    let lines <Vec<str>> str_split input "\n";
+    let nlines <i32> vec_len<str> lines;
+
+    let mut root <Vec<Node>> vec_new<Node>;
+    let stk <i32> stack_new<Section>;
+
+    let mut i <i32> 0;
+
+    while lt i nlines:
+        do:
+            let line <str> safe_line lines i;
+            let t <str> str_trim line;
+
+            if:
+                eq len t 0
+                then set i add i 1
+                else:
+                    if:
+                        is_nest_break_line t
+                        then:
+                            set root close_one_section stk root;
+                            set i add i 1;
+                            ()
+                        else:
+                            if:
+                                is_hr_line t
+                                then:
+                                    set root close_one_section stk root;
+                                    let hr <Node> Node::Hr;
+                                    match stack_peek<Section> stk:
+                                        Option::Some _:
+                                            match stack_pop<Section> stk:
+                                                Option::Some parent:
+                                                    let kids <Vec<Node>> vec_push<Node> parent.children hr;
+                                                    let parent2 <Section> Section parent.level parent.heading kids;
+                                                    stack_push<Section> stk parent2;
+                                                    ()
+                                                Option::None:
+                                                    set root vec_push<Node> root hr;
+                                                    ()
+                                        Option::None:
+                                            set root vec_push<Node> root hr;
+                                            ()
+                                    set i add i 1;
+                                    ()
+                                else:
+                                    if:
+                                        is_fence_start t
+                                        then:
+                                            let fr <FenceRes> parse_fence lines i;
+                                            let node <Node> Node::CodeBlock fr.cb;
+
+                                            match stack_peek<Section> stk:
+                                                Option::Some _:
+                                                    match stack_pop<Section> stk:
+                                                        Option::Some parent:
+                                                            let kids <Vec<Node>> vec_push<Node> parent.children node;
+                                                            let parent2 <Section> Section parent.level parent.heading kids;
+                                                            stack_push<Section> stk parent2;
+                                                            ()
+                                                        Option::None:
+                                                            set root vec_push<Node> root node;
+                                                            ()
+                                                Option::None:
+                                                    set root vec_push<Node> root node;
+                                                    ()
+                                            set i fr.next_i;
+                                            ()
+                                        else:
+                                            match parse_heading t:
+                                                Option::Some h:
+                                                    // Close to this heading level
+                                                    set root close_to_level stk root h.level;
+
+                                                    let sec <Section> Section h.level h vec_new<Node>;
+                                                    stack_push<Section> stk sec;
+                                                    set i add i 1;
+                                                    ()
+                                                Option::None:
+                                                    // Paragraph
+                                                    let pr <ParaRes> parse_paragraph lines i;
+                                                    let pnode <Node> Node::Paragraph pr.inlines;
+
+                                                    match stack_peek<Section> stk:
+                                                        Option::Some _:
+                                                            match stack_pop<Section> stk:
+                                                                Option::Some parent:
+                                                                    let kids <Vec<Node>> vec_push<Node> parent.children pnode;
+                                                                    let parent2 <Section> Section parent.level parent.heading kids;
+                                                                    stack_push<Section> stk parent2;
+                                                                    ()
+                                                                Option::None:
+                                                                    set root vec_push<Node> root pnode;
+                                                                    ()
+                                                        Option::None:
+                                                            set root vec_push<Node> root pnode;
+                                                            ()
+                                                    set i pr.next_i;
+                                                    ()
+
+    set root close_all_sections stk root;
+
+    Document root
+
+// -----------------------------
+// AST -> JSON (simple)
+// -----------------------------
+
+fn json_escape <(str)->str> (s):
+    // Minimal escape: backslash and double-quote and newline
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> len s;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> load_u8 add s add 4 i;
+            if:
+                eq ch 92
+                then set sb sb_append sb "\\\\"
+                else:
+                    if:
+                        eq ch 34
+                        then set sb sb_append sb "\\\""
+                        else:
+                            if:
+                                eq ch 10
+                                then set sb sb_append sb "\\n"
+                                else:
+                                    set sb sb_append sb str_slice s i add i 1;
+            set i add i 1;
+    sb_build sb
+
+fn inlines_to_json <(Vec<Inline>)->str> (v):
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "[";
+    let n <i32> vec_len<Inline> v;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            if:
+                gt i 0
+                then set sb sb_append sb ","
+                else ();
+            let it <Inline> unwrap<Inline> vec_get<Inline> v i;
+            match it:
+                Inline::Text s:
+                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
+                    set sb sb_append sb json_escape s;
+                    set sb sb_append sb "\"}";
+                Inline::Math m:
+                    set sb sb_append sb "{\"t\":\"math\",\"s\":\"";
+                    set sb sb_append sb json_escape m;
+                    set sb sb_append sb "\"}";
+                Inline::Ruby r:
+                    set sb sb_append sb "{\"t\":\"ruby\",\"base\":\"";
+                    set sb sb_append sb json_escape r.base;
+                    set sb sb_append sb "\",\"ruby\":\"";
+                    set sb sb_append sb json_escape r.ruby;
+                    set sb sb_append sb "\"}";
+                Inline::Gloss g:
+                    set sb sb_append sb "{\"t\":\"gloss\",\"main\":\"";
+                    set sb sb_append sb json_escape g.main;
+                    set sb sb_append sb "\",\"subs\":[";
+                    let m <i32> vec_len<str> g.subs;
+                    let mut j <i32> 0;
+                    while lt j m:
+                        do:
+                            if:
+                                gt j 0
+                                then set sb sb_append sb ","
+                                else ();
+                            let ss <str> unwrap<str> vec_get<str> g.subs j;
+                            set sb sb_append sb "\"";
+                            set sb sb_append sb json_escape ss;
+                            set sb sb_append sb "\"";
+                            set j add j 1;
+                    set sb sb_append sb "]}";
+            set i add i 1;
+    set sb sb_append sb "]";
+    sb_build sb
+
+fn node_to_json <(Node)->str> (node):
+    let mut sb <StringBuilder> string_builder_new;
+    match node:
+        Node::Hr:
+            sb_build sb_append sb "{\"t\":\"hr\"}"
+        Node::CodeBlock cb:
+            set sb sb_append sb "{\"t\":\"code\",\"info\":\"";
+            set sb sb_append sb json_escape cb.info;
+            set sb sb_append sb "\",\"code\":\"";
+            set sb sb_append sb json_escape cb.code;
+            set sb sb_append sb "\"}";
+            sb_build sb
+        Node::Paragraph inl:
+            set sb sb_append sb "{\"t\":\"p\",\"inl\":";
+            set sb sb_append sb inlines_to_json inl;
+            set sb sb_append sb "}";
+            sb_build sb
+        Node::Section sec:
+            set sb sb_append sb "{\"t\":\"section\",\"level\":";
+            set sb sb_append_i32 sb sec.level;
+            set sb sb_append sb ",\"heading\":";
+            set sb sb_append sb "{\"level\":";
+            set sb sb_append_i32 sb sec.heading.level;
+            set sb sb_append sb ",\"inl\":";
+            set sb sb_append sb inlines_to_json sec.heading.inlines;
+            set sb sb_append sb "}";
+            set sb sb_append sb ",\"children\":";
+            set sb sb_append sb nodes_to_json sec.children;
+            set sb sb_append sb "}";
+            sb_build sb
+
+fn nodes_to_json <(Vec<Node>)->str> (nodes):
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "[";
+    let n <i32> vec_len<Node> nodes;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            if:
+                gt i 0
+                then set sb sb_append sb ","
+                else ();
+            let nd <Node> unwrap<Node> vec_get<Node> nodes i;
+            set sb sb_append sb node_to_json nd;
+            set i add i 1;
+    set sb sb_append sb "]";
+    sb_build sb
+
+pub fn document_to_json <(Document)->str> (doc):
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "{\"t\":\"doc\",\"nodes\":";
+    set sb sb_append sb nodes_to_json doc.nodes;
+    set sb sb_append sb "}";
+    sb_build sb

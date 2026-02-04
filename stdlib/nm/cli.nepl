@@ -1,0 +1,76 @@
+#entry main
+#indent 4
+#target wasi
+
+#import "alloc/string" as *
+#import "core/option" as *
+#import "core/math" as *
+#import "std/stdio" as *
+
+#import "./parser" as *
+#import "./html_gen" as *
+
+fn print_usage <()*> ()> ():
+    println "Neknaj Markdown (Neknaj Prefix Language) CLI";
+    println "";
+    println "Reads Markdown from stdin and writes AST or HTML to stdout.";
+    println "";
+    println "Usage:";
+    println "  nekmaj [--ast|--html]";
+    println "";
+    println "Options:";
+    println "  --ast   Output AST (default)";
+    println "  --html  Output HTML";
+    println "";
+    ()
+
+fn main <()*> ()> ():
+
+    // Parse args
+    let argc <i32> cliarg_count;
+    let mut mode <str> "--ast";
+
+    let mut i <i32> 1;
+    while lt i argc:
+        do:
+            match cliarg_get i:
+                Option::Some a:
+                    if:
+                        str_eq a "--html"
+                        then set mode "--html"
+                        else:
+                            if:
+                                str_eq a "--ast"
+                                then set mode "--ast"
+                                else:
+                                    if:
+                                        or str_eq a "-h" str_eq a "--help"
+                                        then:
+                                            print_usage;
+                                            set i argc;
+                                            ()
+                                        else:
+                                            println "warning: unknown option";
+                                            print_usage;
+                                            ()
+                Option::None:
+                    ()
+            set i add i 1;
+
+    // Read stdin (note: stdlib read_all is capped; see docs)
+    let input <str> read_all;
+
+    let doc <Document> parse_markdown input;
+
+    if:
+        str_eq mode "--html"
+        then:
+            let html <str> render_document doc;
+            print html;
+            print "\n";
+            ()
+        else:
+            let ast <str> document_to_json doc;
+            print ast;
+            print "\n";
+            ()
