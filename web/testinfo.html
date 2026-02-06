@@ -126,6 +126,11 @@
                 <span class="logo-text">NEPLg2 Test Results</span>
             </div>
             <div class="controls">
+                <select id="encoding-select" onchange="loadLogs()" style="background:var(--bg-active); border:1px solid var(--border-subtle); color:var(--text-primary); padding:4px 8px; border-radius:4px; margin-right: 8px;">
+                    <option value="utf-8" selected>UTF-8</option>
+                    <option value="shift-jis">Shift_JIS</option>
+                    <option value="utf-16le">UTF-16 LE</option>
+                </select>
                 <button onclick="loadLogs()" style="background:var(--bg-active); border:1px solid var(--border-subtle); color:var(--text-primary); padding:6px 12px; border-radius:4px; cursor:pointer;">Reload Log</button>
             </div>
         </header>
@@ -140,12 +145,17 @@
     <script>
         async function loadLogs() {
             const dashboard = document.getElementById('dashboard');
+            const encoding = document.getElementById('encoding-select').value;
             try {
                 // Assuming the log file is placed in tests/ relative to web root or copied there
                 const response = await fetch('./tests/cargo-test.log');
                 if (!response.ok) throw new Error(`Failed to fetch log: ${response.statusText}`);
-                const text = await response.text();
-                console.log('Fetched log:', text);
+
+                const buffer = await response.arrayBuffer();
+                const decoder = new TextDecoder(encoding);
+                const text = decoder.decode(buffer);
+                console.log('Loaded log text:', text);
+
                 renderResults(parseCargoLog(text));
             } catch (e) {
                 dashboard.innerHTML = `<div style="color: #e5534b; padding: 20px;">Error: ${e.message}<br><br>Make sure <code>./tests/cargo-test.log</code> exists relative to this HTML file.</div>`;
