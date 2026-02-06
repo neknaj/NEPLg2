@@ -348,6 +348,9 @@ fn nop2 nop1;
 fn main ():
     nop1
     nop2
+    let nop3 <()*>()> ():
+        nop1
+    nop3
 ```
 
 
