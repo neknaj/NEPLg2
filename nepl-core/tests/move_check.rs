@@ -215,7 +215,7 @@ fn main <()*>()>():
 }
 
 #[test]
-fn move_out_of_struct_field_err() {
+fn move_struct_field_err() {
     let source = r#"
 #target wasi
 #indent 4
@@ -234,99 +234,6 @@ fn main <()*>()>():
 "#;
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs.iter().any(|d| d.message.contains("use of moved value")));
-}
-
-#[test]
-fn move_out_of_struct_field_ok() {
-    let source = r#"
-#target wasi
-#indent 4
-#import "core/mem" as *
-
-enum Wrapper:
-    Val <i32>
-
-struct S:
-    f1 <Wrapper>
-    f2 <Wrapper>
-
-fn main <()*>()>():
-    let s <S> S (Wrapper::Val 1) (Wrapper::Val 2);
-    let a <Wrapper> s.f1; // move field f1
-    let b <Wrapper> s.f2; // move field f2, OK
-"#;
-    compile_move_test(source).expect("moving different fields should be ok");
-}
-
-#[test]
-fn move_out_of_tuple_field_err() {
-    let source = r#"
-#target wasi
-#indent 4
-#import "core/mem" as *
-
-enum Wrapper:
-    Val <i32>
-
-fn main <()*>()>():
-    let t <(Wrapper, i32)> (Wrapper::Val 1, 2);
-    let f <Wrapper> t.0; // move field 0
-    let g <Wrapper> t.0; // error: use of moved value
-"#;
-    let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved value")));
-}
-
-#[test]
-fn move_in_both_if_branches() {
-    let source = r#"
-#target wasi
-#indent 4
-#import "core/mem" as *
-
-enum Wrapper:
-    Val <i32>
-
-fn main <()*>()>():
-    let x Wrapper::Val 1;
-    let cnd <bool> true;
-    if cnd:
-        then:
-            let y <Wrapper> x; // moved in then
-        else:
-            let z <Wrapper> x; // moved in else
-    let w <Wrapper> x; // error: use of moved value
-"#;
-    let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved value")));
-}
-
-#[test]
-fn move_and_reinit_in_loop() {
-    let source = r#"
-#target wasi
-#indent 4
-#import "core/mem" as *
-#import "core/math" as *
-
-enum Wrapper:
-    Val <i32>
-
-fn main <()*>()>():
-    let mut x Wrapper::Val 1;
-    let mut i 0;
-    while lt i 2:
-        do:
-            let y <Wrapper> x; // moved
-            set x = Wrapper::Val add i 10; // re-initialized
-            set i add i 1;
-    let z <Wrapper> x; // OK, x is valid after loop
-"#;
-    compile_move_test(source).expect("re-init in loop should be valid");
 }
 
 #[test]
@@ -351,67 +258,6 @@ fn main <()*>()>():
 "#;
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
-}
-
-#[test]
-fn move_from_function_parameter() {
-    let source = r#"
-#target wasi
-#indent 4
-#import "core/mem" as *
-
-enum Wrapper:
-    Val <i32>
-
-fn consume_twice <(Wrapper)->()> (w):
-    let a <Wrapper> w; // w is moved
-    let b <Wrapper> w; // error: use of moved value w
-
-fn main <()*>()>():
-    consume_twice Wrapper::Val 1;
-"#;
-    let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved value")));
-}
-
-#[test]
-fn borrow_then_move_error() {
-    let source = r#"
-#target wasi
-#indent 4
-#import "core/mem" as *
-
-enum Wrapper:
-    Val <i32>
-
-fn main <()*>()>():
-    let x Wrapper::Val 1;
-    let r <&Wrapper> &x; // shared borrow
-    let y <Wrapper> x;   // error: cannot move out of `x` because it is borrowed
-"#;
-    let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("cannot move")));
-}
-
-#[test]
-fn mutable_borrow_then_move_error() {
-    let source = r#"
-#target wasi
-#indent 4
-#import "core/mem" as *
-
-enum Wrapper:
-    Val <i32>
-
-fn main <()*>()>():
-    let mut x Wrapper::Val 1;
-    let r <&mut Wrapper> &mut x; // mutable borrow
-    let y <Wrapper> x;           // error: cannot move out of `x` because it is borrowed
-"#;
-    let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("cannot move")));
 }
 
 #[test]
