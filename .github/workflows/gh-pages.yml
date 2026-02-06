@@ -26,6 +26,9 @@ jobs:
     build:
         runs-on: ubuntu-latest
 
+        env:
+            CARGO_TERM_COLOR: always
+
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -44,7 +47,6 @@ jobs:
               run: rustup target add wasm32-unknown-unknown
 
             - name: Install trunk
-              continue-on-error: true
               uses: jetli/trunk-action@v0.5.0
               with:
                   version: ${{ env.TRUNK_VERSION }}
@@ -60,85 +62,59 @@ jobs:
                   mkdir -p web/examples
                   cp examples/*.nepl web/examples/
 
-            # ---- cargo test: FAILしても workflow 成功扱いにする（ログは dist/tests に置く） ----
             - name: Run cargo test (allowed to fail)
-              id: cargo_tests
+              id: cargo_test
               continue-on-error: true
               env:
-                  CARGO_TERM_COLOR: never
-                  NO_COLOR: "1"
-              shell: bash
+                  NO_COLOR: "true"
               run: |
                   set -o pipefail
-                  mkdir -p target/ci-logs
-                  cargo test --workspace --all-targets --no-fail-fast 2>&1 | tee target/ci-logs/cargo-test.log
-                  status=${PIPESTATUS[0]}
-                  echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-                  exit "$status"
+                  cargo test 2>&1 | tee cargo-test.log
 
-            # ---- trunk build: FAILしても deploy までは進めるが、最後に workflow は失敗にする ----
             - name: Build wasm app with trunk (do not stop deploy, but fail workflow later if needed)
               id: trunk_build
               continue-on-error: true
               env:
-                  NO_COLOR: "1"
-              shell: bash
+                  # IMPORTANT: avoid NO_COLOR=1 (trunk expects true/false for its no-color handling)
+                  NO_COLOR: "true"
               run: |
                   set -o pipefail
-                  mkdir -p target/ci-logs
-
-                  if command -v trunk >/dev/null 2>&1; then
-                      trunk build --release --public-url /NEPLg2/ 2>&1 | tee target/ci-logs/trunk-build.log
-                      status=${PIPESTATUS[0]}
-                  else
-                      echo "trunk is not installed (Install trunk step may have failed)." | tee target/ci-logs/trunk-build.log
-                      status=127
-                  fi
-
-                  echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-                  exit "$status"
+                  trunk build --release --public-url /NEPLg2/ 2>&1 | tee trunk-build.log
 
             - name: Prepare dist (always) and attach test/build logs
-              if: ${{ always() }}
-              env:
-                  CARGO_TEST_EXIT: ${{ steps.cargo_tests.outputs.exit_code }}
-                  TRUNK_EXIT: ${{ steps.trunk_build.outputs.exit_code }}
-                  TRUNK_OUTCOME: ${{ steps.trunk_build.outcome }}
-              shell: bash
+              if: always()
               run: |
-                  set -euo pipefail
-
+                  set -u
                   mkdir -p dist/tests
-                  mkdir -p target/ci-logs
 
-                  # Copy logs (if they exist); otherwise create empty files
-                  cp -f target/ci-logs/cargo-test.log dist/tests/cargo-test.log 2>/dev/null || : > dist/tests/cargo-test.log
-                  cp -f target/ci-logs/trunk-build.log dist/tests/trunk-build.log 2>/dev/null || : > dist/tests/trunk-build.log
-
-                  # One-line plain text status
-                  printf 'cargo_test_exit=%s trunk_exit=%s trunk_outcome=%s\n' \
-                      "${CARGO_TEST_EXIT:-unknown}" "${TRUNK_EXIT:-unknown}" "${TRUNK_OUTCOME:-unknown}" \
-                      > dist/tests/status.txt
-
-                  # Keep /tests/ reachable; content is intentionally plain, single line
-                  printf 'Open: cargo-test.log | trunk-build.log | status.txt\n' > dist/tests/index.html
-
-                  # If trunk build failed and dist/index.html doesn't exist, create a fallback (single line)
+                  # If trunk didn't generate dist/index.html, create a 1-line placeholder.
                   if [ ! -f dist/index.html ]; then
-                      printf 'Build fallback. See /tests/status.txt and /tests/trunk-build.log\n' > dist/index.html
+                      echo "Playground build failed. See /tests/trunk-build.log" > dist/index.html
                   fi
 
+                  # Attach logs (create empty files if missing so links won't 404)
+                  : > dist/tests/cargo-test.log
+                  : > dist/tests/trunk-build.log
+
+                  if [ -f cargo-test.log ]; then
+                      cp -f cargo-test.log dist/tests/cargo-test.log
+                  fi
+                  if [ -f trunk-build.log ]; then
+                      cp -f trunk-build.log dist/tests/trunk-build.log
+                  fi
+
+                  # Also store outcomes (plain text, 1 line each)
+                  echo "cargo_test_outcome=${{ steps.cargo_test.outcome }}" > dist/tests/outcomes.txt
+                  echo "trunk_build_outcome=${{ steps.trunk_build.outcome }}" >> dist/tests/outcomes.txt
+
             - name: Upload GitHub Pages artifact (always)
-              if: ${{ always() }}
+              if: always()
               uses: actions/upload-pages-artifact@v3
               with:
                   path: dist
 
-            # trunk が失敗していたら、artifact upload 後に job を FAIL にする
-            # continue-on-error の影響を受けない outcome を見る（conclusion ではない） :contentReference[oaicite:1]{index=1}
             - name: Fail workflow if trunk build failed
-              if: ${{ always() && steps.trunk_build.outcome != 'success' }}
-              shell: bash
+              if: ${{ steps.trunk_build.outcome == 'failure' }}
               run: |
                   echo "trunk build failed -> mark workflow as failed (deploy still runs)."
                   exit 1
@@ -148,7 +124,7 @@ jobs:
             name: github-pages
             url: ${{ steps.deployment.outputs.page_url }}
         needs: build
-        if: ${{ always() }}
+        if: always()
         runs-on: ubuntu-latest
         steps:
             - name: Deploy to GitHub Pages
