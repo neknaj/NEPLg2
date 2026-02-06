@@ -1,8 +1,14 @@
-import init, * as nepl_web from '/nepl-web.js';
+//import init, * as nepl_web from '/nepl-web.js';
+import { NeplLanguageProvider } from './src/language/neplg2/neplg2-provider.js';
 
+addEventListener("TrunkApplicationStarted", () => {
+    // wasm-bindgen の export がここに入る（Trunk のデフォルト）
+    const wasm = window.wasmBindings;
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await init();
+    // 例：Rust 側で #[wasm_bindgen] pub fn greet(name: String) { ... } を export しているなら
+    // wasm.greet("hello");
+    console.log(wasm)
+    wasm.initSync();
     // --- DOM Elements ---
     const editorCanvas = document.getElementById('editor-canvas');
     const editorTextarea = document.getElementById('editor-hidden-input');
@@ -15,16 +21,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     const exampleSelect = document.getElementById('example-select');
     // --- Editor Setup ---
     const neplProvider = new NeplLanguageProvider();
-    neplProvider.setCompiler(nepl_web);
-    const editor = new CanvasEditor(editorCanvas, editorTextarea, {
+    //neplProvider.setCompiler(wasm);
+    const { editor } = CanvasEditorLibrary.createCanvasEditor({
+        canvas: editorCanvas,
+        textarea: editorTextarea,
         popup: generalPopup,
         completionList: completionList,
+        languageProviders: {
+            nepl: neplProvider
+        },
+        initialLanguage: 'nepl'
     });
-    editor.registerLanguageProvider('nepl', neplProvider);
     // --- Terminal Setup ---
-    const terminal = new CanvasEditor(terminalCanvas, terminalTextarea, {
+    const { editor: terminal } = CanvasEditorLibrary.createCanvasEditor({
+        canvas: terminalCanvas,
+        textarea: terminalTextarea,
         popup: generalPopup,
-        completionList: null, // No completions in terminal
+        completionList: null,
+        languageProviders: {},
+        initialLanguage: 'text'
     });
     terminal.isReadOnly = true;
     terminal.setText("NEPL Playground Terminal\n> ");
@@ -47,6 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (error) {
             console.error("Error loading examples:", error);
         }
+    }
     async function loadSelectedExample() {
         const selectedFile = exampleSelect.value;
         if (!selectedFile) return;
