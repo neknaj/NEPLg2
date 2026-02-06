@@ -69,7 +69,7 @@ jobs:
                   NO_COLOR: "true"
               run: |
                   set -o pipefail
-                  cargo test 2>&1 | tee cargo-test.log
+                  cargo test --no-fail-fast 2>&1 | tee cargo-test.log
 
             - name: Build wasm app with trunk (do not stop deploy, but fail workflow later if needed)
               id: trunk_build
