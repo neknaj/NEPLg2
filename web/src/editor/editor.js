@@ -60,7 +60,7 @@ class CanvasEditor {
         };
         
         // Geometry and Styling
-        this.font = '22px "Space Mono", "Noto Sans JP", monospace';
+        this.font = '22px  "HackGenConsoleNF", "Space Mono", "Noto Sans JP", monospace';
         this.geom = { padding: 10, lineHeight: 30, gutterWidth: 60, h_width: 13, z_width: 26 };
         this.colors = {
             background: '#050a0cff', text: '#abb2bf', cursor: '#528bff',
