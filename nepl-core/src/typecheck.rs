@@ -1536,6 +1536,17 @@ impl<'a> BlockChecker<'a> {
         base_depth: usize,
         stack: &mut Vec<StackEntry>,
     ) -> Option<(HirExpr, bool)> {
+        // Track indices of functions on the stack to avoid linear scanning in reduce_calls.
+        // This makes reduction O(1) amortized instead of O(N^2).
+        let mut open_calls: Vec<usize> = Vec::new();
+        // Initialize open_calls from existing stack (if any)
+        for (i, entry) in stack.iter().enumerate() {
+             let rty = self.ctx.resolve(entry.ty);
+             if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                 open_calls.push(i);
+             }
+        }
+
         let mut dropped = false;
         let mut last_expr: Option<HirExpr> = None;
         let mut pipe_pending: Option<StackEntry> = None;
@@ -2250,6 +2261,18 @@ impl<'a> BlockChecker<'a> {
                 }
             }
 
+            // Maintain open_calls stack
+            open_calls.retain(|&i| i < stack.len());
+            if let Some(top) = stack.last() {
+                let idx = stack.len() - 1;
+                let rty = self.ctx.resolve(top.ty);
+                if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                    if open_calls.last() != Some(&idx) {
+                        open_calls.push(idx);
+                    }
+                }
+            }
+
             // Try applying pending ascription before call reduction
             try_apply_pending_ascription(self, stack, &mut pending_ascription);
 
@@ -2263,9 +2286,9 @@ impl<'a> BlockChecker<'a> {
                 }
             }
             if let Some(base_len) = pending_base {
-                self.reduce_calls_guarded(stack, base_len, pending_ascription);
+                self.reduce_calls_guarded(stack, &mut open_calls, base_len, pending_ascription);
             } else {
-                self.reduce_calls(stack, pending_ascription);
+                self.reduce_calls(stack, &mut open_calls, pending_ascription);
             }
                         // std::eprintln!("  Stack after reduce: {:?}", stack.iter().map(|e| self.ctx.type_to_string(e.ty)).collect::<Vec<_>>());
 
@@ -2273,7 +2296,7 @@ impl<'a> BlockChecker<'a> {
             try_apply_pending_ascription(self, stack, &mut pending_ascription);
 
             if pending_base.is_some() && pending_ascription.is_none() && !pipe_guard {
-                self.reduce_calls(stack, pending_ascription);
+                self.reduce_calls(stack, &mut open_calls, pending_ascription);
             }
         }
 
@@ -2382,6 +2405,7 @@ impl<'a> BlockChecker<'a> {
     fn reduce_calls(
         &mut self,
         stack: &mut Vec<StackEntry>,
+        open_calls: &mut Vec<usize>,
         expected: Option<(TypeId, usize)>,
     ) {
         let max_iterations = 1000; // Safety limit to prevent infinite loops
@@ -2396,11 +2420,11 @@ impl<'a> BlockChecker<'a> {
                 break;
             }
             dump!("reduce_calls: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
-            let func_pos = match stack.iter().enumerate().rposition(|(_, e)| {
-                let rty = self.ctx.resolve(e.ty);
-                matches!(self.ctx.get(rty), TypeKind::Function { .. })
-            }) {
-                Some(p) => p,
+            
+            // Optimization: Use open_calls stack instead of scanning
+            open_calls.retain(|&i| i < stack.len());
+            let func_pos = match open_calls.last() {
+                Some(&p) => p,
                 None => break,
             };
 
@@ -2417,7 +2441,11 @@ impl<'a> BlockChecker<'a> {
                     effect,
                     ..
                 } => (params, result, effect),
-                _ => break,
+                _ => {
+                    // Not a function anymore? Should be unreachable if open_calls is maintained correctly.
+                    open_calls.pop();
+                    continue;
+                }
             };
             if stack.len() < func_pos + 1 + params.len() {
                 break;
@@ -2450,8 +2478,18 @@ impl<'a> BlockChecker<'a> {
                 fresh_args,
                 expected_ret,
             );
+            
+            // Consumed function from open_calls
+            open_calls.pop();
+
             if let Some(val) = applied {
                 stack.insert(func_pos, val);
+                // If the result is a function, track it
+                 let rty = self.ctx.resolve(stack[func_pos].ty);
+                 if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                     // It is at the same position as the old function
+                     open_calls.push(func_pos);
+                 }
             } else {
                 break;
             }
@@ -2461,6 +2499,7 @@ impl<'a> BlockChecker<'a> {
     fn reduce_calls_guarded(
         &mut self,
         stack: &mut Vec<StackEntry>,
+        open_calls: &mut Vec<usize>,
         min_func_pos: usize,
         expected: Option<(TypeId, usize)>,
     ) {
@@ -2476,16 +2515,11 @@ impl<'a> BlockChecker<'a> {
                 break;
             }
             dump!("reduce_calls_guarded: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
-            let func_pos = match stack
-                .iter()
-                .enumerate()
-                .rposition(|(i, e)| {
-                    let rty = self.ctx.resolve(e.ty);
-                    i >= min_func_pos
-                        && matches!(self.ctx.get(rty), TypeKind::Function { .. })
-                }) {
-                Some(p) => p,
-                None => break,
+            
+            open_calls.retain(|&i| i < stack.len());
+            let func_pos = match open_calls.last() {
+                Some(&p) if p >= min_func_pos => p,
+                _ => break,
             };
 
             let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
@@ -2501,7 +2535,10 @@ impl<'a> BlockChecker<'a> {
                     effect,
                     ..
                 } => (params, result, effect),
-                _ => break,
+                 _ => {
+                    open_calls.pop();
+                    continue;
+                }
             };
             if stack.len() < func_pos + 1 + params.len() {
                 break;
@@ -2522,6 +2559,9 @@ impl<'a> BlockChecker<'a> {
             let mut func_entry = stack.remove(func_pos);
             func_entry.ty = inst_ty;
             func_entry.expr.ty = inst_ty;
+                if crate::log::is_verbose() {
+                    std::eprintln!("    Reducing (guarded): {} at pos {} with {} args, assign={:?}", self.ctx.type_to_string(inst_ty), func_pos, params.len(), func_entry.assign);
+                }
             let applied = self.apply_function(
                 func_entry,
                 params,
@@ -2531,8 +2571,15 @@ impl<'a> BlockChecker<'a> {
                 fresh_args,
                 expected_ret,
             );
+            
+            open_calls.pop();
+
             if let Some(val) = applied {
                 stack.insert(func_pos, val);
+                 let rty = self.ctx.resolve(stack[func_pos].ty);
+                 if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                     open_calls.push(func_pos);
+                 }
             } else {
                 break;
             }

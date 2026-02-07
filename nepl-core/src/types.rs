@@ -196,6 +196,27 @@ impl TypeCtx {
         id
     }
 
+    pub fn resolve_id(&self, id: TypeId) -> TypeId {
+        let mut cur = id;
+        let mut i = 0;
+        loop {
+            if i > 5000 {
+                return cur;
+            }
+            match &self.arena[cur.0] {
+                TypeKind::Var(tv) => {
+                    if let Some(next) = tv.binding {
+                        cur = next;
+                    } else {
+                        return cur;
+                    }
+                }
+                _ => return cur,
+            }
+            i += 1;
+        }
+    }
+
     pub fn is_copy(&self, id: TypeId) -> bool {
         let mut seen = BTreeSet::new();
         self.is_copy_inner(id, &mut seen)
@@ -804,26 +825,6 @@ impl TypeCtx {
                 ty
             }
             _ => ty,
-        }
-    }
-
-    pub fn resolve_id(&self, ty: TypeId) -> TypeId {
-        let mut cur = ty;
-        let mut seen = BTreeSet::new();
-        loop {
-            if !seen.insert(cur) {
-                return cur;
-            }
-            match &self.arena[cur.0] {
-                TypeKind::Var(tv) => {
-                    if let Some(b) = tv.binding {
-                        cur = b;
-                        continue;
-                    }
-                }
-                _ => {}
-            }
-            return cur;
         }
     }
 

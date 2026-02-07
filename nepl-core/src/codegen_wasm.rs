@@ -1137,6 +1137,7 @@ struct LocalInfo {
 #[derive(Debug)]
 struct LocalMap {
     locals: Vec<LocalInfo>,
+    map: BTreeMap<String, u32>,
     next_idx: u32,
     decls: Vec<ValType>,
 }
@@ -1145,6 +1146,7 @@ impl LocalMap {
     fn new(param_count: usize) -> Self {
         Self {
             locals: Vec::new(),
+            map: BTreeMap::new(),
             next_idx: param_count as u32,
             decls: Vec::new(),
         }
@@ -1153,11 +1155,12 @@ impl LocalMap {
     fn register_param(&mut self, name: String, ty: TypeId) {
         let idx = self.locals.len() as u32;
         self.locals.push(LocalInfo {
-            name,
+            name: name.clone(),
             idx,
             ty: Some(ty),
             is_param: true,
         });
+        self.map.insert(name, idx);
     }
 
     fn ensure_local(&mut self, name: String, ty: TypeId, ctx: &TypeCtx) -> u32 {
@@ -1167,11 +1170,12 @@ impl LocalMap {
             let idx = self.next_idx;
             self.next_idx += 1;
             self.locals.push(LocalInfo {
-                name,
+                name: name.clone(),
                 idx,
                 ty: Some(ty),
                 is_param: false,
             });
+            self.map.insert(name, idx);
             if let Some(vt) = valtype(&ctx.get(ty)) {
                 self.decls.push(vt);
             }
@@ -1193,12 +1197,7 @@ impl LocalMap {
     }
 
     fn lookup(&self, name: &str) -> Option<u32> {
-        for l in &self.locals {
-            if l.name == name {
-                return Some(l.idx);
-            }
-        }
-        None
+        self.map.get(name).copied()
     }
 
     fn local_decls(&self) -> Vec<(u32, ValType)> {
