@@ -44,6 +44,24 @@ pub fn get_stdlib_files() -> JsValue {
 }
 
 #[wasm_bindgen]
+pub fn get_example_files() -> JsValue {
+    let entries = example_entries();
+    let arr = js_sys::Array::new();
+    for (path, content) in entries {
+        let entry = js_sys::Array::new();
+        entry.push(&JsValue::from_str(path));
+        entry.push(&JsValue::from_str(content));
+        arr.push(&entry);
+    }
+    arr.into()
+}
+
+#[wasm_bindgen]
+pub fn get_readme() -> String {
+    readme_content().to_string()
+}
+
+#[wasm_bindgen]
 pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
     let src = test_sources()
         .iter()
@@ -166,6 +184,14 @@ include!(concat!(env!("OUT_DIR"), "/stdlib_entries.rs"));
 
 fn stdlib_entries() -> &'static [(&'static str, &'static str)] {
     STD_LIB_ENTRIES
+}
+
+fn example_entries() -> &'static [(&'static str, &'static str)] {
+    EXAMPLE_ENTRIES
+}
+
+fn readme_content() -> &'static str {
+    README_CONTENT
 }
 
 fn test_sources() -> &'static [(&'static str, &'static str)] {

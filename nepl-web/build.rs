@@ -11,6 +11,8 @@ fn main() {
     let tests_root = stdlib_root.join("tests");
     let tests_backup_root = stdlib_root.join("tests_backup");
 
+    let examples_root = manifest_dir.join("../examples");
+
     let mut std_files = Vec::new();
     collect_nepl_files(&stdlib_root, &mut std_files);
     std_files.retain(|p| {
@@ -23,6 +25,14 @@ fn main() {
         collect_nepl_files(&tests_root, &mut test_files);
     }
     sort_paths(&mut test_files);
+
+    let mut example_files = Vec::new();
+    if examples_root.exists() {
+        collect_nepl_files(&examples_root, &mut example_files);
+    }
+    sort_paths(&mut example_files);
+
+    let readme_path = manifest_dir.join("../README.md");
 
     let mut out = String::new();
     out.push_str("pub static STD_LIB_ENTRIES: &[(&str, &str)] = &[\n");
@@ -54,8 +64,33 @@ fn main() {
     }
     out.push_str("];\n");
 
+    out.push_str("pub static EXAMPLE_ENTRIES: &[(&str, &str)] = &[\n");
+    for path in &example_files {
+        let rel = path.strip_prefix(&examples_root).unwrap();
+        let rel_str = rel.to_string_lossy().replace('\\', "/");
+        let abs = path.display();
+        out.push_str(&format!(
+            "    (\"{}\", include_str!(r#\"{}\"#)),\n",
+            rel_str, abs
+        ));
+        println!("cargo:rerun-if-changed={}", abs);
+    }
+    out.push_str("];\n");
+
+    if readme_path.exists() {
+        let abs = readme_path.display();
+        out.push_str(&format!(
+            "pub static README_CONTENT: &str = include_str!(r#\"{}\"#);\n",
+            abs
+        ));
+        println!("cargo:rerun-if-changed={}", abs);
+    } else {
+        out.push_str("pub static README_CONTENT: &str = \"\";\n");
+    }
+
     fs::write(dest, out).unwrap();
     println!("cargo:rerun-if-changed={}", stdlib_root.display());
+    println!("cargo:rerun-if-changed={}", examples_root.display());
 }
 
 fn collect_nepl_files(dir: &Path, out: &mut Vec<PathBuf>) {

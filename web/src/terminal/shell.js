@@ -88,7 +88,9 @@ export class Shell {
                     "  clear     Clear the terminal screen",
                     "  echo      Print arguments to stdout",
                     "  ls        List files in the virtual file system",
+                    "  tree      Recursive directory listing",
                     "  cat       Display file content",
+                    "  copy      Copy terminal buffer to clipboard",
                     "  neplg2    NEPLg2 Compiler & Toolchain",
                     "    run     Compile and run the current editor content",
                     "    build   Compile the editor or a file",
@@ -128,6 +130,14 @@ export class Shell {
                     return `ls: ${e.message}`;
                 }
 
+            case 'tree':
+                const treePath = args[0] || '/';
+                try {
+                    return this.renderTree(treePath);
+                } catch (e) {
+                    return `tree: ${e.message}`;
+                }
+
             case 'cat':
                 if (args.length === 0) return "cat: missing operand";
                 const catPath = args[0];
@@ -144,6 +154,10 @@ export class Shell {
                 console.log(this.vfs);
                 return "Dumped to console";
 
+            case 'copy':
+                this.terminal.copyAll();
+                return null;
+
             default:
                 throw new Error(`Unknown command: ${cmd}`);
         }
@@ -157,11 +171,23 @@ export class Shell {
             this.terminal.print("Compiling...");
 
             // Get Input
-            const inputFile = parsed.positional[parsed.positional.length - 1];
-            const useEditor = !inputFile || inputFile === 'run' || inputFile === 'build';
+            let inputFile = parsed.flags['-i'] || parsed.flags['--input'];
+            if (!inputFile) {
+                // Fallback to last positional if not 'run' or 'build'
+                const lastPos = parsed.positional[parsed.positional.length - 1];
+                if (lastPos && lastPos !== 'run' && lastPos !== 'build') {
+                    inputFile = lastPos;
+                }
+            }
 
             let source = "";
-            if (useEditor) {
+            let inputPath = "editor";
+
+            if (inputFile) {
+                if (!this.vfs.exists(inputFile)) return `Error: File not found '${inputFile}'`;
+                source = this.vfs.readFile(inputFile);
+                inputPath = inputFile;
+            } else {
                 if (this.editor) {
                     // Try different ways to get text to be robust
                     if (typeof this.editor.getText === 'function') {
@@ -172,14 +198,11 @@ export class Shell {
                         return "Error: Could not retrieve text from editor (getText method missing)";
                     }
                     this.terminal.print("(Using editor content)");
-                    console.log("[Playground] Source from editor:", source);
                 } else {
                     return "Error: Editor not connected";
                 }
-            } else {
-                if (!this.vfs.exists(inputFile)) return `Error: File not found '${inputFile}'`;
-                source = this.vfs.readFile(inputFile);
             }
+            this.terminal.print(`Source: ${inputPath}`);
 
             // Compilation
             if (!window.wasmBindings) {
@@ -274,5 +297,30 @@ export class Shell {
         }
 
         return "Program exited.";
+    }
+
+    renderTree(rootPath) {
+        if (!rootPath.startsWith('/')) rootPath = '/' + rootPath;
+        const results = [];
+        results.push(rootPath);
+
+        const build = (path, prefix) => {
+            const entries = this.vfs.listDir(path);
+            for (let i = 0; i < entries.length; i++) {
+                const entry = entries[i];
+                const isLast = i === entries.length - 1;
+                const fullPath = (path.endsWith('/') ? path : path + '/') + entry;
+                const isDir = this.vfs.isDir(fullPath);
+
+                results.push(`${prefix}${isLast ? '└── ' : '├── '}${entry}`);
+
+                if (isDir) {
+                    build(fullPath, prefix + (isLast ? '    ' : '│   '));
+                }
+            }
+        };
+
+        build(rootPath, '');
+        return results.join('\n');
     }
 }

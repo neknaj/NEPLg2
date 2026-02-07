@@ -27,9 +27,11 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <button id="run-button" class="btn" onclick="window.executeCommand?.('neplg2 run')"
+                    <button id="run-button" class="btn"
+                        onclick="window.executeCommand?.('neplg2 run -i ' + document.getElementById('editor-status').textContent)"
                         title="Run the program">▶ Run</button>
-                    <button id="compile-button" class="btn" onclick="window.executeCommand?.('neplg2 build --emit wat')"
+                    <button id="compile-button" class="btn"
+                        onclick="window.executeCommand?.('neplg2 build --emit wat -i ' + document.getElementById('editor-status').textContent)"
                         title="Compile to WAT">🔧 Compile</button>
                     <button id="test-button" class="btn" onclick="window.executeCommand?.('help')" title="Show help">🧪
                         Help</button>

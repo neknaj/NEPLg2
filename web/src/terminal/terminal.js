@@ -172,9 +172,18 @@ export class CanvasTerminal {
                 break;
         }
 
+        // Auto-scroll to bottom on new output
+        this.updateScrollTopToBottom();
         this.restartBlink();
         this.updateInputPosition();
         this.render();
+    }
+
+    copyAll() {
+        const text = this.history.map(line => line.map(span => span.text).join('')).join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+            this.print([{ text: "Copied entire buffer to clipboard.", color: this.colors.green }]);
+        });
     }
 
     handleCompositionStart() {

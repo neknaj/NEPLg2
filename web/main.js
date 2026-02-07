@@ -93,56 +93,43 @@ function start_app() {
 
     // --- Example Loading Logic ---
     async function loadExamples() {
-        console.log("[Playground] Loading examples list...");
-        const knownExamples = [
-            'helloworld.nepl',
-            'counter.nepl',
-            'fib.nepl',
-            'stdio.nepl',
-            'rpn.nepl',
-            'abc086_a.tmp.nepl'
-        ];
+        console.log("[Playground] Loading examples list from VFS...");
+
+        // Ensure VFS is populated before listing
+        const examples = vfs.listDir('/examples');
+        console.log("[Playground] Examples found in VFS:", examples);
 
         exampleSelect.innerHTML = '<option value="" disabled selected>Select an example...</option>';
 
-        for (const file of knownExamples) {
-            try {
-                // Use GET instead of HEAD for better compatibility
-                const response = await fetch(`/examples/${file}`);
-                if (response.ok) {
-                    const option = document.createElement('option');
-                    option.value = file;
-                    option.textContent = file;
-                    exampleSelect.appendChild(option);
-                }
-            } catch (error) {
-                console.log(`[Playground] Example ${file} not found, skipping`);
-            }
+        for (const file of examples) {
+            const option = document.createElement('option');
+            option.value = file;
+            option.textContent = file;
+            exampleSelect.appendChild(option);
         }
 
         console.log("[Playground] Setting default example...");
-        // Load default example (rpn.nepl if available, else helloworld)
-        if (knownExamples.includes('rpn.nepl')) {
+        if (examples.includes('rpn.nepl')) {
             await loadExample('rpn.nepl');
+        } else if (examples.length > 0) {
+            await loadExample(examples[0]);
         } else {
-            await loadExample('helloworld.nepl');
+            console.warn("[Playground] No examples found in VFS. Fallback to helloworld?");
+            // If VFS is empty, it might be a mounting issue.
         }
     }
 
     async function loadExample(filename) {
-        console.log(`[Playground] Loading example: ${filename}`);
+        console.log(`[Playground] Loading example from VFS: ${filename}`);
         try {
-            // Append timestamp to bust cache
-            const response = await fetch(`/examples/${filename}?t=${Date.now()}`);
-            if (!response.ok) {
-                console.error(`[Playground] Failed to fetch example ${filename}: ${response.statusText}`);
-                editor.setText(`// Failed to load ${filename}`);
-                terminal.printError(`Failed to load ${filename}`);
+            const path = '/examples/' + filename;
+            if (!vfs.exists(path)) {
+                console.error(`[Playground] Example ${filename} not found in VFS`);
                 return;
             }
-            const text = await response.text();
+            const text = vfs.readFile(path);
             editor.setText(text);
-            editorStatus.textContent = `examples/${filename}`;
+            editorStatus.textContent = path.startsWith('/') ? path.substring(1) : path;
             terminal.print([
                 { text: "Loaded ", color: "#56d364" },
                 { text: filename, color: "#58a6ff" }
