@@ -7,5 +7,5 @@ ignore = ["web/dist_ts"]
 
 [[hooks]]
 stage = "pre_build"
-command = "npm.cmd"
+command = "npm"
 command_arguments = ["--prefix", "web", "run", "build:ts"]
