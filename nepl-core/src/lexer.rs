@@ -59,6 +59,9 @@ pub enum TokenKind {
     KwImpl,
     KwFor,
     KwPub,
+    KwBlock,
+    KwTuple,
+    KwMlstr,
 
     // directives
     DirEntry(String),
@@ -82,6 +85,9 @@ pub enum TokenKind {
 
     // wasm text line (inside #wasm: block)
     WasmText(String),
+
+    // mlstr line: ##: <text>
+    MlstrLine(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -264,6 +270,8 @@ impl<'a> LexState<'a> {
             }
         }
         let is_directive = !in_wasm && directive_text.is_some();
+        let is_mlstr_line = !in_wasm && !is_directive && rest_trim.starts_with("##:");
+
         if is_directive && !allow_indent {
             let current_indent = *self.indent_stack.last().unwrap();
             if actual_indent > current_indent {
@@ -286,6 +294,10 @@ impl<'a> LexState<'a> {
                 line_offset,
                 content.len(),
             );
+        } else if is_mlstr_line {
+            let text = rest_trim.strip_prefix("##:").unwrap().to_string();
+            let end = line_start + content.len();
+            self.push_token(TokenKind::MlstrLine(text), line_offset, end);
         } else {
             self.lex_regular(rest, line_offset);
         }
@@ -769,6 +781,9 @@ impl<'a> LexState<'a> {
                             "impl" => self.push_token(TokenKind::KwImpl, span_start, span_end),
                             "for" => self.push_token(TokenKind::KwFor, span_start, span_end),
                             "pub" => self.push_token(TokenKind::KwPub, span_start, span_end),
+                            "block" => self.push_token(TokenKind::KwBlock, span_start, span_end),
+                            "Tuple" => self.push_token(TokenKind::KwTuple, span_start, span_end),
+                            "mlstr" => self.push_token(TokenKind::KwMlstr, span_start, span_end),
                             "true" => {
                                 self.push_token(TokenKind::BoolLiteral(true), span_start, span_end)
                             }

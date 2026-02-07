@@ -1175,6 +1175,10 @@ impl<'a> BlockChecker<'a> {
         base_depth: usize,
         new_scope: bool,
     ) -> Option<(HirBlock, Option<TypeId>)> {
+        // block always allows side effects for now (matches user request "allow side effects in block")
+        let old_effect = self.current_effect;
+        self.current_effect = Effect::Impure;
+
         if new_scope {
             self.env.push_scope();
         }
@@ -1381,18 +1385,16 @@ impl<'a> BlockChecker<'a> {
             self.env.pop_scope();
         }
 
-        if self.diagnostics.is_empty() {
-            Some((
-                HirBlock {
-                    lines,
-                    ty: final_ty,
-                    span: block.span,
-                },
-                value_ty,
-            ))
-        } else {
-            None
-        }
+        self.current_effect = old_effect;
+
+        Some((
+            HirBlock {
+                lines,
+                ty: final_ty,
+                span: block.span,
+            },
+            value_ty,
+        ))
     }
 
     fn check_prefix(

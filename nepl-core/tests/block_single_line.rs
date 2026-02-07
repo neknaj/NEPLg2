@@ -125,6 +125,7 @@ fn block_sl_if_branch() {
 #entry main
 #indent 4
 #target wasm
+#import "core/math" as *
 
 fn main <()->i32> ():
     // blockのルールによると if true (block 1 else (block 2)) と解釈されるため誤り
@@ -174,6 +175,7 @@ fn block_sl_shadowing() {
 #entry main
 #indent 4
 #target wasm
+#import "core/math" as *
 
 fn main <()->i32> ():
     let x 1

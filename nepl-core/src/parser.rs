@@ -731,7 +731,10 @@ impl Parser {
         let mut in_trailing_semis = false;
         let mut last_semi_span: Option<Span> = None;
 
-        while !self.is_end(&TokenEnd::Line) {
+        while !self.is_end(&TokenEnd::Line) || self.is_pipe_continuation() {
+            if self.is_pipe_continuation() && self.peek_kind() == Some(TokenKind::Newline) {
+                self.next(); // skip newline to continue expression
+            }
             match self.peek_kind()? {
                 TokenKind::Semicolon => {
                     // semicolon marks statement end; collect and ensure nothing follows on same line
@@ -743,17 +746,10 @@ impl Parser {
                 }
 
                 // If we've seen trailing semicolons, any other token on the same
-                // line is an error: only one statement per line is allowed.
+                // line is an error: only one statement per line is allowed,
+                // UNLESS we are in a block that allows multiple statements per line.
+                // But parse_prefix_expr itself should stop here.
                 _ if in_trailing_semis => {
-                    let sp = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(Diagnostic::error(
-                        "unexpected token after ';' (only one statement per line)",
-                        sp,
-                    ));
-                    // recovery: skip to end of line
-                    while !self.is_end(&TokenEnd::Line) {
-                        self.next();
-                    }
                     break;
                 }
                 TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof => break,
@@ -1017,6 +1013,41 @@ impl Parser {
                 TokenKind::KwWhile => {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Symbol(Symbol::While(span)));
+                }
+                TokenKind::KwBlock => {
+                    let span = self.next().unwrap().span;
+                    if self.consume_if(TokenKind::Colon) {
+                        let block = self.parse_block_after_colon()?;
+                        let bspan = block.span;
+                        items.push(PrefixItem::Block(block, bspan));
+                    } else {
+                        let block = self.parse_single_line_block(span)?;
+                        let bspan = block.span;
+                        items.push(PrefixItem::Block(block, bspan));
+                    }
+                    break;
+                }
+                TokenKind::KwMlstr => {
+                    let span = self.next().unwrap().span;
+                    if self.consume_if(TokenKind::Colon) {
+                        if let Some(content) = self.parse_mlstr_layout(span) {
+                            let cspan = span.join(self.peek_span().unwrap_or(span)).unwrap_or(span);
+                            items.push(PrefixItem::Literal(Literal::Str(content), cspan));
+                        }
+                    }
+                    break;
+                }
+                TokenKind::KwTuple => {
+                    let span = self.next().unwrap().span;
+                    if self.consume_if(TokenKind::Colon) {
+                        let block = self.parse_block_after_colon()?;
+                        let args = self.extract_arg_layout_exprs(block.clone(), span).ok()?;
+                        items.push(PrefixItem::Tuple(
+                            args,
+                            span.join(block.span).unwrap_or(span),
+                        ));
+                    }
+                    break;
                 }
                 TokenKind::KwMatch => {
                     let m = self.parse_match_expr()?;
@@ -2509,11 +2540,83 @@ impl Parser {
                 self.peek_kind(),
                 Some(TokenKind::Dedent) | Some(TokenKind::Eof)
             ),
-            TokenEnd::Line => matches!(
-                self.peek_kind(),
-                Some(TokenKind::Newline) | Some(TokenKind::Dedent) | Some(TokenKind::Eof)
-            ),
+            TokenEnd::Line => {
+                if self.is_pipe_continuation() {
+                    false
+                } else {
+                    matches!(
+                        self.peek_kind(),
+                        Some(TokenKind::Newline) | Some(TokenKind::Dedent) | Some(TokenKind::Eof)
+                    )
+                }
+            }
         }
+    }
+
+    fn is_pipe_continuation(&self) -> bool {
+        if self.peek_kind() == Some(TokenKind::Newline) {
+            if let Some(tok) = self.tokens.get(self.pos + 1) {
+                return matches!(tok.kind, TokenKind::Pipe);
+            }
+        }
+        false
+    }
+
+    fn parse_single_line_block(&mut self, span: Span) -> Option<Block> {
+        let mut items = Vec::new();
+        while !self.is_end(&TokenEnd::Line) {
+            while self.consume_if(TokenKind::Semicolon) {} // Skip empty statements/leading semicolons
+            if self.is_end(&TokenEnd::Line) {
+                break;
+            }
+
+            if let Some(expr) = self.parse_prefix_expr() {
+                if self.consume_if(TokenKind::Semicolon) {
+                    let s_span = self.peek_span().unwrap_or(expr.span);
+                    items.push(Stmt::ExprSemi(expr, Some(s_span)));
+                } else {
+                    items.push(Stmt::Expr(expr));
+                }
+            } else {
+                break;
+            }
+        }
+        let end_span = self.peek_span().unwrap_or(span);
+        Some(Block {
+            items,
+            span: span.join(end_span).unwrap_or(span),
+        })
+    }
+
+    fn parse_mlstr_layout(&mut self, span: Span) -> Option<String> {
+        let mut text = String::new();
+        let mut first = true;
+        self.expect(TokenKind::Indent)?;
+        while self.peek_kind() != Some(TokenKind::Dedent) && !self.is_eof() {
+            match self.next() {
+                Some(Token {
+                    kind: TokenKind::MlstrLine(line),
+                    ..
+                }) => {
+                    if !first {
+                        text.push('\n');
+                    }
+                    text.push_str(&line);
+                    first = false;
+                    self.consume_if(TokenKind::Newline);
+                }
+                Some(Token {
+                    kind: TokenKind::Newline,
+                    ..
+                }) => {}
+                _ => {
+                    // unexpected token in mlstr layout, but let's just skip
+                    self.next();
+                }
+            }
+        }
+        self.consume_if(TokenKind::Dedent);
+        Some(text)
     }
 
     fn item_span(&self, item: &PrefixItem) -> Span {
@@ -2579,6 +2682,7 @@ fn token_kind_eq(a: &TokenKind, b: &TokenKind) -> bool {
         (DirInclude(_), DirInclude(_)) => true,
         (DirExtern { .. }, DirExtern { .. }) => true,
         (DirTarget(_), DirTarget(_)) => true,
+        (MlstrLine(_), MlstrLine(_)) => true,
         _ => core::mem::discriminant(a) == core::mem::discriminant(b),
     }
 }
