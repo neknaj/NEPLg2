@@ -1,11 +1,20 @@
 <!doctype html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cargo Test Log Viewer</title>
+    <meta property="og:title" content="NEPLg2 Test Log Viewer">
+    <meta property="og:description" content="Visualize Cargo test results for NEPLg2.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://neknaj.github.io/NEPLg2/testinfo.html">
+    <link rel="canonical" href="https://neknaj.github.io/NEPLg2/testinfo.html">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@bem130">
+    <meta name="twitter:creator" content="@bem130">
     <style>
-        :root{
+        :root {
             color-scheme: dark;
 
             --bg: #0b0f14;
@@ -14,7 +23,7 @@
             --panel-2: rgba(17, 24, 39, 0.52);
             --border: rgba(148, 163, 184, 0.14);
             --border-2: rgba(148, 163, 184, 0.10);
-            --shadow: 0 10px 30px rgba(0,0,0,0.35);
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 
             --text: #e5e7eb;
             --muted: #9aa4b2;
@@ -31,9 +40,17 @@
             --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
             --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
         }
-        *{ box-sizing: border-box; }
-        html, body{ height: 100%; }
-        body{
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
             margin: 0;
             font-family: var(--sans);
             background:
@@ -45,13 +62,13 @@
             overflow: hidden;
         }
 
-        .app{
+        .app {
             height: 100%;
             display: grid;
             grid-template-rows: auto 1fr;
         }
 
-        header{
+        header {
             position: sticky;
             top: 0;
             z-index: 10;
@@ -60,7 +77,8 @@
             background: linear-gradient(180deg, rgba(15, 22, 32, 0.86), rgba(15, 22, 32, 0.66));
             backdrop-filter: blur(10px);
         }
-        .header-row{
+
+        .header-row {
             max-width: 1280px;
             margin: 0 auto;
             display: flex;
@@ -69,33 +87,37 @@
             justify-content: space-between;
             flex-wrap: wrap;
         }
-        .brand{
+
+        .brand {
             display: flex;
             align-items: center;
             gap: 10px;
             min-width: 240px;
         }
-        .logo{
+
+        .logo {
             width: 34px;
             height: 34px;
             border-radius: 12px;
-            background: linear-gradient(135deg, rgba(124,58,237,0.95), rgba(34,197,94,0.85));
-            box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(34, 197, 94, 0.85));
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
         }
-        .brand h1{
+
+        .brand h1 {
             font-size: 14px;
             margin: 0;
             line-height: 1.1;
             font-weight: 700;
             letter-spacing: 0.2px;
         }
-        .brand .sub{
+
+        .brand .sub {
             font-size: 12px;
             color: var(--muted);
             margin-top: 2px;
         }
 
-        .controls{
+        .controls {
             display: flex;
             align-items: center;
             gap: 10px;
@@ -103,11 +125,15 @@
             justify-content: flex-end;
         }
 
-        .input, select, button, textarea{
+        .input,
+        select,
+        button,
+        textarea {
             font-family: inherit;
         }
 
-        .input, select{
+        .input,
+        select {
             height: 34px;
             padding: 0 10px;
             border-radius: 10px;
@@ -116,9 +142,12 @@
             color: var(--text);
             outline: none;
         }
-        .input::placeholder{ color: rgba(154, 164, 178, 0.7); }
 
-        button{
+        .input::placeholder {
+            color: rgba(154, 164, 178, 0.7);
+        }
+
+        button {
             height: 34px;
             padding: 0 12px;
             border-radius: 10px;
@@ -128,71 +157,90 @@
             cursor: pointer;
             transition: transform 0.05s ease, border-color 0.15s ease, background 0.15s ease;
         }
-        button:hover{
-            border-color: rgba(124,58,237,0.55);
-            background: rgba(124,58,237,0.10);
-        }
-        button:active{ transform: translateY(1px); }
 
-        .btn-primary{
-            border-color: rgba(124,58,237,0.55);
-            background: rgba(124,58,237,0.14);
-        }
-        .btn-primary:hover{
-            border-color: rgba(124,58,237,0.85);
-            background: rgba(124,58,237,0.22);
+        button:hover {
+            border-color: rgba(124, 58, 237, 0.55);
+            background: rgba(124, 58, 237, 0.10);
         }
 
-        .content{
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .btn-primary {
+            border-color: rgba(124, 58, 237, 0.55);
+            background: rgba(124, 58, 237, 0.14);
+        }
+
+        .btn-primary:hover {
+            border-color: rgba(124, 58, 237, 0.85);
+            background: rgba(124, 58, 237, 0.22);
+        }
+
+        .content {
             overflow: auto;
             padding: 16px;
         }
-        .container{
+
+        .container {
             max-width: 1280px;
             margin: 0 auto;
         }
 
-        .grid{
+        .grid {
             display: grid;
             gap: 12px;
         }
-        .summary{
-            grid-template-columns: repeat(6, minmax(0,1fr));
-        }
-        @media (max-width: 980px){
-            .summary{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-        }
-        @media (max-width: 560px){
-            .summary{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+        .summary {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
         }
 
-        .card{
+        @media (max-width: 980px) {
+            .summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 560px) {
+            .summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        .card {
             border: 1px solid var(--border);
             background: var(--panel);
             backdrop-filter: blur(10px);
             border-radius: 16px;
             box-shadow: var(--shadow);
         }
-        .card.pad{ padding: 14px; }
-        .stat{
+
+        .card.pad {
+            padding: 14px;
+        }
+
+        .stat {
             padding: 12px 14px;
             border-radius: 16px;
             border: 1px solid var(--border);
             background: rgba(15, 22, 32, 0.55);
         }
-        .stat .k{
+
+        .stat .k {
             font-size: 11px;
             letter-spacing: 0.12em;
             color: var(--muted);
             text-transform: uppercase;
         }
-        .stat .v{
+
+        .stat .v {
             font-size: 24px;
             font-weight: 800;
             margin-top: 6px;
         }
 
-        .toolbar{
+        .toolbar {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
@@ -201,18 +249,22 @@
             padding: 12px 14px;
             border-top: 1px solid var(--border);
         }
-        .toolbar-left, .toolbar-right{
+
+        .toolbar-left,
+        .toolbar-right {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
             align-items: center;
         }
-        .chipbar{
+
+        .chipbar {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
         }
-        .chip{
+
+        .chip {
             user-select: none;
             display: inline-flex;
             align-items: center;
@@ -225,21 +277,35 @@
             cursor: pointer;
             color: var(--text);
         }
-        .chip input{ accent-color: var(--accent); }
-        .chip.ok{ border-color: rgba(34,197,94,0.35); }
-        .chip.fail{ border-color: rgba(239,68,68,0.35); }
-        .chip.ignored{ border-color: rgba(161,161,170,0.35); }
-        .chip.active{
-            border-color: rgba(124,58,237,0.6);
-            background: rgba(124,58,237,0.10);
+
+        .chip input {
+            accent-color: var(--accent);
         }
 
-        .tabs{
+        .chip.ok {
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+
+        .chip.fail {
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+
+        .chip.ignored {
+            border-color: rgba(161, 161, 170, 0.35);
+        }
+
+        .chip.active {
+            border-color: rgba(124, 58, 237, 0.6);
+            background: rgba(124, 58, 237, 0.10);
+        }
+
+        .tabs {
             display: flex;
             gap: 8px;
             padding: 10px 14px 0 14px;
         }
-        .tab{
+
+        .tab {
             border: 1px solid var(--border);
             background: rgba(15, 22, 32, 0.45);
             color: var(--text);
@@ -248,15 +314,17 @@
             cursor: pointer;
             font-size: 12px;
         }
-        .tab.active{
-            border-color: rgba(124,58,237,0.6);
-            background: rgba(124,58,237,0.12);
+
+        .tab.active {
+            border-color: rgba(124, 58, 237, 0.6);
+            background: rgba(124, 58, 237, 0.12);
         }
 
-        .suite{
+        .suite {
             margin-top: 12px;
         }
-        .suite-header{
+
+        .suite-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -266,13 +334,15 @@
             cursor: pointer;
             user-select: none;
         }
-        .suite-title{
+
+        .suite-title {
             display: flex;
             align-items: center;
             gap: 10px;
             min-width: 0;
         }
-        .suite-title .file{
+
+        .suite-title .file {
             font-weight: 700;
             font-size: 13px;
             overflow: hidden;
@@ -280,7 +350,8 @@
             white-space: nowrap;
             max-width: 72ch;
         }
-        .suite-title .raw{
+
+        .suite-title .raw {
             font-size: 11px;
             color: var(--muted);
             overflow: hidden;
@@ -288,7 +359,8 @@
             white-space: nowrap;
             max-width: 72ch;
         }
-        .badge{
+
+        .badge {
             font-size: 11px;
             font-weight: 800;
             letter-spacing: 0.08em;
@@ -297,11 +369,26 @@
             border: 1px solid var(--border);
             background: rgba(15, 22, 32, 0.55);
         }
-        .badge.ok{ color: var(--ok); border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.10); }
-        .badge.fail{ color: var(--fail); border-color: rgba(239,68,68,0.42); background: rgba(239,68,68,0.10); }
-        .badge.ignored{ color: var(--ignored); border-color: rgba(161,161,170,0.42); background: rgba(161,161,170,0.10); }
 
-        .suite-meta{
+        .badge.ok {
+            color: var(--ok);
+            border-color: rgba(34, 197, 94, 0.4);
+            background: rgba(34, 197, 94, 0.10);
+        }
+
+        .badge.fail {
+            color: var(--fail);
+            border-color: rgba(239, 68, 68, 0.42);
+            background: rgba(239, 68, 68, 0.10);
+        }
+
+        .badge.ignored {
+            color: var(--ignored);
+            border-color: rgba(161, 161, 170, 0.42);
+            background: rgba(161, 161, 170, 0.10);
+        }
+
+        .suite-meta {
             font-size: 12px;
             color: var(--muted);
             display: flex;
@@ -310,12 +397,16 @@
             flex-wrap: wrap;
             justify-content: flex-end;
         }
-        .suite-body{
+
+        .suite-body {
             display: none;
         }
-        .suite-body.expanded{ display: block; }
 
-        .test-row{
+        .suite-body.expanded {
+            display: block;
+        }
+
+        .test-row {
             padding: 10px 14px;
             display: grid;
             grid-template-columns: 1fr auto;
@@ -324,26 +415,43 @@
             font-family: var(--mono);
             font-size: 13px;
         }
-        .test-row:hover{ background: rgba(148, 163, 184, 0.06); }
-        .test-row:last-child{ border-bottom: 0; }
 
-        .test-name{
+        .test-row:hover {
+            background: rgba(148, 163, 184, 0.06);
+        }
+
+        .test-row:last-child {
+            border-bottom: 0;
+        }
+
+        .test-name {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .test-status{
+
+        .test-status {
             font-weight: 900;
         }
-        .status-ok{ color: var(--ok); }
-        .status-fail{ color: var(--fail); }
-        .status-ignored{ color: var(--ignored); }
 
-        details.failbox{
+        .status-ok {
+            color: var(--ok);
+        }
+
+        .status-fail {
+            color: var(--fail);
+        }
+
+        .status-ignored {
+            color: var(--ignored);
+        }
+
+        details.failbox {
             grid-column: 1 / -1;
             margin-top: 8px;
         }
-        details.failbox > summary{
+
+        details.failbox>summary {
             cursor: pointer;
             user-select: none;
             color: var(--muted);
@@ -351,14 +459,19 @@
             font-size: 12px;
             list-style: none;
         }
-        details.failbox > summary::-webkit-details-marker { display: none; }
-        .fail-actions{
+
+        details.failbox>summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .fail-actions {
             margin-top: 8px;
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
         }
-        .fail-log{
+
+        .fail-log {
             margin-top: 10px;
             border: 1px solid var(--border);
             background: rgba(3, 7, 18, 0.65);
@@ -372,17 +485,20 @@
             color: #cbd5e1;
         }
 
-        .table{
+        .table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
-        .table th, .table td{
+
+        .table th,
+        .table td {
             padding: 10px 12px;
             border-bottom: 1px solid var(--border-2);
             text-align: left;
         }
-        .table th{
+
+        .table th {
             font-size: 11px;
             letter-spacing: 0.12em;
             color: var(--muted);
@@ -393,486 +509,524 @@
             backdrop-filter: blur(10px);
             z-index: 1;
         }
-        .mono{ font-family: var(--mono); }
 
-        .hint{
+        .mono {
+            font-family: var(--mono);
+        }
+
+        .hint {
             color: var(--muted);
             font-size: 12px;
             margin-top: 8px;
             line-height: 1.45;
         }
-        .error{
-            border: 1px solid rgba(239,68,68,0.35);
-            background: rgba(239,68,68,0.10);
+
+        .error {
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            background: rgba(239, 68, 68, 0.10);
             color: #fecaca;
             padding: 12px 14px;
             border-radius: 16px;
         }
 
         /* ANSI subset */
-        .ansi-bold{ font-weight: 800; }
-        .ansi-red{ color: #ff7b72; }
-        .ansi-green{ color: #7ee787; }
-        .ansi-yellow{ color: #f2cc60; }
-        .ansi-blue{ color: #79c0ff; }
-        .ansi-magenta{ color: #d2a8ff; }
-        .ansi-cyan{ color: #a5d6ff; }
-        .ansi-gray{ color: #8b949e; }
-        .ansi-white{ color: #c9d1d9; }
+        .ansi-bold {
+            font-weight: 800;
+        }
+
+        .ansi-red {
+            color: #ff7b72;
+        }
+
+        .ansi-green {
+            color: #7ee787;
+        }
+
+        .ansi-yellow {
+            color: #f2cc60;
+        }
+
+        .ansi-blue {
+            color: #79c0ff;
+        }
+
+        .ansi-magenta {
+            color: #d2a8ff;
+        }
+
+        .ansi-cyan {
+            color: #a5d6ff;
+        }
+
+        .ansi-gray {
+            color: #8b949e;
+        }
+
+        .ansi-white {
+            color: #c9d1d9;
+        }
     </style>
 </head>
+
 <body>
-<div class="app">
-    <header>
-        <div class="header-row">
-            <div class="brand">
-                <div class="logo" aria-hidden="true"></div>
-                <div>
-                    <h1>Cargo Test Log Viewer</h1>
-                    <div class="sub">Fetch or paste a <span class="mono">cargo test</span> dump and visualize suites/tests.</div>
-                </div>
-            </div>
-
-            <div class="controls">
-                <input id="log-url" class="input" style="min-width: 260px;" value="./tests/cargo-test.log" placeholder="./tests/cargo-test.log" />
-                <select id="encoding">
-                    <option value="utf-8" selected>UTF-8</option>
-                    <option value="shift-jis">Shift_JIS</option>
-                    <option value="utf-16le">UTF-16 LE</option>
-                </select>
-                <button class="btn-primary" id="btn-load">Load (fetch)</button>
-                <button id="btn-toggle-paste">Paste</button>
-            </div>
-        </div>
-    </header>
-
-    <main class="content">
-        <div class="container">
-            <div id="paste-card" class="card pad" style="display:none; margin-bottom: 12px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-                    <div style="font-weight:700;">Paste log text</div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button id="btn-parse-paste" class="btn-primary">Parse pasted text</button>
-                        <button id="btn-clear-paste">Clear</button>
-                    </div>
-                </div>
-                <textarea id="paste-area" spellcheck="false" style="width:100%; margin-top:10px; height: 200px; border-radius: 14px; padding: 10px 12px; border: 1px solid var(--border); background: rgba(3,7,18,0.60); color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.45; outline:none;" placeholder="Paste cargo test output here..."></textarea>
-                <div class="hint">
-                    Tip: If you open this HTML via <span class="mono">file://</span>, browsers often block <span class="mono">fetch()</span>. Use a local server, or just paste the log here.
-                </div>
-            </div>
-
-            <div id="root" class="card">
-                <div class="tabs">
-                    <button class="tab active" id="tab-suites">Suites</button>
-                    <button class="tab" id="tab-flat">File × Test</button>
-                </div>
-
-                <div id="summary" class="grid summary" style="padding: 14px;"></div>
-
-                <div class="toolbar">
-                    <div class="toolbar-left">
-                        <input id="query" class="input" style="min-width: 260px;" placeholder="Filter by file or test name..." />
-                        <button id="btn-expand-failed">Expand failed</button>
-                        <button id="btn-collapse-all">Collapse all</button>
-                    </div>
-                    <div class="toolbar-right">
-                        <div class="chipbar" id="status-chips"></div>
+    <div class="app">
+        <header>
+            <div class="header-row">
+                <div class="brand">
+                    <div class="logo" aria-hidden="true"></div>
+                    <div>
+                        <h1>Cargo Test Log Viewer</h1>
+                        <div class="sub">Fetch or paste a <span class="mono">cargo test</span> dump and visualize
+                            suites/tests.</div>
                     </div>
                 </div>
 
-                <div id="body" style="padding: 0 14px 14px 14px;"></div>
+                <div class="controls">
+                    <input id="log-url" class="input" style="min-width: 260px;" value="./tests/cargo-test.log"
+                        placeholder="./tests/cargo-test.log" />
+                    <select id="encoding">
+                        <option value="utf-8" selected>UTF-8</option>
+                        <option value="shift-jis">Shift_JIS</option>
+                        <option value="utf-16le">UTF-16 LE</option>
+                    </select>
+                    <button class="btn-primary" id="btn-load">Load (fetch)</button>
+                    <button id="btn-toggle-paste">Paste</button>
+                </div>
             </div>
+        </header>
 
-            <div id="footer-hint" class="hint" style="margin-top: 10px;"></div>
-        </div>
-    </main>
-</div>
+        <main class="content">
+            <div class="container">
+                <div id="paste-card" class="card pad" style="display:none; margin-bottom: 12px;">
+                    <div
+                        style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                        <div style="font-weight:700;">Paste log text</div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button id="btn-parse-paste" class="btn-primary">Parse pasted text</button>
+                            <button id="btn-clear-paste">Clear</button>
+                        </div>
+                    </div>
+                    <textarea id="paste-area" spellcheck="false"
+                        style="width:100%; margin-top:10px; height: 200px; border-radius: 14px; padding: 10px 12px; border: 1px solid var(--border); background: rgba(3,7,18,0.60); color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.45; outline:none;"
+                        placeholder="Paste cargo test output here..."></textarea>
+                    <div class="hint">
+                        Tip: If you open this HTML via <span class="mono">file://</span>, browsers often block <span
+                            class="mono">fetch()</span>. Use a local server, or just paste the log here.
+                    </div>
+                </div>
 
-<script>
-(() => {
-    "use strict";
+                <div id="root" class="card">
+                    <div class="tabs">
+                        <button class="tab active" id="tab-suites">Suites</button>
+                        <button class="tab" id="tab-flat">File × Test</button>
+                    </div>
 
-    /** @type {{ rawText: string, suites: any[], view: "suites"|"flat", filterText: string, statusFilter: Set<string> }} */
-    const state = {
-        rawText: "",
-        suites: [],
-        view: "suites",
-        filterText: "",
-        statusFilter: new Set(["ok", "FAILED", "ignored"])
-    };
+                    <div id="summary" class="grid summary" style="padding: 14px;"></div>
 
-    const el = (id) => /** @type {HTMLElement} */ (document.getElementById(id));
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <input id="query" class="input" style="min-width: 260px;"
+                                placeholder="Filter by file or test name..." />
+                            <button id="btn-expand-failed">Expand failed</button>
+                            <button id="btn-collapse-all">Collapse all</button>
+                        </div>
+                        <div class="toolbar-right">
+                            <div class="chipbar" id="status-chips"></div>
+                        </div>
+                    </div>
 
-    const dom = {
-        url: /** @type {HTMLInputElement} */ (el("log-url")),
-        encoding: /** @type {HTMLSelectElement} */ (el("encoding")),
-        btnLoad: el("btn-load"),
-        btnTogglePaste: el("btn-toggle-paste"),
-        pasteCard: el("paste-card"),
-        pasteArea: /** @type {HTMLTextAreaElement} */ (el("paste-area")),
-        btnParsePaste: el("btn-parse-paste"),
-        btnClearPaste: el("btn-clear-paste"),
+                    <div id="body" style="padding: 0 14px 14px 14px;"></div>
+                </div>
 
-        tabSuites: el("tab-suites"),
-        tabFlat: el("tab-flat"),
+                <div id="footer-hint" class="hint" style="margin-top: 10px;"></div>
+            </div>
+        </main>
+    </div>
 
-        summary: el("summary"),
-        body: el("body"),
-        query: /** @type {HTMLInputElement} */ (el("query")),
-        statusChips: el("status-chips"),
-        btnExpandFailed: el("btn-expand-failed"),
-        btnCollapseAll: el("btn-collapse-all"),
-        footerHint: el("footer-hint")
-    };
+    <script>
+        (() => {
+            "use strict";
 
-    function escapeHtml(s) {
-        return String(s)
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
-    function normalizePath(p) {
-        return String(p).replaceAll("\\", "/");
-    }
-
-    // Cargo often prints:
-    //   Running unittests src/lib.rs (target/debug/deps/xxx)
-    //   Running tests/foo.rs (target/debug/deps/foo-xxx)
-    // We use the first *.rs path as "file".
-    function extractRsPath(runningPayload) {
-        const m = runningPayload.match(/(?:[A-Za-z]:)?[^\s()]*\.rs\b/);
-        return m ? normalizePath(m[0]) : "";
-    }
-
-    function stripAnsi(s) {
-        return String(s).replace(/\x1b\[[0-9;]*m/g, "");
-    }
-
-    function computeStatsFromTests(tests) {
-        const stats = { passed: 0, failed: 0, ignored: 0 };
-        for (const t of tests) {
-            if (t.status === "ok") stats.passed++;
-            else if (t.status === "FAILED") stats.failed++;
-            else if (t.status === "ignored") stats.ignored++;
-        }
-        return stats;
-    }
-
-    // Minimal ANSI(SGR) -> HTML converter:
-    // Supports reset(0), bold(1), fg colors 30-37,90-97.
-    function ansiToHtml(input) {
-        const text = String(input);
-
-        /** @type {{ bold: boolean, fg: string|null }} */
-        const style = { bold: false, fg: null };
-
-        const fgClass = (code) => {
-            switch (code) {
-                case 31:
-                case 91: return "ansi-red";
-                case 32:
-                case 92: return "ansi-green";
-                case 33:
-                case 93: return "ansi-yellow";
-                case 34:
-                case 94: return "ansi-blue";
-                case 35:
-                case 95: return "ansi-magenta";
-                case 36:
-                case 96: return "ansi-cyan";
-                case 37:
-                case 97: return "ansi-white";
-                case 90: return "ansi-gray";
-                default: return null;
-            }
-        };
-
-        const currentClasses = () => {
-            const cls = [];
-            if (style.bold) cls.push("ansi-bold");
-            if (style.fg) cls.push(style.fg);
-            return cls;
-        };
-
-        const closeOpen = (out, opened) => opened ? (out + "</span>") : out;
-
-        let out = "";
-        let opened = false;
-
-        // Split by SGR sequences
-        const re = /\x1b\[([0-9;]*)m/g;
-        let last = 0;
-        let match;
-        while ((match = re.exec(text)) !== null) {
-            const chunk = text.slice(last, match.index);
-            if (chunk) out += escapeHtml(chunk);
-
-            const paramsRaw = match[1] === "" ? "0" : match[1];
-            const params = paramsRaw.split(";").map(x => (x === "" ? 0 : Number(x)));
-
-            // Apply params
-            for (const p of params) {
-                if (p === 0) {
-                    style.bold = false;
-                    style.fg = null;
-                } else if (p === 1) {
-                    style.bold = true;
-                } else if ((p >= 30 && p <= 37) || (p >= 90 && p <= 97)) {
-                    style.fg = fgClass(p);
-                }
-            }
-
-            // Re-open span with new style
-            out = closeOpen(out, opened);
-            opened = false;
-            const cls = currentClasses();
-            if (cls.length > 0) {
-                out += `<span class="${cls.join(" ")}">`;
-                opened = true;
-            }
-
-            last = re.lastIndex;
-        }
-
-        const tail = text.slice(last);
-        if (tail) out += escapeHtml(tail);
-        out = closeOpen(out, opened);
-        return out;
-    }
-
-    function parseCargoLog(text) {
-        const lines = String(text).split(/\r?\n/);
-        /** @type {any[]} */
-        const suites = [];
-
-        /** @type {any|null} */
-        let currentSuite = null;
-        /** @type {"IDLE"|"TESTS"|"FAILURES"|"FAILURE_SUMMARY"} */
-        let stateName = "IDLE";
-
-        /** @type {string|null} */
-        let pendingTestName = null;
-        /** @type {string|null} */
-        let currentFailureName = null;
-
-        const finalizeSuite = () => {
-            if (!currentSuite) return;
-            // Prefer counting from parsed tests (more robust than parsing "test result:" line).
-            currentSuite.stats = computeStatsFromTests(currentSuite.tests);
-            currentSuite.status = currentSuite.stats.failed > 0 ? "FAILED" : "ok";
-            suites.push(currentSuite);
-            currentSuite = null;
-            pendingTestName = null;
-            currentFailureName = null;
-            stateName = "IDLE";
-        };
-
-        const startSuite = (runningPayloadRaw) => {
-            if (currentSuite) finalizeSuite();
-            const file = extractRsPath(runningPayloadRaw) || runningPayloadRaw;
-            currentSuite = {
-                raw: runningPayloadRaw,
-                file,
-                tests: [],
-                failures: {}, // { [testName]: string[] }
-                stats: { passed: 0, failed: 0, ignored: 0 },
-                status: "ok"
+            /** @type {{ rawText: string, suites: any[], view: "suites"|"flat", filterText: string, statusFilter: Set<string> }} */
+            const state = {
+                rawText: "",
+                suites: [],
+                view: "suites",
+                filterText: "",
+                statusFilter: new Set(["ok", "FAILED", "ignored"])
             };
-            stateName = "TESTS";
-            pendingTestName = null;
-            currentFailureName = null;
-        };
 
-        for (const rawLine of lines) {
-            const cleanLine = stripAnsi(rawLine).trim();
+            const el = (id) => /** @type {HTMLElement} */(document.getElementById(id));
 
-            // Suite start
-            if (cleanLine.startsWith("Running ")) {
-                const payload = cleanLine.slice("Running ".length).trim();
-                // Accept any "Running ..." line that contains ".rs".
-                if (payload.includes(".rs")) {
-                    startSuite(payload);
-                    continue;
+            const dom = {
+                url: /** @type {HTMLInputElement} */ (el("log-url")),
+                encoding: /** @type {HTMLSelectElement} */ (el("encoding")),
+                btnLoad: el("btn-load"),
+                btnTogglePaste: el("btn-toggle-paste"),
+                pasteCard: el("paste-card"),
+                pasteArea: /** @type {HTMLTextAreaElement} */ (el("paste-area")),
+                btnParsePaste: el("btn-parse-paste"),
+                btnClearPaste: el("btn-clear-paste"),
+
+                tabSuites: el("tab-suites"),
+                tabFlat: el("tab-flat"),
+
+                summary: el("summary"),
+                body: el("body"),
+                query: /** @type {HTMLInputElement} */ (el("query")),
+                statusChips: el("status-chips"),
+                btnExpandFailed: el("btn-expand-failed"),
+                btnCollapseAll: el("btn-collapse-all"),
+                footerHint: el("footer-hint")
+            };
+
+            function escapeHtml(s) {
+                return String(s)
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;")
+                    .replaceAll('"', "&quot;")
+                    .replaceAll("'", "&#039;");
+            }
+
+            function normalizePath(p) {
+                return String(p).replaceAll("\\", "/");
+            }
+
+            // Cargo often prints:
+            //   Running unittests src/lib.rs (target/debug/deps/xxx)
+            //   Running tests/foo.rs (target/debug/deps/foo-xxx)
+            // We use the first *.rs path as "file".
+            function extractRsPath(runningPayload) {
+                const m = runningPayload.match(/(?:[A-Za-z]:)?[^\s()]*\.rs\b/);
+                return m ? normalizePath(m[0]) : "";
+            }
+
+            function stripAnsi(s) {
+                return String(s).replace(/\x1b\[[0-9;]*m/g, "");
+            }
+
+            function computeStatsFromTests(tests) {
+                const stats = { passed: 0, failed: 0, ignored: 0 };
+                for (const t of tests) {
+                    if (t.status === "ok") stats.passed++;
+                    else if (t.status === "FAILED") stats.failed++;
+                    else if (t.status === "ignored") stats.ignored++;
                 }
+                return stats;
             }
 
-            // Suite end
-            if (cleanLine.startsWith("test result:")) {
-                finalizeSuite();
-                continue;
+            // Minimal ANSI(SGR) -> HTML converter:
+            // Supports reset(0), bold(1), fg colors 30-37,90-97.
+            function ansiToHtml(input) {
+                const text = String(input);
+
+                /** @type {{ bold: boolean, fg: string|null }} */
+                const style = { bold: false, fg: null };
+
+                const fgClass = (code) => {
+                    switch (code) {
+                        case 31:
+                        case 91: return "ansi-red";
+                        case 32:
+                        case 92: return "ansi-green";
+                        case 33:
+                        case 93: return "ansi-yellow";
+                        case 34:
+                        case 94: return "ansi-blue";
+                        case 35:
+                        case 95: return "ansi-magenta";
+                        case 36:
+                        case 96: return "ansi-cyan";
+                        case 37:
+                        case 97: return "ansi-white";
+                        case 90: return "ansi-gray";
+                        default: return null;
+                    }
+                };
+
+                const currentClasses = () => {
+                    const cls = [];
+                    if (style.bold) cls.push("ansi-bold");
+                    if (style.fg) cls.push(style.fg);
+                    return cls;
+                };
+
+                const closeOpen = (out, opened) => opened ? (out + "</span>") : out;
+
+                let out = "";
+                let opened = false;
+
+                // Split by SGR sequences
+                const re = /\x1b\[([0-9;]*)m/g;
+                let last = 0;
+                let match;
+                while ((match = re.exec(text)) !== null) {
+                    const chunk = text.slice(last, match.index);
+                    if (chunk) out += escapeHtml(chunk);
+
+                    const paramsRaw = match[1] === "" ? "0" : match[1];
+                    const params = paramsRaw.split(";").map(x => (x === "" ? 0 : Number(x)));
+
+                    // Apply params
+                    for (const p of params) {
+                        if (p === 0) {
+                            style.bold = false;
+                            style.fg = null;
+                        } else if (p === 1) {
+                            style.bold = true;
+                        } else if ((p >= 30 && p <= 37) || (p >= 90 && p <= 97)) {
+                            style.fg = fgClass(p);
+                        }
+                    }
+
+                    // Re-open span with new style
+                    out = closeOpen(out, opened);
+                    opened = false;
+                    const cls = currentClasses();
+                    if (cls.length > 0) {
+                        out += `<span class="${cls.join(" ")}">`;
+                        opened = true;
+                    }
+
+                    last = re.lastIndex;
+                }
+
+                const tail = text.slice(last);
+                if (tail) out += escapeHtml(tail);
+                out = closeOpen(out, opened);
+                return out;
             }
 
-            if (!currentSuite) continue;
+            function parseCargoLog(text) {
+                const lines = String(text).split(/\r?\n/);
+                /** @type {any[]} */
+                const suites = [];
 
-            // State transitions
-            if (cleanLine === "failures:") {
-                stateName = (stateName === "TESTS") ? "FAILURES" : "FAILURE_SUMMARY";
-                currentFailureName = null;
-                pendingTestName = null;
-                continue;
-            }
+                /** @type {any|null} */
+                let currentSuite = null;
+                /** @type {"IDLE"|"TESTS"|"FAILURES"|"FAILURE_SUMMARY"} */
+                let stateName = "IDLE";
 
-            // Parse test lines
-            if (stateName === "TESTS") {
-                // Full line: "test NAME ... ok|FAILED|ignored" (ignored may have a reason after comma)
-                let m = cleanLine.match(/^test\s+(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)(?:,.*)?$/);
-                if (m) {
-                    const name = m[1];
-                    const status = m[2];
-                    currentSuite.tests.push({ name, status });
+                /** @type {string|null} */
+                let pendingTestName = null;
+                /** @type {string|null} */
+                let currentFailureName = null;
+
+                const finalizeSuite = () => {
+                    if (!currentSuite) return;
+                    // Prefer counting from parsed tests (more robust than parsing "test result:" line).
+                    currentSuite.stats = computeStatsFromTests(currentSuite.tests);
+                    currentSuite.status = currentSuite.stats.failed > 0 ? "FAILED" : "ok";
+                    suites.push(currentSuite);
+                    currentSuite = null;
                     pendingTestName = null;
-                    continue;
-                }
+                    currentFailureName = null;
+                    stateName = "IDLE";
+                };
 
-                // Wrapped: "test NAME ..." then next line is "ok|FAILED|ignored"
-                m = cleanLine.match(/^test\s+(.+?)\s+\.\.\.\s*$/);
-                if (m) {
-                    pendingTestName = m[1];
-                    continue;
-                }
+                const startSuite = (runningPayloadRaw) => {
+                    if (currentSuite) finalizeSuite();
+                    const file = extractRsPath(runningPayloadRaw) || runningPayloadRaw;
+                    currentSuite = {
+                        raw: runningPayloadRaw,
+                        file,
+                        tests: [],
+                        failures: {}, // { [testName]: string[] }
+                        stats: { passed: 0, failed: 0, ignored: 0 },
+                        status: "ok"
+                    };
+                    stateName = "TESTS";
+                    pendingTestName = null;
+                    currentFailureName = null;
+                };
 
-                // If we have a pending test and this line is a status token
-                if (pendingTestName) {
-                    const s = cleanLine.match(/^(ok|FAILED|ignored)$/);
-                    if (s) {
-                        currentSuite.tests.push({ name: pendingTestName, status: s[1] });
+                for (const rawLine of lines) {
+                    const cleanLine = stripAnsi(rawLine).trim();
+
+                    // Suite start
+                    if (cleanLine.startsWith("Running ")) {
+                        const payload = cleanLine.slice("Running ".length).trim();
+                        // Accept any "Running ..." line that contains ".rs".
+                        if (payload.includes(".rs")) {
+                            startSuite(payload);
+                            continue;
+                        }
+                    }
+
+                    // Suite end
+                    if (cleanLine.startsWith("test result:")) {
+                        finalizeSuite();
+                        continue;
+                    }
+
+                    if (!currentSuite) continue;
+
+                    // State transitions
+                    if (cleanLine === "failures:") {
+                        stateName = (stateName === "TESTS") ? "FAILURES" : "FAILURE_SUMMARY";
+                        currentFailureName = null;
                         pendingTestName = null;
                         continue;
                     }
-                    // Not a status -> drop
-                    pendingTestName = null;
+
+                    // Parse test lines
+                    if (stateName === "TESTS") {
+                        // Full line: "test NAME ... ok|FAILED|ignored" (ignored may have a reason after comma)
+                        let m = cleanLine.match(/^test\s+(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)(?:,.*)?$/);
+                        if (m) {
+                            const name = m[1];
+                            const status = m[2];
+                            currentSuite.tests.push({ name, status });
+                            pendingTestName = null;
+                            continue;
+                        }
+
+                        // Wrapped: "test NAME ..." then next line is "ok|FAILED|ignored"
+                        m = cleanLine.match(/^test\s+(.+?)\s+\.\.\.\s*$/);
+                        if (m) {
+                            pendingTestName = m[1];
+                            continue;
+                        }
+
+                        // If we have a pending test and this line is a status token
+                        if (pendingTestName) {
+                            const s = cleanLine.match(/^(ok|FAILED|ignored)$/);
+                            if (s) {
+                                currentSuite.tests.push({ name: pendingTestName, status: s[1] });
+                                pendingTestName = null;
+                                continue;
+                            }
+                            // Not a status -> drop
+                            pendingTestName = null;
+                        }
+
+                        continue;
+                    }
+
+                    // Parse failure blocks
+                    if (stateName === "FAILURES") {
+                        const header = cleanLine.match(/^----\s+(.+?)\s+stdout\s+----$/);
+                        if (header) {
+                            currentFailureName = header[1];
+                            currentSuite.failures[currentFailureName] = [];
+                            continue;
+                        }
+                        if (currentFailureName) {
+                            currentSuite.failures[currentFailureName].push(rawLine);
+                        }
+                        continue;
+                    }
+
+                    // FAILURE_SUMMARY: ignore (usually lists failed names only).
                 }
 
-                continue;
+                // Flush last suite if log ended without "test result:"
+                if (currentSuite) finalizeSuite();
+
+                return suites;
             }
 
-            // Parse failure blocks
-            if (stateName === "FAILURES") {
-                const header = cleanLine.match(/^----\s+(.+?)\s+stdout\s+----$/);
-                if (header) {
-                    currentFailureName = header[1];
-                    currentSuite.failures[currentFailureName] = [];
-                    continue;
-                }
-                if (currentFailureName) {
-                    currentSuite.failures[currentFailureName].push(rawLine);
-                }
-                continue;
-            }
+            function buildStatusChips() {
+                const defs = [
+                    { key: "ok", label: "OK", cls: "ok" },
+                    { key: "FAILED", label: "FAILED", cls: "fail" },
+                    { key: "ignored", label: "IGNORED", cls: "ignored" }
+                ];
 
-            // FAILURE_SUMMARY: ignore (usually lists failed names only).
-        }
-
-        // Flush last suite if log ended without "test result:"
-        if (currentSuite) finalizeSuite();
-
-        return suites;
-    }
-
-    function buildStatusChips() {
-        const defs = [
-            { key: "ok", label: "OK", cls: "ok" },
-            { key: "FAILED", label: "FAILED", cls: "fail" },
-            { key: "ignored", label: "IGNORED", cls: "ignored" }
-        ];
-
-        dom.statusChips.innerHTML = defs.map(d => {
-            const active = state.statusFilter.has(d.key);
-            return `
+                dom.statusChips.innerHTML = defs.map(d => {
+                    const active = state.statusFilter.has(d.key);
+                    return `
             <label class="chip ${d.cls} ${active ? "active" : ""}">
                 <input type="checkbox" ${active ? "checked" : ""} data-key="${d.key}" />
                 <span>${d.label}</span>
             </label>`;
-        }).join("");
+                }).join("");
 
-        dom.statusChips.querySelectorAll("input[type=checkbox]").forEach(cb => {
-            cb.addEventListener("change", (e) => {
-                const key = e.target.getAttribute("data-key");
-                if (!key) return;
-                if (e.target.checked) state.statusFilter.add(key);
-                else state.statusFilter.delete(key);
-                buildStatusChips();
-                render();
-            });
-        });
-    }
-
-    function filteredSuites() {
-        const q = state.filterText.trim().toLowerCase();
-        const okStatus = state.statusFilter;
-
-        /** @type {any[]} */
-        const suites = [];
-
-        for (const s of state.suites) {
-            const tests = s.tests.filter(t => okStatus.has(t.status));
-            const matchesText = (t) => {
-                if (!q) return true;
-                const hay = (s.file + " " + t.name).toLowerCase();
-                return hay.includes(q);
-            };
-            const tests2 = tests.filter(matchesText);
-
-            if (tests2.length > 0 || (!q && tests.length > 0)) {
-                suites.push({
-                    ...s,
-                    tests: tests2
+                dom.statusChips.querySelectorAll("input[type=checkbox]").forEach(cb => {
+                    cb.addEventListener("change", (e) => {
+                        const key = e.target.getAttribute("data-key");
+                        if (!key) return;
+                        if (e.target.checked) state.statusFilter.add(key);
+                        else state.statusFilter.delete(key);
+                        buildStatusChips();
+                        render();
+                    });
                 });
             }
-        }
 
-        return suites;
-    }
+            function filteredSuites() {
+                const q = state.filterText.trim().toLowerCase();
+                const okStatus = state.statusFilter;
 
-    function aggregateTotals(suites) {
-        let suitesCount = suites.length;
-        let total = 0, passed = 0, failed = 0, ignored = 0;
+                /** @type {any[]} */
+                const suites = [];
 
-        for (const s of suites) {
-            for (const t of s.tests) {
-                total++;
-                if (t.status === "ok") passed++;
-                else if (t.status === "FAILED") failed++;
-                else if (t.status === "ignored") ignored++;
+                for (const s of state.suites) {
+                    const tests = s.tests.filter(t => okStatus.has(t.status));
+                    const matchesText = (t) => {
+                        if (!q) return true;
+                        const hay = (s.file + " " + t.name).toLowerCase();
+                        return hay.includes(q);
+                    };
+                    const tests2 = tests.filter(matchesText);
+
+                    if (tests2.length > 0 || (!q && tests.length > 0)) {
+                        suites.push({
+                            ...s,
+                            tests: tests2
+                        });
+                    }
+                }
+
+                return suites;
             }
-        }
 
-        return { suites: suitesCount, total, passed, failed, ignored };
-    }
+            function aggregateTotals(suites) {
+                let suitesCount = suites.length;
+                let total = 0, passed = 0, failed = 0, ignored = 0;
 
-    function renderSummary(totals) {
-        const items = [
-            { k: "Suites", v: totals.suites, color: "var(--text)" },
-            { k: "Total Tests", v: totals.total, color: "var(--text)" },
-            { k: "Passed", v: totals.passed, color: "var(--ok)" },
-            { k: "Failed", v: totals.failed, color: totals.failed > 0 ? "var(--fail)" : "var(--text)" },
-            { k: "Ignored", v: totals.ignored, color: "var(--ignored)" },
-            { k: "Filter", v: state.filterText ? "ON" : "—", color: state.filterText ? "var(--warn)" : "var(--muted)" }
-        ];
-        dom.summary.innerHTML = items.map(i => `
+                for (const s of suites) {
+                    for (const t of s.tests) {
+                        total++;
+                        if (t.status === "ok") passed++;
+                        else if (t.status === "FAILED") failed++;
+                        else if (t.status === "ignored") ignored++;
+                    }
+                }
+
+                return { suites: suitesCount, total, passed, failed, ignored };
+            }
+
+            function renderSummary(totals) {
+                const items = [
+                    { k: "Suites", v: totals.suites, color: "var(--text)" },
+                    { k: "Total Tests", v: totals.total, color: "var(--text)" },
+                    { k: "Passed", v: totals.passed, color: "var(--ok)" },
+                    { k: "Failed", v: totals.failed, color: totals.failed > 0 ? "var(--fail)" : "var(--text)" },
+                    { k: "Ignored", v: totals.ignored, color: "var(--ignored)" },
+                    { k: "Filter", v: state.filterText ? "ON" : "—", color: state.filterText ? "var(--warn)" : "var(--muted)" }
+                ];
+                dom.summary.innerHTML = items.map(i => `
             <div class="stat">
                 <div class="k">${i.k}</div>
                 <div class="v" style="color:${i.color}">${i.v}</div>
             </div>
         `).join("");
-    }
+            }
 
-    function renderSuitesView(suites) {
-        const parts = [];
-        const copyBank = new Map();
-        let copySeq = 0;
+            function renderSuitesView(suites) {
+                const parts = [];
+                const copyBank = new Map();
+                let copySeq = 0;
 
-        for (const s of suites) {
-            const stats = computeStatsFromTests(s.tests);
-            const isFail = stats.failed > 0;
-            const badge = isFail ? "fail" : "ok";
-            const expanded = isFail ? "expanded" : "";
+                for (const s of suites) {
+                    const stats = computeStatsFromTests(s.tests);
+                    const isFail = stats.failed > 0;
+                    const badge = isFail ? "fail" : "ok";
+                    const expanded = isFail ? "expanded" : "";
 
-            parts.push(`
+                    parts.push(`
             <div class="suite card">
                 <div class="suite-header" data-role="suite-header">
                     <div class="suite-title">
@@ -917,50 +1071,50 @@
                 </div>
             </div>
             `);
-        }
-
-        dom.body.innerHTML = parts.join("") || `<div class="error">No tests matched your filters.</div>`;
-
-        // Wire suite collapse
-        dom.body.querySelectorAll("[data-role=suite-header]").forEach(h => {
-            h.addEventListener("click", () => {
-                const body = h.nextElementSibling;
-                if (!body) return;
-                body.classList.toggle("expanded");
-            });
-        });
-
-        // Wire copy buttons
-        dom.body.querySelectorAll("[data-role=copy-failure]").forEach(btn => {
-            btn.addEventListener("click", async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const id = btn.getAttribute("data-copy-id") || "";
-                const text = copyBank.get(id) || "";
-                try {
-                    await navigator.clipboard.writeText(text);
-                    btn.textContent = "Copied!";
-                    setTimeout(() => { btn.textContent = "Copy"; }, 900);
-                } catch {
-                    btn.textContent = "Clipboard blocked";
-                    setTimeout(() => { btn.textContent = "Copy"; }, 1200);
                 }
-            });
-        });
-    }
 
-    function renderFlatView(suites) {
-        /** @type {{file:string, test:string, status:string}[]} */
-        const rows = [];
-        for (const s of suites) {
-            for (const t of s.tests) {
-                rows.push({ file: s.file, test: t.name, status: t.status });
+                dom.body.innerHTML = parts.join("") || `<div class="error">No tests matched your filters.</div>`;
+
+                // Wire suite collapse
+                dom.body.querySelectorAll("[data-role=suite-header]").forEach(h => {
+                    h.addEventListener("click", () => {
+                        const body = h.nextElementSibling;
+                        if (!body) return;
+                        body.classList.toggle("expanded");
+                    });
+                });
+
+                // Wire copy buttons
+                dom.body.querySelectorAll("[data-role=copy-failure]").forEach(btn => {
+                    btn.addEventListener("click", async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const id = btn.getAttribute("data-copy-id") || "";
+                        const text = copyBank.get(id) || "";
+                        try {
+                            await navigator.clipboard.writeText(text);
+                            btn.textContent = "Copied!";
+                            setTimeout(() => { btn.textContent = "Copy"; }, 900);
+                        } catch {
+                            btn.textContent = "Clipboard blocked";
+                            setTimeout(() => { btn.textContent = "Copy"; }, 1200);
+                        }
+                    });
+                });
             }
-        }
 
-        const statusClass = (st) => st === "ok" ? "status-ok" : (st === "FAILED" ? "status-fail" : "status-ignored");
+            function renderFlatView(suites) {
+                /** @type {{file:string, test:string, status:string}[]} */
+                const rows = [];
+                for (const s of suites) {
+                    for (const t of s.tests) {
+                        rows.push({ file: s.file, test: t.name, status: t.status });
+                    }
+                }
 
-        dom.body.innerHTML = `
+                const statusClass = (st) => st === "ok" ? "status-ok" : (st === "FAILED" ? "status-fail" : "status-ignored");
+
+                dom.body.innerHTML = `
         <div class="card" style="margin-top:12px; overflow:hidden;">
             <div style="padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px;">
                 Showing <span class="mono">${rows.length}</span> tests (filtered).
@@ -987,47 +1141,47 @@
             </div>
         </div>
         `;
-    }
+            }
 
-    function render() {
-        const suites = filteredSuites();
-        const totals = aggregateTotals(suites);
-        renderSummary(totals);
+            function render() {
+                const suites = filteredSuites();
+                const totals = aggregateTotals(suites);
+                renderSummary(totals);
 
-        if (state.suites.length === 0) {
-            dom.body.innerHTML = `<div class="error">Parsed 0 suites. Load a log (fetch) or paste it above.</div>`;
-            dom.footerHint.textContent = "";
-            return;
-        }
+                if (state.suites.length === 0) {
+                    dom.body.innerHTML = `<div class="error">Parsed 0 suites. Load a log (fetch) or paste it above.</div>`;
+                    dom.footerHint.textContent = "";
+                    return;
+                }
 
-        if (state.view === "suites") renderSuitesView(suites);
-        else renderFlatView(suites);
+                if (state.view === "suites") renderSuitesView(suites);
+                else renderFlatView(suites);
 
-        const hintParts = [];
-        hintParts.push(`Parsed ${state.suites.length} suite(s).`);
-        hintParts.push(`Filter: ${state.filterText ? "ON" : "OFF"}.`);
-        dom.footerHint.textContent = hintParts.join(" ");
-    }
+                const hintParts = [];
+                hintParts.push(`Parsed ${state.suites.length} suite(s).`);
+                hintParts.push(`Filter: ${state.filterText ? "ON" : "OFF"}.`);
+                dom.footerHint.textContent = hintParts.join(" ");
+            }
 
-    async function loadFromUrl() {
-        const url = dom.url.value.trim();
-        const encoding = dom.encoding.value;
+            async function loadFromUrl() {
+                const url = dom.url.value.trim();
+                const encoding = dom.encoding.value;
 
-        dom.footerHint.textContent = "Loading...";
-        try {
-            const res = await fetch(url, { cache: "no-store" });
-            if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-            const buf = await res.arrayBuffer();
-            const decoder = new TextDecoder(encoding);
-            const text = decoder.decode(buf);
+                dom.footerHint.textContent = "Loading...";
+                try {
+                    const res = await fetch(url, { cache: "no-store" });
+                    if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+                    const buf = await res.arrayBuffer();
+                    const decoder = new TextDecoder(encoding);
+                    const text = decoder.decode(buf);
 
-            state.rawText = text;
-            state.suites = parseCargoLog(text);
-            render();
-        } catch (err) {
-            state.suites = [];
-            render();
-            dom.body.innerHTML = `<div class="error">
+                    state.rawText = text;
+                    state.suites = parseCargoLog(text);
+                    render();
+                } catch (err) {
+                    state.suites = [];
+                    render();
+                    dom.body.innerHTML = `<div class="error">
                 <div style="font-weight:800; margin-bottom:6px;">Could not fetch log</div>
                 <div class="mono" style="white-space:pre-wrap;">${escapeHtml(String(err && err.message ? err.message : err))}</div>
                 <div class="hint" style="margin-top:10px;">
@@ -1035,62 +1189,63 @@
                     Use a local server, or paste the log text above.
                 </div>
             </div>`;
-        }
-    }
+                }
+            }
 
-    function loadFromPaste() {
-        const text = dom.pasteArea.value;
-        state.rawText = text;
-        state.suites = parseCargoLog(text);
-        render();
-    }
+            function loadFromPaste() {
+                const text = dom.pasteArea.value;
+                state.rawText = text;
+                state.suites = parseCargoLog(text);
+                render();
+            }
 
-    // Events
-    dom.btnLoad.addEventListener("click", loadFromUrl);
+            // Events
+            dom.btnLoad.addEventListener("click", loadFromUrl);
 
-    dom.btnTogglePaste.addEventListener("click", () => {
-        const show = dom.pasteCard.style.display === "none";
-        dom.pasteCard.style.display = show ? "block" : "none";
-    });
-    dom.btnParsePaste.addEventListener("click", loadFromPaste);
-    dom.btnClearPaste.addEventListener("click", () => { dom.pasteArea.value = ""; });
+            dom.btnTogglePaste.addEventListener("click", () => {
+                const show = dom.pasteCard.style.display === "none";
+                dom.pasteCard.style.display = show ? "block" : "none";
+            });
+            dom.btnParsePaste.addEventListener("click", loadFromPaste);
+            dom.btnClearPaste.addEventListener("click", () => { dom.pasteArea.value = ""; });
 
-    dom.query.addEventListener("input", () => {
-        state.filterText = dom.query.value;
-        render();
-    });
+            dom.query.addEventListener("input", () => {
+                state.filterText = dom.query.value;
+                render();
+            });
 
-    dom.tabSuites.addEventListener("click", () => {
-        state.view = "suites";
-        dom.tabSuites.classList.add("active");
-        dom.tabFlat.classList.remove("active");
-        render();
-    });
-    dom.tabFlat.addEventListener("click", () => {
-        state.view = "flat";
-        dom.tabFlat.classList.add("active");
-        dom.tabSuites.classList.remove("active");
-        render();
-    });
+            dom.tabSuites.addEventListener("click", () => {
+                state.view = "suites";
+                dom.tabSuites.classList.add("active");
+                dom.tabFlat.classList.remove("active");
+                render();
+            });
+            dom.tabFlat.addEventListener("click", () => {
+                state.view = "flat";
+                dom.tabFlat.classList.add("active");
+                dom.tabSuites.classList.remove("active");
+                render();
+            });
 
-    dom.btnExpandFailed.addEventListener("click", () => {
-        dom.body.querySelectorAll(".suite").forEach(suiteCard => {
-            const body = suiteCard.querySelector(".suite-body");
-            if (!body) return;
-            if (suiteCard.querySelector(".badge.fail")) body.classList.add("expanded");
-        });
-    });
-    dom.btnCollapseAll.addEventListener("click", () => {
-        dom.body.querySelectorAll(".suite-body").forEach(b => b.classList.remove("expanded"));
-    });
+            dom.btnExpandFailed.addEventListener("click", () => {
+                dom.body.querySelectorAll(".suite").forEach(suiteCard => {
+                    const body = suiteCard.querySelector(".suite-body");
+                    if (!body) return;
+                    if (suiteCard.querySelector(".badge.fail")) body.classList.add("expanded");
+                });
+            });
+            dom.btnCollapseAll.addEventListener("click", () => {
+                dom.body.querySelectorAll(".suite-body").forEach(b => b.classList.remove("expanded"));
+            });
 
-    // Init UI
-    buildStatusChips();
-    render();
+            // Init UI
+            buildStatusChips();
+            render();
 
-    // Auto-load once (safe; user can paste if it fails).
-    loadFromUrl();
-})();
-</script>
+            // Auto-load once (safe; user can paste if it fails).
+            loadFromUrl();
+        })();
+    </script>
 </body>
+
 </html>
