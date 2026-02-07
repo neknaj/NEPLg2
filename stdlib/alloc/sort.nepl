@@ -217,7 +217,7 @@ fn sort_cocktail <.T: Ord> <(Vec<.T>)*>()> (v):
             let mut end <i32> sub n 1;
             let mut swapped <i32> 1;
 
-            while and (eq swapped 1) (lt start end):
+            while and eq swapped 1 lt start end:
                 do:
                     set swapped 0;
 
@@ -276,7 +276,7 @@ fn sort_gnome <.T: Ord> <(Vec<.T>)*>()> (v):
             while lt i n:
                 do:
                     if:
-                        or (eq i 0) sort_le<.T> sort_get_unchecked<.T> v sub i 1 sort_get_unchecked<.T> v i
+                        or eq i 0 sort_le<.T> sort_get_unchecked<.T> v sub i 1 sort_get_unchecked<.T> v i
                         then set i add i 1
                         else:
                             sort_swap<.T> v i sub i 1;
@@ -507,7 +507,7 @@ fn sort_merge_range <.T: Ord> <(Vec<.T>,i32,i32,i32)*>()> (v, buf, l, r):
             let mut j <i32> mid;
             let mut k <i32> l;
 
-            while and (lt i mid) (lt j r):
+            while and lt i mid lt j r:
                 do:
                     let a <.T> sort_buf_get<.T> buf i;
                     let b <.T> sort_buf_get<.T> buf j;

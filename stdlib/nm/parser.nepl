@@ -105,8 +105,8 @@ fn close_one_section <(i32, Vec<Node>)->Vec<Node>> (stk, root):
                 Option::Some _:
                     match stack_pop<Section> stk:
                         Option::Some parent:
-                            let kids <Vec<Node>> vec_push<Node> (get parent "children") node;
-                            let parent2 <Section> Section (get parent "level") (get parent "heading") kids;
+                            let kids <Vec<Node>> vec_push<Node> get parent "children" node;
+                            let parent2 <Section> Section get parent "level" get parent "heading" kids;
                             stack_push<Section> stk parent2;
                             root
                         Option::None:
@@ -125,7 +125,7 @@ fn close_to_level <(i32, Vec<Node>, i32)->Vec<Node>> (stk, root, new_level):
             match stack_peek<Section> stk:
                 Option::Some top:
                     if:
-                        get get top "level" new_level
+                        ge get top "level" new_level
                         then:
                             set r close_one_section stk r;
                             ()
@@ -522,7 +522,7 @@ pub fn parse_markdown <(str)->Document> (input):
                                             match stack_pop<Section> stk:
                                                 Option::Some parent:
                                                     let kids <Vec<Node>> vec_push<Node> get parent "children" hr;
-                                                    let parent2 <Section> Section get parent "level" (get parent "heading") kids;
+                                                    let parent2 <Section> Section get parent "level" get parent "heading" kids;
                                                     stack_push<Section> stk parent2;
                                                     ()
                                                 Option::None:
@@ -643,13 +643,13 @@ fn inlines_to_json <(Vec<Inline>)->str> (v):
                     set sb sb_append sb "\"}";
                 Inline::Ruby r:
                     set sb sb_append sb "{\"t\":\"ruby\",\"base\":\"";
-                    set sb sb_append sb json_escape (get r "base");
+                    set sb sb_append sb json_escape get r "base";
                     set sb sb_append sb "\",\"ruby\":\"";
-                    set sb sb_append sb json_escape (get r "ruby");
+                    set sb sb_append sb json_escape get r "ruby";
                     set sb sb_append sb "\"}";
                 Inline::Gloss g:
                     set sb sb_append sb "{\"t\":\"gloss\",\"main\":\"";
-                    set sb sb_append sb json_escape (get g "main");
+                    set sb sb_append sb json_escape get g "main";
                     set sb sb_append sb "\",\"subs\":[";
                     let m <i32> vec_len<str> get g "subs";
                     let mut j <i32> 0;
@@ -696,7 +696,7 @@ fn node_to_json <(Node)->str> (node):
             set sb sb_append sb inlines_to_json get (get sec "heading") "inlines";
             set sb sb_append sb "}";
             set sb sb_append sb ",\"children\":";
-            set sb sb_append sb nodes_to_json (get sec "children");
+            set sb sb_append sb nodes_to_json get sec "children";
             set sb sb_append sb "}";
             sb_build sb
 

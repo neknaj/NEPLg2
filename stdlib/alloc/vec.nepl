@@ -120,7 +120,7 @@ fn vec_cap <.T> <(Vec<.T>)->i32> (v):
 // 計算量:
 // - O(1)
 fn vec_is_empty <.T> <(Vec<.T>)->bool> (v):
-    eq (get v "len") 0
+    eq get v "len" 0
 
 // vec_push: 末尾に要素を追加する
 //
@@ -150,7 +150,7 @@ fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
         else:
             let offset <i32> mul len size_of<.T>
             store<.T> add data offset item
-            Vec<.T> (add len 1) cap data
+            Vec<.T> add len 1 cap data
 
 // vec_get: 要素を取得する
 //
@@ -266,4 +266,4 @@ fn vec_clear <.T> <(Vec<.T>)*>Vec<.T>> (v):
 fn vec_free <.T> <(Vec<.T>)*>()> (v):
     let cap <i32> get v "cap"
     let data <i32> get v "data"
-    dealloc data (mul cap size_of<.T>)
+    dealloc data mul cap size_of<.T>
