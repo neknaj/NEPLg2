@@ -1,0 +1,9 @@
+#indent 4
+
+// get: フィールドの値を取得します
+fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
+    #intrinsic "get_field" <> (obj,idx)
+
+// put: フィールドの値を設定します
+fn put <.T,.I,.V> <(.T,.I,.V)->()> (obj,idx,val):
+    #intrinsic "set_field" <> (obj,idx,val)

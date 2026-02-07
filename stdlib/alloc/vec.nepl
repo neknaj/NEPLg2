@@ -3,6 +3,7 @@
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "core/field" as *
 
 // vec: 可変長配列（連続メモリ）
 //
@@ -87,7 +88,7 @@ fn vec_with_capacity <.T> <(i32)*>Vec<.T>> (cap):
 // 計算量:
 // - O(1)
 fn vec_len <.T> <(Vec<.T>)->i32> (v):
-    v.len
+    get v "len"
 
 // vec_cap: 容量を返す
 //
@@ -103,7 +104,7 @@ fn vec_len <.T> <(Vec<.T>)->i32> (v):
 // 計算量:
 // - O(1)
 fn vec_cap <.T> <(Vec<.T>)->i32> (v):
-    v.cap
+    get v "cap"
 
 // vec_is_empty: 空か判定する
 //
@@ -119,7 +120,7 @@ fn vec_cap <.T> <(Vec<.T>)->i32> (v):
 // 計算量:
 // - O(1)
 fn vec_is_empty <.T> <(Vec<.T>)->bool> (v):
-    eq v.len 0
+    eq (get v "len") 0
 
 // vec_push: 末尾に要素を追加する
 //
@@ -135,9 +136,9 @@ fn vec_is_empty <.T> <(Vec<.T>)->bool> (v):
 // 計算量:
 // - ならし O(1)
 fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
-    let len <i32> v.len
-    let cap <i32> v.cap
-    let data <i32> v.data
+    let len <i32> get v "len"
+    let cap <i32> get v "cap"
+    let data <i32> get v "data"
     if:
         eq len cap
         then:
@@ -149,7 +150,7 @@ fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
         else:
             let offset <i32> mul len size_of<.T>
             store<.T> add data offset item
-            Vec<.T> add len 1 cap data
+            Vec<.T> (add len 1) cap data
 
 // vec_get: 要素を取得する
 //
@@ -165,8 +166,8 @@ fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
 // 計算量:
 // - O(1)
 fn vec_get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
-    let len <i32> v.len
-    let data <i32> v.data
+    let len <i32> get v "len"
+    let data <i32> get v "data"
     if:
         lt idx 0
         then none<.T>
@@ -192,8 +193,8 @@ fn vec_get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
 // 計算量:
 // - O(1)
 fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
-    let len <i32> v.len
-    let data <i32> v.data
+    let len <i32> get v "len"
+    let data <i32> get v "data"
     if:
         lt idx 0
         then ()
@@ -219,9 +220,9 @@ fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
 // 計算量:
 // - O(1)
 fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
-    let len <i32> v.len
-    let cap <i32> v.cap
-    let data <i32> v.data
+    let len <i32> get v "len"
+    let cap <i32> get v "cap"
+    let data <i32> get v "data"
     if:
         eq len 0
         then (Vec<.T> len cap data, none<.T>)
@@ -245,8 +246,8 @@ fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
 // 計算量:
 // - O(1)
 fn vec_clear <.T> <(Vec<.T>)*>Vec<.T>> (v):
-    let cap <i32> v.cap
-    let data <i32> v.data
+    let cap <i32> get v "cap"
+    let data <i32> get v "data"
     Vec<.T> 0 cap data
 
 // vec_free: メモリを解放する
@@ -263,6 +264,6 @@ fn vec_clear <.T> <(Vec<.T>)*>Vec<.T>> (v):
 // 計算量:
 // - O(1)
 fn vec_free <.T> <(Vec<.T>)*>()> (v):
-    let cap <i32> v.cap
-    let data <i32> v.data
-    dealloc data mul cap size_of<.T>
+    let cap <i32> get v "cap"
+    let data <i32> get v "data"
+    dealloc data (mul cap size_of<.T>)

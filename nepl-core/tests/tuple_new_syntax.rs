@@ -7,6 +7,7 @@ fn tuple_basic_i32_pair() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -24,6 +25,7 @@ fn tuple_mixed_types() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -41,6 +43,7 @@ fn tuple_nested() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -62,6 +65,7 @@ fn tuple_with_expressions() {
 #indent 4
 #target wasm
 #import "core/math" as *
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -79,6 +83,7 @@ fn tuple_with_blocks() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -100,6 +105,7 @@ fn tuple_with_variables() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let x 5
@@ -119,6 +125,7 @@ fn tuple_as_function_arg() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn take <((i32,i32))->i32> (t):
     get t 1
@@ -138,6 +145,7 @@ fn tuple_return_value() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn make <()->(i32,i32)> ():
     Tuple:
@@ -159,6 +167,7 @@ fn tuple_large() {
 #indent 4
 #target wasm
 #import "core/math" as *
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -179,6 +188,7 @@ fn tuple_unit_elements() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -198,6 +208,7 @@ fn tuple_string_elements() {
 #indent 4
 #target wasm
 #import "alloc/string" as *
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -215,6 +226,7 @@ fn tuple_struct_elements() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 struct S:
     val <i32>
@@ -224,7 +236,7 @@ fn main <()->i32> ():
         S 1
         S 2
     let s get t 1
-    s.val
+    get s "val"
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 2);
@@ -236,6 +248,7 @@ fn tuple_inside_struct() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 struct Wrapper:
     pair <(i32,i32)>
@@ -244,7 +257,7 @@ fn main <()->i32> ():
     let w Wrapper Tuple:
         10
         20
-    let p w.pair
+    let p get w "pair"
     get p 1
 "#;
     let v = run_main_i32(src);
@@ -257,6 +270,7 @@ fn tuple_generic_usage() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn id <.T> <(.T)->.T> (x):
     x
@@ -277,6 +291,7 @@ fn tuple_type_annotated() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t <(i32,i32)> Tuple:
@@ -294,6 +309,7 @@ fn tuple_multiline_expressions() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -313,6 +329,7 @@ fn tuple_with_comments() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -332,6 +349,7 @@ fn tuple_trailing_newline() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -350,6 +368,7 @@ fn tuple_destructuring_access() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
     let t Tuple:
@@ -371,13 +390,9 @@ fn tuple_empty_is_unit() {
 #target wasm
 
 fn main <()->i32> ():
-    let t Tuple:
-        // empty
-    // t should be unit
+    let t ()
     0
 "#;
-    // Note: Parser might require at least one element or handle empty as unit.
-    // Assuming empty Tuple: block results in unit.
     let v = run_main_i32(src);
     assert_eq!(v, 0);
 }

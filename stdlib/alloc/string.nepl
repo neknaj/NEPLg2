@@ -5,6 +5,7 @@
 #import "core/option" as *
 #import "core/math" as *
 #import "alloc/vec" as *
+#import "core/field" as *
 
 // string: 文字列操作（長さ付きUTF-8）
 //
@@ -134,7 +135,7 @@ fn string_builder_new <()*>StringBuilder> ():
 // 計算量:
 // - ならし O(1)
 fn sb_append <(StringBuilder,str)*>StringBuilder> (sb, s):
-    let parts <Vec<str>> sb.parts;
+    let parts <Vec<str>> get sb "parts";
     let parts2 <Vec<str>> vec_push<str> parts s;
     StringBuilder parts2
 
@@ -169,9 +170,9 @@ fn sb_append_i32 <(StringBuilder,i32)*>StringBuilder> (sb, v):
 // 計算量:
 // - O(n^2)
 fn sb_build <(StringBuilder)*>str> (sb):
-    let parts <Vec<str>> sb.parts;
-    let n <i32> parts.len;
-    let data <i32> parts.data;
+    let parts <Vec<str>> get sb "parts";
+    let n <i32> get parts "len";
+    let data <i32> get parts "data";
     sb_build_loop data n 0 ""
 
 // sb_build_loop: build の内部ループ

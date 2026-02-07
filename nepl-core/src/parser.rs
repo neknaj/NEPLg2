@@ -930,16 +930,7 @@ impl Parser {
                 }
                 TokenKind::KwSet => {
                     let set_tok = self.next().unwrap();
-                    let (mut name, mut span) = self.expect_ident()?;
-                    while self.consume_if(TokenKind::Dot) {
-                        if let Some((field, fspan)) = self.expect_ident() {
-                            name.push('.');
-                            name.push_str(&field);
-                            span = span.join(fspan).unwrap_or(span);
-                        } else {
-                            break;
-                        }
-                    }
+                    let (name, span) = self.expect_ident()?;
                     self.consume_if(TokenKind::Equals);
                     items.push(PrefixItem::Symbol(Symbol::Set {
                         name: Ident { name, span: set_tok.span.join(span).unwrap_or(span) },
@@ -1090,14 +1081,6 @@ impl Parser {
                             } else {
                                 self.pos = saved;
                                 self.diagnostics.truncate(saved_diags);
-                                break;
-                            }
-                        } else if self.consume_if(TokenKind::Dot) {
-                            if let Some((field, fspan)) = self.expect_ident() {
-                                full.push('.');
-                                full.push_str(&field);
-                                end_span = end_span.join(fspan).unwrap_or(end_span);
-                            } else {
                                 break;
                             }
                         } else if self.check(TokenKind::PathSep) {
@@ -1426,6 +1409,7 @@ impl Parser {
                     let tok = self.next().unwrap();
                     let mut full = name.clone();
                     let mut end_span = tok.span;
+                    // Path separators: mod::item
                     while self.check(TokenKind::PathSep) {
                         let _ = self.next();
                         if let Some(TokenKind::Ident(n2)) = self.peek_kind() {
@@ -1433,16 +1417,6 @@ impl Parser {
                             full.push_str("::");
                             full.push_str(&n2);
                             end_span = end_span.join(tok2.span).unwrap_or(tok2.span);
-                        } else {
-                            break;
-                        }
-                    }
-                    // Handle field access: v.len, v.data
-                    while self.consume_if(TokenKind::Dot) {
-                        if let Some((field, fspan)) = self.expect_ident() {
-                            full.push('.');
-                            full.push_str(&field);
-                            end_span = end_span.join(fspan).unwrap_or(end_span);
                         } else {
                             break;
                         }
@@ -2484,6 +2458,14 @@ impl Parser {
                 } else {
                     None
                 }
+            }
+            TokenKind::KwSet => {
+                let tok = self.next().unwrap();
+                Some(("set".to_string(), tok.span))
+            }
+            TokenKind::KwTuple => {
+                let tok = self.next().unwrap();
+                Some(("Tuple".to_string(), tok.span))
             }
             _ => {
                 let span = self.peek_span().unwrap_or_else(Span::dummy);

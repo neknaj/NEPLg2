@@ -88,6 +88,12 @@ struct ImplInfo {
     methods: BTreeMap<String, (String, TypeId)>, // name -> (mangled_name, type)
 }
 
+#[derive(Debug, Clone)]
+enum FieldIdx {
+    Index(usize),
+    Name(String),
+}
+
 fn collect_type_params(
     ctx: &mut TypeCtx,
     labels: &mut LabelEnv,
@@ -1169,6 +1175,133 @@ impl<'a> BlockChecker<'a> {
         })
     }
 
+    fn resolve_field_access(
+        &mut self,
+        base_ty: TypeId,
+        idx: FieldIdx,
+        span: Span,
+    ) -> Option<(TypeId, usize)> {
+        let resolved_ty = self.ctx.resolve(base_ty);
+        match self.ctx.get(resolved_ty) {
+            TypeKind::Struct {
+                fields,
+                field_names,
+                ..
+            } => match idx {
+                FieldIdx::Index(i) => {
+                    if i < fields.len() {
+                        Some((fields[i], i * 4))
+                    } else {
+                        self.diagnostics.push(Diagnostic::error(
+                            format!("struct index out of bounds: {}", i),
+                            span,
+                        ));
+                        None
+                    }
+                }
+                FieldIdx::Name(name) => {
+                    if let Some(i) = field_names.iter().position(|n| *n == name) {
+                        Some((fields[i], i * 4))
+                    } else {
+                        self.diagnostics.push(Diagnostic::error(
+                            format!("struct has no field {}", name),
+                            span,
+                        ));
+                        None
+                    }
+                }
+            },
+            TypeKind::Tuple { items } => match idx {
+                FieldIdx::Index(i) => {
+                    if i < items.len() {
+                        Some((items[i], i * 4))
+                    } else {
+                        self.diagnostics.push(Diagnostic::error(
+                            format!("tuple index out of bounds: {}", i),
+                            span,
+                        ));
+                        None
+                    }
+                }
+                FieldIdx::Name(name) => {
+                    if let Ok(i) = name.parse::<usize>() {
+                        if i < items.len() {
+                            Some((items[i], i * 4))
+                        } else {
+                            self.diagnostics.push(Diagnostic::error(
+                                format!("tuple index out of bounds: {}", i),
+                                span,
+                            ));
+                            None
+                        }
+                    } else {
+                        self.diagnostics.push(Diagnostic::error(
+                            format!("invalid tuple field access: {}", name),
+                            span,
+                        ));
+                        None
+                    }
+                }
+            },
+            TypeKind::Apply { base, args } => {
+                let base_ty = self.ctx.resolve(base);
+                match self.ctx.get(base_ty) {
+                    TypeKind::Struct {
+                        type_params,
+                        fields,
+                        field_names,
+                        ..
+                    } => {
+                        let mut mapping = BTreeMap::new();
+                        for (tp, arg) in type_params.iter().zip(args.iter()) {
+                            mapping.insert(*tp, *arg);
+                        }
+                        let substituted_fields = fields
+                            .iter()
+                            .map(|f| self.ctx.substitute(*f, &mapping))
+                            .collect::<Vec<_>>();
+                        match idx {
+                            FieldIdx::Index(i) => {
+                                if i < substituted_fields.len() {
+                                    Some((substituted_fields[i], i * 4))
+                                } else {
+                                    self.diagnostics.push(Diagnostic::error(
+                                        format!("generic struct index out of bounds: {}", i),
+                                        span,
+                                    ));
+                                    None
+                                }
+                            }
+                            FieldIdx::Name(name) => {
+                                if let Some(i) = field_names.iter().position(|n| *n == name) {
+                                    Some((substituted_fields[i], i * 4))
+                                } else {
+                                    self.diagnostics.push(Diagnostic::error(
+                                        format!("generic struct has no field {}", name),
+                                        span,
+                                    ));
+                                    None
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        self.diagnostics
+                            .push(Diagnostic::error("cannot access field on this type", span));
+                        None
+                    }
+                }
+            }
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    "cannot access field on non-composite type",
+                    span,
+                ));
+                None
+            }
+        }
+    }
+
     fn check_block(
         &mut self,
         block: &Block,
@@ -1474,114 +1607,19 @@ impl<'a> BlockChecker<'a> {
                 PrefixItem::Symbol(sym) => match sym {
                     Symbol::Ident(id, type_args) => {
 
-                        if id.name.contains('.') {
-                            let parts: Vec<&str> = id.name.split('.').collect();
-                            let base_name = parts[0];
-                            if let Some(binding) = self.env.lookup(base_name) {
-                                let mut current_ty = binding.ty;
-                                let mut current_expr = HirExpr {
-                                    ty: current_ty,
-                                    kind: HirExprKind::Var(base_name.to_string()),
+                        if let Some(binding) = self.env.lookup(&id.name) {
+                            let ty = binding.ty;
+                            stack.push(StackEntry {
+                                ty,
+                                expr: HirExpr {
+                                    ty,
+                                    kind: HirExprKind::Var(id.name.clone()),
                                     span: id.span,
-                                };
-
-                                for field_name in &parts[1..] {
-                                    let resolved_ty = self.ctx.resolve(current_ty);
-                                    let (f_ty, offset) = match self.ctx.get(resolved_ty) {
-                                        TypeKind::Struct { fields, field_names, .. } => {
-                                            if let Some(idx) = field_names.iter().position(|n| *n == *field_name) {
-                                                (fields[idx], idx * 4)
-                                            } else {
-                                                self.diagnostics.push(Diagnostic::error(format!("struct has no field {}", field_name), id.span));
-                                                return None;
-                                            }
-                                        }
-                                        TypeKind::Tuple { items } => {
-                                            if let Ok(idx) = field_name.parse::<usize>() {
-                                                if idx < items.len() {
-                                                    (items[idx], idx * 4)
-                                                } else {
-                                                    self.diagnostics.push(Diagnostic::error(format!("tuple index out of bounds: {}", idx), id.span));
-                                                    return None;
-                                                }
-                                            } else {
-                                                self.diagnostics.push(Diagnostic::error(format!("invalid tuple field access: {}", field_name), id.span));
-                                                return None;
-                                            }
-                                        }
-                                        TypeKind::Apply { base, args } => {
-                                            let base_ty = self.ctx.resolve(base);
-                                            match self.ctx.get(base_ty) {
-                                                TypeKind::Struct { type_params, fields, field_names, .. } => {
-                                                    let mut mapping = BTreeMap::new();
-                                                    for (tp, arg) in type_params.iter().zip(args.iter()) {
-                                                        mapping.insert(*tp, *arg);
-                                                    }
-                                                    let substituted_fields = fields.iter().map(|f| self.ctx.substitute(*f, &mapping)).collect::<Vec<_>>();
-                                                    if let Some(idx) = field_names.iter().position(|n| *n == *field_name) {
-                                                        (substituted_fields[idx], idx * 4)
-                                                    } else {
-                                                        self.diagnostics.push(Diagnostic::error(format!("generic struct has no field {}", field_name), id.span));
-                                                        return None;
-                                                    }
-                                                }
-                                                _ => {
-                                                    self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-nominal type", field_name), id.span));
-                                                    return None;
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-composite type", field_name), id.span));
-                                            return None;
-                                        }
-                                    };
-
-                                    // address = current_expr + offset
-                                    let addr_expr = if offset == 0 {
-                                        current_expr
-                                    } else {
-                                        HirExpr {
-                                            ty: self.ctx.i32(),
-                                            kind: HirExprKind::Intrinsic {
-                                                name: "add".to_string(),
-                                                type_args: vec![self.ctx.i32()],
-                                                args: vec![
-                                                    current_expr,
-                                                    HirExpr {
-                                                        ty: self.ctx.i32(),
-                                                        kind: HirExprKind::LiteralI32(offset as i32),
-                                                        span: id.span,
-                                                    }
-                                                ],
-                                            },
-                                            span: id.span,
-                                        }
-                                    };
-
-                                    current_ty = f_ty;
-                                    current_expr = HirExpr {
-                                        ty: f_ty,
-                                        kind: HirExprKind::Intrinsic {
-                                            name: "load".to_string(),
-                                            type_args: vec![f_ty],
-                                            args: vec![addr_expr],
-                                        },
-                                        span: id.span,
-                                    };
-                                }
-
-                                stack.push(StackEntry {
-                                    ty: current_ty,
-                                    expr: current_expr.clone(),
-                                    type_args: Vec::new(),
-                                    assign: None,
-                                });
-                                last_expr = Some(current_expr);
-                            } else {
-                                self.diagnostics.push(Diagnostic::error(format!("undefined variable: {}", base_name), id.span));
-                                return None;
-                            }
+                                },
+                                type_args: Vec::new(),
+                                assign: None,
+                            });
+                            last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
                             let bindings = self.env.lookup_all(&id.name);
                             if !bindings.is_empty() {
@@ -1741,112 +1779,7 @@ impl<'a> BlockChecker<'a> {
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
                     Symbol::Set { name } => {
-                        if name.name.contains('.') {
-                            let parts: Vec<&str> = name.name.split('.').collect();
-                            let base_name = parts[0];
-                            if let Some(binding) = self.env.lookup(base_name) {
-                                let mut current_ty = binding.ty;
-                                let mut current_expr = HirExpr {
-                                    ty: current_ty,
-                                    kind: HirExprKind::Var(base_name.to_string()),
-                                    span: name.span,
-                                };
-
-                                for i in 1..parts.len() {
-                                    let field_name = parts[i];
-                                    let resolved_ty = self.ctx.resolve(current_ty);
-                                    let (s_name, fields, field_names) = match self.ctx.get(resolved_ty) {
-                                        TypeKind::Struct { name: n, fields: f, field_names: fnm, .. } => (n, f, fnm),
-                                        TypeKind::Apply { base, args } => {
-                                            let base_ty = self.ctx.resolve(base);
-                                            match self.ctx.get(base_ty) {
-                                                TypeKind::Struct { name: n, type_params, fields: f, field_names: fnm } => {
-                                                    let mut mapping = BTreeMap::new();
-                                                    for (tp, arg) in type_params.iter().zip(args.iter()) {
-                                                        mapping.insert(*tp, *arg);
-                                                    }
-                                                    let substituted_fields = f.iter().map(|sf| self.ctx.substitute(*sf, &mapping)).collect::<Vec<_>>();
-                                                    (n, substituted_fields, fnm)
-                                                }
-                                                _ => {
-                                                    self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-struct type", field_name), name.span));
-                                                    return None;
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            self.diagnostics.push(Diagnostic::error(format!("cannot access field {} on non-struct type", field_name), name.span));
-                                            return None;
-                                        }
-                                    };
-
-                                    if let Some(idx) = field_names.iter().position(|n| *n == *field_name) {
-                                        let f_ty = fields[idx];
-                                        let offset = idx * 4;
-                                        
-                                        let addr_expr = if offset == 0 {
-                                            current_expr
-                                        } else {
-                                            HirExpr {
-                                                ty: self.ctx.i32(),
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "add".to_string(),
-                                                    type_args: vec![self.ctx.i32()],
-                                                    args: vec![
-                                                        current_expr,
-                                                        HirExpr {
-                                                            ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(offset as i32),
-                                                            span: name.span,
-                                                        }
-                                                    ],
-                                                },
-                                                span: name.span,
-                                            }
-                                        };
-
-                                        if i == parts.len() - 1 {
-                                            let func_ty = self.ctx.function(
-                                                Vec::new(),
-                                                vec![f_ty],
-                                                self.ctx.unit(),
-                                                Effect::Impure,
-                                            );
-                                            stack.push(StackEntry {
-                                                ty: func_ty,
-                                                expr: HirExpr {
-                                                    ty: func_ty,
-                                                    kind: HirExprKind::Var(name.name.clone()),
-                                                    span: name.span,
-                                                },
-                                                type_args: Vec::new(),
-                                                assign: Some(AssignKind::Store(addr_expr)),
-                                            });
-                                            last_expr = Some(stack.last().unwrap().expr.clone());
-                                            break;
-                                        } else {
-                                            current_ty = f_ty;
-                                            current_expr = HirExpr {
-                                                ty: f_ty,
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "load".to_string(),
-                                                    type_args: vec![f_ty],
-                                                    args: vec![addr_expr],
-                                                },
-                                                span: name.span,
-                                            };
-                                        }
-                                    } else {
-                                        self.diagnostics.push(Diagnostic::error(format!("struct {} has no field {}", s_name, field_name), name.span));
-                                        return None;
-                                    }
-                                }
-                            } else {
-                                self.diagnostics
-                                    .push(Diagnostic::error("undefined variable", name.span));
-                            }
-                            last_expr = Some(stack.last().unwrap().expr.clone());
-                        } else if let Some(binding) = self
+                        if let Some(binding) = self
                             .env
                             .lookup_current(&name.name)
                             .or_else(|| self.env.lookup(&name.name))
@@ -1993,6 +1926,8 @@ impl<'a> BlockChecker<'a> {
                                 .push(Diagnostic::error("callsite_span expects 1 type arg", *sp));
                             self.ctx.unit()
                         }
+                    } else if intrin.name == "get_field" || intrin.name == "set_field" {
+                        self.ctx.unit() // temporary, will continue below
                     } else if intrin.name == "unreachable" {
                          self.ctx.never()
                     } else if intrin.name == "i32_to_f32" {
@@ -2007,10 +1942,151 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.f32()
                     } else if intrin.name == "reinterpret_f32_i32" {
                         self.ctx.i32()
+                    } else if intrin.name == "get_field" {
+                        // Return a fresh variable if we can't resolve yet.
+                        // If it's used in a context like `get[T, I, R] -> .R`,
+                        // this will be unified with .R.
+                        self.ctx.fresh_var(None)
+                    } else if intrin.name == "set_field" {
+                        self.ctx.unit()
                     } else {
                         self.diagnostics.push(Diagnostic::error("unknown intrinsic", *sp));
                         self.ctx.unit()
                     };
+
+                    if intrin.name == "get_field" {
+                        if args.len() != 2 {
+                             self.diagnostics.push(Diagnostic::error("get_field expects 2 arguments", *sp));
+                        } else {
+                            let obj = args[0].clone();
+                            let idx = &args[1];
+                            let res = match &idx.kind {
+                                HirExprKind::LiteralI32(val) => {
+                                    self.resolve_field_access(obj.ty, FieldIdx::Index(*val as usize), *sp)
+                                }
+                                HirExprKind::LiteralStr(sid) => {
+                                    let name = self.string_table.get(*sid).unwrap().clone();
+                                    self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
+                                }
+                                _ => {
+                                    self.diagnostics.push(Diagnostic::error("get_field index must be a literal (i32 or str)", idx.span));
+                                    None
+                                }
+                            };
+                            if let Some((f_ty, offset)) = res {
+                                 // Unify our determined ty (fresh var) with the actual field type
+                                 let _ = self.ctx.unify(ty, f_ty);
+
+                                 // Lower to load(add(obj, offset))
+                                 let addr_expr = if offset == 0 {
+                                     obj
+                                 } else {
+                                     HirExpr {
+                                         ty: self.ctx.i32(),
+                                         kind: HirExprKind::Intrinsic {
+                                             name: "add".to_string(),
+                                             type_args: vec![self.ctx.i32()],
+                                             args: vec![
+                                                 obj,
+                                                 HirExpr {
+                                                     ty: self.ctx.i32(),
+                                                     kind: HirExprKind::LiteralI32(offset as i32),
+                                                     span: idx.span,
+                                                 }
+                                             ],
+                                         },
+                                         span: *sp,
+                                     }
+                                 };
+                                 let hexpr = HirExpr {
+                                     ty: f_ty,
+                                     kind: HirExprKind::Intrinsic {
+                                         name: "load".to_string(),
+                                         type_args: vec![f_ty],
+                                         args: vec![addr_expr],
+                                     },
+                                     span: *sp,
+                                 };
+                                 stack.push(StackEntry {
+                                     ty: f_ty,
+                                     expr: hexpr.clone(),
+                                     type_args: Vec::new(),
+                                     assign: None,
+                                 });
+                                 last_expr = Some(hexpr);
+                                 continue;
+                            }
+                            // If resolution fails (e.g. generic), fall through to default intrinsic handling
+                            // which pushes HirExprKind::Intrinsic and uses the fresh variable 'ty'.
+                        }
+                    } else if intrin.name == "set_field" {
+                        if args.len() != 3 {
+                            self.diagnostics.push(Diagnostic::error("set_field expects 3 arguments", *sp));
+                        } else {
+                            let obj = args[0].clone();
+                            let idx = &args[1];
+                            let val = args[2].clone();
+                            let res = match &idx.kind {
+                                HirExprKind::LiteralI32(v) => {
+                                    self.resolve_field_access(obj.ty, FieldIdx::Index(*v as usize), *sp)
+                                }
+                                HirExprKind::LiteralStr(sid) => {
+                                    let name = self.string_table.get(*sid).unwrap().clone();
+                                    self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
+                                }
+                                _ => {
+                                    self.diagnostics.push(Diagnostic::error("set_field index must be a literal (i32 or str)", idx.span));
+                                    None
+                                }
+                            };
+                            if let Some((f_ty, offset)) = res {
+                                // Unify value type with field type
+                                if let Err(_) = self.ctx.unify(val.ty, f_ty) {
+                                     self.diagnostics.push(Diagnostic::error(format!("type mismatch in set_field: expected {}, found {}", self.ctx.type_to_string(f_ty), self.ctx.type_to_string(val.ty)), *sp));
+                                }
+
+                                // Lower to store(add(obj, offset), val)
+                                let addr_expr = if offset == 0 {
+                                    obj
+                                } else {
+                                    HirExpr {
+                                        ty: self.ctx.i32(),
+                                        kind: HirExprKind::Intrinsic {
+                                            name: "add".to_string(),
+                                            type_args: vec![self.ctx.i32()],
+                                            args: vec![
+                                                obj,
+                                                HirExpr {
+                                                    ty: self.ctx.i32(),
+                                                    kind: HirExprKind::LiteralI32(offset as i32),
+                                                    span: idx.span,
+                                                }
+                                            ],
+                                        },
+                                        span: *sp,
+                                    }
+                                };
+                                let hexpr = HirExpr {
+                                    ty: self.ctx.unit(),
+                                    kind: HirExprKind::Intrinsic {
+                                        name: "store".to_string(),
+                                        type_args: vec![f_ty],
+                                        args: vec![addr_expr, val],
+                                    },
+                                    span: *sp,
+                                };
+                                stack.push(StackEntry {
+                                    ty: self.ctx.unit(),
+                                    expr: hexpr.clone(),
+                                    type_args: Vec::new(),
+                                    assign: None,
+                                });
+                                last_expr = Some(hexpr);
+                                continue;
+                            }
+                        }
+                    } 
+
                     
                     // Validate intrinsic argument types for known cast/bitcast intrinsics
                     if intrin.name == "i32_to_f32"
@@ -3547,6 +3623,10 @@ impl StringTable {
             self.map.insert(s, id);
             id
         }
+    }
+
+    fn get(&self, id: u32) -> Option<&String> {
+        self.items.get(id as usize)
     }
 
     fn into_vec(self) -> Vec<String> {

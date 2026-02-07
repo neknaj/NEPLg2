@@ -6,6 +6,7 @@
 #import "std/stdio" as *
 #import "alloc/string" as *
 #import "alloc/vec" as *
+#import "core/field" as *
 
 // kpread: 競技プログラミング用高速スキャナ
 //
@@ -556,7 +557,7 @@ fn scanner_read_query_tuples_i32 <(i32, i32)*>QueryTuplesInput> (sc, k):
 // - cols[c] に格納されている Vec<i32> を返します。
 // - インデックスは 0 <= c < t.k を満たす必要があります。
 fn query_tuples_col_i32 <(QueryTuplesInput, i32)->Vec<i32>> (t, c):
-    unwrap<Vec<i32>> vec_get<Vec<i32>> t.cols c
+    unwrap<Vec<i32>> vec_get<Vec<i32>> (get t "cols") c
 
 // scanner_read_ndrh_i32: (N, D, R, H[1..N]) を読み込む
 //
