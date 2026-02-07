@@ -101,6 +101,9 @@ export class Shell {
             case 'run':
                 return await this.cmdNeplg2(['run'], stdin);
 
+            case 'build':
+                return await this.cmdNeplg2(['build'], stdin);
+
             case 'compile':
                 return await this.cmdNeplg2(['build', '--emit', 'wat'], stdin);
 
@@ -150,7 +153,14 @@ export class Shell {
             let source = "";
             if (useEditor) {
                 if (this.editor) {
-                    source = this.editor.getText();
+                    // Try different ways to get text to be robust
+                    if (typeof this.editor.getText === 'function') {
+                        source = this.editor.getText();
+                    } else if (this.editor.text !== undefined) {
+                        source = this.editor.text;
+                    } else {
+                        return "Error: Could not retrieve text from editor (getText method missing)";
+                    }
                     this.terminal.print("(Using editor content)");
                 } else {
                     return "Error: Editor not connected";
@@ -168,7 +178,7 @@ export class Shell {
             try {
                 // Check if we need to emit WAT
                 if (parsed.flags['--emit'] && parsed.flags['--emit'].includes('wat')) {
-                    const wat = window.wasmBindings.compile_to_wat({ source });
+                    const wat = window.wasmBindings.compile_to_wat(source);
                     this.vfs.writeFile('out.wat', wat);
                     this.terminal.print("Generated out.wat");
                 }

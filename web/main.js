@@ -1,12 +1,23 @@
 import { CanvasTerminal } from './src/terminal/terminal.js';
+import { VFS } from './src/runtime/vfs.js';
 
-addEventListener("TrunkApplicationStarted", () => {
+window.addEventListener("TrunkApplicationStarted", () => {
+    console.log("[Playground] Trunk application started. Initializing...");
     const wasm = window.wasmBindings;
 
-    console.log("WASM bindings:", wasm);
+    console.log("[Playground] WASM bindings:", wasm);
     if (wasm && wasm.initSync) {
-        wasm.initSync();
+        try {
+            wasm.initSync();
+            console.log("[Playground] WASM initSync complete.");
+        } catch (e) {
+            console.error("[Playground] WASM initSync failed:", e);
+        }
     }
+
+    // --- Core Dependencies ---
+    console.log("[Playground] Initializing VFS...");
+    const vfs = new VFS();
 
     // --- DOM Elements ---
     const editorCanvas = document.getElementById('editor-canvas');
@@ -19,6 +30,7 @@ addEventListener("TrunkApplicationStarted", () => {
     const exampleSelect = document.getElementById('example-select');
 
     // --- Editor Setup ---
+    console.log("[Playground] Setting up CanvasEditor...");
     const neplProvider = new NEPLg2LanguageProvider();
     const { editor } = CanvasEditorLibrary.createCanvasEditor({
         canvas: editorCanvas,
@@ -30,34 +42,22 @@ addEventListener("TrunkApplicationStarted", () => {
         },
         initialLanguage: 'nepl'
     });
+    console.log("[Playground] Editor setup complete.");
 
     // --- Terminal Setup ---
-    console.log("Creating CanvasTerminal with:", terminalCanvas, terminalTextarea);
-    let terminal;
-    try {
-        terminal = new CanvasTerminal(terminalCanvas, terminalTextarea, null, {});
-        console.log("Terminal created successfully:", terminal);
-    } catch (error) {
-        console.error("Failed to create terminal:", error);
-        // Fallback: create a simple mock terminal
-        terminal = {
-            print: (msg) => console.log("Terminal:", msg),
-            printError: (msg) => console.error("Terminal:", msg),
-            shell: { editor: null }
-        };
-    }
-
-    // Inject editor reference into shell
+    console.log("[Playground] Setting up CanvasTerminal...");
+    const terminal = new CanvasTerminal(terminalCanvas, terminalTextarea, null, {});
+    
+    // Inject dependencies into shell
     if (terminal.shell) {
         terminal.shell.editor = editor;
+        terminal.shell.vfs = vfs;
+        console.log("[Playground] Shell dependencies injected.");
     }
 
     // --- Simple Commands for Buttons ---
     function executeCommand(cmd) {
-        if (!terminal.execute) {
-            console.error("Terminal does not have execute method");
-            return;
-        }
+        console.log(`[Playground] Executing command: ${cmd}`);
         // This simulates user typing the command
         terminal.currentInput = cmd;
         terminal.execute();
@@ -65,6 +65,7 @@ addEventListener("TrunkApplicationStarted", () => {
 
     // --- Example Loading Logic ---
     async function loadExamples() {
+        console.log("[Playground] Loading examples list...");
         const knownExamples = [
             'helloworld.nepl',
             'counter.nepl',
@@ -86,51 +87,60 @@ addEventListener("TrunkApplicationStarted", () => {
                     exampleSelect.appendChild(option);
                 }
             } catch (error) {
-                console.log(`Example ${file} not found, skipping`);
+                console.log(`[Playground] Example ${file} not found, skipping`);
             }
         }
 
-        // Load default example (rpn.nepl)
-        await loadExample('rpn.nepl');
+        console.log("[Playground] Setting default example...");
+        // Load default example (rpn.nepl if available, else helloworld)
+        if (knownExamples.includes('rpn.nepl')) {
+            await loadExample('rpn.nepl');
+        } else {
+            await loadExample('helloworld.nepl');
+        }
     }
 
     async function loadExample(filename) {
+        console.log(`[Playground] Loading example: ${filename}`);
         try {
             const response = await fetch(`/examples/${filename}`);
             if (!response.ok) {
+                console.error(`[Playground] Failed to fetch example ${filename}: ${response.statusText}`);
                 editor.setText(`// Failed to load ${filename}`);
-                if (terminal.printError) {
-                    terminal.printError(`Failed to load ${filename}`);
-                }
+                terminal.printError(`Failed to load ${filename}`);
                 return;
             }
             const text = await response.text();
             editor.setText(text);
             editorStatus.textContent = `examples/${filename}`;
-            if (terminal.print) {
-                terminal.print([
-                    { text: "Loaded ", color: "#56d364" },
-                    { text: filename, color: "#58a6ff" }
-                ]);
-            }
+            terminal.print([
+                { text: "Loaded ", color: "#56d364" },
+                { text: filename, color: "#58a6ff" }
+            ]);
             // Update select to match
             exampleSelect.value = filename;
+            console.log(`[Playground] Example ${filename} loaded successfully.`);
         } catch (error) {
+            console.error(`[Playground] Error loading example ${filename}:`, error);
             editor.setText(`// Error loading ${filename}: ${error}`);
-            if (terminal.printError) {
-                terminal.printError(`Error loading ${filename}: ${error}`);
-            }
+            terminal.printError(`Error loading ${filename}: ${error}`);
         }
     }
 
     async function loadSelectedExample() {
         const selectedFile = exampleSelect.value;
         if (!selectedFile) return;
+        console.log(`[Playground] User selected example: ${selectedFile}`);
         await loadExample(selectedFile);
     }
 
     // --- Event Listeners ---
     exampleSelect.addEventListener('change', loadSelectedExample);
+
+    window.addEventListener('resize', () => {
+        editor.resizeEditor();
+        terminal.resizeEditor();
+    });
 
     // --- Initialization ---
     loadExamples();
@@ -141,9 +151,11 @@ addEventListener("TrunkApplicationStarted", () => {
     window.executeCommand = executeCommand;
 
     // Initial resize and focus
-    editor.resizeEditor();
-    if (terminal.resizeEditor) {
+    console.log("[Playground] Performing initial layout...");
+    setTimeout(() => {
+        editor.resizeEditor();
         terminal.resizeEditor();
-    }
-    editor.focus();
+        editor.focus();
+        console.log("[Playground] Initial layout and focus complete.");
+    }, 100);
 });

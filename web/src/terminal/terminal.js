@@ -134,6 +134,7 @@ export class CanvasTerminal {
         if (this.isComposing) return;
         if (e.data) this.insertText(e.data);
         this.textarea.value = '';
+        this.render();
     }
 
     handleKeydown(e) {

@@ -58,7 +58,7 @@ class CanvasEditor {
             autoRender: options.autoRender !== false,
             bindEvents: options.bindEvents !== false
         };
-        
+
         // Geometry and Styling
         this.font = '22px  "HackGenConsoleNF", "Space Mono", "Noto Sans JP", monospace';
         this.geom = { padding: 10, lineHeight: 30, gutterWidth: 60, h_width: 13, z_width: 26 };
@@ -95,7 +95,7 @@ class CanvasEditor {
         this.visibleLines = 0; this.lineYPositions = [];
         this.undoStack = []; this.redoStack = [];
         this.foldedLines = new Set();
-        
+
         // Language-related State
         this.languageProvider = null;
         this.tokens = []; this.diagnostics = [];
@@ -126,7 +126,7 @@ class CanvasEditor {
             requestAnimationFrame(this.renderer.renderLoop.bind(this.renderer));
         }
     }
-    
+
     registerLanguageProvider(languageId, provider) {
         this.languageProvider = provider;
         this.languageProvider.onUpdate((data) => {
@@ -141,7 +141,7 @@ class CanvasEditor {
         this.langConfig = {}; this.highlightedOccurrences = [];
         this.bracketHighlights = []; this.domUI.updateProblemsPanel();
     }
-    
+
     /**
      * エディタのテキストコンテンツを完全に置き換え、状態をリセットします。
      * @param {string} text - 新しいテキストコンテンツ
@@ -187,9 +187,9 @@ class CanvasEditor {
         this.scrollToCursor();
     }
 
-    focus() { if(this.isFocused) return; this.isFocused = true; this.textarea.focus(); this.resetCursorBlink(); }
+    focus() { if (this.isFocused) return; this.isFocused = true; this.textarea.focus(); this.resetCursorBlink(); }
     blur() { this.isFocused = false; this.textarea.blur(); this.domUI.hidePopup(); this.domUI.hideCompletion(); }
-    
+
     // --- Text and State Manipulation ---
 
     insertText(newText) {
@@ -210,27 +210,27 @@ class CanvasEditor {
 
     deleteSelection(history = true) {
         if (history) { this.recordHistory(); }
-        if(!this.hasSelection()) return;
+        if (!this.hasSelection()) return;
         const { start } = this.getSelectionRange();
         this.text = this.text.slice(0, start) + this.text.slice(this.getSelectionRange().end);
         this.setCursor(start);
         this.selectionStart = this.selectionEnd = this.cursor;
         this.updateLines(); this.updateText(this.text); this.updateOccurrencesHighlight();
     }
-    
+
     setCursor(index, resetX = true) {
         this.cursor = Math.max(0, Math.min(this.text.length, index));
         if (resetX) { this.preferredCursorX = -1; }
         this.scrollToCursor(); this.resetCursorBlink();
         this.updateOccurrencesHighlight(); this.updateBracketMatching();
     }
-    
+
     updateLines() { this.lines = this.text.split('\n'); }
     hasSelection() { return this.selectionStart !== this.selectionEnd; }
     getSelectionRange() { return { start: Math.min(this.selectionStart, this.selectionEnd), end: Math.max(this.selectionStart, this.selectionEnd) }; }
 
     // --- Cursor Movement Logic ---
-    
+
     handleArrowKeys(e) {
         if (this.hasSelection() && !e.shiftKey) {
             const selection = this.getSelectionRange();
@@ -259,7 +259,7 @@ class CanvasEditor {
         }
         const newRow = Math.max(0, Math.min(this.lines.length - 1, row + direction));
         if (newRow === row) { this.setCursor(direction < 0 ? 0 : this.text.length); return; }
-        
+
         const targetLine = this.lines[newRow];
         let minDelta = Infinity; let newCol = 0;
         for (let i = 0; i <= targetLine.length; i++) {
@@ -305,7 +305,7 @@ class CanvasEditor {
         else { this.selectionEnd = this.cursor; }
         this.updateOccurrencesHighlight();
     }
-    
+
     // --- Feature Logic ---
 
     async updateOccurrencesHighlight() {
@@ -339,11 +339,11 @@ class CanvasEditor {
         else if (cursorX > visibleRight) this.scrollX = cursorX - rect.width + this.geom.padding;
         this.scrollX = Math.max(0, this.scrollX);
     }
-    
+
     resetCursorBlink() { this.cursorBlinkState = true; this.renderer.lastBlinkTime = performance.now(); }
 
     updateTextareaPosition() {
-        if(!this.isFocused) return;
+        if (!this.isFocused) return;
         const coords = this.utils.getCursorCoords(this.cursor, this.lines, this.lineYPositions);
         if (coords.y < 0) return; // Cursor is in folded code, hide textarea
         const relativeX = coords.x - this.scrollX;
@@ -354,7 +354,7 @@ class CanvasEditor {
             this.domUI.completionList.style.top = `${relativeY + this.geom.lineHeight}px`;
         }
     }
-    
+
     // --- Undo/Redo ---
 
     recordHistory() {
@@ -406,7 +406,7 @@ class CanvasEditor {
         const currentIndent = this.lines[row].match(/^\s*/)[0];
         this.insertText('\n' + currentIndent);
     }
-    
+
     replaceSelectionAndSetCursor(text, cursorOffsetFromStart) {
         this.recordHistory();
         const { start, end } = this.getSelectionRange();
@@ -450,7 +450,7 @@ class CanvasEditor {
             this.domUI.hideCompletion();
         }
     }
-    
+
     acceptCompletion() {
         const selected = this.domUI.completionSuggestions[this.domUI.selectedSuggestionIndex];
         if (!selected) { this.domUI.hideCompletion(); return; }
@@ -463,13 +463,13 @@ class CanvasEditor {
         const rawInsertText = selected.insertText || selected.label;
         const cursorPlaceholder = '$0';
         const placeholderIndex = rawInsertText.indexOf(cursorPlaceholder);
-        
+
         const finalInsertText = placeholderIndex !== -1 ? rawInsertText.replace(cursorPlaceholder, '') : rawInsertText;
         const finalCursorOffset = placeholderIndex !== -1 ? placeholderIndex : rawInsertText.length;
 
         const textBeforeSelection = this.text.slice(0, startIndex);
         const textAfterSelection = this.text.slice(this.cursor);
-        
+
         this.recordHistory();
         this.text = textBeforeSelection + finalInsertText + textAfterSelection;
         const newCursorPos = startIndex + finalCursorOffset;
@@ -478,5 +478,13 @@ class CanvasEditor {
 
         this.updateLines(); this.updateText(this.text);
         this.updateOccurrencesHighlight(); this.domUI.hideCompletion();
+    }
+
+    getText() {
+        return this.text;
+    }
+
+    setText(newText) {
+        this.applyTextEdit(newText, 0, 0);
     }
 }
