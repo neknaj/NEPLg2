@@ -61,7 +61,7 @@ pub struct Ident {
 }
 
 /// A prefix expression line.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PrefixExpr {
     pub items: Vec<PrefixItem>,
     pub trailing_semis: u32,

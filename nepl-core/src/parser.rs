@@ -103,20 +103,15 @@ impl Parser {
     }
 
     fn parse_block_until(&mut self, end: TokenEnd) -> Option<Block> {
-        self.depth += 1;
-        if self.depth % 10 == 0 {
-            std::eprintln!("[Parser] Depth: {} (FileID: {:?}, Pos: {})", self.depth, self.file_id, self.pos);
-        }
-        let res = self.parse_block_until_internal(end);
-        if self.depth > 0 {
-            self.depth -= 1;
-        }
-        res
+        self.parse_block_until_internal(end)
     }
+
 
     fn parse_block_until_internal(&mut self, end: TokenEnd) -> Option<Block> {
         let mut items = Vec::new();
         let mut start_span = self.peek_span().unwrap_or_else(Span::dummy);
+        // O(1) flag: tracks if the previous statement contains an 'if' expression
+        let mut prev_has_if = false;
 
         while !self.is_end(&end) {
             if self.consume_if(TokenKind::Newline) {
@@ -128,23 +123,33 @@ impl Parser {
                 break;
             }
 
-            let stmt = self.parse_stmt()?;
+            let mut stmt = self.parse_stmt()?;
 
             // Glued Else Logic: merge 'else:' marker statements into preceding 'if:' expressions.
+            // O(1) check using prev_has_if flag and peek_role_from_expr
             let mut merged = false;
-            if let Some(prev) = items.last_mut() {
-                let prev_expr = match prev {
-                    Stmt::Expr(e) | Stmt::ExprSemi(e, _) => Some(e),
-                    _ => None,
+            if prev_has_if {
+                // Check if current statement starts with 'else' marker - O(1)
+                let is_else = if let Stmt::Expr(curr_e) | Stmt::ExprSemi(curr_e, _) = &stmt {
+                    Self::peek_role_from_expr(curr_e) == Some(IfRole::Else)
+                } else {
+                    false
                 };
-                if let Some(pe) = prev_expr {
-                    if pe.items.iter().any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_)))) {
-                        if let Stmt::Expr(curr_e) | Stmt::ExprSemi(curr_e, _) = &stmt {
-                            let mut curr_copy = curr_e.clone();
-                            if let Some(IfRole::Else) = Self::take_role_from_expr(&mut curr_copy) {
-                                pe.items.extend(curr_copy.items);
+                
+                if is_else {
+                    if let Some(prev) = items.last_mut() {
+                        if let Stmt::Expr(pe) | Stmt::ExprSemi(pe, _) = prev {
+                            // Extract and modify the current expression
+                            if let Stmt::Expr(ref mut curr_e) | Stmt::ExprSemi(ref mut curr_e, _) = &mut stmt {
+                                // Remove the 'else' marker and get remaining items
+                                Self::take_role_from_expr(curr_e);
+                                // Move items without cloning
+                                let curr_items = core::mem::take(&mut curr_e.items);
+                                pe.items.extend(curr_items);
                                 pe.span = pe.span.join(curr_e.span).unwrap_or(pe.span);
                                 merged = true;
+                                // After merging, the combined statement still has 'if'
+                                // prev_has_if remains true
                             }
                         }
                     }
@@ -154,6 +159,15 @@ impl Parser {
             if merged {
                 continue;
             }
+
+            // Update prev_has_if flag - O(1) check for if symbol
+            prev_has_if = match &stmt {
+                Stmt::Expr(e) | Stmt::ExprSemi(e, _) => {
+                    // Check if expression contains Symbol::If (typically near the end before Block)
+                    e.items.iter().any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
+                }
+                _ => false,
+            };
 
             if let Stmt::Directive(dir) = &stmt {
                 self.directives.push(dir.clone());
@@ -371,9 +385,6 @@ impl Parser {
                 Some(Stmt::Directive(Directive::NoPrelude { span }))
             }
             TokenKind::KwPub => {
-                if let Some(tok) = self.peek() {
-                    std::eprintln!("[Parser] parse_stmt pub at pos {} (token: {:?})", self.pos, tok.kind);
-                }
                 match self.peek_kind_at(1) {
                     Some(TokenKind::KwStruct) => self.parse_struct(),
                     Some(TokenKind::KwEnum) => self.parse_enum(),
@@ -1732,6 +1743,35 @@ impl Parser {
         }
     }
 
+    /// Peek at the role marker without modifying the expression. O(1) operation.
+    fn peek_role_from_expr(expr: &PrefixExpr) -> Option<IfRole> {
+        // Check first item only - markers always appear at the start
+        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = expr.items.first() {
+            match id.name.as_str() {
+                "cond" => return Some(IfRole::Cond),
+                "then" => return Some(IfRole::Then),
+                "else" => return Some(IfRole::Else),
+                _ => {}
+            }
+        }
+        // Check if marker is inside a Block (for block-style markers like `else:`)
+        for item in &expr.items {
+            if let PrefixItem::Block(block, _) = item {
+                if let Some(Stmt::Expr(inner)) = block.items.first() {
+                    if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = inner.items.first() {
+                        match id.name.as_str() {
+                            "cond" => return Some(IfRole::Cond),
+                            "then" => return Some(IfRole::Then),
+                            "else" => return Some(IfRole::Else),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     fn take_role_from_expr(expr: &mut PrefixExpr) -> Option<IfRole> {
         // Direct marker case: first item is the marker identifier
         if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = expr.items.first() {
@@ -1765,10 +1805,10 @@ impl Parser {
                             };
                             // remove the marker token
                             inner.items.remove(0);
-                            // Wrap the remaining inner expression(s) into a single Block
-                            // so downstream code sees a single PrefixItem for the branch.
+                            // Use std::mem::take to avoid clone
+                            let inner_expr = core::mem::take(inner);
                             let wrapped_block = Block {
-                                items: vec![Stmt::Expr(inner.clone())],
+                                items: vec![Stmt::Expr(inner_expr)],
                                 span: *block_span,
                             };
                             expr.items = vec![PrefixItem::Block(wrapped_block, *block_span)];
@@ -2271,15 +2311,9 @@ impl Parser {
     }
 
     fn parse_type_expr(&mut self) -> Option<TypeExpr> {
-        self.depth += 1;
-        if self.depth > 1000 { panic!("STAY AWAY FROM INFINITE RECURSION"); }
-        if self.depth % 10 == 0 {
-             std::eprintln!("[Parser] parse_type_expr depth={} pos={}", self.depth, self.pos);
-        }
-        let res = self.parse_type_expr_internal();
-        self.depth -= 1;
-        res
+        self.parse_type_expr_internal()
     }
+
 
     fn parse_type_expr_internal(&mut self) -> Option<TypeExpr> {
         match self.peek_kind()? {
