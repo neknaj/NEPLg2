@@ -3,6 +3,7 @@ extern crate alloc;
 extern crate std;
 
 use alloc::collections::BTreeSet;
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -859,7 +860,17 @@ impl TypeCtx {
     }
 
     pub fn type_to_string(&self, ty: TypeId) -> String {
-        match self.get(ty) {
+        let mut seen = BTreeSet::new();
+        self.type_to_string_inner(ty, &mut seen)
+    }
+
+    fn type_to_string_inner(&self, ty: TypeId, seen: &mut BTreeSet<TypeId>) -> String {
+        let ty = self.resolve_id(ty);
+        if !seen.insert(ty) {
+            std::eprintln!("CYCLE DETECTED in type_to_string: {:?}", ty);
+            return String::from("cycle");
+        }
+        let res = match self.get(ty) {
             TypeKind::Unit => String::from("unit"),
             TypeKind::I32 => String::from("i32"),
             TypeKind::U8 => String::from("u8"),
@@ -868,7 +879,11 @@ impl TypeCtx {
             TypeKind::Str => String::from("str"),
             TypeKind::Never => String::from("never"),
             TypeKind::Named(name) => name.clone(),
-            TypeKind::Enum { name, type_params, .. } => {
+            TypeKind::Enum {
+                name,
+                type_params,
+                ..
+            } => {
                 if type_params.is_empty() {
                     name.clone()
                 } else {
@@ -878,12 +893,16 @@ impl TypeCtx {
                         if i > 0 {
                             s.push('_');
                         }
-                        s.push_str(&self.type_to_string(*tp));
+                        s.push_str(&self.type_to_string_inner(*tp, seen));
                     }
                     s
                 }
             }
-            TypeKind::Struct { name, type_params, .. } => {
+            TypeKind::Struct {
+                name,
+                type_params,
+                ..
+            } => {
                 if type_params.is_empty() {
                     name.clone()
                 } else {
@@ -893,60 +912,78 @@ impl TypeCtx {
                         if i > 0 {
                             s.push('_');
                         }
-                        s.push_str(&self.type_to_string(*tp));
+                        s.push_str(&self.type_to_string_inner(*tp, seen));
                     }
                     s
                 }
             }
             TypeKind::Tuple { items } => {
-                let mut s = String::from("tuple");
-                for item in items {
-                    s.push('_');
-                    s.push_str(&self.type_to_string(item));
+                let mut s = String::from("tuple_");
+                for (i, item) in items.iter().enumerate() {
+                    if i > 0 {
+                        s.push('_');
+                    }
+                    s.push_str(&self.type_to_string_inner(*item, seen));
                 }
                 s
             }
-            TypeKind::Function { .. } => String::from("func"),
-            TypeKind::Var(v) => {
-                if let Some(b) = v.binding {
-                    self.type_to_string(b)
-                } else if let Some(l) = &v.label {
-                    l.clone()
-                } else {
-                    String::from("var")
+            TypeKind::Function {
+                type_params,
+                params,
+                result,
+                effect,
+            } => {
+                let mut s = String::from("fn");
+                if !type_params.is_empty() {
+                    s.push_str("_gen_");
+                    s.push_str(&type_params.len().to_string());
                 }
+                s.push_str("__");
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        s.push('_');
+                    }
+                    s.push_str(&self.type_to_string_inner(*p, seen));
+                }
+                s.push_str("__");
+                s.push_str(&self.type_to_string_inner(result, seen));
+                match effect {
+                    Effect::Pure => s.push_str("__pure"),
+                    Effect::Impure => s.push_str("__imp"),
+                }
+                s
             }
+            TypeKind::Var(tv) => match tv.label {
+                Some(ref label) => label.clone(),
+                None => format!("var_{}", ty.0),
+            },
             TypeKind::Apply { base, args } => {
-                let mut s = match self.get(base) {
-                    TypeKind::Enum { name, .. }
-                    | TypeKind::Struct { name, .. }
-                    | TypeKind::Named(name) => name.clone(),
-                    _ => self.type_to_string(base),
-                };
+                let mut s = self.type_to_string_inner(base, seen);
                 s.push('_');
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
                         s.push('_');
                     }
-                    s.push_str(&self.type_to_string(*arg));
+                    s.push_str(&self.type_to_string_inner(*arg, seen));
                 }
                 s
             }
             TypeKind::Box(inner) => {
                 let mut s = String::from("box_");
-                s.push_str(&self.type_to_string(inner));
+                s.push_str(&self.type_to_string_inner(inner, seen));
                 s
             }
             TypeKind::Reference(inner, is_mut) => {
-                let mut s = if is_mut {
-                    String::from("refmut_")
-                } else {
-                    String::from("ref_")
-                };
-                s.push_str(&self.type_to_string(inner));
+                let mut s = String::from("ref_");
+                if is_mut {
+                    s.push_str("mut_");
+                }
+                s.push_str(&self.type_to_string_inner(inner, seen));
                 s
             }
-        }
+        };
+        seen.remove(&ty);
+        res
     }
 
     fn store(&mut self, kind: TypeKind) -> TypeId {

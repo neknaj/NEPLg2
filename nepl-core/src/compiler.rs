@@ -1,5 +1,5 @@
 #![no_std]
-extern crate alloc;
+extern crate std;
 
 use alloc::vec::Vec;
 
@@ -78,14 +78,19 @@ pub fn compile_module(
     options: CompileOptions,
 ) -> Result<CompilationArtifact, CoreError> {
     crate::log::set_verbose(options.verbose);
+    std::eprintln!("DEBUG: Starting compile_module");
     let target = resolve_target(&module, options)?;
     let profile = options.profile.unwrap_or(BuildProfile::detect());
+    
+    std::eprintln!("DEBUG: Starting typecheck");
     let tc = typecheck::typecheck(&module, target, profile);
     if tc.module.is_none() {
         return Err(CoreError::from_diagnostics(tc.diagnostics));
     }
+    std::eprintln!("DEBUG: Typecheck done, starting monomorphize");
     let mut types = tc.types;
     let mut hir_module = monomorphize::monomorphize(&mut types, tc.module.unwrap());
+    std::eprintln!("DEBUG: Monomorphize done, starting move_check");
 
     // Move Check
     let move_errors = passes::move_check::run(&hir_module, &types);
@@ -94,11 +99,14 @@ pub fn compile_module(
         diags.extend(move_errors);
         return Err(CoreError::from_diagnostics(diags));
     }
+    std::eprintln!("DEBUG: Move check done, starting insert_drops");
 
     // Insert drop calls for automatic cleanup
     passes::insert_drops(&mut hir_module, types.unit());
+    std::eprintln!("DEBUG: Insert drops done, starting codegen");
 
     let cg = codegen_wasm::generate_wasm(&types, &hir_module);
+    std::eprintln!("DEBUG: Codegen done");
     let mut diagnostics = tc.diagnostics;
     diagnostics.extend(cg.diagnostics);
     if let Some(bytes) = cg.bytes {
