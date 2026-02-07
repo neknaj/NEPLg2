@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
     <link data-trunk rel="rust" href="../nepl-web/Cargo.toml" data-bindgen-target="web">
     <link data-trunk rel="copy-file" href="testinfo.html" />
 </head>
+
 <body>
     <div class="app-container">
         <header class="app-header">
@@ -24,10 +26,19 @@
                         <option value="" disabled selected>Select an example...</option>
                     </select>
                 </div>
-                <!-- Future controls like "Run", "Share" could go here -->
+                <div class="control-group">
+                    <button id="run-button" class="btn" onclick="window.executeCommand?.('neplg2 run')"
+                        title="Run the program">▶ Run</button>
+                    <button id="compile-button" class="btn" onclick="window.executeCommand?.('neplg2 build --emit wat')"
+                        title="Compile to WAT">🔧 Compile</button>
+                    <button id="test-button" class="btn" onclick="window.executeCommand?.('help')" title="Show help">🧪
+                        Help</button>
+                    <button id="clear-button" class="btn" onclick="window.executeCommand?.('clear')"
+                        title="Clear terminal">🗑 Clear</button>
+                </div>
             </div>
         </header>
-        
+
         <main class="workspace">
             <section class="pane editor-pane">
                 <div class="pane-header">
@@ -36,14 +47,15 @@
                 </div>
                 <div class="canvas-container" id="editor-container">
                     <canvas id="editor-canvas"></canvas>
-                    <textarea id="editor-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                    <textarea id="editor-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off"
+                        autocapitalize="off" spellcheck="false"></textarea>
                     <!-- Completion Popup -->
                     <ul id="completion-list" class="popup-menu hidden"></ul>
                 </div>
             </section>
-            
+
             <div class="resizer" id="workspace-resizer"></div>
-            
+
             <section class="pane terminal-pane">
                 <div class="pane-header">
                     <span class="pane-title">Terminal</span>
@@ -51,11 +63,12 @@
                 </div>
                 <div class="canvas-container" id="terminal-container">
                     <canvas id="terminal-canvas"></canvas>
-                    <textarea id="terminal-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                    <textarea id="terminal-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off"
+                        autocapitalize="off" spellcheck="false"></textarea>
                 </div>
             </section>
         </main>
-        
+
         <div id="general-popup" class="popup-tooltip hidden"></div>
     </div>
 
@@ -71,10 +84,11 @@
     <script src="./src/language/javascript/js-provider.js"></script>
     <script src="./src/language/markdown/md-provider.js"></script>
     <script src="./src/language/neplg2/neplg2-provider.js"></script>
-    
+
     <script src="./src/library/canvas-editor-lib.js"></script>
-    
+
     <!-- Main Entry Point -->
     <script data-trunk type="module" src="main.js"></script>
 </body>
+
 </html>

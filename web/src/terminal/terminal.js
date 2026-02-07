@@ -11,6 +11,20 @@ export class CanvasTerminal {
         this.shell = new Shell(this, null);
 
         // State
+        this.colors = {
+            background: '#0d1117',
+            foreground: '#c9d1d9',
+            cursor: '#58a6ff',
+            input: '#f0f6fc',
+
+            // Palette for Oh My Posh mock
+            orange: '#ea5e00', // Posh orange
+            white: '#ffffff',
+            blue: '#41a6ff',
+            gray: '#8b949e',
+            green: '#56d364'
+        };
+
         // History is now Array of Span[]
         // Span: { text: string, color: string, bg?: string }
         this.history = [];
@@ -31,20 +45,6 @@ export class CanvasTerminal {
         this.fontFamily = '"JetBrains Mono", Consolas, monospace';
         this.lineHeight = 1.4;
         this.padding = 10;
-
-        this.colors = {
-            background: '#0d1117',
-            foreground: '#c9d1d9',
-            cursor: '#58a6ff',
-            input: '#f0f6fc',
-
-            // Palette for Oh My Posh mock
-            orange: '#ea5e00', // Posh orange
-            white: '#ffffff',
-            blue: '#41a6ff',
-            gray: '#8b949e',
-            green: '#56d364'
-        };
 
         // Metrics
         this.charWidth = 0;

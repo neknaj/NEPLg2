@@ -91,8 +91,22 @@ export class Shell {
                     "  cat       Display file content",
                     "  neplg2    NEPLg2 Compiler & Toolchain",
                     "    run     Compile and run the current editor content",
+                    "    build   Compile the editor or a file",
+                    "  run       Alias for 'neplg2 run'",
+                    "  compile   Alias for 'neplg2 build --emit wat'",
+                    "  test      Alias for 'neplg2 run stdlib/test.nepl' (if applicable)",
                     "  wasmi     Run a .wasm file"
                 ].join('\n');
+
+            case 'run':
+                return await this.cmdNeplg2(['run'], stdin);
+
+            case 'compile':
+                return await this.cmdNeplg2(['build', '--emit', 'wat'], stdin);
+
+            case 'test':
+                // Assuming test.nepl or similar exists for testing
+                return await this.cmdNeplg2(['run', 'stdlib/std/test.nepl'], stdin);
 
             case 'neplg2':
                 return await this.cmdNeplg2(args, stdin);
