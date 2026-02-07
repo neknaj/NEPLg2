@@ -251,6 +251,23 @@ export class Shell {
         return { flags, positional };
     }
 
+    private activeWorker: Worker | null = null;
+    private sab: SharedArrayBuffer | null = null;
+    private stdinBuffer: Int32Array | null = null;
+    private stdinData: Uint8Array | null = null;
+
+    interrupt() {
+        if (this.activeWorker) {
+            this.activeWorker.terminate();
+            this.activeWorker = null;
+            this.terminal.printError("\nProcess interrupted.");
+            if (this.stdinBuffer) {
+                Atomics.store(this.stdinBuffer, 0, -1);
+                Atomics.notify(this.stdinBuffer, 0);
+            }
+        }
+    }
+
     async cmdWasmi(args: string[], stdin: any): Promise<any> {
         if (args.length === 0) return "wasmi: missing file";
         const filename = args[0];
@@ -261,24 +278,72 @@ export class Shell {
 
         this.terminal.print(`Executing ${filename} ...`);
 
-        try {
-            const wasi = new WASI(args, this.env, this.vfs, this.terminal);
-            const { instance } = await (WebAssembly as any).instantiate(bin, wasi.imports);
-            wasi.setMemory(instance.exports.memory);
-
-            if (instance.exports._start) {
-                instance.exports._start();
-            } else if (instance.exports.main) {
-                const res = instance.exports.main();
-                return `Exited with ${res}`;
-            } else {
-                return "wasmi: no entry point found";
+        if (!this.sab) {
+            try {
+                this.sab = new SharedArrayBuffer(1024 * 64); // 64KB stdin buffer
+                this.stdinBuffer = new Int32Array(this.sab, 0, 1);
+                this.stdinData = new Uint8Array(this.sab, 4);
+            } catch (e) {
+                console.warn("SharedArrayBuffer not supported, falling back to non-blocking (stdin will not work)");
             }
-        } catch (e: any) {
-            if (e.message && e.message.includes("Exited with code")) return e.message;
-            return `wasmi error: ${e}`;
         }
-        return "Program exited.";
+
+        return new Promise((resolve, reject) => {
+            const worker = new Worker(new URL('../runtime/worker.js', import.meta.url), { type: 'module' });
+            this.activeWorker = worker;
+
+            worker.onmessage = (e) => {
+                const { type, data, code, message } = e.data;
+                switch (type) {
+                    case 'stdout':
+                        const text = new TextDecoder().decode(new Uint8Array(data));
+                        this.terminal.write(text);
+                        break;
+                    case 'stdin_request':
+                        // In a real terminal, we might switch mode here
+                        // For now we assume terminal handles input and calls handleStdin
+                        break;
+                    case 'exit':
+                        this.activeWorker = null;
+                        worker.terminate();
+                        resolve(`Program exited with code ${code}`);
+                        break;
+                    case 'error':
+                        this.activeWorker = null;
+                        worker.terminate();
+                        reject(new Error(message));
+                        break;
+                }
+            };
+
+            worker.onerror = (e) => {
+                this.activeWorker = null;
+                worker.terminate();
+                reject(new Error("Worker error: " + e.message));
+            };
+
+            worker.postMessage({
+                type: 'run',
+                bin,
+                args,
+                env: Object.fromEntries(this.env),
+                vfsData: this.vfs.serialize(),
+                sab: this.sab
+            });
+        });
+    }
+
+    handleStdin(text: string) {
+        if (this.stdinBuffer && this.stdinData) {
+            const encoded = new TextEncoder().encode(text);
+            this.stdinData.set(encoded);
+            Atomics.store(this.stdinBuffer, 0, encoded.length);
+            Atomics.notify(this.stdinBuffer, 0);
+        }
+    }
+
+    get isRunning() {
+        return this.activeWorker !== null;
     }
 
     renderTree(rootPath: string) {

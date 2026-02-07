@@ -39,6 +39,8 @@ export class CanvasTerminal {
     maxScrollTop: number;
     cursorVisible: boolean;
     blinkInterval: any;
+    ansiState: { fg: string, bg: string | undefined, bold: boolean };
+    lastLineEndedWithNewline: boolean;
 
     constructor(canvas: HTMLCanvasElement, textarea: HTMLTextAreaElement, domElements: any, options = {}) {
         this.canvas = canvas;
@@ -63,6 +65,13 @@ export class CanvasTerminal {
             gray: '#8b949e',
             green: '#56d364'
         };
+
+        this.ansiState = {
+            fg: this.colors.foreground,
+            bg: undefined,
+            bold: false
+        };
+        this.lastLineEndedWithNewline = true;
 
         this.history = [];
         this.promptSpans = [];
@@ -203,15 +212,19 @@ export class CanvasTerminal {
                 break;
             case 'c':
                 if (e.ctrlKey) {
-                    const cancelledState = [
-                        ...this.promptSpans,
-                        { text: this.currentInput + "^C", color: this.colors.input }
-                    ];
-                    this.history.push(cancelledState);
-                    this.currentInput = "";
-                    this.cursorIndex = 0;
-                    this.updateScrollTopToBottom();
-                    this.render();
+                    if (this.shell.isRunning) {
+                        this.shell.interrupt();
+                    } else {
+                        const cancelledState = [
+                            ...this.promptSpans,
+                            { text: this.currentInput + "^C", color: this.colors.input }
+                        ];
+                        this.history.push(cancelledState);
+                        this.currentInput = "";
+                        this.cursorIndex = 0;
+                        this.updateScrollTopToBottom();
+                        this.render();
+                    }
                     e.preventDefault();
                 }
                 break;
@@ -276,6 +289,16 @@ export class CanvasTerminal {
 
     async execute() {
         const cmd = this.currentInput;
+        if (this.shell.isRunning) {
+            // Interactive stdin
+            this.history.push([{ text: cmd, color: this.colors.input }]);
+            this.shell.handleStdin(cmd + '\n');
+            this.currentInput = "";
+            this.cursorIndex = 0;
+            this.render();
+            return;
+        }
+
         const cmdLine = [
             ...this.promptSpans,
             { text: cmd, color: this.colors.input }
@@ -296,15 +319,91 @@ export class CanvasTerminal {
 
     print(content: string | Span[]) {
         if (typeof content === 'string') {
-            const lines = content.split('\n');
-            for (const line of lines) {
-                this.history.push([{ text: line, color: this.colors.foreground }]);
-            }
+            this.write(content + (content.endsWith('\n') ? '' : '\n'));
         } else if (Array.isArray(content)) {
             this.history.push(content);
         }
         this.updateScrollTopToBottom();
         this.render();
+    }
+
+    write(text: string) {
+        let currentLine: Span[] = [];
+        if (this.history.length > 0 && !this.lastLineEndedWithNewline) {
+            currentLine = this.history.pop() || [];
+        }
+
+        let i = 0;
+        let lastSegmentStart = 0;
+
+        const flushSegment = (end: number) => {
+            if (end > lastSegmentStart) {
+                const segmentText = text.slice(lastSegmentStart, end);
+                currentLine.push({
+                    text: segmentText,
+                    color: this.ansiState.fg,
+                    bg: this.ansiState.bg
+                });
+            }
+            lastSegmentStart = end;
+        };
+
+        while (i < text.length) {
+            if (text[i] === '\n') {
+                flushSegment(i);
+                this.history.push(currentLine);
+                currentLine = [];
+                lastSegmentStart = i + 1;
+                this.lastLineEndedWithNewline = true;
+            } else if (text[i] === '\x1b' && text[i + 1] === '[') {
+                flushSegment(i);
+                // Parse CSI
+                let j = i + 2;
+                while (j < text.length && !/[a-zA-Z]/.test(text[j])) {
+                    j++;
+                }
+                const command = text[j];
+                const params = text.slice(i + 2, j).split(';');
+                if (command === 'm') {
+                    // SGR
+                    for (const p of params) {
+                        const code = parseInt(p) || 0;
+                        this.applySGR(code);
+                    }
+                }
+                i = j;
+                lastSegmentStart = i + 1;
+            }
+            i++;
+        }
+
+        flushSegment(text.length);
+        if (currentLine.length > 0) {
+            this.history.push(currentLine);
+            this.lastLineEndedWithNewline = false;
+        }
+
+        this.updateScrollTopToBottom();
+        this.render();
+    }
+
+    private applySGR(code: number) {
+        if (code === 0) {
+            this.ansiState.fg = this.colors.foreground;
+            this.ansiState.bg = undefined;
+            this.ansiState.bold = false;
+        } else if (code === 1) {
+            this.ansiState.bold = true;
+        } else if (code >= 30 && code <= 37) {
+            const colors = ['#000000', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '#ff55ff', '#55ffff', '#ffffff'];
+            this.ansiState.fg = colors[code - 30];
+        } else if (code === 39) {
+            this.ansiState.fg = this.colors.foreground;
+        } else if (code >= 90 && code <= 97) {
+            const colors = ['#666666', '#ff7b72', '#7ee787', '#d29922', '#58a6ff', '#bc8cff', '#39c5cf', '#ffffff'];
+            this.ansiState.fg = colors[code - 90];
+        }
+        // Backgrounds omitted for brevity but can be added similarly
     }
 
     updateScrollTopToBottom() {

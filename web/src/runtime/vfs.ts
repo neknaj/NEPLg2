@@ -51,6 +51,32 @@ export class VFS {
         return Array.from(results).sort();
     }
 
+    getAllFiles(): Map<string, string | Uint8Array> {
+        return this.files;
+    }
+
+    serialize(): Record<string, any> {
+        const obj: Record<string, any> = {};
+        for (const [path, content] of this.files.entries()) {
+            if (content instanceof Uint8Array) {
+                obj[path] = Array.from(content);
+            } else {
+                obj[path] = content;
+            }
+        }
+        return obj;
+    }
+
+    deserialize(data: Record<string, any>) {
+        for (const [path, content] of Object.entries(data)) {
+            if (Array.isArray(content)) {
+                this.files.set(path, new Uint8Array(content));
+            } else {
+                this.files.set(path, content);
+            }
+        }
+    }
+
     deleteFile(path: string): boolean {
         if (!path.startsWith('/')) path = '/' + path;
         return this.files.delete(path);

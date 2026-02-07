@@ -59,7 +59,7 @@ export class WASI {
             const str = new TextDecoder().decode(buffer); // UTF-8 decode
 
             if (fd === 1 || fd === 2) { // stdout || stderr
-                this.terminal.print(str.replace(/\n$/, ''));
+                this.terminal.write(str);
             }
             written += len;
         }

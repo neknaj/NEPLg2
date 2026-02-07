@@ -10,13 +10,19 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn compile_source(source: &str) -> Result<Vec<u8>, JsValue> {
-    compile_wasm_with_entry("/virtual/entry.nepl", source)
+    compile_wasm_with_entry("/virtual/entry.nepl", source, None)
+        .map_err(|msg| JsValue::from_str(&msg))
+}
+
+#[wasm_bindgen]
+pub fn compile_source_with_vfs(entry_path: &str, source: &str, vfs: JsValue) -> Result<Vec<u8>, JsValue> {
+    compile_wasm_with_entry(entry_path, source, Some(vfs))
         .map_err(|msg| JsValue::from_str(&msg))
 }
 
 #[wasm_bindgen]
 pub fn compile_to_wat(source: &str) -> Result<String, JsValue> {
-    let wasm = compile_wasm_with_entry("/virtual/entry.nepl", source)
+    let wasm = compile_wasm_with_entry("/virtual/entry.nepl", source, None)
         .map_err(|msg| JsValue::from_str(&msg))?;
     print_bytes(&wasm).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -68,15 +74,31 @@ pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
         .find(|(n, _)| *n == name)
         .map(|(_, src)| *src)
         .ok_or_else(|| JsValue::from_str("unknown test"))?;
-    compile_wasm_with_entry(&format!("/virtual/tests/{name}.nepl"), src)
+    compile_wasm_with_entry(&format!("/virtual/tests/{name}.nepl"), src, None)
         .map_err(|msg| JsValue::from_str(&msg))
 }
 
-fn compile_wasm_with_entry(entry_path: &str, source: &str) -> Result<Vec<u8>, String> {
+fn compile_wasm_with_entry(entry_path: &str, source: &str, vfs: Option<JsValue>) -> Result<Vec<u8>, String> {
     let stdlib_root = PathBuf::from("/stdlib");
-    let sources = stdlib_sources(&stdlib_root);
+    let mut sources = stdlib_sources(&stdlib_root);
+    
+    // Merge VFS files if provided
+    if let Some(vfs_val) = vfs {
+        if vfs_val.is_object() {
+            let entries = js_sys::Object::entries(&vfs_val.into());
+            for entry in entries.iter() {
+                let pair = js_sys::Array::from(&entry);
+                let path_str = pair.get(0).as_string().unwrap_or_default();
+                let content = pair.get(1).as_string().unwrap_or_default();
+                if !path_str.is_empty() {
+                    sources.insert(PathBuf::from(path_str), content);
+                }
+            }
+        }
+    }
+
     #[cfg(target_arch = "wasm32")]
-    web_sys::console::log_1(&format!("Standard library bundle contains {} files", sources.len()).into());
+    web_sys::console::log_1(&format!("Loader context contains {} files", sources.len()).into());
     
     let mut loader = Loader::new(stdlib_root);
     let mut provider = |path: &PathBuf| {
@@ -118,10 +140,17 @@ fn render_core_error(err: CoreError, sm: &SourceMap) -> String {
 
 fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
     let mut out = String::new();
+    const RESET: &str = "\x1b[0m";
+    const BOLD: &str = "\x1b[1m";
+    const RED: &str = "\x1b[31m";
+    const YELLOW: &str = "\x1b[33m";
+    const CYAN: &str = "\x1b[36m";
+    const BLUE: &str = "\x1b[34m";
+
     for d in diags {
-        let severity = match d.severity {
-            Severity::Error => "error",
-            Severity::Warning => "warning",
+        let (severity_str, severity_color) = match d.severity {
+            Severity::Error => ("error", RED),
+            Severity::Warning => ("warning", YELLOW),
         };
         let code = d.code.unwrap_or("");
         let primary = &d.primary;
@@ -137,18 +166,44 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
         } else {
             format!("[{code}]")
         };
-        out.push_str(&format!("{severity}{code_display}: {message}\n", message = d.message));
-        out.push_str(&format!(" --> {path}:{line}:{col}\n", line = line + 1, col = col + 1));
+        
+        // Error header
+        out.push_str(&format!(
+            "{color}{bold}{sev}{code_disp}{reset}: {bold}{message}{reset}\n",
+            color = severity_color,
+            bold = BOLD,
+            sev = severity_str,
+            code_disp = code_display,
+            reset = RESET,
+            message = d.message
+        ));
+        
+        // Location pointer
+        out.push_str(&format!(
+            " {blue}-->{reset} {path}:{line}:{col}\n",
+            blue = BLUE,
+            reset = RESET,
+            path = path,
+            line = line + 1,
+            col = col + 1
+        ));
+
         if let Some(line_str) = sm.line_str(primary.span.file_id, line) {
             out.push_str(&format!(
-                "  {line_num:>4} | {text}\n",
+                "  {blue}{line_num:>4} |{reset} {text}\n",
+                blue = BLUE,
+                reset = RESET,
                 line_num = line + 1,
                 text = line_str
             ));
             let caret_pos = col;
             out.push_str(&format!(
-                "       | {spaces}{carets}\n",
+                "       {blue}|{reset} {spaces}{color}{bold}{carets}{reset}\n",
+                blue = BLUE,
+                reset = RESET,
                 spaces = " ".repeat(caret_pos),
+                color = severity_color,
+                bold = BOLD,
                 carets = "^".repeat(primary.span.len().max(1) as usize)
             ));
         }
@@ -162,7 +217,9 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
                 .unwrap_or_else(|| "<unknown>".into());
             let msg = label.message.as_ref().map(|m| m.as_str()).unwrap_or("");
             out.push_str(&format!(
-                " note: {p}:{line}:{col}: {msg}\n",
+                " {blue}note:{reset} {p}:{line}:{col}: {msg}\n",
+                blue = BLUE,
+                reset = RESET,
                 line = l + 1,
                 col = c + 1
             ));
