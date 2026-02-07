@@ -1,0 +1,42 @@
+name: NM Compile Tests (NEPL-g2)
+
+on:
+    push:
+        branches:
+            - main
+            - develop
+    pull_request:
+        branches:
+            - main
+            - develop
+
+jobs:
+    wasm-test:
+        runs-on: ubuntu-latest
+
+        env:
+            CARGO_TERM_COLOR: always
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Install Rust toolchain
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  override: true
+
+            - name: Install wasm32 target
+              run: rustup target add wasm32-unknown-unknown
+
+            - name: Cache Cargo build
+              uses: Swatinem/rust-cache@v2
+              with:
+                  # Same cache key as other workflows
+                  shared-key: nepl-g2
+                  cache-on-failure: true
+
+            - name: NM Compile tests (no run)
+              run: cargo run -p nepl-cli -- --input examples/nm.nepl --output nm
