@@ -118,16 +118,26 @@ export class Shell {
                 return await this.cmdWasmi(args, stdin);
 
             case 'ls':
-                return this.vfs ? this.vfs.listFiles().join('\n') : "No VFS";
+                const lsPath = args[0] || '/';
+                try {
+                    if (this.vfs.isDir(lsPath)) {
+                        return this.vfs.listDir(lsPath).join('\n');
+                    }
+                    return this.vfs.exists(lsPath) ? args[0] : `ls: no such file or directory: ${lsPath}`;
+                } catch (e) {
+                    return `ls: ${e.message}`;
+                }
 
             case 'cat':
                 if (args.length === 0) return "cat: missing operand";
+                const catPath = args[0];
                 try {
-                    const content = this.vfs.readFile(args[0]);
+                    if (this.vfs.isDir(catPath)) return `cat: ${catPath}: Is a directory`;
+                    const content = this.vfs.readFile(catPath);
                     if (typeof content === 'string') return content;
                     return "[Binary content]";
                 } catch (e) {
-                    return e.message;
+                    return `cat: ${catPath}: No such file`;
                 }
 
             case 'vfs_debug':

@@ -10,12 +10,18 @@ window.setTimeout(start_app, 1000);
 function start_app() {
     if (start_flag) return;
     start_flag = true;
+
+    // --- Core Dependencies ---
+    console.log("[Playground] Initializing VFS...");
+    const vfs = new VFS();
+
     let wasm;
     try {
         wasm = window.wasmBindings
     }
     catch (e) {
         console.error("[Playground] WASM bindings not found, retrying in 1 second...", e);
+        start_flag = false; // Allow retry
         window.setTimeout(start_app, 1000);
         return;
     }
@@ -26,14 +32,20 @@ function start_app() {
         try {
             wasm.initSync();
             console.log("[Playground] WASM initSync complete.");
+
+            // Mount stdlib into VFS
+            const stdlibFiles = wasm.get_stdlib_files();
+            if (stdlibFiles && Array.isArray(stdlibFiles)) {
+                console.log(`[Playground] Mounting ${stdlibFiles.length} stdlib files...`);
+                for (const [path, content] of stdlibFiles) {
+                    vfs.writeFile('/stdlib/' + path, content);
+                }
+                console.log("[Playground] stdlib mounting complete.");
+            }
         } catch (e) {
             console.error("[Playground] WASM initSync failed:", e);
         }
     }
-
-    // --- Core Dependencies ---
-    console.log("[Playground] Initializing VFS...");
-    const vfs = new VFS();
 
     // --- DOM Elements ---
     const editorCanvas = document.getElementById('editor-canvas');

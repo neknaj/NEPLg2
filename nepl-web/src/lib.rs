@@ -31,6 +31,19 @@ pub fn list_tests() -> String {
 }
 
 #[wasm_bindgen]
+pub fn get_stdlib_files() -> JsValue {
+    let entries = stdlib_entries();
+    let arr = js_sys::Array::new();
+    for (path, content) in entries {
+        let entry = js_sys::Array::new();
+        entry.push(&JsValue::from_str(path));
+        entry.push(&JsValue::from_str(content));
+        arr.push(&entry);
+    }
+    arr.into()
+}
+
+#[wasm_bindgen]
 pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
     let src = test_sources()
         .iter()
@@ -44,16 +57,23 @@ pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
 fn compile_wasm_with_entry(entry_path: &str, source: &str) -> Result<Vec<u8>, String> {
     let stdlib_root = PathBuf::from("/stdlib");
     let sources = stdlib_sources(&stdlib_root);
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::log_1(&format!("Standard library bundle contains {} files", sources.len()).into());
+    
     let mut loader = Loader::new(stdlib_root);
     let mut provider = |path: &PathBuf| {
         sources
             .get(path)
             .cloned()
             .ok_or_else(|| {
-                nepl_core::loader::LoaderError::Io(format!(
-                    "missing source: {}",
-                    path.display()
-                ))
+                let msg = format!(
+                    "missing source: {}. Available sources: {:?}",
+                    path.display(),
+                    sources.keys().collect::<Vec<_>>()
+                );
+                #[cfg(target_arch = "wasm32")]
+                web_sys::console::error_1(&msg.clone().into());
+                nepl_core::loader::LoaderError::Io(msg)
             })
     };
     let loaded = loader

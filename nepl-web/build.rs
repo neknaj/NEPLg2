@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let stdlib_root = manifest_dir.join("../../stdlib");
+    let stdlib_root = manifest_dir.join("../stdlib");
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let dest = out_dir.join("stdlib_entries.rs");
 
