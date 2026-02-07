@@ -479,12 +479,4 @@ class CanvasEditor {
         this.updateLines(); this.updateText(this.text);
         this.updateOccurrencesHighlight(); this.domUI.hideCompletion();
     }
-
-    getText() {
-        return this.text;
-    }
-
-    setText(newText) {
-        this.applyTextEdit(newText, 0, 0);
-    }
 }

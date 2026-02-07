@@ -114,10 +114,12 @@ export class CanvasTerminal {
 
     resize() {
         const rect = this.canvas.parentElement.getBoundingClientRect();
+        console.log(`[Terminal] Resizing: parentRect=${rect.width}x${rect.height}, canvas=${this.canvas.width}x${this.canvas.height}`);
         this.canvas.width = rect.width;
         this.canvas.height = rect.height;
         this.updateMetrics();
         this.render();
+        console.log(`[Terminal] Resized to: ${this.canvas.width}x${this.canvas.height}`);
     }
 
     resizeEditor() {

@@ -1,9 +1,25 @@
 import { CanvasTerminal } from './src/terminal/terminal.js';
 import { VFS } from './src/runtime/vfs.js';
 
-window.addEventListener("TrunkApplicationStarted", () => {
+console.log("main.js loaded");
+let start_flag = false;
+
+window.addEventListener("TrunkApplicationStarted", start_app);
+window.setTimeout(start_app, 1000);
+
+function start_app() {
+    if (start_flag) return;
+    start_flag = true;
+    let wasm;
+    try {
+        wasm = window.wasmBindings
+    }
+    catch (e) {
+        console.error("[Playground] WASM bindings not found, retrying in 1 second...", e);
+        window.setTimeout(start_app, 1000);
+        return;
+    }
     console.log("[Playground] Trunk application started. Initializing...");
-    const wasm = window.wasmBindings;
 
     console.log("[Playground] WASM bindings:", wasm);
     if (wasm && wasm.initSync) {
@@ -47,7 +63,7 @@ window.addEventListener("TrunkApplicationStarted", () => {
     // --- Terminal Setup ---
     console.log("[Playground] Setting up CanvasTerminal...");
     const terminal = new CanvasTerminal(terminalCanvas, terminalTextarea, null, {});
-    
+
     // Inject dependencies into shell
     if (terminal.shell) {
         terminal.shell.editor = editor;
@@ -79,7 +95,8 @@ window.addEventListener("TrunkApplicationStarted", () => {
 
         for (const file of knownExamples) {
             try {
-                const response = await fetch(`/examples/${file}`, { method: 'HEAD' });
+                // Use GET instead of HEAD for better compatibility
+                const response = await fetch(`/examples/${file}`);
                 if (response.ok) {
                     const option = document.createElement('option');
                     option.value = file;
@@ -103,7 +120,8 @@ window.addEventListener("TrunkApplicationStarted", () => {
     async function loadExample(filename) {
         console.log(`[Playground] Loading example: ${filename}`);
         try {
-            const response = await fetch(`/examples/${filename}`);
+            // Append timestamp to bust cache
+            const response = await fetch(`/examples/${filename}?t=${Date.now()}`);
             if (!response.ok) {
                 console.error(`[Playground] Failed to fetch example ${filename}: ${response.statusText}`);
                 editor.setText(`// Failed to load ${filename}`);
@@ -156,6 +174,6 @@ window.addEventListener("TrunkApplicationStarted", () => {
         editor.resizeEditor();
         terminal.resizeEditor();
         editor.focus();
-        console.log("[Playground] Initial layout and focus complete.");
+        console.log("[Playground] Initial layout and focus complete. Terminal visible?", !!terminalCanvas.offsetParent);
     }, 100);
-});
+}

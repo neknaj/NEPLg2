@@ -162,6 +162,7 @@ export class Shell {
                         return "Error: Could not retrieve text from editor (getText method missing)";
                     }
                     this.terminal.print("(Using editor content)");
+                    console.log("[Playground] Source from editor:", source);
                 } else {
                     return "Error: Editor not connected";
                 }
