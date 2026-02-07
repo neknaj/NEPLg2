@@ -2,7 +2,7 @@
 extern crate alloc;
 extern crate std;
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -25,6 +25,7 @@ pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
         funcs: BTreeMap::new(),
         specialized: BTreeMap::new(),
         worklist: Vec::new(),
+        queued: BTreeSet::new(),
         impl_map,
     };
 
@@ -104,6 +105,7 @@ struct Monomorphizer<'a> {
     funcs: BTreeMap<String, HirFunction>,
     specialized: BTreeMap<String, HirFunction>,
     worklist: Vec<(String, Vec<TypeId>)>,
+    queued: BTreeSet<String>,
     impl_map: BTreeMap<(String, String, TypeId), String>,
 }
 
@@ -129,7 +131,7 @@ impl<'a> Monomorphizer<'a> {
         };
 
         if !self.specialized.contains_key(&mangled) {
-            if !self.worklist.iter().any(|(n, a)| n == &name && a == &args) {
+            if self.queued.insert(mangled.clone()) {
                 self.worklist.push((name, args));
             }
         }
