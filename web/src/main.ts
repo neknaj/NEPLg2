@@ -119,6 +119,30 @@ function start_app() {
         terminal.shell.editor = editor;
         terminal.shell.vfs = vfs;
         (terminal.shell as any).tabManager = tabManager;
+
+        // --- Robust Interrupt Handling ---
+        // Both Ctrl+C and the "Stop" button trigger an interrupt. We need to ensure
+        // the terminal state is reset correctly in both cases. We do this by wrapping
+        // the original interrupt function.
+        const originalInterrupt = terminal.shell.interrupt.bind(terminal.shell);
+
+        const robustInterrupt = () => {
+            // Check if there's actually something to interrupt.
+            if (!(terminal.shell as any).isRunning) {
+                return;
+            }
+
+            originalInterrupt(); // Call the underlying interrupt handler
+
+            // Perform state cleanup and notify the user. This will now happen
+            // for any interrupt source (Ctrl+C or Stop button).
+            terminal.print('\n[Execution interrupted by user]');
+            (terminal.shell as any).isRunning = false;
+            terminal.focus();
+        };
+
+        // Replace the original interrupt with our robust version
+        terminal.shell.interrupt = robustInterrupt;
     }
 
     // --- Resizer Logic ---
@@ -157,7 +181,7 @@ function start_app() {
 
     // --- Simple Commands ---
     function executeCommand(cmd: string) {
-        if (terminal.shell.isRunning()) {
+        if (terminal.shell.isRunning) {
             terminal.printWarning("Execution Guard: The terminal is currently busy (process running or waiting for input). Please wait or use 'Stop' button.");
             return;
         }
@@ -210,6 +234,8 @@ function start_app() {
     clearBtn.addEventListener('click', () => terminal.clear());
     stopBtn.addEventListener('click', () => {
         if (terminal.shell && terminal.shell.interrupt) {
+            // This now calls our wrapped `robustInterrupt` function, which handles
+            // all necessary state cleanup.
             terminal.shell.interrupt();
         }
     });

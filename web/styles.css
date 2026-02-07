@@ -362,3 +362,7 @@ canvas {
 .status-right span {
     padding: 0 5px;
 }
+
+.hidden {
+    display: none !important;
+}
