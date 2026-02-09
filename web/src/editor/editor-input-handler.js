@@ -1,3 +1,4 @@
+"use strict";
 /**
  * ユーザーからのすべての入力を処理します。
  * イベントリスナーを登録し、キーボード、マウス、その他のUIイベントを解釈して、
@@ -15,7 +16,6 @@ class EditorInputHandler {
         this.hoverTimeout = null;
         this.lastHoverIndex = -1;
     }
-
     /**
      * エディタに必要なすべてのDOMイベントリスナーを登録します。
      */
@@ -29,7 +29,6 @@ class EditorInputHandler {
         });
         window.addEventListener('mouseup', this.onMouseUp.bind(this));
         this.canvas.addEventListener('wheel', this.onWheel.bind(this));
-
         document.addEventListener('click', (e) => {
             const editorContainer = this.canvas.parentElement;
             const problemsContainer = this.editor.domUI.problemsPanel ? this.editor.domUI.problemsPanel.parentElement : null;
@@ -39,7 +38,6 @@ class EditorInputHandler {
                 this.editor.blur();
             }
         });
-
         this.textarea.addEventListener('input', this.onInput.bind(this));
         this.textarea.addEventListener('keydown', this.onKeydown.bind(this));
         this.textarea.addEventListener('compositionstart', () => {
@@ -60,15 +58,14 @@ class EditorInputHandler {
         const observer = new ResizeObserver(() => this.editor.resizeEditor());
         observer.observe(this.canvas.parentElement);
     }
-
     onCopy(e) {
         e.preventDefault();
-        if (!this.editor.hasSelection()) return;
+        if (!this.editor.hasSelection())
+            return;
         const { start, end } = this.editor.getSelectionRange();
         const selectedText = this.editor.text.substring(start, end);
         e.clipboardData.setData('text/plain', selectedText);
     }
-
     onPaste(e) {
         e.preventDefault();
         const pasteText = e.clipboardData.getData('text/plain');
@@ -76,47 +73,41 @@ class EditorInputHandler {
             this.editor.insertText(pasteText);
         }
     }
-
     onCut(e) {
         e.preventDefault();
-        if (!this.editor.hasSelection()) return;
+        if (!this.editor.hasSelection())
+            return;
         this.onCopy(e);
         this.editor.deleteSelection();
     }
-
     onMouseDown(e) {
         e.preventDefault();
         this.editor.focus();
-
         if (e.offsetX < this.editor.geom.gutterWidth) {
-            const clickedRow = this.editor.utils.getPosFromIndex(
-                this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, true),
-                this.editor.lines
-            ).row;
+            const clickedRow = this.editor.utils.getPosFromIndex(this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, true, this.editor.lineStartIndices), this.editor.lines).row;
             const range = this.editor.foldingRanges.find(r => r.startLine === clickedRow);
             if (range) {
                 this.editor.toggleFold(clickedRow);
             }
             return;
         }
-
         this.isDragging = true;
-        const pos = this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY);
+        const pos = this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, false, this.editor.lineStartIndices);
         this.editor.setCursor(pos);
         this.editor.selectionStart = this.editor.cursor;
         this.editor.selectionEnd = this.editor.cursor;
         this.editor.domUI.hideCompletion();
     }
-
     onMouseMove(e) {
-        const pos = this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY);
+        const pos = this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, false, this.editor.lineStartIndices);
         if (this.isDragging) {
             this.editor.domUI.hidePopup();
             clearTimeout(this.hoverTimeout);
             this.lastHoverIndex = -1;
             this.editor.setCursor(pos);
             this.editor.selectionEnd = this.editor.cursor;
-        } else {
+        }
+        else {
             if (pos !== this.lastHoverIndex) {
                 this.lastHoverIndex = pos;
                 this.editor.domUI.hidePopup();
@@ -125,37 +116,34 @@ class EditorInputHandler {
             }
         }
     }
-
     async handleHover(e, pos) {
         const diagnostic = this.editor.diagnostics.find(d => pos >= d.startIndex && pos < d.endIndex);
         if (diagnostic) {
             this.editor.domUI.showPopup(diagnostic.message, e.clientX, e.clientY);
             return;
         }
-
-        if (!this.editor.languageProvider) return;
+        if (!this.editor.languageProvider)
+            return;
         this.lastHoverIndex = pos;
         const hoverInfo = await this.editor.languageProvider.getHoverInfo(pos);
         if (hoverInfo && hoverInfo.content) {
             this.editor.domUI.showPopup(hoverInfo.content, e.clientX, e.clientY);
         }
     }
-
     onMouseUp() {
         this.isDragging = false;
         this.editor.preferredCursorX = -1;
         this.editor.updateOccurrencesHighlight();
     }
-
     onWheel(e) {
         e.preventDefault();
         this.editor.domUI.hideCompletion();
-
         if (e.shiftKey) {
             // Treat vertical wheel as horizontal scroll when shift is held
             this.editor.scrollX += e.deltaY;
             this.editor.scrollX = Math.max(0, this.editor.scrollX);
-        } else {
+        }
+        else {
             const newScrollY = this.editor.scrollY + e.deltaY;
             const maxScrollY = Math.max(0, this.editor.lines.length * this.editor.geom.lineHeight - this.canvas.height + this.editor.geom.padding * 2);
             this.editor.scrollY = Math.max(0, Math.min(newScrollY, maxScrollY));
@@ -164,9 +152,9 @@ class EditorInputHandler {
             this.editor.scrollX = Math.max(0, this.editor.scrollX);
         }
     }
-
     onInput(e) {
-        if (this.editor.isComposing) return;
+        if (this.editor.isComposing)
+            return;
         const newText = e.target.value;
         if (newText) {
             this.editor.insertText(newText);
@@ -174,10 +162,9 @@ class EditorInputHandler {
             this.editor.triggerCompletion();
         }
     }
-
     async onKeydown(e) {
-        if (this.editor.isComposing) return;
-
+        if (this.editor.isComposing)
+            return;
         if (this.editor.domUI.isCompletionVisible) {
             switch (e.key) {
                 case 'ArrowUp':
@@ -199,7 +186,6 @@ class EditorInputHandler {
                     return;
             }
         }
-
         if ((e.ctrlKey || e.metaKey)) {
             switch (e.key.toLowerCase()) {
                 case 'a':
@@ -228,7 +214,6 @@ class EditorInputHandler {
                     return;
             }
         }
-
         if (e.key === 'F12') {
             e.preventDefault();
             if (this.editor.languageProvider) {
@@ -240,7 +225,6 @@ class EditorInputHandler {
             }
             return;
         }
-
         switch (e.key) {
             case 'Enter':
                 e.preventDefault();
@@ -256,11 +240,14 @@ class EditorInputHandler {
                         if (result && typeof result.targetIndex === 'number') {
                             this.editor.setCursor(result.targetIndex);
                         }
-                    } else {
+                    }
+                    else {
                         this.editor.handleArrowKeys(new KeyboardEvent('keydown', { key: e.key, shiftKey: e.shiftKey }));
                     }
-                    if (e.shiftKey) this.editor.selectionEnd = this.editor.cursor;
-                    else this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
+                    if (e.shiftKey)
+                        this.editor.selectionEnd = this.editor.cursor;
+                    else
+                        this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
                     this.editor.updateOccurrencesHighlight();
                     return;
                 }
@@ -292,7 +279,8 @@ class EditorInputHandler {
                 e.preventDefault();
                 if (this.editor.hasSelection()) {
                     this.editor.deleteSelection();
-                } else if (this.editor.cursor > 0) {
+                }
+                else if (this.editor.cursor > 0) {
                     this.editor.recordHistory();
                     const prevCursor = this.editor.cursor - 1;
                     this.editor.text = this.editor.text.slice(0, prevCursor) + this.editor.text.slice(this.editor.cursor);
@@ -308,7 +296,8 @@ class EditorInputHandler {
                 e.preventDefault();
                 if (this.editor.hasSelection()) {
                     this.editor.deleteSelection();
-                } else if (this.editor.cursor < this.editor.text.length) {
+                }
+                else if (this.editor.cursor < this.editor.text.length) {
                     this.editor.recordHistory();
                     this.editor.text = this.editor.text.slice(0, this.editor.cursor) + this.editor.text.slice(this.editor.cursor + 1);
                     this.editor.updateLines();
@@ -325,7 +314,8 @@ class EditorInputHandler {
                     if (result) {
                         this.editor.applyTextEdit(result.newText, result.newSelectionStart, result.newSelectionEnd);
                     }
-                } else {
+                }
+                else {
                     this.editor.insertText('\t');
                 }
                 return;
@@ -335,3 +325,4 @@ class EditorInputHandler {
         }
     }
 }
+//# sourceMappingURL=editor-input-handler.js.map
