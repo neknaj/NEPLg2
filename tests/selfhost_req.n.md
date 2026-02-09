@@ -3,9 +3,15 @@
 このファイルは Rust テスト `selfhost_req.rs` を .n.md 形式へ機械的に移植したものです。移植が難しい（複数ファイルや Rust 専用 API を使う）テストは `skip` として残しています。
 ## test_req_file_io
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみで、実行時に `fs_read_to_string` が成功するか（= 要件を満たすか）を検証していませんでした。
+このテストはファイルI/Oの要件確認が目的なので、成功時に 0 を返すことを `ret: 0` で明示し、
+失敗時はエラーコード（i32）が返ってテストが落ちるようにします。
 
+注意: このテストは `test.nepl` が実行環境に存在することを前提にしています。
+
+neplg2:test
+ret: 0
+```neplg2
 #entry main
 #indent 4
 // 想定: std/fs モジュールの追加、または std/stdio の拡張
@@ -123,9 +129,13 @@ fn main <()*>i32> ():
 
 ## test_req_string_builder
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+StringBuilder の操作結果 `"Error: 404 Not Found"` の長さが期待どおりになることを、返り値で検証します。
+文字列の長さは 20（"Error: "=7, "404"=3, " Not Found"=10）なので `ret: 20` を追加しました。
 
+neplg2:test
+ret: 20
+```neplg2
 #entry main
 #indent 4
 #import "alloc/string" as *

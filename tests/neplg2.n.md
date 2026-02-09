@@ -3,9 +3,12 @@
 このファイルは Rust テスト `neplg2.rs` を .n.md 形式へ機械的に移植したものです。移植が難しい（複数ファイルや Rust 専用 API を使う）テストは `skip` として残しています。
 ## compiles_literal_main
 
-neplg2:test
-```neplg2
+このテストは以前、コンパイルが通るかだけを確認しており、実行結果（main の返り値）を検証していませんでした。
+main は i32 を返すので、`ret:` を追加して「実際に評価した値が 1 であること」まで確認します。
 
+neplg2:test
+ret: 1
+```neplg2
 #entry main
 fn main <() -> i32> ():
     #import "core/math" as *
@@ -14,12 +17,22 @@ fn main <() -> i32> ():
 
 ## compiles_add_block_expression
 
-neplg2:test
-```neplg2
+このテストは「ブロック式（block expression）」を関数呼び出しの引数として渡す挙動を確認したい内容ですが、以前はコンパイル確認のみで、
+ブロックの評価結果が正しいか（= `add 1:` の下で計算した値が第2引数になり、合計が 6 になるか）を検証していませんでした。
 
+具体的には、
+・`add 1:` の直後の行でインデントを 1 段深くし（`#indent 4` なので 8 スペース相当）、そのブロックの最終式 `add 2 3` を第2引数として渡します。
+・ブロック末尾に `;` を付けないことで「ブロック全体の値」が `add 2 3 = 5` となり、外側で `add 1 5 = 6` になります。
+
+この期待値を `ret: 6` として明示しました。
+
+neplg2:test
+ret: 6
+```neplg2
 #entry main
 #indent 4
 
+#target wasm
 #if[target=wasm]
 fn add <(i32, i32) -> i32> (a, b):
     #wasm:
@@ -65,9 +78,13 @@ fn main <() -> i32> ():
 
 ## iftarget_non_wasm_is_skipped
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+`#if[target=other]` のブロックが非該当ターゲットではスキップされることを狙ったテストなので、
+実行時には main が 1 を返せる（= スキップが有効で bad 定義が影響しない）ことを `ret: 1` で確認します。
 
+neplg2:test
+ret: 1
+```neplg2
 #entry main
 
 #if[target=other]
@@ -80,9 +97,13 @@ fn main <() -> i32> ():
 
 ## ifprofile_debug_gate
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+`#if[profile=debug]` のゲートが有効なときに only_debug が定義され、main から呼べることを
+`ret: 123` で確認します（= 実際に only_debug が評価される）。
 
+neplg2:test
+ret: 123
+```neplg2
 #entry main
 
 #if[profile=debug]
@@ -95,9 +116,13 @@ fn main <() -> i32> ():
 
 ## ifprofile_release_skips_in_debug
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+デバッグプロファイルでは `#if[profile=release]` 部分がスキップされ、未知シンボルを含む定義がコンパイルに影響しないことを狙っています。
+実行時に main が 0 を返せることを `ret: 0` で確認します。
 
+neplg2:test
+ret: 0
+```neplg2
 #entry main
 
 #if[profile=release]
@@ -129,11 +154,16 @@ fn main <() -> i32> ():
 
 ## wasi_allows_wasm_gate
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+このテストは `#if[target=wasm]` の分岐が有効な環境で only_wasm が定義され、main から呼べることを確認したいので、
+ターゲットを明示的に `#target wasm` とし、返り値 `123` を `ret:` で検証します。
 
+neplg2:test
+ret: 123
+```neplg2
 #entry main
 
+#target wasm
 #if[target=wasm]
 fn only_wasm <() -> i32> ():
     123
@@ -144,11 +174,16 @@ fn main <() -> i32> ():
 
 ## wasm_skips_wasi_gate
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+`#if[target=wasi]` の定義が wasm ターゲットではスキップされ、未知シンボルを含む定義がコンパイルに影響しないことを狙っています。
+ターゲットを `#target wasm` と明示し、main が 0 を返すことを `ret: 0` で確認します。
 
+neplg2:test
+ret: 0
+```neplg2
 #entry main
 
+#target wasm
 #if[target=wasi]
 fn only_wasi <() -> i32> ():
     unknown_symbol
@@ -159,9 +194,13 @@ fn main <() -> i32> ():
 
 ## import_and_prelude_directives_are_accepted
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+このテストの本質は各種ディレクティブ（#prelude / #no_prelude / #import など）のパースと受理ですが、
+main が i32 を返すので `ret: 0` を付けて「実行まで通る」ことも確認します。
 
+neplg2:test
+ret: 0
+```neplg2
 #entry main
 #prelude std/prelude_base
 #no_prelude
@@ -174,26 +213,38 @@ fn main <() -> i32> ():
 
 ## string_literal_compiles
 
-neplg2:test
-```neplg2
+以前は `#extern "env" "print_str"` を呼ぶだけの内容で、実行環境（ホスト側に該当関数があるか）に依存するため、
+返り値や出力を検証できていませんでした。
 
+ここでは「文字列リテラル自体の扱い」を確実にテストするため、WASI の `std/stdio` による `print` を用いた実行可能な形に変更し、
+`stdout:` で出力が "hello" になることまで確認します。
+
+neplg2:test
+stdout: "hello"
+```neplg2
+#target wasi
 #entry main
 #indent 4
-#extern "env" "print_str" fn print <(str)*>()>
+#import "std/stdio" as *
 
-fn main <()*> ()> ():
-    print "hello";
-    ()
+fn main <()* >()> ():
+    // 文字列リテラルが評価でき、標準出力へ書き出せることを確認する
+    print "hello"
 ```
 
 ## pipe_injects_first_arg
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+パイプ演算子 `|>` が「左辺の値を右辺の関数呼び出しの第1引数へ注入する」ことを、実行結果で確認します。
+この式は `add 2 3 = 5`、`add 1 5 = 6`、最後に `6 |> add 4` により `add 6 4 = 10` となるため、`ret: 10` を追加しました。
 
+neplg2:test
+ret: 10
+```neplg2
 #entry main
 #indent 4
 
+#target wasm
 #if[target=wasm]
 fn add <(i32,i32)->i32> (a,b):
     #wasm:
@@ -219,12 +270,16 @@ fn main <()->i32> ():
 
 ## pipe_with_type_annotation_is_ok
 
-neplg2:test
-```neplg2
+以前は「型注釈つきパイプが構文上OK」かどうかのコンパイル確認のみでした。
+実際に `1 |> <i32> add 4` が `add 1 4 = 5` になることまで確認するため、`ret: 5` を追加しました。
 
+neplg2:test
+ret: 5
+```neplg2
 #entry main
 #indent 4
 
+#target wasm
 #if[target=wasm]
 fn add <(i32,i32)->i32> (a,b):
     #wasm:
@@ -238,12 +293,16 @@ fn main <()->i32> ():
 
 ## pipe_with_double_type_annotation_is_ok
 
-neplg2:test
-```neplg2
+以前は「型注釈が2回付いてもコンパイルできる」かの確認のみでした。
+実際に計算が行われ `1 |> <i32> <i32> add 4 = 5` になることを `ret: 5` で確認します。
 
+neplg2:test
+ret: 5
+```neplg2
 #entry main
 #indent 4
 
+#target wasm
 #if[target=wasm]
 fn add <(i32,i32)->i32> (a,b):
     #wasm:
@@ -269,11 +328,15 @@ fn main <()->i32> ():
 
 ## wasi_import_rejected_on_wasm_target
 
-neplg2:test
-```neplg2
+以前は単なる `neplg2:test` で、失敗すべき条件（WASM ターゲットで WASI インポートを宣言する）を検証できていませんでした。
+テスト名どおり「WASM ターゲットでは WASI インポートが拒否される」ことを確認したいので、
+ターゲットを `#target wasm` と明示し、`compile_fail` として扱います。
 
+neplg2:test[compile_fail]
+```neplg2
 #entry main
 #indent 4
+#target wasm
 #extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)->i32>
 fn main <()->()> ():
     ()
@@ -299,11 +362,15 @@ fn main <()->i32> ():
 
 ## wasm_cannot_use_stdio
 
-neplg2:test
-```neplg2
+以前は単なる `neplg2:test` で、実際には「コンパイルできてしまう」場合に検知できませんでした。
+このテスト名は「WASM ターゲットでは std/stdio が使えない（= コンパイル時に拒否される）」ことを意図しているため、
+ターゲットを `#target wasm` と明示し、`compile_fail` として検証します。
 
+neplg2:test[compile_fail]
+```neplg2
 #entry main
 #indent 4
+#target wasm
 #import "std/stdio" as *
 
 fn main <()->()> ():
@@ -344,9 +411,12 @@ fn main <()* >i32> ():
 
 ## list_get_out_of_bounds_err
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+`list_get` が範囲外アクセスで `None` を返す（= match の None 側に落ち、0 になる）ことを実行結果で確認するため、`ret: 0` を追加しました。
 
+neplg2:test
+ret: 0
+```neplg2
 #entry main
 #indent 4
 #import "alloc/collections/list" as *
@@ -394,9 +464,11 @@ fn main <()* >()> ():
 
 ## duplicate_target_directive_is_error
 
-neplg2:test
-```neplg2
+以前は単なる `neplg2:test` で、ターゲット指定の重複が本当にエラーになるかを検証できていませんでした。
+テスト名どおり「#target ディレクティブの重複はエラー」を確認したいので `compile_fail` に変更します。
 
+neplg2:test[compile_fail]
+```neplg2
 #target wasm
 #target wasi
 #entry main
@@ -406,9 +478,12 @@ fn main <()->i32> ():
 
 ## overloads_by_param_type_are_allowed
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+i32 と f32 のオーバーロードが解決され、main では i32 版 `id` が選ばれて 1 が返ることを `ret: 1` で確認します。
 
+neplg2:test
+ret: 1
+```neplg2
 #entry main
 #indent 4
 
@@ -461,9 +536,12 @@ fn main <()->i32> ():
 
 ## trait_method_call_with_impl_compiles
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+trait の関連関数呼び出し `Show::show 1` が実行でき、1 を返すことを `ret: 1` で確認します。
 
+neplg2:test
+ret: 1
+```neplg2
 #entry main
 #indent 4
 
@@ -481,9 +559,12 @@ fn main <()->i32> ():
 
 ## trait_bound_satisfied_in_generic
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+型クラス制約（trait bound）を満たす型に対してジェネリック関数が正しく呼べることを、返り値 `5` で確認します。
 
+neplg2:test
+ret: 5
+```neplg2
 #entry main
 #indent 4
 
@@ -562,9 +643,12 @@ fn main <()->i32> ():
 
 ## unreachable_does_not_force_never_in_generic
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+ジェネリック関数内の unreachable 分岐が型推論を壊さず、通常経路で値 `1` を返せることを `ret: 1` で確認します。
 
+neplg2:test
+ret: 1
+```neplg2
 #entry main
 #indent 4
 
@@ -579,3 +663,4 @@ fn pick <.T> <(.T)->.T> (x):
 fn main <()->i32> ():
     pick 1
 ```
+

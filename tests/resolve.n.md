@@ -3,9 +3,12 @@
 このファイルは Rust テスト `resolve.rs` を .n.md 形式へ機械的に移植したものです。移植が難しい（複数ファイルや Rust 専用 API を使う）テストは `skip` として残しています。
 ## parse_prelude_directives
 
-neplg2:test
-```neplg2
+以前はコンパイル確認のみでした。
+`#prelude` と `#no_prelude` のディレクティブを含むコードが「実行まで通る」ことを明確にするため、`ret: 0` を追加します。
 
+neplg2:test
+ret: 0
+```neplg2
 #prelude std/prelude_base
 #no_prelude
 #entry main
