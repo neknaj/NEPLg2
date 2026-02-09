@@ -54,7 +54,7 @@ struct Cli {
     )]
     emit: Vec<Emit>,
 
-    // WAT 出力の先頭に入力ソース（-i）をコメントとして付加する
+    // WAT 出力（wat / wat-min）の先頭に、-i で指定した入力ソースをコメントとして付加する
     #[arg(long, help = "Attach the input source as WAT comments at the top of wat/wat-min outputs")]
     attach_source: bool,
 
@@ -124,16 +124,19 @@ fn execute(cli: Cli) -> Result<()> {
         return Err(anyhow::anyhow!("Either --run or --output is required"));
     }
     let emits = expand_emits(&cli.emit);
-    let input_path = cli.input.clone();
-    let program_name = input_path
+    let program_name = cli
+        .input
         .clone()
         .unwrap_or_else(|| "<stdin>".to_string());
+    let input_path = cli.input.clone();
     let (module, source_map) = match &cli.input {
         Some(path) => {
             eprintln!("DEBUG: Creating Loader for path: {}", path);
             let mut loader = Loader::new(stdlib_root()?);
             eprintln!("DEBUG: Loader created, starting load");
-            match loader.load(&PathBuf::from(path)) {
+            // Loader::load は &PathBuf を要求するため、入力パス(String)を PathBuf に変換して渡す
+            let entry: PathBuf = PathBuf::from(path);
+            match loader.load(&entry) {
                 Ok(res) => {
                     eprintln!("DEBUG: Load successful");
                     (res.module, loader.source_map().clone())
@@ -231,17 +234,22 @@ fn execute(cli: Cli) -> Result<()> {
             return Err(anyhow::anyhow!(e.to_string()));
         },
     };
-    let attached_source = if cli.attach_source {
-        match &input_path {
-            Some(p) => Some(read_attached_source(Path::new(p))?),
-            None => None,
-        }
-    } else {
-        None
-    };
-
     if let Some(out) = &cli.output {
         let base = output_base_from_arg(out);
+
+        // --attach-source が true の場合、wat / wat-min の先頭に入力ソースをコメントとして付加する
+        // stdin から読み込んだ場合（--input が無い）は付加できないのでエラーにする
+        let attached_source = if cli.attach_source
+            && (emits.contains(&Emit::Wat) || emits.contains(&Emit::WatMin))
+        {
+            let input = input_path
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("--attach-source requires --input"))?;
+            Some(read_attached_source(Path::new(input))?)
+        } else {
+            None
+        };
+
         write_outputs(&base, &artifact.wasm, &emits, attached_source.as_ref())?;
     }
     if cli.run {
@@ -397,6 +405,12 @@ fn expand_emits(emits: &[Emit]) -> BTreeSet<Emit> {
 }
 
 
+// このラッパーが依存している NEPLg2 コンパイラの情報（固定値）
+// 生成した WAT に「どのコンパイラで生成したか」を残すために使う
+const NEPLG2_REPO_URL: &str = "https://github.com/neknaj/NEPLg2/";
+const NEPLG2_COMPILER_COMMIT: &str = env!("NEPLG2_COMPILER_COMMIT");
+const NEPLG2_COMPILER_COMMIT_URL: &str = concat!("https://github.com/neknaj/NEPLg2/commit/", env!("NEPLG2_COMPILER_COMMIT"));
+
 struct AttachedSource {
     path: PathBuf,
     text: String,
@@ -413,9 +427,26 @@ fn read_attached_source(path: &Path) -> Result<AttachedSource> {
     })
 }
 
+fn prepend_compiler_info_as_wat_comment(wat: &str) -> String {
+    // WAT の行コメント ";;" を使って、コンパイラ情報を先頭に付加する
+    // 仕様上、コメントはトークン間の空白として扱われるため、(module ...) の前に置ける
+    let mut out = String::new();
+    out.push_str(";; compiler: NEPLg2 ");
+    out.push_str(NEPLG2_REPO_URL);
+    out.push('\n');
+    out.push_str(";; compiler commit: ");
+    out.push_str(NEPLG2_COMPILER_COMMIT);
+    out.push('\n');
+    out.push_str(";; compiler commit url: ");
+    out.push_str(NEPLG2_COMPILER_COMMIT_URL);
+    out.push_str("\n\n");
+    out.push_str(wat);
+    out
+}
+
 fn prepend_attached_source_as_wat_comment(wat: &str, attached: &AttachedSource) -> String {
     // WAT の行コメント ";;" を使って、任意のテキストを安全にコメント化する
-    // 仕様上、コメントはトークン間の空白として扱われるため、(module ...) の前に置ける
+    // 各行を ";; " で始めることで、入力テキストに何が含まれていても「コメントから抜けない」
     let mut out = String::new();
     out.push_str(";; ---- BEGIN ATTACHED SOURCE ----\n");
     out.push_str(";; path: ");
@@ -458,6 +489,7 @@ fn write_outputs(base: &Path, wasm: &[u8], emits: &BTreeSet<Emit>, attached_sour
         if let Some(attached) = attached_source {
             wat_text = prepend_attached_source_as_wat_comment(&wat_text, attached);
         }
+        wat_text = prepend_compiler_info_as_wat_comment(&wat_text);
         write_bytes(&path, wat_text.as_bytes())?;
     }
     if emits.contains(&Emit::WatMin) {
@@ -467,11 +499,11 @@ fn write_outputs(base: &Path, wasm: &[u8], emits: &BTreeSet<Emit>, attached_sour
         if let Some(attached) = attached_source {
             wat_text = prepend_attached_source_as_wat_comment(&wat_text, attached);
         }
+        wat_text = prepend_compiler_info_as_wat_comment(&wat_text);
         write_bytes(&path, wat_text.as_bytes())?;
     }
     Ok(())
 }
-
 fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1310,7 +1342,7 @@ mod tests {
         emits.insert(Emit::Wat);
         emits.insert(Emit::WatMin);
 
-        write_outputs(&base, wasm, &emits).expect("write outputs");
+        write_outputs(&base, wasm, &emits, None).expect("write outputs");
 
         let wasm_path = base.with_extension("wasm");
         let wat_path = base.with_extension("wat");
