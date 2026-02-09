@@ -1,0 +1,1174 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NMD Doctest Viewer</title>
+
+    <meta property="og:title" content="NEPLg2 NMD Doctest Viewer">
+    <meta property="og:description" content="Visualize /tests/*.n.md doctest results (tests.json).">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://neknaj.github.io/NEPLg2/tests.html">
+    <link rel="canonical" href="https://neknaj.github.io/NEPLg2/tests.html">
+
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@bem130">
+    <meta name="twitter:creator" content="@bem130">
+
+    <style>
+        :root {
+            color-scheme: dark;
+
+            --bg: #0b0f14;
+            --bg-2: #0f1620;
+            --panel: rgba(17, 24, 39, 0.72);
+            --panel-2: rgba(17, 24, 39, 0.52);
+            --border: rgba(148, 163, 184, 0.14);
+            --border-2: rgba(148, 163, 184, 0.10);
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+
+            --text: #e5e7eb;
+            --muted: #9aa4b2;
+            --faint: #64748b;
+
+            --accent: #7c3aed;
+            --accent-2: #22c55e;
+
+            --ok: #22c55e;
+            --fail: #ef4444;
+            --ignored: #a1a1aa;
+            --warn: #f59e0b;
+
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--sans);
+            background:
+                radial-gradient(1200px 800px at 10% 0%, rgba(124, 58, 237, 0.20), transparent 60%),
+                radial-gradient(1000px 700px at 90% 10%, rgba(34, 197, 94, 0.14), transparent 55%),
+                radial-gradient(900px 600px at 50% 110%, rgba(59, 130, 246, 0.10), transparent 55%),
+                var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            min-width: 320px;
+        }
+
+        .app {
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(11, 15, 20, 0.72);
+            backdrop-filter: blur(14px);
+        }
+
+        .header-row {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .brand {
+                min-width: 100%;
+            }
+        }
+
+        .logo {
+            width: 38px;
+            height: 38px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.9), rgba(34, 197, 94, 0.8));
+            box-shadow: 0 12px 26px rgba(124, 58, 237, 0.18);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 14px;
+            }
+        }
+
+        .sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex: 1;
+            justify-content: flex-end;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                width: 100%;
+                justify-content: stretch;
+            }
+            
+            .controls .input {
+                flex: 1;
+                min-width: 0;
+            }
+        }
+
+        .mono {
+            font-family: var(--mono);
+        }
+
+        .input {
+            border: 1px solid var(--border);
+            background: rgba(3, 7, 18, 0.55);
+            color: var(--text);
+            border-radius: 14px;
+            padding: 10px 12px;
+            outline: none;
+            font-size: 12px;
+            width: 100%;
+            max-width: 260px;
+        }
+        
+        @media (max-width: 768px) {
+            .input {
+                max-width: none;
+            }
+        }
+
+        .input:focus {
+            border-color: rgba(124, 58, 237, 0.6);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+        }
+
+        button {
+            border: 1px solid var(--border);
+            background: rgba(15, 22, 32, 0.78);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 14px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        button:hover {
+            border-color: rgba(124, 58, 237, 0.45);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(59, 130, 246, 0.75));
+            border-color: rgba(124, 58, 237, 0.5);
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.05);
+        }
+
+        .content {
+            overflow: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+        }
+        
+        .content::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        .content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .content::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 5px;
+        }
+        
+        .content::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.5);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 14px 16px 24px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px 12px 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px 8px 16px;
+            }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        @media (max-width: 768px) {
+            .card {
+                border-radius: 16px;
+            }
+        }
+
+        .pad {
+            padding: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+            padding: 10px 12px;
+        }
+
+        .tab {
+            padding: 8px 10px;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            background: transparent;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .tab.active {
+            color: var(--text);
+            border-color: rgba(124, 58, 237, 0.5);
+            background: rgba(124, 58, 237, 0.13);
+        }
+
+        .grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .summary {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+        
+        @media (min-width: 768px) {
+            .summary {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .summaryCard {
+            background: var(--panel-2);
+            border: 1px solid var(--border-2);
+            border-radius: 16px;
+            padding: 12px;
+        }
+
+        .summaryLabel {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .summaryValue {
+            font-size: 20px;
+            font-weight: 800;
+            margin-top: 4px;
+            letter-spacing: 0.3px;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px 14px;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        @media (max-width: 768px) {
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .toolbar-left {
+                width: 100%;
+            }
+            
+            .toolbar-left .input {
+                flex: 1;
+                min-width: 0;
+            }
+        }
+
+        .chips {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(3, 7, 18, 0.28);
+            color: var(--muted);
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .chip.on {
+            color: var(--text);
+            border-color: rgba(124, 58, 237, 0.5);
+            background: rgba(124, 58, 237, 0.13);
+        }
+
+        .chip .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 99px;
+            background: var(--ignored);
+        }
+
+        .dot.ok {
+            background: var(--ok);
+        }
+
+        .dot.fail {
+            background: var(--fail);
+        }
+
+        .dot.ignored {
+            background: var(--ignored);
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 8px;
+            line-height: 1.45;
+        }
+
+        .error {
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            background: rgba(239, 68, 68, 0.10);
+            color: #fecaca;
+            padding: 12px 14px;
+            border-radius: 16px;
+        }
+
+        details.suite {
+            border-top: 1px solid var(--border-2);
+            padding: 10px 12px;
+        }
+
+        details.suite[open] {
+            background: rgba(3, 7, 18, 0.20);
+        }
+
+        summary.suiteHead {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            cursor: pointer;
+            padding: 6px 0;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 600px) {
+            summary.suiteHead {
+                gap: 8px;
+            }
+        }
+
+        summary.suiteHead::-webkit-details-marker {
+            display: none;
+        }
+
+        .suiteTitle {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .suiteFile {
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .suiteMeta {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(3, 7, 18, 0.28);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .pill.ok {
+            color: #bbf7d0;
+            border-color: rgba(34, 197, 94, 0.35);
+            background: rgba(34, 197, 94, 0.10);
+        }
+
+        .pill.fail {
+            color: #fecaca;
+            border-color: rgba(239, 68, 68, 0.35);
+            background: rgba(239, 68, 68, 0.10);
+        }
+
+        .testRow {
+            border-top: 1px dashed rgba(148, 163, 184, 0.18);
+            padding: 0 0 4px 0;
+        }
+        
+        .testRow:first-of-type {
+            border-top: 0;
+        }
+        
+        .testSummary {
+            list-style: none;
+            cursor: pointer;
+            display: grid;
+            grid-template-columns: 26px 1fr auto;
+            gap: 10px;
+            align-items: start;
+            padding: 10px 0 6px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .testSummary {
+                grid-template-columns: 26px 1fr;
+                gap: 8px;
+            }
+            
+            .testSummary > div:last-child {
+                grid-column: 2 / 3;
+                margin-top: 6px;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .testSummary {
+                padding: 8px 0 6px 0;
+            }
+            
+            .testRow {
+                padding: 0 0 2px 0;
+            }
+        }
+
+        .testName {
+            font-size: 12px;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .testAttrs {
+            margin-top: 6px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border-2);
+            color: var(--muted);
+            background: rgba(15, 22, 32, 0.52);
+        }
+
+        .detailsBox {
+            margin: 10px 0 8px 0;
+            border: 1px solid var(--border-2);
+            background: rgba(3, 7, 18, 0.40);
+            border-radius: 16px;
+            padding: 12px 14px;
+            overflow: hidden;
+        }
+        
+        @media (max-width: 768px) {
+            .detailsBox {
+                padding: 10px 12px;
+                border-radius: 14px;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .detailsBox {
+                padding: 10px;
+            }
+        }
+
+        .kv {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 8px 12px;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+        
+        @media (max-width: 768px) {
+            .kv {
+                grid-template-columns: 90px 1fr;
+                gap: 6px 10px;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .kv {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+            
+            .kv .k {
+                font-weight: 600;
+                margin-top: 8px;
+            }
+            
+            .kv .k:first-child {
+                margin-top: 0;
+            }
+        }
+
+        .kv .k {
+            color: var(--muted);
+        }
+        
+        .kv .v {
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        pre {
+            margin: 10px 0 0;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid var(--border-2);
+            background: rgba(3, 7, 18, 0.58);
+            overflow: auto;
+            font-size: 12px;
+            line-height: 1.45;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            max-width: 100%;
+        }
+        
+        pre::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        pre::-webkit-scrollbar-track {
+            background: rgba(3, 7, 18, 0.3);
+            border-radius: 4px;
+        }
+        
+        pre::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 4px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .table {
+                font-size: 11px;
+            }
+            
+            .table th,
+            .table td {
+                padding: 8px 10px;
+            }
+        }
+
+        .table th,
+        .table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-2);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .table th {
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            text-transform: uppercase;
+            position: sticky;
+            top: 0;
+            background: rgba(15, 22, 32, 0.92);
+            backdrop-filter: blur(10px);
+            z-index: 1;
+        }
+
+        .status-ok {
+            color: #bbf7d0;
+        }
+
+        .status-fail {
+            color: #fecaca;
+        }
+
+        .status-ignored {
+            color: #e5e7eb;
+            opacity: 0.7;
+        }
+        
+        .testSummary .status-ok,
+        .testSummary .status-fail {
+            white-space: nowrap;
+        }
+
+        footer {
+            padding: 12px 16px 18px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        a {
+            color: inherit;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <header>
+            <div class="header-row">
+                <div class="brand">
+                    <div class="logo" aria-hidden="true"></div>
+                    <div>
+                        <h1>NMD Doctest Viewer</h1>
+                        <div class="sub">
+                            <span class="mono">tests.json</span>（/tests/*.n.md の doctest 結果）を読み込み、一覧表示します。
+                            <span style="margin-left:10px;">
+                                <a href="./" target="_blank" rel="noopener">Playground</a> /
+                                <a href="./testinfo.html" target="_blank" rel="noopener">Cargo</a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <input id="json-url" class="input" value="./tests.json"
+                        placeholder="./tests.json" />
+                    <button class="btn-primary" id="btn-load">Load (fetch)</button>
+                    <button id="btn-toggle-paste">Paste</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="container">
+                <div id="paste-card" class="card pad" style="display:none; margin-bottom: 12px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                        <div style="font-weight:700;">Paste tests.json</div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button id="btn-parse-paste" class="btn-primary">Parse pasted JSON</button>
+                            <button id="btn-clear-paste">Clear</button>
+                        </div>
+                    </div>
+                    <textarea id="paste-area" spellcheck="false"
+                        style="width:100%; margin-top:10px; height: 200px; border-radius: 14px; padding: 10px 12px; border: 1px solid var(--border); background: rgba(3,7,18,0.60); color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.45; outline:none;"
+                        placeholder="Paste tests.json here."></textarea>
+                    <div class="hint">
+                        Tip: <span class="mono">file://</span> で開くと <span class="mono">fetch()</span> がブロックされがちです。
+                        ローカルサーバ（例: <span class="mono">python -m http.server</span>）で開くか、Paste を使ってください。
+                    </div>
+                </div>
+
+                <div id="root" class="card">
+                    <div class="tabs">
+                        <button class="tab active" id="tab-files">Files</button>
+                        <button class="tab" id="tab-flat">File × Test</button>
+                    </div>
+
+                    <div id="summary" class="grid summary" style="padding: 14px;"></div>
+
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <input id="query" class="input"
+                                placeholder="Filter by file / test / reason / attrs ..." />
+                            <div class="chips">
+                                <div class="chip on" id="chip-ok"><span class="dot ok"></span> ok</div>
+                                <div class="chip on" id="chip-fail"><span class="dot fail"></span> failed</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <span class="mono" id="meta" style="color:var(--muted); font-size:12px;"></span>
+                        </div>
+                    </div>
+
+                    <div id="body"></div>
+                </div>
+
+                <footer>
+                    <div id="footer-hint"></div>
+                </footer>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // -------------------------
+        // Utilities
+        // -------------------------
+        const escapeHtml = (s) => {
+            if (s === null || s === undefined) return "";
+            return String(s)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        };
+
+        const pretty = (v) => {
+            if (v === null || v === undefined) return "";
+            if (typeof v === "string") return v;
+            try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+        };
+
+        const normalizeStatus = (r) => r.ok ? "ok" : "failed";
+
+        const shortPath = (p) => {
+            if (!p) return "";
+            // Local absolute paths -> try to keep after /tests/ or after last /
+            const s = String(p).replaceAll("\\", "/");
+            const i = s.lastIndexOf("/tests/");
+            if (i >= 0) return s.slice(i + 1);
+            // For /mnt/data/rs_nmd/foo.n.md etc
+            const j = s.lastIndexOf("/");
+            return j >= 0 ? s.slice(j + 1) : s;
+        };
+
+        // -------------------------
+        // State
+        // -------------------------
+        const state = {
+            raw: null,
+            results: /** @type {any[]} */([]),
+            view: "files", // files|flat
+            filterText: "",
+            showOk: true,
+            showFail: true,
+        };
+
+        const dom = {
+            url: document.getElementById("json-url"),
+            btnLoad: document.getElementById("btn-load"),
+            btnTogglePaste: document.getElementById("btn-toggle-paste"),
+            pasteCard: document.getElementById("paste-card"),
+            pasteArea: document.getElementById("paste-area"),
+            btnParsePaste: document.getElementById("btn-parse-paste"),
+            btnClearPaste: document.getElementById("btn-clear-paste"),
+
+            tabFiles: document.getElementById("tab-files"),
+            tabFlat: document.getElementById("tab-flat"),
+
+            summary: document.getElementById("summary"),
+            body: document.getElementById("body"),
+            query: document.getElementById("query"),
+            chipOk: document.getElementById("chip-ok"),
+            chipFail: document.getElementById("chip-fail"),
+            meta: document.getElementById("meta"),
+            footerHint: document.getElementById("footer-hint"),
+        };
+
+        // -------------------------
+        // Parsing
+        // -------------------------
+        function coerceToModel(json) {
+            // Expected schema (current):
+            // { summary: {total, passed, failed}, results: [{filePath,name,attrs,stdin,stdout,stderr,ret,code,ok,reason,actual}] }
+            // But we keep it resilient.
+            const results = Array.isArray(json?.results) ? json.results : (Array.isArray(json) ? json : []);
+            const norm = results.map((r, idx) => {
+                const filePath = r.filePath ?? r.file ?? r.path ?? "";
+                const name = r.name ?? r.test ?? `test:${idx}`;
+                const attrs = Array.isArray(r.attrs) ? r.attrs : (Array.isArray(r.attr) ? r.attr : []);
+                const ok = (typeof r.ok === "boolean") ? r.ok : (r.status === "ok" || r.status === "passed");
+                const reason = r.reason ?? r.message ?? "";
+                return {
+                    idx,
+                    origin: r.origin ?? "",
+                    filePath,
+                    fileShort: shortPath(filePath),
+                    name,
+                    attrs,
+                    stdin: r.stdin ?? null,
+                    stdout: r.stdout ?? null,
+                    stderr: r.stderr ?? null,
+                    ret: (r.ret !== undefined) ? r.ret : null,
+                    code: r.code ?? r.source ?? "",
+                    ok,
+                    reason,
+                    actual: r.actual ?? null,
+                };
+            });
+            return { results: norm, summary: json?.summary ?? null };
+        }
+
+        // -------------------------
+        // Filtering / Aggregation
+        // -------------------------
+        function filteredResults() {
+            const q = state.filterText.trim().toLowerCase();
+            return state.results.filter(r => {
+                const st = normalizeStatus(r);
+                if (st === "ok" && !state.showOk) return false;
+                if (st === "failed" && !state.showFail) return false;
+
+                if (!q) return true;
+                const hay = [
+                    r.fileShort, r.filePath, r.name,
+                    r.reason,
+                    ...(r.attrs || []),
+                    r.origin || ""
+                ].join("\n").toLowerCase();
+                return hay.includes(q);
+            });
+        }
+
+        function aggregateTotals(results) {
+            let total = 0, passed = 0, failed = 0;
+            for (const r of results) {
+                total++;
+                if (r.ok) passed++; else failed++;
+            }
+            return { total, passed, failed };
+        }
+
+        function groupByFile(results) {
+            /** @type {Map<string, any[]>} */
+            const mp = new Map();
+            for (const r of results) {
+                const key = r.fileShort || r.filePath || "(unknown)";
+                if (!mp.has(key)) mp.set(key, []);
+                mp.get(key).push(r);
+            }
+            // stable order
+            const entries = [...mp.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+            return entries.map(([file, tests]) => ({
+                file,
+                tests: tests.slice().sort((x, y) => x.name.localeCompare(y.name)),
+            }));
+        }
+
+        // -------------------------
+        // Rendering
+        // -------------------------
+        function renderSummary(t) {
+            dom.summary.innerHTML = `
+                <div class="summaryCard">
+                    <div class="summaryLabel">TOTAL</div>
+                    <div class="summaryValue mono">${t.total}</div>
+                </div>
+                <div class="summaryCard">
+                    <div class="summaryLabel">PASSED</div>
+                    <div class="summaryValue mono" style="color:var(--ok);">${t.passed}</div>
+                </div>
+                <div class="summaryCard">
+                    <div class="summaryLabel">FAILED</div>
+                    <div class="summaryValue mono" style="color:var(--fail);">${t.failed}</div>
+                </div>
+            `;
+        }
+
+        function renderFilesView(groups) {
+            const statusPill = (ok, passed, total) => {
+                const cls = ok ? "ok" : "fail";
+                const label = ok ? "ok" : "FAILED";
+                return `<span class="pill ${cls} mono">${label} ${passed}/${total}</span>`;
+            };
+
+            const testIcon = (ok) => ok
+                ? `<span class="dot ok" title="ok"></span>`
+                : `<span class="dot fail" title="failed"></span>`;
+
+            const renderTestDetails = (r) => {
+                const parts = [];
+                parts.push(`<div class="kv">
+                    <div class="k">status</div><div class="v mono ${r.ok ? "status-ok" : "status-fail"}" style="font-weight:800;">${r.ok ? "ok" : "FAILED"}</div>
+                    <div class="k">reason</div><div class="v">${escapeHtml(r.reason || "")}</div>
+                    <div class="k">origin</div><div class="v mono">${escapeHtml(r.origin || "")}</div>
+                </div>`);
+
+                if (r.ret !== null) {
+                    parts.push(`<div class="kv"><div class="k">ret</div><div class="v mono">${escapeHtml(pretty(r.ret))}</div></div>`);
+                }
+                if (r.stdout !== null) {
+                    parts.push(`<div class="kv"><div class="k">stdout</div><div class="v mono">${escapeHtml(pretty(r.stdout))}</div></div>`);
+                }
+                if (r.stderr !== null) {
+                    parts.push(`<div class="kv"><div class="k">stderr</div><div class="v mono">${escapeHtml(pretty(r.stderr))}</div></div>`);
+                }
+                if (r.actual !== null && r.actual !== undefined) {
+                    parts.push(`<div class="kv"><div class="k">actual</div><div class="v mono">${escapeHtml(pretty(r.actual))}</div></div>`);
+                }
+                if (r.stdin !== null) {
+                    parts.push(`<div class="kv"><div class="k">stdin</div><div class="v mono">${escapeHtml(pretty(r.stdin))}</div></div>`);
+                }
+                if (r.code) {
+                    parts.push(`<div style="margin-top:10px; color:var(--muted); font-size:12px;">code</div>
+                        <pre class="mono">${escapeHtml(r.code)}</pre>`);
+                }
+                return `<div class="detailsBox">${parts.join("")}</div>`;
+            };
+
+            dom.body.innerHTML = `
+                ${groups.map(g => {
+                    const total = g.tests.length;
+                    const passed = g.tests.filter(t => t.ok).length;
+                    const okSuite = passed === total;
+                    return `
+                        <details class="suite" ${okSuite ? "" : "open"}>
+                            <summary class="suiteHead">
+                                <div class="suiteTitle">
+                                    <div class="suiteFile mono">${escapeHtml(g.file)}</div>
+                                    <div class="suiteMeta mono">${passed}/${total}</div>
+                                </div>
+                                <div>${statusPill(okSuite, passed, total)}</div>
+                            </summary>
+                            <div style="padding: 4px 0 8px;">
+                                ${g.tests.map(r => {
+                                    const tags = (r.attrs || []).map(a => `<span class="tag mono">${escapeHtml(a)}</span>`).join("");
+                                    return `
+                                        <details class="testRow" ${r.ok ? "" : "open"}>
+                                            <summary class="testSummary">
+                                                <div>${testIcon(r.ok)}</div>
+                                                <div class="testName">
+                                                    <div class="mono" style="font-weight:700;">${escapeHtml(r.name)}</div>
+                                                    <div style="margin-top:4px; color:var(--muted);">${escapeHtml(r.reason || "")}</div>
+                                                    ${tags ? `<div class="testAttrs">${tags}</div>` : ""}
+                                                </div>
+                                                <div class="mono ${r.ok ? "status-ok" : "status-fail"}" style="font-weight:800;">${r.ok ? "ok" : "FAILED"}</div>
+                                            </summary>
+                                            ${renderTestDetails(r)}
+                                        </details>
+                                    `;
+                                }).join("")}
+                            </div>
+                        </details>
+                    `;
+                }).join("")}
+            `;
+        }
+
+        function renderFlatView(results) {
+            const statusClass = (ok) => ok ? "status-ok" : "status-fail";
+            dom.body.innerHTML = `
+                <div class="card" style="margin-top:12px; overflow:hidden;">
+                    <div style="padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px;">
+                        Showing <span class="mono">${results.length}</span> tests (filtered).
+                    </div>
+                    <div style="max-height: 65vh; overflow:auto;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 28%;">File</th>
+                                    <th>Test</th>
+                                    <th style="width: 14%;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${results.map(r => `
+                                    <tr>
+                                        <td class="mono">${escapeHtml(r.fileShort || r.filePath || "")}</td>
+                                        <td class="mono">${escapeHtml(r.name)}</td>
+                                        <td class="mono ${statusClass(r.ok)}" style="font-weight:800;">${r.ok ? "ok" : "FAILED"}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const rs = filteredResults();
+            const totals = aggregateTotals(rs);
+            renderSummary(totals);
+
+            // meta
+            const rawTotals = aggregateTotals(state.results);
+            dom.meta.textContent = `Loaded ${rawTotals.total} tests`;
+
+            if (state.results.length === 0) {
+                dom.body.innerHTML = `<div class="error pad">0 tests. Load ./tests.json か Paste を使ってください。</div>`;
+                dom.footerHint.textContent = "";
+                return;
+            }
+
+            if (state.view === "files") {
+                const groups = groupByFile(rs);
+                renderFilesView(groups);
+                dom.footerHint.textContent = `Files: ${groups.length} / Tests: ${rs.length} (filtered).`;
+            } else {
+                renderFlatView(rs);
+                dom.footerHint.textContent = `Tests: ${rs.length} (filtered).`;
+            }
+        }
+
+        // -------------------------
+        // IO: fetch / paste
+        // -------------------------
+        async function loadFromUrl() {
+            const url = dom.url.value.trim() || "./tests.json";
+            dom.footerHint.textContent = "Loading.";
+            try {
+                const res = await fetch(url, { cache: "no-store" });
+                if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+                const json = await res.json();
+                state.raw = json;
+                const model = coerceToModel(json);
+                state.results = model.results;
+                render();
+            } catch (e) {
+                dom.body.innerHTML = `<div class="error pad">Load failed: ${escapeHtml(e?.message || String(e))}</div>`;
+                dom.footerHint.textContent = "";
+            }
+        }
+
+        function loadFromText(txt) {
+            try {
+                const json = JSON.parse(txt);
+                state.raw = json;
+                const model = coerceToModel(json);
+                state.results = model.results;
+                render();
+            } catch (e) {
+                dom.body.innerHTML = `<div class="error pad">JSON parse failed: ${escapeHtml(e?.message || String(e))}</div>`;
+                dom.footerHint.textContent = "";
+            }
+        }
+
+        // -------------------------
+        // Events
+        // -------------------------
+        dom.btnLoad.addEventListener("click", loadFromUrl);
+
+        dom.btnTogglePaste.addEventListener("click", () => {
+            const on = dom.pasteCard.style.display !== "none";
+            dom.pasteCard.style.display = on ? "none" : "block";
+        });
+
+        dom.btnParsePaste.addEventListener("click", () => loadFromText(dom.pasteArea.value));
+        dom.btnClearPaste.addEventListener("click", () => { dom.pasteArea.value = ""; });
+
+        dom.tabFiles.addEventListener("click", () => {
+            state.view = "files";
+            dom.tabFiles.classList.add("active");
+            dom.tabFlat.classList.remove("active");
+            render();
+        });
+
+        dom.tabFlat.addEventListener("click", () => {
+            state.view = "flat";
+            dom.tabFlat.classList.add("active");
+            dom.tabFiles.classList.remove("active");
+            render();
+        });
+
+        dom.query.addEventListener("input", () => {
+            state.filterText = dom.query.value;
+            render();
+        });
+
+        dom.chipOk.addEventListener("click", () => {
+            state.showOk = !state.showOk;
+            dom.chipOk.classList.toggle("on", state.showOk);
+            render();
+        });
+
+        dom.chipFail.addEventListener("click", () => {
+            state.showFail = !state.showFail;
+            dom.chipFail.classList.toggle("on", state.showFail);
+            render();
+        });
+
+        // Auto-load when hosted (fetch should work).
+        // If fetch fails (e.g. file://), user can paste.
+        loadFromUrl();
+    </script>
+</body>
+
+</html>
