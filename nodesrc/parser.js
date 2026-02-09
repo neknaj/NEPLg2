@@ -1,302 +1,132 @@
-/**
- * parser.js
- *
- * .n.md (Gloss + Nest 拡張Markdown) を AST に変換するパーサ。
- *
- * 目的:
- * - README.n.md に書かれている拡張記法（Gloss, ruby, Nest, break ルール, コードフェンス等）を
- *   Node.js 側で解釈できるようにする。
- *
- * 設計方針:
- * - Markdown 全機能を目指さず、「nm が必要とする最小集合」をまず正確に実装する。
- * - AST を先に作り、HTML 生成は別モジュール (html_gen.js) に分離する。
- *
- * 仕様の要点:
- * - 見出し (#..######) により Section をネストする（Nest）。
- * - '---' は <hr/> を出し、さらに Section を 1 段だけ close する。
- * - ';;;' は表示せず Section を 1 段だけ close する。
- * - '----' 以上のハイフンは <hr/> として扱うが Nest には干渉しない。
- * - 改行:
- *   - .n.md 内の実改行は改行として表示される。
- *   - 文字列としての '\n' も改行として表示される（README の規則）。
- */
+// nodesrc/parser.js
+// 目的:
+// - .n.md（拡張 Markdown）から doctest と本文を抽出する
+// - .nepl 内のドキュメントコメント（//:）から doctest と本文を抽出する
+//
+// 方針:
+// - doctest は「neplg2:test」行の直後の ```neplg2 コードブロックを 1 テストケースとして扱う
+// - コードブロック内の行頭 "|" は「本文では隠したい前置き」だが、テスト実行には含める
 
-function isHeadingLine(line) {
-    const m = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (!m) return null;
-    return { level: m[1].length, text: m[2] };
+const fs = require('node:fs');
+
+function parseTags(s) {
+    // neplg2:test[compile_fail,should_panic]
+    const m = s.match(/neplg2:test(?:\[([^\]]+)\])?/);
+    if (!m) return [];
+    if (!m[1]) return [];
+    return m[1].split(',').map(x => x.trim()).filter(Boolean);
 }
 
-function isFenceStart(line) {
-    const m = /^```([^\s`]*)\s*$/.exec(line);
-    if (!m) return null;
-    return { lang: m[1] || "" };
-}
-
-function isFenceEnd(line) {
-    return /^```\s*$/.test(line);
-}
-
-function isBreakClose1(line) {
-    return line === ';;;';
-}
-
-function isBreakHrClose1(line) {
-    return line === '---';
-}
-
-function isHrOnly(line) {
-    // ---- 以上は hr だが Nest に干渉しない（README の規則）
-    return /^-{4,}\s*$/.test(line);
-}
-
-function normalizeNewlinesLiteral(s) {
-    // 文字列としての "\n" を実改行にする
-    return s.replace(/\\n/g, "\n");
-}
-
-// インライン解析（最小実装）
-// - Math: $...$ / $$...$$ は中身を保護
-// - Ruby: [漢字/かんじ] ただし [text](url) はリンクとみなし ruby 解析しない
-// - Gloss: {A/b/β} ただし [] 内の / は区切りにしない
-function parseInlines(text) {
-    const s = normalizeNewlinesLiteral(text);
-    const out = [];
-    let i = 0;
-
-    const pushText = (t) => {
-        if (!t) return;
-        const prev = out[out.length - 1];
-        if (prev && prev.type === "text") prev.text += t;
-        else out.push({ type: "text", text: t });
-    };
-
-    const readUntil = (needle, start) => {
-        const idx = s.indexOf(needle, start);
-        if (idx === -1) return null;
-        return { end: idx, content: s.slice(start, idx) };
-    };
-
-    const splitGlossParts = (inner) => {
-        // [] の中では / を区切りとして扱わない
-        const parts = [];
-        let buf = "";
-        let bracket = 0;
-        for (let k = 0; k < inner.length; k++) {
-            const ch = inner[k];
-            if (ch === '[') bracket++;
-            if (ch === ']') bracket = Math.max(0, bracket - 1);
-            if (ch === '/' && bracket === 0) {
-                parts.push(buf);
-                buf = "";
-                continue;
-            }
-            buf += ch;
-        }
-        parts.push(buf);
-        return parts;
-    };
-
-    while (i < s.length) {
-        // $$...$$
-        if (s.startsWith("$$", i)) {
-            const r = readUntil("$$", i + 2);
-            if (r) {
-                out.push({ type: "math", display: true, text: r.content });
-                i = r.end + 2;
-                continue;
-            }
-        }
-        // $...$
-        if (s[i] === '$') {
-            const r = readUntil("$", i + 1);
-            if (r) {
-                out.push({ type: "math", display: false, text: r.content });
-                i = r.end + 1;
-                continue;
-            }
-        }
-        // Gloss { ... }
-        if (s[i] === '{') {
-            const r = readUntil("}", i + 1);
-            if (r) {
-                const parts = splitGlossParts(r.content).map(p => p.trim());
-                if (parts.length >= 2) {
-                    out.push({
-                        type: "gloss",
-                        base: parseInlines(parts[0]),
-                        notes: parts.slice(1).map(p => parseInlines(p)),
-                    });
-                    i = r.end + 1;
-                    continue;
-                }
-                // parts が 1 個なら通常テキストとして扱う
-            }
-        }
-        // Ruby [base/ruby] ただし [text](url) は除外
-        if (s[i] === '[') {
-            const r = readUntil("]", i + 1);
-            if (r) {
-                const after = s[r.end + 1] || "";
-                if (after === '(') {
-                    // Markdown link の可能性: ruby にしない
-                    pushText(s.slice(i, r.end + 1));
-                    i = r.end + 1;
-                    continue;
-                }
-                const inner = r.content;
-                const slash = inner.indexOf("/");
-                if (slash !== -1) {
-                    const base = inner.slice(0, slash);
-                    const ruby = inner.slice(slash + 1);
-                    out.push({
-                        type: "ruby",
-                        base: parseInlines(base),
-                        ruby: parseInlines(ruby),
-                    });
-                    i = r.end + 1;
-                    continue;
-                }
-            }
-        }
-
-        // 既定: 1 文字進める
-        pushText(s[i]);
-        i += 1;
+function stripHiddenPrefix(line) {
+    // "| xxx" または "|xxx" を "xxx" にする
+    if (line.startsWith('|')) {
+        const t = line.slice(1);
+        return t.startsWith(' ') ? t.slice(1) : t;
     }
-
-    return out;
+    return line;
 }
 
-function newDocument() {
-    return { type: "document", children: [] };
-}
+function scanForDoctests(lines, opts) {
+    // opts:
+    // - lineTransform: (rawLine)=>string  // doctest 指令やコードフェンス用に 1 行を解釈可能な文字列へ
+    // - isHiddenLine: (rawLine)=>boolean // 本文で隠すための情報（今回は tests には不要だが一応保持）
 
-function newSection(level, headingInlines) {
-    return { type: "section", level, heading: headingInlines, children: [] };
-}
+    const doctests = [];
 
-function newParagraph(lines) {
-    // 段落内の改行は保持する（HTML 側で <br/> 化）
-    return { type: "paragraph", inlines: parseInlines(lines.join("\n")) };
-}
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        const line = opts.lineTransform(raw);
 
-function newHr() {
-    return { type: "hr" };
-}
+        const m = line.match(/^\s*neplg2:test(?:\[[^\]]+\])?\s*$/);
+        if (!m) continue;
 
-function newCodeBlock(lang, codeText) {
-    return { type: "code", lang, text: codeText };
-}
+        const tags = parseTags(line);
 
-function parseNmd(source) {
-    const lines = source.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-
-    const doc = newDocument();
-    const stack = [{ level: 0, node: doc }]; // section stack: doc is level 0
-    const curContainer = () => stack[stack.length - 1].node;
-
-    const closeToLevel = (level) => {
-        while (stack.length > 1 && stack[stack.length - 1].level >= level) {
-            stack.pop();
-        }
-    };
-
-    const closeOne = () => {
-        if (stack.length > 1) stack.pop();
-    };
-
-    let i = 0;
-    while (i < lines.length) {
-        const line = lines[i];
-
-        // Fence
-        const fs = isFenceStart(line);
-        if (fs) {
-            let j = i + 1;
-            const codeLines = [];
-            while (j < lines.length && !isFenceEnd(lines[j])) {
-                codeLines.push(lines[j]);
-                j += 1;
-            }
-            // closing fence を 1 行消費
-            if (j < lines.length && isFenceEnd(lines[j])) j += 1;
-
-            curContainer().children.push(newCodeBlock(fs.lang, codeLines.join("\n")));
-            i = j;
-            continue;
-        }
-
-        // Heading
-        const h = isHeadingLine(line);
-        if (h) {
-            closeToLevel(h.level);
-            const sec = newSection(h.level, parseInlines(h.text));
-            curContainer().children.push(sec);
-            stack.push({ level: h.level, node: sec });
-            i += 1;
-            continue;
-        }
-
-        // Breaks / Hr
-        if (isBreakHrClose1(line)) {
-            curContainer().children.push(newHr());
-            closeOne();
-            i += 1;
-            continue;
-        }
-        if (isBreakClose1(line)) {
-            closeOne();
-            i += 1;
-            continue;
-        }
-        if (isHrOnly(line)) {
-            curContainer().children.push(newHr());
-            i += 1;
-            continue;
-        }
-
-        // Blank
-        if (line.trim() === "") {
-            i += 1;
-            continue;
-        }
-
-        // List item (minimal)
-        const lm = /^-\s+(.*)$/.exec(line);
-        if (lm) {
-            // 連続する - item をまとめて list にする
-            const items = [];
-            let j = i;
-            while (j < lines.length) {
-                const m2 = /^-\s+(.*)$/.exec(lines[j]);
-                if (!m2) break;
-                items.push(parseInlines(m2[1]));
-                j += 1;
-            }
-            curContainer().children.push({ type: "list", items });
-            i = j;
-            continue;
-        }
-
-        // Paragraph
-        const para = [];
-        let j = i;
+        // 次の ```neplg2 を探す
+        let j = i + 1;
         while (j < lines.length) {
-            const ln = lines[j];
-            if (ln.trim() === "") break;
-            if (isFenceStart(ln) || isHeadingLine(ln) || isBreakHrClose1(ln) || isBreakClose1(ln) || isHrOnly(ln) || /^-\s+/.test(ln)) break;
-            para.push(ln);
-            j += 1;
+            const l2 = opts.lineTransform(lines[j]);
+            if (/^\s*```\s*neplg2\s*$/.test(l2)) break;
+            j++;
         }
-        curContainer().children.push(newParagraph(para));
+        if (j >= lines.length) continue;
+
+        // フェンス内を収集
+        j++;
+        const codeLines = [];
+        const hiddenMap = [];
+        while (j < lines.length) {
+            const r3 = lines[j];
+            const l3 = opts.lineTransform(r3);
+            if (/^\s*```\s*$/.test(l3)) break;
+
+            const hidden = opts.isHiddenLine(r3);
+            const plain = stripHiddenPrefix(l3);
+            codeLines.push(plain);
+            hiddenMap.push(hidden);
+            j++;
+        }
+
+        doctests.push({
+            tags,
+            code: codeLines.join('\n') + '\n',
+            hiddenMap,
+        });
+
         i = j;
     }
 
-    return doc;
+    return doctests;
+}
+
+function parseNmdText(text) {
+    const lines = text.replace(/\r\n/g, '\n').split('\n');
+    const doctests = scanForDoctests(lines, {
+        lineTransform: (raw) => raw,
+        isHiddenLine: (raw) => raw.startsWith('|'),
+    });
+    return { doctests };
+}
+
+function parseNeplText(text) {
+    const lines = text.replace(/\r\n/g, '\n').split('\n');
+
+    // //: と //:| を doc 用の 1 行に直す
+    const doctests = scanForDoctests(lines, {
+        lineTransform: (raw) => {
+            const m = raw.match(/^\s*\/\/:(\|)?\s?(.*)$/);
+            if (!m) return '';
+            // 本文と同様に "|" 行も残し、stripHiddenPrefix が処理する
+            return (m[1] ? '|' : '') + m[2];
+        },
+        isHiddenLine: (raw) => /^\s*\/\/:\|/.test(raw),
+    });
+
+    // ドキュメント本文抽出（簡易）: 先頭から連続する //: ブロックをすべて連結
+    const docLines = [];
+    for (const raw of lines) {
+        const m = raw.match(/^\s*\/\/:(\|)?\s?(.*)$/);
+        if (m) {
+            // 本文では | 行はデフォルト非表示想定だが、HTML 側で制御する
+            docLines.push((m[1] ? '|' : '') + m[2]);
+        }
+    }
+
+    return {
+        doctests,
+        docText: docLines.join('\n') + '\n',
+    };
+}
+
+function parseFile(filePath) {
+    const text = fs.readFileSync(filePath, 'utf-8');
+    if (filePath.endsWith('.n.md')) return { kind: 'nmd', ...parseNmdText(text), rawText: text };
+    if (filePath.endsWith('.nepl')) return { kind: 'nepl', ...parseNeplText(text), rawText: text };
+    return { kind: 'unknown', doctests: [], rawText: text };
 }
 
 module.exports = {
-    parseNmd,
-    parseInlines,
+    parseFile,
+    parseNmdText,
+    parseNeplText,
 };

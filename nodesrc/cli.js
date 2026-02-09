@@ -1,134 +1,166 @@
 #!/usr/bin/env node
-/**
- * cli.js
- *
- * HTML生成を最優先としつつ、-o test=out.json が指定されていれば doctest を実行する。
- *
- * 例:
- *   node cli.js -i README.n.md -o html=README.html
- *   node cli.js -i stdio.nepl -o test=out.json --jobs 2
- *
- * 出力:
- * - html: 静的 HTML
- * - test: JSON（summary + results）
- */
+// nodesrc/cli.js
+// 目的:
+// - -i で指定した入力ディレクトリ（複数可）を走査し、.n.md と .nepl のドキュメントを HTML 化して出力する。
+//
+// 使い方例:
+//   node nodesrc/cli.js -i tutorials/getting_started -o html=dist/tutorials/getting_started
+//   node nodesrc/cli.js -i stdlib/core -o html=dist/doc/stdlib/core
 
-const fs = require("fs");
-const path = require("path");
-const { parseNmd } = require("./parser.js");
-const { renderHtml } = require("./html_gen.js");
-const { runAll } = require("./run_test.js");
+const fs = require('node:fs');
+const path = require('node:path');
+const { parseFile } = require('./parser');
+const { markdownToHtml, wrapHtml } = require('./html_gen');
 
 function parseArgs(argv) {
     const inputs = [];
-    const outputs = {}; // kind -> path
-    let jobs = null;
-    let compilerDir = "/mnt/data";
+    const outs = {};
+    const excludeDirs = [];
 
-    let i = 2;
-    while (i < argv.length) {
+    for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
-        if (a === "-i") {
-            inputs.push(argv[i + 1]);
-            i += 2;
+        if (a === '-i' && i + 1 < argv.length) {
+            inputs.push(argv[++i]);
             continue;
         }
-        if (a === "-o") {
-            const v = argv[i + 1] || "";
-            const m = /^([a-zA-Z0-9_-]+)=(.+)$/.exec(v);
-            if (!m) throw new Error(`-o expects kind=path, got: ${v}`);
-            outputs[m[1]] = m[2];
-            i += 2;
+        if (a === '-o' && i + 1 < argv.length) {
+            const kv = argv[++i];
+            const m = kv.match(/^([a-zA-Z0-9_]+)=(.*)$/);
+            if (!m) {
+                throw new Error(`-o expects key=value, got: ${kv}`);
+            }
+            outs[m[1]] = m[2];
             continue;
         }
-        if (a === "--no-hide-docpipe") {
-            outputs["_hideDocPipe"] = "0";
-            i += 1;
+        if ((a === '--exclude-dir' || a === '--exclude-dirname') && i + 1 < argv.length) {
+            excludeDirs.push(argv[++i]);
             continue;
         }
-        if (a === "--title") {
-            outputs["_title"] = argv[i + 1] || "";
-            i += 2;
-            continue;
+        if (a === '-h' || a === '--help') {
+            return { help: true, inputs, outs, excludeDirs };
         }
-        if (a === "--jobs") {
-            jobs = parseInt(argv[i + 1] || "1", 10);
-            i += 2;
-            continue;
-        }
-        if (a === "--compiler-dir") {
-            compilerDir = argv[i + 1] || compilerDir;
-            i += 2;
-            continue;
-        }
-        throw new Error(`unknown arg: ${a}`);
     }
-    return { inputs, outputs, jobs, compilerDir };
+    return { help: false, inputs, outs, excludeDirs };
 }
 
-function ensureDirForFile(p) {
-    const dir = path.dirname(p);
-    fs.mkdirSync(dir, { recursive: true });
+function ensureDir(p) {
+    fs.mkdirSync(p, { recursive: true });
 }
 
-async function doHtml(inputs, outPath, opt) {
-    if (!outPath) return;
-
-    if (inputs.length === 1) {
-        const src = fs.readFileSync(inputs[0], "utf-8");
-        const ast = parseNmd(src);
-        const html = renderHtml(ast, {
-            hideDocPipe: opt.hideDocPipe,
-            title: opt.title || path.basename(inputs[0]),
-        });
-        ensureDirForFile(outPath);
-        fs.writeFileSync(outPath, html, "utf-8");
-        return;
-    }
-
-    const outIsDir = fs.existsSync(outPath) ? fs.statSync(outPath).isDirectory() : !outPath.endsWith(".html");
-    if (!outIsDir) throw new Error("multiple inputs require -o html=<directory>");
-    fs.mkdirSync(outPath, { recursive: true });
-
-    for (const inp of inputs) {
-        if (!inp.endsWith(".n.md")) continue;
-        const src = fs.readFileSync(inp, "utf-8");
-        const ast = parseNmd(src);
-        const html = renderHtml(ast, {
-            hideDocPipe: opt.hideDocPipe,
-            title: opt.title || path.basename(inp),
-        });
-        const outFile = path.join(outPath, path.basename(inp).replace(/\.n\.md$/, "") + ".html");
-        fs.writeFileSync(outFile, html, "utf-8");
+function isFile(p) {
+    try {
+        return fs.statSync(p).isFile();
+    } catch {
+        return false;
     }
 }
 
-async function doTest(inputs, outPath, compilerDir, jobs) {
-    if (!outPath) return;
-    const res = await runAll({ inputs, compilerDir, jobs });
-    ensureDirForFile(outPath);
-    fs.writeFileSync(outPath, JSON.stringify(res, null, 2), "utf-8");
-    if (res.summary.failed > 0) process.exitCode = 1;
+function isDir(p) {
+    try {
+        return fs.statSync(p).isDirectory();
+    } catch {
+        return false;
+    }
 }
 
-async function main() {
-    const { inputs, outputs, jobs, compilerDir } = parseArgs(process.argv);
-    if (inputs.length === 0) {
-        console.error("no input: use -i file.n.md (or .nepl)");
-        process.exit(2);
+function walkFiles(root, excludeDirs) {
+    const out = [];
+    function rec(cur) {
+        const ents = fs.readdirSync(cur, { withFileTypes: true });
+        for (const e of ents) {
+            const p = path.join(cur, e.name);
+            if (e.isDirectory()) {
+                if (excludeDirs && excludeDirs.includes(e.name)) continue;
+                rec(p);
+            }
+            else if (e.isFile()) out.push(p);
+        }
+    }
+    rec(root);
+    return out;
+}
+
+function extractMarkdownForHtml(filePath) {
+    const p = parseFile(filePath);
+    if (p.kind === 'nmd') {
+        return p.rawText;
+    }
+    if (p.kind === 'nepl') {
+        // //: が無ければ、先頭の // ブロックを拾う（暫定）
+        if (p.docText && p.docText.trim().length > 0) {
+            return p.docText;
+        }
+        const lines = p.rawText.replace(/\r\n/g, '\n').split('\n');
+        const head = [];
+        for (const ln of lines) {
+            const m = ln.match(/^\s*\/\/\s?(.*)$/);
+            if (!m) break;
+            head.push(m[1]);
+        }
+        return head.join('\n') + '\n';
+    }
+    return '';
+}
+
+function main() {
+    const { help, inputs, outs, excludeDirs } = parseArgs(process.argv.slice(2));
+    if (help || inputs.length === 0 || !outs.html) {
+        console.log('Usage: node nodesrc/cli.js -i <input_dir_or_file> [-i ...] -o html=<output_dir> [--exclude-dir <name>]');
+        process.exit(help ? 0 : 2);
     }
 
-    const hideDocPipe = outputs["_hideDocPipe"] !== "0";
-    const title = outputs["_title"];
+    const outRoot = path.resolve(outs.html);
+    ensureDir(outRoot);
 
-    // html は .n.md のみ
-    await doHtml(inputs, outputs.html, { hideDocPipe, title });
+    let count = 0;
 
-    // test は .nepl と .n.md の両方
-    await doTest(inputs, outputs.test, compilerDir, jobs);
+    for (const input of inputs) {
+        const inPath = path.resolve(input);
+        if (isFile(inPath)) {
+            const rel = path.basename(inPath);
+            count += genOne(inPath, rel, outRoot);
+            continue;
+        }
+        if (!isDir(inPath)) {
+            console.error(`input not found: ${input}`);
+            continue;
+        }
+
+        const files = walkFiles(inPath, excludeDirs).filter(p => p.endsWith('.n.md') || p.endsWith('.nepl'));
+        for (const f of files) {
+            const rel = path.relative(inPath, f);
+            count += genOne(f, rel, outRoot);
+        }
+    }
+
+    console.log(`generated ${count} html file(s) into ${outRoot}`);
 }
 
-main().catch((e) => {
-    console.error(String(e && e.stack ? e.stack : e));
-    process.exit(1);
-});
+function genOne(filePath, relPath, outRoot) {
+    const md = extractMarkdownForHtml(filePath);
+    if (!md || md.trim().length === 0) {
+        return 0;
+    }
+
+    const body = markdownToHtml(md);
+    const title = path.basename(filePath);
+    const html = wrapHtml(title, body);
+
+    const outRel = relPath
+        .replace(/\.n\.md$/i, '.html')
+        .replace(/\.nepl$/i, '.html');
+
+    const outPath = path.join(outRoot, outRel);
+    ensureDir(path.dirname(outPath));
+    fs.writeFileSync(outPath, html);
+    return 1;
+}
+
+if (require.main === module) {
+    try {
+        main();
+    } catch (e) {
+        console.error(String(e?.stack || e?.message || e));
+        process.exit(1);
+    }
+}

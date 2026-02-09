@@ -89,20 +89,10 @@ jobs:
               id: trunk_build
               continue-on-error: true
               env:
-                  # IMPORTANT: avoid NO_COLOR=1 (trunk expects true/false for its no-color handling)
                   NO_COLOR: "true"
               run: |
                   set -o pipefail
                   trunk build --release --public-url /NEPLg2/ 2>&1 | tee trunk-build.log
-
-            - name: Run .n.md doctests (allowed to fail)
-              id: nmd_tests
-              continue-on-error: true
-              env:
-                  NO_COLOR: "true"
-              run: |
-                  set -o pipefail
-                  node nodesrc/tests.js --tests-dir tests --compiler-dir dist --jobs 4 -o nmd-tests.json 2>&1 | tee nmd-tests.log
 
             - name: Prepare dist (always) and attach test/build logs
               if: always()
@@ -130,21 +120,31 @@ jobs:
                   echo "cargo_test_outcome=${{ steps.cargo_test.outcome }}" > dist/tests/outcomes.txt
                   echo "trunk_build_outcome=${{ steps.trunk_build.outcome }}" >> dist/tests/outcomes.txt
 
-                  # Attach .n.md doctest results (create placeholders if missing)
-                  : > dist/tests/nmd-tests.log
-                  : > dist/tests.json
+            - name: Build tutorials/stdlib HTML (allowed to fail)
+              id: doc_build
+              if: always()
+              continue-on-error: true
+              run: |
+                  set -o pipefail
+                  # tutorials/{A}/{B}.n.md -> dist/tutorials/{A}/{B}.html
+                  node nodesrc/cli.js -i tutorials -o html=dist/tutorials 2>&1 | tee doc-build.log
 
-                  if [ -f nmd-tests.log ]; then
-                      cp -f nmd-tests.log dist/tests/nmd-tests.log
-                  fi
+                  # stdlib/{A}/{B}.nepl -> dist/doc/stdlib/{A}/{B}.html
+                  # テスト用の stdlib/tests はドキュメント出力から除外（必要なら外してOK）
+                  node nodesrc/cli.js -i stdlib -o html=dist/doc/stdlib --exclude-dir tests --exclude-dir tests_backup 2>&1 | tee -a doc-build.log
 
-                  if [ -f nmd-tests.json ]; then
-                      cp -f nmd-tests.json dist/tests.json
-                  else
-                      echo '{"summary":{"total":0,"passed":0,"failed":0},"results":[],"note":"nmd-tests.json was not produced"}' > dist/tests.json
-                  fi
+            - name: Run doctests (tests + tutorials + stdlib) and write dist/tests.json (allowed to fail)
+              id: doctest
+              if: always()
+              continue-on-error: true
+              run: |
+                  set -o pipefail
+                  node nodesrc/tests.js -i tests -i tutorials -i stdlib -o dist/tests.json 2>&1 | tee doctest.log
 
-                  echo "nmd_tests_outcome=${{ steps.nmd_tests.outcome }}" >> dist/tests/outcomes.txt
+                  # Add logs for browsing
+                  mkdir -p dist/tests
+                  cp -f doctest.log dist/tests/doctest.log || true
+                  cp -f doc-build.log dist/tests/doc-build.log || true
 
             - name: Upload GitHub Pages artifact (always)
               if: always()

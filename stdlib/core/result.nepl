@@ -2,82 +2,122 @@
 
 #import "core/mem" as *
 
-// result: 成功(Ok)と失敗(Err)を表す型と基本操作
-//
-// 目的:
-// - 処理の成功/失敗を明示的に扱うための型とユーティリティを提供します。
-//
-// 実装(アルゴリズム):
-// - enum Result を定義し、match による分岐で操作します。
-//
-// 注意(重要):
-// - unwrap 系は Err で到達不能になります（安全ではありません）。
-//
-// 計算量:
-// - すべて O(1)
+//: result: 成功(Ok)と失敗(Err)を表す型と基本操作
+//:
+//: 目的:
+//: - 処理の成功/失敗を明示的に扱うための型とユーティリティを提供します。
+//:
+//: 実装(アルゴリズム):
+//: - enum Result を定義し、match による分岐で操作します。
+//:
+//: 注意(重要):
+//: - unwrap 系は Err で到達不能になります（安全ではありません）。
+//:
+//: 計算量:
+//: - すべて O(1)
+//:
+//: ---
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//: assert_true is_ok (ok<i32, str> 1);
+//: assert_true is_err (err<i32, str> "oops");
+//: assert_i32_eq 1 (unwrap_ok (ok<i32, str> 1));
+//: assert_str_eq "oops" (unwrap_err (err<i32, str> "oops"));
+//: assert_i32_eq 9 (unwrap_or (err<i32, str> "x"), 9);
+//: assert_i32_eq 6 (unwrap_ok (map (ok<i32, str> 3), fn (x): mul x 2));
+//: // 文字列の演算は依存が増えるので、この例では Err を数値にして map_err を確認
+//: assert_i32_eq 8 (unwrap_err (map_err (err<i32, i32> 7), fn (e): add e 1));
+//: ```
+//:
+//: neplg2:test[should_panic]
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//: // Err を unwrap_ok すると unreachable で落ちることを期待
+//: unwrap_ok (err<i32, str> "boom");
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "core/result" as *
+//: // 型が合わない Err を入れているのでコンパイルエラーを期待
+//: let r <Result<i32, i32>> Result::Err "text";
+//: r;
+//: ```
 
-// Result: 成功(Ok)か失敗(Err)を表す
-//
-// 目的:
-// - 成功値 .T と失敗値 .E を区別して保持します。
-//
-// 実装(アルゴリズム):
-// - enum の 2 変種で表現します。
-//
-// 注意(重要):
-// - Ok/Err は payload を保持します。
-//
-// 計算量:
-// - O(1)
+
+
+//: Result: 成功(Ok)か失敗(Err)を表す
+//:
+//: 目的:
+//: - 成功値 .T と失敗値 .E を区別して保持します。
+//:
+//: 実装(アルゴリズム):
+//: - enum の 2 変種で表現します。
+//:
+//: 注意(重要):
+//: - Ok/Err は payload を保持します。
+//:
+//: 計算量:
+//: - O(1)
 enum Result<.T, .E>:
     Ok <.T>
     Err <.E>
 
-// ok: 成功値を包む
-//
-// 目的:
-// - v を Ok として返します。
-//
-// 実装(アルゴリズム):
-// - Result::Ok を構築します。
-//
-// 注意(重要):
-// - .E は文脈で決まります。
-//
-// 計算量:
-// - O(1)
+//: ok: 成功値を包む
+//:
+//: 目的:
+//: - v を Ok として返します。
+//:
+//: 実装(アルゴリズム):
+//: - Result::Ok を構築します。
+//:
+//: 注意(重要):
+//: - .E は文脈で決まります。
+//:
+//: 計算量:
+//: - O(1)
 fn ok <.T, .E> <(.T)->Result<.T, .E>> (v):
     Result<.T, .E>::Ok v
 
-// err: 失敗値を包む
-//
-// 目的:
-// - e を Err として返します。
-//
-// 実装(アルゴリズム):
-// - Result::Err を構築します。
-//
-// 注意(重要):
-// - .T は文脈で決まります。
-//
-// 計算量:
-// - O(1)
+//: err: 失敗値を包む
+//:
+//: 目的:
+//: - e を Err として返します。
+//:
+//: 実装(アルゴリズム):
+//: - Result::Err を構築します。
+//:
+//: 注意(重要):
+//: - .T は文脈で決まります。
+//:
+//: 計算量:
+//: - O(1)
 fn err <.T, .E> <(.E)->Result<.T, .E>> (e):
     Result<.T, .E>::Err e
 
-// is_ok: 成功か判定する
-//
-// 目的:
-// - Ok なら true、Err なら false を返します。
-//
-// 実装(アルゴリズム):
-// - match で Ok/Err を分岐します。
-//
-// 注意(重要):
-// - 値そのものは取り出しません。
-//
-// 計算量:
-// - O(1)
+//: is_ok: 成功か判定する
+//:
+//: 目的:
+//: - Ok なら true、Err なら false を返します。
+//:
+//: 実装(アルゴリズム):
+//: - match で Ok/Err を分岐します。
+//:
+//: 注意(重要):
+//: - 値そのものは取り出しません。
+//:
+//: 計算量:
+//: - O(1)
 fn is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
     match r:
         Result::Ok v:
@@ -85,19 +125,19 @@ fn is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
         Result::Err e:
             false
 
-// is_err: 失敗か判定する
-//
-// 目的:
-// - Err なら true、Ok なら false を返します。
-//
-// 実装(アルゴリズム):
-// - match で Ok/Err を分岐します。
-//
-// 注意(重要):
-// - is_ok の否定です。
-//
-// 計算量:
-// - O(1)
+//: is_err: 失敗か判定する
+//:
+//: 目的:
+//: - Err なら true、Ok なら false を返します。
+//:
+//: 実装(アルゴリズム):
+//: - match で Ok/Err を分岐します。
+//:
+//: 注意(重要):
+//: - is_ok の否定です。
+//:
+//: 計算量:
+//: - O(1)
 fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
     match r:
         Result::Ok v:
@@ -105,19 +145,19 @@ fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
         Result::Err e:
             true
 
-// unwrap_ok: Ok の中身を取り出す（Err は到達不能）
-//
-// 目的:
-// - Ok(v) なら v を返します。
-//
-// 実装(アルゴリズム):
-// - match で分岐し、Err は unreachable を呼びます。
-//
-// 注意(重要):
-// - Err の可能性がある場合は is_ok や unwrap_or を使ってください。
-//
-// 計算量:
-// - O(1)
+//: unwrap_ok: Ok の中身を取り出す（Err は到達不能）
+//:
+//: 目的:
+//: - Ok(v) なら v を返します。
+//:
+//: 実装(アルゴリズム):
+//: - match で分岐し、Err は unreachable を呼びます。
+//:
+//: 注意(重要):
+//: - Err の可能性がある場合は is_ok や unwrap_or を使ってください。
+//:
+//: 計算量:
+//: - O(1)
 fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
     match r:
         Result::Ok v:
@@ -125,19 +165,19 @@ fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
         Result::Err e:
             #intrinsic "unreachable" <> ()
 
-// unwrap_err: Err の中身を取り出す（Ok は到達不能）
-//
-// 目的:
-// - Err(e) なら e を返します。
-//
-// 実装(アルゴリズム):
-// - match で分岐し、Ok は unreachable を呼びます。
-//
-// 注意(重要):
-// - Ok の可能性がある場合は is_err や map_err を使ってください。
-//
-// 計算量:
-// - O(1)
+//: unwrap_err: Err の中身を取り出す（Ok は到達不能）
+//:
+//: 目的:
+//: - Err(e) なら e を返します。
+//:
+//: 実装(アルゴリズム):
+//: - match で分岐し、Ok は unreachable を呼びます。
+//:
+//: 注意(重要):
+//: - Ok の可能性がある場合は is_err や map_err を使ってください。
+//:
+//: 計算量:
+//: - O(1)
 fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
     match r:
         Result::Err e:
@@ -145,19 +185,19 @@ fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
         Result::Ok v:
             #intrinsic "unreachable" <> ()
 
-// unwrap_or: 失敗時のデフォルトを返す
-//
-// 目的:
-// - Ok(v) なら v、Err なら default を返します。
-//
-// 実装(アルゴリズム):
-// - match で分岐します。
-//
-// 注意(重要):
-// - default は eager に評価されます。
-//
-// 計算量:
-// - O(1)
+//: unwrap_or: 失敗時のデフォルトを返す
+//:
+//: 目的:
+//: - Ok(v) なら v、Err なら default を返します。
+//:
+//: 実装(アルゴリズム):
+//: - match で分岐します。
+//:
+//: 注意(重要):
+//: - default は eager に評価されます。
+//:
+//: 計算量:
+//: - O(1)
 fn unwrap_or <.T, .E> <(Result<.T, .E>, .T)->.T> (r, default):
     match r:
         Result::Ok v:
@@ -165,19 +205,19 @@ fn unwrap_or <.T, .E> <(Result<.T, .E>, .T)->.T> (r, default):
         Result::Err e:
             default
 
-// map: Ok の値に関数を適用する
-//
-// 目的:
-// - Ok(v) なら f(v) を Ok で返し、Err はそのまま返します。
-//
-// 実装(アルゴリズム):
-// - match で Ok/Err を分岐し、Ok のときのみ f を適用します。
-//
-// 注意(重要):
-// - f は純粋関数を想定します。
-//
-// 計算量:
-// - O(1)
+//: map: Ok の値に関数を適用する
+//:
+//: 目的:
+//: - Ok(v) なら f(v) を Ok で返し、Err はそのまま返します。
+//:
+//: 実装(アルゴリズム):
+//: - match で Ok/Err を分岐し、Ok のときのみ f を適用します。
+//:
+//: 注意(重要):
+//: - f は純粋関数を想定します。
+//:
+//: 計算量:
+//: - O(1)
 fn map <.T, .U, .E> <(Result<.T, .E>, (.T)->.U)->Result<.U, .E>> (r, f):
     match r:
         Result::Ok v:
@@ -185,19 +225,19 @@ fn map <.T, .U, .E> <(Result<.T, .E>, (.T)->.U)->Result<.U, .E>> (r, f):
         Result::Err e:
             err<.U, .E> e
 
-// map_err: Err の値に関数を適用する
-//
-// 目的:
-// - Err(e) なら f(e) を Err で返し、Ok はそのまま返します。
-//
-// 実装(アルゴリズム):
-// - match で Ok/Err を分岐し、Err のときのみ f を適用します。
-//
-// 注意(重要):
-// - f は純粋関数を想定します。
-//
-// 計算量:
-// - O(1)
+//: map_err: Err の値に関数を適用する
+//:
+//: 目的:
+//: - Err(e) なら f(e) を Err で返し、Ok はそのまま返します。
+//:
+//: 実装(アルゴリズム):
+//: - match で Ok/Err を分岐し、Err のときのみ f を適用します。
+//:
+//: 注意(重要):
+//: - f は純粋関数を想定します。
+//:
+//: 計算量:
+//: - O(1)
 fn map_err <.T, .E, .F> <(Result<.T, .E>, (.E)->.F)->Result<.T, .F>> (r, f):
     match r:
         Result::Ok v:
