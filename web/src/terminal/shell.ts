@@ -292,18 +292,39 @@ export class Shell {
     parseFlags(args: string[]) {
         const flags: Record<string, string | boolean> = {};
         const positional: string[] = [];
+
         for (let i = 0; i < args.length; i++) {
-            if (args[i].startsWith('-')) {
+            const a = args[i];
+
+            if (a.startsWith('-')) {
+                // `--key=value` / `-k=value` 形式をサポートする
+                const eq = a.indexOf('=');
+                if (eq !== -1) {
+                    const key = a.slice(0, eq);
+                    const raw = a.slice(eq + 1);
+
+                    if (raw === '' || raw === 'true') {
+                        flags[key] = true;
+                    } else if (raw === 'false') {
+                        flags[key] = false;
+                    } else {
+                        flags[key] = raw;
+                    }
+                    continue;
+                }
+
+                // `--key value` 形式
                 if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
-                    flags[args[i]] = args[i + 1];
+                    flags[a] = args[i + 1];
                     i++;
                 } else {
-                    flags[args[i]] = true;
+                    flags[a] = true;
                 }
             } else {
-                positional.push(args[i]);
+                positional.push(a);
             }
         }
+
         return { flags, positional };
     }
 
