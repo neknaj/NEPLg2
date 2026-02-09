@@ -286,7 +286,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                     if:
                         gt len seg 0
                         then set out vec_push<Inline> out Inline::Text seg
-                        else ();
+                        else ()
 
                     let mut delim <i32> 1;
                     if:
@@ -297,7 +297,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                 eq ch2 36
                                 then set delim 2
                                 else ()
-                        else ();
+                        else ()
 
                     let mut j <i32> add i delim;
                     let mut found <bool> false;
@@ -357,7 +357,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             if:
                                                 and eq cj 47 lt slash 0
                                                 then set slash j
-                                                else ();
+                                                else ()
                                             set j add j 1;
                                             ()
                             if:
@@ -369,7 +369,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             then:
                                                 let nx <i32> load_u8 add s add 4 add j 1;
                                                 eq nx 40
-                                            else false;
+                                            else false
 
                                     if:
                                         eq next_is_paren true
@@ -381,7 +381,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             if:
                                                 gt len seg 0
                                                 then set out vec_push<Inline> out Inline::Text seg
-                                                else ();
+                                                else ()
 
                                             let base <str> str_slice s add i 1 slash;
                                             let rub <str> str_slice s add slash 1 j;
@@ -416,7 +416,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             if:
                                                 gt len seg 0
                                                 then set out vec_push<Inline> out Inline::Text seg
-                                                else ();
+                                                else ()
 
                                             // Collect parts
                                             let mut parts <Vec<str>> vec_new<str>;
@@ -434,7 +434,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                                             if:
                                                                 and eq ck 93 gt depth 0
                                                                 then set depth sub depth 1
-                                                                else ();
+                                                                else ()
                                                     if:
                                                         and eq ck 47 eq depth 0
                                                         then:
@@ -630,7 +630,7 @@ fn inlines_to_json <(Vec<Inline>)->str> (v):
             if:
                 gt i 0
                 then set sb sb_append sb ","
-                else ();
+                else ()
             let it <Inline> unwrap<Inline> vec_get<Inline> v i;
             match it:
                 Inline::Text s:
@@ -658,7 +658,7 @@ fn inlines_to_json <(Vec<Inline>)->str> (v):
                             if:
                                 gt j 0
                                 then set sb sb_append sb ","
-                                else ();
+                                else ()
                             let ss <str> unwrap<str> vec_get<str> get g "subs" j;
                             set sb sb_append sb "\"";
                             set sb sb_append sb json_escape ss;
@@ -710,7 +710,7 @@ fn nodes_to_json <(Vec<Node>)->str> (nodes):
             if:
                 gt i 0
                 then set sb sb_append sb ","
-                else ();
+                else ()
             let nd <Node> unwrap<Node> vec_get<Node> nodes i;
             set sb sb_append sb node_to_json nd;
             set i add i 1;
