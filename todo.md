@@ -1,112 +1,33 @@
-2026-02-10 コンパイラ再設計計画 (抜本改善)
+2026-02-10 今後の実装計画
 
-現状計測
-- `NO_COLOR=true trunk build`: success
-- `node nodesrc/tests.js -i tests -o /tmp/tests-only.json -j 4`:
-  - `total=309, passed=240, failed=69, errored=0`
-  - 主要失敗傾向:
-    - `expected compile_fail, but compiled successfully`（仕様検査漏れ）
-    - `expression left extra values on the stack` / `return type does not match signature`（block/単行構文と型整合の境界）
-- `nepl-core/src` 現状:
-  - 巨大ファイル: `parser.rs`(114k), `typecheck.rs`(165k), `codegen_wasm.rs`(59k)
-  - `module_graph.rs` / `resolve.rs` は存在するが `compile_wasm` 本流に未統合
-  - ビルド時警告が多く、未使用経路・未整理コードが残存
+方針
+- plan.md の仕様を唯一の基準として、上流（lexer/parser）から順に修正する。
+- 間に合わせ修正を避け、原因が同一の失敗はまとめて解消する。
+- 実装順序は「名前空間の再設計」を最優先とし、Value と Callable の責務を分離する。
 
-根本課題
-- 処理フローが段階分離されておらず、仕様追加時に parser/typecheck/codegen へ広く波及する。
-- 名前解決が DefId 一貫になっておらず、文字列ベース解決が残る。
-- parser/typecheck の肥大化により、plan.md 要件（単行 block / 条件式構文 / 将来 target 拡張）に追従しづらい。
+直近の実装タスク（未完了のみ）
+1. 名前空間再設計（最優先）
+- `typecheck` の環境を `ValueNs`（変数）と `CallableNs`（関数/alias）に分離する。
+- `let`/`fn` の巻き上げを plan.md 準拠で統一する（`mut` なし `let` と `fn` のみ）。
+- nested `fn`/`let` を呼び出し可能にする経路を確立する（少なくとも `tests/functions.n.md` の `double` / `add_y` を通す）。
 
-再設計方針
-- big-bang 置換は避け、既存パイプラインを維持しながら内部を段階置換する。
-- コンパイラ本流を次の固定段階へ再編:
-  1) ParseFront
-  2) ModuleGraph
-  3) Resolve(DefId)
-  4) TypeCheck
-  5) MIR + move/drop
-  6) Backend(codegen)
-- すべての段階で入力/出力データ構造を明示し、段階間の責務重複を禁止する。
+2. エントリ解決の厳密化
+- entry 関数が「名前解決済み」かつ「codegen 対象として生成済み」であることを検証する。
+- `_start` 欠落を実行時エラーではなく compile error で検出する。
 
-フェーズ別計画
-1. 安全網の先行整備
-- `tests-only failed=69` をカテゴリ管理し、回帰検知のベースラインJSONを固定。
-- 受け入れ条件:
-  - 失敗件数/カテゴリを毎回比較可能
-  - pass ケースの後退がない
+3. functions 系テストの仕様整合
+- `let` 関数糖衣（型注釈あり/なし）を仕様どおりに通す。
+- `@` 関数参照と alias の組み合わせを安定化する。
+- 関数リテラル系ケースの扱いを plan.md と突き合わせ、必要なら question.md へ疑義を起票する。
 
-2. Frontend 分割（parser再編）
-- `parser.rs` を `directives / items / expr / block` に分割。
-- plan.md の単行 block・if/while 引数改行規則を独立モジュール化。
-- 受け入れ条件:
-  - `tests/block_single_line.n.md`
-  - `tests/block_if_semantics.n.md`
-  で compile_fail/pass の判定が仕様どおりになる
+4. tests 全体の再分類と上流優先解消
+- `node nodesrc/tests.js -i tests -o ...` の結果を stage 別に管理する。
+- parser 起因の失敗群（stack/indent/unexpected token）を先に潰し、次に typecheck/codegen を進める。
 
-3. ModuleGraph + Resolve の本流統合
-- `compile_wasm` 入口に ModuleGraph 経路を接続（最初は feature flag 切替）。
-- `resolve.rs` を DefId 出力まで完成し、typecheck 入力の文字列依存を削減。
-- 受け入れ条件:
-  - import/use/alias の曖昧性診断が安定
-  - `tests/loader_cycle.n.md`, `tests/resolve.n.md` の期待が満たされる
+5. ドキュメント運用
+- 実装進捗・結果・失敗分析は `note.md` のみに記録する。
+- `todo.md` は未完了タスクのみを保持し、完了項目は即時削除する。
 
-4. TypeCheck 再編
-- `typecheck.rs` を `constraint生成 / unify / effect検査 / block-stack検査` に分割。
-- `<T>` の扱いを「関数適用的な旧処理」から「型 ascription」に明確化。
-- 受け入れ条件:
-  - `expected compile_fail` の逆転ケースを優先解消
-  - `tests/typeannot.n.md`, `tests/functions.n.md`, `tests/generics.n.md` を重点改善
-
-5. MIR/Pass 正規化
-- move_check/drop_insertion を MIR パス化し、順序依存を削減。
-- `passes` 層の単体テストを追加。
-- 受け入れ条件:
-  - `tests/move_check.n.md`, `tests/drop.n.md` の安定化
-
-6. Backend 境界整理
-- `codegen_wasm.rs` を MIR 入力前提で薄くし、target 拡張可能な backend trait を導入。
-- target 再設計（wasm/wasip1/wasip2/wasix/nasm/c）をこの段階で吸収。
-- 受け入れ条件:
-  - 現行 wasm/wasi の互換維持
-  - backend 追加時の変更範囲を最小化
-
-次スプリントで着手する具体タスク
-- A. `/tmp/tests-only.json` を元に fail 69 件の分類表を作成（仕様漏れ/実装バグ/診断差分）
-- B. parser の block/if 周辺だけ先行分割して、単行 block 失敗群を先に潰す
-- C. `compile_wasm` に ModuleGraph 経路の実験フラグを追加し、段階置換を開始
-- D. `note.md` に毎回「失敗件数・主因・差分」を必ず記録
-
-実装進捗 (2026-02-10 追加)
-- フェーズ1（安全網）:
-  - `nodesrc/analyze_tests_json.js` を追加し、`tests.js` 結果JSONの失敗理由をカテゴリ集計できるようにした
-  - 現在の基準値:
-    - `node nodesrc/tests.js -i tests -o /tmp/tests-only-after-phase2.json -j 4`
-    - `total=309, passed=240, failed=69, errored=0`
-    - 主要カテゴリ: `stack_extra_values=25`, `compile_fail_expectation_mismatch=10`, `indent_expected=7`
-- フェーズ2（compilerフロー整理）:
-  - `nepl-core/src/compiler.rs` を段階関数（typecheck/move_check/codegen）へ分割
-  - 公開APIと主要型へ日本語docコメントを追加
-  - 挙動は維持（tests件数は同一）
-
-実装進捗 (2026-02-10 追記: namespace再設計開始)
-- 上流修正:
-  - lexer: `@` と 16進整数 (`0x...`) の字句化を実装
-  - parser: `@ident` の式受理、`fn alias @target;` の受理、`let name (..):` を `fn` 糖衣として受理、`fn name (..):` の型注釈省略を受理
-- 計測:
-  - `node nodesrc/tests.js -i tests -o /tmp/tests-only-after-upstream-fix.json -j 4`
-  - `total=309, passed=242, failed=67, errored=0`（+2）
-  - `tests/functions.n.md` は追加ケース込みで `total=16, passed=5, failed=11`
-- 根本課題（namespace）:
-  - `plan.md` の「fn は let の糖衣」「巻き上げは mut でない let に適用」と、現状の `Env` 実装（値/関数/別スコープの混在）の責務が一致していない
-  - nested `fn/let` と alias、entry 解決、関数値呼び出しが同一名前空間で衝突しやすい
-- 次タスク（namespace再設計フェーズ1）:
-  1. `TypeCheck` の解決責務を分離し、`ValueNs`（変数）と `CallableNs`（関数・alias）を明示的に分離
-  2. 巻き上げは `let(non-mut)/fn` のみを `CallableNs` に事前登録し、`set/let mut` は `ValueNs` のみで扱う
-  3. entry は「解決できた」だけでなく「コード生成対象として実在する」ことを検証し、欠落時は compile error にする
-  4. nested `fn/let` を HIR へ落とすまでの最小経路（先にトップレベル相当化か、明示的 unsupported 診断か）を決めて不整合を止める
-
-
-=== ここまで編集自由 ===
 ---
 ### 以下編集禁止
 
