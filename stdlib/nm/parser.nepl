@@ -226,8 +226,13 @@ fn trim_cr <(str)*>str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn safe_line <(i32, i32)*>str> (lines_data, i):
-    trim_cr load<str> add lines_data mul i size_of<str>
+fn safe_line <(i32, i32)*>str> (lines_mem, i):
+    let lines <Vec<str>> load<Vec<str>> lines_mem;
+    match vec_get<str> lines i:
+        Option::Some s:
+            trim_cr s
+        Option::None:
+            ""
 
 //: close_one_section: 関数の概要
 //:
@@ -392,8 +397,8 @@ fn parse_heading <(str)*>Option<Heading>> (line):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn parse_fence <(i32, i32, i32)*>FenceRes> (lines_data, nlines, i0):
-    let t0 <str> str_trim safe_line lines_data i0;
+fn parse_fence <(i32, i32, i32)*>FenceRes> (lines_mem, nlines, i0):
+    let t0 <str> str_trim safe_line lines_mem i0;
     let info0 <str> str_slice t0 3 len t0;
     let info <str> str_trim info0;
 
@@ -409,7 +414,7 @@ fn parse_fence <(i32, i32, i32)*>FenceRes> (lines_data, nlines, i0):
                     set done true;
                     ()
                 else:
-                    let li <str> str_trim safe_line lines_data i;
+                    let li <str> str_trim safe_line lines_mem i;
                     if:
                         str_starts_with li "```"
                         then:
@@ -417,7 +422,7 @@ fn parse_fence <(i32, i32, i32)*>FenceRes> (lines_data, nlines, i0):
                             set done true;
                             ()
                         else:
-                            set sb sb_append sb safe_line lines_data i;
+                            set sb sb_append sb safe_line lines_mem i;
                             set sb sb_append sb "\n";
                             set i add i 1;
                             ()
@@ -438,7 +443,7 @@ fn parse_fence <(i32, i32, i32)*>FenceRes> (lines_data, nlines, i0):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn parse_paragraph <(i32, i32, i32)*>ParaRes> (lines_data, nlines, i0):
+fn parse_paragraph <(i32, i32, i32)*>ParaRes> (lines_mem, nlines, i0):
     let mut sb <StringBuilder> string_builder_new;
     let mut i <i32> i0;
 
@@ -451,7 +456,7 @@ fn parse_paragraph <(i32, i32, i32)*>ParaRes> (lines_data, nlines, i0):
                     set done true;
                     ()
                 else:
-                    let raw <str> safe_line lines_data i;
+                    let raw <str> safe_line lines_mem i;
                     let t <str> str_trim raw;
 
                     if:
@@ -746,16 +751,13 @@ pub fn parse_markdown <(str)*>Document> (input):
     let lines_mem <i32> alloc size_of<Vec<str>>;
     store<Vec<str>> lines_mem lines;
     let nlines <i32> get load<Vec<str>> lines_mem "len";
-    let lines_data <i32> get load<Vec<str>> lines_mem "data";
 
     let mut root <Vec<Node>> vec_new<Node>;
-    let stk <i32> stack_new<NestSection>;
-
     let mut i <i32> 0;
 
     while lt i nlines:
         do:
-            let line <str> safe_line lines_data i;
+            let line <str> safe_line lines_mem i;
             let t <str> str_trim line;
 
             if:
@@ -765,100 +767,77 @@ pub fn parse_markdown <(str)*>Document> (input):
                     if:
                         is_nest_break_line t
                         then:
-                            set root close_one_section stk root;
                             set i add i 1;
                             ()
                         else:
                             if:
                                 is_hr_line t
                                 then:
-                                    set root close_one_section stk root;
-                                    let hr <Node> Node::Hr;
-                                    match stack_peek<NestSection> stk:
-                                        Option::Some top:
-                                            let parent_level <i32> get top "level";
-                                            let parent_heading <Heading> get top "heading";
-                                            match stack_pop<NestSection> stk:
-                                                Option::Some parent:
-                                                    let kids <Vec<Node>> vec_push<Node> get parent "children" hr;
-                                                    let parent2 <NestSection> NestSection parent_level parent_heading kids;
-                                                    stack_push<NestSection> stk parent2;
-                                                    ()
-                                                Option::None:
-                                                    set root vec_push<Node> root hr;
-                                                    ()
-                                        Option::None:
-                                            set root vec_push<Node> root hr;
-                                            ()
+                                    set root vec_push<Node> root Node::Hr;
                                     set i add i 1;
                                     ()
                                 else:
                                     if:
                                         is_fence_start t
                                         then:
-                                            let fr <FenceRes> parse_fence lines_data nlines i;
+                                            let fr <FenceRes> parse_fence lines_mem nlines i;
                                             let fr_next_i <i32> get fr "next_i";
                                             let fr_cb <CodeBlockInfo> get fr "cb";
                                             let node <Node> Node::CodeBlock fr_cb;
-
-                                            match stack_peek<NestSection> stk:
-                                                Option::Some top:
-                                                    let parent_level <i32> get top "level";
-                                                    let parent_heading <Heading> get top "heading";
-                                                    match stack_pop<NestSection> stk:
-                                                        Option::Some parent:
-                                                            let kids <Vec<Node>> vec_push<Node> get parent "children" node;
-                                                            let parent2 <NestSection> NestSection parent_level parent_heading kids;
-                                                            stack_push<NestSection> stk parent2;
-                                                            ()
-                                                        Option::None:
-                                                            set root vec_push<Node> root node;
-                                                            ()
-                                                Option::None:
-                                                    set root vec_push<Node> root node;
-                                                    ()
+                                            set root vec_push<Node> root node;
                                             set i fr_next_i;
                                             ()
                                         else:
                                             match parse_heading t:
                                                 Option::Some h:
-                                                    // Close to this heading level
-                                                    set root close_to_level stk root get h "level";
-
-                                                    let h_level <i32> get h "level";
-                                                    let sec <NestSection> NestSection h_level h vec_new<Node>;
-                                                    stack_push<NestSection> stk sec;
-                                                    set i add i 1;
+                                                    let mut kids <Vec<Node>> vec_new<Node>;
+                                                    let mut j <i32> add i 1;
+                                                    let mut done <bool> false;
+                                                    while not done:
+                                                        do:
+                                                            if:
+                                                                ge j nlines
+                                                                then:
+                                                                    set done true;
+                                                                    ()
+                                                                else:
+                                                                    let li <str> safe_line lines_mem j;
+                                                                    let tj <str> str_trim li;
+                                                                    if:
+                                                                        eq len tj 0
+                                                                        then:
+                                                                            set j add j 1;
+                                                                            ()
+                                                                        else:
+                                                                            if:
+                                                                                or is_heading_start tj or is_nest_break_line tj or is_hr_line tj is_fence_start tj
+                                                                                then:
+                                                                                    set done true;
+                                                                                    ()
+                                                                                else:
+                                                                                    let pr <ParaRes> parse_paragraph lines_mem nlines j;
+                                                                                    let pr_mem <i32> alloc size_of<ParaRes>;
+                                                                                    store<ParaRes> pr_mem pr;
+                                                                                    let pr_inlines <Vec<Inline>> get load<ParaRes> pr_mem "inlines";
+                                                                                    let pr_next_i <i32> get load<ParaRes> pr_mem "next_i";
+                                                                                    set kids vec_push<Node> kids Node::Paragraph pr_inlines;
+                                                                                    set j pr_next_i;
+                                                                                    ()
+                                                    let sec <NestSection> NestSection get h "level" h kids;
+                                                    set root vec_push<Node> root Node::Section sec;
+                                                    set i j;
                                                     ()
                                                 Option::None:
                                                     // Paragraph
-                                                    let pr <ParaRes> parse_paragraph lines_data nlines i;
+                                                    let pr <ParaRes> parse_paragraph lines_mem nlines i;
                                                     let pr_mem <i32> alloc size_of<ParaRes>;
                                                     store<ParaRes> pr_mem pr;
                                                     let pr_inlines <Vec<Inline>> get load<ParaRes> pr_mem "inlines";
                                                     let pr_next_i <i32> get load<ParaRes> pr_mem "next_i";
                                                     let pnode <Node> Node::Paragraph pr_inlines;
-
-                                                    match stack_peek<NestSection> stk:
-                                                        Option::Some top:
-                                                            let parent_level <i32> get top "level";
-                                                            let parent_heading <Heading> get top "heading";
-                                                            match stack_pop<NestSection> stk:
-                                                                Option::Some parent:
-                                                                    let kids <Vec<Node>> vec_push<Node> get parent "children" pnode;
-                                                                    let parent2 <NestSection> NestSection parent_level parent_heading kids;
-                                                                    stack_push<NestSection> stk parent2;
-                                                                    ()
-                                                                Option::None:
-                                                                    set root vec_push<Node> root pnode;
-                                                                    ()
-                                                        Option::None:
-                                                            set root vec_push<Node> root pnode;
-                                                            ()
+                                                    set root vec_push<Node> root pnode;
                                                     set i pr_next_i;
                                                     ()
-
-    set root close_all_sections stk root;
 
     Document root
 
