@@ -16,6 +16,10 @@ use crate::span::Span;
 use crate::typecheck;
 use wasmparser::Validator;
 
+/// コンパイル対象プラットフォーム。
+///
+/// - `Wasm`: 素の wasm 実行環境を想定
+/// - `Wasi`: WASI 実行環境を想定（`wasm` の上位互換として扱う）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompileTarget {
     Wasm,
@@ -32,6 +36,9 @@ impl CompileTarget {
     }
 }
 
+/// ビルドプロファイル。
+///
+/// 条件付きコンパイル（`#if[profile=...]`）の判定に使用する。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildProfile {
     Debug,
@@ -48,6 +55,7 @@ impl BuildProfile {
     }
 }
 
+/// コンパイル実行オプション。
 #[derive(Debug, Clone, Copy)]
 pub struct CompileOptions {
     /// Explicit target override (e.g., CLI flag). If None, #target or default is used.
@@ -68,62 +76,43 @@ impl Default for CompileOptions {
     }
 }
 
+/// コンパイル成果物。
 #[derive(Debug, Clone)]
 pub struct CompilationArtifact {
     pub wasm: Vec<u8>,
 }
 
+/// 解析済みモジュールを最終成果物へ変換する。
+///
+/// この関数はコンパイルパイプラインの中核であり、以下の段階を順番に実行する。
+/// 1. target/profile の確定
+/// 2. typecheck
+/// 3. monomorphize
+/// 4. move check
+/// 5. drop 挿入
+/// 6. wasm 生成と妥当性検証
 pub fn compile_module(
     module: ast::Module,
     options: CompileOptions,
 ) -> Result<CompilationArtifact, CoreError> {
     crate::log::set_verbose(options.verbose);
-    std::eprintln!("DEBUG: Starting compile_module");
     let target = resolve_target(&module, options)?;
     let profile = options.profile.unwrap_or(BuildProfile::detect());
-    
-    std::eprintln!("DEBUG: Starting typecheck");
-    let tc = typecheck::typecheck(&module, target, profile);
-    if tc.module.is_none() {
-        return Err(CoreError::from_diagnostics(tc.diagnostics));
-    }
-    std::eprintln!("DEBUG: Typecheck done, starting monomorphize");
+    let tc = run_typecheck(&module, target, profile)?;
     let mut types = tc.types;
-    let mut hir_module = monomorphize::monomorphize(&mut types, tc.module.unwrap());
-    std::eprintln!("DEBUG: Monomorphize done, starting move_check");
+    let mut hir_module = monomorphize::monomorphize(&mut types, tc.module);
 
-    // Move Check
-    let move_errors = passes::move_check::run(&hir_module, &types);
-    if !move_errors.is_empty() {
-        let mut diags = tc.diagnostics;
-        diags.extend(move_errors);
-        return Err(CoreError::from_diagnostics(diags));
-    }
-    std::eprintln!("DEBUG: Move check done, starting insert_drops");
-
-    // Insert drop calls for automatic cleanup
-    passes::insert_drops(&mut hir_module, types.unit());
-    std::eprintln!("DEBUG: Insert drops done, starting codegen");
-
-    let cg = codegen_wasm::generate_wasm(&types, &hir_module);
-    std::eprintln!("DEBUG: Codegen done");
     let mut diagnostics = tc.diagnostics;
-    diagnostics.extend(cg.diagnostics);
-    if let Some(bytes) = cg.bytes {
-        let mut validator = Validator::new();
-        if let Err(err) = validator.validate_all(&bytes) {
-            diagnostics.push(Diagnostic::error(
-                alloc::format!("invalid wasm generated: {}", err),
-                Span::dummy(),
-            ));
-            return Err(CoreError::from_diagnostics(diagnostics));
-        }
-        Ok(CompilationArtifact { wasm: bytes })
-    } else {
-        Err(CoreError::from_diagnostics(diagnostics))
-    }
+    run_move_check(&hir_module, &types, &mut diagnostics)?;
+    passes::insert_drops(&mut hir_module, types.unit());
+
+    emit_wasm(&types, &hir_module, diagnostics)
 }
 
+/// ソーステキストから wasm を生成する。
+///
+/// lexer/parser の診断がある場合は早期にエラーを返し、
+/// その後の段階は `compile_module` に委譲する。
 pub fn compile_wasm(
     file_id: FileId,
     source: &str,
@@ -152,6 +141,63 @@ pub fn compile_wasm(
         }
         Err(e) => Err(e),
     }
+}
+
+struct TypedProgram {
+    types: crate::types::TypeCtx,
+    module: crate::hir::HirModule,
+    diagnostics: Vec<Diagnostic>,
+}
+
+fn run_typecheck(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+) -> Result<TypedProgram, CoreError> {
+    let tc = typecheck::typecheck(module, target, profile);
+    match tc.module {
+        Some(m) => Ok(TypedProgram {
+            types: tc.types,
+            module: m,
+            diagnostics: tc.diagnostics,
+        }),
+        None => Err(CoreError::from_diagnostics(tc.diagnostics)),
+    }
+}
+
+fn run_move_check(
+    hir_module: &crate::hir::HirModule,
+    types: &crate::types::TypeCtx,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CoreError> {
+    let move_errors = passes::move_check::run(hir_module, types);
+    if move_errors.is_empty() {
+        return Ok(());
+    }
+    diagnostics.extend(move_errors);
+    Err(CoreError::from_diagnostics(diagnostics.clone()))
+}
+
+fn emit_wasm(
+    types: &crate::types::TypeCtx,
+    hir_module: &crate::hir::HirModule,
+    mut diagnostics: Vec<Diagnostic>,
+) -> Result<CompilationArtifact, CoreError> {
+    let cg = codegen_wasm::generate_wasm(types, hir_module);
+    diagnostics.extend(cg.diagnostics);
+    let Some(bytes) = cg.bytes else {
+        return Err(CoreError::from_diagnostics(diagnostics));
+    };
+
+    let mut validator = Validator::new();
+    if let Err(err) = validator.validate_all(&bytes) {
+        diagnostics.push(Diagnostic::error(
+            alloc::format!("invalid wasm generated: {}", err),
+            Span::dummy(),
+        ));
+        return Err(CoreError::from_diagnostics(diagnostics));
+    }
+    Ok(CompilationArtifact { wasm: bytes })
 }
 
 fn resolve_target(

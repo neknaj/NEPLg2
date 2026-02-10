@@ -658,3 +658,25 @@
 ## 対応
 - `todo.md` に抜本再設計計画を追加。
 - 既存の `plan.md` 要求（単行block/if構文、target再設計、LSP前提の情報整備）を前提に、段階置換型の再設計ロードマップを定義。
+
+# 2026-02-10 作業メモ (フェーズ1/2実装)
+## 実装
+- `nodesrc/analyze_tests_json.js` を追加。
+  - doctest結果JSON（`nodesrc/tests.js`出力）を読み、fail/error理由をカテゴリ集計するCLI。
+- `nepl-core/src/compiler.rs` を段階関数へ整理。
+  - `run_typecheck` / `run_move_check` / `emit_wasm` を導入。
+  - `CompileTarget` / `BuildProfile` / `CompileOptions` / `CompilationArtifact` / `compile_module` / `compile_wasm` に日本語docコメントを追加。
+  - 既存挙動を維持しつつ、処理フローを明示化。
+
+## テスト結果
+- `NO_COLOR=true trunk build`: success
+- `node nodesrc/tests.js -i tests -o /tmp/tests-only-after-phase2.json -j 4`
+  - `total=309, passed=240, failed=69, errored=0`（前回と同値）
+- `node nodesrc/analyze_tests_json.js /tmp/tests-only-after-phase2.json`
+  - `stack_extra_values=25`
+  - `compile_fail_expectation_mismatch=10`
+  - `indent_expected=7`
+
+## 次アクション
+- `other=22` の内訳をさらに分解し、parser分割着手時の優先順を確定する。
+- `tests/block_single_line.n.md` と `tests/block_if_semantics.n.md` の失敗を最初の修正対象にする。

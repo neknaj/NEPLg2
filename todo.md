@@ -111,6 +111,18 @@
 - C. `compile_wasm` に ModuleGraph 経路の実験フラグを追加し、段階置換を開始
 - D. `note.md` に毎回「失敗件数・主因・差分」を必ず記録
 
+実装進捗 (2026-02-10 追加)
+- フェーズ1（安全網）:
+  - `nodesrc/analyze_tests_json.js` を追加し、`tests.js` 結果JSONの失敗理由をカテゴリ集計できるようにした
+  - 現在の基準値:
+    - `node nodesrc/tests.js -i tests -o /tmp/tests-only-after-phase2.json -j 4`
+    - `total=309, passed=240, failed=69, errored=0`
+    - 主要カテゴリ: `stack_extra_values=25`, `compile_fail_expectation_mismatch=10`, `indent_expected=7`
+- フェーズ2（compilerフロー整理）:
+  - `nepl-core/src/compiler.rs` を段階関数（typecheck/move_check/codegen）へ分割
+  - 公開APIと主要型へ日本語docコメントを追加
+  - 挙動は維持（tests件数は同一）
+
 
 === ここまで編集自由 ===
 ---

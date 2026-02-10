@@ -121,3 +121,11 @@ Behavior summary:
   - `top_issues`: first 5 failing/errored cases with `id/status/phase/error`
 - Writes full result details to the JSON file specified by `-o`.
 - Full JSON includes `resolved_dist_dirs`.
+
+Failure classification helper:
+
+```
+node nodesrc/analyze_tests_json.js /tmp/nmd-tests.json
+```
+
+- Aggregates `fail/error` reasons into coarse categories for prioritizing fixes.
