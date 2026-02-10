@@ -450,7 +450,11 @@ fn main <()->i32> ():
 
 ## target_directive_sets_default_to_wasi
 
-neplg2:test[compile_ok]
+以前は `compile_ok` で「コンパイルが通るか」だけでした。
+このテストは実際に WASI として動作すること（少なくとも `std/stdio` が使えること）を確認したいので、`stdout: "ok"` を追加して実行結果まで検証します。
+
+neplg2:test
+stdout: "ok"
 ```neplg2
 
 #target wasi

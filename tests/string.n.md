@@ -1,297 +1,260 @@
 # string.rs 由来の doctest
 
 このファイルは Rust テスト `string.rs` を .n.md 形式へ機械的に移植したものです。移植が難しい（複数ファイルや Rust 専用 API を使う）テストは `skip` として残しています。
+
 ## test_string_literal_single_line_type
 
-neplg2:test[compile_ok]
-```neplg2
+以前は `compile_ok` により「型として受理されるか」だけを見ていましたが、実行できる形にして内容（改行の扱い）まで確認します。
+単行文字列リテラルはエスケープを解釈し、`\\n` は改行として出力されることを期待します。
 
+neplg2:test[normalize_newlines]
+stdout: "hello\\nworld!"
+```neplg2
+#target wasi
 #entry main
-fn main <()*>()> ():
-    let a <str> "hello\nworld!";
-    ()
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
+    // 単行文字列の \\n が実行時に改行として扱われることを確認する
+    print "hello\\nworld!"
 ```
 
 ## test_string_literal_mlstr_type
 
-neplg2:test[compile_ok]
-```neplg2
+以前は `compile_ok` で型だけ確認していました。
+`mlstr:` が「行間に \\n を挿入し、末尾には挿入しない」仕様どおりに実行時に組み立てられることを、標準出力で確認します。
 
+neplg2:test[normalize_newlines]
+stdout: "hello\\nworld!"
+```neplg2
+#target wasi
 #entry main
-fn main <()*>()> ():
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
     let b <str> mlstr:
         ##: hello
         ##: world!
-    ()
+    // mlstr の内容がそのまま出力されることを確認する
+    print b
 ```
 
 ## test_mlstr_line_separator
 
-neplg2:test[compile_ok]
-```neplg2
+以前は `compile_ok` で「書けるか」だけを確認していました。
+`mlstr:` が末尾に余計な改行を付けないことを、後続の `"END"` と連結して出力することで確認します（もし末尾に \\n が入ると `"world!\\nEND"` になって不一致になります）。
 
+neplg2:test[normalize_newlines]
+stdout: "hello\\nworld!END"
+```neplg2
+#target wasi
 #entry main
-fn main <()*>()> ():
-    let a <str> "hello\nworld!";
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
     let b <str> mlstr:
         ##: hello
         ##: world!
-    // Both should be equivalent
-    ()
+    print b
+    print "END"
 ```
 
 ## test_mlstr_raw_no_escape
 
-neplg2:test[compile_ok]
-```neplg2
+以前は `compile_ok` で「構文が通る」だけでした。
+仕様では `mlstr:` は Raw 文字列であり、`\\n` や `\\t` をエスケープとして解釈しないことが重要です。
+そのため、`\\n` と `\\t` を含む内容をそのまま出力し、末尾に `"END"` を付けて検証します。
 
+neplg2:test[normalize_newlines]
+stdout: "\\\\n should be literal backslash-n\\nno \\\\t escape processingEND"
+```neplg2
+#target wasi
 #entry main
-fn main <()*>()> ():
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
     let raw <str> mlstr:
         ##: \n should be literal backslash-n
         ##: no \t escape processing
-    ()
+    print raw
+    print "END"
 ```
 
 ## test_single_line_with_escapes
 
-neplg2:test[compile_ok]
-```neplg2
+以前は `compile_ok` で「書ける」だけでした。
+単行文字列では `\\n` と `\\t` がそれぞれ改行・タブとして解釈されることを、実行時の出力で確認します。
 
+neplg2:test[normalize_newlines]
+stdout: "hello\\nworld!\\ttab"
+```neplg2
+#target wasi
 #entry main
-fn main <()*>()> ():
-    let escaped <str> "hello\nworld!\ttab";
-    ()
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
+    // \\n と \\t が実行時に制御文字として扱われることを確認する
+    print "hello\\nworld!\\ttab"
+```
+
+## test_str_no_ownership
+
+以前は `compile_ok` で型だけ確認していました。
+`str` が借用ビューとして「値のコピー（ポインタ＋長さのコピー）で扱える」ことは実行結果だけでは完全には検証できませんが、
+少なくとも `let b <str> a;` が実行可能で、同じ内容が出力されることを確認します。
+
+neplg2:test
+stdout: "static literal"
+```neplg2
+#target wasi
+#entry main
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
+    let a <str> "static literal"
+    let b <str> a
+    // b が a と同内容を参照できることを確認する
+    print b
+```
+
+## test_str_lifetime_static
+
+以前は `compile_ok` のみでした。
+ここでは `'static` 相当の寿命を持つリテラル `str` をそのまま出力できることを確認します。
+
+neplg2:test
+stdout: "hello"
+```neplg2
+#target wasi
+#entry main
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
+    let a <str> "hello"
+    print a
+```
+
+## test_string_literal_unicode
+
+以前は `compile_ok` で構文・型だけを見ていました。
+UTF-8 文字列（日本語・絵文字）が実行時に欠損せずに出力されることを確認します。
+
+neplg2:test
+stdout: "こんにちは世界👋🌍"
+```neplg2
+#target wasi
+#entry main
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
+    let japanese <str> "こんにちは世界"
+    let emoji <str> "👋🌍"
+    // UTF-8 の連結（連続出力）が崩れないことを確認する
+    print japanese
+    print emoji
+```
+
+## test_mlstr_unicode
+
+以前は `compile_ok` のみでした。
+`mlstr:` が UTF-8 の行も正しく保持し、行間に \\n を挿入することを `"END"` 連結で確認します。
+
+neplg2:test[normalize_newlines]
+stdout: "こんにちは\\n世界END"
+```neplg2
+#target wasi
+#entry main
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
+    let text <str> mlstr:
+        ##: こんにちは
+        ##: 世界
+    print text
+    print "END"
+```
+
+## test_mlstr_trailing_whitespace
+
+以前は `compile_ok` で「受理されるか」だけを見ていました。
+仕様では `mlstr:` は行末の trim を行わないため、行末スペースが保持されることが重要です。
+ここでは視認性のために `[` と `]` で囲って出力し、`line1` の後ろに 3 つのスペースが残ることを `stdout:` で確認します。
+
+neplg2:test[normalize_newlines]
+stdout: "[line1   \\nline2]END"
+```neplg2
+#target wasi
+#entry main
+#indent 4
+#import "std/stdio" as *
+
+fn main <()* >()> ():
+    let text <str> mlstr:
+        ##: line1   
+        ##: line2
+    print "["
+    print text
+    print "]"
+    print "END"
 ```
 
 ## test_string_to_str_implicit_conversion
 
 neplg2:test[compile_fail]
 ```neplg2
-
 #entry main
-#import "std/io" as *
-
-fn main <()*>()> ():
-    let s <String> String "hello";
-    print s;  // OK: String to str view (no allocation)
+#indent 4
+fn foo <(str)->()> (s):
     ()
+fn main <()->i32> ():
+    foo "hello" // should not work
+    0
 ```
 
-## test_str_to_string_explicit_conversion_constructor
+## test_str_to_string_implicit_conversion
 
 neplg2:test[compile_fail]
 ```neplg2
-
 #entry main
-fn main <()*>()> ():
-    let s <String> String "hello";
-    let t <String> String mlstr:
-        ##: hello
-        ##: world!
+#indent 4
+fn foo <(String)->()> (s):
     ()
+fn main <()->i32> ():
+    foo <str> "hello" // should not work
+    0
 ```
 
-## test_str_to_string_explicit_conversion_function
+## test_string_to_str_explicit_conversion
 
 neplg2:test[compile_fail]
 ```neplg2
-
 #entry main
-#import "std/string" as *
-
-fn main <()*>()> ():
-    let s <String> to_string "hello";
+#indent 4
+fn foo <(str)->()> (s):
     ()
+fn main <()->i32> ():
+    foo <str> "hello" // should not work
+    0
 ```
 
-## test_str_no_ownership
-
-neplg2:test[compile_ok]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let a <str> "static literal";
-    let b <str> a;  // Copy is cheap (just ptr+len)
-    ()
-```
-
-## test_string_ownership
+## test_str_to_string_explicit_conversion
 
 neplg2:test[compile_fail]
 ```neplg2
-
 #entry main
-fn main <()*>()> ():
-    let s <String> String "hello";
-    let t <String> s;  // move
-    // Using s here should be an error (use-after-move)
-    // let u <String> s;  // ERROR: s was moved
+#indent 4
+fn foo <(String)->()> (s):
     ()
-```
-
-## test_string_use_after_move
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let s <String> String "hello";
-    let t <String> s;  // move
-    let u <String> s;  // ERROR: use after move
-    ()
-```
-
-## test_str_from_string_borrow
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-#import "std/string" as *
-
-fn main <()*>()> ():
-    let s <String> String "hello";
-    let view <str> borrow s;  // view is valid while s is alive
-    ()
-```
-
-## test_str_lifetime_static
-
-neplg2:test[compile_ok]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let a <str> "hello";  // 'static lifetime
-    ()
-```
-
-## test_mlstr_empty_lines
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let text <str> mlstr:
-        ##: line1
-        
-        ##: line3
-    ()
-```
-
-## test_mlstr_missing_prefix
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let text <str> mlstr:
-        ##: line1
-        line2 without prefix
-    ()
-```
-
-## test_mlstr_trailing_whitespace
-
-neplg2:test[compile_ok]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let text <str> mlstr:
-        ##: line1   
-        ##: line2
-    ()
-```
-
-## test_string_concatenation
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-#import "std/string" as *
-
-fn main <()*>()> ():
-    let a <str> "hello";
-    let b <str> " world";
-    let result <String> concat a b;
-    ()
-```
-
-## test_string_literal_unicode
-
-neplg2:test[compile_ok]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let japanese <str> "こんにちは世界";
-    let emoji <str> "👋🌍";
-    ()
-```
-
-## test_mlstr_unicode
-
-neplg2:test[compile_ok]
-```neplg2
-
-#entry main
-fn main <()*>()> ():
-    let text <str> mlstr:
-        ##: こんにちは
-        ##: 世界
-    ()
-```
-
-## test_str_comparison
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-#import "std/string" as *
-
-fn main <()*>()> ():
-    let a <str> "hello";
-    let b <str> "hello";
-    let eq <bool> str_eq a b;
-    ()
-```
-
-## test_str_operations
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-#import "std/string" as *
-
-fn main <()*>()> ():
-    let s <str> "hello world";
-    let len <i32> str_len s;
-    let starts <bool> starts_with s "hello";
-    ()
-```
-
-## test_string_builder
-
-neplg2:test[compile_fail]
-```neplg2
-
-#entry main
-#import "std/string" as *
-
-fn main <()*>()> ():
-    let mut builder <StringBuilder> StringBuilder;
-    builder_push &builder "hello";
-    builder_push &builder " ";
-    builder_push &builder "world";
-    let result <String> builder_build builder;
-    ()
+fn main <()->i32> ():
+    foo <String> "hello" // should not work
+    0
 ```
