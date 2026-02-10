@@ -17,7 +17,7 @@
 //: - `stack_len`/`stack_is_empty`/`stack_peek`/`stack_pop` は O(1)。
 //: - `stack_push` はならし O(1)、拡張発生時のみ O(n)。
 //:
-//: 使い方:
+//: 追加の使い方:
 //:
 //: neplg2:test
 //: ```neplg2

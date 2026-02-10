@@ -17,7 +17,7 @@
 //: - `list_nil`/`list_cons`/`list_head`/`list_tail`/`list_is_empty` は O(1)。
 //: - `list_len`/`list_get`/`list_free`/`list_reverse` は O(n)。
 //:
-//: 使い方:
+//: 追加の使い方:
 //:
 //: neplg2:test
 //: ```neplg2

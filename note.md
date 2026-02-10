@@ -1403,6 +1403,19 @@
 - `NO_COLOR=true trunk build`
   - 成功。
 
+# 2026-02-10 作業メモ (stdlib HTML 出力の違和感点検)
+## 実装
+- `stdlib/alloc/collections/stack.nepl`
+  - モジュール先頭の 2 本目サンプル見出しを `使い方:` から `追加の使い方:` に修正。
+- `stdlib/alloc/collections/list.nepl`
+  - モジュール先頭の 2 本目サンプル見出しを `使い方:` から `追加の使い方:` に修正。
+- `node nodesrc/cli.js -i stdlib -o html=dist/doc/stdlib --exclude-dir tests --exclude-dir tests_backup`
+  - stdlib ドキュメント HTML を再生成し、見出し反映を確認。
+
+## 検証
+- `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/list.nepl -o /tmp/tests-stack-list-doc.json -j 1 --no-stdlib`
+  - `total: 21, passed: 21, failed: 0, errored: 0`
+
 # 2026-02-10 作業メモ (WASM stack size 引き上げ)
 ## 実装
 - `.cargo/config.toml` の wasm ターゲット向け linker 引数を変更:
