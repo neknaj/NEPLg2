@@ -1887,7 +1887,7 @@ fn compile_wasm_with_entry(
     let artifact = compile_module(
         loaded.module,
         CompileOptions {
-            target: Some(CompileTarget::Wasi),
+            target: None,
             verbose: false,
             profile: None,
         },

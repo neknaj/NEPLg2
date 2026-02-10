@@ -57,17 +57,7 @@ pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
     // Ensure runtime-required helpers are retained even if not explicitly referenced.
     // Enum/struct/tuple codegen depends on alloc being present.
     for base in ["alloc", "dealloc", "realloc"] {
-        let mut keep: Option<String> = None;
-        if mono.funcs.contains_key(base) {
-            keep = Some(String::from(base));
-        } else {
-            let mut prefix = String::from(base);
-            prefix.push_str("__");
-            if let Some(found) = mono.funcs.keys().find(|name| name.starts_with(&prefix)) {
-                keep = Some(found.clone());
-            }
-        }
-        if let Some(name) = keep {
+        if let Some(name) = find_runtime_helper_name(&mono.funcs, base) {
             if !initial.iter().any(|n| n == &name) {
                 initial.push(name);
             }
@@ -107,6 +97,31 @@ struct Monomorphizer<'a> {
     worklist: Vec<(String, Vec<TypeId>)>,
     queued: BTreeSet<String>,
     impl_map: BTreeMap<(String, String, TypeId), String>,
+}
+
+fn find_runtime_helper_name(
+    funcs: &BTreeMap<String, HirFunction>,
+    base: &str,
+) -> Option<String> {
+    if funcs.contains_key(base) {
+        return Some(String::from(base));
+    }
+    let mut plain_prefix = String::from(base);
+    plain_prefix.push_str("__");
+    let mut namespaced_prefix = String::from("::");
+    namespaced_prefix.push_str(base);
+    namespaced_prefix.push_str("__");
+    let mut namespaced_exact = String::from("::");
+    namespaced_exact.push_str(base);
+    for name in funcs.keys() {
+        if name.starts_with(&plain_prefix)
+            || name.contains(&namespaced_prefix)
+            || name.ends_with(&namespaced_exact)
+        {
+            return Some(name.clone());
+        }
+    }
+    None
 }
 
 impl<'a> Monomorphizer<'a> {
@@ -251,8 +266,26 @@ impl<'a> Monomorphizer<'a> {
                             method.clone(),
                             resolved,
                         );
-                        if let Some(func_name) = self.impl_map.get(&key) {
-                            let inst = self.request_instantiation(func_name.clone(), Vec::new());
+                        let mut selected = self.impl_map.get(&key).cloned();
+                        if selected.is_none() {
+                            let mut fallback: Option<String> = None;
+                            for ((tr, meth, target_ty), func_name) in self.impl_map.iter() {
+                                if tr != trait_name || meth != method {
+                                    continue;
+                                }
+                                let mut tmp = self.ctx.clone();
+                                if tmp.unify(resolved, *target_ty).is_ok() {
+                                    if fallback.is_some() {
+                                        fallback = None;
+                                        break;
+                                    }
+                                    fallback = Some(func_name.clone());
+                                }
+                            }
+                            selected = fallback;
+                        }
+                        if let Some(func_name) = selected {
+                            let inst = self.request_instantiation(func_name, Vec::new());
                             *callee = FuncRef::User(inst, Vec::new());
                         }
                     }

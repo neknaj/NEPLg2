@@ -145,6 +145,7 @@ async function runAll(cases, jobs, distHint) {
             const c = cases[i];
             const req = {
                 id: c.id,
+                file: c.file,
                 source: c.source,
                 tags: c.tags,
                 stdin: '',

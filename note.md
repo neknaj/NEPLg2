@@ -1,4 +1,22 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (target尊重 + trait呼び出し + doctest VFS)
+- `nepl-web/src/lib.rs`:
+  - `compile_wasm_with_entry` の `CompileOptions.target` を `Some(Wasi)` 固定から `None` に変更し、ソース側 `#target` を尊重するよう修正。
+  - これにより `#if[target=...]` / `#target` 重複検出 / wasm での wasi import 禁止のテストが有効化された。
+- `nepl-core/src/monomorphize.rs`:
+  - `FuncRef::Trait` の解決で impl map の厳密一致が外れた場合に、`trait+method` での型単一候補を探索するフォールバックを追加。
+  - `tests/neplg2.n.md::doctest#31` (`Show::show`) を解消。
+- `nodesrc/run_test.js` + `nodesrc/tests.js`:
+  - doctest 実行時に `file` 情報を渡し、`#import`/`#include` の相対パスを実ファイルから収集して `compile_source_with_vfs` に渡す機能を追加。
+  - `tests/part.nepl` を追加し、`tests/neplg2.n.md::doctest#11` の `#import "./part"` を解決可能にした。
+- 検証:
+  - `NO_COLOR=true trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/neplg2.n.md -o /tmp/tests-neplg2-after-vfs2.json -j 1`
+    - `total=35, passed=35, failed=0, errored=0`
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all-after-target-vfs-trait.json -j 1`
+    - `total=339, passed=321, failed=18, errored=0`
+  - 主な残件: `offside(1)`, `pipe_operator(4)`, `ret_f64_example(1)`, `selfhost_req(4)`, `sort(5)`, `string(2)`, `tuple_new_syntax(1)`
+
 # 2026-02-10 作業メモ (loader字句正規化 + 高階関数回帰確認)
 - `nepl-core/src/loader.rs` の `canonicalize_path` に字句的正規化（`.` / `..` 除去）を追加した。
   - 目的: `#import "./part"` の解決で `/virtual/./part.nepl` と `/virtual/part.nepl` の不一致をなくすため。

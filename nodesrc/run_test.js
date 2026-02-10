@@ -98,6 +98,62 @@ function hasTag(tags, name) {
     return Array.isArray(tags) && tags.includes(name);
 }
 
+function extractImportSpecs(source) {
+    const specs = [];
+    const re = /^\s*#(?:import|include)\s+"([^"]+)"/gm;
+    let m;
+    while ((m = re.exec(source)) !== null) {
+        specs.push(m[1]);
+    }
+    return specs;
+}
+
+function resolveVirtualImport(fromVirtualFile, spec) {
+    const baseDir = path.posix.dirname(fromVirtualFile);
+    let out = spec.startsWith('/')
+        ? spec
+        : path.posix.join(baseDir, spec);
+    if (!path.posix.extname(out)) out += '.nepl';
+    return path.posix.normalize(out);
+}
+
+function resolveRealImport(fromRealDir, spec) {
+    let out = spec.startsWith('/')
+        ? path.resolve(spec)
+        : path.resolve(fromRealDir, spec);
+    if (!path.extname(out)) out += '.nepl';
+    return out;
+}
+
+function collectVfsSources(entrySource, testFile) {
+    const vfs = {};
+    if (!testFile) return vfs;
+    const testAbs = path.resolve(testFile);
+    const rootDir = path.dirname(testAbs);
+    const seen = new Set();
+
+    function visit(source, realDir, virtualFile) {
+        for (const spec of extractImportSpecs(source)) {
+            if (!(spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/'))) {
+                continue;
+            }
+            const virtualPath = resolveVirtualImport(virtualFile, spec);
+            if (seen.has(virtualPath)) continue;
+            const realPath = resolveRealImport(realDir, spec);
+            if (!fs.existsSync(realPath) || !fs.statSync(realPath).isFile()) {
+                continue;
+            }
+            const content = fs.readFileSync(realPath, 'utf-8');
+            vfs[virtualPath] = content;
+            seen.add(virtualPath);
+            visit(content, path.dirname(realPath), virtualPath);
+        }
+    }
+
+    visit(entrySource, rootDir, '/virtual/entry.nepl');
+    return vfs;
+}
+
 function withConsoleSuppressed(fn) {
     const origLog = console.log;
     const origInfo = console.info;
@@ -136,7 +192,14 @@ async function runSingle(req, preloaded) {
         let wasmU8 = null;
         let compileError = null;
         try {
-            wasmU8 = withConsoleSuppressed(() => api.compile_source(source));
+            const vfs = collectVfsSources(source, req.file);
+            if (typeof api.compile_source_with_vfs === 'function' && Object.keys(vfs).length > 0) {
+                wasmU8 = withConsoleSuppressed(() =>
+                    api.compile_source_with_vfs('/virtual/entry.nepl', source, vfs)
+                );
+            } else {
+                wasmU8 = withConsoleSuppressed(() => api.compile_source(source));
+            }
         } catch (e) {
             compileError = String(e?.message || e);
         }
