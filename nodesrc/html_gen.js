@@ -125,6 +125,98 @@ function renderCodeBlock(text) {
     return rendered;
 }
 
+function decodeDoctestValue(raw) {
+    const s = String(raw || '').trim();
+    if (s.startsWith('"') && s.endsWith('"')) {
+        try {
+            return JSON.parse(s);
+        } catch {
+            return s.slice(1, -1);
+        }
+    }
+    if (s.startsWith("'") && s.endsWith("'")) {
+        return s.slice(1, -1);
+    }
+    return s
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t');
+}
+
+function renderDoctestMetaParagraph(rawText) {
+    const raw = String(rawText || '').replace(/\r\n/g, '\n');
+    const firstNl = raw.indexOf('\n');
+    const head = (firstNl >= 0 ? raw.slice(0, firstNl) : raw).trim();
+    if (!/^\s*neplg2:test(?:\[[^\]]+\])?\s*$/.test(head)) return null;
+
+    const tail = firstNl >= 0 ? raw.slice(firstNl + 1) : '';
+    const lines = tail.split('\n');
+    const rows = [];
+    for (let i = 0; i < lines.length; i++) {
+        let ln = String(lines[i] || '').trim();
+        if (!ln) continue;
+        const m = ln.match(/^(stdin|stdout|ret)\s*:\s*([\s\S]*)$/);
+        if (!m) continue;
+        const key = m[1];
+        let valueRaw = m[2] || '';
+
+        const q = valueRaw.startsWith('"') ? '"' : (valueRaw.startsWith("'") ? "'" : '');
+        if (q) {
+            let esc = false;
+            let closed = false;
+            for (let p = 1; p < valueRaw.length; p++) {
+                const ch = valueRaw[p];
+                if (esc) {
+                    esc = false;
+                    continue;
+                }
+                if (ch === '\\') {
+                    esc = true;
+                    continue;
+                }
+                if (ch === q) {
+                    closed = true;
+                    break;
+                }
+            }
+            while (!closed && i + 1 < lines.length) {
+                i += 1;
+                valueRaw += '\n' + lines[i];
+                esc = false;
+                for (let p = 1; p < valueRaw.length; p++) {
+                    const ch = valueRaw[p];
+                    if (esc) {
+                        esc = false;
+                        continue;
+                    }
+                    if (ch === '\\') {
+                        esc = true;
+                        continue;
+                    }
+                    if (ch === q) {
+                        closed = true;
+                        break;
+                    }
+                }
+            }
+        }
+        rows.push({ key, value: decodeDoctestValue(valueRaw) });
+    }
+
+    let out = `<div class="nm-doctest-block"><div class="nm-doctest-meta">${escapeHtml(head)}</div>`;
+    for (const row of rows) {
+        const key = row.key;
+        const value = row.value;
+        if (key === 'ret') {
+            out += `<div class="nm-doctest-row"><span class="nm-doctest-badge">${escapeHtml(key)}</span><code class="nm-doctest-inline">${escapeHtml(value)}</code></div>`;
+        } else {
+            out += `<div class="nm-doctest-row"><span class="nm-doctest-badge">${escapeHtml(key)}</span><pre class="nm-doctest-pre">${escapeHtml(value)}</pre></div>`;
+        }
+    }
+    out += '</div>';
+    return out;
+}
+
 function renderNode(node, opt) {
     const o = opt || { rewriteLinks: true };
 
@@ -139,12 +231,9 @@ function renderNode(node, opt) {
     }
     if (node.type === 'paragraph') {
         // doctest メタ行の表示品質を上げる
-        if (node.inlines
-            && node.inlines.length === 1
-            && node.inlines[0].type === 'text'
-            && /^\s*neplg2:test(?:\[[^\]]+\])?\s*$/.test(node.inlines[0].text)) {
-            const t = escapeHtml(node.inlines[0].text.trim());
-            return `<div class="nm-doctest-meta">${t}</div>`;
+        if (node.inlines && node.inlines.length === 1 && node.inlines[0].type === 'text') {
+            const doctest = renderDoctestMetaParagraph(node.inlines[0].text);
+            if (doctest) return doctest;
         }
         return `<p>${renderInlines(node.inlines, o)}</p>`;
     }
@@ -199,6 +288,11 @@ ul{margin:10px 0 10px 22px;}
 .math-inline{color:var(--muted);}
 .math-display{display:block;padding:8px 10px;margin:8px 0;background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:10px;}
 .nm-doctest-meta{display:inline-block;margin:8px 0 2px;padding:3px 10px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:12px;background:rgba(255,255,255,0.03);}
+.nm-doctest-block{margin:10px 0 12px;}
+.nm-doctest-row{display:flex;align-items:flex-start;gap:8px;margin:6px 0;}
+.nm-doctest-badge{display:inline-block;min-width:56px;text-align:center;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--muted);font-size:11px;line-height:1.5;letter-spacing:.03em;}
+.nm-doctest-pre{margin:0;padding:8px 10px;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;line-height:1.45;flex:1;}
+.nm-doctest-inline{padding:2px 8px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;}
 .nm-toggle{display:inline-block;margin:6px 0 12px;padding:6px 10px;border-radius:10px;border:1px solid #2f3f58;background:#0f141b;color:#d6d6d6;cursor:pointer;}
 .nm-hidden{display:none;}
 ruby rt{font-size:0.6em;opacity:0.95;}

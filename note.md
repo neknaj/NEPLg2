@@ -1623,3 +1623,83 @@
 - `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
   - `00`〜`14` を含む HTML を再生成。
   - 各ページで左サイド目次と active 表示が出ることを確認。
+
+# 2026-02-10 作業メモ (チュートリアル追加拡充: match/ANSIデバッグ)
+## 実装
+- `tutorials/getting_started/00_index.n.md`
+  - Part 5 を追加し、実装で頻出の書き方へ導線を追加。
+- 新章追加:
+  - `tutorials/getting_started/15_match_patterns.n.md`
+    - Option/Result を `match` で明示処理する例を追加。
+  - `tutorials/getting_started/16_debug_and_ansi.n.md`
+    - `print_color` / `println_color` と `strip_ansi` テスト運用を追加。
+
+## 検証
+- `node nodesrc/tests.js -i tutorials/getting_started -o /tmp/getting_started_doctest.json -j 1`
+  - `total: 137, passed: 137, failed: 0, errored: 0`
+- `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
+  - `00`〜`16` の HTML を再生成。
+
+# 2026-02-10 作業メモ (チュートリアル拡充: 名前空間/再帰/pipe)
+## 実装
+- `tutorials/getting_started/00_index.n.md`
+  - Part 5 に次の導線を追加:
+    - `17_namespace_and_alias.n.md`
+    - `18_recursion_and_termination.n.md`
+    - `19_pipe_operator.n.md`
+- 新規追加:
+  - `tutorials/getting_started/17_namespace_and_alias.n.md`
+    - `alias::function` 呼び出しと `Option::Some/None` の参照例を追加。
+  - `tutorials/getting_started/18_recursion_and_termination.n.md`
+    - 停止条件つき再帰（`sum_to`, `fib`）を追加。
+  - `tutorials/getting_started/19_pipe_operator.n.md`
+    - `|>` の基本とチェイン利用例を追加。
+- 修正:
+  - `18_recursion_and_termination.n.md` の比較関数を `le` へ修正（未定義識別子 `lte` を解消）。
+
+## 検証
+- `node nodesrc/tests.js -i tutorials/getting_started -o /tmp/getting_started_doctest.json -j 1`
+  - `total: 143, passed: 143, failed: 0, errored: 0`
+- `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
+  - `00`〜`19` の HTML を再生成。
+
+# 2026-02-10 作業メモ (チュートリアル拡充: generics / trait 制約)
+## 実装
+- `tutorials/getting_started/00_index.n.md`
+  - Part 5 に次の導線を追加:
+    - `20_generics_basics.n.md`
+    - `21_trait_bounds_basics.n.md`
+- 新規追加:
+  - `tutorials/getting_started/20_generics_basics.n.md`
+    - `id` 関数と `Option<.T>` を使ったジェネリクス導入章を追加。
+  - `tutorials/getting_started/21_trait_bounds_basics.n.md`
+    - `trait Show` / `impl Show for i32` / `<.T: Show>` 制約の最小導線を追加。
+
+## 検証
+- `node nodesrc/tests.js -i tutorials/getting_started -o /tmp/getting_started_doctest.json -j 1`
+  - `total: 147, passed: 147, failed: 0, errored: 0`
+- `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
+  - `00`〜`21` の HTML を再生成。
+
+# 2026-02-10 作業メモ (チュートリアルUI/構成改善)
+## 実装
+- 左目次を `00_index.n.md` の階層（`### Part ...` + 配下リンク）準拠へ変更。
+  - `nodesrc/cli.js` で `00_index.n.md` 解析ベースの TOC 生成に変更。
+  - `nodesrc/html_gen_playground.js` でグループ見出し（Part）表示を追加。
+- 記事中コード（`pre > code.language-neplg2`）のシンタックスハイライトを改善。
+  - `analyze_lex` の span から `start_line/start_col` を優先して JS インデックスに変換し、
+    日本語コメントを含むコードでも崩れないように修正。
+- doctest メタ表示を改善。
+  - `neplg2:test[...]` をバッジ化。
+  - `stdin` / `stdout` をバッジ + `pre` 表示へ変更。
+  - `ret` をバッジ + inline code 表示へ変更。
+  - `"...\\n"` などのエスケープはデコードして可読表示。
+- チュートリアル内容を拡充。
+  - 競プロパート（22〜24）を追加。
+  - `10_project_fizzbuzz.n.md` を `stdout` で結果が読める例へ変更。
+
+## 検証
+- `node nodesrc/tests.js -i tutorials/getting_started -o /tmp/getting_started_doctest.json -j 1`
+  - `total: 152, passed: 152, failed: 0, errored: 0`
+- `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
+  - `00`〜`24` の HTML を再生成。

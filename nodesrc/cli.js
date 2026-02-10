@@ -197,25 +197,102 @@ function toPosix(p) {
 }
 
 function buildTocEntries(inputRoot, files) {
-    const outRels = files.map(f => toPosix(path.relative(inputRoot, f))
+    const allOutRels = files.map(f => toPosix(path.relative(inputRoot, f))
         .replace(/\.n\.md$/i, '.html')
-        .replace(/\.nepl$/i, '.html'));
-    outRels.sort();
-    return outRels.map(outRel => ({
-        outRel,
-        label: humanizeDocName(outRel),
-    }));
+        .replace(/\.nepl$/i, '.html'))
+        .filter(outRel => outRel !== '00_index.html');
+    allOutRels.sort();
+
+    const indexPath = path.join(inputRoot, '00_index.n.md');
+    if (!isFile(indexPath)) {
+        return allOutRels.map(outRel => ({
+            outRel,
+            label: humanizeDocName(outRel),
+            isGroup: false,
+            depth: 0,
+        }));
+    }
+
+    const known = new Set(allOutRels);
+    const used = new Set();
+    const entries = [];
+    const text = fs.readFileSync(indexPath, 'utf8').replace(/\r\n/g, '\n');
+    const lines = text.split('\n');
+
+    for (const ln of lines) {
+        const h3 = ln.match(/^###\s+(.+)\s*$/);
+        if (h3) {
+            entries.push({
+                label: h3[1].trim(),
+                isGroup: true,
+                depth: 0,
+            });
+            continue;
+        }
+
+        const item = ln.match(/^(\s*)-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/);
+        if (!item) continue;
+        const indent = item[1] || '';
+        const label = item[2].trim();
+        const rawHref = item[3].trim();
+        if (!rawHref || /^https?:\/\//i.test(rawHref)) continue;
+
+        const outRel = toPosix(rawHref)
+            .replace(/^\.\//, '')
+            .replace(/\.n\.md$/i, '.html')
+            .replace(/\.nepl$/i, '.html');
+        if (!known.has(outRel)) continue;
+
+        const depth = Math.floor(indent.length / 2) + 1;
+        entries.push({
+            outRel,
+            label,
+            isGroup: false,
+            depth,
+        });
+        used.add(outRel);
+    }
+
+    const remaining = allOutRels.filter(r => !used.has(r));
+    if (remaining.length > 0) {
+        entries.push({
+            label: 'Other',
+            isGroup: true,
+            depth: 0,
+        });
+        for (const outRel of remaining) {
+            entries.push({
+                outRel,
+                label: humanizeDocName(outRel),
+                isGroup: false,
+                depth: 1,
+            });
+        }
+    }
+
+    return entries;
 }
 
 function makePageTocLinks(currentOutRel, tocEntries) {
     if (!Array.isArray(tocEntries) || tocEntries.length === 0) return [];
     const curDir = path.posix.dirname(toPosix(currentOutRel));
     return tocEntries.map(e => {
+        if (e.isGroup || !e.outRel) {
+            return {
+                href: '',
+                label: e.label,
+                active: false,
+                isGroup: true,
+                depth: Number.isFinite(e.depth) ? e.depth : 0,
+            };
+        }
         const rel = path.posix.relative(curDir === '.' ? '' : curDir, e.outRel);
         return {
             href: rel === '' ? path.posix.basename(e.outRel) : rel,
             label: e.label,
             active: e.outRel === toPosix(currentOutRel),
+            isGroup: false,
+            depth: Number.isFinite(e.depth) ? e.depth : 0,
         };
     });
 }

@@ -23,8 +23,12 @@ function renderToc(tocLinks) {
         return '';
     }
     const items = tocLinks.map(link => {
-        const cls = link.active ? ' class="toc-link active"' : ' class="toc-link"';
-        return `<li><a${cls} href="${escapeHtml(String(link.href || ''))}">${escapeHtml(String(link.label || ''))}</a></li>`;
+        const depth = Number.isFinite(link.depth) ? Math.max(0, Math.min(6, link.depth)) : 0;
+        if (link.isGroup) {
+            return `<li><div class="toc-group depth-${depth}">${escapeHtml(String(link.label || ''))}</div></li>`;
+        }
+        const cls = link.active ? `toc-link active depth-${depth}` : `toc-link depth-${depth}`;
+        return `<li><a class="${cls}" href="${escapeHtml(String(link.href || ''))}">${escapeHtml(String(link.label || ''))}</a></li>`;
     }).join('\n');
     return `<aside class="doc-sidebar"><div class="toc-title">Getting Started</div><ul class="toc-list">${items}</ul></aside>`;
 }
@@ -63,6 +67,23 @@ html,body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-syst
 .doc-layout{max-width:1260px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:260px 1fr;gap:18px;}
 main{min-width:0;}
 a{color:var(--accent);}
+.global-play-link{
+  position:fixed;
+  right:14px;
+  top:12px;
+  z-index:10000;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(11,15,25,0.92);
+  color:var(--fg);
+  text-decoration:none;
+  font-size:12px;
+}
+.global-play-link:hover{border-color:#355186;background:rgba(18,26,42,0.96);}
 hr{border:none;border-top:1px solid var(--border);margin:24px 0;}
 .nm-sec{padding:0.5em;padding-left:2em;margin:1em;border-left:3px solid var(--border);border-radius:1em;}
 h1,h2,h3,h4,h5,h6{margin:18px 0 10px;}
@@ -70,6 +91,14 @@ p{margin:10px 0;}
 ul{margin:10px 0 10px 22px;}
 .nm-code{background:var(--code);border:1px solid var(--border);border-radius:12px;padding:12px;overflow:auto;}
 .nm-code code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;white-space:pre;}
+.nm-syn-keyword{color:#7aa2f7;}
+.nm-syn-string{color:#9ece6a;}
+.nm-syn-number{color:#ff9e64;}
+.nm-syn-comment{color:#7f8ea3;}
+.nm-syn-boolean{color:#e0af68;}
+.nm-syn-function{color:#73daca;}
+.nm-syn-operator{color:#c0caf5;}
+.nm-syn-punctuation{color:#a9b1d6;}
 .nm-code-inline{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:1px 6px;}
 .nm-gloss, .nm-ruby{ruby-position:over;}
 .nm-gloss rt{font-size:0.72em;color:var(--muted);line-height:1.1;}
@@ -77,6 +106,11 @@ ul{margin:10px 0 10px 22px;}
 .math-inline{color:var(--muted);}
 .math-display{display:block;padding:8px 10px;margin:8px 0;background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:10px;}
 .nm-doctest-meta{display:inline-block;margin:8px 0 2px;padding:3px 10px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:12px;background:rgba(255,255,255,0.03);}
+.nm-doctest-block{margin:10px 0 12px;}
+.nm-doctest-row{display:flex;align-items:flex-start;gap:8px;margin:6px 0;}
+.nm-doctest-badge{display:inline-block;min-width:56px;text-align:center;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--muted);font-size:11px;line-height:1.5;letter-spacing:.03em;}
+.nm-doctest-pre{margin:0;padding:8px 10px;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;line-height:1.45;flex:1;}
+.nm-doctest-inline{padding:2px 8px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;}
 .nm-toggle{display:inline-block;margin:6px 0 12px;padding:6px 10px;border-radius:10px;border:1px solid #2f3f58;background:#0f141b;color:#d6d6d6;cursor:pointer;}
 .nm-hidden{display:none;}
 .nm-runnable{cursor:pointer;position:relative;}
@@ -119,6 +153,8 @@ ul{margin:10px 0 10px 22px;}
 }
 #play-right{display:grid; grid-template-rows:120px 1fr; border-left:1px solid var(--border); min-height:0;}
 #play-stdin{background:#0a1620; border-bottom:1px solid var(--border);}
+#play-stdin-wrap{position:relative; min-height:0;}
+#play-stdin{padding-top:30px;}
 #play-stdout-wrap{background:#081018; min-height:0; position:relative;}
 #play-stdout-view{
   margin:0;
@@ -127,7 +163,7 @@ ul{margin:10px 0 10px 22px;}
   white-space:pre-wrap;
   word-break:break-word;
   box-sizing:border-box;
-  padding:12px;
+  padding:30px 12px 12px;
   font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
   font-size:13px; line-height:1.45;
 }
@@ -139,6 +175,19 @@ ul{margin:10px 0 10px 22px;}
 }
 #play-status{font-size:12px; color:var(--muted);}
 .ok{color:var(--ok);} .err{color:var(--err);}
+.io-label{
+  position:absolute;
+  left:10px;
+  top:8px;
+  font-size:11px;
+  letter-spacing:.04em;
+  color:var(--muted);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:2px 8px;
+  background:rgba(0,0,0,.25);
+  z-index:2;
+}
 .doc-sidebar{
   position:sticky;
   top:16px;
@@ -157,6 +206,13 @@ ul{margin:10px 0 10px 22px;}
   margin:2px 0 8px;
 }
 .toc-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
+.toc-group{
+  color:var(--muted);
+  font-size:12px;
+  letter-spacing:.02em;
+  margin-top:8px;
+  padding:4px 8px;
+}
 .toc-link{
   display:block;
   padding:6px 8px;
@@ -168,9 +224,18 @@ ul{margin:10px 0 10px 22px;}
 }
 .toc-link:hover{border-color:var(--border);background:rgba(255,255,255,0.04);}
 .toc-link.active{border-color:#355186;background:rgba(122,162,247,0.18);}
+.depth-1{padding-left:14px;}
+.depth-2{padding-left:24px;}
+.depth-3{padding-left:34px;}
+.depth-4{padding-left:44px;}
 @media (max-width: 920px){
   .doc-layout{grid-template-columns:1fr;}
   .doc-sidebar{position:static;max-height:none;}
+  .global-play-link{
+    position:static;
+    margin:12px 16px 0 auto;
+    width:fit-content;
+  }
 }
 </style>
 <script>
@@ -338,6 +403,185 @@ function ansiToHtml(input) {
   return chunks.join('');
 }
 
+function decodeDoctestString(raw) {
+  const s = String(raw || '').trim();
+  if (s.startsWith('"') && s.endsWith('"')) {
+    try {
+      return JSON.parse(s);
+    } catch (_) {}
+  }
+  if (s.startsWith("'") && s.endsWith("'")) {
+    return s.slice(1, -1);
+  }
+  return s
+    .replace(/\\\\n/g, '\\n')
+    .replace(/\\\\r/g, '\\r')
+    .replace(/\\\\t/g, '\\t');
+}
+
+function findDoctestStdinFor(preEl) {
+  let cur = preEl.previousElementSibling;
+  while (cur) {
+    if (cur.tagName === 'PRE') break;
+    if (/^H[1-6]$/.test(cur.tagName)) break;
+    const text = String(cur.textContent || '').trim();
+    const quoted = text.match(/stdin:\\s*"([\\s\\S]*?)"\\s*(?:\\n|$)/);
+    if (quoted) {
+      return quoted[1];
+    }
+    const singleQuoted = text.match(/stdin:\\s*'([\\s\\S]*?)'\\s*(?:\\n|$)/);
+    if (singleQuoted) {
+      return singleQuoted[1];
+    }
+    const oneLine = text.match(/^stdin:\\s*(.+)$/m);
+    if (oneLine) {
+      return decodeDoctestString(oneLine[1]);
+    }
+    cur = cur.previousElementSibling;
+  }
+  return '';
+}
+
+function tokenTypeFromKind(kind, debug) {
+  if (!kind) return 'default';
+  if (kind.startsWith('Kw') || kind === 'At' || kind === 'PathSep') return 'keyword';
+  if (kind.includes('String') || kind.includes('Mlstr')) return 'string';
+  if (kind.includes('BoolLiteral')) return 'boolean';
+  if (kind.includes('IntLiteral') || kind.includes('FloatLiteral')) return 'number';
+  if (kind.includes('Comment')) return 'comment';
+  if (kind === 'Pipe' || kind === 'Arrow' || kind === 'Plus' || kind === 'Minus' || kind === 'Star' || kind === 'Slash' || kind === 'Equals') return 'operator';
+  if (kind === 'LParen' || kind === 'RParen' || kind === 'LAngle' || kind === 'RAngle' || kind === 'Colon' || kind === 'Semicolon' || kind === 'Comma' || kind === 'Dot') return 'punctuation';
+  if (debug && String(debug).includes('Fn')) return 'function';
+  return 'default';
+}
+
+function collectTextNodes(root) {
+  const out = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let cur = walker.nextNode();
+  let offset = 0;
+  while (cur) {
+    const len = cur.nodeValue ? cur.nodeValue.length : 0;
+    out.push({ node: cur, start: offset, end: offset + len });
+    offset += len;
+    cur = walker.nextNode();
+  }
+  return out;
+}
+
+function highlightCodeElement(codeEl, lexTokens) {
+  if (!Array.isArray(lexTokens) || lexTokens.length === 0) return;
+  const skipKinds = new Set(['Indent', 'Dedent', 'Eof', 'Newline']);
+  const sourceText = codeEl.textContent || '';
+  const lineStarts = [0];
+  for (let i = 0; i < sourceText.length; i++) {
+    if (sourceText.charCodeAt(i) === 10) {
+      lineStarts.push(i + 1);
+    }
+  }
+  function lineColToIndex(line, col) {
+    const li = Number(line);
+    const ci = Number(col);
+    if (!Number.isFinite(li) || !Number.isFinite(ci) || li < 0 || ci < 0) return null;
+    const base = lineStarts[li];
+    if (!Number.isFinite(base)) return null;
+    return Math.min(sourceText.length, base + ci);
+  }
+  function tokenToRange(tok) {
+    const sp = tok && tok.span;
+    if (!sp) return null;
+    const ls = lineColToIndex(sp.start_line, sp.start_col);
+    const le = lineColToIndex(sp.end_line, sp.end_col);
+    if (ls != null && le != null && le > ls) {
+      return { start: ls, end: le };
+    }
+    const bs = Number(sp.start);
+    const be = Number(sp.end);
+    if (!Number.isFinite(bs) || !Number.isFinite(be) || be <= bs) return null;
+    return { start: Math.max(0, Math.min(sourceText.length, bs)), end: Math.max(0, Math.min(sourceText.length, be)) };
+  }
+  const tokens = lexTokens
+    .map((tok) => {
+      const range = tokenToRange(tok);
+      const kind = String((tok && tok.kind) || '');
+      if (!range || skipKinds.has(kind)) return null;
+      const type = tokenTypeFromKind(kind, tok && tok.debug);
+      if (type === 'default') return null;
+      return { start: range.start, end: range.end, type };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  if (tokens.length === 0) return;
+  const textNodes = collectTextNodes(codeEl);
+  for (const item of textNodes) {
+    const text = item.node.nodeValue || '';
+    if (!text) continue;
+
+    const localSegs = [];
+    for (const tok of tokens) {
+      if (tok.end <= item.start) continue;
+      if (tok.start >= item.end) break;
+      const s = Math.max(tok.start, item.start) - item.start;
+      const e = Math.min(tok.end, item.end) - item.start;
+      if (s < e) localSegs.push({ start: s, end: e, type: tok.type });
+    }
+    if (localSegs.length === 0) continue;
+
+    localSegs.sort((a, b) => a.start - b.start || a.end - b.end);
+    const merged = [];
+    let cursor = 0;
+    for (const seg of localSegs) {
+      const start = Math.max(seg.start, cursor);
+      const end = Math.max(start, seg.end);
+      if (start >= end) continue;
+      merged.push({ start, end, type: seg.type });
+      cursor = end;
+      if (cursor >= text.length) break;
+    }
+    if (merged.length === 0) continue;
+
+    const frag = document.createDocumentFragment();
+    let pos = 0;
+    for (const seg of merged) {
+      if (pos < seg.start) {
+        frag.appendChild(document.createTextNode(text.slice(pos, seg.start)));
+      }
+      const span = document.createElement('span');
+      span.className = 'nm-syn-' + seg.type;
+      span.textContent = text.slice(seg.start, seg.end);
+      frag.appendChild(span);
+      pos = seg.end;
+    }
+    if (pos < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(pos)));
+    }
+    item.node.parentNode.replaceChild(frag, item.node);
+  }
+}
+
+async function highlightArticleNeplBlocks() {
+  let wasm = null;
+  try {
+    wasm = await loadBindings();
+  } catch (_) {
+    return;
+  }
+  if (!wasm || typeof wasm.analyze_lex !== 'function') return;
+
+  const codeBlocks = document.querySelectorAll('pre.nm-code > code.language-neplg2');
+  for (const codeEl of codeBlocks) {
+    const src = codeEl.textContent || '';
+    if (!src.trim()) continue;
+    try {
+      const lex = wasm.analyze_lex(src);
+      highlightCodeElement(codeEl, lex && lex.tokens);
+    } catch (_) {
+      // ハイライト失敗時は本文表示を優先する。
+    }
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   for(const pre of document.querySelectorAll('pre.nm-code')){
     const hasHidden = pre.querySelector('.nm-hidden');
@@ -351,6 +595,8 @@ window.addEventListener('DOMContentLoaded', () => {
     btn.onclick = () => nmToggleHidden(btn);
     pre.insertAdjacentElement('afterend', btn);
   }
+
+  highlightArticleNeplBlocks();
 
   const overlay = document.getElementById('play-overlay');
   const title = document.getElementById('play-title');
@@ -446,7 +692,7 @@ window.addEventListener('DOMContentLoaded', () => {
     pre.addEventListener('click', () => {
       title.textContent = document.title + ' - runnable snippet';
       src.value = code.textContent || '';
-      stdin.value = '';
+      stdin.value = findDoctestStdinFor(pre);
       setStdoutText('');
       setStatus('ready', 'ok');
       overlay.classList.add('open');
@@ -457,6 +703,7 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </head>
 <body>
+<a class="global-play-link" href="https://neknaj.github.io/NEPLg2/" target="_blank" rel="noopener noreferrer">Web Playground</a>
 <div class="doc-layout">
 ${tocHtml}
 <main>
@@ -475,8 +722,12 @@ ${body}
     <div id="play-editor">
       <textarea id="play-src" spellcheck="false"></textarea>
       <div id="play-right">
-        <textarea id="play-stdin" spellcheck="false" placeholder="stdin"></textarea>
+        <div id="play-stdin-wrap">
+          <div class="io-label">Standard Input (stdin)</div>
+          <textarea id="play-stdin" spellcheck="false" placeholder="stdin"></textarea>
+        </div>
         <div id="play-stdout-wrap">
+          <div class="io-label">Program Output (stdout/stderr)</div>
           <pre id="play-stdout-view"></pre>
           <textarea id="play-stdout-raw" spellcheck="false" readonly placeholder="stdout / stderr"></textarea>
         </div>

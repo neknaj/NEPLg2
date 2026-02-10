@@ -37,3 +37,17 @@ NEPLg2 の中核は次の 3 つです。
 - [12 純粋関数の合成（状態を持たない変換）](12_pure_function_pipeline.n.md)
 - [13 型で失敗を表す（Option / Result の徹底）](13_type_driven_error_modeling.n.md)
 - [14 等式的リファクタと回帰テスト](14_refactor_with_properties.n.md)
+
+### Part 5: 実装で頻出の書き方
+- [15 match で分岐を明示する](15_match_patterns.n.md)
+- [16 デバッグ出力と ANSI カラー](16_debug_and_ansi.n.md)
+- [17 名前空間と `::` 呼び出し](17_namespace_and_alias.n.md)
+- [18 再帰と停止条件](18_recursion_and_termination.n.md)
+- [19 パイプ演算子 `|>`](19_pipe_operator.n.md)
+- [20 ジェネリクスの基本](20_generics_basics.n.md)
+- [21 trait 制約の基本](21_trait_bounds_basics.n.md)
+
+### Part 6: 競技プログラミング実践
+- [22 競プロ向け I/O と演算](22_competitive_io_and_arith.n.md)
+- [23 sort と二分探索の型](23_competitive_sort_and_search.n.md)
+- [24 DP の基本パターン](24_competitive_dp_basics.n.md)
