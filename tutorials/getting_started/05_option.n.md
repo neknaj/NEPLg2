@@ -1,6 +1,6 @@
 # Option（値がある / ない）
 
-**Option** (`/ˈɑːpʃən/`, 選択肢; [オプション]; ラテン語: optio, `/ˈɔp.ti.oː/`, 選ぶこと) は「値が **ある**（Some）か、**ない**（None）か」を表す型です。
+`Option<T>` は「値がある (`Some`) / 値がない (`None`)」を表す型です。
 
 NEPL では `core/option` に Option と基本操作が入っています。
 
@@ -19,9 +19,6 @@ fn main <()*> ()> ():
     let a <Option<i32>> some<i32> 10
     let b <Option<i32>> none<i32>
 
-    assert is_some<i32> a
-    assert is_none<i32> b
-
     match a:
         Option::Some v:
             assert_eq_i32 10 v
@@ -33,13 +30,12 @@ fn main <()*> ()> ():
             test_fail "b was Some"
         Option::None:
             ()
-    test_checked "option"
+    test_checked "option match"
 ```
 
-## unwrap は注意
+## `option_unwrap_or` で既定値を使う
 
-`unwrap` は None だと `unreachable` になり、プログラムが落ちます。
-None の可能性があるなら `option_unwrap_or` などを使います。
+`unwrap` は `None` で失敗するため、入門では `option_unwrap_or` を推奨します。
 
 neplg2:test
 ```neplg2
@@ -51,7 +47,9 @@ neplg2:test
 | #import "std/test" as *
 |
 fn main <()*> ()> ():
-    let b <Option<i32>> none<i32>
-    assert_eq_i32 123 option_unwrap_or<i32> b 123
-    test_checked "unwrap_or"
+    let some_v <Option<i32>> some<i32> 77
+    let none_v <Option<i32>> none<i32>
+    assert_eq_i32 77 option_unwrap_or<i32> some_v 0
+    assert_eq_i32 123 option_unwrap_or<i32> none_v 123
+    test_checked "option_unwrap_or"
 ```

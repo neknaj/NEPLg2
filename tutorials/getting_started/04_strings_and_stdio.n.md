@@ -1,31 +1,46 @@
 # 文字列と標準入出力
 
-NEPL の文字列は `str` です。
-結合には `concat` を使います。
-
-`std/stdio` を import すると `print` / `println` / `read_line` が使えます。
+文字列型は `str` です。
+連結は `concat`、入出力は `std/stdio` の `print` / `println` / `read_line` を使います。
 
 ## 文字列の結合（concat）
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+stdout: "Hello, World\n"
 ```neplg2
 | #entry main
 | #indent 4
 | #target wasi
 |
-| #import "std/test" as *
 | #import "core/mem" as *
+| #import "alloc/string" as *
+| #import "std/stdio" as *
 |
 fn main <()*> ()> ():
-    let a <str> "Hello"
-    let b <str> "World"
-    let c <str> concat a ", "
-    let d <str> concat c b
-    assert_str_eq "Hello, World" d
-    test_checked "concat"
+    let hello <str> "Hello"
+    let world <str> "World"
+    let left <str> concat hello ", "
+    let line <str> concat left world
+    println line
 ```
 
-## 入力を読む（read_line）→表示する（println）
+## `print` と `println`
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "A=10\n"
+```neplg2
+| #entry main
+| #indent 4
+| #target wasi
+|
+| #import "std/stdio" as *
+|
+fn main <()*> ()> ():
+    print "A="
+    println_i32 10
+```
+
+## 入力を読む（`read_line`）→表示する（`println`）
 
 ここでは stdin から 1 行読み、同じ内容を表示します。
 

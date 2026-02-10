@@ -1,8 +1,9 @@
 # Hello World
 
-NEPL のプログラムは、WASI で[動/うご]かすなら `#target wasi` を指定し、`#entry main` の `fn main` を[用意/ようい]します。
+NEPLg2 で実行可能な最小プログラムです。
+WASI ターゲットでは `#target wasi` と `#entry main` を指定し、`fn main <()*> ()> ():` を定義します。
 
-ここでは `std/stdio` の `println` を使って 1 行表示します。
+ここでは `std/stdio` の `println` で 1 行出力します。
 
 neplg2:test[stdio, normalize_newlines]
 stdout: "Hello, NEPL!\n"
@@ -17,8 +18,8 @@ fn main <()*> ()> ():
     println "Hello, NEPL!";
 ```
 
-## 何が起きているか（ざっくり）
+## 何が起きているか
 
-- `#entry main`：この関数がプログラムの[入口/いりぐち]です。
-- `#target wasi`：WASI として[実行/じっこう]できる形に[コンパイル/こんぱいる]します。
-- `println`：文字列（`str`）を[改行/かいぎょう]つきで表示します。
+- `#entry main`: 実行開始点を指定します。
+- `#target wasi`: WASI 向けコード生成を選びます。
+- `println`: `str` を改行付きで出力します。

@@ -1486,3 +1486,26 @@
 ## 検証
 - `NO_COLOR=true trunk build`
   - 成功。
+
+# 2026-02-10 作業メモ (Getting Started チュートリアル改善)
+## 実装
+- `tutorials/getting_started/00_index.n.md`
+  - 入門導線を整理し、NEPLg2 の中核（式指向 / 前置記法 / オフサイドルール）を明示。
+- `tutorials/getting_started/01_hello_world.n.md`
+  - 最小実行プログラムとしての説明を補強。
+- `tutorials/getting_started/02_numbers_and_variables.n.md`
+  - 前置記法、型注釈、`let mut` / `set`、`i32` wrap-around を段階的に説明する doctest へ更新。
+- `tutorials/getting_started/03_functions.n.md`
+  - 関数定義・呼び出しに加えて、`if` inline 形式と `if:` + `cond/then/else` block 形式の違いを追加。
+- `tutorials/getting_started/04_strings_and_stdio.n.md`
+  - 文字列連結と標準入出力の導線を整理し、`concat` 例を `stdout` 検証型 doctest に変更。
+- `tutorials/getting_started/05_option.n.md`
+  - move 規則に合わせて `Option` 例を修正（消費後再利用しない構成）。
+- `tutorials/getting_started/06_result.n.md`
+  - `Result` の基本分岐と関数戻り値としての利用例を整理。
+
+## 検証
+- `node nodesrc/tests.js -i tutorials/getting_started -o /tmp/getting_started_doctest.json -j 1`
+  - `total: 116, passed: 116, failed: 0, errored: 0`
+- `node nodesrc/cli.js -i tutorials/getting_started -o html=dist/tutorials/getting_started`
+  - `dist/tutorials/getting_started` に HTML 7 ファイルを再生成。
