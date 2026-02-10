@@ -249,7 +249,7 @@ impl TypeCtx {
                     false
                 }
             }
-            TypeKind::Named(_) => false,
+            TypeKind::Named(name) => matches!(name.as_str(), "i64" | "f64"),
         }
     }
 

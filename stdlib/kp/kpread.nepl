@@ -437,6 +437,132 @@ fn scanner_read_i32 <(i32)*>i32> (sc):
             store_i32 add sc 8 p;
             mul val sign
 
+//: scanner_read_u64: 次のトークンを u64 相当として読み込む
+//:
+//: 目的:
+//: - 次の空白区切りトークンを符号なし 10 進数として読み込みます。
+//:
+//: 実装(アルゴリズム):
+//: - `val = val * 10 + digit` を `i64` 演算で行います（2 の補数 modulo 2^64）。
+//: - 内部表現は `i64` ですが、`u64` ビット列として解釈します。
+//:
+//: 注意(重要):
+//: - 先頭 `+` は受理します。`-` は受理しません。
+//: - 非数字トークンの場合は 0 を返し、読み取り位置は最初の非数字位置で停止します。
+//:
+//: 計算量:
+//: - O(桁数)
+fn scanner_read_u64 <(i32)*>i64> (sc):
+    scanner_skip_ws sc;
+    let buf <i32> load_i32 sc;
+    let len <i32> load_i32 add sc 4;
+    let mut p <i32> load_i32 add sc 8;
+    if:
+        ge p len
+        then:
+            i64_extend_i32_u 0
+        else:
+            let b0 <i32> load_u8 add buf p;
+            if:
+                eq b0 43
+                then:
+                    set p add p 1;
+                else:
+                    ();
+
+            let mut val <i64> i64_extend_i32_u 0;
+            let mut done <i32> 0;
+            while eq done 0:
+                if:
+                    lt p len
+                    then:
+                        let byte <i32> load_u8 add buf p;
+                        if:
+                            eq byte 0
+                            then:
+                                set p add p 1;
+                            else:
+                                if:
+                                    and ge byte 48 le byte 57
+                                    then:
+                                        let digit <i64> i64_extend_i32_u sub byte 48;
+                                        set val i64_add i64_mul val i64_extend_i32_u 10 digit;
+                                        set p add p 1;
+                                    else:
+                                        set done 1;
+                    else:
+                        set done 1;
+
+            store_i32 add sc 8 p;
+            val
+
+//: scanner_read_i64: 次のトークンを i64 として読み込む
+//:
+//: 目的:
+//: - 次の空白区切りトークンを符号付き 10 進整数として読み込みます。
+//:
+//: 実装(アルゴリズム):
+//: - 先頭 `-` を判定し、絶対値部分を `scanner_read_u64` 相当手順で読み込みます。
+//: - 負数は `0 - val` で返します（`i64::MIN` も処理可能）。
+//:
+//: 計算量:
+//: - O(桁数)
+fn scanner_read_i64 <(i32)*>i64> (sc):
+    scanner_skip_ws sc;
+    let buf <i32> load_i32 sc;
+    let len <i32> load_i32 add sc 4;
+    let mut p <i32> load_i32 add sc 8;
+    if:
+        ge p len
+        then:
+            i64_extend_i32_u 0
+        else:
+            let mut neg <i32> 0;
+            let b0 <i32> load_u8 add buf p;
+            if:
+                eq b0 45
+                then:
+                    set neg 1;
+                    set p add p 1;
+                else:
+                    if:
+                        eq b0 43
+                        then:
+                            set p add p 1;
+                        else:
+                            ();
+
+            let mut val <i64> i64_extend_i32_u 0;
+            let mut done <i32> 0;
+            while eq done 0:
+                if:
+                    lt p len
+                    then:
+                        let byte <i32> load_u8 add buf p;
+                        if:
+                            eq byte 0
+                            then:
+                                set p add p 1;
+                            else:
+                                if:
+                                    and ge byte 48 le byte 57
+                                    then:
+                                        let digit <i64> i64_extend_i32_u sub byte 48;
+                                        set val i64_add i64_mul val i64_extend_i32_u 10 digit;
+                                        set p add p 1;
+                                    else:
+                                        set done 1;
+                    else:
+                        set done 1;
+
+            store_i32 add sc 8 p;
+            if:
+                eq neg 1
+                then:
+                    i64_sub i64_extend_i32_u 0 val
+                else:
+                    val
+
 // scanner_read_vec_i32: n 個の i32 値を読み込む
 //
 // 目的:

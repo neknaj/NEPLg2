@@ -1416,6 +1416,27 @@
 - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/list.nepl -o /tmp/tests-stack-list-doc.json -j 1 --no-stdlib`
   - `total: 21, passed: 21, failed: 0, errored: 0`
 
+# 2026-02-10 作業メモ (kp i64 入出力の実装)
+## 実装
+- `stdlib/kp/kpwrite.nepl`
+  - `writer_write_u64` を追加（`i64` ビット列を unsigned 10 進として出力）。
+  - `writer_write_i64` を追加（負数は `0 - v` を unsigned 経路で出力）。
+- `stdlib/kp/kpread.nepl`
+  - `scanner_read_u64` を追加（先頭 `+` 対応、10 進パース）。
+  - `scanner_read_i64` を追加（先頭 `-` / `+` 対応）。
+- `nepl-core/src/types.rs`
+  - `TypeCtx::is_copy` の `TypeKind::Named` 判定を修正し、`i64` / `f64` を `Copy` として扱うようにした。
+  - これにより `i64` 値が move-check で過剰に move 扱いされる問題を根本修正した。
+- `tests/kp_i64.n.md`
+  - i64/u64 の stdin/stdout ラウンドトリップテストを追加。
+  - `+` 符号付き入力を含む追加ケースを追加。
+
+## 検証
+- `NO_COLOR=true trunk build`
+  - 成功。
+- `node nodesrc/tests.js -i tests/kp_i64.n.md -o /tmp/tests-kp-i64.json -j 1`
+  - `total: 103, passed: 103, failed: 0, errored: 0`
+
 # 2026-02-10 作業メモ (WASM stack size 引き上げ)
 ## 実装
 - `.cargo/config.toml` の wasm ターゲット向け linker 引数を変更:

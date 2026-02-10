@@ -238,3 +238,74 @@ fn writer_write_i32 <(i32,i32)*>()> (w, v):
                             set i add i 1;
 
                     ()
+
+//: writer_write_u64: i64 ビット列を符号なし 10 進として出力する
+//:
+//: 目的:
+//: - `u64` 相当値を 10 進文字列で出力します。
+//:
+//: 実装:
+//: - `div_u` / `rem_u` で桁を逆順に取り出し、末尾から埋めます。
+//: - 内部表現は `i64` ですが、比較・除算・剰余は unsigned 系を使います。
+//:
+//: 注意:
+//: - 引数型は `i64` ですが、`u64` ビット列として解釈されます。
+//:
+//: 計算量:
+//: - O(桁数)
+fn writer_write_u64 <(i32,i64)*>()> (w, v):
+    if:
+        i64_eq v i64_extend_i32_u 0
+        then:
+            writer_put_u8 w 48;
+            ()
+        else:
+            let ten <i64> i64_extend_i32_u 10;
+            let mut t <i64> v;
+            let mut d <i32> 0;
+            while i64_gt_u t i64_extend_i32_u 0:
+                do:
+                    set d add d 1;
+                    set t i64_div_u t ten;
+
+            writer_ensure w d;
+
+            let buf <i32> load_i32 w;
+            let old_len <i32> load_i32 add w 8;
+            store_i32 add w 8 add old_len d;
+
+            let mut n <i64> v;
+            let mut i <i32> 0;
+            let endm1 <i32> sub add old_len d 1;
+            while lt i d:
+                do:
+                    let rem64 <i64> i64_rem_u n ten;
+                    let rem <i32> i32_wrap_i64 rem64;
+                    let off <i32> sub endm1 i;
+                    store_u8 add buf off add 48 rem;
+                    set n i64_div_u n ten;
+                    set i add i 1;
+
+            ()
+
+//: writer_write_i64: i64 を符号付き 10 進で出力する
+//:
+//: 目的:
+//: - `i64` を符号付き 10 進文字列として出力します。
+//:
+//: 実装:
+//: - 負数の場合は `-` を出力し、`0 - v` を unsigned として `writer_write_u64` に渡します。
+//: - `i64::MIN` も 2 の補数のまま安全に処理できます。
+//:
+//: 計算量:
+//: - O(桁数)
+fn writer_write_i64 <(i32,i64)*>()> (w, v):
+    if:
+        i64_lt_s v i64_extend_i32_u 0
+        then:
+            writer_put_u8 w 45;
+            writer_write_u64 w i64_sub i64_extend_i32_u 0 v;
+            ()
+        else:
+            writer_write_u64 w v;
+            ()
