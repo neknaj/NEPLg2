@@ -37,6 +37,17 @@
   - `shadowing_local_let` / `fn_alias_target_resolution` を自動検証。
   - 実行結果: `2/2 passed`
 
+# 2026-02-10 作業メモ (functions: nested fn 実体生成の前進)
+- `typecheck` の `BlockChecker` で nested `fn` の本体を「未検査で無視」していた経路を改修。
+  - block 内 `Stmt::FnDef` を `check_function` に渡し、`generated_functions` へ追加するよう変更。
+  - top-level / impl 側の `check_function` 呼び出しにも `generated_functions` を接続。
+- これにより nested `fn` の本体が HIR に入るようになり、`functions` の `double` 系が改善。
+- 計測:
+  - `node nodesrc/tests.js -i tests/functions.n.md -o /tmp/tests-functions-now.json -j 1`
+  - `total=16, passed=10, failed=6, errored=0`
+  - 残りは関数値/関数リテラル/クロージャ捕捉（`doctest#6,#7,#11,#12,#13`）に集中。
+  - 全体は `node nodesrc/tests.js -i tests -o /tmp/tests-current-after-nested.json -j 4` で `312/278/34/0`。
+
 # 2026-02-10 作業メモ (block 引数位置の根本修正)
 - `tests/block_single_line.n.md` の `doctest#8/#9` を起点に、`add block 1 block 2` と `if true block 1 else block 2` の失敗要因を解析。
 - 原因:

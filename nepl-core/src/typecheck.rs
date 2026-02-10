@@ -794,6 +794,7 @@ pub fn typecheck(
                     }
                 }
             }
+            let mut nested_functions = Vec::new();
             match check_function(
                 f,
                 f_ty,
@@ -807,8 +808,12 @@ pub fn typecheck(
                 type_param_bounds,
                 &traits,
                 &impls,
+                &mut nested_functions,
             ) {
-                Ok(func) => functions.push(func),
+                Ok(func) => {
+                    functions.push(func);
+                    functions.extend(nested_functions);
+                }
                 Err(mut diags) => diagnostics.append(&mut diags),
             }
         }
@@ -919,6 +924,7 @@ pub fn typecheck(
                     ));
                     continue;
                 }
+                let mut nested_functions = Vec::new();
                 let mut func = match check_function(
                     m,
                     expected_sig,
@@ -932,6 +938,7 @@ pub fn typecheck(
                     BTreeMap::new(),
                     &traits,
                     &impls,
+                    &mut nested_functions,
                 ) {
                     Ok(func) => func,
                     Err(mut diags) => {
@@ -942,6 +949,7 @@ pub fn typecheck(
                 let mangled = mangle_impl_method(&trait_name, &m.name.name, target_ty, &ctx);
                 func.name = mangled.clone();
                 functions.push(func.clone());
+                functions.extend(nested_functions);
                 impl_methods.push(HirImplMethod {
                     name: m.name.name.clone(),
                     func,
@@ -1036,6 +1044,7 @@ fn check_function(
     type_param_bounds: BTreeMap<TypeId, Vec<String>>,
     traits: &BTreeMap<String, TraitInfo>,
     impls: &Vec<ImplInfo>,
+    generated_functions: &mut Vec<HirFunction>,
 ) -> Result<HirFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let (params_ty, result_ty, effect) = match ctx.get(func_ty) {
@@ -1087,6 +1096,7 @@ fn check_function(
             type_param_bounds: type_param_bounds.clone(),
             traits,
             impls,
+            generated_functions,
         };
 
         let body_res = match &f.body {
@@ -1160,6 +1170,7 @@ struct BlockChecker<'a> {
     type_param_bounds: BTreeMap<TypeId, Vec<String>>,
     traits: &'a BTreeMap<String, TraitInfo>,
     impls: &'a Vec<ImplInfo>,
+    generated_functions: &'a mut Vec<HirFunction>,
 }
 
 impl<'a> BlockChecker<'a> {
@@ -1459,8 +1470,72 @@ impl<'a> BlockChecker<'a> {
                 }
                 Stmt::Directive(_) => {}
                 Stmt::FnAlias(_) => {}
-                Stmt::FnDef(_) => {
-                    // Nested function bodies are not type-checked here
+                Stmt::FnDef(f) => {
+                    let f_ty = {
+                        let bindings = self.env.lookup_all(&f.name.name);
+                        let funcs: Vec<&Binding> = bindings
+                            .into_iter()
+                            .filter(|b| matches!(b.kind, BindingKind::Func { .. }))
+                            .collect();
+                        if funcs.is_empty() {
+                            continue;
+                        }
+                        if funcs.len() == 1 {
+                            funcs[0].ty
+                        } else {
+                            let mut tmp_labels = LabelEnv::new();
+                            for tp in &f.type_params {
+                                let tv = self.ctx.fresh_var(Some(tp.name.name.clone()));
+                                tmp_labels.insert(tp.name.name.clone(), tv);
+                            }
+                            let sig_ty = type_from_expr(self.ctx, &mut tmp_labels, &f.signature);
+                            let sig_key = function_signature_string(self.ctx, sig_ty);
+                            let mut matched: Option<TypeId> = None;
+                            for binding in funcs {
+                                if function_signature_string(self.ctx, binding.ty) == sig_key {
+                                    matched = Some(binding.ty);
+                                    break;
+                                }
+                            }
+                            match matched {
+                                Some(ty) => ty,
+                                None => {
+                                    self.diagnostics.push(Diagnostic::error(
+                                        "function signature does not match any overload",
+                                        f.name.span,
+                                    ));
+                                    continue;
+                                }
+                            }
+                        }
+                    };
+                    let mut nested_bounds = BTreeMap::new();
+                    if let TypeKind::Function { type_params, .. } = self.ctx.get(f_ty) {
+                        for (p_node, p_id) in f.type_params.iter().zip(type_params.iter()) {
+                            self.labels.insert(p_node.name.name.clone(), *p_id);
+                            if !p_node.bounds.is_empty() {
+                                nested_bounds.insert(*p_id, p_node.bounds.clone());
+                            }
+                        }
+                    }
+                    match check_function(
+                        f,
+                        f_ty,
+                        self.ctx,
+                        self.env,
+                        self.labels,
+                        self.string_table,
+                        self.enums,
+                        self.structs,
+                        self.instantiations,
+                        nested_bounds,
+                        self.traits,
+                        self.impls,
+                        self.generated_functions,
+                    ) {
+                        Ok(func) => self.generated_functions.push(func),
+                        Err(mut diags) => self.diagnostics.append(&mut diags),
+                    }
                 }
                 Stmt::StructDef(_) => {}
                 Stmt::EnumDef(_) => {}
