@@ -1,0 +1,3828 @@
+{
+  "schema": "neplg2-doctest/v1",
+  "generated_at": "2026-02-10T14:58:04.247Z",
+  "jobs": 1,
+  "dist_hint": null,
+  "resolved_dist_dirs": [
+    "/mnt/d/project/NEPLg2/web/dist"
+  ],
+  "summary": {
+    "total": 169,
+    "passed": 169,
+    "failed": 0,
+    "errored": 0
+  },
+  "results": [
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/btreemap.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/collections/btreemap.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/btreeset.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/collections/btreeset.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/hashmap.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/collections/hashmap.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/hashmap_str.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/collections/hashmap_str.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/hashset.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/collections/hashset.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/hashset_str.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/collections/hashset_str.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 271,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 262,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 94,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#4",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 93,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 4,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#5",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 96,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 5,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#6",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 96,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 6,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#7",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 92,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 7,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#8",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 107,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 8,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#9",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 97,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 9,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#10",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 95,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 10,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/list.nepl::doctest#11",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 97,
+      "file": "stdlib/alloc/collections/list.nepl",
+      "index": 11,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 268,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 264,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 104,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#4",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 111,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 4,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#5",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 103,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 5,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#6",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 101,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 6,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#7",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 103,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 7,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#8",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 102,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 8,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#9",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 103,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 9,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/collections/stack.nepl::doctest#10",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 98,
+      "file": "stdlib/alloc/collections/stack.nepl",
+      "index": 10,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/diag/diag.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/diag/diag.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/diag/error.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/diag/error.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/encoding/json.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/encoding/json.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/hash/fnv1a32.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/hash/fnv1a32.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/hash/sha256.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/hash/sha256.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/sort.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 598,
+      "file": "stdlib/alloc/sort.nepl",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/sort.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 574,
+      "file": "stdlib/alloc/sort.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/string.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/alloc/string.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 351,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 359,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 117,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#4",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 113,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 4,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#5",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 100,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 5,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#6",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 110,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 6,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#7",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 119,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 7,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#8",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 116,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 8,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#9",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 105,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 9,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#10",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 108,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 10,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#11",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 103,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 11,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#12",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 104,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 12,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#13",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 106,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 13,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/alloc/vec.nepl::doctest#14",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 100,
+      "file": "stdlib/alloc/vec.nepl",
+      "index": 14,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/cast.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/core/cast.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/field.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/core/field.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/math.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/core/math.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/math.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 334,
+      "file": "stdlib/core/math.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/mem.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 339,
+      "file": "stdlib/core/mem.nepl",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/mem.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 316,
+      "file": "stdlib/core/mem.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/option.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 327,
+      "file": "stdlib/core/option.nepl",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/option.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": true,
+        "trapError": "unreachable"
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 329,
+      "file": "stdlib/core/option.nepl",
+      "index": 2,
+      "tags": [
+        "should_panic"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/option.nepl::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 331,
+      "file": "stdlib/core/option.nepl",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/rand/xorshift32.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/core/rand/xorshift32.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/result.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 358,
+      "file": "stdlib/core/result.nepl",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/result.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": true,
+        "trapError": "unreachable"
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 328,
+      "file": "stdlib/core/result.nepl",
+      "index": 2,
+      "tags": [
+        "should_panic"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/result.nepl::doctest#3",
+      "status": "pass",
+      "phase": "compile",
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 78,
+      "file": "stdlib/core/result.nepl",
+      "index": 3,
+      "tags": [
+        "compile_fail"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/core/result.nepl::doctest#4",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 356,
+      "file": "stdlib/core/result.nepl",
+      "index": 4,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpdsu.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "1 0 3\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 168,
+      "file": "stdlib/kp/kpdsu.nepl",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpfenwick.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "6 9\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 148,
+      "file": "stdlib/kp/kpfenwick.nepl",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpgraph.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32m\u0000\u0000\u0000\u0005\u0000\u0000\u0000\u001b[33m\u0000\u0000\u0000\u0005\u0000\u0000\u0000",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 834,
+      "file": "stdlib/kp/kpgraph.nepl",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpprefix.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "6 14\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 169,
+      "file": "stdlib/kp/kpprefix.nepl",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpread.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/kp/kpread.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpread.nepl::doctest#2",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/kp/kpread.nepl",
+      "index": 2,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpsearch.nepl::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "1 3 1\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 142,
+      "file": "stdlib/kp/kpsearch.nepl",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpwrite.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/kp/kpwrite.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpwrite.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "1 2\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 187,
+      "file": "stdlib/kp/kpwrite.nepl",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpwrite.nepl::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "123\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 213,
+      "file": "stdlib/kp/kpwrite.nepl",
+      "index": 3,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/kp/kpwrite.nepl::doctest#4",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "42\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 201,
+      "file": "stdlib/kp/kpwrite.nepl",
+      "index": 4,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/neplg2/cli/main.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/neplg2/cli/main.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/neplg2/core/ast.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/neplg2/core/ast.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/neplg2/core/diagnostic.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/neplg2/core/diagnostic.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/neplg2/core/parser.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/neplg2/core/parser.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/neplg2/core/span.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/neplg2/core/span.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/neplg2/core/typecheck.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/neplg2/core/typecheck.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/nm/html_gen.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/nm/html_gen.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/nm/html_gen.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 982,
+      "file": "stdlib/nm/html_gen.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/nm/parser.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/nm/parser.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/nm/parser.nepl::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 725,
+      "file": "stdlib/nm/parser.nepl",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/nm/parser.nepl::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 712,
+      "file": "stdlib/nm/parser.nepl",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/std.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/std.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/std/env/cliarg.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/std/env/cliarg.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/std/fs.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/std/fs.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/std/stdio.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/std/stdio.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/std/test.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/std/test.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/btreemap.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/btreemap.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/btreeset.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/btreeset.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/cast.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/cast.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/cliarg.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/cliarg.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/diag.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/diag.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/error.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/error.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/fs.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/fs.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/hash.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/hash.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/hashmap.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/hashmap.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/hashmap_str.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/hashmap_str.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/hashset.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/hashset.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/hashset_str.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/hashset_str.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/json.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/json.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/list.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/list.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/math.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/math.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/option.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/option.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/rand.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/rand.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/result.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/result.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/stack.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/stack.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/string.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/string.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "stdlib/tests/vec.nepl::doctest#1",
+      "status": "pass",
+      "phase": "skip",
+      "skipped": true,
+      "error": null,
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 0,
+      "file": "stdlib/tests/vec.nepl",
+      "index": 1,
+      "tags": [
+        "skip"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/01_hello_world.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "Hello, NEPL!\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 892,
+      "file": "tutorials/getting_started/01_hello_world.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/02_numbers_and_variables.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mprefix arithmetic\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 529,
+      "file": "tutorials/getting_started/02_numbers_and_variables.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/02_numbers_and_variables.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mprefix composition without precedence\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 421,
+      "file": "tutorials/getting_started/02_numbers_and_variables.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/02_numbers_and_variables.n.md::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mlet with type annotation\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 422,
+      "file": "tutorials/getting_started/02_numbers_and_variables.n.md",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/02_numbers_and_variables.n.md::doctest#4",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mlet mut and set\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 367,
+      "file": "tutorials/getting_started/02_numbers_and_variables.n.md",
+      "index": 4,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/02_numbers_and_variables.n.md::doctest#5",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0moverflow\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 414,
+      "file": "tutorials/getting_started/02_numbers_and_variables.n.md",
+      "index": 5,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/03_functions.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mfunction call\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 362,
+      "file": "tutorials/getting_started/03_functions.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/03_functions.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0minline if expression\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 349,
+      "file": "tutorials/getting_started/03_functions.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/03_functions.n.md::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mif colon form\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 350,
+      "file": "tutorials/getting_started/03_functions.n.md",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/04_strings_and_stdio.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "Hello, World\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 346,
+      "file": "tutorials/getting_started/04_strings_and_stdio.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/04_strings_and_stdio.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "A=10\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 116,
+      "file": "tutorials/getting_started/04_strings_and_stdio.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/04_strings_and_stdio.n.md::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 111,
+      "file": "tutorials/getting_started/04_strings_and_stdio.n.md",
+      "index": 3,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/05_option.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0moption match\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 369,
+      "file": "tutorials/getting_started/05_option.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/05_option.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0moption_unwrap_or\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 401,
+      "file": "tutorials/getting_started/05_option.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/06_result.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mresult match\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 382,
+      "file": "tutorials/getting_started/06_result.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/06_result.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mresult in function\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 361,
+      "file": "tutorials/getting_started/06_result.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/07_while_and_block.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mwhile basic\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 360,
+      "file": "tutorials/getting_started/07_while_and_block.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/07_while_and_block.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mblock expression\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 348,
+      "file": "tutorials/getting_started/07_while_and_block.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/08_if_layouts.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mif inline\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 345,
+      "file": "tutorials/getting_started/08_if_layouts.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/08_if_layouts.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mif colon arguments\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 353,
+      "file": "tutorials/getting_started/08_if_layouts.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/08_if_layouts.n.md::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mif with block then else\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 359,
+      "file": "tutorials/getting_started/08_if_layouts.n.md",
+      "index": 3,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/08_if_layouts.n.md::doctest#4",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mif order and mixed layout\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 378,
+      "file": "tutorials/getting_started/08_if_layouts.n.md",
+      "index": 4,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/09_import_and_structure.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mimport and split functions\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 369,
+      "file": "tutorials/getting_started/09_import_and_structure.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/09_import_and_structure.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "42\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 106,
+      "file": "tutorials/getting_started/09_import_and_structure.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/10_project_fizzbuzz.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "6 -> Fizz\n10 -> Buzz\n30 -> FizzBuzz\n7 -> 7\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 126,
+      "file": "tutorials/getting_started/10_project_fizzbuzz.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/10_project_fizzbuzz.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 124,
+      "file": "tutorials/getting_started/10_project_fizzbuzz.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/11_testing_workflow.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mabs_i32 cases\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 356,
+      "file": "tutorials/getting_started/11_testing_workflow.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/11_testing_workflow.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0msection-a\n\u001b[32mChecked \u001b[0msection-b\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 356,
+      "file": "tutorials/getting_started/11_testing_workflow.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines",
+        "strip_ansi"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/12_pure_function_pipeline.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mpure function pipeline\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 353,
+      "file": "tutorials/getting_started/12_pure_function_pipeline.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/12_pure_function_pipeline.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mpure vs mut equivalence\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 370,
+      "file": "tutorials/getting_started/12_pure_function_pipeline.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/13_type_driven_error_modeling.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mresult as contract\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 359,
+      "file": "tutorials/getting_started/13_type_driven_error_modeling.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/13_type_driven_error_modeling.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0moption as explicit absence\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 378,
+      "file": "tutorials/getting_started/13_type_driven_error_modeling.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/14_refactor_with_properties.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mrefactor preserves behavior\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 347,
+      "file": "tutorials/getting_started/14_refactor_with_properties.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/14_refactor_with_properties.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mrefactor keeps error behavior\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 391,
+      "file": "tutorials/getting_started/14_refactor_with_properties.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/15_match_patterns.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mmatch option\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 368,
+      "file": "tutorials/getting_started/15_match_patterns.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/15_match_patterns.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mmatch result\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 356,
+      "file": "tutorials/getting_started/15_match_patterns.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/16_debug_and_ansi.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[31mERR\u001b[0m \u001b[32mOK\u001b[0m\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 118,
+      "file": "tutorials/getting_started/16_debug_and_ansi.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/16_debug_and_ansi.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mcolor-ready\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 351,
+      "file": "tutorials/getting_started/16_debug_and_ansi.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines",
+        "strip_ansi"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/17_namespace_and_alias.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mnamespace function call\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 339,
+      "file": "tutorials/getting_started/17_namespace_and_alias.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/17_namespace_and_alias.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0menum variant path\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 373,
+      "file": "tutorials/getting_started/17_namespace_and_alias.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/18_recursion_and_termination.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mrecursion with base case\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 347,
+      "file": "tutorials/getting_started/18_recursion_and_termination.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/18_recursion_and_termination.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mrecursive if-colon form\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 379,
+      "file": "tutorials/getting_started/18_recursion_and_termination.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/19_pipe_operator.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mpipe basic\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 350,
+      "file": "tutorials/getting_started/19_pipe_operator.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/19_pipe_operator.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mpipe chain\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 356,
+      "file": "tutorials/getting_started/19_pipe_operator.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/20_generics_basics.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mgeneric id\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 363,
+      "file": "tutorials/getting_started/20_generics_basics.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/20_generics_basics.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mgeneric option\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 374,
+      "file": "tutorials/getting_started/20_generics_basics.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/21_trait_bounds_basics.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mtrait and impl\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 369,
+      "file": "tutorials/getting_started/21_trait_bounds_basics.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/21_trait_bounds_basics.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0mtrait bound generic\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 360,
+      "file": "tutorials/getting_started/21_trait_bounds_basics.n.md",
+      "index": 2,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/22_competitive_io_and_arith.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 676,
+      "file": "tutorials/getting_started/22_competitive_io_and_arith.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/22_competitive_io_and_arith.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 639,
+      "file": "tutorials/getting_started/22_competitive_io_and_arith.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/22_competitive_io_and_arith.n.md::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 636,
+      "file": "tutorials/getting_started/22_competitive_io_and_arith.n.md",
+      "index": 3,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/23_competitive_sort_and_search.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u001b[32mChecked \u001b[0minsertion sort on buffer\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 384,
+      "file": "tutorials/getting_started/23_competitive_sort_and_search.n.md",
+      "index": 1,
+      "tags": [],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/23_competitive_sort_and_search.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "1 1 4\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 116,
+      "file": "tutorials/getting_started/23_competitive_sort_and_search.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/23_competitive_sort_and_search.n.md::doctest#3",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "1 1 4\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 123,
+      "file": "tutorials/getting_started/23_competitive_sort_and_search.n.md",
+      "index": 3,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/24_competitive_dp_basics.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "1\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 648,
+      "file": "tutorials/getting_started/24_competitive_dp_basics.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/25_competitive_prefixsum_twopointers.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 645,
+      "file": "tutorials/getting_started/25_competitive_prefixsum_twopointers.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/25_competitive_prefixsum_twopointers.n.md::doctest#2",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "6\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 124,
+      "file": "tutorials/getting_started/25_competitive_prefixsum_twopointers.n.md",
+      "index": 2,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    },
+    {
+      "ok": true,
+      "id": "tutorials/getting_started/26_competitive_graph_bfs.n.md::doctest#1",
+      "status": "pass",
+      "phase": "run",
+      "stdout": "0 1 2 3\n",
+      "stderr": "",
+      "error": null,
+      "runtime": {
+        "trapped": false,
+        "trapError": null
+      },
+      "compiler": {
+        "distDir": "/mnt/d/project/NEPLg2/web/dist",
+        "js": "nepl-web-8259e28bdb233cfd.js",
+        "wasm": "nepl-web-8259e28bdb233cfd_bg.wasm"
+      },
+      "duration_ms": 128,
+      "file": "tutorials/getting_started/26_competitive_graph_bfs.n.md",
+      "index": 1,
+      "tags": [
+        "stdio",
+        "normalize_newlines"
+      ],
+      "worker": 1
+    }
+  ]
+}

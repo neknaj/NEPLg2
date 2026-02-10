@@ -15,6 +15,7 @@
 //: ```
 
 #indent 4
+#import "core/field" as *
 
 // math: 数値演算（整数/浮動小数/ビット演算）
 //
@@ -4997,3 +4998,203 @@ fn not <(bool)->bool> (a):
     #wasm:
         local.get $a
         i32.eqz
+
+//: 追加整数型 API（u32/u64/u128/i128）
+//:
+//: [目的/もくてき]:
+//: - WASM ネイティブの `i32/i64` を土台に、符号なし整数および 128-bit 相当の基本演算を提供します。
+//:
+//: [実装/じっそう]:
+//: - `u32/u64` は既存の unsigned 命令ラッパを再公開します。
+//: - `u128/i128` は `i64` 2 ワード（上位/下位）で構成し、加減算と比較を実装します。
+//:
+//: [注意/ちゅうい]:
+//: - `u128/i128` の除算・乗算は未提供です（今後拡張）。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "std/test" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 3 u32_add 1 2;
+//:     assert u64_lt i64_extend_i32_u 9 i64_extend_i32_u 10;
+//: ```
+
+//: u32_add: u32 の加算（mod 2^32）
+fn u32_add <(i32,i32)->i32> (a, b):
+    i32_add a b
+
+//: u32_sub: u32 の減算（mod 2^32）
+fn u32_sub <(i32,i32)->i32> (a, b):
+    i32_sub a b
+
+//: u32_mul: u32 の乗算（mod 2^32）
+fn u32_mul <(i32,i32)->i32> (a, b):
+    i32_mul a b
+
+//: u32_div: u32 の除算
+fn u32_div <(i32,i32)->i32> (a, b):
+    i32_div_u a b
+
+//: u32_rem: u32 の剰余
+fn u32_rem <(i32,i32)->i32> (a, b):
+    i32_rem_u a b
+
+//: u32_lt: u32 の大小比較（a < b）
+fn u32_lt <(i32,i32)->bool> (a, b):
+    i32_lt_u a b
+
+//: u32_le: u32 の大小比較（a <= b）
+fn u32_le <(i32,i32)->bool> (a, b):
+    i32_le_u a b
+
+//: u32_gt: u32 の大小比較（a > b）
+fn u32_gt <(i32,i32)->bool> (a, b):
+    i32_gt_u a b
+
+//: u32_ge: u32 の大小比較（a >= b）
+fn u32_ge <(i32,i32)->bool> (a, b):
+    i32_ge_u a b
+
+//: u64_add: u64 の加算（mod 2^64）
+fn u64_add <(i64,i64)->i64> (a, b):
+    i64_add a b
+
+//: u64_sub: u64 の減算（mod 2^64）
+fn u64_sub <(i64,i64)->i64> (a, b):
+    i64_sub a b
+
+//: u64_mul: u64 の乗算（mod 2^64）
+fn u64_mul <(i64,i64)->i64> (a, b):
+    i64_mul a b
+
+//: u64_div: u64 の除算
+fn u64_div <(i64,i64)->i64> (a, b):
+    i64_div_u a b
+
+//: u64_rem: u64 の剰余
+fn u64_rem <(i64,i64)->i64> (a, b):
+    i64_rem_u a b
+
+//: u64_lt: u64 の大小比較（a < b）
+fn u64_lt <(i64,i64)->bool> (a, b):
+    i64_lt_u a b
+
+//: u64_le: u64 の大小比較（a <= b）
+fn u64_le <(i64,i64)->bool> (a, b):
+    i64_le_u a b
+
+//: u64_gt: u64 の大小比較（a > b）
+fn u64_gt <(i64,i64)->bool> (a, b):
+    i64_gt_u a b
+
+//: u64_ge: u64 の大小比較（a >= b）
+fn u64_ge <(i64,i64)->bool> (a, b):
+    i64_ge_u a b
+
+//: U128: u128 相当（上位/下位 64-bit）
+struct U128:
+    hi <i64>
+    lo <i64>
+
+//: u128_new: hi/lo から u128 値を構築する
+fn u128_new <(i64,i64)->U128> (hi, lo):
+    U128 hi lo
+
+//: u128_from_u64: u64 値から u128 値を作る
+fn u128_from_u64 <(i64)->U128> (v):
+    U128 i64_extend_i32_u 0 v
+
+//: u128_add: u128 の加算（mod 2^128）
+fn u128_add <(U128,U128)->U128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> i64_add a_lo b_lo;
+    let carry <i64> if i64_lt_u lo a_lo:
+        then i64_extend_i32_u 1
+        else i64_extend_i32_u 0;
+    U128 i64_add i64_add a_hi b_hi carry lo
+
+//: u128_sub: u128 の減算（mod 2^128）
+fn u128_sub <(U128,U128)->U128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> i64_sub a_lo b_lo;
+    let borrow <i64> if i64_lt_u a_lo b_lo:
+        then i64_extend_i32_u 1
+        else i64_extend_i32_u 0;
+    U128 i64_sub i64_sub a_hi b_hi borrow lo
+
+//: u128_lt: u128 の大小比較（a < b）
+fn u128_lt <(U128,U128)->bool> (a, b):
+    let a_hi <i64> get a "hi";
+    let b_hi <i64> get b "hi";
+    let a_lo <i64> get a "lo";
+    let b_lo <i64> get b "lo";
+    if i64_lt_u a_hi b_hi:
+        true
+    else:
+        if i64_gt_u a_hi b_hi:
+            false
+        else:
+            i64_lt_u a_lo b_lo
+
+//: I128: i128 相当（上位/下位 64-bit, 2 の補数）
+struct I128:
+    hi <i64>
+    lo <i64>
+
+//: i128_new: hi/lo から i128 値を構築する
+fn i128_new <(i64,i64)->I128> (hi, lo):
+    I128 hi lo
+
+//: i128_from_i64: i64 値を符号拡張して i128 に変換する
+fn i128_from_i64 <(i64)->I128> (v):
+    let hi <i64> if i64_lt_s v i64_extend_i32_u 0:
+        then i64_extend_i32_s -1
+        else i64_extend_i32_u 0;
+    I128 hi v
+
+//: i128_add: i128 の加算（mod 2^128）
+fn i128_add <(I128,I128)->I128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> i64_add a_lo b_lo;
+    let carry <i64> if i64_lt_u lo a_lo:
+        then i64_extend_i32_u 1
+        else i64_extend_i32_u 0;
+    I128 i64_add i64_add a_hi b_hi carry lo
+
+//: i128_sub: i128 の減算（mod 2^128）
+fn i128_sub <(I128,I128)->I128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> i64_sub a_lo b_lo;
+    let borrow <i64> if i64_lt_u a_lo b_lo:
+        then i64_extend_i32_u 1
+        else i64_extend_i32_u 0;
+    I128 i64_sub i64_sub a_hi b_hi borrow lo
+
+//: i128_lt: i128 の大小比較（a < b）
+fn i128_lt <(I128,I128)->bool> (a, b):
+    let a_hi <i64> get a "hi";
+    let b_hi <i64> get b "hi";
+    let a_lo <i64> get a "lo";
+    let b_lo <i64> get b "lo";
+    if i64_lt_s a_hi b_hi:
+        true
+    else:
+        if i64_gt_s a_hi b_hi:
+            false
+        else:
+            i64_lt_u a_lo b_lo

@@ -253,14 +253,16 @@ function renderNode(node, opt) {
     return `<pre>${escapeHtml(JSON.stringify(node, null, 2))}</pre>`;
 }
 
-function wrapHtml(body, title) {
+function wrapHtml(body, title, description) {
     const t = title || 'nm';
+    const d = description || `${t} - NEPLg2 Getting Started tutorial`;
     return `<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>${escapeHtml(t)}</title>
+<meta name="description" content="${escapeHtmlAttr(d)}"/>
 <style>
 :root{
   --bg:#0b0f19;
@@ -309,7 +311,7 @@ function nmToggleHidden(btn){
   for(const n of nodes){
     n.style.display = show ? 'inline' : 'none';
   }
-  btn.textContent = show ? '前置き( | 行)を隠す' : '前置き( | 行)を表示';
+  btn.textContent = show ? '主要部のみ表示' : '全て表示';
 }
 window.addEventListener('DOMContentLoaded', () => {
   for(const pre of document.querySelectorAll('pre.nm-code')){
@@ -320,7 +322,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const btn = document.createElement('button');
     btn.className = 'nm-toggle';
-    btn.textContent = '前置き( | 行)を表示';
+    btn.textContent = '全て表示';
     btn.onclick = () => nmToggleHidden(btn);
     pre.insertAdjacentElement('afterend', btn);
   }
@@ -337,7 +339,11 @@ ${body}
 
 function renderHtml(ast, opt) {
     const body = renderNode(ast, opt || { rewriteLinks: true });
-    return wrapHtml(body, (opt && opt.title) ? opt.title : 'nm');
+    return wrapHtml(
+        body,
+        (opt && opt.title) ? opt.title : 'nm',
+        (opt && opt.description) ? opt.description : undefined,
+    );
 }
 
 module.exports = {

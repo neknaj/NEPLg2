@@ -197,6 +197,7 @@ function toPosix(p) {
 }
 
 function buildTocEntries(inputRoot, files) {
+    const hasIndex = files.some(f => toPosix(path.relative(inputRoot, f)) === '00_index.n.md');
     const allOutRels = files.map(f => toPosix(path.relative(inputRoot, f))
         .replace(/\.n\.md$/i, '.html')
         .replace(/\.nepl$/i, '.html'))
@@ -205,12 +206,21 @@ function buildTocEntries(inputRoot, files) {
 
     const indexPath = path.join(inputRoot, '00_index.n.md');
     if (!isFile(indexPath)) {
-        return allOutRels.map(outRel => ({
+        const flat = allOutRels.map(outRel => ({
             outRel,
             label: humanizeDocName(outRel),
             isGroup: false,
             depth: 0,
         }));
+        if (hasIndex) {
+            flat.unshift({
+                outRel: '00_index.html',
+                label: '00 index',
+                isGroup: false,
+                depth: 0,
+            });
+        }
+        return flat;
     }
 
     const known = new Set(allOutRels);
@@ -254,6 +264,14 @@ function buildTocEntries(inputRoot, files) {
     }
 
     const remaining = allOutRels.filter(r => !used.has(r));
+    if (hasIndex) {
+        entries.unshift({
+            outRel: '00_index.html',
+            label: '00 index',
+            isGroup: false,
+            depth: 0,
+        });
+    }
     if (remaining.length > 0) {
         entries.push({
             label: 'Other',
@@ -297,6 +315,13 @@ function makePageTocLinks(currentOutRel, tocEntries) {
     });
 }
 
+function buildTutorialMeta(relPath) {
+    const baseNoExt = path.basename(relPath).replace(/\.n\.md$/i, '').replace(/\.nepl$/i, '');
+    const title = `NEPLg2 tutorial - ${baseNoExt}`;
+    const description = `NEPLg2 Getting Started tutorial: ${baseNoExt}`;
+    return { title, description };
+}
+
 function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries) {
     const md = extractMarkdownForHtml(filePath);
     if (!md || md.trim().length === 0) {
@@ -304,7 +329,7 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
     }
 
     const ast = parseNmdAst(md);
-    const title = path.basename(filePath);
+    const { title, description } = buildTutorialMeta(relPath);
 
     const outRel = relPath
         .replace(/\.n\.md$/i, '.html')
@@ -313,7 +338,7 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
     let wrote = 0;
 
     if (outRootHtml) {
-        const html = renderHtml(ast, { title, rewriteLinks: true });
+        const html = renderHtml(ast, { title, description, rewriteLinks: true });
         const outPath = path.join(outRootHtml, outRel);
         ensureDir(path.dirname(outPath));
         fs.writeFileSync(outPath, html);
@@ -330,7 +355,7 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
         const tocLinks = makePageTocLinks(outRel, tocEntries);
         const htmlPlay = renderHtmlPlayground(ast, {
             title,
-            description: `${title} - NEPLg2 tutorial runnable document`,
+            description,
             rewriteLinks: true,
             moduleJsPath,
             tocLinks,

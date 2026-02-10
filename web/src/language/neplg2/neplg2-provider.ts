@@ -18,6 +18,8 @@ class NEPLg2LanguageProvider {
             'block', 'return', 'break', 'match', 'trait', 'impl', 'for', 'enum', 'struct',
             '#entry', '#target', '#indent', '#import', '#use',
         ];
+        this.lineStarts = [0];
+        this.byteOffsets = [0];
     }
 
     onUpdate(callback) {
@@ -26,6 +28,7 @@ class NEPLg2LanguageProvider {
 
     updateText(text) {
         this.text = text || '';
+        this._rebuildOffsetMaps();
         this.analysisVersion += 1;
         if (this.pendingTimer != null) {
             clearTimeout(this.pendingTimer);
@@ -40,6 +43,70 @@ class NEPLg2LanguageProvider {
 
     _wasm() {
         return window.wasmBindings || null;
+    }
+
+    _rebuildOffsetMaps() {
+        const s = this.text || '';
+        this.lineStarts = [0];
+        this.byteOffsets = new Array(s.length + 1);
+        this.byteOffsets[0] = 0;
+
+        let i = 0;
+        let bytes = 0;
+        while (i < s.length) {
+            const cp = s.codePointAt(i);
+            const chLen = cp > 0xffff ? 2 : 1;
+            if (cp <= 0x7f) bytes += 1;
+            else if (cp <= 0x7ff) bytes += 2;
+            else if (cp <= 0xffff) bytes += 3;
+            else bytes += 4;
+
+            const next = i + chLen;
+            for (let j = i + 1; j <= next && j <= s.length; j++) {
+                this.byteOffsets[j] = bytes;
+            }
+            if (cp === 10) {
+                this.lineStarts.push(next);
+            }
+            i = next;
+        }
+        for (let j = 0; j <= s.length; j++) {
+            if (!Number.isFinite(this.byteOffsets[j])) this.byteOffsets[j] = bytes;
+        }
+    }
+
+    _lineColToIndex(line, col) {
+        const s = this.text || '';
+        const li = Number(line);
+        const ci = Number(col);
+        if (!Number.isFinite(li) || !Number.isFinite(ci) || li < 0 || ci < 0) return null;
+        if (!Array.isArray(this.lineStarts) || li >= this.lineStarts.length) return null;
+
+        const start = this.lineStarts[li];
+        const lineEnd = li + 1 < this.lineStarts.length ? this.lineStarts[li + 1] - 1 : s.length;
+        let idx = start;
+        let remain = ci;
+        while (idx < lineEnd && remain > 0) {
+            const cp = s.codePointAt(idx);
+            idx += cp > 0xffff ? 2 : 1;
+            remain -= 1;
+        }
+        return Math.max(0, Math.min(s.length, idx));
+    }
+
+    _byteOffsetToIndex(byteOffset) {
+        const b = Number(byteOffset);
+        if (!Number.isFinite(b) || b <= 0) return 0;
+        const arr = this.byteOffsets || [0];
+        let lo = 0;
+        let hi = arr.length - 1;
+        while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (arr[mid] < b) lo = mid + 1;
+            else hi = mid;
+        }
+        if (arr[lo] === b) return lo;
+        return Math.max(0, lo - 1);
     }
 
     _analyzeAndPublish(version) {
@@ -155,9 +222,13 @@ class NEPLg2LanguageProvider {
     _spanFrom(obj) {
         const s = obj && obj.span;
         if (!s) return null;
+        const lcStart = this._lineColToIndex(s.start_line, s.start_col);
+        const lcEnd = this._lineColToIndex(s.end_line, s.end_col);
+        const start = Number.isFinite(lcStart) ? lcStart : this._byteOffsetToIndex(s.start ?? 0);
+        const end = Number.isFinite(lcEnd) ? lcEnd : this._byteOffsetToIndex(s.end ?? 0);
         return {
-            startIndex: Number(s.start ?? 0),
-            endIndex: Number(s.end ?? 0),
+            startIndex: start,
+            endIndex: end,
             startLine: Number(s.start_line ?? 0),
             startCol: Number(s.start_col ?? 0),
             endLine: Number(s.end_line ?? 0),
@@ -408,13 +479,15 @@ class NEPLg2LanguageProvider {
     async getDefinitionLocation(index) {
         const insight = this.getTokenInsight(index);
         if (insight && insight.resolvedDefinition && insight.resolvedDefinition.span) {
-            return { targetIndex: Number(insight.resolvedDefinition.span.start ?? 0) };
+            const sp = this._spanFrom({ span: insight.resolvedDefinition.span });
+            return { targetIndex: sp ? sp.startIndex : 0 };
         }
         const fallbackRef = this._referenceAt(index);
         if (fallbackRef && fallbackRef.resolved_def_id != null) {
             const def = this.definitionById.get(fallbackRef.resolved_def_id);
             if (def?.span) {
-                return { targetIndex: Number(def.span.start ?? 0) };
+                const sp = this._spanFrom({ span: def.span });
+                return { targetIndex: sp ? sp.startIndex : 0 };
             }
         }
         return null;
@@ -434,7 +507,8 @@ class NEPLg2LanguageProvider {
         for (const r of refs) {
             if (!r?.span) continue;
             if (insight.resolvedDefId != null && r.resolved_def_id === insight.resolvedDefId) {
-                out.push({ startIndex: Number(r.span.start ?? 0), endIndex: Number(r.span.end ?? 0) });
+                const sp = this._spanFrom({ span: r.span });
+                if (sp) out.push({ startIndex: sp.startIndex, endIndex: sp.endIndex });
             }
         }
         if (out.length > 0) return out;
@@ -443,7 +517,8 @@ class NEPLg2LanguageProvider {
         if (tr?.name) {
             for (const r of refs) {
                 if (r?.name === tr.name && r?.span) {
-                    out.push({ startIndex: Number(r.span.start ?? 0), endIndex: Number(r.span.end ?? 0) });
+                    const sp = this._spanFrom({ span: r.span });
+                    if (sp) out.push({ startIndex: sp.startIndex, endIndex: sp.endIndex });
                 }
             }
         }
@@ -455,10 +530,10 @@ class NEPLg2LanguageProvider {
         let best = null;
         let bestWidth = Number.MAX_SAFE_INTEGER;
         for (const r of refs) {
-            const sp = r?.span;
+            const sp = this._spanFrom({ span: r?.span });
             if (!sp) continue;
-            const s = Number(sp.start ?? -1);
-            const e = Number(sp.end ?? -1);
+            const s = Number(sp.startIndex ?? -1);
+            const e = Number(sp.endIndex ?? -1);
             if (s < 0 || e <= s) continue;
             if (index >= s && index < e) {
                 const w = e - s;

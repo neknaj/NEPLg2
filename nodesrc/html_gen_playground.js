@@ -195,10 +195,17 @@ ul{margin:10px 0 10px 22px;}
   background:var(--card);
   border:1px solid var(--border);
   border-radius:12px;
-  padding:10px 10px 12px;
-  max-height:calc(100vh - 36px);
-  overflow:auto;
+  padding:10px 10px 14px;
+  height:calc(100vh - 32px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#425779 #121a2a;
 }
+.doc-sidebar::-webkit-scrollbar{width:10px;height:10px;}
+.doc-sidebar::-webkit-scrollbar-track{background:#121a2a;border-radius:8px;}
+.doc-sidebar::-webkit-scrollbar-thumb{background:#425779;border-radius:8px;border:2px solid #121a2a;}
+.doc-sidebar::-webkit-scrollbar-thumb:hover{background:#5a76a8;}
 .toc-title{
   font-size:12px;
   letter-spacing:.04em;
@@ -230,7 +237,7 @@ ul{margin:10px 0 10px 22px;}
 .depth-4{padding-left:44px;}
 @media (max-width: 920px){
   .doc-layout{grid-template-columns:1fr;}
-  .doc-sidebar{position:static;max-height:none;}
+  .doc-sidebar{position:static;height:auto;max-height:none;}
   .global-play-link{
     position:static;
     margin:12px 16px 0 auto;
@@ -249,7 +256,7 @@ function nmToggleHidden(btn){
   for(const n of nodes){
     n.style.display = show ? 'inline' : 'none';
   }
-  btn.textContent = show ? '前置き( | 行)を隠す' : '前置き( | 行)を表示';
+  btn.textContent = show ? '主要部のみ表示' : '全て表示';
 }
 
 async function loadBindings() {
@@ -591,7 +598,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const btn = document.createElement('button');
     btn.className = 'nm-toggle';
-    btn.textContent = '前置き( | 行)を表示';
+    btn.textContent = '全て表示';
     btn.onclick = () => nmToggleHidden(btn);
     pre.insertAdjacentElement('afterend', btn);
   }
@@ -698,6 +705,12 @@ window.addEventListener('DOMContentLoaded', () => {
       overlay.classList.add('open');
       src.focus();
     });
+  }
+
+  const sidebar = document.querySelector('.doc-sidebar');
+  const activeLink = sidebar ? sidebar.querySelector('.toc-link.active') : null;
+  if (sidebar && activeLink) {
+    activeLink.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
   }
 });
 </script>
