@@ -1573,3 +1573,27 @@
   `Unmatched ')' in regular expression` を誘発していた。
 - `ansiToHtml` の正規表現初期化を `new RegExp(String.fromCharCode(27) + '\\\\[([0-9;]*)m', 'g')`
   に変更し、テンプレート展開後も安定して同一パターンになるよう修正。
+
+# 2026-02-10 作業メモ (getting_started の章立て再設計と内容拡充)
+## 章立て方針
+- 既存言語チュートリアル（Rust Book / A Tour of Go）の構成を参照し、
+  「概念章を積み上げてから小プロジェクト章で固める」流れへ再設計。
+- `tutorials/getting_started/00_index.n.md` を更新し、Part 1〜3 の学習ロードマップを追加。
+
+## 追加した章
+- `tutorials/getting_started/07_while_and_block.n.md`
+  - while/do と block 式の基本。
+- `tutorials/getting_started/08_if_layouts.n.md`
+  - inline / `if:` / `then:` `else:` block の書式差。
+- `tutorials/getting_started/09_import_and_structure.n.md`
+  - import と関数分割の最小パターン。
+- `tutorials/getting_started/10_project_fizzbuzz.n.md`
+  - ミニプロジェクトとして分岐ロジックを実践。
+- `tutorials/getting_started/11_testing_workflow.n.md`
+  - `std/test` を使ったテスト駆動の流れ。
+
+## 検証
+- `node nodesrc/tests.js -i tutorials/getting_started -o /tmp/getting_started_doctest.json -j 1`
+  - `total: 127, passed: 127, failed: 0, errored: 0`
+- `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
+  - `00`〜`11` の HTML を再生成し、実行ポップアップ付きで出力。

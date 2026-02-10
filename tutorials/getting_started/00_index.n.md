@@ -2,6 +2,9 @@
 
 このチュートリアルは、NEPLg2 を初めて触る人向けに「仕様どおりに動く最小コード」を段階的に学ぶための資料です。
 
+章立ては Rust Book のように「概念章」と「実践章」を交互に置く方針を参考にしています。
+短い章で前提を積み上げ、途中で小さな実践章を挟んで手を動かしながら進みます。
+
 NEPLg2 の中核は次の 3 つです。
 
 - 式指向: `if` や `match` も式として値を返します。
@@ -10,11 +13,21 @@ NEPLg2 の中核は次の 3 つです。
 
 各ページに `neplg2:test` のコード例を埋め込み、`nodesrc/cli.js` のテスト実行でそのまま検証できます。
 
-## 目次
+## 学習ロードマップ
 
+### Part 1: 基礎（概念章）
 - [01 Hello World](01_hello_world.n.md)
 - [02 数値と変数（前置記法と型注釈）](02_numbers_and_variables.n.md)
 - [03 関数と if（inline と block）](03_functions.n.md)
 - [04 文字列と標準入出力](04_strings_and_stdio.n.md)
 - [05 Option（値がある/ない）](05_option.n.md)
 - [06 Result（成功/失敗）](06_result.n.md)
+
+### Part 2: 制御構文と構造化（概念章）
+- [07 while と block（オフサイドルール）](07_while_and_block.n.md)
+- [08 if の書式バリエーション](08_if_layouts.n.md)
+- [09 import と小さな分割](09_import_and_structure.n.md)
+
+### Part 3: 実践（小プロジェクト章）
+- [10 ミニプロジェクト: FizzBuzz](10_project_fizzbuzz.n.md)
+- [11 テスト駆動で関数を固める](11_testing_workflow.n.md)
