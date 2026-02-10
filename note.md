@@ -1,4 +1,27 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (pipe 残件解消 + alloc 依存の根本改善)
+- `tests/pipe_operator.n.md` の残失敗（#13/#14/#15）を上流から切り分けて修正。
+- `nepl-core/src/typecheck.rs`:
+  - `let s <S> 10 |> S` / `let e <E> 20 |> E::V` で、`<S>/<E>` が pipe 前のリテラルに早期適用される不具合を修正。
+  - `next_is_pipe` の場合は pending ascription を遅延し、pipe 注入後の式確定時に適用するよう変更。
+- `nepl-core/src/codegen_wasm.rs`:
+  - `alloc` が未importでも構造体/列挙/タプル構築で落ちないよう、inline bump allocator フォールバックを追加（`emit_alloc_call`/`emit_inline_alloc`）。
+  - これにより `pipe_struct_source` / `pipe_into_constructor` で出ていた `alloc function not found (import std/mem)` を解消。
+- `todo.md`:
+  - 高階関数フェーズ後の `StringBuilder` 根本再設計タスク（O(n) build 化、再現テスト追加）を追加。
+- 検証:
+  - `NO_COLOR=true trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/pipe_operator.n.md -o /tmp/tests-pipe-after-constructor-revert.json -j 1`
+    - `total=20, passed=20, failed=0, errored=0`
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all-current-after-pipe-fixes.json -j 1`
+    - `total=339, passed=326, failed=13, errored=0`
+  - 残件分類:
+    - `ret_f64_example=1`
+    - `selfhost_req=4`
+    - `sort=5`
+    - `string=2`
+    - `tuple_new_syntax=1`
+
 # 2026-02-10 作業メモ (offside: block: 同一行継続の禁止)
 - `tests/offside_and_indent_errors.n.md::doctest#4` の根因は parser が `block:` の同一行継続（`block: add 1 2`）を許容していたこと。
 - `nepl-core/src/parser.rs` を修正:

@@ -1349,15 +1349,21 @@ impl<'a> BlockChecker<'a> {
             let TypeKind::Function { params, .. } = self.ctx.get(rty) else {
                 continue;
             };
-            let arity = params.len();
+            let total_arity = params.len();
+            let arity = self.user_visible_arity(&stack[j].expr, total_arity);
             if stack.len() < j + 1 + arity {
                 continue;
             }
             if inner_pos < j + 1 {
                 continue;
             }
-            let arg_idx = inner_pos - (j + 1);
-            if arg_idx >= arity {
+            let user_arg_idx = inner_pos - (j + 1);
+            if user_arg_idx >= arity {
+                continue;
+            }
+            let capture_len = total_arity.saturating_sub(arity);
+            let arg_idx = capture_len + user_arg_idx;
+            if arg_idx >= total_arity {
                 continue;
             }
             let pty = self.ctx.resolve_id(params[arg_idx]);
@@ -2637,8 +2643,12 @@ impl<'a> BlockChecker<'a> {
                 }
             }
 
-            // Try applying pending ascription before call reduction
-            try_apply_pending_ascription(self, stack, &mut pending_ascription);
+            // Try applying pending ascription before call reduction.
+            // If the next token is `|>`, defer ascription until pipe injection
+            // and subsequent call reduction are completed.
+            if !next_is_pipe {
+                try_apply_pending_ascription(self, stack, &mut pending_ascription);
+            }
 
             let mut pending_base = pending_ascription.map(|(_, base)| base);
             let mut pipe_guard = false;
@@ -2656,8 +2666,10 @@ impl<'a> BlockChecker<'a> {
             }
                         // std::eprintln!("  Stack after reduce: {:?}", stack.iter().map(|e| self.ctx.type_to_string(e.ty)).collect::<Vec<_>>());
 
-            // Try applying pending ascription after call reduction
-            try_apply_pending_ascription(self, stack, &mut pending_ascription);
+            // Try applying pending ascription after call reduction.
+            if !next_is_pipe {
+                try_apply_pending_ascription(self, stack, &mut pending_ascription);
+            }
 
             if pending_base.is_some() && pending_ascription.is_none() && !pipe_guard {
                 self.reduce_calls(stack, &mut open_calls, pending_ascription);

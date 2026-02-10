@@ -25,6 +25,11 @@
 - `sort_*` API (`(Vec<T>)->()`) と move 規則の整合を見直し、必要なら API/実装/テストを一貫して再設計する。
 - `stdlib/alloc/sort.nepl` がジェネリクス（`<.T: Ord>`）で動作する経路を `tests/generics.n.md` と合わせて確認する。
 
+4.5. StringBuilder の根本再設計（高階関数対応の次フェーズ）
+- `stdlib/alloc/string.nepl` の `StringBuilder` を Rust/Go の方式を参考に再実装する（連結反復ではなく、可変バッファに append して最後に 1 回だけ str を構築）。
+- `sb_append` / `sb_append_i32` / `sb_build` の計算量を見直し、build が O(n) になる設計へ変更する。
+- 現行で「処理が終わらない」再現ケースを `tests/string.n.md` に追加し、再実装後に回帰テストとして固定する。
+
 5. tests 全体の再分類と上流優先解消
 - `node nodesrc/tests.js -i tests -o ...` の結果を stage 別に管理する。
 - parser 起因の失敗群（stack/indent/unexpected token）を先に潰し、次に typecheck/codegen を進める。

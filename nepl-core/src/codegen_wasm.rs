@@ -627,6 +627,59 @@ fn find_alloc_index(name_map: &BTreeMap<String, u32>) -> Option<u32> {
     find_runtime_helper_index(name_map, "alloc")
 }
 
+fn emit_inline_alloc(locals: &mut LocalMap, insts: &mut Vec<Instruction<'static>>) {
+    let size_local = locals.alloc_temp(ValType::I32);
+    let base_local = locals.alloc_temp(ValType::I32);
+    let new_local = locals.alloc_temp(ValType::I32);
+
+    // stack: [size]
+    // size_local = size
+    insts.push(Instruction::LocalSet(size_local));
+
+    // base = load_i32(0)
+    insts.push(Instruction::I32Const(0));
+    insts.push(Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    insts.push(Instruction::LocalSet(base_local));
+
+    // new = align4(base + size)
+    insts.push(Instruction::LocalGet(base_local));
+    insts.push(Instruction::LocalGet(size_local));
+    insts.push(Instruction::I32Add);
+    insts.push(Instruction::I32Const(3));
+    insts.push(Instruction::I32Add);
+    insts.push(Instruction::I32Const(-4));
+    insts.push(Instruction::I32And);
+    insts.push(Instruction::LocalSet(new_local));
+
+    // store_i32(0, new)
+    insts.push(Instruction::I32Const(0));
+    insts.push(Instruction::LocalGet(new_local));
+    insts.push(Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // return base
+    insts.push(Instruction::LocalGet(base_local));
+}
+
+fn emit_alloc_call(
+    name_map: &BTreeMap<String, u32>,
+    locals: &mut LocalMap,
+    insts: &mut Vec<Instruction<'static>>,
+) {
+    if let Some(idx) = find_alloc_index(name_map) {
+        insts.push(Instruction::Call(idx));
+    } else {
+        emit_inline_alloc(locals, insts);
+    }
+}
+
 fn find_function_value_index(name_map: &BTreeMap<String, u32>, base: &str) -> Option<u32> {
     if let Some(idx) = name_map.get(base) {
         return Some(*idx);
@@ -1044,15 +1097,7 @@ fn gen_expr(
             } else if name == "callsite_span" {
                 let size = 12;
                 insts.push(Instruction::I32Const(size));
-                if let Some(idx) = find_alloc_index(name_map) {
-                    insts.push(Instruction::Call(idx));
-                } else {
-                    diags.push(Diagnostic::error(
-                        "alloc function not found (import std/mem)",
-                        expr.span,
-                    ));
-                    return None;
-                }
+                emit_alloc_call(name_map, locals, insts);
                 let ptr_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalTee(ptr_local));
 
@@ -1140,15 +1185,7 @@ fn gen_expr(
                 .unwrap_or(ValType::I32);
             let size = if payload.is_some() { 8 } else { 4 };
             insts.push(Instruction::I32Const(size));
-            if let Some(idx) = find_alloc_index(name_map) {
-                insts.push(Instruction::Call(idx));
-            } else {
-                diags.push(Diagnostic::error(
-                    "alloc function not found (import std/mem)",
-                    expr.span,
-                ));
-                return None;
-            }
+            emit_alloc_call(name_map, locals, insts);
             let ptr_local = locals.alloc_temp(ValType::I32);
             insts.push(Instruction::LocalTee(ptr_local));
             // store tag
@@ -1197,15 +1234,7 @@ fn gen_expr(
         } => {
             let size = (fields.len() as i32) * 4;
             insts.push(Instruction::I32Const(size));
-            if let Some(idx) = find_alloc_index(name_map) {
-                insts.push(Instruction::Call(idx));
-            } else {
-                diags.push(Diagnostic::error(
-                    "alloc function not found (import std/mem)",
-                    expr.span,
-                ));
-                return None;
-            }
+            emit_alloc_call(name_map, locals, insts);
             let ptr_local = locals.alloc_temp(ValType::I32);
             insts.push(Instruction::LocalTee(ptr_local));
             for (i, f) in fields.iter().enumerate() {
@@ -1249,15 +1278,7 @@ fn gen_expr(
         HirExprKind::TupleConstruct { items } => {
             let size = (items.len() as i32) * 4;
             insts.push(Instruction::I32Const(size));
-            if let Some(idx) = find_alloc_index(name_map) {
-                insts.push(Instruction::Call(idx));
-            } else {
-                diags.push(Diagnostic::error(
-                    "alloc function not found (import std/mem)",
-                    expr.span,
-                ));
-                return None;
-            }
+            emit_alloc_call(name_map, locals, insts);
             let ptr_local = locals.alloc_temp(ValType::I32);
             insts.push(Instruction::LocalTee(ptr_local));
             for (i, item) in items.iter().enumerate() {
