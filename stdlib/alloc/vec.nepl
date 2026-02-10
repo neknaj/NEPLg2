@@ -49,6 +49,19 @@
 //:     let w2 vec_push<i32> w1 2;
 //:     assert is_none<i32> vec_get<i32> w2 3;
 //: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "alloc/vec" as *
+//: fn main <()->i32> ():
+//:     let v0 vec_new<i32>;
+//:     let v1 vec_push<i32> v0 11;
+//:     let v2 vec_push<i32> v1 22;
+//:     let cleared vec_clear<i32> v2;
+//:     if eq vec_len cleared 0 0 1
+//: ```
 
 #indent 4
 

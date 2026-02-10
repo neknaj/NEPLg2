@@ -1,4 +1,34 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (vec/stack/list の doc comment + doctest 整備)
+- ユーザー指示に合わせて、以下の標準ライブラリに実行可能な doctest を追加・整備した。
+  - `stdlib/alloc/vec.nepl`
+  - `stdlib/alloc/collections/stack.nepl`
+  - `stdlib/alloc/collections/list.nepl`
+- 変更内容:
+  - `stack.nepl` / `list.nepl` の `neplg2:test[skip]` を解除し、主要操作（new/push/pop/peek/len/clear, cons/head/tail/get/reverse など）を確認する doctest を追加。
+  - `vec.nepl` に `clear` を中心とした追加 doctest を入れ、move 規則に反しない形へ調整。
+  - `str_eq` を使う doctest には `alloc/string` import を明示。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i stdlib/alloc/vec.nepl -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/list.nepl -o /tmp/tests-vec-stack-list.json -j 1 --no-stdlib`
+    - `summary: total=7, passed=7, failed=0, errored=0`
+
+# 2026-02-10 作業メモ (nm OOB 根治: parse_markdown 再設計)
+- `nm` の run fail (`memory access out of bounds`) を上流から再切り分けし、`stdlib/nm/parser.nepl` の `parse_markdown` を再設計した。
+- 根因分析:
+  - 既存実装は section stack と `Vec<Node>` の値受け渡しが複雑で、`nm` doctest で OOB を継続再現。
+  - `parse_markdown` 単体の最小実行で再現することを確認し、周辺ロジックを段階的に外して切り分け。
+- 実装変更:
+  - `parse_markdown` をフラット走査ベースに置き換え、`stack` 依存経路を除去。
+  - `safe_line` は `lines_data + offset` ではなく `vec_get<str>` ベースの安全アクセスに統一。
+  - heading/fence/paragraph/hr の分岐を明示化し、見出し配下の children 収集を局所ループで実装。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/nm.n.md -o /tmp/tests-nm.json -j 1`
+    - `total=72, passed=72, failed=0, errored=0`
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all.json -j 1`
+    - `total=416, passed=409, failed=7, errored=0`
+    - 残りは `ret_f64_example`, `selfhost_req`, `sort` で、nm 系失敗は解消。
 # 2026-02-10 作業メモ (nm 実装状況と doc comment 整備)
 - `nm` の現状:
   - コンパイル段階の主要 move-check エラーは大きく削減したが、実行時 `memory access out of bounds` が残っており未完了。

@@ -7,11 +7,62 @@
 //: [注意/ちゅうい]:
 //: - 詳細な関数別ドキュメントは段階的に追記します。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target wasi
-//: ()
+//:| #import "alloc/collections/list" as *
+//:| #import "alloc/string" as *
+//:| #import "core/option" as *
+//: fn main <()->i32> ():
+//:     let l0 list_nil<i32>;
+//:     let l1 list_cons<i32> 3 l0;
+//:     let l2 list_cons<i32> 2 l1;
+//:     let l3 list_cons<i32> 1 l2;
+//:     let ok0 if eq list_len<i32> l3 3 1 0;
+//:     let ok1 match list_head<i32> l3:
+//:         Option::Some x:
+//:             if eq x 1 1 0
+//:         Option::None:
+//:             0
+//:     let ok2 match list_get<i32> l3 1:
+//:         Option::Some x:
+//:             if eq x 2 1 0
+//:         Option::None:
+//:             0
+//:     let ok3 match list_tail<i32> l3:
+//:         Option::Some t:
+//:             if eq list_len<i32> t 2 1 0
+//:         Option::None:
+//:             0
+//:     add ok0 add ok1 add ok2 ok3
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "alloc/collections/list" as *
+//:| #import "alloc/string" as *
+//:| #import "core/option" as *
+//: fn main <()->i32> ():
+//:     let l0 list_nil<str>;
+//:     let l1 list_cons<str> "c" l0;
+//:     let l2 list_cons<str> "b" l1;
+//:     let l3 list_cons<str> "a" l2;
+//:     let r list_reverse<str> l3;
+//:     let ok0 match list_head<str> r:
+//:         Option::Some x:
+//:             if str_eq x "c" 1 0
+//:         Option::None:
+//:             0
+//:     let ok1 match list_get<str> r 2:
+//:         Option::Some x:
+//:             if str_eq x "a" 1 0
+//:         Option::None:
+//:             0
+//:     let ok2 if is_none<str> list_get<str> r 3 1 0;
+//:     add ok0 add ok1 ok2
 //: ```
 
 #indent 4

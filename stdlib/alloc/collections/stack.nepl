@@ -7,11 +7,60 @@
 //: [注意/ちゅうい]:
 //: - 詳細な関数別ドキュメントは段階的に追記します。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target wasi
-//: ()
+//:| #import "alloc/collections/stack" as *
+//:| #import "alloc/string" as *
+//:| #import "core/option" as *
+//: fn main <()->i32> ():
+//:     let st stack_new<i32>;
+//:     stack_push<i32> st 10;
+//:     stack_push<i32> st 20;
+//:     let ok0 if eq stack_len<i32> st 2 1 0;
+//:     let ok1 match stack_peek<i32> st:
+//:         Option::Some x:
+//:             if eq x 20 1 0
+//:         Option::None:
+//:             0
+//:     match stack_pop<i32> st:
+//:         Option::Some x:
+//:             ()
+//:         Option::None:
+//:             ()
+//:     stack_clear<i32> st;
+//:     let ok2 if stack_is_empty<i32> st 1 0;
+//:     add ok0 add ok1 ok2
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "alloc/collections/stack" as *
+//:| #import "alloc/string" as *
+//:| #import "core/option" as *
+//: fn main <()->i32> ():
+//:     let st stack_new<str>;
+//:     stack_push<str> st "a";
+//:     stack_push<str> st "b";
+//:     let ok0 match stack_pop<str> st:
+//:         Option::Some x:
+//:             if str_eq x "b" 1 0
+//:         Option::None:
+//:             0
+//:     let ok1 match stack_pop<str> st:
+//:         Option::Some x:
+//:             if str_eq x "a" 1 0
+//:         Option::None:
+//:             0
+//:     let ok2 match stack_pop<str> st:
+//:         Option::Some _:
+//:             0
+//:         Option::None:
+//:             1
+//:     add ok0 add ok1 ok2
 //: ```
 
 #indent 4
