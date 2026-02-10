@@ -877,7 +877,7 @@ fn trace_prefix_expr(trace: &mut NameResolutionTrace, expr: &PrefixExpr) {
             PrefixItem::Symbol(Symbol::Set { name }) => {
                 trace.reference(name.name.clone(), name.span);
             }
-            PrefixItem::Symbol(Symbol::Ident(id, _)) => {
+            PrefixItem::Symbol(Symbol::Ident(id, _, _)) => {
                 if !is_layout_marker(&id.name) {
                     trace.reference(id.name.clone(), id.span);
                 }

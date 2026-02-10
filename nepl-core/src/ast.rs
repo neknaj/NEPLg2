@@ -86,7 +86,8 @@ pub enum PrefixItem {
 /// Special symbols in the language.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
-    Ident(Ident, Vec<TypeExpr>),
+    /// `forced_value=true` when parsed from `@ident`.
+    Ident(Ident, Vec<TypeExpr>, bool),
     Let { name: Ident, mutable: bool },
     Set { name: Ident },
     If(Span),

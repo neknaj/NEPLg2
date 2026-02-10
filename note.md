@@ -888,3 +888,36 @@
 ## 確認
 - `node -e "const fs=require('fs');const s=fs.readFileSync('web/tests.html','utf8');const js=s.split('<script>')[1].split('</script>')[0];new Function(js);console.log('ok');"`
   - `ok`
+
+# 2026-02-10 作業メモ (高階関数実装フェーズ再開: parser/typecheck上流修正)
+## 実装
+- `nepl-core/src/parser.rs`
+  - `apply 10 (x): ...` 形式を匿名関数リテラルとして扱う desugar を追加。
+  - `(params): body` を内部的に `__lambda_*` の `FnDef` + 値式に変換して AST 化する。
+- `nepl-core/src/ast.rs`
+  - `Symbol::Ident` を `Ident, Vec<TypeExpr>, forced_value(bool)` に拡張し、`@ident` を区別可能にした。
+- `nepl-core/src/typecheck.rs`
+  - 式スタック要素 `StackEntry` に `auto_call` を追加。
+  - `@ident` を `auto_call=false` として reduce 対象から外せるようにした。
+  - reduce 時に「右端関数が外側呼び出しの関数型引数である」場合は外側呼び出しを優先する選択を追加。
+- `nepl-web/src/lib.rs`
+  - `Symbol::Ident` パターンを AST 変更へ追従。
+
+## 実装
+- `nepl-core/src/codegen_wasm.rs`
+  - 関数型を WASM 値型へ下ろす際、解決済み型を見るよう修正。
+  - `TypeKind::Function` を暫定的に `i32` として下ろせるようにした（関数参照表現の土台）。
+
+## テスト実行結果
+- `NO_COLOR=true trunk build`: success
+- `node nodesrc/tests.js -i tests/functions.n.md -o /tmp/functions-after-sigresolve.json`
+  - `total=16, passed=10, failed=6, errored=0`
+  - 主要失敗: `unknown function _unknown`（関数値呼び出しの codegen 未実装）
+- `node nodesrc/tests.js -i tests -o /tmp/tests-all-after-hof-phase.json`
+  - `total=312, passed=278, failed=34, errored=0`（件数は据え置き）
+
+## 現状評価
+- parser 起因の `undefined identifier` だった `function_first_class_literal` は、匿名関数としてパースされる段階まで前進。
+- いまの主障害は上流ではなく中流〜下流:
+  - 関数値呼び出し (`func val`) を `_unknown` にフォールバックしており、`call_indirect` 相当の経路が未実装。
+  - capture あり nested function (`add x y`) はクロージャ変換未実装のため未対応。

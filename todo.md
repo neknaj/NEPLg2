@@ -19,6 +19,7 @@
 3. functions 系テストの仕様整合
 - `let` 関数糖衣（型注釈あり/なし）を仕様どおりに通す。
 - `@` 関数参照と alias の組み合わせを安定化する。
+- 関数値呼び出し (`func val`) の `_unknown` フォールバックを廃止し、WASM table + `call_indirect` で非キャプチャ高階関数を動作させる。
 - 関数リテラル系ケースは、non-capture 先行（table + `call_indirect`）で段階導入し、capture ありは closure conversion の設計後に実装する。
 
 4. tests 全体の再分類と上流優先解消

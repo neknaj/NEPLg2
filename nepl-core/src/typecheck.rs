@@ -1174,6 +1174,39 @@ struct BlockChecker<'a> {
 }
 
 impl<'a> BlockChecker<'a> {
+    fn find_outer_function_consumer(
+        &self,
+        stack: &[StackEntry],
+        inner_pos: usize,
+        min_func_pos: usize,
+    ) -> Option<usize> {
+        for j in (min_func_pos..inner_pos).rev() {
+            if !stack[j].auto_call {
+                continue;
+            }
+            let rty = self.ctx.resolve_id(stack[j].ty);
+            let TypeKind::Function { params, .. } = self.ctx.get(rty) else {
+                continue;
+            };
+            let arity = params.len();
+            if stack.len() < j + 1 + arity {
+                continue;
+            }
+            if inner_pos < j + 1 {
+                continue;
+            }
+            let arg_idx = inner_pos - (j + 1);
+            if arg_idx >= arity {
+                continue;
+            }
+            let pty = self.ctx.resolve_id(params[arg_idx]);
+            if matches!(self.ctx.get(pty), TypeKind::Function { .. }) {
+                return Some(j);
+            }
+        }
+        None
+    }
+
     fn is_concrete_type(&self, ty: TypeId) -> bool {
         let resolved = self.ctx.resolve_id(ty);
         !matches!(self.ctx.get(resolved), TypeKind::Var(v) if v.binding.is_none())
@@ -1403,6 +1436,7 @@ impl<'a> BlockChecker<'a> {
                 },
                 type_args: Vec::new(),
                 assign: None,
+                            auto_call: true,
             });
         }
 
@@ -1630,7 +1664,7 @@ impl<'a> BlockChecker<'a> {
         // Initialize open_calls from existing stack (if any)
         for (i, entry) in stack.iter().enumerate() {
              let rty = self.ctx.resolve(entry.ty);
-             if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+             if entry.auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
                  open_calls.push(i);
              }
         }
@@ -1700,14 +1734,19 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
+                            auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
                 PrefixItem::Symbol(sym) => match sym {
-                    Symbol::Ident(id, type_args) => {
+                    Symbol::Ident(id, type_args, forced_value) => {
 
                         if let Some(binding) = self.env.lookup(&id.name) {
                             let ty = binding.ty;
+                            let auto_call = match binding.kind {
+                                BindingKind::Func { .. } => !*forced_value,
+                                _ => true,
+                            };
                             stack.push(StackEntry {
                                 ty,
                                 expr: HirExpr {
@@ -1717,6 +1756,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 type_args: Vec::new(),
                                 assign: None,
+                                auto_call,
                             });
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
@@ -1741,6 +1781,7 @@ impl<'a> BlockChecker<'a> {
                                         },
                                         type_args: Vec::new(),
                                         assign: None,
+                                        auto_call: !*forced_value,
                                     });
                                     last_expr = Some(stack.last().unwrap().expr.clone());
                                 } else {
@@ -1797,6 +1838,7 @@ impl<'a> BlockChecker<'a> {
                                         },
                                         type_args: explicit_args,
                                         assign: None,
+                            auto_call: true,
                                     });
                                     last_expr = Some(stack.last().unwrap().expr.clone());
                                 }
@@ -1821,6 +1863,7 @@ impl<'a> BlockChecker<'a> {
                                             },
                                             type_args: args,
                                             assign: None,
+                                            auto_call: !*forced_value,
                                         });
                                         last_expr = Some(stack.last().unwrap().expr.clone());
                                     } else {
@@ -1873,6 +1916,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: Some(AssignKind::Let),
+                            auto_call: true,
                         });
                         // defer applying ascription until the expression is complete
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1904,6 +1948,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 type_args: Vec::new(),
                                 assign: Some(AssignKind::Set),
+                            auto_call: true,
                             });
                             // defer applying ascription until the expression is complete
                             last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1928,6 +1973,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: Some(AssignKind::AddrOf),
+                            auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
@@ -1944,6 +1990,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: Some(AssignKind::Deref),
+                            auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
@@ -1965,6 +2012,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                         // defer applying ascription until the expression is complete
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1986,6 +2034,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                         // defer applying ascription until the expression is complete
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -2102,6 +2151,7 @@ impl<'a> BlockChecker<'a> {
                                      expr: hexpr.clone(),
                                      type_args: Vec::new(),
                                      assign: None,
+                            auto_call: true,
                                  });
                                  last_expr = Some(hexpr);
                                  continue;
@@ -2162,6 +2212,7 @@ impl<'a> BlockChecker<'a> {
                                     expr: hexpr.clone(),
                                     type_args: Vec::new(),
                                     assign: None,
+                            auto_call: true,
                                 });
                                 last_expr = Some(hexpr);
                                 continue;
@@ -2225,6 +2276,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
+                            auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
@@ -2240,6 +2292,7 @@ impl<'a> BlockChecker<'a> {
                             expr: hexpr,
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     }
@@ -2266,6 +2319,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
+                            auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
@@ -2277,6 +2331,7 @@ impl<'a> BlockChecker<'a> {
                             expr: hexpr,
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
                     } else {
@@ -2298,6 +2353,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                         // defer applying ascription until the expression is complete
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -2331,7 +2387,9 @@ impl<'a> BlockChecker<'a> {
                 if let Some(val) = pipe_pending.take() {
                     // The last pushed element should be a callable (function type)
                     if let Some(top) = stack.last() {
-                        if matches!(self.ctx.get(top.ty), TypeKind::Function { .. }) {
+                        if top.auto_call
+                            && matches!(self.ctx.get(top.ty), TypeKind::Function { .. })
+                        {
                             // pipe では「関数を積んだ直後に引数を注入」するため、
                             // 通常の末尾関数追跡だけでは open_calls に載らない。
                             let func_idx = stack.len() - 1;
@@ -2360,7 +2418,7 @@ impl<'a> BlockChecker<'a> {
             if let Some(top) = stack.last() {
                 let idx = stack.len() - 1;
                 let rty = self.ctx.resolve(top.ty);
-                if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                if top.auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
                     if open_calls.last() != Some(&idx) {
                         open_calls.push(idx);
                     }
@@ -2515,13 +2573,16 @@ impl<'a> BlockChecker<'a> {
             }
             dump!("reduce_calls: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
 
-            let func_pos = match stack.iter().rposition(|e| {
+            let mut func_pos = match stack.iter().rposition(|e| {
                 let rty = self.ctx.resolve(e.ty);
-                matches!(self.ctx.get(rty), TypeKind::Function { .. })
+                e.auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. })
             }) {
                 Some(p) => p,
                 None => break,
             };
+            if let Some(outer) = self.find_outer_function_consumer(stack, func_pos, 0) {
+                func_pos = outer;
+            }
 
             let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
                 (stack[func_pos].ty, stack[func_pos].type_args.clone())
@@ -2604,14 +2665,17 @@ impl<'a> BlockChecker<'a> {
             let mut func_pos: Option<usize> = None;
             for i in (min_func_pos..stack.len()).rev() {
                 let rty = self.ctx.resolve(stack[i].ty);
-                if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                if stack[i].auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
                     func_pos = Some(i);
                     break;
                 }
             }
-            let Some(func_pos) = func_pos else {
+            let Some(mut func_pos) = func_pos else {
                 break;
             };
+            if let Some(outer) = self.find_outer_function_consumer(stack, func_pos, min_func_pos) {
+                func_pos = outer;
+            }
 
             let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
                 (stack[func_pos].ty, stack[func_pos].type_args.clone())
@@ -2813,7 +2877,7 @@ impl<'a> BlockChecker<'a> {
         let mut else_idx: Option<usize> = None;
         for (i, stmt) in b.items.iter().enumerate() {
             if let Stmt::Expr(e) = stmt {
-                if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = e.items.first() {
+                if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = e.items.first() {
                     if id.name == "else" {
                         else_idx = Some(i);
                         break;
@@ -2832,7 +2896,7 @@ impl<'a> BlockChecker<'a> {
 
         let then_block = if then_items.len() == 1 {
             if let Stmt::Expr(e) = then_items.remove(0) {
-                if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = e.items.first() {
+                if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = e.items.first() {
                     if id.name == "then" {
                         // drop leading marker and convert remaining items into block
                         let mut items = e.items;
@@ -2991,6 +3055,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
+                            auto_call: true,
                 });
             } else if matches!(assign, AssignKind::AddrOf) {
                 if args.len() != 1 { return None; }
@@ -3008,6 +3073,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
+                            auto_call: true,
                 });
             } else if matches!(assign, AssignKind::Deref) {
                 if args.len() != 1 { return None; }
@@ -3031,6 +3097,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
+                            auto_call: true,
                 });
             }
 
@@ -3069,6 +3136,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                     }
                     AssignKind::Set => {
@@ -3094,6 +3162,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                     }
                     _ => unreachable!(),
@@ -3137,6 +3206,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
+                            auto_call: true,
                 });
             }
             HirExprKind::Var(name) if name == "while" => {
@@ -3171,6 +3241,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
+                            auto_call: true,
                 });
             }
             HirExprKind::Var(name) if name == "let" || name == "set" => {
@@ -3228,6 +3299,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 type_args: Vec::new(),
                                 assign: None,
+                            auto_call: true,
                             });
                         } else if name == "put" && args.len() == 3 {
                             let val = args[2].expr.clone();
@@ -3265,6 +3337,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 type_args: Vec::new(),
                                 assign: None,
+                            auto_call: true,
                             });
                         }
                     }
@@ -3527,6 +3600,7 @@ impl<'a> BlockChecker<'a> {
                                     },
                                     type_args: Vec::new(),
                                     assign: None,
+                            auto_call: true,
                                 });
                             }
                         }
@@ -3557,6 +3631,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            auto_call: true,
                         });
                     }
 
@@ -3588,6 +3663,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
+                            auto_call: true,
                     });
                 }
             }
@@ -3607,6 +3683,7 @@ impl<'a> BlockChecker<'a> {
             },
             type_args: Vec::new(),
             assign: None,
+                            auto_call: true,
         })
     }
 }
@@ -4080,4 +4157,5 @@ struct StackEntry {
     expr: HirExpr,
     type_args: Vec<TypeId>,
     assign: Option<AssignKind>,
+    auto_call: bool,
 }

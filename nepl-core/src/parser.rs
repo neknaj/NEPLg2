@@ -61,6 +61,73 @@ struct Parser {
 }
 
 impl Parser {
+    fn try_extract_lambda_params(item: &PrefixItem) -> Option<(Vec<Ident>, Span)> {
+        fn expr_to_ident(expr: &PrefixExpr) -> Option<Ident> {
+            if expr.items.len() != 1 {
+                return None;
+            }
+            match &expr.items[0] {
+                PrefixItem::Symbol(Symbol::Ident(id, targs, _)) if targs.is_empty() => Some(id.clone()),
+                _ => None,
+            }
+        }
+
+        match item {
+            PrefixItem::Group(expr, span) => {
+                let id = expr_to_ident(expr)?;
+                Some((vec![id], *span))
+            }
+            PrefixItem::Tuple(exprs, span) => {
+                let mut params = Vec::new();
+                for e in exprs {
+                    params.push(expr_to_ident(e)?);
+                }
+                if params.is_empty() {
+                    return None;
+                }
+                Some((params, *span))
+            }
+            _ => None,
+        }
+    }
+
+    fn build_lambda_block(&self, params: Vec<Ident>, params_span: Span, body: Block) -> PrefixItem {
+        let lambda_name = alloc::format!(
+            "__lambda_{}_{}_{}",
+            params_span.file_id.0,
+            params_span.start,
+            params_span.end
+        );
+        let name_ident = Ident {
+            name: lambda_name.clone(),
+            span: params_span,
+        };
+        let lambda_span = params_span.join(body.span).unwrap_or(params_span);
+        let fn_def = FnDef {
+            vis: Visibility::Private,
+            name: name_ident.clone(),
+            type_params: Vec::new(),
+            signature: Self::infer_signature_from_params(params.len()),
+            params,
+            body: FnBody::Parsed(body),
+        };
+        let value_expr = PrefixExpr {
+            items: vec![PrefixItem::Symbol(Symbol::Ident(
+                name_ident,
+                Vec::new(),
+                false,
+            ))],
+            trailing_semis: 0,
+            trailing_semi_span: None,
+            span: params_span,
+        };
+        let block = Block {
+            items: vec![Stmt::FnDef(fn_def), Stmt::Expr(value_expr)],
+            span: lambda_span,
+        };
+        PrefixItem::Block(block, lambda_span)
+    }
+
     fn peek_kind_at(&self, offset: usize) -> Option<&TokenKind> {
         self.tokens.get(self.pos + offset).map(|t| &t.kind)
     }
@@ -921,6 +988,14 @@ impl Parser {
                     let block = self.parse_block_after_colon()?;
                     let span = colon_span.join(block.span).unwrap_or(colon_span);
 
+                    if let Some(last) = items.last() {
+                        if let Some((params, params_span)) = Self::try_extract_lambda_params(last) {
+                            items.pop();
+                            items.push(self.build_lambda_block(params, params_span, block));
+                            break;
+                        }
+                    }
+
                     if let Some(marker) = Self::tail_block_marker(&items) {
                         if marker == "block" {
                             items.pop();
@@ -1072,7 +1147,14 @@ impl Parser {
                             items.push(PrefixItem::Literal(Literal::Float(combined), minus_span.join(tok.span).unwrap_or(minus_span)));
                         }
                         _ => {
-                            items.push(PrefixItem::Symbol(Symbol::Ident(Ident { name: "-".to_string(), span: minus_span }, Vec::new())));
+                            items.push(PrefixItem::Symbol(Symbol::Ident(
+                                Ident {
+                                    name: "-".to_string(),
+                                    span: minus_span,
+                                },
+                                Vec::new(),
+                                false,
+                            )));
                         }
                     }
                 }
@@ -1371,6 +1453,15 @@ impl Parser {
                     let colon_span = self.next().unwrap().span;
                     let block = self.parse_block_after_colon()?;
                     let span = colon_span.join(block.span).unwrap_or(colon_span);
+
+                    if let Some(last) = items.last() {
+                        if let Some((params, params_span)) = Self::try_extract_lambda_params(last) {
+                            items.pop();
+                            items.push(self.build_lambda_block(params, params_span, block));
+                            break;
+                        }
+                    }
+
                     if let Some(marker) = Self::tail_block_marker(&items) {
                         if marker == "block" {
                             items.pop();
@@ -1815,14 +1906,14 @@ impl Parser {
         let has_then_else = items.iter().any(|item| {
             matches!(
                 item,
-                PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _))
+                PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _, _))
                     if ident.name == "then" || ident.name == "else"
             )
         });
         let has_do = items.iter().any(|item| {
             matches!(
                 item,
-                PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _)) if ident.name == "do"
+                PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _, _)) if ident.name == "do"
             )
         });
         let has_while = items
@@ -1831,7 +1922,7 @@ impl Parser {
         let mut i = 0;
         while i < items.len() {
             let remove = match &items[i] {
-                PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _)) => {
+                PrefixItem::Symbol(crate::ast::Symbol::Ident(ident, _, _)) => {
                     let n = ident.name.as_str();
                     // remove only if not the first item (i != 0)
                     ((n == "then" || n == "else") && i != 0)
@@ -1851,7 +1942,7 @@ impl Parser {
     /// Peek at the role marker without modifying the expression. O(1) operation.
     fn peek_role_from_expr(expr: &PrefixExpr) -> Option<IfRole> {
         // Check first item only - markers always appear at the start
-        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = expr.items.first() {
+        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = expr.items.first() {
             match id.name.as_str() {
                 "cond" => return Some(IfRole::Cond),
                 "then" => return Some(IfRole::Then),
@@ -1863,7 +1954,7 @@ impl Parser {
         for item in &expr.items {
             if let PrefixItem::Block(block, _) = item {
                 if let Some(Stmt::Expr(inner)) = block.items.first() {
-                    if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = inner.items.first() {
+                    if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = inner.items.first() {
                         match id.name.as_str() {
                             "cond" => return Some(IfRole::Cond),
                             "then" => return Some(IfRole::Then),
@@ -1879,7 +1970,7 @@ impl Parser {
 
     fn take_role_from_expr(expr: &mut PrefixExpr) -> Option<IfRole> {
         // Direct marker case: first item is the marker identifier
-        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = expr.items.first() {
+        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = expr.items.first() {
             if id.name == "cond" {
                 expr.items.remove(0);
                 return Some(IfRole::Cond);
@@ -1898,7 +1989,7 @@ impl Parser {
             if let PrefixItem::Block(block, block_span) = &mut expr.items[i] {
                 if let Some(stmt) = block.items.first_mut() {
                     if let Stmt::Expr(inner) = stmt {
-                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = inner.items.first() {
+                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = inner.items.first() {
                             let role = if id.name == "cond" {
                                 IfRole::Cond
                             } else if id.name == "then" {
@@ -1928,7 +2019,7 @@ impl Parser {
     }
 
     fn take_while_role_from_expr(expr: &mut PrefixExpr) -> Option<WhileRole> {
-        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = expr.items.first() {
+        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = expr.items.first() {
             if id.name == "cond" {
                 expr.items.remove(0);
                 return Some(WhileRole::Cond);
@@ -1941,7 +2032,7 @@ impl Parser {
             if let PrefixItem::Block(block, block_span) = &mut expr.items[i] {
                 if let Some(stmt) = block.items.first_mut() {
                     if let Stmt::Expr(inner) = stmt {
-                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _))) = inner.items.first() {
+                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = inner.items.first() {
                             let role = if id.name == "cond" {
                                 WhileRole::Cond
                             } else if id.name == "do" {
@@ -1965,7 +2056,7 @@ impl Parser {
     }
 
     fn block_marker_name<'a>(item: &'a PrefixItem) -> Option<&'a str> {
-        if let PrefixItem::Symbol(Symbol::Ident(id, _)) = item {
+        if let PrefixItem::Symbol(Symbol::Ident(id, _, _)) = item {
             match id.name.as_str() {
                 "block" | "cond" | "then" | "else" | "do" => Some(id.name.as_str()),
                 _ => None,
@@ -2719,6 +2810,7 @@ impl Parser {
                 span: end_span,
             },
             type_args,
+            at_span.is_some(),
         )))
     }
 
@@ -2956,7 +3048,7 @@ impl Parser {
     fn item_span(&self, item: &PrefixItem) -> Span {
         match item {
             PrefixItem::Literal(_, sp) => *sp,
-            PrefixItem::Symbol(Symbol::Ident(id, _)) => id.span,
+            PrefixItem::Symbol(Symbol::Ident(id, _, _)) => id.span,
             PrefixItem::Symbol(Symbol::Let { name, .. }) => name.span,
             PrefixItem::Symbol(Symbol::Set { name }) => name.span,
             PrefixItem::Symbol(Symbol::If(sp)) => *sp,

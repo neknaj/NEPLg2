@@ -300,7 +300,7 @@ fn wasm_sig(
 ) -> Option<(Vec<ValType>, Vec<ValType>)> {
     let mut param_types = Vec::new();
     for p in params {
-        let vk = ctx.get(p.ty);
+        let vk = ctx.get(ctx.resolve_id(p.ty));
         if let Some(v) = valtype(&vk) {
             param_types.push(v);
         } else {
@@ -310,7 +310,7 @@ fn wasm_sig(
             return None;
         }
     }
-    let res_kind = ctx.get(result);
+    let res_kind = ctx.get(ctx.resolve_id(result));
     let res = if let Some(v) = valtype(&res_kind) {
         vec![v]
     } else {
@@ -333,14 +333,14 @@ fn wasm_sig_ids(
 ) -> Option<(Vec<ValType>, Vec<ValType>)> {
     let mut param_types = Vec::new();
     for p in params {
-        let vk = ctx.get(*p);
+        let vk = ctx.get(ctx.resolve_id(*p));
         if let Some(v) = valtype(&vk) {
             param_types.push(v);
         } else {
             return None;
         }
     }
-    let res_kind = ctx.get(result);
+    let res_kind = ctx.get(ctx.resolve_id(result));
     if crate::log::is_verbose() {
         std::eprintln!(
             "wasm_sig: checking result type {:?} with valtype={:?}",
@@ -372,6 +372,7 @@ fn valtype(kind: &TypeKind) -> Option<ValType> {
             Some(ValType::I32)
         }
         TypeKind::Reference(_, _) | TypeKind::Box(_) => Some(ValType::I32),
+        TypeKind::Function { .. } => Some(ValType::I32),
         TypeKind::Named(name) => match name.as_str() {
             "i64" => Some(ValType::I64),
             "f64" => Some(ValType::F64),
