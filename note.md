@@ -1,4 +1,15 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (doc comment 書式: 「使い方」見出しを統一)
+- ユーザー提示の書式に合わせ、`vec/stack/list` の doctest 前に `//: 使い方:` を統一追加した。
+  - 対象:
+    - `stdlib/alloc/vec.nepl`
+    - `stdlib/alloc/collections/stack.nepl`
+    - `stdlib/alloc/collections/list.nepl`
+- あわせて、`vec_set` の doctest で move-check に抵触していた例を修正し、コンパイル可能な使用例に整えた。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/vec.nepl -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/list.nepl -o /tmp/tests-vec-stack-list.json -j 1 --no-stdlib`
+  - `summary: total=35, passed=35, failed=0, errored=0`
+
 # 2026-02-10 作業メモ (vec/stack/list コメント様式の指定対応)
 - ユーザー指定の `stdlib/nm` 拡張 Markdown 形式に合わせ、以下のモジュール先頭コメントを具体化した。
   - `stdlib/alloc/vec.nepl`
