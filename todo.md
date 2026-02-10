@@ -28,7 +28,8 @@
 5. tests 全体の再分類と上流優先解消
 - `node nodesrc/tests.js -i tests -o ...` の結果を stage 別に管理する。
 - parser 起因の失敗群（stack/indent/unexpected token）を先に潰し、次に typecheck/codegen を進める。
-- 最新分類（2026-02-10）: `total=336, passed=311, failed=25`
+- 最新分類（2026-02-10）: `total=339, passed=315, failed=24`
+- doctest harness で複数ファイル入力（VFS）を受け取れる形式を追加し、`tests/neplg2.n.md::doctest#11` の `#import "./part"` を再現可能にする。
 
 6. ドキュメント運用
 - 実装進捗・結果・失敗分析は `note.md` のみに記録する。

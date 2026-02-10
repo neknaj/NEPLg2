@@ -1,4 +1,20 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (loader字句正規化 + 高階関数回帰確認)
+- `nepl-core/src/loader.rs` の `canonicalize_path` に字句的正規化（`.` / `..` 除去）を追加した。
+  - 目的: `#import "./part"` の解決で `/virtual/./part.nepl` と `/virtual/part.nepl` の不一致をなくすため。
+  - 変更後、`tests/neplg2.n.md::doctest#11` は `missing source: /virtual/part.nepl` まで前進し、パス不一致自体は解消。
+- 高階関数系の現状を再確認:
+  - `node nodesrc/tests.js -i tests/functions.n.md -o /tmp/tests-functions-current.json -j 1`
+  - `total=19, passed=19, failed=0, errored=0`
+  - 直近の `functions` 失敗は解消済み。
+- 全体回帰:
+  - `NO_COLOR=true trunk build`: 成功
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all-after-outer-consumer-fix.json -j 1`
+  - `total=339, passed=315, failed=24, errored=0`（既知集合）
+- 残課題メモ:
+  - `neplg2#doctest#11` は loader ではなく doctest harness 側の複数ファイル供給仕様（VFS）未整備が根因。
+  - ほかの失敗主塊は `sort` / `selfhost_req` / `pipe_operator` / `tuple_new_syntax`。
+
 # 2026-02-10 作業メモ (functions if失敗の再現チェック準備)
 - `functions#doctest#7/#10` の原因切り分けのため、`typecheck` の call reduction 周辺を調査。
 - 一時的に `reduce_calls` の候補探索方式を変更したが、`tests/if.n.md` が悪化（9 fail）したため取り消し済み。

@@ -12,7 +12,7 @@ use alloc::vec::Vec;
 use core::result::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 extern crate std;
 
 #[derive(Debug)]
@@ -575,10 +575,29 @@ fn read_file_to_string(_path: &PathBuf) -> Result<String, LoaderError> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn canonicalize_path(path: &PathBuf) -> PathBuf {
-    path.canonicalize().unwrap_or_else(|_| path.clone())
+    match path.canonicalize() {
+        Ok(p) => normalize_path_lexically(&p),
+        Err(_) => normalize_path_lexically(path),
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
 fn canonicalize_path(path: &PathBuf) -> PathBuf {
-    path.clone()
+    normalize_path_lexically(path)
+}
+
+/// Normalize path segments without filesystem access.
+/// This keeps virtual paths stable across loader/provider boundaries.
+fn normalize_path_lexically(path: &PathBuf) -> PathBuf {
+    let mut out = PathBuf::new();
+    for comp in path.components() {
+        match comp {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
 }
