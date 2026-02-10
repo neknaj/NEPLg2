@@ -17,8 +17,6 @@
 - `_start` 欠落を実行時エラーではなく compile error で検出する。
 
 3. functions 系テストの仕様整合
-- `let` 関数糖衣（型注釈あり/なし）を仕様どおりに通す。
-- `@` 関数参照と alias の組み合わせを安定化する。
 - 関数値呼び出し (`func val`) の `_unknown` フォールバックを廃止し、WASM table + `call_indirect` で非キャプチャ高階関数を動作させる。
 - 関数リテラル系ケースは、non-capture 先行（table + `call_indirect`）で段階導入し、capture ありは closure conversion の設計後に実装する。
 
@@ -32,7 +30,7 @@
 
 6. VSCode/LSP API 拡張（phase 2）
 - `analyze_name_resolution` を拡張し、`import` / `alias` / `use` を跨いだ同名識別子の解決結果（候補一覧・最終選択・定義位置）を返す。
-- token 単位の型情報 API（`token -> inferred type / expression range / argument range`）を typecheck 後段で追加する。
+- token 単位の型情報 API（`token -> inferred type / expression range / argument range`）の既存出力へ、import 先を含む定義ジャンプ情報を統合する。
 - 定義ジャンプ API を同一ファイルだけでなく import 先ファイルまで解決できる形で実装する。
 - Hover/Inlay Hint 用に「式範囲」「引数範囲」「推論型」「関連ドキュメントコメント」を返す API を追加する。
 

@@ -1009,3 +1009,28 @@
 - いまの主障害は上流ではなく中流〜下流:
   - 関数値呼び出し (`func val`) を `_unknown` にフォールバックしており、`call_indirect` 相当の経路が未実装。
   - capture あり nested function (`add x y`) はクロージャ変換未実装のため未対応。
+
+# 2026-02-10 作業メモ (functions復旧とLSP API拡張の前進)
+## 実装
+- `stdlib/std/stdio.nepl`
+  - `ansi_*` 関数群の末尾 `;` を除去し、`<()->str>` シグネチャと本体の戻り値整合を回復。
+- `nepl-core/src/typecheck.rs`
+  - `apply_function` の純粋性検査を常時有効化し、`pure context cannot call impure function` の見逃しを修正。
+  - `check_block` の副作用文脈を常に `Impure` へ上書きする挙動を削除。
+  - `check_function` に `is_entry` を導入し、entry 関数のみ `Impure` 文脈で評価（`wasi` main の仕様に整合）。
+- `nepl-web/src/lib.rs`
+  - 名前解決 JSON を共通生成する `name_resolution_payload_to_js` を追加。
+  - `analyze_semantics` に以下を追加:
+    - `name_resolution`（definitions/references/by_name/policy）
+    - `token_resolution`（token 単位の参照解決候補と最終解決ID）
+
+## テスト実行結果
+- `NO_COLOR=true trunk build`: success
+- `node nodesrc/tests.js -i tests/functions.n.md -o /tmp/tests-functions-after-entry-impure.json -j 1`
+  - `total=19, passed=19, failed=0, errored=0`
+- `node nodesrc/test_analysis_api.js`
+  - `total=7, passed=7, failed=0`
+
+## コミット
+- `cb90042`
+  - `Fix purity/effect checks and extend semantics resolve API`
