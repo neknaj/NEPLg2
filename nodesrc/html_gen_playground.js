@@ -98,7 +98,7 @@ ul{margin:10px 0 10px 22px;}
   display:grid; grid-template-columns:1fr 40%;
   min-height:0;
 }
-#play-src,#play-stdin,#play-stdout{
+#play-src,#play-stdin,#play-stdout-raw{
   width:100%; height:100%; resize:none; box-sizing:border-box;
   font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
   font-size:13px; line-height:1.45; border:none; outline:none; color:var(--fg); background:#0b1322;
@@ -106,7 +106,24 @@ ul{margin:10px 0 10px 22px;}
 }
 #play-right{display:grid; grid-template-rows:120px 1fr; border-left:1px solid var(--border); min-height:0;}
 #play-stdin{background:#0a1620; border-bottom:1px solid var(--border);}
-#play-stdout{background:#081018;}
+#play-stdout-wrap{background:#081018; min-height:0; position:relative;}
+#play-stdout-view{
+  margin:0;
+  height:100%;
+  overflow:auto;
+  white-space:pre-wrap;
+  word-break:break-word;
+  box-sizing:border-box;
+  padding:12px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:13px; line-height:1.45;
+}
+#play-stdout-raw{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  pointer-events:none;
+}
 #play-status{font-size:12px; color:var(--muted);}
 .ok{color:var(--ok);} .err{color:var(--err);}
 </style>
@@ -197,6 +214,84 @@ self.onmessage = async (e) => {
 \`;
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function ansiColorFg(n) {
+  const map = {
+    30:'#111111',31:'#ff6b6b',32:'#59c37a',33:'#f7d154',34:'#6da8ff',35:'#d291ff',36:'#62d6e8',37:'#f0f0f0',
+    90:'#7a7a7a',91:'#ff8a8a',92:'#7de0a0',93:'#ffe28a',94:'#8ec0ff',95:'#e1b2ff',96:'#87e8f5',97:'#ffffff',
+  };
+  return map[n] || null;
+}
+
+function ansiColorBg(n) {
+  const map = {
+    40:'#111111',41:'#7a1f1f',42:'#1f5f2f',43:'#6d5a1f',44:'#1f3f7a',45:'#5a2a7a',46:'#1f6170',47:'#cfcfcf',
+    100:'#4f4f4f',101:'#a63a3a',102:'#3b8d4f',103:'#9a8136',104:'#3b6bb5',105:'#7b4ab5',106:'#3f8f9e',107:'#f5f5f5',
+  };
+  return map[n] || null;
+}
+
+function ansiToHtml(input) {
+  const re = new RegExp(String.fromCharCode(27) + '\\\\[([0-9;]*)m', 'g');
+  const state = { bold: false, underline: false, fg: null, bg: null };
+  const chunks = [];
+  let last = 0;
+
+  function styleText(text) {
+    if (!text) return;
+    let style = '';
+    if (state.bold) style += 'font-weight:700;';
+    if (state.underline) style += 'text-decoration:underline;';
+    if (state.fg) style += 'color:' + state.fg + ';';
+    if (state.bg) style += 'background:' + state.bg + ';';
+    if (!style) {
+      chunks.push(escapeHtml(text));
+      return;
+    }
+    chunks.push('<span style="' + style + '">' + escapeHtml(text) + '</span>');
+  }
+
+  let m;
+  while ((m = re.exec(input)) !== null) {
+    styleText(input.slice(last, m.index));
+    last = re.lastIndex;
+
+    const codes = (m[1] === '' ? ['0'] : m[1].split(';')).map(x => parseInt(x, 10));
+    for (const c of codes) {
+      if (c === 0) {
+        state.bold = false; state.underline = false; state.fg = null; state.bg = null;
+      } else if (c === 1) {
+        state.bold = true;
+      } else if (c === 4) {
+        state.underline = true;
+      } else if (c === 22) {
+        state.bold = false;
+      } else if (c === 24) {
+        state.underline = false;
+      } else if (c === 39) {
+        state.fg = null;
+      } else if (c === 49) {
+        state.bg = null;
+      } else {
+        const fg = ansiColorFg(c);
+        const bg = ansiColorBg(c);
+        if (fg) state.fg = fg;
+        if (bg) state.bg = bg;
+      }
+    }
+  }
+  styleText(input.slice(last));
+  return chunks.join('');
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   for(const pre of document.querySelectorAll('pre.nm-code')){
     const hasHidden = pre.querySelector('.nm-hidden');
@@ -215,13 +310,22 @@ window.addEventListener('DOMContentLoaded', () => {
   const title = document.getElementById('play-title');
   const src = document.getElementById('play-src');
   const stdin = document.getElementById('play-stdin');
-  const stdout = document.getElementById('play-stdout');
+  const stdoutRaw = document.getElementById('play-stdout-raw');
+  const stdoutView = document.getElementById('play-stdout-view');
   const status = document.getElementById('play-status');
   const runBtn = document.getElementById('play-run');
   const stopBtn = document.getElementById('play-stop');
   const closeBtn = document.getElementById('play-close');
   let worker = null;
   let running = false;
+  let stdoutText = '';
+
+  function setStdoutText(next) {
+    stdoutText = String(next || '');
+    stdoutRaw.value = stdoutText;
+    stdoutView.innerHTML = ansiToHtml(stdoutText);
+    stdoutView.scrollTop = stdoutView.scrollHeight;
+  }
 
   function setStatus(text, cls) {
     status.className = cls || '';
@@ -239,7 +343,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   runBtn.onclick = async () => {
     if (running) return;
-    stdout.value = '';
+    setStdoutText('');
     setStatus('compiling...', '');
     try {
       const bindings = await loadBindings();
@@ -251,8 +355,7 @@ window.addEventListener('DOMContentLoaded', () => {
       worker.onmessage = (ev) => {
         const msg = ev.data || {};
         if (msg.type === 'stdout') {
-          stdout.value += String(msg.text || '');
-          stdout.scrollTop = stdout.scrollHeight;
+          setStdoutText(stdoutText + String(msg.text || ''));
         } else if (msg.type === 'done') {
           running = false;
           setStatus('done', 'ok');
@@ -261,7 +364,7 @@ window.addEventListener('DOMContentLoaded', () => {
         } else if (msg.type === 'error') {
           running = false;
           setStatus('runtime error', 'err');
-          stdout.value += '\\n[error] ' + String(msg.message || '');
+          setStdoutText(stdoutText + '\\n[error] ' + String(msg.message || ''));
           worker && worker.terminate();
           worker = null;
         }
@@ -270,7 +373,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       running = false;
       setStatus('compile failed', 'err');
-      stdout.value += '[compile error] ' + String((e && e.message) || e);
+      setStdoutText(stdoutText + '[compile error] ' + String((e && e.message) || e));
     }
   };
 
@@ -298,7 +401,7 @@ window.addEventListener('DOMContentLoaded', () => {
       title.textContent = document.title + ' - runnable snippet';
       src.value = code.textContent || '';
       stdin.value = '';
-      stdout.value = '';
+      setStdoutText('');
       setStatus('ready', 'ok');
       overlay.classList.add('open');
       src.focus();
@@ -324,7 +427,10 @@ ${body}
       <textarea id="play-src" spellcheck="false"></textarea>
       <div id="play-right">
         <textarea id="play-stdin" spellcheck="false" placeholder="stdin"></textarea>
-        <textarea id="play-stdout" spellcheck="false" readonly placeholder="stdout / stderr"></textarea>
+        <div id="play-stdout-wrap">
+          <pre id="play-stdout-view"></pre>
+          <textarea id="play-stdout-raw" spellcheck="false" readonly placeholder="stdout / stderr"></textarea>
+        </div>
       </div>
     </div>
     <div id="play-foot">

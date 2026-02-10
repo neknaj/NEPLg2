@@ -1547,3 +1547,29 @@
     `new URL('../nepl-web-*.js', location.href)` を参照し、`fetch(index.html)` が無いことを確認。
   - 追加で `nepl-web_bg.wasm` も互換名として生成するよう修正し、
     wasm-bindgen 生成 JS が既定名を参照するケースでも 404 しないことを確認。
+
+# 2026-02-10 作業メモ (tutorial 実行ポップアップの ANSI レンダリング対応)
+## 実装
+- `nodesrc/html_gen_playground.js`
+  - 実行ポップアップの stdout 表示を、単純テキスト表示から ANSI 解釈付き表示へ拡張。
+  - `ansiToHtml` を追加し、`\\x1b[...m` の SGR を解釈して HTML `<span style=...>` に変換。
+  - 対応した主な属性:
+    - リセット (`0`)
+    - 太字 (`1` / `22`)
+    - 下線 (`4` / `24`)
+    - 前景色 (`30-37`, `90-97`, `39`)
+    - 背景色 (`40-47`, `100-107`, `49`)
+  - stdout は `#play-stdout-view`（レンダリング表示）に集約しつつ、
+    `#play-stdout-raw`（生テキスト）も保持。
+
+## 検証
+- `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
+  - 生成HTMLに `ansiToHtml` / `play-stdout-view` が含まれることを確認。
+- `node nodesrc/tests.js -i tests/stdout.n.md -o /tmp/tests-stdout.json -j 1`
+  - `total: 107, passed: 107, failed: 0, errored: 0`
+
+## 追記 (正規表現構文エラー修正)
+- `html_gen_playground` のテンプレート展開時に、`\\x1b` が生の ESC 文字へ変換される経路があり、
+  `Unmatched ')' in regular expression` を誘発していた。
+- `ansiToHtml` の正規表現初期化を `new RegExp(String.fromCharCode(27) + '\\\\[([0-9;]*)m', 'g')`
+  に変更し、テンプレート展開後も安定して同一パターンになるよう修正。
