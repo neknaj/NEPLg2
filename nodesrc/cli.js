@@ -131,7 +131,7 @@ function main() {
         const inPath = path.resolve(input);
         if (isFile(inPath)) {
             const rel = path.basename(inPath);
-            count += genOne(inPath, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets);
+            count += genOne(inPath, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets, null);
             continue;
         }
         if (!isDir(inPath)) {
@@ -140,9 +140,10 @@ function main() {
         }
 
         const files = walkFiles(inPath, excludeDirs).filter(p => p.endsWith('.n.md') || p.endsWith('.nepl'));
+        const tocEntries = buildTocEntries(inPath, files);
         for (const f of files) {
             const rel = path.relative(inPath, f);
-            count += genOne(f, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets);
+            count += genOne(f, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries);
         }
     }
 
@@ -186,7 +187,40 @@ function prepareHtmlPlayAssets(outRootHtmlPlay) {
     };
 }
 
-function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets) {
+function humanizeDocName(outRel) {
+    const base = path.basename(outRel, '.html');
+    return base.replace(/^\d+[_-]?/, '').replace(/_/g, ' ');
+}
+
+function toPosix(p) {
+    return String(p).replace(/\\/g, '/');
+}
+
+function buildTocEntries(inputRoot, files) {
+    const outRels = files.map(f => toPosix(path.relative(inputRoot, f))
+        .replace(/\.n\.md$/i, '.html')
+        .replace(/\.nepl$/i, '.html'));
+    outRels.sort();
+    return outRels.map(outRel => ({
+        outRel,
+        label: humanizeDocName(outRel),
+    }));
+}
+
+function makePageTocLinks(currentOutRel, tocEntries) {
+    if (!Array.isArray(tocEntries) || tocEntries.length === 0) return [];
+    const curDir = path.posix.dirname(toPosix(currentOutRel));
+    return tocEntries.map(e => {
+        const rel = path.posix.relative(curDir === '.' ? '' : curDir, e.outRel);
+        return {
+            href: rel === '' ? path.posix.basename(e.outRel) : rel,
+            label: e.label,
+            active: e.outRel === toPosix(currentOutRel),
+        };
+    });
+}
+
+function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries) {
     const md = extractMarkdownForHtml(filePath);
     if (!md || md.trim().length === 0) {
         return 0;
@@ -216,11 +250,13 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets)
         const depth = outRel.split('/').length - 1;
         const prefix = depth > 0 ? '../'.repeat(depth) : './';
         const moduleJsPath = `${prefix}${htmlPlayAssets.jsFile}`;
+        const tocLinks = makePageTocLinks(outRel, tocEntries);
         const htmlPlay = renderHtmlPlayground(ast, {
             title,
             description: `${title} - NEPLg2 tutorial runnable document`,
             rewriteLinks: true,
             moduleJsPath,
+            tocLinks,
         });
         const outPathPlay = path.join(outRootHtmlPlay, outRel);
         ensureDir(path.dirname(outPathPlay));

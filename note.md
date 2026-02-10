@@ -1597,3 +1597,29 @@
   - `total: 127, passed: 127, failed: 0, errored: 0`
 - `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
   - `00`〜`11` の HTML を再生成し、実行ポップアップ付きで出力。
+
+# 2026-02-10 作業メモ (Elm/Lean 風の章追加 + 左目次 + index導線)
+## 実装
+- `tutorials/getting_started/00_index.n.md`
+  - Part 4（Elm / Lean 風の関数型・型駆動スタイル）を追加。
+- 追加章:
+  - `tutorials/getting_started/12_pure_function_pipeline.n.md`
+  - `tutorials/getting_started/13_type_driven_error_modeling.n.md`
+  - `tutorials/getting_started/14_refactor_with_properties.n.md`
+  - 関数合成、型で失敗表現、等式的リファクタと回帰テストを段階的に説明。
+- `nodesrc/cli.js`
+  - `html_play` 生成時に同一ディレクトリ内の全ページを集約し、ページごとの目次リンク情報（TOC）を構築。
+- `nodesrc/html_gen_playground.js`
+  - 左サイドバー目次（全章リンク）を追加。
+  - 現在ページを `active` 表示。
+  - モバイル幅では縦並びになるようレスポンシブ対応。
+- `web/index.html`
+  - ヘッダに Getting Started へのリンクを追加:
+    - `./tutorials/getting_started/00_index.html`
+
+## 検証
+- `node nodesrc/tests.js -i tutorials/getting_started -o /tmp/getting_started_doctest.json -j 1`
+  - `total: 133, passed: 133, failed: 0, errored: 0`
+- `node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started`
+  - `00`〜`14` を含む HTML を再生成。
+  - 各ページで左サイド目次と active 表示が出ることを確認。

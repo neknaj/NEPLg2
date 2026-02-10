@@ -18,10 +18,22 @@ function renderBody(ast) {
     return renderNode(ast, { rewriteLinks: true });
 }
 
+function renderToc(tocLinks) {
+    if (!Array.isArray(tocLinks) || tocLinks.length === 0) {
+        return '';
+    }
+    const items = tocLinks.map(link => {
+        const cls = link.active ? ' class="toc-link active"' : ' class="toc-link"';
+        return `<li><a${cls} href="${escapeHtml(String(link.href || ''))}">${escapeHtml(String(link.label || ''))}</a></li>`;
+    }).join('\n');
+    return `<aside class="doc-sidebar"><div class="toc-title">Getting Started</div><ul class="toc-list">${items}</ul></aside>`;
+}
+
 function wrapHtmlPlayground(body, title, description, moduleJsPathOpt) {
     const t = title || 'NEPLg2 Tutorial';
     const d = description || 'NEPLg2 tutorial with interactive runnable examples.';
     const moduleJsPath = (moduleJsPathOpt && String(moduleJsPathOpt)) || './nepl-web.js';
+    const tocHtml = (arguments[4] && String(arguments[4])) || '';
     return `<!doctype html>
 <html lang="ja">
 <head>
@@ -48,7 +60,8 @@ function wrapHtmlPlayground(body, title, description, moduleJsPathOpt) {
   --err:#ff6b6b;
 }
 html,body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.65;}
-main{max-width:980px;margin:24px auto;padding:0 16px;}
+.doc-layout{max-width:1260px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:260px 1fr;gap:18px;}
+main{min-width:0;}
 a{color:var(--accent);}
 hr{border:none;border-top:1px solid var(--border);margin:24px 0;}
 .nm-sec{padding:0.5em;padding-left:2em;margin:1em;border-left:3px solid var(--border);border-radius:1em;}
@@ -126,6 +139,39 @@ ul{margin:10px 0 10px 22px;}
 }
 #play-status{font-size:12px; color:var(--muted);}
 .ok{color:var(--ok);} .err{color:var(--err);}
+.doc-sidebar{
+  position:sticky;
+  top:16px;
+  align-self:start;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px 10px 12px;
+  max-height:calc(100vh - 36px);
+  overflow:auto;
+}
+.toc-title{
+  font-size:12px;
+  letter-spacing:.04em;
+  color:var(--muted);
+  margin:2px 0 8px;
+}
+.toc-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
+.toc-link{
+  display:block;
+  padding:6px 8px;
+  border-radius:8px;
+  color:var(--fg);
+  text-decoration:none;
+  border:1px solid transparent;
+  font-size:13px;
+}
+.toc-link:hover{border-color:var(--border);background:rgba(255,255,255,0.04);}
+.toc-link.active{border-color:#355186;background:rgba(122,162,247,0.18);}
+@media (max-width: 920px){
+  .doc-layout{grid-template-columns:1fr;}
+  .doc-sidebar{position:static;max-height:none;}
+}
 </style>
 <script>
 function nmToggleHidden(btn){
@@ -411,9 +457,12 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </head>
 <body>
+<div class="doc-layout">
+${tocHtml}
 <main>
 ${body}
 </main>
+</div>
 
 <div id="play-overlay">
   <div id="play-modal" role="dialog" aria-modal="true" aria-label="NEPLg2 Runnable Snippet">
@@ -448,8 +497,9 @@ function renderHtmlPlayground(ast, opt) {
         ? opt.description
         : 'NEPLg2 tutorial with interactive runnable examples.';
     const moduleJsPath = (opt && opt.moduleJsPath) ? String(opt.moduleJsPath) : './nepl-web.js';
+    const tocHtml = renderToc((opt && opt.tocLinks) ? opt.tocLinks : []);
     const body = renderBody(ast);
-    return wrapHtmlPlayground(body, title, description, moduleJsPath);
+    return wrapHtmlPlayground(body, title, description, moduleJsPath, tocHtml);
 }
 
 module.exports = {

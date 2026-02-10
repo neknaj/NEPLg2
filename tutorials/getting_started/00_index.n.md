@@ -4,6 +4,7 @@
 
 章立ては Rust Book のように「概念章」と「実践章」を交互に置く方針を参考にしています。
 短い章で前提を積み上げ、途中で小さな実践章を挟んで手を動かしながら進みます。
+後半は Elm / Lean のチュートリアルで重視される「関数中心」「型で仕様を表す」流れを取り入れています。
 
 NEPLg2 の中核は次の 3 つです。
 
@@ -31,3 +32,8 @@ NEPLg2 の中核は次の 3 つです。
 ### Part 3: 実践（小プロジェクト章）
 - [10 ミニプロジェクト: FizzBuzz](10_project_fizzbuzz.n.md)
 - [11 テスト駆動で関数を固める](11_testing_workflow.n.md)
+
+### Part 4: 関数型・型駆動スタイル（Elm / Lean 風）
+- [12 純粋関数の合成（状態を持たない変換）](12_pure_function_pipeline.n.md)
+- [13 型で失敗を表す（Option / Result の徹底）](13_type_driven_error_modeling.n.md)
+- [14 等式的リファクタと回帰テスト](14_refactor_with_properties.n.md)
