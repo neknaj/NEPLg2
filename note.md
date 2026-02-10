@@ -1,4 +1,18 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (tuple unit 要素の codegen 根本修正)
+- `tests/tuple_new_syntax.n.md::doctest#10` の根因を特定。
+  - `Tuple:` に `()` が含まれると、WASM codegen が `unit` 要素を通常値として `LocalSet` しようとしてスタック不足になっていた。
+  - 既存レイアウト（typecheck 側 offset=4 刻み）を崩さず、`unit` 要素/フィールドは「式評価で副作用は実行しつつ、スロットには 0 を格納」する方針へ統一。
+- `nepl-core/src/codegen_wasm.rs`:
+  - `StructConstruct` / `TupleConstruct` の要素 store 分岐を `valtype(Some)` と `None(unit)` で分離。
+  - `None(unit)` では `gen_expr` 後に `i32.store 0` を行う実装へ変更。
+- 検証:
+  - `NO_COLOR=true trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/tuple_new_syntax.n.md -o /tmp/tests-tuple-after-unit-slot-fix.json -j 1`
+    - `total=20, passed=20, failed=0, errored=0`
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all-after-tuple-unit-fix.json -j 1`
+    - `total=339, passed=327, failed=12, errored=0`
+
 # 2026-02-10 作業メモ (pipe 残件解消 + alloc 依存の根本改善)
 - `tests/pipe_operator.n.md` の残失敗（#13/#14/#15）を上流から切り分けて修正。
 - `nepl-core/src/typecheck.rs`:

@@ -1240,36 +1240,52 @@ fn gen_expr(
             for (i, f) in fields.iter().enumerate() {
                 let offset = (i as u32) * 4;
                 let vk = ctx.get(f.ty);
-                let vt = valtype(&vk).unwrap_or(ValType::I32);
-                let temp = locals.alloc_temp(vt);
-                gen_expr(ctx, f, name_map, sig_map, strings, locals, insts, diags);
-                insts.push(Instruction::LocalSet(temp));
-                insts.push(Instruction::LocalGet(ptr_local));
-                insts.push(Instruction::I32Const(offset as i32));
-                insts.push(Instruction::I32Add);
-                match vt {
-                    ValType::I32 => {
-                        insts.push(Instruction::LocalGet(temp));
+                match valtype(&vk) {
+                    Some(vt) => {
+                        let temp = locals.alloc_temp(vt);
+                        gen_expr(ctx, f, name_map, sig_map, strings, locals, insts, diags);
+                        insts.push(Instruction::LocalSet(temp));
+                        insts.push(Instruction::LocalGet(ptr_local));
+                        insts.push(Instruction::I32Const(offset as i32));
+                        insts.push(Instruction::I32Add);
+                        match vt {
+                            ValType::I32 => {
+                                insts.push(Instruction::LocalGet(temp));
+                                insts.push(Instruction::I32Store(MemArg {
+                                    offset: 0,
+                                    align: 2,
+                                    memory_index: 0,
+                                }))
+                            }
+                            ValType::F32 => {
+                                insts.push(Instruction::LocalGet(temp));
+                                insts.push(Instruction::F32Store(MemArg {
+                                    offset: 0,
+                                    align: 2,
+                                    memory_index: 0,
+                                }))
+                            }
+                            _ => {
+                                diags.push(Diagnostic::error(
+                                    "unsupported struct field type for codegen",
+                                    expr.span,
+                                ));
+                                return None;
+                            }
+                        }
+                    }
+                    None => {
+                        // Preserve side effects even when the field type is unit.
+                        gen_expr(ctx, f, name_map, sig_map, strings, locals, insts, diags);
+                        insts.push(Instruction::LocalGet(ptr_local));
+                        insts.push(Instruction::I32Const(offset as i32));
+                        insts.push(Instruction::I32Add);
+                        insts.push(Instruction::I32Const(0));
                         insts.push(Instruction::I32Store(MemArg {
                             offset: 0,
                             align: 2,
                             memory_index: 0,
-                        }))
-                    }
-                    ValType::F32 => {
-                        insts.push(Instruction::LocalGet(temp));
-                        insts.push(Instruction::F32Store(MemArg {
-                            offset: 0,
-                            align: 2,
-                            memory_index: 0,
-                        }))
-                    }
-                    _ => {
-                        diags.push(Diagnostic::error(
-                            "unsupported struct field type for codegen",
-                            expr.span,
-                        ));
-                        return None;
+                        }));
                     }
                 }
             }
@@ -1284,36 +1300,52 @@ fn gen_expr(
             for (i, item) in items.iter().enumerate() {
                 let offset = (i as u32) * 4;
                 let vk = ctx.get(item.ty);
-                let vt = valtype(&vk).unwrap_or(ValType::I32);
-                let temp = locals.alloc_temp(vt);
-                gen_expr(ctx, item, name_map, sig_map, strings, locals, insts, diags);
-                insts.push(Instruction::LocalSet(temp));
-                insts.push(Instruction::LocalGet(ptr_local));
-                insts.push(Instruction::I32Const(offset as i32));
-                insts.push(Instruction::I32Add);
-                match vt {
-                    ValType::I32 => {
-                        insts.push(Instruction::LocalGet(temp));
+                match valtype(&vk) {
+                    Some(vt) => {
+                        let temp = locals.alloc_temp(vt);
+                        gen_expr(ctx, item, name_map, sig_map, strings, locals, insts, diags);
+                        insts.push(Instruction::LocalSet(temp));
+                        insts.push(Instruction::LocalGet(ptr_local));
+                        insts.push(Instruction::I32Const(offset as i32));
+                        insts.push(Instruction::I32Add);
+                        match vt {
+                            ValType::I32 => {
+                                insts.push(Instruction::LocalGet(temp));
+                                insts.push(Instruction::I32Store(MemArg {
+                                    offset: 0,
+                                    align: 2,
+                                    memory_index: 0,
+                                }))
+                            }
+                            ValType::F32 => {
+                                insts.push(Instruction::LocalGet(temp));
+                                insts.push(Instruction::F32Store(MemArg {
+                                    offset: 0,
+                                    align: 2,
+                                    memory_index: 0,
+                                }))
+                            }
+                            _ => {
+                                diags.push(Diagnostic::error(
+                                    "unsupported tuple element type for codegen",
+                                    expr.span,
+                                ));
+                                return None;
+                            }
+                        }
+                    }
+                    None => {
+                        // Preserve side effects even when the element type is unit.
+                        gen_expr(ctx, item, name_map, sig_map, strings, locals, insts, diags);
+                        insts.push(Instruction::LocalGet(ptr_local));
+                        insts.push(Instruction::I32Const(offset as i32));
+                        insts.push(Instruction::I32Add);
+                        insts.push(Instruction::I32Const(0));
                         insts.push(Instruction::I32Store(MemArg {
                             offset: 0,
                             align: 2,
                             memory_index: 0,
-                        }))
-                    }
-                    ValType::F32 => {
-                        insts.push(Instruction::LocalGet(temp));
-                        insts.push(Instruction::F32Store(MemArg {
-                            offset: 0,
-                            align: 2,
-                            memory_index: 0,
-                        }))
-                    }
-                    _ => {
-                        diags.push(Diagnostic::error(
-                            "unsupported tuple element type for codegen",
-                            expr.span,
-                        ));
-                        return None;
+                        }));
                     }
                 }
             }
