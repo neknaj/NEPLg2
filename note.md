@@ -1,4 +1,22 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (functions 失敗の深掘り: symbol/entry)
+- `tests` 全体を再実行し、現状を再確認:
+  - `/tmp/tests-restored-stable.json` = `total=312, passed=273, failed=39, errored=0`
+  - 失敗の主塊は `tests/functions.n.md`（10〜11件）で、nested fn / function value / entry 解決が中心。
+- `functions` の `doctest#3`（`fn main ()`）を最小再現で調査:
+  - `/tmp/fnmain_no_annot.nepl` を `nepl-cli --verbose` でコンパイル。
+  - 観測:
+    - monomorphize 初期関数は `main__unit__i32__pure`
+    - 本文中 `inc 41` が `unknown function inc` で落ちる
+  - 解釈:
+    - hoist 時の関数 symbol と、check_function 後の関数名（mangle 後）が一致しない経路が残っており、entry 欠落と同根。
+- 試行:
+  - `check_function` へ symbol override を渡し、hoist で選ばれた symbol に関数名を揃える修正を実験。
+  - しかし `tests/functions.n.md` で `doctest#3` が run fail から compile fail（unknown function inc）へ悪化し、全体改善にならなかったため撤回。
+- 現時点の結論:
+  - 名前空間再設計（ValueNs/CallableNs 分離）と、nested fn の実体生成（少なくとも non-capture 先行）が必要。
+  - 局所 patch では `functions` 群の構造問題を吸収しきれない。
+
 # 2026-02-10 作業メモ (block 引数位置の根本修正)
 - `tests/block_single_line.n.md` の `doctest#8/#9` を起点に、`add block 1 block 2` と `if true block 1 else block 2` の失敗要因を解析。
 - 原因:
