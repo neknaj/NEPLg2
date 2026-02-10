@@ -874,3 +874,17 @@
 
 ## 補足
 - `wat` は詳細NEPLデバッグコメントを含み、`wat-min` は詳細コメントを除外しつつ `attached-source` と compiler 情報コメントを保持する方針を確認済み。
+
+# 2026-02-10 作業メモ (web/tests.html 詳細表示強化)
+## 実装
+- `web/tests.html` の結果モデルを `nodesrc/tests.js` 出力（`id/file/index/tags/source/error/phase/worker/compiler/runtime`）に対応させた。
+- 各 doctest の展開詳細に以下を追加:
+  - `id/phase/worker/duration/file` のメタ情報
+  - `compiler` / `runtime` オブジェクトの表示
+  - `raw result JSON` 折りたたみ表示
+  - doctestソースの行番号付き表示
+- エラー文中の `--> path:line:col` から行番号を抽出し、該当ソース行をハイライトするようにした。
+
+## 確認
+- `node -e "const fs=require('fs');const s=fs.readFileSync('web/tests.html','utf8');const js=s.split('<script>')[1].split('</script>')[0];new Function(js);console.log('ok');"`
+  - `ok`

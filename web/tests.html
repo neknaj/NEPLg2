@@ -626,6 +626,58 @@
             white-space: pre-wrap;
             max-width: 100%;
         }
+
+        .codePanel {
+            margin-top: 10px;
+            border: 1px solid var(--border-2);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(2, 6, 14, 0.66);
+        }
+
+        .codeHead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border-2);
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .codeBody {
+            margin: 0;
+            border: 0;
+            border-radius: 0;
+            padding: 0;
+            background: transparent;
+        }
+
+        .codeLine {
+            display: grid;
+            grid-template-columns: 56px 1fr;
+            gap: 12px;
+            padding: 0 10px;
+            min-height: 1.7em;
+        }
+
+        .codeLineNum {
+            color: var(--faint);
+            text-align: right;
+            user-select: none;
+            padding-right: 6px;
+            border-right: 1px solid rgba(148, 163, 184, 0.14);
+        }
+
+        .codeLineTxt {
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .codeLine.hit {
+            background: rgba(239, 68, 68, 0.10);
+        }
         
         pre::-webkit-scrollbar {
             height: 8px;
@@ -819,6 +871,45 @@
             return j >= 0 ? s.slice(j + 1) : s;
         };
 
+        const parseDoctestMetaFromId = (id) => {
+            const s = String(id || "");
+            const m = s.match(/^(.*)::doctest#(\d+)$/);
+            if (!m) return { fileFromId: "", indexFromId: null };
+            return {
+                fileFromId: m[1] || "",
+                indexFromId: Number(m[2] || "0") || null,
+            };
+        };
+
+        const extractErrorLines = (reasonText) => {
+            const text = String(reasonText || "");
+            const lines = new Set();
+            const re = /-->\s+[^:\n]+:(\d+):\d+/g;
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                const n = Number(m[1] || "0");
+                if (Number.isFinite(n) && n > 0) lines.add(n);
+            }
+            return lines;
+        };
+
+        const renderCodeWithLineNumbers = (code, hitLines) => {
+            const lines = String(code || "").replaceAll("\r\n", "\n").split("\n");
+            return `
+                <div class="codePanel">
+                    <div class="codeHead mono">
+                        <span>source</span>
+                        <span>${lines.length} lines</span>
+                    </div>
+                    <div class="codeBody mono">${lines.map((line, i) => {
+                        const ln = i + 1;
+                        const hit = hitLines && hitLines.has(ln);
+                        return `<div class="codeLine ${hit ? "hit" : ""}"><span class="codeLineNum">${ln}</span><span class="codeLineTxt">${escapeHtml(line)}</span></div>`;
+                    }).join("")}</div>
+                </div>
+            `;
+        };
+
         // -------------------------
         // State
         // -------------------------
@@ -861,17 +952,22 @@
             // But we keep it resilient.
             const results = Array.isArray(json?.results) ? json.results : (Array.isArray(json) ? json : []);
             const norm = results.map((r, idx) => {
-                const filePath = r.filePath ?? r.file ?? r.path ?? "";
-                const name = r.name ?? r.test ?? `test:${idx}`;
-                const attrs = Array.isArray(r.attrs) ? r.attrs : (Array.isArray(r.attr) ? r.attr : []);
-                const ok = (typeof r.ok === "boolean") ? r.ok : (r.status === "ok" || r.status === "passed");
-                const reason = r.reason ?? r.message ?? "";
+                const id = r.id ?? "";
+                const metaFromId = parseDoctestMetaFromId(id);
+                const filePath = r.filePath ?? r.file ?? r.path ?? metaFromId.fileFromId ?? "";
+                const index = r.index ?? metaFromId.indexFromId ?? null;
+                const name = r.name ?? r.test ?? (index ? `doctest#${index}` : `test:${idx}`);
+                const attrs = Array.isArray(r.attrs) ? r.attrs : (Array.isArray(r.attr) ? r.attr : (Array.isArray(r.tags) ? r.tags : []));
+                const ok = (typeof r.ok === "boolean") ? r.ok : (r.status === "ok" || r.status === "passed" || r.status === "pass");
+                const reason = r.reason ?? r.error ?? r.message ?? "";
                 return {
                     idx,
+                    id,
                     origin: r.origin ?? "",
                     filePath,
                     fileShort: shortPath(filePath),
                     name,
+                    index,
                     attrs,
                     stdin: r.stdin ?? null,
                     stdout: r.stdout ?? null,
@@ -881,6 +977,13 @@
                     ok,
                     reason,
                     actual: r.actual ?? null,
+                    phase: r.phase ?? null,
+                    status: r.status ?? null,
+                    worker: r.worker ?? null,
+                    durationMs: r.duration_ms ?? null,
+                    compiler: r.compiler ?? null,
+                    runtime: r.runtime ?? null,
+                    raw: r,
                 };
             });
             return { results: norm, summary: json?.summary ?? null };
@@ -965,10 +1068,16 @@
 
             const renderTestDetails = (r) => {
                 const parts = [];
+                const hitLines = extractErrorLines(r.reason);
                 parts.push(`<div class="kv">
+                    <div class="k">id</div><div class="v mono">${escapeHtml(r.id || "")}</div>
                     <div class="k">status</div><div class="v mono ${r.ok ? "status-ok" : "status-fail"}" style="font-weight:800;">${r.ok ? "ok" : "FAILED"}</div>
+                    <div class="k">phase</div><div class="v mono">${escapeHtml(r.phase || "")}</div>
+                    <div class="k">worker</div><div class="v mono">${escapeHtml(r.worker ?? "")}</div>
+                    <div class="k">duration_ms</div><div class="v mono">${escapeHtml(r.durationMs ?? "")}</div>
                     <div class="k">reason</div><div class="v">${escapeHtml(r.reason || "")}</div>
                     <div class="k">origin</div><div class="v mono">${escapeHtml(r.origin || "")}</div>
+                    <div class="k">file</div><div class="v mono">${escapeHtml(r.filePath || "")}</div>
                 </div>`);
 
                 if (r.ret !== null) {
@@ -986,10 +1095,21 @@
                 if (r.stdin !== null) {
                     parts.push(`<div class="kv"><div class="k">stdin</div><div class="v mono">${escapeHtml(pretty(r.stdin))}</div></div>`);
                 }
-                if (r.code) {
-                    parts.push(`<div style="margin-top:10px; color:var(--muted); font-size:12px;">code</div>
-                        <pre class="mono">${escapeHtml(r.code)}</pre>`);
+                if (r.compiler !== null && r.compiler !== undefined) {
+                    parts.push(`<div style="margin-top:10px; color:var(--muted); font-size:12px;">compiler</div>
+                        <pre class="mono">${escapeHtml(pretty(r.compiler))}</pre>`);
                 }
+                if (r.runtime !== null && r.runtime !== undefined) {
+                    parts.push(`<div style="margin-top:10px; color:var(--muted); font-size:12px;">runtime</div>
+                        <pre class="mono">${escapeHtml(pretty(r.runtime))}</pre>`);
+                }
+                if (r.code) {
+                    parts.push(renderCodeWithLineNumbers(r.code, hitLines));
+                }
+                parts.push(`<details style="margin-top:10px;">
+                    <summary class="mono" style="cursor:pointer; color:var(--muted);">raw result JSON</summary>
+                    <pre class="mono">${escapeHtml(pretty(r.raw))}</pre>
+                </details>`);
                 return `<div class="detailsBox">${parts.join("")}</div>`;
             };
 
