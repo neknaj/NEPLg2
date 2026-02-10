@@ -271,6 +271,12 @@ fn collect_expr_locals(
                 collect_expr_locals(arg, locals);
             }
         }
+        crate::hir::HirExprKind::CallIndirect { callee, args, .. } => {
+            collect_expr_locals(callee, locals);
+            for arg in args {
+                collect_expr_locals(arg, locals);
+            }
+        }
         crate::hir::HirExprKind::If {
             cond,
             then_branch,

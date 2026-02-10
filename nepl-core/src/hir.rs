@@ -87,6 +87,12 @@ pub enum HirExprKind {
         callee: FuncRef,
         args: Vec<HirExpr>,
     },
+    CallIndirect {
+        callee: Box<HirExpr>,
+        params: Vec<TypeId>,
+        result: TypeId,
+        args: Vec<HirExpr>,
+    },
     If {
         cond: Box<HirExpr>,
         then_branch: Box<HirExpr>,

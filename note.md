@@ -1,4 +1,14 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (functions if失敗の再現チェック準備)
+- `functions#doctest#7/#10` の原因切り分けのため、`typecheck` の call reduction 周辺を調査。
+- 一時的に `reduce_calls` の候補探索方式を変更したが、`tests/if.n.md` が悪化（9 fail）したため取り消し済み。
+- 現在はベースを復帰:
+  - `node nodesrc/tests.js -i tests/if.n.md -o /tmp/tests-if-after-revert.json -j 1` で `55/55 pass`
+  - `node nodesrc/tests.js -i tests/functions.n.md -o /tmp/tests-functions-after-revert.json -j 1` は `11 pass / 5 fail`（既知残件）
+- 次アクション:
+  - 類似再現ケースを追加して、`if` と関数値分岐の失敗条件をテストとして固定する。
+  - その後、上流優先で parser/typecheck の責務境界を保った修正へ進む。
+
 # 2026-02-10 作業メモ (if.n.md 不足ケース追加と if-layout 補正)
 - `if.n.md` の不足ケースを追加:
   - `if <cond_expr>:` 形式（`then/else` を改行で与える形）

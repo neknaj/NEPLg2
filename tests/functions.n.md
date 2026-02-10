@@ -137,13 +137,15 @@ fn add_op <(i32, i32)->i32> (a, b):
 fn sub_op <(i32, i32)->i32> (a, b):
     sub a b
 
-fn get_op <(bool)->(i32, i32)->i32> (cond):
-    if cond:
-        add_op
-        @add_op
-    else:
-        sub_op
-        @sub_op
+fn get_op <(bool)->(i32, i32)->i32> (con):
+    if:
+        cond con
+        then:
+            add_op;
+            @add_op
+        else:
+            sub_op
+            @sub_op
 
 fn main <()->i32> ():
     let f get_op true

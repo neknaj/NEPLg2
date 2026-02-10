@@ -3670,13 +3670,20 @@ impl<'a> BlockChecker<'a> {
         }
 
 
-        // Fallback: function value call
+        // Fallback: function value call (`call_indirect` in wasm backend)
+        let resolved_params: Vec<TypeId> = params
+            .into_iter()
+            .map(|t| self.ctx.resolve_id(t))
+            .collect();
+        let resolved_result = self.ctx.resolve_id(result);
         Some(StackEntry {
-            ty: result,
+            ty: resolved_result,
             expr: HirExpr {
-                ty: result,
-                kind: HirExprKind::Call {
-                    callee: FuncRef::User(String::from("_unknown"), Vec::new()),
+                ty: resolved_result,
+                kind: HirExprKind::CallIndirect {
+                    callee: Box::new(func.expr.clone()),
+                    params: resolved_params,
+                    result: resolved_result,
                     args: args.into_iter().map(|a| a.expr).collect(),
                 },
                 span: func.expr.span,

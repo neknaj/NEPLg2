@@ -9,11 +9,13 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use alloc::borrow::Cow;
 
 use wasm_encoder::{
-    CodeSection, ConstExpr, DataSection, EntityType, ExportKind, ExportSection, Function,
-    FunctionSection, ImportSection, Instruction, MemArg, MemorySection, MemoryType, Module,
-    TypeSection, ValType,
+    CodeSection, ConstExpr, DataSection, ElementMode, ElementSection, ElementSegment, Elements,
+    EntityType, ExportKind, ExportSection, Function, FunctionSection, ImportSection, Instruction,
+    MemArg, MemorySection, MemoryType, Module, RefType, TableSection, TableType, TypeSection,
+    ValType,
 };
 
 use crate::diagnostic::Diagnostic;
@@ -75,6 +77,110 @@ fn align_to(x: u32, align: u32) -> u32 {
     (x + mask) & !mask
 }
 
+fn collect_indirect_sigs(
+    expr: &HirExpr,
+    out: &mut Vec<(Vec<ValType>, Vec<ValType>)>,
+    ctx: &TypeCtx,
+) {
+    match &expr.kind {
+        HirExprKind::CallIndirect {
+            callee,
+            params,
+            result,
+            args,
+        } => {
+            let mut p = Vec::new();
+            let mut ok = true;
+            for ty in params {
+                let kind = ctx.get(ctx.resolve_id(*ty));
+                if let Some(vt) = valtype(&kind) {
+                    p.push(vt);
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok {
+                let res_kind = ctx.get(ctx.resolve_id(*result));
+                let r = if let Some(vt) = valtype(&res_kind) {
+                    vec![vt]
+                } else if matches!(res_kind, TypeKind::Unit) {
+                    Vec::new()
+                } else {
+                    Vec::new()
+                };
+                out.push((p, r));
+            }
+            collect_indirect_sigs(callee, out, ctx);
+            for a in args {
+                collect_indirect_sigs(a, out, ctx);
+            }
+        }
+        HirExprKind::Call { args, .. } => {
+            for a in args {
+                collect_indirect_sigs(a, out, ctx);
+            }
+        }
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            collect_indirect_sigs(cond, out, ctx);
+            collect_indirect_sigs(then_branch, out, ctx);
+            collect_indirect_sigs(else_branch, out, ctx);
+        }
+        HirExprKind::While { cond, body } => {
+            collect_indirect_sigs(cond, out, ctx);
+            collect_indirect_sigs(body, out, ctx);
+        }
+        HirExprKind::Match { scrutinee, arms } => {
+            collect_indirect_sigs(scrutinee, out, ctx);
+            for arm in arms {
+                collect_indirect_sigs(&arm.body, out, ctx);
+            }
+        }
+        HirExprKind::EnumConstruct { payload, .. } => {
+            if let Some(p) = payload {
+                collect_indirect_sigs(p, out, ctx);
+            }
+        }
+        HirExprKind::StructConstruct { fields, .. } => {
+            for f in fields {
+                collect_indirect_sigs(f, out, ctx);
+            }
+        }
+        HirExprKind::TupleConstruct { items } => {
+            for item in items {
+                collect_indirect_sigs(item, out, ctx);
+            }
+        }
+        HirExprKind::Block(b) => {
+            for line in &b.lines {
+                collect_indirect_sigs(&line.expr, out, ctx);
+            }
+        }
+        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+            collect_indirect_sigs(value, out, ctx);
+        }
+        HirExprKind::Intrinsic { args, .. } => {
+            for a in args {
+                collect_indirect_sigs(a, out, ctx);
+            }
+        }
+        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+            collect_indirect_sigs(inner, out, ctx);
+        }
+        HirExprKind::Unit
+        | HirExprKind::LiteralI32(_)
+        | HirExprKind::LiteralF32(_)
+        | HirExprKind::LiteralBool(_)
+        | HirExprKind::LiteralStr(_)
+        | HirExprKind::Var(_)
+        | HirExprKind::Drop { .. } => {}
+    }
+}
+
 pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     let mut diags = Vec::new();
     let strings = lower_strings(&module.string_literals);
@@ -131,6 +237,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     for (idx, f) in functions.iter().enumerate() {
         name_to_index.insert(f.name.clone(), next_index + idx as u32);
     }
+    let total_function_slots = next_index + functions.len() as u32;
 
     // Type section dedup
     let mut type_section = TypeSection::new();
@@ -151,6 +258,22 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
             idx
         });
     }
+    let mut indirect_sigs = Vec::new();
+    for f in &module.functions {
+        if let HirBody::Block(b) = &f.body {
+            for line in &b.lines {
+                collect_indirect_sigs(&line.expr, &mut indirect_sigs, ctx);
+            }
+        }
+    }
+    for (params, results) in indirect_sigs {
+        let key = (params.clone(), results.clone());
+        sig_map.entry(key).or_insert_with(|| {
+            let idx = type_section.len();
+            type_section.ty().function(params, results);
+            idx
+        });
+    }
 
     let mut import_section = ImportSection::new();
     for imp in &imports {
@@ -168,7 +291,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
 
     let mut code_section = CodeSection::new();
     for f in &functions {
-        match lower_body(ctx, f, &name_to_index, &strings) {
+        match lower_body(ctx, f, &name_to_index, &sig_map, &strings) {
             Ok(body) => {
                 code_section.function(&body);
             }
@@ -211,6 +334,27 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         data_section.active(0, &ConstExpr::i32_const(*offset as i32), bytes.clone());
     }
 
+    let need_table = !sig_map.is_empty();
+    let mut table_section = TableSection::new();
+    let mut element_section = ElementSection::new();
+    if need_table {
+        table_section.table(TableType {
+            element_type: RefType::FUNCREF,
+            table64: false,
+            minimum: total_function_slots as u64,
+            maximum: Some(total_function_slots as u64),
+            shared: false,
+        });
+        let func_indices: Vec<u32> = (0..total_function_slots).collect();
+        element_section.segment(ElementSegment {
+            mode: ElementMode::Active {
+                table: Some(0),
+                offset: &ConstExpr::i32_const(0),
+            },
+            elements: Elements::Functions(Cow::Owned(func_indices)),
+        });
+    }
+
     if diags
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
@@ -227,8 +371,14 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         module_bytes.section(&import_section);
     }
     module_bytes.section(&func_section);
+    if need_table {
+        module_bytes.section(&table_section);
+    }
     module_bytes.section(&memory_section);
     module_bytes.section(&export_section);
+    if need_table {
+        module_bytes.section(&element_section);
+    }
     module_bytes.section(&code_section);
     module_bytes.section(&data_section);
 
@@ -399,14 +549,33 @@ fn find_alloc_index(name_map: &BTreeMap<String, u32>) -> Option<u32> {
         .map(|(_, idx)| *idx)
 }
 
+fn find_function_value_index(name_map: &BTreeMap<String, u32>, base: &str) -> Option<u32> {
+    if let Some(idx) = name_map.get(base) {
+        return Some(*idx);
+    }
+    let mut prefix = String::from(base);
+    prefix.push_str("__");
+    let mut found: Option<u32> = None;
+    for (name, idx) in name_map {
+        if name.starts_with(&prefix) {
+            if found.is_some() {
+                return None;
+            }
+            found = Some(*idx);
+        }
+    }
+    found
+}
+
 fn lower_body<'a>(
     ctx: &TypeCtx,
     func: &FuncLower<'a>,
     name_map: &BTreeMap<String, u32>,
+    sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
     strings: &StringLower,
 ) -> Result<Function, Vec<Diagnostic>> {
     match func.body {
-        FuncBodyLower::User(f) => lower_user(ctx, f, name_map, strings),
+        FuncBodyLower::User(f) => lower_user(ctx, f, name_map, sig_map, strings),
     }
 }
 
@@ -418,6 +587,7 @@ fn lower_user(
     ctx: &TypeCtx,
     func: &HirFunction,
     name_map: &BTreeMap<String, u32>,
+    sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
     strings: &StringLower,
 ) -> Result<Function, Vec<Diagnostic>> {
     let mut diags = Vec::new();
@@ -434,6 +604,7 @@ fn lower_user(
                 ctx,
                 block,
                 name_map,
+                sig_map,
                 strings,
                 &mut locals,
                 &mut insts,
@@ -495,6 +666,7 @@ fn gen_block(
     ctx: &TypeCtx,
     block: &HirBlock,
     name_map: &BTreeMap<String, u32>,
+    sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
     strings: &StringLower,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
@@ -514,7 +686,7 @@ fn gen_block(
     // evolved to explicitly separate `result_expr` from drop lines.
     let mut last_val: Option<ValType> = None;
     for line in &block.lines {
-        let val = gen_expr(ctx, &line.expr, name_map, strings, locals, insts, diags);
+        let val = gen_expr(ctx, &line.expr, name_map, sig_map, strings, locals, insts, diags);
         if line.drop_result {
             if val.is_some() {
                 insts.push(Instruction::Drop);
@@ -534,6 +706,7 @@ fn gen_expr(
     ctx: &TypeCtx,
     expr: &HirExpr,
     name_map: &BTreeMap<String, u32>,
+    sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
     strings: &StringLower,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
@@ -571,9 +744,11 @@ fn gen_expr(
                     insts.push(Instruction::LocalGet(idx));
                 }
                 valtype(&ctx.get(expr.ty))
-            } else if let Some(fidx) = name_map.get(name) {
-                insts.push(Instruction::Call(*fidx));
-                valtype(&ctx.get(expr.ty))
+            } else if let Some(fidx) = find_function_value_index(name_map, name) {
+                // Function symbols are first-class values in HIR.
+                // Lower them to table/function index constants.
+                insts.push(Instruction::I32Const(fidx as i32));
+                Some(ValType::I32)
             } else {
                 diags.push(Diagnostic::error(
                     format!("unknown variable {}", name),
@@ -584,7 +759,7 @@ fn gen_expr(
         }
         HirExprKind::Call { callee, args } => {
             for arg in args {
-                gen_expr(ctx, arg, name_map, strings, locals, insts, diags);
+                gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts, diags);
             }
             if let Some(idx) = match callee {
                 FuncRef::Builtin(n) | FuncRef::User(n, _) => name_map.get(n),
@@ -608,20 +783,50 @@ fn gen_expr(
             }
             valtype(&ctx.get(expr.ty))
         }
+        HirExprKind::CallIndirect {
+            callee,
+            params,
+            result,
+            args,
+        } => {
+            for arg in args {
+                gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts, diags);
+            }
+            gen_expr(ctx, callee, name_map, sig_map, strings, locals, insts, diags);
+            if let Some(sig) = wasm_sig_ids(ctx, *result, params) {
+                if let Some(type_idx) = sig_map.get(&sig) {
+                    insts.push(Instruction::CallIndirect {
+                        type_index: *type_idx,
+                        table_index: 0,
+                    });
+                } else {
+                    diags.push(Diagnostic::error(
+                        "missing wasm signature for indirect call",
+                        expr.span,
+                    ));
+                }
+            } else {
+                diags.push(Diagnostic::error(
+                    "unsupported indirect call signature for wasm",
+                    expr.span,
+                ));
+            }
+            valtype(&ctx.get(expr.ty))
+        }
         HirExprKind::If {
             cond,
             then_branch,
             else_branch,
         } => {
-            gen_expr(ctx, cond, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts, diags);
             let result_ty = valtype(&ctx.get(expr.ty));
             match result_ty {
                 Some(vt) => insts.push(Instruction::If(wasm_encoder::BlockType::Result(vt))),
                 None => insts.push(Instruction::If(wasm_encoder::BlockType::Empty)),
             }
-            gen_expr(ctx, then_branch, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, then_branch, name_map, sig_map, strings, locals, insts, diags);
             insts.push(Instruction::Else);
-            gen_expr(ctx, else_branch, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, else_branch, name_map, sig_map, strings, locals, insts, diags);
             insts.push(Instruction::End);
             result_ty
         }
@@ -638,17 +843,17 @@ fn gen_expr(
             // end
             insts.push(Instruction::Block(wasm_encoder::BlockType::Empty));
             insts.push(Instruction::Loop(wasm_encoder::BlockType::Empty));
-            gen_expr(ctx, cond, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts, diags);
             insts.push(Instruction::I32Eqz);
             insts.push(Instruction::BrIf(1));
-            gen_expr(ctx, body, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, body, name_map, sig_map, strings, locals, insts, diags);
             insts.push(Instruction::Br(0));
             insts.push(Instruction::End);
             insts.push(Instruction::End);
             None
         }
         HirExprKind::Block(b) => {
-            gen_block(ctx, b, name_map, strings, locals, insts, diags).flatten()
+            gen_block(ctx, b, name_map, sig_map, strings, locals, insts, diags).flatten()
         }
         HirExprKind::Intrinsic {
             name,
@@ -684,7 +889,7 @@ fn gen_expr(
                 let ty_kind = ctx.get(ty);
                 let vt = valtype(&ty_kind);
                 // address
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 match vt {
                     Some(ValType::I32) => {
                         if matches!(ty_kind, TypeKind::U8) {
@@ -722,9 +927,9 @@ fn gen_expr(
                 let vt = valtype(&ty_kind);
                 
                 // address
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 // value
-                gen_expr(ctx, &args[1], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts, diags);
 
                 match vt {
                     Some(ValType::I32) => {
@@ -806,35 +1011,35 @@ fn gen_expr(
                 Some(ValType::I32)
             } else if name == "i32_to_f32" {
                 // signed convert i32 -> f32
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::F32ConvertI32S);
                 Some(ValType::F32)
             } else if name == "i32_to_u8" {
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::I32Const(255));
                 insts.push(Instruction::I32And);
                 Some(ValType::I32)
             } else if name == "f32_to_i32" {
                 // signed trunc f32 -> i32
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::I32TruncF32S);
                 Some(ValType::I32)
             } else if name == "u8_to_i32" {
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 Some(ValType::I32)
             } else if name == "reinterpret_i32_f32" {
                 // bitcast i32 -> f32
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::F32ReinterpretI32);
                 Some(ValType::F32)
             } else if name == "reinterpret_f32_i32" {
                 // bitcast f32 -> i32
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::I32ReinterpretF32);
                 Some(ValType::I32)
             } else if name == "add" {
-                gen_expr(ctx, &args[0], name_map, strings, locals, insts, diags);
-                gen_expr(ctx, &args[1], name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts, diags);
+                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::I32Add);
                 Some(ValType::I32)
             } else if name == "unreachable" {
@@ -882,7 +1087,7 @@ fn gen_expr(
                 insts.push(Instruction::LocalGet(ptr_local));
                 insts.push(Instruction::I32Const(4));
                 insts.push(Instruction::I32Add);
-                gen_expr(ctx, p, name_map, strings, locals, insts, diags);
+                gen_expr(ctx, p, name_map, sig_map, strings, locals, insts, diags);
                 match payload_vt {
                     ValType::I32 => insts.push(Instruction::I32Store(MemArg {
                         offset: 0,
@@ -930,7 +1135,7 @@ fn gen_expr(
                 let vk = ctx.get(f.ty);
                 let vt = valtype(&vk).unwrap_or(ValType::I32);
                 let temp = locals.alloc_temp(vt);
-                gen_expr(ctx, f, name_map, strings, locals, insts, diags);
+                gen_expr(ctx, f, name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::LocalSet(temp));
                 insts.push(Instruction::LocalGet(ptr_local));
                 insts.push(Instruction::I32Const(offset as i32));
@@ -982,7 +1187,7 @@ fn gen_expr(
                 let vk = ctx.get(item.ty);
                 let vt = valtype(&vk).unwrap_or(ValType::I32);
                 let temp = locals.alloc_temp(vt);
-                gen_expr(ctx, item, name_map, strings, locals, insts, diags);
+                gen_expr(ctx, item, name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::LocalSet(temp));
                 insts.push(Instruction::LocalGet(ptr_local));
                 insts.push(Instruction::I32Const(offset as i32));
@@ -1017,7 +1222,7 @@ fn gen_expr(
         }
         HirExprKind::Match { scrutinee, arms } => {
             // evaluate scrutinee pointer once
-            gen_expr(ctx, scrutinee, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, scrutinee, name_map, sig_map, strings, locals, insts, diags);
             let ptr_local = locals.alloc_temp(ValType::I32);
             insts.push(Instruction::LocalSet(ptr_local));
             let result_ty = valtype(&ctx.get(expr.ty));
@@ -1075,7 +1280,7 @@ fn gen_expr(
                         insts.push(Instruction::LocalSet(lidx));
                     }
                 }
-                gen_expr(ctx, &arm.body, name_map, strings, locals, insts, diags);
+                gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts, diags);
                 if is_last {
                     insts.push(Instruction::Else);
                     insts.push(Instruction::Unreachable);
@@ -1093,7 +1298,7 @@ fn gen_expr(
         }
         HirExprKind::Let { name, value, .. } => {
             let idx = locals.ensure_local(name.clone(), value.ty, ctx);
-            gen_expr(ctx, value, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, value, name_map, sig_map, strings, locals, insts, diags);
             if valtype(&ctx.get(value.ty)).is_some() {
                 insts.push(Instruction::LocalSet(idx));
             }
@@ -1101,7 +1306,7 @@ fn gen_expr(
         }
         HirExprKind::Set { name, value } => {
             if let Some(idx) = locals.lookup(name) {
-                gen_expr(ctx, value, name_map, strings, locals, insts, diags);
+                gen_expr(ctx, value, name_map, sig_map, strings, locals, insts, diags);
                 insts.push(Instruction::LocalSet(idx));
             } else {
                 diags.push(Diagnostic::error("unknown variable", expr.span));
@@ -1113,11 +1318,11 @@ fn gen_expr(
             None
         }
         HirExprKind::AddrOf(inner) => {
-            gen_expr(ctx, inner, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts, diags);
             valtype(&ctx.get(expr.ty))
         }
         HirExprKind::Deref(inner) => {
-            gen_expr(ctx, inner, name_map, strings, locals, insts, diags);
+            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts, diags);
             valtype(&ctx.get(expr.ty))
         }
     }

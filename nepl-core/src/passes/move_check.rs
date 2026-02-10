@@ -237,6 +237,12 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 }
             }
         },
+        HirExprKind::CallIndirect { callee, args, .. } => {
+            visit_expr(callee, ctx, tctx);
+            for arg in args {
+                visit_expr(arg, ctx, tctx);
+            }
+        }
         HirExprKind::If {
             cond,
             then_branch,

@@ -205,7 +205,27 @@ impl<'a> Monomorphizer<'a> {
             | HirExprKind::LiteralF32(_)
             | HirExprKind::LiteralBool(_)
             | HirExprKind::LiteralStr(_) => {}
-            HirExprKind::Var(_) => {}
+            HirExprKind::Var(name) => {
+                if self.funcs.contains_key(name) {
+                    *name = self.request_instantiation(name.clone(), Vec::new());
+                } else {
+                    let mut prefix = name.clone();
+                    prefix.push_str("__");
+                    let mut matched: Option<String> = None;
+                    for cand in self.funcs.keys() {
+                        if cand.starts_with(&prefix) {
+                            if matched.is_some() {
+                                matched = None;
+                                break;
+                            }
+                            matched = Some(cand.clone());
+                        }
+                    }
+                    if let Some(found) = matched {
+                        *name = self.request_instantiation(found, Vec::new());
+                    }
+                }
+            }
             HirExprKind::Call { callee, args } => {
                 for arg in args {
                     self.substitute_expr(arg, mapping);
@@ -237,6 +257,21 @@ impl<'a> Monomorphizer<'a> {
                         }
                     }
                     FuncRef::Builtin(_) => {}
+                }
+            }
+            HirExprKind::CallIndirect {
+                callee,
+                params,
+                result,
+                args,
+            } => {
+                self.substitute_expr(callee, mapping);
+                for param in params.iter_mut() {
+                    *param = self.ctx.substitute(*param, mapping);
+                }
+                *result = self.ctx.substitute(*result, mapping);
+                for arg in args {
+                    self.substitute_expr(arg, mapping);
                 }
             }
             HirExprKind::If {
