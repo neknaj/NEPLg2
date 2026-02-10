@@ -114,8 +114,6 @@ struct Vec<.T>:
 //:
 //: 使い方:
 //:
-//: 使い方:
-//:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main

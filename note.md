@@ -1,4 +1,21 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (関数単位レビュー: 機械置換の後処理)
+- ユーザー指示に基づき、`vec/stack/list` を関数ごとに再確認し、機械置換由来の不整合を手修正した。
+- 主な修正:
+  - `stdlib/alloc/vec.nepl`
+    - `vec_new` ドキュメントの `使い方:` 重複を除去。
+    - `vec_set` doctest の move-check 衝突を回避する使用例へ修正。
+  - `stdlib/alloc/collections/stack.nepl`
+    - モジュール説明の重複ブロック（先頭と import 後の二重記載）を統合し、1箇所に整理。
+  - `stdlib/alloc/collections/list.nepl`
+    - モジュール説明の重複ブロック（先頭と import 後の二重記載）を統合し、1箇所に整理。
+- 形式面:
+  - `//` コメントは残さず、ドキュメントは `//:` のみを使用。
+  - 各関数に `目的/実装/注意/計算量` + `使い方` + `neplg2:test` を維持。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/vec.nepl -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/list.nepl -o /tmp/tests-vec-stack-list.json -j 1 --no-stdlib`
+  - `summary: total=35, passed=35, failed=0, errored=0`
+
 # 2026-02-10 作業メモ (doc comment 書式: 「使い方」見出しを統一)
 - ユーザー提示の書式に合わせ、`vec/stack/list` の doctest 前に `//: 使い方:` を統一追加した。
   - 対象:

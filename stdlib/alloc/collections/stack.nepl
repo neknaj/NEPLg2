@@ -82,21 +82,6 @@
 #import "core/mem" as *
 #import "core/option" as *
 
-//: stack: LIFO スタック（可変長配列ベース）
-//:
-//: 目的:
-//: - push/pop/peek などの基本操作を提供します。
-//:
-//: 実装(アルゴリズム):
-//: - [len][cap][data_ptr] を持つヘッダとデータ領域を確保します。
-//:
-//: 注意(重要):
-//: - pop/peek は Option を返します。
-//: - スタック本体は i32 ポインタで扱います。
-//:
-//: 計算量:
-//: - push/pop/peek: ならし O(1)
-
 //: stack_new: 空のスタックを作る
 //:
 //: 目的:
