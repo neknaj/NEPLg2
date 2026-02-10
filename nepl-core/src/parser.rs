@@ -1341,7 +1341,16 @@ impl Parser {
                 TokenKind::KwBlock => {
                     let span = self.next().unwrap().span;
                     if self.consume_if(&TokenKind::Colon) {
-                        let block = self.parse_block_after_colon()?;
+                        let block = if self.check(&TokenKind::Newline) {
+                            self.parse_block_after_colon()?
+                        } else {
+                            let err_span = self.peek_span().unwrap_or(span);
+                            self.diagnostics.push(Diagnostic::error(
+                                "block: requires newline after ':' (only whitespace/comment is allowed)",
+                                err_span,
+                            ));
+                            self.parse_single_line_block(err_span)?
+                        };
                         let bspan = block.span;
                         items.push(PrefixItem::Block(block, bspan));
                         break;

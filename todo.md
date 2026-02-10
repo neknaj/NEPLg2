@@ -28,7 +28,7 @@
 5. tests 全体の再分類と上流優先解消
 - `node nodesrc/tests.js -i tests -o ...` の結果を stage 別に管理する。
 - parser 起因の失敗群（stack/indent/unexpected token）を先に潰し、次に typecheck/codegen を進める。
-- 最新分類（2026-02-10）: `total=339, passed=321, failed=18`
+- 最新分類（2026-02-10）: `total=339, passed=322, failed=17`
 
 6. ドキュメント運用
 - 実装進捗・結果・失敗分析は `note.md` のみに記録する。

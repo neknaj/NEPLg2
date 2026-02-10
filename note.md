@@ -1,4 +1,23 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (offside: block: 同一行継続の禁止)
+- `tests/offside_and_indent_errors.n.md::doctest#4` の根因は parser が `block:` の同一行継続（`block: add 1 2`）を許容していたこと。
+- `nepl-core/src/parser.rs` を修正:
+  - `KwBlock` の `:` 分岐で、改行が無い場合は診断を追加し、回復用に単行解析へフォールバック。
+  - 仕様上「`block:` の後ろは空白/コメントのみ」を満たすようにした。
+- 検証:
+  - `NO_COLOR=true trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/offside_and_indent_errors.n.md -o /tmp/tests-offside-after-block-colon-fix.json -j 1`
+    - `total=7, passed=7, failed=0, errored=0`
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all-after-offside-fix.json -j 1`
+    - `total=339, passed=322, failed=17, errored=0`
+  - 残り失敗分類:
+    - `pipe_operator=4`
+    - `ret_f64_example=1`
+    - `selfhost_req=4`
+    - `sort=5`
+    - `string=2`
+    - `tuple_new_syntax=1`
+
 # 2026-02-10 作業メモ (target尊重 + trait呼び出し + doctest VFS)
 - `nepl-web/src/lib.rs`:
   - `compile_wasm_with_entry` の `CompileOptions.target` を `Some(Wasi)` 固定から `None` に変更し、ソース側 `#target` を尊重するよう修正。
