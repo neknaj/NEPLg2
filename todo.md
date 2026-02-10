@@ -10,6 +10,7 @@
 - `typecheck` の環境を `ValueNs`（変数）と `CallableNs`（関数/alias）に分離する。
 - `let`/`fn` の巻き上げを plan.md 準拠で統一する（`mut` なし `let` と `fn` のみ）。
 - nested `fn`/`let` を呼び出し可能にする経路を確立する（少なくとも `tests/functions.n.md` の `double` / `add_y` を通す）。
+- 関数値（`@fn` / 関数を値として渡すケース）を HIR で明示表現し、`CallableNs` と整合する解決規則にする。
 
 2. エントリ解決の厳密化
 - entry 関数が「名前解決済み」かつ「codegen 対象として生成済み」であることを検証する。
@@ -18,7 +19,7 @@
 3. functions 系テストの仕様整合
 - `let` 関数糖衣（型注釈あり/なし）を仕様どおりに通す。
 - `@` 関数参照と alias の組み合わせを安定化する。
-- 関数リテラル系ケースの扱いを plan.md と突き合わせ、必要なら question.md へ疑義を起票する。
+- 関数リテラル系ケースは、non-capture 先行（table + `call_indirect`）で段階導入し、capture ありは closure conversion の設計後に実装する。
 
 4. tests 全体の再分類と上流優先解消
 - `node nodesrc/tests.js -i tests -o ...` の結果を stage 別に管理する。

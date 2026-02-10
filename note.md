@@ -48,6 +48,36 @@
   - 残りは関数値/関数リテラル/クロージャ捕捉（`doctest#6,#7,#11,#12,#13`）に集中。
   - 全体は `node nodesrc/tests.js -i tests -o /tmp/tests-current-after-nested.json -j 4` で `312/278/34/0`。
 
+# 2026-02-10 作業メモ (不安定差分の切り戻しと再計測)
+- `typecheck` の匿名関数リテラル実験（`PrefixItem::Group` + 直後 `Block` の即席ラムダ化）を切り戻し。
+  - 根拠: `functions#doctest#6` などで `unsupported function signature for wasm` / `unknown variable square` を誘発し、関数値経路が未設計のまま混入していたため。
+- 再計測:
+  - `NO_COLOR=true trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/functions.n.md -o /tmp/tests-functions-latest.json -j 1`
+    - `total=16, passed=10, failed=6, errored=0`
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all-latest.json -j 4`
+    - `total=312, passed=278, failed=34, errored=0`
+- 失敗の中心は引き続き `functions` の関数値/クロージャ捕捉系（#6 #7 #11 #12 #13）。
+
+# 2026-02-10 作業メモ (高階関数実装方式の外部調査)
+- Rust/MoonBit/Wasm 仕様を確認し、NEPL 側の実装方針を整理した。
+- 主要ポイント:
+  - Rust:
+    - クロージャは「環境を保持する構造体 + `Fn/FnMut/FnOnce` 呼び出し」で表現される（型としては関数ポインタではなく専用型）。
+    - 参考: Rust book と rustc `ClosureArgs` 説明。
+  - MoonBit:
+    - 関数は first-class。
+    - Wasm FFI では `FuncRef[T]`（閉じた関数）と、closure（関数 + 環境）を区別して扱う設計が明示されている。
+    - closure は host 側で部分適用して callback 化する設計が記述されている。
+  - Wasm:
+    - 間接呼び出しは `call_indirect`（table 経由）または `call_ref`（function reference）で実現。
+- NEPL への反映方針（次段実装）:
+  - 関数値を単なる識別子参照ではなく、IRで「callable 値」として明示表現する。
+  - non-capture を先行実装:
+    - `fn`/`@fn` は table index を持つ関数値として扱い、呼び出しは `call_indirect` に統一。
+  - capture ありは次段:
+    - closure 環境オブジェクト + invoke 関数に lower する closure conversion を導入する。
+
 # 2026-02-10 作業メモ (block 引数位置の根本修正)
 - `tests/block_single_line.n.md` の `doctest#8/#9` を起点に、`add block 1 block 2` と `if true block 1 else block 2` の失敗要因を解析。
 - 原因:
