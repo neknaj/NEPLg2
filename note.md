@@ -642,3 +642,19 @@
 - `node nodesrc/tests.js -i tests -i tutorials -i stdlib -o /tmp/nmd-tests-after-fix.json -j 4`
   - `total=326, passed=250, failed=76, errored=0`
   - `dist.resolved=["/mnt/d/project/NEPLg2/web/dist"]`
+
+# 2026-02-10 作業メモ (tests結果確認とコンパイラ再設計計画)
+## 実測結果
+- `NO_COLOR=true trunk build`: success
+- `node nodesrc/tests.js -i tests -o /tmp/tests-only.json -j 4`
+  - `total=309, passed=240, failed=69, errored=0`
+  - 主要失敗傾向: `expected compile_fail, but compiled successfully`, `expression left extra values on the stack`, `return type does not match signature`
+
+## コンパイラ現状確認
+- `nepl-core/src/parser.rs` と `nepl-core/src/typecheck.rs` が肥大化し、仕様追加時の影響範囲が広い。
+- `module_graph.rs` / `resolve.rs` は存在するが `compile_wasm` 本流に統合されていない。
+- 警告が多く、未使用経路が残っている。
+
+## 対応
+- `todo.md` に抜本再設計計画を追加。
+- 既存の `plan.md` 要求（単行block/if構文、target再設計、LSP前提の情報整備）を前提に、段階置換型の再設計ロードマップを定義。
