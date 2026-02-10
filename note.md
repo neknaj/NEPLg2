@@ -1,4 +1,16 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (vec/stack/list コメント様式の指定対応)
+- ユーザー指定の `stdlib/nm` 拡張 Markdown 形式に合わせ、以下のモジュール先頭コメントを具体化した。
+  - `stdlib/alloc/vec.nepl`
+  - `stdlib/alloc/collections/stack.nepl`
+  - `stdlib/alloc/collections/list.nepl`
+- 反映内容:
+  - 先頭 `//:` で「ライブラリの主題」「目的」「実装アルゴリズム」「注意点」「計算量」を具体記述。
+  - 既存の各関数前 `//:`（目的/実装/注意/計算量）と doctest 構成は維持。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/vec.nepl -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/list.nepl -o /tmp/tests-vec-stack-list.json -j 1 --no-stdlib`
+  - `summary: total=7, passed=7, failed=0, errored=0`
+
 # 2026-02-10 作業メモ (vec/stack/list の doc comment + doctest 整備)
 - ユーザー指示に合わせて、以下の標準ライブラリに実行可能な doctest を追加・整備した。
   - `stdlib/alloc/vec.nepl`

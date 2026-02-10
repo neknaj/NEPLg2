@@ -1,11 +1,21 @@
-//: list: alloc/collections/list.nepl に関する機能を提供するライブラリ
+//: list: [単方向/たんほうこう][連結/れんけつ]リストを扱うライブラリ
 //:
 //: [目的/もくてき]:
-//: - このモジュールの公開 API を提供します。
-//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//: - `cons/head/tail/get/len/reverse` など、リスト処理の基本 API を提供します。
+//: - 空リスト・範囲外アクセスを `Option` で安全に扱える形で提供します。
+//:
+//: [実装/じっそう]:
+//: - ノードは `[value:.T][next:i32]` レイアウトでヒープ確保します。
+//: - 空リストは `0` ポインタで表現します。
 //:
 //: [注意/ちゅうい]:
-//: - 詳細な関数別ドキュメントは段階的に追記します。
+//: - `list_get` は範囲外や負 index で `Option::None` を返します。
+//: - `list_free` は循環リストを想定していません。
+//: - `list_reverse` は新しいノード列を構築するため、元リストと逆順リストは別管理です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `list_nil`/`list_cons`/`list_head`/`list_tail`/`list_is_empty` は O(1)。
+//: - `list_len`/`list_get`/`list_free`/`list_reverse` は O(n)。
 //:
 //: neplg2:test
 //: ```neplg2
