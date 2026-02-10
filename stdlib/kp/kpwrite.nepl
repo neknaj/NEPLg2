@@ -309,3 +309,86 @@ fn writer_write_i64 <(i32,i64)*>()> (w, v):
         else:
             writer_write_u64 w v;
             ()
+
+//: writer_write_space: 半角スペースを 1 文字出力する
+//:
+//: [目的/もくてき]:
+//: - 競技プログラミングで頻出の「値を空白区切りで出力する」処理を簡潔にします。
+//:
+//: [実装/じっそう]:
+//: - `writer_put_u8` で ASCII 32 (`' '`) を 1 バイト出力します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "1 2\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpwrite" as *
+//: fn main <()*> ()> ():
+//:     let w <i32> writer_new;
+//:     writer_write_i32 w 1;
+//:     writer_write_space w;
+//:     writer_write_i32 w 2;
+//:     writer_writeln w;
+//:     writer_flush w;
+//:     writer_free w
+//: ```
+fn writer_write_space <(i32)*>()> (w):
+    writer_put_u8 w 32
+
+//: writer_write_i32_ln: i32 を出力して改行する
+//:
+//: [目的/もくてき]:
+//: - `writer_write_i32` と `writer_writeln` の定型連結を 1 呼び出しで提供します。
+//:
+//: [実装/じっそう]:
+//: - 数値を出力した後、改行 `\n` を続けて出力します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(桁数)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "123\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpwrite" as *
+//: fn main <()*> ()> ():
+//:     let w <i32> writer_new;
+//:     writer_write_i32_ln w 123;
+//:     writer_flush w;
+//:     writer_free w
+//: ```
+fn writer_write_i32_ln <(i32,i32)*>()> (w, v):
+    writer_write_i32 w v;
+    writer_writeln w
+
+//: writer_write_i64_ln: i64 を出力して改行する
+//:
+//: [目的/もくてき]:
+//: - `writer_write_i64` と `writer_writeln` をまとめ、64bit 出力の定型を簡潔にします。
+//:
+//: [実装/じっそう]:
+//: - 数値本体を 10 進で出力し、末尾に改行を付与します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(桁数)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "42\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpwrite" as *
+//: fn main <()*> ()> ():
+//:     let w <i32> writer_new;
+//:     writer_write_i64_ln w i64_extend_i32_u 42;
+//:     writer_flush w;
+//:     writer_free w
+//: ```
+fn writer_write_i64_ln <(i32,i64)*>()> (w, v):
+    writer_write_i64 w v;
+    writer_writeln w

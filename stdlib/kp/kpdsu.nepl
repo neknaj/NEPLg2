@@ -1,0 +1,111 @@
+#indent 4
+#target wasi
+
+#import "core/math" as *
+#import "core/mem" as *
+
+//: kpdsu: 競技プログラミング向け Union-Find（Disjoint Set Union）
+//:
+//: [目的/もくてき]:
+//: - 連結判定・連結成分併合を高速に処理する DSU を提供します。
+//:
+//: [実装/じっそう]:
+//: - `parent` / `size` の 2 配列を持つハンドル構造です。
+//: - `find` は経路圧縮、`unite` はサイズ併合を行います。
+//:
+//: [注意/ちゅうい]:
+//: - 頂点番号は 0-index 前提です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "1 0 2\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpdsu" as *
+//:| #import "std/stdio" as *
+//: fn main <()*> ()> ():
+//:     let d <i32> dsu_new 5;
+//:     dsu_unite d 0 1;
+//:     dsu_unite d 1 2;
+//:     print_i32 if dsu_same d 0 2 then 1 else 0;
+//:     print " ";
+//:     print_i32 if dsu_same d 0 3 then 1 else 0;
+//:     print " ";
+//:     println_i32 dsu_size d 0;
+//:     dsu_free d
+//: ```
+
+//: dsu_new: `n` 頂点の DSU を作る
+fn dsu_new <(i32)*>i32> (n):
+    let parent <i32> alloc mul n 4;
+    let size <i32> alloc mul n 4;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            store_i32 add parent mul i 4 i;
+            store_i32 add size mul i 4 1;
+            set i add i 1;
+    let d <i32> alloc 12;
+    store_i32 d n;
+    store_i32 add d 4 parent;
+    store_i32 add d 8 size;
+    d
+
+//: dsu_free: DSU の内部領域を解放する
+fn dsu_free <(i32)*>()> (d):
+    let n <i32> load_i32 d;
+    let parent <i32> load_i32 add d 4;
+    let size <i32> load_i32 add d 8;
+    dealloc parent mul n 4;
+    dealloc size mul n 4;
+    dealloc d 12
+
+//: dsu_find: 要素 `x` の代表元を返す
+fn dsu_find <(i32,i32)*>i32> (d, x):
+    let parent <i32> load_i32 add d 4;
+    let mut r <i32> x;
+    let mut p <i32> load_i32 add parent mul r 4;
+    while ne p r:
+        do:
+            set r p;
+            set p load_i32 add parent mul r 4;
+    let root <i32> r;
+
+    let mut v <i32> x;
+    let mut q <i32> load_i32 add parent mul v 4;
+    while ne q v:
+        do:
+            store_i32 add parent mul v 4 root;
+            set v q;
+            set q load_i32 add parent mul v 4;
+    root
+
+//: dsu_same: `a` と `b` が同じ連結成分か判定する
+fn dsu_same <(i32,i32,i32)*>bool> (d, a, b):
+    eq dsu_find d a dsu_find d b
+
+//: dsu_unite: `a` と `b` の成分を併合する（既に同じなら何もしない）
+fn dsu_unite <(i32,i32,i32)*>()> (d, a, b):
+    let size <i32> load_i32 add d 8;
+    let mut ra <i32> dsu_find d a;
+    let mut rb <i32> dsu_find d b;
+    if ne ra rb:
+        then:
+            let sa <i32> load_i32 add size mul ra 4;
+            let sb <i32> load_i32 add size mul rb 4;
+            if lt sa sb:
+                then:
+                    let t <i32> ra;
+                    set ra rb;
+                    set rb t;
+                else ();
+            let parent <i32> load_i32 add d 4;
+            store_i32 add parent mul rb 4 ra;
+            store_i32 add size mul ra 4 add load_i32 add size mul ra 4 load_i32 add size mul rb 4;
+        else ()
+
+//: dsu_size: `x` が属する成分サイズを返す
+fn dsu_size <(i32,i32)*>i32> (d, x):
+    let size <i32> load_i32 add d 8;
+    let r <i32> dsu_find d x;
+    load_i32 add size mul r 4

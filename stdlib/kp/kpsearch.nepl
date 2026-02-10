@@ -1,0 +1,75 @@
+#indent 4
+#target wasi
+
+#import "core/math" as *
+#import "core/mem" as *
+
+//: kpsearch: 競技プログラミング向け探索ユーティリティ
+//:
+//: [目的/もくてき]:
+//: - ソート済み配列に対する `lower_bound` / `upper_bound` を提供します。
+//: - 「条件を満たす最初の位置」を求める二分探索の雛形を固定化します。
+//:
+//: [実装/じっそう]:
+//: - 配列は `i32` の連続領域 (`ptr`, `len`) として扱います。
+//: - 不変条件 `lo..hi` を保つ標準的な二分探索で実装します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力配列は昇順である必要があります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "1 3 1\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpsearch" as *
+//:| #import "core/mem" as *
+//:| #import "std/stdio" as *
+//: fn main <()*> ()> ():
+//:     let len <i32> 5;
+//:     let data <i32> alloc mul len 4;
+//:     store_i32 add data 0 1;
+//:     store_i32 add data 4 3;
+//:     store_i32 add data 8 3;
+//:     store_i32 add data 12 7;
+//:     store_i32 add data 16 9;
+//:     print_i32 lower_bound_i32 data len 2;
+//:     print " ";
+//:     print_i32 upper_bound_i32 data len 3;
+//:     print " ";
+//:     println_i32 if contains_i32 data len 3 then 1 else 0;
+//:     dealloc data mul len 4
+//: ```
+
+//: lower_bound_i32: `x` 以上が最初に現れる位置を返す
+fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
+    let mut lo <i32> 0;
+    let mut hi <i32> len;
+    while lt lo hi:
+        do:
+            let mid <i32> i32_div_s add lo hi 2;
+            let v <i32> load_i32 add data mul mid 4;
+            if lt v x:
+                then set lo add mid 1
+                else set hi mid;
+    lo
+
+//: upper_bound_i32: `x` より大きい値が最初に現れる位置を返す
+fn upper_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
+    let mut lo <i32> 0;
+    let mut hi <i32> len;
+    while lt lo hi:
+        do:
+            let mid <i32> i32_div_s add lo hi 2;
+            let v <i32> load_i32 add data mul mid 4;
+            if le v x:
+                then set lo add mid 1
+                else set hi mid;
+    lo
+
+//: contains_i32: 値 `x` が存在するか判定する
+fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
+    let idx <i32> lower_bound_i32 data len x;
+    if ge idx len:
+        then false
+        else eq load_i32 add data mul idx 4 x

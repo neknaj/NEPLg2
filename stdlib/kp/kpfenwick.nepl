@@ -1,0 +1,84 @@
+#indent 4
+#target wasi
+
+#import "core/math" as *
+#import "core/mem" as *
+
+//: kpfenwick: 競技プログラミング向け Fenwick Tree（BIT）
+//:
+//: [目的/もくてき]:
+//: - 点加算・区間和クエリを `O(log N)` で処理する Fenwick Tree を提供します。
+//:
+//: [実装/じっそう]:
+//: - 1-index 内部配列 `bit[1..n]` を持つ実装です。
+//:
+//: [注意/ちゅうい]:
+//: - 公開 API の添字は 0-index、内部では 1-index に変換します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "6 9\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpfenwick" as *
+//:| #import "std/stdio" as *
+//: fn main <()*> ()> ():
+//:     let f <i32> fenwick_new 5;
+//:     fenwick_add f 0 1;
+//:     fenwick_add f 1 2;
+//:     fenwick_add f 2 3;
+//:     fenwick_add f 3 4;
+//:     print_i32 fenwick_sum_range f 0 3;
+//:     print " ";
+//:     println_i32 fenwick_sum_range f 1 4;
+//:     fenwick_free f
+//: ```
+
+//: fenwick_new: 長さ `n` の Fenwick Tree を作る
+fn fenwick_new <(i32)*>i32> (n):
+    let bit_len <i32> add n 1;
+    let bit <i32> alloc mul bit_len 4;
+    let mut i <i32> 0;
+    while lt i bit_len:
+        do:
+            store_i32 add bit mul i 4 0;
+            set i add i 1;
+    let f <i32> alloc 8;
+    store_i32 f n;
+    store_i32 add f 4 bit;
+    f
+
+//: fenwick_free: Fenwick Tree の内部領域を解放する
+fn fenwick_free <(i32)*>()> (f):
+    let n <i32> load_i32 f;
+    let bit <i32> load_i32 add f 4;
+    dealloc bit mul add n 1 4;
+    dealloc f 8
+
+//: fenwick_add: `idx` に `delta` を加算する
+fn fenwick_add <(i32,i32,i32)*>()> (f, idx, delta):
+    let n <i32> load_i32 f;
+    let bit <i32> load_i32 add f 4;
+    let mut i <i32> add idx 1;
+    while le i n:
+        do:
+            let ptr <i32> add bit mul i 4;
+            store_i32 ptr add load_i32 ptr delta;
+            let lb <i32> i32_and i sub 0 i;
+            set i add i lb;
+
+//: fenwick_sum_prefix: 区間 `[0, r)` の和を返す
+fn fenwick_sum_prefix <(i32,i32)*>i32> (f, r):
+    let bit <i32> load_i32 add f 4;
+    let mut i <i32> r;
+    let mut acc <i32> 0;
+    while lt 0 i:
+        do:
+            set acc add acc load_i32 add bit mul i 4;
+            let lb <i32> i32_and i sub 0 i;
+            set i sub i lb;
+    acc
+
+//: fenwick_sum_range: 区間 `[l, r)` の和を返す
+fn fenwick_sum_range <(i32,i32,i32)*>i32> (f, l, r):
+    sub fenwick_sum_prefix f r fenwick_sum_prefix f l

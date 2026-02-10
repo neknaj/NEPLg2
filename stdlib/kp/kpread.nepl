@@ -563,6 +563,45 @@ fn scanner_read_i64 <(i32)*>i64> (sc):
                 else:
                     val
 
+//: scanner_read_vec_i64: n 個の i64 値を読み込む
+//:
+//: [目的/もくてき]:
+//: - `i64` が必要な問題（総和が大きいケースなど）で、連続入力を簡潔に取得します。
+//:
+//: [実装/じっそう]:
+//: - `scanner_read_i64` を n 回呼び出し、`Vec<i64>` に順に格納します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n * 桁数)
+//:
+//: neplg2:test[skip]
+//: stdin: "3\n1000000000000 2 -3\n"
+//: stdout: "3\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpread" as *
+//:| #import "kp/kpwrite" as *
+//:| #import "alloc/vec" as *
+//: fn main <()*> ()> ():
+//:     let sc <i32> scanner_new;
+//:     let n <i32> scanner_read_i32 sc;
+//:     let v <Vec<i64>> scanner_read_vec_i64 sc n;
+//:     let w <i32> writer_new;
+//:     writer_write_i32 w vec_len<i64> v;
+//:     writer_writeln w;
+//:     writer_flush w;
+//:     writer_free w
+//: ```
+fn scanner_read_vec_i64 <(i32, i32)*>Vec<i64>> (sc, n):
+    let mut v <Vec<i64>> vec_new<i64>;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            set v vec_push<i64> v scanner_read_i64 sc;
+            set i add i 1;
+    v
+
 // scanner_read_vec_i32: n 個の i32 値を読み込む
 //
 // 目的:

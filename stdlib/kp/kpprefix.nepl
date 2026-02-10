@@ -1,0 +1,59 @@
+#indent 4
+#target wasi
+
+#import "core/math" as *
+#import "core/mem" as *
+
+//: kpprefix: 競技プログラミング向け累積和ユーティリティ
+//:
+//: [目的/もくてき]:
+//: - 1 次元累積和の構築と区間和クエリを定型化します。
+//:
+//: [実装/じっそう]:
+//: - `pref[0]=0`, `pref[i+1]=pref[i]+a[i]` で長さ `n+1` の配列を構築します。
+//:
+//: [注意/ちゅうい]:
+//: - 値型は `i32` です。総和が大きい場合は `i64` 版へ拡張してください。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "6 14\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpprefix" as *
+//:| #import "core/mem" as *
+//:| #import "std/stdio" as *
+//: fn main <()*> ()> ():
+//:     let n <i32> 5;
+//:     let data <i32> alloc mul n 4;
+//:     store_i32 add data 0 1;
+//:     store_i32 add data 4 2;
+//:     store_i32 add data 8 3;
+//:     store_i32 add data 12 4;
+//:     store_i32 add data 16 5;
+//:     let pref <i32> prefix_build_i32 data n;
+//:     print_i32 prefix_range_sum_i32 pref 0 3;
+//:     print " ";
+//:     println_i32 prefix_range_sum_i32 pref 1 5;
+//:     dealloc pref mul add n 1 4;
+//:     dealloc data mul n 4
+//: ```
+
+//: prefix_build_i32: `data[0..n)` の累積和配列 `pref[0..n]` を作る
+fn prefix_build_i32 <(i32,i32)*>i32> (data, n):
+    let pref_len <i32> add n 1;
+    let pref <i32> alloc mul pref_len 4;
+    store_i32 pref 0;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let prev <i32> load_i32 add pref mul i 4;
+            let cur <i32> load_i32 add data mul i 4;
+            store_i32 add pref mul add i 1 4 add prev cur;
+            set i add i 1;
+    pref
+
+//: prefix_range_sum_i32: 半開区間 `[l, r)` の和を返す
+fn prefix_range_sum_i32 <(i32,i32,i32)->i32> (pref, l, r):
+    sub load_i32 add pref mul r 4 load_i32 add pref mul l 4
+

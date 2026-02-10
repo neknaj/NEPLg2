@@ -1,0 +1,209 @@
+//: kpgraph: 競技プログラミング向けグラフ補助ライブラリ
+//:
+//: [目的/もくてき]:
+//: - 小〜中規模入力で使いやすい密行列表現のグラフ API を提供します。
+//: - 無向グラフの BFS 距離計算を定型化し、解法実装を短くします。
+//:
+//: [実装/じっそう]:
+//: - 辺は `n*n` の `u8` 行列（0/1）で保持します。
+//: - BFS は配列キュー（head/tail）で実装し、距離は `-1` を未訪問として管理します。
+//:
+//: [注意/ちゅうい]:
+//: - メモリ使用量は O(n^2) です。大規模グラフには不向きです。
+//: - 頂点番号は 0-index を前提にしています。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdin: "4 3\n1 2\n2 3\n3 4\n"
+//: stdout: "0 1 2 3\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpread" as *
+//:| #import "kp/kpwrite" as *
+//:| #import "kp/kpgraph" as *
+//:| #import "alloc/vec" as *
+//:| #import "core/field" as *
+//:| #import "core/mem" as *
+//: fn main <()*> ()> ():
+//:     let sc <i32> scanner_new;
+//:     let g <DenseGraph> dense_graph_read_undirected_1indexed sc;
+//:     let n <i32> get g "n";
+//:     let mat <i32> get g "mat";
+//:     let dist <Vec<i32>> dense_graph_bfs_dist_raw n mat 0;
+//:
+//:     let data <i32> get dist "data";
+//:     let w <i32> writer_new;
+//:     let mut i <i32> 0;
+//:     while lt i n:
+//:         do:
+//:             if lt 0 i:
+//:                 then writer_write_space w
+//:                 else ();
+//:             writer_write_i32 w load_i32 add data mul i 4;
+//:             set i add i 1;
+//:     writer_writeln w;
+//:     writer_flush w;
+//:     writer_free w;
+//:
+//:     dense_graph_free g
+//: ```
+
+#indent 4
+#target wasi
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "alloc/vec" as *
+#import "core/field" as *
+#import "kp/kpread" as *
+#import "kp/kpwrite" as *
+
+//: DenseGraph: 密行列表現の無向グラフ
+//:
+//: [目的/もくてき]:
+//: - 頂点数 `n` と辺行列 `mat` をまとめて管理します。
+//:
+//: [実装/じっそう]:
+//: - `mat` は長さ `n*n` の `u8` 配列（0: 辺なし, 1: 辺あり）です。
+struct DenseGraph:
+    n <i32>
+    mat <i32>
+
+//: dense_graph_new: 頂点数 n の空グラフを作る
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n^2)
+fn dense_graph_new <(i32)*>DenseGraph> (n):
+    let size <i32> mul n n;
+    let mat <i32> alloc size;
+    let mut i <i32> 0;
+    while lt i size:
+        do:
+            store_u8 add mat i 0;
+            set i add i 1;
+    DenseGraph n mat
+
+//: dense_graph_free: グラフの内部メモリを解放する
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn dense_graph_free <(DenseGraph)*>()> (g):
+    let n <i32> get g "n";
+    let mat <i32> get g "mat";
+    dealloc mat mul n n
+
+//: dense_graph_add_undirected: 無向辺 (u,v) を追加する
+//:
+//: [注意/ちゅうい]:
+//: - 0-index の頂点番号を前提にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>()> (g, u, v):
+    let n <i32> get g "n";
+    let mat <i32> get g "mat";
+    let uv <i32> add mul u n v;
+    let vu <i32> add mul v n u;
+    store_u8 add mat uv 1;
+    store_u8 add mat vu 1
+
+//: dense_graph_read_undirected_1indexed: 1-index 入力の無向グラフを読む
+//:
+//: [入力形式]:
+//: - n m
+//: - u1 v1
+//: - ...
+//: - um vm
+//:
+//: [注意/ちゅうい]:
+//: - 入力は 1-index を想定し、内部では 0-index に変換します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n^2 + m)
+fn dense_graph_read_undirected_1indexed <(i32)*>DenseGraph> (sc):
+    let n <i32> scanner_read_i32 sc;
+    let m <i32> scanner_read_i32 sc;
+    let size <i32> mul n n;
+    let mat <i32> alloc size;
+    let mut z <i32> 0;
+    while lt z size:
+        do:
+            store_u8 add mat z 0;
+            set z add z 1;
+    let mut i <i32> 0;
+    while lt i m:
+        do:
+            let u1 <i32> scanner_read_i32 sc;
+            let v1 <i32> scanner_read_i32 sc;
+            let u <i32> sub u1 1;
+            let v <i32> sub v1 1;
+            let uv <i32> add mul u n v;
+            let vu <i32> add mul v n u;
+            store_u8 add mat uv 1;
+            store_u8 add mat vu 1;
+            set i add i 1;
+    DenseGraph n mat
+
+//: dense_graph_bfs_dist_raw: 開始頂点からの最短距離配列を返す
+//:
+//: [目的/もくてき]:
+//: - 辺重み 1 のグラフで、開始頂点 `start` から各頂点への最短距離を計算します。
+//:
+//: [実装/じっそう]:
+//: - 配列キューを使う通常の BFS です。
+//: - 未訪問は `-1` で表現し、最初の訪問時に距離を確定します。
+//:
+//: [注意/ちゅうい]:
+//: - 返却値の `Vec<i32>` は 0-index 頂点順です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n^2)（密行列の隣接走査）
+fn dense_graph_bfs_dist_raw <(i32,i32,i32)*>Vec<i32>> (n, mat, start):
+    let dist <i32> alloc mul n 4;
+    let mut i0 <i32> 0;
+    while lt i0 n:
+        do:
+            store_i32 add dist mul i0 4 -1;
+            set i0 add i0 1;
+
+    let q <i32> alloc mul n 4;
+    let mut head <i32> 0;
+    let mut tail <i32> 0;
+
+    store_i32 add dist mul start 4 0;
+    store_i32 add q mul tail 4 start;
+    set tail add tail 1;
+
+    while lt head tail:
+        do:
+            let v <i32> load_i32 add q mul head 4;
+            set head add head 1;
+            let dv <i32> load_i32 add dist mul v 4;
+
+            let mut to <i32> 0;
+            while lt to n:
+                do:
+                    let edge_idx <i32> add mul v n to;
+                    let has <i32> load_u8 add mat edge_idx;
+                    if eq has 1:
+                        then:
+                            let to_ptr <i32> add dist mul to 4;
+                            if eq load_i32 to_ptr -1:
+                                then:
+                                    store_i32 to_ptr add dv 1;
+                                    store_i32 add q mul tail 4 to;
+                                    set tail add tail 1;
+                                else ();
+                        else ();
+                    set to add to 1;
+
+    let mut out <Vec<i32>> vec_new<i32>;
+    let mut i1 <i32> 0;
+    while lt i1 n:
+        do:
+            set out vec_push<i32> out load_i32 add dist mul i1 4;
+            set i1 add i1 1;
+
+    dealloc q mul n 4;
+    dealloc dist mul n 4;
+    out
