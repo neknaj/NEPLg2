@@ -1248,3 +1248,20 @@
 ## 検証
 - `NO_COLOR=true trunk build`
   - 成功（`src/*.js` が無い状態で `dist_ts` 読込構成が成立）。
+
+# 2026-02-10 作業メモ (web/src/language/neplg2 のリッチ化)
+## 実装
+- `web/src/language/neplg2/neplg2-provider.ts` を wasm 解析 API 直結の実装へ拡張した。
+  - 呼び出し API: `analyze_lex` / `analyze_parse` / `analyze_name_resolution` / `analyze_semantics`
+  - 既存の editor 連携 API に加えて、以下を追加:
+    - `getDefinitionCandidates`
+    - `getAnalysisSnapshot`
+    - `getAst`
+    - `getNameResolution`
+    - `getSemantics`
+  - Hover 情報に推論型・式範囲・引数範囲・解決候補を統合した。
+  - 更新 payload に `semanticTokens` / `inlayHints` を追加した（Playground/VSCode 機能移植向け）。
+
+## 検証
+- `NO_COLOR=true trunk build`
+  - 成功。

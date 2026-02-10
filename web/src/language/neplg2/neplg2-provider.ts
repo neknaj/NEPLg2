@@ -1,4 +1,5 @@
 // @ts-nocheck
+
 class NEPLg2LanguageProvider {
     constructor() {
         this.updateCallback = () => {};
@@ -7,10 +8,13 @@ class NEPLg2LanguageProvider {
         this.parse = null;
         this.resolve = null;
         this.semantics = null;
+        this.analysisVersion = 0;
+        this.lastUpdatePayload = null;
+        this.definitionById = new Map();
         this.keywordCompletions = [
             'fn', 'let', 'mut', 'set', 'if', 'while', 'cond', 'then', 'else', 'do',
             'block', 'return', 'break', 'match', 'trait', 'impl', 'for', 'enum', 'struct',
-            '#entry', '#target', '#indent', '#import', '#use'
+            '#entry', '#target', '#indent', '#import', '#use',
         ];
     }
 
@@ -20,26 +24,32 @@ class NEPLg2LanguageProvider {
 
     updateText(text) {
         this.text = text || '';
-        this._analyzeAndPublish();
+        this.analysisVersion += 1;
+        this._analyzeAndPublish(this.analysisVersion);
     }
 
     _wasm() {
         return window.wasmBindings || null;
     }
 
-    _analyzeAndPublish() {
+    _analyzeAndPublish(version) {
         const wasm = this._wasm();
         if (!wasm || typeof wasm.analyze_lex !== 'function') {
             this.lex = { tokens: [], diagnostics: [] };
             this.parse = null;
             this.resolve = null;
             this.semantics = null;
-            this.updateCallback({
+            this.definitionById.clear();
+            const payload = {
                 tokens: [],
                 diagnostics: [],
                 foldingRanges: [],
+                semanticTokens: [],
+                inlayHints: [],
                 config: { highlightWhitespace: true, highlightIndent: true },
-            });
+            };
+            this.lastUpdatePayload = payload;
+            this.updateCallback(payload);
             return;
         }
 
@@ -56,16 +66,29 @@ class NEPLg2LanguageProvider {
             this.semantics = null;
         }
 
+        if (version !== this.analysisVersion) {
+            return;
+        }
+
+        const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
+        this.definitionById = new Map(defs.map((d) => [d.id, d]));
+
         const tokens = this._buildEditorTokens();
         const diagnostics = this._collectDiagnostics();
         const foldingRanges = this._buildFoldingRanges();
+        const semanticTokens = this._buildSemanticTokens();
+        const inlayHints = this._buildInlayHints();
 
-        this.updateCallback({
+        const payload = {
             tokens,
             diagnostics,
             foldingRanges,
+            semanticTokens,
+            inlayHints,
             config: { highlightWhitespace: true, highlightIndent: true },
-        });
+        };
+        this.lastUpdatePayload = payload;
+        this.updateCallback(payload);
     }
 
     _spanFrom(obj) {
@@ -75,7 +98,9 @@ class NEPLg2LanguageProvider {
             startIndex: Number(s.start ?? 0),
             endIndex: Number(s.end ?? 0),
             startLine: Number(s.start_line ?? 0),
+            startCol: Number(s.start_col ?? 0),
             endLine: Number(s.end_line ?? 0),
+            endCol: Number(s.end_col ?? 0),
         };
     }
 
@@ -126,8 +151,6 @@ class NEPLg2LanguageProvider {
     _buildEditorTokens() {
         const lexTokens = Array.isArray(this.lex?.tokens) ? this.lex.tokens : [];
         const tokenRes = Array.isArray(this.semantics?.token_resolution) ? this.semantics.token_resolution : [];
-        const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
-        const defById = new Map(defs.map((d) => [d.id, d]));
 
         return lexTokens.map((tok, idx) => {
             const span = this._spanFrom(tok) || { startIndex: 0, endIndex: 0 };
@@ -135,7 +158,7 @@ class NEPLg2LanguageProvider {
 
             const tr = tokenRes[idx];
             if (tr && tr.resolved_def_id != null) {
-                const def = defById.get(tr.resolved_def_id);
+                const def = this.definitionById.get(tr.resolved_def_id);
                 if (def && (def.kind === 'fn' || def.kind === 'fn_alias')) {
                     t = 'function';
                 }
@@ -148,13 +171,55 @@ class NEPLg2LanguageProvider {
         });
     }
 
+    _buildSemanticTokens() {
+        const tokenSem = Array.isArray(this.semantics?.token_semantics) ? this.semantics.token_semantics : [];
+        const out = [];
+        for (const ts of tokenSem) {
+            const sp = ts?.expr_span;
+            if (!sp) continue;
+            out.push({
+                tokenIndex: Number(ts.token_index ?? -1),
+                inferredType: ts.inferred_type || null,
+                exprSpan: {
+                    start: Number(sp.start ?? 0),
+                    end: Number(sp.end ?? 0),
+                },
+                argIndex: Number.isInteger(ts?.arg_index) ? Number(ts.arg_index) : null,
+                argSpan: ts?.arg_span
+                    ? { start: Number(ts.arg_span.start ?? 0), end: Number(ts.arg_span.end ?? 0) }
+                    : null,
+            });
+        }
+        return out;
+    }
+
+    _buildInlayHints() {
+        const tokenSem = Array.isArray(this.semantics?.token_semantics) ? this.semantics.token_semantics : [];
+        const out = [];
+        for (const ts of tokenSem) {
+            if (!ts || !ts.inferred_type || !ts.expr_span) continue;
+            const start = Number(ts.expr_span.start ?? -1);
+            if (start < 0) continue;
+            out.push({
+                kind: 'type',
+                position: start,
+                label: `<${ts.inferred_type}>`,
+                exprSpan: {
+                    start: Number(ts.expr_span.start ?? 0),
+                    end: Number(ts.expr_span.end ?? 0),
+                },
+            });
+        }
+        return out;
+    }
+
     _walkAst(node, out) {
         if (!node || typeof node !== 'object') return;
         if (node.kind === 'Block' && node.span && Number(node.span.end_line) > Number(node.span.start_line)) {
             out.push({
                 startLine: Number(node.span.start_line),
                 endLine: Number(node.span.end_line),
-                placeholder: '...'
+                placeholder: '...',
             });
         }
         for (const v of Object.values(node)) {
@@ -198,9 +263,20 @@ class NEPLg2LanguageProvider {
 
     _formatSpan(sp) {
         if (!sp) return null;
-        const s = Number(sp.start ?? 0);
-        const e = Number(sp.end ?? 0);
-        return `[${s}, ${e})`;
+        return `[${Number(sp.start ?? 0)}, ${Number(sp.end ?? 0)})`;
+    }
+
+    _definitionCandidates(tr) {
+        if (!tr || !Array.isArray(tr.candidate_def_ids)) return [];
+        return tr.candidate_def_ids
+            .map((id) => this.definitionById.get(id))
+            .filter(Boolean)
+            .map((d) => ({
+                id: d.id,
+                name: d.name,
+                kind: d.kind,
+                span: d.span || null,
+            }));
     }
 
     getTokenInsight(index) {
@@ -209,8 +285,8 @@ class NEPLg2LanguageProvider {
 
         const ts = this._tokenSemanticByIndex(hit.tokenIndex);
         const tr = this._tokenResolutionByIndex(hit.tokenIndex);
-        const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
-        const def = tr && tr.resolved_def_id != null ? defs.find((d) => d.id === tr.resolved_def_id) : null;
+        const def = tr && tr.resolved_def_id != null ? this.definitionById.get(tr.resolved_def_id) : null;
+        const candidates = this._definitionCandidates(tr);
 
         return {
             tokenIndex: hit.tokenIndex,
@@ -222,75 +298,62 @@ class NEPLg2LanguageProvider {
             argSpan: ts?.arg_span || null,
             resolvedDefId: tr?.resolved_def_id ?? null,
             candidateDefIds: Array.isArray(tr?.candidate_def_ids) ? tr.candidate_def_ids : [],
+            definitionCandidates: candidates,
             resolvedDefinition: def
-                ? {
-                    id: def.id,
-                    name: def.name,
-                    kind: def.kind,
-                    span: def.span || null,
-                }
+                ? { id: def.id, name: def.name, kind: def.kind, span: def.span || null }
                 : null,
         };
     }
 
     async getHoverInfo(index) {
-        const hit = this._tokenAt(index);
-        if (!hit) return null;
-
-        const tokenSem = Array.isArray(this.semantics?.token_semantics) ? this.semantics.token_semantics : [];
-        const tokenRes = Array.isArray(this.semantics?.token_resolution) ? this.semantics.token_resolution : [];
-        const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
-        const defById = new Map(defs.map((d) => [d.id, d]));
-
-        const ts = tokenSem.find((x) => Number(x?.token_index) === hit.tokenIndex) || null;
-        const tr = tokenRes.find((x) => Number(x?.token_index) === hit.tokenIndex) || null;
+        const insight = this.getTokenInsight(index);
+        if (!insight) return null;
 
         const lines = [];
-        const raw = String(hit.token?.value || hit.token?.debug || '').trim();
+        const hit = this._tokenAt(index);
+        const raw = String(hit?.token?.value || hit?.token?.debug || '').trim();
         if (raw) lines.push(raw);
-        if (ts && ts.inferred_type) lines.push(`type: ${ts.inferred_type}`);
-        if (ts && ts.expr_span) lines.push(`expr: ${this._formatSpan(ts.expr_span)}`);
-        if (ts && Number.isInteger(ts.arg_index)) lines.push(`arg#${ts.arg_index}: ${this._formatSpan(ts.arg_span)}`);
-        if (tr && tr.resolved_def_id != null) {
-            const def = defById.get(tr.resolved_def_id);
-            if (def) lines.push(`def: ${def.kind} ${def.name}`);
+        if (insight.inferredType) lines.push(`type: ${insight.inferredType}`);
+        if (insight.exprSpan) lines.push(`expr: ${this._formatSpan(insight.exprSpan)}`);
+        if (Number.isInteger(insight.argIndex)) lines.push(`arg#${insight.argIndex}: ${this._formatSpan(insight.argSpan)}`);
+        if (insight.resolvedDefinition) lines.push(`def: ${insight.resolvedDefinition.kind} ${insight.resolvedDefinition.name}`);
+        if (insight.definitionCandidates.length > 1) {
+            lines.push(`candidates: ${insight.definitionCandidates.map((d) => `${d.id}:${d.name}`).join(', ')}`);
         }
-        if (tr && Array.isArray(tr.candidate_def_ids) && tr.candidate_def_ids.length > 1) {
-            lines.push(`candidates: ${tr.candidate_def_ids.join(', ')}`);
-        }
+
         if (lines.length === 0) return null;
-        return { content: lines.join('\n'), startIndex: hit.span.startIndex, endIndex: hit.span.endIndex };
+        return { content: lines.join('\n'), startIndex: insight.tokenSpan.startIndex, endIndex: insight.tokenSpan.endIndex };
     }
 
     async getDefinitionLocation(index) {
-        const hit = this._tokenAt(index);
-        if (!hit) return null;
-        const tokenRes = Array.isArray(this.semantics?.token_resolution) ? this.semantics.token_resolution : [];
-        const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
-        const tr = tokenRes.find((x) => Number(x?.token_index) === hit.tokenIndex);
-        if (!tr || tr.resolved_def_id == null) return null;
-        const def = defs.find((d) => d.id === tr.resolved_def_id);
-        if (!def || !def.span) return null;
-        return { targetIndex: Number(def.span.start ?? 0) };
+        const insight = this.getTokenInsight(index);
+        if (!insight || !insight.resolvedDefinition || !insight.resolvedDefinition.span) return null;
+        return { targetIndex: Number(insight.resolvedDefinition.span.start ?? 0) };
+    }
+
+    async getDefinitionCandidates(index) {
+        const insight = this.getTokenInsight(index);
+        return insight ? insight.definitionCandidates : [];
     }
 
     async getOccurrences(index) {
-        const hit = this._tokenAt(index);
-        if (!hit) return [];
-        const tokenRes = Array.isArray(this.semantics?.token_resolution) ? this.semantics.token_resolution : [];
+        const insight = this.getTokenInsight(index);
+        if (!insight) return [];
         const refs = Array.isArray(this.resolve?.references) ? this.resolve.references : [];
-        const tr = tokenRes.find((x) => Number(x?.token_index) === hit.tokenIndex);
-        if (!tr) return [];
-
         const out = [];
+
         for (const r of refs) {
-            if (tr.resolved_def_id != null && r.resolved_def_id === tr.resolved_def_id && r.span) {
+            if (!r?.span) continue;
+            if (insight.resolvedDefId != null && r.resolved_def_id === insight.resolvedDefId) {
                 out.push({ startIndex: Number(r.span.start ?? 0), endIndex: Number(r.span.end ?? 0) });
             }
         }
-        if (out.length === 0 && tr.name) {
+        if (out.length > 0) return out;
+
+        const tr = this._tokenResolutionByIndex(insight.tokenIndex);
+        if (tr?.name) {
             for (const r of refs) {
-                if (r.name === tr.name && r.span) {
+                if (r?.name === tr.name && r?.span) {
                     out.push({ startIndex: Number(r.span.start ?? 0), endIndex: Number(r.span.end ?? 0) });
                 }
             }
@@ -322,24 +385,43 @@ class NEPLg2LanguageProvider {
         return { targetIndex: i };
     }
 
-    async getCompletions(index) {
+    _collectCompletionSymbols() {
+        const names = new Map();
         const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
+        for (const d of defs) {
+            if (!d?.name) continue;
+            names.set(d.name, {
+                label: String(d.name),
+                type: d.kind === 'fn' || d.kind === 'fn_alias' ? 'function' : 'variable',
+                detail: String(d.kind || ''),
+                insertText: String(d.name),
+            });
+        }
+
+        const byName = this.resolve?.by_name;
+        if (byName && typeof byName === 'object') {
+            for (const k of Object.keys(byName)) {
+                if (!names.has(k)) {
+                    names.set(k, {
+                        label: k,
+                        type: 'variable',
+                        detail: 'name',
+                        insertText: k,
+                    });
+                }
+            }
+        }
+        return [...names.values()];
+    }
+
+    async getCompletions(index) {
         const word = this._wordAt(index);
         const prefix = (word?.text || '').toLowerCase();
-
         const items = [];
         for (const kw of this.keywordCompletions) {
             items.push({ label: kw, type: 'keyword', insertText: kw });
         }
-        for (const d of defs) {
-            items.push({
-                label: String(d.name || ''),
-                type: d.kind === 'fn' || d.kind === 'fn_alias' ? 'function' : 'variable',
-                insertText: String(d.name || ''),
-                detail: String(d.kind || ''),
-            });
-        }
-
+        items.push(...this._collectCompletionSymbols());
         if (!prefix) return items;
         return items.filter((it) => String(it.label || '').toLowerCase().startsWith(prefix));
     }
@@ -423,6 +505,29 @@ class NEPLg2LanguageProvider {
             }
         }
         return [];
+    }
+
+    getAnalysisSnapshot() {
+        return {
+            version: this.analysisVersion,
+            lex: this.lex,
+            parse: this.parse,
+            name_resolution: this.resolve,
+            semantics: this.semantics,
+            update_payload: this.lastUpdatePayload,
+        };
+    }
+
+    getAst() {
+        return this.parse?.module?.root || null;
+    }
+
+    getNameResolution() {
+        return this.resolve || null;
+    }
+
+    getSemantics() {
+        return this.semantics || null;
     }
 }
 
