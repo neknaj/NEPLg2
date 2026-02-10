@@ -26,10 +26,11 @@
 //:| #target wasi
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
-//: assert_i32_eq 0 (align8 0);
-//: assert_i32_eq 8 (align8 1);
-//: assert_i32_eq 8 (align8 8);
-//: assert_i32_eq 16 (align8 9);
+//: fn main <()*>()> ():
+//:     assert_eq_i32 0 align8 0;
+//:     assert_eq_i32 8 align8 1;
+//:     assert_eq_i32 8 align8 8;
+//:     assert_eq_i32 16 align8 9;
 //: ```
 
 

@@ -174,7 +174,8 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                     let then_diff = ctx.pop_history();
                     let mut then_final = BTreeMap::new();
                     for name in then_diff.keys() {
-                        then_final.insert(name.clone(), ctx.get_state(name).unwrap());
+                        let fallback = *then_diff.get(name).unwrap_or(&VarState::Valid);
+                        then_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
                     }
                     ctx.undo_history(&then_diff);
 
@@ -183,7 +184,8 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                     let else_diff = ctx.pop_history();
                     let mut else_final = BTreeMap::new();
                     for name in else_diff.keys() {
-                        else_final.insert(name.clone(), ctx.get_state(name).unwrap());
+                        let fallback = *else_diff.get(name).unwrap_or(&VarState::Valid);
+                        else_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
                     }
                     ctx.undo_history(&else_diff);
 
@@ -255,7 +257,8 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             let then_diff = ctx.pop_history();
             let mut then_final = BTreeMap::new();
             for name in then_diff.keys() {
-                then_final.insert(name.clone(), ctx.get_state(name).unwrap());
+                let fallback = *then_diff.get(name).unwrap_or(&VarState::Valid);
+                then_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
             }
             ctx.undo_history(&then_diff);
 
@@ -264,7 +267,8 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             let else_diff = ctx.pop_history();
             let mut else_final = BTreeMap::new();
             for name in else_diff.keys() {
-                else_final.insert(name.clone(), ctx.get_state(name).unwrap());
+                let fallback = *else_diff.get(name).unwrap_or(&VarState::Valid);
+                else_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
             }
             ctx.undo_history(&else_diff);
 
@@ -324,7 +328,8 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 let diff = ctx.pop_history();
                 let mut final_states = BTreeMap::new();
                 for name in diff.keys() {
-                    final_states.insert(name.clone(), ctx.get_state(name).unwrap());
+                    let fallback = *diff.get(name).unwrap_or(&VarState::Valid);
+                    final_states.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
                 }
                 ctx.undo_history(&diff);
                 all_branch_diffs.push(diff);

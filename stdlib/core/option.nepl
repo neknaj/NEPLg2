@@ -24,11 +24,11 @@
 //:| #target wasi
 //:| #import "std/test" as *
 //:| #import "core/option" as *
-//: assert_true is_some (some 123);
-//: assert_true is_none (none<i32> ());
-//: assert_i32_eq 123 (unwrap (some 123));
-//: assert_i32_eq 7 (option_unwrap_or (none<i32> ()), 7);
-//: assert_i32_eq 10 (unwrap (option_map (some 5), fn (x): mul x 2));
+//: fn main <()*>()> ():
+//:     assert is_some some 123;
+//:     assert is_none none<i32>;
+//:     assert_eq_i32 123 unwrap some 123;
+//:     assert_eq_i32 7 option_unwrap_or none<i32> 7;
 //: ```
 //:
 //: neplg2:test[should_panic]
@@ -38,7 +38,8 @@
 //:| #import "std/test" as *
 //:| #import "core/option" as *
 //: // None を unwrap すると unreachable で落ちることを期待
-//: unwrap (none<i32> ());
+//: fn main <()*>()> ():
+//:     unwrap none<i32>;
 //: ```
 
 

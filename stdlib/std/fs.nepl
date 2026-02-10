@@ -1,3 +1,19 @@
+//: fs: std/fs.nepl に関する機能を提供するライブラリ
+//:
+//: [目的/もくてき]:
+//: - このモジュールの公開 API を提供します。
+//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//:
+//: [注意/ちゅうい]:
+//: - 詳細な関数別ドキュメントは段階的に追記します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//: ()
+//: ```
+
 #indent 4
 
 #extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)->i32>
@@ -40,6 +56,19 @@
 //
 // 計算量:
 // - O(1)
+//: i64_from_i32: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - i64_from_i32 が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn i64_from_i32 <(i32)->i64> (v):
     i64_extend_i32_u v
 
@@ -57,6 +86,19 @@ fn i64_from_i32 <(i32)->i64> (v):
 //
 // 計算量:
 // - O(1)
+//: fs_open_read: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - fs_open_read が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn fs_open_read <(str)*>Result<i32,i32>> (path):
     let fd_out <i32> alloc 4;
     store_i32 fd_out 0;
@@ -82,6 +124,19 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
 //
 // 計算量:
 // - O(n)
+//: fs_read_fd_bytes: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - fs_read_fd_bytes が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn fs_read_fd_bytes <(i32)*>Result<Vec<u8>,i32>> (fd):
     let mut buf <Vec<u8>> vec_new<u8> ();
     let cap <i32> 256;
@@ -94,24 +149,26 @@ fn fs_read_fd_bytes <(i32)*>Result<Vec<u8>,i32>> (fd):
     let mut err <i32> 0;
 
     while eq done 0:
-        store_i32 nread 0;
-        let errno <i32> fd_read fd iov 1 nread;
-        if:
-            eq errno 0
-            then:
-                let n <i32> load_i32 nread;
-                if:
-                    eq n 0
-                    then set done 1;
-                    else:
-                        let mut i <i32> 0;
-                        while lt i n:
-                            let b <i32> load_u8 add tmp i;
-                            set buf vec_push<u8> buf cast b;
-                            set i add i 1;
-            else:
-                set err errno;
-                set done 1;
+        do:
+            store_i32 nread 0;
+            let errno <i32> fd_read fd iov 1 nread;
+            if:
+                eq errno 0
+                then:
+                    let n <i32> load_i32 nread;
+                    if:
+                        eq n 0
+                        then set done 1;
+                        else:
+                            let mut i <i32> 0;
+                            while lt i n:
+                                do:
+                                    let b <i32> load_u8 add tmp i;
+                                    set buf vec_push<u8> buf cast b;
+                                    set i add i 1;
+                else:
+                    set err errno;
+                    set done 1;
 
     if:
         eq err 0
@@ -131,6 +188,19 @@ fn fs_read_fd_bytes <(i32)*>Result<Vec<u8>,i32>> (fd):
 //
 // 計算量:
 // - O(n)
+//: fs_bytes_to_string: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - fs_bytes_to_string が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn fs_bytes_to_string <(Vec<u8>)*>str> (buf):
     let len <i32> buf.len;
     let out <i32> alloc add 4 len;
@@ -138,9 +208,10 @@ fn fs_bytes_to_string <(Vec<u8>)*>str> (buf):
     let data <i32> buf.data;
     let mut i <i32> 0;
     while lt i len:
-        let b <i32> load_u8 add data i;
-        store_u8 add out add 4 i b;
-        set i add i 1;
+        do:
+            let b <i32> load_u8 add data i;
+            store_u8 add out add 4 i b;
+            set i add i 1;
     out
 
 // fs_read_to_bytes: ファイルを読み込んで Vec<u8> を返す
@@ -156,6 +227,19 @@ fn fs_bytes_to_string <(Vec<u8>)*>str> (buf):
 //
 // 計算量:
 // - O(n)
+//: fs_read_to_bytes: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - fs_read_to_bytes が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn fs_read_to_bytes <(str)*>Result<Vec<u8>,i32>> (path):
     match fs_open_read path:
         Result::Ok fd:
@@ -179,6 +263,19 @@ fn fs_read_to_bytes <(str)*>Result<Vec<u8>,i32>> (path):
 //
 // 計算量:
 // - O(n)
+//: fs_read_to_string: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - fs_read_to_string が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn fs_read_to_string <(str)*>Result<str,i32>> (path):
     match fs_read_to_bytes path:
         Result::Ok bytes:

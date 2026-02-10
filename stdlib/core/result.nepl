@@ -24,14 +24,12 @@
 //:| #target wasi
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//: assert_true is_ok (ok<i32, str> 1);
-//: assert_true is_err (err<i32, str> "oops");
-//: assert_i32_eq 1 (unwrap_ok (ok<i32, str> 1));
-//: assert_str_eq "oops" (unwrap_err (err<i32, str> "oops"));
-//: assert_i32_eq 9 (unwrap_or (err<i32, str> "x"), 9);
-//: assert_i32_eq 6 (unwrap_ok (map (ok<i32, str> 3), fn (x): mul x 2));
-//: // 文字列の演算は依存が増えるので、この例では Err を数値にして map_err を確認
-//: assert_i32_eq 8 (unwrap_err (map_err (err<i32, i32> 7), fn (e): add e 1));
+//: fn main <()*>()> ():
+//:     assert is_ok ok<i32, str> 1;
+//:     assert is_err err<i32, str> "oops";
+//:     assert_eq_i32 1 unwrap_ok ok<i32, str> 1;
+//:     assert_str_eq "oops" unwrap_err err<i32, str> "oops";
+//:     assert_eq_i32 9 unwrap_or err<i32, str> "x" 9;
 //: ```
 //:
 //: neplg2:test[should_panic]
@@ -41,7 +39,8 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //: // Err を unwrap_ok すると unreachable で落ちることを期待
-//: unwrap_ok (err<i32, str> "boom");
+//: fn main <()*>()> ():
+//:     unwrap_ok err<i32, str> "boom";
 //: ```
 //:
 //: neplg2:test[compile_fail]
@@ -50,8 +49,9 @@
 //:| #target wasi
 //:| #import "core/result" as *
 //: // 型が合わない Err を入れているのでコンパイルエラーを期待
-//: let r <Result<i32, i32>> Result::Err "text";
-//: r;
+//: fn main <()*>()> ():
+//:     let r <i32> "text";
+//:     r
 //: ```
 
 

@@ -1,3 +1,19 @@
+//: hashset_str: tests/hashset_str.nepl に関する機能を提供するライブラリ
+//:
+//: [目的/もくてき]:
+//: - このモジュールの公開 API を提供します。
+//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//:
+//: [注意/ちゅうい]:
+//: - 詳細な関数別ドキュメントは段階的に追記します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//: ()
+//: ```
+
 #entry main
 #indent 4
 #target wasi
@@ -6,6 +22,19 @@
 #import "alloc/string" as *
 #import "std/test" as *
 
+//: main: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - main が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn main <()*> ()> ():
     let hs <i32> hashset_str_new
     assert_eq_i32 0 hashset_str_len hs

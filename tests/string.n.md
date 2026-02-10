@@ -258,3 +258,24 @@ fn main <()->i32> ():
     foo <String> "hello" // should not work
     0
 ```
+
+## test_string_builder_linear_build
+
+neplg2:test
+```neplg2
+#target wasi
+#entry main
+#indent 4
+#import "std/test" as *
+#import "alloc/string" as *
+
+fn main <()* >()> ():
+    let mut sb <StringBuilder> string_builder_new;
+    let mut i <i32> 0;
+    while lt i 2000:
+        do:
+            set sb sb_append sb "a";
+            set i add i 1;
+    let out <str> sb_build sb;
+    assert_eq_i32 2000 len out;
+```

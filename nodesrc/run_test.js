@@ -188,6 +188,18 @@ async function runSingle(req, preloaded) {
         const stdinText = req.stdin || '';
         const loaded = preloaded || await createRunner(req.distHint || '');
         const { api, meta } = loaded;
+        if (hasTag(tags, 'skip')) {
+            return {
+                ok: true,
+                id,
+                status: 'pass',
+                phase: 'skip',
+                skipped: true,
+                error: null,
+                compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
+                duration_ms: Date.now() - t0,
+            };
+        }
 
         let wasmU8 = null;
         let compileError = null;

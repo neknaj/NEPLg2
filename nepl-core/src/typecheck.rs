@@ -2847,11 +2847,17 @@ impl<'a> BlockChecker<'a> {
                 }
             };
             let needed_args = self.user_visible_arity(&stack[func_pos].expr, params.len());
-            if stack.len() < func_pos + 1 + needed_args {
+            let consume_unit_sugar = needed_args == 0
+                && stack
+                    .get(func_pos + 1)
+                    .map(|e| matches!(e.expr.kind, HirExprKind::Unit))
+                    .unwrap_or(false);
+            let args_to_take = needed_args + if consume_unit_sugar { 1 } else { 0 };
+            if stack.len() < func_pos + 1 + args_to_take {
                 break;
             };
             let expected_ret = expected.and_then(|(target, base_len)| {
-                let new_len = stack.len().saturating_sub(needed_args);
+                let new_len = stack.len().saturating_sub(args_to_take);
                 if new_len == base_len + 1 {
                     Some(target)
                 } else {
@@ -2859,7 +2865,7 @@ impl<'a> BlockChecker<'a> {
                 }
             });
             let mut args = Vec::new();
-            for _ in 0..needed_args {
+            for _ in 0..args_to_take {
                 args.push(stack.remove(func_pos + 1));
             }
 
@@ -3006,11 +3012,17 @@ impl<'a> BlockChecker<'a> {
                 }
             };
             let needed_args = self.user_visible_arity(&stack[func_pos].expr, params.len());
-            if stack.len() < func_pos + 1 + needed_args {
+            let consume_unit_sugar = needed_args == 0
+                && stack
+                    .get(func_pos + 1)
+                    .map(|e| matches!(e.expr.kind, HirExprKind::Unit))
+                    .unwrap_or(false);
+            let args_to_take = needed_args + if consume_unit_sugar { 1 } else { 0 };
+            if stack.len() < func_pos + 1 + args_to_take {
                 break;
             }
             let expected_ret = expected.and_then(|(target, base_len)| {
-                let new_len = stack.len().saturating_sub(needed_args);
+                let new_len = stack.len().saturating_sub(args_to_take);
                 if new_len == base_len + 1 {
                     Some(target)
                 } else {
@@ -3018,7 +3030,7 @@ impl<'a> BlockChecker<'a> {
                 }
             });
             let mut args = Vec::new();
-            for _ in 0..needed_args {
+            for _ in 0..args_to_take {
                 args.push(stack.remove(func_pos + 1));
             }
 
@@ -3308,10 +3320,17 @@ impl<'a> BlockChecker<'a> {
         params: Vec<TypeId>,
         result: TypeId,
         effect: Effect,
-        args: Vec<StackEntry>,
+        mut args: Vec<StackEntry>,
         type_args: Vec<TypeId>,
         expected_ret: Option<TypeId>,
     ) -> Option<StackEntry> {
+        if params.is_empty()
+            && args.len() == 1
+            && matches!(args[0].expr.kind, HirExprKind::Unit)
+        {
+            args.clear();
+        }
+
         if matches!(self.current_effect, Effect::Pure)
             && matches!(effect, Effect::Impure)
         {

@@ -24,6 +24,7 @@ function parseArgs(argv) {
     let outPath = '';
     let distHint = '';
     let jobs = 0;
+    let includeStdlib = true;
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -43,8 +44,12 @@ function parseArgs(argv) {
             jobs = parseInt(argv[++i], 10);
             continue;
         }
+        if (a === '--no-stdlib') {
+            includeStdlib = false;
+            continue;
+        }
         if (a === '-h' || a === '--help') {
-            return { help: true, inputs, outPath, distHint, jobs };
+            return { help: true, inputs, outPath, distHint, jobs, includeStdlib };
         }
     }
 
@@ -53,7 +58,7 @@ function parseArgs(argv) {
         jobs = Math.max(1, Math.min(8, Math.floor((os.cpus()?.length || 4) / 2)));
     }
 
-    return { help: false, inputs, outPath, distHint, jobs };
+    return { help: false, inputs, outPath, distHint, jobs, includeStdlib };
 }
 
 function isDir(p) {
@@ -234,14 +239,18 @@ function collectResolvedDistDirs(results) {
 }
 
 async function main() {
-    const { help, inputs, outPath, distHint, jobs } = parseArgs(process.argv.slice(2));
+    const { help, inputs, outPath, distHint, jobs, includeStdlib } = parseArgs(process.argv.slice(2));
     if (help || inputs.length === 0 || !outPath) {
-        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N]');
+        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N] [--no-stdlib]');
         process.exit(help ? 0 : 2);
     }
 
     const allCases = [];
-    for (const p of inputs) {
+    const scanInputs = inputs.slice();
+    if (includeStdlib && !scanInputs.some((p) => path.resolve(p) === path.resolve('stdlib'))) {
+        scanInputs.push('stdlib');
+    }
+    for (const p of scanInputs) {
         allCases.push(...collectTestsFromPath(p));
     }
 

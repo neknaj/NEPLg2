@@ -1,3 +1,19 @@
+//: diag: alloc/diag/diag.nepl に関する機能を提供するライブラリ
+//:
+//: [目的/もくてき]:
+//: - このモジュールの公開 API を提供します。
+//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//:
+//: [注意/ちゅうい]:
+//: - 詳細な関数別ドキュメントは段階的に追記します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//: ()
+//: ```
+
 #indent 4
 
 #import "alloc/diag/error" as *
@@ -34,6 +50,19 @@
 //
 // 計算量:
 // - O(1)
+//: kind_str: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - kind_str が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn kind_str <(ErrorKind)->str> (k):
     match k:
         ErrorKind::Failure:
@@ -68,6 +97,19 @@ fn kind_str <(ErrorKind)->str> (k):
 // 計算量:
 // - O(1)
 #if[target=wasi]
+//: kind_color: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - kind_color が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn kind_color <(ErrorKind)->str> (k):
     match k:
         ErrorKind::Failure:
@@ -100,6 +142,19 @@ fn kind_color <(ErrorKind)->str> (k):
 //
 // 計算量:
 // - O(n)
+//: span_to_string: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - span_to_string が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn span_to_string <(Span)*>str> (sp):
     let fid <str> from_i32 sp.file_id;
     let s <str> from_i32 sp.start;
@@ -122,6 +177,19 @@ fn span_to_string <(Span)*>str> (sp):
 //
 // 計算量:
 // - O(n)
+//: diag_to_string: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - diag_to_string が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn diag_to_string <(Error)*>str> (e):
     let p <i32> e.ptr;
     let k <ErrorKind> kind_from_i32 load_i32 p;
@@ -164,6 +232,19 @@ fn diag_to_string <(Error)*>str> (e):
 // 計算量:
 // - O(n)
 #if[target=wasi]
+//: diag_print: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - diag_print が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn diag_print <(Error)*>()> (e):
     let p <i32> e.ptr;
     let k <ErrorKind> kind_from_i32 load_i32 p;
@@ -185,6 +266,19 @@ fn diag_print <(Error)*>()> (e):
 // 計算量:
 // - O(n)
 #if[target=wasi]
+//: diag_print_msg: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - diag_print_msg が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn diag_print_msg <(str)*>()> (msg):
     let e <Error> error_new ErrorKind::Failure msg;
     diag_println e
@@ -203,6 +297,19 @@ fn diag_print_msg <(str)*>()> (msg):
 // 計算量:
 // - O(n)
 #if[target=wasi]
+//: diag_println: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - diag_println が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn diag_println <(Error)*>()> (e):
     let p <i32> e.ptr;
     let k <ErrorKind> kind_from_i32 load_i32 p;
@@ -224,6 +331,19 @@ fn diag_println <(Error)*>()> (e):
 // 計算量:
 // - O(n)
 #if[target=wasi]
+//: diag_debug_print: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - diag_debug_print が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn diag_debug_print <(Error)*>()> (e):
     let p <i32> e.ptr;
     let k <ErrorKind> kind_from_i32 load_i32 p;
@@ -245,6 +365,19 @@ fn diag_debug_print <(Error)*>()> (e):
 // 計算量:
 // - O(n)
 #if[target=wasi]
+//: diag_debug_println: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - diag_debug_println が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn diag_debug_println <(Error)*>()> (e):
     let p <i32> e.ptr;
     let k <ErrorKind> kind_from_i32 load_i32 p;

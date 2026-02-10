@@ -1,3 +1,19 @@
+//: vec: alloc/vec.nepl に関する機能を提供するライブラリ
+//:
+//: [目的/もくてき]:
+//: - このモジュールの公開 API を提供します。
+//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//:
+//: [注意/ちゅうい]:
+//: - 詳細な関数別ドキュメントは段階的に追記します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//: ()
+//: ```
+
 #indent 4
 
 #import "core/mem" as *
@@ -34,6 +50,19 @@
 //
 // 計算量:
 // - O(1)
+//: Vec: 構造体の概要
+//:
+//: [目的/もくてき]:
+//: - Vec が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 定義そのものは O(1) です。
 struct Vec<.T>:
     len <i32>
     cap <i32>
@@ -52,6 +81,19 @@ struct Vec<.T>:
 //
 // 計算量:
 // - O(1)
+//: vec_new: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_new が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_new <.T> <()*>Vec<.T>> ():
     let cap <i32> 8
     let data <i32> alloc mul cap size_of<.T>
@@ -70,6 +112,19 @@ fn vec_new <.T> <()*>Vec<.T>> ():
 //
 // 計算量:
 // - O(1)
+//: vec_with_capacity: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_with_capacity が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_with_capacity <.T> <(i32)*>Vec<.T>> (cap):
     let data <i32> alloc mul cap size_of<.T>
     Vec<.T> 0 cap data
@@ -87,6 +142,19 @@ fn vec_with_capacity <.T> <(i32)*>Vec<.T>> (cap):
 //
 // 計算量:
 // - O(1)
+//: vec_len: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_len が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_len <.T> <(Vec<.T>)->i32> (v):
     get v "len"
 
@@ -103,6 +171,19 @@ fn vec_len <.T> <(Vec<.T>)->i32> (v):
 //
 // 計算量:
 // - O(1)
+//: vec_cap: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_cap が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_cap <.T> <(Vec<.T>)->i32> (v):
     get v "cap"
 
@@ -119,6 +200,19 @@ fn vec_cap <.T> <(Vec<.T>)->i32> (v):
 //
 // 計算量:
 // - O(1)
+//: vec_is_empty: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_is_empty が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_is_empty <.T> <(Vec<.T>)->bool> (v):
     eq get v "len" 0
 
@@ -135,22 +229,35 @@ fn vec_is_empty <.T> <(Vec<.T>)->bool> (v):
 //
 // 計算量:
 // - ならし O(1)
+//: vec_push: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_push が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
-    let len <i32> get v "len"
-    let cap <i32> get v "cap"
-    let data <i32> get v "data"
+    let v_len <i32> get v "len"
+    let v_cap <i32> get v "cap"
+    let v_data <i32> get v "data"
     if:
-        eq len cap
+        eq v_len v_cap
         then:
-            let new_cap <i32> mul cap 2
-            let new_data <i32> realloc data mul cap size_of<.T> mul new_cap size_of<.T>
-            let offset <i32> mul len size_of<.T>
-            store<.T> add new_data offset item
-            Vec<.T> add len 1 new_cap new_data
+            let grown_cap <i32> mul v_cap 2
+            let grown_data <i32> realloc v_data mul v_cap size_of<.T> mul grown_cap size_of<.T>
+            let write_off <i32> mul v_len size_of<.T>
+            store<.T> add grown_data write_off item
+            Vec<.T> add v_len 1 grown_cap grown_data
         else:
-            let offset <i32> mul len size_of<.T>
-            store<.T> add data offset item
-            Vec<.T> add len 1 cap data
+            let write_off <i32> mul v_len size_of<.T>
+            store<.T> add v_data write_off item
+            Vec<.T> add v_len 1 v_cap v_data
 
 // vec_get: 要素を取得する
 //
@@ -165,19 +272,32 @@ fn vec_push <.T> <(Vec<.T>,.T)*>Vec<.T>> (v, item):
 //
 // 計算量:
 // - O(1)
+//: vec_get: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_get が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
-    let len <i32> get v "len"
-    let data <i32> get v "data"
+    let v_len <i32> get v "len"
+    let v_data <i32> get v "data"
     if:
         lt idx 0
         then none<.T>
         else:
             if:
-                le len idx
+                le v_len idx
                 then none<.T>
                 else:
-                    let offset <i32> mul idx size_of<.T>
-                    some<.T> load<.T> add data offset
+                    let read_off <i32> mul idx size_of<.T>
+                    some<.T> load<.T> add v_data read_off
 
 // vec_set: 要素を上書きする（範囲外は無視）
 //
@@ -192,19 +312,32 @@ fn vec_get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
 //
 // 計算量:
 // - O(1)
+//: vec_set: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_set が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
-    let len <i32> get v "len"
-    let data <i32> get v "data"
+    let v_len <i32> get v "len"
+    let v_data <i32> get v "data"
     if:
         lt idx 0
         then ()
         else:
             if:
-                le len idx
+                le v_len idx
                 then ()
                 else:
-                    let offset <i32> mul idx size_of<.T>
-                    store<.T> add data offset item
+                    let write_off <i32> mul idx size_of<.T>
+                    store<.T> add v_data write_off item
 
 // vec_pop: 末尾要素を取り出す
 //
@@ -219,18 +352,31 @@ fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
 //
 // 計算量:
 // - O(1)
+//: vec_pop: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_pop が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
-    let len <i32> get v "len"
-    let cap <i32> get v "cap"
-    let data <i32> get v "data"
+    let v_len <i32> get v "len"
+    let v_cap <i32> get v "cap"
+    let v_data <i32> get v "data"
     if:
-        eq len 0
-        then (Vec<.T> len cap data, none<.T>)
+        eq v_len 0
+        then (Vec<.T> v_len v_cap v_data, none<.T>)
         else:
-            let new_len <i32> sub len 1
-            let offset <i32> mul new_len size_of<.T>
-            let item <.T> load<.T> add data offset
-            (Vec<.T> new_len cap data, some<.T> item)
+            let next_len <i32> sub v_len 1
+            let read_off <i32> mul next_len size_of<.T>
+            let item <.T> load<.T> add v_data read_off
+            (Vec<.T> next_len v_cap v_data, some<.T> item)
 
 // vec_clear: すべての要素を削除する
 //
@@ -245,10 +391,23 @@ fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
 //
 // 計算量:
 // - O(1)
+//: vec_clear: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_clear が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_clear <.T> <(Vec<.T>)*>Vec<.T>> (v):
-    let cap <i32> get v "cap"
-    let data <i32> get v "data"
-    Vec<.T> 0 cap data
+    let v_cap <i32> get v "cap"
+    let v_data <i32> get v "data"
+    Vec<.T> 0 v_cap v_data
 
 // vec_free: メモリを解放する
 //
@@ -263,7 +422,20 @@ fn vec_clear <.T> <(Vec<.T>)*>Vec<.T>> (v):
 //
 // 計算量:
 // - O(1)
+//: vec_free: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - vec_free が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn vec_free <.T> <(Vec<.T>)*>()> (v):
-    let cap <i32> get v "cap"
-    let data <i32> get v "data"
-    dealloc data mul cap size_of<.T>
+    let v_cap <i32> get v "cap"
+    let v_data <i32> get v "data"
+    dealloc v_data mul v_cap size_of<.T>

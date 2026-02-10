@@ -1,3 +1,19 @@
+//: parser: nm/parser.nepl に関する機能を提供するライブラリ
+//:
+//: [目的/もくてき]:
+//: - このモジュールの公開 API を提供します。
+//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//:
+//: [注意/ちゅうい]:
+//: - 詳細な関数別ドキュメントは段階的に追記します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//: ()
+//: ```
+
 #indent 4
 
 #import "alloc/string" as *
@@ -49,10 +65,36 @@ pub enum Node:
     CodeBlock <CodeBlock>
 
 // Multi-return helpers (no tuple destructuring)
+//: FenceRes: 構造体の概要
+//:
+//: [目的/もくてき]:
+//: - FenceRes が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 定義そのものは O(1) です。
 struct FenceRes:
     cb <CodeBlock>
     next_i <i32>
 
+//: ParaRes: 構造体の概要
+//:
+//: [目的/もくてき]:
+//: - ParaRes が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 定義そのものは O(1) です。
 struct ParaRes:
     inlines <Vec<Inline>>
     next_i <i32>
@@ -61,26 +103,104 @@ struct ParaRes:
 // Small helpers
 // -----------------------------
 
+//: is_empty_line: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - is_empty_line が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn is_empty_line <(str)->bool> (s):
     let t <str> str_trim s;
     eq len t 0
 
+//: is_hr_line: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - is_hr_line が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn is_hr_line <(str)->bool> (s):
     let t <str> str_trim s;
     str_eq t "---"
 
+//: is_nest_break_line: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - is_nest_break_line が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn is_nest_break_line <(str)->bool> (s):
     let t <str> str_trim s;
     str_eq t ";;;"
 
+//: is_fence_start: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - is_fence_start が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn is_fence_start <(str)->bool> (s):
     let t <str> str_trim s;
     str_starts_with t "```"
 
+//: is_heading_start: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - is_heading_start が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn is_heading_start <(str)->bool> (s):
     let t <str> str_trim s;
     or str_starts_with t "# " or str_starts_with t "## " or str_starts_with t "### " or str_starts_with t "#### " or str_starts_with t "##### " str_starts_with t "###### "
 
+//: trim_cr: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - trim_cr が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn trim_cr <(str)->str> (s):
     let n <i32> len s;
     if:
@@ -93,9 +213,35 @@ fn trim_cr <(str)->str> (s):
                 then str_slice s 0 sub n 1
                 else s
 
+//: safe_line: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - safe_line が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn safe_line <(Vec<str>, i32)->str> (lines, i):
     trim_cr unwrap<str> vec_get<str> lines i
 
+//: close_one_section: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - close_one_section が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn close_one_section <(i32, Vec<Node>)->Vec<Node>> (stk, root):
     match stack_pop<Section> stk:
         Option::Some sec:
@@ -116,6 +262,19 @@ fn close_one_section <(i32, Vec<Node>)->Vec<Node>> (stk, root):
         Option::None:
             root
 
+//: close_to_level: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - close_to_level が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn close_to_level <(i32, Vec<Node>, i32)->Vec<Node>> (stk, root, new_level):
     // Close while top.level >= new_level
     let mut r <Vec<Node>> root;
@@ -137,6 +296,19 @@ fn close_to_level <(i32, Vec<Node>, i32)->Vec<Node>> (stk, root, new_level):
                     ()
     r
 
+//: close_all_sections: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - close_all_sections が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn close_all_sections <(i32, Vec<Node>)->Vec<Node>> (stk, root):
     let mut r <Vec<Node>> root;
     let mut done <bool> false;
@@ -151,6 +323,19 @@ fn close_all_sections <(i32, Vec<Node>)->Vec<Node>> (stk, root):
                     ()
     r
 
+//: parse_heading: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - parse_heading が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn parse_heading <(str)->Option<Heading>> (line):
     let t <str> str_trim line;
 
@@ -192,6 +377,19 @@ fn parse_heading <(str)->Option<Heading>> (line):
                                                 else:
                                                     Option::None
 
+//: parse_fence: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - parse_fence が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn parse_fence <(Vec<str>, i32)->FenceRes> (lines, i0):
     let t0 <str> str_trim safe_line lines i0;
     let info0 <str> str_slice t0 3 len t0;
@@ -226,6 +424,19 @@ fn parse_fence <(Vec<str>, i32)->FenceRes> (lines, i0):
     let cb <CodeBlock> CodeBlock info code;
     FenceRes cb i
 
+//: parse_paragraph: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - parse_paragraph が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn parse_paragraph <(Vec<str>, i32)->ParaRes> (lines, i0):
     let mut sb <StringBuilder> string_builder_new;
     let mut i <i32> i0;
@@ -267,6 +478,19 @@ fn parse_paragraph <(Vec<str>, i32)->ParaRes> (lines, i0):
 // Inline parser: Ruby / Gloss / Math
 // -----------------------------
 
+//: parse_inlines: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - parse_inlines が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn parse_inlines <(str)->Vec<Inline>> (s):
     let mut out <Vec<Inline>> vec_new<Inline>;
     let n <i32> len s;
@@ -596,6 +820,19 @@ pub fn parse_markdown <(str)->Document> (input):
 // AST -> JSON (simple)
 // -----------------------------
 
+//: json_escape: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - json_escape が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn json_escape <(str)->str> (s):
     // Minimal escape: backslash and double-quote and newline
     let mut sb <StringBuilder> string_builder_new;
@@ -620,6 +857,19 @@ fn json_escape <(str)->str> (s):
             set i add i 1;
     sb_build sb
 
+//: inlines_to_json: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - inlines_to_json が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn inlines_to_json <(Vec<Inline>)->str> (v):
     let mut sb <StringBuilder> string_builder_new;
     set sb sb_append sb "[";
@@ -669,6 +919,19 @@ fn inlines_to_json <(Vec<Inline>)->str> (v):
     set sb sb_append sb "]";
     sb_build sb
 
+//: node_to_json: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - node_to_json が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn node_to_json <(Node)->str> (node):
     let mut sb <StringBuilder> string_builder_new;
     match node:
@@ -700,6 +963,19 @@ fn node_to_json <(Node)->str> (node):
             set sb sb_append sb "}";
             sb_build sb
 
+//: nodes_to_json: 関数の概要
+//:
+//: [目的/もくてき]:
+//: - nodes_to_json が担う機能を提供します。
+//:
+//: [実装/じっそう]:
+//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//:
+//: [注意/ちゅうい]:
+//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 実装に依存します。
 fn nodes_to_json <(Vec<Node>)->str> (nodes):
     let mut sb <StringBuilder> string_builder_new;
     set sb sb_append sb "[";

@@ -1387,6 +1387,9 @@ impl Parser {
                             args,
                             span.join(block.span).unwrap_or(span),
                         ));
+                        if self.check(&TokenKind::Pipe) || self.is_pipe_continuation() {
+                            continue;
+                        }
                     }
                     break;
                 }
@@ -3294,6 +3297,8 @@ fn simple_type_atom(t: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Option<
         "i32" => Some(TypeExpr::I32),
         "u8" => Some(TypeExpr::U8),
         "f32" => Some(TypeExpr::F32),
+        "i64" => Some(TypeExpr::Named("i64".to_string())),
+        "f64" => Some(TypeExpr::Named("f64".to_string())),
         "bool" => Some(TypeExpr::Bool),
         "never" => Some(TypeExpr::Never),
         "str" => Some(TypeExpr::Str),
@@ -3302,6 +3307,15 @@ fn simple_type_atom(t: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Option<
             Some(TypeExpr::Label(Some(t.trim_start_matches('.').to_string())))
         }
         _ if t.is_empty() => Some(TypeExpr::Label(None)),
+        _ if t
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_alphabetic() || c == '_')
+            .unwrap_or(false)
+            && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') =>
+        {
+            Some(TypeExpr::Named(t.to_string()))
+        }
         _ => {
             diags.push(Diagnostic::error("unknown type in signature", span));
             None
