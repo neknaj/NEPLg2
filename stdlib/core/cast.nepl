@@ -19,7 +19,7 @@
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/result" as *
-#import "alloc/string" as *
+#import "alloc/string" as string
 
 // cast: 型変換ユーティリティ
 //
@@ -410,35 +410,35 @@ fn cast_f64_to_f32 <(f64)->f32> (v):
 
 //: cast_i32_to_str: i32 を文字列へ変換する
 fn cast_i32_to_str <(i32)*>str> (v):
-    from_i32 v
+    string::from_i32 v
 
 //: cast_str_to_i32: 文字列を i32 へ変換する
 fn cast_str_to_i32 <(str)*>Result<i32,i32>> (s):
-    to_i32 s
+    string::to_i32 s
 
 //: cast_i64_to_str: i64 を文字列へ変換する
 fn cast_i64_to_str <(i64)*>str> (v):
-    from_i64 v
+    string::from_i64 v
 
 //: cast_str_to_i64: 文字列を i64 へ変換する
 fn cast_str_to_i64 <(str)*>Result<i64,i32>> (s):
-    to_i64 s
+    string::to_i64 s
 
 //: cast_f32_to_str: f32 を文字列へ変換する
 fn cast_f32_to_str <(f32)*>str> (v):
-    from_f32 v
+    string::from_f32 v
 
 //: cast_str_to_f32: 文字列を f32 へ変換する
 fn cast_str_to_f32 <(str)*>Result<f32,i32>> (s):
-    to_f32 s
+    string::to_f32 s
 
 //: cast_f64_to_str: f64 を文字列へ変換する
 fn cast_f64_to_str <(f64)*>str> (v):
-    from_f64 v
+    string::from_f64 v
 
 //: cast_str_to_f64: 文字列を f64 へ変換する
 fn cast_str_to_f64 <(str)*>Result<f64,i32>> (s):
-    to_f64 s
+    string::to_f64 s
 
 // ptr_cast: ポインタの型を変える（unsafe）
 //
