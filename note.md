@@ -1,4 +1,32 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (nm 再現テスト追加と上流切り分け)
+- `tests/nm.n.md` を新規追加し、`nm/parser` + `nm/html_gen` の最小経路を固定した。
+  - `nm_parse_markdown_json_basic`
+  - `nm_render_document_basic`
+- `examples/nm.nepl` / `stdlib/nm/parser.nepl` の先行修正:
+  - `stdlib/nm/parser.nepl` の `if:` レイアウト由来で parser 再帰を誘発していた `let next_is_paren` 部分を段階代入へ変更。
+  - `#import "std/math"` を `#import "core/math"` に修正。
+  - `examples/nm.nepl` に `#import "std/env/cliarg" as *` を追加。
+- `nm` で露出した上流不整合の修正:
+  - `nm/parser` / `nm/html_gen` の関数シグネチャを実装実態に合わせて `*>` へ寄せた（pure/impure 不整合の解消）。
+  - `nm/parser` 内の bool 比較 (`eq done false` 等) を `not` / 直接判定へ変更。
+  - `Section` 構築時の曖昧な前置式を段階代入へ整理し、親情報取得順序を `peek -> pop` に修正。
+  - 型名衝突を解消:
+    - `Section`(struct) -> `NestSection`
+    - `Ruby`(struct) -> `RubyInfo`
+    - `Gloss`(struct) -> `GlossInfo`
+    - `CodeBlock`(struct) -> `CodeBlockInfo`
+- 検証:
+  - `NO_COLOR=true trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/nm.n.md -o /tmp/tests-nm.json -j 1`
+    - `total=69, passed=67, failed=2`
+    - 残り: `use of moved value`（`lines` / `v`）に収束
+  - `node nodesrc/tests.js -i tests -o /tmp/tests-all-after-nm.json -j 1`
+    - `total=413, passed=404, failed=9, errored=0`
+- 現在の評価:
+  - parser の停止保証は維持されたまま、nm 不具合は「Vec/str の所有権処理（vec_get/vec_len 呼び出し設計）」へ根因が絞れた。
+  - 次段は `nm/parser` のループ処理を `Vec` の `data/len` 直接アクセスへ再設計し、move-check を根本解消する。
+
 # 2026-02-10 作業メモ (parser 再帰暴走の停止保証)
 - ユーザー指示「コンパイラは必ず停止する」を受けて、`nepl-core/src/parser.rs` に停止保証を追加。
 - 実装内容（上流 parser 側）:

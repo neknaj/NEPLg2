@@ -33,7 +33,7 @@
 5. tests 全体の再分類と上流優先解消
 - `node nodesrc/tests.js -i tests -o ...` の結果を stage 別に管理する。
 - parser 起因の失敗群（stack/indent/unexpected token）を先に潰し、次に typecheck/codegen を進める。
-- 最新分類（2026-02-10）: `total=339, passed=322, failed=17`
+- 最新分類（2026-02-10）: `total=413, passed=404, failed=9`
 
 6. ドキュメント運用
 - 実装進捗・結果・失敗分析は `note.md` のみに記録する。
@@ -59,6 +59,9 @@
 - `examples/nm.nepl` を起点に、`stdlib/nm/parser` の不具合再現手順を固定する。
 - `nodesrc/analyze_source.js --stage lex|parse` とコンパイラ診断を併用し、lexer/parser/typecheck のどこで崩れているかを切り分ける。
 - 既存修正で自然治癒しているかを再検証し、未解決なら最小再現テストを `tests/` に追加してから根本修正する。
+- `tests/nm.n.md` を基準に、`nm/parser` の Vec/str 所有権処理を data/len 直接アクセスへ置換して move-check を根本解消する。
+- `nm/parser` の型名衝突（構造体名と enum variant 名）を整理し、名前解決の曖昧さを排除する。
+- `examples/nm.nepl` は `std/env/cliarg` を使った引数処理で `--ast`/`--html` の双方を回帰テスト化する。
 
 ---
 ### 以下編集禁止

@@ -6,6 +6,7 @@
 #import "core/option" as *
 #import "core/math" as *
 #import "std/stdio" as *
+#import "std/env/cliarg" as *
 
 #import "nm/parser" as *
 #import "nm/html_gen" as *

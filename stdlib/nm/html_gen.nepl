@@ -38,7 +38,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn escape_html <(str)->str> (s):
+fn escape_html <(str)*>str> (s):
     // English comments required by user preference.
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len s;
@@ -79,7 +79,7 @@ fn escape_html <(str)->str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn render_inlines <(Vec<Inline>)->str> (v):
+fn render_inlines <(Vec<Inline>)*>str> (v):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> vec_len<Inline> v;
     let mut i <i32> 0;
@@ -130,7 +130,7 @@ fn render_inlines <(Vec<Inline>)->str> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn render_nodes <(Vec<Node>)->str> (nodes):
+fn render_nodes <(Vec<Node>)*>str> (nodes):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> vec_len<Node> nodes;
     let mut i <i32> 0;
@@ -213,5 +213,5 @@ fn render_nodes <(Vec<Node>)->str> (nodes):
             set i add i 1;
     sb_build sb
 
-pub fn render_document <(Document)->str> (doc):
+pub fn render_document <(Document)*>str> (doc):
     render_nodes get doc "nodes"

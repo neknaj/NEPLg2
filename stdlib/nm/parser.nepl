@@ -35,34 +35,34 @@ pub struct Heading:
     level <i32>
     inlines <Vec<Inline>>
 
-pub struct Section:
+pub struct NestSection:
     level <i32>
     heading <Heading>
     children <Vec<Node>>
 
-pub struct Ruby:
+pub struct RubyInfo:
     base <str>
     ruby <str>
 
-pub struct Gloss:
+pub struct GlossInfo:
     main <str>
     subs <Vec<str>>
 
-pub struct CodeBlock:
+pub struct CodeBlockInfo:
     info <str>
     code <str>
 
 pub enum Inline:
     Text <str>
-    Ruby <Ruby>
-    Gloss <Gloss>
+    Ruby <RubyInfo>
+    Gloss <GlossInfo>
     Math <str>
 
 pub enum Node:
-    Section <Section>
+    Section <NestSection>
     Paragraph <Vec<Inline>>
     Hr
-    CodeBlock <CodeBlock>
+    CodeBlock <CodeBlockInfo>
 
 // Multi-return helpers (no tuple destructuring)
 //: FenceRes: 構造体の概要
@@ -79,7 +79,7 @@ pub enum Node:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
 struct FenceRes:
-    cb <CodeBlock>
+    cb <CodeBlockInfo>
     next_i <i32>
 
 //: ParaRes: 構造体の概要
@@ -116,7 +116,7 @@ struct ParaRes:
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn is_empty_line <(str)->bool> (s):
+fn is_empty_line <(str)*>bool> (s):
     let t <str> str_trim s;
     eq len t 0
 
@@ -133,7 +133,7 @@ fn is_empty_line <(str)->bool> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn is_hr_line <(str)->bool> (s):
+fn is_hr_line <(str)*>bool> (s):
     let t <str> str_trim s;
     str_eq t "---"
 
@@ -150,7 +150,7 @@ fn is_hr_line <(str)->bool> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn is_nest_break_line <(str)->bool> (s):
+fn is_nest_break_line <(str)*>bool> (s):
     let t <str> str_trim s;
     str_eq t ";;;"
 
@@ -167,7 +167,7 @@ fn is_nest_break_line <(str)->bool> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn is_fence_start <(str)->bool> (s):
+fn is_fence_start <(str)*>bool> (s):
     let t <str> str_trim s;
     str_starts_with t "```"
 
@@ -184,7 +184,7 @@ fn is_fence_start <(str)->bool> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn is_heading_start <(str)->bool> (s):
+fn is_heading_start <(str)*>bool> (s):
     let t <str> str_trim s;
     or str_starts_with t "# " or str_starts_with t "## " or str_starts_with t "### " or str_starts_with t "#### " or str_starts_with t "##### " str_starts_with t "###### "
 
@@ -201,7 +201,7 @@ fn is_heading_start <(str)->bool> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn trim_cr <(str)->str> (s):
+fn trim_cr <(str)*>str> (s):
     let n <i32> len s;
     if:
         le n 0
@@ -226,7 +226,7 @@ fn trim_cr <(str)->str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn safe_line <(Vec<str>, i32)->str> (lines, i):
+fn safe_line <(Vec<str>, i32)*>str> (lines, i):
     trim_cr unwrap<str> vec_get<str> lines i
 
 //: close_one_section: 関数の概要
@@ -242,18 +242,20 @@ fn safe_line <(Vec<str>, i32)->str> (lines, i):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn close_one_section <(i32, Vec<Node>)->Vec<Node>> (stk, root):
-    match stack_pop<Section> stk:
+fn close_one_section <(i32, Vec<Node>)*>Vec<Node>> (stk, root):
+    match stack_pop<NestSection> stk:
         Option::Some sec:
             let node <Node> Node::Section sec;
             // Append to parent if exists, else to root
-            match stack_peek<Section> stk:
-                Option::Some _:
-                    match stack_pop<Section> stk:
+            match stack_peek<NestSection> stk:
+                Option::Some top:
+                    let parent_level <i32> get top "level";
+                    let parent_heading <Heading> get top "heading";
+                    match stack_pop<NestSection> stk:
                         Option::Some parent:
                             let kids <Vec<Node>> vec_push<Node> get parent "children" node;
-                            let parent2 <Section> Section get parent "level" get parent "heading" kids;
-                            stack_push<Section> stk parent2;
+                            let parent2 <NestSection> NestSection parent_level parent_heading kids;
+                            stack_push<NestSection> stk parent2;
                             root
                         Option::None:
                             vec_push<Node> root node
@@ -275,13 +277,13 @@ fn close_one_section <(i32, Vec<Node>)->Vec<Node>> (stk, root):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn close_to_level <(i32, Vec<Node>, i32)->Vec<Node>> (stk, root, new_level):
+fn close_to_level <(i32, Vec<Node>, i32)*>Vec<Node>> (stk, root, new_level):
     // Close while top.level >= new_level
     let mut r <Vec<Node>> root;
     let mut done <bool> false;
-    while eq done false:
+    while not done:
         do:
-            match stack_peek<Section> stk:
+            match stack_peek<NestSection> stk:
                 Option::Some top:
                     if:
                         ge get top "level" new_level
@@ -309,12 +311,12 @@ fn close_to_level <(i32, Vec<Node>, i32)->Vec<Node>> (stk, root, new_level):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn close_all_sections <(i32, Vec<Node>)->Vec<Node>> (stk, root):
+fn close_all_sections <(i32, Vec<Node>)*>Vec<Node>> (stk, root):
     let mut r <Vec<Node>> root;
     let mut done <bool> false;
-    while eq done false:
+    while not done:
         do:
-            match stack_peek<Section> stk:
+            match stack_peek<NestSection> stk:
                 Option::Some _:
                     set r close_one_section stk r;
                     ()
@@ -336,7 +338,7 @@ fn close_all_sections <(i32, Vec<Node>)->Vec<Node>> (stk, root):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn parse_heading <(str)->Option<Heading>> (line):
+fn parse_heading <(str)*>Option<Heading>> (line):
     let t <str> str_trim line;
 
     if:
@@ -390,7 +392,7 @@ fn parse_heading <(str)->Option<Heading>> (line):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn parse_fence <(Vec<str>, i32)->FenceRes> (lines, i0):
+fn parse_fence <(Vec<str>, i32)*>FenceRes> (lines, i0):
     let t0 <str> str_trim safe_line lines i0;
     let info0 <str> str_slice t0 3 len t0;
     let info <str> str_trim info0;
@@ -400,7 +402,7 @@ fn parse_fence <(Vec<str>, i32)->FenceRes> (lines, i0):
     let nlines <i32> vec_len<str> lines;
 
     let mut done <bool> false;
-    while eq done false:
+    while not done:
         do:
             if:
                 ge i nlines
@@ -421,7 +423,7 @@ fn parse_fence <(Vec<str>, i32)->FenceRes> (lines, i0):
                             set i add i 1;
                             ()
     let code <str> sb_build sb;
-    let cb <CodeBlock> CodeBlock info code;
+    let cb <CodeBlockInfo> CodeBlockInfo info code;
     FenceRes cb i
 
 //: parse_paragraph: 関数の概要
@@ -437,13 +439,13 @@ fn parse_fence <(Vec<str>, i32)->FenceRes> (lines, i0):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn parse_paragraph <(Vec<str>, i32)->ParaRes> (lines, i0):
+fn parse_paragraph <(Vec<str>, i32)*>ParaRes> (lines, i0):
     let mut sb <StringBuilder> string_builder_new;
     let mut i <i32> i0;
     let nlines <i32> vec_len<str> lines;
 
     let mut done <bool> false;
-    while eq done false:
+    while not done:
         do:
             if:
                 ge i nlines
@@ -491,7 +493,7 @@ fn parse_paragraph <(Vec<str>, i32)->ParaRes> (lines, i0):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn parse_inlines <(str)->Vec<Inline>> (s):
+fn parse_inlines <(str)*>Vec<Inline>> (s):
     let mut out <Vec<Inline>> vec_new<Inline>;
     let n <i32> len s;
     let mut i <i32> 0;
@@ -526,7 +528,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                     let mut j <i32> add i delim;
                     let mut found <bool> false;
 
-                    while and lt j n eq found false:
+                    while and lt j n not found:
                         do:
                             let c0 <i32> load_u8 add s add 4 j;
                             if:
@@ -549,7 +551,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             set j add j 1
 
                     if:
-                        eq found true
+                        found
                         then:
                             let endpos <i32> add j delim;
                             let m <str> str_slice s i endpos;
@@ -571,7 +573,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                             let mut slash <i32> -1;
                             let mut closed <bool> false;
 
-                            while and lt j n eq closed false:
+                            while and lt j n not closed:
                                 do:
                                     let cj <i32> load_u8 add s add 4 j;
                                     if:
@@ -585,7 +587,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             set j add j 1;
                                             ()
                             if:
-                                and eq closed true ge slash 0
+                                and closed ge slash 0
                                 then:
                                     let mut next_is_paren <bool> false;
                                     if:
@@ -597,7 +599,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                         else ()
 
                                     if:
-                                        eq next_is_paren true
+                                        next_is_paren
                                         then:
                                             set i add i 1;
                                             ()
@@ -610,7 +612,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
 
                                             let base <str> str_slice s add i 1 slash;
                                             let rub <str> str_slice s add slash 1 j;
-                                            let r <Ruby> Ruby base rub;
+                                            let r <RubyInfo> RubyInfo base rub;
                                             set out vec_push<Inline> out Inline::Ruby r;
 
                                             set i add j 1;
@@ -626,7 +628,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                 then:
                                     let mut j <i32> add i 1;
                                     let mut closed <bool> false;
-                                    while and lt j n eq closed false:
+                                    while and lt j n not closed:
                                         do:
                                             let cj <i32> load_u8 add s add 4 j;
                                             if:
@@ -634,7 +636,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                                 then set closed true
                                                 else set j add j 1
                                     if:
-                                        eq closed true
+                                        closed
                                         then:
                                             // Flush pending text
                                             let seg <str> str_slice s text_start i;
@@ -685,7 +687,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                                             let p <str> unwrap<str> vec_get<str> parts idx;
                                                             set subs vec_push<str> subs p;
                                                             set idx add idx 1;
-                                                    let g <Gloss> Gloss main subs;
+                                                    let g <GlossInfo> GlossInfo main subs;
                                                     set out vec_push<Inline> out Inline::Gloss g;
                                                     set i add j 1;
                                                     set text_start i;
@@ -712,12 +714,12 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
 // Main block parser + Nest builder
 // -----------------------------
 
-pub fn parse_markdown <(str)->Document> (input):
+pub fn parse_markdown <(str)*>Document> (input):
     let lines <Vec<str>> str_split input "\n";
     let nlines <i32> vec_len<str> lines;
 
     let mut root <Vec<Node>> vec_new<Node>;
-    let stk <i32> stack_new<Section>;
+    let stk <i32> stack_new<NestSection>;
 
     let mut i <i32> 0;
 
@@ -742,13 +744,15 @@ pub fn parse_markdown <(str)->Document> (input):
                                 then:
                                     set root close_one_section stk root;
                                     let hr <Node> Node::Hr;
-                                    match stack_peek<Section> stk:
-                                        Option::Some _:
-                                            match stack_pop<Section> stk:
+                                    match stack_peek<NestSection> stk:
+                                        Option::Some top:
+                                            let parent_level <i32> get top "level";
+                                            let parent_heading <Heading> get top "heading";
+                                            match stack_pop<NestSection> stk:
                                                 Option::Some parent:
                                                     let kids <Vec<Node>> vec_push<Node> get parent "children" hr;
-                                                    let parent2 <Section> Section get parent "level" get parent "heading" kids;
-                                                    stack_push<Section> stk parent2;
+                                                    let parent2 <NestSection> NestSection parent_level parent_heading kids;
+                                                    stack_push<NestSection> stk parent2;
                                                     ()
                                                 Option::None:
                                                     set root vec_push<Node> root hr;
@@ -765,13 +769,15 @@ pub fn parse_markdown <(str)->Document> (input):
                                             let fr <FenceRes> parse_fence lines i;
                                             let node <Node> Node::CodeBlock get fr "cb";
 
-                                            match stack_peek<Section> stk:
-                                                Option::Some _:
-                                                    match stack_pop<Section> stk:
+                                            match stack_peek<NestSection> stk:
+                                                Option::Some top:
+                                                    let parent_level <i32> get top "level";
+                                                    let parent_heading <Heading> get top "heading";
+                                                    match stack_pop<NestSection> stk:
                                                         Option::Some parent:
                                                             let kids <Vec<Node>> vec_push<Node> get parent "children" node;
-                                                            let parent2 <Section> Section get parent "level" get parent "heading" kids;
-                                                            stack_push<Section> stk parent2;
+                                                            let parent2 <NestSection> NestSection parent_level parent_heading kids;
+                                                            stack_push<NestSection> stk parent2;
                                                             ()
                                                         Option::None:
                                                             set root vec_push<Node> root node;
@@ -787,8 +793,9 @@ pub fn parse_markdown <(str)->Document> (input):
                                                     // Close to this heading level
                                                     set root close_to_level stk root get h "level";
 
-                                                    let sec <Section> Section h.level h vec_new<Node>;
-                                                    stack_push<Section> stk sec;
+                                                    let h_level <i32> get h "level";
+                                                    let sec <NestSection> NestSection h_level h vec_new<Node>;
+                                                    stack_push<NestSection> stk sec;
                                                     set i add i 1;
                                                     ()
                                                 Option::None:
@@ -796,13 +803,15 @@ pub fn parse_markdown <(str)->Document> (input):
                                                     let pr <ParaRes> parse_paragraph lines i;
                                                     let pnode <Node> Node::Paragraph get pr "inlines";
 
-                                                    match stack_peek<Section> stk:
-                                                        Option::Some _:
-                                                            match stack_pop<Section> stk:
+                                                    match stack_peek<NestSection> stk:
+                                                        Option::Some top:
+                                                            let parent_level <i32> get top "level";
+                                                            let parent_heading <Heading> get top "heading";
+                                                            match stack_pop<NestSection> stk:
                                                                 Option::Some parent:
                                                                     let kids <Vec<Node>> vec_push<Node> get parent "children" pnode;
-                                                                    let parent2 <Section> Section get parent "level" get parent "heading" kids;
-                                                                    stack_push<Section> stk parent2;
+                                                                    let parent2 <NestSection> NestSection parent_level parent_heading kids;
+                                                                    stack_push<NestSection> stk parent2;
                                                                     ()
                                                                 Option::None:
                                                                     set root vec_push<Node> root pnode;
@@ -834,7 +843,7 @@ pub fn parse_markdown <(str)->Document> (input):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn json_escape <(str)->str> (s):
+fn json_escape <(str)*>str> (s):
     // Minimal escape: backslash and double-quote and newline
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len s;
@@ -871,7 +880,7 @@ fn json_escape <(str)->str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn inlines_to_json <(Vec<Inline>)->str> (v):
+fn inlines_to_json <(Vec<Inline>)*>str> (v):
     let mut sb <StringBuilder> string_builder_new;
     set sb sb_append sb "[";
     let n <i32> vec_len<Inline> v;
@@ -933,7 +942,7 @@ fn inlines_to_json <(Vec<Inline>)->str> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn node_to_json <(Node)->str> (node):
+fn node_to_json <(Node)*>str> (node):
     let mut sb <StringBuilder> string_builder_new;
     match node:
         Node::Hr:
@@ -977,7 +986,7 @@ fn node_to_json <(Node)->str> (node):
 //:
 //: [計算量/けいさんりょう]:
 //: - 実装に依存します。
-fn nodes_to_json <(Vec<Node>)->str> (nodes):
+fn nodes_to_json <(Vec<Node>)*>str> (nodes):
     let mut sb <StringBuilder> string_builder_new;
     set sb sb_append sb "[";
     let n <i32> vec_len<Node> nodes;
@@ -994,7 +1003,7 @@ fn nodes_to_json <(Vec<Node>)->str> (nodes):
     set sb sb_append sb "]";
     sb_build sb
 
-pub fn document_to_json <(Document)->str> (doc):
+pub fn document_to_json <(Document)*>str> (doc):
     let mut sb <StringBuilder> string_builder_new;
     set sb sb_append sb "{\"t\":\"doc\",\"nodes\":";
     set sb sb_append sb nodes_to_json get doc "nodes";
