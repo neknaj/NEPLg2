@@ -1,4 +1,26 @@
 # 状況メモ (2026-01-22)
+# 2026-02-10 作業メモ (上流修正 継続: parser/typecheck)
+- 失敗分類を再実施し、上流（lexer/parser）と typecheck の境界を切り分けた。
+  - 起点: `/tmp/tests-current.json` = `total=312, passed=249, failed=63, errored=0`
+- parser の根本修正:
+  - `nepl-core/src/parser.rs` で識別子解析を共通化（`parse_ident_symbol_item`）。
+  - これにより、式文脈ごとの実装差分を排除し、以下を統一対応:
+    - `@name`
+    - `::`（名前空間パス）
+    - `.`（フィールド連結）
+    - `<...>`（型引数）
+  - `Option<.T>::None` / `Option<.T>::Some` のような「型引数 + PathSep」の連結が parse できるよう修正。
+- typecheck の根本修正（pipe 簡約）:
+  - `nepl-core/src/typecheck.rs` の `reduce_calls` / `reduce_calls_guarded` を open_calls 最適化依存から、スタック走査ベースへ戻した。
+  - `|>` 注入時の呼び出し取りこぼし（`expression left extra values on the stack` 多発）の主要因を除去。
+- 計測:
+  - `/tmp/tests-after-upstream-pass.json` = `total=312, passed=261, failed=51, errored=0`
+  - `/tmp/tests-after-option-fix.json` = `total=312, passed=271, failed=41, errored=0`
+- 残課題（次段）:
+  - `tests/functions.n.md`（11 fail）: nested fn / function-literal / alias / entry 生成整合
+  - `tests/neplg2.n.md`（8 fail）と `tests/selfhost_req.n.md`（5 fail）: namespace と callable 解決の構造問題
+  - `tests/pipe_operator.n.md`（4 fail）: pipe 自体の上流問題は縮小済みで、残りは型注釈/構造体アクセス仕様との整合が中心
+
 # 2026-02-10 作業メモ (lexer/parser 解析API追加)
 - VSCode 拡張計画（todo.md の LSP / VSCode 項）を再確認し、上流解析を可視化する API を先に追加した。
 - `nepl-web/src/lib.rs` に wasm 公開関数を追加:

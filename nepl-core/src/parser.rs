@@ -470,11 +470,29 @@ impl Parser {
         if !self.consume_if(&TokenKind::KwLet) {
             return None;
         }
-        let (name, nspan) = self.expect_ident()?;
+        let (name, nspan) = match self.expect_ident() {
+            Some(v) => v,
+            None => {
+                self.pos = saved_pos;
+                self.diagnostics.truncate(saved_diags_len);
+                return None;
+            }
+        };
 
         let signature = if self.consume_if(&TokenKind::LAngle) {
-            let sig = self.parse_type_expr()?;
-            self.expect(&TokenKind::RAngle)?;
+            let sig = match self.parse_type_expr() {
+                Some(s) => s,
+                None => {
+                    self.pos = saved_pos;
+                    self.diagnostics.truncate(saved_diags_len);
+                    return None;
+                }
+            };
+            if !self.consume_if(&TokenKind::RAngle) {
+                self.pos = saved_pos;
+                self.diagnostics.truncate(saved_diags_len);
+                return None;
+            }
             Some(sig)
         } else {
             None
@@ -485,13 +503,27 @@ impl Parser {
             self.diagnostics.truncate(saved_diags_len);
             return None;
         }
-        let params = self.parse_param_list()?;
+        let params = match self.parse_param_list() {
+            Some(p) => p,
+            None => {
+                self.pos = saved_pos;
+                self.diagnostics.truncate(saved_diags_len);
+                return None;
+            }
+        };
         if !self.consume_if(&TokenKind::Colon) {
             self.pos = saved_pos;
             self.diagnostics.truncate(saved_diags_len);
             return None;
         }
-        let body = self.parse_block_after_colon()?;
+        let body = match self.parse_block_after_colon() {
+            Some(b) => b,
+            None => {
+                self.pos = saved_pos;
+                self.diagnostics.truncate(saved_diags_len);
+                return None;
+            }
+        };
 
         let fn_body = match body.items.first() {
             Some(Stmt::Wasm(wb)) if body.items.len() == 1 => FnBody::Wasm(wb.clone()),
@@ -516,32 +548,44 @@ impl Parser {
         let type_params = self.parse_generic_params();
         self.expect(&TokenKind::Colon)?;
         let mut fields = Vec::new();
-        if !self.consume_if(&TokenKind::Newline) {
-            let span = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics.push(Diagnostic::error(
-                "expected newline after struct header",
-                span,
-            ));
-        }
-        self.expect(&TokenKind::Indent)?;
-        while !self.check(&TokenKind::Dedent) && !self.is_eof() {
-            if self.consume_if(&TokenKind::Newline) {
-                continue;
+        if self.consume_if(&TokenKind::Newline) {
+            self.expect(&TokenKind::Indent)?;
+            while !self.check(&TokenKind::Dedent) && !self.is_eof() {
+                if self.consume_if(&TokenKind::Newline) {
+                    continue;
+                }
+                let (fname, fspan) = self.expect_ident()?;
+                self.expect(&TokenKind::LAngle)?;
+                let fty = self.parse_type_expr()?;
+                self.expect(&TokenKind::RAngle)?;
+                fields.push((
+                    Ident {
+                        name: fname,
+                        span: fspan,
+                    },
+                    fty,
+                ));
+                self.consume_if(&TokenKind::Newline);
             }
-            let (fname, fspan) = self.expect_ident()?;
-            self.expect(&TokenKind::LAngle)?;
-            let fty = self.parse_type_expr()?;
-            self.expect(&TokenKind::RAngle)?;
-            fields.push((
-                Ident {
-                    name: fname,
-                    span: fspan,
-                },
-                fty,
-            ));
-            self.consume_if(&TokenKind::Newline);
+            self.expect(&TokenKind::Dedent)?;
+        } else {
+            while !self.is_end(&TokenEnd::Line) {
+                let (fname, fspan) = self.expect_ident()?;
+                self.expect(&TokenKind::LAngle)?;
+                let fty = self.parse_type_expr()?;
+                self.expect(&TokenKind::RAngle)?;
+                fields.push((
+                    Ident {
+                        name: fname,
+                        span: fspan,
+                    },
+                    fty,
+                ));
+                if !self.consume_if(&TokenKind::Semicolon) {
+                    break;
+                }
+            }
         }
-        self.expect(&TokenKind::Dedent)?;
         Some(Stmt::StructDef(StructDef {
             vis,
             name: Ident { name, span: nspan },
@@ -556,37 +600,53 @@ impl Parser {
         let (name, nspan) = self.expect_ident()?;
         let type_params = self.parse_generic_params();
         self.expect(&TokenKind::Colon)?;
-        if !self.consume_if(&TokenKind::Newline) {
-            let span = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics.push(Diagnostic::error(
-                "expected newline after enum header",
-                span,
-            ));
-        }
-        self.expect(&TokenKind::Indent)?;
         let mut variants = Vec::new();
-        while !self.check(&TokenKind::Dedent) && !self.is_eof() {
-            if self.consume_if(&TokenKind::Newline) {
-                continue;
+        if self.consume_if(&TokenKind::Newline) {
+            self.expect(&TokenKind::Indent)?;
+            while !self.check(&TokenKind::Dedent) && !self.is_eof() {
+                if self.consume_if(&TokenKind::Newline) {
+                    continue;
+                }
+                let (vname, vspan) = self.expect_ident()?;
+                let payload = if self.consume_if(&TokenKind::LAngle) {
+                    let ty = self.parse_type_expr()?;
+                    self.expect(&TokenKind::RAngle)?;
+                    Some(ty)
+                } else {
+                    None
+                };
+                variants.push(EnumVariant {
+                    name: Ident {
+                        name: vname,
+                        span: vspan,
+                    },
+                    payload,
+                });
+                self.consume_if(&TokenKind::Newline);
             }
-            let (vname, vspan) = self.expect_ident()?;
-            let payload = if self.consume_if(&TokenKind::LAngle) {
-                let ty = self.parse_type_expr()?;
-                self.expect(&TokenKind::RAngle)?;
-                Some(ty)
-            } else {
-                None
-            };
-            variants.push(EnumVariant {
-                name: Ident {
-                    name: vname,
-                    span: vspan,
-                },
-                payload,
-            });
-            self.consume_if(&TokenKind::Newline);
+            self.expect(&TokenKind::Dedent)?;
+        } else {
+            while !self.is_end(&TokenEnd::Line) {
+                let (vname, vspan) = self.expect_ident()?;
+                let payload = if self.consume_if(&TokenKind::LAngle) {
+                    let ty = self.parse_type_expr()?;
+                    self.expect(&TokenKind::RAngle)?;
+                    Some(ty)
+                } else {
+                    None
+                };
+                variants.push(EnumVariant {
+                    name: Ident {
+                        name: vname,
+                        span: vspan,
+                    },
+                    payload,
+                });
+                if !self.consume_if(&TokenKind::Semicolon) {
+                    break;
+                }
+            }
         }
-        self.expect(&TokenKind::Dedent)?;
         Some(Stmt::EnumDef(EnumDef {
             vis,
             name: Ident { name, span: nspan },
@@ -729,11 +789,16 @@ impl Parser {
     }
 
     fn parse_block_after_colon(&mut self) -> Option<Block> {
-        while self.consume_if(&TokenKind::Newline) {}
-        self.expect(&TokenKind::Indent)?;
-        let block = self.parse_block_until(TokenEnd::Dedent)?;
-        self.expect(&TokenKind::Dedent)?;
-        Some(block)
+        if self.consume_if(&TokenKind::Newline) {
+            while self.consume_if(&TokenKind::Newline) {}
+            self.expect(&TokenKind::Indent)?;
+            let block = self.parse_block_until(TokenEnd::Dedent)?;
+            self.expect(&TokenKind::Dedent)?;
+            Some(block)
+        } else {
+            let start = self.peek_span().unwrap_or_else(Span::dummy);
+            self.parse_single_line_block(start)
+        }
     }
 
     fn parse_trait(&mut self) -> Option<Stmt> {
@@ -1148,80 +1213,8 @@ impl Parser {
                     break;
                 }
                 TokenKind::At | TokenKind::Ident(_) => {
-                    let at_span = if self.check(&TokenKind::At) {
-                        Some(self.next().unwrap().span)
-                    } else {
-                        None
-                    };
-                    let tok = self.next().unwrap();
-                    let name = if let TokenKind::Ident(n) = tok.kind {
-                        n
-                    } else {
-                        let sp = at_span.unwrap_or(tok.span);
-                        self.diagnostics.push(Diagnostic::error(
-                            "expected identifier after '@'",
-                            sp,
-                        ));
-                        continue;
-                    };
-                    let mut full = name;
-                    let mut end_span = tok.span;
-                    let mut type_args = Vec::new();
-                    loop {
-                        if self.check(&TokenKind::LAngle) {
-                            let next_span = self.peek_span().unwrap_or(end_span);
-                            if next_span.file_id != end_span.file_id
-                                || next_span.start != end_span.end
-                            {
-                                break;
-                            }
-                            let saved = self.pos;
-                            let saved_diags = self.diagnostics.len();
-                            self.next(); // consume <
-                            let mut ok = true;
-                            let mut temp_args = Vec::new();
-                            loop {
-                                if let Some(ty) = self.parse_type_expr() {
-                                    temp_args.push(ty);
-                                } else {
-                                    ok = false;
-                                    break;
-                                }
-                                if self.consume_if(&TokenKind::Comma) {
-                                    continue;
-                                }
-                                break;
-                            }
-                            if ok && self.consume_if(&TokenKind::RAngle) {
-                                type_args.extend(temp_args);
-                            } else {
-                                self.pos = saved;
-                                self.diagnostics.truncate(saved_diags);
-                                break;
-                            }
-                        } else if self.check(&TokenKind::PathSep) {
-                            let _ = self.next();
-                            if let Some(TokenKind::Ident(_)) = self.peek_kind() {
-                                let tok2 = self.next().unwrap();
-                                let n2 = if let TokenKind::Ident(n) = tok2.kind { n } else { unreachable!() };
-                                full.push_str("::");
-                                full.push_str(&n2);
-                                end_span = end_span.join(tok2.span).unwrap_or(tok2.span);
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-
-                    items.push(PrefixItem::Symbol(Symbol::Ident(
-                        Ident {
-                            name: full,
-                            span: end_span,
-                        },
-                        type_args,
-                    )));
+                    let ident_item = self.parse_ident_symbol_item(true, true)?;
+                    items.push(ident_item);
                 }
                 TokenKind::Ampersand => {
                     let span = self.next().unwrap().span;
@@ -1523,66 +1516,8 @@ impl Parser {
                     break;
                 }
                 TokenKind::At | TokenKind::Ident(_) => {
-                    let at_span = if self.check(&TokenKind::At) {
-                        Some(self.next().unwrap().span)
-                    } else {
-                        None
-                    };
-                    let tok = self.next().unwrap();
-                    let name = if let TokenKind::Ident(n) = tok.kind {
-                        n
-                    } else {
-                        let sp = at_span.unwrap_or(tok.span);
-                        self.diagnostics.push(Diagnostic::error(
-                            "expected identifier after '@'",
-                            sp,
-                        ));
-                        continue;
-                    };
-                    let mut full = name;
-                    let mut end_span = tok.span;
-                    // Path separators: mod::item
-                    while self.check(&TokenKind::PathSep) {
-                        let _ = self.next();
-                        if let Some(TokenKind::Ident(_)) = self.peek_kind() {
-                            let tok2 = self.next().unwrap();
-                            let n2 = if let TokenKind::Ident(n) = tok2.kind { n } else { unreachable!() };
-                            full.push_str("::");
-                            full.push_str(&n2);
-                            end_span = end_span.join(tok2.span).unwrap_or(tok2.span);
-                        } else {
-                            break;
-                        }
-                    }
-
-                    // Handle type arguments: vec_new<.i32>
-                    let mut type_args = Vec::new();
-                    if self.check(&TokenKind::LAngle) {
-                        let next_span = self.peek_span().unwrap_or(end_span);
-                        if next_span.file_id == end_span.file_id
-                            && next_span.start == end_span.end
-                        {
-                            self.next();
-                            loop {
-                                if let Some(ty) = self.parse_type_expr() {
-                                    type_args.push(ty);
-                                }
-                                if self.consume_if(&TokenKind::Comma) {
-                                    continue;
-                                }
-                                break;
-                            }
-                            self.expect(&TokenKind::RAngle)?;
-                        }
-                    }
-
-                    items.push(PrefixItem::Symbol(Symbol::Ident(
-                        Ident {
-                            name: full,
-                            span: end_span,
-                        },
-                        type_args,
-                    )));
+                    let ident_item = self.parse_ident_symbol_item(true, true)?;
+                    items.push(ident_item);
                 }
                 TokenKind::Ampersand => {
                     let span = self.next().unwrap().span;
@@ -1727,64 +1662,9 @@ impl Parser {
                     }
                 }
                 TokenKind::At | TokenKind::Ident(_) => {
-                    let at_span = if self.check(&TokenKind::At) {
-                        Some(self.next().unwrap().span)
-                    } else {
-                        None
-                    };
-                    let tok = self.next().unwrap();
-                    let name = if let TokenKind::Ident(n) = tok.kind {
-                        n
-                    } else {
-                        let sp = at_span.unwrap_or(tok.span);
-                        self.diagnostics.push(Diagnostic::error(
-                            "expected identifier after '@'",
-                            sp,
-                        ));
-                        continue;
-                    };
-                    let mut full_name = name;
-                    let mut span = tok.span;
-                    
-                    // Handle field access: v.len, self.foo.bar
-                    while self.consume_if(&TokenKind::Dot) {
-                        if let Some((field, fspan)) = self.expect_ident() {
-                            full_name.push('.');
-                            full_name.push_str(&field);
-                            span = span.join(fspan).unwrap_or(span);
-                        } else {
-                            break;
-                        }
-                    }
-
-                    // Handle type arguments: vec_new<.i32>
-                    let mut type_args = Vec::new();
-                    if self.check(&TokenKind::LAngle) {
-                        let next_span = self.peek_span().unwrap_or(span);
-                        if next_span.file_id == span.file_id
-                            && next_span.start == span.end
-                        {
-                            self.next();
-                            loop {
-                                if let Some(ty) = self.parse_type_expr() {
-                                    type_args.push(ty);
-                                }
-                                if self.consume_if(&TokenKind::Comma) {
-                                    continue;
-                                }
-                                break;
-                            }
-                            self.expect(&TokenKind::RAngle)?;
-                        }
-                    }
-
-                    items.push(PrefixItem::Symbol(Symbol::Ident(
-                        Ident {
-                            name: full_name,
-                            span: span,
-                        },
-                        type_args,
-                    )));
+                    // match scrutinee 側でも `E::A` / `obj.field` を同じ規則で扱う
+                    let ident_item = self.parse_ident_symbol_item(true, true)?;
+                    items.push(ident_item);
                 }
                 TokenKind::KwLet => {
                     let _ = self.next();
@@ -2579,6 +2459,103 @@ impl Parser {
     // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------
+
+    fn parse_ident_symbol_item(
+        &mut self,
+        allow_path_sep: bool,
+        allow_dot: bool,
+    ) -> Option<PrefixItem> {
+        let at_span = if self.check(&TokenKind::At) {
+            Some(self.next().unwrap().span)
+        } else {
+            None
+        };
+        let tok = self.next()?;
+        let name = if let TokenKind::Ident(n) = tok.kind {
+            n
+        } else {
+            let sp = at_span.unwrap_or(tok.span);
+            self.diagnostics
+                .push(Diagnostic::error("expected identifier after '@'", sp));
+            return None;
+        };
+
+        let mut full = name;
+        let mut end_span = tok.span;
+
+        let mut type_args = Vec::new();
+        loop {
+            if allow_path_sep && self.check(&TokenKind::PathSep) {
+                self.next();
+                if let Some(TokenKind::Ident(_)) = self.peek_kind() {
+                    let tok2 = self.next().unwrap();
+                    let n2 = if let TokenKind::Ident(n) = tok2.kind {
+                        n
+                    } else {
+                        unreachable!()
+                    };
+                    full.push_str("::");
+                    full.push_str(&n2);
+                    end_span = end_span.join(tok2.span).unwrap_or(tok2.span);
+                    continue;
+                }
+                break;
+            }
+
+            if allow_dot && self.check(&TokenKind::Dot) {
+                self.next();
+                if let Some((field, fspan)) = self.expect_ident() {
+                    full.push('.');
+                    full.push_str(&field);
+                    end_span = end_span.join(fspan).unwrap_or(end_span);
+                    continue;
+                }
+                break;
+            }
+
+            // `ident<...>` 形式のみを型引数として解釈し、曖昧な場合は巻き戻す。
+            if self.check(&TokenKind::LAngle) {
+                let next_span = self.peek_span().unwrap_or(end_span);
+                if next_span.file_id == end_span.file_id && next_span.start == end_span.end {
+                    let saved = self.pos;
+                    let saved_diags = self.diagnostics.len();
+                    self.next(); // consume <
+
+                    let mut ok = true;
+                    let mut temp_args = Vec::new();
+                    loop {
+                        if let Some(ty) = self.parse_type_expr() {
+                            temp_args.push(ty);
+                        } else {
+                            ok = false;
+                            break;
+                        }
+                        if self.consume_if(&TokenKind::Comma) {
+                            continue;
+                        }
+                        break;
+                    }
+
+                    if ok && self.consume_if(&TokenKind::RAngle) {
+                        type_args.extend(temp_args);
+                        continue;
+                    } else {
+                        self.pos = saved;
+                        self.diagnostics.truncate(saved_diags);
+                    }
+                }
+            }
+            break;
+        }
+
+        Some(PrefixItem::Symbol(Symbol::Ident(
+            Ident {
+                name: full,
+                span: end_span,
+            },
+            type_args,
+        )))
+    }
 
     fn expect(&mut self, kind: &TokenKind) -> Option<()> {
         if self.consume_if(kind) {

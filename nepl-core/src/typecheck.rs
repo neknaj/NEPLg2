@@ -2253,6 +2253,12 @@ impl<'a> BlockChecker<'a> {
                     // The last pushed element should be a callable (function type)
                     if let Some(top) = stack.last() {
                         if matches!(self.ctx.get(top.ty), TypeKind::Function { .. }) {
+                            // pipe では「関数を積んだ直後に引数を注入」するため、
+                            // 通常の末尾関数追跡だけでは open_calls に載らない。
+                            let func_idx = stack.len() - 1;
+                            if !open_calls.iter().any(|&i| i == func_idx) {
+                                open_calls.push(func_idx);
+                            }
                             stack.push(val);
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
@@ -2414,7 +2420,7 @@ impl<'a> BlockChecker<'a> {
     fn reduce_calls(
         &mut self,
         stack: &mut Vec<StackEntry>,
-        open_calls: &mut Vec<usize>,
+        _open_calls: &mut Vec<usize>,
         expected: Option<(TypeId, usize)>,
     ) {
         let max_iterations = 1000; // Safety limit to prevent infinite loops
@@ -2429,11 +2435,12 @@ impl<'a> BlockChecker<'a> {
                 break;
             }
             dump!("reduce_calls: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
-            
-            // Optimization: Use open_calls stack instead of scanning
-            open_calls.retain(|&i| i < stack.len());
-            let func_pos = match open_calls.last() {
-                Some(&p) => p,
+
+            let func_pos = match stack.iter().rposition(|e| {
+                let rty = self.ctx.resolve(e.ty);
+                matches!(self.ctx.get(rty), TypeKind::Function { .. })
+            }) {
+                Some(p) => p,
                 None => break,
             };
 
@@ -2451,8 +2458,7 @@ impl<'a> BlockChecker<'a> {
                     ..
                 } => (params, result, effect),
                 _ => {
-                    // Not a function anymore? Should be unreachable if open_calls is maintained correctly.
-                    open_calls.pop();
+                    // 走査時点で関数でなくなっていた場合は次の候補を探す。
                     continue;
                 }
             };
@@ -2487,18 +2493,9 @@ impl<'a> BlockChecker<'a> {
                 fresh_args,
                 expected_ret,
             );
-            
-            // Consumed function from open_calls
-            open_calls.pop();
 
             if let Some(val) = applied {
                 stack.insert(func_pos, val);
-                // If the result is a function, track it
-                 let rty = self.ctx.resolve(stack[func_pos].ty);
-                 if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
-                     // It is at the same position as the old function
-                     open_calls.push(func_pos);
-                 }
             } else {
                 break;
             }
@@ -2508,7 +2505,7 @@ impl<'a> BlockChecker<'a> {
     fn reduce_calls_guarded(
         &mut self,
         stack: &mut Vec<StackEntry>,
-        open_calls: &mut Vec<usize>,
+        _open_calls: &mut Vec<usize>,
         min_func_pos: usize,
         expected: Option<(TypeId, usize)>,
     ) {
@@ -2524,11 +2521,17 @@ impl<'a> BlockChecker<'a> {
                 break;
             }
             dump!("reduce_calls_guarded: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
-            
-            open_calls.retain(|&i| i < stack.len());
-            let func_pos = match open_calls.last() {
-                Some(&p) if p >= min_func_pos => p,
-                _ => break,
+
+            let mut func_pos: Option<usize> = None;
+            for i in (min_func_pos..stack.len()).rev() {
+                let rty = self.ctx.resolve(stack[i].ty);
+                if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                    func_pos = Some(i);
+                    break;
+                }
+            }
+            let Some(func_pos) = func_pos else {
+                break;
             };
 
             let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
@@ -2545,7 +2548,7 @@ impl<'a> BlockChecker<'a> {
                     ..
                 } => (params, result, effect),
                  _ => {
-                    open_calls.pop();
+                    // 走査時点で関数でなくなっていた場合は次の候補を探す。
                     continue;
                 }
             };
@@ -2580,15 +2583,9 @@ impl<'a> BlockChecker<'a> {
                 fresh_args,
                 expected_ret,
             );
-            
-            open_calls.pop();
 
             if let Some(val) = applied {
                 stack.insert(func_pos, val);
-                 let rty = self.ctx.resolve(stack[func_pos].ty);
-                 if matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
-                     open_calls.push(func_pos);
-                 }
             } else {
                 break;
             }
