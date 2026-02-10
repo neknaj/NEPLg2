@@ -1545,3 +1545,5 @@
   - `dist/tutorials/nepl-web-*.js` / `dist/tutorials/nepl-web-*_bg.wasm` が生成されることを確認。
   - `dist/tutorials/getting_started/01_hello_world.html` が
     `new URL('../nepl-web-*.js', location.href)` を参照し、`fetch(index.html)` が無いことを確認。
+  - 追加で `nepl-web_bg.wasm` も互換名として生成するよう修正し、
+    wasm-bindgen 生成 JS が既定名を参照するケースでも 404 しないことを確認。

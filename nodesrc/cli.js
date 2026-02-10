@@ -167,11 +167,21 @@ function prepareHtmlPlayAssets(outRootHtmlPlay) {
         );
     }
     const { pair } = found;
-    copyFile(pair.jsPath, path.join(outRootHtmlPlay, pair.jsFile));
-    copyFile(pair.wasmPath, path.join(outRootHtmlPlay, pair.wasmFile));
+    const jsOut = path.join(outRootHtmlPlay, pair.jsFile);
+    const wasmOut = path.join(outRootHtmlPlay, pair.wasmFile);
+    copyFile(pair.jsPath, jsOut);
+    copyFile(pair.wasmPath, wasmOut);
+
+    // wasm-bindgen 生成 JS が既定で参照する名前の互換ファイルも置く。
+    // 例: nepl-web-<hash>.js が内部で "nepl-web_bg.wasm" を fetch するケース。
+    const wasmCompatOut = path.join(outRootHtmlPlay, 'nepl-web_bg.wasm');
+    if (path.basename(wasmOut) !== 'nepl-web_bg.wasm') {
+        copyFile(pair.wasmPath, wasmCompatOut);
+    }
     return {
         jsFile: pair.jsFile,
         wasmFile: pair.wasmFile,
+        wasmCompatFile: 'nepl-web_bg.wasm',
         sourceDistDir: found.distDir,
     };
 }
