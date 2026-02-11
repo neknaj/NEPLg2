@@ -3,7 +3,8 @@
 // - 既存 html_gen.js は維持したまま、チュートリアル向けの実行可能 HTML を生成する。
 // - pre>code(language-neplg2) をクリックすると、ポップアップエディタで Run / Interrupt / 出力確認ができる。
 
-const { renderNode } = require('./html_gen');
+const { renderNode, renderInlines } = require('./html_gen');
+const { parseInlines } = require('./parser');
 const fs = require('fs');
 const path = require('path');
 
@@ -26,11 +27,15 @@ function renderToc(tocLinks) {
     }
     const items = tocLinks.map(link => {
         const depth = Number.isFinite(link.depth) ? Math.max(0, Math.min(6, link.depth)) : 0;
+
+        const labelNodes = parseInlines(String(link.label || ''));
+        const labelHtml = renderInlines(labelNodes);
+
         if (link.isGroup) {
-            return `<li><div class="toc-group depth-${depth}">${escapeHtml(String(link.label || ''))}</div></li>`;
+            return `<li><div class="toc-group depth-${depth}">${labelHtml}</div></li>`;
         }
         const cls = link.active ? `toc-link active depth-${depth}` : `toc-link depth-${depth}`;
-        return `<li><a class="${cls}" href="${escapeHtml(String(link.href || ''))}">${escapeHtml(String(link.label || ''))}</a></li>`;
+        return `<li><a class="${cls}" href="${escapeHtml(String(link.href || ''))}">${labelHtml}</a></li>`;
     }).join('\n');
     return `<aside class="doc-sidebar"><div class="sidebar-header"><div class="toc-title">Getting Started</div></div><ul class="toc-list">${items}</ul></aside>`;
 }
