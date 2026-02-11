@@ -12,9 +12,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn twice <(i32)->i32> (x):
     mul x 2
 
@@ -38,9 +38,9 @@ stdout: "42\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/stdio" as *
-|
+#import "core/math" as *
+#import "std/stdio" as *
+
 fn calc <()->i32> ():
     add 40 2
 

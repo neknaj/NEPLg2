@@ -11,10 +11,10 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/mem" as *
-| #import "std/test" as *
-| #import "core/math" as *
-|
+#import "core/mem" as *
+#import "std/test" as *
+#import "core/math" as *
+
 fn insertion_sort_i32 <(i32,i32)*>()> (data, len):
     let mut i <i32> 1;
     while lt i len:
@@ -91,10 +91,10 @@ stdout: "1 1 4\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "core/mem" as *
-| #import "std/stdio" as *
-|
+#import "core/math" as *
+#import "core/mem" as *
+#import "std/stdio" as *
+
 fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
     let mut j <i32> 0;
     let mut done <i32> 0;
@@ -140,10 +140,10 @@ stdout: "1 1 4\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "core/mem" as *
-| #import "std/stdio" as *
-|
+#import "core/math" as *
+#import "core/mem" as *
+#import "std/stdio" as *
+
 fn lower_bound_i32_bin <(i32,i32,i32)*>i32> (data, len, x):
     let mut lo <i32> 0;
     let mut hi <i32> len;

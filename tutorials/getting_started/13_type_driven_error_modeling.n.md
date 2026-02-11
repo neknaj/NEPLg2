@@ -11,10 +11,10 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "core/result" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "core/result" as *
+#import "std/test" as *
+
 fn checked_half <(i32)->Result<i32,str>> (x):
     if:
         cond eq mod_s x 2 0
@@ -45,9 +45,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/option" as *
-| #import "std/test" as *
-|
+#import "core/option" as *
+#import "std/test" as *
+
 fn choose_positive <(i32)->Option<i32>> (x):
     if lt 0 x then some<i32> x else none<i32>
 

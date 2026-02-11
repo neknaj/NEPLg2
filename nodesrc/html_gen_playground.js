@@ -103,7 +103,14 @@ html,body{
   grid-template-columns:280px 1fr;
   min-height:100vh;
 }
-main{min-width:0;padding:24px 40px;max-width:900px;}
+main{
+  min-width:0;
+  padding:24px 40px;
+  max-width:1200px;
+  margin:0 auto;
+  width:100%;
+  box-sizing:border-box;
+}
 a{color:var(--accent);}
 .global-play-link{
   display:inline-flex;
@@ -130,7 +137,30 @@ hr{border:none;border-top:1px solid var(--border);margin:24px 0;}
 h1,h2,h3,h4,h5,h6{margin:18px 0 10px;}
 p{margin:10px 0;}
 ul{margin:10px 0 10px 22px;}
-.nm-code{background:var(--code);border:1px solid var(--border);border-radius:12px;padding:12px;overflow:auto;}
+.nm-code-container{
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--card);
+  margin:24px 0;
+  overflow:hidden;
+}
+.nm-code-header{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  background:rgba(255,255,255,0.03);
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.nm-badge-main{
+  display:inline-block;padding:2px 8px;border-radius:6px;background:#7aa2f7;color:#1a202e;font-size:11px;font-weight:bold;letter-spacing:.05em;
+}
+.nm-badge-flag{
+  display:inline-block;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.2);color:var(--muted);font-size:11px;
+}
+.nm-code-content{position:relative;}
+.nm-code{background:var(--code);padding:12px;overflow:auto;margin:0;border:none;border-radius:0;}
 .nm-code code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;white-space:pre;}
 .nm-syn-keyword{color:#7aa2f7;}
 .nm-syn-string{color:#9ece6a;}
@@ -418,17 +448,11 @@ ul{margin:10px 0 10px 22px;}
 }
 </style>
 <script>
-function nmToggleHidden(btn){
-  const pre = btn.previousElementSibling;
-  if(!pre) return;
-  const nodes = pre.querySelectorAll('.nm-hidden');
-  if(nodes.length === 0) return;
-  const cur = nodes[0].style.display;
-  const show = (cur === 'none' || cur === '');
+function nmExpandHidden(marker, nodes){
+  marker.style.display = 'none';
   for(const n of nodes){
-    n.style.display = show ? 'inline' : 'none';
+    n.style.display = 'inline';
   }
-  btn.textContent = show ? '主要部のみ表示' : '全て表示';
 }
 
 async function loadBindings() {
@@ -680,65 +704,56 @@ function highlightArticleNeplBlocks() {
   }
 }
 
-function findDoctestStdinFor(pre) {
-  let p = pre.nextElementSibling;
-  while (p) {
-    if (p.classList.contains('nm-toggle')) {
-      p = p.nextElementSibling;
-      continue;
-    }
-    if (!p.classList.contains('nm-doctest-block')) break;
-    for (const row of p.querySelectorAll('.nm-doctest-row')) {
+function findDoctestStdinFor(codeContent) {
+  const wrapper = codeContent.closest('.nm-code-container');
+  if (!wrapper) return '';
+  const footer = wrapper.querySelector('.nm-code-footer');
+  if (footer) {
+    for (const row of footer.querySelectorAll('.nm-doctest-row')) {
       const badge = row.querySelector('.nm-doctest-badge');
       const pre2 = row.querySelector('.nm-doctest-pre');
       if (badge && pre2 && badge.textContent.trim().toLowerCase() === 'stdin') {
         return pre2.textContent || '';
       }
     }
-    p = p.nextElementSibling;
   }
   return '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  for (const code of document.querySelectorAll('pre.nm-code > code')) {
-    if (code.querySelector('.nm-hidden')) continue;
-    const lines = (code.textContent || '').split('\\n');
-    if (lines.length > 25) {
-      const keep = 10;
-      const frag = document.createDocumentFragment();
-      for (let i = 0; i < lines.length; i++) {
-        const span = document.createElement('span');
-        span.textContent = lines[i] + (i < lines.length - 1 ? '\\n' : '');
-        if (i >= keep && i < lines.length - keep) {
-          span.classList.add('nm-hidden');
-        }
-        frag.appendChild(span);
-      }
-      code.textContent = '';
-      code.appendChild(frag);
-      
-      const btn = document.createElement('button');
-      btn.className = 'nm-toggle';
-      btn.textContent = '全て表示';
-      btn.onclick = () => nmToggleHidden(btn);
-      code.parentElement.insertAdjacentElement('afterend', btn);
-    }
-  }
-
   highlightArticleNeplBlocks();
 
   for (const code of document.querySelectorAll('pre.nm-code > code')) {
-    const pre = code.parentElement;
-    if (pre.nextElementSibling && pre.nextElementSibling.classList.contains('nm-toggle')) continue;
-    const hidden = code.querySelectorAll('.nm-hidden');
-    if (hidden.length > 0) {
-      for (const n of hidden) n.style.display = 'none';
-      const btn = document.createElement('button');
-      btn.className = 'nm-toggle';
-      btn.textContent = '全て表示';
-      btn.onclick = () => nmToggleHidden(btn);
-      pre.insertAdjacentElement('afterend', btn);
+    const hiddenNodes = Array.from(code.querySelectorAll('.nm-hidden'));
+    if (hiddenNodes.length === 0) continue;
+
+    // Group consecutive hidden nodes
+    let groups = [];
+    let currentGroup = [];
+    for (const node of hiddenNodes) {
+      // Simple grouping: if nodes are adjacent in DOM or separated only by whitespace text
+      if (currentGroup.length > 0) {
+        const last = currentGroup[currentGroup.length - 1];
+        if (last.nextSibling === node || (last.nextSibling && last.nextSibling.nodeType === 3 && !last.nextSibling.textContent.trim() && last.nextSibling.nextSibling === node)) {
+          currentGroup.push(node);
+        } else {
+          groups.push(currentGroup);
+          currentGroup = [node];
+        }
+      } else {
+        currentGroup.push(node);
+      }
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup);
+
+    for (const group of groups) {
+      const first = group[0];
+      const marker = document.createElement('span');
+      marker.className = 'nm-expand-marker';
+      marker.textContent = '+';
+      marker.title = '省略を展開';
+      marker.onclick = () => nmExpandHidden(marker, group);
+      first.parentNode.insertBefore(marker, first);
     }
   }
 
@@ -851,19 +866,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Add Run buttons to neplg2 code blocks
   for (const code of document.querySelectorAll('pre.nm-code > code.language-neplg2')) {
     const pre = code.parentElement;
-    pre.classList.add('nm-runnable');
-    pre.title = 'Click to run in popup editor';
-    pre.addEventListener('click', () => {
+    const container = pre.parentElement; // nm-code-content or just a wrapper
+    const btn = document.createElement('button');
+    btn.className = 'nm-run-btn';
+    btn.textContent = '▶ Run';
+    btn.title = 'Run in playground';
+    btn.onclick = () => {
       title.textContent = document.title + ' - runnable snippet';
       src.value = code.textContent || '';
-      stdin.value = findDoctestStdinFor(pre);
+      stdin.value = findDoctestStdinFor(container);
       setStdoutText('');
       setStatus('ready', 'ok');
       overlay.classList.add('open');
       src.focus();
-    });
+    };
+    // If inside nm-code-content, append there. Otherwise (standalone code block), wrap it.
+    if (container.classList.contains('nm-code-content')) {
+      container.appendChild(btn);
+    } else {
+      // Standalone code block case (not in doctest wrapper)
+      const wrapper = document.createElement('div');
+      wrapper.className = 'nm-code-content';
+      wrapper.style.position = 'relative';
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+      wrapper.appendChild(btn);
+    }
   }
 
   const sidebar = document.querySelector('.doc-sidebar');

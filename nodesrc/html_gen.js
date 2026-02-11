@@ -125,6 +125,32 @@ function renderCodeBlock(text) {
     return rendered;
 }
 
+function ansiToHtml(text) {
+    const esc = escapeHtml(text);
+    // 簡易的なANSIエスケープシーケンスのHTML変換
+    // 色はCSS変数に依存させる
+    let out = esc
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    // Reset
+    out = out.replace(/\\x1b\[0m/g, '</span>');
+    // Colors (Foreground)
+    out = out.replace(/\\x1b\[31m/g, '<span style="color:var(--err)">'); // Red
+    out = out.replace(/\\x1b\[32m/g, '<span style="color:var(--ok)">');  // Green
+    out = out.replace(/\\x1b\[33m/g, '<span style="color:#e0af68">');    // Yellow
+    out = out.replace(/\\x1b\[34m/g, '<span style="color:var(--accent)">'); // Blue
+    out = out.replace(/\\x1b\[35m/g, '<span style="color:#bb9af7">');    // Magenta
+    out = out.replace(/\\x1b\[36m/g, '<span style="color:#73daca">');    // Cyan
+    out = out.replace(/\\x1b\[37m/g, '<span style="color:#c0caf5">');    // White
+    out = out.replace(/\\x1b\[90m/g, '<span style="color:var(--muted)">'); // Gray
+    out = out.replace(/\\x1b\[1m/g, '<span style="font-weight:bold">');  // Bold
+    return out;
+}
+
 function decodeDoctestValue(raw) {
     const s = String(raw || '').trim();
     if (s.startsWith('"') && s.endsWith('"')) {
@@ -143,12 +169,16 @@ function decodeDoctestValue(raw) {
         .replace(/\\t/g, '\t');
 }
 
-function renderDoctestMetaParagraph(rawText) {
+function parseDoctestMeta(rawText) {
     const raw = String(rawText || '').replace(/\r\n/g, '\n');
     const firstNl = raw.indexOf('\n');
     const head = (firstNl >= 0 ? raw.slice(0, firstNl) : raw).trim();
-    if (!/^\s*neplg2:test(?:\[[^\]]+\])?\s*$/.test(head)) return null;
-
+    
+    const match = head.match(/^\s*neplg2:test(?:\[(.*?)\])?\s*$/);
+    if (!match) return null;
+    const flagsStr = match[1] || '';
+    const flags = flagsStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    
     const tail = firstNl >= 0 ? raw.slice(firstNl + 1) : '';
     const lines = tail.split('\n');
     const rows = [];
@@ -203,17 +233,75 @@ function renderDoctestMetaParagraph(rawText) {
         rows.push({ key, value: decodeDoctestValue(valueRaw) });
     }
 
-    let out = `<div class="nm-doctest-block"><div class="nm-doctest-meta">${escapeHtml(head)}</div>`;
-    for (const row of rows) {
-        const key = row.key;
-        const value = row.value;
-        if (key === 'ret') {
-            out += `<div class="nm-doctest-row"><span class="nm-doctest-badge">${escapeHtml(key)}</span><code class="nm-doctest-inline">${escapeHtml(value)}</code></div>`;
-        } else {
-            out += `<div class="nm-doctest-row"><span class="nm-doctest-badge">${escapeHtml(key)}</span><pre class="nm-doctest-pre">${escapeHtml(value)}</pre></div>`;
-        }
+    return { head, flags, rows };
+}
+
+function renderDoctestBlock(meta, codeNode) {
+    let out = `<div class="nm-code-container">`;
+    
+    // Header: Badges
+    out += `<div class="nm-code-header">`;
+    out += `<span class="nm-badge-main">TEST</span>`;
+    for (const flag of meta.flags) {
+        out += `<span class="nm-badge-flag">${escapeHtml(flag)}</span>`;
     }
-    out += '</div>';
+    out += `</div>`; // header end
+
+    // Code
+    out += `<div class="nm-code-content">`;
+    if (codeNode) {
+        const cls = codeNode.lang ? `language-${escapeHtml(codeNode.lang)}` : '';
+        const rendered = renderCodeBlock(codeNode.text || '');
+        out += `<pre class="nm-code"><code class="${cls}">${rendered}</code></pre>`;
+    }
+    out += `</div>`; // content end
+
+    // Footer: stdin/stdout/ret
+    if (meta.rows.length > 0) {
+        out += `<div class="nm-code-footer">`;
+        for (const row of meta.rows) {
+            const key = row.key;
+            const value = row.value;
+            if (key === 'ret') {
+                out += `<div class="nm-doctest-row"><span class="nm-doctest-badge">${escapeHtml(key)}</span><code class="nm-doctest-inline">${escapeHtml(value)}</code></div>`;
+            } else if (key === 'stdout' || key === 'stderr') {
+                // ANSI escape support for stdout/stderr
+                const htmlVal = ansiToHtml(value);
+                out += `<div class="nm-doctest-row"><span class="nm-doctest-badge">${escapeHtml(key)}</span><pre class="nm-doctest-pre">${htmlVal}</pre></div>`;
+            } else {
+                out += `<div class="nm-doctest-row"><span class="nm-doctest-badge">${escapeHtml(key)}</span><pre class="nm-doctest-pre">${escapeHtml(value)}</pre></div>`;
+            }
+        }
+        out += `</div>`; // footer end
+    }
+
+    out += `</div>`; // wrapper end
+    return out;
+}
+
+function renderContainerChildren(children, o) {
+    let out = '';
+    let i = 0;
+    while (i < children.length) {
+        const child = children[i];
+        // Check for doctest paragraph followed by code block
+        if (child.type === 'paragraph' && child.inlines && child.inlines.length === 1 && child.inlines[0].type === 'text') {
+            const meta = parseDoctestMeta(child.inlines[0].text);
+            if (meta) {
+                let codeNode = null;
+                if (i + 1 < children.length && children[i + 1].type === 'code') {
+                    codeNode = children[i + 1];
+                    i++; // consume code block
+                }
+                out += renderDoctestBlock(meta, codeNode);
+                i++;
+                continue;
+            }
+        }
+
+        out += renderNode(child, o);
+        i++;
+    }
     return out;
 }
 
@@ -221,20 +309,15 @@ function renderNode(node, opt) {
     const o = opt || { rewriteLinks: true };
 
     if (node.type === 'document') {
-        return node.children.map(ch => renderNode(ch, o)).join('\n');
+        return renderContainerChildren(node.children, o);
     }
     if (node.type === 'section') {
         const tag = `h${Math.min(6, Math.max(1, node.level))}`;
         const head = renderInlines(node.heading, o);
-        const body = node.children.map(ch => renderNode(ch, o)).join('\n');
+        const body = renderContainerChildren(node.children, o);
         return `<section class="nm-sec level-${node.level}"><${tag}>${head}</${tag}>\n${body}\n</section>`;
     }
     if (node.type === 'paragraph') {
-        // doctest メタ行の表示品質を上げる
-        if (node.inlines && node.inlines.length === 1 && node.inlines[0].type === 'text') {
-            const doctest = renderDoctestMetaParagraph(node.inlines[0].text);
-            if (doctest) return doctest;
-        }
         return `<p>${renderInlines(node.inlines, o)}</p>`;
     }
     if (node.type === 'hr') {
@@ -281,7 +364,12 @@ hr{border:none;border-top:1px solid var(--border);margin:24px 0;}
 h1,h2,h3,h4,h5,h6{margin:18px 0 10px;}
 p{margin:10px 0;}
 ul{margin:10px 0 10px 22px;}
-.nm-code{background:var(--code);border:1px solid var(--border);border-radius:12px;padding:12px;overflow:auto;}
+.nm-code-container{border:1px solid var(--border);border-radius:12px;background:var(--card);margin:24px 0;overflow:hidden;}
+.nm-code-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.nm-badge-main{display:inline-block;padding:2px 8px;border-radius:6px;background:#7aa2f7;color:#1a202e;font-size:11px;font-weight:bold;letter-spacing:.05em;}
+.nm-badge-flag{display:inline-block;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.2);color:var(--muted);font-size:11px;}
+.nm-code-content{position:relative;}
+.nm-code{background:var(--code);padding:12px;overflow:auto;margin:0;border:none;border-radius:0;}
 .nm-code code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;white-space:pre;}
 .nm-code-inline{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:1px 6px;}
 .nm-gloss, .nm-ruby{ruby-position:over;}
@@ -289,9 +377,8 @@ ul{margin:10px 0 10px 22px;}
 .nm-gloss-note{display:block;}
 .math-inline{color:var(--muted);}
 .math-display{display:block;padding:8px 10px;margin:8px 0;background:rgba(255,255,255,0.03);border:1px dashed var(--border);border-radius:10px;}
-.nm-doctest-meta{display:inline-block;margin:8px 0 2px;padding:3px 10px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:12px;background:rgba(255,255,255,0.03);}
-.nm-doctest-block{margin:10px 0 12px;}
-.nm-doctest-row{display:flex;align-items:flex-start;gap:8px;margin:6px 0;}
+.nm-code-footer{padding:12px;border-top:1px solid var(--border);background:#0d1117;}
+.nm-doctest-row{display:flex;align-items:flex-start;gap:8px;margin:4px 0;}
 .nm-doctest-badge{display:inline-block;min-width:56px;text-align:center;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--muted);font-size:11px;line-height:1.5;letter-spacing:.03em;}
 .nm-doctest-pre{margin:0;padding:8px 10px;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;line-height:1.45;flex:1;}
 .nm-doctest-inline{padding:2px 8px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;}

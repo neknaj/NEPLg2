@@ -14,10 +14,10 @@ stdout: "0 1 2 3\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/mem" as *
-| #import "core/math" as *
-| #import "std/stdio" as *
-|
+#import "core/mem" as *
+#import "core/math" as *
+#import "std/stdio" as *
+
 fn bfs_line4 <(i32)*>()> (dist):
     // dist を -1 で初期化
     store_i32 add dist 0 -1;

@@ -12,9 +12,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn abs_i32 <(i32)->i32> (x):
     if lt x 0 then sub 0 x else x
 
@@ -36,8 +36,8 @@ stdout: "Checked section-a\nChecked section-b\n"
 | #indent 4
 | #target wasi
 |
-| #import "std/test" as *
-|
+#import "std/test" as *
+
 fn main <()*> ()> ():
     test_checked "section-a";
     test_checked "section-b";

@@ -11,8 +11,8 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "std/test" as *
-|
+#import "std/test" as *
+
 trait Show:
     fn show <(Self)->i32> (x):
         x
@@ -34,8 +34,8 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "std/test" as *
-|
+#import "std/test" as *
+
 trait Show:
     fn show <(Self)->i32> (x):
         x

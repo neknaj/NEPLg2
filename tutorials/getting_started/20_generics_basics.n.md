@@ -11,8 +11,8 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "std/test" as *
-|
+#import "std/test" as *
+
 fn id <.T> <(.T)->.T> (x):
     x
 |
@@ -32,9 +32,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/option" as *
-| #import "std/test" as *
-|
+#import "core/option" as *
+#import "std/test" as *
+
 fn keep_or_default <.T> <(Option<.T>,.T)->.T> (opt, default):
     match opt:
         Option::Some v:

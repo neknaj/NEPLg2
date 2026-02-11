@@ -16,10 +16,10 @@ stdout: "7\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "kp/kpread" as *
-| #import "kp/kpwrite" as *
-|
+#import "core/math" as *
+#import "kp/kpread" as *
+#import "kp/kpwrite" as *
+
 fn main <()*> ()> ():
     let sc <i32> scanner_new;
     let a <i32> scanner_read_i32 sc;
@@ -43,9 +43,9 @@ stdout: "1000000000007\n"
 | #indent 4
 | #target wasi
 |
-| #import "kp/kpread" as *
-| #import "kp/kpwrite" as *
-|
+#import "kp/kpread" as *
+#import "kp/kpwrite" as *
+
 fn main <()*> ()> ():
     let sc <i32> scanner_new;
     let a <i64> scanner_read_i64 sc;
@@ -69,9 +69,9 @@ stdout: "5 8 13\n"
 | #indent 4
 | #target wasi
 |
-| #import "kp/kpread" as *
-| #import "kp/kpwrite" as *
-|
+#import "kp/kpread" as *
+#import "kp/kpwrite" as *
+
 fn main <()*> ()> ():
     let sc <i32> scanner_new;
     let a <i32> scanner_read_i32 sc;

@@ -12,9 +12,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let mut i <i32> 0
     let mut sum <i32> 0
@@ -38,9 +38,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let x <i32> block:
         let a <i32> 3

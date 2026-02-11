@@ -14,9 +14,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn sum_to <(i32)->i32> (n):
     if:
         cond le n 0
@@ -42,9 +42,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn fib <(i32)->i32> (n):
     if:
         cond le n 1

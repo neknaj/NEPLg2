@@ -11,9 +11,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn clamp_non_negative <(i32)->i32> (x):
     if lt x 0 then 0 else x
 
@@ -31,9 +31,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn pick <(bool,i32,i32)->i32> (c, a, b):
     if:
         cond c
@@ -54,9 +54,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn score <(i32)->i32> (n):
     if:
         cond lt n 0
@@ -82,9 +82,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn adjust <(i32)->i32> (x):
     if:
         cond lt x 0

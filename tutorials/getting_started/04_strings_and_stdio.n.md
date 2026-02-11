@@ -12,10 +12,10 @@ stdout: "Hello, World\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/mem" as *
-| #import "alloc/string" as *
-| #import "std/stdio" as *
-|
+#import "core/mem" as *
+#import "alloc/string" as *
+#import "std/stdio" as *
+
 fn main <()*> ()> ():
     let hello <str> "Hello"
     let world <str> "World"
@@ -33,8 +33,8 @@ stdout: "A=10\n"
 | #indent 4
 | #target wasi
 |
-| #import "std/stdio" as *
-|
+#import "std/stdio" as *
+
 fn main <()*> ()> ():
     print "A="
     println_i32 10
@@ -52,8 +52,8 @@ stdout: "abc\n"
 | #indent 4
 | #target wasi
 |
-| #import "std/stdio" as *
-|
+#import "std/stdio" as *
+
 fn main <()*> ()> ():
     let s <str> read_line
     println s

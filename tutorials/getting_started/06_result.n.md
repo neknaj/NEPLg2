@@ -12,9 +12,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/result" as *
-| #import "std/test" as *
-|
+#import "core/result" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let a <Result<i32, str>> Result::Ok 42
     let b <Result<i32, str>> Result::Err "oops"
@@ -44,10 +44,10 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "core/result" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "core/result" as *
+#import "std/test" as *
+
 fn safe_div2 <(i32)->Result<i32,str>> (x):
     if eq x 0 then Result::Err "division by zero" else Result::Ok i32_div_s 10 x
 

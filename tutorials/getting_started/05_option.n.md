@@ -12,9 +12,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/option" as *
-| #import "std/test" as *
-|
+#import "core/option" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let a <Option<i32>> some<i32> 10
     let b <Option<i32>> none<i32>
@@ -43,9 +43,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/option" as *
-| #import "std/test" as *
-|
+#import "core/option" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let some_v <Option<i32>> some<i32> 77
     let none_v <Option<i32>> none<i32>

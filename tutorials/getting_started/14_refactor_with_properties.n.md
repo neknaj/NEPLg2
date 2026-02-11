@@ -11,9 +11,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn sum_to_loop <(i32)*>i32> (n):
     let mut i <i32> 0
     let mut acc <i32> 0
@@ -42,10 +42,10 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "core/result" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "core/result" as *
+#import "std/test" as *
+
 fn safe_div_old <(i32,i32)->Result<i32,str>> (a, b):
     if eq b 0 then Result::Err "division by zero" else Result::Ok i32_div_s a b
 

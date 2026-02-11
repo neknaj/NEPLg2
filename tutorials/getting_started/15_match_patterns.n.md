@@ -11,9 +11,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/option" as *
-| #import "std/test" as *
-|
+#import "core/option" as *
+#import "std/test" as *
+
 fn describe_opt <(Option<i32>)->i32> (v):
     match v:
         Option::Some x:
@@ -35,9 +35,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/result" as *
-| #import "std/test" as *
-|
+#import "core/result" as *
+#import "std/test" as *
+
 fn result_code <(Result<i32,str>)->i32> (r):
     match r:
         Result::Ok v:

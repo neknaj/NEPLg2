@@ -12,9 +12,9 @@ stdout: "6 -> Fizz\n10 -> Buzz\n30 -> FizzBuzz\n7 -> 7\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/stdio" as *
-|
+#import "core/math" as *
+#import "std/stdio" as *
+
 fn fizzbuzz_code <(i32)->i32> (n):
     if:
         cond eq mod_s n 15 0
@@ -62,9 +62,9 @@ stdout: "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/stdio" as *
-|
+#import "core/math" as *
+#import "std/stdio" as *
+
 fn fizzbuzz_code <(i32)->i32> (n):
     if:
         cond eq mod_s n 15 0

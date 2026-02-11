@@ -15,11 +15,11 @@ stdout: "6\n14\n15\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "core/mem" as *
-| #import "kp/kpread" as *
-| #import "kp/kpwrite" as *
-|
+#import "core/math" as *
+#import "core/mem" as *
+#import "kp/kpread" as *
+#import "kp/kpwrite" as *
+
 fn main <()*> ()> ():
     let sc <i32> scanner_new;
     let n <i32> scanner_read_i32 sc;
@@ -73,10 +73,10 @@ stdout: "6\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "core/mem" as *
-| #import "std/stdio" as *
-|
+#import "core/math" as *
+#import "core/mem" as *
+#import "std/stdio" as *
+
 fn count_subarrays_leq_s <(i32,i32,i32)*>i32> (data, n, s):
     let mut l <i32> 0;
     let mut r <i32> 0;

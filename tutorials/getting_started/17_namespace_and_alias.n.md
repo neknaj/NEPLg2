@@ -13,9 +13,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as m
-| #import "std/test" as *
-|
+#import "core/math" as m
+#import "std/test" as *
+
 fn main <()*>()> ():
     assert_eq_i32 9 m::add 4 5
     assert_eq_i32 6 m::mul 2 3
@@ -32,9 +32,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/option" as *
-| #import "std/test" as *
-|
+#import "core/option" as *
+#import "std/test" as *
+
 fn unwrap_or_zero <(Option<i32>)->i32> (v):
     match v:
         Option::Some x:

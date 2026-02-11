@@ -11,9 +11,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn clamp_0_100 <(i32)->i32> (x):
     if:
         cond lt x 0
@@ -45,9 +45,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn normalize_pure <(i32)->i32> (raw):
     if:
         cond lt add raw 5 0

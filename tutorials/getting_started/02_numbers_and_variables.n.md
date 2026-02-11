@@ -11,9 +11,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     assert_eq_i32 6 add 1 5
     assert_eq_i32 5 sub 8 3
@@ -40,9 +40,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let a <i32> mul add 2 3 sub 10 4
     let b <i32> sub mul 5 add 1 1 3
@@ -62,9 +62,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let a <i32> 10
     let b <i32> 32
@@ -83,9 +83,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let mut x <i32> 1
     set x add x 4
@@ -105,9 +105,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn main <()*> ()> ():
     let x <i32> 2147483647
     let y <i32> i32_add x 1

@@ -11,9 +11,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn add2 <(i32,i32)->i32> (a, b):
     i32_add a b
 
@@ -37,9 +37,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn abs_i32 <(i32)->i32> (x):
     if lt x 0 then sub 0 x else x
 
@@ -60,9 +60,9 @@ neplg2:test
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "std/test" as *
-|
+#import "core/math" as *
+#import "std/test" as *
+
 fn classify <(i32)->i32> (x):
     if:
         cond lt x 0

@@ -12,8 +12,8 @@ stdout: "\u001b[31mERR\u001b[0m \u001b[32mOK\u001b[0m\n"
 | #indent 4
 | #target wasi
 |
-| #import "std/stdio" as *
-|
+#import "std/stdio" as *
+
 fn main <()*> ()> ():
     print_color ansi_red "ERR";
     print " ";
@@ -29,8 +29,8 @@ stdout: "Checked color-ready\n"
 | #indent 4
 | #target wasi
 |
-| #import "std/test" as *
-|
+#import "std/test" as *
+
 fn main <()*> ()> ():
     test_checked "color-ready";
 ```

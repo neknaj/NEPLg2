@@ -17,10 +17,10 @@ stdout: "13\n"
 | #indent 4
 | #target wasi
 |
-| #import "core/math" as *
-| #import "kp/kpread" as *
-| #import "kp/kpwrite" as *
-|
+#import "core/math" as *
+#import "kp/kpread" as *
+#import "kp/kpwrite" as *
+
 fn ways <(i32)*>i64> (n):
     if le n 1:
         then i64_extend_i32_u 1
