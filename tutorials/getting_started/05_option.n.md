@@ -1,6 +1,6 @@
-# Option（値がある / ない）
+# Option（[値/あたい]が[有/あ]る/[無/な]い）
 
-`Option<T>` は「値がある (`Some`) / 値がない (`None`)」を表す型です。
+`Option<T>` は「値が有る (`Some`) / 値が無い (`None`)」を表す型です。
 
 NEPL では `core/option` に Option と基本操作が入っています。
 

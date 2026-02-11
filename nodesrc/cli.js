@@ -91,7 +91,8 @@ function walkFiles(root, excludeDirs) {
 function extractMarkdownForHtml(filePath) {
     const p = parseFile(filePath);
     if (p.kind === 'nmd') {
-        return p.rawText;
+        // Strip YAML frontmatter if present
+        return p.rawText.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
     }
     if (p.kind === 'nepl') {
         // //: が無ければ、先頭の // ブロックを拾う（暫定）
@@ -345,10 +346,73 @@ function makePageTocLinks(currentOutRel, tocEntries) {
     });
 }
 
-function buildTutorialMeta(relPath) {
+function inlinesToPlainText(inlines) {
+    if (!Array.isArray(inlines)) return '';
+    return inlines.map(n => {
+        if (n.type === 'text') return n.text;
+        if (n.type === 'code_inline') return n.text;
+        if (n.type === 'math') return n.text;
+        if (n.type === 'ruby') return inlinesToPlainText(n.base);
+        if (n.type === 'gloss') return inlinesToPlainText(n.base);
+        if (n.type === 'link') return inlinesToPlainText(n.text);
+        return '';
+    }).join('');
+}
+
+function extractMetaFromAst(ast) {
+    let title = '';
+    let description = '';
+
+    function visit(nodes) {
+        for (const node of nodes) {
+            if (!title && node.type === 'section' && node.level === 1) {
+                title = inlinesToPlainText(node.heading);
+            }
+            if (!description && node.type === 'paragraph') {
+                description = inlinesToPlainText(node.inlines);
+            }
+            if (title && description) return;
+
+            if (node.type === 'section' || node.type === 'document') {
+                if (Array.isArray(node.children)) {
+                    visit(node.children);
+                }
+            }
+            if (title && description) return;
+        }
+    }
+
+    if (ast) {
+        if (ast.type === 'document') visit(ast.children);
+        else visit([ast]);
+    }
+    
+    if (description) {
+        description = description.replace(/\s+/g, ' ').trim();
+        if (description.length > 300) {
+            description = description.slice(0, 297) + '...';
+        }
+    }
+
+    return { title, description };
+}
+
+function buildTutorialMeta(relPath, ast) {
     const baseNoExt = path.basename(relPath).replace(/\.n\.md$/i, '').replace(/\.nepl$/i, '');
-    const title = `NEPLg2 tutorial - ${baseNoExt}`;
-    const description = `NEPLg2 Getting Started tutorial: ${baseNoExt}`;
+    const extracted = extractMetaFromAst(ast);
+
+    let title = `NEPLg2 tutorial - ${baseNoExt}`;
+    if (extracted.title) {
+        const prefixMatch = baseNoExt.match(/^(\d+)/);
+        const prefix = prefixMatch ? prefixMatch[1] : baseNoExt;
+        title = `NEPLg2 tutorial - ${prefix} - ${extracted.title}`;
+    }
+
+    let description = `NEPLg2 Getting Started tutorial: ${baseNoExt}`;
+    if (extracted.description) {
+        description = `NEPLg2 Getting Started tutorial - ${extracted.description}`;
+    }
+
     return { title, description };
 }
 
@@ -359,7 +423,7 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
     }
 
     const ast = parseNmdAst(md);
-    const { title, description } = buildTutorialMeta(relPath);
+    const { title, description } = buildTutorialMeta(relPath, ast);
 
     const outRel = relPath
         .replace(/\.n\.md$/i, '.html')
