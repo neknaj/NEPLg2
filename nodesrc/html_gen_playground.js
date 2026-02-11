@@ -32,7 +32,7 @@ function renderToc(tocLinks) {
         const cls = link.active ? `toc-link active depth-${depth}` : `toc-link depth-${depth}`;
         return `<li><a class="${cls}" href="${escapeHtml(String(link.href || ''))}">${escapeHtml(String(link.label || ''))}</a></li>`;
     }).join('\n');
-    return `<aside class="doc-sidebar"><div class="toc-title">Getting Started</div><ul class="toc-list">${items}</ul></aside>`;
+    return `<aside class="doc-sidebar"><div class="sidebar-header"><div class="toc-title">Getting Started</div><button class="sidebar-toggle" aria-label="メニューを開く">☰</button></div><ul class="toc-list">${items}</ul></aside>`;
 }
 
 function buildPlaygroundVfsOverrides() {
@@ -75,6 +75,9 @@ function wrapHtmlPlayground(body, title, description, moduleJsPathOpt) {
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="${escapeHtml(t)}"/>
 <meta name="twitter:description" content="${escapeHtml(d)}"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0b0f19;
@@ -87,7 +90,14 @@ function wrapHtmlPlayground(body, title, description, moduleJsPathOpt) {
   --ok:#59c37a;
   --err:#ff6b6b;
 }
-html,body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.65;}
+html,body{
+  background:var(--bg);
+  color:var(--fg);
+  font-family:'Klee One', system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  line-height:1.65;
+  margin:0;
+  padding:0;
+}
 .doc-layout{max-width:1260px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:260px 1fr;gap:18px;}
 main{min-width:0;}
 a{color:var(--accent);}
@@ -106,6 +116,7 @@ a{color:var(--accent);}
   color:var(--fg);
   text-decoration:none;
   font-size:12px;
+  transition:all 0.2s;
 }
 .global-play-link:hover{border-color:#355186;background:rgba(18,26,42,0.96);}
 hr{border:none;border-top:1px solid var(--border);margin:24px 0;}
@@ -135,7 +146,8 @@ ul{margin:10px 0 10px 22px;}
 .nm-doctest-badge{display:inline-block;min-width:56px;text-align:center;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--muted);font-size:11px;line-height:1.5;letter-spacing:.03em;}
 .nm-doctest-pre{margin:0;padding:8px 10px;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;line-height:1.45;flex:1;}
 .nm-doctest-inline{padding:2px 8px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;}
-.nm-toggle{display:inline-block;margin:6px 0 12px;padding:6px 10px;border-radius:10px;border:1px solid #2f3f58;background:#0f141b;color:#d6d6d6;cursor:pointer;}
+.nm-toggle{display:inline-block;margin:6px 0 12px;padding:6px 10px;border-radius:10px;border:1px solid #2f3f58;background:#0f141b;color:#d6d6d6;cursor:pointer;transition:all 0.2s;}
+.nm-toggle:hover{background:#1a202e;}
 .nm-hidden{display:none;}
 .nm-runnable{cursor:pointer;position:relative;}
 .nm-runnable::after{
@@ -163,7 +175,7 @@ ul{margin:10px 0 10px 22px;}
 #play-head,#play-foot{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border);}
 #play-foot{border-bottom:none; border-top:1px solid var(--border);}
 #play-title{font-weight:600; flex:1;}
-.play-btn{padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:#0f141b; color:var(--fg); cursor:pointer;}
+.play-btn{padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:#0f141b; color:var(--fg); cursor:pointer;transition:all 0.2s;}
 .play-btn:hover{border-color:#355186;}
 #play-editor{
   display:grid; grid-template-columns:1fr 40%;
@@ -230,11 +242,31 @@ ul{margin:10px 0 10px 22px;}
 .doc-sidebar::-webkit-scrollbar-track{background:#121a2a;border-radius:8px;}
 .doc-sidebar::-webkit-scrollbar-thumb{background:#425779;border-radius:8px;border:2px solid #121a2a;}
 .doc-sidebar::-webkit-scrollbar-thumb:hover{background:#5a76a8;}
+.sidebar-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px;
+}
 .toc-title{
   font-size:12px;
   letter-spacing:.04em;
   color:var(--muted);
-  margin:2px 0 8px;
+  margin:2px 0;
+}
+.sidebar-toggle{
+  display:none;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--fg);
+  font-size:18px;
+  padding:2px 8px;
+  cursor:pointer;
+  border-radius:6px;
+  line-height:1;
+}
+.sidebar-toggle:hover{
+  background:rgba(255,255,255,0.05);
 }
 .toc-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
 .toc-group{
@@ -252,6 +284,7 @@ ul{margin:10px 0 10px 22px;}
   text-decoration:none;
   border:1px solid transparent;
   font-size:13px;
+  transition:all 0.2s;
 }
 .toc-link:hover{border-color:var(--border);background:rgba(255,255,255,0.04);}
 .toc-link.active{border-color:#355186;background:rgba(122,162,247,0.18);}
@@ -259,13 +292,128 @@ ul{margin:10px 0 10px 22px;}
 .depth-2{padding-left:24px;}
 .depth-3{padding-left:34px;}
 .depth-4{padding-left:44px;}
-@media (max-width: 920px){
-  .doc-layout{grid-template-columns:1fr;}
-  .doc-sidebar{position:static;height:auto;max-height:none;}
+
+/* サイドバーオーバーレイ（モバイル用） */
+.sidebar-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.6);
+  z-index:999;
+}
+
+/* タブレット対応 */
+@media (max-width: 1024px) {
+  .doc-layout{
+    grid-template-columns:240px 1fr;
+    gap:16px;
+  }
+}
+
+/* スマホ対応（第1段階：768px以下） */
+@media (max-width: 768px){
+  .doc-layout{
+    grid-template-columns:1fr;
+    margin:16px auto;
+    padding:0 12px;
+  }
+  
+  .doc-sidebar{
+    position:fixed;
+    top:0;
+    left:-280px;
+    width:280px;
+    height:100vh;
+    z-index:1000;
+    border-radius:0;
+    border-left:none;
+    transition:left 0.3s ease;
+    padding:12px;
+  }
+  
+  .doc-sidebar.mobile-open{
+    left:0;
+  }
+  
+  .sidebar-overlay.mobile-open{
+    display:block;
+  }
+  
+  .sidebar-toggle{
+    display:block;
+  }
+  
   .global-play-link{
     position:static;
     margin:12px 16px 0 auto;
     width:fit-content;
+    display:flex;
+  }
+  
+  main{
+    padding-top:8px;
+  }
+  
+  /* モーダルの調整 */
+  #play-modal{
+    width:100%;
+    height:100%;
+    max-height:100vh;
+    border-radius:0;
+  }
+  
+  #play-editor{
+    grid-template-columns:1fr;
+    grid-template-rows:50% 50%;
+  }
+  
+  #play-right{
+    border-left:none;
+    border-top:1px solid var(--border);
+  }
+}
+
+/* スマホ対応（第2段階：480px以下） */
+@media (max-width: 480px){
+  .doc-layout{
+    margin:12px auto;
+    padding:0 8px;
+  }
+  
+  .nm-code{
+    padding:10px;
+    font-size:12px;
+  }
+  
+  h1{font-size:1.6em;}
+  h2{font-size:1.4em;}
+  h3{font-size:1.2em;}
+  
+  #play-head,#play-foot{
+    padding:8px 10px;
+    gap:6px;
+  }
+  
+  #play-title{
+    font-size:13px;
+  }
+  
+  .play-btn{
+    padding:5px 8px;
+    font-size:12px;
+  }
+  
+  #play-src,#play-stdin,#play-stdout-raw{
+    font-size:12px;
+    padding:10px;
+  }
+  
+  #play-editor{
+    grid-template-rows:45% 55%;
+  }
+  
+  #play-right{
+    grid-template-rows:100px 1fr;
   }
 }
 </style>
@@ -402,283 +550,156 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-function ansiColorFg(n) {
-  const map = {
-    30:'#111111',31:'#ff6b6b',32:'#59c37a',33:'#f7d154',34:'#6da8ff',35:'#d291ff',36:'#62d6e8',37:'#f0f0f0',
-    90:'#7a7a7a',91:'#ff8a8a',92:'#7de0a0',93:'#ffe28a',94:'#8ec0ff',95:'#e1b2ff',96:'#87e8f5',97:'#ffffff',
-  };
-  return map[n] || null;
-}
+const ansiRegex = /\\x1b\\[([0-9;]*)m/g;
+const ansiMap = {
+  '0': '</span>',
+  '1': '<span style="font-weight:bold">',
+  '30': '<span style="color:#3a3f4b">', '31': '<span style="color:#ff6b6b">',
+  '32': '<span style="color:#59c37a">', '33': '<span style="color:#e0af68">',
+  '34': '<span style="color:#7aa2f7">', '35': '<span style="color:#bb9af7">',
+  '36': '<span style="color:#73daca">', '37': '<span style="color:#c0caf5">',
+  '90': '<span style="color:#6b7280">', '91': '<span style="color:#ff757f">',
+  '92': '<span style="color:#6dd697">', '93': '<span style="color:#e7b970">',
+  '94': '<span style="color:#8fb3ff">', '95': '<span style="color:#c9b1ff">',
+  '96': '<span style="color:#8ae6d8">', '97': '<span style="color:#dde1e6">',
+};
 
-function ansiColorBg(n) {
-  const map = {
-    40:'#111111',41:'#7a1f1f',42:'#1f5f2f',43:'#6d5a1f',44:'#1f3f7a',45:'#5a2a7a',46:'#1f6170',47:'#cfcfcf',
-    100:'#4f4f4f',101:'#a63a3a',102:'#3b8d4f',103:'#9a8136',104:'#3b6bb5',105:'#7b4ab5',106:'#3f8f9e',107:'#f5f5f5',
-  };
-  return map[n] || null;
-}
-
-function ansiToHtml(input) {
-  const re = new RegExp(String.fromCharCode(27) + '\\\\[([0-9;]*)m', 'g');
-  const state = { bold: false, underline: false, fg: null, bg: null };
-  const chunks = [];
-  let last = 0;
-
-  function styleText(text) {
-    if (!text) return;
-    let style = '';
-    if (state.bold) style += 'font-weight:700;';
-    if (state.underline) style += 'text-decoration:underline;';
-    if (state.fg) style += 'color:' + state.fg + ';';
-    if (state.bg) style += 'background:' + state.bg + ';';
-    if (!style) {
-      chunks.push(escapeHtml(text));
-      return;
-    }
-    chunks.push('<span style="' + style + '">' + escapeHtml(text) + '</span>');
-  }
-
-  let m;
-  while ((m = re.exec(input)) !== null) {
-    styleText(input.slice(last, m.index));
-    last = re.lastIndex;
-
-    const codes = (m[1] === '' ? ['0'] : m[1].split(';')).map(x => parseInt(x, 10));
+function ansiToHtml(text) {
+  const esc = escapeHtml(text);
+  let out = '';
+  let lastIndex = 0;
+  let match;
+  ansiRegex.lastIndex = 0;
+  while ((match = ansiRegex.exec(esc)) !== null) {
+    out += esc.slice(lastIndex, match.index);
+    const codes = match[1].split(';');
     for (const c of codes) {
-      if (c === 0) {
-        state.bold = false; state.underline = false; state.fg = null; state.bg = null;
-      } else if (c === 1) {
-        state.bold = true;
-      } else if (c === 4) {
-        state.underline = true;
-      } else if (c === 22) {
-        state.bold = false;
-      } else if (c === 24) {
-        state.underline = false;
-      } else if (c === 39) {
-        state.fg = null;
-      } else if (c === 49) {
-        state.bg = null;
-      } else {
-        const fg = ansiColorFg(c);
-        const bg = ansiColorBg(c);
-        if (fg) state.fg = fg;
-        if (bg) state.bg = bg;
-      }
+      if (ansiMap[c]) out += ansiMap[c];
     }
+    lastIndex = ansiRegex.lastIndex;
   }
-  styleText(input.slice(last));
-  return chunks.join('');
+  out += esc.slice(lastIndex);
+  return out;
 }
 
-function decodeDoctestString(raw) {
-  const s = String(raw || '').trim();
-  if (s.startsWith('"') && s.endsWith('"')) {
-    try {
-      return JSON.parse(s);
-    } catch (_) {}
+function highlightArticleNeplBlocks() {
+  const kwds = new Set([
+    'fn','let','mut','set','if','then','else','cond','while','do',
+    'break','continue','return','match','case','import','export',
+    'type','struct','enum','trait','impl','for','in','as','use',
+    'pub','mod','const','static','unsafe','async','await','yield'
+  ]);
+  const builtins = new Set([
+    'i32','i64','u32','u64','f32','f64','bool','str','char',
+    'add','sub','mul','div','mod','eq','ne','lt','le','gt','ge',
+    'i32_add','i32_sub','i32_mul','i32_div_s','i32_div_u',
+    'println','print','readln','assert_eq_i32','test_checked'
+  ]);
+
+  function hl(code) {
+    const lines = String(code || '').split('\\n');
+    return lines.map(ln => {
+      let out = '';
+      let i = 0;
+      while (i < ln.length) {
+        if (ln[i] === '/' && ln[i+1] === '/') {
+          out += '<span class="nm-syn-comment">' + esc(ln.slice(i)) + '</span>';
+          break;
+        }
+        if (ln[i] === '"') {
+          const j = ln.indexOf('"', i + 1);
+          const s = (j < 0) ? ln.slice(i) : ln.slice(i, j + 1);
+          out += '<span class="nm-syn-string">' + esc(s) + '</span>';
+          i += s.length;
+          continue;
+        }
+        if (/[0-9]/.test(ln[i])) {
+          let j = i;
+          while (j < ln.length && /[0-9.]/.test(ln[j])) j++;
+          out += '<span class="nm-syn-number">' + esc(ln.slice(i, j)) + '</span>';
+          i = j;
+          continue;
+        }
+        if (/[a-zA-Z_]/.test(ln[i])) {
+          let j = i;
+          while (j < ln.length && /[a-zA-Z0-9_]/.test(ln[j])) j++;
+          const tok = ln.slice(i, j);
+          if (kwds.has(tok)) {
+            out += '<span class="nm-syn-keyword">' + esc(tok) + '</span>';
+          } else if (builtins.has(tok)) {
+            out += '<span class="nm-syn-function">' + esc(tok) + '</span>';
+          } else if (tok === 'true' || tok === 'false') {
+            out += '<span class="nm-syn-boolean">' + esc(tok) + '</span>';
+          } else {
+            out += esc(tok);
+          }
+          i = j;
+          continue;
+        }
+        if ('<>()[]{}:,;'.includes(ln[i])) {
+          out += '<span class="nm-syn-punctuation">' + esc(ln[i]) + '</span>';
+          i++;
+          continue;
+        }
+        if ('+-*/%=!&|'.includes(ln[i])) {
+          out += '<span class="nm-syn-operator">' + esc(ln[i]) + '</span>';
+          i++;
+          continue;
+        }
+        out += esc(ln[i]);
+        i++;
+      }
+      return out;
+    }).join('\\n');
   }
-  if (s.startsWith("'") && s.endsWith("'")) {
-    return s.slice(1, -1);
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
-  return s
-    .replace(/\\\\n/g, '\\n')
-    .replace(/\\\\r/g, '\\r')
-    .replace(/\\\\t/g, '\\t');
+
+  for (const code of document.querySelectorAll('pre.nm-code > code.language-neplg2')) {
+    code.innerHTML = hl(code.textContent);
+  }
 }
 
-function findDoctestStdinFor(preEl) {
-  let cur = preEl.previousElementSibling;
-  while (cur) {
-    if (cur.classList && cur.classList.contains('nm-doctest-block')) {
-      const rows = cur.querySelectorAll('.nm-doctest-row');
-      for (const row of rows) {
-        const badge = row.querySelector('.nm-doctest-badge');
-        if (!badge) continue;
-        const key = String(badge.textContent || '').trim().toLowerCase();
-        if (key !== 'stdin') continue;
-        const pre = row.querySelector('.nm-doctest-pre');
-        if (pre) {
-          return String(pre.textContent || '');
-        }
-        const inline = row.querySelector('.nm-doctest-inline');
-        if (inline) {
-          return decodeDoctestString(String(inline.textContent || ''));
-        }
+function findDoctestStdinFor(pre) {
+  let p = pre.nextElementSibling;
+  while (p && p.classList && p.classList.contains('nm-doctest-block')) {
+    for (const row of p.querySelectorAll('.nm-doctest-row')) {
+      const badge = row.querySelector('.nm-doctest-badge');
+      const pre2 = row.querySelector('.nm-doctest-pre');
+      if (badge && pre2 && badge.textContent.trim().toLowerCase() === 'stdin') {
+        return pre2.textContent || '';
       }
     }
-    if (cur.tagName === 'PRE') break;
-    if (/^H[1-6]$/.test(cur.tagName)) break;
-    const text = String(cur.textContent || '').trim();
-    const quoted = text.match(/stdin:\\s*"([\\s\\S]*?)"\\s*(?:\\n|$)/);
-    if (quoted) {
-      return quoted[1];
-    }
-    const singleQuoted = text.match(/stdin:\\s*'([\\s\\S]*?)'\\s*(?:\\n|$)/);
-    if (singleQuoted) {
-      return singleQuoted[1];
-    }
-    const oneLine = text.match(/^stdin:\\s*(.+)$/m);
-    if (oneLine) {
-      return decodeDoctestString(oneLine[1]);
-    }
-    cur = cur.previousElementSibling;
+    p = p.nextElementSibling;
   }
   return '';
 }
 
-function tokenTypeFromKind(kind, debug) {
-  if (!kind) return 'default';
-  if (kind.startsWith('Kw') || kind === 'At' || kind === 'PathSep') return 'keyword';
-  if (kind.includes('String') || kind.includes('Mlstr')) return 'string';
-  if (kind.includes('BoolLiteral')) return 'boolean';
-  if (kind.includes('IntLiteral') || kind.includes('FloatLiteral')) return 'number';
-  if (kind.includes('Comment')) return 'comment';
-  if (kind === 'Pipe' || kind === 'Arrow' || kind === 'Plus' || kind === 'Minus' || kind === 'Star' || kind === 'Slash' || kind === 'Equals') return 'operator';
-  if (kind === 'LParen' || kind === 'RParen' || kind === 'LAngle' || kind === 'RAngle' || kind === 'Colon' || kind === 'Semicolon' || kind === 'Comma' || kind === 'Dot') return 'punctuation';
-  if (debug && String(debug).includes('Fn')) return 'function';
-  return 'default';
-}
-
-function collectTextNodes(root) {
-  const out = [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let cur = walker.nextNode();
-  let offset = 0;
-  while (cur) {
-    const len = cur.nodeValue ? cur.nodeValue.length : 0;
-    out.push({ node: cur, start: offset, end: offset + len });
-    offset += len;
-    cur = walker.nextNode();
-  }
-  return out;
-}
-
-function highlightCodeElement(codeEl, lexTokens) {
-  if (!Array.isArray(lexTokens) || lexTokens.length === 0) return;
-  const skipKinds = new Set(['Indent', 'Dedent', 'Eof', 'Newline']);
-  const sourceText = codeEl.textContent || '';
-  const lineStarts = [0];
-  for (let i = 0; i < sourceText.length; i++) {
-    if (sourceText.charCodeAt(i) === 10) {
-      lineStarts.push(i + 1);
-    }
-  }
-  function lineColToIndex(line, col) {
-    const li = Number(line);
-    const ci = Number(col);
-    if (!Number.isFinite(li) || !Number.isFinite(ci) || li < 0 || ci < 0) return null;
-    const base = lineStarts[li];
-    if (!Number.isFinite(base)) return null;
-    return Math.min(sourceText.length, base + ci);
-  }
-  function tokenToRange(tok) {
-    const sp = tok && tok.span;
-    if (!sp) return null;
-    const ls = lineColToIndex(sp.start_line, sp.start_col);
-    const le = lineColToIndex(sp.end_line, sp.end_col);
-    if (ls != null && le != null && le > ls) {
-      return { start: ls, end: le };
-    }
-    const bs = Number(sp.start);
-    const be = Number(sp.end);
-    if (!Number.isFinite(bs) || !Number.isFinite(be) || be <= bs) return null;
-    return { start: Math.max(0, Math.min(sourceText.length, bs)), end: Math.max(0, Math.min(sourceText.length, be)) };
-  }
-  const tokens = lexTokens
-    .map((tok) => {
-      const range = tokenToRange(tok);
-      const kind = String((tok && tok.kind) || '');
-      if (!range || skipKinds.has(kind)) return null;
-      const type = tokenTypeFromKind(kind, tok && tok.debug);
-      if (type === 'default') return null;
-      return { start: range.start, end: range.end, type };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.start - b.start || a.end - b.end);
-
-  if (tokens.length === 0) return;
-  const textNodes = collectTextNodes(codeEl);
-  for (const item of textNodes) {
-    const text = item.node.nodeValue || '';
-    if (!text) continue;
-
-    const localSegs = [];
-    for (const tok of tokens) {
-      if (tok.end <= item.start) continue;
-      if (tok.start >= item.end) break;
-      const s = Math.max(tok.start, item.start) - item.start;
-      const e = Math.min(tok.end, item.end) - item.start;
-      if (s < e) localSegs.push({ start: s, end: e, type: tok.type });
-    }
-    if (localSegs.length === 0) continue;
-
-    localSegs.sort((a, b) => a.start - b.start || a.end - b.end);
-    const merged = [];
-    let cursor = 0;
-    for (const seg of localSegs) {
-      const start = Math.max(seg.start, cursor);
-      const end = Math.max(start, seg.end);
-      if (start >= end) continue;
-      merged.push({ start, end, type: seg.type });
-      cursor = end;
-      if (cursor >= text.length) break;
-    }
-    if (merged.length === 0) continue;
-
-    const frag = document.createDocumentFragment();
-    let pos = 0;
-    for (const seg of merged) {
-      if (pos < seg.start) {
-        frag.appendChild(document.createTextNode(text.slice(pos, seg.start)));
+document.addEventListener('DOMContentLoaded', () => {
+  for (const pre of document.querySelectorAll('pre.nm-code > code')) {
+    const lines = (pre.textContent || '').split('\\n');
+    if (lines.length > 25) {
+      const keep = 10;
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < lines.length; i++) {
+        const span = document.createElement('span');
+        span.textContent = lines[i] + (i < lines.length - 1 ? '\\n' : '');
+        if (i >= keep && i < lines.length - keep) {
+          span.classList.add('nm-hidden');
+        }
+        frag.appendChild(span);
       }
-      const span = document.createElement('span');
-      span.className = 'nm-syn-' + seg.type;
-      span.textContent = text.slice(seg.start, seg.end);
-      frag.appendChild(span);
-      pos = seg.end;
+      pre.textContent = '';
+      pre.appendChild(frag);
+      
+      const btn = document.createElement('button');
+      btn.className = 'nm-toggle';
+      btn.textContent = '全て表示';
+      btn.onclick = () => nmToggleHidden(btn);
+      pre.parentElement.insertAdjacentElement('afterend', btn);
     }
-    if (pos < text.length) {
-      frag.appendChild(document.createTextNode(text.slice(pos)));
-    }
-    item.node.parentNode.replaceChild(frag, item.node);
-  }
-}
-
-async function highlightArticleNeplBlocks() {
-  let wasm = null;
-  try {
-    wasm = await loadBindings();
-  } catch (_) {
-    return;
-  }
-  if (!wasm || typeof wasm.analyze_lex !== 'function') return;
-
-  const codeBlocks = document.querySelectorAll('pre.nm-code > code.language-neplg2');
-  for (const codeEl of codeBlocks) {
-    const src = codeEl.textContent || '';
-    if (!src.trim()) continue;
-    try {
-      const lex = wasm.analyze_lex(src);
-      highlightCodeElement(codeEl, lex && lex.tokens);
-    } catch (_) {
-      // ハイライト失敗時は本文表示を優先する。
-    }
-  }
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  for(const pre of document.querySelectorAll('pre.nm-code')){
-    const hasHidden = pre.querySelector('.nm-hidden');
-    if(!hasHidden) continue;
-    for(const n of pre.querySelectorAll('.nm-hidden')){
-      n.style.display = 'none';
-    }
-    const btn = document.createElement('button');
-    btn.className = 'nm-toggle';
-    btn.textContent = '全て表示';
-    btn.onclick = () => nmToggleHidden(btn);
-    pre.insertAdjacentElement('afterend', btn);
   }
 
   highlightArticleNeplBlocks();
@@ -818,6 +839,41 @@ window.addEventListener('DOMContentLoaded', () => {
     sidebar.scrollTop = Math.max(0, targetTop);
   }
   window.scrollTo(0, 0);
+  
+  // モバイルサイドバートグル機能
+  const sidebarToggle = document.querySelector('.sidebar-toggle');
+  const sidebarOverlay = document.createElement('div');
+  sidebarOverlay.className = 'sidebar-overlay';
+  document.body.appendChild(sidebarOverlay);
+  
+  function toggleSidebar() {
+    if (sidebar) {
+      sidebar.classList.toggle('mobile-open');
+      sidebarOverlay.classList.toggle('mobile-open');
+    }
+  }
+  
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSidebar();
+    });
+  }
+  
+  sidebarOverlay.addEventListener('click', toggleSidebar);
+  
+  // サイドバー内のリンククリック時にサイドバーを閉じる（モバイルのみ）
+  if (sidebar) {
+    const sidebarLinks = sidebar.querySelectorAll('.toc-link');
+    sidebarLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+          sidebar.classList.remove('mobile-open');
+          sidebarOverlay.classList.remove('mobile-open');
+        }
+      });
+    });
+  }
 });
 </script>
 </head>

@@ -1,4 +1,4 @@
-# Getting Started（入門）
+# NEPLg2 - Getting Started（入門）
 
 このチュートリアルは、NEPLg2 を初めて触る人向けに「仕様どおりに動く最小コード」を段階的に学ぶための資料です。
 
