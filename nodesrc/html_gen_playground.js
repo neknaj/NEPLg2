@@ -185,6 +185,23 @@ ul{margin:10px 0 10px 22px;}
 .nm-toggle{display:inline-block;margin:6px 0 12px;padding:6px 10px;border-radius:10px;border:1px solid #2f3f58;background:#0f141b;color:#d6d6d6;cursor:pointer;transition:all 0.2s;}
 .nm-toggle:hover{background:#1a202e;}
 .nm-hidden{display:none;}
+.nm-expand-marker{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  margin:4px 0;
+  padding:2px 8px;
+  border-radius:4px;
+  background:rgba(122,162,247,0.15);
+  color:var(--accent);
+  font-size:11px;
+  cursor:pointer;
+  user-select:none;
+  border:1px solid rgba(122,162,247,0.3);
+}
+.nm-expand-marker:hover{
+  background:rgba(122,162,247,0.25);
+}
 .nm-runnable{cursor:pointer;position:relative;}
 .nm-runnable::after{
   content:"Click to run";
@@ -747,10 +764,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentGroup.length > 0) groups.push(currentGroup);
 
     for (const group of groups) {
+      if (group.length === 1) {
+        group[0].style.display = 'inline';
+        continue;
+      }
       const first = group[0];
       const marker = document.createElement('span');
       marker.className = 'nm-expand-marker';
-      marker.textContent = '+';
+      marker.textContent = '[expand+]';
       marker.title = '省略を展開';
       marker.onclick = () => nmExpandHidden(marker, group);
       first.parentNode.insertBefore(marker, first);
@@ -876,7 +897,14 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.title = 'Run in playground';
     btn.onclick = () => {
       title.textContent = document.title + ' - runnable snippet';
-      src.value = code.textContent || '';
+      let text = '';
+      for (const node of code.childNodes) {
+        if (node.nodeType === 1 && node.classList.contains('nm-expand-marker')) {
+          continue;
+        }
+        text += node.textContent;
+      }
+      src.value = text;
       stdin.value = findDoctestStdinFor(container);
       setStdoutText('');
       setStatus('ready', 'ok');
