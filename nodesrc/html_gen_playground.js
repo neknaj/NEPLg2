@@ -224,7 +224,7 @@ ul{margin:10px 0 10px 22px;}
 }
 #play-overlay{
   position:fixed; inset:0; background:rgba(0,0,0,.55);
-  display:none; align-items:center; justify-content:center; z-index:9999;
+  display:none; align-items:center; justify-content:center; z-index:999900;
 }
 #play-overlay.open{display:flex;}
 #play-modal{
