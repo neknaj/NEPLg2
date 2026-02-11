@@ -127,7 +127,7 @@ jobs:
               run: |
                   set -o pipefail
                   rm -rf dist/tutorials dist/doc/stdlib
-                  node nodesrc/cli.js -i tutorials -o html_play=dist/tutorials 2>&1 | tee doc-build.log
+                  node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started 2>&1 | tee doc-build.log
                   node nodesrc/cli.js -i stdlib -o html=dist/doc/stdlib --exclude-dir tests --exclude-dir tests_backup 2>&1 | tee -a doc-build.log
 
             - name: Run doctests (tests + tutorials + stdlib) and write dist/tests.json (allowed to fail)
