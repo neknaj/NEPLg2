@@ -32,7 +32,7 @@ function renderToc(tocLinks) {
         const cls = link.active ? `toc-link active depth-${depth}` : `toc-link depth-${depth}`;
         return `<li><a class="${cls}" href="${escapeHtml(String(link.href || ''))}">${escapeHtml(String(link.label || ''))}</a></li>`;
     }).join('\n');
-    return `<aside class="doc-sidebar"><div class="sidebar-header"><div class="toc-title">Getting Started</div><button class="sidebar-toggle" aria-label="メニューを開く">☰</button></div><ul class="toc-list">${items}</ul></aside>`;
+    return `<aside class="doc-sidebar"><div class="sidebar-header"><div class="toc-title">Getting Started</div></div><ul class="toc-list">${items}</ul></aside>`;
 }
 
 function buildPlaygroundVfsOverrides() {
@@ -98,14 +98,14 @@ html,body{
   margin:0;
   padding:0;
 }
-.doc-layout{max-width:1260px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:260px 1fr;gap:18px;}
-main{min-width:0;}
+.doc-layout{
+  display:grid;
+  grid-template-columns:280px 1fr;
+  min-height:100vh;
+}
+main{min-width:0;padding:24px 40px;max-width:900px;}
 a{color:var(--accent);}
 .global-play-link{
-  position:fixed;
-  right:14px;
-  top:12px;
-  z-index:10000;
   display:inline-flex;
   align-items:center;
   gap:6px;
@@ -119,6 +119,12 @@ a{color:var(--accent);}
   transition:all 0.2s;
 }
 .global-play-link:hover{border-color:#355186;background:rgba(18,26,42,0.96);}
+.global-play-link.pc-only{
+  position:fixed;
+  right:14px;
+  top:12px;
+  z-index:10000;
+}
 hr{border:none;border-top:1px solid var(--border);margin:24px 0;}
 .nm-sec{padding:0.5em;padding-left:2em;margin:1em;border-left:3px solid var(--border);border-radius:1em;}
 h1,h2,h3,h4,h5,h6{margin:18px 0 10px;}
@@ -226,15 +232,15 @@ ul{margin:10px 0 10px 22px;}
 }
 .doc-sidebar{
   position:sticky;
-  top:16px;
-  align-self:start;
-  background:var(--card);
+  top:0;
+  height:100vh;
+  background:var(--bg);
   border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px 10px 14px;
-  height:calc(100vh - 32px - 70px);
+  border-left:none;
+  border-radius:0;
+  padding:16px;
   overflow-y:auto;
-  overscroll-behavior:contain;
+  box-sizing:border-box;
   scrollbar-width:thin;
   scrollbar-color:#425779 #121a2a;
 }
@@ -254,8 +260,18 @@ ul{margin:10px 0 10px 22px;}
   color:var(--muted);
   margin:2px 0;
 }
-.sidebar-toggle{
+.mobile-header{
   display:none;
+  align-items:center;
+  gap:12px;
+  padding:10px 16px;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);
+  position:sticky;
+  top:0;
+  z-index:900;
+}
+.sidebar-toggle{
   background:transparent;
   border:1px solid var(--border);
   color:var(--fg);
@@ -302,56 +318,40 @@ ul{margin:10px 0 10px 22px;}
   z-index:999;
 }
 
-/* タブレット対応 */
-@media (max-width: 1024px) {
-  .doc-layout{
-    grid-template-columns:240px 1fr;
-    gap:16px;
-  }
-}
-
-/* スマホ対応（第1段階：768px以下） */
+/* スマホ対応（768px以下） */
 @media (max-width: 768px){
   .doc-layout{
-    grid-template-columns:1fr;
-    margin:16px auto;
-    padding:0 12px;
+    display:block;
+  }
+  .mobile-header{
+    display:flex;
+  }
+  .global-play-link.pc-only{
+    display:none;
   }
   
   .doc-sidebar{
     position:fixed;
     top:0;
-    left:-280px;
+    left:0;
+    bottom:0;
     width:280px;
-    height:100vh;
     z-index:1000;
-    border-radius:0;
-    border-left:none;
-    transition:left 0.3s ease;
-    padding:12px;
+    transform:translateX(-100%);
+    transition:transform 0.3s ease;
+    border-right:1px solid var(--border);
   }
   
   .doc-sidebar.mobile-open{
-    left:0;
+    transform:translateX(0);
   }
   
   .sidebar-overlay.mobile-open{
     display:block;
   }
   
-  .sidebar-toggle{
-    display:block;
-  }
-  
-  .global-play-link{
-    position:static;
-    margin:12px 16px 0 auto;
-    width:fit-content;
-    display:flex;
-  }
-  
   main{
-    padding-top:8px;
+    padding:16px;
   }
   
   /* モーダルの調整 */
@@ -878,7 +878,12 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </head>
 <body>
-<a class="global-play-link" href="https://neknaj.github.io/NEPLg2/" target="_blank" rel="noopener noreferrer">Web Playground</a>
+<div class="mobile-header">
+  <button class="sidebar-toggle" aria-label="メニューを開く">☰</button>
+  <div style="font-weight:600;font-size:14px;">${escapeHtml(t)}</div>
+  <a class="global-play-link" href="https://neknaj.github.io/NEPLg2/" target="_blank" rel="noopener noreferrer" style="margin-left:auto;">Web Playground</a>
+</div>
+<a class="global-play-link pc-only" href="https://neknaj.github.io/NEPLg2/" target="_blank" rel="noopener noreferrer">Web Playground</a>
 <div class="doc-layout">
 ${tocHtml}
 <main>
