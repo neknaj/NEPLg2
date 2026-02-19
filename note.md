@@ -1768,3 +1768,30 @@
   - `total=465, passed=458, failed=7, errored=0`
   - 今回解消: `tests/numerics.n.md::doctest#3`（ambiguous overload）
   - 既存残件: `ret_f64_example`, `selfhost_req` 系, `sort` 一部, `string` 一部
+
+
+# 2026-02-19 作業メモ (stdlib ドキュメント整備と履歴整理)
+## 実装
+- `stdlib/std/stdio.nepl`, `stdlib/std/fs.nepl`, `stdlib/std/env/cliarg.nepl`, `stdlib/std/test.nepl`:
+  - 先頭テンプレート説明を削除し、`//:` 形式のドキュメントコメントで統一。
+  - 注意文を「副作用・メモリ確保/移動・ターゲット制約」など実利用時の注意へ是正。
+  - 各関数に利用例（`neplg2:test[skip]`）を維持し、呼び出し形を確認しやすい構成へ整理。
+- `stdlib` 全体のドキュメント文言を点検し、モック的な表現を以下の方針で是正。
+  - 「関数の概要」→「主な用途」
+  - 「詳細な関数別ドキュメントは段階的に追記します。」の削除
+  - 実装説明/注意文のテンプレート文言を、利用時の挙動が伝わる表現へ置換
+- commit 履歴は `4772eea` 基点で差分を再適用し、今回分を単一 commit に再作成。
+
+## plan.mdとの差異
+- 今回は plan.md の言語機能追加ではなく、stdlib のドキュメント品質改善と履歴整理を実施。
+- ランタイム挙動や API シグネチャは変更していない。
+
+## 検証
+- `cargo install trunk`
+  - 失敗（`https://index.crates.io/config.json` 取得時に 403、ネットワーク制約で導入不可）。
+- `NO_COLOR=true trunk build`
+  - 失敗（`trunk` 未導入）。
+- `node nodesrc/tests.js -i stdlib/std -o tests/output/stdlib_std_docs_current.json -j 1`
+  - 失敗（compiler artifacts 不在、`total=215, errored=215`）。
+- `node nodesrc/cli.js -i stdlib/std -o html_play=dist/stdlib_std`
+  - 失敗（artifacts 不在で HTML 生成不可）。

@@ -5,7 +5,7 @@
 //: - 実装の変更時に最小限の doctest 実行経路を維持します。
 //:
 //: [注意/ちゅうい]:
-//: - 詳細な関数別ドキュメントは段階的に追記します。
+//: - 利用時は各関数の「目的」「注意」「計算量」を確認してください。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -25,19 +25,19 @@
 
 #import "./parser" as *
 
-//: escape_html: 関数の概要
+//: escape_html: 主な用途
 //:
 //: [目的/もくてき]:
-//: - escape_html が担う機能を提供します。
+//: - escape_html の主な用途と呼び出し方を示します。
 //:
 //: [実装/じっそう]:
-//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
 //:
 //: [注意/ちゅうい]:
-//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
 //:
 //: [計算量/けいさんりょう]:
-//: - 実装に依存します。
+//: - 本体処理に準じます。
 fn escape_html <(str)*>str> (s):
     // English comments required by user preference.
     let mut sb <StringBuilder> string_builder_new;
@@ -66,19 +66,19 @@ fn escape_html <(str)*>str> (s):
             set i add i 1;
     sb_build sb
 
-//: render_inlines: 関数の概要
+//: render_inlines: 主な用途
 //:
 //: [目的/もくてき]:
-//: - render_inlines が担う機能を提供します。
+//: - render_inlines の主な用途と呼び出し方を示します。
 //:
 //: [実装/じっそう]:
-//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
 //:
 //: [注意/ちゅうい]:
-//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
 //:
 //: [計算量/けいさんりょう]:
-//: - 実装に依存します。
+//: - 本体処理に準じます。
 fn render_inlines <(Vec<Inline>)*>str> (v):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> get v "len";
@@ -120,19 +120,19 @@ fn render_inlines <(Vec<Inline>)*>str> (v):
             set i add i 1;
     sb_build sb
 
-//: render_nodes: 関数の概要
+//: render_nodes: 主な用途
 //:
 //: [目的/もくてき]:
-//: - render_nodes が担う機能を提供します。
+//: - render_nodes の主な用途と呼び出し方を示します。
 //:
 //: [実装/じっそう]:
-//: - 前置記法・オフサイドルール前提で読みやすく保つ構造です。
+//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
 //:
 //: [注意/ちゅうい]:
-//: - 型引数や所有権の制約は呼び出し側で満たしてください。
+//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
 //:
 //: [計算量/けいさんりょう]:
-//: - 実装に依存します。
+//: - 本体処理に準じます。
 fn render_nodes <(Vec<Node>)*>str> (nodes):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> get nodes "len";
