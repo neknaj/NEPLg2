@@ -297,7 +297,7 @@ ret: 6
 #import "core/field" as *
 
 fn main <()->i32> ():
-    let t <(i32,i32)> Tuple:
+    let t Tuple:
         5
         6
     get t 1

@@ -2173,3 +2173,13 @@
 - 検証:
   - `node nodesrc/tests.js -i tutorials/getting_started/19_pipe_operator.n.md -o tests/output/tutorial_pipe19_current.json -j 1`: `167/167 pass`
   - `node nodesrc/tests.js -i tutorials/getting_started -o tests/output/tutorials_getting_started.json -j 4`: `223/223 pass`
+
+# 2026-02-22 作業メモ (旧タプル記法移行フェーズ1: tuple_new_syntax の不要型注釈削減)
+- 実施:
+  - `tests/tuple_new_syntax.n.md` の `tuple_type_annotated` ケースで、
+    変数側の明示型注釈 `let t <(i32,i32)> ...` を除去し、推論へ移行。
+- 目的:
+  - parser 側最終 reject 前に、テスト資産から「不要な旧 tuple type 記法」を段階的に減らす。
+- 検証:
+  - `node nodesrc/tests.js -i tests/tuple_new_syntax.n.md -o tests/output/tuple_new_syntax_current.json -j 1`: `185/185 pass`
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json -j 4`: `547/547 pass`
