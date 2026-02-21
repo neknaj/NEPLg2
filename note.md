@@ -1,3 +1,15 @@
+# 2026-02-21 作業メモ (shadow warning ポリシーの API テスト固定)
+- 目的:
+  - `todo.md` の「シャドーイング運用の完成」に向け、`analyze_name_resolution` の警告ポリシーを木構造テストで固定。
+- 追加:
+  - `tests/tree/07_shadow_warning_policy.js`
+    - `print` のローカルシャドーで warning が出ることを確認。
+    - `cast` のローカルシャドーでは important-shadow warning が出ないことを確認。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node tests/tree/run.js`: `7/7 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `555/555 pass`
+
 # 2026-02-21 作業メモ (シャドーイング: callable 解決の回帰修正)
 - 背景:
   - `tests/shadowing.n.md` の pending ケース（`value_name_and_callable_name_can_coexist_currently_fails` / `imported_function_name_shadowed_by_parameter_currently_fails`）を通常テストへ昇格するため、`typecheck` の識別子解決を調整。
