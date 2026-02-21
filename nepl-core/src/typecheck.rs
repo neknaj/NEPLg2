@@ -672,14 +672,12 @@ pub fn typecheck(
                 effect,
             } = ctx.get(ty)
             {
-                if let Some(existing) = env.lookup(&f.name.name) {
-                    if !matches!(existing.kind, BindingKind::Func { .. }) {
-                        diagnostics.push(Diagnostic::error(
-                            "name already used by another item",
-                            f.name.span,
-                        ));
-                        continue;
-                    }
+                if env.lookup_value(&f.name.name).is_some() {
+                    diagnostics.push(Diagnostic::error(
+                        "name already used by another item",
+                        f.name.span,
+                    ));
+                    continue;
                 }
                 if enums.contains_key(&f.name.name) || structs.contains_key(&f.name.name) {
                     diagnostics.push(Diagnostic::error(
@@ -831,14 +829,12 @@ pub fn typecheck(
                     ),
                 );
             }
-            if let Some(existing) = env.lookup(&alias.name.name) {
-                if !matches!(existing.kind, BindingKind::Func { .. }) {
-                    diagnostics.push(Diagnostic::error(
-                        "name already used by another item",
-                        alias.name.span,
-                    ));
-                    break;
-                }
+            if env.lookup_value(&alias.name.name).is_some() {
+                diagnostics.push(Diagnostic::error(
+                    "name already used by another item",
+                    alias.name.span,
+                ));
+                break;
             }
             if let Some(blocked) = shadow_blocked_by_nonshadow(&env, &alias.name.name) {
                 if is_callable_binding(blocked) {
@@ -2500,7 +2496,7 @@ impl<'a> BlockChecker<'a> {
                         if let Some(binding) = self
                             .env
                             .lookup_current(&name.name)
-                            .or_else(|| self.env.lookup(&name.name))
+                            .or_else(|| self.env.lookup_value(&name.name))
                         {
                             if !binding.mutable {
                                 self.diagnostics.push(Diagnostic::error(
@@ -3257,7 +3253,7 @@ impl<'a> BlockChecker<'a> {
 
         let mut parts = id.name.split('.');
         let base_name = parts.next()?;
-        let base_binding = self.env.lookup(base_name)?;
+        let base_binding = self.env.lookup_value(base_name)?;
         if !matches!(base_binding.kind, BindingKind::Var) {
             return None;
         }

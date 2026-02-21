@@ -1,3 +1,20 @@
+# 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: lookup 用途分離)
+- 目的:
+  - `todo.md` 最優先の名前空間分離に向け、`typecheck` 内の識別子 lookup を用途別 API に寄せる。
+- 実装:
+  - `nepl-core/src/typecheck.rs` で、以下の箇所を value 専用 lookup へ置換。
+    - グローバル `fn` 登録時の「既存非関数チェック」: `env.lookup_value`
+    - `fn alias` 登録時の「既存非関数チェック」: `env.lookup_value`
+    - `set` 解決時の外側探索: `env.lookup_value`
+    - dotted field (`a.b`) の base 解決: `env.lookup_value`
+- 効果:
+  - 変数と callable を同一 lookup で混在解決する箇所を減らし、分離設計への移行を前進。
+  - 挙動は維持しつつ、意図しない callable 混入の余地を縮小。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/shadowing.n.md -i tests/tree -o tests/output/shadowing_tree_current.json -j 1`: `186/186 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `555/555 pass`
+
 # 2026-02-21 作業メモ (shadow warning ポリシーの API テスト固定)
 - 目的:
   - `todo.md` の「シャドーイング運用の完成」に向け、`analyze_name_resolution` の警告ポリシーを木構造テストで固定。
