@@ -128,6 +128,6 @@ fn main <()->i32> ():
         set v vec_push<i32> v 2;
         set v vec_push<i32> v 3;
         set v vec_push<i32> v 4;
-        v;
+        v
     if and not before after 10 0
 ```

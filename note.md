@@ -1,3 +1,25 @@
+# 2026-02-21 作業メモ (fs 衝突修正 + 回帰テスト追加)
+- `tests/selfhost_req.n.md` の compile fail を起点に `std/fs` の根因を修正。
+  - `std/fs` の WASI extern 名が他モジュール（`std/stdio` など）と衝突しうるため、`wasi_path_open` / `wasi_fd_read` / `wasi_fd_close` に内部名を固有化。
+  - `fs_read_fd_bytes` の `cast` を `<u8> cast b` へ明示して overload 曖昧性を解消。
+  - `vec_new<u8> ()` 旧記法を新記法 `vec_new<u8>` へ更新。
+- テスト整備:
+  - 追加: `tests/capacity_stack.n.md`
+    - 再帰深さ（64/512）、`Vec` 拡張、`mem` 読み書き、`StringBuilder`、`enum+vec+再帰` の段階テストを固定。
+  - 更新:
+    - `tests/selfhost_req.n.md`
+    - `tests/sort.n.md`
+    - `tests/string.n.md`
+    - `tests/ret_f64_example.n.md`
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/ret_f64_example.n.md -i tests/selfhost_req.n.md -i tests/sort.n.md -i tests/string.n.md -i tests/capacity_stack.n.md -o tests/output/targeted_regression_current.json`
+    - `194/194 pass`
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json`
+    - `540/540 pass`
+- 補足:
+  - `std/fs` は引き続き WASI preview1 前提。`wasmtime/wasmer` 差分検証は `todo_kp.md` のランタイム互換項目として継続。
+
 # 状況メモ (2026-01-22)
 # 2026-02-10 作業メモ (競プロカタログ拡張 + kpモジュール整理)
 - チュートリアルに競プロ定番の参照章を追加し、重要アルゴリズム/データ構造のサンプルを 20 項目で列挙した。

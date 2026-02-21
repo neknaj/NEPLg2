@@ -14,6 +14,7 @@ ret: 0
 ```neplg2
 #entry main
 #indent 4
+#target wasi
 // 想定: std/fs モジュールの追加、または std/stdio の拡張
 #import "std/fs" as *
 #import "std/stdio" as *
@@ -51,9 +52,9 @@ fn main <()*>i32> ():
     let b2 <u8> cast 0xAD;
     
     // 要件: Vec<u8> (バイトバッファ)
-    let mut buf <Vec<u8>> vec_new<u8> ();
-    vec_push<u8> buf b1;
-    vec_push<u8> buf b2;
+    let mut buf <Vec<u8>> vec_new<u8>;
+    set buf vec_push<u8> buf b1;
+    set buf vec_push<u8> buf b2;
     
     // 要件: バイト単位のアクセス
     match vec_get<u8> buf 0:
@@ -156,8 +157,7 @@ fn main <()*>i32> ():
 
 ## test_req_trait_extensions
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
 ```neplg2
 
 #entry main

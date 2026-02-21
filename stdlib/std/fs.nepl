@@ -1,8 +1,8 @@
 #indent 4
 
-#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)->i32>
-#extern "wasi_snapshot_preview1" "fd_read" fn fd_read <(i32,i32,i32,i32)->i32>
-#extern "wasi_snapshot_preview1" "fd_close" fn fd_close <(i32)->i32>
+#extern "wasi_snapshot_preview1" "path_open" fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)->i32>
+#extern "wasi_snapshot_preview1" "fd_read" fn wasi_fd_read <(i32,i32,i32,i32)->i32>
+#extern "wasi_snapshot_preview1" "fd_close" fn wasi_fd_close <(i32)->i32>
 
 #import "core/cast" as *
 #import "core/mem" as *
@@ -99,7 +99,7 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
     let path_ptr <i32> add path 4;
     let path_len <i32> load_i32 path;
     let rights <i64> i64_from_i32 0;
-    let errno <i32> path_open 3 0 path_ptr path_len 0 rights rights 0 fd_out;
+    let errno <i32> wasi_path_open 3 0 path_ptr path_len 0 rights rights 0 fd_out;
     if:
         eq errno 0
         then Result::Ok load_i32 fd_out
@@ -137,7 +137,7 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
 //:     fs_read_fd_bytes 0;
 //: ```
 fn fs_read_fd_bytes <(i32)*>Result<Vec<u8>,i32>> (fd):
-    let mut buf <Vec<u8>> vec_new<u8> ();
+    let mut buf <Vec<u8>> vec_new<u8>;
     let cap <i32> 256;
     let tmp <i32> alloc cap;
     let iov <i32> alloc 8;
@@ -150,7 +150,7 @@ fn fs_read_fd_bytes <(i32)*>Result<Vec<u8>,i32>> (fd):
     while eq done 0:
         do:
             store_i32 nread 0;
-            let errno <i32> fd_read fd iov 1 nread;
+            let errno <i32> wasi_fd_read fd iov 1 nread;
             if:
                 eq errno 0
                 then:
@@ -163,7 +163,7 @@ fn fs_read_fd_bytes <(i32)*>Result<Vec<u8>,i32>> (fd):
                             while lt i n:
                                 do:
                                     let b <i32> load_u8 add tmp i;
-                                    set buf vec_push<u8> buf cast b;
+                                    set buf vec_push<u8> buf <u8> cast b;
                                     set i add i 1;
                 else:
                     set err errno;
@@ -203,7 +203,7 @@ fn fs_read_fd_bytes <(i32)*>Result<Vec<u8>,i32>> (fd):
 //:| #target wasi
 //:| #import "std/fs" as *
 //: fn main <()*>()> ():
-//:     fs_bytes_to_string vec_push<u8> vec_new<u8> () 65;
+//:     fs_bytes_to_string vec_push<u8> vec_new<u8> 65;
 //: ```
 fn fs_bytes_to_string <(Vec<u8>)*>str> (buf):
     let len <i32> buf.len;
@@ -253,7 +253,7 @@ fn fs_read_to_bytes <(str)*>Result<Vec<u8>,i32>> (path):
     match fs_open_read path:
         Result::Ok fd:
             let res <Result<Vec<u8>,i32>> fs_read_fd_bytes fd;
-            let _ <i32> fd_close fd;
+            let _ <i32> wasi_fd_close fd;
             res
         Result::Err e:
             Result::Err e

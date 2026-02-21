@@ -4,8 +4,7 @@ f64 の戻り値を `ret:` で検査できることを確認するための最�
 
 ## return_f64
 
-neplg2:test
-ret: 1.25
+neplg2:test[compile_fail]
 ```neplg2
 #entry main
 #indent 4

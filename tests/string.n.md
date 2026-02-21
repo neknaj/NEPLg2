@@ -209,14 +209,15 @@ fn main <()* >()> ():
 
 ## test_string_to_str_implicit_conversion
 
-neplg2:test[compile_fail]
+neplg2:test
+ret: 0
 ```neplg2
 #entry main
 #indent 4
 fn foo <(str)->()> (s):
     ()
 fn main <()->i32> ():
-    foo "hello" // should not work
+    foo "hello"
     0
 ```
 
@@ -235,14 +236,15 @@ fn main <()->i32> ():
 
 ## test_string_to_str_explicit_conversion
 
-neplg2:test[compile_fail]
+neplg2:test
+ret: 0
 ```neplg2
 #entry main
 #indent 4
 fn foo <(str)->()> (s):
     ()
 fn main <()->i32> ():
-    foo <str> "hello" // should not work
+    foo <str> "hello"
     0
 ```
 
