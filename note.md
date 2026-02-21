@@ -1,3 +1,21 @@
+# 2026-02-22 作業メモ (旧タプル型記法の残骸を Rust テストから除去)
+- 背景:
+  - 旧タプル型注釈 `((i32,i32))` / `<(i32,i32)>` が `nepl-core/tests` に残っており、
+    旧仕様廃止後の parser/typecheck 方針と不整合になっていた。
+- 実装:
+  - `nepl-core/tests/pipe_operator.rs`
+    - `pipe_tuple_source` の `fn f` を新仕様に合わせて
+      `fn f <.T> <(.T)->i32> (t): 2` へ更新。
+  - `nepl-core/tests/tuple_new_syntax.rs`
+    - `tuple_as_function_arg`: `fn take <.T> <(.T)->i32>` に更新。
+    - `tuple_return_value`: `fn make <()->.Pair>` に更新。
+    - `tuple_inside_struct`: `pair <.Pair>` に更新。
+    - `tuple_type_annotated`: 旧型注釈 `<(i32,i32)>` を削除。
+- 検証:
+  - `cargo test -p nepl-core --test pipe_operator --test tuple_new_syntax`: `40/40 pass`
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/pipe_operator.n.md -i tests/tuple_new_syntax.n.md -o tests/output/pipe_tuple_rs_sync.json`: `219/219 pass`
+
 # 2026-02-22 作業メモ (capture あり関数値を明示的に拒否)
 - 目的:
   - closure conversion 未実装の状態で capture 付き関数を `@fn` で値化した際、

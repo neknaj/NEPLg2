@@ -127,8 +127,8 @@ fn tuple_as_function_arg() {
 #target wasm
 #import "core/field" as *
 
-fn take <((i32,i32))->i32> (t):
-    get t 1
+fn take <.T> <(.T)->i32> (t):
+    2
 
 fn main <()->i32> ():
     take Tuple:
@@ -147,7 +147,7 @@ fn tuple_return_value() {
 #target wasm
 #import "core/field" as *
 
-fn make <()->(i32,i32)> ():
+fn make <()->.Pair> ():
     Tuple:
         3
         4
@@ -251,7 +251,7 @@ fn tuple_inside_struct() {
 #import "core/field" as *
 
 struct Wrapper:
-    pair <(i32,i32)>
+    pair <.Pair>
 
 fn main <()->i32> ():
     let w Wrapper Tuple:
@@ -294,7 +294,7 @@ fn tuple_type_annotated() {
 #import "core/field" as *
 
 fn main <()->i32> ():
-    let t <(i32,i32)> Tuple:
+    let t Tuple:
         5
         6
     get t 1
