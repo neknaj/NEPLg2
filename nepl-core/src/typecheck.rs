@@ -2227,6 +2227,17 @@ impl<'a> BlockChecker<'a> {
                                 })
                                 .or_else(|| self.env.lookup_callable_any(&id.name))
                         } {
+                            if *forced_value {
+                                if let BindingKind::Func { captures, .. } = &binding.kind {
+                                    if !captures.is_empty() {
+                                        self.diagnostics.push(Diagnostic::error(
+                                            "capturing function cannot be used as a function value yet",
+                                            id.span,
+                                        ));
+                                        return None;
+                                    }
+                                }
+                            }
                             let ty = binding.ty;
                             let auto_call = match binding.kind {
                                 BindingKind::Func { .. } => !*forced_value,
@@ -2285,6 +2296,13 @@ impl<'a> BlockChecker<'a> {
                             }
                             if !bindings.is_empty() {
                                 if let Some(binding) = self.env.lookup_value(&lookup_name) {
+                                    if *forced_value {
+                                        self.diagnostics.push(Diagnostic::error(
+                                            "only callable symbols can be referenced with '@'",
+                                            id.span,
+                                        ));
+                                        return None;
+                                    }
                                     if !type_args.is_empty() {
                                         self.diagnostics.push(Diagnostic::error(
                                             "type arguments are not allowed for variables",
@@ -2296,11 +2314,7 @@ impl<'a> BlockChecker<'a> {
                                         ty,
                                         expr: HirExpr {
                                             ty,
-                                            kind: if *forced_value {
-                                                HirExprKind::FnValue(lookup_name.clone())
-                                            } else {
-                                                HirExprKind::Var(lookup_name.clone())
-                                            },
+                                            kind: HirExprKind::Var(lookup_name.clone()),
                                             span: id.span,
                                         },
                                         type_args: Vec::new(),
@@ -2338,6 +2352,19 @@ impl<'a> BlockChecker<'a> {
                                     }
                                     let arity = arity.unwrap_or(0);
                                     let effect = effect.unwrap_or(Effect::Pure);
+                                    let has_captures = bindings.iter().any(|b| {
+                                        matches!(
+                                            &b.kind,
+                                            BindingKind::Func { captures, .. } if !captures.is_empty()
+                                        )
+                                    });
+                                    if *forced_value && has_captures {
+                                        self.diagnostics.push(Diagnostic::error(
+                                            "capturing function cannot be used as a function value yet",
+                                            id.span,
+                                        ));
+                                        return None;
+                                    }
                                     let mut explicit_args = Vec::new();
                                     if !type_args.is_empty() {
                                         for arg_expr in type_args {
@@ -2357,7 +2384,11 @@ impl<'a> BlockChecker<'a> {
                                         ty,
                                         expr: HirExpr {
                                             ty,
-                                            kind: HirExprKind::Var(lookup_name.clone()),
+                                            kind: if *forced_value {
+                                                HirExprKind::FnValue(lookup_name.clone())
+                                            } else {
+                                                HirExprKind::Var(lookup_name.clone())
+                                            },
                                             span: id.span,
                                         },
                                         type_args: explicit_args,

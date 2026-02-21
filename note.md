@@ -1,3 +1,19 @@
+# 2026-02-22 作業メモ (capture あり関数値を明示的に拒否)
+- 目的:
+  - closure conversion 未実装の状態で capture 付き関数を `@fn` で値化した際、
+    下流で不正な生成へ進むのを防ぐ。
+- 実装:
+  - `nepl-core/src/typecheck.rs`
+    - `@` 付き識別子解決時に、対象が capture あり関数なら
+      `capturing function cannot be used as a function value yet` を返す。
+    - `@` を非 callable に適用した場合は
+      `only callable symbols can be referenced with '@'` を返す。
+  - `tests/functions.n.md`
+    - `function_value_capture_not_supported_yet`（`compile_fail`）を追加。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `560/560 pass`
+
 # 2026-02-22 作業メモ (`call_indirect` フォールバックの厳密化)
 - 目的:
   - 高階関数の呼び出し経路で、曖昧な下位フォールバックを減らし、`FnValue` 中心の規則へ固定する。

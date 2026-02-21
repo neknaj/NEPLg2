@@ -337,6 +337,24 @@ fn main <()->i32> ():
     add_y 5
 ```
 
+## function_value_capture_not_supported_yet
+
+neplg2:test[compile_fail]
+```neplg2
+
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn main <()->i32> ():
+    let y 10;
+    fn add_y (x):
+        add x y
+    let f @add_y;
+    f 5
+```
+
 ## function_purity_check_pure_calls_impure
 
 neplg2:test[compile_fail]
