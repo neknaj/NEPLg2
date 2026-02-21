@@ -2668,3 +2668,18 @@
   - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `563/563 pass`
 - 位置づけ:
   - 条件付きコンパイルの上流（lexer/parser）と下流（compile profile）の双方を tree/API テストで接続し、再発時の診断速度を高めた。
+
+# 2026-02-22 作業メモ (parser 回帰追加: 旧タプル記法診断の固定)
+- 背景:
+  - 旧 tuple 記法廃止を上流で固定するため、`compile_fail` だけでなく parser API の診断メッセージを直接検証する回帰が必要だった。
+- 実施:
+  - `tests/tree/11_legacy_tuple_parse_diag.js` を追加。
+  - `analyze_parse` で以下を検証:
+    - `let t (1, true)` に対し `legacy tuple literal '(...)' is removed` 診断が出る。
+    - `let t <(i32,i32)> Tuple: ...` に対し `legacy tuple type '(T1, T2, ...)' is removed` 診断が出る。
+  - parser のエラー回復方針（診断を出しつつ `ok` 継続しうる）に合わせ、`ok==false` ではなく診断存在を成功条件にした。
+- 検証:
+  - `node tests/tree/run.js`: `11/11 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `564/564 pass`
+- 位置づけ:
+  - 旧記法廃止の境界を lexer/parser API 層で固定し、将来の parser 変更で受理が戻る退行を検知できるようにした。
