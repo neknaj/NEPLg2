@@ -1838,13 +1838,20 @@ impl<'a> BlockChecker<'a> {
                             .ctx
                             .function(type_params.clone(), lifted_params, result, effect);
                     }
-                    emit_shadow_warning(
-                        &mut self.diagnostics,
-                        self.env,
-                        &f.name.name,
-                        f.name.span,
-                        "fn",
-                    );
+                    let has_non_callable_conflict = self
+                        .env
+                        .lookup_all(&f.name.name)
+                        .iter()
+                        .any(|b| !is_callable_binding(b));
+                    if has_non_callable_conflict {
+                        emit_shadow_warning(
+                            &mut self.diagnostics,
+                            self.env,
+                            &f.name.name,
+                            f.name.span,
+                            "fn",
+                        );
+                    }
                     let _ = self.env.insert_local(Binding {
                         name: f.name.name.clone(),
                         ty,

@@ -2115,3 +2115,19 @@
   - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json -j 4`: `547/547 pass`
 - 位置づけ:
   - 上流（typecheck入り口）での条件判定一貫化で、nm/cliarg を含む extern 解決の再発防止を目的とした根本修正。
+
+# 2026-02-22 作業メモ (シャドー警告: オーバーロード経路のノイズ抑制)
+- 背景:
+  - 仕様上、関数オーバーロードは許容されるため、オーバーロード成立ケースで一般 shadow warning を出すのはノイズになる。
+- 修正:
+  - `nepl-core/src/typecheck.rs`
+    - ネスト `fn` 登録時の `emit_shadow_warning(...)` 呼び出し条件を調整。
+    - 既存同名候補が「すべて callable（= オーバーロード候補）」の場合は一般 shadow warning を出さない。
+    - 同名に value 系束縛が混在する場合のみ従来どおり warning を出す。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/shadowing.n.md -i tests/overload.n.md -o tests/output/shadowing_current.json -j 2`: `186/186 pass`
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json -j 4`: `547/547 pass`
+- 位置づけ:
+  - 名前解決・シャドーイング再設計（todo最優先項目）の一部として、
+    「オーバーロードではなく実シャドーのみ警告」の運用に近づける調整。
