@@ -1,3 +1,18 @@
+# 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: callable 専用経路の拡大)
+- 目的:
+  - `todo.md` 最優先の名前空間分離を継続し、callable と value の探索経路をより明確に分離。
+- 実装:
+  - `nepl-core/src/typecheck.rs`
+    - `fn alias` のターゲット探索を `lookup_all` から `lookup_all_callables` に変更。
+    - entry 解決の候補探索を `lookup_all` から `lookup_all_callables` に変更。
+    - trait メソッド呼び出し補助分岐の存在判定を `lookup_all_callables` に変更。
+  - これにより、関数解決フェーズで value 候補を混在させない経路を拡大。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/functions.n.md -o tests/output/functions_current.json -j 1`: `187/187 pass`
+  - `node nodesrc/tests.js -i tests/neplg2.n.md -o tests/output/neplg2_current.json -j 1`: `203/203 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `555/555 pass`
+
 # 2026-02-21 作業メモ (名前解決 API: 重要シャドー警告の抑制オプション追加)
 - 目的:
   - `todo.md` の「重要 stdlib 記号 warning 抑制ルール（設定/フラグ）」を実装し、LSP/エディタ連携で制御可能にする。

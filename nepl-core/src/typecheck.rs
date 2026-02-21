@@ -777,7 +777,7 @@ pub fn typecheck(
             ));
             continue;
         }
-        let targets = env.lookup_all(&alias.target.name);
+        let targets = env.lookup_all_callables(&alias.target.name);
         if targets.is_empty() {
             diagnostics.push(Diagnostic::error(
                 "alias target not found",
@@ -803,13 +803,7 @@ pub fn typecheck(
                     type_param_bounds.clone(),
                     captures.clone(),
                 ),
-                _ => {
-                    diagnostics.push(Diagnostic::error(
-                        "alias target is not a function",
-                        alias.target.span,
-                    ));
-                    continue;
-                }
+                _ => continue,
             };
             target_infos.push((target.ty, symbol, effect, arity, builtin, bounds, captures));
         }
@@ -1145,7 +1139,7 @@ pub fn typecheck(
     }
 
     let resolved_entry = if let Some(name) = entry {
-        let bindings = env.lookup_all(&name);
+        let bindings = env.lookup_all_callables(&name);
         let mut func_symbols = Vec::new();
         for b in bindings {
             if let BindingKind::Func { symbol, .. } = &b.kind {
@@ -4395,7 +4389,7 @@ impl<'a> BlockChecker<'a> {
 
 
         if let HirExprKind::Var(name) = &func.expr.kind {
-            if self.env.lookup_all(name).is_empty() {
+            if self.env.lookup_all_callables(name).is_empty() {
                 if let Some((trait_name, method_name)) = parse_variant_name(name) {
                     if let Some(trait_info) = self.traits.get(trait_name) {
                         if trait_info.methods.get(method_name).is_some() {
