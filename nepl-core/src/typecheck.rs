@@ -2215,7 +2215,7 @@ impl<'a> BlockChecker<'a> {
                             } else {
                                 None
                             };
-                            preferred_callable.or_else(|| self.env.lookup(&id.name))
+                            preferred_callable.or_else(|| self.env.lookup_any_defined(&id.name))
                         } {
                             let ty = binding.ty;
                             let auto_call = match binding.kind {
@@ -4619,16 +4619,6 @@ impl Env {
             .into_iter()
             .filter(|b| matches!(b.kind, BindingKind::Func { .. }))
             .collect()
-    }
-
-    #[allow(dead_code)]
-    fn lookup(&self, name: &str) -> Option<&Binding> {
-        self.lookup_any_defined(name)
-    }
-
-    #[allow(dead_code)]
-    fn lookup_all(&self, name: &str) -> Vec<&Binding> {
-        self.lookup_all_any_defined(name)
     }
 
     fn lookup_callable_any(&self, name: &str) -> Option<&Binding> {

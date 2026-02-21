@@ -1,3 +1,19 @@
+# 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: 旧 lookup ラッパ削除)
+- 目的:
+  - `typecheck` 内で残っていた曖昧な `lookup`/`lookup_all` 参照を除去し、用途別 API への統一を進める。
+- 実装:
+  - `nepl-core/src/typecheck.rs`
+    - `Symbol::Ident` の fallback を `lookup_any_defined` に変更。
+    - 互換ラッパ `lookup` / `lookup_all` を削除。
+    - 置換完了後の探索 API は以下へ統一:
+      - 値: `lookup_value`
+      - 関数: `lookup_all_callables` / `lookup_callable_any`
+      - 任意定義済み: `lookup_any_defined` / `lookup_all_any_defined`
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/shadowing.n.md -i tests/functions.n.md -i tests/neplg2.n.md -o tests/output/namespace_phase_current.json -j 1`: `240/240 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `555/555 pass`
+
 # 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: 明示 lookup API へ統一)
 - 目的:
   - `typecheck` で `lookup/lookup_all` の意図が曖昧な箇所を減らし、`ValueNs`/`CallableNs` 分離を進める。
