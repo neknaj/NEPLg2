@@ -1813,6 +1813,33 @@
   - `total=534, passed=527, failed=7, errored=0`
   - 失敗は既知カテゴリ（`ret_f64_example`, `selfhost_req`, `sort`, `string compile_fail期待差分`）で、今回の shadowing API 変更による新規失敗は確認されなかった。
 
+# 2026-02-21 作業メモ (typecheck: shadowing warning 伝播と非致命化)
+## 実装
+- `nepl-core/src/typecheck.rs`
+  - `Binding` に `span` を追加し、shadow 警告の二次ラベル（元定義位置）を出せるようにした。
+  - `Env::lookup_outer_defined` を追加し、現在スコープ外の定義候補を参照できるようにした。
+  - `emit_shadow_warning` を追加し、束縛導入時（`let` / `let mut` / `fn` / parameter / match bind）に shadow を検知して warning を生成するようにした。
+  - 重要シンボル（`print`, `println`, `add`, `len` など）については、外側候補が見つからない場合でも「stdlib 記号を隠しうる」warning を生成するようにした。
+  - `check_function` の返却を `CheckedFunction` 化し、warning を返しつつコンパイル対象関数は生成し続けるように修正した。
+    - 以前は warning を含むだけで `Err` 扱いになり、関数が落ちていた。
+    - 現在は `Error` のみ `Err`、warning は `diagnostics` として上位へ伝播する。
+- `tests/tree/04_semantics_tree.js`
+  - `analyze_semantics` で shadowing warning が取得できることを検証するケースを追加。
+
+## 検証
+- `NO_COLOR=false trunk build`
+  - 成功
+- `node tests/tree/run.js`
+  - `total=4, passed=4, failed=0, errored=0`
+- `node nodesrc/tests.js -i tests/if.n.md -i tests/offside_and_indent_errors.n.md -i tests/tuple_new_syntax.n.md -i tests/tuple_old_syntax.n.md -i tests/block_single_line.n.md -i tests/pipe_operator.n.md -i tests/keywords_reserved.n.md -o tests/output/upstream_lexer_parser_latest.json`
+  - `total=292, passed=292, failed=0, errored=0`
+- `node nodesrc/tests.js -i tests -o tests/output/tests_current.json`
+  - `total=534, passed=527, failed=7, errored=0`
+  - 失敗は既知カテゴリに留まり、今回変更による追加失敗は確認されなかった。
+
+## 残課題（今回の実装で見えたもの）
+- 重要シンボル warning は現在ノイズが多く、`todo.md` に無効化/抑制ポリシー設計タスクとして残した。
+
 
 # 2026-02-19 作業メモ (stdlib ドキュメント整備と履歴整理)
 ## 実装

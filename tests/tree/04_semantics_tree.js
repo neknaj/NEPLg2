@@ -36,6 +36,28 @@ fn main <()->i32> ():
         const nr = result?.name_resolution;
         assert.ok(nr && Array.isArray(nr.definitions), 'name_resolution payload should be included');
 
-        return { checked: 7, expr_count: exprs.length, token_sem_count: tokenSem.length };
+        const shadowSource = `#entry main
+#indent 4
+#target wasm
+
+#import "core/math" as *
+
+fn main <()->i32> ():
+    let add 5;
+    add
+`;
+        const shadowResult = api.analyze_semantics(shadowSource);
+        assert.equal(!!shadowResult?.ok, true, 'shadowing source should still compile');
+        const diagnostics = Array.isArray(shadowResult?.diagnostics) ? shadowResult.diagnostics : [];
+        const shadowWarn = diagnostics.find(
+            (d) =>
+                d?.severity === 'warning' &&
+                typeof d?.message === 'string' &&
+                d.message.includes('important') &&
+                d.message.includes('add')
+        );
+        assert.ok(shadowWarn, 'important shadowing warning should be emitted by typecheck');
+
+        return { checked: 10, expr_count: exprs.length, token_sem_count: tokenSem.length };
     },
 };

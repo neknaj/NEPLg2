@@ -57,6 +57,12 @@ pub struct TypeCheckResult {
     pub types: TypeCtx,
 }
 
+#[derive(Debug)]
+struct CheckedFunction {
+    function: HirFunction,
+    diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Debug, Clone)]
 struct EnumInfo {
     ty: TypeId,
@@ -187,6 +193,7 @@ pub fn typecheck(
                     mutable: false,
                     defined: true,
                     moved: false,
+                    span: *span,
                     kind: BindingKind::Func {
                         symbol: func.name.clone(),
                         effect,
@@ -308,6 +315,7 @@ pub fn typecheck(
                         mutable: false,
                         defined: true,
                         moved: false,
+                        span: e.name.span,
                         kind: BindingKind::Func {
                             symbol: v.name.clone(),
                             effect: Effect::Pure,
@@ -325,6 +333,7 @@ pub fn typecheck(
                         mutable: false,
                         defined: true,
                         moved: false,
+                        span: e.name.span,
                         kind: BindingKind::Func {
                             symbol: format!("{}::{}", e.name.name, v.name),
                             effect: Effect::Pure,
@@ -391,6 +400,7 @@ pub fn typecheck(
                     mutable: false,
                     defined: true,
                     moved: false,
+                    span: s.name.span,
                     kind: BindingKind::Func {
                         symbol: s.name.name.clone(),
                         effect: Effect::Pure,
@@ -471,6 +481,7 @@ pub fn typecheck(
                     mutable: false,
                     defined: true,
                     moved: false,
+                    span: Span::dummy(),
                     kind: BindingKind::Func {
                         symbol: vname.clone(),
                         effect: Effect::Pure,
@@ -563,6 +574,7 @@ pub fn typecheck(
                 mutable: false,
                 defined: true,
                 moved: false,
+                span: Span::dummy(),
                 kind: BindingKind::Func {
                     symbol: name.clone(),
                     effect: Effect::Pure,
@@ -649,6 +661,7 @@ pub fn typecheck(
                     mutable: false,
                     defined: true,
                     moved: false,
+                    span: f.name.span,
                     kind: BindingKind::Func {
                         symbol,
                         effect,
@@ -728,6 +741,7 @@ pub fn typecheck(
                 mutable: false,
                 defined: true,
                 moved: false,
+                span: alias.name.span,
                 kind: BindingKind::Func {
                     symbol,
                     effect,
@@ -822,8 +836,9 @@ pub fn typecheck(
                 &impls,
                 &mut nested_functions,
             ) {
-                Ok(func) => {
-                    functions.push(func);
+                Ok(checked) => {
+                    diagnostics.extend(checked.diagnostics);
+                    functions.push(checked.function);
                     functions.extend(nested_functions);
                 }
                 Err(mut diags) => diagnostics.append(&mut diags),
@@ -937,7 +952,7 @@ pub fn typecheck(
                     continue;
                 }
                 let mut nested_functions = Vec::new();
-                let mut func = match check_function(
+                let mut checked = match check_function(
                     m,
                     expected_sig,
                     false,
@@ -954,12 +969,14 @@ pub fn typecheck(
                     &impls,
                     &mut nested_functions,
                 ) {
-                    Ok(func) => func,
+                    Ok(checked) => checked,
                     Err(mut diags) => {
                         diagnostics.append(&mut diags);
                         continue;
                     }
                 };
+                diagnostics.extend(checked.diagnostics);
+                let mut func = checked.function;
                 let mangled = mangle_impl_method(&trait_name, &m.name.name, target_ty, &ctx);
                 func.name = mangled.clone();
                 functions.push(func.clone());
@@ -1061,7 +1078,7 @@ fn check_function(
     traits: &BTreeMap<String, TraitInfo>,
     impls: &Vec<ImplInfo>,
     generated_functions: &mut Vec<HirFunction>,
-) -> Result<HirFunction, Vec<Diagnostic>> {
+) -> Result<CheckedFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let (params_ty, result_ty, effect) = match ctx.get(func_ty) {
         TypeKind::Function {
@@ -1088,22 +1105,26 @@ fn check_function(
 
     env.push_scope();
     for (name, ty) in captured_params.iter() {
+        emit_shadow_warning(&mut diags, env, name, f.name.span, "captured parameter");
         let _ = env.insert_local(Binding {
             name: name.clone(),
             ty: *ty,
             mutable: false,
             defined: true,
             moved: false,
+            span: f.name.span,
             kind: BindingKind::Var,
         });
     }
     for (param, ty) in f.params.iter().zip(params_ty.iter().skip(captured_params.len())) {
+        emit_shadow_warning(&mut diags, env, &param.name, param.span, "parameter");
         let _ = env.insert_local(Binding {
             name: param.name.clone(),
             ty: *ty,
             mutable: false,
             defined: true,
             moved: false,
+            span: param.span,
             kind: BindingKind::Var,
         });
     }
@@ -1146,17 +1167,20 @@ fn check_function(
     };
 
     env.pop_scope();
-    if diag_out.is_empty() {
-        let out_name = env
-            .lookup_func_symbol(&f.name.name, func_ty, ctx)
-            .unwrap_or_else(|| {
-                if type_contains_unbound_var(ctx, func_ty) {
-                    f.name.name.clone()
-                } else {
-                    mangle_function_symbol(&f.name.name, func_ty, ctx)
-                }
-            });
-        Ok(HirFunction {
+    let has_error = diag_out
+        .iter()
+        .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error));
+
+    let out_name = env
+        .lookup_func_symbol(&f.name.name, func_ty, ctx)
+        .unwrap_or_else(|| {
+            if type_contains_unbound_var(ctx, func_ty) {
+                f.name.name.clone()
+            } else {
+                mangle_function_symbol(&f.name.name, func_ty, ctx)
+            }
+        });
+    let function = HirFunction {
             name: out_name,
             func_ty, // assigned here
             params: {
@@ -1185,9 +1209,14 @@ fn check_function(
             effect,
             body,
             span: f.name.span,
-        })
-    } else {
+        };
+    if has_error {
         Err(diag_out)
+    } else {
+        Ok(CheckedFunction {
+            function,
+            diagnostics: diag_out,
+        })
     }
 }
 
@@ -1572,12 +1601,20 @@ impl<'a> BlockChecker<'a> {
                 })) = items.first()
                 {
                     let ty = self.ctx.fresh_var(None);
+                    emit_shadow_warning(
+                        &mut self.diagnostics,
+                        self.env,
+                        &name.name,
+                        name.span,
+                        "let",
+                    );
                     let _ = self.env.insert_local(Binding {
                         name: name.name.clone(),
                         ty,
                         mutable: false,
                         defined: false,
                         moved: false,
+                        span: name.span,
                         kind: BindingKind::Var,
                     });
                     dump!("typecheck: hoisted binding {}", name.name);
@@ -1609,12 +1646,20 @@ impl<'a> BlockChecker<'a> {
                             .ctx
                             .function(type_params.clone(), lifted_params, result, effect);
                     }
+                    emit_shadow_warning(
+                        &mut self.diagnostics,
+                        self.env,
+                        &f.name.name,
+                        f.name.span,
+                        "fn",
+                    );
                     let _ = self.env.insert_local(Binding {
                         name: f.name.name.clone(),
                         ty,
                         mutable: false,
                         defined: true,
                         moved: false,
+                        span: f.name.span,
                         kind: BindingKind::Func {
                             symbol: f.name.name.clone(),
                             effect,
@@ -1793,7 +1838,10 @@ impl<'a> BlockChecker<'a> {
                         self.impls,
                         self.generated_functions,
                     ) {
-                        Ok(func) => self.generated_functions.push(func),
+                        Ok(checked) => {
+                            self.diagnostics.extend(checked.diagnostics);
+                            self.generated_functions.push(checked.function);
+                        }
                         Err(mut diags) => self.diagnostics.append(&mut diags),
                     }
                 }
@@ -2152,12 +2200,20 @@ impl<'a> BlockChecker<'a> {
                             b.ty
                         } else {
                             let t = self.ctx.fresh_var(None);
+                            emit_shadow_warning(
+                                &mut self.diagnostics,
+                                self.env,
+                                &name.name,
+                                name.span,
+                                if *mutable { "let mut" } else { "let" },
+                            );
                             let _ = self.env.insert_local(Binding {
                                 name: name.name.clone(),
                                 ty: t,
                                 mutable: *mutable,
                                 defined: false,
                                 moved: false,
+                                span: name.span,
                                 kind: BindingKind::Var,
                             });
                             dump!("typecheck: inserted local binding {}", name.name);
@@ -3169,13 +3225,20 @@ impl<'a> BlockChecker<'a> {
                 self.env.push_scope();
                 if let Some(bind) = &arm.bind {
                     if let Some(pty) = var_info.payload {
-
+                        emit_shadow_warning(
+                            &mut self.diagnostics,
+                            self.env,
+                            &bind.name,
+                            bind.span,
+                            "match binding",
+                        );
                         let _ = self.env.insert_local(Binding {
                             name: bind.name.clone(),
                             ty: pty,
                             mutable: false,
                             defined: true,
                             moved: false,
+                            span: bind.span,
                             kind: BindingKind::Var,
                         });
                     } else {
@@ -4181,6 +4244,7 @@ struct Binding {
     mutable: bool,
     defined: bool,
     moved: bool,
+    span: Span,
     kind: BindingKind,
 }
 
@@ -4314,6 +4378,18 @@ impl Env {
         None
     }
 
+    fn lookup_outer_defined(&self, name: &str) -> Option<&Binding> {
+        if self.scopes.len() <= 1 {
+            return None;
+        }
+        for scope in self.scopes[..self.scopes.len() - 1].iter().rev() {
+            if let Some(binding) = scope.iter().rev().find(|b| b.name == name && b.defined) {
+                return Some(binding);
+            }
+        }
+        None
+    }
+
     fn lookup_any(&self, name: &str) -> Option<&Binding> {
         for scope in self.scopes.iter().rev() {
             if let Some(b) = scope.iter().rev().find(|b| b.name == name) {
@@ -4336,6 +4412,60 @@ impl Env {
 // ---------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------
+
+fn is_important_shadow_symbol(name: &str) -> bool {
+    matches!(
+        name,
+        "print"
+            | "println"
+            | "print_i32"
+            | "println_i32"
+            | "add"
+            | "sub"
+            | "mul"
+            | "div"
+            | "eq"
+            | "lt"
+            | "le"
+            | "gt"
+            | "ge"
+            | "map"
+            | "len"
+    )
+}
+
+fn emit_shadow_warning(
+    diagnostics: &mut Vec<Diagnostic>,
+    env: &Env,
+    name: &str,
+    span: Span,
+    kind: &str,
+) {
+    if let Some(shadowed) = env.lookup_outer_defined(name) {
+        let message = if is_important_shadow_symbol(name) {
+            format!(
+                "important symbol '{}' is shadowed by local {}",
+                name, kind
+            )
+        } else {
+            format!("'{}' shadows an outer definition", name)
+        };
+        let mut diag = Diagnostic::warning(message, span);
+        diag = diag.with_secondary_label(
+            shadowed.span,
+            Some(String::from("shadowed definition is here")),
+        );
+        diagnostics.push(diag);
+    } else if is_important_shadow_symbol(name) {
+        diagnostics.push(Diagnostic::warning(
+            format!(
+                "definition '{}' may shadow important stdlib symbol ({})",
+                name, kind
+            ),
+            span,
+        ));
+    }
+}
 
 type LabelEnv = BTreeMap<String, TypeId>;
 
