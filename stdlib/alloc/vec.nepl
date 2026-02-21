@@ -397,7 +397,7 @@ fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
 //: fn main <()->i32> ():
 //:     let v0 vec_new<i32>;
 //:     let v1 vec_push<i32> v0 4;
-//:     let p <(Vec<i32>,Option<i32>)> vec_pop<i32> v1;
+//:     let p vec_pop<i32> v1;
 //:     0
 //: ```
 fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):

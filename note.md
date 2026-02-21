@@ -2147,3 +2147,17 @@
   - 手順は `stdlib/tutorials` 先行移行 → `tests` 分離（新仕様/compile_fail）→ parser で最終 reject の順に固定。
 - 補足:
   - 一時的に parser の tuple type reject を試験したが、全体影響が大きいため直ちに戻し、現行安定状態（全体 pass）を維持した。
+
+# 2026-02-22 作業メモ (旧タプル記法移行フェーズ1: stdlib 実例の型注釈削減)
+- 実施:
+  - `stdlib/alloc/vec.nepl` の `vec_pop` doctest で、旧タプル型注釈
+    `let p <(Vec<i32>,Option<i32>)> ...` を削除し、推論に寄せた。
+- 目的:
+  - parser 側の最終 reject 前に、stdlib 実例から旧記法依存を段階的に除去する。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i stdlib/alloc/vec.nepl -o tests/output/list_current.json -j 1 --no-stdlib`: `18/18 pass`
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json -j 4`: `547/547 pass`
+- 次段:
+  - `tests/tuple_new_syntax.n.md` の tuple 型注釈ケースを「新記法での等価検証」へ再設計。
+  - その後 `tutorials` 内の不要な tuple 型注釈を同様に削減する。
