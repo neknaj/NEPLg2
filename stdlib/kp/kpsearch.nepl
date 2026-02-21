@@ -73,3 +73,109 @@ fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
     if ge idx len:
         then false
         else eq load_i32 add data mul idx 4 x
+
+//: count_equal_range_i32: 値 `x` の出現回数を返す
+//:
+//: [目的/もくてき]:
+//: - ソート済み配列における `x` の個数を O(log n) で求めます。
+//:
+//: [実装/じっそう]:
+//: - `lower_bound_i32` と `upper_bound_i32` の差で個数を計算します。
+//:
+//: [注意/ちゅうい]:
+//: - 配列は昇順である必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(log n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "3\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpsearch" as *
+//:| #import "core/mem" as *
+//:| #import "std/stdio" as *
+//: fn main <()*> ()> ():
+//:     let len <i32> 6;
+//:     let data <i32> alloc mul len 4;
+//:     store_i32 add data 0 1;
+//:     store_i32 add data 4 2;
+//:     store_i32 add data 8 2;
+//:     store_i32 add data 12 2;
+//:     store_i32 add data 16 5;
+//:     store_i32 add data 20 9;
+//:     println_i32 count_equal_range_i32 data len 2;
+//:     dealloc data mul len 4
+//: ```
+fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
+    let lb <i32> lower_bound_i32 data len x;
+    let ub <i32> upper_bound_i32 data len x;
+    sub ub lb
+
+//: unique_sorted_i32: ソート済み配列を in-place で重複除去し、新しい長さを返す
+//:
+//: [目的/もくてき]:
+//: - ソート済み配列を先頭側へ圧縮し、重複を 1 つにまとめます。
+//:
+//: [実装/じっそう]:
+//: - 読み取り位置 `read` と書き込み位置 `write` の 2 ポインタで走査します。
+//: - `data[read]` が直前の一意値と異なるときだけ `data[write]` に書き込みます。
+//:
+//: [注意/ちゅうい]:
+//: - 配列は昇順である必要があります。
+//: - 返り値 `new_len` 以降の要素内容は未規定です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "4\n1 2 3 7\n"
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "kp/kpsearch" as *
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "std/stdio" as *
+//: fn main <()*> ()> ():
+//:     let len <i32> 7;
+//:     let data <i32> alloc mul len 4;
+//:     store_i32 add data 0 1;
+//:     store_i32 add data 4 1;
+//:     store_i32 add data 8 2;
+//:     store_i32 add data 12 2;
+//:     store_i32 add data 16 3;
+//:     store_i32 add data 20 7;
+//:     store_i32 add data 24 7;
+//:     let new_len <i32> unique_sorted_i32 data len;
+//:     println_i32 new_len;
+//:     let mut i <i32> 0;
+//:     while lt i new_len:
+//:         do:
+//:             if gt i 0:
+//:                 then print " "
+//:                 else ();
+//:             print_i32 load_i32 add data mul i 4;
+//:             set i add i 1;
+//:     println "";
+//:     dealloc data mul len 4
+//: ```
+fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
+    if:
+        le len 1
+        then len
+        else:
+            let mut read <i32> 1;
+            let mut write <i32> 1;
+            while lt read len:
+                do:
+                    let cur <i32> load_i32 add data mul read 4;
+                    let prev <i32> load_i32 add data mul sub write 1 4;
+                    if i32_ne cur prev:
+                        then:
+                            store_i32 add data mul write 4 cur;
+                            set write add write 1;
+                        else ();
+                    set read add read 1;
+            write

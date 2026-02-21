@@ -185,3 +185,45 @@ fn main <()*>()> ():
     writer_flush w;
     writer_free w;
 ```
+
+## kpsearch_unique_and_count
+
+neplg2:test[normalize_newlines]
+stdout: "3 3\n1 2 5\n"
+```neplg2
+#entry main
+#indent 4
+#target wasi
+
+#import "kp/kpsearch" as *
+#import "core/mem" as *
+#import "core/math" as *
+#import "std/stdio" as *
+
+fn main <()*>()> ():
+    let len <i32> 6;
+    let data <i32> alloc mul len 4;
+    store_i32 add data 0 1;
+    store_i32 add data 4 1;
+    store_i32 add data 8 2;
+    store_i32 add data 12 2;
+    store_i32 add data 16 5;
+    store_i32 add data 20 5;
+
+    let cnt2 <i32> count_equal_range_i32 data len 2;
+    let new_len <i32> unique_sorted_i32 data len;
+    print_i32 cnt2;
+    print " ";
+    println_i32 new_len;
+
+    let mut i <i32> 0;
+    while lt i new_len:
+        do:
+            if gt i 0:
+                then print " "
+                else ();
+            print_i32 load_i32 add data mul i 4;
+            set i add i 1;
+    println "";
+    dealloc data mul len 4;
+```

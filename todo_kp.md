@@ -23,14 +23,6 @@
   - `iovec = 8 bytes (ptr32 + len32)`
 
 3. 64-bit 最小機能の提供
-- `writer_write_i64` / `writer_write_u64` を追加する。
-- `scanner_read_i64` / `scanner_read_u64` を追加する。
-- `i64` が未整備の場合は 2ワード表現（hi/lo）を stdlib で提供する。
-- 最低限 API:
-  - `cmp`
-  - `add`
-  - `sub`
-  - `mul10_add_digit`（文字列パース用）
 - 境界値テスト（0, -1, min/max近傍, 19桁）を追加する。
 
 4. 10進変換の共通化
@@ -38,19 +30,15 @@
 - `kpwrite` / `stdio` / `string` の重複実装を統合する。
 
 5. ソート/API の競プロ最適化
-- `sort_in_place(&mut Vec<T>)` または `sort_slice(ptr, len)` を追加し、Vec消費型を縮小する。
 - 非比較ソートとして `counting_sort`（整数限定）を追加する。
 - `radix_sort`（32-bit 整数）を追加する。
 - 必要であれば stable sort を追加する。
 
 6. 二分探索と頻出ユーティリティ
-- `lower_bound` / `upper_bound` を追加する。
-- `unique` / `count_equal_range` を追加する。
 - `fill_u8` / `fill_i32` / `memset` 相当の初期化 API を追加する。
 
 7. Vec API の in-place 化
 - `vec_push_in_place` を追加し、競プロ向け推奨 API とする。
-- `vec_len` / `vec_data_ptr` accessor を追加し、`core/field` 文字列アクセス依存を減らす。
 - 大量要素（2e5+）で push 系オーバーヘッド比較テストを追加する。
 
 8. 競プロ標準 I/O の仕様化

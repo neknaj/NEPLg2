@@ -2780,3 +2780,16 @@
     - `sort_i32_ptr_basic` を追加し、`alloc` + `store_i32` で作った配列が昇順化されることを検証。
   - `todo_kp.md`
     - 完了した `sort_i32(ptr, n)` 項目を削除（未完了のみ保持）。
+
+# 2026-02-22 作業メモ (kpsearch の頻出 API 追加)
+- 目的:
+  - `todo_kp.md` の「二分探索と頻出ユーティリティ」を前進させる。
+- 実装:
+  - `stdlib/kp/kpsearch.nepl`
+    - `count_equal_range_i32(data, len, x)` を追加。
+    - `unique_sorted_i32(data, len)` を追加（in-place 圧縮 + 新しい長さを返す）。
+    - それぞれ日本語ドキュメントコメントと doctest を追加。
+  - `tests/kp.n.md`
+    - `kpsearch_unique_and_count` を追加して、`count_equal_range_i32` と `unique_sorted_i32` の同時回帰を検証。
+  - `todo_kp.md`
+    - 完了した `unique` / `count_equal_range` 項目を削除（未完了のみ保持）。
