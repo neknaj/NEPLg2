@@ -770,6 +770,18 @@ struct NameRefTrace {
 }
 
 #[derive(Clone)]
+struct NameShadowTrace {
+    name: String,
+    event_kind: &'static str,
+    span: Span,
+    scope_depth: usize,
+    selected_def_id: Option<usize>,
+    shadowed_def_ids: Vec<usize>,
+    severity: &'static str,
+    message: String,
+}
+
+#[derive(Clone)]
 struct SemanticExprTrace {
     id: usize,
     function_name: String,
@@ -794,6 +806,7 @@ struct SemanticTokenTrace {
 struct NameResolutionTrace {
     defs: Vec<NameDefTrace>,
     refs: Vec<NameRefTrace>,
+    shadows: Vec<NameShadowTrace>,
     scopes: Vec<BTreeMap<String, Vec<usize>>>,
 }
 
@@ -802,6 +815,7 @@ impl NameResolutionTrace {
         Self {
             defs: Vec::new(),
             refs: Vec::new(),
+            shadows: Vec::new(),
             scopes: vec![BTreeMap::new()],
         }
     }
@@ -821,6 +835,7 @@ impl NameResolutionTrace {
     }
 
     fn define(&mut self, name: String, kind: &'static str, span: Span) -> usize {
+        let existing_candidates = self.lookup_candidates(&name);
         let id = self.defs.len();
         let depth = self.current_depth();
         self.defs.push(NameDefTrace {
@@ -830,6 +845,47 @@ impl NameResolutionTrace {
             span,
             scope_depth: depth,
         });
+
+        if !existing_candidates.is_empty() {
+            let severity = if is_important_shadow_symbol(&name) && is_variable_def_kind(kind) {
+                "warning"
+            } else {
+                "info"
+            };
+            let message = if severity == "warning" {
+                format!(
+                    "important symbol '{}' is shadowed by {} definition",
+                    name, kind
+                )
+            } else {
+                format!("'{}' shadows an outer definition", name)
+            };
+            self.shadows.push(NameShadowTrace {
+                name: name.clone(),
+                event_kind: "definition_shadow",
+                span,
+                scope_depth: depth,
+                selected_def_id: Some(id),
+                shadowed_def_ids: existing_candidates,
+                severity,
+                message,
+            });
+        } else if is_important_shadow_symbol(&name) && is_variable_def_kind(kind) {
+            self.shadows.push(NameShadowTrace {
+                name: name.clone(),
+                event_kind: "important_name",
+                span,
+                scope_depth: depth,
+                selected_def_id: Some(id),
+                shadowed_def_ids: Vec::new(),
+                severity: "warning",
+                message: format!(
+                    "definition '{}' may shadow important stdlib symbol",
+                    name
+                ),
+            });
+        }
+
         if let Some(scope) = self.scopes.last_mut() {
             scope.entry(name).or_default().push(id);
         }
@@ -849,6 +905,22 @@ impl NameResolutionTrace {
     fn reference(&mut self, name: String, span: Span) {
         let candidates = self.lookup_candidates(&name);
         let resolved = candidates.first().copied();
+        if candidates.len() > 1 {
+            self.shadows.push(NameShadowTrace {
+                name: name.clone(),
+                event_kind: "reference_shadow",
+                span,
+                scope_depth: self.current_depth(),
+                selected_def_id: resolved,
+                shadowed_def_ids: candidates[1..].to_vec(),
+                severity: "info",
+                message: format!(
+                    "'{}' resolved to nearest definition with {} shadowed candidate(s)",
+                    name,
+                    candidates.len().saturating_sub(1)
+                ),
+            });
+        }
         self.refs.push(NameRefTrace {
             name,
             span,
@@ -861,6 +933,31 @@ impl NameResolutionTrace {
 
 fn is_layout_marker(name: &str) -> bool {
     matches!(name, "cond" | "then" | "else" | "do" | "block")
+}
+
+fn is_important_shadow_symbol(name: &str) -> bool {
+    matches!(
+        name,
+        "print"
+            | "println"
+            | "print_i32"
+            | "println_i32"
+            | "add"
+            | "sub"
+            | "mul"
+            | "div"
+            | "eq"
+            | "lt"
+            | "le"
+            | "gt"
+            | "ge"
+            | "map"
+            | "len"
+    )
+}
+
+fn is_variable_def_kind(kind: &str) -> bool {
+    matches!(kind, "let_hoisted" | "let_mut" | "param" | "match_bind")
 }
 
 fn hoist_block_defs(trace: &mut NameResolutionTrace, block: &Block) {
@@ -1011,6 +1108,45 @@ fn ref_trace_to_js(source: &str, rf: &NameRefTrace) -> JsValue {
     obj.into()
 }
 
+fn shadow_trace_to_js(source: &str, sh: &NameShadowTrace) -> JsValue {
+    let obj = js_sys::Object::new();
+    let _ = Reflect::set(&obj, &JsValue::from_str("name"), &JsValue::from_str(&sh.name));
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("event_kind"),
+        &JsValue::from_str(sh.event_kind),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("scope_depth"),
+        &JsValue::from_f64(sh.scope_depth as f64),
+    );
+    let _ = Reflect::set(&obj, &JsValue::from_str("span"), &span_to_js(source, sh.span));
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("selected_def_id"),
+        &sh.selected_def_id
+            .map(|v| JsValue::from_f64(v as f64))
+            .unwrap_or(JsValue::NULL),
+    );
+    let hidden = js_sys::Array::new();
+    for id in &sh.shadowed_def_ids {
+        hidden.push(&JsValue::from_f64(*id as f64));
+    }
+    let _ = Reflect::set(&obj, &JsValue::from_str("shadowed_def_ids"), &hidden);
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("severity"),
+        &JsValue::from_str(sh.severity),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("message"),
+        &JsValue::from_str(&sh.message),
+    );
+    obj.into()
+}
+
 fn name_resolution_payload_to_js(source: &str, trace: &NameResolutionTrace) -> JsValue {
     let payload = js_sys::Object::new();
 
@@ -1021,6 +1157,16 @@ fn name_resolution_payload_to_js(source: &str, trace: &NameResolutionTrace) -> J
     let refs = js_sys::Array::new();
     for rf in &trace.refs {
         refs.push(&ref_trace_to_js(source, rf));
+    }
+    let shadows = js_sys::Array::new();
+    for sh in &trace.shadows {
+        shadows.push(&shadow_trace_to_js(source, sh));
+    }
+    let shadow_diagnostics = js_sys::Array::new();
+    for sh in &trace.shadows {
+        if matches!(sh.severity, "warning" | "info") {
+            shadow_diagnostics.push(&shadow_trace_to_js(source, sh));
+        }
     }
 
     let by_name = js_sys::Object::new();
@@ -1060,6 +1206,12 @@ fn name_resolution_payload_to_js(source: &str, trace: &NameResolutionTrace) -> J
 
     let _ = Reflect::set(&payload, &JsValue::from_str("definitions"), &defs);
     let _ = Reflect::set(&payload, &JsValue::from_str("references"), &refs);
+    let _ = Reflect::set(&payload, &JsValue::from_str("shadows"), &shadows);
+    let _ = Reflect::set(
+        &payload,
+        &JsValue::from_str("shadow_diagnostics"),
+        &shadow_diagnostics,
+    );
     let _ = Reflect::set(&payload, &JsValue::from_str("by_name"), &by_name);
     let _ = Reflect::set(&payload, &JsValue::from_str("policy"), &policy);
     payload.into()
@@ -1476,12 +1628,24 @@ pub fn analyze_name_resolution(source: &str) -> JsValue {
         let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(true));
         let _ = Reflect::set(&out, &JsValue::from_str("definitions"), &Reflect::get(&payload, &JsValue::from_str("definitions")).unwrap_or(JsValue::NULL));
         let _ = Reflect::set(&out, &JsValue::from_str("references"), &Reflect::get(&payload, &JsValue::from_str("references")).unwrap_or(JsValue::NULL));
+        let _ = Reflect::set(&out, &JsValue::from_str("shadows"), &Reflect::get(&payload, &JsValue::from_str("shadows")).unwrap_or(JsValue::NULL));
+        let _ = Reflect::set(
+            &out,
+            &JsValue::from_str("shadow_diagnostics"),
+            &Reflect::get(&payload, &JsValue::from_str("shadow_diagnostics")).unwrap_or(JsValue::NULL),
+        );
         let _ = Reflect::set(&out, &JsValue::from_str("by_name"), &Reflect::get(&payload, &JsValue::from_str("by_name")).unwrap_or(JsValue::NULL));
         let _ = Reflect::set(&out, &JsValue::from_str("policy"), &Reflect::get(&payload, &JsValue::from_str("policy")).unwrap_or(JsValue::NULL));
     } else {
         let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(false));
         let _ = Reflect::set(&out, &JsValue::from_str("definitions"), &js_sys::Array::new());
         let _ = Reflect::set(&out, &JsValue::from_str("references"), &js_sys::Array::new());
+        let _ = Reflect::set(&out, &JsValue::from_str("shadows"), &js_sys::Array::new());
+        let _ = Reflect::set(
+            &out,
+            &JsValue::from_str("shadow_diagnostics"),
+            &js_sys::Array::new(),
+        );
         let _ = Reflect::set(&out, &JsValue::from_str("by_name"), &js_sys::Object::new());
     }
 

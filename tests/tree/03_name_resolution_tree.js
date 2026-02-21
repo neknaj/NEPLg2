@@ -11,6 +11,7 @@ module.exports = {
 fn main <()->i32> ():
     let x 1;
     let x 2;
+    let add 10;
     add x 3
 `;
 
@@ -39,6 +40,33 @@ fn main <()->i32> ():
             'candidate_def_ids should be available for debug/LSP'
         );
 
-        return { checked: 6, def_count: defs.length, ref_count: refs.length };
+        const shadows = Array.isArray(result?.shadows) ? result.shadows : [];
+        const shadowDiags = Array.isArray(result?.shadow_diagnostics)
+            ? result.shadow_diagnostics
+            : [];
+        assert.ok(shadows.length > 0, 'shadow events should be provided');
+
+        const xShadow = shadows.find(
+            (s) =>
+                s?.name === 'x' &&
+                s?.event_kind === 'definition_shadow' &&
+                Array.isArray(s?.shadowed_def_ids) &&
+                s.shadowed_def_ids.length > 0
+        );
+        assert.ok(xShadow, 'x shadow event should include hidden candidates');
+
+        const importantWarn = shadowDiags.find(
+            (s) =>
+                s?.name === 'add' &&
+                s?.severity === 'warning'
+        );
+        assert.ok(importantWarn, 'important stdlib-like symbol shadow warning should be present');
+
+        return {
+            checked: 9,
+            def_count: defs.length,
+            ref_count: refs.length,
+            shadow_count: shadows.length,
+        };
     },
 };

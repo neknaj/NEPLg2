@@ -1788,6 +1788,31 @@
 - `node nodesrc/tests.js -i tests/shadowing.n.md -o tests/output/shadowing_current.json -j 1`
   - `total=176, passed=176, failed=0, errored=0`
 
+# 2026-02-21 作業メモ (名前解決 API: shadowing 情報の拡張)
+## 実装
+- `nepl-web/src/lib.rs`
+  - `NameResolutionTrace` に `shadows` を追加し、名前解決時の shadowing イベントを収集できるようにした。
+  - 定義時:
+    - 既存候補がある場合に `definition_shadow` を記録。
+    - 重要シンボル（`print`/`println`/`add` など）を変数定義系 (`let_hoisted`/`let_mut`/`param`/`match_bind`) で定義した場合は `warning` を付与。
+  - 参照時:
+    - 候補が複数ある場合に `reference_shadow` を記録し、「採用された定義」と「隠れた候補」を API から取得可能にした。
+  - `analyze_name_resolution` の返却 JSON に以下を追加:
+    - `shadows`
+    - `shadow_diagnostics`
+- `tests/tree/03_name_resolution_tree.js`
+  - `result.shadows` / `result.shadow_diagnostics` を検証するアサーションを追加。
+  - `x` の shadow と `add` の重要シンボル warning を回帰固定。
+
+## 検証
+- `NO_COLOR=false trunk build`
+  - 成功
+- `node tests/tree/run.js`
+  - `total=4, passed=4, failed=0, errored=0`
+- `node nodesrc/tests.js -i tests -o tests/output/tests_current.json`
+  - `total=534, passed=527, failed=7, errored=0`
+  - 失敗は既知カテゴリ（`ret_f64_example`, `selfhost_req`, `sort`, `string compile_fail期待差分`）で、今回の shadowing API 変更による新規失敗は確認されなかった。
+
 
 # 2026-02-19 作業メモ (stdlib ドキュメント整備と履歴整理)
 ## 実装
