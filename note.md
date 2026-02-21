@@ -1,3 +1,28 @@
+# 2026-02-21 作業メモ (名前解決 API: 重要シャドー警告の抑制オプション追加)
+- 目的:
+  - `todo.md` の「重要 stdlib 記号 warning 抑制ルール（設定/フラグ）」を実装し、LSP/エディタ連携で制御可能にする。
+- 実装:
+  - `nepl-web/src/lib.rs`
+    - `analyze_name_resolution_with_options(source, options)` を追加。
+    - `options.warn_important_shadow`（bool, default=true）を導入。
+    - `NameResolutionTrace` に `warn_important_shadow` を保持し、important-shadow warning 生成を条件化。
+    - `policy.warn_important_shadow` を返却ペイロードに追加。
+    - 既存 `analyze_name_resolution` は新 API に委譲（後方互換維持）。
+  - `tests/tree/07_shadow_warning_policy.js`
+    - 重要記号 `print` は通常 warning が出ることを確認。
+    - `warn_important_shadow=false` で warning 抑制されることを確認。
+- 併せて実施:
+  - `nepl-core/src/typecheck.rs` で ValueNs/CallableNs 分離の段階導入を継続し、値用途の lookup を `lookup_value` に寄せた。
+    - global `fn`/`fn alias` 既存衝突判定
+    - `set` の参照解決
+    - dotted field base 解決
+- `todo.md` 反映:
+  - 完了した「重要 stdlib 記号 warning 抑制ルール（設定/フラグ）」項目を削除。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node tests/tree/run.js`: `7/7 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `555/555 pass`
+
 # 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: lookup 用途分離)
 - 目的:
   - `todo.md` 最優先の名前空間分離に向け、`typecheck` 内の識別子 lookup を用途別 API に寄せる。

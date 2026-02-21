@@ -809,15 +809,21 @@ struct NameResolutionTrace {
     refs: Vec<NameRefTrace>,
     shadows: Vec<NameShadowTrace>,
     scopes: Vec<BTreeMap<String, Vec<usize>>>,
+    warn_important_shadow: bool,
 }
 
 impl NameResolutionTrace {
     fn new() -> Self {
+        Self::new_with_options(true)
+    }
+
+    fn new_with_options(warn_important_shadow: bool) -> Self {
         Self {
             defs: Vec::new(),
             refs: Vec::new(),
             shadows: Vec::new(),
             scopes: vec![BTreeMap::new()],
+            warn_important_shadow,
         }
     }
 
@@ -848,7 +854,10 @@ impl NameResolutionTrace {
         });
 
         if !existing_candidates.is_empty() {
-            let severity = if is_important_shadow_symbol(&name) && is_variable_def_kind(kind) {
+            let severity = if self.warn_important_shadow
+                && is_important_shadow_symbol(&name)
+                && is_variable_def_kind(kind)
+            {
                 "warning"
             } else {
                 "info"
@@ -871,7 +880,10 @@ impl NameResolutionTrace {
                 severity,
                 message,
             });
-        } else if is_important_shadow_symbol(&name) && is_variable_def_kind(kind) {
+        } else if self.warn_important_shadow
+            && is_important_shadow_symbol(&name)
+            && is_variable_def_kind(kind)
+        {
             self.shadows.push(NameShadowTrace {
                 name: name.clone(),
                 event_kind: "important_name",
@@ -1203,6 +1215,11 @@ fn name_resolution_payload_to_js(source: &str, trace: &NameResolutionTrace) -> J
         &policy,
         &JsValue::from_str("hoist"),
         &JsValue::from_str("fn and non-mut let"),
+    );
+    let _ = Reflect::set(
+        &policy,
+        &JsValue::from_str("warn_important_shadow"),
+        &JsValue::from_bool(trace.warn_important_shadow),
     );
 
     let _ = Reflect::set(&payload, &JsValue::from_str("definitions"), &defs);
@@ -1609,10 +1626,19 @@ pub fn analyze_parse(source: &str) -> JsValue {
 /// - 巻き上げは現行仕様に合わせて `fn` と `let`(non-mut) を先行登録します
 #[wasm_bindgen]
 pub fn analyze_name_resolution(source: &str) -> JsValue {
+    analyze_name_resolution_with_options(source, JsValue::UNDEFINED)
+}
+
+#[wasm_bindgen]
+pub fn analyze_name_resolution_with_options(source: &str, options: JsValue) -> JsValue {
     let file_id = FileId(0);
     let lex_result = lex(file_id, source);
     let parse_result = parse_tokens(file_id, lex_result);
     let diagnostics = diagnostics_to_js(source, &parse_result.diagnostics);
+    let warn_important_shadow = Reflect::get(&options, &JsValue::from_str("warn_important_shadow"))
+        .ok()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
 
     let out = js_sys::Object::new();
     let _ = Reflect::set(
@@ -1623,7 +1649,7 @@ pub fn analyze_name_resolution(source: &str) -> JsValue {
     let _ = Reflect::set(&out, &JsValue::from_str("diagnostics"), &diagnostics);
 
     if let Some(module) = parse_result.module {
-        let mut trace = NameResolutionTrace::new();
+        let mut trace = NameResolutionTrace::new_with_options(warn_important_shadow);
         trace_block(&mut trace, &module.root);
         let payload = name_resolution_payload_to_js(source, &trace);
         let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(true));
@@ -1648,6 +1674,13 @@ pub fn analyze_name_resolution(source: &str) -> JsValue {
             &js_sys::Array::new(),
         );
         let _ = Reflect::set(&out, &JsValue::from_str("by_name"), &js_sys::Object::new());
+        let policy = js_sys::Object::new();
+        let _ = Reflect::set(
+            &policy,
+            &JsValue::from_str("warn_important_shadow"),
+            &JsValue::from_bool(warn_important_shadow),
+        );
+        let _ = Reflect::set(&out, &JsValue::from_str("policy"), &policy);
     }
 
     out.into()

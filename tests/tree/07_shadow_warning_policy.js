@@ -47,8 +47,25 @@ fn main <()->i32> ():
             "shadowing non-important symbol 'cast' must not emit important-shadow warning"
         );
 
+        if (typeof api.analyze_name_resolution_with_options === 'function') {
+            const suppressedResult = api.analyze_name_resolution_with_options(
+                warnSource,
+                { warn_important_shadow: false }
+            );
+            assert.equal(
+                !!suppressedResult?.ok,
+                true,
+                'name resolution should succeed for suppressed warnSource'
+            );
+            const suppressedWarnings = warningNames(suppressedResult);
+            assert.ok(
+                !suppressedWarnings.includes('print'),
+                "important shadow warning for 'print' must be suppressible by option"
+            );
+        }
+
         return {
-            checked: 4,
+            checked: 5,
             warn_count: warned.length,
             no_warn_count: noWarned.length,
         };
