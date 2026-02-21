@@ -2131,3 +2131,19 @@
 - 位置づけ:
   - 名前解決・シャドーイング再設計（todo最優先項目）の一部として、
     「オーバーロードではなく実シャドーのみ警告」の運用に近づける調整。
+
+# 2026-02-22 作業メモ (旧タプル記法の残存分類)
+- 目的:
+  - 固定指示に基づき、上流修正（parser 強化）の前に全体を分類して局所修正を回避する。
+- 実施:
+  - `rg` で `stdlib/tests/tutorials` の旧タプル記法候補を棚卸し。
+  - `tests/tree/run.js` で LSP/解析API系の回帰を確認。
+- 観測:
+  - `tests/tree/run.js`: `4/4 pass`。
+  - 旧 tuple literal reject は既存どおり有効だが、tuple type 記法 `(<T1,T2>)` は stdlib/tests に広く残存。
+  - parser で tuple type を即時 reject すると stdlib doctest が大量破綻することを確認（段階移行が必要）。
+- 方針更新:
+  - `todo.md` に「旧タプル記法の完全移行（段階実施）」を追加。
+  - 手順は `stdlib/tutorials` 先行移行 → `tests` 分離（新仕様/compile_fail）→ parser で最終 reject の順に固定。
+- 補足:
+  - 一時的に parser の tuple type reject を試験したが、全体影響が大きいため直ちに戻し、現行安定状態（全体 pass）を維持した。
