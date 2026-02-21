@@ -1,77 +1,49 @@
-2026-02-10 今後の実装計画
+2026-02-22 今後の実装計画（未完了のみ）
 
 方針
 - plan.md の仕様を唯一の基準として、上流（lexer/parser）から順に修正する。
 - 間に合わせ修正を避け、原因が同一の失敗はまとめて解消する。
-- 実装順序は「名前空間の再設計」を最優先とし、Value と Callable の責務を分離する。
+- 実装進捗・結果・失敗分析は `note.md` に記録し、`todo.md` は未完了のみを保持する。
 
-直近の実装タスク（未完了のみ）
-1. 名前空間再設計（最優先）
+1. 名前解決・名前空間の再設計（最優先）
 - `typecheck` の環境を `ValueNs`（変数）と `CallableNs`（関数/alias）に分離する。
 - `let`/`fn` の巻き上げを plan.md 準拠で統一する（`mut` なし `let` と `fn` のみ）。
-- nested `fn`/`let` を呼び出し可能にする経路を確立する（少なくとも `tests/functions.n.md` の `double` / `add_y` を通す）。
-- 関数値（`@fn` / 関数を値として渡すケース）を HIR で明示表現し、`CallableNs` と整合する解決規則にする。
-- ローカル束縛と import/alias の同名衝突で、ローカル側が常に優先されるシャドーイング規則を実装・固定する（`kpread` の `len` 系再発防止）。
-- シャドーイングはエラーにせず合法のまま維持しつつ、`print` / `println` / `add` など重要 stdlib 記号 warning の無効化フラグと抑制ルール（プロジェクト単位設定）を設計する。
-- stdlib 側では `result` など基盤 API の immutable 定義にシャドー不可修飾を付与し、同名再定義時は compile error にする。
+- nested `fn`/`let` を呼び出し可能にする経路を確立する（`tests/functions.n.md`）。
+- 関数値（`@fn` / 関数を値として渡すケース）を HIR で明示表現し、解決規則を固定する。
 
-2. エントリ解決の厳密化
-- entry 関数が「名前解決済み」かつ「codegen 対象として生成済み」であることを検証する。
-- `_start` 欠落を実行時エラーではなく compile error で検出する。
+2. 高階関数・call_indirect
+- 関数値呼び出し (`func val`) の `_unknown` フォールバックを廃止する。
+- WASM table + `call_indirect` で non-capture 高階関数を動作させる。
+- capture あり関数値は closure conversion の設計を確定して段階導入する。
 
-3. functions 系テストの仕様整合
-- 関数値呼び出し (`func val`) の `_unknown` フォールバックを廃止し、WASM table + `call_indirect` で非キャプチャ高階関数を動作させる。
-- 関数リテラル系ケースは、non-capture 先行（table + `call_indirect`）で段階導入し、capture ありは closure conversion の設計後に実装する。
+3. シャドーイング運用の完成
+- オーバーロードとシャドーの判定を最終仕様で固定する（同一シグネチャのみ shadow warning）。
+- 重要 stdlib 記号に対する warning 抑制ルール（設定/フラグ）を設計する。
+- `noshadow` の適用範囲を stdlib で段階拡大し、運用ルールを文書化する。
 
-4. sort/generics 連携不具合の調査
-- `tests/sort.n.md` を起点に、`stdlib/alloc/sort.nepl` の move-check 失敗（`use of moved value`）を解消する。
-- `sort_*` API (`(Vec<T>)->()`) と move 規則の整合を見直し、必要なら API/実装/テストを一貫して再設計する。
-- `stdlib/alloc/sort.nepl` がジェネリクス（`<.T: Ord>`）で動作する経路を `tests/generics.n.md` と合わせて確認する。
-- `Vec` の読み取り API（`vec_get` など）の所有権設計を見直し、反復参照で move-check に詰まらない read-only 経路を追加する（`vec_len`/`vec_data_ptr`/slice 風 API を含む再設計）。
+4. sort/generics と Vec 読み取り設計
+- `tests/sort.n.md` を起点に `stdlib/alloc/sort.nepl` の move-check 問題を根本解消する。
+- `sort_*` API と move 規則の整合を見直し、必要なら API/実装/テストを再設計する。
+- `Vec` の read-only 経路（`vec_len`/`vec_data_ptr`/slice 風 API）を再設計する。
 
-4.5. StringBuilder の根本再設計（高階関数対応の次フェーズ）
-- `stdlib/alloc/string.nepl` の `StringBuilder` を Rust/Go の方式を参考に再実装する（連結反復ではなく、可変バッファに append して最後に 1 回だけ str を構築）。
-- `sb_append` / `sb_append_i32` / `sb_build` の計算量を見直し、build が O(n) になる設計へ変更する。
-- 現行で「処理が終わらない」再現ケースを `tests/string.n.md` に追加し、再実装後に回帰テストとして固定する。
+5. LSP/API 拡張（phase 2）
+- `analyze_name_resolution` を拡張し、import/alias/use 跨ぎの解決候補と最終選択を返す。
+- token 単位の型情報 API に定義ジャンプ情報（import 先含む）を統合する。
+- Hover/Inlay Hint 向けに式範囲・引数範囲・推論型・関連 doc comment を返す API を追加する。
 
-5. tests 全体の再分類と上流優先解消
-- `node nodesrc/tests.js -i tests -o ...` の結果を stage 別に管理する。
-- parser 起因の失敗群（stack/indent/unexpected token）を先に潰し、次に typecheck/codegen を進める。
-- 最新分類（2026-02-10）: `total=413, passed=404, failed=9`
+6. 診断体系の再整理
+- エラーをテーブルで一元管理する（短い数値ID + 詳細メッセージ）。
+- 診断生成側は `ErrorId` を返し、表示層で `id -> 本文` を解決する構造に整理する。
+- LSP/API から `id` と展開済み本文の両方を取得できるようにする。
 
-6. ドキュメント運用
-- 実装進捗・結果・失敗分析は `note.md` のみに記録する。
-- `todo.md` は未完了タスクのみを保持し、完了項目は即時削除する。
+7. Web Playground / tests.html 強化
+- VSCode 拡張予定の情報（名前解決/型情報/式範囲/定義ジャンプ候補）を Playground で表示する。
+- `web/tests.html` の詳細展開時にソースと解析結果（AST/resolve/semantics）を併記する。
 
-7. VSCode/LSP API 拡張（phase 2）
-- `analyze_name_resolution` を拡張し、`import` / `alias` / `use` を跨いだ同名識別子の解決結果（候補一覧・最終選択・定義位置）を返す。
-- token 単位の型情報 API（`token -> inferred type / expression range / argument range`）の既存出力へ、import 先を含む定義ジャンプ情報を統合する。
-- 定義ジャンプ API を同一ファイルだけでなく import 先ファイルまで解決できる形で実装する。
-- Hover/Inlay Hint 用に「式範囲」「引数範囲」「推論型」「関連ドキュメントコメント」を返す API を追加する。
-
-8. 高階関数実装後のコンパイラエラー再整理
-- エラーをテーブルで一元管理する（短い数値ID + 詳細メッセージ本文）。
-- 診断生成側は原則 `ErrorId` を返し、表示層で `id -> 本文` を解決する構造に整理する。
-- 既存エラー文言の重複を統合し、同一原因に同一IDを付与する。
-- LSP/API からは `id` と展開済み本文の両方を取得できるようにする。
-
-9. 高階関数対応完了後の Web Playground 改良
-- VSCode 拡張機能で提供予定の情報（名前解決、型情報、式範囲、引数範囲、定義ジャンプ候補）を Playground 上でも表示できる UI/API を追加する。
-- `web/tests.html` でテスト詳細展開時に、該当ソースと解析 API の詳細（AST/resolve/semantics）を併記できるようにする。
-
-10. `examples/nm.nepl` / `stdlib/nm/parser` のデバッグ
-- `examples/nm.nepl` を起点に、`stdlib/nm/parser` の不具合再現手順を固定する。
-- `nodesrc/analyze_source.js --stage lex|parse` とコンパイラ診断を併用し、lexer/parser/typecheck のどこで崩れているかを切り分ける。
-- 既存修正で自然治癒しているかを再検証し、未解決なら最小再現テストを `tests/` に追加してから根本修正する。
-- `tests/nm.n.md` を基準に、`nm/parser` の Vec/str 所有権処理を data/len 直接アクセスへ置換して move-check を根本解消する。
-- `nm/parser` の型名衝突（構造体名と enum variant 名）を整理し、名前解決の曖昧さを排除する。
-- `examples/nm.nepl` は `std/env/cliarg` を使った引数処理で `--ast`/`--html` の双方を回帰テスト化する。
-
-11. `examples/js_interpreter` の実装（言語機能安定後）
-- `examples/js_interpreter` に JavaScript インタプリタを実装し、実用規模のプログラムを動かして stdlib の不足を抽出する。
-- このフェーズでは言語仕様は変更せず、stdlib の再設計・改良のみを行う（優先順位・演算子仕様などは現状維持）。
-- Node.js の実行結果と突き合わせる回帰テストを追加し、同値性を継続検証する。
-- インタプリタ実装で不足した API は `stdlib/*` と `tests/*` に段階追加し、動作保証を固定する。
+8. `examples/js_interpreter` 実装（言語仕様固定後）
+- `examples/js_interpreter` に JavaScript インタプリタを実装する。
+- 言語仕様は変更せず、stdlib の再設計・改良のみで不足を埋める。
+- Node.js 実行結果との同値性回帰テストを追加する。
 
 ---
 ### 以下編集禁止

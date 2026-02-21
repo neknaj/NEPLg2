@@ -1996,3 +1996,12 @@
 - 検証:
   - `NO_COLOR=false trunk build` 成功
   - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json` で `547/547 passed`
+
+# 2026-02-22 作業メモ (todo 棚卸し)
+- `todo.md` の棚卸しを実施し、解決済みまたは状態が古い項目を削除した。
+- 特に以下を整理:
+  - 古い集計値 (`total=413, passed=404, failed=9`) を削除。
+  - 既に完了済みの `nm/parser` 型名衝突・`examples/nm.nepl` の `cliarg` 経路修正系タスクを todo から除去。
+  - `todo.md` は未完了タスクのみ（名前空間/高階関数/LSP/診断体系/Web強化/js_interpreter）に再構成。
+- 現時点の回帰確認:
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json` の最新結果は pass 維持（直近実行: `547/547`）。
