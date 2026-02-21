@@ -2698,3 +2698,22 @@
   - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `564/564 pass`
 - 位置づけ:
   - 「オーバーロードは許可、同一シグネチャ再定義のみ shadow 扱い」という現行方針に戻し、局所的な過剰制限を解消。
+
+# 2026-02-22 作業メモ (parser: 予約語を識別子位置で明示診断)
+- 背景:
+  - `let cond` / `fn let` / `(... fn ...)` など予約語を識別子位置へ置いた際、
+    場合によっては `expected identifier` のみで、診断の一貫性が弱かった。
+- 実施:
+  - `nepl-core/src/parser.rs`
+    - `expect_ident` を拡張し、`TokenKind::Kw*` を検出した場合は
+      `'<kw>' is a reserved keyword and cannot be used as an identifier` を直接報告するように変更。
+    - `reserved_keyword_token_name` ヘルパーを追加してキーワード名を統一管理。
+  - `tests/tree/12_reserved_keyword_identifier_diag.js` を追加。
+    - `analyze_parse` で `let cond` / `fn let` / `param fn` の3ケースを検証し、
+      それぞれ予約語診断が出ることを固定。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node tests/tree/run.js`: `12/12 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `565/565 pass`
+- 位置づけ:
+  - 上流（parser）の予約語制約を API テストで固定し、診断品質と回復時の可読性を改善。

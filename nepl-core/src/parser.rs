@@ -3196,12 +3196,56 @@ impl Parser {
                     None
                 }
             }
-            _ => {
+            Some(k) => {
+                if let Some(kw) = Self::reserved_keyword_token_name(&k) {
+                    let tok = self.next().unwrap();
+                    self.diagnostics.push(Diagnostic::error(
+                        alloc::format!(
+                            "'{}' is a reserved keyword and cannot be used as an identifier",
+                            kw
+                        ),
+                        tok.span,
+                    ));
+                    return None;
+                }
                 let span = self.peek_span().unwrap_or_else(Span::dummy);
                 self.diagnostics
                     .push(Diagnostic::error("expected identifier", span));
                 None
             }
+            None => {
+                let span = self.peek_span().unwrap_or_else(Span::dummy);
+                self.diagnostics
+                    .push(Diagnostic::error("expected identifier", span));
+                None
+            }
+        }
+    }
+
+    fn reserved_keyword_token_name(kind: &TokenKind) -> Option<&'static str> {
+        match kind {
+            TokenKind::KwFn => Some("fn"),
+            TokenKind::KwLet => Some("let"),
+            TokenKind::KwMut => Some("mut"),
+            TokenKind::KwNoShadow => Some("noshadow"),
+            TokenKind::KwSet => Some("set"),
+            TokenKind::KwIf => Some("if"),
+            TokenKind::KwWhile => Some("while"),
+            TokenKind::KwCond => Some("cond"),
+            TokenKind::KwThen => Some("then"),
+            TokenKind::KwElse => Some("else"),
+            TokenKind::KwDo => Some("do"),
+            TokenKind::KwStruct => Some("struct"),
+            TokenKind::KwEnum => Some("enum"),
+            TokenKind::KwMatch => Some("match"),
+            TokenKind::KwTrait => Some("trait"),
+            TokenKind::KwImpl => Some("impl"),
+            TokenKind::KwFor => Some("for"),
+            TokenKind::KwPub => Some("pub"),
+            TokenKind::KwBlock => Some("block"),
+            TokenKind::KwTuple => Some("Tuple"),
+            TokenKind::KwMlstr => Some("mlstr"),
+            _ => None,
         }
     }
 
