@@ -36,7 +36,12 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>()> ():
-    let v <i32> 1 |> add 2 |> add 3 |> mul 2
+    let v <i32> block:
+        1
+        |> add 2
+        |> add 3
+    3
+    |> mul 2
     assert_eq_i32 12 v
     test_checked "pipe chain"
 ```
