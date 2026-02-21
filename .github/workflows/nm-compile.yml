@@ -39,4 +39,4 @@ jobs:
                   cache-on-failure: true
 
             - name: NM Compile tests (no run)
-              run: cargo run -p nepl-cli -- --input examples/nm.nepl --output nm
+              run: cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output target/ci-nm

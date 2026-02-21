@@ -45,6 +45,11 @@ jobs:
         run: |
           sed -i 's/npm.cmd/npm/g' Trunk.toml
 
+      - name: Populate examples for trunk asset copy
+        run: |
+          mkdir -p web/examples
+          cp examples/*.nepl web/examples/
+
       - name: Build wasm app with trunk (for compiler artifacts)
         env:
           NO_COLOR: "true"
@@ -55,7 +60,7 @@ jobs:
         env:
           NO_COLOR: "true"
         run: |
-          node nodesrc/tests.js --tests-dir tests --compiler-dir dist --jobs 4 -o nmd-tests.json
+          node nodesrc/tests.js -i tests -i tutorials -i stdlib -o nmd-tests.json -j 4
 
       - name: Upload doctest JSON (always)
         if: always()
