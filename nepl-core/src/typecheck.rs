@@ -233,8 +233,15 @@ pub fn typecheck(
         }
     };
 
+    let mut pending_if: Option<bool> = None;
     for d in &module.directives {
-        apply_directive(d, true);
+        if let Some(allowed) = gate_allows(d, target, profile) {
+            pending_if = Some(allowed);
+            continue;
+        }
+        let allowed = pending_if.unwrap_or(true);
+        pending_if = None;
+        apply_directive(d, allowed);
     }
     let mut pending_if: Option<bool> = None;
     for item in &module.root.items {

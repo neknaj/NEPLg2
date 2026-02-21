@@ -2100,3 +2100,18 @@
 - 位置づけ:
   - 仕様変更（`target=wasm` で WASI 無効）後の回帰であり、上流（typecheck 入り口）で根本修正。
   - 次段は固定方針どおり lexer/parser の旧仕様残骸整理を優先する。
+
+# 2026-02-22 作業メモ (条件付きディレクティブ評価の順序修正)
+- 背景:
+  - `typecheck` の extern/entry 収集を `module.directives` へ拡張した際、
+    `module.directives` 側に対して `#if[target=...]` / `#if[profile=...]` の評価を通していない経路が残っていた。
+- 修正:
+  - `module.directives` 走査でも `pending_if` を使って gate 評価を適用。
+  - 既存の `module.root.items` 走査と同じ条件付き有効化ルールに統一。
+  - span キー重複除外は維持し、二重登録は防止。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/shadowing.n.md -i tests/neplg2.n.md -i tests/nm.n.md -o tests/output/upstream_lexer_parser_latest.json -j 3`: `220/220 pass`
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json -j 4`: `547/547 pass`
+- 位置づけ:
+  - 上流（typecheck入り口）での条件判定一貫化で、nm/cliarg を含む extern 解決の再発防止を目的とした根本修正。
