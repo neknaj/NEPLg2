@@ -2304,3 +2304,14 @@
 - 再検証:
   - `NO_COLOR=false trunk build`: 成功
   - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `554/554 pass`
+
+# 2026-02-22 作業メモ (stdlib 段階移行: vec_pop の旧 tuple type 依存削減)
+- 実施:
+  - `stdlib/alloc/vec.nepl` の `vec_pop` シグネチャを
+    `<(Vec<.T>)*>(Vec<.T>,Option<.T>)>` から `<(Vec<.T>)*>.Pair>` に変更。
+  - 返り値の実データは従来どおり `Tuple:` 構築を維持し、実行挙動は変更しない。
+- 目的:
+  - parser の旧 tuple type 最終 reject 前に、stdlib 側の型注釈依存を段階的に削減する。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/vec.nepl -i tests/tuple_new_syntax.n.md -o tests/output/vec_tuple_migration_current.json -j 1`: `201/201 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `554/554 pass`

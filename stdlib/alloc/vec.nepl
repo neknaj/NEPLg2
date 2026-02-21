@@ -400,7 +400,7 @@ fn vec_set <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, item):
 //:     let p vec_pop<i32> v1;
 //:     0
 //: ```
-fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
+fn vec_pop <.T> <(Vec<.T>)*>.Pair> (v):
     let v_len <i32> get v "len"
     let v_cap <i32> get v "cap"
     let v_data <i32> get v "data"
