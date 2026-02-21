@@ -7,7 +7,6 @@
 - stdlib のドキュメントコメント/ドキュメントテストは `stdlib/kp` の記述スタイルを参照して統一する。
 
 1. 高階関数・call_indirect
-- WASM table + `call_indirect` で non-capture 高階関数を動作させる。
 - capture あり関数値は closure conversion の設計を確定して段階導入する。
 
 2. シャドーイング運用の完成

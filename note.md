@@ -2646,3 +2646,11 @@
   - `node tests/tree/run.js`: `9/9 pass`
 - 位置づけ:
   - 条件付きコンパイルの仕様境界を tree/API 層で固定し、再発を早期検知できるようにした。
+
+# 2026-02-22 作業メモ (todo 整理: 高階関数項目)
+- `todo.md` の「1. 高階関数・call_indirect」から、完了済みの
+  - `WASM table + call_indirect で non-capture 高階関数を動作させる`
+  を削除。
+- 未完了のみ保持の方針に合わせ、残タスクを
+  - `capture あり関数値の closure conversion 導入`
+  に集約した。
