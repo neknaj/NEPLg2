@@ -60,3 +60,32 @@ fn main <()*>()> ():
     writer_flush w;
     writer_free w;
 ```
+
+## kpread_kpwrite_i64_near_bounds
+
+neplg2:test[normalize_newlines]
+stdin: "-9223372036854775807 9223372036854775806 1000000000000000000 18446744073709551614\n"
+stdout: "-9223372036854775807\n9223372036854775806\n1000000000000000000\n18446744073709551614\n"
+```neplg2
+#entry main
+#indent 4
+#target wasi
+
+#import "kp/kpread" as *
+#import "kp/kpwrite" as *
+
+fn main <()*>()> ():
+    let sc <i32> scanner_new;
+    let w <i32> writer_new;
+
+    writer_write_i64 w scanner_read_i64 sc;
+    writer_writeln w;
+    writer_write_i64 w scanner_read_i64 sc;
+    writer_writeln w;
+    writer_write_i64 w scanner_read_i64 sc;
+    writer_writeln w;
+    writer_write_u64 w scanner_read_u64 sc;
+    writer_writeln w;
+    writer_flush w;
+    writer_free w;
+```

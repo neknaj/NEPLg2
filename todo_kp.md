@@ -22,9 +22,6 @@
   - `wasm32`
   - `iovec = 8 bytes (ptr32 + len32)`
 
-3. 64-bit 最小機能の提供
-- 境界値テスト（0, -1, min/max近傍, 19桁）を追加する。
-
 4. 10進変換の共通化
 - `itoa` / `utoa` を共通モジュール化して再利用可能にする。
 - `kpwrite` / `stdio` / `string` の重複実装を統合する。
@@ -33,8 +30,6 @@
 - 非比較ソートとして `counting_sort`（整数限定）を追加する。
 - `radix_sort`（32-bit 整数）を追加する。
 - 必要であれば stable sort を追加する。
-
-6. 二分探索と頻出ユーティリティ
 
 7. Vec API の in-place 化
 - `vec_push_in_place` を追加し、競プロ向け推奨 API とする。
