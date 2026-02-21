@@ -128,11 +128,11 @@ fn block_sl_if_branch() {
 #import "core/math" as *
 
 fn main <()->i32> ():
-    // blockのルールによると if true (block 1 else (block 2)) と解釈されるため誤り
+    // 単行 block は then/else 式としてそのまま扱える
     if true block 1 else block 2
 "#;
-    // let v = run_main_i32(src);
-    // assert_eq!(v, 1);
+    let v = run_main_i32(src);
+    assert_eq!(v, 1);
 }
 
 #[test]
@@ -224,10 +224,13 @@ fn block_sl_tuple_element() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
 fn main <()->i32> ():
-    let t (block 1, block 2) // Tuple 旧記法 Tuple新記法実装後は新記法に移行する必要
-    t.1
+    let t Tuple:
+        block 1
+        block 2
+    get t 1
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 2);

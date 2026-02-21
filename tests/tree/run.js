@@ -9,13 +9,21 @@ function isTestFile(name) {
 }
 
 async function main() {
+    const out = await runTreeSuite(process.env.NEPL_DIST || '');
+    console.log(JSON.stringify(out, null, 2));
+    if (out.summary.failed > 0 || out.summary.errored > 0) {
+        process.exitCode = 1;
+    }
+}
+
+async function runTreeSuite(distHint = '') {
     const dir = __dirname;
     const files = fs
         .readdirSync(dir)
         .filter(isTestFile)
         .sort();
 
-    const api = await loadApi(process.env.NEPL_DIST || '');
+    const api = await loadApi(distHint);
     const results = [];
 
     for (const file of files) {
@@ -47,7 +55,7 @@ async function main() {
     const passed = results.filter((r) => r.status === 'pass').length;
     const failed = results.filter((r) => r.status === 'fail').length;
     const errored = results.filter((r) => r.status === 'error').length;
-    const out = {
+    return {
         summary: {
             total: results.length,
             passed,
@@ -56,12 +64,9 @@ async function main() {
         },
         results,
     };
-
-    console.log(JSON.stringify(out, null, 2));
-    if (failed > 0 || errored > 0) {
-        process.exitCode = 1;
-    }
 }
+
+module.exports = { runTreeSuite };
 
 if (require.main === module) {
     main().catch((e) => {

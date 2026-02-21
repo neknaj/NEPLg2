@@ -406,12 +406,17 @@ fn vec_pop <.T> <(Vec<.T>)*>(Vec<.T>,Option<.T>)> (v):
     let v_data <i32> get v "data"
     if:
         eq v_len 0
-        then (Vec<.T> v_len v_cap v_data, none<.T>)
+        then:
+            Tuple:
+                Vec<.T> v_len v_cap v_data
+                none<.T>
         else:
             let next_len <i32> sub v_len 1
             let read_off <i32> mul next_len size_of<.T>
             let item <.T> load<.T> add v_data read_off
-            (Vec<.T> next_len v_cap v_data, some<.T> item)
+            Tuple:
+                Vec<.T> next_len v_cap v_data
+                some<.T> item
 
 //: vec_clear: すべての要素を削除する
 //:

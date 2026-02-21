@@ -14,6 +14,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { parseFile } = require('./parser');
 const { createRunner, runSingle } = require('./run_test');
+const { runTreeSuite } = require('../tests/tree/run');
 
 // doctest 集計の標準出力は要約重視にする。
 process.removeAllListeners('warning');
@@ -25,6 +26,7 @@ function parseArgs(argv) {
     let distHint = '';
     let jobs = 0;
     let includeStdlib = true;
+    let includeTree = true;
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -48,8 +50,12 @@ function parseArgs(argv) {
             includeStdlib = false;
             continue;
         }
+        if (a === '--no-tree') {
+            includeTree = false;
+            continue;
+        }
         if (a === '-h' || a === '--help') {
-            return { help: true, inputs, outPath, distHint, jobs, includeStdlib };
+            return { help: true, inputs, outPath, distHint, jobs, includeStdlib, includeTree };
         }
     }
 
@@ -58,7 +64,7 @@ function parseArgs(argv) {
         jobs = Math.max(1, Math.min(8, Math.floor((os.cpus()?.length || 4) / 2)));
     }
 
-    return { help: false, inputs, outPath, distHint, jobs, includeStdlib };
+    return { help: false, inputs, outPath, distHint, jobs, includeStdlib, includeTree };
 }
 
 function isDir(p) {
@@ -239,9 +245,9 @@ function collectResolvedDistDirs(results) {
 }
 
 async function main() {
-    const { help, inputs, outPath, distHint, jobs, includeStdlib } = parseArgs(process.argv.slice(2));
+    const { help, inputs, outPath, distHint, jobs, includeStdlib, includeTree } = parseArgs(process.argv.slice(2));
     if (help || inputs.length === 0 || !outPath) {
-        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N] [--no-stdlib]');
+        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N] [--no-stdlib] [--no-tree]');
         process.exit(help ? 0 : 2);
     }
 
@@ -255,6 +261,39 @@ async function main() {
     }
 
     const results = await runAll(allCases, jobs, distHint);
+    if (includeTree) {
+        try {
+            const tree = await runTreeSuite(distHint || '');
+            const treeResults = Array.isArray(tree?.results) ? tree.results : [];
+            for (const tr of treeResults) {
+                const status = tr?.status === 'pass' ? 'pass' : tr?.status === 'fail' ? 'fail' : 'error';
+                results.push({
+                    ok: status === 'pass',
+                    id: `tests/tree/${tr?.id || 'unknown'}`,
+                    file: 'tests/tree',
+                    index: 0,
+                    tags: ['tree_api'],
+                    status,
+                    phase: 'analysis',
+                    error: tr?.error || null,
+                    detail: tr?.detail || null,
+                    worker: 0,
+                });
+            }
+        } catch (e) {
+            results.push({
+                ok: false,
+                id: 'tests/tree/run',
+                file: 'tests/tree',
+                index: 0,
+                tags: ['tree_api'],
+                status: 'error',
+                phase: 'analysis',
+                error: String(e?.stack || e?.message || e),
+                worker: 0,
+            });
+        }
+    }
     const summary = summarize(results);
     const resolvedDistDirs = collectResolvedDistDirs(results);
 

@@ -28,6 +28,7 @@
 - `tests/sort.n.md` を起点に、`stdlib/alloc/sort.nepl` の move-check 失敗（`use of moved value`）を解消する。
 - `sort_*` API (`(Vec<T>)->()`) と move 規則の整合を見直し、必要なら API/実装/テストを一貫して再設計する。
 - `stdlib/alloc/sort.nepl` がジェネリクス（`<.T: Ord>`）で動作する経路を `tests/generics.n.md` と合わせて確認する。
+- `Vec` の読み取り API（`vec_get` など）の所有権設計を見直し、反復参照で move-check に詰まらない read-only 経路を追加する（`vec_len`/`vec_data_ptr`/slice 風 API を含む再設計）。
 
 4.5. StringBuilder の根本再設計（高階関数対応の次フェーズ）
 - `stdlib/alloc/string.nepl` の `StringBuilder` を Rust/Go の方式を参考に再実装する（連結反復ではなく、可変バッファに append して最後に 1 回だけ str を構築）。

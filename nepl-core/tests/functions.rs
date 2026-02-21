@@ -1,5 +1,5 @@
 mod harness;
-use harness::run_main_i32;
+use harness::{run_main_i32, run_main_wasi_i32};
 
 use nepl_core::span::FileId;
 use nepl_core::{compile_wasm, CompileOptions, CompileTarget};
@@ -9,7 +9,7 @@ fn compile_err(src: &str) {
         FileId(0),
         src,
         CompileOptions {
-            target: Some(CompileTarget::Wasm),
+            target: None,
             verbose: false,
             profile: None,
         },
@@ -269,12 +269,12 @@ fn impure_caller <(i32)*>i32> (x):
     println_i32 res;
     res
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     impure_caller 5
 "#;
     // このテストはコンパイルと実行が通ることを確認します。
     // 実際の出力はキャプチャしませんが、戻り値は確認できます。
-    let v = run_main_i32(src);
+    let v = run_main_wasi_i32(src);
     assert_eq!(v, 50);
 }
 

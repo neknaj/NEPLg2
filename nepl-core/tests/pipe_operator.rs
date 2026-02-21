@@ -179,11 +179,15 @@ fn pipe_tuple_source() {
 #entry main
 #indent 4
 #target wasm
+#import "core/field" as *
 
-fn f <((i32,i32))->i32> (t): t.1
+fn f <((i32,i32))->i32> (t): get t 1
 
-fn main <()->i32> (): // Tuple 旧記法 Tuple新記法実装後は新記法に移行する必要
-    (1,2) |> f
+fn main <()->i32> ():
+    Tuple:
+        1
+        2
+    |> f
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 2);

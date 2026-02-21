@@ -19,7 +19,6 @@
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
-#import "std/stdio" as *
 #import "kp/kpread_core" as *
 #import "alloc/vec" as *
 #import "core/field" as *
