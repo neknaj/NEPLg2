@@ -187,7 +187,7 @@ fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_get_unchecked <.T> <(Vec<.T>,i32)->.T> (v, idx):
-    let data <i32> get v "data"
+    let data <i32> vec_data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
     load<.T> add data off
 
@@ -209,7 +209,7 @@ fn sort_get_unchecked <.T> <(Vec<.T>,i32)->.T> (v, idx):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_set_unchecked <.T> <(Vec<.T>,i32,.T)*>()> (v, idx, val):
-    let data <i32> get v "data"
+    let data <i32> vec_data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
     store<.T> add data off val;
     ()
@@ -318,7 +318,7 @@ fn sort_is_sorted <.T: Ord> <(Vec<.T>)*>bool> (v):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_insertion <.T: Ord> <(Vec<.T>)*>()> (v):
-    let n <i32> get v "len"
+    let n <i32> vec_len<.T> v
     if:
         le n 1
         then ()
@@ -361,7 +361,7 @@ fn sort_insertion <.T: Ord> <(Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_selection <.T: Ord> <(Vec<.T>)*>()> (v):
-    let n <i32> get v "len"
+    let n <i32> vec_len<.T> v
     if:
         le n 1
         then ()
@@ -402,7 +402,7 @@ fn sort_selection <.T: Ord> <(Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_bubble <.T: Ord> <(Vec<.T>)*>()> (v):
-    let n <i32> get v "len"
+    let n <i32> vec_len<.T> v
     if:
         le n 1
         then ()
@@ -441,7 +441,7 @@ fn sort_bubble <.T: Ord> <(Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_cocktail <.T: Ord> <(Vec<.T>)*>()> (v):
-    let n <i32> get v "len"
+    let n <i32> vec_len<.T> v
     if:
         le n 1
         then ()
@@ -513,7 +513,7 @@ fn sort_cocktail <.T: Ord> <(Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_gnome <.T: Ord> <(Vec<.T>)*>()> (v):
-    let n <i32> get v "len"
+    let n <i32> vec_len<.T> v
     if:
         le n 1
         then ()
@@ -548,7 +548,7 @@ fn sort_gnome <.T: Ord> <(Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_shell <.T: Ord> <(Vec<.T>)*>()> (v):
-    let n <i32> get v "len"
+    let n <i32> vec_len<.T> v
     if:
         le n 1
         then ()
@@ -597,7 +597,7 @@ fn sort_shell <.T: Ord> <(Vec<.T>)*>()> (v):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sort_comb <.T: Ord> <(Vec<.T>)*>()> (v):
-    let n <i32> get v "len"
+    let n <i32> vec_len<.T> v
     if:
         le n 1
         then ()

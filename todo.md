@@ -16,7 +16,7 @@
 3. sort/generics と Vec 読み取り設計
 - `tests/sort.n.md` を起点に `stdlib/alloc/sort.nepl` の move-check 問題を根本解消する。
 - `sort_*` API と move 規則の整合を見直し、必要なら API/実装/テストを再設計する。
-- `Vec` の read-only 経路（`vec_len`/`vec_data_ptr`/slice 風 API）を再設計する。
+- `Vec` の read-only 経路（slice 風 API）を再設計する。
 
 4. LSP/API 拡張（phase 2）
 - `analyze_name_resolution` で、import/alias/use 跨ぎ時の定義元ファイル情報（jump 先）を返す。

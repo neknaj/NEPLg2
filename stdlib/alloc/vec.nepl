@@ -214,6 +214,34 @@ fn vec_len <.T> <(Vec<.T>)->i32> (v):
 fn vec_cap <.T> <(Vec<.T>)->i32> (v):
     get v "cap"
 
+//: vec_data_ptr: 要素バッファ先頭ポインタを返す
+//:
+//: 目的:
+//: - 連続領域の先頭アドレスを読み取り専用で取得します。
+//:
+//: 実装(アルゴリズム):
+//: - フィールド data を返します。
+//:
+//: 注意(重要):
+//: - 返る値は生ポインタです。範囲管理は呼び出し側で行ってください。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: 使い方:
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "alloc/vec" as *
+//: fn main <()->i32> ():
+//:     let v vec_new<i32>;
+//:     if gt vec_data_ptr<i32> v 0 0 1
+//: ```
+fn vec_data_ptr <.T> <(Vec<.T>)->i32> (v):
+    get v "data"
+
 //: vec_is_empty: 空か判定する
 //:
 //: 目的:

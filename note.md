@@ -2754,3 +2754,17 @@
   1. `NO_COLOR=false trunk build`
   2. `node tests/tree/run.js` -> pass
   3. `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1` -> `566/566 pass`
+# 2026-02-22 作業メモ (Vec read-only accessor の前進)
+- 目的:
+  - `todo.md` の「sort/generics と Vec 読み取り設計」を上流の API から前進させる。
+- 実装:
+  - `stdlib/alloc/vec.nepl`
+    - `vec_data_ptr <.T> <(Vec<.T>)->i32>` を追加。
+    - 日本語ドキュメントコメント + doctest を追加。
+  - `stdlib/alloc/sort.nepl`
+    - `get v "len"` / `get v "data"` の一部を `vec_len<.T> v` / `vec_data_ptr<.T> v` へ置換。
+    - 同一 `Vec` から `len` と `data` を同時取得する箇所は move 回避のため `get` を維持。
+  - `stdlib/tests/vec.nepl`
+    - `vec_data_ptr` の基本回帰を追加（`vec_new` 直後に `> 0` を確認）。
+  - `todo.md`
+    - 完了した `vec_len/vec_data_ptr` の read-only 経路項目を削除し、未完了を slice 風 API に絞った。
