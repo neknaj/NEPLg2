@@ -1097,7 +1097,7 @@ fn def_trace_to_js(source: &str, def: &NameDefTrace) -> JsValue {
     obj.into()
 }
 
-fn ref_trace_to_js(source: &str, rf: &NameRefTrace) -> JsValue {
+fn ref_trace_to_js(source: &str, rf: &NameRefTrace, defs: &[NameDefTrace]) -> JsValue {
     let obj = js_sys::Object::new();
     let _ = Reflect::set(&obj, &JsValue::from_str("name"), &JsValue::from_str(&rf.name));
     let _ = Reflect::set(
@@ -1118,6 +1118,80 @@ fn ref_trace_to_js(source: &str, rf: &NameRefTrace) -> JsValue {
         cand.push(&JsValue::from_f64(*id as f64));
     }
     let _ = Reflect::set(&obj, &JsValue::from_str("candidate_def_ids"), &cand);
+
+    if let Some(id) = rf.resolved_def_id {
+        if let Some(def) = defs.get(id) {
+            let resolved = js_sys::Object::new();
+            let _ = Reflect::set(
+                &resolved,
+                &JsValue::from_str("id"),
+                &JsValue::from_f64(def.id as f64),
+            );
+            let _ = Reflect::set(
+                &resolved,
+                &JsValue::from_str("name"),
+                &JsValue::from_str(&def.name),
+            );
+            let _ = Reflect::set(
+                &resolved,
+                &JsValue::from_str("kind"),
+                &JsValue::from_str(def.kind),
+            );
+            let _ = Reflect::set(
+                &resolved,
+                &JsValue::from_str("scope_depth"),
+                &JsValue::from_f64(def.scope_depth as f64),
+            );
+            let _ = Reflect::set(
+                &resolved,
+                &JsValue::from_str("span"),
+                &span_to_js(source, def.span),
+            );
+            let _ = Reflect::set(&obj, &JsValue::from_str("resolved_def"), &resolved);
+        } else {
+            let _ = Reflect::set(&obj, &JsValue::from_str("resolved_def"), &JsValue::NULL);
+        }
+    } else {
+        let _ = Reflect::set(&obj, &JsValue::from_str("resolved_def"), &JsValue::NULL);
+    }
+
+    let cand_defs = js_sys::Array::new();
+    for id in &rf.candidate_def_ids {
+        if let Some(def) = defs.get(*id) {
+            let item = js_sys::Object::new();
+            let _ = Reflect::set(
+                &item,
+                &JsValue::from_str("id"),
+                &JsValue::from_f64(def.id as f64),
+            );
+            let _ = Reflect::set(
+                &item,
+                &JsValue::from_str("name"),
+                &JsValue::from_str(&def.name),
+            );
+            let _ = Reflect::set(
+                &item,
+                &JsValue::from_str("kind"),
+                &JsValue::from_str(def.kind),
+            );
+            let _ = Reflect::set(
+                &item,
+                &JsValue::from_str("scope_depth"),
+                &JsValue::from_f64(def.scope_depth as f64),
+            );
+            let _ = Reflect::set(
+                &item,
+                &JsValue::from_str("span"),
+                &span_to_js(source, def.span),
+            );
+            cand_defs.push(&item);
+        }
+    }
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("candidate_definitions"),
+        &cand_defs,
+    );
     obj.into()
 }
 
@@ -1169,7 +1243,7 @@ fn name_resolution_payload_to_js(source: &str, trace: &NameResolutionTrace) -> J
     }
     let refs = js_sys::Array::new();
     for rf in &trace.refs {
-        refs.push(&ref_trace_to_js(source, rf));
+        refs.push(&ref_trace_to_js(source, rf, &trace.defs));
     }
     let shadows = js_sys::Array::new();
     for sh in &trace.shadows {

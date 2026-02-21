@@ -2734,3 +2734,23 @@
   3. `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1` -> `566/566 pass`
 - 運用メモ:
   - 指示に合わせ、`trunk build` とテストは今後も必ず直列で実行する。
+
+# 2026-02-22 作業メモ (LSP API 拡張: name_resolution 参照の詳細化)
+- 背景:
+  - `todo.md` の LSP/API phase2 に対し、`candidate_def_ids` だけでは定義ジャンプ実装時に再参照が多く、UI 連携が煩雑だった。
+- 実施:
+  - `nepl-web/src/lib.rs`
+    - `analyze_name_resolution` の `references[]` に次を追加:
+      - `resolved_def`: 最終選択定義の詳細（id/name/kind/scope_depth/span）
+      - `candidate_definitions`: 候補定義の詳細配列（同上）
+    - 既存の `resolved_def_id` / `candidate_def_ids` は維持して後方互換を確保。
+  - `tests/tree/03_name_resolution_tree.js`
+    - `resolved_def` と `candidate_definitions` の整合を検証するアサーションを追加。
+- `todo.md` 整理:
+  - 4番項目を未完のみになるよう更新:
+    - 完了済み「最終選択/候補の返却」は除外
+    - 未完「import/alias/use 跨ぎの定義元ファイル情報（jump先）」へ焦点化
+- 検証 (直列):
+  1. `NO_COLOR=false trunk build`
+  2. `node tests/tree/run.js` -> pass
+  3. `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1` -> `566/566 pass`

@@ -39,6 +39,23 @@ fn main <()->i32> ():
             Array.isArray(targetRef?.candidate_def_ids),
             'candidate_def_ids should be available for debug/LSP'
         );
+        assert.ok(
+            targetRef?.resolved_def && typeof targetRef.resolved_def === 'object',
+            'resolved_def object should be provided for LSP jump metadata'
+        );
+        assert.equal(
+            targetRef?.resolved_def?.id,
+            targetRef?.resolved_def_id,
+            'resolved_def.id must match resolved_def_id'
+        );
+        assert.ok(
+            Array.isArray(targetRef?.candidate_definitions),
+            'candidate_definitions should be provided with detailed metadata'
+        );
+        assert.ok(
+            targetRef.candidate_definitions.length >= targetRef.candidate_def_ids.length,
+            'candidate_definitions should include each candidate id'
+        );
 
         const shadows = Array.isArray(result?.shadows) ? result.shadows : [];
         const shadowDiags = Array.isArray(result?.shadow_diagnostics)
@@ -63,7 +80,7 @@ fn main <()->i32> ():
         assert.ok(importantWarn, 'important stdlib-like symbol shadow warning should be present');
 
         return {
-            checked: 9,
+            checked: 14,
             def_count: defs.length,
             ref_count: refs.length,
             shadow_count: shadows.length,

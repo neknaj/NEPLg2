@@ -19,7 +19,7 @@
 - `Vec` の read-only 経路（`vec_len`/`vec_data_ptr`/slice 風 API）を再設計する。
 
 4. LSP/API 拡張（phase 2）
-- `analyze_name_resolution` を拡張し、import/alias/use 跨ぎの解決候補と最終選択を返す。
+- `analyze_name_resolution` で、import/alias/use 跨ぎ時の定義元ファイル情報（jump 先）を返す。
 - token 単位の型情報 API に定義ジャンプ情報（import 先含む）を統合する。
 - Hover/Inlay Hint 向けに式範囲・引数範囲・推論型・関連 doc comment を返す API を追加する。
 
