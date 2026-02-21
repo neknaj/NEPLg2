@@ -1814,3 +1814,37 @@
   - 失敗（compiler artifacts 不在、`total=215, errored=215`）。
 - `node nodesrc/cli.js -i stdlib/std -o html_play=dist/stdlib_std`
   - 失敗（artifacts 不在で HTML 生成不可）。
+
+# 2026-02-21 作業メモ (lexer/parser 上流整理 + 木構造 API テスト追加)
+## 実装
+- `nepl-core/src/lexer.rs`
+  - `cond` / `then` / `else` / `do` を専用キーワードトークン (`KwCond`, `KwThen`, `KwElse`, `KwDo`) として追加。
+  - キーワード判定を `keyword_token` に集約し、同義分岐の重複を解消。
+  - `LexState` の未使用 lifetime を除去し、字句解析状態の定義を簡潔化。
+- `nepl-core/src/parser.rs`
+  - 新キーワードトークンをレイアウトマーカーとして受理する分岐を追加。
+  - 括弧式 (`(` ... `)`) の解析ロジックを `parse_parenthesized_expr_items` に統合し、3箇所重複していた処理を一本化。
+  - 診断文を現仕様に合わせて更新:
+    - `tuple literal cannot end with a comma` -> `trailing comma is not allowed in parenthesized expression`
+    - `expected ')' after tuple literal` -> `expected ')' after parenthesized expression`
+- `nepl-web/src/lib.rs`
+  - 解析 API の token kind 文字列表現に `KwCond/KwThen/KwElse/KwDo` を追加。
+- テスト追加
+  - `tests/keywords_reserved.n.md` を新規追加し、`cond/then/else/do` が識別子として使えないことを `compile_fail` で固定。
+  - `tests/tree/*.js` を新規追加し、LSP/デバッグ向け API の木構造を段階別に検証:
+    - `tests/tree/01_lex_tree.js`
+    - `tests/tree/02_parse_tree.js`
+    - `tests/tree/03_name_resolution_tree.js`
+    - `tests/tree/04_semantics_tree.js`
+    - `tests/tree/run.js`（一括実行）
+
+## 検証
+- `NO_COLOR=false trunk build`
+  - 成功
+- `node nodesrc/tests.js -i tests/if.n.md -i tests/offside_and_indent_errors.n.md -i tests/tuple_new_syntax.n.md -i tests/tuple_old_syntax.n.md -i tests/block_single_line.n.md -i tests/pipe_operator.n.md -i tests/keywords_reserved.n.md -o tests/output/upstream_lexer_parser_final.json`
+  - `total=292, passed=292, failed=0, errored=0`
+- `node tests/tree/run.js`
+  - `total=4, passed=4, failed=0, errored=0`
+
+## 補足
+- `tests` 全体 (`--no-stdlib`) 実行では既存の下流課題（ret_f64/selfhost/sort など）で失敗が残るが、今回の lexer/parser 変更で新規回帰は確認されていない。

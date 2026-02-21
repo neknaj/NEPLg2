@@ -64,6 +64,18 @@ struct Parser {
 }
 
 impl Parser {
+    fn parse_layout_marker_symbol(&mut self, name: &str) -> PrefixItem {
+        let span = self.next().unwrap().span;
+        PrefixItem::Symbol(Symbol::Ident(
+            Ident {
+                name: name.to_string(),
+                span,
+            },
+            Vec::new(),
+            false,
+        ))
+    }
+
     /// 再帰的な文解析の深さを制限して、暴走を必ず停止させる。
     fn enter_parse_context(&mut self, kind: &str, span: Span) -> bool {
         if self.depth >= MAX_PARSE_RECURSION_DEPTH {
@@ -1302,29 +1314,8 @@ impl Parser {
                     items.push(PrefixItem::Literal(lit, tok.span));
                 }
                 TokenKind::LParen => {
-                    let lp = self.next().unwrap().span;
-                    if self.consume_if(&TokenKind::RParen) {
-                        let rp = self.peek_span().unwrap_or(lp);
-                        let span = lp.join(rp).unwrap_or(lp);
-                        items.push(PrefixItem::Literal(Literal::Unit, span));
-                    } else {
-                        if let Some((elems, tup_span, saw_comma)) =
-                            self.parse_tuple_items(lp)
-                        {
-                            if saw_comma {
-                                items.push(PrefixItem::Tuple(elems, tup_span));
-                            } else {
-                                if let Some(first) = elems.into_iter().next() {
-                                    items.push(PrefixItem::Group(first, tup_span));
-                                }
-                            }
-                        } else {
-                            // recovery: skip to end of line
-                            while !self.is_end(&TokenEnd::Line) {
-                                self.next();
-                            }
-                        }
-                    }
+                    let parsed = self.parse_parenthesized_expr_items(false)?;
+                    items.extend(parsed);
                 }
                 TokenKind::KwLet => {
                     let _ = self.next();
@@ -1414,6 +1405,18 @@ impl Parser {
                 TokenKind::KwWhile => {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Symbol(Symbol::While(span)));
+                }
+                TokenKind::KwCond => {
+                    items.push(self.parse_layout_marker_symbol("cond"));
+                }
+                TokenKind::KwThen => {
+                    items.push(self.parse_layout_marker_symbol("then"));
+                }
+                TokenKind::KwElse => {
+                    items.push(self.parse_layout_marker_symbol("else"));
+                }
+                TokenKind::KwDo => {
+                    items.push(self.parse_layout_marker_symbol("do"));
                 }
                 TokenKind::KwBlock => {
                     let span = self.next().unwrap().span;
@@ -1534,7 +1537,7 @@ impl Parser {
                 if self.check(&TokenKind::RParen) {
                     let sp = self.peek_span().unwrap_or_else(Span::dummy);
                     self.diagnostics.push(Diagnostic::error(
-                        "tuple literal cannot end with a comma",
+                        "trailing comma is not allowed in parenthesized expression",
                         sp,
                     ));
                     let rp = self.next().unwrap().span;
@@ -1548,12 +1551,38 @@ impl Parser {
             } else {
                 let sp = self.peek_span().unwrap_or_else(Span::dummy);
                 self.diagnostics
-                    .push(Diagnostic::error("expected ')' after tuple literal", sp));
+                    .push(Diagnostic::error("expected ')' after parenthesized expression", sp));
                 sp
             };
             let span = lp_span.join(rp).unwrap_or(lp_span);
             return Some((elems, span, saw_comma));
         }
+    }
+
+    fn parse_parenthesized_expr_items(&mut self, flatten_group: bool) -> Option<Vec<PrefixItem>> {
+        let lp = self.next().unwrap().span;
+        if self.consume_if(&TokenKind::RParen) {
+            let rp = self.peek_span().unwrap_or(lp);
+            let span = lp.join(rp).unwrap_or(lp);
+            return Some(vec![PrefixItem::Literal(Literal::Unit, span)]);
+        }
+
+        let (elems, paren_span, saw_comma) = self.parse_tuple_items(lp)?;
+        if saw_comma {
+            self.diagnostics.push(Diagnostic::error(
+                "legacy tuple literal '(...)' is removed; use 'Tuple:'",
+                paren_span,
+            ));
+            return Some(Vec::new());
+        }
+
+        if let Some(first) = elems.into_iter().next() {
+            if flatten_group {
+                return Some(first.items);
+            }
+            return Some(vec![PrefixItem::Group(first, paren_span)]);
+        }
+        Some(Vec::new())
     }
 
     fn parse_prefix_expr_until_tuple_delim(&mut self) -> Option<PrefixExpr> {
@@ -1775,35 +1804,8 @@ impl Parser {
                     items.push(PrefixItem::Literal(lit, tok.span));
                 }
                 TokenKind::LParen => {
-                    let lp = self.next().unwrap().span;
-                    if self.consume_if(&TokenKind::RParen) {
-                        let rp = self.peek_span().unwrap_or(lp);
-                        let span = lp.join(rp).unwrap_or(lp);
-                        items.push(PrefixItem::Literal(Literal::Unit, span));
-                    } else {
-                        if let Some((elems, tup_span, saw_comma)) =
-                            self.parse_tuple_items(lp)
-                        {
-                            if saw_comma {
-                                items.push(PrefixItem::Tuple(elems, tup_span));
-                            } else {
-                                let span = self.peek_span().unwrap_or(lp);
-                                self.diagnostics.push(Diagnostic::error(
-                                    "parenthesized expressions are not supported; use tuple syntax with commas",
-                                    span,
-                                ));
-                                if let Some(first) = elems.into_iter().next() {
-                                    items.extend(first.items);
-                                }
-                            }
-                        } else {
-                            while !self.is_end(&TokenEnd::Line)
-                                && !matches!(self.peek_kind(), Some(TokenKind::Comma | TokenKind::RParen))
-                            {
-                                self.next();
-                            }
-                        }
-                    }
+                    let parsed = self.parse_parenthesized_expr_items(true)?;
+                    items.extend(parsed);
                 }
                 TokenKind::KwLet => {
                     let _ = self.next();
@@ -1839,6 +1841,18 @@ impl Parser {
                 TokenKind::KwWhile => {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Symbol(Symbol::While(span)));
+                }
+                TokenKind::KwCond => {
+                    items.push(self.parse_layout_marker_symbol("cond"));
+                }
+                TokenKind::KwThen => {
+                    items.push(self.parse_layout_marker_symbol("then"));
+                }
+                TokenKind::KwElse => {
+                    items.push(self.parse_layout_marker_symbol("else"));
+                }
+                TokenKind::KwDo => {
+                    items.push(self.parse_layout_marker_symbol("do"));
                 }
                 TokenKind::KwBlock => {
                     let span = self.next().unwrap().span;
@@ -2009,33 +2023,8 @@ impl Parser {
                     items.push(PrefixItem::Literal(lit, tok.span));
                 }
                 TokenKind::LParen => {
-                    let lp = self.next().unwrap().span;
-                    if self.consume_if(&TokenKind::RParen) {
-                        let rp = self.peek_span().unwrap_or(lp);
-                        let span = lp.join(rp).unwrap_or(lp);
-                        items.push(PrefixItem::Literal(Literal::Unit, span));
-                    } else {
-                        if let Some((elems, tup_span, saw_comma)) =
-                            self.parse_tuple_items(lp)
-                        {
-                            if saw_comma {
-                                items.push(PrefixItem::Tuple(elems, tup_span));
-                            } else {
-                                let span = self.peek_span().unwrap_or(lp);
-                                self.diagnostics.push(Diagnostic::error(
-                                    "parenthesized expressions are not supported; use tuple syntax with commas",
-                                    span,
-                                ));
-                                if let Some(first) = elems.into_iter().next() {
-                                    items.extend(first.items);
-                                }
-                            }
-                        } else {
-                            while !self.is_end(&TokenEnd::Line) {
-                                self.next();
-                            }
-                        }
-                    }
+                    let parsed = self.parse_parenthesized_expr_items(true)?;
+                    items.extend(parsed);
                 }
                 TokenKind::At | TokenKind::Ident(_) => {
                     // match scrutinee 側でも `E::A` / `obj.field` を同じ規則で扱う
@@ -2075,6 +2064,18 @@ impl Parser {
                 TokenKind::KwWhile => {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Symbol(Symbol::While(span)));
+                }
+                TokenKind::KwCond => {
+                    items.push(self.parse_layout_marker_symbol("cond"));
+                }
+                TokenKind::KwThen => {
+                    items.push(self.parse_layout_marker_symbol("then"));
+                }
+                TokenKind::KwElse => {
+                    items.push(self.parse_layout_marker_symbol("else"));
+                }
+                TokenKind::KwDo => {
+                    items.push(self.parse_layout_marker_symbol("do"));
                 }
                 TokenKind::Ampersand => {
                     let span = self.next().unwrap().span;
@@ -3239,6 +3240,10 @@ impl Parser {
                     Some(TokenKind::KwBlock)
                         | Some(TokenKind::KwIf)
                         | Some(TokenKind::KwWhile)
+                        | Some(TokenKind::KwCond)
+                        | Some(TokenKind::KwThen)
+                        | Some(TokenKind::KwElse)
+                        | Some(TokenKind::KwDo)
                         | Some(TokenKind::KwMatch)
                         | Some(TokenKind::At)
                         | Some(TokenKind::Ident(_))

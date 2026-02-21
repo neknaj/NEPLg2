@@ -53,6 +53,10 @@ pub enum TokenKind {
     KwSet,
     KwIf,
     KwWhile,
+    KwCond,
+    KwThen,
+    KwElse,
+    KwDo,
     KwStruct,
     KwEnum,
     KwMatch,
@@ -104,9 +108,8 @@ pub struct LexResult {
     pub indent_width: usize,
 }
 
-struct LexState<'a> {
+struct LexState {
     file_id: FileId,
-    src: &'a str,
     indent_stack: Vec<usize>,
     indent_unit: usize,
     expect_indent: bool,
@@ -119,7 +122,6 @@ struct LexState<'a> {
 pub fn lex(file_id: FileId, src: &str) -> LexResult {
     let mut state = LexState {
         file_id,
-        src,
         indent_stack: vec![0],
         indent_unit: 4,
         expect_indent: false,
@@ -159,7 +161,7 @@ pub fn lex(file_id: FileId, src: &str) -> LexResult {
     }
 }
 
-impl<'a> LexState<'a> {
+impl LexState {
     fn process_line(&mut self, line: &str, line_start: usize) {
         // Strip comments
         let content_owned = match line.find("//") {
@@ -788,34 +790,14 @@ impl<'a> LexState<'a> {
                         let lexeme = &text[start..i];
                         let span_start = offset + start;
                         let span_end = offset + i;
-                        match lexeme {
-                            "fn" => self.push_token(TokenKind::KwFn, span_start, span_end),
-                            "let" => self.push_token(TokenKind::KwLet, span_start, span_end),
-                            "mut" => self.push_token(TokenKind::KwMut, span_start, span_end),
-                            "set" => self.push_token(TokenKind::KwSet, span_start, span_end),
-                            "if" => self.push_token(TokenKind::KwIf, span_start, span_end),
-                            "while" => self.push_token(TokenKind::KwWhile, span_start, span_end),
-                            "struct" => self.push_token(TokenKind::KwStruct, span_start, span_end),
-                            "enum" => self.push_token(TokenKind::KwEnum, span_start, span_end),
-                            "match" => self.push_token(TokenKind::KwMatch, span_start, span_end),
-                            "trait" => self.push_token(TokenKind::KwTrait, span_start, span_end),
-                            "impl" => self.push_token(TokenKind::KwImpl, span_start, span_end),
-                            "for" => self.push_token(TokenKind::KwFor, span_start, span_end),
-                            "pub" => self.push_token(TokenKind::KwPub, span_start, span_end),
-                            "block" => self.push_token(TokenKind::KwBlock, span_start, span_end),
-                            "Tuple" => self.push_token(TokenKind::KwTuple, span_start, span_end),
-                            "mlstr" => self.push_token(TokenKind::KwMlstr, span_start, span_end),
-                            "true" => {
-                                self.push_token(TokenKind::BoolLiteral(true), span_start, span_end)
-                            }
-                            "false" => {
-                                self.push_token(TokenKind::BoolLiteral(false), span_start, span_end)
-                            }
-                            _ => self.push_token(
+                        if let Some(kind) = keyword_token(lexeme) {
+                            self.push_token(kind, span_start, span_end);
+                        } else {
+                            self.push_token(
                                 TokenKind::Ident(lexeme.to_string()),
                                 span_start,
                                 span_end,
-                            ),
+                            );
                         }
                     } else {
                         self.unknown(offset + i, offset + i + 1);
@@ -860,6 +842,34 @@ fn hex_val(b: u8) -> Option<u8> {
         b'0'..=b'9' => Some(b - b'0'),
         b'a'..=b'f' => Some(b - b'a' + 10),
         b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn keyword_token(lexeme: &str) -> Option<TokenKind> {
+    match lexeme {
+        "fn" => Some(TokenKind::KwFn),
+        "let" => Some(TokenKind::KwLet),
+        "mut" => Some(TokenKind::KwMut),
+        "set" => Some(TokenKind::KwSet),
+        "if" => Some(TokenKind::KwIf),
+        "while" => Some(TokenKind::KwWhile),
+        "cond" => Some(TokenKind::KwCond),
+        "then" => Some(TokenKind::KwThen),
+        "else" => Some(TokenKind::KwElse),
+        "do" => Some(TokenKind::KwDo),
+        "struct" => Some(TokenKind::KwStruct),
+        "enum" => Some(TokenKind::KwEnum),
+        "match" => Some(TokenKind::KwMatch),
+        "trait" => Some(TokenKind::KwTrait),
+        "impl" => Some(TokenKind::KwImpl),
+        "for" => Some(TokenKind::KwFor),
+        "pub" => Some(TokenKind::KwPub),
+        "block" => Some(TokenKind::KwBlock),
+        "Tuple" => Some(TokenKind::KwTuple),
+        "mlstr" => Some(TokenKind::KwMlstr),
+        "true" => Some(TokenKind::BoolLiteral(true)),
+        "false" => Some(TokenKind::BoolLiteral(false)),
         _ => None,
     }
 }
