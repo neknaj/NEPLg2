@@ -2260,3 +2260,17 @@
   - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `553/553 pass`
 - 位置づけ:
   - lexer/parser 上流で「旧記法の検出と移行ガイド付き診断」を先に固定し、後続の旧仕様完全撤去に備える修正。
+
+# 2026-02-22 作業メモ (tree API 回帰追加: 旧ドット添字診断)
+- 背景:
+  - `t.0` の parser 診断追加を API レベルでも退行検知できるようにするため、tree テストへ追加。
+- 実施:
+  - `tests/tree/06_legacy_tuple_dot_index_diag.js` を追加。
+  - `analyze_semantics` で `t.0` 入力に対し、以下を検証:
+    - コンパイル成功ではないこと
+    - `legacy tuple field access '.N' ... use 'get <tuple> N'` 診断が含まれること
+- 検証:
+  - `node tests/tree/run.js`: `6/6 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `554/554 pass`
+- 位置づけ:
+  - 上流変更（parser）に対する LSP/デバッグ API の回帰網を強化し、段階移行中の仕様境界を明示固定。
