@@ -1968,3 +1968,14 @@
 - 検証:
   - `NO_COLOR=false trunk build` 成功
   - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json` で `547/547 passed`
+
+# 2026-02-21 作業メモ (stdlib result への段階的 noshadow 適用)
+- `stdlib/core/result.nepl` の基盤 API から、衝突リスクが低い `unwrap_ok` / `unwrap_err` に `noshadow` を付与。
+- 目的:
+  - 基盤 API の誤上書きを早期検出する運用を段階導入する。
+  - 既存コードで利用頻度が高い短名（`ok` / `err` / `map`）は今回保留し、破壊範囲を最小化。
+- 回帰テストを追加:
+  - `tests/shadowing.n.md` に `std_result_noshadow_unwrap_ok`（compile_fail）を追加。
+- 検証:
+  - `NO_COLOR=false trunk build` 成功
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json` で `548/548 passed`

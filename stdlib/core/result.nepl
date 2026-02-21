@@ -176,7 +176,7 @@ fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
 //:
 //: 計算量:
 //: - O(1)
-fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
+fn noshadow unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
     match r:
         Result::Ok v:
             v
@@ -196,7 +196,7 @@ fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
 //:
 //: 計算量:
 //: - O(1)
-fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
+fn noshadow unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
     match r:
         Result::Err e:
             e

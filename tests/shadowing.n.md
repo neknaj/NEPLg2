@@ -307,6 +307,20 @@ fn main <()->i32> ():
     x
 ```
 
+## std_result_noshadow_unwrap_ok
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target wasm
+#import "core/result" as *
+
+fn main <()->i32> ():
+    let unwrap_ok <i32> 1;
+    unwrap_ok
+```
+
 ## shadowing_import_alias_and_value_in_local_block
 
 neplg2:test
