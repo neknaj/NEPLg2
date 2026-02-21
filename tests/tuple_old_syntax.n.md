@@ -56,7 +56,7 @@ fn main <()->i32> ():
 
 ## old_tuple_field_access_dot_index_is_rejected
 
-neplg2:test[skip]
+neplg2:test[compile_fail]
 ```neplg2
 
 #entry main
@@ -72,7 +72,7 @@ fn main <()->i32> ():
 
 ## old_tuple_field_access_dot_index_nested_is_rejected
 
-neplg2:test[skip]
+neplg2:test[compile_fail]
 ```neplg2
 
 #entry main

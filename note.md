@@ -2245,3 +2245,18 @@
   - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `553/553 pass`
 - 位置づけ:
   - 旧仕様廃止は継続しつつ、上流（lexer/parser）で一括改修する前に失敗原因を混在させないための切り分け。
+
+# 2026-02-22 作業メモ (parser 上流修正: `t.0` 旧ドット添字の検出)
+- 背景:
+  - 旧タプル記法廃止方針に対し、`t.0` が一部経路で明示診断されず、移行境界が曖昧だった。
+- 修正:
+  - `nepl-core/src/parser.rs` の `parse_ident_symbol_item` で、識別子後の `.` の次が `IntLiteral` の場合を特別扱い。
+  - 以下の診断を即時追加:
+    - `legacy tuple field access '.N' is removed; use 'get <tuple> N'`
+  - 該当トークンを消費して回復し、後続解析を継続できるようにした。
+- テスト:
+  - `tests/tuple_old_syntax.n.md` のドット添字ケースを `compile_fail` に戻し、回帰に組み込んだ。
+  - `node nodesrc/tests.js -i tests/tuple_old_syntax.n.md -o tests/output/tuple_old_syntax_current.json -j 1`: `171/171 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `553/553 pass`
+- 位置づけ:
+  - lexer/parser 上流で「旧記法の検出と移行ガイド付き診断」を先に固定し、後続の旧仕様完全撤去に備える修正。

@@ -49,7 +49,6 @@
 9. 旧タプル記法の完全移行（段階実施）
 - `stdlib` と `tutorials` に残る旧タプル記法（特に tuple type 注釈）を新記法方針へ移行する。
 - `tests` は「新仕様確認」と「旧仕様 reject (compile_fail)」を明確に分離し、混在をなくす。
-- `t.0` 系の旧ドット添字アクセスを lexer/parser で確実に検出し、`get t 0` への移行診断を実装する。
 - 移行完了後に parser 側で旧 tuple type 記法を reject し、全体テストを再固定する。
 
 ---

@@ -3058,12 +3058,24 @@ impl Parser {
             }
 
             if allow_dot && self.check(&TokenKind::Dot) {
-                self.next();
+                let dot_span = self.next().unwrap().span;
                 if let Some((field, fspan)) = self.expect_ident() {
                     full.push('.');
                     full.push_str(&field);
                     end_span = end_span.join(fspan).unwrap_or(end_span);
                     continue;
+                }
+                if let Some(TokenKind::IntLiteral(v)) = self.peek_kind() {
+                    let idx_text = v.clone();
+                    let idx_tok = self.next().unwrap();
+                    self.diagnostics.push(Diagnostic::error(
+                        alloc::format!(
+                            "legacy tuple field access '.{}' is removed; use 'get <tuple> {}'",
+                            idx_text, idx_text
+                        ),
+                        dot_span.join(idx_tok.span).unwrap_or(dot_span),
+                    ));
+                    break;
                 }
                 break;
             }
