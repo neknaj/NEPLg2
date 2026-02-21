@@ -8,10 +8,11 @@
       - `hoist_mut_let_disallows_forward_reference`（compile_fail）
       - `hoist_nested_fn_allows_forward_reference`（pass）
       - `hoist_nonmut_let_allows_forward_reference`（現状は compile_fail として固定）
-  - `nepl-core/src/typecheck.rs`
-    - 識別子解決で、`defined` 済み解決に失敗した場合の non-mut hoist fallback を追加（自己初期化は除外）。
+- `nepl-core/src/typecheck.rs`
+  - 識別子解決で、`defined` 済み解決に失敗した場合の non-mut hoist fallback を追加（自己初期化は除外）。
 - 現状評価:
   - `fn` の前方参照は通る一方、`non-mut let` の前方参照は未対応。
+  - fallback を追加しても `let y ... x` / `let x ...` 形式は未解消のため、テストは `compile_fail` で固定維持。
   - これは `todo.md` の巻き上げ統一タスクとして継続（仕様差分として明確化）。
 - 検証:
   - `NO_COLOR=false trunk build`: 成功

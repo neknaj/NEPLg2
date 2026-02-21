@@ -2219,21 +2219,13 @@ impl<'a> BlockChecker<'a> {
                             } else {
                                 None
                             };
+                            let allow_undefined_nonmut = !in_let_self_init;
                             preferred_callable
-                                .or_else(|| self.env.lookup_any_defined(&id.name))
                                 .or_else(|| {
-                                    if in_let_self_init {
-                                        None
-                                    } else {
-                                        self.env.lookup_any(&id.name).and_then(|b| {
-                                            if b.kind.is_var() && !b.mutable {
-                                                Some(b)
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                    }
+                                    self.env
+                                        .lookup_value_for_read(&id.name, allow_undefined_nonmut)
                                 })
+                                .or_else(|| self.env.lookup_callable_any(&id.name))
                         } {
                             let ty = binding.ty;
                             let auto_call = match binding.kind {
@@ -4677,6 +4669,24 @@ impl Env {
         self.lookup_all_any_defined(name)
             .into_iter()
             .find(|b| matches!(b.kind, BindingKind::Var))
+    }
+
+    fn lookup_value_for_read(
+        &self,
+        name: &str,
+        allow_undefined_nonmut: bool,
+    ) -> Option<&Binding> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(b) = scope.values.iter().rev().find(|b| {
+                if b.name != name {
+                    return false;
+                }
+                b.defined || (allow_undefined_nonmut && !b.mutable)
+            }) {
+                return Some(b);
+            }
+        }
+        None
     }
 
     fn lookup_all_callables(&self, name: &str) -> Vec<&Binding> {
