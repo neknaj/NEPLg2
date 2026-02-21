@@ -278,10 +278,10 @@ pub fn typecheck(
         }
         match item {
             Stmt::EnumDef(e) => {
-                if enums.contains_key(&e.name.name) || env.lookup(&e.name.name).is_some() {
+                if enums.contains_key(&e.name.name) || env.lookup_any_defined(&e.name.name).is_some() {
                     continue;
                 }
-                if env.lookup(&e.name.name).is_some() || structs.contains_key(&e.name.name) {
+                if env.lookup_any_defined(&e.name.name).is_some() || structs.contains_key(&e.name.name) {
                     diagnostics.push(Diagnostic::error(
                         "name already used by another item",
                         e.name.span,
@@ -385,10 +385,10 @@ pub fn typecheck(
                 }
             }
             Stmt::StructDef(s) => {
-                if structs.contains_key(&s.name.name) || env.lookup(&s.name.name).is_some() {
+                if structs.contains_key(&s.name.name) || env.lookup_any_defined(&s.name.name).is_some() {
                     continue;
                 }
-                if env.lookup(&s.name.name).is_some() || enums.contains_key(&s.name.name) {
+                if env.lookup_any_defined(&s.name.name).is_some() || enums.contains_key(&s.name.name) {
                     diagnostics.push(Diagnostic::error(
                         "name already used by another item",
                         s.name.span,
@@ -514,7 +514,7 @@ pub fn typecheck(
                 Effect::Pure,
             );
             let vname = format!("{}::{}", name, var.name);
-            if env.lookup(&vname).is_none() {
+            if env.lookup_all_callables(&vname).is_empty() {
                 env.insert_global(Binding {
                     name: vname.clone(),
                     ty: func_ty,
@@ -608,7 +608,7 @@ pub fn typecheck(
             info.ty,
             Effect::Pure,
         );
-        if env.lookup(name).is_none() {
+        if env.lookup_all_callables(name).is_empty() {
             env.insert_global(Binding {
                 name: name.clone(),
                 ty: func_ty,
@@ -724,7 +724,7 @@ pub fn typecheck(
                 }
                 if f.no_shadow
                     && env
-                        .lookup_all(&f.name.name)
+                        .lookup_all_any_defined(&f.name.name)
                         .iter()
                         .any(|b| !is_callable_binding(b))
                 {
@@ -850,7 +850,7 @@ pub fn typecheck(
             }
             if alias.no_shadow
                 && env
-                    .lookup_all(&alias.name.name)
+                    .lookup_all_any_defined(&alias.name.name)
                     .iter()
                     .any(|b| !is_callable_binding(b))
             {
@@ -1808,7 +1808,7 @@ impl<'a> BlockChecker<'a> {
                     if f.no_shadow
                         && self
                             .env
-                            .lookup_all(&f.name.name)
+                            .lookup_all_any_defined(&f.name.name)
                             .iter()
                             .any(|b| !is_callable_binding(b))
                     {
@@ -1830,7 +1830,7 @@ impl<'a> BlockChecker<'a> {
                     }
                     let has_non_callable_conflict = self
                         .env
-                        .lookup_all(&f.name.name)
+                        .lookup_all_any_defined(&f.name.name)
                         .iter()
                         .any(|b| !is_callable_binding(b));
                     if has_non_callable_conflict {
@@ -2254,12 +2254,12 @@ impl<'a> BlockChecker<'a> {
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
                             let mut lookup_name = id.name.clone();
-                            let mut bindings = self.env.lookup_all(&lookup_name);
+                            let mut bindings = self.env.lookup_all_any_defined(&lookup_name);
                             if bindings.is_empty() {
                                 if let Some((ns, member)) = parse_variant_name(&id.name) {
                                     if !self.enums.contains_key(ns) && !self.traits.contains_key(ns)
                                     {
-                                        let alt = self.env.lookup_all(member);
+                                        let alt = self.env.lookup_all_any_defined(member);
                                         if !alt.is_empty() {
                                             lookup_name = member.to_string();
                                             bindings = alt;
@@ -4583,7 +4583,7 @@ impl Env {
             .and_then(|scope| scope.iter_mut().rev().find(|b| b.name == name))
     }
 
-    fn lookup(&self, name: &str) -> Option<&Binding> {
+    fn lookup_any_defined(&self, name: &str) -> Option<&Binding> {
         // When resolving identifiers for reading, skip hoisted bindings
         // that are not yet defined. This prevents the RHS of a hoisted
         // `let` from accidentally seeing the placeholder binding.
@@ -4595,7 +4595,7 @@ impl Env {
         None
     }
 
-    fn lookup_all(&self, name: &str) -> Vec<&Binding> {
+    fn lookup_all_any_defined(&self, name: &str) -> Vec<&Binding> {
         for scope in self.scopes.iter().rev() {
             let mut items: Vec<&Binding> = scope
                 .iter()
@@ -4609,16 +4609,26 @@ impl Env {
     }
 
     fn lookup_value(&self, name: &str) -> Option<&Binding> {
-        self.lookup_all(name)
+        self.lookup_all_any_defined(name)
             .into_iter()
             .find(|b| matches!(b.kind, BindingKind::Var))
     }
 
     fn lookup_all_callables(&self, name: &str) -> Vec<&Binding> {
-        self.lookup_all(name)
+        self.lookup_all_any_defined(name)
             .into_iter()
             .filter(|b| matches!(b.kind, BindingKind::Func { .. }))
             .collect()
+    }
+
+    #[allow(dead_code)]
+    fn lookup(&self, name: &str) -> Option<&Binding> {
+        self.lookup_any_defined(name)
+    }
+
+    #[allow(dead_code)]
+    fn lookup_all(&self, name: &str) -> Vec<&Binding> {
+        self.lookup_all_any_defined(name)
     }
 
     fn lookup_callable_any(&self, name: &str) -> Option<&Binding> {

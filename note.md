@@ -1,3 +1,25 @@
+# 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: 明示 lookup API へ統一)
+- 目的:
+  - `typecheck` で `lookup/lookup_all` の意図が曖昧な箇所を減らし、`ValueNs`/`CallableNs` 分離を進める。
+- 実装:
+  - `nepl-core/src/typecheck.rs`
+    - `Env` に明示 API を追加:
+      - `lookup_any_defined`
+      - `lookup_all_any_defined`
+    - 既存の `lookup`/`lookup_all` は互換ラッパとして残し、呼び出し側を段階置換。
+    - 置換した主な箇所:
+      - enum/struct 名衝突判定: `lookup_any_defined`
+      - enum variant/struct constructor 既存判定: `lookup_all_callables`
+      - `noshadow` 競合判定: `lookup_all_any_defined`
+      - 識別子 fallback 候補列挙: `lookup_all_any_defined`
+- 効果:
+  - 関数解決と値解決の経路がコード上で判別しやすくなり、今後の namespace 分離リファクタリングの安全性を向上。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/shadowing.n.md -i tests/functions.n.md -o tests/output/shadowing_functions_current.json -j 1`: `205/205 pass`
+  - `node tests/tree/run.js`: `7/7 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `555/555 pass`
+
 # 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: callable 専用経路の拡大)
 - 目的:
   - `todo.md` 最優先の名前空間分離を継続し、callable と value の探索経路をより明確に分離。
