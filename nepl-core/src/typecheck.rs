@@ -2200,6 +2200,10 @@ impl<'a> BlockChecker<'a> {
                 }
                 PrefixItem::Symbol(sym) => match sym {
                     Symbol::Ident(id, type_args, forced_value) => {
+                        let in_let_self_init = stack.iter().rev().any(|e| {
+                            matches!(e.assign, Some(AssignKind::Let))
+                                && matches!(&e.expr.kind, HirExprKind::Var(n) if n == &id.name)
+                        });
                         if let Some(entry) = self.resolve_dotted_field_symbol(id, *forced_value) {
                             stack.push(entry);
                             last_expr = Some(stack.last().unwrap().expr.clone());
@@ -2215,7 +2219,21 @@ impl<'a> BlockChecker<'a> {
                             } else {
                                 None
                             };
-                            preferred_callable.or_else(|| self.env.lookup_any_defined(&id.name))
+                            preferred_callable
+                                .or_else(|| self.env.lookup_any_defined(&id.name))
+                                .or_else(|| {
+                                    if in_let_self_init {
+                                        None
+                                    } else {
+                                        self.env.lookup_any(&id.name).and_then(|b| {
+                                            if b.kind.is_var() && !b.mutable {
+                                                Some(b)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                    }
+                                })
                         } {
                             let ty = binding.ty;
                             let auto_call = match binding.kind {

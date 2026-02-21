@@ -127,7 +127,7 @@ fn main <()->i32> ():
     add result 5
 ```
 
-## value_name_and_callable_name_can_coexist_currently_fails
+## value_name_and_callable_name_can_coexist
 
 neplg2:test
 ret: 10
@@ -207,7 +207,7 @@ fn main <()->i32> ():
     add x sub y 10
 ```
 
-## imported_function_name_shadowed_by_parameter_currently_fails
+## imported_function_name_shadowed_by_parameter
 
 neplg2:test
 ret: 8
@@ -222,6 +222,51 @@ fn plus_one_from <(i32)->i32> (add):
 
 fn main <()->i32> ():
     plus_one_from 7
+```
+
+## hoist_nonmut_let_allows_forward_reference
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn main <()->i32> ():
+    let y <i32> add x 4
+    let x <i32> 5
+    y
+```
+
+## hoist_mut_let_disallows_forward_reference
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn main <()->i32> ():
+    add x 4
+    let mut x <i32> 5
+```
+
+## hoist_nested_fn_allows_forward_reference
+
+neplg2:test
+ret: 7
+```neplg2
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn main <()->i32> ():
+    call_before 6
+    fn call_before <(i32)->i32> (x):
+        add x 1
 ```
 
 ## local_fn_shadowing_is_lexical

@@ -1,3 +1,23 @@
+# 2026-02-21 作業メモ (巻き上げ仕様の回帰テスト追加と現状固定)
+- 目的:
+  - `todo.md` の「`let`/`fn` 巻き上げ統一」に向け、現状挙動をテストで固定して差分を可視化。
+- 変更:
+  - `tests/shadowing.n.md`
+    - 既存ケース名の `*_currently_fails` を整理（通常ケースへ改名）。
+    - 巻き上げ関連ケースを追加:
+      - `hoist_mut_let_disallows_forward_reference`（compile_fail）
+      - `hoist_nested_fn_allows_forward_reference`（pass）
+      - `hoist_nonmut_let_allows_forward_reference`（現状は compile_fail として固定）
+  - `nepl-core/src/typecheck.rs`
+    - 識別子解決で、`defined` 済み解決に失敗した場合の non-mut hoist fallback を追加（自己初期化は除外）。
+- 現状評価:
+  - `fn` の前方参照は通る一方、`non-mut let` の前方参照は未対応。
+  - これは `todo.md` の巻き上げ統一タスクとして継続（仕様差分として明確化）。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/shadowing.n.md -i tests/functions.n.md -i tests/neplg2.n.md -o tests/output/namespace_phase_current.json -j 1`: `243/243 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `558/558 pass`
+
 # 2026-02-21 作業メモ (ValueNs/CallableNs 分離の段階導入: Env スコープを物理分離)
 - 目的:
   - `todo.md` 最優先項目（`ValueNs` と `CallableNs` の分離）をデータ構造レベルで前進させる。
