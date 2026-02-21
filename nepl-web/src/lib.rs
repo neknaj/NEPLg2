@@ -2013,6 +2013,23 @@ fn compile_wasm_with_entry(
     source: &str,
     vfs: Option<JsValue>,
 ) -> Result<CompiledWasm, String> {
+    compile_wasm_with_entry_and_profile(entry_path, source, vfs, None)
+}
+
+fn parse_profile(profile: &str) -> Option<BuildProfile> {
+    match profile {
+        "debug" => Some(BuildProfile::Debug),
+        "release" => Some(BuildProfile::Release),
+        _ => None,
+    }
+}
+
+fn compile_wasm_with_entry_and_profile(
+    entry_path: &str,
+    source: &str,
+    vfs: Option<JsValue>,
+    profile: Option<BuildProfile>,
+) -> Result<CompiledWasm, String> {
     let stdlib_root = PathBuf::from("/stdlib");
     let mut sources = stdlib_sources(&stdlib_root);
     
@@ -2058,7 +2075,7 @@ fn compile_wasm_with_entry(
         CompileOptions {
             target: None,
             verbose: false,
-            profile: None,
+            profile,
         },
     )
     .map_err(|e| render_core_error(e, &loaded.source_map))?;
@@ -2066,6 +2083,29 @@ fn compile_wasm_with_entry(
         wasm: artifact.wasm,
         wat_comments: artifact.wat_comments,
     })
+}
+
+#[wasm_bindgen]
+pub fn compile_source_with_profile(source: &str, profile: &str) -> Result<Vec<u8>, JsValue> {
+    let parsed = parse_profile(profile)
+        .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+    compile_wasm_with_entry_and_profile("/virtual/entry.nepl", source, None, Some(parsed))
+        .map(|a| a.wasm)
+        .map_err(|msg| JsValue::from_str(&msg))
+}
+
+#[wasm_bindgen]
+pub fn compile_source_with_vfs_and_profile(
+    entry_path: &str,
+    source: &str,
+    vfs: JsValue,
+    profile: &str,
+) -> Result<Vec<u8>, JsValue> {
+    let parsed = parse_profile(profile)
+        .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+    compile_wasm_with_entry_and_profile(entry_path, source, Some(vfs), Some(parsed))
+        .map(|a| a.wasm)
+        .map_err(|msg| JsValue::from_str(&msg))
 }
 
 fn render_core_error(err: CoreError, sm: &SourceMap) -> String {

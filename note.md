@@ -1955,3 +1955,16 @@
 - 検証結果:
   - `NO_COLOR=false trunk build` 成功
   - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json` で `547/547 passed`
+
+# 2026-02-21 作業メモ (doctest の profile ゲート安定化)
+- `#if[profile=debug/release]` の doctest が CI 環境のビルドモード差分で揺れる問題に対して、テストランナーからコンパイルプロファイルを明示指定できるように修正。
+- `nepl-web` 側:
+  - `compile_source_with_profile(source, profile)` を追加。
+  - `compile_source_with_vfs_and_profile(entry_path, source, vfs, profile)` を追加。
+  - 内部コンパイル経路を `compile_wasm_with_entry_and_profile(..., Option<BuildProfile>)` に統合。
+- `nodesrc/run_test.js` 側:
+  - 可能な場合は常に `debug` を明示指定してコンパイルするように変更。
+  - VFS あり/なし両方で新 API を優先使用し、旧 API は後方フォールバックとして保持。
+- 検証:
+  - `NO_COLOR=false trunk build` 成功
+  - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json` で `547/547 passed`

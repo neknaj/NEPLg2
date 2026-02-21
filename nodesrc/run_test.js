@@ -205,12 +205,26 @@ async function runSingle(req, preloaded) {
         let compileError = null;
         try {
             const vfs = collectVfsSources(source, req.file);
-            if (typeof api.compile_source_with_vfs === 'function' && Object.keys(vfs).length > 0) {
-                wasmU8 = withConsoleSuppressed(() =>
-                    api.compile_source_with_vfs('/virtual/entry.nepl', source, vfs)
-                );
+            if (Object.keys(vfs).length > 0) {
+                if (typeof api.compile_source_with_vfs_and_profile === 'function') {
+                    wasmU8 = withConsoleSuppressed(() =>
+                        api.compile_source_with_vfs_and_profile('/virtual/entry.nepl', source, vfs, 'debug')
+                    );
+                } else if (typeof api.compile_source_with_vfs === 'function') {
+                    wasmU8 = withConsoleSuppressed(() =>
+                        api.compile_source_with_vfs('/virtual/entry.nepl', source, vfs)
+                    );
+                } else {
+                    wasmU8 = withConsoleSuppressed(() => api.compile_source(source));
+                }
             } else {
-                wasmU8 = withConsoleSuppressed(() => api.compile_source(source));
+                if (typeof api.compile_source_with_profile === 'function') {
+                    wasmU8 = withConsoleSuppressed(() =>
+                        api.compile_source_with_profile(source, 'debug')
+                    );
+                } else {
+                    wasmU8 = withConsoleSuppressed(() => api.compile_source(source));
+                }
             }
         } catch (e) {
             compileError = String(e?.message || e);
