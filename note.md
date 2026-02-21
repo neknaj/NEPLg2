@@ -2654,3 +2654,17 @@
 - 未完了のみ保持の方針に合わせ、残タスクを
   - `capture あり関数値の closure conversion 導入`
   に集約した。
+
+# 2026-02-22 作業メモ (parser 回帰追加: IfProfile の AST 形状固定)
+- 背景:
+  - `#if[profile=...]` 退行対策を compile API だけでなく parser 層でも固定し、上流から原因を切り分け可能にする。
+- 実施:
+  - `tests/tree/10_profile_directive_parse_shape.js` を追加。
+  - `analyze_parse` で以下を検証:
+    - root item の順序が `Entry` -> `IfProfile(debug)` -> `FnDef(only_debug)` -> `FnDef(main)`
+    - `IfProfile` の debug payload に `profile: "debug"` が含まれる。
+- 検証:
+  - `node tests/tree/run.js`: `10/10 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `563/563 pass`
+- 位置づけ:
+  - 条件付きコンパイルの上流（lexer/parser）と下流（compile profile）の双方を tree/API テストで接続し、再発時の診断速度を高めた。
