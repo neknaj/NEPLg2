@@ -1,0 +1,75 @@
+name: NEPL Test LLVM (NEPL-g2)
+
+on:
+    push:
+        branches:
+            - main
+            - develop
+    pull_request:
+        branches:
+            - main
+            - develop
+
+jobs:
+    llvm-test:
+        runs-on: ubuntu-latest
+
+        env:
+            CARGO_TERM_COLOR: always
+            LLVM_VERSION: "21.1.0"
+            LLVM_DIR: "/opt/llvm-21.1.0"
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Install Rust toolchain
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  override: true
+
+            - name: Cache Cargo build
+              uses: Swatinem/rust-cache@v2
+              with:
+                  shared-key: nepl-g2
+                  cache-on-failure: true
+
+            - name: Install clang 21.1.0 (linux native)
+              run: |
+                  curl -L -o /tmp/LLVM-${LLVM_VERSION}-Linux-X64.tar.xz \
+                    https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/LLVM-${LLVM_VERSION}-Linux-X64.tar.xz
+                  sudo mkdir -p "${LLVM_DIR}"
+                  sudo tar -C "${LLVM_DIR}" --strip-components=1 -xf /tmp/LLVM-${LLVM_VERSION}-Linux-X64.tar.xz
+                  echo "${LLVM_DIR}/bin" >> "${GITHUB_PATH}"
+                  echo "NEPL_LLVM_CLANG_VERSION=${LLVM_VERSION}" >> "${GITHUB_ENV}"
+                  echo "NEPL_LLVM_CLANG_BIN=${LLVM_DIR}/bin/clang" >> "${GITHUB_ENV}"
+                  echo "NEPL_LLVM_REQUIRE_LINUX=1" >> "${GITHUB_ENV}"
+                  echo "NEPL_LLVM_TRIPLE_CONTAINS=linux" >> "${GITHUB_ENV}"
+
+            - name: Verify LLVM toolchain
+              run: |
+                  clang --version
+                  llvm-as --version
+                  llc --version
+                  clang -dumpmachine | grep -q linux
+
+            - name: LLVM doctests via nodesrc runner
+              env:
+                  NO_COLOR: "true"
+              run: |
+                  node nodesrc/tests.js -i tests/llvm_target.n.md -o tests-llvm.json --runner llvm --no-tree --no-stdlib -j 2
+
+            - name: Upload llvm doctest JSON (always)
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: llvm-tests
+                  path: |
+                      tests-llvm.json

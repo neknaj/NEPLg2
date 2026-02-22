@@ -1,3 +1,44 @@
+# 2026-02-22 作業メモ (LLVM core移設 + nodesrc dual runner 基盤)
+- 目的:
+  - LLVM IR 生成部を `nepl-core` に移し、`nepl-cli` は clang 実行などホスト依存処理のみ担当する構成へ整理。
+  - `nodesrc/tests.js` で wasm と llvm の両経路を同一基盤から実行可能にする。
+- 実装:
+  - `nepl-core/src/codegen_llvm.rs` を追加。
+    - `emit_ll_from_module` を `no_std + alloc` で実装。
+    - `#llvmir` 連結 + Parsed 関数の最小 subset (`fn <()->i32>(): <int literal>`) lower を提供。
+    - error 型 `LlvmCodegenError` を導入。
+  - `nepl-cli/src/codegen_llvm.rs` は toolchain check のみへ整理。
+    - `NEPL_LLVM_CLANG_BIN` を追加し、PATH 競合時でも clang 21.1.0 を明示指定可能にした。
+  - `nepl-cli/src/main.rs`:
+    - LLVM IR 生成を `nepl_core::codegen_llvm` 呼び出しへ切替。
+    - `--target core/std` エイリアスを受理。
+  - target gate 修正（根因修正）:
+    - `#if[target=wasm]` が LLVM でも真になっていた不整合を修正。
+    - `nepl-core/src/compiler.rs` / `nepl-core/src/typecheck.rs` で `wasm` 判定を `Wasm|Wasi` のみに制限。
+    - `core/std` gate を追加 (`core = wasm|wasi|llvm`, `std = wasi|llvm`)。
+  - `nodesrc/tests.js`:
+    - `--runner wasm|llvm|all` を追加。
+    - `--llvm-all` を追加し、通常 doctest を LLVM 経路でも回せるようにした。
+    - LLVM runner は毎ケース `cargo run` を廃止し、`cargo build -p nepl-cli` 後に `target/debug/nepl-cli` を直接呼び出す方式へ変更。
+    - LLVM runner は `-j` ベースで並列実行。
+    - `NEPL_LLVM_CLANG_BIN` を runner 側から自動設定（`/opt/llvm-21.1.0/bin/clang` 優先）。
+  - workflow:
+    - `.github/workflows/nepl-test.yml` を `nepl-test-wasi.yml` へ分離。
+    - `.github/workflows/nepl-test-llvm.yml` を追加し、clang 21.1.0 を導入して `nodesrc/tests.js --runner llvm` を実行。
+  - テスト:
+    - `tests/llvm_target.n.md` を追加（raw #llvmir / parsed subset / #wasm reject）。
+    - `tests/sort.n.md` の target を `#target core` へ移行開始。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功。
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `583/583 pass`。
+  - `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests/output/tests_llvm_current.json --runner llvm --no-tree --no-stdlib -j 2`: `3/3 pass`。
+  - `node nodesrc/tests.js -i tests/sort.n.md -o tests/output/sort_dual.json --runner all --llvm-all --no-stdlib --no-tree -j 2`: `6/12 pass`（wasm pass, llvm fail）。
+- 失敗分析:
+  - `sort.n.md` の LLVM 側失敗は runner/target 判定の不具合ではなく、LLVM backend の lower 対応範囲不足が原因。
+  - 代表エラー:
+    - `llvm target currently supports only subset lowering for parsed functions; function 'get' is not in supported subset`
+  - したがって次フェーズは `stdlib/core` / `stdlib/alloc` が要求する Parsed/HIR を段階的に LLVM IR へ lower する実装拡張が必要。
+
 # 2026-02-22 作業メモ (clang 21.1.0 の LLVM IR 環境確認と手順書整備)
 - 目的:
   - `todo.md` の LLVM IR 項目にある「`LLVM_SYS_211_PREFIX` 運用整理と doc へのセットアップ記載」を先に完了し、

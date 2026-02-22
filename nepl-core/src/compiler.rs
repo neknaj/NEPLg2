@@ -34,9 +34,17 @@ pub enum CompileTarget {
 impl CompileTarget {
     pub fn allows(&self, gate: &str) -> bool {
         match gate {
-            "wasm" => true, // wasi includes wasm
+            "wasm" => matches!(self, CompileTarget::Wasm | CompileTarget::Wasi),
             "wasi" => matches!(self, CompileTarget::Wasi),
             "llvm" => matches!(self, CompileTarget::Llvm),
+            // Alias target gates:
+            // - core: minimal runtime layer (wasm/wasi/llvm すべてで共有可能)
+            // - std:  higher runtime layer（現段階では wasi / llvm を許可）
+            "core" => matches!(
+                self,
+                CompileTarget::Wasm | CompileTarget::Wasi | CompileTarget::Llvm
+            ),
+            "std" => matches!(self, CompileTarget::Wasi | CompileTarget::Llvm),
             _ => false,
         }
     }
@@ -447,12 +455,7 @@ fn resolve_target(
     // First, check explicit module-level directives parsed into module.directives
     for d in &module.directives {
         if let ast::Directive::Target { target, span } = d {
-            let parsed = match target.as_str() {
-                "wasm" => Some(CompileTarget::Wasm),
-                "wasi" => Some(CompileTarget::Wasi),
-                "llvm" => Some(CompileTarget::Llvm),
-                _ => None,
-            };
+            let parsed = parse_target_name(target.as_str());
             if let Some(t) = parsed {
                 if let Some((_, prev_span)) = found {
                     diags.push(
@@ -473,12 +476,7 @@ fn resolve_target(
     if found.is_none() {
         for it in &module.root.items {
             if let ast::Stmt::Directive(ast::Directive::Target { target, span }) = it {
-                let parsed = match target.as_str() {
-                    "wasm" => Some(CompileTarget::Wasm),
-                    "wasi" => Some(CompileTarget::Wasi),
-                    "llvm" => Some(CompileTarget::Llvm),
-                    _ => None,
-                };
+                let parsed = parse_target_name(target.as_str());
                 if let Some(t) = parsed {
                     if let Some((_, prev_span)) = found {
                         diags.push(Diagnostic::error(
@@ -499,4 +497,13 @@ fn resolve_target(
         return Err(CoreError::from_diagnostics(diags));
     }
     Ok(found.map(|(t, _)| t).unwrap_or(CompileTarget::Wasm))
+}
+
+fn parse_target_name(name: &str) -> Option<CompileTarget> {
+    match name {
+        "wasm" | "core" => Some(CompileTarget::Wasm),
+        "wasi" | "std" => Some(CompileTarget::Wasi),
+        "llvm" => Some(CompileTarget::Llvm),
+        _ => None,
+    }
 }

@@ -12,6 +12,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const { spawn, spawnSync } = require('node:child_process');
 const { parseFile } = require('./parser');
 const { createRunner, runSingle } = require('./run_test');
 const { runTreeSuite } = require('../tests/tree/run');
@@ -27,6 +28,8 @@ function parseArgs(argv) {
     let jobs = 0;
     let includeStdlib = true;
     let includeTree = true;
+    let runner = 'wasm';
+    let llvmAll = false;
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -54,8 +57,16 @@ function parseArgs(argv) {
             includeTree = false;
             continue;
         }
+        if ((a === '--runner' || a === '--mode') && i + 1 < argv.length) {
+            runner = String(argv[++i] || '').trim();
+            continue;
+        }
+        if (a === '--llvm-all') {
+            llvmAll = true;
+            continue;
+        }
         if (a === '-h' || a === '--help') {
-            return { help: true, inputs, outPath, distHint, jobs, includeStdlib, includeTree };
+            return { help: true, inputs, outPath, distHint, jobs, includeStdlib, includeTree, runner, llvmAll };
         }
     }
 
@@ -64,7 +75,11 @@ function parseArgs(argv) {
         jobs = Math.max(1, Math.min(8, Math.floor((os.cpus()?.length || 4) / 2)));
     }
 
-    return { help: false, inputs, outPath, distHint, jobs, includeStdlib, includeTree };
+    if (!['wasm', 'llvm', 'all'].includes(runner)) {
+        throw new Error(`--runner must be one of wasm|llvm|all, got: ${runner}`);
+    }
+
+    return { help: false, inputs, outPath, distHint, jobs, includeStdlib, includeTree, runner, llvmAll };
 }
 
 function isDir(p) {
@@ -187,6 +202,205 @@ async function runAll(cases, jobs, distHint) {
     return results;
 }
 
+function hasTag(tags, name) {
+    return Array.isArray(tags) && tags.includes(name);
+}
+
+function isLlvmCase(c) {
+    if (hasTag(c.tags, 'llvm_cli')) return true;
+    return /^\s*#target\s+llvm\s*$/m.test(String(c.source || ''));
+}
+
+function runCommand(cmd, args, options = {}) {
+    return new Promise((resolve) => {
+        const child = spawn(cmd, args, {
+            ...options,
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (d) => {
+            stdout += d.toString();
+        });
+        child.stderr.on('data', (d) => {
+            stderr += d.toString();
+        });
+        child.on('error', (err) => {
+            resolve({
+                code: -1,
+                signal: null,
+                stdout,
+                stderr: `${stderr}\n${String(err?.stack || err?.message || err)}`,
+            });
+        });
+        child.on('close', (code, signal) => {
+            resolve({ code, signal, stdout, stderr });
+        });
+    });
+}
+
+function ensureNeplCliBuilt() {
+    const build = spawnSync(
+        'cargo',
+        ['build', '--quiet', '-p', 'nepl-cli'],
+        {
+            encoding: 'utf8',
+            env: { ...process.env, NO_COLOR: 'true' },
+            maxBuffer: 20 * 1024 * 1024,
+        },
+    );
+    if (build.status !== 0) {
+        const err = [String(build.stderr || ''), String(build.stdout || '')]
+            .filter(Boolean)
+            .join('\n')
+            .trim();
+        throw new Error(err || `failed to build nepl-cli (status=${build.status ?? 'null'})`);
+    }
+    const exe = process.platform === 'win32' ? 'nepl-cli.exe' : 'nepl-cli';
+    const cliPath = path.resolve('target', 'debug', exe);
+    if (!isFile(cliPath)) {
+        throw new Error(`nepl-cli binary not found after build: ${cliPath}`);
+    }
+    return cliPath;
+}
+
+function preferredLlvmClangBin() {
+    const envBin = process.env.NEPL_LLVM_CLANG_BIN;
+    if (envBin && isFile(envBin)) return envBin;
+    const candidates = [
+        '/opt/llvm-21.1.0/bin/clang',
+        '/usr/local/opt/llvm/bin/clang',
+    ];
+    for (const c of candidates) {
+        if (isFile(c)) return c;
+    }
+    return null;
+}
+
+async function runSingleLlvmCli(c, workerId, cliPath) {
+    const t0 = Date.now();
+    if (hasTag(c.tags, 'skip')) {
+        return {
+            ok: true,
+            id: `${c.id}::llvm`,
+            file: c.file,
+            index: c.index,
+            tags: c.tags,
+            status: 'pass',
+            phase: 'skip',
+            skipped: true,
+            worker: workerId,
+            compiler: { runner: 'nepl-cli-llvm' },
+            duration_ms: Date.now() - t0,
+        };
+    }
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-llvm-cli-'));
+    const entryPath = path.join(tmpDir, 'entry.nepl');
+    const outputBase = path.join(tmpDir, 'out');
+    const llPath = `${outputBase}.ll`;
+    fs.writeFileSync(entryPath, c.source, 'utf8');
+
+    const clangBin = preferredLlvmClangBin();
+    const child = await runCommand(
+        cliPath,
+        [
+            '--target',
+            'llvm',
+            '--profile',
+            'debug',
+            '--input',
+            entryPath,
+            '--output',
+            outputBase,
+        ],
+        {
+            env: {
+                ...process.env,
+                NO_COLOR: 'true',
+                ...(clangBin ? { NEPL_LLVM_CLANG_BIN: clangBin } : {}),
+            },
+        },
+    );
+
+    let result;
+    const stderr = String(child.stderr || '');
+    const stdout = String(child.stdout || '');
+    const compileError = [stderr, stdout].filter(Boolean).join('\n').trim() || null;
+
+    if (hasTag(c.tags, 'compile_fail')) {
+        const ok = child.code !== 0;
+        result = {
+            ok,
+            id: `${c.id}::llvm`,
+            file: c.file,
+            index: c.index,
+            tags: c.tags,
+            status: ok ? 'pass' : 'fail',
+            phase: 'compile_llvm_cli',
+            error: ok ? null : 'expected compile_fail, but llvm compilation succeeded',
+            worker: workerId,
+            compiler: { runner: 'nepl-cli-llvm' },
+            duration_ms: Date.now() - t0,
+        };
+    } else {
+        const ok = child.code === 0 && isFile(llPath);
+        result = {
+            ok,
+            id: `${c.id}::llvm`,
+            file: c.file,
+            index: c.index,
+            tags: c.tags,
+            status: ok ? 'pass' : 'fail',
+            phase: 'compile_llvm_cli',
+            error: ok
+                ? null
+                : compileError || `llvm compilation failed (status=${child.code ?? 'null'})`,
+            worker: workerId,
+            compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
+            duration_ms: Date.now() - t0,
+        };
+    }
+
+    try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+        // noop
+    }
+    return result;
+}
+
+async function runAllLlvm(cases, jobs) {
+    const cliPath = ensureNeplCliBuilt();
+    const results = [];
+    let idx = 0;
+
+    async function worker(workerId) {
+        while (true) {
+            const i = idx;
+            idx++;
+            if (i >= cases.length) break;
+            const r = await runSingleLlvmCli(cases[i], workerId, cliPath);
+            results.push(r);
+        }
+    }
+
+    const workerCount = Math.max(
+        1,
+        Math.min(4, Number(process.env.NEPL_LLVM_TEST_JOBS || jobs || 2) || 2),
+    );
+    const ws = [];
+    for (let i = 0; i < workerCount; i++) ws.push(worker(i + 1));
+    await Promise.all(ws);
+
+    results.sort((a, b) => {
+        if (a.file < b.file) return -1;
+        if (a.file > b.file) return 1;
+        return (a.index || 0) - (b.index || 0);
+    });
+    return results;
+}
+
 function summarize(results) {
     let passed = 0;
     let failed = 0;
@@ -245,9 +459,9 @@ function collectResolvedDistDirs(results) {
 }
 
 async function main() {
-    const { help, inputs, outPath, distHint, jobs, includeStdlib, includeTree } = parseArgs(process.argv.slice(2));
+    const { help, inputs, outPath, distHint, jobs, includeStdlib, includeTree, runner, llvmAll } = parseArgs(process.argv.slice(2));
     if (help || inputs.length === 0 || !outPath) {
-        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N] [--no-stdlib] [--no-tree]');
+        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N] [--runner wasm|llvm|all] [--llvm-all] [--no-stdlib] [--no-tree]');
         process.exit(help ? 0 : 2);
     }
 
@@ -260,8 +474,21 @@ async function main() {
         allCases.push(...collectTestsFromPath(p));
     }
 
-    const results = await runAll(allCases, jobs, distHint);
-    if (includeTree) {
+    const wasmCases = allCases.filter((c) => !isLlvmCase(c));
+    const llvmCases = llvmAll ? allCases : allCases.filter((c) => isLlvmCase(c));
+
+    let results = [];
+    if (runner === 'wasm') {
+        results = await runAll(wasmCases, jobs, distHint);
+    } else if (runner === 'llvm') {
+        results = await runAllLlvm(llvmCases, jobs);
+    } else {
+        const wasmResults = await runAll(wasmCases, jobs, distHint);
+        const llvmResults = await runAllLlvm(llvmCases, jobs);
+        results = [...wasmResults, ...llvmResults];
+    }
+
+    if (includeTree && runner !== 'llvm') {
         try {
             const tree = await runTreeSuite(distHint || '');
             const treeResults = Array.isArray(tree?.results) ? tree.results : [];
@@ -301,6 +528,8 @@ async function main() {
         schema: 'neplg2-doctest/v1',
         generated_at: new Date().toISOString(),
         jobs,
+        runner,
+        llvm_all: llvmAll,
         dist_hint: distHint || null,
         resolved_dist_dirs: resolvedDistDirs,
         summary,

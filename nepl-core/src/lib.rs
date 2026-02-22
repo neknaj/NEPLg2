@@ -19,6 +19,7 @@ pub mod span;
 
 pub mod ast;
 pub mod builtins;
+pub mod codegen_llvm;
 pub mod codegen_wasm;
 pub mod compiler;
 pub mod hir;

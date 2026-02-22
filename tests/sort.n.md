@@ -7,7 +7,7 @@ ret: 1234
 ```neplg2
 #entry main
 #indent 4
-#target wasm
+#target core
 #import "alloc/vec" as *
 #import "alloc/sort" as *
 #import "core/math" as *
@@ -32,7 +32,7 @@ ret: 1234
 ```neplg2
 #entry main
 #indent 4
-#target wasm
+#target core
 #import "alloc/vec" as *
 #import "alloc/sort" as *
 #import "core/math" as *
@@ -57,7 +57,7 @@ ret: 1234
 ```neplg2
 #entry main
 #indent 4
-#target wasm
+#target core
 #import "alloc/vec" as *
 #import "alloc/sort" as *
 #import "core/math" as *
@@ -82,7 +82,7 @@ ret: 1234
 ```neplg2
 #entry main
 #indent 4
-#target wasm
+#target core
 #import "alloc/vec" as *
 #import "alloc/sort" as *
 #import "core/math" as *
@@ -107,7 +107,7 @@ ret: 10
 ```neplg2
 #entry main
 #indent 4
-#target wasm
+#target core
 #import "alloc/vec" as *
 #import "alloc/sort" as *
 #import "core/math" as *
@@ -139,7 +139,7 @@ ret: 1234
 ```neplg2
 #entry main
 #indent 4
-#target wasm
+#target core
 #import "alloc/sort" as *
 #import "core/mem" as *
 #import "core/math" as *

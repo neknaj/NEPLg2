@@ -75,7 +75,7 @@ struct Cli {
     )]
     lib: bool,
 
-    #[arg(long, value_name = "TARGET", value_parser = ["wasm", "wasi", "llvm"], help = "Compilation target: wasm, wasi, or llvm (overrides #target)")]
+    #[arg(long, value_name = "TARGET", value_parser = ["wasm", "wasi", "llvm", "core", "std"], help = "Compilation target: wasm, wasi, llvm, core(alias wasm), std(alias wasi)")]
     target: Option<String>,
 
     #[arg(short, long, global = true, help = "Enable verbose compiler logging")]
@@ -177,8 +177,9 @@ fn execute(cli: Cli) -> Result<()> {
     };
 
     let cli_target = cli.target.as_deref().map(|t| match t {
-        "wasi" => CompileTarget::Wasi,
+        "wasi" | "std" => CompileTarget::Wasi,
         "llvm" => CompileTarget::Llvm,
+        "wasm" | "core" => CompileTarget::Wasm,
         _ => CompileTarget::Wasm,
     });
     let target_override = cli_target;
@@ -193,7 +194,8 @@ fn execute(cli: Cli) -> Result<()> {
             ));
         }
         codegen_llvm::ensure_clang_21_linux_native()?;
-        let llvm_ir = codegen_llvm::emit_ll_from_module(&module)?;
+        let llvm_ir = nepl_core::codegen_llvm::emit_ll_from_module(&module)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         let output = cli
             .output
             .as_ref()
@@ -1025,8 +1027,8 @@ fn detect_module_target(module: &nepl_core::ast::Module) -> Option<CompileTarget
     if let Some(target) = module.directives.iter().find_map(|d| {
         if let nepl_core::ast::Directive::Target { target, .. } = d {
             match target.as_str() {
-                "wasi" => Some(CompileTarget::Wasi),
-                "wasm" => Some(CompileTarget::Wasm),
+                "wasi" | "std" => Some(CompileTarget::Wasi),
+                "wasm" | "core" => Some(CompileTarget::Wasm),
                 "llvm" => Some(CompileTarget::Llvm),
                 _ => None,
             }
@@ -1042,8 +1044,8 @@ fn detect_module_target(module: &nepl_core::ast::Module) -> Option<CompileTarget
             stmt
         {
             match target.as_str() {
-                "wasi" => Some(CompileTarget::Wasi),
-                "wasm" => Some(CompileTarget::Wasm),
+                "wasi" | "std" => Some(CompileTarget::Wasi),
+                "wasm" | "core" => Some(CompileTarget::Wasm),
                 "llvm" => Some(CompileTarget::Llvm),
                 _ => None,
             }

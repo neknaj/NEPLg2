@@ -1,4 +1,4 @@
-name: NEPL Language Tests (NEPL-g2)
+name: NEPL Test WASI (NEPL-g2)
 
 on:
     push:
@@ -11,7 +11,7 @@ on:
             - develop
 
 jobs:
-    wasm-test:
+    wasi-test:
         runs-on: ubuntu-latest
 
         env:
