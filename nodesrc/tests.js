@@ -30,6 +30,9 @@ function parseArgs(argv) {
     let includeTree = true;
     let runner = 'wasm';
     let llvmAll = false;
+    let assertIo = false;
+    let strictDual = false;
+    let llvmCompileOnly = false;
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -65,8 +68,33 @@ function parseArgs(argv) {
             llvmAll = true;
             continue;
         }
+        if (a === '--assert-io') {
+            assertIo = true;
+            continue;
+        }
+        if (a === '--strict-dual') {
+            strictDual = true;
+            continue;
+        }
+        if (a === '--llvm-compile-only') {
+            llvmCompileOnly = true;
+            continue;
+        }
         if (a === '-h' || a === '--help') {
-            return { help: true, inputs, outPath, distHint, jobs, includeStdlib, includeTree, runner, llvmAll };
+            return {
+                help: true,
+                inputs,
+                outPath,
+                distHint,
+                jobs,
+                includeStdlib,
+                includeTree,
+                runner,
+                llvmAll,
+                assertIo,
+                strictDual,
+                llvmCompileOnly,
+            };
         }
     }
 
@@ -79,7 +107,20 @@ function parseArgs(argv) {
         throw new Error(`--runner must be one of wasm|llvm|all, got: ${runner}`);
     }
 
-    return { help: false, inputs, outPath, distHint, jobs, includeStdlib, includeTree, runner, llvmAll };
+    return {
+        help: false,
+        inputs,
+        outPath,
+        distHint,
+        jobs,
+        includeStdlib,
+        includeTree,
+        runner,
+        llvmAll,
+        assertIo,
+        strictDual,
+        llvmCompileOnly,
+    };
 }
 
 function isDir(p) {
@@ -221,10 +262,10 @@ function normalizeOutputByTags(text, tags) {
     return out;
 }
 
-function applyDoctestExpectations(result, testCase) {
+function applyDoctestExpectations(result, testCase, options = {}) {
     const r = { ...result };
     const tags = testCase?.tags || r.tags || [];
-    const strictIo = process.env.NEPL_ASSERT_IO === '1' || hasTag(tags, 'assert_io');
+    const strictIo = !!options.assertIo || process.env.NEPL_ASSERT_IO === '1' || hasTag(tags, 'assert_io');
     if (!strictIo) return r;
     const wantsStdout = testCase?.expected_stdout !== null && testCase?.expected_stdout !== undefined;
     const wantsStderr = testCase?.expected_stderr !== null && testCase?.expected_stderr !== undefined;
@@ -287,10 +328,14 @@ function runCommand(cmd, args, options = {}) {
         });
         let stdout = '';
         let stderr = '';
+        child.stdin.on('error', () => {
+            // 子プロセスが先に終了した場合の EPIPE は無視する。
+        });
         if (stdinText !== null && stdinText !== undefined) {
-            child.stdin.write(String(stdinText));
+            child.stdin.end(String(stdinText));
+        } else {
+            child.stdin.end();
         }
-        child.stdin.end();
         child.stdout.on('data', (d) => {
             stdout += d.toString();
         });
@@ -396,7 +441,7 @@ function stageLocalImportsForLlvmCase(c, tmpDir) {
     }
 }
 
-async function runSingleLlvmCli(c, workerId, cliPath) {
+async function runSingleLlvmCli(c, workerId, cliPath, options = {}) {
     const t0 = Date.now();
     if (hasTag(c.tags, 'skip')) {
         return {
@@ -481,6 +526,20 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
                 compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
                 duration_ms: Date.now() - t0,
             };
+        } else if (options.llvmCompileOnly) {
+            result = {
+                ok: true,
+                id: `${c.id}::llvm`,
+                file: c.file,
+                index: c.index,
+                tags: c.tags,
+                status: 'pass',
+                phase: 'compile_llvm_cli',
+                error: null,
+                worker: workerId,
+                compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
+                duration_ms: Date.now() - t0,
+            };
         } else {
             const link = await runCommand(
                 clangBin || 'clang',
@@ -515,9 +574,10 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
                     env: { ...process.env, NO_COLOR: 'true' },
                     stdinText: c.stdin || '',
                 });
-                const trapped = (run.code !== 0) || !!run.signal;
+                const signaled = !!run.signal;
+                const abnormal = signaled;
                 if (hasTag(c.tags, 'should_panic')) {
-                    const ok = trapped;
+                    const ok = abnormal || (run.code !== 0);
                     result = {
                         ok,
                         id: `${c.id}::llvm`,
@@ -535,7 +595,7 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
                         duration_ms: Date.now() - t0,
                     };
                 } else {
-                    const ok = !trapped;
+                    const ok = !abnormal;
                     result = {
                         ok,
                         id: `${c.id}::llvm`,
@@ -546,7 +606,7 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
                         phase: 'run_llvm_cli',
                         stdout: String(run.stdout || ''),
                         stderr: String(run.stderr || ''),
-                        error: ok ? null : `llvm program exited with status=${run.code ?? 'null'} signal=${run.signal ?? 'null'}`,
+                        error: ok ? null : `llvm program terminated by signal=${run.signal ?? 'null'}`,
                         runtime: { code: run.code, signal: run.signal },
                         worker: workerId,
                         compiler: { runner: 'nepl-cli-llvm', ll_path: llPath, exe_path: exePath },
@@ -565,7 +625,7 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
     return result;
 }
 
-async function runAllLlvm(cases, jobs) {
+async function runAllLlvm(cases, jobs, options = {}) {
     const cliPath = ensureNeplCliBuilt();
     const results = [];
     let idx = 0;
@@ -576,8 +636,8 @@ async function runAllLlvm(cases, jobs) {
             idx++;
             if (i >= cases.length) break;
             const c = cases[i];
-            const r = await runSingleLlvmCli(c, workerId, cliPath);
-            results.push(applyDoctestExpectations(r, c));
+            const r = await runSingleLlvmCli(c, workerId, cliPath, options);
+            results.push(applyDoctestExpectations(r, c, options));
         }
     }
 
@@ -619,7 +679,7 @@ function stripLlvmSuffix(id) {
     return s.endsWith('::llvm') ? s.slice(0, -7) : s;
 }
 
-function compareWasmLlvmResults(wasmResults, llvmResults) {
+function compareWasmLlvmResults(wasmResults, llvmResults, options = {}) {
     const llvmMap = new Map();
     for (const r of llvmResults) {
         llvmMap.set(stripLlvmSuffix(r.id), r);
@@ -628,7 +688,22 @@ function compareWasmLlvmResults(wasmResults, llvmResults) {
     for (const w of wasmResults) {
         const k = String(w.id || '');
         const l = llvmMap.get(k);
-        if (!l) continue;
+        if (!l) {
+            if (options.strictDual) {
+                compared.push({
+                    ok: false,
+                    id: `${k}::compare_wasm_llvm`,
+                    file: w.file,
+                    index: w.index,
+                    tags: [...(w.tags || []), 'compare_wasm_llvm'],
+                    status: 'fail',
+                    phase: 'compare_wasm_llvm',
+                    error: 'missing llvm counterpart result',
+                    worker: 0,
+                });
+            }
+            continue;
+        }
         if (w.status !== 'pass' || l.status !== 'pass') continue;
         if (w.phase !== 'run' || l.phase !== 'run_llvm_cli') continue;
         if (hasTag(w.tags, 'compile_fail') || hasTag(w.tags, 'should_panic')) continue;
@@ -660,6 +735,12 @@ function compareWasmLlvmResults(wasmResults, llvmResults) {
         });
     }
     return compared;
+}
+
+function buildCaseMap(cases) {
+    const map = new Map();
+    for (const c of cases) map.set(c.id, c);
+    return map;
 }
 
 function ensureDir(p) {
@@ -707,9 +788,9 @@ function collectResolvedDistDirs(results) {
 }
 
 async function main() {
-    const { help, inputs, outPath, distHint, jobs, includeStdlib, includeTree, runner, llvmAll } = parseArgs(process.argv.slice(2));
+    const { help, inputs, outPath, distHint, jobs, includeStdlib, includeTree, runner, llvmAll, assertIo, strictDual, llvmCompileOnly } = parseArgs(process.argv.slice(2));
     if (help || inputs.length === 0 || !outPath) {
-        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N] [--runner wasm|llvm|all] [--llvm-all] [--no-stdlib] [--no-tree]');
+        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--dist <distDirHint>] [-j N] [--runner wasm|llvm|all] [--llvm-all] [--assert-io] [--strict-dual] [--llvm-compile-only] [--no-stdlib] [--no-tree]');
         process.exit(help ? 0 : 2);
     }
 
@@ -732,13 +813,23 @@ async function main() {
     let results = [];
     if (runner === 'wasm') {
         results = await runAll(wasmCases, jobs, distHint);
+        const wasmCaseMap = buildCaseMap(wasmCases);
+        results = results.map((r) => {
+            const c = wasmCaseMap.get(r.id);
+            return c ? applyDoctestExpectations(r, c, { assertIo }) : r;
+        });
     } else if (runner === 'llvm') {
-        results = await runAllLlvm(llvmCases, jobs);
+        results = await runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly });
     } else {
         const wasmResults = await runAll(wasmCases, jobs, distHint);
-        const llvmResults = await runAllLlvm(llvmCases, jobs);
-        const compared = compareWasmLlvmResults(wasmResults, llvmResults);
-        results = [...wasmResults, ...llvmResults, ...compared];
+        const wasmCaseMap = buildCaseMap(wasmCases);
+        const checkedWasm = wasmResults.map((r) => {
+            const c = wasmCaseMap.get(r.id);
+            return c ? applyDoctestExpectations(r, c, { assertIo }) : r;
+        });
+        const llvmResults = await runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly });
+        const compared = compareWasmLlvmResults(checkedWasm, llvmResults, { strictDual });
+        results = [...checkedWasm, ...llvmResults, ...compared];
     }
 
     if (includeTree && runner !== 'llvm') {
@@ -783,6 +874,9 @@ async function main() {
         jobs,
         runner,
         llvm_all: llvmAll,
+        assert_io: assertIo,
+        strict_dual: strictDual,
+        llvm_compile_only: llvmCompileOnly,
         dist_hint: distHint || null,
         resolved_dist_dirs: resolvedDistDirs,
         summary,

@@ -3337,3 +3337,33 @@
     - 根因は、entry 本体（Parsed 関数）の LLVM lower が未実装で emit されていないため。
 - 次アクション:
   - Parsed/HIR の LLVM lower（少なくとも entry 関数本体）を実装し、`main` を確実に生成する。
+# 2026-02-22 作業メモ (nodesrc 完全検証モード: wasm実行 + llvm実行 + 結果比較)
+- 目的:
+  - `nodesrc/tests.js` を「WASMだけ通る」判定から拡張し、LLVM でも実行した結果を比較できる完全検証経路を作る。
+  - doctest の `stdin:` / `stdout:` / `stderr:` メタデータを、WASM/LLVM の両ランナーに同じ規則で適用する。
+- 実装:
+  - `nodesrc/parser.js`
+    - doctest メタデータとして `stdin/stdout/stderr` を抽出する機能を追加。
+    - 文字列値は JSON 文字列（`"..."`）として解釈し、`\n` 等のエスケープを展開。
+  - `nodesrc/tests.js`
+    - LLVM runner を「compile確認のみ」から「`nepl-cli --target llvm` -> `clang` link -> 実行」へ拡張。
+    - doctest 期待値判定を共通化し、WASM/LLVM 両結果へ同一ロジックを適用。
+    - `--runner all` 時に `compare_wasm_llvm` フェーズを追加（stdout/stderr の一致確認）。
+    - 追加オプション:
+      - `--assert-io`: `stdin/stdout/stderr` の厳密比較を有効化
+      - `--strict-dual`: wasm/llvm の比較結果を必須化（比較欠落も fail）
+    - 互換維持:
+      - 既存運用を壊さないため、厳密 I/O 比較は `--assert-io` 指定時のみ有効化。
+  - `nepl-core/src/codegen_llvm.rs`
+    - entry lower の失敗を握りつぶさず、`compile_llvm_cli` で原因を返すよう修正。
+    - entry 名の解決で mangled 名（`main__...` 形式）を追跡する fallback を追加。
+- 検証:
+  - 既存互換モード:
+    - `node nodesrc/tests.js -i tests -o tests/output/tests_current.json -j 2`
+    - `610/610 pass`
+  - 完全検証モード（例）:
+    - `node nodesrc/tests.js -i tests/stdout.n.md -o tests/output/stdout_complete.json --runner all --llvm-all --assert-io --strict-dual --no-tree -j 2`
+    - `compare_wasm_llvm` が結果JSONに出力され、wasm/llvm 差分を可視化できることを確認。
+- 現在判明している根本課題:
+  - LLVM 側は `main` 解決に進むようになったが、`core/math` の wasm 専用関数（例: `add__i32_i32__i32__pure`）に到達すると `compile_llvm_cli` で失敗する。
+  - これは「完全検証モードの不具合」ではなく、`stdlib` 側の llvm 実装未整備が原因であり、上流課題として継続修正する。

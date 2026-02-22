@@ -165,23 +165,29 @@ pub fn emit_ll_from_module_for_target(
     }
 
     if let Some(entry) = entry_names.last() {
+        let mut resolved_entry = entry.clone();
         if !emitted_functions.iter().any(|n| n == entry) {
-            let _ = try_lower_entry_from_hir(
+            resolved_entry = try_lower_entry_from_hir(
                 module,
                 target,
                 profile,
                 entry.as_str(),
                 &mut out,
                 &mut emitted_functions,
-            );
+            )?;
         }
-        if emitted_functions.iter().any(|n| n == entry)
-            && entry != "main"
+        if !emitted_functions.iter().any(|n| n == &resolved_entry) {
+            return Err(LlvmCodegenError::MissingEntryFunction {
+                function: resolved_entry.clone(),
+            });
+        }
+        if emitted_functions.iter().any(|n| n == &resolved_entry)
+            && resolved_entry != "main"
             && !emitted_functions.iter().any(|n| n == "main")
         {
             out.push_str(&format!(
                 "define i32 @main() {{\nentry:\n  %0 = call i32 @{}()\n  ret i32 %0\n}}\n\n",
-                entry
+                resolved_entry
             ));
         }
     }
@@ -299,7 +305,7 @@ fn try_lower_entry_from_hir(
     entry: &str,
     out: &mut String,
     emitted_functions: &mut Vec<String>,
-) -> Result<(), LlvmCodegenError> {
+) -> Result<String, LlvmCodegenError> {
     let (mut types, mut hir) = build_hir_for_llvm_lowering(module, target, profile)?;
     crate::passes::insert_drops(&mut hir, types.unit());
 
@@ -307,14 +313,30 @@ fn try_lower_entry_from_hir(
     for f in &hir.functions {
         function_map.insert(f.name.clone(), f);
     }
-    if !function_map.contains_key(entry) {
+    let resolved_entry = if function_map.contains_key(entry) {
+        String::from(entry)
+    } else if let Some(found) = function_map
+        .keys()
+        .find(|name| {
+            name.starts_with(&format!("{}__", entry))
+                || name.starts_with(&format!("{}::", entry))
+                || name.ends_with(&format!("::{}", entry))
+        })
+        .cloned()
+    {
+        found
+    } else {
+        let mut sample = function_map.keys().take(6).cloned().collect::<Vec<_>>();
+        if sample.is_empty() {
+            sample.push(String::from("<none>"));
+        }
         return Err(LlvmCodegenError::MissingEntryFunction {
-            function: entry.to_string(),
+            function: format!("{} (available: {})", entry, sample.join(", ")),
         });
-    }
+    };
 
     let mut sigs = collect_hir_signatures(&types, &hir);
-    let reachable = collect_reachable_functions(&hir, entry);
+    let reachable = collect_reachable_functions(&hir, resolved_entry.as_str());
 
     for ex in &hir.externs {
         if reachable.iter().any(|n| n == &ex.local_name) {
@@ -362,14 +384,14 @@ fn try_lower_entry_from_hir(
         }
     }
 
-    if entry == "main" && emitted_functions.iter().any(|n| n == "__nepl_entry_main") {
+    if resolved_entry == "main" && emitted_functions.iter().any(|n| n == "__nepl_entry_main") {
         out.push_str("define i32 @main() {\nentry:\n  call void @__nepl_entry_main()\n  ret i32 0\n}\n\n");
         emitted_functions.push(String::from("main"));
     }
 
     // suppress unused warning when future passes extend signature synthesis
     sigs.clear();
-    Ok(())
+    Ok(resolved_entry)
 }
 
 fn build_hir_for_llvm_lowering(
