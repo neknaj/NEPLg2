@@ -32,6 +32,29 @@ function stripHiddenPrefix(line) {
     return line;
 }
 
+function parseMetaValue(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    // 優先: JSON 文字列として解釈（"\\n" などを正しく展開）
+    if (s.startsWith('"') || s.startsWith("'")) {
+        try {
+            if (s.startsWith("'")) {
+                const body = s.slice(1, s.endsWith("'") ? -1 : undefined);
+                return body
+                    .replace(/\\'/g, "'")
+                    .replace(/\\\\/g, "\\")
+                    .replace(/\\n/g, "\n")
+                    .replace(/\\r/g, "\r")
+                    .replace(/\\t/g, "\t");
+            }
+            return JSON.parse(s);
+        } catch {
+            return s;
+        }
+    }
+    return s;
+}
+
 function scanForDoctests(lines, opts) {
     // opts:
     // - lineTransform: (rawLine)=>string
@@ -48,10 +71,21 @@ function scanForDoctests(lines, opts) {
 
         const tags = parseTags(line);
 
+        const meta = {
+            stdin: null,
+            stdout: null,
+            stderr: null,
+        };
+
         // 次の ```neplg2 を探す
         let j = i + 1;
         while (j < lines.length) {
             const l2 = opts.lineTransform(lines[j]);
+            const mm = l2.match(/^\s*(stdin|stdout|stderr)\s*:\s*(.*?)\s*$/);
+            if (mm) {
+                const k = mm[1];
+                meta[k] = parseMetaValue(mm[2]);
+            }
             if (/^\s*```\s*neplg2\s*$/.test(l2)) break;
             j++;
         }
@@ -77,6 +111,9 @@ function scanForDoctests(lines, opts) {
             tags,
             code: codeLines.join('\n') + '\n',
             hiddenMap,
+            stdin: meta.stdin,
+            stdout: meta.stdout,
+            stderr: meta.stderr,
         });
 
         i = j;

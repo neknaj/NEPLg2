@@ -128,6 +128,9 @@ function collectTestsFromPath(inputPath) {
                 index: i + 1,
                 tags: dt.tags,
                 source: dt.code,
+                stdin: dt.stdin ?? '',
+                expected_stdout: dt.stdout ?? null,
+                expected_stderr: dt.stderr ?? null,
             });
         }
     }
@@ -174,18 +177,19 @@ async function runAll(cases, jobs, distHint) {
                 file: c.file,
                 source: c.source,
                 tags: c.tags,
-                stdin: '',
+                stdin: c.stdin || '',
                 distHint,
             };
             const r = await runSingle(req, loaded);
-            results.push({
+            const wrapped = {
                 ...r,
                 id: c.id,
                 file: c.file,
                 index: c.index,
                 tags: c.tags,
                 worker: workerId,
-            });
+            };
+            results.push(applyDoctestExpectations(wrapped, c));
         }
     }
 
@@ -206,6 +210,65 @@ function hasTag(tags, name) {
     return Array.isArray(tags) && tags.includes(name);
 }
 
+function normalizeOutputByTags(text, tags) {
+    let out = String(text || '');
+    if (hasTag(tags, 'normalize_newlines')) {
+        out = out.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    }
+    if (hasTag(tags, 'strip_ansi')) {
+        out = stripAnsi(out);
+    }
+    return out;
+}
+
+function applyDoctestExpectations(result, testCase) {
+    const r = { ...result };
+    const tags = testCase?.tags || r.tags || [];
+    const strictIo = process.env.NEPL_ASSERT_IO === '1' || hasTag(tags, 'assert_io');
+    if (!strictIo) return r;
+    const wantsStdout = testCase?.expected_stdout !== null && testCase?.expected_stdout !== undefined;
+    const wantsStderr = testCase?.expected_stderr !== null && testCase?.expected_stderr !== undefined;
+
+    if (r.status !== 'pass') return r;
+    if (r.phase === 'skip') return r;
+    if (hasTag(tags, 'compile_fail') || hasTag(tags, 'should_panic')) return r;
+    if (!wantsStdout && !wantsStderr) return r;
+
+    if (wantsStdout) {
+        const expected = normalizeOutputByTags(String(testCase.expected_stdout), tags);
+        const actual = normalizeOutputByTags(String(r.stdout || ''), tags);
+        if (expected !== actual) {
+            r.ok = false;
+            r.status = 'fail';
+            r.phase = r.phase || 'run';
+            r.error = [
+                'stdout mismatch',
+                `expected: ${JSON.stringify(expected)}`,
+                `actual:   ${JSON.stringify(actual)}`,
+            ].join('\n');
+            return r;
+        }
+    }
+
+    if (wantsStderr) {
+        const expected = normalizeOutputByTags(String(testCase.expected_stderr), tags);
+        const actual = normalizeOutputByTags(String(r.stderr || ''), tags);
+        if (expected !== actual) {
+            r.ok = false;
+            r.status = 'fail';
+            r.phase = r.phase || 'run';
+            r.error = [
+                'stderr mismatch',
+                `expected: ${JSON.stringify(expected)}`,
+                `actual:   ${JSON.stringify(actual)}`,
+            ].join('\n');
+            return r;
+        }
+    }
+
+    return r;
+}
+
 function isLlvmCase(c) {
     if (hasTag(c.tags, 'llvm_cli')) return true;
     return /^\s*#target\s+llvm\s*$/m.test(String(c.source || ''));
@@ -213,12 +276,21 @@ function isLlvmCase(c) {
 
 function runCommand(cmd, args, options = {}) {
     return new Promise((resolve) => {
+        const stdinText = Object.prototype.hasOwnProperty.call(options, 'stdinText')
+            ? options.stdinText
+            : null;
+        const spawnOptions = { ...options };
+        delete spawnOptions.stdinText;
         const child = spawn(cmd, args, {
-            ...options,
-            stdio: ['ignore', 'pipe', 'pipe'],
+            ...spawnOptions,
+            stdio: ['pipe', 'pipe', 'pipe'],
         });
         let stdout = '';
         let stderr = '';
+        if (stdinText !== null && stdinText !== undefined) {
+            child.stdin.write(String(stdinText));
+        }
+        child.stdin.end();
         child.stdout.on('data', (d) => {
             stdout += d.toString();
         });
@@ -346,6 +418,7 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
     const entryPath = path.join(tmpDir, 'entry.nepl');
     const outputBase = path.join(tmpDir, 'out');
     const llPath = `${outputBase}.ll`;
+    const exePath = process.platform === 'win32' ? `${outputBase}.exe` : `${outputBase}.bin`;
     fs.writeFileSync(entryPath, c.source, 'utf8');
     stageLocalImportsForLlvmCase(c, tmpDir);
 
@@ -377,10 +450,7 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
     const compileError = [stderr, stdout].filter(Boolean).join('\n').trim() || null;
 
     const hasCompileFailTag = hasTag(c.tags, 'compile_fail');
-    const strictCompileFail = hasCompileFailTag && c._llvmExplicit !== false;
-    const softCompileFail = hasCompileFailTag && c._llvmExplicit === false;
-
-    if (strictCompileFail) {
+    if (hasCompileFailTag) {
         const ok = child.code !== 0;
         result = {
             ok,
@@ -395,37 +465,96 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
             compiler: { runner: 'nepl-cli-llvm' },
             duration_ms: Date.now() - t0,
         };
-    } else if (softCompileFail) {
-        result = {
-            ok: true,
-            id: `${c.id}::llvm`,
-            file: c.file,
-            index: c.index,
-            tags: c.tags,
-            status: 'pass',
-            phase: 'compile_llvm_cli',
-            error: null,
-            worker: workerId,
-            compiler: { runner: 'nepl-cli-llvm' },
-            duration_ms: Date.now() - t0,
-        };
     } else {
-        const ok = child.code === 0 && isFile(llPath);
-        result = {
-            ok,
-            id: `${c.id}::llvm`,
-            file: c.file,
-            index: c.index,
-            tags: c.tags,
-            status: ok ? 'pass' : 'fail',
-            phase: 'compile_llvm_cli',
-            error: ok
-                ? null
-                : compileError || `llvm compilation failed (status=${child.code ?? 'null'})`,
-            worker: workerId,
-            compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
-            duration_ms: Date.now() - t0,
-        };
+        const compileOk = child.code === 0 && isFile(llPath);
+        if (!compileOk) {
+            result = {
+                ok: false,
+                id: `${c.id}::llvm`,
+                file: c.file,
+                index: c.index,
+                tags: c.tags,
+                status: 'fail',
+                phase: 'compile_llvm_cli',
+                error: compileError || `llvm compilation failed (status=${child.code ?? 'null'})`,
+                worker: workerId,
+                compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
+                duration_ms: Date.now() - t0,
+            };
+        } else {
+            const link = await runCommand(
+                clangBin || 'clang',
+                ['-O0', llPath, '-o', exePath],
+                {
+                    env: {
+                        ...process.env,
+                        NO_COLOR: 'true',
+                    },
+                },
+            );
+            const linkErr = [String(link.stderr || ''), String(link.stdout || '')]
+                .filter(Boolean)
+                .join('\n')
+                .trim();
+            if (link.code !== 0 || !isFile(exePath)) {
+                result = {
+                    ok: false,
+                    id: `${c.id}::llvm`,
+                    file: c.file,
+                    index: c.index,
+                    tags: c.tags,
+                    status: 'fail',
+                    phase: 'link_llvm_cli',
+                    error: linkErr || `clang link failed (status=${link.code ?? 'null'})`,
+                    worker: workerId,
+                    compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
+                    duration_ms: Date.now() - t0,
+                };
+            } else {
+                const run = await runCommand(exePath, [], {
+                    env: { ...process.env, NO_COLOR: 'true' },
+                    stdinText: c.stdin || '',
+                });
+                const trapped = (run.code !== 0) || !!run.signal;
+                if (hasTag(c.tags, 'should_panic')) {
+                    const ok = trapped;
+                    result = {
+                        ok,
+                        id: `${c.id}::llvm`,
+                        file: c.file,
+                        index: c.index,
+                        tags: c.tags,
+                        status: ok ? 'pass' : 'fail',
+                        phase: 'run_llvm_cli',
+                        stdout: String(run.stdout || ''),
+                        stderr: String(run.stderr || ''),
+                        error: ok ? null : 'expected should_panic, but llvm program finished successfully',
+                        runtime: { code: run.code, signal: run.signal },
+                        worker: workerId,
+                        compiler: { runner: 'nepl-cli-llvm', ll_path: llPath, exe_path: exePath },
+                        duration_ms: Date.now() - t0,
+                    };
+                } else {
+                    const ok = !trapped;
+                    result = {
+                        ok,
+                        id: `${c.id}::llvm`,
+                        file: c.file,
+                        index: c.index,
+                        tags: c.tags,
+                        status: ok ? 'pass' : 'fail',
+                        phase: 'run_llvm_cli',
+                        stdout: String(run.stdout || ''),
+                        stderr: String(run.stderr || ''),
+                        error: ok ? null : `llvm program exited with status=${run.code ?? 'null'} signal=${run.signal ?? 'null'}`,
+                        runtime: { code: run.code, signal: run.signal },
+                        worker: workerId,
+                        compiler: { runner: 'nepl-cli-llvm', ll_path: llPath, exe_path: exePath },
+                        duration_ms: Date.now() - t0,
+                    };
+                }
+            }
+        }
     }
 
     try {
@@ -446,8 +575,9 @@ async function runAllLlvm(cases, jobs) {
             const i = idx;
             idx++;
             if (i >= cases.length) break;
-            const r = await runSingleLlvmCli(cases[i], workerId, cliPath);
-            results.push(r);
+            const c = cases[i];
+            const r = await runSingleLlvmCli(c, workerId, cliPath);
+            results.push(applyDoctestExpectations(r, c));
         }
     }
 
@@ -482,6 +612,54 @@ function summarize(results) {
         failed,
         errored,
     };
+}
+
+function stripLlvmSuffix(id) {
+    const s = String(id || '');
+    return s.endsWith('::llvm') ? s.slice(0, -7) : s;
+}
+
+function compareWasmLlvmResults(wasmResults, llvmResults) {
+    const llvmMap = new Map();
+    for (const r of llvmResults) {
+        llvmMap.set(stripLlvmSuffix(r.id), r);
+    }
+    const compared = [];
+    for (const w of wasmResults) {
+        const k = String(w.id || '');
+        const l = llvmMap.get(k);
+        if (!l) continue;
+        if (w.status !== 'pass' || l.status !== 'pass') continue;
+        if (w.phase !== 'run' || l.phase !== 'run_llvm_cli') continue;
+        if (hasTag(w.tags, 'compile_fail') || hasTag(w.tags, 'should_panic')) continue;
+
+        const waOut = normalizeOutputByTags(String(w.stdout || ''), w.tags || []);
+        const llOut = normalizeOutputByTags(String(l.stdout || ''), l.tags || []);
+        const waErr = normalizeOutputByTags(String(w.stderr || ''), w.tags || []);
+        const llErr = normalizeOutputByTags(String(l.stderr || ''), l.tags || []);
+        const ok = waOut === llOut && waErr === llErr;
+
+        compared.push({
+            ok,
+            id: `${k}::compare_wasm_llvm`,
+            file: w.file,
+            index: w.index,
+            tags: [...(w.tags || []), 'compare_wasm_llvm'],
+            status: ok ? 'pass' : 'fail',
+            phase: 'compare_wasm_llvm',
+            error: ok
+                ? null
+                : [
+                    'wasm/llvm output mismatch',
+                    `wasm.stdout=${JSON.stringify(waOut)}`,
+                    `llvm.stdout=${JSON.stringify(llOut)}`,
+                    `wasm.stderr=${JSON.stringify(waErr)}`,
+                    `llvm.stderr=${JSON.stringify(llErr)}`,
+                ].join('\n'),
+            worker: 0,
+        });
+    }
+    return compared;
 }
 
 function ensureDir(p) {
@@ -559,7 +737,8 @@ async function main() {
     } else {
         const wasmResults = await runAll(wasmCases, jobs, distHint);
         const llvmResults = await runAllLlvm(llvmCases, jobs);
-        results = [...wasmResults, ...llvmResults];
+        const compared = compareWasmLlvmResults(wasmResults, llvmResults);
+        results = [...wasmResults, ...llvmResults, ...compared];
     }
 
     if (includeTree && runner !== 'llvm') {
