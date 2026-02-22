@@ -1,3 +1,15 @@
+# 2026-02-22 作業メモ (LLVM `core/mem` 回帰テスト追加)
+- 目的:
+  - `core/mem` の LLVM 分岐が実際に呼び出せることを nodesrc の llvm runner で固定する。
+- 実装:
+  - `tests/llvm_target.n.md`
+    - `llvm_mem_alloc_store_load` を追加。
+    - `alloc` -> `store_i32` -> `load_i32` を LLVM CLI 経路で実行する最小ケースを追加。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `610/610 pass`
+  - `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests/output/tests_llvm_target_current.json --runner llvm --no-tree -j 1`: `5/5 pass`
+
 # 2026-02-22 作業メモ (`core/mem` LLVM基盤着手 + `core/math` gate不整合修正)
 - 目的:
   - `core/mem` を LLVM target でも呼べる最小基盤を追加する。
