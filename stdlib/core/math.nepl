@@ -5198,3 +5198,422 @@ fn i128_lt <(I128,I128)->bool> (a, b):
             false
         else:
             i64_lt_u a_lo b_lo
+
+#if[target=llvm]
+fn i32_add <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @i32_add(i32 %a, i32 %b) {
+        entry:
+            %0 = add i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn i32_sub <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @i32_sub(i32 %a, i32 %b) {
+        entry:
+            %0 = sub i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn i32_mul <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @i32_mul(i32 %a, i32 %b) {
+        entry:
+            %0 = mul i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn i32_div_s <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @i32_div_s(i32 %a, i32 %b) {
+        entry:
+            %0 = sdiv i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn i32_div_u <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @i32_div_u(i32 %a, i32 %b) {
+        entry:
+            %0 = udiv i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn i32_rem_s <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @i32_rem_s(i32 %a, i32 %b) {
+        entry:
+            %0 = srem i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn i32_rem_u <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @i32_rem_u(i32 %a, i32 %b) {
+        entry:
+            %0 = urem i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn i32_lt_s <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_lt_s(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp slt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_lt_u <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_lt_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ult i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_le_s <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_le_s(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sle i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_le_u <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_le_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ule i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_gt_s <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_gt_s(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sgt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_gt_u <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_gt_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ugt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_ge_s <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_ge_s(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_ge_u <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_ge_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp uge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_eq <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_eq(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp eq i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i32_ne <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @i32_ne(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ne i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i64_add <(i64,i64)->i64> (a,b):
+    #llvmir:
+        define i64 @i64_add(i64 %a, i64 %b) {
+        entry:
+            %0 = add i64 %a, %b
+            ret i64 %0
+        }
+
+#if[target=llvm]
+fn i64_sub <(i64,i64)->i64> (a,b):
+    #llvmir:
+        define i64 @i64_sub(i64 %a, i64 %b) {
+        entry:
+            %0 = sub i64 %a, %b
+            ret i64 %0
+        }
+
+#if[target=llvm]
+fn i64_mul <(i64,i64)->i64> (a,b):
+    #llvmir:
+        define i64 @i64_mul(i64 %a, i64 %b) {
+        entry:
+            %0 = mul i64 %a, %b
+            ret i64 %0
+        }
+
+#if[target=llvm]
+fn i64_div_u <(i64,i64)->i64> (a,b):
+    #llvmir:
+        define i64 @i64_div_u(i64 %a, i64 %b) {
+        entry:
+            %0 = udiv i64 %a, %b
+            ret i64 %0
+        }
+
+#if[target=llvm]
+fn i64_rem_u <(i64,i64)->i64> (a,b):
+    #llvmir:
+        define i64 @i64_rem_u(i64 %a, i64 %b) {
+        entry:
+            %0 = urem i64 %a, %b
+            ret i64 %0
+        }
+
+#if[target=llvm]
+fn i64_lt_s <(i64,i64)->bool> (a,b):
+    #llvmir:
+        define i32 @i64_lt_s(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp slt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i64_lt_u <(i64,i64)->bool> (a,b):
+    #llvmir:
+        define i32 @i64_lt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ult i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i64_le_u <(i64,i64)->bool> (a,b):
+    #llvmir:
+        define i32 @i64_le_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ule i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i64_gt_s <(i64,i64)->bool> (a,b):
+    #llvmir:
+        define i32 @i64_gt_s(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sgt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i64_gt_u <(i64,i64)->bool> (a,b):
+    #llvmir:
+        define i32 @i64_gt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ugt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i64_ge_u <(i64,i64)->bool> (a,b):
+    #llvmir:
+        define i32 @i64_ge_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp uge i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn i64_extend_i32_u <(i32)->i64> (a):
+    #llvmir:
+        define i64 @i64_extend_i32_u(i32 %a) {
+        entry:
+            %0 = zext i32 %a to i64
+            ret i64 %0
+        }
+
+#if[target=llvm]
+fn i64_extend_i32_s <(i32)->i64> (a):
+    #llvmir:
+        define i64 @i64_extend_i32_s(i32 %a) {
+        entry:
+            %0 = sext i32 %a to i64
+            ret i64 %0
+        }
+
+#if[target=llvm]
+fn and <(bool,bool)->bool> (a,b):
+    #llvmir:
+        define i32 @and(i32 %a, i32 %b) {
+        entry:
+            %0 = and i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn or <(bool,bool)->bool> (a,b):
+    #llvmir:
+        define i32 @or(i32 %a, i32 %b) {
+        entry:
+            %0 = or i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn not <(bool)->bool> (a):
+    #llvmir:
+        define i32 @not(i32 %a) {
+        entry:
+            %0 = icmp eq i32 %a, 0
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn add <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @add(i32 %a, i32 %b) {
+        entry:
+            %0 = add i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn sub <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @sub(i32 %a, i32 %b) {
+        entry:
+            %0 = sub i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn mul <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @mul(i32 %a, i32 %b) {
+        entry:
+            %0 = mul i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn div_s <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @div_s(i32 %a, i32 %b) {
+        entry:
+            %0 = sdiv i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn mod_s <(i32,i32)->i32> (a,b):
+    #llvmir:
+        define i32 @mod_s(i32 %a, i32 %b) {
+        entry:
+            %0 = srem i32 %a, %b
+            ret i32 %0
+        }
+
+#if[target=llvm]
+fn lt <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @lt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp slt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn eq <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @eq(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp eq i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn ne <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @ne(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ne i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn le <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @le(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sle i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn gt <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @gt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sgt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+#if[target=llvm]
+fn ge <(i32,i32)->bool> (a,b):
+    #llvmir:
+        define i32 @ge(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }

@@ -9,6 +9,8 @@ use alloc::format;
 use alloc::string::String;
 
 use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, Stmt, TypeExpr};
+use crate::compiler::{BuildProfile, CompileTarget};
+use crate::ast::Directive;
 
 /// LLVM IR 生成時のエラー。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,10 +47,32 @@ impl core::fmt::Display for LlvmCodegenError {
 ///
 /// 現段階では手書き `#llvmir` を主経路とし、Parsed 関数は最小 subset のみ lower する。
 pub fn emit_ll_from_module(module: &Module) -> Result<String, LlvmCodegenError> {
+    emit_ll_from_module_for_target(module, CompileTarget::Llvm, BuildProfile::Debug)
+}
+
+/// `target/profile` 条件を評価しながら LLVM IR を生成する。
+pub fn emit_ll_from_module_for_target(
+    module: &Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+) -> Result<String, LlvmCodegenError> {
     let mut out = String::new();
     let mut saw_llvmir = false;
+    let mut pending_if: Option<bool> = None;
 
     for stmt in &module.root.items {
+        if let Stmt::Directive(d) = stmt {
+            if let Some(allowed) = gate_allows(d, target, profile) {
+                pending_if = Some(allowed);
+                continue;
+            }
+        }
+        let allowed = pending_if.unwrap_or(true);
+        pending_if = None;
+        if !allowed {
+            continue;
+        }
+
         match stmt {
             Stmt::LlvmIr(block) => {
                 append_llvmir_block(&mut out, block);
@@ -60,19 +84,17 @@ pub fn emit_ll_from_module(module: &Module) -> Result<String, LlvmCodegenError> 
                     saw_llvmir = true;
                 }
                 FnBody::Parsed(block) => {
-                    let lowered =
+                    if let Some(lowered) =
                         lower_parsed_fn(def.name.name.as_str(), &def.signature, &def.params, block)
-                            .ok_or_else(|| LlvmCodegenError::UnsupportedParsedFunctionBody {
-                                function: def.name.name.clone(),
-                            })?;
-                    out.push_str(&lowered);
-                    out.push('\n');
-                    saw_llvmir = true;
+                    {
+                        out.push_str(&lowered);
+                        out.push('\n');
+                        saw_llvmir = true;
+                    }
                 }
                 FnBody::Wasm(_) => {
-                    return Err(LlvmCodegenError::UnsupportedWasmBody {
-                        function: def.name.name.clone(),
-                    });
+                    // `#wasm` は明示的な wasm backend 専用実装。
+                    // LLVM 経路では暗黙 lower せずスキップし、`#llvmir` 実装がある関数のみ採用する。
                 }
             },
             _ => {}
@@ -84,6 +106,22 @@ pub fn emit_ll_from_module(module: &Module) -> Result<String, LlvmCodegenError> 
     }
 
     Ok(out)
+}
+
+fn gate_allows(d: &Directive, target: CompileTarget, profile: BuildProfile) -> Option<bool> {
+    match d {
+        Directive::IfTarget { target: gate, .. } => Some(target.allows(gate.as_str())),
+        Directive::IfProfile { profile: p, .. } => Some(profile_allows(p.as_str(), profile)),
+        _ => None,
+    }
+}
+
+fn profile_allows(profile: &str, active: BuildProfile) -> bool {
+    match profile {
+        "debug" => matches!(active, BuildProfile::Debug),
+        "release" => matches!(active, BuildProfile::Release),
+        _ => false,
+    }
 }
 
 fn append_llvmir_block(out: &mut String, block: &crate::ast::LlvmIrBlock) {
@@ -186,16 +224,15 @@ fn body <()->i32> ():
     }
 
     #[test]
-    fn emit_ll_rejects_unsupported_parsed_function_body() {
+    fn emit_ll_skips_unsupported_parsed_function_body() {
         let src = r#"
 #target llvm
 fn body <()->i32> ():
     add 1 2
 "#;
         let module = parse_module(src);
-        let err = emit_ll_from_module(&module).expect_err("must reject parsed function body");
-        let msg = format!("{err}");
-        assert!(msg.contains("supported subset"));
+        let err = emit_ll_from_module(&module).expect_err("no llvm body should fail");
+        assert!(matches!(err, LlvmCodegenError::MissingLlvmIrBlock));
     }
 
     #[test]
@@ -209,5 +246,29 @@ fn c <()->i32> ():
         let ll = emit_ll_from_module(&module).expect("const i32 function should be lowered");
         assert!(ll.contains("define i32 @c()"));
         assert!(ll.contains("ret i32 123"));
+    }
+
+    #[test]
+    fn emit_ll_respects_if_target_gate() {
+        let src = r#"
+#target llvm
+#if[target=wasm]
+fn w <()->i32> ():
+    #wasm:
+        i32.const 1
+
+#if[target=llvm]
+fn l <()->i32> ():
+    #llvmir:
+        define i32 @l() {
+        entry:
+            ret i32 9
+        }
+"#;
+        let module = parse_module(src);
+        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug)
+            .expect("llvm-gated items should compile");
+        assert!(ll.contains("define i32 @l()"));
+        assert!(!ll.contains("define i32 @w()"));
     }
 }

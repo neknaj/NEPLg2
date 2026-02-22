@@ -43,7 +43,9 @@
 
 9. LLVM IR target 追加（nepl-cli 限定）
 - `#llvmir` 手書き経路 + i32 定数 subset から、通常の NEPL 関数本体（Parsed/HIR）を LLVM IR へ下げる本実装へ拡張する。
+- `#if[target=...]` は「直後の1式のみ」適用の仕様を lexer/parser/typecheck/codegen 全段で固定し、回帰テストを維持する。
 - `tests/sort.n.md` など通常テストを `--runner all --llvm-all` で通せるように、`stdlib/core` / `stdlib/alloc` の LLVM 対応を進める。
+- `stdlib/core/math.nepl` の `#llvmir` 明示実装を全演算へ拡張し、`core/math` の wasm/llvm 両対応を完成させる。
 - `#if[target=core]` / `#if[target=std]` 前提で stdlib と tests の target 記述を段階移行し、dual-run（wasm+llvm）回帰を整備する。
 - `clang 21.1.0 + linux native` の初期要件を保ちつつ、将来の複数 LLVM バージョン/複数 native target へ拡張可能な設定モデルを設計する。
 

@@ -1,3 +1,28 @@
+# 2026-02-22 作業メモ (`core/math` の LLVM 明示実装を着手 + `#if` 単位回帰)
+- 目的:
+  - `stdlib/core/math.nepl` で wasm 専用だった基礎演算を、暗黙 lower ではなく `#llvmir` 明示実装で段階的に LLVM 対応する。
+  - `#if[target=...]` の適用単位を「直後の1式」に固定する回帰を追加する。
+- 実装:
+  - `stdlib/core/math.nepl`
+    - `#if[target=llvm]` の同名関数定義を追加（doc comment は既存関数と共有）。
+    - 追加した明示 LLVM 実装:
+      - `i32_*` の基礎算術/比較（`add/sub/mul/div/rem/eq/ne/lt/le/gt/ge` の signed/unsigned 必要分）
+      - `i64_*` の基礎算術/比較（`add/sub/mul/div_u/rem_u/lt_u/le_u/gt_u/ge_u/lt_s/gt_s`）
+      - `i64_extend_i32_u/s`
+      - 旧エイリアス `add/sub/mul/div_s/mod_s/lt/eq/ne/le/gt/ge/and/or/not`
+  - `nepl-core/src/codegen_llvm.rs`
+    - 未対応 `Parsed` / `#wasm` 関数本体は LLVM 経路で暗黙変換せずスキップ。
+    - `#if[target=...]` / `#if[profile=...]` の gate 評価は引き続き「直後の1式」単位で処理。
+  - `tests/llvm_target.n.md`
+    - `llvm_math_add_from_stdlib` を追加し、`#import "core/math"` + `call @add` が LLVM で通ることを確認。
+  - `tests/neplg2.n.md`
+    - `iftarget_applies_to_next_single_expression_only` を追加し、`#if` が1式のみ適用される回帰を固定。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests/output/tests_llvm_target_current.json --runner llvm --no-tree -j 1`: `4/4 pass`
+  - `node nodesrc/tests.js -i tests/neplg2.n.md -o tests/output/tests_neplg2_current.json -j 1`: `216/216 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `584/584 pass`
+
 # 2026-02-22 作業メモ (LLVM core移設 + nodesrc dual runner 基盤)
 - 目的:
   - LLVM IR 生成部を `nepl-core` に移し、`nepl-cli` は clang 実行などホスト依存処理のみ担当する構成へ整理。

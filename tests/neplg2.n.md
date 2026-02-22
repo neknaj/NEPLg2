@@ -192,6 +192,27 @@ fn main <() -> i32> ():
     0
 ```
 
+## iftarget_applies_to_next_single_expression_only
+
+このテストは `#if[target=...]` が「直後の 1 式のみ」に適用される仕様を確認します。
+1 つ目の `fn` 式は条件でスキップされますが、2 つ目は無条件で評価されるため、未定義識別子によりコンパイル失敗する必要があります。
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#target wasm
+
+#if[target=wasi]
+fn skipped <() -> i32> ():
+    unknown_symbol_a
+
+fn not_skipped <() -> i32> ():
+    unknown_symbol_b
+
+fn main <() -> i32> ():
+    0
+```
+
 ## import_and_prelude_directives_are_accepted
 
 以前はコンパイル確認のみでした。
@@ -667,4 +688,3 @@ fn pick <.T> <(.T)->.T> (x):
 fn main <()->i32> ():
     pick 1
 ```
-

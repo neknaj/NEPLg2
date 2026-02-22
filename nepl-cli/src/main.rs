@@ -187,6 +187,11 @@ fn execute(cli: Cli) -> Result<()> {
     let run_target = target_override
         .or(module_decl_target)
         .unwrap_or(CompileTarget::Wasm);
+    let profile = cli.profile.map(|p| match p {
+        ProfileArg::Debug => BuildProfile::Debug,
+        ProfileArg::Release => BuildProfile::Release,
+    });
+    let active_profile = profile.unwrap_or(BuildProfile::detect());
     if matches!(run_target, CompileTarget::Llvm) {
         if cli.run {
             return Err(anyhow::anyhow!(
@@ -194,7 +199,11 @@ fn execute(cli: Cli) -> Result<()> {
             ));
         }
         codegen_llvm::ensure_clang_21_linux_native()?;
-        let llvm_ir = nepl_core::codegen_llvm::emit_ll_from_module(&module)
+        let llvm_ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+            &module,
+            run_target,
+            active_profile,
+        )
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         let output = cli
             .output
@@ -204,10 +213,6 @@ fn execute(cli: Cli) -> Result<()> {
         write_bytes(&ll_path, llvm_ir.as_bytes())?;
         return Ok(());
     }
-    let profile = cli.profile.map(|p| match p {
-        ProfileArg::Debug => BuildProfile::Debug,
-        ProfileArg::Release => BuildProfile::Release,
-    });
     let options = CompileOptions {
         target: target_override,
         verbose: cli.verbose,

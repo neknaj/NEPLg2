@@ -38,3 +38,20 @@ fn main <()->i32> ():
     #wasm:
         i32.const 1
 ```
+
+## llvm_math_add_from_stdlib
+
+neplg2:test[llvm_cli]
+```neplg2
+#target llvm
+#entry main
+#indent 4
+#import "core/math" as *
+
+#llvmir:
+    define i32 @main() {
+    entry:
+        %x = call i32 @add(i32 20, i32 22)
+        ret i32 %x
+    }
+```

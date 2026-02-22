@@ -440,13 +440,17 @@ function stripAnsi(s) {
 
 function summarizeError(raw) {
     if (!raw) return null;
-    const text = stripAnsi(raw)
+    const lines = stripAnsi(raw)
         .replace(/\r\n/g, '\n')
         .split('\n')
         .map((l) => l.trim())
         .filter((l) => l.length > 0);
-    if (text.length === 0) return null;
-    return text.slice(0, 3).join(' | ').slice(0, 240);
+    if (lines.length === 0) return null;
+    const explicit = lines.find((l) => /^Error:\s+/i.test(l));
+    if (explicit) return explicit.slice(0, 240);
+    const fatal = lines.find((l) => /\berror\b/i.test(l));
+    if (fatal) return fatal.slice(0, 240);
+    return lines.slice(0, 3).join(' | ').slice(0, 240);
 }
 
 function collectResolvedDistDirs(results) {
