@@ -8,7 +8,7 @@ stdout: "-9223372036854775808\n0\n9223372036854775807\n18446744073709551615\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpread" as *
 #import "kp/kpwrite" as *
@@ -42,7 +42,7 @@ stdout: "42\n-17\n0\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpread" as *
 #import "kp/kpwrite" as *
@@ -69,7 +69,7 @@ stdout: "-9223372036854775807\n9223372036854775806\n1000000000000000000\n1844674
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpread" as *
 #import "kp/kpwrite" as *

@@ -3254,3 +3254,19 @@
   2. `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests/output/tests_llvm_target_current.json --runner llvm --no-tree -j 1` -> pass (`5/5`)
   3. `node nodesrc/tests.js -i tests -o tests/output/tests_llvm_all_probe.json --runner llvm --llvm-all --no-tree -j 2` -> pass (`601/601`)
   4. `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 2` -> pass (`610/610`)
+
+# 2026-02-22 作業メモ (target 記述の std 移行と i64 math の wasm/llvm 統一)
+- 目的:
+  - doctest と tests の target 記述を `wasi` から `std` に寄せ、target alias 移行方針（`std`）へ段階的に揃える。
+  - `stdlib/core/math.nepl` の i64 系で残っていた wasm 偏重実装を解消し、関数内 `#if[target=wasm]` / `#if[target=llvm]` 分岐へ統一する。
+- 実装:
+  - `stdlib/core/mem.nepl`, `stdlib/alloc/vec.nepl` の doctest 内 `#target wasi` を `#target std` へ置換。
+  - `tests/*.n.md` の `#target wasi` を `#target std` へ置換（対象ファイルのみ）。
+  - `stdlib/core/math.nepl`
+    - `i64_div_s`, `i64_rem_s`, `i64_and/or/xor`, `i64_shl/shr_s/shr_u`, `i64_rotl/rotr`,
+      `i64_clz/ctz/popcnt`, `i64_eq/ne/lt/le/gt/ge` を wasm/llvm 両分岐化。
+    - i64 比較関数の末尾 LLVM 再定義ブロック（重複定義）を削除し、定義点を一本化。
+- 検証（直列）:
+  1. `NO_COLOR=false trunk build` -> pass
+  2. `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 2` -> pass (`610/610`)
+  3. `node nodesrc/tests.js -i tests -o tests/output/tests_llvm_all_probe.json --runner llvm --llvm-all --no-tree -j 2` -> pass (`601/601`)

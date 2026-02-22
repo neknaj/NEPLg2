@@ -8,7 +8,7 @@ stdout: "a:12:b"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -25,7 +25,7 @@ stdout: "ab\nc"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -42,7 +42,7 @@ stdout: "12\n3"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -59,7 +59,7 @@ stdout: "こんにちは世界!\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "std/stdio" as *
 
@@ -74,7 +74,7 @@ stdout: "\u001b[31mred\u001b[0m\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "std/stdio" as *
 
@@ -89,7 +89,7 @@ stdout: "\u001b[31mred\u001b[0m \u001b[32mgreen\u001b[0m\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "std/stdio" as *
 

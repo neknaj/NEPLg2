@@ -10,7 +10,7 @@
 neplg2:test[normalize_newlines]
 stdout: "hello\\nworld!"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -28,7 +28,7 @@ fn main <()* >()> ():
 neplg2:test[normalize_newlines]
 stdout: "hello\\nworld!"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -49,7 +49,7 @@ fn main <()* >()> ():
 neplg2:test[normalize_newlines]
 stdout: "hello\\nworld!END"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -71,7 +71,7 @@ fn main <()* >()> ():
 neplg2:test[normalize_newlines]
 stdout: "\\\\n should be literal backslash-n\\nno \\\\t escape processingEND"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -92,7 +92,7 @@ fn main <()* >()> ():
 neplg2:test[normalize_newlines]
 stdout: "hello\\nworld!\\ttab"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -111,7 +111,7 @@ fn main <()* >()> ():
 neplg2:test
 stdout: "static literal"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -131,7 +131,7 @@ fn main <()* >()> ():
 neplg2:test
 stdout: "hello"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -149,7 +149,7 @@ UTF-8 文字列（日本語・絵文字）が実行時に欠損せずに出力�
 neplg2:test
 stdout: "こんにちは世界👋🌍"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -170,7 +170,7 @@ fn main <()* >()> ():
 neplg2:test[normalize_newlines]
 stdout: "こんにちは\\n世界END"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -192,7 +192,7 @@ fn main <()* >()> ():
 neplg2:test[normalize_newlines]
 stdout: "[line1   \\nline2]END"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -281,7 +281,7 @@ fn main <()->i32> ():
 
 neplg2:test
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/test" as *

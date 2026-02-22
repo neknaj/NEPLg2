@@ -1191,7 +1191,6 @@ fn i64_mul <(i64,i64)->i64> (a,b):
             ret i64 %0
         }
 
-#if[target=wasm]
 //: i64_div_s: i64 の符号付き除算
 //:
 //: [目的/もくてき]:
@@ -1224,10 +1223,18 @@ fn i64_mul <(i64,i64)->i64> (a,b):
 //:     assert i64_eq q i64_extend_i32_s -3;
 //: ```
 fn i64_div_s <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.div_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_div_s(i64 %a, i64 %b) {
+        entry:
+            %0 = sdiv i64 %a, %b
+            ret i64 %0
+        }
 
 //: i64_div_u: i64 の符号なし除算
 //:
@@ -1271,7 +1278,6 @@ fn i64_div_u <(i64,i64)->i64> (a,b):
             ret i64 %0
         }
 
-#if[target=wasm]
 //: i64_rem_s: i64 の符号付き剰余
 //:
 //: [目的/もくてき]:
@@ -1303,10 +1309,18 @@ fn i64_div_u <(i64,i64)->i64> (a,b):
 //:     assert i64_eq b i64_extend_i32_s 1;
 //: ```
 fn i64_rem_s <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.rem_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_rem_s(i64 %a, i64 %b) {
+        entry:
+            %0 = srem i64 %a, %b
+            ret i64 %0
+        }
 
 //: i64_rem_u: i64 の符号なし剰余
 //:
@@ -1350,7 +1364,6 @@ fn i64_rem_u <(i64,i64)->i64> (a,b):
             ret i64 %0
         }
 
-#if[target=wasm]
 //: i64_and: i64 のビット AND
 //:
 //: [目的/もくてき]:
@@ -1379,12 +1392,19 @@ fn i64_rem_u <(i64,i64)->i64> (a,b):
 //:     assert i64_eq i64_xor a b i64_extend_i32_u 5;
 //: ```
 fn i64_and <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.and
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_and(i64 %a, i64 %b) {
+        entry:
+            %0 = and i64 %a, %b
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_or: i64 のビット OR
 //:
 //: [目的/もくてき]:
@@ -1399,12 +1419,19 @@ fn i64_and <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_or <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.or
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_or(i64 %a, i64 %b) {
+        entry:
+            %0 = or i64 %a, %b
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_xor: i64 のビット XOR
 //:
 //: [目的/もくてき]:
@@ -1419,12 +1446,19 @@ fn i64_or <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_xor <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.xor
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_xor(i64 %a, i64 %b) {
+        entry:
+            %0 = xor i64 %a, %b
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_shl: i64 の左シフト
 //:
 //: [目的/もくてき]:
@@ -1439,12 +1473,19 @@ fn i64_xor <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_shl <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.shl
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_shl(i64 %a, i64 %b) {
+        entry:
+            %0 = shl i64 %a, %b
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_shr_s: i64 の算術右シフト
 //:
 //: [目的/もくてき]:
@@ -1459,12 +1500,19 @@ fn i64_shl <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_shr_s <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.shr_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_shr_s(i64 %a, i64 %b) {
+        entry:
+            %0 = ashr i64 %a, %b
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_shr_u: i64 の論理右シフト
 //:
 //: [目的/もくてき]:
@@ -1479,12 +1527,19 @@ fn i64_shr_s <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_shr_u <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.shr_u
+    #if[target=llvm]
+    #llvmir:
+        define i64 @i64_shr_u(i64 %a, i64 %b) {
+        entry:
+            %0 = lshr i64 %a, %b
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_rotl: i64 の左ローテート
 //:
 //: [目的/もくてき]:
@@ -1499,12 +1554,20 @@ fn i64_shr_u <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_rotl <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.rotl
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.fshl.i64(i64, i64, i64)
+        define i64 @i64_rotl(i64 %a, i64 %b) {
+        entry:
+            %0 = call i64 @llvm.fshl.i64(i64 %a, i64 %a, i64 %b)
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_rotr: i64 の右ローテート
 //:
 //: [目的/もくてき]:
@@ -1519,12 +1582,20 @@ fn i64_rotl <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_rotr <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.rotr
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.fshr.i64(i64, i64, i64)
+        define i64 @i64_rotr(i64 %a, i64 %b) {
+        entry:
+            %0 = call i64 @llvm.fshr.i64(i64 %a, i64 %a, i64 %b)
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_clz: 先頭ゼロビット数の計算
 //:
 //: [目的/もくてき]:
@@ -1539,11 +1610,19 @@ fn i64_rotr <(i64,i64)->i64> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_clz <(i64)->i64> (a):
+    #if[target=wasm]
     #wasm:
         local.get $a
         i64.clz
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.ctlz.i64(i64, i1)
+        define i64 @i64_clz(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.ctlz.i64(i64 %a, i1 false)
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_ctz: 末尾ゼロビット数の計算
 //:
 //: [目的/もくてき]:
@@ -1558,11 +1637,19 @@ fn i64_clz <(i64)->i64> (a):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_ctz <(i64)->i64> (a):
+    #if[target=wasm]
     #wasm:
         local.get $a
         i64.ctz
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.cttz.i64(i64, i1)
+        define i64 @i64_ctz(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.cttz.i64(i64 %a, i1 false)
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_popcnt: 1 ビット数の計算
 //:
 //: [目的/もくてき]:
@@ -1577,11 +1664,19 @@ fn i64_ctz <(i64)->i64> (a):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_popcnt <(i64)->i64> (a):
+    #if[target=wasm]
     #wasm:
         local.get $a
         i64.popcnt
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.ctpop.i64(i64)
+        define i64 @i64_popcnt(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.ctpop.i64(i64 %a)
+            ret i64 %0
+        }
 
-#if[target=wasm]
 //: i64_eq: i64 の等値比較
 //:
 //: [目的/もくてき]:
@@ -1613,12 +1708,20 @@ fn i64_popcnt <(i64)->i64> (a):
 //:     assert i64_gt_u a b;
 //: ```
 fn i64_eq <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_eq(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp eq i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_ne: i64 の非等値比較
 //:
 //: [目的/もくてき]:
@@ -1633,12 +1736,20 @@ fn i64_eq <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_ne <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_ne(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ne i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_lt_s: i64 の符号付き小なり比較
 //:
 //: [目的/もくてき]:
@@ -1653,12 +1764,20 @@ fn i64_ne <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_lt_s <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.lt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_lt_s(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp slt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_lt_u: i64 の符号なし小なり比較
 //:
 //: [目的/もくてき]:
@@ -1673,12 +1792,20 @@ fn i64_lt_s <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_lt_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.lt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_lt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ult i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_le_s: i64 の符号付き以下比較
 //:
 //: [目的/もくてき]:
@@ -1693,12 +1820,20 @@ fn i64_lt_u <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_le_s <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.le_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_le_s(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sle i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_le_u: i64 の符号なし以下比較
 //:
 //: [目的/もくてき]:
@@ -1713,12 +1848,20 @@ fn i64_le_s <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_le_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.le_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_le_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ule i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_gt_s: i64 の符号付き大なり比較
 //:
 //: [目的/もくてき]:
@@ -1733,12 +1876,20 @@ fn i64_le_u <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_gt_s <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.gt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_gt_s(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sgt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_gt_u: i64 の符号なし大なり比較
 //:
 //: [目的/もくてき]:
@@ -1753,12 +1904,20 @@ fn i64_gt_s <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_gt_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.gt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_gt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ugt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_ge_s: i64 の符号付き以上比較
 //:
 //: [目的/もくてき]:
@@ -1773,12 +1932,20 @@ fn i64_gt_u <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_ge_s <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.ge_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_ge_s(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sge i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 //: i64_ge_u: i64 の符号なし以上比較
 //:
 //: [目的/もくてき]:
@@ -1793,10 +1960,19 @@ fn i64_ge_s <(i64,i64)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn i64_ge_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i64.ge_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @i64_ge_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp uge i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
 
 //: f32_add: f32 の加算
@@ -4549,65 +4725,4 @@ fn i32_ne <(i32,i32)->bool> (a,b):
             %1 = zext i1 %0 to i32
             ret i32 %1
         }
-
-#if[target=llvm]
-fn i64_lt_s <(i64,i64)->bool> (a,b):
-    #llvmir:
-        define i32 @i64_lt_s(i64 %a, i64 %b) {
-        entry:
-            %0 = icmp slt i64 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn i64_lt_u <(i64,i64)->bool> (a,b):
-    #llvmir:
-        define i32 @i64_lt_u(i64 %a, i64 %b) {
-        entry:
-            %0 = icmp ult i64 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn i64_le_u <(i64,i64)->bool> (a,b):
-    #llvmir:
-        define i32 @i64_le_u(i64 %a, i64 %b) {
-        entry:
-            %0 = icmp ule i64 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn i64_gt_s <(i64,i64)->bool> (a,b):
-    #llvmir:
-        define i32 @i64_gt_s(i64 %a, i64 %b) {
-        entry:
-            %0 = icmp sgt i64 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn i64_gt_u <(i64,i64)->bool> (a,b):
-    #llvmir:
-        define i32 @i64_gt_u(i64 %a, i64 %b) {
-        entry:
-            %0 = icmp ugt i64 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn i64_ge_u <(i64,i64)->bool> (a,b):
-    #llvmir:
-        define i32 @i64_ge_u(i64 %a, i64 %b) {
-        entry:
-            %0 = icmp uge i64 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
 

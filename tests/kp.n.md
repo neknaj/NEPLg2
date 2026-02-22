@@ -8,7 +8,7 @@ stdout: "10\n20\n30\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpread" as *
 #import "std/stdio" as *
@@ -28,7 +28,7 @@ stdout: "hello world"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "std/stdio" as *
 #import "kp/kpwrite" as *
@@ -49,7 +49,7 @@ stdout: "6\n14\n15\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "core/math" as *
 #import "core/mem" as *
@@ -106,7 +106,7 @@ stdout: "13\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "core/math" as *
 #import "kp/kpread" as *
@@ -146,7 +146,7 @@ stdout: "3.500000\n-2.250000\n100.000000\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpread" as *
 #import "kp/kpwrite" as *
@@ -172,7 +172,7 @@ stdout: "1.250000\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpread" as *
 #import "kp/kpwrite" as *
@@ -193,7 +193,7 @@ stdout: "3 3\n1 2 5\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpsearch" as *
 #import "core/mem" as *

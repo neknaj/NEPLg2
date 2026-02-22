@@ -92,7 +92,7 @@ fn main <()->i32> ():
 
 neplg2:test[compile_fail]
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "core/mem" as *

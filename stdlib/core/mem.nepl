@@ -23,7 +23,7 @@
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target wasi
+//:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
 //: fn main <()*>()> ():
@@ -36,7 +36,7 @@
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target wasi
+//:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
 //: fn main <()*>()> ():
@@ -509,7 +509,7 @@ fn store_u8 <(i32,i32)*>()> (p, v):
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target wasi
+//:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
 //: fn main <()*>()> ():
@@ -559,7 +559,7 @@ fn fill_u8 <(i32,i32,i32)*>()> (ptr, len, value):
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target wasi
+//:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
 //: fn main <()*>()> ():

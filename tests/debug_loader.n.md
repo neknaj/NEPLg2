@@ -9,7 +9,7 @@ WASI ターゲットで実行し、標準出力が "ok" になることを `stdo
 neplg2:test
 stdout: "ok"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *

@@ -382,7 +382,7 @@ neplg2:test[compile_fail]
 
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 // 副作用を持つ非純粋関数
@@ -406,7 +406,7 @@ ret: 50
 
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 #import "core/math" as *
 

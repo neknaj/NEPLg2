@@ -299,7 +299,7 @@ fn main <() -> i32> ():
 neplg2:test
 stdout: "hello"
 ```neplg2
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -534,7 +534,7 @@ neplg2:test
 stdout: "ok"
 ```neplg2
 
-#target wasi
+#target std
 #entry main
 #indent 4
 #import "std/stdio" as *
@@ -551,7 +551,7 @@ fn main <()* >()> ():
 neplg2:test[compile_fail]
 ```neplg2
 #target wasm
-#target wasi
+#target std
 #entry main
 fn main <()->i32> ():
     0

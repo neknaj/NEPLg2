@@ -9,7 +9,7 @@ stdout: "1 2 +\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -26,7 +26,7 @@ stdout: "こんにちは\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -43,7 +43,7 @@ stdout: "1 2 +"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -60,7 +60,7 @@ stdout: "こんにちは"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -77,7 +77,7 @@ stdout: "1\n3\n"
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "kp/kpread" as *
 #import "std/stdio" as *

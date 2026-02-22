@@ -14,7 +14,7 @@ ret: 0
 ```neplg2
 #entry main
 #indent 4
-#target wasi
+#target std
 // 想定: std/fs モジュールの追加、または std/stdio の拡張
 #import "std/fs" as *
 #import "std/stdio" as *
