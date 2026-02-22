@@ -780,6 +780,12 @@ fn lower_user(
                 }
             }
         }
+        HirBody::LlvmIr(_) => {
+            diags.push(Diagnostic::error(
+                "llvm ir block cannot be compiled by wasm backend",
+                func.span,
+            ));
+        }
     }
 
     let mut wasm_func = Function::new(locals.local_decls());

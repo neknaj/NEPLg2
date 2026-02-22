@@ -23,10 +23,12 @@ use wasmparser::{Imports, Parser, Payload, TypeRef, Validator};
 ///
 /// - `Wasm`: 素の wasm 実行環境を想定
 /// - `Wasi`: WASI 実行環境を想定（`wasm` の上位互換として扱う）
+/// - `Llvm`: LLVM IR 出力向けのネイティブ経路（`nepl-cli` 側で処理）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompileTarget {
     Wasm,
     Wasi,
+    Llvm,
 }
 
 impl CompileTarget {
@@ -34,6 +36,7 @@ impl CompileTarget {
         match gate {
             "wasm" => true, // wasi includes wasm
             "wasi" => matches!(self, CompileTarget::Wasi),
+            "llvm" => matches!(self, CompileTarget::Llvm),
             _ => false,
         }
     }
@@ -103,6 +106,14 @@ pub fn compile_module(
 ) -> Result<CompilationArtifact, CoreError> {
     crate::log::set_verbose(options.verbose);
     let target = resolve_target(&module, options)?;
+    if matches!(target, CompileTarget::Llvm) {
+        let mut diags = Vec::new();
+        diags.push(Diagnostic::error(
+            "llvm target is CLI-only and is not handled by the wasm backend; use nepl-cli LLVM pipeline",
+            Span::dummy(),
+        ));
+        return Err(CoreError::from_diagnostics(diags));
+    }
     let profile = options.profile.unwrap_or(BuildProfile::detect());
     let tc = run_typecheck(&module, target, profile)?;
     let mut types = tc.types;
@@ -439,6 +450,7 @@ fn resolve_target(
             let parsed = match target.as_str() {
                 "wasm" => Some(CompileTarget::Wasm),
                 "wasi" => Some(CompileTarget::Wasi),
+                "llvm" => Some(CompileTarget::Llvm),
                 _ => None,
             };
             if let Some(t) = parsed {
@@ -464,6 +476,7 @@ fn resolve_target(
                 let parsed = match target.as_str() {
                     "wasm" => Some(CompileTarget::Wasm),
                     "wasi" => Some(CompileTarget::Wasi),
+                    "llvm" => Some(CompileTarget::Llvm),
                     _ => None,
                 };
                 if let Some(t) = parsed {

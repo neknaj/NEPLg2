@@ -15,6 +15,8 @@ use nepl_core::{
 use wasmi::{Caller, Engine, Linker, Module, Store};
 use wasmprinter::print_bytes;
 
+mod codegen_llvm;
+
 #[derive(Default)]
 struct AllocState {
     // head of free list (address in linear memory), 0 == null
@@ -73,7 +75,7 @@ struct Cli {
     )]
     lib: bool,
 
-    #[arg(long, value_name = "TARGET", value_parser = ["wasm", "wasi"], help = "Compilation target: wasm or wasi (overrides #target)")]
+    #[arg(long, value_name = "TARGET", value_parser = ["wasm", "wasi", "llvm"], help = "Compilation target: wasm, wasi, or llvm (overrides #target)")]
     target: Option<String>,
 
     #[arg(short, long, global = true, help = "Enable verbose compiler logging")]
@@ -174,18 +176,32 @@ fn execute(cli: Cli) -> Result<()> {
         }
     };
 
-    let cli_target = cli.target.as_deref().map(|t| {
-        if t == "wasi" {
-            CompileTarget::Wasi
-        } else {
-            CompileTarget::Wasm
-        }
+    let cli_target = cli.target.as_deref().map(|t| match t {
+        "wasi" => CompileTarget::Wasi,
+        "llvm" => CompileTarget::Llvm,
+        _ => CompileTarget::Wasm,
     });
     let target_override = cli_target;
     let module_decl_target = detect_module_target(&module);
     let run_target = target_override
         .or(module_decl_target)
         .unwrap_or(CompileTarget::Wasm);
+    if matches!(run_target, CompileTarget::Llvm) {
+        if cli.run {
+            return Err(anyhow::anyhow!(
+                "--run is not supported for --target llvm (emit .ll and execute with clang/lli)"
+            ));
+        }
+        codegen_llvm::ensure_clang_21_linux_native()?;
+        let llvm_ir = codegen_llvm::emit_ll_from_module(&module)?;
+        let output = cli
+            .output
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("--output is required for --target llvm"))?;
+        let ll_path = output_base_from_arg(output).with_extension("ll");
+        write_bytes(&ll_path, llvm_ir.as_bytes())?;
+        return Ok(());
+    }
     let profile = cli.profile.map(|p| match p {
         ProfileArg::Debug => BuildProfile::Debug,
         ProfileArg::Release => BuildProfile::Release,
@@ -663,6 +679,11 @@ fn run_wasm(
                 ));
             }
         }
+        CompileTarget::Llvm => {
+            return Err(anyhow::anyhow!(
+                "LLVM target cannot be executed by the wasm runner"
+            ));
+        }
     }
     if matches!(target, CompileTarget::Wasi) {
         linker.func_wrap(
@@ -1006,6 +1027,7 @@ fn detect_module_target(module: &nepl_core::ast::Module) -> Option<CompileTarget
             match target.as_str() {
                 "wasi" => Some(CompileTarget::Wasi),
                 "wasm" => Some(CompileTarget::Wasm),
+                "llvm" => Some(CompileTarget::Llvm),
                 _ => None,
             }
         } else {
@@ -1022,6 +1044,7 @@ fn detect_module_target(module: &nepl_core::ast::Module) -> Option<CompileTarget
             match target.as_str() {
                 "wasi" => Some(CompileTarget::Wasi),
                 "wasm" => Some(CompileTarget::Wasm),
+                "llvm" => Some(CompileTarget::Llvm),
                 _ => None,
             }
         } else {

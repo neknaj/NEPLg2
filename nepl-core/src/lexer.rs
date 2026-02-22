@@ -77,6 +77,7 @@ pub enum TokenKind {
     DirIfTarget(String),
     DirIfProfile(String),
     DirWasm,
+    DirLlvmIr,
     DirIndentWidth(usize),
     DirInclude(String),
     DirExtern {
@@ -91,6 +92,8 @@ pub enum TokenKind {
 
     // wasm text line (inside #wasm: block)
     WasmText(String),
+    // llvm ir text line (inside #llvmir: block)
+    LlvmIrText(String),
 
     // mlstr line: ##: <text>
     MlstrLine(String),
@@ -118,6 +121,8 @@ struct LexState {
     tokens: Vec<Token>,
     wasm_base: Option<usize>,
     pending_wasm_base: Option<usize>,
+    llvmir_base: Option<usize>,
+    pending_llvmir_base: Option<usize>,
 }
 
 pub fn lex(file_id: FileId, src: &str) -> LexResult {
@@ -130,6 +135,8 @@ pub fn lex(file_id: FileId, src: &str) -> LexResult {
         tokens: Vec::new(),
         wasm_base: None,
         pending_wasm_base: None,
+        llvmir_base: None,
+        pending_llvmir_base: None,
     };
 
     let mut offset = 0usize;
@@ -176,7 +183,9 @@ impl LexState {
             return;
         }
 
-        let allow_indent = self.expect_indent || self.pending_wasm_base.is_some();
+        let allow_indent = self.expect_indent
+            || self.pending_wasm_base.is_some()
+            || self.pending_llvmir_base.is_some();
         self.expect_indent = false;
 
         // compute indentation locally to avoid borrowing issues
@@ -208,13 +217,21 @@ impl LexState {
         let rest_owned = content[idx..].to_string();
         let rest = rest_owned.as_str();
 
-        // Handle wasm block short-circuit
+        // Handle raw block short-circuit (#wasm / #llvmir)
         let mut in_wasm = false;
         if let Some(base) = self.wasm_base {
             if actual_indent >= base {
                 in_wasm = true;
             } else {
                 self.wasm_base = None;
+            }
+        }
+        let mut in_llvmir = false;
+        if let Some(base) = self.llvmir_base {
+            if actual_indent >= base {
+                in_llvmir = true;
+            } else {
+                self.llvmir_base = None;
             }
         }
 
@@ -233,10 +250,24 @@ impl LexState {
                 effective_indent = expected;
             }
         }
+        // When #llvmir: was seen on previous line, lock expected base
+        if let Some(expected) = self.pending_llvmir_base.take() {
+            if actual_indent < expected {
+                let span = Span::new(self.file_id, line_start as u32, line_start as u32);
+                self.diagnostics.push(Diagnostic::error(
+                    "expected indented block after #llvmir",
+                    span,
+                ));
+            } else {
+                self.llvmir_base = Some(expected);
+                in_llvmir = true;
+                effective_indent = expected;
+            }
+        }
 
         let rest_trim = rest.trim_start();
         let mut directive_text: Option<String> = None;
-        if !in_wasm {
+        if !in_wasm && !in_llvmir {
             if rest_trim.starts_with('#') {
                 directive_text = Some(rest_trim.to_string());
             } else if let Some(after_pub) = rest_trim.strip_prefix("pub") {
@@ -273,8 +304,8 @@ impl LexState {
                 }
             }
         }
-        let is_mlstr_line = !in_wasm && rest_trim.starts_with("##:");
-        let is_directive = !in_wasm && !is_mlstr_line && directive_text.is_some();
+        let is_mlstr_line = !in_wasm && !in_llvmir && rest_trim.starts_with("##:");
+        let is_directive = !in_wasm && !in_llvmir && !is_mlstr_line && directive_text.is_some();
 
         if is_directive && !allow_indent {
             let current_indent = *self.indent_stack.last().unwrap();
@@ -283,7 +314,7 @@ impl LexState {
             }
         }
 
-        // Always emit INDENT/DEDENT to keep parser block structure even inside #wasm.
+        // Always emit INDENT/DEDENT to keep parser block structure even inside raw text blocks.
         self.adjust_indent(effective_indent, line_start);
 
         let line_offset = line_start + (content.len() - rest.len());
@@ -292,6 +323,10 @@ impl LexState {
             let text = rest.trim_end().to_string();
             let end = line_start + content.len();
             self.push_token(TokenKind::WasmText(text), line_offset, end);
+        } else if in_llvmir {
+            let text = rest.trim_end().to_string();
+            let end = line_start + content.len();
+            self.push_token(TokenKind::LlvmIrText(text), line_offset, end);
         } else if is_directive {
             self.lex_directive(
                 directive_text.as_deref().unwrap_or(rest_trim),
@@ -312,7 +347,7 @@ impl LexState {
             span: Span::new(self.file_id, newline_pos as u32, newline_pos as u32),
         });
 
-        if !in_wasm && !is_directive && content.trim_end().ends_with(':') {
+        if !in_wasm && !in_llvmir && !is_directive && content.trim_end().ends_with(':') {
             self.expect_indent = true;
         }
     }
@@ -528,6 +563,18 @@ impl LexState {
             // Expect body one indent deeper
             let current_indent = *self.indent_stack.last().unwrap();
             self.pending_wasm_base = Some(current_indent + self.indent_unit);
+        } else if body.starts_with("llvmir") {
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + body.len()) as u32,
+            );
+            self.tokens.push(Token {
+                kind: TokenKind::DirLlvmIr,
+                span,
+            });
+            let current_indent = *self.indent_stack.last().unwrap();
+            self.pending_llvmir_base = Some(current_indent + self.indent_unit);
         } else if body.starts_with("intrinsic") {
             let span = Span::new(
                 self.file_id,

@@ -6,7 +6,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::{Effect, WasmBlock};
+use crate::ast::{Effect, LlvmIrBlock, WasmBlock};
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -53,6 +53,7 @@ pub struct HirExtern {
 pub enum HirBody {
     Block(HirBlock),
     Wasm(WasmBlock),
+    LlvmIr(LlvmIrBlock),
 }
 
 #[derive(Debug, Clone, PartialEq)]

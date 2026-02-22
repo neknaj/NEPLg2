@@ -183,9 +183,11 @@ pub fn typecheck(
             span,
         } = d
         {
-            if matches!(target, CompileTarget::Wasm) && m == "wasi_snapshot_preview1" {
+            if matches!(target, CompileTarget::Wasm | CompileTarget::Llvm)
+                && m == "wasi_snapshot_preview1"
+            {
                 diagnostics.push(Diagnostic::error(
-                    "WASI import not allowed for wasm target (use #target wasi)",
+                    "WASI import is only allowed for #target wasi",
                     *span,
                 ));
                 return;
@@ -1290,6 +1292,7 @@ fn check_function(
                 }
             },
             FnBody::Wasm(wb) => HirBody::Wasm(wb.clone()),
+            FnBody::LlvmIr(lb) => HirBody::LlvmIr(lb.clone()),
         };
         (body_res, checker.diagnostics)
     };
@@ -2042,6 +2045,12 @@ impl<'a> BlockChecker<'a> {
                 Stmt::Wasm(_) => {
                     self.diagnostics.push(Diagnostic::error(
                         "wasm block is only allowed as a function body",
+                        block.span,
+                    ));
+                }
+                Stmt::LlvmIr(_) => {
+                    self.diagnostics.push(Diagnostic::error(
+                        "llvm ir block is only allowed as a function body",
                         block.span,
                     ));
                 }
@@ -5241,6 +5250,7 @@ fn target_allows(target: &str, active: CompileTarget) -> bool {
     match target {
         "wasm" => true,
         "wasi" => matches!(active, CompileTarget::Wasi),
+        "llvm" => matches!(active, CompileTarget::Llvm),
         _ => false,
     }
 }

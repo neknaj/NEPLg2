@@ -573,6 +573,11 @@ impl Parser {
                 let wasm = self.parse_wasm_block(span)?;
                 Some(Stmt::Wasm(wasm))
             }
+            TokenKind::DirLlvmIr => {
+                let span = self.next().unwrap().span;
+                let llvm_ir = self.parse_llvmir_block(span)?;
+                Some(Stmt::LlvmIr(llvm_ir))
+            }
             TokenKind::DirInclude(path) => {
                 let span = self.next().unwrap().span;
                 Some(Stmt::Directive(Directive::Include { path: path.to_string(), span }))
@@ -738,6 +743,7 @@ impl Parser {
 
         let fn_body = match body.items.first() {
             Some(Stmt::Wasm(wb)) if body.items.len() == 1 => FnBody::Wasm(wb.clone()),
+            Some(Stmt::LlvmIr(lb)) if body.items.len() == 1 => FnBody::LlvmIr(lb.clone()),
             _ => FnBody::Parsed(body),
         };
 
@@ -954,6 +960,7 @@ impl Parser {
 
         let fn_body = match body.items.first() {
             Some(Stmt::Wasm(wb)) if body.items.len() == 1 => FnBody::Wasm(wb.clone()),
+            Some(Stmt::LlvmIr(lb)) if body.items.len() == 1 => FnBody::LlvmIr(lb.clone()),
             _ => FnBody::Parsed(body),
         };
 
@@ -1002,6 +1009,43 @@ impl Parser {
         self.expect(&TokenKind::Dedent)?;
         let end_span = self.peek_span().unwrap_or_else(Span::dummy);
         Some(WasmBlock {
+            lines,
+            span: dir_span.join(end_span).unwrap_or(dir_span),
+        })
+    }
+
+    fn parse_llvmir_block(&mut self, dir_span: Span) -> Option<LlvmIrBlock> {
+        self.consume_if(&TokenKind::Colon);
+        if self.consume_if(&TokenKind::Newline) {
+            // ok
+        }
+        self.expect(&TokenKind::Indent)?;
+
+        let mut lines = Vec::new();
+        while !self.check(&TokenKind::Dedent) && !self.is_eof() {
+            if self.consume_if(&TokenKind::Newline) {
+                continue;
+            }
+            match self.peek_kind() {
+                Some(TokenKind::LlvmIrText(_)) => {
+                    let tok = self.next().unwrap();
+                    if let TokenKind::LlvmIrText(text) = tok.kind {
+                        lines.push(text);
+                    }
+                    self.consume_if(&TokenKind::Newline);
+                }
+                _ => {
+                    let span = self.peek_span().unwrap_or_else(Span::dummy);
+                    self.diagnostics
+                        .push(Diagnostic::error("expected llvm ir text line", span));
+                    self.next();
+                }
+            }
+        }
+
+        self.expect(&TokenKind::Dedent)?;
+        let end_span = self.peek_span().unwrap_or_else(Span::dummy);
+        Some(LlvmIrBlock {
             lines,
             span: dir_span.join(end_span).unwrap_or(dir_span),
         })
@@ -3544,6 +3588,7 @@ impl Parser {
             Stmt::StructDef(s) => s.name.span,
             Stmt::EnumDef(e) => e.name.span,
             Stmt::Wasm(w) => w.span,
+            Stmt::LlvmIr(l) => l.span,
             Stmt::Expr(e) => e.span,
             Stmt::ExprSemi(e, _) => e.span,
             Stmt::Trait(t) => t.span,
@@ -3568,6 +3613,7 @@ fn token_kind_eq(a: &TokenKind, b: &TokenKind) -> bool {
         (DirExtern { .. }, DirExtern { .. }) => true,
         (DirTarget(_), DirTarget(_)) => true,
         (MlstrLine(_), MlstrLine(_)) => true,
+        (LlvmIrText(_), LlvmIrText(_)) => true,
         _ => core::mem::discriminant(a) == core::mem::discriminant(b),
     }
 }

@@ -2882,5 +2882,36 @@
 - 検証（直列）:
   1. `cargo test -p nepl-core --test string --test selfhost_req` -> pass
   2. `cargo test --no-fail-fast` -> pass
+ 3. `NO_COLOR=false trunk build` -> pass
+ 4. `node nodesrc/tests.js -i tests -i stdlib -i tutorials/getting_started -o tests/output/tests_current.json` -> pass (`640/640`)
+
+# 2026-02-22 作業メモ (LLVM target 初期導入: clang 21.1.0 linux native 前提)
+- 目的:
+  - `llvm` target を `nepl-cli` 側に限定して導入し、WASM/WASI 経路と分離する。
+  - `clang 21.1.0 + linux native` を初期要件として固定しつつ、将来拡張可能な形にする。
+- 実装:
+  - `nepl-cli/src/codegen_llvm.rs` を新設。
+    - `ensure_clang_21_linux_native()`:
+      - `clang --version` で `clang version 21.1.0` を検証。
+      - `clang -dumpmachine` で `linux` 含有を検証。
+      - 要件は `LlvmToolchainRequirement` に分離し、将来拡張用に環境変数で上書き可能化:
+        - `NEPL_LLVM_CLANG_VERSION`
+        - `NEPL_LLVM_REQUIRE_LINUX`
+        - `NEPL_LLVM_TRIPLE_CONTAINS`
+    - `emit_ll_from_module()`:
+      - `#llvmir` ブロック（トップレベル/関数本体）を連結して `.ll` を生成。
+      - `llvm` target で `FnBody::Parsed` / `FnBody::Wasm` は明示エラーにして誤動作を防止。
+  - `nepl-cli/src/main.rs`
+    - `--target llvm` 時は wasm backend を通さず `codegen_llvm` 経路へ分岐。
+    - `--run` と `--target llvm` の同時指定を禁止。
+    - `--output` 指定先へ `.ll` を出力。
+  - `nepl-web/src/lib.rs`
+    - `TokenKind::{DirLlvmIr,LlvmIrText}` と `Stmt::LlvmIr` / `FnBody::LlvmIr` を API 出力に反映（分岐漏れ修正）。
+- 検証（直列）:
+  1. `cargo test --no-fail-fast` -> pass
+  2. `cargo test -p nepl-cli` -> pass
   3. `NO_COLOR=false trunk build` -> pass
   4. `node nodesrc/tests.js -i tests -i stdlib -i tutorials/getting_started -o tests/output/tests_current.json` -> pass (`640/640`)
+- 補足:
+  - 現時点の `llvm` target は「手書き `#llvmir` を `.ll` へ出力する初期段階」。
+  - HIR から LLVM IR を生成する本 backend は `todo.md` に継続タスクとして残した。

@@ -157,11 +157,19 @@ pub struct ImplDef {
 pub enum FnBody {
     Parsed(Block),
     Wasm(WasmBlock),
+    LlvmIr(LlvmIrBlock),
 }
 
 /// Wasm text block collected from `#wasm:` lines.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WasmBlock {
+    pub lines: Vec<String>,
+    pub span: Span,
+}
+
+/// LLVM IR text block collected from `#llvmir:` lines.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LlvmIrBlock {
     pub lines: Vec<String>,
     pub span: Span,
 }
@@ -228,6 +236,7 @@ pub enum Stmt {
     StructDef(StructDef),
     EnumDef(EnumDef),
     Wasm(WasmBlock),
+    LlvmIr(LlvmIrBlock),
     Trait(TraitDef),
     Impl(ImplDef),
     Expr(PrefixExpr),

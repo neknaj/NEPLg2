@@ -374,6 +374,7 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::DirIfTarget(_) => "DirIfTarget",
         TokenKind::DirIfProfile(_) => "DirIfProfile",
         TokenKind::DirWasm => "DirWasm",
+        TokenKind::DirLlvmIr => "DirLlvmIr",
         TokenKind::DirIndentWidth(_) => "DirIndentWidth",
         TokenKind::DirInclude(_) => "DirInclude",
         TokenKind::DirExtern { .. } => "DirExtern",
@@ -381,6 +382,7 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::DirPrelude(_) => "DirPrelude",
         TokenKind::DirNoPrelude => "DirNoPrelude",
         TokenKind::WasmText(_) => "WasmText",
+        TokenKind::LlvmIrText(_) => "LlvmIrText",
         TokenKind::MlstrLine(_) => "MlstrLine",
     }
 }
@@ -401,6 +403,7 @@ fn token_extra(kind: &TokenKind) -> Option<String> {
         | TokenKind::DirInclude(v)
         | TokenKind::DirPrelude(v)
         | TokenKind::WasmText(v)
+        | TokenKind::LlvmIrText(v)
         | TokenKind::MlstrLine(v) => Some(v.clone()),
         TokenKind::BoolLiteral(v) => Some(v.to_string()),
         TokenKind::DirIndentWidth(v) => Some(v.to_string()),
@@ -572,6 +575,13 @@ fn stmt_to_js(source: &str, stmt: &Stmt) -> JsValue {
                         &JsValue::from_str(&format!("{:?}", block)),
                     );
                 }
+                FnBody::LlvmIr(block) => {
+                    let _ = Reflect::set(
+                        &obj,
+                        &JsValue::from_str("body"),
+                        &JsValue::from_str(&format!("{:?}", block)),
+                    );
+                }
             }
         }
         Stmt::FnAlias(alias) => {
@@ -617,6 +627,14 @@ fn stmt_to_js(source: &str, stmt: &Stmt) -> JsValue {
         }
         Stmt::Wasm(block) => {
             let _ = Reflect::set(&obj, &JsValue::from_str("kind"), &JsValue::from_str("Wasm"));
+            let _ = Reflect::set(
+                &obj,
+                &JsValue::from_str("debug"),
+                &JsValue::from_str(&format!("{:?}", block)),
+            );
+        }
+        Stmt::LlvmIr(block) => {
+            let _ = Reflect::set(&obj, &JsValue::from_str("kind"), &JsValue::from_str("LlvmIr"));
             let _ = Reflect::set(
                 &obj,
                 &JsValue::from_str("debug"),
@@ -1064,6 +1082,7 @@ fn trace_stmt(trace: &mut NameResolutionTrace, stmt: &Stmt) {
                 trace.pop_scope();
             }
             FnBody::Wasm(_) => {}
+            FnBody::LlvmIr(_) => {}
         },
         Stmt::FnAlias(alias) => {
             trace.reference(alias.target.name.clone(), alias.target.span);
@@ -1554,6 +1573,7 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
             let parsed = match target.as_str() {
                 "wasm" => Some(CompileTarget::Wasm),
                 "wasi" => Some(CompileTarget::Wasi),
+                "llvm" => Some(CompileTarget::Llvm),
                 _ => None,
             };
             if let Some(t) = parsed {
@@ -1577,6 +1597,7 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
                 let parsed = match target.as_str() {
                     "wasm" => Some(CompileTarget::Wasm),
                     "wasi" => Some(CompileTarget::Wasi),
+                    "llvm" => Some(CompileTarget::Llvm),
                     _ => None,
                 };
                 if let Some(t) = parsed {

@@ -200,6 +200,7 @@ impl<'a> Monomorphizer<'a> {
         match &mut f.body {
             HirBody::Block(b) => self.substitute_block(b, &mapping),
             HirBody::Wasm(_) => {} // Wasm blocks don't hold TypeIds usually
+            HirBody::LlvmIr(_) => {} // LLVM IR blocks don't hold TypeIds usually
         }
 
         self.specialized.insert(mangled, f);
