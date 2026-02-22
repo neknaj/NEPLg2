@@ -1,3 +1,25 @@
+# 2026-02-22 作業メモ (`core/math` 変換系前半の wasm/llvm 両対応)
+- 目的:
+  - `core/math` の変換系で、wasm 専用だった基礎 API（拡張・ラップ・整数/浮動小数変換）を llvm でも使える状態へ進める。
+- 実装:
+  - `stdlib/core/math.nepl`
+    - f32/f64 丸め・平方根・min/max・copysign
+      - `f32_sqrt/ceil/floor/trunc/nearest/min/max/copysign`
+      - `f64_sqrt/ceil/floor/trunc/nearest/min/max/copysign`
+      に `#if[target=llvm] #llvmir` を追加。
+      - llvm 側は `llvm.sqrt/ceil/floor/trunc/nearbyint/minimum/maximum/copysign` intrinsic を使用。
+      - 各関数の doc comment を手書き化。
+    - 整数拡張・ラップ・f32 変換前半
+      - `i32_extend_i8_s/i32_extend_i16_s/i32_wrap_i64`
+      - `f32_convert_i32_s/u`, `f32_convert_i64_s/u`
+      - `i32_trunc_f32_s/u`
+      を wasm/llvm 両対応化し、手書きドキュメントへ更新。
+  - 状況:
+    - 変換系の後半（`trunc_sat` 系、f64 変換系、reinterpret 系など）は未着手のため次フェーズで継続。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `610/610 pass`
+
 # 2026-02-22 作業メモ (`core/math` f32/f64 単項演算の wasm/llvm 両対応)
 - 目的:
   - `f32_abs/f32_neg/f64_abs/f64_neg` を wasm 専用状態から llvm 両対応へ拡張し、浮動小数の基礎 API を target 非依存で使える範囲を広げる。
