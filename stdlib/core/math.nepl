@@ -4599,9 +4599,19 @@ fn i64_reinterpret_f64 <(f64)->i64> (a):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn add <(i32,i32)->i32> (a,b):
-    i32_add a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.add
+    #if[target=llvm]
+    #llvmir:
+        define i32 @add(i32 %a, i32 %b) {
+        entry:
+            %0 = add i32 %a, %b
+            ret i32 %0
+        }
 
-#if[target=wasm]
 // sub: 数値演算
 //
 // 目的:
@@ -4629,9 +4639,19 @@ fn add <(i32,i32)->i32> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn sub <(i32,i32)->i32> (a,b):
-    i32_sub a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.sub
+    #if[target=llvm]
+    #llvmir:
+        define i32 @sub(i32 %a, i32 %b) {
+        entry:
+            %0 = sub i32 %a, %b
+            ret i32 %0
+        }
 
-#if[target=wasm]
 // mul: 数値演算
 //
 // 目的:
@@ -4659,9 +4679,19 @@ fn sub <(i32,i32)->i32> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn mul <(i32,i32)->i32> (a,b):
-    i32_mul a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.mul
+    #if[target=llvm]
+    #llvmir:
+        define i32 @mul(i32 %a, i32 %b) {
+        entry:
+            %0 = mul i32 %a, %b
+            ret i32 %0
+        }
 
-#if[target=wasm]
 // div_s: 数値演算
 //
 // 目的:
@@ -4689,9 +4719,19 @@ fn mul <(i32,i32)->i32> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn div_s <(i32,i32)->i32> (a,b):
-    i32_div_s a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.div_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @div_s(i32 %a, i32 %b) {
+        entry:
+            %0 = sdiv i32 %a, %b
+            ret i32 %0
+        }
 
-#if[target=wasm]
 // mod_s: 数値演算
 //
 // 目的:
@@ -4719,9 +4759,19 @@ fn div_s <(i32,i32)->i32> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn mod_s <(i32,i32)->i32> (a,b):
-    i32_rem_s a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rem_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @mod_s(i32 %a, i32 %b) {
+        entry:
+            %0 = srem i32 %a, %b
+            ret i32 %0
+        }
 
-#if[target=wasm]
 // lt: 数値演算
 //
 // 目的:
@@ -4749,9 +4799,20 @@ fn mod_s <(i32,i32)->i32> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn lt <(i32,i32)->bool> (a,b):
-    i32_lt_s a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.lt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp slt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 // eq: 数値演算
 //
 // 目的:
@@ -4779,9 +4840,20 @@ fn lt <(i32,i32)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn eq <(i32,i32)->bool> (a,b):
-    i32_eq a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @eq(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp eq i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 // ne: 数値演算
 //
 // 目的:
@@ -4809,9 +4881,20 @@ fn eq <(i32,i32)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn ne <(i32,i32)->bool> (a,b):
-    i32_ne a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ne(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ne i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 // le: 数値演算
 //
 // 目的:
@@ -4839,9 +4922,20 @@ fn ne <(i32,i32)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn le <(i32,i32)->bool> (a,b):
-    i32_le_s a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.le_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sle i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 // gt: 数値演算
 //
 // 目的:
@@ -4869,9 +4963,20 @@ fn le <(i32,i32)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn gt <(i32,i32)->bool> (a,b):
-    i32_gt_s a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.gt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sgt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 // ge: 数値演算
 //
 // 目的:
@@ -4899,9 +5004,20 @@ fn gt <(i32,i32)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn ge <(i32,i32)->bool> (a,b):
-    i32_ge_s a b
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ge_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
-#if[target=wasm]
 // and: 数値演算
 //
 // 目的:
@@ -4929,12 +5045,19 @@ fn ge <(i32,i32)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn and <(bool,bool)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i32.and
+    #if[target=llvm]
+    #llvmir:
+        define i32 @and(i32 %a, i32 %b) {
+        entry:
+            %0 = and i32 %a, %b
+            ret i32 %0
+        }
 
-#if[target=wasm]
 // or: 数値演算
 //
 // 目的:
@@ -4962,12 +5085,19 @@ fn and <(bool,bool)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn or <(bool,bool)->bool> (a,b):
+    #if[target=wasm]
     #wasm:
         local.get $a
         local.get $b
         i32.or
+    #if[target=llvm]
+    #llvmir:
+        define i32 @or(i32 %a, i32 %b) {
+        entry:
+            %0 = or i32 %a, %b
+            ret i32 %0
+        }
 
-#if[target=wasm]
 // not: 数値演算
 //
 // 目的:
@@ -4995,9 +5125,18 @@ fn or <(bool,bool)->bool> (a,b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn not <(bool)->bool> (a):
+    #if[target=wasm]
     #wasm:
         local.get $a
         i32.eqz
+    #if[target=llvm]
+    #llvmir:
+        define i32 @not(i32 %a) {
+        entry:
+            %0 = icmp eq i32 %a, 0
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
 
 //: 追加整数型 API（u32/u64/u128/i128）
 //:
@@ -5485,135 +5624,3 @@ fn i64_extend_i32_s <(i32)->i64> (a):
             ret i64 %0
         }
 
-#if[target=llvm]
-fn and <(bool,bool)->bool> (a,b):
-    #llvmir:
-        define i32 @and(i32 %a, i32 %b) {
-        entry:
-            %0 = and i32 %a, %b
-            ret i32 %0
-        }
-
-#if[target=llvm]
-fn or <(bool,bool)->bool> (a,b):
-    #llvmir:
-        define i32 @or(i32 %a, i32 %b) {
-        entry:
-            %0 = or i32 %a, %b
-            ret i32 %0
-        }
-
-#if[target=llvm]
-fn not <(bool)->bool> (a):
-    #llvmir:
-        define i32 @not(i32 %a) {
-        entry:
-            %0 = icmp eq i32 %a, 0
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn add <(i32,i32)->i32> (a,b):
-    #llvmir:
-        define i32 @add(i32 %a, i32 %b) {
-        entry:
-            %0 = add i32 %a, %b
-            ret i32 %0
-        }
-
-#if[target=llvm]
-fn sub <(i32,i32)->i32> (a,b):
-    #llvmir:
-        define i32 @sub(i32 %a, i32 %b) {
-        entry:
-            %0 = sub i32 %a, %b
-            ret i32 %0
-        }
-
-#if[target=llvm]
-fn mul <(i32,i32)->i32> (a,b):
-    #llvmir:
-        define i32 @mul(i32 %a, i32 %b) {
-        entry:
-            %0 = mul i32 %a, %b
-            ret i32 %0
-        }
-
-#if[target=llvm]
-fn div_s <(i32,i32)->i32> (a,b):
-    #llvmir:
-        define i32 @div_s(i32 %a, i32 %b) {
-        entry:
-            %0 = sdiv i32 %a, %b
-            ret i32 %0
-        }
-
-#if[target=llvm]
-fn mod_s <(i32,i32)->i32> (a,b):
-    #llvmir:
-        define i32 @mod_s(i32 %a, i32 %b) {
-        entry:
-            %0 = srem i32 %a, %b
-            ret i32 %0
-        }
-
-#if[target=llvm]
-fn lt <(i32,i32)->bool> (a,b):
-    #llvmir:
-        define i32 @lt(i32 %a, i32 %b) {
-        entry:
-            %0 = icmp slt i32 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn eq <(i32,i32)->bool> (a,b):
-    #llvmir:
-        define i32 @eq(i32 %a, i32 %b) {
-        entry:
-            %0 = icmp eq i32 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn ne <(i32,i32)->bool> (a,b):
-    #llvmir:
-        define i32 @ne(i32 %a, i32 %b) {
-        entry:
-            %0 = icmp ne i32 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn le <(i32,i32)->bool> (a,b):
-    #llvmir:
-        define i32 @le(i32 %a, i32 %b) {
-        entry:
-            %0 = icmp sle i32 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn gt <(i32,i32)->bool> (a,b):
-    #llvmir:
-        define i32 @gt(i32 %a, i32 %b) {
-        entry:
-            %0 = icmp sgt i32 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
-
-#if[target=llvm]
-fn ge <(i32,i32)->bool> (a,b):
-    #llvmir:
-        define i32 @ge(i32 %a, i32 %b) {
-        entry:
-            %0 = icmp sge i32 %a, %b
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }

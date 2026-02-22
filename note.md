@@ -1,3 +1,20 @@
+# 2026-02-22 作業メモ (`core/math` の `#wasm/#llvmir` 本体分岐へ統一)
+- 背景:
+  - `add/sub/...` 系で wasm 側を関数呼び出しで委譲していたため、`#if[target=wasm]` の「直後1式」規則と `#wasm` 生コード方針を統一できていなかった。
+  - 末尾に旧方式（top-level `#if[target=llvm] fn ...`）の重複定義が残っており、今後の shadow 警告ノイズ源になっていた。
+- 実装:
+  - `stdlib/core/math.nepl`
+    - `add/sub/mul/div_s/mod_s/lt/eq/ne/le/gt/ge` の wasm 側を `#wasm` 直書きへ統一。
+    - 末尾に残っていた旧 `#if[target=llvm] fn add/sub/.../and/or/not` の重複定義を削除。
+    - 関数定義自体は共通のまま維持し、本体式のみ `#if[target=wasm]` / `#if[target=llvm]` で分岐する形に整理。
+  - `nepl-core/src/codegen_llvm.rs`
+    - Parsed 関数内の `#if` 評価後に `#llvmir/#wasm` が1つだけ有効になるケースを選択できるよう拡張。
+    - 競合時の診断 `ConflictingRawBodies` を追加。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `587/587 pass`
+  - `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests/output/tests_llvm_target_current.json --runner llvm --no-tree -j 1`: `4/4 pass`
+
 # 2026-02-22 作業メモ (`#if` の直後1式適用を関数内ブロックへ拡張)
 - 背景:
   - `#if[target=...]` が top-level では機能する一方、関数本体ブロック内の一般式（`add` / `let` / `if`）には適用されていなかった。

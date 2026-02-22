@@ -7,6 +7,7 @@ extern crate alloc;
 
 use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, Stmt, TypeExpr};
 use crate::compiler::{BuildProfile, CompileTarget};
@@ -18,6 +19,7 @@ pub enum LlvmCodegenError {
     MissingLlvmIrBlock,
     UnsupportedParsedFunctionBody { function: String },
     UnsupportedWasmBody { function: String },
+    ConflictingRawBodies { function: String },
 }
 
 impl core::fmt::Display for LlvmCodegenError {
@@ -39,8 +41,20 @@ impl core::fmt::Display for LlvmCodegenError {
                 "llvm target cannot lower #wasm function body; function '{}'",
                 function
             ),
+            LlvmCodegenError::ConflictingRawBodies { function } => write!(
+                f,
+                "function '{}' has multiple active raw bodies after #if gate evaluation",
+                function
+            ),
         }
     }
+}
+
+enum RawBodySelection<'a> {
+    None,
+    Llvm(&'a crate::ast::LlvmIrBlock),
+    Wasm,
+    Conflict,
 }
 
 /// `#llvmir` ブロックを連結して LLVM IR テキストを生成する。
@@ -84,12 +98,35 @@ pub fn emit_ll_from_module_for_target(
                     saw_llvmir = true;
                 }
                 FnBody::Parsed(block) => {
-                    if let Some(lowered) =
-                        lower_parsed_fn(def.name.name.as_str(), &def.signature, &def.params, block)
-                    {
-                        out.push_str(&lowered);
-                        out.push('\n');
-                        saw_llvmir = true;
+                    match select_raw_body_from_parsed_block(block, target, profile) {
+                        RawBodySelection::Llvm(raw) => {
+                            append_llvmir_block(&mut out, raw);
+                            saw_llvmir = true;
+                        }
+                        RawBodySelection::Wasm => {
+                            return Err(LlvmCodegenError::UnsupportedWasmBody {
+                                function: def.name.name.clone(),
+                            });
+                        }
+                        RawBodySelection::Conflict => {
+                            return Err(LlvmCodegenError::ConflictingRawBodies {
+                                function: def.name.name.clone(),
+                            });
+                        }
+                        RawBodySelection::None => {
+                            if let Some(lowered) = lower_parsed_fn_with_gates(
+                                def.name.name.as_str(),
+                                &def.signature,
+                                &def.params,
+                                block,
+                                target,
+                                profile,
+                            ) {
+                                out.push_str(&lowered);
+                                out.push('\n');
+                                saw_llvmir = true;
+                            }
+                        }
                     }
                 }
                 FnBody::Wasm(_) => {
@@ -132,7 +169,60 @@ fn append_llvmir_block(out: &mut String, block: &crate::ast::LlvmIrBlock) {
     out.push('\n');
 }
 
-fn lower_parsed_fn(name: &str, signature: &TypeExpr, params: &[Ident], body: &Block) -> Option<String> {
+fn active_stmt_indices(block: &Block, target: CompileTarget, profile: BuildProfile) -> Vec<usize> {
+    let mut pending_if: Option<bool> = None;
+    let mut out = Vec::new();
+    for (idx, stmt) in block.items.iter().enumerate() {
+        if let Stmt::Directive(d) = stmt {
+            if let Some(allowed) = gate_allows(d, target, profile) {
+                pending_if = Some(allowed);
+                continue;
+            }
+        }
+        let allowed = pending_if.unwrap_or(true);
+        pending_if = None;
+        if allowed {
+            out.push(idx);
+        }
+    }
+    out
+}
+
+fn select_raw_body_from_parsed_block<'a>(
+    block: &'a Block,
+    target: CompileTarget,
+    profile: BuildProfile,
+) -> RawBodySelection<'a> {
+    let mut selected: Option<RawBodySelection<'a>> = None;
+    for idx in active_stmt_indices(block, target, profile) {
+        match &block.items[idx] {
+            Stmt::LlvmIr(raw) => {
+                if selected.is_some() {
+                    return RawBodySelection::Conflict;
+                }
+                selected = Some(RawBodySelection::Llvm(raw));
+            }
+            Stmt::Wasm(_) => {
+                if selected.is_some() {
+                    return RawBodySelection::Conflict;
+                }
+                selected = Some(RawBodySelection::Wasm);
+            }
+            Stmt::Directive(_) => {}
+            _ => return RawBodySelection::None,
+        }
+    }
+    selected.unwrap_or(RawBodySelection::None)
+}
+
+fn lower_parsed_fn_with_gates(
+    name: &str,
+    signature: &TypeExpr,
+    params: &[Ident],
+    body: &Block,
+    target: CompileTarget,
+    profile: BuildProfile,
+) -> Option<String> {
     if !params.is_empty() {
         return None;
     }
@@ -145,10 +235,11 @@ fn lower_parsed_fn(name: &str, signature: &TypeExpr, params: &[Ident], body: &Bl
         return None;
     }
 
-    if body.items.len() != 1 {
+    let active = active_stmt_indices(body, target, profile);
+    if active.len() != 1 {
         return None;
     }
-    let ret_value = match &body.items[0] {
+    let ret_value = match &body.items[active[0]] {
         Stmt::Expr(expr) => lower_i32_literal_expr(expr)?,
         _ => return None,
     };
@@ -270,5 +361,27 @@ fn l <()->i32> ():
             .expect("llvm-gated items should compile");
         assert!(ll.contains("define i32 @l()"));
         assert!(!ll.contains("define i32 @w()"));
+    }
+
+    #[test]
+    fn emit_ll_supports_function_body_if_target_raw() {
+        let src = r#"
+#target llvm
+fn f <()->i32> ():
+    #if[target=wasm]
+    #wasm:
+        i32.const 1
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f() {
+        entry:
+            ret i32 42
+        }
+"#;
+        let module = parse_module(src);
+        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug)
+            .expect("llvm raw function body should be selected");
+        assert!(ll.contains("define i32 @f()"));
+        assert!(ll.contains("ret i32 42"));
     }
 }
