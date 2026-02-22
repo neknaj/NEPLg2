@@ -112,6 +112,11 @@ cargo test --workspace --locked
 
 stdlib doctest なども含めた検証は、`nodesrc/tests.js` を使用します。
 
+## 開発ドキュメント
+
+- CLI 出力仕様: `doc/cli.md`
+- LLVM IR セットアップ（clang 21.1.0）: `doc/llvm_ir_setup.md`
+
 ## Web Playground（ローカル）
 
 `web/` では、ブラウザ上でコンパイル・実行・WAT 確認が可能です。
