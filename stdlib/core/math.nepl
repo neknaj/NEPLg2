@@ -1701,85 +1701,122 @@ fn i64_ge_u <(i64,i64)->bool> (a,b):
         i64.ge_u
 
 
-#if[target=wasm]
-//: f32_add: 主な用途
+//: f32_add: f32 の加算
 //:
 //: [目的/もくてき]:
-//: - f32_add の主な用途と呼び出し方を示します。
+//: - 2つの f32 を加算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.add`、llvm は `fadd float` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 丸め・NaN・±∞の扱いは IEEE 754 と各 backend の仕様に従います。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "std/test" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let x <f32> f32_add 1.5 2.25;
+//:     let y <f32> f32_sub x 1.25;
+//:     assert f32_eq x 3.75;
+//:     assert f32_eq y 2.5;
+//: ```
 fn f32_add <(f32,f32)->f32> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.add
+    #if[target=llvm]
+    #llvmir:
+        define float @f32_add(float %a, float %b) {
+        entry:
+            %0 = fadd float %a, %b
+            ret float %0
+        }
 
-#if[target=wasm]
-//: f32_sub: 主な用途
+//: f32_sub: f32 の減算
 //:
 //: [目的/もくてき]:
-//: - f32_sub の主な用途と呼び出し方を示します。
+//: - 2つの f32 の差を計算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.sub`、llvm は `fsub float` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN が関与する場合は比較で偽になる点に注意してください。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_sub <(f32,f32)->f32> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.sub
+    #if[target=llvm]
+    #llvmir:
+        define float @f32_sub(float %a, float %b) {
+        entry:
+            %0 = fsub float %a, %b
+            ret float %0
+        }
 
-#if[target=wasm]
-//: f32_mul: 主な用途
+//: f32_mul: f32 の乗算
 //:
 //: [目的/もくてき]:
-//: - f32_mul の主な用途と呼び出し方を示します。
+//: - 2つの f32 の積を計算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.mul`、llvm は `fmul float` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 大きな値同士では `+∞` や `-∞` へ飽和することがあります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_mul <(f32,f32)->f32> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.mul
+    #if[target=llvm]
+    #llvmir:
+        define float @f32_mul(float %a, float %b) {
+        entry:
+            %0 = fmul float %a, %b
+            ret float %0
+        }
 
-#if[target=wasm]
-//: f32_div: 主な用途
+//: f32_div: f32 の除算
 //:
 //: [目的/もくてき]:
-//: - f32_div の主な用途と呼び出し方を示します。
+//: - 2つの f32 の商を計算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.div`、llvm は `fdiv float` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 整数除算と異なり、0 除算は trap せず ±∞ / NaN になります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_div <(f32,f32)->f32> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.div
+    #if[target=llvm]
+    #llvmir:
+        define float @f32_div(float %a, float %b) {
+        entry:
+            %0 = fdiv float %a, %b
+            ret float %0
+        }
 
 #if[target=wasm]
 //: f32_sqrt: 主な用途
@@ -1974,206 +2011,289 @@ fn f32_copysign <(f32,f32)->f32> (a,b):
         local.get $b
         f32.copysign
 
-#if[target=wasm]
-//: f32_eq: 主な用途
+//: f32_eq: f32 の等値比較
 //:
 //: [目的/もくてき]:
-//: - f32_eq の主な用途と呼び出し方を示します。
+//: - 2つの f32 が等しいかを判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.eq`、llvm は `fcmp oeq` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は false になります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_eq <(f32,f32)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f32_eq(float %a, float %b) {
+        entry:
+            %cmp = fcmp oeq float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f32_ne: 主な用途
+//: f32_ne: f32 の非等値比較
 //:
 //: [目的/もくてき]:
-//: - f32_ne の主な用途と呼び出し方を示します。
+//: - 2つの f32 が異なるかを判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.ne`、llvm は `fcmp une` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は true になります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_ne <(f32,f32)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f32_ne(float %a, float %b) {
+        entry:
+            %cmp = fcmp une float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f32_lt: 主な用途
+//: f32_lt: f32 の小なり比較
 //:
 //: [目的/もくてき]:
-//: - f32_lt の主な用途と呼び出し方を示します。
+//: - `a < b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.lt`、llvm は `fcmp olt` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含むと false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_lt <(f32,f32)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.lt
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f32_lt(float %a, float %b) {
+        entry:
+            %cmp = fcmp olt float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f32_le: 主な用途
+//: f32_le: f32 の以下比較
 //:
 //: [目的/もくてき]:
-//: - f32_le の主な用途と呼び出し方を示します。
+//: - `a <= b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.le`、llvm は `fcmp ole` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含むと false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_le <(f32,f32)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.le
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f32_le(float %a, float %b) {
+        entry:
+            %cmp = fcmp ole float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f32_gt: 主な用途
+//: f32_gt: f32 の大なり比較
 //:
 //: [目的/もくてき]:
-//: - f32_gt の主な用途と呼び出し方を示します。
+//: - `a > b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.gt`、llvm は `fcmp ogt` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含むと false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_gt <(f32,f32)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.gt
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f32_gt(float %a, float %b) {
+        entry:
+            %cmp = fcmp ogt float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f32_ge: 主な用途
+//: f32_ge: f32 の以上比較
 //:
 //: [目的/もくてき]:
-//: - f32_ge の主な用途と呼び出し方を示します。
+//: - `a >= b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f32.ge`、llvm は `fcmp oge` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含むと false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f32_ge <(f32,f32)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f32.ge
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f32_ge(float %a, float %b) {
+        entry:
+            %cmp = fcmp oge float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
 
-#if[target=wasm]
-//: f64_add: 主な用途
+//: f64_add: f64 の加算
 //:
 //: [目的/もくてき]:
-//: - f64_add の主な用途と呼び出し方を示します。
+//: - 2つの f64 を加算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.add`、llvm は `fadd double` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 丸め誤差や NaN の伝播は IEEE 754 の規則に従います。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "std/test" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let one <f64> f64_convert_i32_s 1;
+//:     let two <f64> f64_convert_i32_s 2;
+//:     let three <f64> f64_convert_i32_s 3;
+//:     let six <f64> f64_convert_i32_s 6;
+//:     let x <f64> f64_add one two;
+//:     let y <f64> f64_mul x two;
+//:     assert f64_eq x three;
+//:     assert f64_eq y six;
+//: ```
 fn f64_add <(f64,f64)->f64> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.add
+    #if[target=llvm]
+    #llvmir:
+        define double @f64_add(double %a, double %b) {
+        entry:
+            %0 = fadd double %a, %b
+            ret double %0
+        }
 
-#if[target=wasm]
-//: f64_sub: 主な用途
+//: f64_sub: f64 の減算
 //:
 //: [目的/もくてき]:
-//: - f64_sub の主な用途と呼び出し方を示します。
+//: - 2つの f64 の差を計算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.sub`、llvm は `fsub double` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 丸めの影響で `(a - b) + b` が常に `a` になるとは限りません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_sub <(f64,f64)->f64> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.sub
+    #if[target=llvm]
+    #llvmir:
+        define double @f64_sub(double %a, double %b) {
+        entry:
+            %0 = fsub double %a, %b
+            ret double %0
+        }
 
-#if[target=wasm]
-//: f64_mul: 主な用途
+//: f64_mul: f64 の乗算
 //:
 //: [目的/もくてき]:
-//: - f64_mul の主な用途と呼び出し方を示します。
+//: - 2つの f64 の積を計算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.mul`、llvm は `fmul double` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 大きい値では ±∞、非数値入力では NaN になります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_mul <(f64,f64)->f64> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.mul
+    #if[target=llvm]
+    #llvmir:
+        define double @f64_mul(double %a, double %b) {
+        entry:
+            %0 = fmul double %a, %b
+            ret double %0
+        }
 
-#if[target=wasm]
-//: f64_div: 主な用途
+//: f64_div: f64 の除算
 //:
 //: [目的/もくてき]:
-//: - f64_div の主な用途と呼び出し方を示します。
+//: - 2つの f64 の商を計算します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.div`、llvm は `fdiv double` を実行します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 整数演算とは異なり 0 除算で trap せず、±∞ や NaN が返ります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_div <(f64,f64)->f64> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.div
+    #if[target=llvm]
+    #llvmir:
+        define double @f64_div(double %a, double %b) {
+        entry:
+            %0 = fdiv double %a, %b
+            ret double %0
+        }
 
 #if[target=wasm]
 //: f64_sqrt: 主な用途
@@ -2368,125 +2488,167 @@ fn f64_copysign <(f64,f64)->f64> (a,b):
         local.get $b
         f64.copysign
 
-#if[target=wasm]
-//: f64_eq: 主な用途
+//: f64_eq: f64 の等値比較
 //:
 //: [目的/もくてき]:
-//: - f64_eq の主な用途と呼び出し方を示します。
+//: - 2つの f64 が等しいかを判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.eq`、llvm は `fcmp oeq` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_eq <(f64,f64)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f64_eq(double %a, double %b) {
+        entry:
+            %cmp = fcmp oeq double %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f64_ne: 主な用途
+//: f64_ne: f64 の非等値比較
 //:
 //: [目的/もくてき]:
-//: - f64_ne の主な用途と呼び出し方を示します。
+//: - 2つの f64 が異なるかを判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.ne`、llvm は `fcmp une` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は true です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_ne <(f64,f64)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f64_ne(double %a, double %b) {
+        entry:
+            %cmp = fcmp une double %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f64_lt: 主な用途
+//: f64_lt: f64 の小なり比較
 //:
 //: [目的/もくてき]:
-//: - f64_lt の主な用途と呼び出し方を示します。
+//: - `a < b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.lt`、llvm は `fcmp olt` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_lt <(f64,f64)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.lt
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f64_lt(double %a, double %b) {
+        entry:
+            %cmp = fcmp olt double %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f64_le: 主な用途
+//: f64_le: f64 の以下比較
 //:
 //: [目的/もくてき]:
-//: - f64_le の主な用途と呼び出し方を示します。
+//: - `a <= b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.le`、llvm は `fcmp ole` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_le <(f64,f64)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.le
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f64_le(double %a, double %b) {
+        entry:
+            %cmp = fcmp ole double %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f64_gt: 主な用途
+//: f64_gt: f64 の大なり比較
 //:
 //: [目的/もくてき]:
-//: - f64_gt の主な用途と呼び出し方を示します。
+//: - `a > b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.gt`、llvm は `fcmp ogt` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_gt <(f64,f64)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.gt
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f64_gt(double %a, double %b) {
+        entry:
+            %cmp = fcmp ogt double %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
-#if[target=wasm]
-//: f64_ge: 主な用途
+//: f64_ge: f64 の以上比較
 //:
 //: [目的/もくてき]:
-//: - f64_ge の主な用途と呼び出し方を示します。
+//: - `a >= b` を判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - wasm は `f64.ge`、llvm は `fcmp oge` を使います。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - NaN を含む比較は false です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn f64_ge <(f64,f64)->bool> (a,b):
     #wasm:
         local.get $a
         local.get $b
         f64.ge
+    #if[target=llvm]
+    #llvmir:
+        define i32 @f64_ge(double %a, double %b) {
+        entry:
+            %cmp = fcmp oge double %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
 
 
 #if[target=wasm]

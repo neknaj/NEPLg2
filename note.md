@@ -1,3 +1,28 @@
+# 2026-02-22 作業メモ (`core/math` f32/f64 基礎演算・比較の wasm/llvm 両対応)
+- 目的:
+  - `core/math` のうち、f32/f64 の基礎演算・比較で残っていた wasm 専用定義を段階的に llvm 両対応へ拡張する。
+  - 同時に、テンプレ型ドキュメントコメントを用途中心の手書きコメントへ置換する。
+- 実装:
+  - `stdlib/core/math.nepl`
+    - f32:
+      - `f32_add/sub/mul/div` に `#if[target=llvm] #llvmir`（`fadd/fsub/fmul/fdiv float`）を追加
+      - `f32_eq/ne/lt/le/gt/ge` に `#if[target=llvm] #llvmir`（`fcmp` + `zext i1 -> i32`）を追加
+      - 各関数の doc comment を手書き化
+    - f64:
+      - `f64_add/sub/mul/div` に `#if[target=llvm] #llvmir`（`fadd/fsub/fmul/fdiv double`）を追加
+      - `f64_eq/ne/lt/le/gt/ge` に `#if[target=llvm] #llvmir`（`fcmp` + `zext i1 -> i32`）を追加
+      - 各関数の doc comment を手書き化
+    - doctest 追加:
+      - `f32_add`（複数 assert）
+      - `f64_add`（複数 assert、`f64_convert_i32_s` を使って型曖昧性を回避）
+- 失敗分析:
+  - 追加直後に `stdlib/core/math.nepl::doctest#22` が `no matching overload found` で失敗。
+  - 根因は f64 リテラルを含む式の overload 解決の曖昧性。
+  - `f64_convert_i32_s` による明示型付けへ修正して解消。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl -o tests/output/math_doctest_current.json -j 1 --no-stdlib`: `39/39 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `610/610 pass`
+
 # 2026-02-22 作業メモ (`core/math` i64 範囲の手書きドキュメント整備)
 - 目的:
   - `stdlib/core/math.nepl` の i64 系に残っていた機械生成テンプレ文（「主な用途」「薄いラッパ」）を廃止し、関数の用途そのものを説明する手書きコメントへ置換する。
