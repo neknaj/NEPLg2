@@ -71,7 +71,7 @@ pub fn emit_ll_from_module_for_target(
     profile: BuildProfile,
 ) -> Result<String, LlvmCodegenError> {
     let mut out = String::new();
-    let mut saw_llvmir = false;
+    let entry_names = collect_active_entry_names(module, target, profile);
     let mut pending_if: Option<bool> = None;
 
     for stmt in &module.root.items {
@@ -90,18 +90,15 @@ pub fn emit_ll_from_module_for_target(
         match stmt {
             Stmt::LlvmIr(block) => {
                 append_llvmir_block(&mut out, block);
-                saw_llvmir = true;
             }
             Stmt::FnDef(def) => match &def.body {
                 FnBody::LlvmIr(block) => {
                     append_llvmir_block(&mut out, block);
-                    saw_llvmir = true;
                 }
                 FnBody::Parsed(block) => {
                     match select_raw_body_from_parsed_block(block, target, profile) {
                         RawBodySelection::Llvm(raw) => {
                             append_llvmir_block(&mut out, raw);
-                            saw_llvmir = true;
                         }
                         RawBodySelection::Wasm => {
                             return Err(LlvmCodegenError::UnsupportedWasmBody {
@@ -124,25 +121,52 @@ pub fn emit_ll_from_module_for_target(
                             ) {
                                 out.push_str(&lowered);
                                 out.push('\n');
-                                saw_llvmir = true;
                             }
                         }
                     }
                 }
                 FnBody::Wasm(_) => {
                     // `#wasm` は明示的な wasm backend 専用実装。
-                    // LLVM 経路では暗黙 lower せずスキップし、`#llvmir` 実装がある関数のみ採用する。
+                    // 非 entry 関数は移行期間のためスキップするが、
+                    // entry が #wasm のみの場合は LLVM 実行可能なモジュールを作れないためエラーとする。
+                    if entry_names.iter().any(|n| n == &def.name.name) {
+                        return Err(LlvmCodegenError::UnsupportedWasmBody {
+                            function: def.name.name.clone(),
+                        });
+                    }
                 }
             },
             _ => {}
         }
     }
 
-    if !saw_llvmir {
-        return Err(LlvmCodegenError::MissingLlvmIrBlock);
-    }
-
     Ok(out)
+}
+
+fn collect_active_entry_names(
+    module: &Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+) -> Vec<String> {
+    let mut pending_if: Option<bool> = None;
+    let mut out = Vec::new();
+    for stmt in &module.root.items {
+        if let Stmt::Directive(d) = stmt {
+            if let Some(allowed) = gate_allows(d, target, profile) {
+                pending_if = Some(allowed);
+                continue;
+            }
+        }
+        let allowed = pending_if.unwrap_or(true);
+        pending_if = None;
+        if !allowed {
+            continue;
+        }
+        if let Stmt::Directive(Directive::Entry { name }) = stmt {
+            out.push(name.name.clone());
+        }
+    }
+    out
 }
 
 fn gate_allows(d: &Directive, target: CompileTarget, profile: BuildProfile) -> Option<bool> {
@@ -322,8 +346,8 @@ fn body <()->i32> ():
     add 1 2
 "#;
         let module = parse_module(src);
-        let err = emit_ll_from_module(&module).expect_err("no llvm body should fail");
-        assert!(matches!(err, LlvmCodegenError::MissingLlvmIrBlock));
+        let ll = emit_ll_from_module(&module).expect("unsupported parsed function should be skipped");
+        assert!(!ll.contains("define i32 @body()"));
     }
 
     #[test]
@@ -383,5 +407,24 @@ fn f <()->i32> ():
             .expect("llvm raw function body should be selected");
         assert!(ll.contains("define i32 @f()"));
         assert!(ll.contains("ret i32 42"));
+    }
+
+    #[test]
+    fn emit_ll_rejects_entry_with_wasm_body() {
+        let src = r#"
+#target llvm
+#entry main
+fn main <()->i32> ():
+    #wasm:
+        i32.const 1
+"#;
+        let module = parse_module(src);
+        let err = emit_ll_from_module(&module).expect_err("entry with #wasm body must fail");
+        assert_eq!(
+            err,
+            LlvmCodegenError::UnsupportedWasmBody {
+                function: "main".to_string()
+            }
+        );
     }
 }

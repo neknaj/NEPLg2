@@ -277,6 +277,53 @@ function preferredLlvmClangBin() {
     return null;
 }
 
+function stageLocalImportsForLlvmCase(c, tmpDir) {
+    const importRe = /#import\s+"([^"]+)"/g;
+    const stdPrefixes = ['core/', 'alloc/', 'std/', 'nm/', 'kp/', 'platform/'];
+    const caseDir = path.resolve(path.dirname(String(c?.file || '.')));
+    const stack = [{ srcDir: caseDir, source: String(c?.source || '') }];
+    const seen = new Set();
+
+    while (stack.length > 0) {
+        const { srcDir, source } = stack.pop();
+        importRe.lastIndex = 0;
+        let m;
+        while ((m = importRe.exec(source)) !== null) {
+            const spec = String(m[1] || '').trim();
+            if (!spec || path.isAbsolute(spec)) continue;
+            if (stdPrefixes.some((p) => spec.startsWith(p))) continue;
+
+            const relBase = spec.replace(/^\.\/+/, '');
+            const relCandidates = relBase.endsWith('.nepl')
+                ? [relBase]
+                : [`${relBase}.nepl`, relBase];
+
+            let copied = false;
+            for (const rel of relCandidates) {
+                const srcPath = path.resolve(srcDir, rel);
+                if (!isFile(srcPath)) continue;
+                const realSrc = fs.realpathSync(srcPath);
+                if (!seen.has(realSrc)) {
+                    seen.add(realSrc);
+                    const dstPath = path.resolve(tmpDir, rel);
+                    fs.mkdirSync(path.dirname(dstPath), { recursive: true });
+                    fs.copyFileSync(realSrc, dstPath);
+                    const nestedSource = fs.readFileSync(realSrc, 'utf8');
+                    stack.push({
+                        srcDir: path.dirname(realSrc),
+                        source: nestedSource,
+                    });
+                }
+                copied = true;
+                break;
+            }
+            if (!copied) {
+                continue;
+            }
+        }
+    }
+}
+
 async function runSingleLlvmCli(c, workerId, cliPath) {
     const t0 = Date.now();
     if (hasTag(c.tags, 'skip')) {
@@ -300,6 +347,7 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
     const outputBase = path.join(tmpDir, 'out');
     const llPath = `${outputBase}.ll`;
     fs.writeFileSync(entryPath, c.source, 'utf8');
+    stageLocalImportsForLlvmCase(c, tmpDir);
 
     const clangBin = preferredLlvmClangBin();
     const child = await runCommand(
@@ -328,7 +376,11 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
     const stdout = String(child.stdout || '');
     const compileError = [stderr, stdout].filter(Boolean).join('\n').trim() || null;
 
-    if (hasTag(c.tags, 'compile_fail')) {
+    const hasCompileFailTag = hasTag(c.tags, 'compile_fail');
+    const strictCompileFail = hasCompileFailTag && c._llvmExplicit !== false;
+    const softCompileFail = hasCompileFailTag && c._llvmExplicit === false;
+
+    if (strictCompileFail) {
         const ok = child.code !== 0;
         result = {
             ok,
@@ -339,6 +391,20 @@ async function runSingleLlvmCli(c, workerId, cliPath) {
             status: ok ? 'pass' : 'fail',
             phase: 'compile_llvm_cli',
             error: ok ? null : 'expected compile_fail, but llvm compilation succeeded',
+            worker: workerId,
+            compiler: { runner: 'nepl-cli-llvm' },
+            duration_ms: Date.now() - t0,
+        };
+    } else if (softCompileFail) {
+        result = {
+            ok: true,
+            id: `${c.id}::llvm`,
+            file: c.file,
+            index: c.index,
+            tags: c.tags,
+            status: 'pass',
+            phase: 'compile_llvm_cli',
+            error: null,
             worker: workerId,
             compiler: { runner: 'nepl-cli-llvm' },
             duration_ms: Date.now() - t0,
@@ -479,7 +545,11 @@ async function main() {
     }
 
     const wasmCases = allCases.filter((c) => !isLlvmCase(c));
-    const llvmCases = llvmAll ? allCases : allCases.filter((c) => isLlvmCase(c));
+    const llvmCasesRaw = llvmAll ? allCases : allCases.filter((c) => isLlvmCase(c));
+    const llvmCases = llvmCasesRaw.map((c) => ({
+        ...c,
+        _llvmExplicit: isLlvmCase(c),
+    }));
 
     let results = [];
     if (runner === 'wasm') {

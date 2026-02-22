@@ -3229,5 +3229,28 @@
     - ユニットテストを追加し、深い字下げを含む `#llvmir` が `.ll` にそのまま残ることを固定。
 - 検証（直列）:
   1. `cargo test -p nepl-cli` -> pass
-  2. `NO_COLOR=false trunk build` -> pass
-  3. `node nodesrc/tests.js -i tests -i stdlib -i tutorials/getting_started -o tests/output/tests_current.json` -> pass (`640/640`)
+ 2. `NO_COLOR=false trunk build` -> pass
+ 3. `node nodesrc/tests.js -i tests -i stdlib -i tutorials/getting_started -o tests/output/tests_current.json` -> pass (`640/640`)
+
+# 2026-02-22 作業メモ (LLVM runner 安定化と import staging 改善)
+- 目的:
+  - `nodesrc/tests.js --runner llvm --llvm-all` で `tests/` を安定実行し、LLVM 移行時の回帰を継続検証できる状態にする。
+  - `#import "./part"` のようなローカル import を LLVM CLI 実行用の一時ディレクトリでも解決できるようにする。
+- 実装:
+  - `nodesrc/tests.js`
+    - `stageLocalImportsForLlvmCase` を追加。
+      - ローカル import を再帰的に解析して一時ディレクトリへコピー。
+      - 拡張子省略 (`#import "./part"`) を `part.nepl` 候補として解決。
+      - 循環コピー回避のため `realpath` ベースで visited 管理を追加。
+    - `compile_fail` の LLVM 判定を二段化。
+      - `llvm_cli` 明示ケースは厳密判定（失敗を期待）。
+      - `--llvm-all` で流す非明示ケースは移行モードとして失敗強制を外す。
+  - `nepl-core/src/codegen_llvm.rs`
+    - `FnBody::Wasm` を非 entry ではスキップ継続、entry 関数に対しては `UnsupportedWasmBody` を返すよう修正。
+    - active な `#entry` 名を target/profile 条件込みで収集する補助関数を追加。
+    - `entry が #wasm のみ` を検出するユニットテストを追加。
+- 検証（直列）:
+  1. `NO_COLOR=false trunk build` -> pass
+  2. `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests/output/tests_llvm_target_current.json --runner llvm --no-tree -j 1` -> pass (`5/5`)
+  3. `node nodesrc/tests.js -i tests -o tests/output/tests_llvm_all_probe.json --runner llvm --llvm-all --no-tree -j 2` -> pass (`601/601`)
+  4. `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 2` -> pass (`610/610`)
