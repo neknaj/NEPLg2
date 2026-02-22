@@ -951,6 +951,8 @@ pub fn typecheck(
                 f,
                 f_ty,
                 entry.as_ref().map(|n| n == &f.name.name).unwrap_or(false),
+                target,
+                profile,
                 &[],
                 &mut ctx,
                 &mut env,
@@ -1084,6 +1086,8 @@ pub fn typecheck(
                     m,
                     expected_sig,
                     false,
+                    target,
+                    profile,
                     &[],
                     &mut ctx,
                     &mut env,
@@ -1194,6 +1198,8 @@ fn check_function(
     f: &FnDef,
     func_ty: TypeId,
     is_entry: bool,
+    target: CompileTarget,
+    profile: BuildProfile,
     captured_params: &[(String, TypeId)],
     ctx: &mut TypeCtx,
     env: &mut Env,
@@ -1274,23 +1280,31 @@ fn check_function(
             traits,
             impls,
             generated_functions,
+            target,
+            profile,
         };
 
         let body_res = match &f.body {
-            FnBody::Parsed(b) => match checker.check_block(b, 0, true) {
-                Some((blk, _val)) => {
-                    if checker.ctx.unify(blk.ty, result_ty).is_err() {
-                        checker.diagnostics.push(Diagnostic::error(
-                            "return type does not match signature",
-                            f.name.span,
-                        ));
+            FnBody::Parsed(b) => {
+                if let Some(raw) = checker.select_target_raw_body(b) {
+                    raw
+                } else {
+                    match checker.check_block(b, 0, true) {
+                        Some((blk, _val)) => {
+                            if checker.ctx.unify(blk.ty, result_ty).is_err() {
+                                checker.diagnostics.push(Diagnostic::error(
+                                    "return type does not match signature",
+                                    f.name.span,
+                                ));
+                            }
+                            HirBody::Block(blk)
+                        }
+                        None => {
+                            return Err(checker.diagnostics);
+                        }
                     }
-                    HirBody::Block(blk)
                 }
-                None => {
-                    return Err(checker.diagnostics);
-                }
-            },
+            }
             FnBody::Wasm(wb) => HirBody::Wasm(wb.clone()),
             FnBody::LlvmIr(lb) => HirBody::LlvmIr(lb.clone()),
         };
@@ -1369,9 +1383,54 @@ struct BlockChecker<'a> {
     traits: &'a BTreeMap<String, TraitInfo>,
     impls: &'a Vec<ImplInfo>,
     generated_functions: &'a mut Vec<HirFunction>,
+    target: CompileTarget,
+    profile: BuildProfile,
 }
 
 impl<'a> BlockChecker<'a> {
+    fn select_target_raw_body(&mut self, block: &Block) -> Option<HirBody> {
+        let mut pending_if: Option<bool> = None;
+        let mut selected: Option<HirBody> = None;
+        for stmt in &block.items {
+            if let Stmt::Directive(d) = stmt {
+                if let Some(allowed) = gate_allows(d, self.target, self.profile) {
+                    pending_if = Some(allowed);
+                    continue;
+                }
+            }
+            let allowed = pending_if.unwrap_or(true);
+            pending_if = None;
+            if !allowed {
+                continue;
+            }
+            match stmt {
+                Stmt::Wasm(w) => {
+                    if selected.is_some() {
+                        self.diagnostics.push(Diagnostic::error(
+                            "multiple active raw bodies in one function",
+                            w.span,
+                        ));
+                        return selected;
+                    }
+                    selected = Some(HirBody::Wasm(w.clone()));
+                }
+                Stmt::LlvmIr(l) => {
+                    if selected.is_some() {
+                        self.diagnostics.push(Diagnostic::error(
+                            "multiple active raw bodies in one function",
+                            l.span,
+                        ));
+                        return selected;
+                    }
+                    selected = Some(HirBody::LlvmIr(l.clone()));
+                }
+                Stmt::Directive(_) => {}
+                _ => return None,
+            }
+        }
+        selected
+    }
+
     fn user_visible_arity(&self, func_expr: &HirExpr, total_param_len: usize) -> usize {
         if let HirExprKind::Var(name) = &func_expr.kind {
             let bindings = self.env.lookup_all_callables(name);
@@ -1894,7 +1953,20 @@ impl<'a> BlockChecker<'a> {
             .iter()
             .rposition(|s| matches!(s, Stmt::Expr(_) | Stmt::ExprSemi(_, _)));
 
+        let mut pending_if: Option<bool> = None;
         for (idx, stmt) in block.items.iter().enumerate() {
+            if let Stmt::Directive(d) = stmt {
+                if let Some(allowed) = gate_allows(d, self.target, self.profile) {
+                    pending_if = Some(allowed);
+                    continue;
+                }
+            }
+            let allowed = pending_if.unwrap_or(true);
+            pending_if = None;
+            if !allowed {
+                continue;
+            }
+
             // Drop stray unit between lines: [X, ()] -> [X]
             if stack.len() == base_depth + 1 {
                 if matches!(self.ctx.get(stack.last().unwrap().ty), TypeKind::Unit) {
@@ -2020,6 +2092,8 @@ impl<'a> BlockChecker<'a> {
                         f,
                         f_ty,
                         false,
+                        self.target,
+                        self.profile,
                         captures.as_slice(),
                         self.ctx,
                         self.env,

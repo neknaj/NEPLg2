@@ -213,6 +213,62 @@ fn main <() -> i32> ():
     0
 ```
 
+## iftarget_on_general_call_expression
+
+`#if[target=...]` を通常の呼び出し式に適用できることを確認します。
+先頭の未定義式だけがスキップされ、次の `add 2 3` は評価される必要があります。
+
+neplg2:test
+ret: 5
+```neplg2
+#entry main
+#target wasm
+#indent 4
+#import "core/math" as *
+
+fn main <()->i32> ():
+    #if[target=other]
+    unknown_symbol
+    add 2 3
+```
+
+## iftarget_on_let_expression
+
+`#if[target=...]` を `let` 式に適用できることを確認します。
+無効ターゲットの `let bad ...` だけがスキップされ、後続の `let ok ...` は評価される必要があります。
+
+neplg2:test
+ret: 7
+```neplg2
+#entry main
+#target wasm
+#indent 4
+
+fn main <()->i32> ():
+    #if[target=other]
+    let bad <i32> unknown_symbol;
+    let ok <i32> 7;
+    ok
+```
+
+## iftarget_on_if_expression
+
+`#if[target=...]` を `if` 式に適用できることを確認します。
+無効ターゲットの `if` 式だけがスキップされ、後続の `if` 式は通常どおり評価される必要があります。
+
+neplg2:test
+ret: 9
+```neplg2
+#entry main
+#target wasm
+#indent 4
+
+fn main <()->i32> ():
+    #if[target=other]
+    if true then 1 else unknown_symbol
+    if true then 9 else 0
+```
+
 ## import_and_prelude_directives_are_accepted
 
 以前はコンパイル確認のみでした。

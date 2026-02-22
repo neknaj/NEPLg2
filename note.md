@@ -1,3 +1,26 @@
+# 2026-02-22 作業メモ (`#if` の直後1式適用を関数内ブロックへ拡張)
+- 背景:
+  - `#if[target=...]` が top-level では機能する一方、関数本体ブロック内の一般式（`add` / `let` / `if`）には適用されていなかった。
+  - `fn` 本体で `#if[target=wasm] #wasm:` / `#if[target=llvm] #llvmir:` の形を将来採用するため、関数内での gate 処理が必要だった。
+- 実装:
+  - `nepl-core/src/typecheck.rs`
+    - `check_function` に `target/profile` を渡すように変更。
+    - `BlockChecker` に `target/profile` を保持。
+    - `check_block` で `Directive::IfTarget/IfProfile` を解釈し、`#if` を「直後の1式のみ」適用するよう修正。
+    - `select_target_raw_body` を追加し、関数本体が
+      `#if ...` + `#wasm/#llvmir` だけで構成される場合、該当 target の raw body を選択して `HirBody` 化。
+      （暗黙 lower は行わず、明示 `#wasm/#llvmir` のみ採用）
+  - `tests/neplg2.n.md`
+    - `iftarget_on_general_call_expression`
+    - `iftarget_on_let_expression`
+    - `iftarget_on_if_expression`
+    を追加し、関数内の一般式に対する `#if` 適用を回帰固定。
+- 検証:
+  - `NO_COLOR=false trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/neplg2.n.md -o tests/output/tests_neplg2_current.json -j 1`: `219/219 pass`
+  - `node nodesrc/tests.js -i tests -i stdlib -o tests/output/tests_current.json -j 1`: `587/587 pass`
+  - `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests/output/tests_llvm_target_current.json --runner llvm --no-tree -j 1`: `4/4 pass`
+
 # 2026-02-22 作業メモ (`core/math` の LLVM 明示実装を着手 + `#if` 単位回帰)
 - 目的:
   - `stdlib/core/math.nepl` で wasm 専用だった基礎演算を、暗黙 lower ではなく `#llvmir` 明示実装で段階的に LLVM 対応する。
