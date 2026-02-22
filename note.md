@@ -1,3 +1,27 @@
+# 2026-02-22 作業メモ (clang 21.1.0 の LLVM IR 環境確認と手順書整備)
+- 目的:
+  - `todo.md` の LLVM IR 項目にある「`LLVM_SYS_211_PREFIX` 運用整理と doc へのセットアップ記載」を先に完了し、
+    LLVM IR ターゲット実装時の前提環境を固定する。
+- 確認:
+  - `clang --version`: `clang version 21.1.0`（`/opt/llvm-21.1.0/bin`）
+  - `llvm-as --version`: `LLVM version 21.1.0`
+  - `llc --version`: `LLVM version 21.1.0`
+- 実動作検証:
+  - `tmp/llvm_ir/hello.c` を作成し、`clang -S -emit-llvm` で `hello.ll` を生成。
+  - `lli tmp/llvm_ir/hello.ll` で `sum=42` を確認。
+  - `llc -relocation-model=pic -filetype=obj` -> `clang` リンク後の実行でも `sum=42` を確認。
+- ドキュメント更新:
+  - 追加: `doc/llvm_ir_setup.md`
+    - 必須ツールのバージョン確認手順
+    - `LLVM_SYS_211_PREFIX=/opt/llvm-21.1.0` 設定
+    - LLVM IR 生成・実行・オブジェクト化の最短手順
+  - 更新: `README.md`
+    - 「開発ドキュメント」節を追加し、`doc/llvm_ir_setup.md` への導線を追加。
+- `todo.md` 反映:
+  - LLVM IR 項目から完了済みの
+    - 「`inkwell`/`llvm-sys` のバージョン固定と `LLVM_SYS_211_PREFIX` 運用を整理し、`doc/` にセットアップを記載する。」
+    を削除。
+
 # 2026-02-22 作業メモ (旧タプル型記法の残骸を Rust テストから除去)
 - 背景:
   - 旧タプル型注釈 `((i32,i32))` / `<(i32,i32)>` が `nepl-core/tests` に残っており、
@@ -2915,3 +2939,19 @@
 - 補足:
   - 現時点の `llvm` target は「手書き `#llvmir` を `.ll` へ出力する初期段階」。
   - HIR から LLVM IR を生成する本 backend は `todo.md` に継続タスクとして残した。
+
+# 2026-02-22 作業メモ (#llvmir ブロックのインデント規則を raw text 化)
+- 背景:
+  - `#llvmir` 内は NEPLG2 構文ではなく LLVM IR 本文なので、内部の字下げを NEPL の `INDENT/DEDENT` として扱うのは不自然だった。
+  - 実際に `entry:` 配下の `ret` を深く字下げすると parser 側で `expected llvm ir text line` が発生していた。
+- 実装:
+  - `nepl-core/src/lexer.rs`
+    - `#llvmir` ブロック内では `effective_indent` をブロック基準に固定し、内部の字下げ変化で `INDENT/DEDENT` を増減させないよう変更。
+    - `#llvmir` ブロック内の `LlvmIrText` 生成時に、基準インデントからの追加字下げを本文先頭スペースとして保持。
+    - これにより `#llvmir` 内部は「NEPLの構文インデント」ではなく「LLVM IR の生テキスト」として扱う。
+  - `nepl-cli/src/codegen_llvm.rs`
+    - ユニットテストを追加し、深い字下げを含む `#llvmir` が `.ll` にそのまま残ることを固定。
+- 検証（直列）:
+  1. `cargo test -p nepl-cli` -> pass
+  2. `NO_COLOR=false trunk build` -> pass
+  3. `node nodesrc/tests.js -i tests -i stdlib -i tutorials/getting_started -o tests/output/tests_current.json` -> pass (`640/640`)

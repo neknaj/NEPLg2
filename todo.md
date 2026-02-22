@@ -43,7 +43,6 @@
 
 9. LLVM IR target 追加（nepl-cli 限定）
 - `#llvmir` 手書き経路から、通常の NEPL 関数本体（Parsed/HIR）を LLVM IR へ下げる本実装を追加する。
-- `inkwell`/`llvm-sys` のバージョン固定と `LLVM_SYS_211_PREFIX` 運用を整理し、`doc/` にセットアップを記載する。
 - `clang 21.1.0 + linux native` の初期要件を保ちつつ、将来の複数 LLVM バージョン/複数 native target へ拡張可能な設定モデルを設計する。
 
 ---

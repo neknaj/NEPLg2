@@ -264,6 +264,9 @@ impl LexState {
                 effective_indent = expected;
             }
         }
+        if in_llvmir {
+            effective_indent = self.llvmir_base.unwrap_or(effective_indent);
+        }
 
         let rest_trim = rest.trim_start();
         let mut directive_text: Option<String> = None;
@@ -314,8 +317,10 @@ impl LexState {
             }
         }
 
-        // Always emit INDENT/DEDENT to keep parser block structure even inside raw text blocks.
-        self.adjust_indent(effective_indent, line_start);
+        // Always emit INDENT/DEDENT to keep parser block structure.
+        // Inside #llvmir raw block, internal indentation changes are not NEPL syntax,
+        // so keep indentation fixed to the block base and skip width checks.
+        self.adjust_indent(effective_indent, line_start, in_llvmir);
 
         let line_offset = line_start + (content.len() - rest.len());
 
@@ -324,7 +329,13 @@ impl LexState {
             let end = line_start + content.len();
             self.push_token(TokenKind::WasmText(text), line_offset, end);
         } else if in_llvmir {
-            let text = rest.trim_end().to_string();
+            let base = self.llvmir_base.unwrap_or(actual_indent);
+            let extra_indent = actual_indent.saturating_sub(base);
+            let mut text = String::new();
+            if extra_indent > 0 {
+                text.push_str(&" ".repeat(extra_indent));
+            }
+            text.push_str(rest.trim_end());
             let end = line_start + content.len();
             self.push_token(TokenKind::LlvmIrText(text), line_offset, end);
         } else if is_directive {
@@ -352,10 +363,10 @@ impl LexState {
         }
     }
 
-    fn adjust_indent(&mut self, indent: usize, line_start: usize) {
+    fn adjust_indent(&mut self, indent: usize, line_start: usize, skip_width_check: bool) {
         let current = *self.indent_stack.last().unwrap();
         if indent > current {
-            if indent % self.indent_unit != 0 {
+            if !skip_width_check && indent % self.indent_unit != 0 {
                 let span = Span::new(self.file_id, line_start as u32, line_start as u32);
                 self.diagnostics.push(Diagnostic::error(
                     "indentation is not aligned to #indent width",

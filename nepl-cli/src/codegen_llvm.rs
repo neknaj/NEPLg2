@@ -123,3 +123,65 @@ pub fn emit_ll_from_module(module: &Module) -> Result<String> {
 
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nepl_core::diagnostic::Severity;
+    use nepl_core::lexer;
+    use nepl_core::parser;
+    use nepl_core::span::FileId;
+
+    fn parse_module(src: &str) -> Module {
+        let file_id = FileId(0);
+        let lexed = lexer::lex(file_id, src);
+        let parsed = parser::parse_tokens(file_id, lexed);
+        let has_error = parsed
+            .diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, Severity::Error));
+        assert!(
+            !has_error,
+            "parse diagnostics: {:?}",
+            parsed.diagnostics
+        );
+        parsed.module.expect("module should parse")
+    }
+
+    #[test]
+    fn emit_ll_collects_top_and_fn_blocks() {
+        let src = r#"
+#indent 4
+#target llvm
+
+#llvmir:
+    ; module header
+    target triple = "x86_64-pc-linux-gnu"
+
+fn body <()->i32> ():
+    #llvmir:
+        define i32 @body() {
+        entry:
+            ret i32 7
+        }
+"#;
+        let module = parse_module(src);
+        let ll = emit_ll_from_module(&module).expect("llvm ir should be emitted");
+        assert!(ll.contains("; module header"));
+        assert!(ll.contains("define i32 @body()"));
+        assert!(ll.contains("    ret i32 7"));
+    }
+
+    #[test]
+    fn emit_ll_rejects_non_llvmir_function_body() {
+        let src = r#"
+#target llvm
+fn body <()->i32> ():
+    123
+"#;
+        let module = parse_module(src);
+        let err = emit_ll_from_module(&module).expect_err("must reject parsed function body");
+        let msg = format!("{err}");
+        assert!(msg.contains("non-llvmir body"));
+    }
+}
