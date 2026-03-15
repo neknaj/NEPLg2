@@ -20,66 +20,50 @@
 
 stdlib 再構築 本流
 
-1. trait 能力モデルの土台を確定する
+1. diag/trait 層の土台確定
 - `Result` と `Outcome` を共通に扱う helper は導入済み。trait 抽象は associated type / trait generic 機能の整理後に再検討する。
 - `Outcome` は読み取り helper を先に整備し、struct の多フィールド抽出を要する mutating helper は言語機能側の制約を確認しながら段階的に進める。
 - `Copy` / `Clone` / `Stringify` / `Debug` / `Eq` / `Ord` / `Hash` / `Serialize` / `Deserialize` の stdlib trait 本体と `Result` / `Outcome` 共通 helper は配置済みなので、以後は associated type / trait generic 機能を前提に抽象化の整理を進める。
+- `Diag.kind` を支える言語機能追加の計画と前段実装を進める。軽量実体を持ちながら階層識別子として扱える kind 表現を言語機能として生かし、compiler / selfhost / DSL 実装が共通 kind 体系を利用できるようにする。
 - 完了条件:
   - trait 能力の責務が `core` / `alloc` / `std` の配置と一致する。
-  - 追加の trait 抽象が必要かどうかを、言語機能の到達点に合わせて判断できる。
-
-2. compiler 前提を固定する
-- codegen では診断を出さず、前段で診断を完結させる。
-- wasm/llvm の診断規則を共通化する。
-- `_raw` 名依存や backend ごとの差分診断を前段の共通検査へ寄せる。
-- 完了条件:
-  - codegen 到達時は基本的に生成成功前提となる。
-  - 同一入力で wasm/llvm が同一診断を返す。
-
-3. `Diag.kind` を支える言語機能追加の計画と前段実装を進める
-- 軽量実体を持ちながら階層識別子として扱える kind 表現を言語機能として追加する。
-- 仕様化前の暫定実装では、`Diag.kind` を構造化データで表しつつ、将来の言語機能へ移行しやすい形にする。
-- compiler / selfhost / DSL 実装が共通 kind 体系を利用できるようにする。
-- 完了条件:
   - reboot 仕様に必要な kind 体系を支える実装方針が確定する。
-  - `todo.md` 下部の編集禁止メモとは別に、実装タスクとして独立して追える状態になる。
 
-4. メモリ安全型モデルを統合仕様に基づいて実装する
-- 統合仕様: `doc/purity_ownership_memory_spec.md`
-- 移行計画: `doc/memory_safety_migration_plan.md`
-- Phase 1: 基盤修正
-  - `Effect` enum を拡張し `InternalAlloc`/`ExternalIO`/`Nondet`/`Unsafe` を追加、`to_surface()` 畳み込みを実装する。
-  - `alloc/dealloc/realloc` を surface `Pure` から外し、compiler 内部で `InternalAlloc` 効果として扱う。
-  - `MemPtr<T>` の raw address 露出を safe API から消し、compiler/runtime 境界に閉じ込める。
-  - `List<T>` の public `free` を削除して persistent list に固定する。
-  - `std/io` の effect を文字列マーカーから宣言的 (`ExternalIO`) に変更する。
-  - `ValueCategory` (PurePersistent / UniqueMutable / LinearCapability) を型に付与する分類子を追加する。
-  - `VarState` (Live/Moved/MaybeMoved/Uninitialized/BorrowedShared/BorrowedUnique) による変数状態追跡を導入する。
-  - Resource IR と ownership/borrow check pass を導入する。
-  - memory safety 系診断 ID (5001-5008) を予約する。
-- Phase 2: 型・API 分離
-  - `StringBuilder` / `ByteBuf` / `str` の分離。
-  - `File` / `Socket` の owned resource 化。
-  - `ListBuilder<T>` の導入。
-  - Region Inference の first version。
-  - Wasm/LLVM の表現分離（安全意味論は codegen 前に完結、target lowering は物理表現のみ担当）。
-- `set` の purity 規則を「局所なら pure」から escape analysis ベースの新規則へ変更する。
+2. compiler 前提の固定と診断・効果モデリング整備 (Migration Phase 0)
+- codegen では診断を出さず、前段で完結させ、wasm/llvm の安全意味論・診断規則を共通化する。
+- `Effect` enum を拡張し `InternalAlloc`, `ExternalIO`, `Nondet`, `Unsafe` を追加、`to_surface()` 畳み込みを実装する。
+- builtins の `alloc/dealloc/realloc` や `load/store` の effect を surface `Pure` から外し、`Effect::InternalAlloc` に変更。
+- memory safety 系診断 ID (5001-5008) を予約し、型分類子 `ValueCategory` の仕組みを導入する。
 - 完了条件:
-  - 公開面に生ポインタ前提 API が残らない。
-  - OOB/UAF/double free/use-after-move/borrow conflict が compile error または `Result<Err>` として表現される。
-  - 値の 3 分類 (pure persistent / unique mutable / linear capability) が compiler で識別される。
-  - Wasm/LLVM 間で安全意味論は共通、物理レイアウトのみ target 固有である。
+  - codegen 到達時は生成成功前提となり、wasm/llvm 共通診断化され、コンパイラ内部の効果・状態追跡の土台が整う。
 
-5. `alloc` 層を新構成へ移す
-- `alloc/collections` を `MemPtr<T>` / `RegionToken<T>` 前提へ統一する。
+3. core/mem のポインタ隔離と安全境界の構築 (Migration Phase 1)
+- `_raw` 名依存や backend ごとの差分診断を共通検査へ寄せる。
+- `MemPtr<T>` の raw address 露出を safe API から消し、`mem_ptr_addr` / `alloc_raw` などを compiler/runtime 境界に閉じ込める。
+- 生 `i32` load/store 等を隠蔽し、型付きポインタでのアクセスへ置換する。
+- Wasm/LLVM の表現分離（安全意味論は codegen 前に完結、target lowering は物理表現のみ担当し `#if[target="..."]` で吸収）。
+- 完了条件:
+  - `_raw` / `_safe` の公開命名が消え、公開面に生ポインタ前提 API が残らない。
+
+4. alloc 層の新構成移行とコレクション安全化 (Migration Phase 1, Phase 2)
+- `alloc/string` 等の主要確保経路を `RegionToken<u8>` + `MemPtr<u8>` な型付き領域へ分離 (`StringBuilder` / `ByteBuf` / `str` の分離)。
+- 各種コレクション (`Vec`, `HashMap`, `Queue` 等) を `MemPtr<T>` / `RegionToken<T>` 前提の型付き API へ統一する。
+- `List<T>` の public `free` を削除して persistent list に固定し、`tail` セマンティクスを正式に共有へ変更する (Phase 2)。
 - `alloc/text` の文字列表現変換・数値変換・真偽値変換を trait 設計と整合させる。
-- `alloc/io` に低水準抽象（Reader/Writer/Seekable/Buffered）を集約する。
-- `alloc/encoding` / `alloc/hash` / `alloc/diag` の責務を reboot 仕様に合わせて再配置する。
+- `alloc/io` に低水準抽象（Reader/Writer/Seekable/Buffered）を集約し、`alloc/encoding` / `alloc/hash` / `alloc/diag` の責務を再配置する。
 - 完了条件:
-  - `alloc` 層の公開 API が新しい trait / diag / memory モデルと整合する。
-  - `_raw` / `_safe` の公開命名が消える。
+  - `alloc` 層の公開 API が Wasm/LLVM 共通の新しいメモリモデルと整合する。
 
-6. `runtimes` 層を整理する
+5. compiler 解析パスの強化と自動メモリ管理 (Migration Phase 4, Phase 5, Phase 6)
+- `set` の purity 規則を「局所なら pure」から escape analysis ベースの新規則へ変更する (Phase 4)。
+- `VarState` (Live/Moved/MaybeMoved 等) を用いた変数状態追跡・借用チェッカーを導入する (Phase 5)。
+- Resource IR と ownership/borrow check pass を導入し、owned object (`File`, `Socket`, `ListBuilder<T>` など) に対し Drop Elaboration を実装する (Phase 5)。
+- pure persistent value (`List<T>`, `str` 内部) に対する Region Inference の first version を実装する (Phase 6)。
+- 完了条件:
+  - OOB / UAF / double free / use-after-move / borrow conflict 等が Resource IR 上の compile error または `Result<Err>` として検出される。
+  - 値の 3 分類 (pure persistent / unique mutable / linear capability) に基づいた GC レスの自動メモリ管理が稼働する。
+
+6. runtimes 層を整理する
 - target ごとの差分と厚い wrapper が必要な機能だけを `runtimes` に集める。
 - `math` のような `core` へ置くべきものを `runtimes` に持ち込まない。
 - wasip1 / wasip2 / wasix などの差分を `runtimes` 配下で整理する。
@@ -87,17 +71,17 @@ stdlib 再構築 本流
   - `runtimes` の責務が `std` や `features` と重複しない。
   - target 差分を `std` が包める状態になる。
 
-7. `std` と `std/streamio` を再構築する
-- `std/streamio` を `alloc/io` 抽象の上に構築する。
-- `stdio` / `fs` / `env/cliarg` を `std` 配下へ整理し、`runtimes` を直接見せない facade にする。
+7. std と std/streamio を再構築し、IO効果を適用する (Migration Phase 3)
+- `std/io`, `std/stdio`, `std/fs`, `std/env/cliarg` 等の effect を文字列マーカーから宣言的 (`ExternalIO`) に変更する (Phase 3)。
+- `std/streamio` を `alloc/io` 抽象の上に構築し、`runtimes` を直接見せない facade にする。
 - `kpread` / `kpwrite` の機能を `std/streamio` へ統合し、公開 API としての `kpread` / `kpwrite` は最終的に撤去する。
 - `io` / `streamio` / `kpread` / `kpwrite` を含む stdlib 全体の入出力 API から prefix / suffix 付き read/write 名を撤去し、bare overload へ統一する。
 - `TUI` は `std` ではなく `features/tui` として扱う。
 - 完了条件:
-  - `std` が target 依存標準 API の facade として一貫する。
+  - `std` が target 依存標準 API の facade として一貫し、I/O に `ExternalIO` 効果が正しく付与される。
   - `kpread` / `kpwrite` を使わずに `std/streamio` だけで同等の入出力が書ける。
 
-8. `features` 層の残作業を整理する
+8. features 層の残作業を整理する
 - GUI / HTTP / 音声再生のような外部 API / FFI / デバイス接続を `features` へ配置する。
 - regex や audio buffer/processing のような計算・データ処理を `core` / `alloc` へ戻す。
 - `features` は `std` や `runtimes` の上に載る追加機能群として整理する。
