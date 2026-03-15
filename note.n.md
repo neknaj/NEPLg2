@@ -1,3 +1,62 @@
+# 2026-03-15 作業メモ (doc: mem1.md との整合性監査・ギャップ修正)
+
+- [目的/もくてき]:
+  - `doc/chat/dump/mem1.md` の全設計要素（メモリ管理、型検査、線形型、所有権、alloc/drop 自動化、ランタイム差異吸収）が `doc/` と `todo.md` に適切に反映されているか監査する。
+- [変更/へんこう]:
+  - `doc/memory_safety_migration_plan.md` §10 の compiler 検査設計を改善:
+    - `MoveState` → `VarState` に改名し、`BorrowedShared { borrower_count }` と `BorrowedUnique` 状態を追加。
+    - borrow conflict 診断 (5007, 5008) を追加。
+    - Resource IR 命令リスト (`move`, `borrow_shared`, `borrow_unique`, `region_new`, `region_alloc`, `region_end`, `drop`, `io_open`, `io_write`, `io_close`) を追加。
+    - §10.8 ランタイム差異の吸収セクションを追加（Wasm/LLVM 比較表付き）。
+  - `doc/purity_ownership_memory_spec.md` §6.4 を更新:
+    - `Valid`/`PossiblyMoved` → `Live`/`MaybeMoved`/`Uninitialized` に統一。
+    - 各診断 ID (5001, 5005-5008) を追記。
+  - `todo.md` 項目 4 を拡充:
+    - Phase 1 に `Effect` 拡張、`ValueCategory` 分類子、`VarState` 追跡、memory safety 診断 ID 予約を追加。
+    - 完了条件に borrow conflict 検出とランタイム差異分離を追加。
+- [結果/けっか]:
+  - mem1.md の主要設計要素（値の3分類、内部Effect、ownership/borrow/linear検査、escape analysis、drop elaboration、region inference、Wasm/LLVM差異吸収、依存型への将来拡張）は全て doc/ と todo.md に反映済み。
+
+---
+
+# 2026-03-15 作業メモ (doc: 純粋性・所有権・メモリ管理の統合仕様を作成)
+
+- [目的/もくてき]:
+  - `doc/chat/dump/mem1.md` の ChatGPT 議論を整理し、NEPLg2 の純粋性・所有権・線形性・メモリ管理の統合仕様書を `doc/` に作成する。
+  - 既存の関連ドキュメントとの不整合を解消する。
+  - `todo.md` を新仕様に合わせて更新する。
+- [変更/へんこう]:
+  - `doc/purity_ownership_memory_spec.md` (新規作成)
+    - mem1.md の設計議論を整理した統合仕様書。
+    - 値の 3 分類 (pure persistent value / unique mutable work state / linear capability)。
+    - surface effect (`Pure`/`Impure`) と compiler 内部効果 (`InternalAlloc`/`ExternalIO`/`Nondet`/`Unsafe`) の分離。
+    - Region Inference + Drop Elaboration の二段構えメモリ管理。
+    - `set` の新 purity 規則 (escape analysis ベース)。
+    - 文字列 (`str`/`ByteBuf`/`StringBuilder`)、List (persistent list + builder)、IO (consume-return handle) の仕様。
+    - Resource IR と compiler 解析パス順の定義。
+    - Wasm/LLVM で揃えるもの (安全意味論) と揃えないもの (物理レイアウト) の区別。
+  - `doc/memory_safety_compiler_design.md` (更新)
+    - 統合仕様への参照を追加。
+    - alloc/dealloc の Pure 扱いを `InternalAlloc` ベースに変更。
+    - `MemPtr<T>` を compiler/runtime 境界に再配置。
+    - Region Inference と Drop Elaboration の節を追加。
+  - `doc/move_effect_spec.md` (更新)
+    - 統合仕様への参照を追加。
+    - compiler 内部効果分類 (`InternalAlloc`/`ExternalIO`/`Nondet`/`Unsafe`) を追加。
+    - `set` の新 purity 規則を追加。
+    - builtins 要件を `InternalAlloc` ベースに変更。
+    - Resource IR パスを追加。
+  - `doc/stdlib_breaking_reboot.md` (更新)
+    - `MemPtr<T>` / `RegionToken<T>` の位置づけを compiler/runtime 境界として明確化。
+    - メモリ能力 trait 節に統合仕様への参照と 3 分類の前提を追加。
+  - `doc/stdlib_doc_comment_policy.md` (更新)
+    - `[注意]` 節の所有権・メモリ関連項目に 3 分類への参照を追加。
+  - `todo.md` (更新)
+    - メモリ安全型モデルのタスクを統合仕様に合わせて拡充。
+- [plan.md との差異/さい]:
+  - plan.md は言語の基本仕様 (前置記法・式指向・オフサイドルール) を記述しており、メモリ管理・所有権・純粋性の詳細設計には言及していない。
+  - 今回の統合仕様は plan.md の `a->b` (pure) / `a*>b` (impure) の区別を発展させ、compiler 内部の効果分類や所有権規則を具体化したものである。
+
 # 2026-03-14 作業メモ (fix: トップレベル見出しリンクとフリガナ(ruby)・OGPの分離)
 
 - [目的/もくてき]:

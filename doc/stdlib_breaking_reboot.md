@@ -1,6 +1,6 @@
 # stdlib 破壊的再設計案（後方互換なし）
 
-最終更新: 2026-03-08
+最終更新: 2026-03-15
 
 ## 1. 目的
 
@@ -205,7 +205,8 @@ stdlib/
 ### 6.2 `alloc`
 
 - `core` の上で、heap 依存だが target 非依存の汎用機能を提供する。
-- `MemPtr<T>` / `RegionToken<T>` / allocator / 領域管理 / 診断補助 / encoding / hash をここへ置く。
+- allocator / 領域管理 / 診断補助 / encoding / hash をここへ置く。
+- `MemPtr<T>` / `RegionToken<T>` は compiler/runtime 境界モジュールとして `alloc` 配下に置くが、safe user code からは読の抽象型 (`OwnedBuf<T>`, `Slice<T>` など) だけが見える。詳細は `doc/purity_ownership_memory_spec.md` を参照。
 - 低レベル API はここに隔離し、上位層はできる限り安全 API だけを使う。
 - `collections` / `text` / `io` のように、heap は使うが device や OS に依存しない層は `alloc` 配下に置く。
 
@@ -308,6 +309,8 @@ stdlib/
 - 将来的な derive 相当構文を導入する場合も、それは compiler 内固定表ではなく `.nepl` 側の明示宣言として扱う。
 
 ### 7.4 メモリ能力 trait
+
+> メモリ管理の統合仕様は `doc/purity_ownership_memory_spec.md` を参照。値の 3 分類 (pure persistent value / unique mutable work state / linear capability) と region inference / drop elaboration の二段構えを前提とする。
 
 - `RegionOwned<T>`: 領域の所有権を保持する。
 - `MemReadable<T>`: `T` の読み取り能力を持つ。

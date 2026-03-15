@@ -65,5 +65,5 @@
 1. `Copy/Clone` の能力判定を trait 能力テーブル化する。
 2. `MemReadable<T>`, `MemWritable<T>`, `RegionOwned` を導入する。
 3. move_check と trait 能力を連携し、token 消費規則を強化する。
-4. stdlib の `mem/kpread/kpwrite` を trait 境界ベース API へ統一する。
+4. stdlib の `mem` / `std/streamio` を trait 境界ベース API へ統一する。
 

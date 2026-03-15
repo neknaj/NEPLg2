@@ -1,6 +1,8 @@
 # move規則・pure/impure規則 統合仕様
 
-最終更新: 2026-03-03
+最終更新: 2026-03-15
+
+> 上位の統合仕様は `doc/purity_ownership_memory_spec.md` を参照。本文書は move/effect に焦点を当てた詳細規則として維持する。
 
 ## 0. 仕様の前提
 
@@ -31,12 +33,22 @@ Pure/Impure は「外部環境に対する観測可能な副作用」で判定�
 
 - Pure:
   - 算術、比較、分岐、束縛、データ構築
-  - heap/線形メモリ操作（`alloc/realloc/dealloc/load/store`）
+  - heap/線形メモリ操作（`alloc/realloc/dealloc/load/store`）— compiler 内部では `InternalAlloc` 効果として区別するが、raw address が外部に漏れない限り surface では `Pure` に畳み込む
 - Impure:
   - 標準入力/標準出力
   - ファイルシステム
   - 環境変数、argv、時刻、乱数
   - syscall/extern によるホスト依存I/O
+
+compiler 内部では以下の効果分類を持つ:
+
+| 内部効果 | surface への畳み込み |
+|----------|---------------------|
+| `Pure` | → `Pure` |
+| `InternalAlloc` | → `Pure` |
+| `ExternalIO` | → `Impure` |
+| `Nondet` | → `Impure` |
+| `Unsafe` | → `Impure` |
 
 ### 2.2 heap/線形メモリを Pure にできる条件
 
@@ -85,6 +97,15 @@ move check は少なくとも以下を追跡する。
 - `BorrowedUnique`
 
 分岐合流とループで状態を保守的にマージする。
+
+### 3.6 `set` の新規則
+
+現在の「局所なら pure」は廃止する。`set` が pure である条件:
+
+- 更新対象が unique local state である
+- その状態への参照が外へ escape しない
+- 共有 borrow が存在しない
+- 更新の結果が観測可能な raw identity を漏らさない
 
 ### 3.5 trait の位置づけ
 
@@ -148,12 +169,13 @@ trait 実装可否は move check と整合して検査する。
 
 ## 7. コンパイラ実装要件
 
-1. builtins の `alloc/realloc/dealloc` を Pure に統一する。
+1. builtins の `alloc/realloc/dealloc` に `InternalAlloc` 内部効果を導入する（surface は条件付き `Pure`）。
 2. `entry` 強制 Impure 特例を削除する。
-3. intrinsic effect 判定を一元テーブル化する。
+3. intrinsic effect 判定を `InternalAlloc` / `ExternalIO` / `Nondet` / `Unsafe` の宣言テーブルへ一元化する。
 4. move check に `RegionToken` 消費規則を導入する。
 5. `TypeCtx::is_copy` を構造型（tuple/struct/enum）まで拡張する。
 6. 診断IDを move/effect/memory safety 系へ割り当てる。
+7. Resource IR を導入し、ownership / borrow / region / drop の解析パスを整備する。
 
 ## 8. テスト要件
 

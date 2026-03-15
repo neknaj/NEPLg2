@@ -44,14 +44,31 @@ stdlib 再構築 本流
   - reboot 仕様に必要な kind 体系を支える実装方針が確定する。
   - `todo.md` 下部の編集禁止メモとは別に、実装タスクとして独立して追える状態になる。
 
-4. メモリ安全型モデルを `core/mem` に固定する
-- `MemPtr<T>` / `RegionToken<T>` を公開 API の中心に据える。
-- 生 `i32` ポインタ受け取りの公開関数を段階的に除去する。
-- `load/store` の境界・生存・解放後利用を `Result/Option` と型検査へ寄せる。
-- compiler 側では move/token 消費検査を trait 能力と接続する。
+4. メモリ安全型モデルを統合仕様に基づいて実装する
+- 統合仕様: `doc/purity_ownership_memory_spec.md`
+- 移行計画: `doc/memory_safety_migration_plan.md`
+- Phase 1: 基盤修正
+  - `Effect` enum を拡張し `InternalAlloc`/`ExternalIO`/`Nondet`/`Unsafe` を追加、`to_surface()` 畳み込みを実装する。
+  - `alloc/dealloc/realloc` を surface `Pure` から外し、compiler 内部で `InternalAlloc` 効果として扱う。
+  - `MemPtr<T>` の raw address 露出を safe API から消し、compiler/runtime 境界に閉じ込める。
+  - `List<T>` の public `free` を削除して persistent list に固定する。
+  - `std/io` の effect を文字列マーカーから宣言的 (`ExternalIO`) に変更する。
+  - `ValueCategory` (PurePersistent / UniqueMutable / LinearCapability) を型に付与する分類子を追加する。
+  - `VarState` (Live/Moved/MaybeMoved/Uninitialized/BorrowedShared/BorrowedUnique) による変数状態追跡を導入する。
+  - Resource IR と ownership/borrow check pass を導入する。
+  - memory safety 系診断 ID (5001-5008) を予約する。
+- Phase 2: 型・API 分離
+  - `StringBuilder` / `ByteBuf` / `str` の分離。
+  - `File` / `Socket` の owned resource 化。
+  - `ListBuilder<T>` の導入。
+  - Region Inference の first version。
+  - Wasm/LLVM の表現分離（安全意味論は codegen 前に完結、target lowering は物理表現のみ担当）。
+- `set` の purity 規則を「局所なら pure」から escape analysis ベースの新規則へ変更する。
 - 完了条件:
   - 公開面に生ポインタ前提 API が残らない。
-  - OOB/UAF/double free が compile error または `Result::Err` として表現される。
+  - OOB/UAF/double free/use-after-move/borrow conflict が compile error または `Result<Err>` として表現される。
+  - 値の 3 分類 (pure persistent / unique mutable / linear capability) が compiler で識別される。
+  - Wasm/LLVM 間で安全意味論は共通、物理レイアウトのみ target 固有である。
 
 5. `alloc` 層を新構成へ移す
 - `alloc/collections` を `MemPtr<T>` / `RegionToken<T>` 前提へ統一する。
