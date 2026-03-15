@@ -1,36 +1,27 @@
-# Error Model
+# Error and Diagnostic Model
 
 This document describes the standard error types and reporting utilities used
-by NEPLG2. The goal is a consistent, Result-first error flow that works in both
-WASM and WASI targets without relying on GC.
+by NEPLg2. The goal is a consistent, structurally rich diagnostic flow that works safely across all targets without GC.
 
 ## Core Types
 
-`std/error` defines:
+NEPLg2 standardizes error handling around three core concepts (detailed in `stdlib_breaking_reboot.md`):
 
-- `ErrorKind`: classification (Failure, IoError, ParseError, etc.).
-- `Span`: `(file_id, start, end)` byte range.
-- `Error`: heap-backed record referenced by a pointer (`{kind,msg,span}` inline).
-
-Errors are values carried through `Result<T, Error>`. Source chaining is not
-implemented yet; context is represented by creating a new `Error`.
+- **`Result<T, StdErrorKind>`**: Used for lightweight, expected failures without rich diagnostics.
+- **`Diag`**: A structurally rich diagnostic value containing `kind` (Log/Info/Warn/Error), `message`, `span`, `notes`, `help`, and `source`.
+- **`Outcome<T, E>`**: A combination of a `Result` and a collection of `Diags`. Used when warnings or detailed errors must be carried alongside the result.
 
 ## Source Locations
 
 `callsite_span` is an intrinsic that returns a `Span` for the current call site.
-Helpers like `fail` and `context` attach this span automatically.
+Helpers attach this span automatically to `Diag` instances.
 
 ## Reporting
 
-`std/diag` provides:
+- Ecosystem-wide standard: `Diag` is not just for stdlib errors but for compiler, tooling, and DSL diagnostics.
+- Reporting/formatting is decoupled from the `Diag` data structure itself and handled by the `Stringify` / `Debug` / `Serialize` traits and renderer tools.
 
-- `diag_to_string(e) -> str`: build a human-readable report string.
-- `diag_print(e)` / `diag_println(e)` (WASI only): print via stdio.
+## Memory Management / No GC
 
-On the WASM target, diagnostics are returned as strings (no I/O). On WASI,
-diagnostics can be printed to stdout/stderr via `std/stdio`.
-
-## Ownership / No GC
-
-All error values are explicit. There is no hidden global error state. Error
-records live in the heap via `std/mem::alloc` and do not rely on GC.
+All diagnostic values are explicit. There is no hidden global error state.
+Under the new memory safety model (`purity_ownership_memory_spec.md`), `Diag` and `Outcome` structures are managed as standard values. Depending on their usage, their allocation scopes are automatically handled by **Region Inference** (if pure and persistent) or **Drop Elaboration**, without needing explicit manual heap allocations or GC.
