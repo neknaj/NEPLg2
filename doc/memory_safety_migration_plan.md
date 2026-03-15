@@ -504,10 +504,10 @@ io_close h
 #### 10.5.1 パイプライン位置
 
 ```text
-Source → parse → typecheck (HIR生成) → ownership_check → drop_elaborate → monomorphize → codegen
+Source → parse → surface_typecheck (HIR生成) → effect_attribution → resource_ir_gen → ownership_borrow_check → region_inference → drop_elaborate → monomorphize → target_lowering
 ```
 
-drop_elaborate は ownership_check の直後、monomorphize の前に入る。
+統合仕様 (§11.2) の通り、`drop_elaborate` は `region_inference` の直後、monomorphize の前に入る。
 
 #### 10.5.2 drop 挿入アルゴリズム
 
@@ -581,34 +581,46 @@ alloc の呼び出しを:
 scope exit で:
 - `region_free_all region_id`
 
-### 10.7 Compiler パス全体の最終的な順序
+### 10.7 Compiler Pass の全体順序（Phase 6 完了時）
 
-```text
-Source
- ↓ parse
-AST
- ↓ name_resolve / target_precheck
- ↓ typecheck (型推論 + HIR 生成 + effect 判定)
-HIR (typed)
- ↓ value_category_assign     ← Phase 0 で追加
- ↓ escape_analysis            ← Phase 4 で追加（set purity 用）
- ↓ ownership_check            ← Phase 5 で追加（move / linear 検査）
- ↓ drop_elaborate             ← Phase 5 で追加
- ↓ region_inference           ← Phase 6 で追加
-HIR (elaborated)
- ↓ monomorphize
-Mono HIR
- ↓ codegen_wasm / codegen_llvm
-Output
+統合仕様 (§11.2) に従い、以下の順序でパスが実行される。
+
+1. **surface typecheck**: AST を走査し、型推論・型検査を行い HIR を生成する。
+2. **effect attribution**: AST/HIR 上で `InternalAlloc`, `ExternalIO` などの内部効果を判定・付与する。
+3. **Resource IR 生成**: HIR から CFG ベースの資源特化 IR を生成する。ここから先は安全意味論の検査フェーズ。
+4. **ownership / borrow check**: Resource IR 上で Dataflow 解析を行い、use-after-move, borrow conflict などを検出する。
+5. **region inference**: pure persistent values (e.g. `List<T>`, `str`) に対してライフタイム領域を割り当てる。
+6. **drop elaboration**: owned / linear values (e.g. `File`, `ByteBufBuilder`) に対して scope exit / overwrite の drop 命令を挿入する。
+7. **target lowering (codegen)**: monomorphize 後、Wasm または LLVM の物理表現に下げる。
+
+```rust
+// nepl-core/src/compiler.rs (将来構想)
+
+pub fn compile_module(ast: ast::Module) -> Result<LlvmModule, Vec<Diagnostic>> {
+    let mut hir = typecheck::typecheck_module(&ast)?;
+    effects::attribute_effects(&mut hir)?;
+    
+    let mut resource_ir = resource_ir::build(&hir);
+    ownership::check_moves_and_borrows(&resource_ir)?;
+    
+    region::infer_regions(&mut resource_ir);
+    drop_elaborate::elaborate_drops(&mut resource_ir);
+    
+    let mono_ir = monomorphize::run(resource_ir);
+    codegen_llvm::generate(&mono_ir)
+}
 ```
 
-各パスは独立したファイル（`ownership.rs`, `escape_analysis.rs`, `drop_elaborate.rs`, `region.rs`）に分離し、`compiler.rs` のパイプラインから順番に呼び出す。
+各パスは独立したファイル（`effects.rs`, `resource_ir.rs`, `ownership.rs`, `region.rs`, `drop_elaborate.rs`, `monomorphize.rs`、そして各 `codegen_*.rs`）に分離し、`compiler.rs` のパイプラインから順番に呼び出す。
 
 ### 10.8 ランタイム差異の吸収（Wasm / LLVM）
 
-統合仕様 (§12) に従い、安全意味論と物理レイアウトを分離する。
+統合仕様 (§12) に従い、安全意味論と物理レイアウトを完全に分離します。
+**コンパイラ内部にターゲット固有の分岐（Wasm 向け検査、LLVM 向け検査）は一切設けません。**
 
-#### 揃えるもの（Resource IR より上で保証）
+#### 揃えるもの（コンパイラの責務）
+
+ターゲットに関わらず、Resource IR 上で以下の安全性をすべて静的に証明します。
 
 - moved value の再使用禁止
 - borrowed place への不正 mutation 禁止
@@ -616,20 +628,20 @@ Output
 - pure / impure の境界
 - `str`, `List`, `OwnedBuf`, `File`, `Socket` の source semantics
 
-これらは全て Resource IR ～ drop elaboration のパスで検査完了するため、codegen に入る前に保証される。target lowering は safety-proven な IR を受け取るだけでよい。
+target lowering は、この「完全に安全が証明された IR」を受け取るだけであり、検査は行いません。
 
-#### 揃えないもの（target lowering で分岐）
+#### 揃えないもの（NEPLソースコードの責務）
 
-| 項目 | Wasm | LLVM |
-|------|------|------|
+物理レイアウトや OS とのインターフェイスにおける差異は、コンパイラではなく、**NEPLソースコード（標準ライブラリ）側の条件付きコンパイル (`#if[target="..."]`)** によって吸収します。
+
+| 項目 | `target="wasm"` | `target="llvm"` |
+|------|-----------------|-----------------|
 | pointer 表現 | linear memory offset (`i32`) | native pointer |
 | allocator | `core/mem` の bump+free_list | libc malloc / custom |
 | `str` header | `[len:i32][data...]` in linear memory | native `{ptr, len}` |
 | file/socket handle | WASI `fd` (`i32`) | POSIX fd or OS handle |
-| region bulk free | linear memory range free | native free |
 
 #### 実装方針
 
-- `codegen_wasm.rs` と `codegen_llvm.rs` は elaborated HIR を入力とし、target 固有のメモリ表現のみを担う。
-- 現行の `codegen_llvm.rs` が `TypeExpr::Reference` を `LlTy::I32` に寄せている箇所は、Phase 2 (Wasm/LLVM 表現分離) で native pointer として扱うよう変更する。
-- 安全意味論の検査を codegen に持ち込まない。診断は全て Resource IR パスで完結させる。
+- `codegen_wasm.rs` と `codegen_llvm.rs` は、単相化された IR を純粋にターゲットの命令に落とすことのみを担当します。
+- メモリの確保方法やシステムコール呼び出しの違いは、段階的に C 言語のような組み込み関数呼び出しから、NEPL 側で `#if[target="wasm"]` と `#if[target="llvm"]` を用いて定義を満たす形（Phase 2: 表現分離）に移行させます。

@@ -136,6 +136,21 @@ compiler 内部では少なくとも次の分類を持つ。
 | `OwnedBuf<T>`, `VecBuilder<T>`, `File`, `Socket` | `Owned` |
 | `RegionToken`, `BuilderToken`, `CloseToken` | `Linear` |
 
+### 5.3 型の能力の合成則
+
+複合型（Tuple, Struct, Enum など）の resource usage は、その構成要素の中で最も厳しい能力に引きずられる。
+
+1. 要素に `Linear` 型が1つでも含まれる場合、複合型全体が `Linear` となる。
+2. 要素に `Owned` 型が含まれ、かつ `Linear` が含まれない場合、複合型全体が `Owned` となる。
+3. 全ての要素が `Unrestricted` である場合のみ、複合型全体が `Unrestricted` になる。
+
+例:
+- `(i32, str)` → `Unrestricted`
+- `(File, i32)` → `Linear` （`File` 自体が `Linear` な外部資源であるため）
+- `(OwnedBuf<u8>, str)` → `Owned`
+
+制約の伝播順序: `Linear` > `Owned` > `Unrestricted`
+
 ---
 
 ## 6. 所有権・借用・線形性の規則
@@ -364,9 +379,14 @@ typed HIR の後ろに **Resource IR** (資源 IR) を置く。CFG を持ち、�
 
 ---
 
-## 12. Wasm / LLVM で揃えるもの・揃えないもの
+## 12. Wasm / LLVM でのプラットフォーム差異吸収
 
-### 揃えるもの (安全意味論)
+NEPLg2 コンパイラは、ターゲットが Wasm であっても LLVM であっても **全く同じ安全意味論の検査（型検査、Resource IR 解析、Region Inference、Drop Elaboration）を実行します。**
+コンパイラ内部に「Wasm 固有の解析パス」や「LLVM 固有の検査規則」は配置しません。
+
+### 12.1 コンパイラの責務（安全意味論の共通化）
+
+コンパイラはターゲットに依存せず、以下の安全性を Resource IR 上で静的に証明します。
 
 - moved value の再使用禁止
 - borrowed place への不正 mutation 禁止
@@ -374,13 +394,20 @@ typed HIR の後ろに **Resource IR** (資源 IR) を置く。CFG を持ち、�
 - pure / impure の境界
 - `str`, `List`, `OwnedBuf`, `File`, `Socket` の source semantics
 
-### 揃えないもの (物理レイアウト)
+各バックエンド（Wasm/LLVM）は、この完全に検証された IR を受け取り、純粋に **物理的な命令とレイアウトの生成（Target Lowering）** のみを行います。
 
-- `str` の内部 header 形式
-- `ByteBuf` の表現
-- allocator 実装
-- native pointer か linear-memory offset か
-- file/socket handle の runtime 表現
+### 12.2 標準ライブラリの責務（物理レイアウトの分岐）
+
+プラットフォーム間の物理的な差異（ポインタ表現、アロケータ、ハンドル表現など）は、NEPLソースコード側（`core` / `std` などの標準ライブラリ）で `#if[target="..."]` を用いて吸収します。
+
+| 項目 | Wasm 向け実装 (`#if[target="wasm"]`) | LLVM 向け実装 (`#if[target="llvm"]`) |
+|------|--------------------------------------|--------------------------------------|
+| pointer 表現 | linear memory offset (`i32` などにラップ) | native pointer |
+| allocator | `core/mem` 内の bump + free_list 実装 | libc `malloc`/`free` の FFI 呼び出し |
+| `str` header | `[len:i32][data...]` (linear memory 上) | native `{ptr, len}` 構造体 |
+| file/socket | WASI API 呼び出しと `fd` (`i32`) | POSIX / OS ネイティブ API 呼び出し |
+
+このように、コンパイラは単一の厳格なルールの下でコードを検査し、ターゲットごとの型の実態や関数呼び出しの差異は**ユーザーランド（標準ライブラリ）の条件付きコンパイル**によって解決します。
 
 ---
 
