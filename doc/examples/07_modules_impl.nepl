@@ -1,0 +1,22 @@
+//: # 07_modules_impl
+//: `07_modules` の[実装/じっそう]部[分/ぶん]（`#part` ファイルの例）
+//:
+//: ### [目的/もくてき]
+//: - `merge` によって anchor ファイル（`07_modules.nepl`）と同一モジュールになる。
+//: - `#part` ファイルは独立した `use` の[対象/たいしょう]にはならない。
+//: - anchor の `private` 定義がこのファイルからも[参照/さんしょう]できる。
+
+#part
+#indent 4
+
+use core::math as *
+use core::list as *
+
+// anchor の internal_scale が見える（同一モジュール内）
+pub let double_scale %fn i32 -> i32 \ n :
+    mul internal_scale n 2
+
+pub let fold_left .T .A %fn List .T .A fn .A .T -> .A -> .A \ xs init f :
+    match xs:
+        List::Nil:      init
+        List::Cons h t: fold_left t f h init f

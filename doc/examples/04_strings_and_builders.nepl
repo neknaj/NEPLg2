@@ -1,0 +1,86 @@
+//: # 04_strings_and_builders
+//: `str` / `StringBuilder` / `ByteBuf` の[使/つか]い[分/わ]けサンプル
+//:
+//: ### [目的/もくてき]
+//: - `str` は Pure Persistent value（[共有/きょうゆう]可、manual free なし、region-managed）。
+//: - `StringBuilder` は Unique Mutable Work State。`finish` が move で消費し、以後は使えない。
+//: - `ByteBuf` は[任意/にんい]バイト列の owned buffer。`to_str` で UTF-8 検査後に `str` になる。
+//: - 3 型の[境界/きょうかい]を意識することで、文字列に関わる move/ownership エラーを事前に防ぐ。
+
+#module
+#indent 4
+
+use std::string_builder as *   // new, push_str, finish
+use std::convert as *          // to_str, to_bytes
+use core::str as *             // len, split, slice, contains
+use core::list as *
+use core::option as *
+use core::result as *
+
+
+//: ## repeat_str
+//: 文字列を n 回[繰/く]り[返/かえ]した文字列を返す
+//:
+//: ### [実装/じっそう]
+//: - `StringBuilder` は `push_str` のたびに消費されて新しい builder が返る（consume-return）。
+//: - `set b push_str b s` は旧 `b` を move して新 `b` に束縛しなおす。
+//: - `finish` で builder を消費して `str` を確定する。以後 `b` は使えない（コンパイラが検査）。
+//:
+//: ### [注意/ちゅうい]
+//: - `new unit` の `unit` は引数なし `%fn unit -> StringBuilder` の形式に対応した呼び出し。
+//: - `StringBuilder` は `Clone` を持たない。コピーを渡す[設計/せっけい]は意図的に[禁止/きんし]されている。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間 O(n * |s|)、内部[再確保/さいかくほ]は[償却/しょうきゃく] O(1)
+
+pub let repeat_str %fn str i32 -> str \ s n :
+    let mut b new unit
+    let mut i 0
+    while lt i n:
+        set b push_str b s
+        set i add i 1
+    finish b
+
+
+//: ## join
+//: `List str` をセパレータで[連結/れんけつ]する
+//:
+//: ### [実装/じっそう]
+//: - 先頭要素を別[扱/あつか]いにしてセパレータを前[置/ち]しないようにしている。
+//: - 高階関数 `fold` に `\ b s : ...` クロージャを渡し、builder を[畳/たた]み[込/こ]む。
+//: - クロージャは `\ params : body` の形式。型[推論/すいろん]で builder と str を[識別/しきべつ]する。
+
+pub let join %fn List str str -> str \ xs sep :
+    match xs:
+        List::Nil:
+            ""
+        List::Cons first rest:
+            let b_final
+                fold \ b s :
+                    b |> push_str sep |> push_str s
+                push_str new unit first
+                rest
+            finish b_final
+
+
+//: ## reverse_bytes
+//: 文字列のバイト列を[逆順/ぎゃくじゅん]にした文字列を返す（UTF-8 検査あり）
+//:
+//: ### [実装/じっそう]
+//: - `to_bytes : str -> ByteBuf` は pure。内部コピーを行い owned buffer を返す。
+//: - `to_str : ByteBuf -> Result str Utf8Error` は UTF-8 バリデーションを経由する。
+//: - `to_bytes` / `to_str` は `std::convert` に同じ bare 名でオーバーロードされている。
+//: - [逆順/ぎゃくじゅん]後のバイト列が正しい UTF-8 でない場合（マルチバイト文字等）は `Err` が返る。
+//:
+//: ### [注意/ちゅうい]
+//: - `ByteBuf` は `Owned` resource。`reverse_buf` で消費されて新しい buf が返る想定。
+//: - この関数は教[示/じ]用途であり、実[用/よう]では UTF-8 [単位/たんい]での[逆順/ぎゃくじゅん]が必要。
+
+pub let reverse_bytes %fn str -> Result str Utf8Error \ s :
+    s |> to_bytes |> reverse_buf |> to_str
+
+
+pub let first_word %fn str -> Option str \ s :
+    match split s " ":
+        List::Cons w _: Option::Some w
+        List::Nil:      Option::None

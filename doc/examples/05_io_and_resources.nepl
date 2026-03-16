@@ -1,0 +1,99 @@
+//: # 05_io_and_resources
+//: IO / Linear resource / Impure 関数のサンプル
+//:
+//: ### [目的/もくてき]
+//: - `File` は Linear capability。`open` で取得し、`close` で消費する。
+//: - consume-return-handle 方式: 操作のたびに `File` を受け取り `File` を返す。
+//: - `close` し忘れると "linear value not consumed" コンパイルエラーになる。
+//: - Pure な[計算/けいさん]ロジックを Impure な IO から[分離/ぶんり]するパターンを示す。
+//:
+//: ### [注意/ちゅうい]
+//: - `%fn` = Pure（[副作用/ふくさよう]なし）、`%fn*` = Impure（IO を含む）。
+//: - Pure 関数の中から Impure 関数を呼ぶことはできない。逆は可。
+
+#entry
+#indent 4
+
+use std::io as *
+use std::string_builder as *
+use core::result as *
+use core::list as *
+
+
+//: ## read_file_text
+//: ファイルを開いて全[内容/ないよう]を `str` として読む
+//:
+//: ### [実装/じっそう]
+//: - `open path Mode::Read` → `Result File IoError`
+//: - `read file` → `Result Pair File str IoError`（`File` を返すのは consume-return 方式のため）
+//: - `close file2` で `File` を[確実/かくじつ]に消費する。失敗[分岐/ぶんき]でも `File` は消費済みになる。
+//:
+//: ### [注意/ちゅうい]
+//: - `read` が失敗した場合、内部で `File` はすでに消費された状態になる（実装依存、IO エラー時の扱い）。
+//: - `File` を[途中/とちゅう]で落とすと "linear value not consumed" エラー。`match` の全アームで消費すること。
+
+pub let read_file_text %fn* str -> Result str IoError \ path :
+    match open path Mode::Read:
+        Result::Err e: Result::Err e
+        Result::Ok file:
+            match read file:
+                Result::Err e: Result::Err e
+                Result::Ok Pair file2 content:
+                    match close file2:
+                        Result::Ok _:  Result::Ok content
+                        Result::Err e: Result::Err e
+
+
+pub let write_file_text %fn* str str -> Result unit IoError \ path content :
+    match open path Mode::Write:
+        Result::Err e: Result::Err e
+        Result::Ok file:
+            match write file content:
+                Result::Err e: Result::Err e
+                Result::Ok file2:
+                    match flush file2:
+                        Result::Err e: Result::Err e
+                        Result::Ok file3:
+                            match close file3:
+                                Result::Ok _:  Result::Ok unit
+                                Result::Err e: Result::Err e
+
+
+//: ## analyze_file
+//: ファイルを読んで Pure な[分析/ぶんせき]関数に渡す
+//:
+//: ### [実装/じっそう]
+//: - `count_lines` / `word_count` は Pure。テストのためにエントリポイントから切り離せる。
+//: - Impure な[境界/きょうかい]はこの関数だけ。[計算/けいさん]ロジック側に `%fn*` は伝染しない。
+
+let count_lines %fn str -> i32 \ content :
+    length split content "\n"
+
+let word_count %fn str -> i32 \ content :
+    length split content " "
+
+pub let analyze_file %fn* str -> unit \ path :
+    match read_file_text path:
+        Result::Err e:
+            println concat "読み込みエラー: " show_io_error e
+        Result::Ok content:
+            println concat "行数: "   to_str count_lines content
+            println concat "単語数: " to_str word_count content
+
+
+//: ## prompt
+//: [標準入力/ひょうじゅんにゅうりょく]からユーザー[入力/にゅうりょく]を読む
+//:
+//: ### [注意/ちゅうい]
+//: - `stdin` / `stdout` は runtime-borrowed capability であり `close` 不可。
+//: - `read_line` が返す `str` の末尾に改行文字が含まれる場合がある（trim が必要）。
+
+pub let prompt %fn* str -> str \ msg :
+    print msg
+    read_line unit
+
+
+pub let main %fn* -> i32 \ :
+    let name prompt "ファイル名: "
+    analyze_file name
+    0

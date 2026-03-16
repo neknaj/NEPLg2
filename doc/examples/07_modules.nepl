@@ -1,0 +1,85 @@
+//: # 07_modules
+//: モジュールシステム（`use` / `merge` / `pub`）のサンプル
+//:
+//: ### [目的/もくてき]
+//: - `merge` によるファイル[分割/ぶんかつ]と `use` によるモジュール[依存/いそん]の書き方を示す。
+//: - `pub` / private の[可視性/かしせい]制御と、`module name:` による[論理/ろんり]サブモジュールを示す。
+//: - `use path::name as *` で全[公開/こうかい]item を展開するパターンと、
+//:   `use path::name` で[修飾名/しゅうしょくめい]のまま使うパターンを対比する。
+//:
+//: ### [注意/ちゅうい]
+//: - `merge` のパスは `"./filename"` 形式。`.nepl` 拡張子は**省略する**。
+//: - `merge` されたファイルは `#part` で[宣言/せんげん]し、独立モジュールにはならない。
+//: - `use path::*` グロブは廃[止/し]済み。`use path as *` を使うこと。
+
+#module
+#indent 4
+
+merge "./07_modules_impl"   // #part ファイルに実装を分割する例
+
+
+//: ## use の書き方一覧（コメントで示す）
+//: - `use core::math as *`           → add, sub, ... を直接[参照/さんしょう]
+//: - `use core::math as m`           → `m::add` の[形/かたち]で[参照/さんしょう]
+//: - `use core::math`                → `math::add` の[形/かたち]で[参照/さんしょう]（alias = 最終セグメント）
+//: - `use core::math::gcd`           → `gcd` だけを[直接/ちょくせつ][参照/さんしょう]
+//: - `use core::math::gcd as g`      → `g` として[参照/さんしょう]
+
+use core::math as *          // add, mul, ... を直接参照
+use core::list as list       // list::cons, list::nil で参照
+use core::option as *
+use std::io::println         // println だけを直接導入
+
+
+// ── private: このモジュール内でしか使えない ──────────────────────────────
+
+let internal_scale %fn i32 -> i32 \ n :
+    mul n 42
+
+
+// ── pub: use した側から見える ──────────────────────────────────────────────
+
+pub let scale_and_add %fn i32 i32 -> i32 \ n m :
+    add internal_scale n m
+
+
+//: ## module ブロック
+//: ファイル内[論理/ろんり]サブモジュール
+//:
+//: ### [実装/じっそう]
+//: - `module name:` ブロックの canonical path は `anchor_path::name`。
+//: - 複数の `merge` 済み part に同じ `module name:` ブロックがあれば fragment として結合される。
+//: - サブモジュール間の参照は `geometry::distance` のように[修飾名/しゅうしょくめい]で行う。
+
+module geometry:
+    pub let Point struct:
+        x %i32
+        y %i32
+
+    pub let distance_sq %fn Point Point -> i32 \ a b :
+        let dx sub b.x a.x
+        let dy sub b.y a.y
+        add mul dx dx mul dy dy
+
+module statistics:
+    //: ## mean
+    //: [整数/せいすう]リストの[算術平均/さんじゅつへいきん]を返す
+    //:
+    //: ### [注意/ちゅうい]
+    //: - 空リストのときは 0 を返す。`Option i32` を返す設計も考えられるが、
+    //:   このサンプルでは[簡略化/かんりゃくか]している。
+    //: - 除算は切り捨て整数除算。
+    pub let mean %fn List i32 -> i32 \ xs :
+        let n length xs
+        if eq n 0: 0
+        else: div fold_left xs 0 add n
+
+
+pub let main %fn* -> i32 \ :
+    let p1 geometry::Point 0 0
+    let p2 geometry::Point 3 4
+    println concat "distance^2 = " to_str geometry::distance_sq p1 p2
+
+    let nums list::cons 10 list::cons 20 list::cons 30 list::nil
+    println concat "mean = " to_str statistics::mean nums
+    0

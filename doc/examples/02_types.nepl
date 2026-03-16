@@ -1,0 +1,146 @@
+//: # 02_types
+//: struct / enum / trait / impl / パターン[分解/ぶんかい]のサンプル
+//:
+//: ### [目的/もくてき]
+//: - `let Name struct`・`let Name enum`・`let Type impl for Trait` の[構文/こうぶん]を示す。
+//: - コンストラクタパターンのアリティが型[情報/じょうほう]から[静的/せいてき]に決まることを示す。
+//: - trait のデフォルト実装・オーバーライドのパターンを示す。
+
+#module
+#indent 4
+
+use core::cmp as *
+use core::math as *
+
+
+// ── struct ────────────────────────────────────────────────────────────────
+
+pub let Point struct:
+    x %i32
+    y %i32
+
+pub let Rect struct:
+    top_left     %Point
+    bottom_right %Point
+
+
+//: ## Tree
+//: [二分探索木/にぶんたんさくぎ]（[再帰/さいき]的 enum）
+//:
+//: ### [注意/ちゅうい]
+//: - `Tree .T` は Pure Persistent value。共有してよく、manual free を持たない。
+//: - `Node` は左[部分木/ぶぶんき]・[値/あたい]・右[部分木/ぶぶんき]の 3 要素を位[置/ち]ベースで持つ。
+//: - アリティ（3）は型から静的に決まるため、パターン分解に括弧は不要。
+
+pub let Tree enum .T:
+    Leaf
+    Node %Tree .T  %.T  %Tree .T
+
+
+//: ## insert
+//: `Tree .T` に[値/あたい]を挿[入/にゅう]する
+//:
+//: ### [実装/じっそう]
+//: - 型[引数/ひきすう] `.T: Ord` は trait [境界/きょうかい]の記法。`lt`・`eq` が使えることを[保証/ほしょう]する。
+//: - [重複/じゅうふく]は[無視/むし]する（set [意味論/いみろん]）。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(log n)、最悪 O(n)（[木/き]が[偏/かたよ]っている場合）
+
+pub let insert .T: Ord %fn Tree .T .T -> Tree .T \ t val :
+    match t:
+        Tree::Leaf:
+            Tree::Node Tree::Leaf val Tree::Leaf
+        Tree::Node left v right:
+            if lt val v:
+                Tree::Node insert left val v right
+            else:
+                if gt val v:
+                    Tree::Node left v insert right val
+                else:
+                    t
+
+
+// ── trait / impl ──────────────────────────────────────────────────────────
+
+//: ## Show
+//: [値/あたい]を人間[向/む]け文字列に[変換/へんかん]する能力 trait
+//:
+//: ### [目的/もくてき]
+//: - Rust の `Display`・Haskell の `Show` に相当する。デバッグではなく利用者[向/む]け表示[用/よう]。
+//: - デフォルト実装は `"?"` を返す。実装[側/がわ]が override しなければ[型/かた]はその文字列になる。
+//: - 機械[向/む]け・安定した[表現/ひょうげん]は `Serialize` trait を使うこと（`doc/trait_system_design.md` 参照）。
+
+pub let Show trait:
+    let show %fn Self -> str \ self :
+        "?"
+
+
+pub let Point impl for Show:
+    let show %fn Point -> str \ p :
+        concat "(" concat to_str p.x concat ", " concat to_str p.y ")"
+
+
+//: ## Direction
+//: 4 方向[列挙/れっきょ]
+//:
+//: ### [注意/ちゅうい]
+//: - バリアントはすべてペイロードなし。`match` での[網羅/もうら]性[検査/けんさ]が[自動/じどう]で働く。
+//: - OR パターン `North | South` は[変数/へんすう]束縛なしの場合のみ使える。
+
+pub let Direction enum:
+    North
+    South
+    East
+    West
+
+pub let Direction impl for Show:
+    let show %fn Direction -> str \ d :
+        match d:
+            Direction::North: "North"
+            Direction::South: "South"
+            Direction::East:  "East"
+            Direction::West:  "West"
+
+pub let opposite %fn Direction -> Direction \ d :
+    match d:
+        Direction::North: Direction::South
+        Direction::South: Direction::North
+        Direction::East:  Direction::West
+        Direction::West:  Direction::East
+
+pub let is_vertical %fn Direction -> bool \ d :
+    match d:
+        Direction::North | Direction::South: true
+        Direction::East  | Direction::West:  false
+
+
+// ── ネストパターン・@ パターン ────────────────────────────────────────────
+
+//: ## classify_point
+//: `Point` の[座標/ざひょう]による[分類/ぶんるい]
+//:
+//: ### [実装/じっそう]
+//: - コンストラクタパターン `Point x y` を使って x・y を同時に[分解/ぶんかい]。
+//: - `Point 0 0` のアームは `Point _ 0` より前に置く必要がある（上から[順/じゅん]に[試/こころ]みる）。
+
+pub let classify_point %fn Point -> str \ p :
+    match p:
+        Point 0 0: "origin"
+        Point 0 _: "on y-axis"
+        Point _ 0: "on x-axis"
+        _:         "general"
+
+
+//: ## log_and_area
+//: `@` パターンによる[値/あたい]全体と[部分/ぶぶん]の同時束縛
+//:
+//: ### [実装/じっそう]
+//: - `desc @ _` は `_` に[一致/いっち]しつつ、[値/あたい]全体を `desc` に束縛する。
+//: - `@` パターンは[分解/ぶんかい]と[保持/ほじ]を同時に行いたい場面で使う。
+
+pub let log_and_area %fn Rect -> Pair str i32 \ r :
+    let desc @ _ r
+    let w sub desc.bottom_right.x desc.top_left.x
+    let h sub desc.bottom_right.y desc.top_left.y
+    Pair show desc mul w h

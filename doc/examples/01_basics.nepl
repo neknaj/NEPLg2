@@ -1,0 +1,109 @@
+//: # 01_basics
+//: NEPLg2.1 の[基本構文/きほんこうぶん]を示すサンプルファイル
+//:
+//: ### [目的/もくてき]
+//: - `\ params :` による引数リスト・`%fn`/`%fn*` 型[注釈/ちゅうしゃく]・パイプ `|>` の対応を一覧する。
+//: - Pure 関数の内部で `set` による[可変/かへん][更新/こうしん]が許される[条件/じょうけん]を示す。
+//: - Impure 操作（`println`）を Pure な[計算/けいさん]ロジックから[分離/ぶんり]するパターンを示す。
+//:
+//: ### [注意/ちゅうい]
+//: - 中[置/ち]演算子は `|>` のみ。算術・比較はすべて前[置/ち]記法（`add a b`, `lt a b` 等）。
+
+#entry
+#indent 4
+
+use core::math as *
+use core::cmp as *
+use std::io as *
+
+use core::pair as *   // Pair, fst, snd
+
+
+let MAX_SCORE i32 100
+
+let square %fn i32 -> i32 \ n :
+    mul n n
+
+let clamp %fn i32 i32 i32 -> i32 \ lo hi x :
+    if lt x lo: lo
+    else: if gt x hi: hi
+    else: x
+
+
+//: ## factorial
+//: [階乗/かいじょう]（[再帰/さいき]）
+//:
+//: ### [注意/ちゅうい]
+//: - `let` に `%fn` 型[注釈/ちゅうしゃく]が付く場合、スコープ内で[前方参照/ぜんぽうさんしょう]（hoisting）が有効になる。
+//: - これにより[相互/そうご][再帰/さいき]関数も同一スコープに書ける。
+//: - n < 0 の[挙動/きょどう]は[未定義/みていぎ]。Phase 8 以[降/こう]に[依存型/いぞんがた]で[境界/きょうかい]を[静的/せいてき]に[保証/ほしょう]する予定。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間・スタック深さともに O(n)
+
+let factorial %fn i32 -> i32 \ n :
+    if le n 1: 1
+    else: mul n factorial sub n 1
+
+
+//: ## sum_to
+//: 1 から n までの[和/わ]（while + [可変/かへん][束縛/そくばく]）
+//:
+//: ### [注意/ちゅうい]
+//: - 内部で `set` を使うが関数[外部/がいぶ]への[副作用/ふくさよう]はなく Pure。
+//: - `set` が Pure になる[条件/じょうけん]: [更新/こうしん][対象/たいしょう]が unique local state であり、参照が外へ escape しないこと。
+//: - `doc/purity_ownership_memory_spec.md §6.3` を参照。
+
+let sum_to %fn i32 -> i32 \ n :
+    let mut i   1
+    let mut acc 0
+    while le i n:
+        set acc add acc i
+        set i   add i 1
+    acc
+
+
+//: ## div_mod
+//: [商/しょう]と[余/あまり]を `Pair` で返す
+//:
+//: ### [注意/ちゅうい]
+//: - 言語[組/く]み[込/こ]みの Tuple キーワードは廃[止/し]済み。複数[結果/けっか]には `Pair` / `Triple` を使う。
+//: - b = 0 の場合の[動作/どうさ]は[未定義/みていぎ]。必要なら `div_checked` を使うこと。
+
+let div_mod %fn i32 i32 -> Pair i32 i32 \ a b :
+    Pair div a b mod a b
+
+
+//: ## pipeline_demo
+//: パイプ演算子 `|>` の例
+//:
+//: ### [実装/じっそう]
+//: - `f |> g` は `g f` と等価。左辺の[値/あたい]を右辺の[関数/かんすう]の第 1 引数に[渡/わた]す。
+//: - 部分[適用/てきよう]（`clamp 0 MAX_SCORE` の形）と組み合わせて[処理/しょり]の[流/なが]れを左から右に書ける。
+
+let pipeline_demo %fn i32 -> i32 \ n :
+    n |> square |> clamp 0 MAX_SCORE
+
+
+let grade %fn i32 -> str \ score :
+    match score:
+        range_incl 90 100: "A"
+        range_incl 70 89:  "B"
+        range_incl 50 69:  "C"
+        _:                 "D"
+
+
+//: ## main
+//: エントリポイント
+//:
+//: ### [注意/ちゅうい]
+//: - Pure な[計算/けいさん]関数を Impure な `println` から[切/き]り[離/はな]している。
+//: - [計算/けいさん]ロジック側のテストは `println` を含まずに書ける。
+//: - `%fn*` が[必要/ひつよう]なのは `println` の呼び出しを含むため。
+
+pub let main %fn* -> i32 \ :
+    println concat "10! = "        to_str factorial 10
+    println concat "sum(1..10) = " to_str sum_to 10
+    println concat "grade(85) = "  grade 85
+    println concat "pipeline(7) = " to_str pipeline_demo 7
+    0
