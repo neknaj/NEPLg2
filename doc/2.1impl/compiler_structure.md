@@ -70,6 +70,9 @@ AST は flat/未解決。HIR（`hir/hir.rs`）が初めて完全に解決され�
 
 #### NEPLg2.0（Zenn記事）との差分
 
+> **参考**: NEPLg2.0 における括弧なし式解決の実装詳細は Zenn 記事「[括弧なし言語 NEPLg2 の実装](https://zenn.dev/bem130/articles/10eeb3575cbb44)」を参照。
+> NEPLg2.1 はその仕組みを型式・パターンにも拡張したもの。
+
 NEPLg2.0 の `typecheck.rs` は `reduce_calls` アルゴリズムを実装していたが、型式には angle bracket があったためパーサが構造を確定できた。NEPLg2.1 はこの前提を崩す：
 
 | 課題 | NEPLg2.0 | NEPLg2.1 | 担当モジュール |

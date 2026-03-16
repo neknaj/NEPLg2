@@ -4,6 +4,8 @@
 
 ---
 
+> **参考**: NEPLg2 の基本理念については Zenn 記事「[NEPLg2の設計思想](https://zenn.dev/bem130/articles/8b6fe66d473e81)」も参照。
+
 ## 1. 言語の三本柱
 
 NEPLg2.1 は次の三つを同時に満たす言語基盤を目指す。

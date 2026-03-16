@@ -26,4 +26,5 @@ NEPLg2.1 の完全な言語仕様。本ディレクトリのドキュメント�
 
 | ドキュメント | 内容 |
 |---|---|
-| [compiler.md](./compiler.md) | コンパイラ内部設計・Resource IR・解析パス |
+| [compiler.md](./compiler.md) | コンパイラ内部設計・Resource IR・解析パス（言語仕様視点） |
+| [../2.1impl/index.md](../2.1impl/index.md) | コンパイラ実装設計（ファイル構成・パイプライン・移行戦略） |

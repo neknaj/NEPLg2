@@ -130,18 +130,20 @@ io_close h
 
 ---
 
-## 8. 段階導入計画（Phase 0–7 内のコンパイラ実装ステージ）
+## 8. 仕様達成マイルストーン
 
-以下はコンパイラ実装を段階的に進める内部作業ステージ（Stage 1–6）であり、言語バージョンの Phase 番号（Phase 0–7、Phase 8）とは区別する。
+以下は NEPLg2.1 仕様の達成目標をマイルストーン（M1–M6）で区切ったもの。言語バージョンの Phase 番号（Phase 0–8）とは区別する。また、`doc/2.1impl/compiler_structure.md §7` に示す実装ステージ（Stage 1–6、nepl-core-2.1 の構築段階）とも別物である。
 
-| Stage | 内容 |
-|-------|------|
-| Stage 1 | `MemPtr .T` / `RegionToken` を compiler / runtime 境界に閉じ込める |
-| Stage 2 | builtins / effect 判定を `InternalAlloc` / `ExternalIO` 分類へ移行 |
-| Stage 3 | move check を token 消費対応へ拡張 |
-| Stage 4 | Resource IR を導入し、ownership / borrow / region / drop の解析パスを整備（Phase 4 に対応） |
-| Stage 5 | stdlib（`mem` / `std/streamio`）を安全 API へ統一 |
-| Stage 6 | tests に memory / effect 回帰を追加 |
+| マイルストーン | 内容 |
+|---|---|
+| M1 | `MemPtr .T` / `RegionToken` を compiler / runtime 境界に閉じ込める |
+| M2 | builtins / effect 判定を `InternalAlloc` / `ExternalIO` 分類へ移行 |
+| M3 | move check を token 消費対応へ拡張 |
+| M4 | Resource IR を導入し、ownership / borrow / region / drop の解析パスを整備 |
+| M5 | stdlib（`mem` / `std/streamio`）を安全 API へ統一 |
+| M6 | tests に memory / effect 回帰を追加 |
+
+> **実装詳細**: 具体的なファイル構成・パイプライン設計・移行戦略は [doc/2.1impl/compiler_structure.md](../2.1impl/compiler_structure.md) を参照。
 
 ---
 

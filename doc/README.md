@@ -7,17 +7,22 @@
 | ディレクトリ | 内容 |
 |---|---|
 | [2.1spec/](./2.1spec/index.md) | NEPLg2.1 の完全な言語仕様（実装目標・正の仕様） |
+| [2.1impl/](./2.1impl/index.md) | NEPLg2.1 コンパイラ実装設計（ファイル構成・パイプライン・移行戦略） |
 | [compare/](./compare/index.md) | NEPLg2.0 → NEPLg2.1 の変更点対照表 |
+| [migration/](./migration/index.md) | stdlib / tests / tutorials の NEPLg2.1 移行計画（並行ディレクトリ戦略） |
 
 ## ツール・開発
 
+> 以下は現行実装（NEPLg2.0、`nepl-core`）に対応したドキュメント。
+> NEPLg2.1 実装計画は [2.1impl/](./2.1impl/index.md) を参照。
+
 | ドキュメント | 内容 |
 |---|---|
-| [cli.md](./cli.md) | CLI コマンドリファレンス |
-| [lsp_api.md](./lsp_api.md) | Language Server Protocol API |
-| [editor_extensions.md](./editor_extensions.md) | エディタ拡張 |
+| [cli.md](./cli.md) | CLI コマンドリファレンス（NEPLg2.0 現行） |
+| [lsp_api.md](./lsp_api.md) | Language Server Protocol API（NEPLg2.0 現行） |
+| [editor_extensions.md](./editor_extensions.md) | エディタ拡張方針 |
 | [llvm_ir_setup.md](./llvm_ir_setup.md) | LLVM IR セットアップ |
-| [testing.md](./testing.md) | テスト |
+| [testing.md](./testing.md) | テスト（NEPLg2.0 現行） |
 | [debug.md](./debug.md) | デバッグ |
 | [web_playground.md](./web_playground.md) | Web Playground |
 | [self_host.md](./self_host.md) | セルフホスト計画 |
@@ -26,4 +31,5 @@
 ## 標準ライブラリ
 
 > **注**: stdlib の詳細設計は [2.1spec/stdlib.md](./2.1spec/stdlib.md) を参照。
+> NEPLg2.1 への stdlib 移行計画は [migration/index.md](./migration/index.md) を参照。
 > `stdlib/` 配下の個別 API ドキュメントは実装と並行して整備予定。

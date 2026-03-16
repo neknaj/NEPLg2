@@ -69,7 +69,7 @@ pub let insert .T: Ord %fn Tree .T .T -> Tree .T \ t val :
 //: ### [目的/もくてき]
 //: - Rust の `Display`・Haskell の `Show` に相当する。デバッグではなく利用者[向/む]け表示[用/よう]。
 //: - デフォルト実装は `"?"` を返す。実装[側/がわ]が override しなければ[型/かた]はその文字列になる。
-//: - 機械[向/む]け・安定した[表現/ひょうげん]は `Serialize` trait を使うこと（`doc/trait_system_design.md` 参照）。
+//: - 機械[向/む]け・安定した[表現/ひょうげん]は `Serialize` trait を使うこと（`doc/2.1spec/traits.md` 参照）。
 
 pub let Show trait:
     let show %fn Self -> str \ self :

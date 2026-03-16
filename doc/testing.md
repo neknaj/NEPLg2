@@ -1,5 +1,9 @@
 # Testing and doctest workflow
 
+> **対象実装**: このドキュメントは NEPLg2.0（現行 `nepl-core`）のテストワークフローを記述する。
+> NEPLg2.1 では `tests-2.1/` を新設して並行開発し、Stage 6 で `tests/` と切り替える計画。
+> 詳細は [migration/index.md](./migration/index.md) を参照。
+
 This document describes the current NEPLg2 test workflow and where each kind of
 test lives.
 

@@ -92,7 +92,7 @@ pub let filter .T %fn List .T fn .T -> bool -> List .T \ xs pred :
 pub let fold_left .T .A %fn List .T .A fn .A .T -> .A -> .A \ xs init f :
     match xs:
         List::Nil:      init
-        List::Cons h t: fold_left t f h init f
+        List::Cons h t: fold_left t f init h f
 
 
 //: ## sort_list
