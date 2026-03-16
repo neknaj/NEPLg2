@@ -1,98 +1,173 @@
-# NEPLg2.1 Module System Specification v1.0
+# NEPLg2.1 モジュールシステム仕様 v2.0
 
-This document defines the NEPLg2.1 module system, emphasizing the orthogonality between physical files and logical modules.
+最終更新: 2026-03-16
 
-## 1. Core Concepts
+---
 
-NEPLg2 distinguishes between three layers of organization:
+## 1. 基本概念
 
-1.  **Physical Layer (Files)**: Actual `.nepl` files on disk. Attributes: Path, Hash, Spans.
-2.  **Syntax Layer (AST)**: Parsed content containing `merge`, `use`, and `module` blocks.
-3.  **Logical Layer (Modules)**: The actual namespace tree used for name resolution and visibility.
+NEPLg2.1 のモジュールシステムは **ファイル** と **モジュール** を完全に直交させる。3 層に分離する。
 
-## 2. Module Definition and Composition
+| 層 | 内容 |
+|---|---|
+| **物理層 (Physical)** | ディスク上のファイル。パス・ハッシュ・スパンのみを保持する。モジュール意味論を持ち込まない。 |
+| **構文層 (Syntax)** | パース後の AST。`module name:` ブロック・`merge` 文・`use` 文・トップレベル item を保持する。 |
+| **論理層 (Logical)** | モジュールツリー。名前解決・可視性・キャッシュの単位。 |
 
-### 2.1 Intra-file Modules
-A file can contain nested modules using the `module <name>:` syntax with indentation.
+**`#import` は廃止。** モジュール依存は `use`、ソース結合は `merge` のみを使う。
+
+---
+
+## 2. ファイルの種別
+
+ファイルヘッダでファイルの役割を宣言する。
+
+| ヘッダ | 意味 |
+|---|---|
+| `#module` | 独立モジュールの anchor ファイル。`use` の解決対象になる。 |
+| `#entry` | エントリポイント。root モジュールの anchor として扱う。 |
+| `#part` | 独立モジュールではない。`merge` されることで anchor モジュールの一部になる。 |
+
+---
+
+## 3. use 構文
+
+`use` はモジュール依存を宣言し、スコープに名前を導入する。パスの区切り文字は `::` を使う。
+
+### 構文一覧
+
 ```nepl
-module parser:
-    let parse ...:
-        ...
+use modulepath::subpath                      // モジュールをインポート。alias = 最終セグメント名
+use modulepath::subpath as aliasname         // モジュールを alias 付きでインポート
+use modulepath::subpath as *                 // モジュールの公開 item を全て現スコープに導入
+use modulepath::subpath::name                // 特定の item をインポート。alias = name
+use modulepath::subpath::name as aliasname   // 特定の item を alias 付きでインポート
 ```
 
-### 2.2 Inter-file Composition (`merge`)
-`merge` is **Source Part Composition**. It merges another file into the *current module scope*.
-- **Not** a simple string include.
-- The operand is a **file path string**, not an identifier: `merge "./impl.nepl";`
-- Merged files share the same logical module and `private` visibility.
-- Partials are combined into a declaration multiset before resolution.
+### 例
 
 ```nepl
+use std::streamio                   // `streamio` として参照できる
+use std::streamio as io             // `io` として参照できる
+use std::streamio as *              // streamio の公開 item を全て現スコープに導入
+use core::math::gcd                 // `gcd` として参照できる
+use core::math::gcd as greatest_cd  // `greatest_cd` として参照できる
+```
+
+### 解決規則
+
+- `use` はモジュールパスを純粋にパスベースで解決する（overload なし）。
+- 一致が 1 件 → OK
+- 一致が 0 件 → unresolved error
+- 一致が 2 件以上 → ambiguous module error（コンパイルエラー）
+- anchor でない `#part` ファイルのパスを `use` した場合 → warning を出して anchor のパスに正規化
+
+---
+
+## 4. merge 構文
+
+`merge` は現在のモジュールに別ファイルのソースを追加する（**同一モジュール内 Source Part 結合**）。単純な文字列置換ではない。
+
+```nepl
+merge "./filepath/filename"
+```
+
+- パスは `"..."` の文字列リテラル。**`.nepl` 拡張子は省略する。**
+- `merge` された側のファイルは独立モジュールにはならない（`#part` ファイルに限る）。
+- 結合後は declaration multiset として統合し、名前解決・型推論を行う。
+- `private` は結合されたすべての part 間で共有される。
+
+```nepl
+// editor.nepl  (#module)
 #module
 #indent 4
 
-merge "./editor_ops.nepl";
-merge "./editor_util.nepl";
+merge "./editor_ops"
+merge "./editor_util"
 
 pub let run ...:
     ...
 ```
 
-### 2.3 Module Dependencies (`use`)
-`use` introduces a **fully-qualified identifier alias** into the current scope.
-
-- The path uses `::` as separator (not `/` or `""`).
-- The alias introduced is the **last segment** of the path.
-- `use` acts as a visibility and cache boundary.
-
 ```nepl
-use std::streamio;         // introduces `streamio` as alias for std::streamio
-use core::math;            // introduces `math` as alias for core::math
-use core::math::gcd;       // introduces `gcd` as alias for core::math::gcd
+// editor_ops.nepl  (#part)
+#part
+#indent 4
+
+let helper ...:
+    ...
 ```
 
-#### Glob import (`*`)
-`*` may only be used when the target is a **module**. It imports all public items of that module directly into the current scope.
+---
+
+## 5. module ブロック（ファイル内の論理分割）
+
+ファイル内で `module name:` を使って論理的なサブモジュールを定義できる。
 
 ```nepl
-use std::streamio::*;      // OK: streamio is a module
-use core::math::*;         // OK: math is a module
+module parser:
+    let parse ...:
+        ...
+
+module lexer:
+    let lex ...:
+        ...
 ```
 
-`*` is **not valid** for non-module targets (functions, types, etc.):
+- `parser` と `lexer` は sibling モジュール。
+- 複数ファイル（merge 済みの part 群）に同じモジュール名ブロックがあれば、同じ論理モジュールの fragment として結合される。
 
-```nepl
-use core::math::gcd::*;    // ERROR: gcd is a function, not a module
-```
+---
 
-## 3. Anchor Parts and Canonical Paths
+## 6. Canonical Module Path
 
-Every logical module has one **Anchor Part** (the primary file).
+**Canonical Module Path** = `anchor ファイルパス` + `ファイル内 nested module セグメント`（`::` で連結）。
 
-### 3.1 Canonical Path Strategy
-The **Canonical Module Path** is determined by:
-`[Anchor File Path] + [Nested Module Path Segments]`
+例:
+- `./editor.nepl` が anchor、`module parser:` を含む → canonical path は `./editor::parser`
+- `stdlib/core/math.nepl` が anchor、`module integer:` を含む → `core::math::integer`
 
-Module path segments are joined with `::`.
+### Anchor の決定規則
 
-Example:
-- `./editor.nepl` (Anchor)
-- `module parser:` (Nested)
-- Canonical Path: `./editor::parser`
+| 条件 | anchor |
+|---|---|
+| `#module` ファイル | そのファイル |
+| `#entry` ファイル | そのファイル |
+| `A merge B` の形 | A が anchor |
 
-### 3.2 Resolution Rules
-1.  **Explicit Module Path**: Use the identifier defined in `#module`.
-2.  **Anchor Path**: The path of the primary file.
-3.  **Ambiguity Error**: If a `use` path refers to multiple distinct modules, it is a compile-time error.
-4.  **Non-canonical Warning**: If `use` points to a non-anchor part (e.g., a merged file), the compiler warns and normalizes to the canonical anchor path.
+---
 
-## 4. Name Resolution
+## 7. 可視性
 
-1.  **Module Resolution**: Purely path-based. Modules are **not** overloaded. `use` must resolve to exactly one module; zero matches → unresolved error, two or more → ambiguous module error.
-2.  **Item Resolution**: Context-aware. Items (functions, traits) **can** be overloaded if unambiguous.
+| キーワード | スコープ |
+|---|---|
+| （なし / `private`） | 同一論理モジュール全体（`merge` された別ファイルも含む）に見える |
+| `pub` | `use` 越しに見える |
 
-## 5. Visibility
+`fileprivate` は導入しない（file/module 直交性を壊すため）。
 
-- `private`: Visible within the entire logical module (including merged parts).
-- `pub`: Visible to modules that `use` this module.
-- `fileprivate`: **Avoided** to maintain file-module orthogonality.
+---
+
+## 8. 名前解決の 2 段階
+
+1. **Module Resolution** — パスベースで `use` を解決。overload なし。一意でなければコンパイルエラー。
+2. **Item Resolution** — モジュールが確定した後、その中の item を解決。overload 可。
+
+---
+
+## 9. キャッシュ設計
+
+| 種別 | 単位 | key |
+|---|---|---|
+| parse cache | ファイル | ファイルハッシュ |
+| semantic cache | 論理モジュール | canonical module path + anchor + part 集合の AST hash + import した module の interface hash |
+
+interface hash と body hash を分離し、public surface が変わらない場合は downstream の再型検査を省略できる。
+
+---
+
+## 10. 廃止
+
+- **`#import`**: 廃止。モジュール依存は `use`、ソース結合は `merge` のみを使う。
+- **`merge` パスの `.nepl` 拡張子**: 省略する（拡張子なしで記述する）。
+- **`use path::*` グロブ形式**: 廃止。`use path as *` を使う。

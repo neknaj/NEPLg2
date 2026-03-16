@@ -1,5 +1,12 @@
 # NEPL Reboot - Design and Implementation Plan (2026-02-03)
 
+> **[廃止済み / Superseded]**
+> このドキュメントは 2026-02-03 時点の旧設計案であり、現在の仕様とは異なる。
+> - `#import` は廃止。現在は `use` (モジュール依存) と `merge` (ソース結合) を使う。
+> - `fn`/`struct`/`enum`/`trait`/`impl` キーワードは廃止。現在は `let` で統一。
+> - 型記法は `%TypeExpr` 前置記法に変更済み。
+> 現行仕様は `doc/module_system_spec.md` / `doc/type_notation_spec.md` を参照。
+
 This document is a clean-slate specification and implementation plan for a
 backward-incompatible reboot of NEPL. It is based on a review of the current
 repository (nepl-core, nepl-cli, stdlib, examples) and highlights the gaps that
