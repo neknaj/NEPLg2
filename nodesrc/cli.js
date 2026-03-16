@@ -224,7 +224,7 @@ function main() {
             continue;
         }
 
-        const files = walkFiles(inPath, excludeDirs).filter(p => p.endsWith('.n.md') || p.endsWith('.nepl'));
+        const files = walkFiles(inPath, excludeDirs).filter(p => p.endsWith('.n.md') || p.endsWith('.nepl') || p.endsWith('.md'));
         const tocEntries = buildTocEntries(inPath, files);
         const tocTitle = siteName.toLowerCase().includes('tutorial') ? 'Getting Started' : 'Contents';
 
@@ -311,7 +311,8 @@ function buildScopeSearchIndex(inputRoot, files, excludeDirs) {
             const relFilePath = toPosix(path.relative(inputRoot, f));
             const outRel = relFilePath
                 .replace(/\.n\.md$/i, '.html')
-                .replace(/\.nepl$/i, '.html');
+                .replace(/\.nepl$/i, '.html')
+                .replace(/\.md$/i, '.html');
             const pageTitle = readFirstHeadingTitle(f) || path.basename(f, path.extname(f));
             const entries = buildEntriesFromAst(ast, outRel, pageTitle, relFilePath);
             allEntries.push(...entries);
@@ -356,7 +357,8 @@ function buildTocEntries(inputRoot, files) {
     });
     const allOutRels = files.map(f => toPosix(path.relative(inputRoot, f))
         .replace(/\.n\.md$/i, '.html')
-        .replace(/\.nepl$/i, '.html'))
+        .replace(/\.nepl$/i, '.html')
+        .replace(/\.md$/i, '.html'))
         .filter(outRel => outRel !== 'index.html' && outRel !== '00_index.html');
     allOutRels.sort();
 
@@ -391,7 +393,8 @@ function buildTocEntries(inputRoot, files) {
     for (const f of files) {
         const outRel = toPosix(path.relative(inputRoot, f))
             .replace(/\.n\.md$/i, '.html')
-            .replace(/\.nepl$/i, '.html');
+            .replace(/\.nepl$/i, '.html')
+            .replace(/\.md$/i, '.html');
         const title = readFirstHeadingTitle(f);
         if (title && title.length > 0) {
             outRelToTitle.set(outRel, title);
@@ -423,7 +426,8 @@ function buildTocEntries(inputRoot, files) {
         const outRel = toPosix(rawHref)
             .replace(/^\.\//, '')
             .replace(/\.n\.md$/i, '.html')
-            .replace(/\.nepl$/i, '.html');
+            .replace(/\.nepl$/i, '.html')
+            .replace(/\.md$/i, '.html');
         if (!known.has(outRel)) continue;
         const label = outRelToTitle.get(outRel) || indexLabel;
 
@@ -559,7 +563,7 @@ function extractMetaFromAst(ast) {
 }
 
 function buildPageMeta(relPath, ast, { siteName, descriptionPrefix }) {
-    const baseNoExt = path.basename(relPath).replace(/\.n\.md$/i, '').replace(/\.nepl$/i, '');
+    const baseNoExt = path.basename(relPath).replace(/\.n\.md$/i, '').replace(/\.nepl$/i, '').replace(/\.md$/i, '');
     const extracted = extractMetaFromAst(ast);
 
     let title = `${siteName} - ${baseNoExt}`;
@@ -590,7 +594,8 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
 
     const outRel = relPath
         .replace(/\.n\.md$/i, '.html')
-        .replace(/\.nepl$/i, '.html');
+        .replace(/\.nepl$/i, '.html')
+        .replace(/\.md$/i, '.html');
 
     let wrote = 0;
 

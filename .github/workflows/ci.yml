@@ -42,10 +42,13 @@ jobs:
                   rm -rf dist/tutorials
                   node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started --site-name "NEPLg2 Tutorial" --description-prefix "NEPLg2 Getting Started tutorial"
 
-            - name: Build stdlib HTML into dist
+            - name: Build doc + stdlib HTML into dist
               run: |
-                  rm -rf dist/doc/stdlib
-                  node nodesrc/cli.js -i stdlib -o html_play=dist/doc/stdlib --exclude-dir tests --exclude-dir tests_backup --site-name "NEPLg2 Standard Library" --description-prefix "NEPLg2 Standard Library"
+                  rm -rf dist/doc
+                  mkdir -p /tmp/nepl-doc-root
+                  cp -r doc/. /tmp/nepl-doc-root/
+                  cp -r stdlib /tmp/nepl-doc-root/stdlib
+                  node nodesrc/cli.js -i /tmp/nepl-doc-root -o html_play=dist/doc --exclude-dir chat --exclude-dir tests --exclude-dir tests_backup --site-name "NEPLg2 ドキュメント" --description-prefix "NEPLg2"
 
             - name: Upload bootstrap build artifacts
               uses: actions/upload-artifact@v4

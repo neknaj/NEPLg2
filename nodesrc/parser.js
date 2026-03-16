@@ -365,7 +365,7 @@ function parseNeplText(text) {
 
 function parseFile(filePath) {
   const text = fs.readFileSync(filePath, "utf-8");
-  if (filePath.endsWith(".n.md"))
+  if (filePath.endsWith(".n.md") || filePath.endsWith(".md"))
     return { kind: "nmd", ...parseNmdText(text), rawText: text };
   if (filePath.endsWith(".nepl"))
     return { kind: "nepl", ...parseNeplText(text), rawText: text };
