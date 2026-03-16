@@ -180,6 +180,20 @@ let close %fn* File -> Result unit IoError \ file :
 
 consume-return handle 方式は ownership の実装が単純で、linearity と整合しやすい。
 
+**失敗時の所有権**:
+
+- `read`/`write`/`flush` は `Err IoError` 側に `File` を返さない。I/O 失敗時、`File` ハンドルは**消費済みとなり再利用不可**。
+- `close` も同様。`Err IoError` の場合、OS 側でのクローズは保証されないが、言語側の所有権は消費される（二重 close を防ぐため）。
+- この設計により「エラー後に handle を使い続けてしまう」バグを型レベルで防ぐ。
+- **リトライが必要な API** を作る場合は、`Err` 側にも handle を戻す別シグネチャを定義する:
+
+```nepl
+// リトライ可能な read（失敗時も File を返す）
+let try_read %fn* File -> Result Pair File str Pair File IoError \ file :
+```
+
+標準 API は「失敗後の retry を想定しない」設計を基本とする。
+
 ---
 
 ## 9. Escape Analysis（逸出解析）

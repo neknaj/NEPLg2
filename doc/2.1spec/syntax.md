@@ -348,7 +348,10 @@ f unit             // → 10（キャプチャ時点の値）
 `Owned` 型の場合、クロージャ生成後は元変数が `Moved` 状態になるため再代入も使用も不可。
 
 ```nepl
-let buf StringBuilder::new unit
+// std::string_builder モジュールの bare 名 API を使用
+use std::string_builder as *
+
+let buf new unit   // new : %fn unit -> StringBuilder
 let f \ : buf      // buf を move キャプチャ
 // let _ buf       // ← コンパイルエラー: buf は Moved
 ```

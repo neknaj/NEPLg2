@@ -20,9 +20,30 @@
 
 ```nepl
 #module    // 独立モジュールの anchor ファイル（新規）
-#entry     // エントリポイント（既存・意味を明確化）
+#entry     // エントリポイント（既存・文法を変更）
 #part      // merge されるパートファイル（新規）
 ```
+
+**`#entry` の文法変更**: NEPLg2.0 の `#entry main` のように名前を取る形式から、`#entry` 単独のヘッダ宣言に変更。エントリポイントの関数名はモジュール慣例または build 設定で指定する。
+
+### 2.5 `module name:` ブロック（新規）
+
+ファイル内の論理的なサブモジュールを `module name:` ブロックで定義できる（新規追加）。
+
+```nepl
+module parser:
+    let parse ...:
+        ...
+
+module lexer:
+    let lex ...:
+        ...
+```
+
+- `module name:` は宣言キーワードではなく、ファイル内の論理分割ブロック。
+- Canonical Module Path に `::name` セグメントとして追加される。
+- 複数の `#part` ファイルに同名の `module` ブロックがあれば、同一論理モジュールの fragment として結合される。
+- NEPLg2.0 には対応する構文は存在しなかった。
 
 ### 2.2 `use` の統一
 

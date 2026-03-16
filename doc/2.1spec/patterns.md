@@ -134,9 +134,10 @@ match n:
     0 | 1 | 2: "small"
     _:         "large"
 
+// opt : Option i32 — 全アームが str を返す
 match opt:
     Option::Some 0 | Option::None: "empty or zero"
-    Option::Some v:                v
+    Option::Some _:                "has non-zero value"
 ```
 
 ### 2.9 参照パターン
@@ -217,10 +218,10 @@ match result_pair:
     Pair Result::Err e _:            handle_error e
     Pair _ Result::Err e:            handle_error e
 
-// OR パターン
+// OR パターン（全アームが str を返す）
 match x:
     0 | 1: "zero or one"
-    n:     n
+    _:     "other"
 
 // 束縛付き
 match opt:

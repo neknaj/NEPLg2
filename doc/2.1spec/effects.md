@@ -165,8 +165,8 @@ NEPLg2.1 での使い分け:
 |----|----------------|
 | `i32`, `u8`, `bool`, `f32`, `unit` | `Unrestricted` |
 | `str`, `List .T`, immutable struct (`Pair`, `Triple` 等) | `Unrestricted`（region-managed） |
-| `OwnedBuf .T`, `VecBuilder .T`, `File`, `Socket` | `Owned` |
-| `RegionToken`, `BuilderToken`, `CloseToken` | `Linear` |
+| `ByteBuf`, `OwnedBuf .T`, `StringBuilder`, `VecBuilder .T` | `Owned` |
+| `File`, `Socket`, `RegionToken`, `BuilderToken`, `CloseToken` | `Linear` |
 
 ### 5.1 能力テーブル
 
@@ -187,9 +187,10 @@ NEPLg2.1 での使い分け:
 3. 全ての要素が `Unrestricted` である場合のみ、複合型全体が `Unrestricted`。
 
 ```
-Pair i32 str       → Unrestricted
-Pair File i32      → Linear  （File が Linear）
-Pair OwnedBuf u8 str  → Owned
+Pair i32 str          → Unrestricted
+Pair File i32         → Linear       （File が Linear）
+Pair ByteBuf str      → Owned        （ByteBuf が Owned）
+Pair RegionToken i32  → Linear       （RegionToken が Linear）
 ```
 
 制約の伝播順序: `Linear` > `Owned` > `Unrestricted`

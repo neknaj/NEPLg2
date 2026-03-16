@@ -146,6 +146,29 @@ let Mode enum:
     Append
 ```
 
+### 4.1 バリアントの名前解決規則
+
+enum バリアントは 2 通りの参照形式を持つ。
+
+| 形式 | 構文 | 条件 |
+|------|------|------|
+| **修飾形** | `EnumType::VariantName` | 常に有効（型が確定しなくてもよい） |
+| **bare 形** | `VariantName` | `use EnumType::*` またはスコープ内に型注釈があり一意に解決できる場合のみ有効 |
+
+```nepl
+// 修飾形（常に使える）
+match opt:
+    Option::Some v: v
+    Option::None:   0
+
+// bare 形（期待型 Option .T が確定していれば可）
+let x %Option i32 Some 10
+```
+
+修飾形 `Type::Variant` は `::` が使われているが、これは**モジュールパスではなく enum 型名による修飾**である。`modules.md` の `use` 解決とは独立した仕組みとして型検査器が処理する。
+
+bare バリアント名が複数の enum で衝突した場合はコンパイルエラーとなり、修飾形による明示を要求する。
+
 ---
 
 ## 5. trait 定義
@@ -195,7 +218,7 @@ let Vec .T impl for Eq
 ## 7. let 型注釈（値バインディング）
 
 ```nepl
-let a %Option i32 some 10
+let a %Option i32 Option::Some 10
 let checks %Vec Result unit str
 ```
 

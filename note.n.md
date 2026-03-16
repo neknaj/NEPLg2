@@ -1,3 +1,21 @@
+# 2026-03-17 作業メモ (doc: 第3回レビューによる仕様バグ修正・欠落差分補充)
+
+- [目的/もくてき]:
+  - 第3回外部レビューで指摘された仕様バグ・例の誤り・compare 文書の差分漏れを修正する。
+- [変更/へんこう]:
+  - `doc/2.1spec/effects.md §5`: `File`/`Socket` を `Owned` から `Linear` に移動（同文書内の例・memory.md との矛盾を解消）。`ByteBuf`/`StringBuilder` を `Owned` 行に追加。合成例を更新。
+  - `doc/2.1spec/declarations.md §4`: `some 10` → `Option::Some 10` の大文字ミス修正。§4.1 としてバリアント名前解決規則を新設（修飾形 `Type::Variant` / bare 形の使い分け・`::` がモジュール修飾でなく型修飾であることを明記）。
+  - `doc/2.1spec/patterns.md §2.8 / §4.3`: OR パターン例の match arm 型不一致を修正（2件）。
+  - `doc/2.1spec/syntax.md §11`: `StringBuilder::new unit` → `new unit`（bare 名方針との整合）。
+  - `doc/2.1spec/memory.md §8.3`: I/O handle 失敗時の所有権を明文化（`Err` 側に File が返らない設計意図・リトライ可能 API のシグネチャ例を追加）。
+  - `doc/compare/syntax.md §9–12`: 欠落差分を追加（補助マーカー廃止、括弧グループ廃止、セミコロン廃止、バリアント参照記法の変更）。
+  - `doc/compare/module_system.md §2.1/2.5`: `#entry` 文法変更と `module name:` ブロック新設の差分を追加。
+- [残課題/のこかだい]:
+  - `patterns.md §2.9` の参照パターンは「Resource IR 統合後に完全サポート」として保留のまま（Phase 4 以降）。
+  - compare/syntax のバリアント解決規則差分は宣言規則が固まった本回の変更を受けて記載済み。
+
+---
+
 # 2026-03-17 作業メモ (doc: 第2回レビューによる仕様確定)
 
 - [目的/もくてき]:
