@@ -1,3 +1,14 @@
+# 2026-03-16 作業メモ (nodesrc: TypeScript コンパイル出力を gitignore)
+
+- [目的/もくてき]:
+  - `nodesrc/parser.js` / `nodesrc/html_gen.js` は `tsc` によるコンパイル出力であり、git で管理すべきでない。gitignore に追加して untrack する。
+- [変更/へんこう]:
+  - `.gitignore`: `/nodesrc/parser.js`, `/nodesrc/html_gen.js` を追加。
+  - `git rm --cached` で既存の追跡を解除。
+  - CI はすでに bootstrap-build で `tsc` を実行するため、untrack しても問題なし。
+
+---
+
 # 2026-03-16 作業メモ (nodesrc: TypeScript 化・Markdown 拡張対応)
 
 - [目的/もくてき]:
