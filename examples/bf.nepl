@@ -1,6 +1,6 @@
 #entry main
 #indent 4
-#target wasi
+#target std
 
 //: neplg2:test[bf_hello_world, normalize_newlines, strip_ansi]
 //: [目的/もくてき]: Hello World プログラムの実行

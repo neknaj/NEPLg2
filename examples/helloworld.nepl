@@ -1,5 +1,5 @@
 #entry main
-#target wasi
+#target std
 
 #import "std/stdio"
 

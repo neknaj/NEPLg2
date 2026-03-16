@@ -8,13 +8,6 @@
 #if[target=llvm]
 #extern "c" "syscall" fn __nepl_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
 
-#if[target=wasm]
-fn fd_read <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nread_ptr):
-    1
-
-#if[target=wasm]
-fn fd_write <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nwritten_ptr):
-    1
 
 #import "alloc/collections/vec" as *
 #import "alloc/io" as *

@@ -1,6 +1,6 @@
 #entry main
 #indent 4
-#target wasi
+#target std
 
 //: neplg2:test[rpn_repl_simple, normalize_newlines, strip_ansi]
 //: [目的/もくてき]: REPL全体の統合テスト (1 2 +)

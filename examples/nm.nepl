@@ -1,6 +1,6 @@
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "alloc/string" as *
 #import "core/option" as *

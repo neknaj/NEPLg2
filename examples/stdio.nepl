@@ -12,7 +12,7 @@
 //:     ##: hello
 #entry main
 #indent 4
-#target wasi
+#target std
 
 #import "core/mem" as *
 #import "core/math" as *
