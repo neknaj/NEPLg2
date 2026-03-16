@@ -1,0 +1,263 @@
+# NEPLg2.1 コア構文仕様
+
+最終更新: 2026-03-16
+
+---
+
+## 1. 基本原則
+
+NEPLg2.1 の構文は次の原則を貫く。
+
+- **前置記法（prefix notation）**: 関数適用は `f a b` の形。括弧によるグループ化は式文脈に存在しない。
+- **オフサイドルール**: ブロックはインデントで表現する。閉じ括弧・閉じキーワードはない。
+- **式指向**: `if`・`match`・ブロックはすべて値を返す式。
+- **中値演算子は `|>` のみ**: 算術・比較演算子はすべて前置関数。
+
+---
+
+## 2. リテラル
+
+```
+<literal> :=
+    <integer>    // 10進 整数リテラル: 0, 42, -1 等
+  | <float>      // 浮動小数点: 3.14, -0.5 等
+  | <bool>       // true, false
+  | <string>     // ダブルクォート文字列: "hello"
+  | unit         // unit 値（唯一の unit 型の値）
+```
+
+---
+
+## 3. 識別子と型変数
+
+- 識別子: `[a-zA-Z_][a-zA-Z0-9_]*`
+- 型変数: `.Ident`（ドット始まり）。宣言文脈での型パラメータとして使う。
+
+---
+
+## 4. 式（Expression）
+
+```
+<expr> :=
+    <literal>
+  | <ident>
+  | <expr> <expr>                // 前置適用（juxtaposition）— 左結合
+  | <expr> |> <expr>             // パイプ演算子（左結合）
+  | <expr> . <field_name>        // フィールドアクセス（特殊形式、中値演算子ではない）
+  | \ <params> : <expr>          // クロージャリテラル
+  | if <expr> : <block> [else if <expr> : <block>]* [else : <block>]
+  | match <expr> : <match_arms>
+  | let <pattern> <expr>         // 式ブロック内の let 文
+  | <block>
+```
+
+### 4.1 前置適用（juxtaposition）
+
+関数適用は引数を並べるだけ。引数の数（arity）は型情報から決定する。
+
+```nepl
+add 1 2           // add(1, 2)
+mul add 1 2 3     // mul(add(1, 2), 3)  — 'add' が arity 2 なので '1 2' を消費
+neg x             // neg(x)
+```
+
+括弧は存在しない。グループ化は型推論（arity）によって解決される。
+
+### 4.2 パイプ演算子 `|>`
+
+`|>` は NEPLg2.1 唯一の中値演算子。左結合。
+
+```
+a |> f       ≡   f a
+a |> f |> g  ≡   g (f a)   // 左結合: (a |> f) |> g
+```
+
+型規則: `a : A`、`f : %fn A -> B` ならば `a |> f : B`。
+効果規則: パイプ全体の effect は適用する関数の effect の上限（いずれか Impure ならば Impure）。
+
+```nepl
+// 例: 読み取り → パース → バリデーション
+input |> trim |> parse_int |> validate
+
+// 部分適用との組み合わせ
+scores |> map \ x : mul x 2 |> filter \ x : gt x 0
+
+// 定数インデックスのクランプ
+n |> clamp 0 100
+```
+
+`|>` はパターン文脈には現れない。パターン内の `|` は OR パターン区切りであり別物。
+
+### 4.3 フィールドアクセス `e.field`
+
+struct のフィールドには `.` でアクセスする。これは中値演算子ではなく、パーサが特別扱いする特殊形式。
+
+```nepl
+let p Point 3 4
+let x p.x          // Point の x フィールド
+let y p.y
+
+// ネストアクセス
+let r Rect Point 0 0 Point 10 20
+let tx r.top_left.x
+```
+
+フィールドアクセスは純粋（side-effect なし）。
+
+```nepl
+// |> との組み合わせ: p.x |> f は f p.x と等価
+p.x |> to_float
+```
+
+フィールドアクセス vs パターン分解の使い分け:
+
+| 操作 | 構文 | 適した場面 |
+|------|------|-----------|
+| 一部フィールドを参照 | `p.x` | 1〜2 フィールドを点在して使う |
+| 複数フィールドを一度に束縛 | `let Point x y p` | 多数のフィールドを使う・move が必要 |
+
+---
+
+## 5. ブロック（Block）
+
+ブロックは `:` の後にインデントして並べた文・式の列。最後の式がブロックの値になる。
+
+```
+<block> :=
+    : <indent>
+        <stmt_or_expr>*
+        <expr>               // ブロックの値（最後の式）
+```
+
+```nepl
+let result
+    let a 10
+    let b 20
+    add a b        // ブロックの値 = 30
+```
+
+let 文はブロック内では文（値を持たない）として扱う。
+
+---
+
+## 6. if 式
+
+```
+if <cond> :
+    <block>
+[else if <cond> :
+    <block>]*
+[else :
+    <block>]
+```
+
+`if` は式。全アームの型が一致しなければならない。`else` がない場合は `unit` を返す（全アームが `unit` の場合のみ省略可）。
+
+```nepl
+let grade
+    if ge score 90: "A"
+    else if ge score 70: "B"
+    else: "C"
+
+// unit を返す場合（else 省略可）
+if is_debug:
+    print_debug info
+```
+
+---
+
+## 7. match 式
+
+```
+match <scrutinee> :
+    <pattern> :
+        <block>
+    <pattern> :
+        <block>
+    ...
+```
+
+`match` は式。全アームの型が一致しなければならない。コンパイラは網羅性を静的に検査する。詳細は [patterns.md](./patterns.md) を参照。
+
+```nepl
+match opt:
+    Option::Some v:
+        v
+    Option::None:
+        0
+```
+
+---
+
+## 8. クロージャリテラル `\ params : body`
+
+匿名関数は `\ params : body` で書く。
+
+```
+\ <param...> : <expr>
+```
+
+```nepl
+\ x : mul x 2              // 引数 1 つ
+\ a b : add a b            // 引数 2 つ
+\ : 42                     // 引数なし
+
+// 高階関数への渡し方
+map xs \ x : mul x 2
+filter xs \ x : gt x 0
+fold_left xs 0 \ acc x : add acc x
+```
+
+型は呼び出し側の期待型から推論される。型を明示する場合は `let` を使う（[declarations.md](./declarations.md) 参照）。
+
+キャプチャ規則:
+
+| 変数の種別 | キャプチャの挙動 |
+|-----------|----------------|
+| `Copy` 型 | copy されてキャプチャ（元変数も使用可） |
+| `Owned` 型 | move されてキャプチャ（クロージャ生成後は元変数使用不可） |
+| `Linear` 型 | キャプチャ**不可**（コンパイルエラー） |
+
+`Linear` 型（`File`、`Socket` など）はクロージャに渡せない。明示的な引数として渡すこと。
+
+---
+
+## 9. let 文（ブロック内）
+
+```
+let <pattern> <expr>
+let <pattern> %<TypeExpr> <expr>    // 型注釈付き
+let mut <ident> <expr>              // 可変束縛
+```
+
+ブロック内の `let` は文（評価値を持たない）。`<pattern>` は網羅的でなければならない。詳細は [patterns.md](./patterns.md) を参照。
+
+---
+
+## 10. 構文上の注意
+
+### 10.1 括弧なし
+
+式文脈に括弧は存在しない。arity は型情報から決定されるため、括弧なしで構造が一意に定まる。
+
+```nepl
+// 正しい前置記法
+add mul 2 3 4     // add(mul(2, 3), 4) = 10
+
+// NEPLg2.1 に括弧構文はない
+// add (mul 2 3) 4  ← このような括弧構文はない
+```
+
+### 10.2 `|>` は式文脈のみ
+
+`|>` は式文脈でのみ有効。型式・パターン文脈には現れない。
+
+### 10.3 `->` は型式文脈のみ
+
+`->` は `%fn ... -> ...` の型式文脈でのみ有効。式の中値演算子ではない。
+
+### 10.4 コメント
+
+```nepl
+// 行コメント
+```
