@@ -332,6 +332,19 @@ stdlib/neplg2/
 
 ---
 
+## 4.5 その他のワークスペースクレート
+
+NEPLg2.1 ワークスペースには `nepl-core-2.1` / `nepl-cli` 以外にも次のクレートが存在する。
+
+| クレート | 責務 | 状態 |
+|---|---|---|
+| `nepl-lsp` | Language Server Protocol 実装。補完・診断・ホバーを提供。`nepl-core-2.1` の型検査結果をインクリメンタルに利用 | 開発中（NEPLg2.1 対応は Stage 3 以降） |
+| `web` | WebAssembly バインディング。ブラウザ上のプレイグラウンド向け。`nepl-core-2.1` を wasm-bindgen でラップ | NEPLg2.1 対応は Stage 5 以降 |
+
+どちらも `nepl-core-2.1` に依存し、OS/ブラウザ固有の I/O は各クレート内に閉じ込める。`nepl-core-2.1` 本体は `no_std` ＋ `extern crate alloc` を維持する。
+
+---
+
 ## 5. 現行ファイルと NEPLg2.1 ファイルの対応表
 
 | 現行（nepl-core/src/） | NEPLg2.1（nepl-core-2.1/src/） | 変更内容 |

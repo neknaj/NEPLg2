@@ -36,7 +36,7 @@ stdlib/neplg2/
         lexer/
         parser/
         typecheck/
-        resource_ir/
+        resource/
         codegen/
 ```
 
