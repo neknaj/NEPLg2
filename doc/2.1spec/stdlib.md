@@ -49,7 +49,7 @@
 
 - `core` の上で、heap 依存だが target 非依存の汎用機能を提供する。
 - allocator / 領域管理 / 診断補助 / encoding / hash をここへ置く。
-- `MemPtr .T` / `RegionToken .T` は compiler/runtime 境界モジュールとして `alloc` 配下に置くが、safe user code からは抽象型（`OwnedBuf .T`, `Slice .T` など）だけが見える。
+- `MemPtr .T` / `RegionToken` は compiler/runtime 境界モジュールとして `alloc` 配下に置くが、safe user code からは抽象型（`OwnedBuf .T`, `Slice .T` など）だけが見える。
 
 ### 2.3 `runtimes`
 

@@ -27,7 +27,9 @@ NEPLg2.1 はすべての値を意味論上、次の 3 種類に分類する。
 
 ### B. Unique mutable work state（一意可変作業状態）
 
-例: `ByteBuf`, `VecBuilder .T`, `StringBuilder`, mutable scratch buffer
+例: `ByteBuf`, `OwnedBuf .T`, `VecBuilder .T`, `StringBuilder`, mutable scratch buffer
+
+`ByteBuf` は任意バイト列を保持する owned buffer で、固定長操作向け。`OwnedBuf .T` は型付きの owned 連続領域。`VecBuilder .T` / `StringBuilder` は要素/文字列の逐次構築専用で `finish` が消費する。
 
 - 一意所有でのみ更新できる
 - pure 関数の内部実装に使ってよい（外に漏れない限り）
@@ -57,6 +59,8 @@ NEPLg2.1 はすべての値を意味論上、次の 3 種類に分類する。
 
 - scope exit / overwrite 時に自動 drop を挿入
 - 初期化状態を dataflow で追い、条件付き drop を生成
+
+`Linear` 資源（`File`・`Socket`・`RegionToken` 等）も Drop Elaboration の対象である。Linear の意味は「暗黙的な複製・暗黙的な破棄を禁止する」ことであり、コンパイラが挿入する自動 drop（scope exit drop）はこの禁止に違反しない。Linear 資源が drop されずにスコープを抜ける経路が残る場合はコンパイルエラーとなる（診断 5005/5006）。
 
 ---
 

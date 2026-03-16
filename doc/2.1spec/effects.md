@@ -175,8 +175,10 @@ NEPLg2.1 での使い分け:
 | `Copy` | read が move でなく copy になる |
 | `Clone` | 明示複製が許される |
 | `Drop` | scope exit / overwrite / early return で drop 候補になる |
-| `Linear` | implicit copy も implicit discard も不可 |
+| `Linear` | implicit copy も implicit discard も不可（`Drop` を持つ `Linear` 型にはコンパイラ自動 drop が挿入される） |
 | `Owned` | implicit discard は drop elaboration でのみ可能 |
+
+`Linear` と `Drop` の関係: `Linear` 型は暗黙の破棄を禁止するが、コンパイラが挿入する Drop Elaboration（scope exit drop）は「コンパイラ管理の明示的 drop」として扱われ、この禁止に違反しない。`Linear` 型が drop されずスコープを抜ける経路が残ればコンパイルエラー（診断 5005/5006）。
 
 ### 5.2 複合型の resource usage 合成則
 

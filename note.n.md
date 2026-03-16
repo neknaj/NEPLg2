@@ -1,3 +1,21 @@
+# 2026-03-17 作業メモ (doc: 第4回レビューによる仕様不整合修正)
+
+- [目的/もくてき]:
+  - 5大基本理念（前置記法括弧なし・強力な静的検査・型安全メモリ安全・依存型導入準備・マルチプラットフォーム）に照らして doc/ 全体を精査し、残存不整合を修正する。
+- [変更/へんこう]:
+  - `doc/2.1spec/stdlib.md §2.2`: `RegionToken .T` → `RegionToken`（型パラメータなし。他のすべての文書との整合）。
+  - `doc/2.1spec/memory.md §2.B`: `OwnedBuf .T` を Unique Mutable Work State 例に追加。`ByteBuf`/`OwnedBuf .T`/`VecBuilder .T`/`StringBuilder` の用途差を明記。
+  - `doc/2.1spec/memory.md §3.2`: `Linear` 資源も Drop Elaboration の対象であることを明記（「暗黙的な破棄の禁止」と「コンパイラ自動 drop の挿入」は矛盾しないことを説明）。
+  - `doc/2.1spec/effects.md §5.1`: `Linear` + `Drop` の相互作用を能力テーブル後の補足に追加。
+  - `doc/2.1spec/patterns.md §6`: `::` がモジュール修飾でなく型名修飾であることを追記。bare バリアント名の条件・衝突時のエラー挙動を追記。`declarations.md §4.1` への相互参照を追加。
+  - `doc/compare/index.md`: 「削除されるもの」に `#entry` 文法変更・補助マーカー廃止・括弧グループ廃止・セミコロン廃止を追加。「追加されるもの」に borrow 記法・`module name:` ブロック・`EnumType::Variant` 修飾形を追加。
+  - `doc/examples/05_io_and_resources.nepl`: コメント「実装依存」を削除し、言語仕様として `Err` 側に File が返らないことを明記。
+  - `doc/examples/06_generics_and_traits.nepl`: trait メソッドのデフォルトなし本体に `...` を追加（`declarations.md §5` の仕様に合わせる）。
+- [残課題/のこかだい]:
+  - Phase 4 以降の `MemReadable`/`MemWritable`/`RegionOwned` 強制は引き続き実装待ち。
+
+---
+
 # 2026-03-17 作業メモ (doc: 第3回レビューによる仕様バグ修正・欠落差分補充)
 
 - [目的/もくてき]:

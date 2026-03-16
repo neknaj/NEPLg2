@@ -29,7 +29,7 @@ use core::list as *
 //: - `close file2` で `File` を[確実/かくじつ]に消費する。失敗[分岐/ぶんき]でも `File` は消費済みになる。
 //:
 //: ### [注意/ちゅうい]
-//: - `read` が失敗した場合、内部で `File` はすでに消費された状態になる（実装依存、IO エラー時の扱い）。
+//: - `read` が失敗した場合、`File` ハンドルは消費済みとなり再利用不可（言語仕様。`Err` 側に `File` は返らない）。
 //: - `File` を[途中/とちゅう]で落とすと "linear value not consumed" エラー。`match` の全アームで消費すること。
 
 pub let read_file_text %fn* str -> Result str IoError \ path :

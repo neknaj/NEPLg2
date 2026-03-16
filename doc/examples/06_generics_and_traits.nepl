@@ -19,9 +19,11 @@ use core::math as *
 
 pub let Eq trait:
     let eq %fn Self Self -> bool \ a b :
+        ...
 
 pub let Ord trait:
     let lt %fn Self Self -> bool \ a b :
+        ...
     // デフォルト実装: lt または eq であれば le
     let le %fn Self Self -> bool \ a b :
         or lt a b eq a b
@@ -37,7 +39,9 @@ pub let Ord trait:
 
 pub let Monoid trait:
     let empty %fn unit -> Self \ :
+        ...
     let combine %fn Self Self -> Self \ a b :
+        ...
 
 
 pub let i32 impl for Monoid:
