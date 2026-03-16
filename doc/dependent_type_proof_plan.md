@@ -60,7 +60,8 @@
 
 ```neplg2
 // : 型レベルで長さを追跡する Vector
-struct Vec <.T, .len>
+let Vec struct .T .len:
+    ...
 
 // : 長さ N の Vector への push は必ず長さ N+1 の Vector を返す
 let push .T .n %fn Vec .T .n .T -> Vec .T {n + 1} (list, item):
@@ -70,7 +71,7 @@ let push .T .n %fn Vec .T .n .T -> Vec .T {n + 1} (list, item):
 // : 注釈内の `{}` は CTFE によりコンパイル時評価される。
 let get .T .len .idx %fn Vec .T .len .idx -> Option .T (list, index)
   // idx が合法であることの証明型を仮想的な constraint として要求
-  where <IsLess<.idx, .len>>:
+  where %IsLess .idx .len:
     // ... インデックス境界チェックの assert 等なしで生メモリのオフセットアクセスが可能になる
 ```
 
