@@ -37,7 +37,15 @@ stdlib 再構築 本流
 - 完了条件:
   - codegen 到達時は生成成功前提となり、wasm/llvm 共通診断化され、コンパイラ内部の効果・状態追跡の土台が整う。
 
-3. core/mem のポインタ隔離と安全境界の構築 (Migration Phase 1)
+3. Module System 実装と名前解決の刷新 (Migration Phase 0.5)
+- ファイルとモジュールの直交化を parser / resolver レベルで実装する。
+- `merge` 指令による同一モジュール内ソース合成を実装する。
+- Anchor Part の概念を導入し、canonical なモジュールパス解決を強制する。
+- 非 canonical パスでの `use` に対する警告と正規化、および曖昧な解決のコンパイルエラー化。
+- 完了条件:
+  - 複数の .nepl ファイルを 1 つの論理モジュールとして `merge` でき、anchor path を基点とした名前解決が安定して動作する。
+
+4. core/mem のポインタ隔離と安全境界の構築 (Migration Phase 1)
 - `_raw` 名依存や backend ごとの差分診断を共通検査へ寄せる。
 - `MemPtr<T>` の raw address 露出を safe API から消し、`mem_ptr_addr` / `alloc_raw` などを compiler/runtime 境界に閉じ込める。
 - 生 `i32` load/store 等を隠蔽し、型付きポインタでのアクセスへ置換する。
@@ -45,7 +53,7 @@ stdlib 再構築 本流
 - 完了条件:
   - `_raw` / `_safe` の公開命名が消え、公開面に生ポインタ前提 API が残らない。
 
-4. alloc 層の新構成移行とコレクション安全化 (Migration Phase 1, Phase 2)
+5. alloc 層の新構成移行とコレクション安全化 (Migration Phase 1, Phase 2)
 - `alloc/string` 等の主要確保経路を `RegionToken<u8>` + `MemPtr<u8>` な型付き領域へ分離 (`StringBuilder` / `ByteBuf` / `str` の分離)。
 - 各種コレクション (`Vec`, `HashMap`, `Queue` 等) を `MemPtr<T>` / `RegionToken<T>` 前提の型付き API へ統一する。
 - `List<T>` の public `free` を削除して persistent list に固定し、`tail` セマンティクスを正式に共有へ変更する (Phase 2)。
@@ -54,7 +62,7 @@ stdlib 再構築 本流
 - 完了条件:
   - `alloc` 層の公開 API が Wasm/LLVM 共通の新しいメモリモデルと整合する。
 
-5. compiler 解析パスの強化と自動メモリ管理 (Migration Phase 4, Phase 5, Phase 6)
+6. compiler 解析パスの強化と自動メモリ管理 (Migration Phase 4, Phase 5, Phase 6)
 - `set` の purity 規則を「局所なら pure」から escape analysis ベースの新規則へ変更する (Phase 4)。
 - `VarState` (Live/Moved/MaybeMoved 等) を用いた変数状態追跡・借用チェッカーを導入する (Phase 5)。
 - Resource IR と ownership/borrow check pass を導入し、owned object (`File`, `Socket`, `ListBuilder<T>` など) に対し Drop Elaboration を実装する (Phase 5)。
@@ -63,7 +71,7 @@ stdlib 再構築 本流
   - OOB / UAF / double free / use-after-move / borrow conflict 等が Resource IR 上の compile error または `Result<Err>` として検出される。
   - 値の 3 分類 (pure persistent / unique mutable / linear capability) に基づいた GC レスの自動メモリ管理が稼働する。
 
-6. runtimes 層を整理する
+7. runtimes 層を整理する
 - target ごとの差分と厚い wrapper が必要な機能だけを `runtimes` に集める。
 - `math` のような `core` へ置くべきものを `runtimes` に持ち込まない。
 - wasip1 / wasip2 / wasix などの差分を `runtimes` 配下で整理する。
@@ -71,7 +79,7 @@ stdlib 再構築 本流
   - `runtimes` の責務が `std` や `features` と重複しない。
   - target 差分を `std` が包める状態になる。
 
-7. std と std/streamio を再構築し、IO効果を適用する (Migration Phase 3)
+8. std と std/streamio を再構築し、IO効果を適用する (Migration Phase 3)
 - `std/io`, `std/stdio`, `std/fs`, `std/env/cliarg` 等の effect を文字列マーカーから宣言的 (`ExternalIO`) に変更する (Phase 3)。
 - `std/streamio` を `alloc/io` 抽象の上に構築し、`runtimes` を直接見せない facade にする。
 - `kpread` / `kpwrite` の機能を `std/streamio` へ統合し、公開 API としての `kpread` / `kpwrite` は最終的に撤去する。
@@ -81,7 +89,7 @@ stdlib 再構築 本流
   - `std` が target 依存標準 API の facade として一貫し、I/O に `ExternalIO` 効果が正しく付与される。
   - `kpread` / `kpwrite` を使わずに `std/streamio` だけで同等の入出力が書ける。
 
-8. features 層の残作業を整理する
+9. features 層の残作業を整理する
 - GUI / HTTP / 音声再生のような外部 API / FFI / デバイス接続を `features` へ配置する。
 - regex や audio buffer/processing のような計算・データ処理を `core` / `alloc` へ戻す。
 - `features` は `std` や `runtimes` の上に載る追加機能群として整理する。
@@ -89,7 +97,7 @@ stdlib 再構築 本流
   - `features` の責務が `std` と混ざらない。
   - TUI 以外の既存外部連携コードの配置方針も固定される。
 
-9. tests / tutorials / docs を新 stdlib に追従させる
+10. tests / tutorials / docs を新 stdlib に追従させる
 - `compile_fail` に `diag_id` を付ける。
 - 診断位置検証の仕組みを追加する。
 - tutorials を新ライブラリ構成と新 API に合わせて書き直す。
@@ -215,7 +223,11 @@ parserでは、Resultを用い、エラーメッセージを適切に提供す�
 
 NEPLg2でセルフホストコンパイラを作る
 stdlib/neplg2/
-Rustの現実装のように、WASM依存のみでWASIに依存しないcoreと、stdやfsなどを扱うWASIに依存するcliに分けて実装する
+- 2-layer 言語プラットフォーム構造（Bootstrap Rust Host + Platform Stdlib）の完成。
+- Rust の現実装のように、WASM依存のみでWASIに依存しないcoreと、stdやfsなどを扱うWASIに依存するcliに分けて実装する。
+- 言語島（Embedded DSL）や構文処理ツールキットを stdlib に整備する。
+- 完了条件:
+  - 自作コンパイラが自身のソースコードをコンパイルし、Rust ホスト版と同一の Wasm を出力できる。
 
 
 # 新tutorial作成計画

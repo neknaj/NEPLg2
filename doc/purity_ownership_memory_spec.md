@@ -62,7 +62,7 @@ NEPLg2 の値は意味論上、次の 3 種類に分類する。
 
 ### A. Pure persistent value (純粋永続値)
 
-例: `str`, `List<T>`, immutable `Tree<T>`, immutable tuple
+例: `str`, `List<T>`, immutable `Tree<T>`, immutable struct (`Pair<A,B>`, `Triple<A,B,C>` 等)
 
 - 共有してよい
 - manual free を持たない
@@ -131,8 +131,8 @@ compiler 内部では少なくとも次の分類を持つ。
 
 | 型 | resource usage |
 |----|----------------|
-| `i32`, `u8`, `bool`, `f32`, unit, label, immutable tuple | `Unrestricted` |
-| `str`, `List<T>`, immutable tree | `Unrestricted` (region-managed) |
+| `i32`, `u8`, `bool`, `f32`, unit, label | `Unrestricted` |
+| `str`, `List<T>`, immutable tree, immutable struct (`Pair`, `Triple` 等) | `Unrestricted` (region-managed) |
 | `OwnedBuf<T>`, `VecBuilder<T>`, `File`, `Socket` | `Owned` |
 | `RegionToken`, `BuilderToken`, `CloseToken` | `Linear` |
 

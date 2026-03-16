@@ -1,3 +1,49 @@
+# 2026-03-16 作業メモ (doc: 仕様整合確認・モジュール/パターン/CLAUDE.md 更新)
+
+- [目的/もくてき]:
+  - `doc/chat/dump/` の最新方針（lang1.md, mem1.md, module1.md）と `doc/` 各仕様および `todo.md` に齟齬がないことを確認し、未記載の設計決定を仕様書へ反映する。
+- [変更/へんこう]:
+  - `CLAUDE.md` (新規作成):
+    - ビルド・テスト・アーキテクチャ・開発ガイドラインをまとめた初期 CLAUDE.md を作成。
+    - `.n.md`（NM 拡張 Markdown: フリガナ・gloss・Nest が使える）と通常 `.md` の違いを明記。仕様参照先として `stdlib/nm/README.n.md` を示した。
+  - `doc/module_system_spec.md` (更新):
+    - `use` の構文を `::` セパレータ形式に変更（`use core::math;` 等）。
+    - `use` が末尾セグメントのエイリアスを導入することを明記。
+    - `*` はモジュールへの `use` にのみ有効、関数等への `::*` はエラーとして定義。
+    - `merge "path"` はファイルパス文字列を取る（`""` 維持）ことを明記、構文例を追加。
+  - `doc/purity_ownership_memory_spec.md` (更新):
+    - 「immutable tuple」を「immutable struct（`Pair`, `Triple` 等）」に置き換え（Tuple 廃止に対応）。
+  - `doc/pattern_spec.md` (新規作成):
+    - 言語組み込み `Tuple` キーワードを廃止し、`Pair<.A,.B>` / `Triple<.A,.B,.C>` を stdlib の通常 struct として提供することを定義。
+    - Rust 相当の高機能パターン仕様を策定: 識別子・ワイルドカード・リテラル・範囲（構文未確定）・コンストラクタ（位置ベース）・ネスト・`@` 束縛付き・OR パターン（`|`、パターン専用）・参照パターン（将来）。
+    - `let <pattern> <expr>` および `match` 式でのパターン使用仕様、網羅性検査、所有権との統合を定義。
+    - 全コード例を NEPLg2 前置記法に準拠させた（括弧を使わず、中値演算子を用いない）。
+    - 型前置記法確定は先送りだが対応可能な設計であることを明記。
+- [確認/かくにん]:
+  - dump ファイル 3 本 (lang1, mem1, module1) と対応する doc/ 仕様・todo.md を照合した結果、矛盾は見当たらなかった。
+  - todo.md の「LLM 編集禁止」セクションにある Tuple/Pair/Triple、型前置記法化、パターン設計は今回の doc/ 更新で仕様として反映した。
+  - `use` スコープ導入の詳細（alias vs 直接 import、`as *` の扱い）は今回の module_system_spec.md 更新で確定させた。
+
+---
+
+# 2026-03-16 作業メモ (doc: モジュールシステム・言語プラットフォーム仕様の策定・監査完了)
+
+- [目的/もくてき]:
+  - `doc/chat/dump/lang1.md`, `module1.md` の議論を整理し、NEPLg2 のモジュールシステムと言語プラットフォームとしての全体像を正式な仕様書として明文化する。
+  - `todo.md` における、ファイル境界とモジュール境界の分離、およびセルフホストに向けたレイヤー構造のタスクを具体化する。
+- [変更/へんこう]:
+  - `doc/module_system_spec.md` (新規作成):
+    - ファイルとモジュールの直交性、`merge` (ソース合成) と `use` (依存解決) の使い分け、Anchor Part による canonical path 決定規則を定義。
+  - `doc/language_platform_spec.md` (新規作成):
+    - DSL 実行基盤としてのビジョン、Bootstrap Host (Rust) と Platform Stdlib (NEPL) の 2 層構造、stdlib の階層化 (`core`/`alloc`/`runtimes`/`std`/`features`) を定義。
+  - `todo.md`:
+    - 「3. Module System 実装と名前解決の刷新 (Migration Phase 0.5)」を追加。
+    - セルフホストコンパイラ項目の完了条件を、プラットフォーム構造の定義に合わせて高度化。
+- [結果/けっか]:
+  - これにより、NEPLg2 が「単なる言語」ではなく「言語プラットフォーム」であるという立ち位置が明確化され、多ファイル構成時の名前解決の不確実性が払拭された。`todo.md` に基づき、次はパーサとレゾルバの刷新に着手する土台が整った。
+
+---
+
 # 2026-03-15 作業メモ (doc: 全ドキュメントの最新仕様への追従・監査完了)
 
 - [目的/もくてき]:
