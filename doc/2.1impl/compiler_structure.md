@@ -68,6 +68,19 @@ NEPLg2.1 は式・型式・パターンのいずれにも括弧によるグル�
 
 AST は flat/未解決。HIR（`hir/hir.rs`）が初めて完全に解決された call tree・type tree・pattern tree を持つ中間表現である。`resource/` 以降はすべて HIR を入力とする。
 
+#### NEPLg2.0（Zenn記事）との差分
+
+NEPLg2.0 の `typecheck.rs` は `reduce_calls` アルゴリズムを実装していたが、型式には angle bracket があったためパーサが構造を確定できた。NEPLg2.1 はこの前提を崩す：
+
+| 課題 | NEPLg2.0 | NEPLg2.1 | 担当モジュール |
+|---|---|---|---|
+| 式の call 境界 | typecheck.rs 内 reduce_calls | check/expr_check.rs | ✓ 同じ仕組み |
+| 型式の境界 | パーサが angle bracket で確定 | reduce_type_apps（新規） | ty/kind.rs |
+| パターン境界 | arity 依存（暗黙） | 明示的に分離 | check/pat_check.rs |
+| let の pattern/expr 分割 | 記述なし | PatternList から arity で分割 | check/pat_check.rs |
+| クロージャ一級値 | 制限あり（記事注記） | 完全対応。キャプチャ解析が必要 | check/expr_check.rs + resource/ |
+| @ident 強制値モード | 該当なし | reduce_calls への値ヒント | expr_parser.rs + expr_check.rs |
+
 ---
 
 ## 2. ブートストラップ Rust コンパイラ (`nepl-core-2.1`)
@@ -115,6 +128,10 @@ nepl-core-2.1/
                                 #   型パラメータ列・%TypeExpr の外側境界を構文的に確定させ TypePrefixList を収集
                 expr_parser.rs  # 式パーサ（前置 juxtaposition → PrefixList 生成・block・if/while/match）
                                 #   call 境界は確定させない。PrefixList を flat なまま AST に格納する
+                                #   @ ident（強制値モード）はパーサが認識し PrefixItem::ForcedValue として格納
+                                #     → reduce_calls がこの識別子を「呼び出し対象」ではなく「値」として扱う
+                                #   \ params : body（クロージャ）は構文的に確定できる特殊形式として直接 AST 化
+                                #     ただし body は PrefixList のままで call 境界は check/ に委譲
                 type_parser.rs  # 型式パーサ（TypePrefixList 生成）
                                 #   kind-directed 境界確定はここでは行わない。ty/kind.rs に委譲する
                                 #   fn/fn* の -> 帰属・% 終端・\ / where 等の外側境界のみ構文的に確定
@@ -161,9 +178,19 @@ nepl-core-2.1/
                                 #   DefTable から各識別子の arity を取得し stack-based reduction を行う
                                 #   infer_expected_from_outer_consumer で期待型を双方向伝播させ曖昧性を解消
                                 #   オーバーロード候補の絞り込みも同一パスで行う
+                                # ★ クロージャ型検査（NEPLg2.0 では不完全だった一級値としての closure）
+                                #   期待型 %fn A -> B / %fn* A -> B から \ params : body を型検査
+                                #   キャプチャ変数の種別を判定（Copy はコピー、Owned は move、Linear はエラー）
+                                #   Linear キャプチャ禁止の enforcement はここで行う
+                                #   move キャプチャした変数は以降 Moved 状態（resource/ownership.rs と連携）
+                                # ★ @ident の処理: PrefixItem::ForcedValue を「関数適用の対象」としてではなく
+                                #   「値そのもの」として reduce_calls に渡す。arity 消費をスキップ
             pat_check.rs        # パターン型検査・constructor arity 解決・網羅性検査
                                 # ★ PatternList → pattern tree への変換（expr_check の reduce_calls に対応）
                                 #   コンストラクタが何個のサブパターンを取るかは DefTable から取得
+                                #   match arms だけでなく let 文の "let <pattern> <expr>" も同一アルゴリズムで処理
+                                #     例: let Point x y p → PatternList[Point, x, y, p] を
+                                #                           pattern=Point(x,y)、expr=p に分割
                                 #   match exhaustiveness（全バリアントカバレッジ）はコンパイル時に静的検査
             decl_check.rs       # 宣言検査（fn / struct / enum / trait / impl）
             hoist.rs            # let fn 巻き上げ（相互再帰対応）
