@@ -132,8 +132,8 @@ compiler 内部では少なくとも次の分類を持つ。
 | 型 | resource usage |
 |----|----------------|
 | `i32`, `u8`, `bool`, `f32`, unit, label | `Unrestricted` |
-| `str`, `List<T>`, immutable tree, immutable struct (`Pair`, `Triple` 等) | `Unrestricted` (region-managed) |
-| `OwnedBuf<T>`, `VecBuilder<T>`, `File`, `Socket` | `Owned` |
+| `str`, `List .T`, immutable tree, immutable struct (`Pair`, `Triple` 等) | `Unrestricted` (region-managed) |
+| `OwnedBuf .T`, `VecBuilder .T`, `File`, `Socket` | `Owned` |
 | `RegionToken`, `BuilderToken`, `CloseToken` | `Linear` |
 
 ### 5.3 型の能力の合成則
@@ -145,9 +145,9 @@ compiler 内部では少なくとも次の分類を持つ。
 3. 全ての要素が `Unrestricted` である場合のみ、複合型全体が `Unrestricted` になる。
 
 例:
-- `(i32, str)` → `Unrestricted`
-- `(File, i32)` → `Linear` （`File` 自体が `Linear` な外部資源であるため）
-- `(OwnedBuf<u8>, str)` → `Owned`
+- `Pair i32 str` → `Unrestricted`
+- `Pair File i32` → `Linear` （`File` 自体が `Linear` な外部資源であるため）
+- `Pair OwnedBuf u8 str` → `Owned`
 
 制約の伝播順序: `Linear` > `Owned` > `Unrestricted`
 

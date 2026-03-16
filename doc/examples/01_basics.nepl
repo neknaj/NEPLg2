@@ -86,11 +86,10 @@ let pipeline_demo %fn i32 -> i32 \ n :
 
 
 let grade %fn i32 -> str \ score :
-    match score:
-        range_incl 90 100: "A"
-        range_incl 70 89:  "B"
-        range_incl 50 69:  "C"
-        _:                 "D"
+    if ge score 90: "A"
+    else: if ge score 70: "B"
+    else: if ge score 50: "C"
+    else: "D"
 
 
 //: ## main

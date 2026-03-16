@@ -12,7 +12,7 @@
 ## 1. 前提：Tuple 廃止と Pair / Triple
 
 言語組み込みの `Tuple` キーワードおよび `Tuple:` リテラル構文は廃止する。
-代わりに、stdlib が通常の struct として `Pair<.A, .B>` と `Triple<.A, .B, .C>` を提供する。
+代わりに、stdlib が通常の struct として `Pair .A .B` と `Triple .A .B .C` を提供する。
 言語に特別な構文はなく、他の struct と同様に扱う。
 
 ```nepl
@@ -92,27 +92,17 @@ match n:
 
 ### 2.4 範囲パターン (Range Pattern)
 
-数値の連続範囲に一致する。`match` アームで使用できる。
-
-範囲パターンの具体的な構文は、型前置記法の仕様確定と合わせて設計する（現時点では未確定）。
-以下はプレースホルダ形式で概念を示す。
-
-```
-range_incl <start> <end>     // 閉区間 [start, end]
-range <start> <end>          // 半開区間 [start, end)
-```
-
-```nepl
-match score:
-    range_incl 90 100:
-        "A"
-    range_incl 70 89:
-        "B"
-    _:
-        "C"
-```
-
-> **注意**: 上記の `range_incl` / `range` はパターン専用の構文形式であり、最終構文は別途確定する。
+> **仕様保留**: 範囲パターンの具体的な構文は現時点では未確定。
+> 型前置記法・kind-directed 解析との整合性が確定してから追加する。
+> 現時点では `if`/`else if` チェーンで代替すること。
+>
+> ```nepl
+> // 範囲パターンの代替（現行推奨）
+> let grade
+>     if ge score 90: "A"
+>     else if ge score 70: "B"
+>     else: "C"
+> ```
 
 ### 2.5 コンストラクタパターン (Constructor Pattern)
 
@@ -149,7 +139,7 @@ match res:
 
 ```nepl
 let Pair Pair a b Pair c d nested_pair
-// nested_pair : Pair<Pair<A,B>, Pair<C,D>> を a, b, c, d に分解
+// nested_pair : Pair Pair .A .B Pair .C .D を a, b, c, d に分解
 
 match pair_of_pairs:
     Pair Pair a b Pair c d:
@@ -362,3 +352,82 @@ OR パターンで束縛された変数の所有権種別は、全選択肢で�
 - コンストラクタパターン `ConstructorName subpatterns...` は前置記法の型式と同形を維持する。
 - 型注釈をパターン内に書く場合は `%TypeExpr` 形式を使う（`%Pair i32 str` など）。
 - 位置ベース・アリティ駆動構造を採用しているため、型記法変更の影響を受けない。
+
+---
+
+## 8. フィールドアクセスとクロージャリテラル
+
+パターン（pattern）ではなく式（expression）に属するが、密接に関連するため本仕様に記載する。
+
+### 8.1 フィールドアクセス式
+
+struct のフィールドには `.` を使ってアクセスする。これは式レベルの特殊形式であり、
+中値演算子ではない（演算子テーブルに属さず、パーサが特別扱いする）。
+
+```
+<expr> . <field_name>
+```
+
+```nepl
+let p Point 3 4
+let x p.x          // p の x フィールド
+let y p.y
+
+// ネスト
+let r Rect Point 0 0 Point 10 20
+let tx r.top_left.x
+```
+
+フィールドアクセスは純粋（side-effect なし）。
+`|>` パイプと組み合わせた場合、`p.x |> f` は `f p.x` と等価。
+
+フィールドアクセスと `let` パターン分解の使い分け：
+
+| 操作 | 構文 | 適した場面 |
+|------|------|-----------|
+| 一部フィールドを参照 | `p.x` | 1〜2 フィールドを点在して使う |
+| 複数フィールドを一度に束縛 | `let Point x y p` | 多数のフィールドを使う、move が必要 |
+
+### 8.2 クロージャリテラル
+
+関数リテラルは `\ params : body` で書く。名前付き `let` 定義の本体と同形。
+
+```
+\ <param...> : <expr>
+```
+
+```nepl
+// 引数 1 つ
+\ x : mul x 2
+
+// 引数 2 つ
+\ a b : add a b
+
+// 引数なし（unit 関数）
+\ : 42
+
+// 高階関数に渡す例
+map xs \ x : mul x 2
+filter xs \ x : gt x 0
+fold_left xs 0 \ acc x : add acc x
+```
+
+クロージャは匿名関数であり、型は呼び出し側の期待型から推論される。
+型を明示する場合は `let` バインディングを使う：
+
+```nepl
+let double %fn i32 -> i32 \ x :
+    mul x 2
+```
+
+#### キャプチャ規則
+
+クロージャは字句スコープの変数をキャプチャする。
+
+| 変数の種別 | キャプチャの挙動 |
+|-----------|----------------|
+| `Copy` 型 | copy されてキャプチャ（元変数も引き続き使用可） |
+| `Owned` 型 | move されてキャプチャ（クロージャ生成後は元変数が使用不可） |
+| `Linear` 型 | クロージャへのキャプチャは**不可**（コンパイルエラー） |
+
+`Linear` 型（`File`、`Socket` など）をクロージャに渡す場合は、明示的に引数として渡すこと。

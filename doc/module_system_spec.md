@@ -141,10 +141,27 @@ module lexer:
 
 | キーワード | スコープ |
 |---|---|
-| （なし / `private`） | 同一論理モジュール全体（`merge` された別ファイルも含む）に見える |
+| （なし） | 同一論理モジュール全体（`merge` された別ファイルも含む）に見える（暗黙 private） |
+| `private` | 同上（明示的に書いた場合も挙動は同じ） |
 | `pub` | `use` 越しに見える |
+| `pub use` | 自モジュールの public surface として再エクスポートする |
 
+`private` キーワードは省略しても同じ意味だが、意図を明示したい場合に書いてよい。
 `fileprivate` は導入しない（file/module 直交性を壊すため）。
+
+### pub use による再エクスポート
+
+`pub use path` はインポートした item を自モジュールから公開する。
+外部モジュールは `use mymod::name` でアクセスできるようになる。
+
+```nepl
+// mymod/mod.nepl
+use core::math::gcd
+pub use core::math::gcd    // gcd を mymod::gcd として再公開
+
+// 利用側
+use mymod::gcd             // core::math::gcd が mymod::gcd として解決される
+```
 
 ---
 

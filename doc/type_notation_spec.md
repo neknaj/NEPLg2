@@ -9,7 +9,7 @@
 NEPLg2 の式は括弧なし・前置 juxtaposition で書かれ、呼び出し境界は型チェッカーが kind/type 情報を用いて決定する。
 **型式も完全に同じ原則に従う。括弧は一切使わない。グループ化構文はない。**
 
-### 1.1 現状の問題
+### 1.1 廃止前の記法（NEPLg2 → NEPLg2.1）
 
 | 箇所 | 現在 | 問題 |
 |------|------|------|
@@ -81,6 +81,7 @@ TypeExpr :=
 | `Vec` | `* -> *` |
 | `Result` | `* -> * -> *` |
 | `Pair` | `* -> * -> *` |
+| `Triple` | `* -> * -> * -> *` |
 | `.T`（型変数） | `*`（デフォルト）または kind 推論 |
 
 kind が `*` になるまで juxtaposition で型を適用する。
@@ -326,6 +327,33 @@ let sort .T: Ord %fn* Vec .T -> Vec .T \ v :
 let zip .T .U: Show %fn Vec .T Vec .U -> Vec Pair .T .U \ a b :
 ```
 
+### 5.7 `where` 節
+
+複数の制約または複雑な制約がある場合は `where` 節で分離して書く。
+`where` 節は型注釈（`%fn ...`）と引数リスト（`\ params :`）の**間**に置く。
+
+```
+let name .T .U %fn TypeExpr -> TypeExpr
+    where .T: Trait1 .U: Trait2 :
+    <body>
+```
+
+```nepl
+// 単純な場合: 型パラメータ宣言に直接付ける
+let sort .T: Ord %fn* Vec .T -> Vec .T \ v :
+    ...
+
+// 複数制約の場合: where 節を使う
+let merge .T .K .V %fn Vec .T Vec .T -> Vec .T
+    where .T: Ord .K: Hash .V: Eq :
+    \ a b :
+    ...
+```
+
+`where` 節に列挙した制約の区切りはスペースのみ（カンマなし）。
+`:` がそのまま本体開始の `:` に続く（引数なし `%fn* -> T` の場合）、
+または引数リスト `\ params :` の `:` に続く。
+
 ---
 
 ## 6. 基本型の変化まとめ
@@ -353,7 +381,7 @@ let zip .T .U: Show %fn Vec .T Vec .U -> Vec Pair .T .U \ a b :
 - `.T`、`.label` — 型変数（ラベル記法）
 - `&T`、`&mut T` — 参照型（既に前置的）
 - `fn`/`fn*` の `->` セパレータ（型式文脈内のみ）
-- 値引数リスト `(a, b)` の括弧（型記法ではなく構文）
+- 引数リスト記法 `\ params :` および本体との `:` セパレータ
 
 ---
 
