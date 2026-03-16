@@ -1,5 +1,10 @@
 # LSP 向け解析 API（暫定）
 
+> **注意**: 本ファイルは現行 Bootstrap 実装（`nepl-core` Rust 製コンパイラ）の公開 API を記述している。
+> `kind: "fn"` などの定義種別は NEPLg2.0 の宣言キーワード体系に基づいており、
+> NEPLg2.1 仕様（宣言は `let` に統一）とは対応が異なる。
+> NEPLg2.1 仕様については [2.1spec/declarations.md](./2.1spec/declarations.md) を参照。
+
 `nepl-web` の wasm 公開 API として、lexer/parser の結果を JSON 取得できる関数を追加した。
 
 ## analyze_lex

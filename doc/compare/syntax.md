@@ -82,8 +82,8 @@ let i32 impl for Eq:
 | `Vec<Result<(), str>>` | `Vec Result unit str` |
 | `(i32) -> i32` | `fn i32 -> i32` |
 | `(i32, i32) -> i32` | `fn i32 i32 -> i32` |
-| `() -> i32` | `fn -> i32` |
-| `() *> i32` | `fn* -> i32` |
+| `() -> i32` | `fn unit -> i32` |
+| `() *> i32` | `fn* unit -> i32` |
 | `((i32)->i32) -> i32` | `fn fn i32 -> i32 -> i32` |
 | `(Option<.T>, (.T)->.U)->Option<.U>` | `fn Option .T fn .T -> .U -> Option .U` |
 

@@ -12,9 +12,21 @@ Examples:
 - `--output out/a.wat` is treated as base `out/a`.
 - `--output out/a.min.wat` is treated as base `out/a`.
 
+## Targets
+
+`--target` selects the compilation target (default: `wasm`):
+
+| Target | Description |
+|--------|-------------|
+| `wasm` | Pure WebAssembly (no WASI imports) |
+| `wasi` | WebAssembly with WASI syscalls |
+| `llvm` | Native binary via LLVM |
+
+The compiler's safety semantics (type check, effect check, ownership check, Resource IR analysis) are identical across all targets. Only the physical layout and allocator differ (absorbed by `#if[target="..."]` in stdlib).
+
 ## Emit formats
 
-`--emit` accepts one or more values (comma-separated or repeated):
+`--emit` accepts one or more values (comma-separated or repeated). Applies to Wasm targets:
 - `wasm` outputs the binary `.wasm`.
 - `wat` outputs a readable WAT.
 - `wat-min` outputs a minified WAT.

@@ -20,8 +20,8 @@ TypeExpr :=
   | .T                                // 型変数
   | Name                              // 型コンストラクタ（0 引数）
   | TypeExpr TypeExpr                 // 型適用（juxtaposition、左結合）
-  | fn TypeExpr* -> TypeExpr          // 純粋関数型
-  | fn* TypeExpr* -> TypeExpr         // 副作用関数型
+  | fn TypeExpr+ -> TypeExpr          // 純粋関数型（引数は 1 つ以上; 入力不要な場合は fn unit -> T）
+  | fn* TypeExpr+ -> TypeExpr         // 副作用関数型（引数は 1 つ以上）
   | &TypeExpr                         // 共有参照
   | &mut TypeExpr                     // 可変参照
 ```
