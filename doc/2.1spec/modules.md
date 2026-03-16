@@ -161,6 +161,21 @@ pub use core::math::gcd    // gcd を mymod::gcd として再公開
 use mymod::gcd             // core::math::gcd が mymod::gcd として解決される
 ```
 
+### pub use の循環検出
+
+`pub use` の再エクスポートチェーンに循環がある場合はコンパイルエラー。
+
+```nepl
+// a.nepl
+pub use b::foo    // b::foo を a::foo として再公開
+
+// b.nepl
+pub use a::foo    // a::foo を b::foo として再公開 → 循環！
+// ERROR: circular pub use: a::foo → b::foo → a::foo
+```
+
+コンパイラは `pub use` チェーンをグラフとして構築し、DFS でサイクルを検出する。検出後は最初の循環エッジを起点として診断を発行し、以降の解決は失敗として扱う。
+
 ---
 
 ## 8. 名前解決の 2 段階

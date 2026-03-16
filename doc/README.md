@@ -25,4 +25,5 @@
 
 ## 標準ライブラリ
 
-- [stdlib/index.n.md](./stdlib/index.n.md)
+> **注**: stdlib の詳細設計は [2.1spec/stdlib.md](./2.1spec/stdlib.md) を参照。
+> `stdlib/` 配下の個別 API ドキュメントは実装と並行して整備予定。

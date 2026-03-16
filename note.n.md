@@ -1,3 +1,26 @@
+# 2026-03-16 作業メモ (doc: 仕様完全性向上・未記載ルール追記)
+
+- [目的/もくてき]:
+  - 監査で発見された仕様完全性の不足（演算子優先度・リテラル仕様・borrow スコープ・CTFE制約・`pub use` 循環・stdlib層境界・クロージャキャプチャ）を追記する。
+- [変更/へんこう]:
+  - `doc/README.md`: 存在しない `stdlib/index.n.md` へのリンクを説明注記に置換。
+  - `doc/2.1spec/syntax.md`:
+    - §10 を演算子優先度・結合性の一覧表（`|>` < juxtaposition < `.field`）に変更。
+    - §11 としてリテラル詳細（整数・float 科学記法/nan/inf・文字列エスケープシーケンス）を追加。
+    - クロージャキャプチャにキャプチャ時点での値固定・Owned move の動作例を追記。
+  - `doc/2.1spec/effects.md`:
+    - §3.2.1 として borrow スコープ終端規則（NLL: last-use で終了）を追加。
+  - `doc/2.1spec/modules.md`:
+    - `pub use` 循環検出（DFS によるサイクル検出・コンパイルエラー）を追記。
+  - `doc/2.1spec/phase8.md`:
+    - CTFE 制約表（Pure・Total・Pure Persistent の 3 条件）を追加。違反コード例も追記。
+    - `Partial` 関数の使用可否表（実行時 OK・型文脈・Pure 本体・where 節はすべて不可）を追加。
+    - 証明オブジェクトの明示渡し方針（自動探索しない理由）を追記。
+  - `doc/2.1spec/stdlib.md`:
+    - `alloc` vs `features` の境界判断基準表を追加（JSON/regex/暗号 → alloc、GUI/HTTP/TUI → features）。
+
+---
+
 # 2026-03-16 作業メモ (doc: 全体一貫性監査・不整合修正)
 
 - [目的/もくてき]:

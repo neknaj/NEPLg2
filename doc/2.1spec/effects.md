@@ -86,6 +86,27 @@ entry 関数も署名どおりに effect を判定する。entry だからとい
 - borrow 中の可変性制約はコンパイラが検査する。
 - 解放済み領域への borrow は禁止する。
 
+### 3.2.1 borrow のスコープ終端規則
+
+borrow のライフタイムは**最後の使用点（last use）** で終了する（NLL: Non-Lexical Lifetimes）。ブロック終端を待たない。
+
+| 状況 | borrow の終端 |
+|------|--------------|
+| 変数への borrow | その変数の最後の読み取り式の直後 |
+| 関数引数への borrow | 呼び出し式が評価された直後 |
+| 条件分岐 | 全アームで borrow が終了した点の最大値（保守的マージ） |
+| ループ | borrow がループ先頭まで到達する可能性がある場合は全ループ期間に拡大 |
+
+```nepl
+let x 42
+let b &x            // shared borrow 開始
+let y deref b       // b の最後の使用
+// ここで b のスコープが終了 → x は再び自由
+let mut x 99        // OK: borrow は終了済み
+```
+
+borrow が終了する前に元の値を mutable access した場合は診断 5007/5008 を発行する。
+
 ### 3.3 Copy / Clone の原則
 
 - `Copy`: 暗黙複製可能な値型のみ。リソース型は非 Copy。

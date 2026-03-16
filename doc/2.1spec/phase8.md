@@ -29,13 +29,50 @@ NEPLg2.1 は前置記法を用いるため、型文脈の式も通常の前置�
 - コンパイラは `Pure` な HIR に対して内部で直接評価（Reduction）を行う。
 - Escape Analysis によって表面上 `Pure` と見なされた内部の `InternalAlloc` 操作も、コンパイラ内サンドボックスで安全に模倣実行し、最終的な `Pure Persistent` 値として確定させる。
 
+**CTFE の制約（型文脈に現れられる式の条件）:**
+
+型文脈に現れる式は、以下をすべて満たさなければならない。
+
+| 条件 | 理由 |
+|------|------|
+| `Pure` である（`Impure` は不可） | 型検査は副作用を引き起こしてはならない |
+| `Total` である（`Partial` は不可） | 型検査が停止しなければならない |
+| 結果が `Pure Persistent Value` である | 型引数に使える値は不変で共有可能でなければならない |
+
+違反した場合はコンパイルエラー:
+
+```nepl
+// Pure Total → OK
+let Vec struct .T add .n 1:   // add は Pure Total → CTFE で評価可
+    ...
+
+// Impure → エラー
+let Buf struct .T read_len:   // read_len は Impure → 型文脈不可
+// ERROR: Impure function cannot appear in type position
+
+// Partial → エラー
+let Seq struct .T collatz .n: // collatz は Partial（停止性未証明）→ 型文脈不可
+// ERROR: Partial function cannot appear in type position
+```
+
 ### 2.2 全域性・停止性チェック（Totality / Termination Checking）
 
 型検査の過程で CTFE エンジンが無限ループに陥らないよう、「型文脈で実行されるコードは必ず停止する」ことを静的に保証するチェッカを導入する。
 
 - `Pure` 関数に対して Totality Check パスを追加する。
 - ループ内の変数が単調に停止条件へ向かっているか（Variant 定理）、再帰関数の引数が構造的に小さくなっているか（Structural Recursion）を静的に解析する。
-- 停止が証明できない関数は `Partial` アノテーションで区別し、型文脈での評価（CTFE）を拒否する。`Partial` 関数は実行時に呼び出すことは可能。
+- 停止が証明できない関数は `Partial` アノテーションで区別し、型文脈での評価（CTFE）を拒否する。
+
+**`Partial` 関数の使用可否:**
+
+| 文脈 | 使用可否 |
+|------|---------|
+| 実行時の呼び出し（式文脈） | ✅ 可 |
+| 型文脈（CTFE 評価対象） | ❌ 不可（コンパイルエラー） |
+| `Pure` 関数の本体内での呼び出し | ❌ 不可（呼び出し側も `Partial` に昇格するため） |
+| `where` 節の命題型引数 | ❌ 不可（命題の構築は Total でなければならない） |
+
+`Partial` は伝播する: `Partial` 関数を呼ぶ関数も `Partial` となる。
 
 ### 2.3 命題型と証明オブジェクト（Proof Objects）
 
@@ -44,6 +81,26 @@ NEPLg2.1 は前置記法を用いるため、型文脈の式も通常の前置�
 - `Eq .A .B`（型 `A` と `B` が等しい）、`IsLess .a .b`（`a < b`）のような命題を型として定義できる（Martin-Löf 等価性に基づく）。
 - 証明オブジェクトは型の値であり、コンパイル時に検証可能な関数が構築して返す。
 - API はこの証明オブジェクトを引数に要求することで、実行時チェックなしに安全性を保証する。
+
+**証明オブジェクトの探索方針（明示渡し）:**
+
+NEPLg2.1 では証明オブジェクトを**コンパイラが自動探索しない**。プログラマが明示的に渡す。
+
+```nepl
+// where %IsLess .idx .len を持つ関数には proof を明示的に渡す
+let proof decide_less idx len   // 決定手続きで証明オブジェクトを構築
+match proof:
+    IsLess::Yes p:
+        core::vec::get vec p    // p が証明オブジェクト、明示的に引数として渡す
+    IsLess::No:
+        Option::None
+```
+
+自動探索（Prolog スタイルの型クラス解決など）は導入しない。理由:
+
+- 暗黙解決はエラーメッセージを複雑にする
+- 証明の構築コストが可視化されなくなる
+- `where` 節の充足判定はオーバーロード解決と同じ静的フィルタリングで十分（[traits.md §7](./traits.md) 参照）
 
 ---
 
