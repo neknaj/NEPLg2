@@ -1,3 +1,25 @@
+# 2026-03-17 作業メモ (doc: 第2回レビューによる仕様確定)
+
+- [目的/もくてき]:
+  - 第2回外部レビューで指摘された「実装着手前に凍結すべき仕様穴」を解消する。
+- [変更/へんこう]:
+  - `doc/2.1spec/syntax.md`:
+    - `while` §8: 「仕様保留」を解消。Phase 0–7 は `unit` 返しに確定。Phase 8 では `WillExecute` 証明付きで本体型 `T` を返せる（8.2節として追加）。
+    - `<expr>` BNF: `let`/`set` を `unit` を返す式として再統合。`<stmt>` カテゴリを廃止。純粋な式指向設計に統一。
+    - borrow 生成式 `& <expr>`・`&mut <expr>` を `<expr>` に追加（型仕様との整合）。
+    - §15 に borrow/deref 専用節を追加（構文・型規則・`deref` 前置関数の位置づけ）。
+    - `set`/`let` の節見出しを「文」から「式」に変更。
+  - `doc/2.1spec/overview.md`: `while` 説明を Phase 0–7 / Phase 8 に分けて更新。`let`/`set` も式として一覧に追加。
+  - `doc/2.1spec/patterns.md`: `let` の説明を「文」から「unit を返す式」に更新。
+  - `doc/2.1spec/traits.md`: `MemReadable`/`MemWritable`/`RegionOwned` の強制を Phase 4 以降と明記。
+  - `doc/2.1spec/compiler.md`: 同上を trait 制約検査節にも反映。
+  - `doc/2.1spec/modules.md`: `#part` 直接 `use` を warning から **コンパイルエラー** に変更（canonical path との整合性）。
+- [設計決定/せっけいけってい]:
+  - `while` は Phase 0–7 で `unit` 返しに確定。依存型（Phase 8）で `WillExecute` 証明を使い非 `unit` を返せるよう将来拡張する方針。
+  - `let`/`set` は「文」ではなく「unit を返す式」として式系に統合。文・式の二層分離は廃止。
+
+---
+
 # 2026-03-17 作業メモ (doc: 外部レビュー指摘による仕様不整合修正)
 
 - [目的/もくてき]:

@@ -71,7 +71,7 @@
 
 - `Copy` 実装可否を構造的に検査し、リソース所有型の `Copy` 実装を禁止する。
 - `Clone` 実装は move 規則と矛盾しない複製規約を満たすことを要求する。
-- メモリ系 trait（`MemReadable .T`, `MemWritable .T`, `RegionOwned`）の境界を満たさない呼び出しは型エラーにする。
+- メモリ系 trait（`MemReadable .T`, `MemWritable .T`, `RegionOwned`）の境界を満たさない呼び出しは型エラーにする。ただし実施は **Phase 4（Resource IR 導入後）**。それ以前はソフトウォーニングのみ。
 
 ---
 

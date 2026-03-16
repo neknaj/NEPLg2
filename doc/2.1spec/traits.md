@@ -48,7 +48,7 @@ let merge .T .K .V %fn Vec .T Vec .T -> Vec .T
 ### 2.3 move / memory 相当
 
 - `Copy`/`Clone` は所有権規則に接続する能力 trait として扱う。
-- `MemReadable .T`, `MemWritable .T`, `RegionOwned`（将来導入）はメモリ能力の契約として扱う。
+- `MemReadable .T`, `MemWritable .T`, `RegionOwned` はメモリ能力の契約として NEPLg2.1 仕様に含まれるが、コンパイラによる強制は **Phase 4（Resource IR 導入）以降の段階導入**。Phase 3 以前はソフトウォーニングのみ。
 
 ---
 

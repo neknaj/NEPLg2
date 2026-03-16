@@ -38,7 +38,8 @@ NEPLg2.1 の構文は次の原則を貫く。
 ## 4. 式（Expression）
 
 ```
-// 式（評価値を持つ）
+// すべての構文要素は式（値を持つ）
+// let / set は unit を返す式として <expr> に含まれる
 <expr> :=
     <literal>
   | <ident>
@@ -46,22 +47,23 @@ NEPLg2.1 の構文は次の原則を貫く。
   | <expr> <expr>                // 前置適用（juxtaposition）— flat chain; 境界は arity/型情報で決定
   | <expr> |> <expr>             // パイプ演算子（左結合）
   | <expr> . <field_name>        // フィールドアクセス（特殊形式、中値演算子ではない）
+  | & <expr>                     // 共有 borrow 生成（shared borrow; 型 &T）
+  | &mut <expr>                  // 可変 borrow 生成（unique borrow; 型 &mut T）
   | \ <params> : <suite>         // クロージャリテラル
   | if <expr> : <suite> [else if <expr> : <suite>]* [else : <suite>]
   | match <expr> : <match_arms>
-  | while <expr> : <suite>       // ループ（unit を返す）
+  | while <expr> : <suite>       // ループ（Phase 0–7: unit を返す。Phase 8: 証明付きで T を返す）
+  | let <pattern> <expr>         // 変数束縛（unit を返す式）
+  | set <ident> <expr>           // 可変束縛の更新（unit を返す式）
   | <block>
-
-// 文（評価値を持たない）— ブロック内でのみ使用可
-<stmt> :=
-    let <pattern> <expr>         // 変数束縛（評価値を持たない）
-  | set <ident> <expr>           // 可変束縛の更新（評価値を持たない）
 
 // suite: インライン式またはインデントブロック（: の直後に置く本体）
 <suite> :=
     <expr>                       // インライン式（: の直後、同一行）
   | <block>                      // インデントブロック（: の後に改行してインデント）
 ```
+
+NEPLg2.1 は純粋な式指向言語である。「文（statement）」という独立した構文カテゴリは存在しない。`let` と `set` は `unit` を返す式として他の式と同等に扱われる。ブロック内での典型的な使い方はシーケンスの前置要素だが、型規則上は他と区別しない。
 
 ### 4.1 前置適用（juxtaposition）
 
@@ -132,25 +134,23 @@ p.x |> to_float
 
 ## 5. ブロック（Block）
 
-ブロックは `:` の後に改行してインデントして並べた文・式の列。最後の式がブロックの値になる。
+ブロックは `:` の後に改行してインデントして並べた式の列。最後の式がブロックの値になる。
 
 ```
 <block> :=
     <indent>
-        (<stmt> | <expr>)*
+        <expr>*
         <expr>               // ブロックの値（最後の式）
 ```
 
-`<suite>` はインライン式（同行）またはインデントブロック（改行後インデント）の両方を受け付ける（§4 の BNF 参照）。
+ブロック内に並ぶ各式はその値が評価される。`let`・`set`・`while` のように `unit` を返す式は副作用（束縛の生成・更新）のために使う。`<suite>` はインライン式（同行）またはインデントブロック（改行後インデント）の両方を受け付ける（§4 の BNF 参照）。
 
 ```nepl
 let result
-    let a 10
-    let b 20
-    add a b        // ブロックの値 = 30
+    let a 10     // unit を返す式：a を束縛
+    let b 20     // unit を返す式：b を束縛
+    add a b      // i32 を返す式：ブロックの値 = 30
 ```
-
-let 文はブロック内では文（値を持たない）として扱う。
 
 ---
 
@@ -200,36 +200,77 @@ match opt:
 
 ## 8. while 式
 
+### 8.1 基本形（Phase 0–7）
+
 ```
 while <cond> : <suite>
 ```
 
-`while` は式。**ブロック末尾式の型** `T` が `while` 式の型になる。最終イテレーションで評価されたブロックの値が `while` 式全体の値となる。条件は `bool` 型でなければならない。
+Phase 0–7 の `while` は **`unit` を返す**。ループ本体の型も `unit` でなければならない（最後の文・式が `unit` でない場合はコンパイルエラー）。条件は `bool` 型でなければならない。
+
+**設計理由**: 0 回実行時に「何を返すか」が型安全に解決できないため、Phase 0–7 では `while` は値を生成しない。値を積み上げるには `let mut` + `while` + ループ後の読み出しパターンを使う。
 
 ```nepl
+// 標準パターン: let mut で積み上げ、while 後で読む
 let mut i   1
 let mut acc 0
 while le i n:
     set acc add acc i
     set i   add i 1
-    acc         // ← ブロック末尾式。最終ループでの acc が while 式の値になる
+// while は unit を返す; acc はループ後に読む
+acc         // ← ブロックの値（while の外）
 ```
 
-条件が最初から偽の場合（0 回実行）の値は型 `T` のデフォルト値または `unit` とする（`T = unit` の場合が最も単純）。条件が偽になりうる場合、型推論は 0 回実行時の値も考慮する必要がある。
+ループ本体の最後は `set`（`unit`）か `unit` を返す式でなければならない:
 
-> **仕様保留**: 0 回実行時の初期値の扱い（`Option T` で包む・`T` のデフォルト値・専用の `loop`/`while_result` 構文を別途設けるか等）は未確定。型安全性との整合を確認後に決定する。現時点では末尾 `unit` で使うのが安全。
+```nepl
+// OK: set は unit
+while cond:
+    set x next x
+
+// NG: 本体末尾が non-unit → コンパイルエラー
+// while cond:
+//     compute_value unit    // i32 を返す → 本体末尾が unit でない
+```
 
 副作用規則: ループ本体が `Impure` 操作を含む場合、`while` 式全体が `Impure`。
 
+### 8.2 値返し形（Phase 8：証明付き while）
+
+Phase 8 では、「少なくとも 1 回実行されること」の証明オブジェクトを渡すことで `while` がボディの型 `T` を返せる。
+
+```
+while <cond> <proof> : <suite>
+```
+
+- `proof : %WillExecute <cond>` — 条件が最初の評価で真であることを示す証明オブジェクト。
+- この形の `while` は本体の最後の式の型 `T` を返す（0 回実行は証明により除外されているため型安全）。
+
+```nepl
+// [Phase 8 example]
+// n > 0 の証明があるとき: i から n まで合計し、最終 acc を返す
+let proof gt_proof n    // proof : WillExecute (le 1 n)
+let result
+    let mut i   1
+    let mut acc 0
+    while le i n proof:
+        set acc add acc i
+        set i   add i 1
+        acc              // ← 証明によりボディ型 i32 が while の型になる
+// result : i32
+```
+
+`WillExecute` は Phase 8 で stdlib が提供する命題型（詳細は [phase8.md](./phase8.md) 参照）。
+
 ---
 
-## 9. `set` 文（可変束縛の更新）
+## 9. `set` 式（可変束縛の更新）
 
 ```
 set <ident> <expr>
 ```
 
-`let mut` で宣言された束縛を更新する。`set` は文（`unit` を返す）。
+`let mut` で宣言された束縛を更新する。`set` は `unit` を返す式。
 
 ```nepl
 let mut x 0
@@ -314,7 +355,7 @@ let f \ : buf      // buf を move キャプチャ
 
 ---
 
-## 12. let 文（ブロック内）
+## 12. let 式
 
 ```
 let <pattern> <expr>
@@ -322,7 +363,7 @@ let <pattern> %<TypeExpr> <expr>    // 型注釈付き
 let mut <ident> <expr>              // 可変束縛
 ```
 
-ブロック内の `let` は文（評価値を持たない）。`<pattern>` は網羅的でなければならない。詳細は [patterns.md](./patterns.md) を参照。
+`let` は `unit` を返す式。`<pattern>` は網羅的でなければならない。詳細は [patterns.md](./patterns.md) を参照。
 
 ---
 
@@ -389,7 +430,41 @@ UTF-8 ダブルクォート文字列。以下のエスケープシーケンス�
 
 ---
 
-## 15. 構文上の注意
+## 15. Borrow 生成と Dereference
+
+### 15.1 Borrow 生成式
+
+```
+& <expr>         // 共有 borrow（型: &T）
+&mut <expr>      // 可変 borrow（型: &mut T）
+```
+
+`&` と `&mut` は式文脈の前置特殊形式。juxtaposition（関数適用）より先にパーサが認識する。
+
+```nepl
+let b  &x          // b : &i32  — x の共有 borrow
+let bm &mut x      // bm : &mut i32  — x の可変 borrow
+```
+
+型規則:
+- `e : T` ならば `& e : &T`
+- `e : T`（`e` が可変束縛）ならば `&mut e : &mut T`
+
+borrow のライフタイム終端規則（NLL）は [effects.md §3.2.1](./effects.md) を参照。
+
+### 15.2 Dereference
+
+dereference は stdlib の `deref` 関数で行う（特殊構文はない）。
+
+```nepl
+let y deref b      // b : &i32 → y : i32
+```
+
+`deref` は通常の前置適用（juxtaposition）として解析される。
+
+---
+
+## 16. 構文上の注意
 
 ### 15.1 括弧なし
 

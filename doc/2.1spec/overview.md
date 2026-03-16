@@ -39,7 +39,7 @@ Vec Option i32    // Vec<Option<i32>> に相当
 
 ### 2.2 式指向
 
-`if`・`match`・`while`・ブロックはすべて値を返す式。`while` は最終イテレーションのブロック末尾式の値を返す。
+`if`・`match`・`while`・`let`・`set`・ブロックはすべて式。`while` は Phase 0–7 では `unit` を返す（Phase 8 以降は「少なくとも 1 回実行される」という証明付きで本体の型 `T` を返せる）。
 
 ```nepl
 let grade

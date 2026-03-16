@@ -60,7 +60,7 @@ use core::math::gcd as greatest_cd  // `greatest_cd` として参照できる
 - 一致が 1 件 → OK
 - 一致が 0 件 → unresolved error
 - 一致が 2 件以上 → ambiguous module error（コンパイルエラー）
-- anchor でない `#part` ファイルのパスを `use` した場合 → warning を出して anchor のパスに正規化
+- anchor でない `#part` ファイルのパスを `use` した場合 → コンパイルエラー（`#part` は直接 `use` 不可。anchor のパスを使うこと）
 
 ---
 
