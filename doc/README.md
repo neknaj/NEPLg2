@@ -28,6 +28,12 @@
 | [self_host.md](./self_host.md) | セルフホスト計画 |
 | [stdlib_doc_comment_policy.md](./stdlib_doc_comment_policy.md) | stdlib ドキュメントコメントポリシー |
 
+## サンプルコード
+
+| ディレクトリ | 内容 |
+|---|---|
+| [examples/](./examples/) | NEPLg2.1 コードサンプル（01_basics〜07_modules） |
+
 ## 標準ライブラリ
 
 > **注**: stdlib の詳細設計は [2.1spec/stdlib.md](./2.1spec/stdlib.md) を参照。

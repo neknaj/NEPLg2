@@ -117,3 +117,12 @@ use std::streamio
 
 merge "./editor_ops"    // editor_ops.nepl は #part ヘッダを持つ
 ```
+
+---
+
+## 詳細仕様
+
+| 変更カテゴリ | 詳細仕様 |
+|---|---|
+| モジュールシステム（3 層モデル・`use`・`merge`・`module` ブロック） | [2.1spec/modules.md](../2.1spec/modules.md) |
+| 宣言構文（`#module`・`#part`・`#entry` ヘッダ） | [2.1spec/declarations.md](../2.1spec/declarations.md) |

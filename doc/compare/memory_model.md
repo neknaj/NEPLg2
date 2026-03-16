@@ -101,3 +101,14 @@
 | `File`・`Socket` の解放 | 手動 `close` 呼び出しが必要 | Drop Elaboration で自動 drop |
 | effect 判定 | `alloc` 系を `Pure` で固定 | `InternalAlloc` → `Pure` への fold |
 | entry の effect | 強制 Impure | 署名どおり |
+
+---
+
+## 詳細仕様
+
+| 変更カテゴリ | 詳細仕様 |
+|---|---|
+| メモリ管理（値の三分類・Region Inference・Drop Elaboration） | [2.1spec/memory.md](../2.1spec/memory.md) |
+| 副作用システム（InternalAlloc・ExternalIO 分類） | [2.1spec/effects.md](../2.1spec/effects.md) |
+| コンパイラ実装（Resource IR・M1–M6 マイルストーン） | [2.1spec/compiler.md](../2.1spec/compiler.md) |
+| stdlib 設計（安全 API への統一） | [2.1spec/stdlib.md](../2.1spec/stdlib.md) |

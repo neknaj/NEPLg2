@@ -44,11 +44,13 @@ stdlib/neplg2/
 
 ## 4. ブートストラップ手順
 
-1. Rust 製 `nepl-core` が `stdlib/` をビルドする
-2. Rust 製 `nepl-core` が `stdlib/neplg2` セルフホストコンパイラをビルドする
-3. セルフホストコンパイラが自分自身と `stdlib/` をビルドする（Stage 2 検証）
+1. Rust 製 `nepl-core` が `stdlib/` をビルドする（Pass 1）
+2. Rust 製 `nepl-core` が `stdlib/neplg2` セルフホストコンパイラをビルドする（Pass 1）
+3. セルフホストコンパイラが自分自身と `stdlib/` をビルドする（Pass 2）
 
-Stage 2 の出力が Stage 1 と一致すること（reproducible build）を確認する。
+Pass 2 の出力が Pass 1 と一致すること（reproducible build）を確認する。
+
+> **注意**: ここでの "Pass 1/2" はブートストラップのビルド回数を指す。`doc/2.1impl/compiler_structure.md §7` の "Stage 1–6"（nepl-core-2.1 の開発段階）とは別の概念。
 
 ---
 

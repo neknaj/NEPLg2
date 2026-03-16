@@ -215,3 +215,14 @@ NEPLg2.1 では次の 2 形式が使える（[declarations.md §4.1](../2.1spec/
 5. **stdlib 全体の書き換え**: すべての関数シグネチャ・struct/enum 定義を新形式に移行。
 6. **チュートリアル・テストの更新**: ドキュメントとテストケースを新形式に更新。
 7. **旧構文廃止**: 移行完了後に旧記法を削除。
+
+---
+
+## 詳細仕様
+
+| 変更カテゴリ | 詳細仕様 |
+|---|---|
+| 宣言構文（`let`・struct・enum・trait・impl） | [2.1spec/declarations.md](../2.1spec/declarations.md) |
+| 型記法（`%`・juxtaposition・`fn`・`unit`） | [2.1spec/types.md](../2.1spec/types.md) |
+| 式・パターン（括弧廃止・`\`・`match`） | [2.1spec/syntax.md](../2.1spec/syntax.md)・[2.1spec/patterns.md](../2.1spec/patterns.md) |
+| 副作用（Pure/Impure・entry effect） | [2.1spec/effects.md](../2.1spec/effects.md) |

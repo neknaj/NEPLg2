@@ -20,8 +20,9 @@
 | ドキュメント | 内容 |
 |---|---|
 | `doc/self_host.md` | セルフホスト計画の概要（目的・二層構造・ブートストラップ手順） |
-| `doc/2.1spec/compiler.md` | コンパイラの言語仕様側の設計（Stage 1–6 の言語フェーズ対応） |
+| `doc/2.1spec/compiler.md` | コンパイラの言語仕様側の設計（M1–M6 仕様達成マイルストーン） |
 | `doc/2.1spec/overview.md` | NEPLg2.1 言語概要と設計原則 |
+| `doc/migration/index.md` | stdlib / tests / tutorials の NEPLg2.1 移行計画（並行ディレクトリ戦略） |
 
 ---
 

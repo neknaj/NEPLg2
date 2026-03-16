@@ -5,7 +5,7 @@
 [![Prefix](https://img.shields.io/badge/Syntax-Prefix-3B82F6)](#特徴)
 [![Off--side](https://img.shields.io/badge/Layout-Off--side-10B981)](#特徴)
 
-NEPLg2 は、**式指向**・**前置記法**・**オフサイドルール**を中核にした WebAssembly 向け言語です。  
+NEPLg2 は、**式指向**・**前置記法**・**オフサイドルール**を中核にした WebAssembly 向け言語です。
 ブロックは `:` + インデントで表現し、`if` / `while` / `match` なども式として扱います。
 
 ## すぐ触る
@@ -45,157 +45,85 @@ fn main <()*>()> ():
     w |> flush |> close;
 ```
 
-## CLI でのコンパイル/実行
+## チュートリアル
 
-NEPLg2 の実行確認は、次の 4 系統で行えます。
+`tutorials/getting_started/` にチュートリアルが収録されています。
 
-1. `--run`（`nepl-cli` 内蔵 Wasm 実行）
-2. `wasmer`（外部 WASI ランタイム）
-3. `wasmtime`（外部 WASI ランタイム）
-4. `llvm`（`.ll` 生成 + clang でネイティブ実行）
-
-```bash
-# 1) --run: wasm を直接実行（出力ファイルなし）
-cargo run -p nepl-cli -- --input examples/counter.nepl --run
-
-# 出力を書きつつ実行
-cargo run -p nepl-cli -- --input examples/counter.nepl --output tmp/counter --run
-
-# WASI ターゲットで実行
-cargo run -p nepl-cli -- -i examples/rpn.nepl --run --target wasi
-
-# ターゲット指定（wasm|wasi、既定は wasm）
-cargo run -p nepl-cli -- --input examples/counter.nepl --target wasi --output tmp/counter
-
-# 複数成果物の出力（wasm + wat + wat-min + llvm + llvm-min）
-cargo run -p nepl-cli -- -i examples/counter.nepl -o tmp/counter --emit wasm,wat,wat-min,llvm,llvm-min
-
-# プロファイル指定（debug|release）
-cargo run -p nepl-cli -- -i examples/counter.nepl -o tmp/counter --profile debug
+```
+tutorials/
+    getting_started/
+        00_index.n.md
+        01_hello_world.n.md
+        02_variables.n.md
+        ...（28 ファイル）
 ```
 
-補足:
+オンライン版: <https://neknaj.github.io/NEPLg2/tutorials/getting_started/00_index.html>
 
-- `--output` は拡張子なしのベースパスとして扱われます。
-- `--emit` は繰り返し指定またはカンマ区切り指定が可能です。
-- `--emit all` は `wasm, wat, wat-min, llvm, llvm-min` に展開されます。
-- `--profile` は `#if[profile=...]` の分岐に使われます。
+## 標準ライブラリ
 
-## `examples/helloworld.nepl` の実行（wasm / llvm）
+`stdlib/` 配下にビルトイン関数をほぼ置かず、モジュール import を前提にした標準ライブラリが収録されています。
 
-```bash
-# wasm(wasi) を nepl-cli 内蔵ランナーで実行
-cargo run -p nepl-cli -- --input examples/helloworld.nepl --target wasi --run
-
-# wasm(wasi) を生成して wasmtime / wasmer で実行
-cargo run -p nepl-cli -- --input examples/helloworld.nepl --target wasi --output tmp/helloworld
-wasmtime run tmp/helloworld.wasm
-wasmer run tmp/helloworld.wasm
-
-# llvm(.ll) を生成して clang でネイティブ実行
-PATH=/opt/llvm-21.1.0/bin:$PATH \
-cargo run -p nepl-cli -- --input examples/helloworld.nepl --target llvm --emit llvm-min --output tmp/helloworld_llvm
-PATH=/opt/llvm-21.1.0/bin:$PATH \
-clang -O2 -lm tmp/helloworld_llvm.min.ll -o tmp/helloworld_llvm
-./tmp/helloworld_llvm
+```
+stdlib/
+    core/        # 基本トレイト・演算・Option / Result
+    std/         # stdio, streamio, fs, io
+    alloc/       # コレクション: vec, hashmap, list など
+    platforms/   # WASIX, TUI など
+    neplg2/      # セルフホストコンパイラ（開発中）
 ```
 
-## 外部 WASI ランタイムでの実行（wasmer / wasmtime）
+よく使うモジュール:
+
+| モジュール | 内容 |
+|---|---|
+| `core/math` | i32 算術・比較の基本 API |
+| `std/stdio` | `print` / `println` / `print_i32` など |
+| `std/streamio` | モダンなストリーム I/O（競技プログラミング向け高速 I/O 含む） |
+| `std/test` | `assert` / `assert_eq_i32` / `assert_str_eq` など |
+| `alloc/collections/vec` | 可変長配列 |
+
+詳細なリファレンス: [Standard Library Documentation](https://neknaj.github.io/NEPLg2/doc/stdlib/index.html)
+
+## ビルドとテスト
 
 ```bash
-# WASI 向け wasm を生成
-cargo run -p nepl-cli -- -i examples/counter.nepl -o tmp/counter --target wasi
+# Rust ビルド
+cargo build --workspace --locked
 
-# 2) wasmtime
-wasmtime run tmp/counter.wasm
-
-# 3) wasmer
-wasmer run tmp/counter.wasm
-
-# stdin/stdout ありの例
-cargo run -p nepl-cli -- -i examples/rpn.nepl -o tmp/rpn --target wasi
-echo "3 5 +" | wasmtime run tmp/rpn.wasm
-echo "3 5 +" | wasmer run tmp/rpn.wasm
-```
-
-`#entry` で指定した関数がエントリーポイントになります（WASI では `_start` として公開）。
-
-## LLVM 実行（clang 21.1.0）
-
-```bash
-# 4) llvm: .ll を生成（ミニファイ版を生成したい場合は --emit llvm-min）
-NEPL_LLVM_CLANG_BIN=/opt/llvm-21.1.0/bin/clang \
-cargo run -p nepl-cli -- -i examples/helloworld.nepl --target llvm --emit llvm,llvm-min -o tmp/hello_llvm
-
-# clang でネイティブバイナリ化（ミニファイ版を使う場合は .min.ll を指定）
-/opt/llvm-21.1.0/bin/clang tmp/hello_llvm.min.ll -O2 -lm -o tmp/hello_llvm
-
-# 実行
-./tmp/hello_llvm
-```
-
-補足:
-
-- `--target llvm` は `--run` を直接サポートしません（`.ll` を生成して clang/lli で実行）。
-- `NEPL_LLVM_CLANG_BIN` を設定すると、`nepl-cli` 側の clang バージョン検証に使われます。
-
-## 標準ライブラリ（抜粋）
-
-NEPLg2 にはビルトイン関数をほぼ置かず、モジュール import を前提にしています。
-
-- `std/math`  
-  i32 算術・比較の基本 API
-- `std/stdio`  
-  `print` / `println` / `print_i32` / `println_i32`、ANSI ヘルパ
-- `std/test`  
-  `assert` / `assert_eq_i32` / `assert_str_eq` など
-- `std/diag`  
-  診断出力用 API（debug 用含む）
-- `std/streamio`  
-  モダンなストリーム I/O（`StreamScanner` / `StreamWriter`）。競技プログラミング向けの高速 I/O もここに含まれます。
-
-詳細なリファレンスは以下を参照してください。
-- [Standard Library Documentation](https://neknaj.github.io/NEPLg2/doc/stdlib/index.html)
-
-## テスト
-
-```bash
+# Rust ユニットテスト
 cargo test --workspace --locked
+
+# 統合テスト（trunk build が必要）
+trunk build
+NO_COLOR=false node nodesrc/tests.js -i tests -i stdlib -o /tmp/tests-dual-full.json --runner all --no-tree -j 2
 ```
 
-`trunk build` 後に `nodesrc/tests.js` を使います。
+CLI でのコンパイル・実行方法の詳細は [`doc/cli.md`](doc/cli.md) を参照してください。
 
-開発中の差分確認（高速）:
+## NEPLg2.1 への移行計画
 
-```bash
-NO_COLOR=false trunk build
-NO_COLOR=false node nodesrc/tests.js --changed --changed-base HEAD -o /tmp/tests-changed.json --runner wasm --no-tree -j 2
-```
+現在 **NEPLg2.1** の設計・実装を並行して進めています。NEPLg2.1 は型記法（`%fn`、juxtaposition）・モジュールシステムの大幅刷新・メモリ安全性の強化を含む次世代仕様です。
 
-最終確認（フル）:
+| 対象 | 現行 (NEPLg2.0) | 開発中 (NEPLg2.1) |
+|---|---|---|
+| コンパイラ | `nepl-core/` | `nepl-core-2.1/`（未着手） |
+| 標準ライブラリ | `stdlib/`（凍結） | `stdlib-2.1/`（Stage 2 以降） |
+| テスト | `tests/`（凍結） | `tests-2.1/`（Stage 1 以降） |
+| チュートリアル | `tutorials/`（凍結） | `tutorials-2.1/`（先行作成可） |
 
-```bash
-NO_COLOR=false trunk build
-NO_COLOR=false node nodesrc/tests.js -i tests -i stdlib -o /tmp/tests-dual-full.json --runner all --llvm-all --assert-io --strict-dual --no-tree -j 2
-```
+`nepl-core-2.1` の Stage 6 到達時に一括切り替えを行い、古いディレクトリは archive します。
 
-補助オプション:
-- `--changed`: Git 差分の `.n.md` / `.nepl` のみ実行（デフォルトで `stdlib` 自動追加と `tree` 実行を無効化）。
-- `--changed-base <ref>`: 差分比較の基準を指定（既定 `HEAD`）。
-- `--with-stdlib` / `--with-tree`: `--changed` 時でも強制的に有効化。
+詳細:
+- 言語仕様: [`doc/2.1spec/`](doc/2.1spec/index.md)
+- コンパイラ実装設計: [`doc/2.1impl/`](doc/2.1impl/index.md)
+- stdlib / tests / tutorials 移行計画: [`doc/migration/index.md`](doc/migration/index.md)
 
 ## 開発ドキュメント
 
-- CLI 出力仕様: `doc/cli.md`
-- LLVM IR セットアップ（clang 21.1.0）: `doc/llvm_ir_setup.md`
-
-## Web Playground（ローカル）
-
-`web/` では、ブラウザ上でコンパイル・実行・WAT 確認が可能です。
-
-```bash
-trunk serve
-```
-
-起動後に <http://127.0.0.1:8080/> を開いてください。  
-`web/vendor/editorsample` が無い場合はフォールバックの textarea エディタが使われます。
+| ドキュメント | 内容 |
+|---|---|
+| [`doc/cli.md`](doc/cli.md) | CLI コマンドリファレンス |
+| [`doc/llvm_ir_setup.md`](doc/llvm_ir_setup.md) | LLVM IR セットアップ（clang 21.1.0） |
+| [`doc/testing.md`](doc/testing.md) | テストワークフロー |
+| [`doc/`](doc/README.md) | ドキュメント一覧 |
