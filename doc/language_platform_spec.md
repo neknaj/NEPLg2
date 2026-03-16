@@ -1,6 +1,6 @@
-# NEPLg2 Language Platform Specification v1.0
+# NEPLg2.1 Language Platform Specification v1.0
 
-NEPLg2 is defined as a **Language Platform**, a foundation for building and processing various languages and DSLs (JSON, Markdown, CSV, custom DSLs).
+NEPLg2.1 is defined as a **Language Platform**, a foundation for building and processing various languages and DSLs (JSON, Markdown, CSV, custom DSLs).
 
 ## 1. Vision and Goals
 

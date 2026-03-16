@@ -63,12 +63,12 @@
 struct Vec <.T, .len>
 
 // : 長さ N の Vector への push は必ず長さ N+1 の Vector を返す
-fn push <.T, .n> <(Vec<.T, .n>, .T) -> Vec<.T, {n + 1}>> (list, item):
-    // ... 
+let push .T .n %fn Vec .T .n .T -> Vec .T {n + 1} (list, item):
+    // ...
 
 // : 安全な要素アクセス。index が確実に 0 以上 len 未満であることの証明 (Proof) を型で要求する
 // : 注釈内の `{}` は CTFE によりコンパイル時評価される。
-fn get <.T, .len, .idx> <(Vec<.T, .len>, .idx) -> Option<.T>> (list, index)
+let get .T .len .idx %fn Vec .T .len .idx -> Option .T (list, index)
   // idx が合法であることの証明型を仮想的な constraint として要求
   where <IsLess<.idx, .len>>:
     // ... インデックス境界チェックの assert 等なしで生メモリのオフセットアクセスが可能になる

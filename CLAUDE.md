@@ -4,7 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-NEPLg2 (Neknaj Expression Prefix Language General-purpose 2) is a prefix-notation, expression-oriented programming language that compiles to WebAssembly (WASM) and LLVM IR. The compiler is written in Rust. A self-hosting compiler (`/stdlib/neplg2/`) is under development.
+**NEPLg2** (Neknaj Expression Prefix Language General-purpose 2) is a prefix-notation, expression-oriented programming language that compiles to WebAssembly (WASM) and LLVM IR. The compiler is written in Rust. A self-hosting compiler (`/stdlib/neplg2/`) is under development.
+
+### NEPLg2 と NEPLg2.1 の区別
+
+| 名称 | 説明 |
+|------|------|
+| **NEPLg2** | 現行実装（`nepl-core/`、`stdlib/`、`tests/`）の言語仕様。`plan.md` が設計の起点。 |
+| **NEPLg2.1** | 新仕様。型記法（`%fn ...`、juxtaposition、`unit`）・`fn` 宣言キーワード廃止・括弧完全廃止を含む大幅な変更。`doc/` 配下の新仕様ドキュメント群（`type_notation_spec.md`、`pattern_spec.md`、`module_system_spec.md`、`language_platform_spec.md`）が対象。 |
+
+NEPLg2.1 の変更は NEPLg2 とは非互換であり、実装は別途移行計画に従って進める。
+現行の `nepl-core/` は NEPLg2 の実装であり、NEPLg2.1 の実装は今後の作業になる。
 
 ## Build Commands
 

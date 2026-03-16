@@ -1,6 +1,6 @@
-# 純粋性・所有権・メモリ管理 統合仕様
+# 純粋性・所有権・メモリ管理 統合仕様（NEPLg2.1）
 
-最終更新: 2026-03-15
+最終更新: 2026-03-16
 
 > この文書は `doc/memory_safety_compiler_design.md` と `doc/move_effect_spec.md` を包含・発展させた統合仕様である。
 > 設計の出発点と理論背景は `doc/chat/dump/mem1.md` を参照。

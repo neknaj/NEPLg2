@@ -1,3 +1,27 @@
+# 2026-03-16 作業メモ (NEPLg2.1 命名・型記法仕様確定・fn廃止)
+
+- [目的/もくてき]:
+  - 型記法の大幅変更（括弧完全廃止・kind-directed juxtaposition・`%` アノテーション・`unit` キーワード・`fn` 宣言キーワード廃止）を反映した新仕様を **NEPLg2.1** と命名し、NEPLg2（現行実装）と明確に区別する。
+- [変更/へんこう]:
+  - `doc/type_notation_spec.md` (更新):
+    - 括弧完全廃止・グループ化構文なし。
+    - 型適用を juxtaposition に変更（`Name<A B>` → `Name A B`）、kind-directed アルゴリズムで境界決定。
+    - unit 型を `unit` キーワードに変更（`()` 廃止）。
+    - 型注釈記号を `<TypeExpr>` から `%TypeExpr` に変更。
+    - 型パラメータ宣言の `<>` を廃止（`.T .U` として列挙）。
+    - `fn` 宣言キーワードを廃止（理由: 型記法に `%fn ...` が現れるため紛らわしい）。全関数定義を `let name %fn ...` に統一。巻き上げは `let` の型が `fn`/`fn*` の場合に適用。
+  - `doc/pattern_spec.md`、`doc/module_system_spec.md`、`doc/language_platform_spec.md`、`doc/purity_ownership_memory_spec.md`:
+    - タイトルを NEPLg2.1 に更新。
+  - `doc/dependent_type_proof_plan.md`、`doc/memory_safety_migration_plan.md`、`doc/module_system_spec.md`:
+    - `fn` 宣言を `let` に更新、型注釈を新記法に更新。
+  - `CLAUDE.md` (更新):
+    - NEPLg2（現行実装）と NEPLg2.1（新仕様）の区別を明記。
+- [方針/ほうしん]:
+  - `nepl-core/`（Rust 実装）は引き続き NEPLg2 の実装。NEPLg2.1 の実装は別途移行計画で進める。
+  - `plan.md` は古い NEPLg2 仕様であり変更しない（参照用として保持）。
+
+---
+
 # 2026-03-16 作業メモ (doc: 仕様整合確認・モジュール/パターン/CLAUDE.md 更新)
 
 - [目的/もくてき]:

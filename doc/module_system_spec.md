@@ -1,6 +1,6 @@
-# NEPLg2 Module System Specification v1.0
+# NEPLg2.1 Module System Specification v1.0
 
-This document defines the NEPLg2 module system, emphasizing the orthogonality between physical files and logical modules.
+This document defines the NEPLg2.1 module system, emphasizing the orthogonality between physical files and logical modules.
 
 ## 1. Core Concepts
 
@@ -16,7 +16,7 @@ NEPLg2 distinguishes between three layers of organization:
 A file can contain nested modules using the `module <name>:` syntax with indentation.
 ```nepl
 module parser:
-    fn parse ...:
+    let parse ...:
         ...
 ```
 
@@ -34,7 +34,7 @@ module parser:
 merge "./editor_ops.nepl";
 merge "./editor_util.nepl";
 
-pub fn run ...:
+pub let run ...:
     ...
 ```
 
