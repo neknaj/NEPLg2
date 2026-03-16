@@ -111,6 +111,14 @@ struct Vec<.T>:
     cap <i32>
     data <MemPtr<.T>>
 
+impl<.T> Copy for Vec<.T>:
+    fn copy_mark <(Vec<.T>)->Vec<.T>> (v):
+        v
+
+impl<.T> Clone for Vec<.T>:
+    fn clone <(Vec<.T>)->Vec<.T>> (v):
+        v
+
 //: ## VecDataLen
 //: `Vec<.T>` の data/len をまとめて[返/かえ]す[軽量/けいりょう] struct
 //:
@@ -1085,7 +1093,11 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
         Result::Ok left0:
             match with_capacity<.T> right_len:
                 Result::Err e:
-                    free<.T> left0
+                    let left0_cap <i32> field::get left0 "cap"
+                    let left0_data <MemPtr<.T>> field::get left0 "data"
+                    match dealloc_ptr<.T> left0_data mul left0_cap size_of<.T>:
+                        Result::Ok _: ()
+                        Result::Err _: ()
                     Result::Err<.Pair, StdErrorKind> e
                 Result::Ok right0:
                     let left_cap <i32> field::get left0 "cap"

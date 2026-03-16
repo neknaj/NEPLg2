@@ -101,12 +101,12 @@ fn print_result <(i32)*>()> (val):
 //: [目的/もくてき]:
 //: - `[stack] [a b op] [tokens]` の形式で演算子適用前の状態・ハイライトを出力します。
 fn print_step_before <(Stack<i32>,i32,i32,str,Vec<str>,i32)*>()> (stack, a, b, op, tokens, i):
-    let hdr <i32> field::get stack "hdr";
-    let len <i32> load_i32 hdr;
-    let data <i32> load_i32 add hdr 8;
+    let hdr <MemPtr<u8>> field::get stack "hdr";
+    let stk_len <i32> load_i32 mem_ptr_addr hdr;
+    let data <i32> load_i32 add mem_ptr_addr hdr 8;
 
     let mut j <i32> 0;
-    while lt j len:
+    while lt j stk_len:
         do:
             let elem <i32> load_i32 add data mul j 4;
             print_i32 elem;
@@ -140,12 +140,12 @@ fn print_step_before <(Stack<i32>,i32,i32,str,Vec<str>,i32)*>()> (stack, a, b, o
 //: [目的/もくてき]:
 //: - `[stack] [res] [tokens]` の形式で演算子適用後の状態・ハイライトを出力します。
 fn print_step_after <(Stack<i32>,i32,Vec<str>,i32)*>()> (stack, res, tokens, i):
-    let hdr <i32> field::get stack "hdr";
-    let len <i32> load_i32 hdr;
-    let data <i32> load_i32 add hdr 8;
+    let hdr <MemPtr<u8>> field::get stack "hdr";
+    let stk_len <i32> load_i32 mem_ptr_addr hdr;
+    let data <i32> load_i32 add mem_ptr_addr hdr 8;
 
     let mut j <i32> 0;
-    while lt j len:
+    while lt j stk_len:
         do:
             let elem <i32> load_i32 add data mul j 4;
             print_i32 elem;
@@ -285,9 +285,9 @@ fn eval_line <(str)*>()> (line):
                 then: ()
                 else:
                     // エラー前にスタックの全要素を出力
-                    let hdr <i32> field::get stack "hdr";
-                    let len <i32> load_i32 hdr;
-                    let data <i32> load_i32 add hdr 8;
+                    let hdr <MemPtr<u8>> field::get stack "hdr";
+                    let len <i32> load_i32 mem_ptr_addr hdr;
+                    let data <i32> load_i32 add mem_ptr_addr hdr 8;
                     let mut j <i32> 0;
                     while lt j len:
                         do:

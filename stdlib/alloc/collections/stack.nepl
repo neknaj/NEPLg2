@@ -96,6 +96,14 @@
 struct Stack<.T>:
     hdr <MemPtr<u8>>
 
+impl<.T> Copy for Stack<.T>:
+    fn copy_mark <(Stack<.T>)->Stack<.T>> (stk):
+        stk
+
+impl<.T> Clone for Stack<.T>:
+    fn clone <(Stack<.T>)->Stack<.T>> (stk):
+        stk
+
 //: stack_header_len_ptr: ヘッダの length [欄/らん]を[指/さ]す
 //:
 //: ### [目的/もくてき]
