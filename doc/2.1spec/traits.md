@@ -54,9 +54,33 @@ let merge .T .K .V %fn Vec .T Vec .T -> Vec .T
 
 ## 3. 一意性規則（Coherence）
 
+### 3.1 同一モジュール内
+
 - 同一モジュール内では同一 `(trait, target type)` への重複 impl を禁止する。
 - 判定は文字列化した型ではなく、構造的型同値（`same_type`）で行う。
 - 重複検出後は後続パスで重複 impl を無視し、診断を安定化する。
+
+### 3.2 クロスモジュール Coherence（Orphan Rule）
+
+別モジュールの impl も含めたグローバルな一意性を保証するため、以下の Orphan Rule を適用する。
+
+**Orphan Rule**: impl の定義は次のいずれかを満たさなければならない。
+
+1. `trait` が自モジュールで定義されている、または
+2. `target type` が自モジュールで定義されている
+
+両方が外部モジュールで定義された組み合わせ（外部 trait × 外部型）の impl は禁止する。
+
+```nepl
+// 自モジュール定義の型 → 外部 trait への impl → OK
+let MyType impl for std::Eq: ...
+
+// 外部 trait × 外部型 → NG
+let std::Vec i32 impl for other::SomeTrait: ...
+// ERROR: orphan impl — neither trait nor type is defined in this module
+```
+
+**`use` 時の衝突検出**: 複数のモジュールを `use` した結果、同一 `(trait, target type)` の impl が競合する場合はコンパイルエラーとし、修飾名での明示を要求する。Orphan Rule はこの衝突を事前に防ぐ主な機構だが、stdlib の改訂など許可された状況下での衝突は import 時エラーとして扱う。
 
 ---
 
@@ -102,13 +126,23 @@ std::vec::get vec 3         // Casual 版
 
 ## 7. オーバーロード解決の 3 段階
 
-同一スコープに複数のオーバーロード候補が存在する場合、次の順で解決する。
+同一スコープに複数のオーバーロード候補が存在する場合、次の順で解決する。この仕組みは Phase 0–7 の trait 境界（`where .T: Ord` 等）から有効であり、Phase 8 の命題型制約（`where %IsLess idx len` 等）へも自然に拡張される。
 
 ### 段階 1: 制約フィルタリング（`where` 節の充足可否）
 
 `where` 節を充足できない候補を除外する。
 
+Phase 0–7 での典型例（trait 境界）:
+
 ```nepl
+let x sort unsorted_vec
+// sort .T: Ord の where を充足するか → .T が Ord を実装していなければ除外
+```
+
+Phase 8 以降の例（証明オブジェクト — 依存型導入後に有効）:
+
+```nepl
+// [Phase 8 example]
 use core::collections::vec as *
 use std::collections::vec as *
 
@@ -127,6 +161,7 @@ let x get vec proof   // proof : IsLess idx len が scope にある
 制約フィルタ後も複数候補が残った場合、呼び出し元の期待型を call site に伝播させて絞る。
 
 ```nepl
+// [Phase 8 example] — core/std vec の分離は Phase 8 以降のもの
 let x %Option .T get vec idx    // 期待型 Option .T → std::vec::get に解決
 let x %.T        get vec idx    // 期待型 .T → core::vec::get に解決
 ```
@@ -136,6 +171,7 @@ let x %.T        get vec idx    // 期待型 .T → core::vec::get に解決
 フィルタ後に複数候補が残り、期待型でも絞れない場合はコンパイルエラーとし、修飾名を要求する。
 
 ```nepl
+// [Phase 8 example]
 let x get vec idx
 // ERROR: ambiguous — use `core::vec::get` or `std::vec::get`
 ```

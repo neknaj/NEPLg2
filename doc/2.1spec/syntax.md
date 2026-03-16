@@ -38,25 +38,34 @@ NEPLg2.1 の構文は次の原則を貫く。
 ## 4. 式（Expression）
 
 ```
+// 式（評価値を持つ）
 <expr> :=
     <literal>
   | <ident>
   | @ <ident>                    // 強制値モード（forced value）— 変数を強制的に値として扱う
-  | <expr> <expr>                // 前置適用（juxtaposition）— 左結合
+  | <expr> <expr>                // 前置適用（juxtaposition）— flat chain; 境界は arity/型情報で決定
   | <expr> |> <expr>             // パイプ演算子（左結合）
   | <expr> . <field_name>        // フィールドアクセス（特殊形式、中値演算子ではない）
-  | \ <params> : <expr>          // クロージャリテラル
-  | if <expr> : <block> [else if <expr> : <block>]* [else : <block>]
+  | \ <params> : <suite>         // クロージャリテラル
+  | if <expr> : <suite> [else if <expr> : <suite>]* [else : <suite>]
   | match <expr> : <match_arms>
-  | while <expr> : <block>       // ループ（unit を返す）
-  | let <pattern> <expr>         // 式ブロック内の let 文（文として扱う）
-  | set <ident> <expr>           // 可変束縛の更新（文として扱う）
+  | while <expr> : <suite>       // ループ（unit を返す）
   | <block>
+
+// 文（評価値を持たない）— ブロック内でのみ使用可
+<stmt> :=
+    let <pattern> <expr>         // 変数束縛（評価値を持たない）
+  | set <ident> <expr>           // 可変束縛の更新（評価値を持たない）
+
+// suite: インライン式またはインデントブロック（: の直後に置く本体）
+<suite> :=
+    <expr>                       // インライン式（: の直後、同一行）
+  | <block>                      // インデントブロック（: の後に改行してインデント）
 ```
 
 ### 4.1 前置適用（juxtaposition）
 
-関数適用は引数を並べるだけ。引数の数（arity）は型情報から決定する。
+関数適用は引数を並べるだけ。パーサは flat なトークン列として受理し、型チェッカーが各関数の arity と型情報を用いて呼び出し境界を決定する。BNF 上の「`<expr> <expr>`」は内部的に flat list として蓄積され、型情報で分割される（通常の意味での「左結合 AST を先に作る」のではない）。
 
 ```nepl
 add 1 2           // add(1, 2)
@@ -123,14 +132,16 @@ p.x |> to_float
 
 ## 5. ブロック（Block）
 
-ブロックは `:` の後にインデントして並べた文・式の列。最後の式がブロックの値になる。
+ブロックは `:` の後に改行してインデントして並べた文・式の列。最後の式がブロックの値になる。
 
 ```
 <block> :=
-    : <indent>
-        <stmt_or_expr>*
+    <indent>
+        (<stmt> | <expr>)*
         <expr>               // ブロックの値（最後の式）
 ```
+
+`<suite>` はインライン式（同行）またはインデントブロック（改行後インデント）の両方を受け付ける（§4 の BNF 参照）。
 
 ```nepl
 let result
@@ -146,12 +157,9 @@ let 文はブロック内では文（値を持たない）として扱う。
 ## 6. if 式
 
 ```
-if <cond> :
-    <block>
-[else if <cond> :
-    <block>]*
-[else :
-    <block>]
+if <cond> : <suite>
+[else if <cond> : <suite>]*
+[else : <suite>]
 ```
 
 `if` は式。全アームの型が一致しなければならない。`else` がない場合は `unit` を返す（全アームが `unit` の場合のみ省略可）。
@@ -173,10 +181,8 @@ if is_debug:
 
 ```
 match <scrutinee> :
-    <pattern> :
-        <block>
-    <pattern> :
-        <block>
+    <pattern> : <suite>
+    <pattern> : <suite>
     ...
 ```
 
@@ -195,7 +201,7 @@ match opt:
 ## 8. while 式
 
 ```
-while <cond> : <block>
+while <cond> : <suite>
 ```
 
 `while` は式。**ブロック末尾式の型** `T` が `while` 式の型になる。最終イテレーションで評価されたブロックの値が `while` 式全体の値となる。条件は `bool` 型でなければならない。
@@ -352,7 +358,7 @@ p.x |> to_float // 意味: to_float p.x
 <integer> := [-] [0-9]+
 ```
 
-### 11.2 浮動小数点リテラル
+### 14.2 浮動小数点リテラル
 
 10 進浮動小数点。科学記法・`nan`・`inf` も対応する。
 

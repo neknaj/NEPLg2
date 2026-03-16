@@ -188,14 +188,12 @@ let Pair a b %Pair i32 i32 some_expr
 
 ```
 match <scrutinee> :
-    <pattern> :
-        <block>
-    <pattern> :
-        <block>
+    <pattern> : <suite>
+    <pattern> : <suite>
     ...
 ```
 
-`match` は式。全アームのブロックの型が一致しなければならない。
+`match` は式。全アームの型が一致しなければならない。`<suite>` はインライン式またはインデントブロック（[syntax.md §4](./syntax.md) 参照）。
 
 ### 4.2 網羅性検査
 
