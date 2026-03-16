@@ -101,6 +101,8 @@ function rewriteDocLink(hrefRaw) {
   if (r1 !== null) return r1;
   const r2 = replaceExt(".nepl", ".html");
   if (r2 !== null) return r2;
+  const r3 = replaceExt(".md", ".html");
+  if (r3 !== null) return r3;
 
   return p + query + hash;
 }
