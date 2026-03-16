@@ -33,6 +33,43 @@ Resource IR（ownership/borrow/region/drop の中間表現）が存在しない�
 
 ---
 
+### 1.3 括弧なし処理の基本アーキテクチャ
+
+NEPLg2.1 は式・型式・パターンのいずれにも括弧によるグループ化を持たない。これは**通常の LL/LR パーサが前提とする「パーサが構文木を決定する」設計とは根本的に異なる**ため、コンパイラパイプライン全体への影響を明示する。
+
+#### 原則：パーサは flat list を生成し、checker が境界を確定する
+
+```
+                 パーサの責務            checker の責務
+                 ──────────────         ──────────────────────────────
+式（expr）    :  PrefixList 生成  →  reduce_calls (arity + 期待型)  →  call tree (HIR)
+型式（type）  :  TypePrefixList 生成 →  reduce_type_apps (kind)      →  TypeExpr (解決済み)
+パターン      :  PatternList 生成  →  constructor arity 解決         →  pattern tree
+```
+
+- **`PrefixList`**: juxtaposition を flat な `Vec<PrefixItem>` として表現。call tree への変換は `check/expr_check.rs` の `reduce_calls` アルゴリズムが担う。
+- **`TypePrefixList`**: 型適用を flat な `Vec<TypeToken>` として表現。`ty/kind.rs` の `reduce_type_apps` アルゴリズムが kind を使って境界を確定する。
+- **`PatternList`**: コンストラクタへの引数適用も flat。`check/pat_check.rs` が constructor の arity を参照して tree に変換する。
+
+#### なぜパーサで解決できないか
+
+型式の例: `Vec Option .T` — `Vec` の kind `* -> *` はユーザー定義型の場合、定義を読むまで不明。
+式の例: `add sub 1 2 3` — `sub` の arity は DefTable に名前解決した後に初めて確定する。
+
+どちらも**名前解決（`resolve/`）が完了してから**境界確定が可能になる。パーサは flat list を生成するのみ。
+
+#### 型式の外側境界は構文で確定する
+
+型式の「どこが終わりか」は構文マーカーで確定する（`\`・`where`・改行+インデント・`:` など）。
+不確定なのは「内部のどのトークンがどのコンストラクタの引数か」という**内部適用構造**のみ。
+これが `ty/kind.rs` の `reduce_type_apps` が解決する問題。
+
+#### HIR が最初の「解決済み構造」
+
+AST は flat/未解決。HIR（`hir/hir.rs`）が初めて完全に解決された call tree・type tree・pattern tree を持つ中間表現である。`resource/` 以降はすべて HIR を入力とする。
+
+---
+
 ## 2. ブートストラップ Rust コンパイラ (`nepl-core-2.1`)
 
 ### 2.1 ファイル構成
@@ -62,16 +99,27 @@ nepl-core-2.1/
             ast/
                 mod.rs
                 item.rs         # Item（let fn / struct / enum / trait / impl / use / merge）
-                expr.rs         # Expr（前置記法・block・if/while/match・let/set・borrow）
-                pattern.rs      # Pattern（コンストラクタ・リテラル・ワイルドカード・OR・@）
-                typexpr.rs      # TypeExpr（juxtaposition・fn/fn*・%TypeExpr）
+                expr.rs         # Expr — juxtaposition は PrefixList（flat Vec<PrefixItem>、未解決）
+                                #   call tree への変換は check/expr_check.rs の reduce_calls が行う
+                                #   block / if / while / match / let / set / borrow は構文的に確定
+                pattern.rs      # Pattern — コンストラクタ適用は PatternList（flat、未解決）
+                                #   constructor arity による tree 変換は check/pat_check.rs が行う
+                                #   リテラル・ワイルドカード・OR・@ は構文的に確定
+                typexpr.rs      # TypeExpr — 型適用は TypePrefixList（flat Vec<TypeToken>、未解決）
+                                #   kind-directed な境界確定は ty/kind.rs の reduce_type_apps が行う
+                                #   fn/fn*/&/&mut・型変数 .T・外側境界（\、where、: 等）は構文的に確定
                 module_ast.rs   # ModuleAst（ファイル単位 AST）・FileHeader（#module/#entry/#part）
             parser/
                 mod.rs
                 item_parser.rs  # 宣言パーサ（let fn / struct / enum / trait / impl）
-                expr_parser.rs  # 式パーサ（前置 juxtaposition・block・if/while/match）
-                type_parser.rs  # 型式パーサ（kind-directed アルゴリズム）
-                pat_parser.rs   # パターンパーサ
+                                #   型パラメータ列・%TypeExpr の外側境界を構文的に確定させ TypePrefixList を収集
+                expr_parser.rs  # 式パーサ（前置 juxtaposition → PrefixList 生成・block・if/while/match）
+                                #   call 境界は確定させない。PrefixList を flat なまま AST に格納する
+                type_parser.rs  # 型式パーサ（TypePrefixList 生成）
+                                #   kind-directed 境界確定はここでは行わない。ty/kind.rs に委譲する
+                                #   fn/fn* の -> 帰属・% 終端・\ / where 等の外側境界のみ構文的に確定
+                pat_parser.rs   # パターンパーサ（PatternList 生成）
+                                #   constructor 境界は確定させない。check/pat_check.rs に委譲する
 
         // ── モジュールシステム ──────────────────────────
         module/
@@ -96,7 +144,10 @@ nepl-core-2.1/
             mod.rs
             ty.rs               # TypeId, TypeKind（Prim / Fn / Struct / Enum / Apply / Var …）
             arena.rs            # TypeArena（型インターン）
-            kind.rs             # Kind（*、* -> * …）と kind 推論
+            kind.rs             # Kind（*、* -> * …）・kind 推論
+                                # ★ reduce_type_apps: TypePrefixList → TypeExpr の kind-directed 境界確定
+                                #   式の reduce_calls に対応する型式版アルゴリズム
+                                #   KindEnv（DefTable 由来）を受け取り、flat な型トークン列を解決済み木に変換
             unify.rs            # 単一化・型変数インスタンス化
             subst.rs            # 型変数代入（Substitution）
             effect.rs           # Effect（Pure/Impure）・InternalAlloc / ExternalIO 分類
@@ -105,8 +156,15 @@ nepl-core-2.1/
         check/
             mod.rs
             checker.rs          # 型検査オーケストレーション・ContextStack
-            expr_check.rs       # 式の型検査（juxtaposition 境界確定・call arity 解決）
-            pat_check.rs        # パターン型検査・網羅性検査（match exhaustiveness）
+            expr_check.rs       # 式の型検査
+                                # ★ reduce_calls: PrefixList → call tree への arity-directed 縮約
+                                #   DefTable から各識別子の arity を取得し stack-based reduction を行う
+                                #   infer_expected_from_outer_consumer で期待型を双方向伝播させ曖昧性を解消
+                                #   オーバーロード候補の絞り込みも同一パスで行う
+            pat_check.rs        # パターン型検査・constructor arity 解決・網羅性検査
+                                # ★ PatternList → pattern tree への変換（expr_check の reduce_calls に対応）
+                                #   コンストラクタが何個のサブパターンを取るかは DefTable から取得
+                                #   match exhaustiveness（全バリアントカバレッジ）はコンパイル時に静的検査
             decl_check.rs       # 宣言検査（fn / struct / enum / trait / impl）
             hoist.rs            # let fn 巻き上げ（相互再帰対応）
             overload.rs         # オーバーロード解決 3 段階（制約フィルタ→期待型→修飾名）
@@ -190,12 +248,14 @@ infra
 syntax  →  module
   ↑           ↑
 resolve  ←  (module)
+  ↑    ╲
+  │     ╲ KindEnv・DefTable を ty/kind.rs と check/ に渡す
+  │      ↘
+ty  ←────── resolve（KindEnv 受け取り）
   ↑
-ty
+check  ←── resolve（DefTable・arity 参照）
   ↑
-check
-  ↑
-hir
+hir       ← ここで初めて flat AST → 解決済み tree に変換される
   ↑
 resource
   ↑
@@ -207,7 +267,8 @@ pipeline.rs（全体を統合）
 nm/（独立。pipeline からは参照しない）
 ```
 
-上位ほど下位に依存する（矢印 = 依存先）。`nm/` は `pipeline.rs` の上流に位置するが、コアコンパイラ本体からは参照しない独立ツール。
+上位ほど下位に依存する（矢印 = 依存先）。
+`ty/kind.rs` は `resolve::` が構築した `KindEnv`（型コンストラクタ名 → Kind の対応表）を受け取って `reduce_type_apps` を実行する。`check/expr_check.rs` も同様に `DefTable` から arity を参照する。`nm/` はコアコンパイラ本体からは参照しない独立ツール。
 
 ### 2.3 ファイルサイズの目安
 
@@ -388,11 +449,20 @@ pub fn compile(opts: CompileOptions, source_map: &SourceMap)
 
 内部処理順:
   1. syntax::lexer          トークナイズ
-  2. syntax::parser         パース → ModuleAst
-  3. module::               物理→構文→論理の 3 層解決
-  4. resolve::              DefId 付与・スコープ構築・use 引き当て
-  5. ty:: + check::         型推論・型検査・effect 検査・trait 検査
-  6. hir::lower             AST + 型情報 → HIR
+  2. syntax::parser         パース → ModuleAst（flat/未解決 AST）
+                              expr: PrefixList（call 境界未確定）
+                              type: TypePrefixList（kind-directed 境界未確定）
+                              pattern: PatternList（constructor arity 未確定）
+  3. module::               物理→構文→論理の 3 層解決。import 先モジュールの DefTable・KindEnv を収集
+  4. resolve::              DefId 付与・スコープ構築・use 引き当て・KindEnv 構築
+                              ※ この段階で arity / kind 情報が初めて確定する
+  5. ty:: + check::         ① ty/kind.rs: TypePrefixList → TypeExpr（reduce_type_apps）
+                              ② check/expr_check.rs: PrefixList → call tree（reduce_calls）
+                              ③ check/pat_check.rs: PatternList → pattern tree（constructor arity 解決）
+                              ④ 型推論・単一化・effect 検査・trait 検査・overload 解決
+                              ※ ①〜④は相互依存するため反復収束（固定点）で解く
+  6. hir::lower             AST（flat/未解決） + 型検査結果 → HIR（解決済み call tree）
+                              HIR が最初の「完全解決済み構造」。以降のパスはすべて HIR を入力とする
   7. resource::             Resource IR 生成・ownership/borrow/region/drop 検査
   8. passes::               target gate 評価・codegen 前検査
   9. mono::                 単相化
