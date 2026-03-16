@@ -90,6 +90,8 @@ entry 関数も署名どおりに effect を判定する。entry だからとい
 
 borrow のライフタイムは**最後の使用点（last use）** で終了する（NLL: Non-Lexical Lifetimes）。ブロック終端を待たない。
 
+Rust と異なり、NEPLg2.1 には明示的なライフタイム構文（`'a` など）がない。borrow スコープはコンパイラが "last use" 解析によって完全に推論する。プログラマはライフタイム注釈を書かない。
+
 | 状況 | borrow の終端 |
 |------|--------------|
 | 変数への borrow | その変数の最後の読み取り式の直後 |
@@ -165,6 +167,7 @@ NEPLg2.1 での使い分け:
 |----|----------------|
 | `i32`, `u8`, `bool`, `f32`, `unit` | `Unrestricted` |
 | `str`, `List .T`, immutable struct (`Pair`, `Triple` 等) | `Unrestricted`（region-managed） |
+| `Slice .T` | `Unrestricted`（borrowed view、所有権なし・コピー可） |
 | `ByteBuf`, `OwnedBuf .T`, `StringBuilder`, `VecBuilder .T` | `Owned` |
 | `File`, `Socket`, `RegionToken`, `BuilderToken`, `CloseToken` | `Linear` |
 

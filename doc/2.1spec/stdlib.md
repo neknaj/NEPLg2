@@ -44,6 +44,7 @@
 - OS / device / syscall / allocator 詳細に依存しない。
 - 基本型・演算・基本 trait・`Result` / `Option` などの最小集合を担当する。
 - `math.nepl` のように、ほぼすべての runtime で共通に提供されるべき計算ライブラリはここに置く。
+- 乱数（rand）は非決定的でありプラットフォーム依存のため `core` には置かない。`features/` に配置する。
 
 ### 2.2 `alloc`
 
@@ -97,7 +98,6 @@
 ```text
 stdlib/
     core/                # 純粋計算・基本型・基本 trait
-        rand/
 
     alloc/               # heap 依存だが target 非依存の汎用ライブラリ
         collections/     # Vec/Map/Set/Queue/Stack などのデータ構造
@@ -118,6 +118,7 @@ stdlib/
         http/
         tui/
         audio/
+        rand/            # 乱数（Impure・プラットフォーム依存）
 
     kp/                  # 競技プログラミング向け暫定ライブラリ
     nm/                  # 拡張 markdown・doc comment・HTML 変換

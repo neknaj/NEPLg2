@@ -48,6 +48,8 @@ NEPLg2.1 はすべての値を意味論上、次の 3 種類に分類する。
 
 対象: pure persistent value（`List .T`, immutable tree, `str` 内部表現, closure environment の pure 部分, map/filter/fold の一時 aggregate）
 
+**region の定義**: region はコンパイラが推論するコンパイル時スコープ単位であり、関連する pure persistent value がまとめて確保・解放される論理的な寿命境界。region はプログラマには見えない（構文として現れない）。スコープの入れ子と値の到達可能性から推論され、region 出口で対象値を一括解放（bulk free）する。
+
 - コンパイラが region を推論し、region 単位で bulk free する
 - ノード単位の free はしない
 - ソースに region 構文は見せない
@@ -98,6 +100,8 @@ NEPLg2.1 はすべての値を意味論上、次の 3 種類に分類する。
 ### 6.1 `str` の意味論
 
 `str` は immutable UTF-8 text。Pure persistent value であり、共有可能・manual free を持たない。物理表現は target ごとに異なってよいが、言語意味論として「UTF-8 妥当な不変文字列」で統一する。
+
+**正規化形式**: `str` はバイト列を UTF-8 として格納するが、Unicode 正規化形式（NFC/NFKC 等）は自動適用されない。`eq` trait による等値比較はバイト列が等しいかどうかで判定する。正規化が必要な場合は stdlib の正規化関数を明示的に呼ぶこと。
 
 ### 6.2 文字列とバイト列の分離
 

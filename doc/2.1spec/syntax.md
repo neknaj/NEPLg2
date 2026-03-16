@@ -249,7 +249,7 @@ while <cond> <proof> : <suite>
 ```nepl
 // [Phase 8 example]
 // n > 0 の証明があるとき: i から n まで合計し、最終 acc を返す
-let proof gt_proof n    // proof : WillExecute (le 1 n)
+let proof gt_proof n    // proof : WillExecute le 1 n
 let result
     let mut i   1
     let mut acc 0

@@ -52,4 +52,7 @@ NEPLg2.0（現行実装）から NEPLg2.1（目標仕様）への主要な変更
 | Drop Elaboration | owned/linear resource の自動 drop 挿入 |
 | Resource IR | ownership/borrow/region/drop の解析中間表現 |
 | `InternalAlloc` / `ExternalIO` 内部効果分類 | 効果判定の精密化 |
-| `pub use` 再エクスポート | モジュール public surface の再構成 |
+| `pub use` 再エクスポート・循環検出 | モジュール public surface の再構成 |
+| Orphan Rule（グローバルCoherence） | クロスモジュール実装一意性の保証 |
+| NLL（ライフタイム注釈なし） | borrow スコープはコンパイラが "last use" で推論（明示構文なし） |
+| ジェネリクスの不変（invariant）意味論 | 変位バグを構造的に排除 |

@@ -1,3 +1,28 @@
+# 2026-03-17 作業メモ (doc: 第5回レビューによる仕様穴の解消)
+
+- [目的/もくてき]:
+  - 5大基本理念に照らした第5回包括的精査。仕様穴・定義不足・クロスファイル不整合を解消。
+- [変更/へんこう]:
+  - `doc/2.1spec/types.md`: §9 追加 — ジェネリクスの不変（invariant）意味論を明文化。
+  - `doc/2.1spec/declarations.md §5`: `Self` キーワードの定義（trait メソッド内の特別型変数）を追記。trait メソッドの `...` と default body の区別を明記。§4.1: bare バリアント使用条件（4条件）を追記。
+  - `doc/2.1spec/effects.md §5`: `Slice .T` を `Unrestricted`（borrowed view）として資源使用テーブルに追加。§3.2.1: Rust との違い（ライフタイム注釈なし）を追記。
+  - `doc/2.1spec/memory.md §3.1`: "region" の形式的定義を追加。§6.1: `str` の正規化形式（NFC 等は自動適用なし）を明記。
+  - `doc/2.1spec/modules.md §4`: `merge` の衝突解決規則（同名宣言・part の単一 anchor 制約）を追加。
+  - `doc/2.1spec/traits.md §2.3`: `Copy` trait は Linear/Owned 型に実装不可であることを明記・cross-ref を追加。
+  - `doc/2.1spec/stdlib.md §2.1/§3`: `rand` を `core/` から削除し `features/` に移動（Impure・非決定的のため）。
+  - `doc/2.1spec/phase8.md §2.3`: 証明オブジェクトは `Copy` 型であることを明記。決定不可能命題は対象外とする方針を追加。
+  - `doc/2.1spec/syntax.md §8.2`: Phase 8 コメント内の括弧 `WillExecute (le 1 n)` → `WillExecute le 1 n`。
+  - `doc/2.1spec/compiler.md §8`: Phase 番号とコンパイラ Stage 番号の混同を解消（Stage 1–6 と言語 Phase 0–8 を区別）。
+  - `doc/compare/syntax.md §12`: バリアント参照の breaking change 注記を追加。
+  - `doc/compare/module_system.md §2.2`: `use` の `::` とバリアントの `::` の違いを追記。
+  - `doc/compare/index.md`: Orphan Rule・NLL・invariant semantics・pub use 循環検出を追加。
+- [設計決定/せっけいけってい]:
+  - ジェネリクスは Phase 0–7 で完全に invariant。co/contravariance は Phase 8 検討課題。
+  - 証明オブジェクトは Copy 型（消費不要）。決定不可能命題は型システム外。
+  - `rand` は Impure・非決定的のため `features/` 層（`core/` は Pure のみ）。
+
+---
+
 # 2026-03-17 作業メモ (doc: 第4回レビューによる仕様不整合修正)
 
 - [目的/もくてき]:

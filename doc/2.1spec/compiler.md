@@ -130,16 +130,18 @@ io_close h
 
 ---
 
-## 8. 段階導入計画
+## 8. 段階導入計画（Phase 0–7 内のコンパイラ実装ステージ）
 
-| Phase | 内容 |
+以下はコンパイラ実装を段階的に進める内部作業ステージ（Stage 1–6）であり、言語バージョンの Phase 番号（Phase 0–7、Phase 8）とは区別する。
+
+| Stage | 内容 |
 |-------|------|
-| 1 | `MemPtr .T` / `RegionToken` を compiler / runtime 境界に閉じ込める |
-| 2 | builtins / effect 判定を `InternalAlloc` / `ExternalIO` 分類へ移行 |
-| 3 | move check を token 消費対応へ拡張 |
-| 4 | Resource IR を導入し、ownership / borrow / region / drop の解析パスを整備 |
-| 5 | stdlib（`mem` / `std/streamio`）を安全 API へ統一 |
-| 6 | tests に memory / effect 回帰を追加 |
+| Stage 1 | `MemPtr .T` / `RegionToken` を compiler / runtime 境界に閉じ込める |
+| Stage 2 | builtins / effect 判定を `InternalAlloc` / `ExternalIO` 分類へ移行 |
+| Stage 3 | move check を token 消費対応へ拡張 |
+| Stage 4 | Resource IR を導入し、ownership / borrow / region / drop の解析パスを整備（Phase 4 に対応） |
+| Stage 5 | stdlib（`mem` / `std/streamio`）を安全 API へ統一 |
+| Stage 6 | tests に memory / effect 回帰を追加 |
 
 ---
 

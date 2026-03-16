@@ -208,6 +208,21 @@ let zip .T .U: Show %fn Vec .T Vec .U -> Vec Pair .T .U \ a b :
 
 ---
 
+## 9. ジェネリクスの変位（Variance）
+
+NEPLg2.1 では、ジェネリック型のパラメータは**不変（invariant）**である。`Vec i32` と `Vec str` には部分型関係がない（サブタイピングはない）。
+
+```
+Vec i32  ≠  Vec str  — 型として完全に別物
+Option i32  ≠  Option str
+```
+
+これにより変位に起因する型安全バグを構造的に排除し、型推論を単純化する。
+
+Phase 8（依存型）以降で co-/contravariance の限定的な導入を検討するが、Phase 0–7 ではすべてのジェネリック型パラメータが不変として扱われる。
+
+---
+
 ## 付録: 字句解析上の注意
 
 ### `%` の扱い

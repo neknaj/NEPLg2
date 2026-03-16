@@ -76,6 +76,9 @@ merge "./filepath/filename"
 - `merge` された側のファイルは独立モジュールにはならない（`#part` ファイルに限る）。
 - 結合後は declaration multiset として統合し、名前解決・型推論を行う。
 - `private` は結合されたすべての part 間で共有される。
+- 同じ part ファイルを複数の anchor が `merge` することは禁止（コンパイルエラー）。part は厳密に 1 つの anchor に属する。
+
+**同名宣言の衝突**: 複数の merge 済み part ファイルが同一名の宣言を持つ場合、シャドウィング規則（[declarations.md §9](./declarations.md)）が適用される。シグネチャが同一であれば warning を発行して後者優先。シグネチャが異なる場合は両オーバーロードを保持する。`noshadow` が付いた宣言への上書きはコンパイルエラー。
 
 ```nepl
 // editor.nepl  (#module)

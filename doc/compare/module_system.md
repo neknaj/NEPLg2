@@ -64,6 +64,8 @@ use core::math::gcd
 use core::math::gcd as greatest_cd
 ```
 
+**`use` パスの `::` セパレータ**: `use` パス内の `::` はモジュール階層の区切り文字。ファイル内の `module name:` ブロックも `::name` セグメントとして canonical path に追加される（例: `./editor.nepl` 内の `module parser:` → `editor::parser`）。バリアント参照の `EnumType::Variant` の `::` とは別の仕組みである（後者は型検査器が処理）。
+
 ### 2.3 `merge` 構文
 
 ```nepl

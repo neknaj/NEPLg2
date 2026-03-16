@@ -50,6 +50,8 @@ let merge .T .K .V %fn Vec .T Vec .T -> Vec .T
 - `Copy`/`Clone` は所有権規則に接続する能力 trait として扱う。
 - `MemReadable .T`, `MemWritable .T`, `RegionOwned` はメモリ能力の契約として NEPLg2.1 仕様に含まれるが、コンパイラによる強制は **Phase 4（Resource IR 導入）以降の段階導入**。Phase 3 以前はソフトウォーニングのみ。
 
+**`Copy` 実装制限**: `Linear` resource 型（`File`・`Socket`・`RegionToken` 等）は `Copy` を実装できない。`Linear` は「暗黙の複製を禁止する」意味論を持つため、`Copy` との矛盾がコンパイルエラーとなる（`compiler.md §4.4` 参照）。`Owned` 型（`ByteBuf`・`OwnedBuf .T` 等）も同様に `Copy` は禁止。`Clone` は明示的複製として許可される場合がある。
+
 ---
 
 ## 3. 一意性規則（Coherence）
