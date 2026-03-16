@@ -536,7 +536,7 @@ pub fn elaborate_drops(module: &mut HirModule) {
 #### 10.5.3 Drop trait と codegen
 
 ```text
-trait Drop:
+let Drop trait:
     #[capability: drop]
     let drop %fn* Self -> unit (self):
         ...

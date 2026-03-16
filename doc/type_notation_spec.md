@@ -30,6 +30,7 @@ NEPLg2 の式は括弧なし・前置 juxtaposition で書かれ、呼び出し�
 | グループ化 → 廃止 | `<TypeExpr>` | なし（kind-directed で解決） |
 | 型注釈記号の変更 | `<TypeExpr>` | `%TypeExpr` |
 | 型パラメータ宣言の `<>` 廃止 | `<.T, .U>` | `.T .U` |
+| 宣言キーワードを `let` に統一 | `fn`/`struct`/`enum`/`trait`/`impl` | `let Name [kind]` |
 
 ---
 
@@ -198,28 +199,28 @@ let and_then .T .U %fn Option .T fn .T -> Option .U -> Option .U (o, f):
 
 ### 5.2 struct 定義
 
-型パラメータは `.Ident` で列挙（`<>` 不要）。フィールド型は `fname %TypeExpr`。
+`let Name struct` 形式。型パラメータは `.Ident` で列挙。フィールド型は `fname %TypeExpr`。
 
 ```nepl
-// 現在
+// 旧
 struct Pair<.A, .B>:
     fst <.A>
     snd <.B>
 
 // 新
-struct Pair .A .B:
+let Pair struct .A .B:
     fst %.A
     snd %.B
 ```
 
 ```nepl
-// 現在
+// 旧
 struct Node<.T>:
     val <.T>
     next <Option<Node<.T>>>
 
 // 新
-struct Node .T:
+let Node struct .T:
     val %.T
     next %Option Node .T
 ```
@@ -228,34 +229,36 @@ struct Node .T:
 
 ### 5.3 enum 定義
 
+`let Name enum` 形式。バリアントは `Name %TypeExpr`（ペイロードなしは `Name` のみ）。
+
 ```nepl
-// 現在
+// 旧
 enum Result<.T, .E>:
     Ok <.T>
     Err <.E>
 
 // 新
-enum Result .T .E:
+let Result enum .T .E:
     Ok %.T
     Err %.E
 ```
 
 ```nepl
-// 現在
+// 旧
 enum Option<.T>:
     Some <.T>
     None
 
 // 新
-enum Option .T:
+let Option enum .T:
     Some %.T
     None
 ```
 
-### 5.4 let 型注釈
+### 5.4 let 型注釈（値バインディング）
 
 ```nepl
-// 現在
+// 旧
 let a <Option<i32>> some<i32> 10
 let checks <Vec<Result<(),str>>>
 
@@ -268,6 +271,8 @@ let checks %Vec Result unit str
 
 ### 5.5 trait 定義・impl
 
+`let Name trait` 形式。`let Type impl for Trait` 形式。
+
 ```nepl
 // 旧
 trait Eq:
@@ -279,11 +284,11 @@ impl Eq for i32:
         ...
 
 // 新
-trait Eq:
+let Eq trait:
     let eq %fn Self Self -> bool (a, b):
         ...
 
-impl Eq for i32:
+let i32 impl for Eq:
     let eq %fn i32 i32 -> bool (a, b):
         ...
 ```

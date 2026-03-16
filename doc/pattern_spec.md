@@ -17,15 +17,15 @@
 
 ```nepl
 // stdlib/core/pair.nepl
-pub struct Pair<.A, .B>:
-    fst .A
-    snd .B
+pub let Pair struct .A .B:
+    fst %.A
+    snd %.B
 
 // stdlib/core/triple.nepl
-pub struct Triple<.A, .B, .C>:
-    fst .A
-    snd .B
-    trd .C
+pub let Triple struct .A .B .C:
+    fst %.A
+    snd %.B
+    trd %.C
 ```
 
 構築は他のコンストラクタ呼び出しと同じ前置記法：
