@@ -4,283 +4,320 @@
 
 ---
 
-## 1. 移行の全体像
+## 1. 基本方針：並行ディレクトリ開発 → 一括切り替え
 
-### 1.1 対象と規模
+`nepl-core-2.1` がコンパイラとして `nepl-core` と並行開発されるのと同じ方式を stdlib・tests・tutorials にも適用する。
 
-| 対象 | ファイル数 | 現在の状態 |
-|---|---:|---|
-| `stdlib/core/` | 18 | NEPLg2.0 構文。traits/ 以下 10 ファイル含む |
-| `stdlib/std/` | 8 | NEPLg2.0 構文 |
-| `stdlib/alloc/` | 50+ | NEPLg2.0 構文。collections/ 20 ファイル・string.nepl（74 KB）等 |
-| `stdlib/nm/` | 3 | NEPLg2.0 構文 |
-| `stdlib/neplg2/` | 6 | 暫定実装。NEPLg2.1 移行後に大幅再設計 |
-| `stdlib/platforms/` | 1 | NEPLg2.0 構文 |
-| `tests/compiler/` | 38 | NEPLg2.0 テストケース |
-| `tests/stdlib/` | 38 | NEPLg2.0 テストケース |
-| `tutorials/getting_started/` | 28 | NEPLg2.0 構文でのチュートリアル |
+```
+現行（NEPLg2.0）          開発中（NEPLg2.1）
+─────────────────         ─────────────────
+stdlib/               ←→  stdlib-2.1/
+tests/                ←→  tests-2.1/
+tutorials/            ←→  tutorials-2.1/
+```
 
-### 1.2 移行の制約
+- **`stdlib/`・`tests/`・`tutorials/` は一切変更しない**。`nepl-core` でビルド・テストが通る状態を Stage 6 切り替えまで維持する。
+- **`stdlib-2.1/`・`tests-2.1/`・`tutorials-2.1/` を新規作成**し、`nepl-core-2.1` でのみコンパイルする。
+- **Stage 6 到達時に一括切り替え**（旧ディレクトリを archive してリネーム）。
 
-- **stdlib は NEPLg2.1 コンパイラが動作しないと移行できない**。現行 `nepl-core`（NEPLg2.0）は移行後の構文を解析できない。
-- コンパイラの Stage 進行（`doc/2.1impl/compiler_structure.md §7`）と移行作業を同期させる。
-- 移行中は `nepl-core`（NEPLg2.0）と `nepl-core-2.1` を並行運用し、既存テストを壊さない。
+### 1.1 ディレクトリ構成
 
-### 1.3 コンパイラ Stage との対応
+```
+/
+├── stdlib/             # NEPLg2.0 stdlib（凍結。nepl-core でビルド）
+├── stdlib-2.1/         # NEPLg2.1 stdlib（新規。nepl-core-2.1 でビルド）
+│
+├── tests/              # NEPLg2.0 テスト（凍結。nepl-core で実行）
+├── tests-2.1/          # NEPLg2.1 テスト（新規。nepl-core-2.1 で実行）
+│
+├── tutorials/          # NEPLg2.0 チュートリアル（凍結）
+├── tutorials-2.1/      # NEPLg2.1 チュートリアル（新規。nepl-core-2.1 で実行）
+│
+├── nepl-core/          # NEPLg2.0 コンパイラ（凍結）
+└── nepl-core-2.1/      # NEPLg2.1 コンパイラ（開発中）
+```
 
-| コンパイラ Stage | 達成内容 | 解禁される移行作業 |
-|---|---|---|
-| **Stage 1** | 字句解析・パーサ・モジュール骨格 | チュートリアル文書の書き換え（コンパイル不要） |
-| **Stage 2** | 名前解決・型システム基礎 | `core/` の基本型・基本関数の移行検証 |
-| **Stage 3** | 型検査・trait 検査・effect 検査 | `core/` 全体・`core/traits/` の移行 |
-| **Stage 4** | Resource IR・ownership/borrow/region/drop | `alloc/` のメモリモデル移行（Phase 1–4） |
-| **Stage 5** | 単相化・コード生成 | `std/` `alloc/` `nm/` の全移行・全テスト通過確認 |
-| **Stage 6** | `nepl-core` → `nepl-core-2.1` 切り替え | `neplg2/` セルフホストコンパイラの本格移行 |
+### 1.2 Stage 6 切り替え手順
+
+Stage 6（`nepl-core-2.1` が全テスト通過）到達後:
+
+```
+1. stdlib-2.1/ のテストが全通過することを確認
+2. mv stdlib/        stdlib-archive/
+   mv stdlib-2.1/    stdlib/
+3. mv tests/         tests-archive/
+   mv tests-2.1/     tests-2.1/  →  tests/
+4. mv tutorials/     tutorials-archive/
+   mv tutorials-2.1/ tutorials/
+5. nepl-core-2.1 での CI が緑であることを確認
+6. stdlib-archive/ tests-archive/ tutorials-archive/ を削除
+```
+
+切り替えは 1 コミット（ファイル移動のみ）で行い、容易に revert できる状態を保つ。
 
 ---
 
-## 2. 構文変換クイックリファレンス
+## 2. `stdlib-2.1/` の構造
 
-コードを移行する際の機械的な変換ルール（詳細は `doc/compare/syntax.md`）。
+現行 `stdlib/` のディレクトリ構造を維持しつつ、ファイルヘッダと全構文を NEPLg2.1 形式で記述する。
 
-### 宣言キーワード
+```
+stdlib-2.1/
+    core/
+        traits/
+            eq.nepl
+            ord.nepl
+            hash.nepl
+            hash_key.nepl
+            copy.nepl
+            drop.nepl
+            debug.nepl
+            stringify.nepl
+            serialize.nepl
+            deserialize.nepl
+        mem.nepl
+        math.nepl
+        option.nepl
+        result.nepl
+        cast.nepl
+        field.nepl
+        test.nepl
+        rand/
+            xorshift32.nepl
+    std/
+        io.nepl
+        stdio.nepl
+        streamio.nepl
+        fs.nepl
+        iotarget.nepl
+        test.nepl
+        prelude_base.nepl
+        env/
+            cliarg.nepl
+    alloc/
+        string.nepl
+        io.nepl
+        collections/
+            vec.nepl
+            stack.nepl
+            queue.nepl
+            deque.nepl
+            list.nepl
+            ringbuffer.nepl
+            hashmap.nepl
+            hashset.nepl
+            btreemap.nepl
+            btreeset.nepl
+            binary_heap.nepl
+            adjacency_matrix.nepl
+            sparse_set.nepl
+            bloom_filter.nepl
+            counting_bloom_filter.nepl
+            bitset.nepl
+            fenwick.nepl
+            segment_tree.nepl
+            disjoint_set.nepl
+        hash/
+            fnv1a32.nepl
+            hash32.nepl
+            sha256.nepl
+        encoding/
+            json.nepl
+        diag/
+            diag.nepl
+            error.nepl
+    nm/
+        README.n.md
+        parser.nepl
+        html_gen.nepl
+    platforms/
+        wasix/
+            tui.nepl
+    neplg2/          ← Stage 6 以降（doc/2.1impl/compiler_structure.md §4 参照）
+```
+
+### 2.1 各ファイルの先頭ヘッダ
+
+`stdlib-2.1/` の全ファイルは NEPLg2.1 モジュールヘッダで始まる。
+
+```nepl
+#module         // anchor ファイル（core/、std/、alloc/ 等のルート）
+```
+
+```nepl
+#part           // merge されるパートファイル（ほとんどの .nepl）
+```
+
+---
+
+## 3. `tests-2.1/` の構造
+
+```
+tests-2.1/
+    compiler/       # nepl-core-2.1 の言語機能テスト（NEPLg2.1 構文）
+    stdlib/         # stdlib-2.1/ の動作テスト
+```
+
+テスト形式は現行 `tests/` と同じ `.n.md` ファイル。`nodesrc/tests.js` に `--stdlib stdlib-2.1 --compiler nepl-core-2.1` のようなオプションを追加して両方を CI で実行する。
+
+---
+
+## 4. `tutorials-2.1/` の構造
+
+```
+tutorials-2.1/
+    getting_started/
+        00_index.n.md
+        01_hello_world.n.md
+        ...（既存 28 ファイル対応）
+        29_ownership_and_borrow.n.md     # NEPLg2.1 新規
+        30_linear_resource.n.md          # NEPLg2.1 新規
+        31_region_and_persistent.n.md    # NEPLg2.1 新規
+        32_module_system.n.md            # NEPLg2.1 新規
+        33_noshadow_and_overload.n.md    # NEPLg2.1 新規
+```
+
+---
+
+## 5. コンパイラ Stage と開発解禁範囲
+
+| コンパイラ Stage | 達成内容 | `stdlib-2.1/` 着手可能範囲 | `tests-2.1/` 着手可能範囲 | `tutorials-2.1/` 着手可能範囲 |
+|---|---|---|---|---|
+| **Stage 0**（現在） | 未着手 | — | — | 文書のみ（コンパイル不要）先行作成可 |
+| **Stage 1** | 字句解析・パーサ・モジュール骨格 | 構文確認のみ（型検査なし） | コンパイルエラー系テスト | 01–04（hello world 〜 strings）文書確定 |
+| **Stage 2** | 名前解決・型システム基礎 | `core/traits/`・`core/option`・`core/result`・`core/cast` | `functions`, `typeannot`, `if`, `resolve` | A グループ（01–04）通過確認 |
+| **Stage 3** | 型検査・trait 検査・effect 検査 | `core/` 全体・`core/mem`（raw pointer 隔離） | `generics`, `overload`, `shadowing`, `move_check`, `trait_capability_copy` | B〜D グループ（05–09, 15, 17） |
+| **Stage 4** | Resource IR・ownership/borrow/region/drop | `alloc/string`・`alloc/collections/` 全体・`std/` | `move_effect`, `drop`, `memory_safety` | E グループ（20–21）・新規 29–33 |
+| **Stage 5** | 単相化・コード生成 | `nm/`・`platforms/`・`core/rand/` | `llvm_target`, `intrinsic`, 全 stdlib テスト | F グループ（22–27 競プロ）。全チュートリアル通過確認 |
+| **Stage 6** | 切り替え完了 | `neplg2/` セルフホスト本格着手 | `neplg2.n.md` | — |
+
+---
+
+## 6. 開発順序（Wave）
+
+### Wave 1: `core/traits/` と基本型（Stage 2）
+
+対象: `stdlib-2.1/core/traits/` 全 10 ファイル + `option.nepl`, `result.nepl`, `cast.nepl`, `field.nepl`, `test.nepl`
+
+主な変換パターン:
+
+| NEPLg2.0 | NEPLg2.1 |
+|---|---|
+| `trait Eq:` | `let Eq trait:` |
+| `fn eq <(Self,Self)->bool> (a, b):` | `let eq %fn Self Self -> bool \ a b :` |
+| `impl Eq for i32:` | `let i32 impl for Eq:` |
+| `enum Option<.T>:` | `let Option enum .T:` |
+| `Ok <.T>` / `Err <.E>`（バリアント定義）| `Ok %.T` / `Err %.E` |
+| bare `Some x` / `None`（期待型なし） | `Option::Some x` / `Option::None` |
+
+### Wave 2: `core/mem.nepl` と raw pointer 隔離（Stage 3 + Memory Phase 1）
+
+`stdlib-2.1/core/mem.nepl` を**最初から** raw pointer 非公開 API で書く（移行でなく新規設計）。
+
+- `mem_ptr_addr` / `mem_ptr_wrap` / `alloc_raw` / `dealloc_raw` は `private`
+- 公開 API は `MemPtr .T` ベースのオーバーロードのみ
+- `alloc/dealloc` の effect は `InternalAlloc` で宣言（コンパイラが `Pure` に fold）
+
+### Wave 3: `alloc/string.nepl` と `alloc/collections/vec.nepl`（Stage 3–4）
+
+`stdlib/` の既存コードを参照しながら `stdlib-2.1/` に新規作成。
+内部の raw address 操作は Wave 2 の隠蔽 API を使う。
+
+### Wave 4: `alloc/collections/` 残り（Stage 4）
+
+vec 完了後に順次追加。`list.nepl` は Memory Phase 2（Region Inference）完了後。
+
+```
+依存順: vec → stack/queue/deque/ringbuffer
+            → hashmap/hashset（Hash trait 依存）
+            → btreemap/btreeset/binary_heap（Ord trait 依存）
+            → list（Region Inference 必須）
+            → その他（fenwick, segment_tree …）
+```
+
+### Wave 5: `std/` 層（Stage 4）
+
+`File`/`Socket` 等の Linear resource に Drop Elaboration が効く Stage 4 完了後に着手。
+
+| ファイル | 主要変更点 |
+|---|---|
+| `std/io.nepl` | `StdErrorKind enum` 修飾形 / 関数シグネチャ |
+| `std/stdio.nepl` | `%fn* unit -> unit` 形式。Impure 宣言の書き換え |
+| `std/streamio.nepl` | `File` を Linear resource として扱う。Drop Elaboration を前提に手動 close 不要化 |
+| `std/fs.nepl` | `Result` / `Option` ベース API の徹底 |
+| `std/test.nepl` | テストフレームワーク全体の書き換え |
+
+### Wave 6: `nm/` と `platforms/`（Stage 5）
+
+`nm/parser.nepl`（48 KB）・`nm/html_gen.nepl`・`platforms/wasix/tui.nepl` を新規作成。
+
+### Wave 7: `neplg2/`（Stage 6）
+
+`doc/2.1impl/compiler_structure.md §4` の設計に従いセルフホストコンパイラを新規実装。
+
+---
+
+## 7. メモリモデル移行（Memory Phase 0–6）と Wave の対応
+
+| Memory Phase | コンパイラ Stage | Wave | 内容 |
+|---|---|---|---|
+| **Phase 0** | Stage 2 | — | compiler 内に `InternalAlloc`/`ExternalIO` 分類追加。stdlib 変更なし |
+| **Phase 1** | Stage 3 | Wave 2 | `stdlib-2.1/core/mem.nepl` を最初から raw pointer 非公開で設計 |
+| **Phase 2** | Stage 4 | Wave 4 | `stdlib-2.1/alloc/collections/list.nepl` を Region Inference 前提で設計 |
+| **Phase 3** | Stage 4 | Wave 3 | `stdlib-2.1/alloc/string.nepl` の ownership tracking |
+| **Phase 4** | Stage 4 | Wave 3–5 | Resource IR を前提とした `alloc/` 全体の設計 |
+| **Phase 5** | Stage 5 | Wave 3–6 | 全公開 API を `Result/Option` 安全 API に統一。`_raw`/`_safe` 接尾辞なし |
+| **Phase 6** | Stage 5 | — | `tests-2.1/stdlib/memory_safety.n.md` compile_fail テスト追加 |
+
+---
+
+## 8. CI 戦略
+
+### 並行運用期間（Stage 1–5）
+
+```
+CI job A: nepl-core + stdlib/ + tests/ （NEPLg2.0。常時グリーンを維持）
+CI job B: nepl-core-2.1 + stdlib-2.1/ + tests-2.1/ （NEPLg2.1。Wave 進捗で増加）
+```
+
+Job B は Wave ごとに対象ファイルを追加していく。Job A は Stage 6 切り替えまで壊さない。
+
+### 切り替え後（Stage 6）
+
+Job A を廃止し、Job B のみで CI を継続。旧ディレクトリ（`stdlib-archive/` 等）は 1 リリースサイクル後に削除。
+
+---
+
+## 9. 構文変換クイックリファレンス
+
+（詳細は `doc/compare/syntax.md`。ここでは `stdlib-2.1/` 作業中に頻出するパターンのみ）
 
 | NEPLg2.0 | NEPLg2.1 |
 |---|---|
 | `fn name <TypeParams> <Sig> (params):` | `let name [type_params] %fn ... -> ... \ params :` |
-| `struct Name<.T>:` | `let Name struct .T:` |
-| `enum Name<.T>:` | `let Name enum .T:` |
-| `trait Name:` | `let Name trait:` |
-| `impl Trait for Type:` | `let Type impl for Trait:` |
-
-### 型記法
-
-| NEPLg2.0 | NEPLg2.1 |
-|---|---|
-| `Vec<i32>` | `Vec i32` |
-| `Option<.T>` | `Option .T` |
-| `Result<i32, str>` | `Result i32 str` |
-| `(A, B) -> C` | `fn A B -> C` |
-| `(A, B) *> C` | `fn* A B -> C` |
-| `()` （unit型）| `unit` |
-| `<TypeExpr>` （型注釈）| `%TypeExpr` |
-
-### 引数リスト・制御構造・モジュール
-
-| NEPLg2.0 | NEPLg2.1 |
-|---|---|
-| `(a, b):` | `\ a b :` |
-| `():` | `\ :` |
+| `struct Name<.T>:` / `enum Name<.T>:` | `let Name struct .T:` / `let Name enum .T:` |
+| `trait Name:` / `impl Trait for Type:` | `let Name trait:` / `let Type impl for Trait:` |
+| `Vec<i32>` / `Option<.T>` / `Result<T, E>` | `Vec i32` / `Option .T` / `Result .T .E` |
+| `(A, B) -> C` / `(A) *> C` | `fn A B -> C` / `fn* A -> C` |
+| `()` （unit） | `unit` |
+| `<TypeExpr>` （型注釈） | `%TypeExpr` |
+| `(a, b):` / `():` | `\ a b :` / `\ :` |
 | `if cond then ... else ...` | `if cond : ... else : ...` |
 | `while cond do ...` | `while cond : ...` |
 | `#import "stdlib/std/streamio"` | `use std::streamio` |
-| `#include "./editor_ops"` | `merge "./editor_ops"` |
+| `#include "./path"` | `merge "./path"` |
 | `#entry main` | `#entry` |
 | `use path::*` | `use path as *` |
 
 ---
 
-## 3. stdlib 移行計画
-
-### 3.1 優先度と理由
-
-```
-依存方向（上が下に依存）:
-  std/ alloc/ nm/ platforms/
-        ↑
-    alloc/string.nepl
-        ↑
-    core/mem.nepl
-        ↑
-    core/（option, result, cast, field）
-        ↑
-    core/traits/（eq, ord, hash, drop …）
-```
-
-移行は**下から上へ**（依存されるものから先に）行う。
-
-### 3.2 Wave 1: `core/traits/` と `core/` の基本型（Stage 2 以降）
-
-対象 10 + 7 ファイル。言語の根幹となるため最優先。
-
-| ファイル | 作業内容 |
-|---|---|
-| `core/traits/eq.nepl` | `trait Eq:` → `let Eq trait:` / `fn eq` → `let eq %fn Self Self -> bool \ a b :` |
-| `core/traits/ord.nepl` | 同上（`Ordering` enum の修飾形書き換えも必要） |
-| `core/traits/hash.nepl` | 同上 |
-| `core/traits/copy.nepl` | 同上 |
-| `core/traits/drop.nepl` | 同上（Linear resource の Drop Elaboration と連携） |
-| `core/traits/{debug,stringify,serialize,deserialize,hash_key}.nepl` | 同上パターン |
-| `core/option.nepl` | `enum Option<.T>:` → `let Option enum .T:` / bare `Some`/`None` を修飾形または期待型付き bare 形へ |
-| `core/result.nepl` | 同上（`Ok`/`Err` 修飾形） |
-| `core/cast.nepl` | 関数シグネチャ書き換えのみ |
-| `core/field.nepl` | 関数シグネチャ書き換えのみ |
-| `core/test.nepl` | 関数シグネチャ書き換えのみ |
-
-**注意事項**:
-- enum バリアントの bare 参照（`Some x`, `None`, `Ok x`, `Err e`）は期待型が確定している場合のみ有効。確定しない箇所は `Option::Some x` 形式へ変更。
-- `impl Eq for i32:` は `let i32 impl for Eq:` に変更。`Self` はメソッド内で使用可。
-
-### 3.3 Wave 2: `core/mem.nepl` と raw pointer 隔離（Stage 3 + Memory Phase 1）
-
-`core/mem.nepl` は最も難しい移行対象。
-
-作業内容:
-1. `mem_ptr_addr` / `mem_ptr_wrap` / `alloc_raw` / `dealloc_raw` を `private` に変更（構文変換と同時）
-2. 公開 API を `MemPtr .T` ベースのオーバーロードに統一
-3. `alloc_raw` → `InternalAlloc` effect 分類（コンパイラ対応後）
-
-### 3.4 Wave 3: `alloc/string.nepl` と `alloc/collections/vec.nepl`（Stage 3–4）
-
-最大ファイル（string.nepl 74 KB, vec.nepl 59 KB）。
-
-- `string.nepl`: raw address 操作の隔離（Wave 2 完了後）+ 構文全体の書き換え
-- `vec.nepl`: 構文書き換え + 内部の `mem_ptr_addr` 使用を隠蔽 API へ置換
-
-`vec.nepl` が完了すると `Stack / Queue / Deque / ...` など vec に依存するコレクションが続けて移行できる。
-
-### 3.5 Wave 4: `alloc/collections/` 残り（Stage 4）
-
-以下の順（依存関係が少ないものから）:
-1. `stack.nepl`, `queue.nepl`, `deque.nepl`, `ringbuffer.nepl`（vec 直接依存）
-2. `list.nepl`（Region Inference 対応が必要。Memory Phase 2 待ち）
-3. `hashmap.nepl`, `hashset.nepl`（Hash trait 対応が必要）
-4. `btreemap.nepl`, `btreeset.nepl`, `binary_heap.nepl`（Ord trait 依存）
-5. `disjoint_set.nepl`, `segment_tree.nepl`, `fenwick.nepl` 等
-
-### 3.6 Wave 5: `std/` 層（Stage 4 以降）
-
-| ファイル | 依存 | 注意 |
-|---|---|---|
-| `std/io.nepl` | core/ のみ | `StdErrorKind enum` の書き換え |
-| `std/stdio.nepl` | io, streamio | `fn* unit -> unit` 形式へ |
-| `std/streamio.nepl` | io | 最大ファイル（69 KB）。Linear resource（File）の Drop Elaboration 対応が必要 |
-| `std/fs.nepl` | io, streamio | File / Result 中心の API |
-| `std/test.nepl` | stdio, vec | テストフレームワーク書き換え |
-| `std/env/cliarg.nepl` | core/ のみ | |
-
-`File` / `Socket` 等の Linear resource は Stage 4（Resource IR）完了後に Drop Elaboration を活用して移行する。
-
-### 3.7 Wave 6: `stdlib/nm/` と `stdlib/platforms/`（Stage 5）
-
-- `nm/parser.nepl`（48 KB）: 構文書き換え
-- `nm/html_gen.nepl`: 構文書き換え
-- `platforms/wasix/tui.nepl`: 構文書き換え
-
-### 3.8 Wave 7: `stdlib/neplg2/`（Stage 6）
-
-セルフホストコンパイラ本体。`nepl-core-2.1` が安定してから本格着手（`doc/2.1impl/compiler_structure.md §7` 参照）。現行の `cli/main.nepl` と `core/{ast,parser,typecheck,diagnostic,span}.nepl` は NEPLg2.1 準拠で再設計する。
-
----
-
-## 4. tests 移行計画
-
-### 4.1 方針
-
-- テストは**コンパイラが対応した段階でのみ追加・移行**する。
-- 移行前のテスト（`.n.md` 内の NEPLg2.0 コードブロック）は `nepl-core` で動く状態を維持する。
-- 移行後は `nepl-core-2.1` でのみ実行する。並行運用期間は両方のテストが存在してよい。
-
-### 4.2 `tests/compiler/`（38 ファイル）
-
-| 優先度 | ファイル群 | 移行タイミング |
-|---|---|---|
-| 1（基盤） | `functions.n.md`, `typeannot.n.md`, `if.n.md`, `pipe_operator.n.md` | Stage 2 |
-| 2（名前解決） | `resolve.n.md`, `shadowing.n.md`, `generics.n.md`, `overload.n.md` | Stage 2–3 |
-| 3（型・効果） | `move_check.n.md`, `move_effect.n.md`, `drop.n.md`, `trait_capability_copy.n.md` | Stage 3–4 |
-| 4（コード生成） | `llvm_target.n.md`, `intrinsic.n.md`, `sizeof.n.md` | Stage 5 |
-| 5（エラー診断） | `compile_fail_diag_location.n.md` | Stage 3 以降（diagnostics 安定後） |
-| 6（セルフホスト） | `neplg2.n.md` | Stage 6 |
-
-**各テストの書き換え内容**: コードフェンス内の NEPLg2.0 構文をセクション 2 のルールに従い変換。
-`#import` → `use` / `fn` → `let ... %fn` / `struct/enum/trait/impl` → `let ... struct/enum/trait/impl` 等。
-
-### 4.3 `tests/stdlib/`（38 ファイル）
-
-対応する stdlib Wave が完了してから順次書き換える。
-
-| Wave | 対象テストファイル |
-|---|---|
-| Wave 1 | `math.n.md`, `numerics.n.md`, `traits_hash.n.md`, `traits_order.n.md`, `traits_serde.n.md`, `traits_text.n.md` |
-| Wave 3 | `string.n.md`, `sort.n.md` |
-| Wave 4 | `vec.n.md`, `stack.n.md`, `queue.n.md`, `deque.n.md`, `binary_heap.n.md`, `bitset.n.md` 他コレクション群 |
-| Wave 4 | `bloom_filter.n.md`, `fenwick.n.md`, `segment_tree.n.md`, `sparse_set.n.md`, `disjoint_set.n.md` 等 |
-| Wave 5 | `io.n.md`, `fs.n.md`, `stdin.n.md`, `stdout.n.md`, `streamio.n.md` |
-| Wave 6 | `nm.n.md` |
-| 共通 | `memory_safety.n.md`（Phase 4 以降）, `proptest.n.md` |
-
----
-
-## 5. tutorials 移行計画
-
-### 5.1 方針
-
-チュートリアルはコンパイル対象（実行可能コードを含む）と説明文の混在。
-
-- **Stage 1 完了後**: 説明文・コード例の**文書書き換え**（コンパイル検証なし）を先行して行える。
-- **Stage 3 完了後**: 実際に `nepl-core-2.1` でコンパイル・実行して正しさを確認する。
-
-### 5.2 書き換え優先順
-
-| グループ | ファイル | 書き換え難度 | ポイント |
-|---|---|---|---|
-| A（超基本） | 01–04（hello world〜strings） | 低 | `fn` → `let ... %fn`、`#import` → `use`、`#entry main` → `#entry` |
-| B（型・パターン） | 05–06（Option, Result）、15（match） | 中 | enum バリアント修飾形、`Ok/Err/Some/None` の扱い |
-| C（制御構造） | 07–08（while, if layouts） | 中 | `then`/`do` 補助マーカー削除、`:` + インデント統一 |
-| D（モジュール） | 09, 17（import, namespace） | 中 | `#import` → `use`、`use path::*` → `use path as *` |
-| E（型システム） | 20–21（generics, trait bounds） | 高 | `where` 節、juxtaposition 型適用、`%fn` 記法 |
-| F（競プロ） | 22–27 | 高 | 大量のコード変換。標準ライブラリ移行後に対応 |
-
-### 5.3 新規チュートリアルの追加
-
-NEPLg2.1 では以下の新概念を説明するチュートリアルが必要（Stage 3 以降に新規作成）:
-
-- **所有権と借用**: `&expr` / `&mut expr` 記法、move セマンティクス
-- **Linear resource**: `File`/`Socket` の正しい使い方、Drop Elaboration の効果
-- **Region と純粋永続値**: `List .T` の使い方、manual free なし
-- **`noshadow let`**: オーバーロードとシャドウイングの使い分け
-- **モジュールシステム**: `#module` / `#part` / `merge` の使い方
-
----
-
-## 6. メモリモデル移行（Memory Phase 0–6）
-
-`doc/compare/memory_model.md` の Phase 計画をコンパイラ Stage に対応付ける。
-
-| Memory Phase | コンパイラ Stage | 内容 |
-|---|---|---|
-| **Phase 0** | Stage 2 | compiler に `InternalAlloc`/`ExternalIO` 分類を追加（stdlib 変更なし） |
-| **Phase 1** | Stage 3 | `core/mem.nepl` の raw pointer 公開面を隔離（Wave 2 と同期） |
-| **Phase 2** | Stage 4 | `List .T` を Region Inference 管理下へ。public `free` 廃止 |
-| **Phase 3** | Stage 4 | `str` の ownership tracking 導入 |
-| **Phase 4** | Stage 4 | Resource IR の実装と `alloc/` への適用 |
-| **Phase 5** | Stage 5 | 全公開 API を `Result/Option` 安全 API に統一。`_raw`/`_safe` 接尾辞廃止 |
-| **Phase 6** | Stage 5 | テスト回帰整備。`memory_safety.n.md` の compile_fail テスト追加 |
-
----
-
-## 7. 進捗管理
-
-### 7.1 ステータスラベル
-
-| ラベル | 意味 |
-|---|---|
-| `waiting` | 対応コンパイラ Stage 未完了で着手不可 |
-| `ready` | 着手可能（コンパイラ準備完了） |
-| `in-progress` | 作業中 |
-| `needs-test` | コード移行済み、テスト確認待ち |
-| `done` | 移行完了・テスト通過確認済み |
-
-### 7.2 テスト戦略
-
-移行後の各モジュールは以下の 2 段階で検証する:
-
-1. **構文確認**: `nepl-core-2.1` でコンパイルエラーなし
-2. **動作確認**: `nodesrc/tests.js` で既存 stdlib テストが通過（`--runner wasm` または `--runner all`）
-
-`nepl-core`（NEPLg2.0）での既存テスト通過を移行完了まで維持し、両コンパイラで CI を実行する。
-
-### 7.3 現状まとめ
+## 10. 現状と起点
 
 現時点（2026-03-17）では `nepl-core-2.1` は未着手（Stage 0）。
-`doc/2.1impl/compiler_structure.md` の Stage 1 着手が移行全体の起点となる。
+`stdlib-2.1/`・`tests-2.1/`・`tutorials-2.1/` のディレクトリはまだ存在しない。
+
+**起点となるアクション:**
+
+1. `nepl-core-2.1/` の Stage 1 着手（`doc/2.1impl/compiler_structure.md §7`）
+2. `tutorials-2.1/getting_started/` の文書先行作成（コンパイル不要。Stage 0 から可能）
+3. Stage 1 完了後に `stdlib-2.1/` ディレクトリを作成し Wave 1 を開始
