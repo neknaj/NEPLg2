@@ -18,7 +18,7 @@ NEPLg2 は次の 4 原則を満たす。
 
 ### 1.2 非目標
 
-- **依存型**: 今回は導入しない。将来、長さ付き buffer や protocol state の証明として追加できるよう、依存型なしで sound であることを優先する。
+- **依存型**: 現フェーズ（Phase 0–6）では導入しない。依存型なしで sound であることを先に確立する。Phase 8 以降で依存型統合を予定（`doc/dependent_type_proof_plan.md` 参照）。
 - **GC**: 導入しない。
 - **未定義動作**: 安全でない操作は `Result/Option` で表現する。
 - **旧 API との後方互換**: 維持しない。
@@ -257,17 +257,22 @@ pure function の内部メモリ操作を pure と扱うために必要:
 
 ### 8.3 `StringBuilder`
 
-- `builder_new : () -> StringBuilder`
-- `builder_push_str : (StringBuilder, str) -> StringBuilder`
-- `builder_finish : (StringBuilder) -> str`
+```nepl
+let builder_new %fn unit -> StringBuilder ():
+let builder_push_str %fn StringBuilder str -> StringBuilder (builder, s):
+let builder_finish %fn StringBuilder -> str (builder):
+```
 
 `builder_finish` は builder を消費し、以後 builder は使えない。internal effect は `InternalAlloc` だが surface では `Pure`。
 
 ### 8.4 変換規則
 
-- `bytes_to_str : ByteBuf -> Result<str, Utf8Error>` は pure
-- `str_to_bytes : str -> ByteBuf` は pure
-- 内部 ByteBuf mutation を完全に内部に閉じ込めて `str` のみを返す関数は pure にしてよい
+```nepl
+let bytes_to_str %fn ByteBuf -> Result str Utf8Error (buf):    // pure
+let str_to_bytes %fn str -> ByteBuf (s):                       // pure
+```
+
+内部 ByteBuf mutation を完全に内部に閉じ込めて `str` のみを返す関数は pure にしてよい。
 
 ---
 
@@ -315,13 +320,13 @@ IO の資源は 2 種類:
 
 ### 10.4 推奨 API 形 (consume-return handle)
 
-```
-open_read  : Path -> Result<File, IoError>
-open_write : Path -> Result<File, IoError>
-read_all_text : File -> Result<(File, str), IoError>
-write_text : (File, str) -> Result<File, IoError>
-flush : File -> Result<File, IoError>
-close : File -> Result<(), IoError>
+```nepl
+let open_read %fn Path -> Result File IoError (path):
+let open_write %fn Path -> Result File IoError (path):
+let read_all_text %fn File -> Result Pair File str IoError (file):
+let write_text %fn File str -> Result File IoError (file, text):
+let flush %fn File -> Result File IoError (file):
+let close %fn File -> Result File IoError (file):
 ```
 
 consume-return handle 方式は ownership の実装が単純で、linearity と整合しやすい。

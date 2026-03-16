@@ -4,7 +4,7 @@
 
 ## 1. 目的
 
-- `plan.md` の式指向・前置記法・型注釈モデルを崩さずに trait を拡張する。
+- NEPLg2.1 の式指向・前置記法・型記法（`doc/type_notation_spec.md`）を崩さずに trait を拡張する。
 - move/pure-impure/メモリ安全設計と矛盾しない trait システムを確立する。
 - 場当たりの文字列分岐を減らし、trait 契約を型システム側で一貫管理する。
 
@@ -20,11 +20,11 @@
 ### 3.1 Interface 相当
 
 - 共通メソッド契約を提供する。
-- `impl Trait for Type` で実装する。
+- `let Type impl for Trait:` で実装する（NEPLg2.1 宣言構文）。
 
 ### 3.2 Type Class/Concept 相当
 
-- 型引数境界（`<.T: Trait>`）を表現する。
+- 型引数境界を `where` 節で表現する（例: `where %Eq .T`）。
 - 呼び出し時に `trait_bound_satisfied` で充足判定する。
 
 ### 3.3 move/memory 相当
@@ -57,7 +57,7 @@
 ## 7. 前置記法・オーバーロードとの整合
 
 - trait 解決は既存の前置呼び出しモデルに従う。
-- 型注釈 `<T>` はオーバーロード曖昧性解消の第一手段として維持する。
+- 型注釈は `%TypeExpr` 記法を使う（`<T>` 囲みは廃止）。オーバーロード曖昧性解消では `%Pair i32 str` のように型を明示する。
 - 暗黙 cast による trait/overload 解決は導入しない。
 
 ## 8. 今後の拡張順序
