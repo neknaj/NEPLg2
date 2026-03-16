@@ -32,8 +32,8 @@ Pure/Impure は「外部環境に対する観測可能な副作用」で判定�
 宣言例：
 
 ```nepl
-let calc %fn i32 i32 -> i32 (a, b):       // Pure
-let print_line %fn* str -> unit (s):       // Impure
+let calc %fn i32 i32 -> i32 \ a b :       // Pure
+let print_line %fn* str -> unit \ s :     // Impure
 ```
 
 - Pure:
@@ -166,11 +166,11 @@ trait 実装可否は move check と整合して検査する。
 
 ### 6.2 オーバーロードとの整合
 
-- 同名オーバーロードは既存の解決規則（引数型・戻り型・型引数）に従う。
-- 暗黙castは行わない。必要な場合は明示 `cast` と型注釈で解決する。
-- 現行実装の「同名オーバーロードは同一 effect を要求する」制約を維持する。
-  - そのため、pure/impure を同名だけで分岐させるAPI設計は採用しない。
-  - effect が異なる場合は別名関数か明示的な呼び分けを使う。
+- API 名は bare 名（prefix/suffix なし）で揃える。`get_opt` や `get_safe` のような接尾辞は使わない。
+- オーバーロードの複雑化は、**同じ bare 名を持つ関数を別モジュールに配置し、`use` 対象の切り替えで管理する**（例: `core::vec` と `std::vec` の両方に `get` がある）。
+- 同名オーバーロードは既存の解決規則（引数型・戻り型・`where` 節充足）に従う。解決順序: 制約フィルタリング → 双方向型推論 → 修飾名要求。詳細は `doc/trait_system_design.md` §7.3 を参照。
+- 暗黙 cast は行わない。必要な場合は明示 `cast` と型注釈で解決する。
+- 同名オーバーロードは同一 effect を要求する。pure/impure を同名だけで分岐させる API 設計は採用しない。effect が異なる場合はモジュールを分けるか、別名関数を使う。
 
 ## 7. コンパイラ実装要件
 

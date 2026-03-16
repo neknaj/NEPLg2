@@ -31,6 +31,7 @@ NEPLg2 の式は括弧なし・前置 juxtaposition で書かれ、呼び出し�
 | 型注釈記号の変更 | `<TypeExpr>` | `%TypeExpr` |
 | 型パラメータ宣言の `<>` 廃止 | `<.T, .U>` | `.T .U` |
 | 宣言キーワードを `let` に統一 | `fn`/`struct`/`enum`/`trait`/`impl` | `let Name [kind]` |
+| 引数リスト記法の変更 | `(a, b):` | `\ a b :` |
 
 ---
 
@@ -178,12 +179,12 @@ fn add2 <(i32,i32)->i32> (a, b):
 fn map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
 fn and_then <.T,.U> <(Option<.T>, (.T)->Option<.U>)->Option<.U>> (o, f):
 
-// 新（let に統一）
-let main %fn* -> i32 ():
-let id .T %fn .T -> .T (x):
-let add2 %fn i32 i32 -> i32 (a, b):
-let map .T .U %fn Option .T fn .T -> .U -> Option .U (o, f):
-let and_then .T .U %fn Option .T fn .T -> Option .U -> Option .U (o, f):
+// 新（let に統一、引数リストは \ ... :）
+let main %fn* -> i32 \ :
+let id .T %fn .T -> .T \ x :
+let add2 %fn i32 i32 -> i32 \ a b :
+let map .T .U %fn Option .T fn .T -> .U -> Option .U \ o f :
+let and_then .T .U %fn Option .T fn .T -> Option .U -> Option .U \ o f :
 ```
 
 `let map .T .U %fn Option .T fn .T -> .U -> Option .U` の解析：
@@ -194,6 +195,20 @@ let and_then .T .U %fn Option .T fn .T -> Option .U -> Option .U (o, f):
   - 引数2: `fn .T -> .U`（inner fn が `->` を先取り → kind `*`）
   - 外側 `->`: 区切り
   - 戻り型: `Option .U`（kind `*`）
+
+**引数リスト記法 `\ params :`:**
+引数の束縛は `\ param1 param2 ... :` の形で書く。括弧・カンマは使わない。引数なし（unit 引数を含む）は `\ :` と書く。`\` は型注釈の後ろに続き、`:` の後がボディになる。
+
+```nepl
+let add2 %fn i32 i32 -> i32 \ a b :
+    ...
+
+let not %fn bool -> bool \ x :
+    ...
+
+let new %fn unit -> StringBuilder \ :
+    ...
+```
 
 **巻き上げ（hoisting）**: `let` バインディングのうち型注釈が `fn`/`fn*` 型のものは、旧 `fn` と同様にスコープ内で巻き上げが有効になる。
 
@@ -285,11 +300,11 @@ impl Eq for i32:
 
 // 新
 let Eq trait:
-    let eq %fn Self Self -> bool (a, b):
+    let eq %fn Self Self -> bool \ a b :
         ...
 
 let i32 impl for Eq:
-    let eq %fn i32 i32 -> bool (a, b):
+    let eq %fn i32 i32 -> bool \ a b :
         ...
 ```
 
@@ -302,13 +317,13 @@ let i32 impl for Eq:
 fn sort <.T: Ord> <(Vec<.T>) *> Vec<.T>> (v):
 
 // 新
-let sort .T: Ord %fn* Vec .T -> Vec .T (v):
+let sort .T: Ord %fn* Vec .T -> Vec .T \ v :
 ```
 
 複数の型パラメータで一部に制約がある場合：
 
 ```nepl
-let zip .T .U: Show %fn Vec .T Vec .U -> Vec Pair .T .U (a, b):
+let zip .T .U: Show %fn Vec .T Vec .U -> Vec Pair .T .U \ a b :
 ```
 
 ---

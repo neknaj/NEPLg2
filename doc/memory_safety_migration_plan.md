@@ -538,7 +538,7 @@ pub fn elaborate_drops(module: &mut HirModule) {
 ```text
 let Drop trait:
     #[capability: drop]
-    let drop %fn* Self -> unit (self):
+    let drop %fn* Self -> unit \ self :
         ...
 ```
 

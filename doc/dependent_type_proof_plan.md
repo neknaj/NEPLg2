@@ -61,33 +61,56 @@ GC による非決定的なメモリ解放は、システムの挙動予測を�
 
 NEPLg2.1 はシステム基盤やコンパイラのような**厳密な用途**と、アプリ開発のような**カジュアルな用途**の両方を対象とする。依存型と `Result` によるエラーハンドリングは対立しない。**決定可能命題（Decidable Proposition）** パターンにより、同一のライブラリ実装を両者で共有できる。
 
-### 4.1. 標準ライブラリの二層構造
+### 4.1. 命名とモジュール分離の原則
+
+NEPLg2 は **bare 名（prefix/suffix なし）でオーバーロードを揃える** 方針をとる。`get_opt` や `get_safe` のような接尾辞は使わない。
+
+Core 層と Casual 層を **別モジュールとして分離し、`use` 対象の切り替えで解決する**。同じ `get` という名前が Core と Casual の両方に存在し、`use` するモジュールによって意味が変わる。
+
+```nepl
+// Core 層: 依存型・証明必須
+use core::collections::vec as *
+get vec proof   // IsLess idx len の証明が必要、境界チェックなし、戻り型 .T
+
+// Casual 層: Result/Option ラッパー
+use std::collections::vec as *
+get vec 3       // 証明不要、実行時境界検査、戻り型 Option .T
+```
+
+モジュールパスを修飾すれば、両方を `use` している状態でも常に明示できる。
+
+```nepl
+core::vec::get vec proof    // Core 版を明示
+std::vec::get vec 3         // Casual 版を明示
+```
+
+### 4.2. 標準ライブラリの二層構造
 
 コレクション等の標準ライブラリは以下の二層で提供する。
 
 ```
-┌────────────────────────────────────────────────────────┐
-│ stdlib/collections/vec                                 │
-│                                                        │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ Core 層（依存型・証明必須）                      │   │
-│  │  get: Vec T len idx → T  where IsLess idx len   │   │
-│  │  push: Vec T n → Vec T (add n 1)                │   │
-│  │  → 境界チェックなし、ゼロオーバーヘッド          │   │
-│  └─────────────────────┬───────────────────────────┘   │
-│                        │ 証明を構築して呼ぶ             │
-│  ┌─────────────────────▼───────────────────────────┐   │
-│  │ Casual 層（Result / Option ラッパー）            │   │
-│  │  get_opt: Vec T len → i32 → Option T            │   │
-│  │  get_res: Vec T len → i32 → Result T BoundsErr  │   │
-│  │  → 実行時に証明を構築、失敗なら Err/None を返す  │   │
-│  └─────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ stdlib/collections/vec                                               │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ core::collections::vec  （依存型・証明必須）                     │  │
+│  │  get:  Vec T len idx → T    where IsLess idx len               │  │
+│  │  push: Vec T n → T → Vec T (add n 1)                           │  │
+│  │  → 境界チェックなし、ゼロオーバーヘッド                          │  │
+│  └────────────────────────────┬────────────────────────────────────┘  │
+│                               │ 証明を構築して呼ぶ                    │
+│  ┌────────────────────────────▼────────────────────────────────────┐  │
+│  │ std::collections::vec  （Result / Option ラッパー）              │  │
+│  │  get:  Vec T → i32 → Option T                                  │  │
+│  │  push: Vec T → T → Vec T   （長さをコンパイル時に追わない）      │  │
+│  │  → 実行時に証明を構築、失敗なら None を返す                      │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 実装は Core 層に一度だけ書く。Casual 層は薄いラッパーであり、ロジックの複製はない。
 
-### 4.2. 決定可能命題パターン
+### 4.3. 決定可能命題パターン
 
 `decide_less` のような**決定手続き**（Decidable Proposition）が融合の鍵となる。これは命題を実行時に検査し、成立すれば証明オブジェクト付きの `Yes`、失敗すれば `No` を返す `Pure Total` 関数である。
 
@@ -98,64 +121,111 @@ let IsLess enum .a .b:
     No
 
 // 決定手続き: 実行時に命題を判定し証明を構築する
-let decide_less %fn i32 i32 -> IsLess .a .b (a, b):
+let decide_less %fn i32 i32 -> IsLess .a .b \ a b :
     ...
 ```
 
-### 4.3. コードスケッチ
+### 4.4. コードスケッチ
 
 ```nepl
-// ── Core 層 ─────────────────────────────────────────────────────────────
+// ── core::collections::vec ────────────────────────────────────────────
+#module
 
 // 型レベルで長さを追跡する Vector（len は Nat）
 let Vec struct .T .len:
     ...
 
-// push は必ず長さ add n 1 の Vec を返す（型レベルで追跡）
-// 型の位置の add n 1 は CTFE で暗黙評価される
-let push .T .n %fn Vec .T .n .T -> Vec .T add .n 1 (vec, item):
+// push は必ず長さ add n 1 の Vec を返す（型レベルで追跡、CTFE 暗黙評価）
+let push .T .n %fn Vec .T .n .T -> Vec .T add .n 1 \ vec item :
     ...
 
 // 証明を持っていれば境界チェックなしでアクセスできる
-let get .T .len .idx %fn Vec .T .len .idx -> .T (vec, index)
+let get .T .len .idx %fn Vec .T .len .idx -> .T \ vec index :
   where %IsLess .idx .len:
     ...  // 静的に安全が保証されているため無条件アクセス
+```
 
+```nepl
+// ── std::collections::vec ─────────────────────────────────────────────
+#module
 
-// ── Casual 層 ────────────────────────────────────────────────────────────
+use core::collections::vec    // Core 層を内部で呼ぶ
+use core::decide as *         // IsLess と decide_less を使う
+
+// 長さをコンパイル時に追わない簡易 Vec
+let Vec struct .T:
+    ...
 
 // 実行時に境界を検査し、安全なら Core を呼ぶ
-let get_opt .T .len %fn Vec .T .len i32 -> Option .T (vec, index):
+let get .T %fn Vec .T i32 -> Option .T \ vec index :
     match decide_less index len:
         IsLess::Yes proof:
-            Option::Some get vec index   // proof が揃ったので Core を呼べる
+            Option::Some core::vec::get vec index   // proof が揃ったので Core を呼べる
         IsLess::No:
             Option::None
 
-let get_res .T .len %fn Vec .T .len i32 -> Result .T BoundsErr (vec, index):
-    match decide_less index len:
-        IsLess::Yes proof:
-            Result::Ok get vec index
-        IsLess::No:
-            Result::Err BoundsErr::OutOfRange
+let push .T %fn Vec .T .T -> Vec .T \ vec item :
+    ...
 ```
 
-### 4.4. CTFE による最適化
+### 4.5. 両モジュールを use したときのオーバーロード解決
 
-`decide_less` は `Pure Total` 関数であるため、コンパイラが index を定数として判断できる文脈では CTFE によって証明構築がコンパイル時に実行される。つまり：
+同一スコープに `core::vec` と `std::vec` の両方の `get` が導入された場合、型推論が以下の順で解決する。
+
+**段階 1: 制約フィルタリング**
+
+`where` 節を充足できない候補を除外する。
+
+```nepl
+use core::collections::vec as *
+use std::collections::vec as *
+
+let x = get vec 3
+// core::vec::get の where %IsLess 3 len → 証明が scope にない → 除外
+// std::vec::get → 残る → Option .T に解決
+```
+
+```nepl
+let x = get vec proof   // proof : IsLess idx len が scope にある
+// core::vec::get の where を充足 → 残る
+// std::vec::get → i32 を期待するが IsLess 型 → 型不一致 → 除外
+// core::vec::get に解決
+```
+
+**段階 2: 期待型による絞り込み（双方向型推論）**
+
+制約フィルタ後も複数候補が残った場合、呼び出し元の期待型で絞る。
+
+```nepl
+let x %Option .T = get vec idx     // 期待型 Option .T → std::vec::get に解決
+let x %.T        = get vec idx     // 期待型 .T → core::vec::get に解決
+```
+
+**段階 3: 修飾名による明示**
+
+フィルタ後に複数残り期待型でも絞れない場合は修飾名を要求する。
+
+```nepl
+let x = get vec idx
+// ERROR: ambiguous — use `core::vec::get` or `std::vec::get`
+```
+
+### 4.6. 用途別の使い方
+
+| 用途 | 使う方法 | コスト |
+|---|---|---|
+| システム・コンパイラ・形式検証 | `use core::collections::vec as *`、証明を静的に持ち込む | ゼロ |
+| アプリ開発・一般ロジック | `use std::collections::vec as *`、戻り値 `Option` で分岐 | 境界チェック 1 回 |
+| 両方使うファイル | 修飾名 `core::vec::get` / `std::vec::get` で明示 | 選択した方 |
+
+### 4.7. CTFE による最適化
+
+`decide_less` は `Pure Total` 関数であるため、コンパイラが index を定数として判断できる文脈では CTFE によって証明構築がコンパイル時に実行される。
 
 - index がコンパイル時定数 → 境界チェックはコンパイル時に解決、実行時コードは Core 呼び出しのみ
-- index が実行時の値 → `decide_less` が実行時に1回走る
+- index が実行時の値 → `decide_less` が実行時に 1 回走る
 
 使う側のコードがどちらを選んでも、ライブラリ本体（Core 層）は変わらない。
-
-### 4.5. 用途別の使い分け
-
-| 用途 | 使い方 | コスト |
-|---|---|---|
-| システム・コンパイラ・形式検証 | Core 層を直接呼ぶ（証明を静的に持ち込む） | ゼロ |
-| アプリ開発・一般ロジック | `get_opt` → `Option` で分岐 | 境界チェック1回 |
-| エラーを呼び出し元に伝搬 | `get_res` → `Result` | 同上 |
 
 ---
 
@@ -179,11 +249,14 @@ let get_res .T .len %fn Vec .T .len i32 -> Result .T BoundsErr (vec, index):
 - `Vec`、`List`、`str` 等のコレクションに Core 層と Casual 層を実装
 - Core 層は静的証明必須・ランタイムパニックなしの究極の Safe API
 - Casual 層は `Result` / `Option` による既存のプログラミングスタイルとの互換性を維持
+- 両層とも同じ bare 名で揃え、`use` 対象の切り替えで使い分ける
 
 ---
 
 ## 6. まとめ
 
 依存型と `Result` によるカジュアルなエラーハンドリングは対立しない。決定可能命題パターンにより、同一の実装を厳密な形式証明とカジュアルな `Option`/`Result` の両側から利用できる。
+
+API 名は prefix/suffix を使わず bare 名で揃え、Core 層と Casual 層を別モジュールに配置することでオーバーロードの複雑化を避ける。両方を `use` した場合は、制約フィルタリング → 双方向型推論 → 修飾名 の順で解決する。
 
 NEPLg2.1 の `Pure Persistent` による値の不変性保証と GC レスのメモリ安全モデルは、形式証明との統合に必要な条件を構造的に満たしている。現在のリブート計画は、依存型統合への自然な拡張経路として設計されている。

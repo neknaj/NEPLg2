@@ -257,22 +257,30 @@ pure function の内部メモリ操作を pure と扱うために必要:
 
 ### 8.3 `StringBuilder`
 
+`std::string_builder` モジュールに bare 名で提供する。`use std::string_builder as *` で導入する。
+
 ```nepl
-let builder_new %fn unit -> StringBuilder ():
-let builder_push_str %fn StringBuilder str -> StringBuilder (builder, s):
-let builder_finish %fn StringBuilder -> str (builder):
+let new %fn unit -> StringBuilder \ :
+let push_str %fn StringBuilder str -> StringBuilder \ builder s :
+let finish %fn StringBuilder -> str \ builder :
 ```
 
-`builder_finish` は builder を消費し、以後 builder は使えない。internal effect は `InternalAlloc` だが surface では `Pure`。
+`finish` は builder を消費し、以後 builder は使えない。internal effect は `InternalAlloc` だが surface では `Pure`。
 
 ### 8.4 変換規則
 
+変換関数は `std::convert` モジュールに bare 名でオーバーロードとして提供する。
+
 ```nepl
-let bytes_to_str %fn ByteBuf -> Result str Utf8Error (buf):    // pure
-let str_to_bytes %fn str -> ByteBuf (s):                       // pure
+// ByteBuf → str（UTF-8 検査あり）
+let to_str %fn ByteBuf -> Result str Utf8Error \ buf :    // pure
+
+// str → ByteBuf（コピー）
+let to_bytes %fn str -> ByteBuf \ s :                     // pure
 ```
 
 内部 ByteBuf mutation を完全に内部に閉じ込めて `str` のみを返す関数は pure にしてよい。
+同名の `to_str` / `to_bytes` は引数型でオーバーロード解決される。
 
 ---
 
@@ -320,13 +328,19 @@ IO の資源は 2 種類:
 
 ### 10.4 推奨 API 形 (consume-return handle)
 
+`std::io` モジュールに bare 名で提供する。open のモードは `Mode` 型で表現し、同名オーバーロードを避ける。
+
 ```nepl
-let open_read %fn Path -> Result File IoError (path):
-let open_write %fn Path -> Result File IoError (path):
-let read_all_text %fn File -> Result Pair File str IoError (file):
-let write_text %fn File str -> Result File IoError (file, text):
-let flush %fn File -> Result File IoError (file):
-let close %fn File -> Result File IoError (file):
+let Mode enum:
+    Read
+    Write
+    Append
+
+let open %fn* Path Mode -> Result File IoError \ path mode :
+let read %fn* File -> Result Pair File str IoError \ file :
+let write %fn* File str -> Result File IoError \ file text :
+let flush %fn* File -> Result File IoError \ file :
+let close %fn* File -> Result File IoError \ file :
 ```
 
 consume-return handle 方式は ownership の実装が単純で、linearity と整合しやすい。
