@@ -68,4 +68,5 @@ if __name__ == '__main__':
     merge_directory_files('./nepl-web/src', './tmp/nepl-web.txt')
     merge_directory_files('./web/src', './tmp/web-src.txt')
     merge_directory_files('./stdlib', './tmp/stdlib.txt')
+    merge_directory_files('./doc', './tmp/doc.txt')
     merge_directory_files('./examples', './tmp/examples.txt')
