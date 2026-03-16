@@ -129,6 +129,12 @@ Stdlib doctests use `//: ` comment markers within `.nepl` files.
 - **Errors**: Identify and fix root causes, not symptoms.
 - **Docs**: Keep `/doc/` consistent in style. Create new doc files there as needed.
 
+### Commit Rules
+
+- **Commit at every meaningful work boundary** — after completing a feature, fix, or doc change. Do not accumulate large batches of unrelated changes.
+- **Always update `note.n.md` before committing** — record what was implemented, any deviations from plan, and current status. This is mandatory; never skip it.
+- Commit message format: `type(scope): description` (e.g. `feat(parser): add table support`, `fix(html_gen): rewrite .md links`).
+
 ### Stdlib and Compiler Comments
 
 Both `stdlib/` and the self-hosting compiler (`stdlib/neplg2/`) use **Japanese comments** written in the extended Markdown format supported by `stdlib/nm`. Each function should document: purpose, algorithm, constraints, complexity, and include inline doctests (`//: neplg2:test`).

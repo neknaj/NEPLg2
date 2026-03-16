@@ -1,3 +1,34 @@
+# 2026-03-16 作業メモ (nodesrc: TypeScript 化・Markdown 拡張対応)
+
+- [目的/もくてき]:
+  - `nodesrc/parser.js` / `nodesrc/html_gen.js` を TypeScript で書き直し、`doc/` で使用されている Markdown 記法（table、**bold**、*italic*、~~strikethrough~~、blockquote、ordered list）に対応する。
+  - 外部ライブラリを使用せずセルフ実装。
+- [変更/へんこう]:
+  - `nodesrc/parser.ts` (新規作成):
+    - `parser.js` を TypeScript で完全に書き直した。
+    - 型定義: `InlineNode`（`strong`, `em`, `strike`, `image` を追加）、`BlockNode`（`table`, `blockquote` を追加）。
+    - `parseInlines`: `**bold**`, `*italic*`, `~~strike~~`, `![img](src)` をサポート。
+    - `parseNmdAstFromLines`: table（`| ... | ... |` 形式）、blockquote（`>` 行）、ordered list（`1. item`）をサポート。
+    - doctest 抽出ロジックは変更なし（互換性維持）。
+  - `nodesrc/html_gen.ts` (新規作成):
+    - `html_gen.js` を TypeScript で完全に書き直した。
+    - `renderInlines`: `strong`→`<strong>`, `em`→`<em>`, `strike`→`<del>`, `image`→`<img>` を追加。
+    - `renderNode`: `table`→`<table>`（thead/tbody/align 対応）、`blockquote`→`<blockquote>` を追加。
+    - `list`: `ordered: true` で `<ol>` を使用。
+    - CSS: table/blockquote/image/em/strong/del のスタイルを追加。
+  - `nodesrc/tsconfig.json` (新規作成):
+    - `parser.ts`, `html_gen.ts` を `nodesrc/` 内で `parser.js`, `html_gen.js` にコンパイル。
+    - `web/node_modules/@types/node` を typeRoots として参照。
+  - `.github/actions/bootstrap-build/action.yml` (更新):
+    - `web/node_modules/.bin/tsc -p nodesrc/tsconfig.json` を CI ステップに追加。
+  - `CLAUDE.md` (更新):
+    - 「作業の区切りでコミットすること」「コミット前に note.n.md を更新すること」を開発ガイドラインに追記。
+- [方針/ほうしん]:
+  - `.ts` ファイルがソース、`.js` がコンパイル出力。コンパイル済み `.js` は git に含める。
+  - CI は `web/node_modules/.bin/tsc` を使用してコンパイル（追加インストール不要）。
+
+---
+
 # 2026-03-16 作業メモ (NEPLg2.1 命名・型記法仕様確定・fn廃止)
 
 - [目的/もくてき]:

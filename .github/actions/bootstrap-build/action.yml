@@ -32,6 +32,10 @@ runs:
         cd web
         npm ci
 
+    - name: Compile TypeScript (nodesrc)
+      shell: bash
+      run: ./web/node_modules/.bin/tsc -p nodesrc/tsconfig.json
+
     - name: Install Rust toolchain
       uses: actions-rs/toolchain@v1
       with:
