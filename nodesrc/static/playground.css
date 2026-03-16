@@ -405,10 +405,104 @@ ul{margin:10px 0 10px 22px;}
 }
 .toc-link:hover{border-color:var(--border);background:rgba(255,255,255,0.04);}
 .toc-link.active{border-color:#355186;background:rgba(122,162,247,0.18);}
-.depth-1{padding-left:14px;}
-.depth-2{padding-left:24px;}
-.depth-3{padding-left:34px;}
-.depth-4{padding-left:44px;}
+/* Tree TOC */
+.toc-item,.toc-item-group{list-style:none;}
+.toc-group-details{
+  margin:0;
+  padding:0;
+}
+.toc-group-details>summary{
+  list-style:none;
+}
+.toc-group-details>summary::-webkit-details-marker{display:none;}
+.toc-group-summary{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 8px;
+  border-radius:8px;
+  color:var(--muted);
+  font-size:12px;
+  letter-spacing:.02em;
+  cursor:pointer;
+  user-select:none;
+  transition:color 0.2s,background 0.2s;
+}
+.toc-group-summary::before{
+  content:'▶';
+  font-size:9px;
+  transition:transform 0.15s;
+  flex-shrink:0;
+}
+.toc-group-details[open]>.toc-group-summary::before{
+  transform:rotate(90deg);
+}
+.toc-group-summary:hover{
+  color:var(--fg);
+  background:rgba(255,255,255,0.04);
+}
+.toc-sublist{
+  list-style:none;
+  margin:0;
+  padding:0 0 0 14px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+/* Tables */
+.nm-table-wrap{
+  overflow-x:auto;
+  margin:20px 0;
+  border-radius:10px;
+  border:1px solid var(--border);
+}
+.nm-table{
+  border-collapse:collapse;
+  width:100%;
+  font-size:13.5px;
+  line-height:1.55;
+}
+.nm-table th,.nm-table td{
+  padding:8px 14px;
+  border:none;
+  border-bottom:1px solid var(--border);
+}
+.nm-table th{
+  background:rgba(255,255,255,0.04);
+  color:var(--muted);
+  font-weight:600;
+  font-size:12px;
+  letter-spacing:.03em;
+  text-align:left;
+}
+.nm-table td{
+  background:transparent;
+}
+.nm-table tr:last-child td{
+  border-bottom:none;
+}
+.nm-table tr:hover td{
+  background:rgba(255,255,255,0.025);
+}
+.nm-table td[align="center"],.nm-table th[align="center"]{text-align:center;}
+.nm-table td[align="right"],.nm-table th[align="right"]{text-align:right;}
+
+/* Blockquote */
+.nm-blockquote{
+  margin:16px 0;
+  padding:10px 16px;
+  border-left:3px solid var(--accent);
+  background:rgba(122,162,247,0.06);
+  border-radius:0 8px 8px 0;
+  color:var(--muted);
+}
+/* Inline emphasis */
+strong{color:var(--fg);font-weight:700;}
+em{font-style:italic;color:var(--fg);}
+del{color:var(--muted);text-decoration:line-through;}
+/* Image */
+.nm-image{max-width:100%;border-radius:8px;margin:8px 0;}
 
 /* 検索 UI */
 .search-wrap{

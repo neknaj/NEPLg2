@@ -118,6 +118,40 @@ export function initPlayground(config) {
 
   injectUI();
 
+  // --- TOC open/close state (localStorage persistence + auto-open active ancestors) ---
+  function initTocState() {
+    const STORAGE_KEY = 'nepl-toc-open';
+    let state = {};
+    try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch {}
+    const sidebar = document.querySelector('.doc-sidebar');
+    if (!sidebar) return;
+    const allDetails = sidebar.querySelectorAll('details.toc-group-details');
+    // Apply saved state
+    allDetails.forEach(details => {
+      if (details.id && details.id in state) {
+        details.open = state[details.id];
+      }
+    });
+    // Force-open ancestors of active link
+    const active = sidebar.querySelector('.toc-link.active');
+    if (active) {
+      let el = active.parentElement;
+      while (el && el !== sidebar) {
+        if (el.tagName === 'DETAILS') el.open = true;
+        el = el.parentElement;
+      }
+    }
+    // Persist on toggle
+    allDetails.forEach(details => {
+      details.addEventListener('toggle', () => {
+        if (!details.id) return;
+        state[details.id] = details.open;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      });
+    });
+  }
+  initTocState();
+
   // --- Utility functions ---
 
   function nmExpandHidden(marker, nodes) {

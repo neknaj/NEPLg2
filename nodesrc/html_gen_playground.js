@@ -23,28 +23,61 @@ function renderBody(ast) {
   return renderNode(ast, { rewriteLinks: true });
 }
 
+// Build a tree from the flat tocLinks array using depth info.
+// Groups (isGroup:true) become tree nodes; links are leaves.
+function buildTocTree(tocLinks) {
+  const root = [];
+  // stack entries: { depth: number, children: array }
+  const stack = [{ depth: -1, children: root }];
+
+  for (const link of tocLinks) {
+    const depth = Number.isFinite(link.depth) ? Math.max(0, link.depth) : 0;
+    // Pop stack until parent has lower depth
+    while (stack.length > 1 && stack[stack.length - 1].depth >= depth) {
+      stack.pop();
+    }
+    const parent = stack[stack.length - 1].children;
+
+    if (link.isGroup) {
+      const node = { type: "group", label: link.label || "", depth, children: [] };
+      parent.push(node);
+      stack.push({ depth, children: node.children });
+    } else {
+      parent.push({
+        type: "link",
+        href: link.href || "",
+        label: link.label || "",
+        active: Boolean(link.active),
+        depth,
+      });
+    }
+  }
+  return root;
+}
+
+function renderTocTree(nodes, counter) {
+  return nodes.map((node) => {
+    const labelNodes = parseInlines(String(node.label || ""));
+    const labelHtml = renderInlines(labelNodes);
+
+    if (node.type === "link") {
+      const cls = node.active ? "toc-link active" : "toc-link";
+      return `<li class="toc-item"><a class="${cls}" href="${escapeHtml(String(node.href || ""))}">${labelHtml}</a></li>`;
+    }
+    // group
+    const id = `toc-g-${counter.n++}`;
+    const inner = renderTocTree(node.children, counter);
+    return `<li class="toc-item-group"><details class="toc-group-details" id="${escapeHtml(id)}"><summary class="toc-group-summary">${labelHtml}</summary><ul class="toc-sublist">${inner}</ul></details></li>`;
+  }).join("\n");
+}
+
 function renderTocItems(tocLinks) {
   if (!Array.isArray(tocLinks) || tocLinks.length === 0) {
     return "";
   }
-  return tocLinks
-    .map((link) => {
-      const depth = Number.isFinite(link.depth)
-        ? Math.max(0, Math.min(6, link.depth))
-        : 0;
-
-      const labelNodes = parseInlines(String(link.label || ""));
-      const labelHtml = renderInlines(labelNodes);
-
-      if (link.isGroup) {
-        return `<li><div class="toc-group depth-${depth}">${labelHtml}</div></li>`;
-      }
-      const cls = link.active
-        ? `toc-link active depth-${depth}`
-        : `toc-link depth-${depth}`;
-      return `<li><a class="${cls}" href="${escapeHtml(String(link.href || ""))}">${labelHtml}</a></li>`;
-    })
-    .join("\n");
+  const tree = buildTocTree(tocLinks);
+  const counter = { n: 0 };
+  return renderTocTree(tree, counter);
 }
 
 function buildPlaygroundVfsOverrides() {

@@ -1,3 +1,27 @@
+# 2026-03-16 作業メモ (doc: サイドバー TOC 木構造化・テーブルデザイン改善)
+
+- [目的/もくてき]:
+  - 左サイドバーの TOC を木構造（階層表示）にする。
+  - デフォルトで閉じ、現在ページの先祖だけ自動で開く。開閉状態を localStorage でページ遷移を跨いで保持。
+  - テーブルのデザインを改善（余白・枠線）。
+- [変更/へんこう]:
+  - `nodesrc/cli.js` (`buildTocEntries` 関数):
+    - index なしの flat fallback で、ディレクトリ（第一パスセグメント）ごとにグループ化するように変更。
+    - `isGroup: true` + `depth: 0` のエントリをグループとして挿入し、配下リンクを `depth: 1` に。
+  - `nodesrc/html_gen_playground.js`:
+    - `buildTocTree()`: flat な tocLinks 配列を深さベースの木構造に変換。
+    - `renderTocTree()`: 木構造を `<details>`/`<summary>` HTML に変換（グループは折りたたみ可）。
+    - `renderTocItems()`: 上記 2 関数を使うよう書き直し。
+  - `nodesrc/static/playground_runtime.js`:
+    - `initTocState()` 関数を追加（`injectUI()` 直後に呼び出し）。
+    - localStorage (`nepl-toc-open`) から開閉状態を復元→適用→アクティブリンクの先祖を強制 open →`toggle` イベントで状態を保存。
+  - `nodesrc/static/playground.css`:
+    - Tree TOC 用スタイル追加: `.toc-item`, `.toc-item-group`, `.toc-group-details`, `.toc-group-summary`, `.toc-sublist`。
+    - テーブルデザイン改善: `.nm-table-wrap`（border/radius/overflow）、`.nm-table`（セル padding・行ホバー）。
+    - blockquote/image/strong/em/del のスタイルも追加。
+
+---
+
 # 2026-03-16 作業メモ (nodesrc: TypeScript コンパイル出力を gitignore)
 
 - [目的/もくてき]:

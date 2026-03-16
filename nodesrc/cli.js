@@ -369,26 +369,7 @@ function buildTocEntries(inputRoot, files) {
         indexOutRel = '00_index.html';
     }
 
-    if (!isFile(indexPath)) {
-        const flat = allOutRels.map(outRel => ({
-            outRel,
-            label: humanizeDocName(outRel),
-            isGroup: false,
-            depth: 0,
-        }));
-        if (hasIndex) {
-            // Note: will use index.html if found earlier, but hasIndex check might be slightly loose here
-            flat.unshift({
-                outRel: 'index.html',
-                label: 'index',
-                isGroup: false,
-                depth: 0,
-            });
-        }
-        return flat;
-    }
-
-    const known = new Set(allOutRels);
+    // Title map — built here so the flat-fallback can also use it
     const outRelToTitle = new Map();
     for (const f of files) {
         const outRel = toPosix(path.relative(inputRoot, f))
@@ -396,10 +377,39 @@ function buildTocEntries(inputRoot, files) {
             .replace(/\.nepl$/i, '.html')
             .replace(/\.md$/i, '.html');
         const title = readFirstHeadingTitle(f);
-        if (title && title.length > 0) {
-            outRelToTitle.set(outRel, title);
-        }
+        if (title && title.length > 0) outRelToTitle.set(outRel, title);
     }
+
+    if (!isFile(indexPath)) {
+        // Group by first path segment (top-level directory)
+        const byDir = new Map();
+        const dirOrder = [];
+        for (const outRel of allOutRels) {
+            const parts = outRel.split('/');
+            const dir = parts.length > 1 ? parts[0] : '.';
+            if (!byDir.has(dir)) { byDir.set(dir, []); dirOrder.push(dir); }
+            byDir.get(dir).push(outRel);
+        }
+        const result = [];
+        if (hasIndex) {
+            const idxLabel = outRelToTitle.get(indexOutRel) || 'Index';
+            result.push({ outRel: indexOutRel, label: idxLabel, isGroup: false, depth: 0 });
+        }
+        for (const outRel of (byDir.get('.') || [])) {
+            result.push({ outRel, label: outRelToTitle.get(outRel) || humanizeDocName(outRel), isGroup: false, depth: 0 });
+        }
+        for (const dir of dirOrder) {
+            if (dir === '.') continue;
+            result.push({ label: dir, isGroup: true, depth: 0 });
+            for (const outRel of byDir.get(dir)) {
+                result.push({ outRel, label: outRelToTitle.get(outRel) || humanizeDocName(outRel), isGroup: false, depth: 1 });
+            }
+        }
+        return result;
+    }
+
+    const known = new Set(allOutRels);
+    // outRelToTitle already populated above
     const used = new Set();
     const entries = [];
     const text = fs.readFileSync(indexPath, 'utf8').replace(/\r\n/g, '\n');
