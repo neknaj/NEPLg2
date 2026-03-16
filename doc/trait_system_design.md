@@ -24,7 +24,7 @@
 
 ### 3.2 Type Class/Concept 相当
 
-- 型引数境界を `where` 節で表現する（例: `where %Eq .T`）。
+- 型引数境界を `.T: Trait` 形式または `where` 節で表現する（例: `.T: Eq`）。
 - 呼び出し時に `trait_bound_satisfied` で充足判定する。
 
 ### 3.3 move/memory 相当
@@ -98,13 +98,13 @@ std::vec::get vec 3
 use core::collections::vec as *
 use std::collections::vec as *
 
-let x = get vec 3
+let x get vec 3
 // core::vec::get の where %IsLess 3 len → scope に証明なし → 除外
 // std::vec::get → 残る → Option .T に解決
 ```
 
 ```nepl
-let x = get vec proof   // proof : IsLess idx len が scope にある
+let x get vec proof   // proof : IsLess idx len が scope にある
 // core::vec::get の where を充足 → 残る
 // std::vec::get → i32 を期待するが proof は IsLess 型 → 型不一致 → 除外
 // core::vec::get に解決
@@ -115,8 +115,8 @@ let x = get vec proof   // proof : IsLess idx len が scope にある
 制約フィルタ後も複数候補が残った場合、呼び出し元の期待型を call site に伝播させて絞る。
 
 ```nepl
-let x %Option .T = get vec idx    // 期待型 Option .T → std::vec::get に解決
-let x %.T        = get vec idx    // 期待型 .T → core::vec::get に解決
+let x %Option .T get vec idx    // 期待型 Option .T → std::vec::get に解決
+let x %.T        get vec idx    // 期待型 .T → core::vec::get に解決
 ```
 
 **段階 3: 修飾名の要求**
@@ -124,7 +124,7 @@ let x %.T        = get vec idx    // 期待型 .T → core::vec::get に解決
 フィルタ後に複数候補が残り、期待型でも絞れない場合はコンパイルエラーとし、修飾名を要求する。
 
 ```nepl
-let x = get vec idx
+let x get vec idx
 // ERROR: ambiguous — use `core::vec::get` or `std::vec::get`
 ```
 

@@ -180,13 +180,13 @@ let push .T %fn Vec .T .T -> Vec .T \ vec item :
 use core::collections::vec as *
 use std::collections::vec as *
 
-let x = get vec 3
+let x get vec 3
 // core::vec::get の where %IsLess 3 len → 証明が scope にない → 除外
 // std::vec::get → 残る → Option .T に解決
 ```
 
 ```nepl
-let x = get vec proof   // proof : IsLess idx len が scope にある
+let x get vec proof   // proof : IsLess idx len が scope にある
 // core::vec::get の where を充足 → 残る
 // std::vec::get → i32 を期待するが IsLess 型 → 型不一致 → 除外
 // core::vec::get に解決
@@ -197,8 +197,8 @@ let x = get vec proof   // proof : IsLess idx len が scope にある
 制約フィルタ後も複数候補が残った場合、呼び出し元の期待型で絞る。
 
 ```nepl
-let x %Option .T = get vec idx     // 期待型 Option .T → std::vec::get に解決
-let x %.T        = get vec idx     // 期待型 .T → core::vec::get に解決
+let x %Option .T get vec idx     // 期待型 Option .T → std::vec::get に解決
+let x %.T        get vec idx     // 期待型 .T → core::vec::get に解決
 ```
 
 **段階 3: 修飾名による明示**
@@ -206,7 +206,7 @@ let x %.T        = get vec idx     // 期待型 .T → core::vec::get に解決
 フィルタ後に複数残り期待型でも絞れない場合は修飾名を要求する。
 
 ```nepl
-let x = get vec idx
+let x get vec idx
 // ERROR: ambiguous — use `core::vec::get` or `std::vec::get`
 ```
 

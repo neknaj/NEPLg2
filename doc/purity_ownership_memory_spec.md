@@ -62,7 +62,7 @@ NEPLg2 の値は意味論上、次の 3 種類に分類する。
 
 ### A. Pure persistent value (純粋永続値)
 
-例: `str`, `List<T>`, immutable `Tree<T>`, immutable struct (`Pair<A,B>`, `Triple<A,B,C>` 等)
+例: `str`, `List .T`, immutable `Tree .T`, immutable struct (`Pair .A .B`, `Triple .A .B .C` 等)
 
 - 共有してよい
 - manual free を持たない
@@ -70,7 +70,7 @@ NEPLg2 の値は意味論上、次の 3 種類に分類する。
 
 ### B. Unique mutable work state (一意 mutable 作業状態)
 
-例: `ByteBufBuilder`, `VecBuilder<T>`, `StringBuilder`, mutable scratch buffer
+例: `ByteBuf`, `VecBuilder .T`, `StringBuilder`, mutable scratch buffer
 
 - 一意所有でのみ更新できる
 - pure 関数の内部実装に使ってよい (外に漏れない限り)
@@ -87,10 +87,10 @@ NEPLg2 の値は意味論上、次の 3 種類に分類する。
 
 ### 4.1 surface effect
 
-表面言語の関数効果は当面 `Pure | Impure` の 2 値。
+表面言語の関数効果は当面 `Pure | Impure` の 2 値。型記法での区別：
 
-- `->`: Pure
-- `*>`: Impure
+- `%fn ... -> ...`: Pure
+- `%fn* ... -> ...`: Impure
 
 ### 4.2 compiler 内部効果
 
@@ -209,7 +209,7 @@ GC を用いず、コンパイラが次の 2 機構で alloc/free を自動挿�
 
 #### A. Region Inference (領域推論)
 
-対象: pure persistent value (`List<T>`, immutable tree, `str` 内部表現, closure environment の pure 部分, map/filter/fold の一時 aggregate)
+対象: pure persistent value (`List .T`, immutable tree, `str` 内部表現, closure environment の pure 部分, map/filter/fold の一時 aggregate)
 
 - compiler が region を推論し、region 単位で bulk free する
 - ノード単位の free はしない
@@ -217,7 +217,7 @@ GC を用いず、コンパイラが次の 2 機構で alloc/free を自動挿�
 
 #### B. Drop Elaboration (drop 展開)
 
-対象: owned / linear resource (`File`, `Socket`, `OwnedBuf<T>`, `VecBuilder<T>`, `StringBuilder`, `RegionToken` など)
+対象: owned / linear resource (`File`, `Socket`, `OwnedBuf .T`, `VecBuilder .T`, `StringBuilder`, `RegionToken` など)
 
 - scope exit / overwrite 時に自動 drop を挿入
 - 初期化状態を dataflow で追い、条件付き drop を生成
@@ -286,24 +286,24 @@ let to_bytes %fn str -> ByteBuf \ s :                     // pure
 
 ## 9. List 仕様
 
-### 9.1 `List<T>` は pure persistent list
+### 9.1 `List .T` は pure persistent list
 
 - `cons`, `head`, `tail`, `map`, `fold`, `reverse` は pure
-- `List<T>` のノードは region-managed
-- **`free(List<T>)` は公開 API から削除する**
+- `List .T` のノードは region-managed
+- **`free List .T` は公開 API から削除する**
 - manual node-by-node free は禁止
 
 ### 9.2 回収方法
 
-`List<T>` ノードは region inference により region 単位で解放する。ノードごとの free はしない。
+`List .T` ノードは region inference により region 単位で解放する。ノードごとの free はしない。
 
 ### 9.3 builder
 
-効率化が必要なら `ListBuilder<T>` を別に置く。
+効率化が必要なら `ListBuilder .T` を別に置く。
 
-- `ListBuilder<T>` は unique mutable work state
+- `ListBuilder .T` は unique mutable work state
 - `push_front`, `push_back`, `finish` を持つ
-- `finish` は builder を消費して immutable `List<T>` を返す
+- `finish` は builder を消費して immutable `List .T` を返す
 
 ---
 
@@ -340,7 +340,7 @@ let open %fn* Path Mode -> Result File IoError \ path mode :
 let read %fn* File -> Result Pair File str IoError \ file :
 let write %fn* File str -> Result File IoError \ file text :
 let flush %fn* File -> Result File IoError \ file :
-let close %fn* File -> Result File IoError \ file :
+let close %fn* File -> Result unit IoError \ file :
 ```
 
 consume-return handle 方式は ownership の実装が単純で、linearity と整合しやすい。
@@ -447,7 +447,7 @@ safe NEPLg2 では次を禁止する:
 
 将来的に以下を導入可能とするが、メモリ安全の最低保証を依存型に委ねてはならない:
 
-- `ByteBuf<n>`, `Vec<T, n>`, `Utf8(bytes)`, `Socket<State>`, `File<Mode>`
+- `ByteBuf .n`, `Vec .T .n`, `Utf8 bytes`, `Socket .State`, `File .Mode`
 
 ---
 

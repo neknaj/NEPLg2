@@ -95,15 +95,16 @@ heap/線形メモリ操作を Pure とするため、以下を必須条件とす
 
 move check は少なくとも以下を追跡する。
 
-- `Valid`
-- `Moved`
-- `PossiblyMoved`
-- `BorrowedShared`
-- `BorrowedUnique`
+- `Live`（初期化済み、使用可能）
+- `Moved`（move 済み、再使用不可）
+- `MaybeMoved`（条件分岐により不定）
+- `Uninitialized`（未初期化）
+- `BorrowedShared`（共有 borrow 中）
+- `BorrowedUnique`（一意 borrow 中）
 
 分岐合流とループで状態を保守的にマージする。
 
-### 3.6 `set` の新規則
+### 3.5 `set` の新規則
 
 現在の「局所なら pure」は廃止する。`set` が pure である条件:
 
@@ -112,7 +113,7 @@ move check は少なくとも以下を追跡する。
 - 共有 borrow が存在しない
 - 更新の結果が観測可能な raw identity を漏らさない
 
-### 3.5 trait の位置づけ
+### 3.6 trait の位置づけ
 
 `trait` は effect と move の補助情報を型に付与する契約として扱う。
 
@@ -145,8 +146,8 @@ trait 実装可否は move check と整合して検査する。
 
 ### 4.3 失敗の表現
 
-- fallible API は `Result<_, Diag>` を標準とする。
-- optional API は `Option<_>` を用いる。
+- fallible API は `Result _ Diag` を標準とする。
+- optional API は `Option _` を用いる。
 - 旧 `_safe` 接尾辞は廃止し、安全版をデフォルト命名に統一する。
 
 ## 5. #wasm / #llvmir と effect

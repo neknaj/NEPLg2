@@ -206,7 +206,7 @@ stdlib/
 
 - `core` の上で、heap 依存だが target 非依存の汎用機能を提供する。
 - allocator / 領域管理 / 診断補助 / encoding / hash をここへ置く。
-- `MemPtr<T>` / `RegionToken<T>` は compiler/runtime 境界モジュールとして `alloc` 配下に置くが、safe user code からは読の抽象型 (`OwnedBuf<T>`, `Slice<T>` など) だけが見える。詳細は `doc/purity_ownership_memory_spec.md` を参照。
+- `MemPtr .T` / `RegionToken .T` は compiler/runtime 境界モジュールとして `alloc` 配下に置くが、safe user code からは抽象型 (`OwnedBuf .T`, `Slice .T` など) だけが見える。詳細は `doc/purity_ownership_memory_spec.md` を参照。
 - 低レベル API はここに隔離し、上位層はできる限り安全 API だけを使う。
 - `collections` / `text` / `io` のように、heap は使うが device や OS に依存しない層は `alloc` 配下に置く。
 
@@ -279,12 +279,12 @@ stdlib/
 
 ### 7.1 基本能力 trait
 
-- `Eq<T>`, `Ord<T>`, `Hash<T>`
-- `Stringify<T>`, `Debug<T>`
-- `Serialize<T, F>`, `Deserialize<T, F>`
-- `Parse<T>`
-- `Default<T>`, `Clone<T>`, `Copy<T>`
-- `Add<T,U,R>`, `Sub<T,U,R>` などの演算 trait
+- `Eq`, `Ord`, `Hash`
+- `Stringify`, `Debug`
+- `Serialize .F`, `Deserialize .F`（フォーマット型 `.F` をパラメータに持つ）
+- `Parse`
+- `Default`, `Clone`, `Copy`
+- `Add .U .R`, `Sub .U .R` などの演算 trait
 
 ### 7.2 表現系 trait の標準化
 
@@ -292,11 +292,11 @@ stdlib/
 - `stringify` / `debug` / `serialize` / `deserialize` / `parse` は、それぞれ別の責務を持つ能力として分離する。
 - これらは個別モジュールごとに独自命名・独自シグネチャを乱立させず、共通 trait に実装を集約する。
 - 代表的な役割分担は次の通りとする。
-  - `Stringify<T>`: 人間向けの安定した文字列表現を返す。
-  - `Debug<T>`: 開発時の調査用に、より詳細な表示を返す。
-  - `Serialize<T, F>`: 機械向けの外部表現 `F` へ変換する。
-  - `Deserialize<T, F>`: 外部表現 `F` から値を復元する。軽量 API では `Result<T, StdErrorKind>`、診断付き API では `Outcome<T, StdErrorKind>` を返してよい。
-  - `Parse<T>`: 人間が書いた入力を値として読む。戻り値形は `Result` / `Outcome` の使い分け規則に従う。
+  - `Stringify`: 人間向けの安定した文字列表現を返す。
+  - `Debug`: 開発時の調査用に、より詳細な表示を返す。
+  - `Serialize .F`: 機械向けの外部表現 `.F` へ変換する。
+  - `Deserialize .F`: 外部表現 `.F` から値を復元する。軽量 API では `Result .T StdErrorKind`、診断付き API では `Outcome .T StdErrorKind` を返してよい。
+  - `Parse`: 人間が書いた入力を値として読む。戻り値形は `Result` / `Outcome` の使い分け規則に従う。
 - `Stringify` と `Serialize` は同一視しない。
 - `Debug` は `Stringify` の代替ではなく、詳細性と安定性の要件を分けて扱う。
 - `Deserialize` と `Parse` も同一視しない。前者は機械表現からの復元、後者は人間入力の解析を担当する。
@@ -304,7 +304,7 @@ stdlib/
 
 ### 7.3 Copy / Clone の扱い
 
-- `Copy<T>` / `Clone<T>` は「組み込み型だから当然持つ能力」ではなく、`.nepl` ソース上で宣言される能力として扱う。
+- `Copy` / `Clone` は「組み込み型だから当然持つ能力」ではなく、`.nepl` ソース上で宣言される能力として扱う。
 - compiler は「この型は Copy/Clone である」という固定知識をハードコードせず、trait 解決結果だけを move/effect 判定へ渡す。
 - 将来的な derive 相当構文を導入する場合も、それは compiler 内固定表ではなく `.nepl` 側の明示宣言として扱う。
 
@@ -312,18 +312,18 @@ stdlib/
 
 > メモリ管理の統合仕様は `doc/purity_ownership_memory_spec.md` を参照。値の 3 分類 (pure persistent value / unique mutable work state / linear capability) と region inference / drop elaboration の二段構えを前提とする。
 
-- `RegionOwned<T>`: 領域の所有権を保持する。
-- `MemReadable<T>`: `T` の読み取り能力を持つ。
-- `MemWritable<T>`: `T` の書き込み能力を持つ。
-- `Allocator<A>`: 領域確保・解放ポリシーを供給する。
+- `RegionOwned`: 領域の所有権を保持する。
+- `MemReadable .T`: `T` の読み取り能力を持つ。
+- `MemWritable .T`: `T` の書き込み能力を持つ。
+- `Allocator`: 領域確保・解放ポリシーを供給する。
 
 ### 7.5 I/O 能力 trait
 
-- `Reader<R>` / `Writer<W>`
-- `Seekable<S>`
-- `Buffered<B>`
-- `Stream<S>`: `read/write/flush/close` を統一的に扱う。
-- `EventSource<E>` / `EventSink<E>`: 将来的に stream 以外のイベントも同じ能力モデルへ乗せる。
+- `Reader` / `Writer`
+- `Seekable`
+- `Buffered`
+- `Stream`: `read/write/flush/close` を統一的に扱う。
+- `EventSource .E` / `EventSink .E`: 将来的に stream 以外のイベントも同じ能力モデルへ乗せる。
 
 ## 8. diag の標準化
 

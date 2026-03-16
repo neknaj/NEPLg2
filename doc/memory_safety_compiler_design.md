@@ -102,12 +102,12 @@ compile_fail テストでは diag_id で固定検証する。
 
 ### 7.1 Region Inference (領域推論)
 
-- pure persistent value (`List<T>`, `str`, immutable tree など) は region 単位で bulk free する。
+- pure persistent value (`List .T`, `str`, immutable tree など) は region 単位で bulk free する。
 - source に region 構文は見せず、compiler が alloc/dealloc を自動挿入する。
 
 ### 7.2 Drop Elaboration (drop 展開)
 
-- owned / linear resource (`File`, `Socket`, `OwnedBuf<T>`, `StringBuilder` など) は scope exit / overwrite 時に自動 drop。
+- owned / linear resource (`File`, `Socket`, `OwnedBuf .T`, `StringBuilder` など) は scope exit / overwrite 時に自動 drop。
 - 初期化状態を dataflow で追い、条件付き drop を生成する。
 
 ## 8. 段階導入

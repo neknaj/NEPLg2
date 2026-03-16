@@ -16,7 +16,7 @@ According to the new specifications (`purity_ownership_memory_spec.md`), the com
 NEPLg2 strictly avoids Garbage Collection. Instead, memory is managed via a combination of two strict models, enforced statically by the compiler:
 
 1. **Region Inference (Pure Persistent Values)**
-   - Used for `str` (immutable UTF-8 strings), `List<T>`, and immutable trees.
+   - Used for `str` (immutable UTF-8 strings), `List .T`, and immutable trees.
    - The compiler infers allocation scopes and inserts batch-free operations (`region_free_all`) upon exiting the determined region.
    - Safe to share freely without ownership constraints.
 
