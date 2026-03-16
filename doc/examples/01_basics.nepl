@@ -52,7 +52,7 @@ let factorial %fn i32 -> i32 \ n :
 //: ### [注意/ちゅうい]
 //: - 内部で `set` を使うが関数[外部/がいぶ]への[副作用/ふくさよう]はなく Pure。
 //: - `set` が Pure になる[条件/じょうけん]: [更新/こうしん][対象/たいしょう]が unique local state であり、参照が外へ escape しないこと。
-//: - `doc/purity_ownership_memory_spec.md §6.3` を参照。
+//: - `doc/2.1spec/effects.md §3.5` を参照。
 
 let sum_to %fn i32 -> i32 \ n :
     let mut i   1

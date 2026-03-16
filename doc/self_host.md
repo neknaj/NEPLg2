@@ -31,14 +31,13 @@ NEPLg2 コンパイラを NEPLg2 自身で書くこと（セルフホスト）�
 ```
 stdlib/neplg2/
     cli/
-        main.nepl      // CLI インターフェース（エントリポイント）
-    src/
-        core/          // コンパイラ本体
-            lexer/
-            parser/
-            typecheck/
-            resource_ir/
-            codegen/
+        main.nepl      // CLI インターフェース（エントリポイント、WASI または LLVM ターゲット依存）
+    core/              // コンパイラ本体（純粋 WASM、ターゲット非依存）
+        lexer/
+        parser/
+        typecheck/
+        resource_ir/
+        codegen/
 ```
 
 ---

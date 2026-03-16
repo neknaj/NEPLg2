@@ -6,7 +6,8 @@
       "Bash(sed:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:zenn.dev)"
+      "WebFetch(domain:zenn.dev)",
+      "Bash(tsc:*)"
     ]
   }
 }

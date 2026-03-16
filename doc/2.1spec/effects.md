@@ -151,7 +151,7 @@ move / borrow check は各変数について以下の状態を追跡する:
 - **Ownership**: 「誰がその資源の解放責任を持つか」「他に危険な別名が存在しないか」を扱う。
 - **Linearity**: 「その値を何回使ってよいか」を扱う。
 
-NEPLg2 での使い分け:
+NEPLg2.1 での使い分け:
 
 - 永続値の sharing → pure value semantics
 - builder や mutable buffer の一意性 → ownership / uniqueness
