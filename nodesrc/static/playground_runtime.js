@@ -246,7 +246,17 @@ self.onmessage = async (e) => {
     environ_get(){ return 0; }, environ_sizes_get(){ return 0; },
     args_get(){ return 0; }, args_sizes_get(){ return 0; },
     clock_time_get(){ return 0; }, random_get(){ return 0; },
-    proc_exit(code){ throw new Error('proc_exit:' + code); }
+    proc_exit(code){ throw new Error('proc_exit:' + code); },
+    // Filesystem stubs — not supported in browser; return ENOTSUP (52)
+    path_open(){ return 52; },
+    fd_prestat_get(){ return 8; },
+    fd_prestat_dir_name(){ return 8; },
+    path_filestat_get(){ return 52; },
+    path_create_directory(){ return 52; },
+    path_remove_directory(){ return 52; },
+    path_unlink_file(){ return 52; },
+    path_rename(){ return 52; },
+    fd_readdir(){ return 52; },
   };
   const log = (msg) => self.postMessage({ type: 'log', message: msg });
   try {

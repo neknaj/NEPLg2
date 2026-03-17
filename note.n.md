@@ -1,3 +1,14 @@
+# 2026-03-18 作業メモ (fix: tutorial playground の path_open エラーを修正)
+
+- [目的]: `tutorials/part6` で `WebAssembly.instantiate(): Import #0 "wasi_snapshot_preview1" "path_open": function import requires a callable` が発生する問題を修正。
+- [根本原因]:
+  1. `dist/tutorials/getting_started_html/06_result.html` が古いバージョン（`#target wasi` を使用）のままだった。`#target wasi` は `std/fs.nepl` を経由して `path_open` を WASM にインポートさせる。
+  2. 現在の `06_result.n.md` は `#target std` を使用しているが、HTML の再生成が行われていなかった。
+- [変更]:
+  - `nodesrc/static/playground_runtime.js`: `wasi` オブジェクトに `path_open` および関連ファイルシステム WASI スタブ（`fd_prestat_get`, `path_filestat_get` 等）を追加。ブラウザでは実ファイル操作不可のため ENOTSUP (52) を返す（防衛的修正）。
+  - `dist/tutorials/getting_started/` を再生成（新 HTML は `#target std`、`path_open` を import しない）。
+  - 旧 `dist/tutorials/getting_started_html/` ディレクトリは削除済み（CI は `getting_started/` に出力するため）。
+
 # 2026-03-17 作業メモ (doc/2.1spec レビュー・軽微修正)
 
 - [確認範囲]: `doc/2.1spec/` の index/overview/syntax/types/declarations/patterns/effects/memory/traits/modules/compiler/platform/errors を精査。現行 2.1 仕様で開発を進める上での致命的欠落や矛盾は見当たらず、仕様として参照可能な状態。
