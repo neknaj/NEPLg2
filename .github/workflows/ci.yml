@@ -222,8 +222,8 @@ jobs:
                   name: bootstrap-build
                   path: .
 
-            - name: Run .n.md doctests
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests -i tutorials -i stdlib -o nmd-tests.json -j 4
+            - name: Run .n.md doctests (tests/ only)
+              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests -o nmd-tests.json -j 4
 
             - name: Upload doctest JSON
               if: always()
@@ -231,6 +231,58 @@ jobs:
               with:
                   name: nmd-tests
                   path: nmd-tests.json
+                  if-no-files-found: ignore
+
+    tutorials-test:
+        runs-on: ubuntu-latest
+        needs: build
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Download bootstrap build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: bootstrap-build
+                  path: .
+
+            - name: Run tutorials doctests
+              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tutorials -o tutorials-tests.json -j 4
+
+            - name: Upload tutorials test JSON
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tutorials-tests
+                  path: tutorials-tests.json
+                  if-no-files-found: ignore
+
+    stdlib-test:
+        runs-on: ubuntu-latest
+        needs: build
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Download bootstrap build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: bootstrap-build
+                  path: .
+
+            - name: Run stdlib doctests
+              run: timeout --signal=KILL 10m node nodesrc/tests.js -i stdlib -o stdlib-tests.json -j 4
+
+            - name: Upload stdlib test JSON
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: stdlib-tests
+                  path: stdlib-tests.json
                   if-no-files-found: ignore
 
     llvm-test:
@@ -366,6 +418,8 @@ jobs:
             - nm-compile
             - wasi-test
             - nmd-doctest
+            - tutorials-test
+            - stdlib-test
             - llvm-test
         if: always() && github.event_name == 'push'
         timeout-minutes: 10
@@ -391,6 +445,20 @@ jobs:
                   name: nmd-tests
                   path: artifacts/nmd
 
+            - name: Download tutorials test artifact
+              continue-on-error: true
+              uses: actions/download-artifact@v4
+              with:
+                  name: tutorials-tests
+                  path: artifacts/tutorials
+
+            - name: Download stdlib test artifact
+              continue-on-error: true
+              uses: actions/download-artifact@v4
+              with:
+                  name: stdlib-tests
+                  path: artifacts/stdlib
+
             - name: Download llvm test artifact
               continue-on-error: true
               uses: actions/download-artifact@v4
@@ -403,6 +471,8 @@ jobs:
                   mkdir -p dist/tests
                   cp -f artifacts/wasi/tests-current.json dist/tests/tests-current.json || true
                   cp -f artifacts/nmd/nmd-tests.json dist/tests/nmd-tests.json || true
+                  cp -f artifacts/tutorials/tutorials-tests.json dist/tests/tutorials-tests.json || true
+                  cp -f artifacts/stdlib/stdlib-tests.json dist/tests/stdlib-tests.json || true
                   cp -f artifacts/llvm/tests-llvm.json dist/tests/tests-llvm.json || true
                   cp -f artifacts/llvm/tests-dual-full.json dist/tests/tests-dual-full.json || true
 
@@ -417,6 +487,8 @@ jobs:
                     "nm_compile": "${{ needs['nm-compile'].result }}",
                     "wasi_test": "${{ needs['wasi-test'].result }}",
                     "nmd_doctest": "${{ needs['nmd-doctest'].result }}",
+                    "tutorials_test": "${{ needs['tutorials-test'].result }}",
+                    "stdlib_test": "${{ needs['stdlib-test'].result }}",
                     "llvm_test": "${{ needs['llvm-test'].result }}"
                   }
                   EOF

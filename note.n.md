@@ -1,3 +1,18 @@
+# 2026-03-17 作業メモ (ci: tutorials/stdlib テスト分離)
+
+- [目的/もくてき]:
+  - CI の `nmd-doctest` ジョブから `tutorials` と `stdlib` を分離し、それぞれ独立したジョブとして実行できるようにする。
+- [変更/へんこう]:
+  - `.github/workflows/ci.yml`:
+    - `nmd-doctest`: `-i tutorials -i stdlib` を削除し `-i tests` のみに変更。
+    - `tutorials-test`: 新規ジョブ、`-i tutorials -o tutorials-tests.json`。
+    - `stdlib-test`: 新規ジョブ、`-i stdlib -o stdlib-tests.json`。
+    - `pages-final-bundle`: `needs` に `tutorials-test`, `stdlib-test` を追加。アーティファクトダウンロード・マージ・`status.json` も対応。
+  - `nepl-core/tests/harness.rs`: `run_main_capture_stdout_with_stdin` に `path_open`・`fd_close`・`args_sizes_get`・`args_get` のWASIスタブを追加（`std/streamio` 経由でインポートされる関数が linker missing でインスタンス化失敗していたため）。
+  - `nepl-core/tests/kp.rs`: `if then:` ブロック内での `;` 使用を排除（`';' is not allowed in if layout expression` エラー）。`let b0 <i32> load_u8 buf; print_i32 b0` → `print_i32 load_u8 buf` に変更し、`else print_i32 -1` → `else: print_i32 -1` に変更。
+- [確認/かくにん]:
+  - `cargo test -p nepl-core --test kp`: 全14件 PASS
+
 # 2026-03-17 作業メモ (fix: intrinsic/numerics/kp テスト修正)
 
 - [目的/もくてき]:

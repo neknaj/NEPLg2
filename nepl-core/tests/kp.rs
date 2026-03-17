@@ -329,21 +329,21 @@ fn main <()*>()> ():
     print " ";
     if lt 0 n:
         then:
-            let b0 <i32> load_u8 buf;
-            print_i32 b0
-        else print_i32 -1;
+            print_i32 load_u8 buf
+        else:
+            print_i32 -1;
     print " ";
     if lt 1 n:
         then:
-            let b1 <i32> load_u8 add buf 1;
-            print_i32 b1
-        else print_i32 -1;
+            print_i32 load_u8 add buf 1
+        else:
+            print_i32 -1;
     print " ";
     if lt 2 n:
         then:
-            let b2 <i32> load_u8 add buf 2;
-            print_i32 b2
-        else print_i32 -1;
+            print_i32 load_u8 add buf 2
+        else:
+            print_i32 -1;
     println "";
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");
@@ -392,21 +392,21 @@ fn main <()*>()> ():
     print " ";
     if lt 0 n:
         then:
-            let b0 <i32> load_u8 buf;
-            print_i32 b0
-        else print_i32 -1;
+            print_i32 load_u8 buf
+        else:
+            print_i32 -1;
     print " ";
     if lt 1 n:
         then:
-            let b1 <i32> load_u8 add buf 1;
-            print_i32 b1
-        else print_i32 -1;
+            print_i32 load_u8 add buf 1
+        else:
+            print_i32 -1;
     print " ";
     if lt 2 n:
         then:
-            let b2 <i32> load_u8 add buf 2;
-            print_i32 b2
-        else print_i32 -1;
+            print_i32 load_u8 add buf 2
+        else:
+            print_i32 -1;
     println "";
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");
@@ -464,21 +464,21 @@ fn main <()*>()> ():
     print " ";
     if lt 0 n:
         then:
-            let b0 <i32> load_u8 buf;
-            print_i32 b0
-        else print_i32 -1;
+            print_i32 load_u8 buf
+        else:
+            print_i32 -1;
     print " ";
     if lt 1 n:
         then:
-            let b1 <i32> load_u8 add buf 1;
-            print_i32 b1
-        else print_i32 -1;
+            print_i32 load_u8 add buf 1
+        else:
+            print_i32 -1;
     print " ";
     if lt 2 n:
         then:
-            let b2 <i32> load_u8 add buf 2;
-            print_i32 b2
-        else print_i32 -1;
+            print_i32 load_u8 add buf 2
+        else:
+            print_i32 -1;
     println "";
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");

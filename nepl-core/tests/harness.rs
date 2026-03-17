@@ -1051,6 +1051,52 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
             },
         )
         .unwrap();
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
+            "path_open",
+            |_caller: Caller<'_, ()>,
+             _dirfd: i32,
+             _dirflags: i32,
+             _path_ptr: i32,
+             _path_len: i32,
+             _oflags: i32,
+             _rights_base: i64,
+             _rights_inherit: i64,
+             _fdflags: i32,
+             _fd_out: i32|
+             -> i32 {
+                44 // ERRNO_NOENT — not supported in test harness
+            },
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
+            "fd_close",
+            |_caller: Caller<'_, ()>, _fd: i32| -> i32 { 0 },
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
+            "args_sizes_get",
+            |mut caller: Caller<'_, ()>, argc_ptr: i32, argv_buf_size_ptr: i32| -> i32 {
+                if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
+                    mem.write(&mut caller, argc_ptr as usize, &0u32.to_le_bytes()).ok();
+                    mem.write(&mut caller, argv_buf_size_ptr as usize, &0u32.to_le_bytes()).ok();
+                }
+                0
+            },
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
+            "args_get",
+            |_caller: Caller<'_, ()>, _argv: i32, _argv_buf: i32| -> i32 { 0 },
+        )
+        .unwrap();
     let stdin_buf = stdin_state.clone();
     linker
         .func_wrap(
