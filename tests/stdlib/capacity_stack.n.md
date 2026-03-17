@@ -56,11 +56,11 @@ ret: 4096
 #import "core/result" as *
 
 fn main <()->i32> ():
-    let mut v <Vec<i32>> new<i32>;
+    let mut v <Vec<i32>> uwok new<i32>;
     let mut i <i32> 0;
     while lt i 4096:
         do:
-            set v push<i32> v i;
+            set v uwok push<i32> v i;
             set i add i 1;
     len<i32> v
 ```
@@ -127,6 +127,7 @@ ret: 15
 #target core
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "alloc/collections/vec" as *
 
 enum Kind:
@@ -140,12 +141,12 @@ fn depth <(i32)->i32> (n):
         add 1 depth sub n 1
 
 fn main <()->i32> ():
-    let mut v <Vec<Kind>> new<Kind>;
-    set v push<Kind> v Kind::A;
-    set v push<Kind> v Kind::B;
-    set v push<Kind> v Kind::A;
-    set v push<Kind> v Kind::B;
-    set v push<Kind> v Kind::A;
+    let mut v <Vec<Kind>> uwok new<Kind>;
+    set v uwok push<Kind> v Kind::A;
+    set v uwok push<Kind> v Kind::B;
+    set v uwok push<Kind> v Kind::A;
+    set v uwok push<Kind> v Kind::B;
+    set v uwok push<Kind> v Kind::A;
     let n <i32> len<Kind> v;
     add n depth 10
 ```

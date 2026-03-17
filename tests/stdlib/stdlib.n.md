@@ -130,7 +130,7 @@ fn main <()*>i32> ():
 ## string_from_i32_radix_formats_binary
 
 neplg2:test
-ret: 8
+ret: 4
 ```neplg2
 
 #entry main

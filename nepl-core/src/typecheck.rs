@@ -6601,6 +6601,25 @@ impl<'a> BlockChecker<'a> {
                         }
                     }
 
+                    // In a pure context, if both pure and impure candidates match,
+                    // prefer pure ones to avoid false D3025 from name collisions
+                    // between different modules' overloads of the same function.
+                    if candidates.len() > 1 && matches!(self.current_effect, Effect::Pure) {
+                        let pure_only: Vec<OverloadCandidate<'_>> = candidates
+                            .iter()
+                            .filter(|c| {
+                                matches!(
+                                    self.ctx.get(c.binding.ty),
+                                    TypeKind::Function { effect: Effect::Pure, .. }
+                                )
+                            })
+                            .cloned()
+                            .collect();
+                        if !pure_only.is_empty() {
+                            candidates = pure_only;
+                        }
+                    }
+
                     if candidates.is_empty() {
                         if crate::log::is_verbose() {
                             let arg_tys = args

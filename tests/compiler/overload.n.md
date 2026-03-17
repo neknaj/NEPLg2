@@ -212,10 +212,11 @@ fn size <(Vec<i32>)->i32> (vec):
     v::len<i32> vec
 
 fn main <()->i32> ():
-    let v:
+    let v <Vec<i32>>:
         v::new<i32>
-        |> v::push<i32> 3
-        |> v::push<i32> 5
+        |> uwok
+        |> v::push<i32> 3 |> uwok
+        |> v::push<i32> 5 |> uwok
     let a <i32> size v;
     let b <i32> size "x";
     let ok_a <bool> eq a 2;

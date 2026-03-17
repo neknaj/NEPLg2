@@ -55,7 +55,7 @@ ret: 42
 let inc (x):
     add x 1
 
-fn main ():
+fn main <()->i32> ():
     inc 41
 ```
 

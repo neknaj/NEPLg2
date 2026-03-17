@@ -152,11 +152,7 @@ fn main <()->i32> ():
                                     0
                                 Option::Some x:
                                     x
-                            match dealloc_region token:
-                                Result::Err _e:
-                                    0
-                                Result::Ok _:
-                                    v
+                            v
 ```
 
 ## region_ptr_at は範囲外アクセスを Err で返す
@@ -182,11 +178,7 @@ fn main <()->i32> ():
                     1
                 Result::Ok _:
                     0
-            match dealloc_region token:
-                Result::Err _e:
-                    0
-                Result::Ok _:
-                    ok
+            ok
 ```
 
 ## MemPtr fill_i32/fill_u8 の安全オーバーロード
@@ -222,11 +214,7 @@ fn main <()->i32> ():
                                     0
                                 Option::Some v:
                                     if eq v 7 1 0
-                            match dealloc_region token:
-                                Result::Err _e:
-                                    0
-                                Result::Ok _:
-                                    ok
+                            ok
 ```
 
 ## MemPtr fill 系は無効引数を Err で返す
