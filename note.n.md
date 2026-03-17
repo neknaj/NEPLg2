@@ -1,3 +1,25 @@
+# 2026-03-17 作業メモ (fix: intrinsic/numerics/kp テスト修正)
+
+- [目的/もくてき]:
+  - `nepl-core/tests/intrinsic.rs`, `numerics.rs`, `kp.rs` の失敗テストを修正する。
+- [変更/へんこう]:
+  - `nepl-core/tests/numerics.rs`: 廃止された型付き関数名（`i32_add`, `i32_and`, `u8_lt_u` 等）を型推論ベースの共通名（`add`, `and`, `lt_u` 等）に一括置換。
+  - `nepl-core/tests/intrinsic.rs`:
+    - `i64_add i64_extend_i32_u` → 中間変数 `let a <i64> cast 12345; let b <i64> cast 67890; let v <i64> add a b;` に変更（型推論が `add cast X cast Y` を直接解決できなかったため）。
+    - `i64_eq`, `f64_eq` → `eq` に変更。
+    - `f64_convert_i32_s 42` → `cast 42` に変更。
+    - `alloc 8` / `dealloc p 8` → `alloc_raw 8` / `dealloc_raw p 8` に変更（`alloc`/`dealloc` は `Result` を返す安全API に変更済みのため）。
+    - `#import "core/cast" as *` を追加。
+  - `nepl-core/tests/kp.rs`:
+    - `kp/kpread`, `kp/kpwrite` モジュールが `std/streamio` に移行済みのため、全テストを新API（`StreamScanner`, `StreamWriter`, `open ReadStream::Stdio` 等）を使った実装に書き直し。
+    - `scanner_new`/`scanner_read_*`/`writer_new`/`writer_write_*` → `open ReadStream::Stdio`/`read sc`/`open WriteStream::Stdio`/`write w`/`writeln w`/`flush w`/`close` に変更。
+    - `alloc`/`dealloc`/`realloc` → `alloc_raw`/`dealloc_raw`/`realloc_raw`（生ポインタ操作が必要な低レベルテスト用）。
+    - `i64_extend_i32_u` → `cast`, `i64_add` → `add` に変更。
+    - 内部メモリ構造を直接検査していたデバッグテスト（`kpread_scanner_header_debug`, `kpread_buffer_bytes_debug`）は新API の公開インターフェース経由のテストに書き直し。
+- [確認/かくにん]:
+  - `cargo test -p nepl-core --test intrinsic`: 4件 PASS
+  - `cargo test -p nepl-core --test numerics`: 11件 PASS
+
 # 2026-03-17 作業メモ (fix: D3005 ambiguous overload in binary_heap doctests)
 
 - [目的/もくてき]:
