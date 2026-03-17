@@ -150,6 +150,8 @@ impl<'a> TargetGateParser<'a> {
 fn target_gate_atom_allows(gate: &str, active: CompileTarget) -> bool {
     match gate {
         "wasm" => matches!(active, CompileTarget::Wasm | CompileTarget::Wasi | CompileTarget::Wasix),
+        // bare_wasm: plain WASM without WASI (use for stubs that conflict with wasi extern decls)
+        "bare_wasm" => matches!(active, CompileTarget::Wasm),
         "wasi" => matches!(active, CompileTarget::Wasi | CompileTarget::Wasix),
         "wasix" => matches!(active, CompileTarget::Wasix),
         "llvm" => matches!(active, CompileTarget::Llvm),

@@ -10,15 +10,15 @@
 #if[target=llvm]
 #extern "c" "syscall" fn __fs_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
 
-#if[target=wasm]
+#if[target=bare_wasm]
 fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags,_path_ptr,_path_len,_oflags,_rights_base,_rights_inheriting,_fdflags,_fd_out):
     1 // EPERM or similar
 
-#if[target=wasm]
+#if[target=bare_wasm]
 fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nread_ptr):
     1
 
-#if[target=wasm]
+#if[target=bare_wasm]
 fn wasi_fd_close <(i32)*>i32> (_fd):
     1
 
