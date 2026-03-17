@@ -3606,7 +3606,7 @@ fn l <()->i32> ():
         }
 "#;
         let module = parse_module(src);
-        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug)
+        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug, false)
             .expect("llvm-gated items should compile");
         assert!(ll.contains("define i32 @l()"));
         assert!(!ll.contains("define i32 @w()"));
@@ -3628,7 +3628,7 @@ fn f <()->i32> ():
         }
 "#;
         let module = parse_module(src);
-        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug)
+        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug, false)
             .expect("llvm raw function body should be selected");
         assert!(ll.contains("define i32 @f()"));
         assert!(ll.contains("ret i32 42"));

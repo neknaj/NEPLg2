@@ -5144,7 +5144,13 @@ impl<'a> BlockChecker<'a> {
                         ).with_id(DiagnosticId::TypePipeError));
                         continue;
                     }
-                    if stack.len() == base_depth {
+                    // Don't drain past any let/set binding on the stack.
+                    let pipe_base = stack
+                        .iter()
+                        .rposition(|e| e.assign.is_some())
+                        .map(|p| base_depth.max(p + 1))
+                        .unwrap_or(base_depth);
+                    if stack.len() == pipe_base {
                         self.diagnostics
                             .push(
                                 Diagnostic::error("pipe requires a value on the stack", *sp)
@@ -5152,7 +5158,7 @@ impl<'a> BlockChecker<'a> {
                             );
                         continue;
                     }
-                    let pending = stack.drain(base_depth..).collect::<Vec<_>>();
+                    let pending = stack.drain(pipe_base..).collect::<Vec<_>>();
                     last_expr = pending.last().map(|se| se.expr.clone());
                     pipe_pending = Some(pending);
                     seen_pipe = true;
@@ -7954,7 +7960,17 @@ impl Env {
 
 fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> usize {
     match ctx.get(ctx.resolve_id(ty)) {
+        TypeKind::Unit | TypeKind::Never => 0,
+        TypeKind::U8 => 1,
         TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
+        TypeKind::Struct { fields, .. } => fields
+            .iter()
+            .map(|f| type_storage_size_bytes(ctx, *f))
+            .sum(),
+        TypeKind::Tuple { items } => items
+            .iter()
+            .map(|t| type_storage_size_bytes(ctx, *t))
+            .sum(),
         _ => 4,
     }
 }

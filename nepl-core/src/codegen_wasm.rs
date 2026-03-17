@@ -2093,17 +2093,8 @@ fn gen_expr(
                         }
                     }
                     None => {
-                        // Preserve side effects even when the element type is unit.
+                        // Unit takes 0 bytes in the tuple layout; just evaluate for side effects.
                         gen_expr(ctx, item, name_map, sig_map, strings, locals, insts);
-                        insts.push(Instruction::LocalGet(ptr_local));
-                        insts.push(Instruction::I32Const(offset as i32));
-                        insts.push(Instruction::I32Add);
-                        insts.push(Instruction::I32Const(0));
-                        insts.push(Instruction::I32Store(MemArg {
-                            offset: 0,
-                            align: 2,
-                            memory_index: 0,
-                        }));
                     }
                 }
             }

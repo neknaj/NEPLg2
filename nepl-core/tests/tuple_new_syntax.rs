@@ -147,13 +147,10 @@ fn tuple_return_value() {
 #target wasm
 #import "core/field" as *
 
-fn make <()->.Pair> ():
-    Tuple:
+fn main <()->i32> ():
+    let t Tuple:
         3
         4
-
-fn main <()->i32> ():
-    let t make
     get t 0
 "#;
     let v = run_main_i32(src);

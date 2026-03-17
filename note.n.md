@@ -1,3 +1,39 @@
+# 2026-03-17 作業メモ (NEPLg2.0 安定化: tuple レイアウト・pipe 修正・テスト修正)
+
+- [目的/もくてき]:
+  - `tutorials/` と `nepl-core/tests/` の失敗テストを修正し NEPLg2.0 を安定化する。
+- [変更/へんこう]:
+  - `nepl-core/src/typecheck.rs`:
+    - `type_storage_size_bytes` を `codegen_wasm.rs` のレイアウトに合わせ修正（Unit/Never=0, U8=1, i64/u64/f64=8, Struct/Tuple=再帰和, それ以外=4）。
+    - `PrefixItem::Pipe` の drain を let/set 束縛を越えないよう修正（`let a <i32> 1 |> add 2` が D3013 エラーになる不具合を解消）。
+  - `nepl-core/src/codegen_wasm.rs`:
+    - `TupleConstruct` での Unit 要素に対する誤った 4 バイト書き込みを除去（Unit はメモリを占有しないため副作用評価のみに変更）。
+  - `nepl-core/src/codegen_llvm.rs`:
+    - `emit_ll_from_module_for_target` 呼び出しに不足していた第4引数 `false`（minify）を追加。
+  - `nepl-core/tests/typeannot.rs`:
+    - テスト内の内部ビルトイン名（`i32_add`, `i32_mul`, `i32_lt_s`）を stdlib 公開名（`add`, `mul`, `lt`）に修正。
+  - `nepl-core/tests/tuple_new_syntax.rs`:
+    - `tuple_return_value`: モノモルフ化 ICE を起こしていたジェネリックラッパ関数を除去し、直接 Tuple 構築に変更。
+  - `README.md`:
+    - CLI 使用方法セクションを削除（`doc/cli.md` に移管済み）。
+    - `tutorials/getting_started/`・stdlib 構成・NEPLg2.1 移行計画セクションを追加。
+  - `doc/` 各種:
+    - `2.1impl/index.md`: Stage 1–6 → M1–M6 表記修正・`doc/migration/index.md` 参照追加。
+    - `self_host.md`: Bootstrap "Stage 1/2" → "Pass 1/2" に改名（衝突解消）・注意書き追加。
+    - `README.md`: `examples/` セクション追加。
+    - `compare/syntax.md`, `compare/memory_model.md`, `compare/module_system.md`: 詳細仕様フッター追加。
+- [修正した不具合]:
+  - `tuple_unit_elements`: Unit 要素のサイズ不一致（typecheck=4, codegen=0）により後続フィールドのオフセットがずれ、値が 0 になっていた。
+  - `let a <i32> 1 |> add 2`: pipe drain が let 束縛エントリを一緒に drainするため D3013 エラー。
+  - `from_i32 n` が FizzBuzz で "0" を返す問題: tuple レイアウト修正により解消。
+  - `checks_print_report` のインデックスが "[0]" を 2 回表示する問題: 同上。
+- [計画との差異]:
+  - plan.md に記載なし（バグ修正）。
+- [残課題]:
+  - `emit_ll_skips_unsupported_parsed_function_body` テストが失敗する可能性（CI で確認）。
+
+---
+
 # 2026-03-17 作業メモ (doc/2.1impl: コンパイラ構成設計)
 
 - [目的/もくてき]:
