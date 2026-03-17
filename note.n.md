@@ -1,3 +1,13 @@
+# 2026-03-17 作業メモ (doc/2.1spec レビュー・軽微修正)
+
+- [確認範囲]: `doc/2.1spec/` の index/overview/syntax/types/declarations/patterns/effects/memory/traits/modules/compiler/platform/errors を精査。現行 2.1 仕様で開発を進める上での致命的欠落や矛盾は見当たらず、仕様として参照可能な状態。
+- [修正]: `syntax.md`
+  - `<expr>` 文法に `let [mut] <pattern> [%TypeExpr] <expr>` を反映（型注釈付き let と mut の許容位置を明示）。mut は識別子パターンのみという注記も追加。
+  - §16 の小見出し番号が 15.x のままだったので 16.1〜16.4 に修正。
+- [所感/差分メモ]:
+  - 2.1 では unit リテラルが `unit`（括弧なし）で一貫している。`plan.md` の `()` 記法は旧 2.0 系で、`compare/syntax.md` に差分が明記されているため、実装・ドキュメントは `unit` 基準で進める。
+  - その他の文書（types/effects/memory/modules など）は互いに整合しており、開発の阻害要因となる不整合は現状なし。
+
 # 2026-03-17 作業メモ (fix: tests/stdlib の失敗テストを修正 - math/string/traits_text)
 
 - [目的]: `stdlib-test` CIジョブで発生していた失敗テストを修正。
