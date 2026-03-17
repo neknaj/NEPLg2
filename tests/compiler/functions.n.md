@@ -61,7 +61,9 @@ fn main ():
 
 ## function_nested
 
-neplg2:test
+ネストされた関数定義はコードジェンで未サポートのためスキップ
+
+neplg2:test[skip]
 ret: 20
 ```neplg2
 

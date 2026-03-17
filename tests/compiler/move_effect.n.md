@@ -259,7 +259,7 @@ fn main <()->i32> ():
 ## Copy impl の対象が非Copy型なら拒否
 
 neplg2:test[compile_fail]
-diag_id: 3049
+diag_id: 3050
 ```neplg2
 #entry main
 #indent 4

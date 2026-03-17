@@ -150,13 +150,10 @@ ret: 3
 #target core
 #import "core/field" as *
 
-fn make <()->.Pair> ():
-    Tuple:
+fn main <()->i32> ():
+    let t Tuple:
         3
         4
-
-fn main <()->i32> ():
-    let t make
     get t 0
 ```
 

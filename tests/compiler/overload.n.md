@@ -208,8 +208,8 @@ ret: 8
 fn size <(str)->i32> (s):
     add 1000 1
 
-fn size <(Vec<i32>)->i32> (v):
-    v::len<i32> v
+fn size <(Vec<i32>)->i32> (vec):
+    v::len<i32> vec
 
 fn main <()->i32> ():
     let v:
@@ -233,9 +233,10 @@ ret: 2
 #indent 4
 #target core
 #import "alloc/collections/vec" as v
+#import "core/result" as *
 
 fn new <()*>Vec<i32>> ():
-    v::new<i32>
+    unwrap_ok v::new<i32>
 
 fn new <()->bool> ():
     true
@@ -243,8 +244,8 @@ fn new <()->bool> ():
 fn main <()*>i32> ():
     let v <Vec<i32>>:
         <Vec<i32>> new
-        |> v::push 1
-        |> v::push 2
+        |> v::push 1 |> uwok
+        |> v::push 2 |> uwok
     v::len v
 ```
 
@@ -280,9 +281,10 @@ ret: 0
 #indent 4
 #target core
 #import "alloc/collections/vec" as v
+#import "core/result" as *
 
 fn new <()*>Vec<i32>> ():
-    v::new<i32>
+    unwrap_ok v::new<i32>
 
 fn main <()*>i32> ():
     let v <Vec<i32>> <Vec<i32>> new;
@@ -424,6 +426,7 @@ fn main <()*>i32> ():
         |> unwrap_ok<Stack<i32>, Diag>
     let v <Vec<i32>>:
         new
+        |> unwrap_ok<Vec<i32>, StdErrorKind>
     if and eq len st 0 eq len v 0 1 0
 ```
 

@@ -74,6 +74,7 @@ diag_id: 4001
 #target core
 #entry main
 #indent 4
+#no_prelude
 
 #extern "env" "f" fn f <()->never>
 

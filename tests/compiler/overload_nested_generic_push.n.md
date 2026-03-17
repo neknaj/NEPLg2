@@ -20,9 +20,9 @@ ret: 1
 #import "core/math" as *
 
 fn main <()->i32> ():
-    let v0 <Vec<Result<(),str>>> new<Result<(),str>>;
+    let v0 <Vec<Result<(),str>>> unwrap_ok new<Result<(),str>>;
     let r <Result<(),str>> Result::Ok ();
-    let v1 <Vec<Result<(),str>>> push v0 r;
+    let v1 <Vec<Result<(),str>>> uwok push v0 r;
     if eq len v1 1 1 0
 ```
 
@@ -44,8 +44,8 @@ ret: 1
 
 fn main <()->i32> ():
     let v <Vec<Result<(),str>>>:
-        new<Result<(),str>>
-        |> push (Result::Ok ())
-        |> push (Result::Err "oops")
+        unwrap_ok new<Result<(),str>>
+        |> push (Result::Ok ()) |> uwok
+        |> push (Result::Err "oops") |> uwok
     if eq len v 2 1 0
 ```

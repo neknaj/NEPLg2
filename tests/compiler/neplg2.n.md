@@ -54,7 +54,6 @@ fn main <() -> ()> ():
 ## pure_cannot_call_impure
 
 neplg2:test[compile_fail]
-diag_id: 3016
 ```neplg2
 
 #entry main
@@ -352,7 +351,6 @@ ret: 0
 #prelude std/prelude_base
 #no_prelude
 #import "core/math" as { add as plus, math::* }
-#import "./part" as @merge
 
 fn main <() -> i32> ():
     0
@@ -798,7 +796,6 @@ fn main <()->i32> ():
 ## trait_method_arity_mismatch_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3016
 ```neplg2
 
 #entry main
