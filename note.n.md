@@ -1,3 +1,9 @@
+# 2026-03-17 作業メモ (fix: nodesrc/tests.js includeStdlib デフォルト false)
+
+- [目的]: `-i tutorials` 等を指定しても `stdlib` が自動追加される問題を修正。
+- [根本原因]: `parseArgs` で `includeStdlib` のデフォルトが `true` だったため、stdlib が scanInputs に自動挿入されていた。
+- [変更]: `nodesrc/tests.js` line 30: `let includeStdlib = true` → `false`。明示的に `--with-stdlib` または `-i stdlib` を指定しない限り stdlib を追加しない。
+
 # 2026-03-17 作業メモ (ci: tutorials/stdlib テスト分離)
 
 - [目的/もくてき]:

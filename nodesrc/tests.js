@@ -27,7 +27,7 @@ function parseArgs(argv) {
     let outPath = '';
     let distHint = '';
     let jobs = 0;
-    let includeStdlib = true;
+    let includeStdlib = false;
     let includeStdlibTouched = false;
     let includeTree = true;
     let includeTreeTouched = false;
