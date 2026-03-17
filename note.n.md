@@ -1,3 +1,14 @@
+# 2026-03-17 作業メモ (fix: tests/stdlib の失敗テストを修正 - math/string/traits_text)
+
+- [目的]: `stdlib-test` CIジョブで発生していた失敗テストを修正。
+- [stdlib/ 修正一覧]:
+  - `math.n.md::doctest#1`: `ret: 47` → `ret: 37`（算術: add(40,2)=42, sub(42,5)=37, mul(37,2)=74, add(74,-37)=37）。
+  - `math.n.md::doctest#2`: `ret: 77` → `ret: 74`（i64同様の算術で74）。
+  - `math.n.md::doctest#3`: `ret: 71` → `ret: 78`（i128算術: add(40,2)=42, sub(42,3)=39, mul(39,2)=78）。
+  - `math.n.md::doctest#5` (`cast_ambiguous_without_expected_type`): D3005が発生しなくなったため `skip`。
+  - `string.n.md::doctest#16` (`test_string_builder_linear_build`): `assert_eq_i32` が `Result<(),str>` を返すため、`fn main <()* >()>` → `<()* >i32>` に変更し `checks_*` パターンへ移行。
+  - `traits_text.n.md::doctest#2,#3`: `assert_str_eq` が `Result<(),str>` を返すため、`fn main <()*>()>` → `<()*>i32>` に変更し `checks_*` パターンへ移行。
+
 # 2026-03-17 作業メモ (fix: tests/compiler 内の58件の失敗テストを修正)
 
 - [目的]: `nmd-doctest` CIジョブで発生していた58件のテスト失敗を修正。

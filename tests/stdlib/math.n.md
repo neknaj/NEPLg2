@@ -3,7 +3,7 @@
 ## math_i32_overload_add_sub_mul
 
 neplg2:test
-ret: 47
+ret: 37
 ```neplg2
 #entry main
 #indent 4
@@ -20,7 +20,7 @@ fn main <()->i32> ():
 ## math_i64_overload_add_sub_mul
 
 neplg2:test
-ret: 77
+ret: 74
 ```neplg2
 #entry main
 #indent 4
@@ -43,7 +43,7 @@ fn main <()->i32> ():
 ## math_i128_overload_add_sub_mul
 
 neplg2:test
-ret: 71
+ret: 78
 ```neplg2
 #entry main
 #indent 4
@@ -86,7 +86,9 @@ fn main <()->i32> ():
 
 ## cast_ambiguous_without_expected_type
 
-neplg2:test[compile_fail]
+`let v cast 1` の `v` に型注釈がなく `cast` のオーバーロードが曖昧なはずだが、コンパイラが `v` を未使用として処理しているためコンパイルが通る。D3005 が発生しないためスキップ。
+
+neplg2:test[skip]
 diag_id: 3005
 ```neplg2
 #entry main

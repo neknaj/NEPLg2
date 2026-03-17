@@ -40,6 +40,7 @@ fn main <()->i32> ():
 ## stringify は[利用者向/りようしゃむ]け[文字列表現/もじれつひょうげん]を[返/かえ]す
 
 neplg2:test
+ret: 0
 ```neplg2
 #entry main
 #target std
@@ -48,16 +49,20 @@ neplg2:test
 #import "core/traits/stringify" as *
 #import "core/cast" as *
 
-fn main <()*>()> ():
+fn main <()*>i32> ():
     let n <u8> cast 9;
-    assert_str_eq "42" stringify 42;
-    assert_str_eq "true" stringify true;
-    assert_str_eq "9" stringify n;
+    let checks <Vec<Result<(),str>>>:
+        checks_new
+        |> checks_push assert_str_eq "42" stringify 42
+        |> checks_push assert_str_eq "true" stringify true
+        |> checks_push assert_str_eq "9" stringify n
+    checks_exit_code checks
 ```
 
 ## debug_string は `str` を[区別/くべつ]できる[形/かたち]で[表示/ひょうじ]する
 
 neplg2:test
+ret: 0
 ```neplg2
 #entry main
 #target std
@@ -65,7 +70,10 @@ neplg2:test
 #import "std/test" as *
 #import "core/traits/debug" as *
 
-fn main <()*>()> ():
-    assert_str_eq "\"abc\"" debug_string "abc";
-    assert_str_eq "5" debug_string 5;
+fn main <()*>i32> ():
+    let checks <Vec<Result<(),str>>>:
+        checks_new
+        |> checks_push assert_str_eq "\"abc\"" debug_string "abc"
+        |> checks_push assert_str_eq "5" debug_string 5
+    checks_exit_code checks
 ```

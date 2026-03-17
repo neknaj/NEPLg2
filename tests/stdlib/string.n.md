@@ -280,6 +280,7 @@ fn main <()->i32> ():
 ## test_string_builder_linear_build
 
 neplg2:test
+ret: 0
 ```neplg2
 #target std
 #entry main
@@ -287,7 +288,7 @@ neplg2:test
 #import "std/test" as *
 #import "alloc/string" as *
 
-fn main <()* >()> ():
+fn main <()* >i32> ():
     let mut sb <StringBuilder> string_builder_new;
     let mut i <i32> 0;
     while lt i 2000:
@@ -295,5 +296,8 @@ fn main <()* >()> ():
             set sb sb_append sb "a";
             set i add i 1;
     let out <str> sb_build sb;
-    assert_eq_i32 2000 len out;
+    let checks <Vec<Result<(),str>>>:
+        checks_new
+        |> checks_push assert_eq_i32 2000 len out
+    checks_exit_code checks
 ```
