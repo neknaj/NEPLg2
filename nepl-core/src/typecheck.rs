@@ -2655,6 +2655,48 @@ impl<'a> BlockChecker<'a> {
             return Some((params, result, effect));
         }
         if type_params.len() != entry.type_args.len() {
+            // The entry.ty is likely a fresh placeholder (0 type_params) created when
+            // the callable was pushed with explicit type args. Look up the actual binding
+            // type by name so we can apply the type args correctly.
+            if let HirExprKind::Var(name) = &entry.expr.kind {
+                let name = name.clone();
+                let type_args = entry.type_args.clone();
+                let binding_tys: Vec<TypeId> = self
+                    .env
+                    .lookup_all_callables(&name)
+                    .into_iter()
+                    .map(|b| b.ty)
+                    .collect();
+                for binding_ty in binding_tys {
+                    let func_data = if let TypeKind::Function {
+                        type_params: tps,
+                        params: ps,
+                        result: r,
+                        effect: e,
+                    } = self.ctx.get(binding_ty)
+                    {
+                        Some((tps, ps, r, e))
+                    } else {
+                        None
+                    };
+                    let Some((tps, ps, r, e)) = func_data else {
+                        continue;
+                    };
+                    if tps.len() != type_args.len() {
+                        continue;
+                    }
+                    let mut mapping = BTreeMap::new();
+                    for (tp, ta) in tps.iter().zip(type_args.iter()) {
+                        mapping.insert(self.ctx.resolve_id(*tp), self.ctx.resolve_id(*ta));
+                    }
+                    let sub_params = ps
+                        .iter()
+                        .map(|p| self.ctx.substitute(*p, &mapping))
+                        .collect::<Vec<_>>();
+                    let sub_result = self.ctx.substitute(r, &mapping);
+                    return Some((sub_params, sub_result, e));
+                }
+            }
             return None;
         }
         let mut mapping = BTreeMap::new();
@@ -5783,10 +5825,39 @@ impl<'a> BlockChecker<'a> {
         }
     }
 
+    /// マッチアームのバリアント名からスクルーティニーの期待型を推論する。
+    /// 例: `Result::Ok`, `Result::Err` → `Result<fresh_A, fresh_B>` を返す。
+    /// これにより `match with_capacity<.T> n:` のような式でオーバーロードが
+    /// 解決できるようになる（スクルーティニーに期待型が伝播される）。
+    fn infer_expected_type_from_match_arms(&mut self, arms: &[crate::ast::MatchArm]) -> Option<TypeId> {
+        let first_arm = arms.first()?;
+        let variant_name = &first_arm.variant.name;
+        // "EnumName::VariantName" → "EnumName"
+        let enum_name = if let Some(idx) = variant_name.rfind("::") {
+            &variant_name[..idx]
+        } else {
+            return None;
+        };
+        let enum_info = self.enums.get(enum_name)?;
+        let enum_ty = enum_info.ty;
+        let type_params = enum_info.type_params.clone();
+        if type_params.is_empty() {
+            Some(enum_ty)
+        } else {
+            let fresh_vars: Vec<TypeId> = type_params.iter().map(|_| self.ctx.fresh_var(None)).collect();
+            Some(self.ctx.apply(enum_ty, fresh_vars))
+        }
+    }
+
     fn check_match_expr(&mut self, m: &MatchExpr) -> Option<(HirExpr, TypeId)> {
+        // Infer the expected scrutinee type from the arm variant names.
+        // e.g. `Result::Ok`, `Result::Err` → `Result<fresh_A, fresh_B>`
+        // This allows disambiguation of overloaded scrutinee calls when the enum base
+        // type is enough to select the right overload.
+        let expected_scrut_ty = self.infer_expected_type_from_match_arms(&m.arms);
         // evaluate scrutinee
         let mut tmp_stack = Vec::new();
-        if let Some((scrut_expr, _)) = self.check_prefix(&m.scrutinee, 0, &mut tmp_stack, None) {
+        if let Some((scrut_expr, _)) = self.check_prefix(&m.scrutinee, 0, &mut tmp_stack, expected_scrut_ty) {
             let scrut_ty = scrut_expr.ty;
             let resolved_ty = self.ctx.resolve(scrut_ty);
             let variants = match self.ctx.get(resolved_ty) {

@@ -955,7 +955,8 @@ fn vec_write_prefix_impl <.T> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data
 fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
     let src_len <i32> field::get v "len"
     let src_data <MemPtr<.T>> field::get v "data"
-    match with_capacity<.U> src_len:
+    let alloc_r <Result<Vec<.U>, StdErrorKind>> with_capacity<.U> src_len
+    match alloc_r:
         Result::Err e:
             Result::Err<Vec<.U>, StdErrorKind> e
         Result::Ok out0:
@@ -1017,7 +1018,8 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
                 then set keep_len add keep_len 1
                 else ()
             set i add i 1
-    match with_capacity<.T> keep_len:
+    let alloc_r <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> keep_len
+    match alloc_r:
         Result::Err e:
             Result::Err<Vec<.T>, StdErrorKind> e
         Result::Ok out0:
@@ -1087,11 +1089,13 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
                 else ()
             set i add i 1
     let right_len <i32> sub src_len left_len
-    match with_capacity<.T> left_len:
+    let alloc_left <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> left_len
+    match alloc_left:
         Result::Err e:
             Result::Err<.Pair, StdErrorKind> e
         Result::Ok left0:
-            match with_capacity<.T> right_len:
+            let alloc_right <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> right_len
+            match alloc_right:
                 Result::Err e:
                     let left0_cap <i32> field::get left0 "cap"
                     let left0_data <MemPtr<.T>> field::get left0 "data"
@@ -1161,7 +1165,8 @@ fn take_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p)
     let src_len <i32> field::get v "len"
     let src_data <MemPtr<.T>> field::get v "data"
     let keep_len <i32> vec_take_while_len_impl<.T> src_data src_len 0 p
-    match with_capacity<.T> keep_len:
+    let alloc_r <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> keep_len
+    match alloc_r:
         Result::Err e:
             Result::Err<Vec<.T>, StdErrorKind> e
         Result::Ok out0:
@@ -1214,7 +1219,8 @@ fn drop_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p)
     let src_data <MemPtr<.T>> field::get v "data"
     let drop_len <i32> vec_take_while_len_impl<.T> src_data src_len 0 p
     let keep_len <i32> sub src_len drop_len
-    match with_capacity<.T> keep_len:
+    let alloc_r <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> keep_len
+    match alloc_r:
         Result::Err e:
             Result::Err<Vec<.T>, StdErrorKind> e
         Result::Ok out0:

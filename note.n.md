@@ -1,3 +1,20 @@
+# 2026-03-17 作業メモ (fix: D3005 ambiguous overload in binary_heap doctests)
+
+- [目的/もくてき]:
+  - `stdlib/alloc/collections/binary_heap.nepl` のdoctest #1〜#5 で発生していた D3005 「ambiguous overload」エラーを修正する。
+  - `with_capacity` が `binary_heap`・`vec`・`deque`・`queue`・`ringbuffer` などで同名で定義されており、ローダーの flat namespace inlining によりすべてのシンボルが同一スコープに入ることで発生する。
+- [根本原因分析/こんぽんげんいんぶんせき]:
+  - **原因1**: `function_signature_for_entry` が、explicit type_args を持つ outer caller エントリ（例: `unwrap_ok<BinaryHeap<i32>, StdErrorKind>`）に対して `None` を返していた。StackEntry の `ty` が 0個の type_params を持つ fresh placeholder type で作られており、`type_params.len() != entry.type_args.len()` になるため。これにより `infer_expected_from_outer_consumer` が `None` を返し、expected_ret が空になって候補が絞られなかった。
+  - **原因2**: `vec.nepl` の `fn map`, `fn filter`, `fn partition`, `fn take_while`, `fn drop_while` が `match with_capacity<.T> cap:` の形式でマッチのスクルーティニーとして直接 `with_capacity` を呼んでいた。マッチスクルーティニーは `expected_last_ty = None` で評価されるため、期待型による候補絞り込みが働かずD3005が発生した。
+- [修正内容/しゅうせいないよう]:
+  - **Fix 1** (`nepl-core/src/typecheck.rs`): `function_signature_for_entry` に fallback ロジックを追加。`type_params.len() != entry.type_args.len()` の場合、`env.lookup_all_callables` で実際のバインディング型を検索し、type_args 数が一致するものを使って型代入を行って返すようにした。
+  - **Fix 2** (`stdlib/alloc/collections/vec.nepl`): `match with_capacity<.T> cap:` を `let alloc_r <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> cap` + `match alloc_r:` に変更。型アノテーション付き `let` バインディングにより pending_ascription が設定され、`with_capacity` の呼び出しで期待型による候補絞り込みが正しく動作するようにした。
+  - `infer_expected_type_from_match_arms`: マッチアームのバリアント名からスクルーティニーの基底enum型を推論する補助関数を追加。fresh変数を使うため ambiguous なケースでは絞り込みに使えないが、基底型のヒントとして機能する。
+- [確認/かくにん]:
+  - `binary_heap.nepl` doctest #1〜#6: すべて PASS
+  - `vec.nepl` doctest #1〜#10: すべて PASS
+  - `cargo test --workspace`: `generics_nested_option_match` 1件失敗（既存の pre-existing 問題、本変更とは無関係）
+
 # 2026-03-17 作業メモ (CI 修正: parser.js artifact 欠落・rust-test 修正)
 
 - [目的/もくてき]:
