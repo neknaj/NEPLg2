@@ -53,7 +53,7 @@ NEPLg2.1 の構文は次の原則を貫く。
   | if <expr> : <suite> [else if <expr> : <suite>]* [else : <suite>]
   | match <expr> : <match_arms>
   | while <expr> : <suite>       // ループ（Phase 0–7: unit を返す。Phase 8: 証明付きで T を返す）
-  | let [mut] <pattern> [%<TypeExpr>] <expr>  // 変数束縛（unit を返す式）— mut は識別子パターンのみ可
+  | let [mut] <pattern> [%TypeExpr] <expr>    // 変数束縛（unit を返す式）— mut は識別子パターンのみ可
   | set <ident> <expr>           // 可変束縛の更新（unit を返す式）
   | <block>
 
