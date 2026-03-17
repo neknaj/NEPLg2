@@ -3565,14 +3565,17 @@ fn body <()->i32> ():
 
     #[test]
     fn emit_ll_skips_unsupported_parsed_function_body() {
+        // Functions with parameters are not lowered by lower_parsed_fn_with_gates
+        // (only zero-parameter i32-returning functions with a literal body are supported).
+        // The function typechecks fine but must not appear in the LLVM output.
         let src = r#"
 #target llvm
-fn body <()->i32> ():
-    add 1 2
+fn body <(i32)->i32> (x):
+    x
 "#;
         let module = parse_module(src);
         let ll = emit_ll_from_module(&module).expect("unsupported parsed function should be skipped");
-        assert!(!ll.contains("define i32 @body()"));
+        assert!(!ll.contains("define i32 @body("));
     }
 
     #[test]

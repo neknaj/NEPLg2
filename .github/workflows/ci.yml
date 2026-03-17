@@ -58,6 +58,8 @@ jobs:
                       dist
                       target/debug
                       target/wasm32-unknown-unknown
+                      nodesrc/parser.js
+                      nodesrc/html_gen.js
                   compression-level: 1
 
     compile-test:

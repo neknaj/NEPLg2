@@ -1,3 +1,17 @@
+# 2026-03-17 作業メモ (CI 修正: parser.js artifact 欠落・rust-test 修正)
+
+- [目的/もくてき]:
+  - GitHub Actions の nmd-doctest/wasi-test が `Cannot find module './parser'` で失敗する問題と rust-test の `emit_ll_skips_unsupported_parsed_function_body` 失敗を修正する。
+- [変更/へんこう]:
+  - `.github/workflows/ci.yml`: bootstrap-build artifact に `nodesrc/parser.js` と `nodesrc/html_gen.js` を追加（TypeScript コンパイル済みファイルが .gitignore されており、ダウンロード側のジョブで見つからなかった）。
+  - `nepl-core/src/codegen_llvm.rs`: `emit_ll_skips_unsupported_parsed_function_body` テストを `add 1 2`（`core/math` 未 import で D3001 エラー）から `fn body <(i32)->i32> (x): x`（有引数関数は `lower_parsed_fn_with_gates` でスキップされる）に変更。
+- [設計決定/せっけいけってい]:
+  - テストのセマンティクスは変わらない（「パース済みボディを持つ関数が LLVM 出力に現れないこと」を検証する）。有引数関数は `params.is_empty()` チェックで必ずスキップされる。
+- [計画との差異]:
+  - CI 設定の不整合修正（plan.md に記載なし）。
+
+---
+
 # 2026-03-17 作業メモ (NEPLg2.0 安定化: tuple レイアウト・pipe 修正・テスト修正)
 
 - [目的/もくてき]:
