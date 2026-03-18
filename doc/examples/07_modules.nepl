@@ -29,6 +29,8 @@ use core::math as *          // add, mul, ... を直接参照
 use core::list as list       // list::cons, list::nil で参照
 use core::option as *
 use std::io::println         // println だけを直接導入
+use std::convert::to_str     // to_str だけを直接導入
+use core::str::concat        // concat だけを直接導入
 
 
 // ── private: このモジュール内でしか使えない ──────────────────────────────
@@ -69,13 +71,13 @@ module statistics:
     //: - 空リストのときは 0 を返す。`Option i32` を返す設計も考えられるが、
     //:   このサンプルでは[簡略化/かんりゃくか]している。
     //: - 除算は切り捨て整数除算。
-    pub let mean %fn List i32 -> i32 \ xs :
-        let n length xs
+    pub let mean %fn list::List i32 -> i32 \ xs :
+        let n list::length xs
         if eq n 0: 0
-        else: div fold_left xs 0 add n
+        else: div list::fold_left xs 0 add n
 
 
-pub let main %fn* -> i32 \ :
+pub let main %fn* unit -> i32 \ :
     let p1 geometry::Point 0 0
     let p2 geometry::Point 3 4
     println concat "distance^2 = " to_str geometry::distance_sq p1 p2

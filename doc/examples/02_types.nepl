@@ -132,6 +132,11 @@ pub let classify_point %fn Point -> str \ p :
         _:         "general"
 
 
+pub let Rect impl for Show:
+    let show %fn Rect -> str \ r :
+        concat "Rect(" concat show r.top_left concat ", " concat show r.bottom_right ")"
+
+
 //: ## log_and_area
 //: `@` パターンによる[値/あたい]全体と[部分/ぶぶん]の同時束縛
 //:

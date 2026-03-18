@@ -106,15 +106,15 @@ pub let fold_left .T .A %fn List .T .A fn .A .T -> .A -> .A \ xs init f :
 //: - 最悪 O(n²)、安定ソート
 
 pub let sort_list .T: Ord %fn List .T -> List .T \ xs :
-    let insert_sorted %fn .T List .T -> List .T \ v sorted :
+    let insert_sorted %fn List .T .T -> List .T \ sorted v :
         match sorted:
             List::Nil: cons v nil
             List::Cons h t:
                 if le v h: cons v sorted
-                else: cons h insert_sorted v t
+                else: cons h insert_sorted t v
     fold_left xs nil insert_sorted
 
 
 // 使用例（main からの呼び出し）
 pub let sum_squares %fn List i32 -> i32 \ ns :
-    ns |> map \ n : mul n n |> mconcat
+    mconcat map ns \ n : mul n n

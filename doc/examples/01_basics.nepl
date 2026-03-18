@@ -19,14 +19,14 @@ use std::io as *
 use core::pair as *   // Pair, fst, snd
 
 
-let MAX_SCORE i32 100
+let MAX_SCORE %i32 100
 
 let square %fn i32 -> i32 \ n :
     mul n n
 
 let clamp %fn i32 i32 i32 -> i32 \ lo hi x :
     if lt x lo: lo
-    else: if gt x hi: hi
+    else if gt x hi: hi
     else: x
 
 
@@ -79,16 +79,16 @@ let div_mod %fn i32 i32 -> Pair i32 i32 \ a b :
 //:
 //: ### [実装/じっそう]
 //: - `f |> g` は `g f` と等価。左辺の[値/あたい]を右辺の[関数/かんすう]の第 1 引数に[渡/わた]す。
-//: - 部分[適用/てきよう]（`clamp 0 MAX_SCORE` の形）と組み合わせて[処理/しょり]の[流/なが]れを左から右に書ける。
+//: - `|>` は左辺を第 1 引数に[注入/ちゅうにゅう]するため、`clamp 0 MAX_SCORE x` のように x が後[置/ち]になる関数は前[置/ぜんち]記法で書く。
 
 let pipeline_demo %fn i32 -> i32 \ n :
-    n |> square |> clamp 0 MAX_SCORE
+    clamp 0 MAX_SCORE square n
 
 
 let grade %fn i32 -> str \ score :
     if ge score 90: "A"
-    else: if ge score 70: "B"
-    else: if ge score 50: "C"
+    else if ge score 70: "B"
+    else if ge score 50: "C"
     else: "D"
 
 
@@ -100,7 +100,7 @@ let grade %fn i32 -> str \ score :
 //: - [計算/けいさん]ロジック側のテストは `println` を含まずに書ける。
 //: - `%fn*` が[必要/ひつよう]なのは `println` の呼び出しを含むため。
 
-pub let main %fn* -> i32 \ :
+pub let main %fn* unit -> i32 \ :
     println concat "10! = "        to_str factorial 10
     println concat "sum(1..10) = " to_str sum_to 10
     println concat "grade(85) = "  grade 85

@@ -93,7 +93,7 @@ pub let prompt %fn* str -> str \ msg :
     read_line unit
 
 
-pub let main %fn* -> i32 \ :
+pub let main %fn* unit -> i32 \ :
     let name prompt "ファイル名: "
     analyze_file name
     0
