@@ -125,9 +125,41 @@ match p:
         use_both pair a
 ```
 
-### 2.8 OR パターン
+### 2.8 述語パターンと論理演算（ガード経由）
 
-> **未サポート**: NEPLg2.1 には中値演算子が `|>` しか存在しないため、`|` による OR パターン結合は定義されない。複数条件をまとめたい場合は `if`/`else if` チェーンか `match` の複数アームを使うこと。
+NEPLg2.1 には中値演算子が `|>` しか存在しないため、`|` による OR パターン結合は定義されない。
+OR / AND / NOT・比較などの論理演算は、**ガード条件**（`if <pred_expr>`）で表現する（§4.5 参照）。
+
+ガード内で使う述語関数は `core/math` が提供するものと共通であり、コンパイル時に値が確定する場合はコンパイル時評価される。
+
+| 目的 | ガード式（前置記法） |
+|------|---------------------|
+| OR | `or eq x 0 eq x 1` |
+| AND（範囲） | `and ge x 3 lt x 10` |
+| NOT | `not eq x 0` |
+| 比較（>） | `gt x 5` |
+| 比較（範囲） | `and ge x lo lt x hi` |
+
+```nepl
+// OR: n が 0 または 1 のとき
+match n:
+    x if or eq x 0 eq x 1: "zero or one"
+    _:                      "other"
+
+// 範囲: n が [3, 10)
+match n:
+    x if and ge x 3 lt x 10: "medium"
+    x if lt x 3:              "small"
+    _:                        "large"
+
+// コンストラクタ + ガード
+match opt:
+    Option::Some v if gt v 0: "positive"
+    Option::Some _:           "non-positive"
+    Option::None:             "none"
+```
+
+コンパイル時定数のみで構成されるガードはコンパイル時に評価され、恒偽のアームはデッドコードエラー、恒真のアームは後続アームの到達不能警告対象となる。
 
 ### 2.9 参照パターン
 
@@ -178,10 +210,12 @@ let Pair a b %Pair i32 i32 some_expr
 
 ```
 match <scrutinee> :
-    <pattern> : <suite>
-    <pattern> : <suite>
+    <pattern> [if <pred_expr>] : <suite>
+    <pattern> [if <pred_expr>] : <suite>
     ...
 ```
+
+`if <pred_expr>` はオプションのガード条件。`pred_expr` は `bool` 型の前置式。
 
 `match` は式。全アームの型が一致しなければならない。`<suite>` はインライン式またはインデントブロック（[syntax.md §4](./syntax.md) 参照）。
 
@@ -207,10 +241,10 @@ match result_pair:
     Pair Result::Err e _:            handle_error e
     Pair _ Result::Err e:            handle_error e
 
-// OR パターン（全アームが str を返す）
+// OR: ガードで表現（中値 | は存在しない）
 match x:
-    0 | 1: "zero or one"
-    _:     "other"
+    v if or eq v 0 eq v 1: "zero or one"
+    _:                      "other"
 
 // 束縛付き
 match opt:
@@ -224,7 +258,40 @@ match opt:
 
 ### 4.5 ガード条件
 
-現時点ではガード条件（`if` 節付きアーム）は仕様に含めない。将来追加する場合は本仕様を改訂する。
+アームに `if <pred_expr>` を付けることでガード条件を指定できる。
+
+- `pred_expr` はアームのパターンが束縛した変数を参照できる前置ブール式。
+- 使用できる関数は `core/math` の述語関数（`or`、`and`、`not`、`eq`、`ne`、`gt`、`lt`、`ge`、`le`）および、それらの合成・部分適用。
+- ガードが恒偽（コンパイル時定数として `false` と確定）のアームはコンパイルエラー。
+- ガードが恒真のアームは後続アームが到達不能になる場合に警告。
+- ガードは網羅性検査に影響しない（ガード付きアームは網羅の証拠として使えない）ため、ガードのないデフォルトアーム（`_:` 等）を別途置くこと。
+
+```nepl
+// or / and による論理合成（前置記法、core/math と共通）
+match score:
+    x if ge x 90:             "A"
+    x if ge x 70:             "B"
+    x if ge x 50:             "C"
+    _:                        "F"
+
+// 範囲チェック
+match n:
+    x if and ge x 0 lt x 10:  "single digit"
+    x if and ge x 10 lt x 100: "double digit"
+    _:                         "other"
+
+// コンストラクタパターン + ガード
+match pair:
+    Pair a b if gt a b: "first larger"
+    Pair a b if lt a b: "second larger"
+    _:                  "equal"
+
+// 述語を let で名前付けして再利用
+let is_valid \ x : and ge x 0 le x 100
+match input:
+    x if is_valid x: process x
+    _:               error "out of range"
+```
 
 ---
 
@@ -245,7 +312,7 @@ let Pair file rest p
 // rest → move された
 ```
 
-OR パターンで束縛された変数の所有権種別は、全選択肢で一致しなければならない。
+ガード付きアームで束縛された変数の所有権種別は、ガード評価後も束縛が有効であるため通常のパターン束縛と同じ規則に従う。
 
 ---
 
