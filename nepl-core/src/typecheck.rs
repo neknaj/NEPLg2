@@ -2848,24 +2848,64 @@ impl<'a> BlockChecker<'a> {
                 }
             }
         }
-        if !has_mixed_arity {
+        // In a pure context, prefer pure overloads over impure ones.
+        // When selecting by arity, a pure lower-arity overload beats an impure
+        // higher-arity one to prevent false D3025 errors from name collisions
+        // across modules (e.g. math::add vs fenwick::add in a pure fold).
+        let in_pure_context = matches!(self.current_effect, Effect::Pure);
+
+        // Also proceed when arities are uniform but purity is mixed — e.g.
+        // vec::with_capacity (pure) vs ringbuffer::with_capacity (impure) both
+        // have arity 1.  In a pure context we must pick the pure variant to
+        // avoid a spurious D3025 before full overload resolution runs.
+        let has_mixed_purity_among_applicable = in_pure_context && {
+            let mut has_pure = false;
+            let mut has_impure = false;
+            for b in &callables {
+                if let BindingKind::Func { arity, .. } = b.kind {
+                    if arity <= available_args {
+                        if matches!(
+                            self.ctx.get(self.ctx.resolve_id(b.ty)),
+                            TypeKind::Function { effect: Effect::Pure, .. }
+                        ) {
+                            has_pure = true;
+                        } else {
+                            has_impure = true;
+                        }
+                    }
+                }
+            }
+            has_pure && has_impure
+        };
+        if !has_mixed_arity && !has_mixed_purity_among_applicable {
             return None;
         }
 
-        let mut best: Option<(usize, TypeId)> = None;
+        let mut best: Option<(usize, TypeId, bool)> = None; // (arity, ty, is_pure)
         for b in callables {
             if let BindingKind::Func { arity, .. } = b.kind {
                 if arity > available_args {
                     continue;
                 }
-                match best {
-                    None => best = Some((arity, b.ty)),
-                    Some((best_arity, _)) if arity > best_arity => best = Some((arity, b.ty)),
-                    _ => {}
+                let is_pure = matches!(
+                    self.ctx.get(self.ctx.resolve_id(b.ty)),
+                    TypeKind::Function { effect: Effect::Pure, .. }
+                );
+                let should_replace = match &best {
+                    None => true,
+                    Some((_best_arity, _, best_is_pure)) if in_pure_context => {
+                        // Pure candidate always beats impure; among same purity prefer higher arity
+                        (is_pure && !best_is_pure)
+                            || (is_pure == *best_is_pure && arity > *_best_arity)
+                    }
+                    Some((best_arity, _, _)) => arity > *best_arity,
+                };
+                if should_replace {
+                    best = Some((arity, b.ty, is_pure));
                 }
             }
         }
-        best
+        best.map(|(arity, ty, _)| (arity, ty))
     }
 
     fn is_concrete_type(&self, ty: TypeId) -> bool {
