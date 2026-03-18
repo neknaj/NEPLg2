@@ -1,7 +1,7 @@
 # [数値/すうち]と[変数/へんすう]
 
 NEPLg2 では演算も前置記法で書きます。
-`core/math` を import すると `add` や `add` などを利用できます。
+`core/math` を import すると `add` や `sub` などを利用できます。
 
 ## 前置記法の基本
 

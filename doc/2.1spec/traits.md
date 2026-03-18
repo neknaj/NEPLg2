@@ -203,7 +203,7 @@ let x get vec idx
 | `Default` | デフォルト値生成 |
 | `Clone` | 明示的複製 |
 | `Copy` | 暗黙複製（`Clone` の特殊ケース） |
-| `Add .U .R` | 加算演算（`a + b` の演算子オーバーロードは |> 経由） |
+| `Add .U .R` | 加算演算（`add a b` の前置呼び出しで使用） |
 
 ### 9.2 move / memory 系 trait
 

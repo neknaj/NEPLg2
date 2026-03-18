@@ -68,8 +68,8 @@ let sort .T: Ord %fn* Vec .T -> Vec .T \ v :
 - `where` 節自体に `:` は付けない（引数リスト `\ params :` の `:` が本体の開始を示す）
 
 ```nepl
-let merge .T .K .V %fn Vec .T Vec .T -> Vec .T
-    where .T: Ord .K: Hash .V: Eq
+let merge .T %fn Vec .T Vec .T -> Vec .T
+    where .T: Ord
     \ a b :
     ...
 ```

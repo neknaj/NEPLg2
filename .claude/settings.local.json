@@ -7,7 +7,37 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "WebFetch(domain:zenn.dev)",
-      "Bash(tsc:*)"
-    ]
+      "Bash(tsc:*)",
+      "Bash(wc:*)",
+      "Bash(trunk build:*)",
+      "Bash(node:*)",
+      "Bash(wait)",
+      "Read(//tmp/**)",
+      "Read(//stdlib/**)",
+      "Read(//nepl-core/**)",
+      "Bash(node -e \":*)",
+      "Bash(timeout:*)",
+      "Bash(gh run:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:neknaj.github.io)",
+      "Bash(cargo test:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo run:*)",
+      "Bash(wasmtime:*)",
+      "Bash(git:*)",
+      "Bash(gh api:*)",
+      "Bash(which gh:*)",
+      "Bash(cp:*)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:results-receiver.actions.githubusercontent.com)",
+      "WebFetch(domain:productionresultssa2.blob.core.windows.net)",
+      "WebFetch(domain:productionresultssa13.blob.core.windows.net)",
+      "WebFetch(domain:crates.io)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
   }
 }

@@ -120,8 +120,8 @@ NEPLg2.0 には `where` 節はなかった。NEPLg2.1 では複数制約を型�
 
 ```nepl
 // NEPLg2.1 での where 節
-let merge .T .K .V %fn Vec .T Vec .T -> Vec .T
-    where .T: Ord .K: Hash .V: Eq
+let merge .T %fn Vec .T Vec .T -> Vec .T
+    where .T: Ord
     \ a b :
     ...
 ```

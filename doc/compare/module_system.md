@@ -26,25 +26,6 @@
 
 **`#entry` の文法変更**: NEPLg2.0 の `#entry main` のように名前を取る形式から、`#entry` 単独のヘッダ宣言に変更。エントリポイントの関数名はモジュール慣例または build 設定で指定する。
 
-### 2.5 `module name:` ブロック（新規）
-
-ファイル内の論理的なサブモジュールを `module name:` ブロックで定義できる（新規追加）。
-
-```nepl
-module parser:
-    let parse ...:
-        ...
-
-module lexer:
-    let lex ...:
-        ...
-```
-
-- `module name:` は宣言キーワードではなく、ファイル内の論理分割ブロック。
-- Canonical Module Path に `::name` セグメントとして追加される。
-- 複数の `#part` ファイルに同名の `module` ブロックがあれば、同一論理モジュールの fragment として結合される。
-- NEPLg2.0 には対応する構文は存在しなかった。
-
 ### 2.2 `use` の統一
 
 ```nepl
@@ -77,6 +58,25 @@ merge "./filepath/filename"   // 拡張子 .nepl は省略
 ```nepl
 pub use core::math::gcd    // gcd を自モジュールから再公開
 ```
+
+### 2.5 `module name:` ブロック（新規）
+
+ファイル内の論理的なサブモジュールを `module name:` ブロックで定義できる（新規追加）。
+
+```nepl
+module parser:
+    let parse ...:
+        ...
+
+module lexer:
+    let lex ...:
+        ...
+```
+
+- `parser` と `lexer` は sibling モジュール。
+- 複数 `merge` ファイルに同じモジュール名ブロックがあれば、同一論理モジュールの fragment として結合される。
+- canonical path は `anchor ファイルパス::module_name`（例: `./editor.nepl` 内の `module parser:` → `editor::parser`）。
+- NEPLg2.0 には対応する構文は存在しなかった。
 
 ---
 
