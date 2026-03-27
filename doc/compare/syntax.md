@@ -14,7 +14,7 @@
 |---|---|---|
 | 関数定義 | `fn name <TypeParams> <Sig> (params):` | `let name <expr>` |
 | lambda | `(a, b): body` | `\a \b body` |
-| 0 引数関数 | `fn main <()->i32> ():` | `let main \(): ...` |
+| 0 引数関数 | `fn main <()->i32> ():` | `let main \() 0` |
 | struct 定義 | `struct Name<.T>:` | `let Name struct .T:` |
 | enum 定義 | `enum Name<.T>:` | `let Name enum .T:` |
 | trait 定義 | `trait Name:` | `let Name trait:` |

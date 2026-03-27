@@ -6,7 +6,7 @@
 
 | ディレクトリ | 内容 |
 |---|---|
-| [2.1spec/](./2.1spec/index.md) | NEPLg2.1 の完全な言語仕様（実装目標・正の仕様） |
+| [2.1spec/](./2.1spec/index.md) | NEPLg2.1 の現在の仕様書群（実装目標・正の仕様。未確定の周辺領域は各章で draft / 将来仕様として明示） |
 | [2.1impl/](./2.1impl/index.md) | NEPLg2.1 コンパイラ実装設計（ファイル構成・パイプライン・移行戦略） |
 | [compare/](./compare/index.md) | NEPLg2.0 → NEPLg2.1 の変更点対照表 |
 | [migration/](./migration/index.md) | stdlib / tests / tutorials の NEPLg2.1 移行計画（並行ディレクトリ戦略） |
