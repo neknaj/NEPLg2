@@ -66,13 +66,13 @@ let print_line %fn* str () \s ...
 
 ---
 
-## 4. `let` / `set` と効果
+## 4. `let` / draft `set` と効果
 
 Zenn #2 に従い、束縛の表層構文は `let <name> <expr>` / `let mut <name> <expr>` である。
 
 `let` 式の型は `()` とする。
 
-`set` の最終構文は別途調整中だが、可変更新の purity 判定は従来どおり次の条件に従う。
+`set` は意味論上ここで扱うが、表層構文はまだ draft であり、`syntax.md` の保留事項にも含める。可変更新の purity 判定は次の条件に従う。
 
 1. 更新対象が unique local state である
 2. 参照が外へ escape しない

@@ -71,7 +71,7 @@
 
 - `Copy` 実装可否を構造的に検査し、リソース所有型の `Copy` 実装を禁止する。
 - `Clone` 実装は move 規則と矛盾しない複製規約を満たすことを要求する。
-- メモリ系 trait（`MemReadable .T`, `MemWritable .T`, `RegionOwned`）の境界を満たさない呼び出しは型エラーにする。ただし実施は **Phase 4（Resource IR 導入後）**。それ以前はソフトウォーニングのみ。
+- 将来導入するメモリ系 capability trait（`MemReadable .T`, `MemWritable .T`, `RegionOwned`）の境界を満たさない呼び出しは型エラーにする。ただし実施は **Phase 4（Resource IR 導入後）**。それ以前はソフトウォーニングのみ。これらの trait は [traits.md](./traits.md) の将来拡張節で扱う。
 
 ---
 
@@ -163,8 +163,8 @@ io_close h
 
 ### 9.3 trait ベース API
 
-- `core/mem` の読み書き API は trait 境界で能力を表現する。
-- stream I/O は `RegionOwned` を満たす型のみが解放操作を実行できるようにする。
+- `core/mem` の読み書き API は将来導入する capability trait で能力を表現する。
+- stream I/O は `RegionOwned` のような capability を満たす型のみが解放操作を実行できるようにする。
 
 ---
 

@@ -91,8 +91,8 @@ get vec 3
 ### 7.2 期待型で絞る
 
 ```nepl
-let x %Option .T get vec idx
-let y %.T get vec idx
+let x %Option i32 get vec idx
+let y %i32 get vec idx
 ```
 
 ### 7.3 それでも曖昧なら修飾名を要求する
@@ -120,3 +120,15 @@ std::vec::get vec 3
 | `Clone` | 明示複製 |
 | `Copy` | 暗黙複製 |
 | `Drop` | 自動破棄対象 |
+
+---
+
+## 9. 将来導入する capability trait
+
+`compiler.md` で言及している次の capability trait は、現時点ではコア構文として凍結していない将来拡張である。
+
+- `MemReadable .T`
+- `MemWritable .T`
+- `RegionOwned`
+
+これらは Resource IR 導入後のメモリ API / 解放 API を trait 境界で表す候補であり、本章では名前と役割だけを予約する。

@@ -100,7 +100,7 @@ let try_read %fn* File Result Pair File str Pair File IoError \file ...
 依存型導入後も、型に現れる値は不変でなければならない。このため、Pure persistent value と region 管理の設計はそのまま Phase 8 の基盤になる。
 
 ```nepl
-let get .T .len .idx %fn Vec .T fn .idx .T
+let get .T .len .idx %fn Vec .T .len fn .idx .T
     ...
 ```
 

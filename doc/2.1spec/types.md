@@ -172,7 +172,7 @@ fn () i32
 型変数は `.T` のように書く。
 
 ```nepl
-let id %fn .T .T \a a
+let id .T %fn .T .T \a a
 let Pair struct .A .B:
     first: .A
     second: .B

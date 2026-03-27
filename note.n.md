@@ -25,6 +25,18 @@
     - `chat/dump` 配下は過去の検討メモであって現行仕様の正ではないため、その旨を明記した。
   - `doc/cli.md`, `doc/editor_extensions.md`, `doc/web_playground.md`
     - 現行 Bootstrap 実装の説明と NEPLg2.1 計画が混ざって読める箇所があったため、対象が現行実装であることと、正の仕様は `2.1spec` / Zenn #1 / #2 であることを明記した。
+  - `doc/2.1spec/index.md`
+    - 「完全な言語仕様」とだけ書くのではなく、Zenn #1 / #2 で未確定の周辺領域は各章で draft / 将来仕様として明示する構成だと分かる文言へ補正。
+  - `doc/2.1spec/modules.md`
+    - 壊れていた `declarations.md §9` 参照と未定義の `noshadow` 前提を除去し、現時点で本文に存在する衝突規則だけに書き直した。
+  - `doc/2.1spec/compiler.md`, `doc/2.1spec/traits.md`
+    - `MemReadable` / `MemWritable` / `RegionOwned` を compiler 章だけが先に使っていたため、traits 章に「将来導入する capability trait」として予約節を追加し、compiler 章側も将来拡張だと明記した。
+  - `doc/2.1spec/memory.md`, `doc/2.1spec/phase8.md`
+    - 長さ添字付き `Vec` の例を `Vec .T .len` へ揃えた。
+  - `doc/2.1spec/types.md`, `doc/2.1spec/traits.md`
+    - 束縛されていない `.T` をそのまま使っていた例を、binder 付きまたは具体型付きの well-formed な例へ修正。
+  - `doc/2.1spec/effects.md`, `doc/2.1spec/syntax.md`, `doc/2.1spec/phase8.md`
+    - `set` と証明オブジェクトの扱いが未凍結 / draft であることを明示し、Zenn #1 / #2 で確定したコア構文と将来設計の境界を見えるようにした。
 
 # 2026-03-27 作業メモ (doc: stdlib コメント方針の例を Zenn 基準へ追従)
 
