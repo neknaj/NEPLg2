@@ -14337,3 +14337,15 @@
 - [作業内容/さぎょうないよう]:
   - `doc/dependent_type_proof_plan.md` を作成し、未来の構想（三大追加要素）と現在の土台（Escape Analysis, Region/Drop, 決定論的解決）が高い親和性を持つことをドキュメント化した。
   - Vecの長さを型レベルで追跡する構文のスケッチを追加し、形式証明導入後のプログラミングの未来像を提示した。
+
+# 2026-03-27 作業メモ (compare / migration の全文読み継続)
+
+- [目的/もくてき]:
+  - `doc/2.1spec/` から外した旧語彙や未採用機能が、`doc/compare/` と `doc/migration/` に残って正仕様のように読まれないよう整理する。
+- [作業内容/さぎょうないよう]:
+  - `doc/compare/index.md` の「追加されるもの」から `noshadow let` という断定表現を外し、同一シグネチャ再定義の保護は将来拡張候補として保留中だと明記した。
+  - `doc/compare/module_system.md` の `module parser:` / `module lexer:` 例に残っていた旧 placeholder を、現行の `let <name> <expr>` と lambda で読める例へ修正した。
+  - `doc/migration/index.md` の tutorial 想定ファイル名 `33_noshadow_and_overload.n.md` を、現行 core 仕様と衝突しない `33_overload_and_redefinition.n.md` に更新した。
+- [plan.mdとの差異/さ]:
+  - `plan.md` の目標自体に変更はない。
+  - 文書群の補助資料側で残っていた旧案語彙を整理し、`doc/2.1spec/` を正の仕様として読む導線を補強した。

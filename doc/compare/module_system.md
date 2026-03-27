@@ -65,11 +65,11 @@ pub use core::math::gcd    // gcd を自モジュールから再公開
 
 ```nepl
 module parser:
-    let parse ...:
+    let parse \tokens:
         ...
 
 module lexer:
-    let lex ...:
+    let lex \source:
         ...
 ```
 

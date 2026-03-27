@@ -174,7 +174,7 @@ tutorials-2.1/
         30_linear_resource.n.md          # NEPLg2.1 新規
         31_region_and_persistent.n.md    # NEPLg2.1 新規
         32_module_system.n.md            # NEPLg2.1 新規
-        33_noshadow_and_overload.n.md    # NEPLg2.1 新規
+        33_overload_and_redefinition.n.md # NEPLg2.1 新規
 ```
 
 ---
