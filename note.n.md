@@ -23,6 +23,8 @@
     - ブートストラップ側の場所とセルフホスト構成が古い `/nepl-core` / `lexer` / `parser` / `typecheck` 前提で残っていたため、`nepl-core-2.1` と `2.1impl` の現行ディレクトリ設計に合わせて補正。
   - `doc/README.md`, `doc/chat/dump/*.md`
     - `chat/dump` 配下は過去の検討メモであって現行仕様の正ではないため、その旨を明記した。
+  - `doc/cli.md`, `doc/editor_extensions.md`, `doc/web_playground.md`
+    - 現行 Bootstrap 実装の説明と NEPLg2.1 計画が混ざって読める箇所があったため、対象が現行実装であることと、正の仕様は `2.1spec` / Zenn #1 / #2 であることを明記した。
 
 # 2026-03-27 作業メモ (doc: stdlib コメント方針の例を Zenn 基準へ追従)
 

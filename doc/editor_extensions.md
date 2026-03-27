@@ -1,5 +1,7 @@
 # Editor Extensions
 
+> **対象実装**: このドキュメントは現行 Bootstrap 実装（`nepl-core` / `nepl-web` / `nepl-language`）のエディタ連携方針を記述する。NEPLg2.1 の正の仕様は `doc/2.1spec/` を参照。
+
 ## 方針
 
 - `nepl-web` は Web Playground 向けの wasm API として維持する。

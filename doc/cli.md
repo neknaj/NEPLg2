@@ -1,6 +1,7 @@
 # CLI Output
 
-> **対象実装**: このドキュメントは NEPLg2.0（現行 `nepl-core`）の CLI 仕様を記述する。NEPLg2.1 では Resource IR analysis などの検査が加わる（`doc/2.1impl/compiler_structure.md` 参照）。
+> **対象実装**: このドキュメントは NEPLg2.0（現行 `nepl-core`）の CLI 仕様を記述する。
+> NEPLg2.1 では ownership check と Resource IR analysis などの検査が追加される想定であり、ここで説明する現在の CLI 挙動とは一致しない部分がある（`doc/2.1impl/compiler_structure.md` 参照）。
 
 This document describes NEPL CLI output options and file naming.
 
@@ -24,7 +25,7 @@ Examples:
 | `wasi` | WebAssembly with WASI syscalls |
 | `llvm` | Native binary via LLVM |
 
-The compiler's safety semantics (type check, effect check, ownership check) are identical across all targets. Only the physical layout and allocator differ (absorbed by `#if[target="..."]` in stdlib). NEPLg2.1 additionally performs ownership check and Resource IR analysis uniformly across all targets.
+The current compiler keeps typecheck / effect-check behavior consistent across targets. Only the physical layout and allocator differ (absorbed by `#if[target="..."]` in stdlib). NEPLg2.1 is planned to add ownership check and Resource IR analysis uniformly across all targets.
 
 ## Emit formats
 
