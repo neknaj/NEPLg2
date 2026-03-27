@@ -8,7 +8,7 @@
 //: - Pure な[計算/けいさん]ロジックを Impure な IO から[分離/ぶんり]するパターンを示す。
 //:
 //: ### [注意/ちゅうい]
-//: - `%fn` = Pure（[副作用/ふくさよう]なし）、`%fn*` = Impure（IO を含む）。
+//: - `%fn A B` = Pure な 1 引数関数型、`%fn* A B` = Impure な 1 引数関数型。
 //: - Pure 関数の中から Impure 関数を呼ぶことはできない。逆は可。
 
 #entry
@@ -32,31 +32,31 @@ use core::list as *
 //: - `read` が失敗した場合、`File` ハンドルは消費済みとなり再利用不可（言語仕様。`Err` 側に `File` は返らない）。
 //: - `File` を[途中/とちゅう]で落とすと "linear value not consumed" エラー。`match` の全アームで消費すること。
 
-pub let read_file_text %fn* str -> Result str IoError \ path :
+pub let read_file_text %fn* str Result str IoError \path:
     match open path Mode::Read:
-        Result::Err e: Result::Err e
-        Result::Ok file:
+        Result::Err e Result::Err e
+        Result::Ok file
             match read file:
-                Result::Err e: Result::Err e
-                Result::Ok Pair file2 content:
+                Result::Err e Result::Err e
+                Result::Ok Pair file2 content
                     match close file2:
-                        Result::Ok _:  Result::Ok content
-                        Result::Err e: Result::Err e
+                        Result::Ok _ Result::Ok content
+                        Result::Err e Result::Err e
 
 
-pub let write_file_text %fn* str str -> Result unit IoError \ path content :
+pub let write_file_text %fn* str fn str Result () IoError \path \content:
     match open path Mode::Write:
-        Result::Err e: Result::Err e
-        Result::Ok file:
+        Result::Err e Result::Err e
+        Result::Ok file
             match write file content:
-                Result::Err e: Result::Err e
-                Result::Ok file2:
+                Result::Err e Result::Err e
+                Result::Ok file2
                     match flush file2:
-                        Result::Err e: Result::Err e
-                        Result::Ok file3:
+                        Result::Err e Result::Err e
+                        Result::Ok file3
                             match close file3:
-                                Result::Ok _:  Result::Ok unit
-                                Result::Err e: Result::Err e
+                                Result::Ok _ Result::Ok ()
+                                Result::Err e Result::Err e
 
 
 //: ## analyze_file
@@ -66,17 +66,17 @@ pub let write_file_text %fn* str str -> Result unit IoError \ path content :
 //: - `count_lines` / `word_count` は Pure。テストのためにエントリポイントから切り離せる。
 //: - Impure な[境界/きょうかい]はこの関数だけ。[計算/けいさん]ロジック側に `%fn*` は伝染しない。
 
-let count_lines %fn str -> i32 \ content :
+let count_lines %fn str i32 \content:
     length split content "\n"
 
-let word_count %fn str -> i32 \ content :
+let word_count %fn str i32 \content:
     length split content " "
 
-pub let analyze_file %fn* str -> unit \ path :
+pub let analyze_file %fn* str () \path:
     match read_file_text path:
-        Result::Err e:
+        Result::Err e
             println concat "読み込みエラー: " show_io_error e
-        Result::Ok content:
+        Result::Ok content
             println concat "行数: "   to_str count_lines content
             println concat "単語数: " to_str word_count content
 
@@ -88,12 +88,12 @@ pub let analyze_file %fn* str -> unit \ path :
 //: - `stdin` / `stdout` は runtime-borrowed capability であり `close` 不可。
 //: - `read_line` が返す `str` の末尾に改行文字が含まれる場合がある（trim が必要）。
 
-pub let prompt %fn* str -> str \ msg :
+pub let prompt %fn* str str \msg:
     print msg
-    read_line unit
+    read_line ()
 
 
-pub let main %fn* unit -> i32 \ :
+pub let main %fn* () i32 \():
     let name prompt "ファイル名: "
     analyze_file name
     0

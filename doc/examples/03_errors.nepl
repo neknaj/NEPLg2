@@ -32,24 +32,25 @@ pub let MathError enum:
 //: - 入力は 1 文字の文字列リテラルのみ対応。複数文字は `Option::None`。
 //: - 教[示/じ]用の最小実装。実用では `core::parse::int` を使うこと。
 
-pub let parse_digit %fn str -> Option i32 \ s :
+pub let parse_digit %fn str Option i32 \s:
     match s:
-        "0": Option::Some 0
-        "1": Option::Some 1
-        "2": Option::Some 2
-        "3": Option::Some 3
-        "4": Option::Some 4
-        "5": Option::Some 5
-        "6": Option::Some 6
-        "7": Option::Some 7
-        "8": Option::Some 8
-        "9": Option::Some 9
-        _:   Option::None
+        "0" Option::Some 0
+        "1" Option::Some 1
+        "2" Option::Some 2
+        "3" Option::Some 3
+        "4" Option::Some 4
+        "5" Option::Some 5
+        "6" Option::Some 6
+        "7" Option::Some 7
+        "8" Option::Some 8
+        "9" Option::Some 9
+        _ Option::None
 
 
-pub let safe_div %fn i32 i32 -> Option i32 \ a b :
-    if eq b 0: Option::None
-    else: Option::Some div a b
+pub let safe_div %fn i32 fn i32 Option i32 \a \b:
+    if eq b 0
+        Option::None
+        Option::Some div a b
 
 
 //: ## parse_int
@@ -60,13 +61,13 @@ pub let safe_div %fn i32 i32 -> Option i32 \ a b :
 //: - `Option` を[内部/ないぶ]で使い、外[向/む]きの型は `Result` に[統一/とういつ]している。
 //: - 利用者が失敗[理由/りゆう]を必要としない場合は `parse_digit` を直接使えばよい。
 
-pub let parse_int %fn str -> Result i32 ParseError \ s :
-    if eq s "":
+pub let parse_int %fn str Result i32 ParseError \s:
+    if eq s ""
         Result::Err ParseError::EmptyInput
-    else:
+        block:
         match parse_digit s:
-            Option::Some n: Result::Ok n
-            Option::None:   Result::Err ParseError::InvalidChar s
+            Option::Some n Result::Ok n
+            Option::None Result::Err ParseError::InvalidChar s
 
 
 //: ## pipeline
@@ -77,14 +78,14 @@ pub let parse_int %fn str -> Result i32 ParseError \ s :
 //: - 各[変換/へんかん]ステップが[独立/どくりつ]して `Result` を返す場合、`and_then` の[連鎖/れんさ]がフラットになる。
 //: - 途中の `Err` 型が[統一/とういつ]されていない場合は `map_err` で変換が必要（このサンプルでは省略）。
 
-pub let pipeline %fn str str -> Result i32 ParseError \ sa sb :
+pub let pipeline %fn str fn str Result i32 ParseError \sa \sb:
     parse_int sa
-    |> and_then \ a :
+    |> and_then \a:
         parse_int sb
-        |> and_then \ b :
+        |> and_then \b:
             match safe_div a b:
-                Option::Some v: Result::Ok v
-                Option::None:   Result::Err ParseError::InvalidChar "div by zero"
+                Option::Some v Result::Ok v
+                Option::None Result::Err ParseError::InvalidChar "div by zero"
 
 
 //: ## parse_and_double
@@ -94,17 +95,17 @@ pub let pipeline %fn str str -> Result i32 ParseError \ sa sb :
 //: - `map` は `Ok` の[値/あたい]だけを[変換/へんかん]する。`Err` は[型/かた]ごとそのまま通す。
 //: - 失敗しない[変換/へんかん]（`mul n 2`）を `and_then` でなく `map` に渡すのが正しいパターン。
 
-pub let parse_and_double %fn str -> Result i32 ParseError \ s :
-    s |> parse_int |> map \ n : mul n 2
+pub let parse_and_double %fn str Result i32 ParseError \s:
+    s |> parse_int |> map \n mul n 2
 
 
-pub let run_with_report %fn str -> str \ s :
+pub let run_with_report %fn str str \s:
     match parse_int s:
-        Result::Ok n:
+        Result::Ok n
             concat "解析成功: " to_str n
-        Result::Err ParseError::EmptyInput:
+        Result::Err ParseError::EmptyInput
             "エラー: 入力が空"
-        Result::Err ParseError::InvalidChar c:
+        Result::Err ParseError::InvalidChar c
             concat "エラー: 無効な文字 " c
-        Result::Err ParseError::Overflow:
+        Result::Err ParseError::Overflow
             "エラー: オーバーフロー"

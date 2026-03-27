@@ -12,5 +12,5 @@
 use core::math as *
 
 // anchor の internal_scale が見える（同一モジュール内）
-pub let double_scale %fn i32 -> i32 \ n :
+pub let double_scale %fn i32 i32 \n:
     mul internal_scale n 2

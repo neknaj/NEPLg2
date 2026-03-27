@@ -2,7 +2,7 @@
 //: NEPLg2.1 の[基本構文/きほんこうぶん]を示すサンプルファイル
 //:
 //: ### [目的/もくてき]
-//: - `\ params :` による引数リスト・`%fn`/`%fn*` 型[注釈/ちゅうしゃく]・パイプ `|>` の対応を一覧する。
+//: - `\x expr` / `\x:` による lambda と、`%fn` / `%fn*` の型[注釈/ちゅうしゃく]・パイプ `|>` の対応を一覧する。
 //: - Pure 関数の内部で `set` による[可変/かへん][更新/こうしん]が許される[条件/じょうけん]を示す。
 //: - Impure 操作（`println`）を Pure な[計算/けいさん]ロジックから[分離/ぶんり]するパターンを示す。
 //:
@@ -21,13 +21,15 @@ use core::pair as *   // Pair, fst, snd
 
 let MAX_SCORE %i32 100
 
-let square %fn i32 -> i32 \ n :
+let square %fn i32 i32 \n:
     mul n n
 
-let clamp %fn i32 i32 i32 -> i32 \ lo hi x :
-    if lt x lo: lo
-    else if gt x hi: hi
-    else: x
+let clamp %fn i32 fn i32 fn i32 i32 \lo \hi \x:
+    if lt x lo
+        lo
+        if gt x hi
+            hi
+            x
 
 
 //: ## factorial
@@ -41,9 +43,10 @@ let clamp %fn i32 i32 i32 -> i32 \ lo hi x :
 //: ### [計算量/けいさんりょう]
 //: - 時間・スタック深さともに O(n)
 
-let factorial %fn i32 -> i32 \ n :
-    if le n 1: 1
-    else: mul n factorial sub n 1
+let factorial %fn i32 i32 \n:
+    if le n 1
+        1
+        mul n factorial sub n 1
 
 
 //: ## sum_to
@@ -54,7 +57,7 @@ let factorial %fn i32 -> i32 \ n :
 //: - `set` が Pure になる[条件/じょうけん]: [更新/こうしん][対象/たいしょう]が unique local state であり、参照が外へ escape しないこと。
 //: - `doc/2.1spec/effects.md §3.5` を参照。
 
-let sum_to %fn i32 -> i32 \ n :
+let sum_to %fn i32 i32 \n:
     let mut i   1
     let mut acc 0
     while le i n:
@@ -70,7 +73,7 @@ let sum_to %fn i32 -> i32 \ n :
 //: - 言語[組/く]み[込/こ]みの Tuple キーワードは廃[止/し]済み。複数[結果/けっか]には `Pair` / `Triple` を使う。
 //: - b = 0 の場合の[動作/どうさ]は[未定義/みていぎ]。必要なら `div_checked` を使うこと。
 
-let div_mod %fn i32 i32 -> Pair i32 i32 \ a b :
+let div_mod %fn i32 fn i32 Pair i32 i32 \a \b:
     Pair div a b mod a b
 
 
@@ -81,15 +84,18 @@ let div_mod %fn i32 i32 -> Pair i32 i32 \ a b :
 //: - `f |> g` は `g f` と等価。左辺の[値/あたい]を右辺の[関数/かんすう]の第 1 引数に[渡/わた]す。
 //: - `|>` は左辺を第 1 引数に[注入/ちゅうにゅう]するため、`clamp 0 MAX_SCORE x` のように x が後[置/ち]になる関数は前[置/ぜんち]記法で書く。
 
-let pipeline_demo %fn i32 -> i32 \ n :
+let pipeline_demo %fn i32 i32 \n:
     clamp 0 MAX_SCORE square n
 
 
-let grade %fn i32 -> str \ score :
-    if ge score 90: "A"
-    else if ge score 70: "B"
-    else if ge score 50: "C"
-    else: "D"
+let grade %fn i32 str \score:
+    if ge score 90
+        "A"
+        if ge score 70
+            "B"
+            if ge score 50
+                "C"
+                "D"
 
 
 //: ## main
@@ -100,7 +106,7 @@ let grade %fn i32 -> str \ score :
 //: - [計算/けいさん]ロジック側のテストは `println` を含まずに書ける。
 //: - `%fn*` が[必要/ひつよう]なのは `println` の呼び出しを含むため。
 
-pub let main %fn* unit -> i32 \ :
+pub let main %fn* () i32 \():
     println concat "10! = "        to_str factorial 10
     println concat "sum(1..10) = " to_str sum_to 10
     println concat "grade(85) = "  grade 85

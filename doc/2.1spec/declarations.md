@@ -1,276 +1,168 @@
 # NEPLg2.1 宣言構文仕様
 
-最終更新: 2026-03-16
+最終更新: 2026-03-27
 
 ---
 
-## 1. 宣言の統一原則
+## 1. 宣言の基本原則
 
-NEPLg2.1 ではすべての宣言を `let` キーワードで行う。関数・struct・enum・trait・impl はすべて `let` で始まる。型注釈は `%TypeExpr` 記法を使う。
+NEPLg2.1 では、定義の基本形を `let <name> <expr>` に統一する。関数定義は「関数宣言」という別構文ではなく、lambda 式を束縛した `let` である。
+
+```nepl
+let zero 0
+let inc \a add a 1
+let mut counter 0
+```
 
 ---
 
 ## 2. 関数定義
 
-```
-let <name> [<type_params>] %fn [<param_types>] -> <ret_type>
-    [where <constraints>]
-    \ [<params>] :
-    <body>
-```
-
 ### 2.1 基本形
 
 ```nepl
-let add2 %fn i32 i32 -> i32 \ a b :
-    add_impl a b
-
-let id .T %fn .T -> .T \ x :
-    x
-
-let not %fn bool -> bool \ x :
-    if x: false else: true
-
-let new %fn unit -> StringBuilder \ :
-    sb_alloc unit
+let <name> <expr>
 ```
 
-### 2.2 副作用関数（Impure）
+関数を定義する場合、`<expr>` に lambda を置く。
 
 ```nepl
-let print_line %fn* str -> unit \ s :
-    ...
-
-let open_file %fn* Path Mode -> Result File IoError \ path mode :
-    ...
+let double \a add a a
+let const \a \b a
 ```
 
-### 2.3 型パラメータと制約
+### 2.2 lambda
+
+lambda の基本形は次の 2 つである。
 
 ```nepl
-// 型パラメータのみ
-let map .T .U %fn Option .T fn .T -> .U -> Option .U \ o f :
-    match o:
-        Option::Some x: Option::Some f x
-        Option::None:   Option::None
-
-// 型パラメータ + インライン制約
-let sort .T: Ord %fn* Vec .T -> Vec .T \ v :
-    ...
+\arg <expr>
+\arg:
+    <exprs>
 ```
 
-### 2.4 `where` 節
-
-複数の制約または複雑な制約は `where` 節で分離して書く。
-
-- 配置: 型シグネチャ（`%fn ... -> RetType`）の直後、引数リスト（`\ params :`）の直前
-- 制約の区切りはスペースのみ（カンマなし）
-- `where` 節自体に `:` は付けない（引数リスト `\ params :` の `:` が本体の開始を示す）
+0 引数は `\()` を使う。
 
 ```nepl
-let merge .T %fn Vec .T Vec .T -> Vec .T
-    where .T: Ord
-    \ a b :
-    ...
+let main \() 0
+
+let main \():
+    let p Point x: 0 y: 7
+    0
 ```
 
-Phase 8（依存型）では、型変数束縛（`.T: Trait`）に加えて命題制約（`%PropType`）も `where` に書ける（詳細は [phase8.md](./phase8.md)）。
+複数引数関数はカリー化して入れ子にする。
 
 ```nepl
-// Phase 8 example: 証明オブジェクトが where に現れる
-let get .T .len .idx %fn Vec .T .len .idx -> .T
-    where %IsLess .idx .len
-    \ vec index :
-    ...
+let add2 \a \b add a b
 ```
 
-### 2.5 引数リスト記法 `\ params :`
+### 2.3 部分適用
 
-- 引数の束縛は `\ param1 param2 ... :` の形で書く。
-- 括弧・カンマは使わない。
-- 引数なし（unit 引数）は `\ :` と書く。
-- `\` は型注釈の後ろに続き、`:` の後がボディになる。
-
-### 2.6 巻き上げ（hoisting）
-
-`let` バインディングのうち型注釈が `fn`/`fn*` 型のものは、宣言されたスコープ内で巻き上げが有効。相互再帰も可能。
+関数はカリー化して定義するが、部分適用を値として残すことはサポートしない。したがって、定義側では `\a \b ...` の形を使って 2 引数関数を構成し、呼び出し側では必要な引数をすべて与える。
 
 ---
 
-## 3. struct 定義
+## 3. let と mut
 
+### 3.1 不変束縛
+
+```nepl
+let answer 42
 ```
-let <Name> struct [<type_params>] :
-    <field_name> %<TypeExpr>
-    ...
+
+### 3.2 可変束縛
+
+```nepl
+let mut counter 0
 ```
+
+`let mut` で束縛できる式の制約や更新規則は [effects.md](./effects.md) を参照。
+
+### 3.3 型注釈付き束縛
+
+型注釈は `let` 専用構文ではなく、右辺の式に `%TypeExpr` を前置する。
+
+```nepl
+let x %i32 add 1 2
+let p %Pair i32 bool Pair 1 true
+```
+
+---
+
+## 4. struct 定義
+
+Zenn #2 の表記に合わせ、struct 定義ではフィールドを `name: TypeExpr` で書く。
 
 ```nepl
 let Point struct:
-    x %i32
-    y %i32
+    x: i32
+    y: i32
 
 let Pair struct .A .B:
-    fst %.A
-    snd %.B
-
-let Node struct .T:
-    val %.T
-    next %Option Node .T    // ネスト型: Option (Node .T)
+    first: .A
+    second: .B
 ```
 
-`%Option Node .T` の解析: `Option : * -> *`、引数として `Node .T`（`Node : * -> *`、`.T` で kind `*` に → `Node .T : *`）→ `Option (Node .T) : *` ✓
+### 4.1 struct 値の構築
+
+フィールド名付きの前置記法を用いる。
+
+```nepl
+let p Point x: 0 y: 7
+```
 
 ---
 
-## 4. enum 定義
+## 5. enum 定義
 
-```
-let <Name> enum [<type_params>] :
-    <VariantName> [%<TypeExpr>]    // ペイロードなしは名前のみ
-    ...
-```
+enum も `let` に統一する。
 
 ```nepl
 let Option enum .T:
-    Some %.T
+    Some .T
     None
 
 let Result enum .T .E:
-    Ok %.T
-    Err %.E
-
-let Mode enum:
-    Read
-    Write
-    Append
+    Ok .T
+    Err .E
 ```
 
-### 4.1 バリアントの名前解決規則
-
-enum バリアントは 2 通りの参照形式を持つ。
-
-| 形式 | 構文 | 条件 |
-|------|------|------|
-| **修飾形** | `EnumType::VariantName` | 常に有効（型が確定しなくてもよい） |
-| **bare 形** | `VariantName` | `use EnumType::*` またはスコープ内に型注釈があり一意に解決できる場合のみ有効 |
-
-```nepl
-// 修飾形（常に使える）
-match opt:
-    Option::Some v: v
-    Option::None:   0
-
-// bare 形（期待型 Option .T が確定していれば可）
-let x %Option i32 Some 10
-```
-
-修飾形 `Type::Variant` は `::` が使われているが、これは**モジュールパスではなく enum 型名による修飾**である。`modules.md` の `use` 解決とは独立した仕組みとして型検査器が処理する。
-
-bare バリアント名が複数の enum で衝突した場合はコンパイルエラーとなり、修飾形による明示を要求する。
-
-**「期待型が確定」する条件（bare 形が使える状況）:**
-1. `let x %Option i32 Some 10` — `%` 型注釈が直前にある
-2. `match opt: Some x: ...` — scrutinee の型が確定している（match の対象から伝播）
-3. 関数引数の型が確定している — `f Some 10` で `f` の第 1 引数型が `Option .T` と分かる場合
-4. いずれの条件も満たさない場合は修飾形を使うこと
+バリアント参照は、従来どおり修飾形 `Option::Some` を基本に説明する。bare 形の解決は型文脈に依存するため、曖昧になる場合は修飾形を要求する。
 
 ---
 
-## 5. trait 定義
+## 6. trait 定義
 
-```
-let <Name> trait [<type_params>] :
-    let <method_name> %<fn_type> \ <params> :
-        <default_body_or_...>
-```
+trait / impl / where などは Zenn #1 / #2 ではまだ全面確定していない。ここでは `let` に統一する原則だけを固定し、表層構文は前置型記法に合わせる。
 
 ```nepl
 let Eq trait:
-    let eq %fn Self Self -> bool \ a b :
-        ...
-
-let Ord trait:
-    let cmp %fn Self Self -> Ordering \ a b :
-        ...
-    let lt %fn Self Self -> bool \ a b :
-        // デフォルト実装
-        is_lt cmp a b
+    let eq %fn Self fn Self bool \a \b ...
 ```
 
-`...`（3 つのドット）が本体に書かれたメソッドはデフォルト実装を持たない。`impl` ブロックで必ず実装しなければならない。コード（`...` 以外）が本体に書かれたメソッドはデフォルト実装であり、`impl` 側で上書きできる。
-
-**`Self` キーワード**: trait メソッドシグネチャ内の `Self` は特別な型変数であり、「このトレイトを実装した具体型」を指す。`let Type impl for Trait:` の際、コンパイラがすべての `Self` を `Type` に置き換えてシグネチャ整合を確認する。`Self` は宣言の型パラメータリストには現れない（暗黙に存在する）。
+`trait` メソッドの型も `fn A B` 形式を使う。
 
 ---
 
-## 6. impl 定義
-
-```
-let <Type> impl for <Trait> [where <constraints>] :
-    let <method_name> %<fn_type> \ <params> :
-        <body>
-```
+## 7. impl 定義
 
 ```nepl
 let i32 impl for Eq:
-    let eq %fn i32 i32 -> bool \ a b :
-        i32_eq a b
-
-let Vec .T impl for Eq
-    where .T: Eq :
-    let eq %fn Vec .T Vec .T -> bool \ a b :
-        vec_eq a b
+    let eq %fn i32 fn i32 bool \a \b i32_eq a b
 ```
+
+詳細な coherence や where 節の扱いは [traits.md](./traits.md) を参照。
 
 ---
 
-## 7. let 型注釈（値バインディング）
+## 8. 可視性
+
+可視性キーワード自体は従来どおり使えるが、宣言の核は常に `let` である。
 
 ```nepl
-let a %Option i32 Option::Some 10
-let checks %Vec Result unit str
-```
-
-`%Vec Result unit str`: `Vec : * -> *`、引数として `Result unit str`（`Result : * -> * -> *`、`unit : *`、`str : *` → `Result unit str : *`）→ `Vec (Result unit str) : *` ✓
-
----
-
-## 8. `pub` と可視性
-
-| 記法 | 意味 |
-|------|------|
-| （なし） | モジュール内のみ（暗黙 private） |
-| `private` | 同上（明示版。省略しても同じ） |
-| `pub let ...` | モジュール外から `use` で参照可能 |
-| `pub use path` | 他モジュールの item を再エクスポート |
-
-```nepl
-pub let map .T .U %fn Option .T fn .T -> .U -> Option .U \ o f :
-    ...
-```
-
----
-
-## 9. シャドウイングとオーバーロード
-
-- 同名でもシグネチャが異なる宣言は**オーバーロード**として許可。
-- 同名かつシグネチャが同一の宣言は warning を出し、後者が優先（shadowing）。
-- `noshadow let` を付けた宣言は保護対象。同一シグネチャでの再定義はエラー。
-
-```nepl
-noshadow let eq %fn i32 i32 -> bool \ a b :   // 保護
-    ...
-```
-
----
-
-## 10. `#module` / `#entry` / `#part` ヘッダ
-
-ファイルの役割はヘッダで宣言する（詳細は [modules.md](./modules.md)）。
-
-```nepl
-#module    // 独立モジュールの anchor ファイル
-#entry     // エントリポイント
-#part      // merge されるパートファイル
+pub let zero 0
+pub let Point struct:
+    x: i32
+    y: i32
 ```

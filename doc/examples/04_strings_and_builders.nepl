@@ -27,14 +27,14 @@ use core::result as *
 //: - `finish` で builder を消費して `str` を確定する。以後 `b` は使えない（コンパイラが検査）。
 //:
 //: ### [注意/ちゅうい]
-//: - `new unit` の `unit` は引数なし `%fn unit -> StringBuilder` の形式に対応した呼び出し。
+//: - `new ()` の `()` は 0 引数呼び出しに対応する。
 //: - `StringBuilder` は `Clone` を持たない。コピーを渡す[設計/せっけい]は意図的に[禁止/きんし]されている。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間 O(n * |s|)、内部[再確保/さいかくほ]は[償却/しょうきゃく] O(1)
 
-pub let repeat_str %fn str i32 -> str \ s n :
-    let mut b new unit
+pub let repeat_str %fn str fn i32 str \s \n:
+    let mut b new ()
     let mut i 0
     while lt i n:
         set b push_str b s
@@ -47,18 +47,17 @@ pub let repeat_str %fn str i32 -> str \ s n :
 //:
 //: ### [実装/じっそう]
 //: - 先頭要素を別[扱/あつか]いにしてセパレータを前[置/ち]しないようにしている。
-//: - 高階関数 `fold` に `\ b s : ...` クロージャを渡し、builder を[畳/たた]み[込/こ]む。
-//: - クロージャは `\ params : body` の形式。型[推論/すいろん]で builder と str を[識別/しきべつ]する。
+//: - 高階関数 `fold` に `\b \s ...` クロージャを渡し、builder を[畳/たた]み[込/こ]む。
 
-pub let join %fn List str str -> str \ xs sep :
+pub let join %fn List str fn str str \xs \sep:
     match xs:
-        List::Nil:
+        List::Nil
             ""
-        List::Cons first rest:
+        List::Cons first rest
             let b_final
                 fold \ b s :
                     b |> push_str sep |> push_str s
-                push_str new unit first
+                push_str new () first
                 rest
             finish b_final
 
@@ -76,11 +75,11 @@ pub let join %fn List str str -> str \ xs sep :
 //: - `ByteBuf` は `Owned` resource。`reverse_buf` で消費されて新しい buf が返る想定。
 //: - この関数は教[示/じ]用途であり、実[用/よう]では UTF-8 [単位/たんい]での[逆順/ぎゃくじゅん]が必要。
 
-pub let reverse_bytes %fn str -> Result str Utf8Error \ s :
+pub let reverse_bytes %fn str Result str Utf8Error \s:
     s |> to_bytes |> reverse_buf |> to_str
 
 
-pub let first_word %fn str -> Option str \ s :
+pub let first_word %fn str Option str \s:
     match split s " ":
-        List::Cons w _: Option::Some w
-        List::Nil:      Option::None
+        List::Cons w _ Option::Some w
+        List::Nil Option::None

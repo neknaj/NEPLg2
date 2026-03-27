@@ -35,13 +35,13 @@ use core::str::concat        // concat だけを直接導入
 
 // ── private: このモジュール内でしか使えない ──────────────────────────────
 
-let internal_scale %fn i32 -> i32 \ n :
+let internal_scale %fn i32 i32 \n:
     mul n 42
 
 
 // ── pub: use した側から見える ──────────────────────────────────────────────
 
-pub let scale_and_add %fn i32 i32 -> i32 \ n m :
+pub let scale_and_add %fn i32 fn i32 i32 \n \m:
     add internal_scale n m
 
 
@@ -55,10 +55,10 @@ pub let scale_and_add %fn i32 i32 -> i32 \ n m :
 
 module geometry:
     pub let Point struct:
-        x %i32
-        y %i32
+        x: i32
+        y: i32
 
-    pub let distance_sq %fn Point Point -> i32 \ a b :
+    pub let distance_sq %fn Point fn Point i32 \a \b:
         let dx sub b.x a.x
         let dy sub b.y a.y
         add mul dx dx mul dy dy
@@ -71,15 +71,16 @@ module statistics:
     //: - 空リストのときは 0 を返す。`Option i32` を返す設計も考えられるが、
     //:   このサンプルでは[簡略化/かんりゃくか]している。
     //: - 除算は切り捨て整数除算。
-    pub let mean %fn list::List i32 -> i32 \ xs :
+    pub let mean %fn list::List i32 i32 \xs:
         let n list::length xs
-        if eq n 0: 0
-        else: div list::fold_left xs 0 add n
+        if eq n 0
+            0
+            div list::fold_left xs 0 add n
 
 
-pub let main %fn* unit -> i32 \ :
-    let p1 geometry::Point 0 0
-    let p2 geometry::Point 3 4
+pub let main %fn* () i32 \():
+    let p1 geometry::Point x: 0 y: 0
+    let p2 geometry::Point x: 3 y: 4
     println concat "distance^2 = " to_str geometry::distance_sq p1 p2
 
     let nums list::cons 10 list::cons 20 list::cons 30 list::nil

@@ -1,3 +1,51 @@
+# 2026-03-27 作業メモ (doc: Zenn #1 / #2 を正として 2.1spec のコア構文文書を更新)
+
+- [目的]:
+  - `doc/2.1spec/` のうち、Zenn #1「カリー化」と Zenn #2「型と制御構文」で明示された仕様と衝突していた文書を、Zenn 記事を正として修正する。
+- [変更]:
+  - `doc/2.1spec/overview.md`
+    - 概要を旧 `fn A -> B` / `%fn ... -> ...` 前提から更新。
+    - カリー化、`%` の意味、`let <name> <expr>`、`if` / `match` / `block:` / `;`、`()` 表記を現行コアとして明記。
+  - `doc/2.1spec/types.md`
+    - 関数型記法を `fn A B` 形式へ変更。
+    - `%` を宣言用の注釈開始記号ではなく「続く 1 個の式に掛かる前置演算子」として再定義。
+    - `unit` 値表記を削除し、`()` を unit 型およびその唯一の値として整理。
+  - `doc/2.1spec/declarations.md`
+    - 関数定義の基本形を `%fn ... \ ...` 必須の宣言から、`let <name> <expr>` へ変更。
+    - lambda を `\a <expr>` / `\a:` ブロック / `\()` で説明。
+    - struct 定義と構築例を `x: i32`, `Point x: 0 y: 7` 形式へ変更。
+  - `doc/2.1spec/syntax.md`
+    - `if` を `if <cond> <then> <else>` / `if <cond> then <then> else <else>` に差し替え。
+    - `match` arm を `<pattern> <expr>` に差し替え。
+    - `block:` と前置 `;` を追加。
+    - `|>` 節から部分適用前提の説明を除去。
+  - `doc/2.1spec/patterns.md`
+    - OR pattern を `or` pattern として導入。
+    - range 保留をやめ、`span` pattern を導入。
+    - struct 分解を位置ベースから field 名付きへ変更。
+    - guard / 部分適用中心の説明をコア仕様から外した。
+  - `doc/2.1spec/effects.md`, `doc/2.1spec/memory.md`, `doc/2.1spec/traits.md`, `doc/2.1spec/phase8.md`
+    - 旧 `->` 記法・`unit` 表記・旧 lambda 表記の用例を、新しい前置型記法と `()`、`let` / lambda 記法へ追従させた。
+  - `doc/compare/syntax.md`, `doc/compare/index.md`
+    - 「旧 2.1 案」と「Zenn #1 / #2 を正とした現在の 2.1」を区別する形で比較文書を更新。
+  - `doc/examples/01_basics.nepl` から `doc/examples/07_modules_impl.nepl`
+    - コア構文に直接触れるサンプルを、旧 `->` / `unit` / `pattern: expr` / `if ...:` から新表記へ追従させた。
+- [plan.mdとの差異]:
+  - `plan.md` には旧 2.0 / 旧 2.1 案の記述が強く残っており、今回の Zenn #1 / #2 で確定したコア構文とは一致しない。
+  - 特に、関数型記法、`%` の意味、`let` / lambda の基本文法、部分適用の不採用、`if` / `match` / pattern / block / `;`、`()` 表記は `plan.md` と差分がある。
+  - `plan.md` は人が書き換える前提なので未変更とし、差分は本メモに記録した。
+- [現在の実装状況]:
+  - `doc/2.1spec/` のコア構文文書は、Zenn #1 / #2 を正として参照できる入口に更新した。
+  - `doc/compare/` と `doc/examples/` のコア構文サンプルも主要部分を新記法へ追従済み。
+  - 一方で `compiler.md` など実装内部設計文書には、表層構文と直接衝突しない範囲の旧記法断片が残る。今回はコア構文と読者向け導線を優先した。
+- [Zenn記事内の不整合メモ]:
+  - Zenn #2 の `if` 節では文法説明が `<then_expr> := "then" <expr>`, `<else_expr> := "else" <expr>` となっている一方、直後の例では `if true 1 2` も許している。実例から見て `then` / `else` は省略可能な読み替えが必要。
+  - Zenn #2 の関数説明は `\a <expr>` を基本形としているが、後半の例では `\():` と block 本体付き 0 引数 lambda を使っている。実装方針としては例に合わせ、0 引数 `\()` と block 本体を許す形で文書化した。
+- [確認]:
+  - `cargo test --workspace --quiet` を実行。
+  - 文書変更とは無関係の既知失敗 `generics_nested_option_match` により全体は exit code 101。
+  - それ以外のテスト群は通過しており、今回の doc 修正に起因する新規失敗は確認していない。
+
 # 2026-03-18 作業メモ (fix: tests/compiler・stdlib の失敗テストを修正 #2)
 
 - [目的]: CI で発生していた失敗テストを引き続き修正。

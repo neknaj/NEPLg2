@@ -16,12 +16,12 @@ use core::math as *
 // ── struct ────────────────────────────────────────────────────────────────
 
 pub let Point struct:
-    x %i32
-    y %i32
+    x: i32
+    y: i32
 
 pub let Rect struct:
-    top_left     %Point
-    bottom_right %Point
+    top_left: Point
+    bottom_right: Point
 
 
 //: ## Tree
@@ -34,7 +34,7 @@ pub let Rect struct:
 
 pub let Tree enum .T:
     Leaf
-    Node %Tree .T  %.T  %Tree .T
+    Node Pair Tree .T Pair .T Tree .T
 
 
 //: ## insert
@@ -47,17 +47,18 @@ pub let Tree enum .T:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] O(log n)、最悪 O(n)（[木/き]が[偏/かたよ]っている場合）
 
-pub let insert .T: Ord %fn Tree .T .T -> Tree .T \ t val :
+pub let insert .T: Ord %fn Tree .T fn .T Tree .T \t \val:
     match t:
-        Tree::Leaf:
+        Tree::Leaf
             Tree::Node Tree::Leaf val Tree::Leaf
-        Tree::Node left v right:
-            if lt val v:
+        Tree::Node left_v_right
+            let left fst left_v_right
+            let v fst snd left_v_right
+            let right snd snd left_v_right
+            if lt val v
                 Tree::Node insert left val v right
-            else:
-                if gt val v:
+                if gt val v
                     Tree::Node left v insert right val
-                else:
                     t
 
 
@@ -72,12 +73,12 @@ pub let insert .T: Ord %fn Tree .T .T -> Tree .T \ t val :
 //: - 機械[向/む]け・安定した[表現/ひょうげん]は `Serialize` trait を使うこと（`doc/2.1spec/traits.md` 参照）。
 
 pub let Show trait:
-    let show %fn Self -> str \ self :
+    let show %fn Self str \self:
         "?"
 
 
 pub let Point impl for Show:
-    let show %fn Point -> str \ p :
+    let show %fn Point str \p:
         concat "(" concat to_str p.x concat ", " concat to_str p.y ")"
 
 
@@ -86,7 +87,7 @@ pub let Point impl for Show:
 //:
 //: ### [注意/ちゅうい]
 //: - バリアントはすべてペイロードなし。`match` での[網羅/もうら]性[検査/けんさ]が[自動/じどう]で働く。
-//: - OR パターン `North | South` は[変数/へんすう]束縛なしの場合のみ使える。
+//: - OR パターンは `or North South` のように書く。
 
 pub let Direction enum:
     North
@@ -95,24 +96,24 @@ pub let Direction enum:
     West
 
 pub let Direction impl for Show:
-    let show %fn Direction -> str \ d :
+    let show %fn Direction str \d:
         match d:
-            Direction::North: "North"
-            Direction::South: "South"
-            Direction::East:  "East"
-            Direction::West:  "West"
+            Direction::North "North"
+            Direction::South "South"
+            Direction::East "East"
+            Direction::West "West"
 
-pub let opposite %fn Direction -> Direction \ d :
+pub let opposite %fn Direction Direction \d:
     match d:
-        Direction::North: Direction::South
-        Direction::South: Direction::North
-        Direction::East:  Direction::West
-        Direction::West:  Direction::East
+        Direction::North Direction::South
+        Direction::South Direction::North
+        Direction::East Direction::West
+        Direction::West Direction::East
 
-pub let is_vertical %fn Direction -> bool \ d :
+pub let is_vertical %fn Direction bool \d:
     match d:
-        Direction::North | Direction::South: true
-        Direction::East  | Direction::West:  false
+        or Direction::North Direction::South true
+        or Direction::East Direction::West false
 
 
 // ── ネストパターン・@ パターン ────────────────────────────────────────────
@@ -121,31 +122,23 @@ pub let is_vertical %fn Direction -> bool \ d :
 //: `Point` の[座標/ざひょう]による[分類/ぶんるい]
 //:
 //: ### [実装/じっそう]
-//: - コンストラクタパターン `Point x y` を使って x・y を同時に[分解/ぶんかい]。
-//: - `Point 0 0` のアームは `Point _ 0` より前に置く必要がある（上から[順/じゅん]に[試/こころ]みる）。
+//: - field pattern `Point x: x y: y` を使って x・y を同時に[分解/ぶんかい]。
+//: - より具体的な arm を前に置く。
 
-pub let classify_point %fn Point -> str \ p :
+pub let classify_point %fn Point str \p:
     match p:
-        Point 0 0: "origin"
-        Point 0 _: "on y-axis"
-        Point _ 0: "on x-axis"
-        _:         "general"
+        Point x: 0 y: 0 "origin"
+        Point x: 0 y: _ "on y-axis"
+        Point x: _ y: 0 "on x-axis"
+        _ "general"
 
 
 pub let Rect impl for Show:
-    let show %fn Rect -> str \ r :
+    let show %fn Rect str \r:
         concat "Rect(" concat show r.top_left concat ", " concat show r.bottom_right ")"
 
 
-//: ## log_and_area
-//: `@` パターンによる[値/あたい]全体と[部分/ぶぶん]の同時束縛
-//:
-//: ### [実装/じっそう]
-//: - `desc @ _` は `_` に[一致/いっち]しつつ、[値/あたい]全体を `desc` に束縛する。
-//: - `@` パターンは[分解/ぶんかい]と[保持/ほじ]を同時に行いたい場面で使う。
-
-pub let log_and_area %fn Rect -> Pair str i32 \ r :
-    let desc @ _ r
-    let w sub desc.bottom_right.x desc.top_left.x
-    let h sub desc.bottom_right.y desc.top_left.y
-    Pair show desc mul w h
+pub let log_and_area %fn Rect Pair str i32 \r:
+    let w sub r.bottom_right.x r.top_left.x
+    let h sub r.bottom_right.y r.top_left.y
+    Pair show r mul w h
