@@ -1,3 +1,13 @@
+# 2026-03-27 作業メモ (doc: stdlib コメント方針の例を Zenn 基準へ追従)
+
+- [目的]:
+  - `doc/stdlib_doc_comment_policy.md` の doctest 例に、旧 `#entry main` や文区切りセミコロン前提の書き方が残っていたため、Zenn #1 / #2 を正とした表記へ寄せる。
+- [変更]:
+  - `doc/stdlib_doc_comment_policy.md`
+    - `#entry main` を `#entry` に修正。
+    - helper 関数の doctest 例を `let main \(): block: ...` 形式に変更。
+    - 途中式の破棄を前置 `;` で表す形に合わせた。
+
 # 2026-03-27 作業メモ (doc: README の公開入口サンプルを Zenn #1 / #2 基準へ更新)
 
 - [目的]:

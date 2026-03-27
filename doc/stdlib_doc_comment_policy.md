@@ -120,12 +120,14 @@ helper 関数の説明:
 //: ### [使用例/しようれい]
 //: neplg2:test
 //: ```neplg2
-//:| #entry main
+//:| #entry
 //:| #target std
 //:| use std::test as *
 //:| use core::traits::serialize as *
-//: assert_str_eq "42" serialize 42;
-//: assert_str_eq "false" serialize false;
+//:| let main \():
+//:|     block:
+//:|         ; assert_str_eq "42" serialize 42
+//:|         assert_str_eq "false" serialize false
 //: ```
 //:
 //: ### [実装/じっそう]
