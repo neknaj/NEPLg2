@@ -127,7 +127,7 @@ nepl-core-2.1/
                 module_ast.rs   # ModuleAst（ファイル単位 AST）・FileHeader（#module/#entry/#part）
             parser/
                 mod.rs
-                item_parser.rs  # 宣言パーサ（let fn / struct / enum / trait / impl）
+                item_parser.rs  # 宣言パーサ（let / struct / enum / trait / impl）
                                 #   型パラメータ列・%TypeExpr の外側境界を構文的に確定させ TypePrefixList を収集
                 expr_parser.rs  # 式パーサ（前置 juxtaposition → PrefixList 生成・block・if/while/match）
                                 #   call 境界は確定させない。PrefixList を flat なまま AST に格納する
@@ -255,7 +255,7 @@ nepl-core-2.1/
         // ── 組み込み ────────────────────────────────────
         builtins/
             mod.rs
-            primitives.rs       # プリミティブ型・演算（i32/u8/f32/bool/str/unit/never）
+            primitives.rs       # プリミティブ型・演算（i32/u8/f32/bool/str/()/never）
             intrinsics.rs       # コンパイラ組み込み操作（load/store/mem_copy 等）
             prelude.rs          # 暗黙 prelude（core::prelude から自動 use されるもの）
 
