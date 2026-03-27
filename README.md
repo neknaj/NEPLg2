@@ -23,27 +23,27 @@ NEPLg2 は、**式指向**・**前置記法**・**オフサイドルール**を�
 
 ## クイックサンプル
 
+以下は Zenn #1 / #2 を正とした NEPLg2.1 コア構文の例です。
+
 ```neplg2
-#entry main
 #indent 4
-#target wasi
 
-#import "core/math" as *
-#import "core/result" as *
-#import "std/streamio" as *
-#import "std/iotarget" as *
+use core::math as *
 
-fn main <()*>()> ():
-    let mut x <i32> 0;
-    let w <StreamWriter> unwrap_ok open WriteStream::Stdio;
+let classify \score:
+    if ge score 90
+        "A"
+        if ge score 70
+            "B"
+            "C"
 
-    while lt x 5:
-        w |> write "count = "
-          |> writeln x;
-        set x add x 1;
-
-    w |> flush |> close;
+let main \():
+    block:
+        ; classify 85
+        ()
 ```
+
+現行の Rust 実装とチュートリアルには NEPLg2.0 / 旧 2.1 案の記法が一部残っています。Zenn #1 / #2 を正とした設計文書は [`doc/2.1spec/`](doc/2.1spec/index.md) を参照してください。
 
 ## チュートリアル
 
@@ -103,7 +103,7 @@ CLI でのコンパイル・実行方法の詳細は [`doc/cli.md`](doc/cli.md) 
 
 ## NEPLg2.1 への移行計画
 
-現在 **NEPLg2.1** の設計・実装を並行して進めています。NEPLg2.1 は型記法（`%fn`、juxtaposition）・モジュールシステムの大幅刷新・メモリ安全性の強化を含む次世代仕様です。
+現在 **NEPLg2.1** の設計・実装を並行して進めています。NEPLg2.1 は Zenn #1 / #2 を正とし、カリー化された関数型記法、`%` の式レベル型注釈、`let <name> <expr>`、`if cond a b` / `match pattern expr` / `block:` などのコア構文を含む次世代仕様です。
 
 | 対象 | 現行 (NEPLg2.0) | 開発中 (NEPLg2.1) |
 |---|---|---|
