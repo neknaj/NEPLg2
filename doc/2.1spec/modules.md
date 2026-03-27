@@ -88,7 +88,7 @@ merge "./filepath/filename"
 merge "./editor_ops"
 merge "./editor_util"
 
-pub let run ...:
+pub let run \input:
     ...
 ```
 
@@ -97,7 +97,7 @@ pub let run ...:
 #part
 #indent 4
 
-let helper ...:
+let helper \ctx:
     ...
 ```
 
@@ -109,11 +109,11 @@ let helper ...:
 
 ```nepl
 module parser:
-    let parse ...:
+    let parse \tokens:
         ...
 
 module lexer:
-    let lex ...:
+    let lex \source:
         ...
 ```
 

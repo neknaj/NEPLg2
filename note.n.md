@@ -10,6 +10,17 @@
   - `doc/2.1impl/compiler_structure.md`
     - `let fn` という表現を `let` に修正。
     - primitive 一覧の `unit` を `()` に修正。
+    - `decl_check` / `hoist` / closure 型検査の説明に残っていた旧 `%fn` の読め方を、`fn` / `fn*` が関数型で `%` はその前置型注釈であることが分かる表現へ修正。
+  - `doc/examples/01_basics.nepl`
+    - 冒頭コメントの `%fn` / `%fn*` 説明を、関数型そのものではなく「`fn` / `fn*` を `%...` で式へ前置する型注釈」と分かる表現に修正。
+  - `doc/examples/05_io_and_resources.nepl`
+    - `%fn A B = 関数型` と読めてしまう注意書きを修正し、`fn A B` / `fn* A B` が関数型で `%` は型注釈だと明記。
+  - `doc/migration/index.md`
+    - `std/stdio.nepl` の移行メモに残っていた `%fn* () ()` の曖昧な書き方を、`fn* () ()` を `%...` で前置する型注釈付き lambda だと分かる表現へ修正。
+  - `doc/2.1spec/modules.md`
+    - `merge` / `module` ブロックのコード例に残っていた旧 `let ...:` 風プレースホルダを、`let <name> <expr>` ベースの placeholder へ修正。
+  - `doc/self_host.md`, `doc/2.1spec/platform.md`
+    - ブートストラップ側の場所とセルフホスト構成が古い `/nepl-core` / `lexer` / `parser` / `typecheck` 前提で残っていたため、`nepl-core-2.1` と `2.1impl` の現行ディレクトリ設計に合わせて補正。
 
 # 2026-03-27 作業メモ (doc: stdlib コメント方針の例を Zenn 基準へ追従)
 

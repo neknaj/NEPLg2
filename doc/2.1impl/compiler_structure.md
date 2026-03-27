@@ -114,7 +114,7 @@ nepl-core-2.1/
             lexer.rs            # インデント aware トークナイザ（オフサイド規則）
             ast/
                 mod.rs
-                item.rs         # Item（let fn / struct / enum / trait / impl / use / merge）
+                item.rs         # Item（let / struct / enum / trait / impl / use / merge）
                 expr.rs         # Expr — juxtaposition は PrefixList（flat Vec<PrefixItem>、未解決）
                                 #   call tree への変換は check/expr_check.rs の reduce_calls が行う
                                 #   block / if / while / match / let / set / borrow は構文的に確定
@@ -127,7 +127,7 @@ nepl-core-2.1/
                 module_ast.rs   # ModuleAst（ファイル単位 AST）・FileHeader（#module/#entry/#part）
             parser/
                 mod.rs
-                item_parser.rs  # 宣言パーサ（let / struct / enum / trait / impl）
+                item_parser.rs  # 宣言パーサ（let 束縛 / struct / enum / trait / impl）
                                 #   型パラメータ列・%TypeExpr の外側境界を構文的に確定させ TypePrefixList を収集
                 expr_parser.rs  # 式パーサ（前置 juxtaposition → PrefixList 生成・block・if/while/match）
                                 #   call 境界は確定させない。PrefixList を flat なまま AST に格納する
@@ -182,7 +182,7 @@ nepl-core-2.1/
                                 #   infer_expected_from_outer_consumer で期待型を双方向伝播させ曖昧性を解消
                                 #   オーバーロード候補の絞り込みも同一パスで行う
                                 # ★ クロージャ型検査（NEPLg2.0 では不完全だった一級値としての closure）
-                                #   期待型 %fn A B / %fn* A B から \x body / \x: body_block を型検査
+                                #   期待型 fn A B / fn* A B に基づいて \x body / \x: body_block を型検査
                                 #   キャプチャ変数の種別を判定（Copy はコピー、Owned は move、Linear はエラー）
                                 #   Linear キャプチャ禁止の enforcement はここで行う
                                 #   move キャプチャした変数は以降 Moved 状態（resource/ownership.rs と連携）
@@ -195,8 +195,8 @@ nepl-core-2.1/
                                 #     例: let Point x: a y: b p を
                                 #           pattern=Point{x:a,y:b}、expr=p に分割
                                 #   match exhaustiveness（全バリアントカバレッジ）はコンパイル時に静的検査
-            decl_check.rs       # 宣言検査（fn / struct / enum / trait / impl）
-            hoist.rs            # let fn 巻き上げ（相互再帰対応）
+            decl_check.rs       # 宣言検査（let / struct / enum / trait / impl）
+            hoist.rs            # let 束縛の巻き上げ（相互再帰対応）
             overload.rs         # オーバーロード解決 3 段階（制約フィルタ→期待型→修飾名）
             trait_check.rs      # impl 一意性・Orphan Rule・Global Coherence
             effect_check.rs     # Pure/Impure 伝播・InternalAlloc Escape Analysis

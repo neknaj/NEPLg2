@@ -242,7 +242,7 @@ vec 完了後に順次追加。`list.nepl` は Memory Phase 2（Region Inference
 | ファイル | 主要変更点 |
 |---|---|
 | `std/io.nepl` | `StdErrorKind enum` 修飾形 / 関数シグネチャ |
-| `std/stdio.nepl` | `%fn* () ()` 形式。Impure 宣言の書き換え |
+| `std/stdio.nepl` | `fn* () ()` を `%...` で前置した型注釈付き lambda へ書き換え |
 | `std/streamio.nepl` | `File` を Linear resource として扱う。Drop Elaboration を前提に手動 close 不要化 |
 | `std/fs.nepl` | `Result` / `Option` ベース API の徹底 |
 | `std/test.nepl` | テストフレームワーク全体の書き換え |

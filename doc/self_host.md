@@ -18,10 +18,10 @@ NEPLg2 コンパイラを NEPLg2 自身で書くこと（セルフホスト）�
 
 | 層 | 場所 | 責務 |
 |---|---|---|
-| Bootstrap Host | `/nepl-core`（Rust） | ブートストラップコンパイラパイプライン・最小 runtime・target/ABI adapter |
+| Bootstrap Host | `/nepl-core-2.1`（Rust） | ブートストラップコンパイラパイプライン・最小 runtime・target/ABI adapter |
 | Self-host Compiler | `/stdlib/neplg2`（NEPLg2） | NEPLg2 製コンパイラ本体。セルフホスト達成後の主実装 |
 
-`nepl-core` は足場であり、最終的な本体ではない。
+`nepl-core-2.1` は足場であり、最終的な本体ではない。
 プラットフォームの中心は `stdlib/neplg2` の NEPLg2 コードである。
 
 ---
@@ -33,19 +33,24 @@ stdlib/neplg2/
     cli/
         main.nepl      // CLI インターフェース（エントリポイント、WASI または LLVM ターゲット依存）
     core/              // コンパイラ本体（純粋 WASM、ターゲット非依存）
-        lexer/
-        parser/
-        typecheck/
+        syntax/
+        module/
+        resolve/
+        ty/
+        check/
+        hir/
         resource/
+        mono/
         codegen/
+        builtins/
 ```
 
 ---
 
 ## 4. ブートストラップ手順
 
-1. Rust 製 `nepl-core` が `stdlib/` をビルドする（Pass 1）
-2. Rust 製 `nepl-core` が `stdlib/neplg2` セルフホストコンパイラをビルドする（Pass 1）
+1. Rust 製 `nepl-core-2.1` が `stdlib/` をビルドする（Pass 1）
+2. Rust 製 `nepl-core-2.1` が `stdlib/neplg2` セルフホストコンパイラをビルドする（Pass 1）
 3. セルフホストコンパイラが自分自身と `stdlib/` をビルドする（Pass 2）
 
 Pass 2 の出力が Pass 1 と一致すること（reproducible build）を確認する。
@@ -56,8 +61,8 @@ Pass 2 の出力が Pass 1 と一致すること（reproducible build）を確�
 
 ## 5. 開発方針
 
-- Rust 製 `nepl-core` を参照実装として使いながら、NEPLg2 でコンパイラ本体を実装する。
-- 各モジュール（lexer・parser・typecheck・codegen）を段階的に移植し、テストで正しさを確認する。
+- Rust 製 `nepl-core-2.1` を参照実装として使いながら、NEPLg2 でコンパイラ本体を実装する。
+- 各モジュール（syntax・resolve・check・resource・codegen）を段階的に移植し、テストで正しさを確認する。
 - コンパイラ内部の安全性も NEPLg2.1 の型安全・メモリ安全規則に従う（`Result/Option` ベース、raw pointer 非公開）。
 - `stdlib/neplg2` 自体が NEPLg2.1 仕様の最も高度な利用例となるよう設計する。
 
