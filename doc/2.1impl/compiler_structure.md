@@ -133,11 +133,11 @@ nepl-core-2.1/
                                 #   call 境界は確定させない。PrefixList を flat なまま AST に格納する
                                 #   @ ident（強制値モード）はパーサが認識し PrefixItem::ForcedValue として格納
                                 #     → reduce_calls がこの識別子を「呼び出し対象」ではなく「値」として扱う
-                                #   \ params : body（クロージャ）は構文的に確定できる特殊形式として直接 AST 化
+                                #   \x body / \x: body_block / \(): body_block（クロージャ）は特殊形式として直接 AST 化
                                 #     ただし body は PrefixList のままで call 境界は check/ に委譲
                 type_parser.rs  # 型式パーサ（TypePrefixList 生成）
                                 #   kind-directed 境界確定はここでは行わない。ty/kind.rs に委譲する
-                                #   fn/fn* の -> 帰属・% 終端・\ / where 等の外側境界のみ構文的に確定
+                                #   fn/fn* の kind-directed 境界・% 終端・\ / where 等の外側境界のみ構文的に確定
                 pat_parser.rs   # パターンパーサ（PatternList 生成）
                                 #   constructor 境界は確定させない。check/pat_check.rs に委譲する
 
@@ -182,7 +182,7 @@ nepl-core-2.1/
                                 #   infer_expected_from_outer_consumer で期待型を双方向伝播させ曖昧性を解消
                                 #   オーバーロード候補の絞り込みも同一パスで行う
                                 # ★ クロージャ型検査（NEPLg2.0 では不完全だった一級値としての closure）
-                                #   期待型 %fn A -> B / %fn* A -> B から \ params : body を型検査
+                                #   期待型 %fn A B / %fn* A B から \x body / \x: body_block を型検査
                                 #   キャプチャ変数の種別を判定（Copy はコピー、Owned は move、Linear はエラー）
                                 #   Linear キャプチャ禁止の enforcement はここで行う
                                 #   move キャプチャした変数は以降 Moved 状態（resource/ownership.rs と連携）
@@ -192,8 +192,8 @@ nepl-core-2.1/
                                 # ★ PatternList → pattern tree への変換（expr_check の reduce_calls に対応）
                                 #   コンストラクタが何個のサブパターンを取るかは DefTable から取得
                                 #   match arms だけでなく let 文の "let <pattern> <expr>" も同一アルゴリズムで処理
-                                #     例: let Point x y p → PatternList[Point, x, y, p] を
-                                #                           pattern=Point(x,y)、expr=p に分割
+                                #     例: let Point x: a y: b p を
+                                #           pattern=Point{x:a,y:b}、expr=p に分割
                                 #   match exhaustiveness（全バリアントカバレッジ）はコンパイル時に静的検査
             decl_check.rs       # 宣言検査（fn / struct / enum / trait / impl）
             hoist.rs            # let fn 巻き上げ（相互再帰対応）

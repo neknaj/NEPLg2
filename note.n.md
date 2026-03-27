@@ -1,3 +1,21 @@
+# 2026-03-27 作業メモ (doc: migration / 2.1impl / errors の旧 2.1 案を追加追従)
+
+- [目的]:
+  - 先行して更新した `doc/2.1spec` と `doc/examples` に対して、まだ旧 2.1 案の記法を前提にしていた補助文書を、Zenn #1 / #2 を正として追従させる。
+- [変更]:
+  - `doc/migration/index.md`
+    - trait / enum / quick reference の変換表を、`fn A -> B` / `unit` / `\ a b :` / `if cond : ...` ではなく、`fn A B` / `()` / `\a \b ...` / `if cond a b` ベースへ修正。
+  - `doc/2.1impl/compiler_structure.md`
+    - パーサ・型検査の説明に残っていた `\ params : body` や `%fn A -> B` 前提の記述を、` \x body` / `\x:` / `%fn A B` 前提へ更新。
+    - pattern 例を `let Point x y p` から `let Point x: a y: b p` へ更新。
+  - `doc/examples/04_strings_and_builders.nepl`
+    - `fold \ b s :` と旧説明文を、現在の lambda 表記と型説明へ修正。
+  - `doc/2.1spec/errors.md`
+    - `Result` / `Outcome` の例で残っていた旧 payload 記法 `Ok %.T` / `Err %.E` / `field %Type` を、`Ok .T` / `Err .E` / `field: Type` へ修正。
+- [現在の実装状況]:
+  - `2.1spec` の入口文書、比較文書、主要サンプル、移行ガイドの主要変換表は、Zenn #1 / #2 に沿う形へ概ね揃った。
+  - まだ `while` など Zenn 記事で確定していない将来仕様は文書中に残るが、コア構文と直接衝突する旧記法は大幅に減った。
+
 # 2026-03-27 作業メモ (doc: Zenn #1 / #2 を正として 2.1spec のコア構文文書を更新)
 
 - [目的]:

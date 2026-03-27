@@ -14,8 +14,8 @@ NEPLg2.1 はエラー処理を次の 3 つの型を中心に標準化する。
 
 ```nepl
 let Result enum .T .E:
-    Ok %.T
-    Err %.E
+    Ok .T
+    Err .E
 ```
 
 ### 1.2 `Diag`（診断値）
@@ -42,8 +42,8 @@ let Result enum .T .E:
 ```nepl
 // 概念的な構造
 let Outcome struct .T .E:
-    result %Result .T .E
-    diags  %Option Diags
+    result: Result .T .E
+    diags: Option Diags
 ```
 
 ---

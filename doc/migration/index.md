@@ -204,10 +204,10 @@ tutorials-2.1/
 | NEPLg2.0 | NEPLg2.1 |
 |---|---|
 | `trait Eq:` | `let Eq trait:` |
-| `fn eq <(Self,Self)->bool> (a, b):` | `let eq %fn Self Self -> bool \ a b :` |
+| `fn eq <(Self,Self)->bool> (a, b):` | `let eq %fn Self fn Self bool \a \b ...` |
 | `impl Eq for i32:` | `let i32 impl for Eq:` |
 | `enum Option<.T>:` | `let Option enum .T:` |
-| `Ok <.T>` / `Err <.E>`（バリアント定義）| `Ok %.T` / `Err %.E` |
+| `Ok <.T>` / `Err <.E>`（バリアント定義）| `Ok .T` / `Err .E` |
 | bare `Some x` / `None`（期待型なし） | `Option::Some x` / `Option::None` |
 
 ### Wave 2: `core/mem.nepl` と raw pointer 隔離（Stage 3 + Memory Phase 1）
@@ -242,7 +242,7 @@ vec 完了後に順次追加。`list.nepl` は Memory Phase 2（Region Inference
 | ファイル | 主要変更点 |
 |---|---|
 | `std/io.nepl` | `StdErrorKind enum` 修飾形 / 関数シグネチャ |
-| `std/stdio.nepl` | `%fn* unit -> unit` 形式。Impure 宣言の書き換え |
+| `std/stdio.nepl` | `%fn* () ()` 形式。Impure 宣言の書き換え |
 | `std/streamio.nepl` | `File` を Linear resource として扱う。Drop Elaboration を前提に手動 close 不要化 |
 | `std/fs.nepl` | `Result` / `Option` ベース API の徹底 |
 | `std/test.nepl` | テストフレームワーク全体の書き換え |
@@ -294,15 +294,16 @@ Job A を廃止し、Job B のみで CI を継続。旧ディレクトリ（`std
 
 | NEPLg2.0 | NEPLg2.1 |
 |---|---|
-| `fn name <TypeParams> <Sig> (params):` | `let name [type_params] %fn ... -> ... \ params :` |
+| `fn name <TypeParams> <Sig> (params):` | `let name <expr>` |
 | `struct Name<.T>:` / `enum Name<.T>:` | `let Name struct .T:` / `let Name enum .T:` |
 | `trait Name:` / `impl Trait for Type:` | `let Name trait:` / `let Type impl for Trait:` |
 | `Vec<i32>` / `Option<.T>` / `Result<T, E>` | `Vec i32` / `Option .T` / `Result .T .E` |
-| `(A, B) -> C` / `(A) *> C` | `fn A B -> C` / `fn* A -> C` |
-| `()` （unit） | `unit` |
-| `<TypeExpr>` （型注釈） | `%TypeExpr` |
-| `(a, b):` / `():` | `\ a b :` / `\ :` |
-| `if cond then ... else ...` | `if cond : ... else : ...` |
+| `(A) -> B` / `(A) *> B` | `fn A B` / `fn* A B` |
+| `(A, B) -> C` | `fn A fn B C` |
+| `()` （unit） | `()` |
+| `<TypeExpr>` （型注釈） | `%TypeExpr <expr>` |
+| `(a, b):` / `():` | `\a \b ...` / `\()` |
+| `if cond then ... else ...` | `if cond a b` または `if cond then a else b` |
 | `while cond do ...` | `while cond : ...` |
 | `#import "stdlib/std/streamio"` | `use std::streamio` |
 | `#include "./path"` | `merge "./path"` |

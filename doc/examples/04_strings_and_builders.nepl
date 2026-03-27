@@ -55,7 +55,7 @@ pub let join %fn List str fn str str \xs \sep:
             ""
         List::Cons first rest
             let b_final
-                fold \ b s :
+                fold \b \s
                     b |> push_str sep |> push_str s
                 push_str new () first
                 rest
@@ -66,8 +66,8 @@ pub let join %fn List str fn str str \xs \sep:
 //: 文字列のバイト列を[逆順/ぎゃくじゅん]にした文字列を返す（UTF-8 検査あり）
 //:
 //: ### [実装/じっそう]
-//: - `to_bytes : str -> ByteBuf` は pure。内部コピーを行い owned buffer を返す。
-//: - `to_str : ByteBuf -> Result str Utf8Error` は UTF-8 バリデーションを経由する。
+//: - `to_bytes` は `str` から owned buffer を作る pure 関数。
+//: - `to_str` は `ByteBuf` を UTF-8 検査して `Result str Utf8Error` に変換する。
 //: - `to_bytes` / `to_str` は `std::convert` に同じ bare 名でオーバーロードされている。
 //: - [逆順/ぎゃくじゅん]後のバイト列が正しい UTF-8 でない場合（マルチバイト文字等）は `Err` が返る。
 //:
