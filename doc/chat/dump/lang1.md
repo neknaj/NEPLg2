@@ -1,5 +1,7 @@
 # ChatGPT 5.4 Thinking 20260316
 
+> このファイルは当時の検討メモのダンプであり、現行仕様の正ではない。現在の仕様確認には `doc/2.1spec/` と Zenn #1 / #2 を参照すること。
+
 今回は、NEPLg2 を「Rust 実装の compiler に付属するライブラリ群」としてではなく、**`stdlib/` の `.nepl` コードによって構成される自作言語プラットフォーム**として再定義し、そのうえで **最終到達点をセルフホスト**に固定した仕様書としてまとめます。判断の根拠は、Zenn 記事で明示された 4 原則、すなわちマルチプラットフォーム、強い静的検査、利用者自由度の最大化、具体先行の抽象化と、現行の stdlib reboot 文書にある安全 API 優先・trait による能力表現・`core -> alloc -> runtimes -> std -> features` の層分離・`stdlib` と `std` の区別、さらに `doc/self_host.md` にある「`/nepl-core` の Rust 製 compiler を使いながら `/stdlib/neplg2/src` に NEPLg2 製 compiler 本体を作る」という方針です。現行 `nepl-core` が `#![no_std]` を採り、source → lexer → parser → typecheck → codegen という bootstrap 用 pipeline を持つことも、この整理と整合します。 ([Zenn][1])
 
 以下は、**現状説明ではなく、これから正とする提案仕様**です。モジュール名や論理 API 名の一部は、現行 repo にそのまま存在する実装名ではなく、NEPLg2 の設計思想に沿って固定した規範名です。

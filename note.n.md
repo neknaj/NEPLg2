@@ -21,6 +21,8 @@
     - `merge` / `module` ブロックのコード例に残っていた旧 `let ...:` 風プレースホルダを、`let <name> <expr>` ベースの placeholder へ修正。
   - `doc/self_host.md`, `doc/2.1spec/platform.md`
     - ブートストラップ側の場所とセルフホスト構成が古い `/nepl-core` / `lexer` / `parser` / `typecheck` 前提で残っていたため、`nepl-core-2.1` と `2.1impl` の現行ディレクトリ設計に合わせて補正。
+  - `doc/README.md`, `doc/chat/dump/*.md`
+    - `chat/dump` 配下は過去の検討メモであって現行仕様の正ではないため、その旨を明記した。
 
 # 2026-03-27 作業メモ (doc: stdlib コメント方針の例を Zenn 基準へ追従)
 
