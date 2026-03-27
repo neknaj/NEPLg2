@@ -42,8 +42,8 @@ let sort .T: Ord %fn Vec .T Vec .T \v ...
 複数引数ならカリー化して書く。
 
 ```nepl
-let merge .T .K .V %fn Vec .T fn Vec .T Vec .T
-    where .T: Ord .K: Hash .V: Eq
+let merge .T %fn Vec .T fn Vec .T Vec .T
+    where .T: Ord
     \a \b ...
 ```
 
@@ -53,7 +53,7 @@ let merge .T .K .V %fn Vec .T fn Vec .T Vec .T
 
 - 同一 `(trait, target type)` への重複 impl を禁止する
 - Orphan Rule を適用する
-- 衝突時は修飾名での明示を要求する
+- impl の重複は修飾名では救済せず compile error とする
 
 この設計自体は維持し、表記のみ新構文へ追従させる。
 
@@ -102,6 +102,8 @@ core::vec::get vec proof
 std::vec::get vec 3
 ```
 
+ここで修飾名で解決できるのは **bare 名の候補集合** の曖昧性だけである。`impl Eq for i32` のような同一 `(trait, target type)` への重複 impl は Coherence 違反であり、修飾名では解決できない。
+
 ---
 
 ## 8. 標準 trait
@@ -119,7 +121,15 @@ std::vec::get vec 3
 | `Default` | デフォルト値 |
 | `Clone` | 明示複製 |
 | `Copy` | 暗黙複製 |
+| `Add .U .R` | 加算演算 |
 | `Drop` | 自動破棄対象 |
+| `Reader` | バイト列の読み出し |
+| `Writer` | バイト列の書き込み |
+| `Seekable` | シーク操作 |
+| `Buffered` | バッファリング |
+| `Allocator` | 領域確保・解放ポリシー |
+| `EventSource .E` | イベント発行源 |
+| `EventSink .E` | イベント消費先 |
 
 ---
 
@@ -131,4 +141,4 @@ std::vec::get vec 3
 - `MemWritable .T`
 - `RegionOwned`
 
-これらは Resource IR 導入後のメモリ API / 解放 API を trait 境界で表す候補であり、本章では名前と役割だけを予約する。
+これらは Resource IR 導入後のメモリ API / 解放 API を trait 境界で表す候補であり、本章では名前と役割だけを予約する。`stdlib.md` の trait 一覧でも将来導入候補として同じ位置づけで扱う。

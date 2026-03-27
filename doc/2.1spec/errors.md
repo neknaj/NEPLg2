@@ -39,6 +39,8 @@ let Result enum .T .E:
 
 `Result .T .E` と診断群 `Diags` を組み合わせて運ぶ構造体。概念的には `result` と `diags` の 2 フィールドを持つ。
 
+`Diags` は `Diag` の列を表す補助型であり、概念的には `List Diag` または `Vec Diag` に相当する。公開 API では「診断群」という意味を先に見せるため、要素型を露出したコレクション名より `Diags` を優先して表記してよい。
+
 ```nepl
 // 概念的な構造
 let Outcome struct .T .E:

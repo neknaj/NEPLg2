@@ -204,9 +204,6 @@ stdlib/
 | `Copy` | 暗黙複製（`Clone` の特殊ケース） |
 | `Add .U .R` | 加算演算 |
 | `Drop` | scope exit での自動 drop |
-| `RegionOwned` | region 管理下の所有者 |
-| `MemReadable .T` | メモリから `.T` を読む能力（将来導入） |
-| `MemWritable .T` | メモリへ `.T` を書く能力（将来導入） |
 | `Allocator` | 領域確保・解放ポリシー |
 | `Reader` | バイト列の読み出し |
 | `Writer` | バイト列の書き込み |
@@ -214,6 +211,9 @@ stdlib/
 | `Buffered` | バッファリング |
 | `EventSource .E` | イベント発行源 |
 | `EventSink .E` | イベント消費先 |
+| `RegionOwned` | region 管理下の所有者（将来導入） |
+| `MemReadable .T` | メモリから `.T` を読む能力（将来導入） |
+| `MemWritable .T` | メモリへ `.T` を書く能力（将来導入） |
 
 ---
 

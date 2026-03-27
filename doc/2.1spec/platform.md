@@ -60,11 +60,13 @@ NEPLg2.1 は単なるアプリケーション言語ではなく、様々な言�
 ターゲット間の物理的な差異（ポインタ表現・アロケータ・ハンドル表現など）は、コンパイラ内部ではなく**標準ライブラリの条件付きコンパイル**で吸収する。
 
 ```nepl
-#if[target="wasm"]
+#if target "wasm":
     // linear memory offset ベースの実装
-#if[target="llvm"]
+#if target "llvm":
     // native pointer ベースの実装
 ```
+
+`#if` は 2.1 では角括弧メタ構文ではなく、`#if <cond_expr>:` という前置ディレクティブとして扱う。`target "wasm"` や `profile "debug"` のような compile-time 条件式を後ろに置き、ブロック全体へ作用させる。
 
 | 項目 | Wasm 向け実装 | LLVM 向け実装 |
 |------|--------------|--------------|

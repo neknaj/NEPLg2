@@ -74,11 +74,27 @@ merge "./filepath/filename"
 
 - パスは `"..."` の文字列リテラル。**`.nepl` 拡張子は省略する。**
 - `merge` された側のファイルは独立モジュールにはならない（`#part` ファイルに限る）。
-- 結合後は declaration multiset として統合し、名前解決・型推論を行う。
+- 結合後は anchor と `merge` 宣言の出現順に並ぶ declaration sequence として統合し、その順序に従って名前解決・型推論を行う。
 - `private` は結合されたすべての part 間で共有される。
 - 同じ part ファイルを複数の anchor が `merge` することは禁止（コンパイルエラー）。part は厳密に 1 つの anchor に属する。
 
-**同名宣言の衝突**: 複数の merge 済み part ファイルが同一名の宣言を持つ場合、同一シグネチャなら warning を発行して後者優先、異なるシグネチャなら両オーバーロードを保持する。`noshadow` など追加の保護構文は現時点のコア仕様には含めない。
+**同名宣言の衝突**: 複数の merge 済み part ファイルが同一名の宣言を持つ場合、同一シグネチャなら warning を発行して declaration sequence 上で後に現れた宣言を採用し、異なるシグネチャなら両オーバーロードを保持する。`noshadow` など追加の保護構文は現時点のコア仕様には含めない。
+
+この「後に現れた宣言」は、anchor ファイル本体と各 `merge` 先を含めた**統合後の順序**で決める。したがって `merge` は順序を持つ source part 結合であり、順序を持たない multiset ではない。
+
+### 4.1 `#if` による part / item の条件付き有効化
+
+`merge` 先のファイルやトップレベル item では、前置ディレクティブ `#if <cond_expr>:` を使って target / profile ごとの条件分岐を行える。
+
+```nepl
+#if target "wasi":
+    merge "./streamio_wasi"
+
+#if target "llvm":
+    merge "./streamio_llvm"
+```
+
+`<cond_expr>` は compile-time に評価される条件式であり、現在のコア仕様では `target` / `profile` 述語を主に使う。`#if[target=...]` のような角括弧記法は 2.0 系の表記であり、2.1 の正仕様には含めない。
 
 ```nepl
 // editor.nepl  (#module)

@@ -53,6 +53,15 @@ NEPLg2.1 のコア構文は次の原則を貫く。
   | ; <expr>
 ```
 
+トップレベル / module レベルでは、前置ディレクティブとして `#if <cond_expr>:` を持つ。
+
+```nepl
+#if target "wasi":
+    use std::stdio as *
+```
+
+`#if` は compile-time 条件で直後のインデントブロックを有効化するディレクティブであり、旧 2.0 系の `#if[target=...]` は採用しない。
+
 0 引数 lambda では `<param>` に `()` を使う。
 
 ```nepl

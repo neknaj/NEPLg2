@@ -14371,3 +14371,18 @@
 - [plan.mdとの差異/さ]:
   - `plan.md` の目標自体に変更はない。
   - root 文書群のステータス表示をそろえ、`doc/2.1spec/` を正の仕様として読む導線を補強した。
+
+# 2026-03-27 作業メモ (2.1spec 残件の整合修正)
+
+- [目的/もくてき]:
+  - `2.1spec` の章間整合の残件を整理し、Zenn #1 / #2 を正としたコア仕様の周囲に残っていた未定義語や表記ずれを解消する。
+- [作業内容/さぎょうないよう]:
+  - `doc/2.1spec/modules.md` の `merge` を順序なし multiset ではなく declaration sequence として定義し直し、「後者優先」の意味が統合後順序で決まることを明記した。
+  - `doc/2.1spec/modules.md` / `syntax.md` / `platform.md` に `#if <cond_expr>:` を 2.1 の正規の前置ディレクティブとして追加し、旧 `#if[target=...]` 角括弧記法を 2.0 系表記として退けた。
+  - `doc/2.1spec/traits.md` の `merge` 例から不要な `.K` / `.V` と無関係な制約を除去し、Coherence 違反と bare 名曖昧性の扱いを分離した。
+  - `doc/2.1spec/traits.md` と `doc/2.1spec/stdlib.md` の標準 trait 一覧を揃え、`Add .U .R`、I/O 系 trait、allocator 系 trait を共通化し、`RegionOwned` / `MemReadable` / `MemWritable` は将来導入であることを明記した。
+  - `doc/2.1spec/errors.md` に `Diags` を `Diag` の列を表す補助型だと追記した。
+  - `doc/2.1spec/index.md` と `doc/README.md` の説明を、凍結済みコア仕様と draft / 将来仕様の周辺領域が併存する現在の整理に合わせて補正した。
+- [plan.mdとの差異/さ]:
+  - `plan.md` の目標自体に変更はない。
+  - 仕様書群のステータス表示と章間参照を整理し、`2.1spec` を読むときに「どこが凍結済みで、どこが将来仕様か」が追いやすくなった。
