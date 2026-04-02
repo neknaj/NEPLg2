@@ -166,6 +166,20 @@ class EditorInputHandler {
     async onKeydown(e) {
         if (this.editor.isComposing)
             return;
+        const coreBridge = this.editor.getCoreBridge ? this.editor.getCoreBridge() : null;
+        if (coreBridge && typeof coreBridge.mapKeyboardEventToCoreCommand === 'function') {
+            const coreCommand = coreBridge.mapKeyboardEventToCoreCommand({
+                key: e.key,
+                ctrlKey: e.ctrlKey,
+                metaKey: e.metaKey,
+                shiftKey: e.shiftKey,
+                altKey: e.altKey,
+            });
+            if (coreCommand && this.editor.applyCoreStateCommand(coreCommand)) {
+                e.preventDefault();
+                return;
+            }
+        }
         if (this.editor.domUI.isCompletionVisible) {
             switch (e.key) {
                 case 'ArrowUp':
@@ -189,20 +203,6 @@ class EditorInputHandler {
         }
         if ((e.ctrlKey || e.metaKey)) {
             switch (e.key.toLowerCase()) {
-                case 'a':
-                    e.preventDefault();
-                    this.editor.selectionStart = 0;
-                    this.editor.selectionEnd = this.editor.text.length;
-                    this.editor.setCursor(this.editor.text.length);
-                    return;
-                case 'z':
-                    e.preventDefault();
-                    this.editor.undo();
-                    return;
-                case 'y':
-                    e.preventDefault();
-                    this.editor.redo();
-                    return;
                 case '/':
                     e.preventDefault();
                     if (this.editor.languageProvider) {
@@ -272,10 +272,7 @@ class EditorInputHandler {
                 this.editor.handlePageKeys(e);
                 break;
             case 'Insert':
-                e.preventDefault();
-                this.editor.isOverwriteMode = !this.editor.isOverwriteMode;
-                this.editor.resetCursorBlink();
-                break;
+                return;
             case 'Backspace':
                 e.preventDefault();
                 if (this.editor.hasSelection()) {

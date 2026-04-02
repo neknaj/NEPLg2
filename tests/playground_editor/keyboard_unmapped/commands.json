@@ -1,0 +1,4 @@
+[
+  { "kind": "set_cursor", "cursor": 2 },
+  { "kind": "keyboard_event", "key": "a", "altKey": true, "allowUnmapped": true }
+]

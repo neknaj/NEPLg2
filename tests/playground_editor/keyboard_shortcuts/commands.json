@@ -1,0 +1,9 @@
+[
+  { "kind": "record_history" },
+  { "kind": "set_cursor", "cursor": 5 },
+  { "kind": "keyboard_event", "key": "a", "ctrlKey": true },
+  { "kind": "keyboard_event", "key": "Insert" },
+  { "kind": "keyboard_event", "key": "Insert" },
+  { "kind": "keyboard_event", "key": "z", "ctrlKey": true },
+  { "kind": "keyboard_event", "key": "y", "ctrlKey": true }
+]

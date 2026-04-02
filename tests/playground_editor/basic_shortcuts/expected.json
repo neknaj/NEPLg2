@@ -1,0 +1,11 @@
+{
+  "text": "#entry main\n\nfn main <()*> ():\n    let value 42;\n    value\n",
+  "cursor": 59,
+  "selectionStart": 0,
+  "selectionEnd": 59,
+  "hasSelection": true,
+  "selectedText": "#entry main\n\nfn main <()*> ():\n    let value 42;\n    value\n",
+  "isOverwriteMode": true,
+  "undoDepth": 1,
+  "redoDepth": 0
+}

@@ -9,12 +9,35 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { parseFile, parseNmdAst } = require('./parser');
-const { renderHtml } = require('./html_gen');
-const { renderHtmlPlayground } = require('./html_gen_playground');
 const { candidateDistDirs } = require('./util_paths');
 const { findCompilerDistDir } = require('./compiler_loader');
 const { buildEntriesFromAst } = require('./search');
+const { runCases: runPlaygroundEditorCases } = require('./playground_editor_test_runner');
+
+let parserModuleCache = null;
+let htmlGenModuleCache = null;
+let htmlPlayModuleCache = null;
+
+function getParserModule() {
+    if (!parserModuleCache) {
+        parserModuleCache = require('./parser');
+    }
+    return parserModuleCache;
+}
+
+function getHtmlGenModule() {
+    if (!htmlGenModuleCache) {
+        htmlGenModuleCache = require('./html_gen');
+    }
+    return htmlGenModuleCache;
+}
+
+function getHtmlPlayModule() {
+    if (!htmlPlayModuleCache) {
+        htmlPlayModuleCache = require('./html_gen_playground');
+    }
+    return htmlPlayModuleCache;
+}
 
 function parseArgs(argv) {
     const inputs = [];
@@ -22,6 +45,7 @@ function parseArgs(argv) {
     const excludeDirs = [];
     let siteName = 'NEPLg2';
     let descriptionPrefix = 'NEPLg2';
+    let playgroundEditorTests = false;
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -50,11 +74,15 @@ function parseArgs(argv) {
             descriptionPrefix = argv[++i];
             continue;
         }
+        if (a === '--playground-editor-tests') {
+            playgroundEditorTests = true;
+            continue;
+        }
         if (a === '-h' || a === '--help') {
-            return { help: true, inputs, outs, excludeDirs, siteName, descriptionPrefix };
+            return { help: true, inputs, outs, excludeDirs, siteName, descriptionPrefix, playgroundEditorTests };
         }
     }
-    return { help: false, inputs, outs, excludeDirs, siteName, descriptionPrefix };
+    return { help: false, inputs, outs, excludeDirs, siteName, descriptionPrefix, playgroundEditorTests };
 }
 
 function ensureDir(p) {
@@ -173,6 +201,7 @@ function walkFiles(root, excludeDirs) {
 }
 
 function extractMarkdownForHtml(filePath) {
+    const { parseFile } = getParserModule();
     const p = parseFile(filePath);
     if (p.kind === 'nmd') {
         // Strip YAML frontmatter if present
@@ -195,13 +224,33 @@ function extractMarkdownForHtml(filePath) {
     return '';
 }
 
-function main() {
-    const { help, inputs, outs, excludeDirs, siteName, descriptionPrefix } = parseArgs(process.argv.slice(2));
+async function runPlaygroundEditorCli(inputs, outPath) {
+    const summary = await runPlaygroundEditorCases(inputs);
+    const json = JSON.stringify(summary, null, 2);
+    ensureDir(path.dirname(outPath));
+    fs.writeFileSync(outPath, json);
+    console.log(`generated json into ${outPath}`);
+    console.log(`playground editor cases: ${summary.passedCount}/${summary.caseCount} passed`);
+    if (summary.failedCount > 0) {
+        process.exitCode = 1;
+    }
+}
+
+async function main() {
+    const { help, inputs, outs, excludeDirs, siteName, descriptionPrefix, playgroundEditorTests } = parseArgs(process.argv.slice(2));
     const hasHtml = Boolean(outs.html);
     const hasHtmlPlay = Boolean(outs.html_play);
-    if (help || inputs.length === 0 || (!hasHtml && !hasHtmlPlay)) {
-        console.log('Usage: node nodesrc/cli.js -i <input_dir_or_file> [-i ...] -o html=<output_dir> [-o html_play=<output_dir>] [--exclude-dir <name>] [--site-name <name>] [--description-prefix <prefix>]');
+    const hasJson = Boolean(outs.json);
+    if (help || inputs.length === 0 || (!hasHtml && !hasHtmlPlay && !(playgroundEditorTests && hasJson))) {
+        console.log('Usage: node nodesrc/cli.js -i <input_dir_or_file> [-i ...] -o html=<output_dir> [-o html_play=<output_dir>] [-o json=<output_file>] [--exclude-dir <name>] [--site-name <name>] [--description-prefix <prefix>] [--playground-editor-tests]');
         process.exit(help ? 0 : 2);
+    }
+    if (playgroundEditorTests) {
+        if (!hasJson) {
+            throw new Error('--playground-editor-tests requires -o json=<output_file>');
+        }
+        await runPlaygroundEditorCli(inputs, path.resolve(outs.json));
+        return;
     }
 
     const outRootHtml = hasHtml ? path.resolve(outs.html) : null;
@@ -302,6 +351,7 @@ function prepareHtmlPlayAssets(outRootHtmlPlay) {
  * @returns {object[]} SearchEntry[]
  */
 function buildScopeSearchIndex(inputRoot, files, excludeDirs) {
+    const { parseNmdAst } = getParserModule();
     const allEntries = [];
     for (const f of files) {
         try {
@@ -594,6 +644,7 @@ function buildPageMeta(relPath, ast, { siteName, descriptionPrefix }) {
 }
 
 function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries, { siteName, descriptionPrefix, tocTitle }, scopeSearchIndex) {
+    const { parseNmdAst } = getParserModule();
     const md = extractMarkdownForHtml(filePath);
     if (!md || md.trim().length === 0) {
         return 0;
@@ -610,6 +661,7 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
     let wrote = 0;
 
     if (outRootHtml) {
+        const { renderHtml } = getHtmlGenModule();
         const html = renderHtml(ast, { title, description, rewriteLinks: true });
         const outPath = path.join(outRootHtml, outRel);
         ensureDir(path.dirname(outPath));
@@ -618,6 +670,7 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
     }
 
     if (outRootHtmlPlay) {
+        const { renderHtmlPlayground } = getHtmlPlayModule();
         if (!htmlPlayAssets || !htmlPlayAssets.jsFile) {
             throw new Error('internal error: html_play assets not prepared');
         }
@@ -650,12 +703,12 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
 }
 
 if (require.main === module) {
-    try {
-        main();
-    } catch (e) {
+    Promise.resolve()
+        .then(() => main())
+        .catch((e) => {
         console.error(String(e?.stack || e?.message || e));
         process.exit(1);
-    }
+    });
 }
 
 module.exports = {

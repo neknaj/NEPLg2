@@ -25,6 +25,7 @@
 | [testing.md](./testing.md) | テスト（NEPLg2.0 現行） |
 | [debug.md](./debug.md) | デバッグ |
 | [web_playground.md](./web_playground.md) | Web Playground |
+| [web_playground_editor_redevelopment_plan.md](./web_playground_editor_redevelopment_plan.md) | Web Playground editor 再開発計画 |
 | [self_host.md](./self_host.md) | セルフホスト計画 |
 | [stdlib_doc_comment_policy.md](./stdlib_doc_comment_policy.md) | stdlib ドキュメントコメントポリシー |
 

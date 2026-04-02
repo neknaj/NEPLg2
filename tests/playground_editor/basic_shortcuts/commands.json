@@ -1,0 +1,7 @@
+[
+  { "kind": "record_history" },
+  { "kind": "toggle_overwrite" },
+  { "kind": "select_all" },
+  { "kind": "undo" },
+  { "kind": "redo" }
+]

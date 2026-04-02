@@ -44,6 +44,13 @@ When Rust-side code changes, rebuild the web compiler bundle first:
 NO_COLOR=false trunk build
 ```
 
+Run playground editor CLI snapshots after the web TypeScript bundle is updated:
+
+```bash
+npm --prefix web run build:ts
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=/tmp/playground-editor-tests.json
+```
+
 ## Where tests live
 
 ### `tests/compiler/*.n.md`
@@ -134,6 +141,16 @@ Typical helpers include:
 - `test_fail`
 
 Use the smallest assertion that makes failures obvious.
+
+## Playground editor CLI tests
+
+`tests/playground_editor/` is reserved for browser-free editor verification.
+
+- Each case lives under its own directory.
+- The standard fixture shape is `source.nepl`, `commands.json`, and `expected.json`.
+- `commands.json` may contain pure editor commands plus `keyboard_event` steps for shortcut coverage.
+- The formal entrypoint is `nodesrc/cli.js --playground-editor-tests`, which writes an aggregate JSON summary.
+- `nodesrc/playground_editor_test_runner.js` remains the lower-level runner used by the CLI path.
 
 ## Current guidance
 

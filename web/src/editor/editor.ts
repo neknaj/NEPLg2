@@ -275,6 +275,57 @@ class CanvasEditor {
     focus() { if (this.isFocused)
         return; this.isFocused = true; this.textarea.focus(); this.resetCursorBlink(); }
     blur() { this.isFocused = false; this.textarea.blur(); this.domUI.hidePopup(); this.domUI.hideCompletion(); }
+    getCoreBridge() {
+        return typeof window !== 'undefined' ? window.NEPLPlaygroundEditorCore || null : null;
+    }
+    getCoreState() {
+        const bridge = this.getCoreBridge();
+        if (!bridge || typeof bridge.snapshotEditorRuntimeState !== 'function') {
+            return null;
+        }
+        return bridge.snapshotEditorRuntimeState({
+            text: this.text,
+            cursor: this.cursor,
+            selectionStart: this.selectionStart,
+            selectionEnd: this.selectionEnd,
+            isOverwriteMode: this.isOverwriteMode,
+            undoStack: this.undoStack || [],
+            redoStack: this.redoStack || [],
+        });
+    }
+    applyCoreStateCommand(command) {
+        if (!command || !command.kind) {
+            return false;
+        }
+        switch (command.kind) {
+            case 'select_all':
+                this.selectionStart = 0;
+                this.selectionEnd = this.text.length;
+                this.setCursor(this.text.length);
+                return true;
+            case 'undo':
+                this.undo();
+                return true;
+            case 'redo':
+                this.redo();
+                return true;
+            case 'toggle_overwrite':
+                this.isOverwriteMode = !this.isOverwriteMode;
+                this.resetCursorBlink();
+                return true;
+            case 'set_cursor':
+                this.setCursor(command.cursor);
+                this.selectionStart = this.selectionEnd = this.cursor;
+                return true;
+            case 'set_selection':
+                this.selectionStart = command.selectionStart;
+                this.selectionEnd = command.selectionEnd;
+                this.setCursor(command.selectionEnd, false);
+                return true;
+            default:
+                return false;
+        }
+    }
     // --- Text and State Manipulation ---
     insertText(newText) {
         this.recordHistory();

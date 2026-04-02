@@ -1,0 +1,11 @@
+{
+  "text": "alpha beta\n",
+  "cursor": 11,
+  "selectionStart": 0,
+  "selectionEnd": 11,
+  "hasSelection": true,
+  "selectedText": "alpha beta\n",
+  "isOverwriteMode": false,
+  "undoDepth": 1,
+  "redoDepth": 0
+}

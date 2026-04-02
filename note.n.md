@@ -14386,3 +14386,60 @@
 - [plan.mdとの差異/さ]:
   - `plan.md` の目標自体に変更はない。
   - 仕様書群のステータス表示と章間参照を整理し、`2.1spec` を読むときに「どこが凍結済みで、どこが将来仕様か」が追いやすくなった。
+# 2026-04-02 Web Playground editor 再開発計画作成
+
+- [目的]:
+  - Web Playground の editor を場当たり的に修正するのではなく、highlight / problems / hover / key input を含めて責務分割からやり直すため、現状調査と再開発計画を整理した。
+- [現状確認]:
+  - `web/src/editor/editor.ts` の `CanvasEditor` が text state, cursor/selection, undo/redo, folding, language provider 連携, Problems 更新まで抱えており、入力・描画・状態・言語機能が密結合になっている。
+  - `web/src/editor/editor-input-handler.ts` が DOM event と editor state 更新を直結しているため、shortcut や key input のテストを CLI だけで再現できない。
+  - `web/src/language/neplg2/neplg2-provider.ts` が `window.wasmBindings` に直結しつつ、highlight / hover / definition / completion / indentation / comment toggle を 1 ファイルに抱えている。
+  - `nepl-web/src/lib.rs` には `analyze_semantics`, `analyze_semantics_with_vfs`, `analyze_name_resolution` など editor 再開発に必要な解析 API が揃っている一方、editor 側に UI 非依存の正規化層がない。
+  - `nodesrc/compiler_loader.js` で Trunk 成果物を Node.js から読み込めるので、browser なしで CLI から editor 解析テストを回す導線は既にある。
+- [plan.mdとの差分]:
+  - `plan.md` には playground editor 再設計の具体計画や CLI 完結テスト方針はまだ整理されていない。
+  - 変更提案として、editor を pure な core/reducer と browser adapter に分離し、解析結果の正規化層を設ける計画を `doc/web_playground_editor_redevelopment_plan.md` に記録した。
+  - その後の見直しで、repository 指示にある「`trunk build` 後に `nodesrc/cli.js` のテストを実行し、output の JSON を確認すること」を満たすには、専用 runner だけでなく `nodesrc/cli.js` 経由の正式導線が必要だと分かったため、計画書へ追記した。
+- [追加した文書]:
+  - `doc/web_playground_editor_redevelopment_plan.md` を追加し、現状の問題点、根本原因、責務分割案、hover/problems/highlight の再設計方針、CLI 完結テスト計画、段階的な実装フェーズを記述した。
+  - `doc/README.md` から新しい計画書へ辿れるようにリンクを追加した。
+- [今後の実装論点]:
+  - `editor-core` を新設して command/state/reducer/keymap/view-model を pure に切り出す。
+  - `neplg2-provider` を解析呼び出し層と hover/problems/highlight/navigation 生成層へ分割する。
+  - `nodesrc/playground_editor_test_runner.js` は下位 runner とし、完了確認と CI は `nodesrc/cli.js` 経由の JSON 出力に統一する。
+  - `doc/testing.md` と `doc/web_playground.md` も、実装段階では playground editor の正式検証手順に合わせて更新対象に含める。
+  - 再レビューの結果、既存 editor を一気に置き換える計画だと「不必要な変更を加えない」「小さく分割して進める」「commit 前にテスト確認」という指示に反しやすいと分かったため、計画書へ段階移行と commit/checkpoint の制約を追記した。
+  - fixture 形式も `source.nepl` / `vfs.json` / `commands.json` / `expected.json` に固定し、DOM event ではなく editor core command を CLI から再現する方針を明文化した。
+# 2026-04-02 実装メモ (playground editor 実装開始)
+
+- [今回着手したこと]:
+  - `web/src/editor-core/` を追加し、editor state の最小単位として `types.ts`, `state.ts`, `reducer.ts`, `keymap.ts`, `bridge.ts` を作成した。
+  - 現段階では `select_all`, `toggle_overwrite`, `undo`, `redo`, `set_cursor`, `set_selection`, `replace_text`, `record_history` を pure command として扱える。
+  - `web/src/main.ts` から bridge を読み込み、既存 `CanvasEditor` / `EditorInputHandler` から core keymap を経由して shortcut を処理する最初の統合を入れた。
+  - `nodesrc/playground_editor_test_runner.js` を追加し、`tests/playground_editor/basic_shortcuts/` fixture を用いた CLI snapshot テストの最小導線を作成した。
+- [確認できたこと]:
+  - `npm --prefix web run build:ts` は通過した。
+  - `node nodesrc/playground_editor_test_runner.js --case tests/playground_editor/basic_shortcuts` は通過し、`expected.json` との一致確認までできる状態にした。
+  - 現在の runner は `web/dist_ts/editor-core/bridge.js` を直接読む下位 runner であり、計画どおり最終的な正式導線は `nodesrc/cli.js` 側へ寄せる必要がある。
+- [今回見えた差分・未解決]:
+  - 既存 browser editor の state 更新はまだ `CanvasEditor` 側に大きく残っており、core は shortcut の入口だけを切り出した段階。
+  - hover / problems / highlight / definition / completion の正規化層は未着手で、`neplg2-provider` の責務分離はこれから。
+  - `AGENTS.md` で要求されている `trunk build` はこの環境では `trunk` コマンド自体が見つからず未実行。環境整備または導入手順の確認が必要。
+  - `nodesrc/cli.js` には playground editor 用の正式な test entry がまだ無く、現状は補助 runner のみ。
+# 2026-04-02 実装メモ (playground editor CLI テスト導線の整備)
+
+- [今回進めたこと]:
+  - `nodesrc/playground_editor_test_runner.js` を library と CLI の両用に整理し、case directory の再帰探索、`keyboard_event` step の解釈、aggregate summary の生成を追加した。
+  - `nodesrc/cli.js` に `--playground-editor-tests` と `-o json=...` の正式導線を追加し、playground editor fixture を集約実行して JSON を出力できるようにした。
+  - `nodesrc/cli.js` は起動時に `parser` / `html_gen` / `html_gen_playground` を無条件に require していたため、playground editor test のような無関係なモードでも `parser.ts` 未ビルドで即死していた。root cause は top-level dependency の過剰読み込みだったので、必要時のみ読み込む lazy load に変更した。
+  - `tests/playground_editor/` に `keyboard_shortcuts`, `keyboard_unmapped`, `text_edit_history` を追加し、shortcut・未対応 key・undo/redo を fixture 化した。
+  - `doc/testing.md` と `doc/web_playground.md` に playground editor の正式な CLI テスト手順を追記した。
+- [確認結果]:
+  - `npm --prefix web run build:ts` は通過した。
+  - `node nodesrc/playground_editor_test_runner.js --case tests/playground_editor/basic_shortcuts` は通過した。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` は通過し、`4/4 passed` を確認した。
+  - 出力 JSON では `basic_shortcuts`, `keyboard_shortcuts`, `keyboard_unmapped`, `text_edit_history` の全 case が `ok: true` になっている。
+- [残課題]:
+  - editor browser adapter 側の state 更新責務はまだ `CanvasEditor` に多く残っている。
+  - hover / problems / highlight / definition / completion の正規化層は未着手。
+  - `AGENTS.md` で要求されている `trunk build` は、この環境では `trunk` コマンドが存在せず未実行のまま。

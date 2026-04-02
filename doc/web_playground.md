@@ -31,3 +31,12 @@ from WASI `fd_write` and rendered in the terminal pane.
 - Diagnostics are rendered as text with line/column information.
 - The terminal is a browser-only convenience; it does not execute `cargo` commands.
 - Only stdlib imports are available in the browser; local file imports are not supported yet.
+
+## Editor redevelopment test path
+
+The playground editor redesign is expected to stay testable without a browser.
+
+- Build the web TypeScript side first with `npm --prefix web run build:ts`.
+- When the Rust / WASM side changes, run `trunk build` before CLI verification.
+- The formal CLI check is `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=/tmp/playground-editor-tests.json`.
+- Inspect the generated JSON summary to confirm case counts, failures, and per-case snapshots.

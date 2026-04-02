@@ -1,0 +1,6 @@
+[
+  { "kind": "set_cursor", "cursor": 3 },
+  { "kind": "replace_text", "text": "abcX", "cursor": 4, "selectionStart": 4, "selectionEnd": 4 },
+  { "kind": "keyboard_event", "key": "z", "metaKey": true },
+  { "kind": "keyboard_event", "key": "y", "ctrlKey": true }
+]

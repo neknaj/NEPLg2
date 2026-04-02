@@ -2,6 +2,7 @@ import { CanvasTerminal } from './terminal/terminal.js';
 import { VFS } from './runtime/vfs.js';
 import { TabManager } from './library/tabs.js';
 import { FileExplorer } from './library/explorer.js';
+import './editor-core/bridge.js';
 
 declare const NEPLg2LanguageProvider: any;
 declare const CanvasEditorLibrary: any;

@@ -1,0 +1,5 @@
+#entry main
+
+fn main <()*> ():
+    let value 42;
+    value
