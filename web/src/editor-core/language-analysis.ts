@@ -601,6 +601,22 @@ function formatRange(span?: { start?: number; end?: number } | null): string | n
     return `[${Number(span.start ?? 0)}, ${Number(span.end ?? 0)})`;
 }
 
+function formatHoverExpression(text: string, span?: { start?: number; end?: number } | null): string | null {
+    if (!span) {
+        return null;
+    }
+    const start = Math.max(0, Math.min(text.length, Math.trunc(Number(span.start ?? 0))));
+    const end = Math.max(start, Math.min(text.length, Math.trunc(Number(span.end ?? start))));
+    const snippet = text.slice(start, end).replace(/\s+/g, ' ').trim();
+    if (!snippet) {
+        return null;
+    }
+    if (snippet.length <= 160) {
+        return snippet;
+    }
+    return `${snippet.slice(0, 157)}...`;
+}
+
 export function getHoverInfoFromAnalysis(text: string, snapshot: LanguageAnalysisSnapshot | null | undefined, index: number): HoverInfo | null {
     const prepared = prepareAnalysis(text, snapshot);
     const insight = getTokenInsightFromAnalysis(text, snapshot, index);
@@ -623,17 +639,23 @@ export function getHoverInfoFromAnalysis(text: string, snapshot: LanguageAnalysi
     }
 
     const lines: string[] = [];
+    const expression = formatHoverExpression(text, insight.exprSpan);
+    if (expression) {
+        lines.push(`expr: ${expression}`);
+    }
+    if (insight.inferredType) {
+        lines.push(`type: ${insight.inferredType}`);
+    }
+    if (Number.isInteger(insight.argIndex)) {
+        const argRange = formatRange(insight.argSpan);
+        lines.push(`arg#${insight.argIndex}: ${argRange ?? '[0, 0)'}`);
+    }
     const hit = tokenAt(prepared, index);
     const rawFromToken = String(hit?.token?.value ?? hit?.token?.debug ?? '').trim();
     const rawFromSource = hit?.span ? text.slice(hit.span.startIndex, hit.span.endIndex).trim() : '';
     const raw = rawFromToken || rawFromSource || insight.tokenKind;
-    if (raw) lines.push(raw);
-    if (insight.inferredType) lines.push(`type: ${insight.inferredType}`);
-    const exprRange = formatRange(insight.exprSpan);
-    if (exprRange) lines.push(`expr: ${exprRange}`);
-    if (Number.isInteger(insight.argIndex)) {
-        const argRange = formatRange(insight.argSpan);
-        lines.push(`arg#${insight.argIndex}: ${argRange ?? '[0, 0)'}`);
+    if (raw && (!expression || raw !== expression)) {
+        lines.push(`token: ${raw}`);
     }
     if (insight.resolvedDefinition) {
         lines.push(`def: ${insight.resolvedDefinition.kind ?? ''} ${insight.resolvedDefinition.name ?? ''}`.trim());

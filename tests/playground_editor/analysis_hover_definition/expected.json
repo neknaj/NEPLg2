@@ -59,7 +59,7 @@
       "kind": "hover",
       "index": 22,
       "value": {
-        "content": "add\ntype: fn()->i32\nexpr: [21, 24)\ndef: fn add",
+        "content": "expr: add\ntype: fn()->i32\ndef: fn add",
         "startIndex": 21,
         "endIndex": 24
       }

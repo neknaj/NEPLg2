@@ -14501,3 +14501,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `npm --prefix web run build:ts`: 通過
   - `trunk build --release`: 通過
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `11/11 passed`
+# 2026-04-03 メモ (web playground editor hover 表示変更)
+
+- [状況]:
+  - hover では token 名寄りの情報を出していたが、式全体の把握に向かないため、token を含む式の抜き出しと型情報を優先する形に変更した。
+- [修正]:
+  - `web/src/editor-core/language-analysis.ts`
+    - `exprSpan` から実際のソース断片を抜き出して整形する helper を追加した。
+    - hover 内容を `expr: <source snippet>` と `type: <inferred type>` を先頭に出す形へ変更した。
+    - token 単体文字列は、式断片と同一でないときだけ補助情報として出すようにした。
+  - `tests/playground_editor/analysis_hover_definition/expected.json`
+    - hover の期待値を新形式へ更新した。
+- [確認]:
+  - `npm --prefix web run build:ts`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `11/11 passed`
