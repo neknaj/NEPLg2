@@ -1,3 +1,33 @@
+# 2026-04-03 メモ (analysis fallback 全廃)
+
+- [状況]:
+  - hover 修正後も provider 内に bridge 依存の analysis 実装と独自 fallback 実装が並存しており、将来また表示差や定義ジャンプ差が再発する構造だった。
+- [原因]:
+  - `web/src/language/neplg2/neplg2-provider.ts` が `window.NEPLPlaygroundLanguageAnalysis` を optional 扱いし、payload 生成・hover・definition・occurrences・token insight をそれぞれ別実装で補っていた。
+- [修正]:
+  - analysis bridge を必須依存に変更し、bridge 不在時は即エラーになるようにした。
+  - provider から payload 生成・hover・definition・occurrences・token insight の fallback 分岐を除去し、analysis 系 API を bridge 1 本に統一した。
+- [確認]:
+  - これにより hover 内容や参照解決は bridge 実装だけを見ればよくなり、surface と CLI fixture の表示仕様が一致しやすくなった。
+- [plan.mdとの差分]:
+  - bridge へ分析責務を寄せる方向は計画と一致している。今回の変更で provider 側の重複実装を減らし、editor surface と analysis core の境界を明確化した。
+
+# 2026-04-03 メモ (hover fallback 表示の整合)
+
+- [状況]:
+  - hover は bridge 経路では `expr:` と `type:` を先頭表示するようになっていたが、画面上では provider の fallback 経路が使われる場面があり、その場合だけ token 主体の旧表示が残っていた。
+- [原因]:
+  - `web/src/language/neplg2/neplg2-provider.ts` の `getHoverInfo()` fallback 実装が、`web/src/editor-core/language-analysis.ts` の新しい hover 整形規則と同期していなかった。
+- [修正]:
+  - provider 側にも式断片抽出を行う `_formatHoverExpression()` を追加した。
+  - fallback hover は `expr: ...`、`type: ...` を優先し、token は式断片と異なる場合だけ補助表示するように統一した。
+- [確認]:
+  - `npm --prefix web run build:ts`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: 11/11 passed
+- [plan.mdとの差分]:
+  - hover 表示仕様の再設計は進んでいるが、実運用で使われる全経路をそろえないと見た目が一致しないことが分かった。今後も bridge と provider fallback の二重実装箇所は都度同期確認が必要。
+
 # 2026-04-03 メモ (web playground editor surface 修正)
 
 - [状況]:

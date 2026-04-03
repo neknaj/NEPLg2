@@ -319,10 +319,10 @@ class NEPLg2LanguageProvider {
     }
 
     _analysisBridge() {
-        if (typeof window === 'undefined') {
-            return null;
+        if (typeof window === 'undefined' || !window.NEPLPlaygroundLanguageAnalysis) {
+            throw new Error('NEPLPlaygroundLanguageAnalysis is required');
         }
-        return window.NEPLPlaygroundLanguageAnalysis || null;
+        return window.NEPLPlaygroundLanguageAnalysis;
     }
 
     _rebuildOffsetMaps() {
@@ -398,21 +398,12 @@ class NEPLg2LanguageProvider {
             this.semantics = null;
             this.definitionById.clear();
             const bridge = this._analysisBridge();
-            const payload = bridge
-                ? bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
-                    lex: this.lex,
-                    parse: this.parse,
-                    resolve: this.resolve,
-                    semantics: this.semantics,
-                })
-                : {
-                    tokens: [],
-                    diagnostics: [],
-                    foldingRanges: [],
-                    semanticTokens: [],
-                    inlayHints: [],
-                    config: { highlightWhitespace: false, highlightIndent: true },
-                };
+            const payload = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+                lex: this.lex,
+                parse: this.parse,
+                resolve: this.resolve,
+                semantics: this.semantics,
+            });
             this.lastUpdatePayload = payload;
             this.lastAnalyzedText = this.text;
             this.updateCallback(payload);
@@ -463,21 +454,12 @@ class NEPLg2LanguageProvider {
         const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
         this.definitionById = new Map(defs.map((d) => [d.id, d]));
         const bridge = this._analysisBridge();
-        const payloadBase = bridge
-            ? bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
-                lex: this.lex,
-                parse: this.parse,
-                resolve: this.resolve,
-                semantics: this.semantics,
-            })
-            : {
-                tokens: this._buildEditorTokens(),
-                diagnostics: this._collectDiagnostics(),
-                foldingRanges: this._buildFoldingRanges(),
-                semanticTokens: this._buildSemanticTokens(),
-                inlayHints: this._buildInlayHints(),
-                config: { highlightWhitespace: false, highlightIndent: true },
-            };
+        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        });
         const payload = {
             ...payloadBase,
             diagnostics: [...(payloadBase.diagnostics || []), ...fallbackDiagnostics].sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex),
@@ -676,6 +658,16 @@ class NEPLg2LanguageProvider {
         return `[${Number(sp.start ?? 0)}, ${Number(sp.end ?? 0)})`;
     }
 
+    _formatHoverExpression(sp) {
+        if (!sp) return null;
+        const start = Math.max(0, Math.min(this.text.length, Math.trunc(Number(sp.start ?? 0))));
+        const end = Math.max(start, Math.min(this.text.length, Math.trunc(Number(sp.end ?? start))));
+        const snippet = this.text.slice(start, end).replace(/\s+/g, ' ').trim();
+        if (!snippet) return null;
+        if (snippet.length <= 160) return snippet;
+        return `${snippet.slice(0, 157)}...`;
+    }
+
     _definitionCandidates(tr) {
         if (!tr || !Array.isArray(tr.candidate_def_ids)) return [];
         return tr.candidate_def_ids
@@ -691,101 +683,32 @@ class NEPLg2LanguageProvider {
 
     getTokenInsight(index) {
         const bridge = this._analysisBridge();
-        if (bridge && typeof bridge.getTokenInsightFromAnalysis === 'function') {
-            return bridge.getTokenInsightFromAnalysis(this.text, {
-                lex: this.lex,
-                parse: this.parse,
-                resolve: this.resolve,
-                semantics: this.semantics,
-            }, index);
-        }
-        const hit = this._tokenAt(index);
-        if (!hit) return null;
-
-        const ts = this._tokenSemanticByIndex(hit.tokenIndex);
-        const tr = this._tokenResolutionByIndex(hit.tokenIndex);
-        const def = tr && tr.resolved_def_id != null ? this.definitionById.get(tr.resolved_def_id) : null;
-        const candidates = this._definitionCandidates(tr);
-
-        return {
-            tokenIndex: hit.tokenIndex,
-            tokenKind: String(hit.token?.kind || ''),
-            tokenSpan: hit.span,
-            inferredType: ts?.inferred_type || null,
-            exprSpan: ts?.expr_span || null,
-            argIndex: Number.isInteger(ts?.arg_index) ? ts.arg_index : null,
-            argSpan: ts?.arg_span || null,
-            resolvedDefId: tr?.resolved_def_id ?? null,
-            candidateDefIds: Array.isArray(tr?.candidate_def_ids) ? tr.candidate_def_ids : [],
-            definitionCandidates: candidates,
-            resolvedDefinition: def
-                ? { id: def.id, name: def.name, kind: def.kind, span: def.span || null }
-                : null,
-        };
+        return bridge.getTokenInsightFromAnalysis(this.text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        }, index);
     }
 
     async getHoverInfo(index) {
         const bridge = this._analysisBridge();
-        if (bridge && typeof bridge.getHoverInfoFromAnalysis === 'function') {
-            return bridge.getHoverInfoFromAnalysis(this.text, {
-                lex: this.lex,
-                parse: this.parse,
-                resolve: this.resolve,
-                semantics: this.semantics,
-            }, index);
-        }
-        const insight = this.getTokenInsight(index);
-        if (!insight) {
-            const fallbackRef = this._referenceAt(index);
-            if (!fallbackRef) return null;
-            const resolvedDef = fallbackRef.resolved_def_id != null ? this.definitionById.get(fallbackRef.resolved_def_id) : null;
-            const lines = [fallbackRef.name];
-            if (resolvedDef) lines.push(`def: ${resolvedDef.kind} ${resolvedDef.name}`);
-            return { content: lines.join('\n'), startIndex: Number(fallbackRef.span.start ?? index), endIndex: Number(fallbackRef.span.end ?? index + 1) };
-        }
-
-        const lines = [];
-        const hit = this._tokenAt(index);
-        const rawFromToken = String(hit?.token?.value || hit?.token?.debug || '').trim();
-        const rawFromSource = hit?.span ? this.text.slice(hit.span.startIndex, hit.span.endIndex).trim() : '';
-        const raw = rawFromToken || rawFromSource || String(insight.tokenKind || '');
-        if (raw) lines.push(raw);
-        if (insight.inferredType) lines.push(`type: ${insight.inferredType}`);
-        if (insight.exprSpan) lines.push(`expr: ${this._formatSpan(insight.exprSpan)}`);
-        if (Number.isInteger(insight.argIndex)) lines.push(`arg#${insight.argIndex}: ${this._formatSpan(insight.argSpan)}`);
-        if (insight.resolvedDefinition) lines.push(`def: ${insight.resolvedDefinition.kind} ${insight.resolvedDefinition.name}`);
-        if (insight.definitionCandidates.length > 1) {
-            lines.push(`candidates: ${insight.definitionCandidates.map((d) => `${d.id}:${d.name}`).join(', ')}`);
-        }
-
-        if (lines.length === 0) return null;
-        return { content: lines.join('\n'), startIndex: insight.tokenSpan.startIndex, endIndex: insight.tokenSpan.endIndex };
+        return bridge.getHoverInfoFromAnalysis(this.text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        }, index);
     }
 
     async getDefinitionLocation(index) {
         const bridge = this._analysisBridge();
-        if (bridge && typeof bridge.getDefinitionLocationFromAnalysis === 'function') {
-            return bridge.getDefinitionLocationFromAnalysis(this.text, {
-                lex: this.lex,
-                parse: this.parse,
-                resolve: this.resolve,
-                semantics: this.semantics,
-            }, index);
-        }
-        const insight = this.getTokenInsight(index);
-        if (insight && insight.resolvedDefinition && insight.resolvedDefinition.span) {
-            const sp = this._spanFrom({ span: insight.resolvedDefinition.span });
-            return { targetIndex: sp ? sp.startIndex : 0 };
-        }
-        const fallbackRef = this._referenceAt(index);
-        if (fallbackRef && fallbackRef.resolved_def_id != null) {
-            const def = this.definitionById.get(fallbackRef.resolved_def_id);
-            if (def?.span) {
-                const sp = this._spanFrom({ span: def.span });
-                return { targetIndex: sp ? sp.startIndex : 0 };
-            }
-        }
-        return null;
+        return bridge.getDefinitionLocationFromAnalysis(this.text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        }, index);
     }
 
     async getDefinitionCandidates(index) {
@@ -795,38 +718,12 @@ class NEPLg2LanguageProvider {
 
     async getOccurrences(index) {
         const bridge = this._analysisBridge();
-        if (bridge && typeof bridge.getOccurrencesFromAnalysis === 'function') {
-            return bridge.getOccurrencesFromAnalysis(this.text, {
-                lex: this.lex,
-                parse: this.parse,
-                resolve: this.resolve,
-                semantics: this.semantics,
-            }, index);
-        }
-        const insight = this.getTokenInsight(index);
-        if (!insight) return [];
-        const refs = Array.isArray(this.resolve?.references) ? this.resolve.references : [];
-        const out = [];
-
-        for (const r of refs) {
-            if (!r?.span) continue;
-            if (insight.resolvedDefId != null && r.resolved_def_id === insight.resolvedDefId) {
-                const sp = this._spanFrom({ span: r.span });
-                if (sp) out.push({ startIndex: sp.startIndex, endIndex: sp.endIndex });
-            }
-        }
-        if (out.length > 0) return out;
-
-        const tr = this._tokenResolutionByIndex(insight.tokenIndex);
-        if (tr?.name) {
-            for (const r of refs) {
-                if (r?.name === tr.name && r?.span) {
-                    const sp = this._spanFrom({ span: r.span });
-                    if (sp) out.push({ startIndex: sp.startIndex, endIndex: sp.endIndex });
-                }
-            }
-        }
-        return out;
+        return bridge.getOccurrencesFromAnalysis(this.text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        }, index);
     }
 
     _referenceAt(index) {
