@@ -1,0 +1,1 @@
+print_color ansi_green "ok"

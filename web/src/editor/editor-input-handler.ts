@@ -16,6 +16,8 @@ class EditorInputHandler {
         this.isDragging = false;
         this.hoverTimeout = null;
         this.lastHoverIndex = -1;
+        this.lastHoverClientX = 0;
+        this.lastHoverClientY = 0;
     }
 
     getCanvasEventPoint(e) {
@@ -92,6 +94,9 @@ class EditorInputHandler {
     onMouseDown(e) {
         e.preventDefault();
         this.editor.focus();
+        clearTimeout(this.hoverTimeout);
+        this.editor.domUI.hidePopup();
+        this.lastHoverIndex = -1;
         const point = this.getCanvasEventPoint(e);
         if (point.x < this.editor.geom.gutterWidth) {
             const clickedRow = this.editor.utils.getPosFromIndex(this.editor.utils.getCursorIndexFromCoords(point.x, point.y, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, true, this.editor.lineStartIndices), this.editor.lines).row;
@@ -111,6 +116,8 @@ class EditorInputHandler {
     onMouseMove(e) {
         const point = this.getCanvasEventPoint(e);
         const pos = this.editor.utils.getCursorIndexFromCoords(point.x, point.y, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, false, this.editor.lineStartIndices);
+        this.lastHoverClientX = e.clientX;
+        this.lastHoverClientY = e.clientY;
         if (this.isDragging) {
             this.editor.domUI.hidePopup();
             clearTimeout(this.hoverTimeout);
@@ -119,26 +126,23 @@ class EditorInputHandler {
             this.editor.selectionEnd = this.editor.cursor;
         }
         else {
-            if (pos !== this.lastHoverIndex) {
-                this.lastHoverIndex = pos;
-                this.editor.domUI.hidePopup();
-                clearTimeout(this.hoverTimeout);
-                this.hoverTimeout = setTimeout(() => this.handleHover(e, pos), 100);
-            }
+            this.lastHoverIndex = pos;
+            this.editor.domUI.hidePopup();
+            clearTimeout(this.hoverTimeout);
+            this.hoverTimeout = setTimeout(() => this.handleHover(pos, this.lastHoverClientX, this.lastHoverClientY), 1000);
         }
     }
-    async handleHover(e, pos) {
+    async handleHover(pos, clientX, clientY) {
         const diagnostic = this.editor.diagnostics.find(d => pos >= d.startIndex && pos < d.endIndex);
         if (diagnostic) {
-            this.editor.domUI.showPopup(diagnostic.message, e.clientX, e.clientY);
+            this.editor.domUI.showPopup(diagnostic.message, clientX, clientY);
             return;
         }
         if (!this.editor.languageProvider)
             return;
-        this.lastHoverIndex = pos;
         const hoverInfo = await this.editor.languageProvider.getHoverInfo(pos);
-        if (hoverInfo && hoverInfo.content) {
-            this.editor.domUI.showPopup(hoverInfo.content, e.clientX, e.clientY);
+        if (hoverInfo && hoverInfo.content && this.lastHoverIndex === pos && this.lastHoverClientX === clientX && this.lastHoverClientY === clientY) {
+            this.editor.domUI.showPopup(hoverInfo.content, clientX, clientY);
         }
     }
     onMouseUp() {

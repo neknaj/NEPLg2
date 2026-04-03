@@ -1,0 +1,175 @@
+{
+  "lex": {
+    "tokens": [
+      {
+        "kind": "Ident",
+        "value": "print_color",
+        "span": {
+          "start": 0,
+          "end": 11,
+          "start_line": 0,
+          "start_col": 0,
+          "end_line": 0,
+          "end_col": 11
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "ansi_green",
+        "span": {
+          "start": 12,
+          "end": 22,
+          "start_line": 0,
+          "start_col": 12,
+          "end_line": 0,
+          "end_col": 22
+        }
+      },
+      {
+        "kind": "StringLiteral",
+        "value": "\"ok\"",
+        "span": {
+          "start": 23,
+          "end": 27,
+          "start_line": 0,
+          "start_col": 23,
+          "end_line": 0,
+          "end_col": 27
+        }
+      }
+    ],
+    "diagnostics": []
+  },
+  "parse": {
+    "module": {
+      "root": {
+        "kind": "Block",
+        "span": {
+          "start": 0,
+          "end": 27,
+          "start_line": 0,
+          "start_col": 0,
+          "end_line": 0,
+          "end_col": 27
+        },
+        "items": [
+          {
+            "kind": "ExprStmt",
+            "span": {
+              "start": 0,
+              "end": 27,
+              "start_line": 0,
+              "start_col": 0,
+              "end_line": 0,
+              "end_col": 27
+            },
+            "expr": {
+              "items": [
+                {
+                  "kind": "Ident",
+                  "span": {
+                    "start": 0,
+                    "end": 11,
+                    "start_line": 0,
+                    "start_col": 0,
+                    "end_line": 0,
+                    "end_col": 11
+                  }
+                },
+                {
+                  "kind": "Ident",
+                  "span": {
+                    "start": 12,
+                    "end": 22,
+                    "start_line": 0,
+                    "start_col": 12,
+                    "end_line": 0,
+                    "end_col": 22
+                  }
+                },
+                {
+                  "kind": "Literal",
+                  "span": {
+                    "start": 23,
+                    "end": 27,
+                    "start_line": 0,
+                    "start_col": 23,
+                    "end_line": 0,
+                    "end_col": 27
+                  }
+                }
+              ],
+              "span": {
+                "start": 0,
+                "end": 27,
+                "start_line": 0,
+                "start_col": 0,
+                "end_line": 0,
+                "end_col": 27
+              }
+            }
+          }
+        ]
+      }
+    },
+    "diagnostics": []
+  },
+  "resolve": {
+    "definitions": [
+      {
+        "id": 1,
+        "name": "print_color",
+        "kind": "fn",
+        "span": {
+          "start": 0,
+          "end": 11,
+          "start_line": 0,
+          "start_col": 0,
+          "end_line": 0,
+          "end_col": 11
+        }
+      }
+    ],
+    "references": [
+      {
+        "name": "print_color",
+        "resolved_def_id": 1,
+        "candidate_def_ids": [
+          1
+        ],
+        "span": {
+          "start": 0,
+          "end": 11,
+          "start_line": 0,
+          "start_col": 0,
+          "end_line": 0,
+          "end_col": 11
+        }
+      }
+    ],
+    "diagnostics": []
+  },
+  "semantics": {
+    "diagnostics": [],
+    "token_resolution": [
+      {
+        "token_index": 0,
+        "name": "print_color",
+        "resolved_def_id": 1,
+        "candidate_def_ids": [
+          1
+        ]
+      }
+    ],
+    "token_semantics": [
+      {
+        "token_index": 0,
+        "inferred_type": "fn(str,str)->()",
+        "expr_span": {
+          "start": 0,
+          "end": 11
+        }
+      }
+    ]
+  }
+}

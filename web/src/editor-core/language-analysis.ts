@@ -379,6 +379,57 @@ function referenceAt(prepared: PreparedLanguageAnalysis, index: number): Analysi
     return best;
 }
 
+function walkAnalysisNodes(node: unknown, visit: (value: AnalysisTreeNode) => void): void {
+    if (!node || typeof node !== 'object') {
+        return;
+    }
+    const treeNode = node as AnalysisTreeNode;
+    visit(treeNode);
+    for (const value of Object.values(treeNode)) {
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                walkAnalysisNodes(entry, visit);
+            }
+        } else if (value && typeof value === 'object') {
+            walkAnalysisNodes(value, visit);
+        }
+    }
+}
+
+function expressionSpanFromAst(prepared: PreparedLanguageAnalysis, tokenSpan: TokenInsight['tokenSpan']): { start: number; end: number } | null {
+    const root = prepared.snapshot.parse?.module?.root;
+    if (!root) {
+        return null;
+    }
+
+    const tokenWidth = tokenSpan.endIndex - tokenSpan.startIndex;
+    let best: { start: number; end: number } | null = null;
+    let bestWidth = Number.MAX_SAFE_INTEGER;
+
+    walkAnalysisNodes(root, (node) => {
+        const span = spanFromPrepared(prepared, node);
+        if (!span) {
+            return;
+        }
+        if (span.startIndex !== tokenSpan.startIndex) {
+            return;
+        }
+        if (span.endIndex < tokenSpan.endIndex || span.startIndex > tokenSpan.startIndex || span.endIndex <= span.startIndex) {
+            return;
+        }
+        const width = span.endIndex - span.startIndex;
+        if (width < tokenWidth) {
+            return;
+        }
+        if (width > tokenWidth && width < bestWidth) {
+            best = { start: span.startIndex, end: span.endIndex };
+            bestWidth = width;
+        }
+    });
+
+    return best;
+}
+
 function definitionCandidates(prepared: PreparedLanguageAnalysis, resolution: AnalysisTokenResolution | null): DefinitionCandidate[] {
     if (!resolution || !Array.isArray(resolution.candidate_def_ids)) {
         return [];
@@ -617,29 +668,38 @@ function formatHoverExpression(text: string, span?: { start?: number; end?: numb
     return `${snippet.slice(0, 157)}...`;
 }
 
+function resolveHoverExpressionSpan(prepared: PreparedLanguageAnalysis, insight: TokenInsight): { start: number; end: number } | null {
+    const semanticStart = Number(insight.exprSpan?.start);
+    const semanticEnd = Number(insight.exprSpan?.end);
+    const semanticSpan = Number.isFinite(semanticStart) && Number.isFinite(semanticEnd) && semanticEnd > semanticStart
+        ? { start: semanticStart, end: semanticEnd }
+        : null;
+    const astSpan = expressionSpanFromAst(prepared, insight.tokenSpan);
+    if (!semanticSpan) {
+        return astSpan;
+    }
+    if (!astSpan) {
+        return semanticSpan;
+    }
+    if (astSpan.start === semanticSpan.start && astSpan.end > semanticSpan.end) {
+        return astSpan;
+    }
+    if (semanticSpan.start === insight.tokenSpan.startIndex && semanticSpan.end <= insight.tokenSpan.endIndex) {
+        return astSpan;
+    }
+    return semanticSpan;
+}
+
 export function getHoverInfoFromAnalysis(text: string, snapshot: LanguageAnalysisSnapshot | null | undefined, index: number): HoverInfo | null {
     const prepared = prepareAnalysis(text, snapshot);
     const insight = getTokenInsightFromAnalysis(text, snapshot, index);
     if (!insight) {
-        const fallback = referenceAt(prepared, index);
-        if (!fallback) {
-            return null;
-        }
-        const definition = fallback.resolved_def_id != null ? prepared.definitionById.get(Number(fallback.resolved_def_id)) : null;
-        const lines = [String(fallback.name ?? '')].filter(Boolean);
-        if (definition) {
-            lines.push(`def: ${definition.kind ?? ''} ${definition.name ?? ''}`.trim());
-        }
-        const span = spanFromPrepared(prepared, { span: fallback.span });
-        return {
-            content: lines.join('\n'),
-            startIndex: span ? span.startIndex : index,
-            endIndex: span ? span.endIndex : index + 1,
-        };
+        return null;
     }
 
     const lines: string[] = [];
-    const expression = formatHoverExpression(text, insight.exprSpan);
+    const expressionSpan = resolveHoverExpressionSpan(prepared, insight);
+    const expression = formatHoverExpression(text, expressionSpan);
     if (expression) {
         lines.push(`expr: ${expression}`);
     }
@@ -649,13 +709,6 @@ export function getHoverInfoFromAnalysis(text: string, snapshot: LanguageAnalysi
     if (Number.isInteger(insight.argIndex)) {
         const argRange = formatRange(insight.argSpan);
         lines.push(`arg#${insight.argIndex}: ${argRange ?? '[0, 0)'}`);
-    }
-    const hit = tokenAt(prepared, index);
-    const rawFromToken = String(hit?.token?.value ?? hit?.token?.debug ?? '').trim();
-    const rawFromSource = hit?.span ? text.slice(hit.span.startIndex, hit.span.endIndex).trim() : '';
-    const raw = rawFromToken || rawFromSource || insight.tokenKind;
-    if (raw && (!expression || raw !== expression)) {
-        lines.push(`token: ${raw}`);
     }
     if (insight.resolvedDefinition) {
         lines.push(`def: ${insight.resolvedDefinition.kind ?? ''} ${insight.resolvedDefinition.name ?? ''}`.trim());
@@ -681,17 +734,6 @@ export function getDefinitionLocationFromAnalysis(text: string, snapshot: Langua
         const span = spanFromPrepared(prepared, { span: insight.resolvedDefinition.span });
         if (span) {
             return { targetIndex: span.startIndex };
-        }
-    }
-
-    const fallback = referenceAt(prepared, index);
-    if (fallback?.resolved_def_id != null) {
-        const definition = prepared.definitionById.get(Number(fallback.resolved_def_id));
-        if (definition?.span) {
-            const span = spanFromPrepared(prepared, { span: definition.span });
-            if (span) {
-                return { targetIndex: span.startIndex };
-            }
         }
     }
     return null;

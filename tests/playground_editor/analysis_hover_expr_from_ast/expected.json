@@ -1,0 +1,13 @@
+{
+  "outputs": [
+    {
+      "kind": "hover",
+      "index": 1,
+      "value": {
+        "content": "expr: print_color ansi_green \"ok\"\ntype: fn(str,str)->()\ndef: fn print_color",
+        "startIndex": 0,
+        "endIndex": 11
+      }
+    }
+  ]
+}

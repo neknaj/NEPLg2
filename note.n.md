@@ -1,3 +1,22 @@
+# 2026-04-03 メモ (hover expr 抽出と遅延表示の修正)
+
+- [状況]:
+  - hover から fallback は除去済みだったが、`expr_span` が token 幅しか持たないケースでは popup に `token:` 相当の短い内容しか出ず、要求の「その token から始まる式と型」の表示になっていなかった。
+  - hover の表示タイミングも 100ms 固定で、実際には「1 秒以上マウスが止まったときに表示」という要件を満たしていなかった。
+- [原因]:
+  - `web/src/editor-core/language-analysis.ts` が semantic token の `expr_span` をそのまま採用しており、AST から式全体の span を補完していなかった。
+  - `web/src/editor/editor-input-handler.ts` はマウス移動のたびに位置差分だけを見て 100ms timer を張っており、同じ token 上での微移動や静止時間の条件を正しく扱っていなかった。
+- [修正]:
+  - analysis bridge に AST 走査を追加し、hover token と同じ開始位置を持つ最小の式 span を拾って hover の `expr:` に使うようにした。
+  - hover から `token:` 行は出さず、`expr:` と `type:` を中心に表示するように整理した。
+  - bridge 側の hover / definition の参照 fallback も外し、analysis は bridge の token insight 前提に統一した。
+  - input handler はマウスが少しでも動いたら hover timer を張り直し、1 秒静止したときだけ popup を出すように変更した。
+  - popup 表示時は timer 設定時の座標と最新座標が一致する場合だけ出すようにし、移動直後の古い hover を防いだ。
+- [確認]:
+  - CLI fixture `tests/playground_editor/analysis_hover_expr_from_ast` を追加し、semantic `expr_span` が token 幅でも AST から `print_color ansi_green "ok"` を hover に出せることを確認する。
+- [plan.mdとの差分]:
+  - hover 表示は analysis core 側で式 span を復元する段階に入った。surface は trigger と popup 制御に責務を絞り、hover 内容の決定は bridge 側へ寄せている。
+
 # 2026-04-03 メモ (analysis fallback 全廃)
 
 - [状況]:
