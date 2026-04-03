@@ -1,0 +1,9 @@
+C:\projects\NEPLg2\editors\zed\target\debug\deps\wit_bindgen_rt-aa9afcc2ae40ffbb.d: C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\lib.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\cabi_realloc.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support\future_support.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support\stream_support.rs
+
+C:\projects\NEPLg2\editors\zed\target\debug\deps\libwit_bindgen_rt-aa9afcc2ae40ffbb.rmeta: C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\lib.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\cabi_realloc.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support\future_support.rs C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support\stream_support.rs
+
+C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\lib.rs:
+C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\cabi_realloc.rs:
+C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support.rs:
+C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support\future_support.rs:
+C:\Users\bem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wit-bindgen-rt-0.41.0\src\async_support\stream_support.rs:
