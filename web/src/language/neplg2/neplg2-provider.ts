@@ -45,6 +45,13 @@ class NEPLg2LanguageProvider {
         return window.wasmBindings || null;
     }
 
+    _analysisBridge() {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+        return window.NEPLPlaygroundLanguageAnalysis || null;
+    }
+
     _rebuildOffsetMaps() {
         const s = this.text || '';
         this.lineStarts = [0];
@@ -117,14 +124,22 @@ class NEPLg2LanguageProvider {
             this.resolve = null;
             this.semantics = null;
             this.definitionById.clear();
-            const payload = {
-                tokens: [],
-                diagnostics: [],
-                foldingRanges: [],
-                semanticTokens: [],
-                inlayHints: [],
-                config: { highlightWhitespace: false, highlightIndent: true },
-            };
+            const bridge = this._analysisBridge();
+            const payload = bridge
+                ? bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+                    lex: this.lex,
+                    parse: this.parse,
+                    resolve: this.resolve,
+                    semantics: this.semantics,
+                })
+                : {
+                    tokens: [],
+                    diagnostics: [],
+                    foldingRanges: [],
+                    semanticTokens: [],
+                    inlayHints: [],
+                    config: { highlightWhitespace: false, highlightIndent: true },
+                };
             this.lastUpdatePayload = payload;
             this.updateCallback(payload);
             return;
@@ -173,21 +188,25 @@ class NEPLg2LanguageProvider {
 
         const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
         this.definitionById = new Map(defs.map((d) => [d.id, d]));
-
-        const tokens = this._buildEditorTokens();
-        const diagnostics = this._collectDiagnostics();
-        diagnostics.push(...fallbackDiagnostics);
-        const foldingRanges = this._buildFoldingRanges();
-        const semanticTokens = this._buildSemanticTokens();
-        const inlayHints = this._buildInlayHints();
-
+        const bridge = this._analysisBridge();
+        const payloadBase = bridge
+            ? bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+                lex: this.lex,
+                parse: this.parse,
+                resolve: this.resolve,
+                semantics: this.semantics,
+            })
+            : {
+                tokens: this._buildEditorTokens(),
+                diagnostics: this._collectDiagnostics(),
+                foldingRanges: this._buildFoldingRanges(),
+                semanticTokens: this._buildSemanticTokens(),
+                inlayHints: this._buildInlayHints(),
+                config: { highlightWhitespace: false, highlightIndent: true },
+            };
         const payload = {
-            tokens,
-            diagnostics,
-            foldingRanges,
-            semanticTokens,
-            inlayHints,
-            config: { highlightWhitespace: false, highlightIndent: true },
+            ...payloadBase,
+            diagnostics: [...(payloadBase.diagnostics || []), ...fallbackDiagnostics].sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex),
         };
         this.lastUpdatePayload = payload;
         this.updateCallback(payload);
@@ -396,6 +415,15 @@ class NEPLg2LanguageProvider {
     }
 
     getTokenInsight(index) {
+        const bridge = this._analysisBridge();
+        if (bridge && typeof bridge.getTokenInsightFromAnalysis === 'function') {
+            return bridge.getTokenInsightFromAnalysis(this.text, {
+                lex: this.lex,
+                parse: this.parse,
+                resolve: this.resolve,
+                semantics: this.semantics,
+            }, index);
+        }
         const hit = this._tokenAt(index);
         if (!hit) return null;
 
@@ -422,6 +450,15 @@ class NEPLg2LanguageProvider {
     }
 
     async getHoverInfo(index) {
+        const bridge = this._analysisBridge();
+        if (bridge && typeof bridge.getHoverInfoFromAnalysis === 'function') {
+            return bridge.getHoverInfoFromAnalysis(this.text, {
+                lex: this.lex,
+                parse: this.parse,
+                resolve: this.resolve,
+                semantics: this.semantics,
+            }, index);
+        }
         const insight = this.getTokenInsight(index);
         if (!insight) {
             const fallbackRef = this._referenceAt(index);
@@ -451,6 +488,15 @@ class NEPLg2LanguageProvider {
     }
 
     async getDefinitionLocation(index) {
+        const bridge = this._analysisBridge();
+        if (bridge && typeof bridge.getDefinitionLocationFromAnalysis === 'function') {
+            return bridge.getDefinitionLocationFromAnalysis(this.text, {
+                lex: this.lex,
+                parse: this.parse,
+                resolve: this.resolve,
+                semantics: this.semantics,
+            }, index);
+        }
         const insight = this.getTokenInsight(index);
         if (insight && insight.resolvedDefinition && insight.resolvedDefinition.span) {
             const sp = this._spanFrom({ span: insight.resolvedDefinition.span });
@@ -473,6 +519,15 @@ class NEPLg2LanguageProvider {
     }
 
     async getOccurrences(index) {
+        const bridge = this._analysisBridge();
+        if (bridge && typeof bridge.getOccurrencesFromAnalysis === 'function') {
+            return bridge.getOccurrencesFromAnalysis(this.text, {
+                lex: this.lex,
+                parse: this.parse,
+                resolve: this.resolve,
+                semantics: this.semantics,
+            }, index);
+        }
         const insight = this.getTokenInsight(index);
         if (!insight) return [];
         const refs = Array.isArray(this.resolve?.references) ? this.resolve.references : [];

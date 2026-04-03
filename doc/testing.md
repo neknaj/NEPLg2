@@ -148,9 +148,13 @@ Use the smallest assertion that makes failures obvious.
 
 - Each case lives under its own directory.
 - The standard fixture shape is `source.nepl`, `commands.json`, and `expected.json`.
+- Analysis-model cases use `source.nepl`, `analysis.json`, `requests.json`, and `expected.json`.
 - `commands.json` may contain pure editor commands plus `keyboard_event` steps for shortcut coverage.
+- Cursor/navigation cases should prefer pure commands such as `move_cursor`, `move_cursor_vertical`, `move_cursor_line_boundary`, and `move_cursor_page` so they stay runnable without DOM events.
+- `requests.json` can verify `update_payload`, `token_insight`, `hover`, `definition`, and `occurrences` without starting a browser.
 - The formal entrypoint is `nodesrc/cli.js --playground-editor-tests`, which writes an aggregate JSON summary.
 - `nodesrc/playground_editor_test_runner.js` remains the lower-level runner used by the CLI path.
+- Current coverage includes shortcut/history cases, text insert/delete, left-right movement, up-down movement, Home/End, PageUp/PageDown, and analysis snapshots.
 
 ## Current guidance
 

@@ -1,0 +1,4 @@
+fn add:
+    1
+
+let x add

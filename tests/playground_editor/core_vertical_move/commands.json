@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "set_cursor",
+    "cursor": 4
+  },
+  {
+    "kind": "move_cursor_vertical",
+    "direction": "down"
+  },
+  {
+    "kind": "move_cursor_vertical",
+    "direction": "down"
+  },
+  {
+    "kind": "move_cursor_vertical",
+    "direction": "down"
+  },
+  {
+    "kind": "move_cursor_vertical",
+    "direction": "up",
+    "extendSelection": true
+  }
+]

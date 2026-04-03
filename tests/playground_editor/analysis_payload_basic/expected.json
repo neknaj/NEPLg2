@@ -1,0 +1,107 @@
+{
+  "outputs": [
+    {
+      "kind": "update_payload",
+      "value": {
+        "tokens": [
+          {
+            "startIndex": 0,
+            "endIndex": 2,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 3,
+            "endIndex": 6,
+            "type": "function"
+          },
+          {
+            "startIndex": 6,
+            "endIndex": 7,
+            "type": "punctuation"
+          },
+          {
+            "startIndex": 12,
+            "endIndex": 13,
+            "type": "number"
+          },
+          {
+            "startIndex": 15,
+            "endIndex": 18,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 19,
+            "endIndex": 20,
+            "type": "variable"
+          },
+          {
+            "startIndex": 21,
+            "endIndex": 24,
+            "type": "function"
+          }
+        ],
+        "diagnostics": [
+          {
+            "startIndex": 19,
+            "endIndex": 20,
+            "message": "unused variable x",
+            "severity": "warning"
+          }
+        ],
+        "foldingRanges": [
+          {
+            "startLine": 0,
+            "endLine": 1,
+            "placeholder": "..."
+          }
+        ],
+        "semanticTokens": [
+          {
+            "tokenIndex": 3,
+            "inferredType": "i32",
+            "exprSpan": {
+              "start": 12,
+              "end": 13
+            },
+            "argIndex": null,
+            "argSpan": null
+          },
+          {
+            "tokenIndex": 6,
+            "inferredType": "fn()->i32",
+            "exprSpan": {
+              "start": 21,
+              "end": 24
+            },
+            "argIndex": null,
+            "argSpan": null
+          }
+        ],
+        "inlayHints": [
+          {
+            "kind": "type",
+            "position": 12,
+            "label": "<i32>",
+            "exprSpan": {
+              "start": 12,
+              "end": 13
+            }
+          },
+          {
+            "kind": "type",
+            "position": 21,
+            "label": "<fn()->i32>",
+            "exprSpan": {
+              "start": 21,
+              "end": 24
+            }
+          }
+        ],
+        "config": {
+          "highlightWhitespace": false,
+          "highlightIndent": true
+        }
+      }
+    }
+  ]
+}

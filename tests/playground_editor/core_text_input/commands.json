@@ -1,0 +1,20 @@
+[
+  {
+    "kind": "set_cursor",
+    "cursor": 3
+  },
+  {
+    "kind": "insert_text",
+    "text": "X"
+  },
+  {
+    "kind": "delete_backward"
+  },
+  {
+    "kind": "insert_text",
+    "text": "YZ"
+  },
+  {
+    "kind": "delete_forward"
+  }
+]

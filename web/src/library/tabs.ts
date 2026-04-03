@@ -72,7 +72,11 @@ export class TabManager {
         this.editor.setText(tab.content);
         // Explicitly set the path on the editor if possible
         if (this.editor) {
-            (this.editor as any).path = tab.path;
+            if (typeof this.editor.setPath === 'function') {
+                this.editor.setPath(tab.path);
+            } else {
+                (this.editor as any).path = tab.path;
+            }
         }
         this.render();
     }
@@ -86,7 +90,13 @@ export class TabManager {
                 this.setActiveTab(this.activeTabIndex);
             } else {
                 this.editor.setText("");
-                if (this.editor) (this.editor as any).path = null;
+                if (this.editor) {
+                    if (typeof this.editor.setPath === 'function') {
+                        this.editor.setPath(null);
+                    } else {
+                        (this.editor as any).path = null;
+                    }
+                }
             }
         } else if (this.activeTabIndex > index) {
             this.activeTabIndex--;

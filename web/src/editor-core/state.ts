@@ -31,6 +31,7 @@ export function createEditorRuntimeState(text = ''): CoreEditorRuntimeState {
         cursor: 0,
         selectionStart: 0,
         selectionEnd: 0,
+        preferredCursorColumn: null,
         isOverwriteMode: false,
         undoStack: [],
         redoStack: [],
@@ -59,11 +60,15 @@ export function snapshotEditorRuntimeState(state: CoreEditorRuntimeState): CoreE
 export function normalizeRuntimeState(state: CoreEditorRuntimeState): CoreEditorRuntimeState {
     const cursor = clampIndex(state.text, state.cursor);
     const selection = normalizeSelection(state.text, state.selectionStart, state.selectionEnd);
+    const preferredCursorColumn = Number.isFinite(state.preferredCursorColumn)
+        ? Math.max(0, Math.trunc(Number(state.preferredCursorColumn)))
+        : null;
 
     return {
         ...state,
         cursor,
         selectionStart: selection.start,
         selectionEnd: selection.end,
+        preferredCursorColumn,
     };
 }

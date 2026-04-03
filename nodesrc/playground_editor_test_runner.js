@@ -14,6 +14,15 @@ async function loadEditorCoreBridge() {
     return mod.NEPLPlaygroundEditorCore || mod.default || mod;
 }
 
+async function loadLanguageAnalysisBridge() {
+    const bridgePath = path.resolve(__dirname, '..', 'web', 'dist_ts', 'editor-core', 'language-analysis.js');
+    if (!fs.existsSync(bridgePath)) {
+        throw new Error(`language analysis bridge not found: ${bridgePath}\nrun 'npm --prefix web run build:ts' first.`);
+    }
+    const mod = await import(pathToFileURL(bridgePath).href);
+    return mod.NEPLPlaygroundLanguageAnalysis || mod.default || mod;
+}
+
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -29,7 +38,8 @@ function isDirectory(filePath) {
 function findCaseDirectories(inputPath) {
     const resolved = path.resolve(inputPath);
     const commandsPath = path.join(resolved, 'commands.json');
-    if (fs.existsSync(commandsPath)) {
+    const analysisPath = path.join(resolved, 'analysis.json');
+    if (fs.existsSync(commandsPath) || fs.existsSync(analysisPath)) {
         return [resolved];
     }
     if (!isDirectory(resolved)) {
@@ -87,8 +97,70 @@ async function runCase(caseDir, bridge = null) {
     return { snapshot, expected };
 }
 
+async function runAnalysisCase(caseDir, bridge = null) {
+    const analysisBridge = bridge || await loadLanguageAnalysisBridge();
+    const sourcePath = path.join(caseDir, 'source.nepl');
+    const analysisPath = path.join(caseDir, 'analysis.json');
+    const requestsPath = path.join(caseDir, 'requests.json');
+    const expectedPath = path.join(caseDir, 'expected.json');
+
+    const source = fs.existsSync(sourcePath) ? fs.readFileSync(sourcePath, 'utf8') : '';
+    const analysis = fs.existsSync(analysisPath) ? readJson(analysisPath) : {};
+    const requests = fs.existsSync(requestsPath) ? readJson(requestsPath) : [];
+    const outputs = [];
+
+    for (const request of requests) {
+        if (!request || typeof request !== 'object') {
+            throw new Error(`invalid analysis request: ${JSON.stringify(request)}`);
+        }
+        switch (request.kind) {
+            case 'update_payload':
+                outputs.push({
+                    kind: request.kind,
+                    value: analysisBridge.buildEditorUpdatePayloadFromAnalysis(source, analysis),
+                });
+                break;
+            case 'token_insight':
+                outputs.push({
+                    kind: request.kind,
+                    index: request.index,
+                    value: analysisBridge.getTokenInsightFromAnalysis(source, analysis, request.index),
+                });
+                break;
+            case 'hover':
+                outputs.push({
+                    kind: request.kind,
+                    index: request.index,
+                    value: analysisBridge.getHoverInfoFromAnalysis(source, analysis, request.index),
+                });
+                break;
+            case 'definition':
+                outputs.push({
+                    kind: request.kind,
+                    index: request.index,
+                    value: analysisBridge.getDefinitionLocationFromAnalysis(source, analysis, request.index),
+                });
+                break;
+            case 'occurrences':
+                outputs.push({
+                    kind: request.kind,
+                    index: request.index,
+                    value: analysisBridge.getOccurrencesFromAnalysis(source, analysis, request.index),
+                });
+                break;
+            default:
+                throw new Error(`unsupported analysis request kind: ${request.kind}`);
+        }
+    }
+
+    const snapshot = { outputs };
+    const expected = fs.existsSync(expectedPath) ? readJson(expectedPath) : null;
+    return { snapshot, expected };
+}
+
 async function runCases(inputs) {
     const bridge = await loadEditorCoreBridge();
+    const analysisBridge = await loadLanguageAnalysisBridge();
     const caseDirs = [];
     for (const input of inputs) {
         caseDirs.push(...findCaseDirectories(input));
@@ -98,7 +170,10 @@ async function runCases(inputs) {
 
     for (const caseDir of uniqueCaseDirs) {
         try {
-            const { snapshot, expected } = await runCase(caseDir, bridge);
+            const isAnalysisCase = fs.existsSync(path.join(caseDir, 'analysis.json'));
+            const { snapshot, expected } = isAnalysisCase
+                ? await runAnalysisCase(caseDir, analysisBridge)
+                : await runCase(caseDir, bridge);
             if (expected) {
                 assert.deepStrictEqual(snapshot, expected);
             }
@@ -159,6 +234,8 @@ if (require.main === module) {
 module.exports = {
     findCaseDirectories,
     loadEditorCoreBridge,
+    loadLanguageAnalysisBridge,
     runCase,
+    runAnalysisCase,
     runCases,
 };

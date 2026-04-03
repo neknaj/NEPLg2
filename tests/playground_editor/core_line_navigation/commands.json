@@ -1,0 +1,29 @@
+[
+  {
+    "kind": "set_cursor",
+    "cursor": 6
+  },
+  {
+    "kind": "move_cursor_line_boundary",
+    "boundary": "home"
+  },
+  {
+    "kind": "move_cursor_line_boundary",
+    "boundary": "home"
+  },
+  {
+    "kind": "move_cursor_line_boundary",
+    "boundary": "end"
+  },
+  {
+    "kind": "move_cursor_page",
+    "direction": "down",
+    "pageSize": 2
+  },
+  {
+    "kind": "move_cursor_page",
+    "direction": "up",
+    "pageSize": 1,
+    "extendSelection": true
+  }
+]
