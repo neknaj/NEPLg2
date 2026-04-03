@@ -215,7 +215,7 @@ class CanvasEditor {
      * @param {string} text - 新しいテキストコンテンツ
      */
     setText(text) {
-        this.text = text;
+        this.text = this.normalizeEditorText(text);
         this.cursor = 0;
         this.selectionStart = 0;
         this.selectionEnd = 0;
@@ -236,7 +236,7 @@ class CanvasEditor {
      */
     updateText(text) {
         if (this.languageProvider) {
-            this.languageProvider.updateText(text);
+            this.languageProvider.updateText(this.normalizeEditorText(text));
         }
     }
     resizeEditor() {
@@ -277,15 +277,14 @@ class CanvasEditor {
     focus() { if (this.isFocused)
         return; this.isFocused = true; this.textarea.focus(); this.resetCursorBlink(); }
     blur() { this.isFocused = false; this.textarea.blur(); this.domUI.hidePopup(); this.domUI.hideCompletion(); }
+    normalizeEditorText(text) {
+        return String(text ?? '').replace(/\r\n?/g, '\n');
+    }
     getCoreBridge() {
         return typeof window !== 'undefined' ? window.NEPLPlaygroundEditorCore || null : null;
     }
     getCoreState() {
-        const bridge = this.getCoreBridge();
-        if (!bridge || typeof bridge.snapshotEditorRuntimeState !== 'function') {
-            return null;
-        }
-        return bridge.snapshotEditorRuntimeState({
+        return {
             text: this.text,
             cursor: this.cursor,
             selectionStart: this.selectionStart,
@@ -294,13 +293,13 @@ class CanvasEditor {
             isOverwriteMode: this.isOverwriteMode,
             undoStack: this.undoStack || [],
             redoStack: this.redoStack || [],
-        });
+        };
     }
     applyCoreRuntimeState(runtimeState) {
         if (!runtimeState) {
             return false;
         }
-        this.text = runtimeState.text;
+        this.text = this.normalizeEditorText(runtimeState.text);
         this.cursor = runtimeState.cursor;
         this.selectionStart = runtimeState.selectionStart;
         this.selectionEnd = runtimeState.selectionEnd;
@@ -329,6 +328,7 @@ class CanvasEditor {
     }
     // --- Text and State Manipulation ---
     insertText(newText) {
+        newText = this.normalizeEditorText(newText);
         this.recordHistory();
         if (this.hasSelection()) {
             this.deleteSelection(false);
@@ -375,6 +375,7 @@ class CanvasEditor {
             this.onCursorChange(this.cursor);
     }
     updateLines() {
+        this.text = this.normalizeEditorText(this.text);
         this.lines = this.text.split(/\r\n|\n|\r/);
 
         // 行の開始インデックス（文字インデックス→行/列変換や描画の高速化に使う）

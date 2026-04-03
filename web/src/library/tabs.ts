@@ -17,6 +17,10 @@ export class TabManager {
         this.vfs = vfs;
     }
 
+    normalizeText(text: string): string {
+        return String(text ?? '').replace(/\r\n?/g, '\n');
+    }
+
     openFile(path: string) {
         // Find if already open
         let index = this.tabs.findIndex(t => t.path === path);
@@ -27,13 +31,13 @@ export class TabManager {
         }
 
         const newContent = this.vfs.readFile(path);
-        const contentStr = typeof newContent === 'string' ? newContent : "Binary file...";
+        const contentStr = typeof newContent === 'string' ? this.normalizeText(newContent) : "Binary file...";
 
         // Logic: If current active tab is NOT PERMANENT and UNEDITED, replace it instead of creating new one
         if (this.activeTabIndex >= 0) {
             const currentTab = this.tabs[this.activeTabIndex];
             if (!currentTab.isPermanent) {
-                const currentEditorText = typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text;
+                const currentEditorText = this.normalizeText(typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text);
 
                 // If content in editor is exactly what's in the tab record (meaning no edits since load/save)
                 if (currentEditorText === currentTab.content) {
@@ -56,7 +60,7 @@ export class TabManager {
     saveCurrentTab() {
         if (this.activeTabIndex >= 0) {
             const currentTab = this.tabs[this.activeTabIndex];
-            const text = typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text;
+            const text = this.normalizeText(typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text);
 
             if (text !== currentTab.content) {
                 currentTab.content = text;
