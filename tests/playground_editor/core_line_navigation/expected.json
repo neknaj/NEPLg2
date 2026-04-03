@@ -1,0 +1,11 @@
+{
+  "text": "    foo\nbar\nbazqux\nqu\n\n",
+  "cursor": 11,
+  "selectionStart": 18,
+  "selectionEnd": 11,
+  "hasSelection": true,
+  "selectedText": "\nbazqux",
+  "isOverwriteMode": false,
+  "undoDepth": 0,
+  "redoDepth": 0
+}

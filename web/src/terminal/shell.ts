@@ -138,7 +138,9 @@ export class Shell {
 
             // If we have an active editor, try to use its content if it matches the input file or no input file given
             if (this.editor) {
-                const editorPath = (this.editor as any).path;
+                const editorPath = typeof this.editor.getPath === 'function'
+                    ? this.editor.getPath()
+                    : (this.editor as any).path;
                 const editorText = typeof this.editor.getText === 'function' ? this.editor.getText() : (this.editor as any).text;
                 
                 if (editorText !== undefined) {
@@ -172,7 +174,9 @@ export class Shell {
                 } else if (this.editor) {
                     // Fallback to editor if source still not found and editor exists
                     source = typeof this.editor.getText === 'function' ? this.editor.getText() : (this.editor as any).text;
-                    inputPath = (this.editor as any).path || "editor";
+                    inputPath = (typeof this.editor.getPath === 'function'
+                        ? this.editor.getPath()
+                        : (this.editor as any).path) || "editor";
                 } else {
                     return "Error: No input file and editor not connected";
                 }

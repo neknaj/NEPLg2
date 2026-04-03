@@ -127,6 +127,7 @@ class CanvasEditor {
         this.cursor = 0;
         this.selectionStart = 0;
         this.selectionEnd = 0;
+        this.corePreferredCursorColumn = null;
         this.scrollX = 0;
         this.scrollY = 0;
         this.isFocused = false;
@@ -288,43 +289,42 @@ class CanvasEditor {
             cursor: this.cursor,
             selectionStart: this.selectionStart,
             selectionEnd: this.selectionEnd,
+            preferredCursorColumn: this.corePreferredCursorColumn,
             isOverwriteMode: this.isOverwriteMode,
             undoStack: this.undoStack || [],
             redoStack: this.redoStack || [],
         });
     }
-    applyCoreStateCommand(command) {
-        if (!command || !command.kind) {
+    applyCoreRuntimeState(runtimeState) {
+        if (!runtimeState) {
             return false;
         }
-        switch (command.kind) {
-            case 'select_all':
-                this.selectionStart = 0;
-                this.selectionEnd = this.text.length;
-                this.setCursor(this.text.length);
-                return true;
-            case 'undo':
-                this.undo();
-                return true;
-            case 'redo':
-                this.redo();
-                return true;
-            case 'toggle_overwrite':
-                this.isOverwriteMode = !this.isOverwriteMode;
-                this.resetCursorBlink();
-                return true;
-            case 'set_cursor':
-                this.setCursor(command.cursor);
-                this.selectionStart = this.selectionEnd = this.cursor;
-                return true;
-            case 'set_selection':
-                this.selectionStart = command.selectionStart;
-                this.selectionEnd = command.selectionEnd;
-                this.setCursor(command.selectionEnd, false);
-                return true;
-            default:
-                return false;
+        this.text = runtimeState.text;
+        this.cursor = runtimeState.cursor;
+        this.selectionStart = runtimeState.selectionStart;
+        this.selectionEnd = runtimeState.selectionEnd;
+        this.corePreferredCursorColumn = runtimeState.preferredCursorColumn ?? null;
+        this.isOverwriteMode = Boolean(runtimeState.isOverwriteMode);
+        this.undoStack = Array.isArray(runtimeState.undoStack) ? runtimeState.undoStack : [];
+        this.redoStack = Array.isArray(runtimeState.redoStack) ? runtimeState.redoStack : [];
+        this.preferredCursorX = -1;
+        this.updateLines();
+        this.scrollToCursor();
+        this.resetCursorBlink();
+        this.updateText(this.text);
+        this.updateOccurrencesHighlight();
+        this.updateBracketMatching();
+        if (this.onCursorChange)
+            this.onCursorChange(this.cursor);
+        return true;
+    }
+    applyCoreStateCommand(command) {
+        const bridge = this.getCoreBridge();
+        if (!command || !command.kind || !bridge || typeof bridge.reduceEditorCommand !== 'function') {
+            return false;
         }
+        const nextState = bridge.reduceEditorCommand(this.getCoreState(), command);
+        return this.applyCoreRuntimeState(nextState);
     }
     // --- Text and State Manipulation ---
     insertText(newText) {

@@ -1,0 +1,19 @@
+[
+  {
+    "kind": "set_cursor",
+    "cursor": 3
+  },
+  {
+    "kind": "move_cursor",
+    "direction": "left"
+  },
+  {
+    "kind": "move_cursor",
+    "direction": "left",
+    "extendSelection": true
+  },
+  {
+    "kind": "move_cursor",
+    "direction": "right"
+  }
+]

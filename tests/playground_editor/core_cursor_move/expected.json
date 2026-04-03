@@ -1,0 +1,11 @@
+{
+  "text": "abc\n",
+  "cursor": 2,
+  "selectionStart": 2,
+  "selectionEnd": 2,
+  "hasSelection": false,
+  "selectedText": "",
+  "isOverwriteMode": false,
+  "undoDepth": 0,
+  "redoDepth": 0
+}

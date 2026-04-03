@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "set_selection",
+    "selectionStart": 0,
+    "selectionEnd": 5
+  },
+  {
+    "kind": "delete_backward"
+  },
+  {
+    "kind": "insert_text",
+    "text": "A"
+  }
+]

@@ -36,7 +36,10 @@ from WASI `fd_write` and rendered in the terminal pane.
 
 The playground editor redesign is expected to stay testable without a browser.
 
+- The app entrypoint now creates the editor through the new `editor-core` browser adapter instead of calling the old global factory directly.
 - Build the web TypeScript side first with `npm --prefix web run build:ts`.
 - When the Rust / WASM side changes, run `trunk build` before CLI verification.
 - The formal CLI check is `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=/tmp/playground-editor-tests.json`.
 - Inspect the generated JSON summary to confirm case counts, failures, and per-case snapshots.
+- The CLI suite now covers keyboard/state fixtures, pure text editing, left-right and vertical cursor movement, Home/End, PageUp/PageDown, and pure analysis fixtures for highlight payloads, problems, hover, definition, and occurrences.
+- `trunk build` is still a hard requirement before commit, but it depends on the `trunk` binary being available in the environment.

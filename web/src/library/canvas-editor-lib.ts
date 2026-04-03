@@ -17,6 +17,24 @@
      * @returns {{ editor: CanvasEditor, setLanguage: Function, registerLanguage: Function, getLanguageProvider: Function }}
      */
     function createCanvasEditor(options) {
+        if (global.PlaygroundEditorFactory && typeof global.PlaygroundEditorFactory.createPlaygroundEditor === 'function') {
+            const editor = global.PlaygroundEditorFactory.createPlaygroundEditor(options);
+            const providers = options.languageProviders || {};
+
+            return {
+                editor,
+                setLanguage(languageId) {
+                    editor.setLanguage(languageId);
+                },
+                registerLanguage(languageId, provider) {
+                    editor.registerLanguage(languageId, provider);
+                },
+                getLanguageProvider(languageId) {
+                    return editor.getLanguageProvider(languageId);
+                }
+            };
+        }
+
         const {
             canvas,
             textarea,

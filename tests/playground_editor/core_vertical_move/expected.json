@@ -1,0 +1,11 @@
+{
+  "text": "12345\nab\nXYZW\n\n",
+  "cursor": 13,
+  "selectionStart": 14,
+  "selectionEnd": 13,
+  "hasSelection": true,
+  "selectedText": "\n",
+  "isOverwriteMode": false,
+  "undoDepth": 0,
+  "redoDepth": 0
+}

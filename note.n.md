@@ -14443,3 +14443,60 @@
   - editor browser adapter 側の state 更新責務はまだ `CanvasEditor` に多く残っている。
   - hover / problems / highlight / definition / completion の正規化層は未着手。
   - `AGENTS.md` で要求されている `trunk build` は、この環境では `trunk` コマンドが存在せず未実行のまま。
+# 2026-04-03 実装メモ (playground editor 入口置換)
+
+- [今回進めたこと]:
+  - `web/src/editor-core/browser-adapter.ts` を追加し、web playground が直接使う新しい editor API として `PlaygroundEditor` / `createPlaygroundEditor` を定義した。
+  - 新 API は `setText`, `getText`, `setPath`, `getPath`, `focus`, `resizeEditor`, `setFontSize`, `showPopup`, `getCursorPosition`, `getTokenInsight` を提供し、旧 `CanvasEditor` の内部詳細を main 側から隠す形にした。
+  - `web/src/main.ts` は `CanvasEditorLibrary.createCanvasEditor(...)` をやめて `createPlaygroundEditor(...)` を使うように変更した。これにより web playground 本体の editor 入口は新 API 側へ置き換わった。
+  - `web/src/library/tabs.ts` と `web/src/terminal/shell.ts` も `path` 直参照をやめ、`getPath` / `setPath` を優先して使うように変更した。
+  - 互換経路として `web/src/library/canvas-editor-lib.ts` も `window.PlaygroundEditorFactory` があれば新 API を返すようにした。
+- [確認結果]:
+  - `npm --prefix web run build:ts` は通過した。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` は引き続き `4/4 passed`。
+- [現状認識]:
+  - web playground の起動入口は新 API に置き換わったが、browser adapter の内部ではまだ `CanvasEditor` / renderer / input handler / DOM UI を再利用している。
+  - したがって「playground 上で使われる editor API の置換」はできたが、「内部責務の全面刷新」は未完了。
+
+# 2026-04-03 実装メモ (playground editor analysis 層と CLI 拡張)
+
+- [今回の実装]:
+  - `web/src/editor-core/language-analysis.ts` を追加し、`neplg2-provider` の highlight / problems / folding / semanticTokens / inlayHints / hover / definition / occurrences を pure な分析変換層へ切り出した。
+  - `web/src/language/neplg2/neplg2-provider.ts` は WASM の生 payload を保持しつつ、editor 向け update payload と各種 query を `NEPLPlaygroundLanguageAnalysis` へ委譲するように変更した。
+  - `web/src/editor-core/browser-adapter.ts` に `getHoverInfo`, `getDefinitionLocation`, `getOccurrences`, `getProblems`, `getHighlightSnapshot` を追加し、web playground 側が新 API から分析結果を扱える入口を揃えた。
+  - `nodesrc/playground_editor_test_runner.js` を拡張し、従来の `commands.json` fixture に加えて `analysis.json` + `requests.json` fixture を実行できるようにした。
+  - `tests/playground_editor/analysis_payload_basic` と `tests/playground_editor/analysis_hover_definition` を追加し、highlight payload、diagnostics、folding、inlay hints、hover、definition、occurrences を CLI snapshot で固定化した。
+- [確認結果]:
+  - `npm --prefix web run build:ts` は通過した。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` は `6/6 passed` になり、keyboard/state 系 4 case と analysis 系 2 case を JSON で確認した。
+- [plan.md との差分]:
+  - browser adapter の入口置換と analysis 正規化層、CLI での hover/problems/highlight 系 snapshot までは入った。
+  - ただし内部ではまだ `CanvasEditor` / renderer / input handler / DOM UI を再利用しており、描画と state 更新責務の完全撤去までは未完了。
+  - `AGENTS.md` で求められている `trunk build` は、この環境では `trunk` コマンドが存在せず未実行のまま。ここは環境整備が残タスク。
+
+# 2026-04-03 実装メモ (playground editor 入力 state の core 化)
+
+- [今回の実装]:
+  - `web/src/editor-core/reducer.ts` に `insert_text`, `delete_backward`, `delete_forward` を追加し、文字入力と削除の text / selection / undo 更新を pure reducer 側で扱えるようにした。
+  - `web/src/editor/editor.ts` は core runtime state を editor 実体へ反映する `applyCoreRuntimeState` を持つようにし、`applyCoreStateCommand` は個別分岐ではなく reducer の結果を適用する形へ寄せた。
+  - `web/src/editor/editor-input-handler.ts` は `input`, `Backspace`, `Delete` をまず core command で処理し、旧処理は fallback に下げた。
+  - `tests/playground_editor/core_text_input` と `tests/playground_editor/core_delete_selection` を追加し、insert/backspace/delete と選択削除の history を CLI fixture で固定化した。
+- [確認結果]:
+  - `npm --prefix web run build:ts` は通過した。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` は `8/8 passed` になり、analysis 2 case、shortcut/state 4 case、text edit 2 case を確認した。
+- [現状認識]:
+  - editor の入力 state は一部 pure core へ移ったが、pointer 操作、行移動、scroll、描画、completion UI はまだ `CanvasEditor` 側の責務が大きい。
+  - そのため、全面置換完了にはまだ達していない。特に renderer / DOM UI / pointer まわりの分離が残っている。
+
+# 2026-04-03 �������� (playground editor ���E�ړ��� core ��)
+
+- [����̎���]:
+  - `web/src/editor-core/types.ts` / `reducer.ts` �� `move_cursor` ��ǉ����A���E�ړ��� shift �I���̍X�V�� pure reducer �ň�����悤�ɂ����B
+  - `web/src/editor/editor-input-handler.ts` �� `ArrowLeft` / `ArrowRight` �̔� ctrl �n���܂� core command �ŏ�������悤�ɕύX�����B
+  - `tests/playground_editor/core_cursor_move` ��ǉ����A���E�ړ��ƑI�������� snapshot ���Œ艻�����B
+- [�m�F����]:
+  - `npm --prefix web run build:ts` �͒ʉ߂����B
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` �� `9/9 passed`�B
+- [����F��]:
+  - ���E�ړ��� core ���֊�������A�㉺�ړ��AHome/End�APageUp/PageDown�Apointer drag�Ascroll�Afold click�Acompletion UI �͂܂��� editor ��������́B
+  - ���̂��߁A�S�ʒu�������� WSL git commit �̏����ɂ͂܂��͂��Ă��Ȃ��B

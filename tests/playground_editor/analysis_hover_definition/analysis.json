@@ -1,0 +1,170 @@
+{
+  "lex": {
+    "tokens": [
+      {
+        "kind": "KwFn",
+        "span": {
+          "start": 0,
+          "end": 2,
+          "start_line": 0,
+          "start_col": 0,
+          "end_line": 0,
+          "end_col": 2
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "add",
+        "span": {
+          "start": 3,
+          "end": 6,
+          "start_line": 0,
+          "start_col": 3,
+          "end_line": 0,
+          "end_col": 6
+        }
+      },
+      {
+        "kind": "Colon",
+        "span": {
+          "start": 6,
+          "end": 7,
+          "start_line": 0,
+          "start_col": 6,
+          "end_line": 0,
+          "end_col": 7
+        }
+      },
+      {
+        "kind": "IntLiteral",
+        "value": "1",
+        "span": {
+          "start": 12,
+          "end": 13,
+          "start_line": 1,
+          "start_col": 4,
+          "end_line": 1,
+          "end_col": 5
+        }
+      },
+      {
+        "kind": "KwLet",
+        "span": {
+          "start": 15,
+          "end": 18,
+          "start_line": 3,
+          "start_col": 0,
+          "end_line": 3,
+          "end_col": 3
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "x",
+        "span": {
+          "start": 19,
+          "end": 20,
+          "start_line": 3,
+          "start_col": 4,
+          "end_line": 3,
+          "end_col": 5
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "add",
+        "span": {
+          "start": 21,
+          "end": 24,
+          "start_line": 3,
+          "start_col": 6,
+          "end_line": 3,
+          "end_col": 9
+        }
+      }
+    ],
+    "diagnostics": []
+  },
+  "parse": {
+    "module": {
+      "root": {
+        "kind": "Block",
+        "span": {
+          "start": 0,
+          "end": 13,
+          "start_line": 0,
+          "start_col": 0,
+          "end_line": 1,
+          "end_col": 5
+        }
+      }
+    },
+    "diagnostics": []
+  },
+  "resolve": {
+    "definitions": [
+      {
+        "id": 1,
+        "name": "add",
+        "kind": "fn",
+        "span": {
+          "start": 3,
+          "end": 6,
+          "start_line": 0,
+          "start_col": 3,
+          "end_line": 0,
+          "end_col": 6
+        }
+      }
+    ],
+    "references": [
+      {
+        "name": "add",
+        "resolved_def_id": 1,
+        "candidate_def_ids": [
+          1
+        ],
+        "span": {
+          "start": 21,
+          "end": 24,
+          "start_line": 3,
+          "start_col": 6,
+          "end_line": 3,
+          "end_col": 9
+        }
+      }
+    ],
+    "diagnostics": []
+  },
+  "semantics": {
+    "diagnostics": [],
+    "token_resolution": [
+      {
+        "token_index": 1,
+        "name": "add",
+        "resolved_def_id": 1,
+        "candidate_def_ids": [
+          1
+        ]
+      },
+      {
+        "token_index": 6,
+        "name": "add",
+        "resolved_def_id": 1,
+        "candidate_def_ids": [
+          1
+        ]
+      }
+    ],
+    "token_semantics": [
+      {
+        "token_index": 6,
+        "inferred_type": "fn()->i32",
+        "expr_span": {
+          "start": 21,
+          "end": 24
+        }
+      }
+    ]
+  }
+}

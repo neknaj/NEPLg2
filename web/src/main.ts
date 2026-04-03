@@ -3,9 +3,10 @@ import { VFS } from './runtime/vfs.js';
 import { TabManager } from './library/tabs.js';
 import { FileExplorer } from './library/explorer.js';
 import './editor-core/bridge.js';
+import './editor-core/language-analysis.js';
+import { createPlaygroundEditor } from './editor-core/browser-adapter.js';
 
 declare const NEPLg2LanguageProvider: any;
-declare const CanvasEditorLibrary: any;
 
 console.log("[Playground] main.js loaded (TS-MIGRATION)");
 let start_flag = false;
@@ -109,22 +110,21 @@ function start_app() {
     // --- Editor Setup ---
     const neplProvider = new NEPLg2LanguageProvider();
     let cursorTicket = 0;
-    const { editor } = CanvasEditorLibrary.createCanvasEditor({
+    const editor = createPlaygroundEditor({
         canvas: editorCanvas,
         textarea: editorTextarea,
         popup: generalPopup,
+        problemsPanel: null,
         completionList: completionList,
         languageProviders: {
             nepl: neplProvider
         },
         initialLanguage: 'nepl',
         onCursorChange: async (index: number) => {
-            const pos = editor.utils.getPosFromIndex(index, editor.lines);
+            const pos = editor.getCursorPosition(index);
             cursorSpan.textContent = `Ln ${pos.row + 1}, Col ${pos.col + 1}`;
             const ticket = ++cursorTicket;
-            const insight = typeof neplProvider.getTokenInsight === 'function'
-                ? neplProvider.getTokenInsight(index)
-                : null;
+            const insight = editor.getTokenInsight(index);
             if (ticket !== cursorTicket) {
                 return;
             }
@@ -212,7 +212,7 @@ function start_app() {
         tabManager.saveCurrentTab();
         const activeTab = tabManager.activeTab;
         if (!activeTab) {
-            const currentPath = (editor as any).path || "/README";
+            const currentPath = editor.getPath() || "/README";
             executeCommand(`neplg2 run ${currentPath}`);
             return;
         }
@@ -229,7 +229,7 @@ function start_app() {
         tabManager.saveCurrentTab();
         const activeTab = tabManager.activeTab;
         if (!activeTab) {
-            const currentPath = (editor as any).path || "/README";
+            const currentPath = editor.getPath() || "/README";
             executeCommand(`neplg2 build ${currentPath} --emit wat`);
             return;
         }
@@ -265,7 +265,7 @@ function start_app() {
             '注: parser が失敗する入力では Hover/定義ジャンプは',
             'lex ベースのフォールバック情報のみ表示されます。',
         ].join('\n');
-        editor.domUI.showPopup(guide, rect.left, rect.bottom + 8);
+        editor.showPopup(guide, rect.left, rect.bottom + 8);
         editor.focus();
     });
     clearBtn.addEventListener('click', () => terminal.clear());

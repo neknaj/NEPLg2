@@ -4,6 +4,8 @@ declare global {
         editor: any;
         terminal: any;
         executeCommand: (cmd: string) => void;
+        PlaygroundEditorFactory?: any;
+        NEPLPlaygroundLanguageAnalysis?: any;
     }
     const NEPLg2LanguageProvider: any;
     const CanvasEditorLibrary: any;

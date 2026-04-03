@@ -158,7 +158,9 @@ class EditorInputHandler {
             return;
         const newText = e.target.value;
         if (newText) {
-            this.editor.insertText(newText);
+            if (!this.editor.applyCoreStateCommand({ kind: 'insert_text', text: newText })) {
+                this.editor.insertText(newText);
+            }
             this.textarea.value = '';
             this.editor.triggerCompletion();
         }
@@ -233,6 +235,15 @@ class EditorInputHandler {
                 return;
             case 'ArrowLeft':
             case 'ArrowRight':
+                if (!e.ctrlKey && !e.metaKey) {
+                    const direction = e.key === 'ArrowLeft' ? 'left' : 'right';
+                    if (this.editor.applyCoreStateCommand({ kind: 'move_cursor', direction, extendSelection: e.shiftKey })) {
+                        this.editor.domUI.hideCompletion();
+                        e.preventDefault();
+                        this.editor.preferredCursorX = -1;
+                        return;
+                    }
+                }
                 if (e.ctrlKey) {
                     e.preventDefault();
                     const direction = e.key === 'ArrowLeft' ? 'left' : 'right';
@@ -255,18 +266,46 @@ class EditorInputHandler {
             // Fallthrough for non-ctrl movement
             case 'ArrowUp':
             case 'ArrowDown':
+                if (this.editor.applyCoreStateCommand({
+                    kind: 'move_cursor_vertical',
+                    direction: e.key === 'ArrowUp' ? 'up' : 'down',
+                    extendSelection: e.shiftKey,
+                })) {
+                    this.editor.domUI.hideCompletion();
+                    e.preventDefault();
+                    return;
+                }
                 this.editor.domUI.hideCompletion();
                 e.preventDefault();
                 this.editor.handleArrowKeys(e);
                 break;
             case 'Home':
             case 'End':
+                if (this.editor.applyCoreStateCommand({
+                    kind: 'move_cursor_line_boundary',
+                    boundary: e.key === 'Home' ? 'home' : 'end',
+                    extendSelection: e.shiftKey,
+                })) {
+                    this.editor.domUI.hideCompletion();
+                    e.preventDefault();
+                    return;
+                }
                 this.editor.domUI.hideCompletion();
                 e.preventDefault();
                 this.editor.handleHomeEndKeys(e);
                 break;
             case 'PageUp':
             case 'PageDown':
+                if (this.editor.applyCoreStateCommand({
+                    kind: 'move_cursor_page',
+                    direction: e.key === 'PageUp' ? 'up' : 'down',
+                    pageSize: this.editor.visibleLines || 1,
+                    extendSelection: e.shiftKey,
+                })) {
+                    this.editor.domUI.hideCompletion();
+                    e.preventDefault();
+                    return;
+                }
                 this.editor.domUI.hideCompletion();
                 e.preventDefault();
                 this.editor.handlePageKeys(e);
@@ -275,32 +314,36 @@ class EditorInputHandler {
                 return;
             case 'Backspace':
                 e.preventDefault();
-                if (this.editor.hasSelection()) {
-                    this.editor.deleteSelection();
-                }
-                else if (this.editor.cursor > 0) {
-                    this.editor.recordHistory();
-                    const prevCursor = this.editor.cursor - 1;
-                    this.editor.text = this.editor.text.slice(0, prevCursor) + this.editor.text.slice(this.editor.cursor);
-                    this.editor.setCursor(prevCursor);
-                    this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
-                    this.editor.updateLines();
-                    this.editor.updateText(this.editor.text);
-                    this.editor.updateOccurrencesHighlight();
+                if (!this.editor.applyCoreStateCommand({ kind: 'delete_backward' })) {
+                    if (this.editor.hasSelection()) {
+                        this.editor.deleteSelection();
+                    }
+                    else if (this.editor.cursor > 0) {
+                        this.editor.recordHistory();
+                        const prevCursor = this.editor.cursor - 1;
+                        this.editor.text = this.editor.text.slice(0, prevCursor) + this.editor.text.slice(this.editor.cursor);
+                        this.editor.setCursor(prevCursor);
+                        this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
+                        this.editor.updateLines();
+                        this.editor.updateText(this.editor.text);
+                        this.editor.updateOccurrencesHighlight();
+                    }
                 }
                 this.editor.triggerCompletion();
                 break;
             case 'Delete':
                 e.preventDefault();
-                if (this.editor.hasSelection()) {
-                    this.editor.deleteSelection();
-                }
-                else if (this.editor.cursor < this.editor.text.length) {
-                    this.editor.recordHistory();
-                    this.editor.text = this.editor.text.slice(0, this.editor.cursor) + this.editor.text.slice(this.editor.cursor + 1);
-                    this.editor.updateLines();
-                    this.editor.updateText(this.editor.text);
-                    this.editor.updateOccurrencesHighlight();
+                if (!this.editor.applyCoreStateCommand({ kind: 'delete_forward' })) {
+                    if (this.editor.hasSelection()) {
+                        this.editor.deleteSelection();
+                    }
+                    else if (this.editor.cursor < this.editor.text.length) {
+                        this.editor.recordHistory();
+                        this.editor.text = this.editor.text.slice(0, this.editor.cursor) + this.editor.text.slice(this.editor.cursor + 1);
+                        this.editor.updateLines();
+                        this.editor.updateText(this.editor.text);
+                        this.editor.updateOccurrencesHighlight();
+                    }
                 }
                 this.editor.triggerCompletion();
                 break;
