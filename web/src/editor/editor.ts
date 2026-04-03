@@ -254,6 +254,7 @@ class CanvasEditor {
         this.canvas.style.height = `${rect.height}px`;
         this.canvas.width = newWidth;
         this.canvas.height = newHeight;
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.scale(dpr, dpr);
         this.ctx.font = this.font;
         this.ctx.textBaseline = 'middle';
@@ -622,6 +623,9 @@ class CanvasEditor {
         const relativeY = coords.y - this.scrollY;
         this.textarea.style.left = `${relativeX}px`;
         this.textarea.style.top = `${relativeY}px`;
+        this.textarea.style.height = `${this.geom.lineHeight}px`;
+        this.textarea.style.lineHeight = `${this.geom.lineHeight}px`;
+        this.textarea.style.font = this.font;
         if (this.domUI.isCompletionVisible) {
             this.domUI.completionList.style.left = `${relativeX}px`;
             this.domUI.completionList.style.top = `${relativeY + this.geom.lineHeight}px`;

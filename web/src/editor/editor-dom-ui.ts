@@ -20,6 +20,7 @@ class EditorDOMUI {
     }
 
     showPopup(content, x, y) {
+        this.popup.classList.remove('hidden');
         this.popup.style.display = 'block';
         this.popup.textContent = content;
         this.popup.style.left = `${x + 10}px`;
@@ -27,6 +28,7 @@ class EditorDOMUI {
     }
 
     hidePopup() {
+        this.popup.classList.add('hidden');
         this.popup.style.display = 'none';
     }
 
@@ -65,6 +67,7 @@ class EditorDOMUI {
         this.completionSuggestions = suggestions;
         this.selectedSuggestionIndex = 0;
         this.isCompletionVisible = true;
+        this.completionList.classList.remove('hidden');
         this.completionList.innerHTML = '';
         suggestions.forEach((item, index) => {
             const li = document.createElement('li');
@@ -103,6 +106,7 @@ class EditorDOMUI {
         if (!this.isCompletionVisible) return;
         this.isCompletionVisible = false;
         this.completionSuggestions = [];
+        this.completionList.classList.add('hidden');
         this.completionList.style.display = 'none';
     }
 

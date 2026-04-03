@@ -196,9 +196,92 @@ canvas {
     opacity: 0;
     padding: 0;
     border: none;
-    z-index: -1;
+    z-index: 5;
     pointer-events: none;
-    /* We'll manage focus programmatically */
+    background: transparent;
+    color: transparent;
+    caret-color: transparent;
+    resize: none;
+    overflow: hidden;
+    white-space: pre;
+}
+
+.popup-tooltip {
+    position: fixed;
+    display: none;
+    max-width: min(520px, calc(100vw - 24px));
+    padding: 10px 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background-color: rgba(15, 17, 21, 0.97);
+    color: var(--text-primary);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    white-space: pre-wrap;
+    font-size: 12px;
+    line-height: 1.5;
+    z-index: 40;
+    pointer-events: none;
+}
+
+.popup-menu {
+    position: absolute;
+    display: none;
+    min-width: 240px;
+    max-width: min(420px, calc(100% - 16px));
+    max-height: 280px;
+    margin: 0;
+    padding: 6px;
+    overflow: auto;
+    list-style: none;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background-color: rgba(22, 27, 34, 0.98);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
+    z-index: 30;
+}
+
+.popup-menu li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.popup-menu li.selected,
+.popup-menu li:hover {
+    background-color: var(--bg-hover);
+}
+
+.completion-item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.completion-type {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    background-color: rgba(88, 166, 255, 0.16);
+    color: var(--text-accent);
+    font-size: 10px;
+    flex: 0 0 auto;
+}
+
+.completion-detail {
+    color: var(--text-secondary);
+    font-size: 11px;
+    flex: 0 0 auto;
 }
 
 /* Explorer Pane */

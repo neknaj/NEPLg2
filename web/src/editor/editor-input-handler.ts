@@ -17,6 +17,14 @@ class EditorInputHandler {
         this.hoverTimeout = null;
         this.lastHoverIndex = -1;
     }
+
+    getCanvasEventPoint(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        };
+    }
     /**
      * エディタに必要なすべてのDOMイベントリスナーを登録します。
      */
@@ -84,8 +92,9 @@ class EditorInputHandler {
     onMouseDown(e) {
         e.preventDefault();
         this.editor.focus();
-        if (e.offsetX < this.editor.geom.gutterWidth) {
-            const clickedRow = this.editor.utils.getPosFromIndex(this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, true, this.editor.lineStartIndices), this.editor.lines).row;
+        const point = this.getCanvasEventPoint(e);
+        if (point.x < this.editor.geom.gutterWidth) {
+            const clickedRow = this.editor.utils.getPosFromIndex(this.editor.utils.getCursorIndexFromCoords(point.x, point.y, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, true, this.editor.lineStartIndices), this.editor.lines).row;
             const range = this.editor.foldingRanges.find(r => r.startLine === clickedRow);
             if (range) {
                 this.editor.toggleFold(clickedRow);
@@ -93,14 +102,15 @@ class EditorInputHandler {
             return;
         }
         this.isDragging = true;
-        const pos = this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, false, this.editor.lineStartIndices);
+        const pos = this.editor.utils.getCursorIndexFromCoords(point.x, point.y, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, false, this.editor.lineStartIndices);
         this.editor.setCursor(pos);
         this.editor.selectionStart = this.editor.cursor;
         this.editor.selectionEnd = this.editor.cursor;
         this.editor.domUI.hideCompletion();
     }
     onMouseMove(e) {
-        const pos = this.editor.utils.getCursorIndexFromCoords(e.offsetX, e.offsetY, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, false, this.editor.lineStartIndices);
+        const point = this.getCanvasEventPoint(e);
+        const pos = this.editor.utils.getCursorIndexFromCoords(point.x, point.y, this.editor.lines, this.editor.lineYPositions, this.editor.scrollX, this.editor.scrollY, false, this.editor.lineStartIndices);
         if (this.isDragging) {
             this.editor.domUI.hidePopup();
             clearTimeout(this.hoverTimeout);
