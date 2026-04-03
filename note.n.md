@@ -14482,3 +14482,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `11/11 passed`
 - [plan.mdとの差分]:
   - 新 editor への全面移行前に、既存 `CanvasEditor` surface と new core の境界で壊れていた編集経路を先に修正した。これで surface から core を安全に使える土台ができた。
+# 2026-04-03 メモ (web playground editor 解析更新の増分高速化)
+
+- [状況]:
+  - editor は動作するようになったが、1 ストロークごとに highlight 更新が重く、入力体感が悪かったため、surface から language provider までの更新経路を見直して増分処理を入れた。
+- [原因]:
+  - `CanvasEditor.applyCoreRuntimeState()` がカーソル移動のような非編集 command でも毎回 `updateText(this.text)` を呼んでおり、テキスト不変でも解析が走っていた。
+  - `NEPLg2LanguageProvider.updateText()` は毎回全文再解析を予約し、前回解析結果を一切再利用していなかった。
+- [修正]:
+  - `web/src/editor/editor.ts`
+    - `applyCoreRuntimeState()` でテキストが変化したときだけ `updateText()` を呼ぶように変更した。
+  - `web/src/language/neplg2/neplg2-provider.ts`
+    - 同一テキスト更新を no-op にした。
+    - 前回 payload と新旧テキスト差分から provisional な token / diagnostic / folding / semantic payload を組み立てる増分更新を追加した。
+    - 完全解析は debounce 後に `requestIdleCallback` 優先で流し、入力直後の main thread 負荷を下げた。
+    - 差分範囲外の token などは位置シフトで再利用し、変更行付近だけ軽量 tokenizer で暫定再構築するようにした。
+- [確認]:
+  - `npm --prefix web run build:ts`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `11/11 passed`

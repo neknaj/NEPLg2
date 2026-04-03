@@ -299,6 +299,7 @@ class CanvasEditor {
         if (!runtimeState) {
             return false;
         }
+        const previousText = this.text;
         this.text = this.normalizeEditorText(runtimeState.text);
         this.cursor = runtimeState.cursor;
         this.selectionStart = runtimeState.selectionStart;
@@ -311,7 +312,9 @@ class CanvasEditor {
         this.updateLines();
         this.scrollToCursor();
         this.resetCursorBlink();
-        this.updateText(this.text);
+        if (this.text !== previousText) {
+            this.updateText(this.text);
+        }
         this.updateOccurrencesHighlight();
         this.updateBracketMatching();
         if (this.onCursorChange)

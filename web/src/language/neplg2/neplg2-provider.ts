@@ -10,8 +10,10 @@ class NEPLg2LanguageProvider {
         this.semantics = null;
         this.analysisVersion = 0;
         this.pendingTimer = null;
+        this.pendingIdleCallback = null;
         this.analyzeDelayMs = 80;
         this.lastUpdatePayload = null;
+        this.lastAnalyzedText = '';
         this.definitionById = new Map();
         this.keywordCompletions = [
             'fn', 'let', 'mut', 'set', 'if', 'while', 'cond', 'then', 'else', 'do',
@@ -27,18 +29,289 @@ class NEPLg2LanguageProvider {
     }
 
     updateText(text) {
-        this.text = text || '';
+        const nextText = text || '';
+        const previousText = this.text;
+        if (nextText === previousText) {
+            return;
+        }
+        this.text = nextText;
         this._rebuildOffsetMaps();
+        if (this.lastUpdatePayload) {
+            const provisionalPayload = this._buildIncrementalPayload(previousText, this.text, this.lastUpdatePayload);
+            if (provisionalPayload) {
+                this.lastUpdatePayload = provisionalPayload;
+                this.updateCallback(provisionalPayload);
+            }
+        }
         this.analysisVersion += 1;
         if (this.pendingTimer != null) {
             clearTimeout(this.pendingTimer);
             this.pendingTimer = null;
         }
+        if (this.pendingIdleCallback != null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+            window.cancelIdleCallback(this.pendingIdleCallback);
+            this.pendingIdleCallback = null;
+        }
         const version = this.analysisVersion;
         this.pendingTimer = setTimeout(() => {
             this.pendingTimer = null;
-            this._analyzeAndPublish(version);
+            if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+                this.pendingIdleCallback = window.requestIdleCallback(() => {
+                    this.pendingIdleCallback = null;
+                    this._analyzeAndPublish(version);
+                }, { timeout: 300 });
+            } else {
+                this._analyzeAndPublish(version);
+            }
         }, this.analyzeDelayMs);
+    }
+
+    _diffTexts(previousText, nextText) {
+        if (previousText === nextText) {
+            return null;
+        }
+        let start = 0;
+        const previousLength = previousText.length;
+        const nextLength = nextText.length;
+        while (start < previousLength && start < nextLength && previousText[start] === nextText[start]) {
+            start += 1;
+        }
+        let previousEnd = previousLength;
+        let nextEnd = nextLength;
+        while (previousEnd > start && nextEnd > start && previousText[previousEnd - 1] === nextText[nextEnd - 1]) {
+            previousEnd -= 1;
+            nextEnd -= 1;
+        }
+        return {
+            start,
+            previousEnd,
+            nextEnd,
+            insertedText: nextText.slice(start, nextEnd),
+            removedText: previousText.slice(start, previousEnd),
+            delta: nextLength - previousLength,
+        };
+    }
+
+    _buildLineStarts(text) {
+        const starts = [0];
+        for (let i = 0; i < text.length; i++) {
+            if (text.charCodeAt(i) === 10) {
+                starts.push(i + 1);
+            }
+        }
+        return starts;
+    }
+
+    _lineInfoAt(starts, textLength, index) {
+        let line = 0;
+        while (line + 1 < starts.length && starts[line + 1] <= index) {
+            line += 1;
+        }
+        const lineStart = starts[line];
+        const lineEnd = line + 1 < starts.length ? starts[line + 1] - 1 : textLength;
+        return { line, lineStart, lineEnd };
+    }
+
+    _countNewlines(text) {
+        let count = 0;
+        for (let i = 0; i < text.length; i++) {
+            if (text.charCodeAt(i) === 10) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    _tokenizeIncrementalRange(text, startIndex, endIndex) {
+        const keywordSet = new Set(this.keywordCompletions);
+        const tokens = [];
+        let index = startIndex;
+        while (index < endIndex) {
+            const ch = text[index];
+            const next = text[index + 1] || '';
+
+            if (ch === '/' && next === '/') {
+                let cursor = index + 2;
+                while (cursor < endIndex && text[cursor] !== '\n') {
+                    cursor += 1;
+                }
+                tokens.push({ startIndex: index, endIndex: cursor, type: 'comment' });
+                index = cursor;
+                continue;
+            }
+
+            if (ch === '"' || ch === '\'') {
+                const quote = ch;
+                let cursor = index + 1;
+                while (cursor < endIndex) {
+                    const current = text[cursor];
+                    if (current === '\\') {
+                        cursor += 2;
+                        continue;
+                    }
+                    cursor += 1;
+                    if (current === quote) {
+                        break;
+                    }
+                }
+                tokens.push({ startIndex: index, endIndex: Math.min(cursor, endIndex), type: 'string' });
+                index = Math.max(index + 1, Math.min(cursor, endIndex));
+                continue;
+            }
+
+            if (/[0-9]/.test(ch)) {
+                let cursor = index + 1;
+                while (cursor < endIndex && /[0-9_]/.test(text[cursor])) {
+                    cursor += 1;
+                }
+                if (cursor < endIndex && text[cursor] === '.' && /[0-9]/.test(text[cursor + 1] || '')) {
+                    cursor += 2;
+                    while (cursor < endIndex && /[0-9_]/.test(text[cursor])) {
+                        cursor += 1;
+                    }
+                }
+                tokens.push({ startIndex: index, endIndex: cursor, type: 'number' });
+                index = cursor;
+                continue;
+            }
+
+            if (/[A-Za-z_#@]/.test(ch)) {
+                let cursor = index + 1;
+                while (cursor < endIndex && /[A-Za-z0-9_#@]/.test(text[cursor])) {
+                    cursor += 1;
+                }
+                const word = text.slice(index, cursor);
+                const type = keywordSet.has(word) || word.startsWith('#') ? 'keyword' : 'variable';
+                tokens.push({ startIndex: index, endIndex: cursor, type });
+                index = cursor;
+                continue;
+            }
+
+            if ('+-*/=%<>!&|^~'.includes(ch)) {
+                let cursor = index + 1;
+                while (cursor < endIndex && '+-*/=%<>!&|^~'.includes(text[cursor])) {
+                    cursor += 1;
+                }
+                tokens.push({ startIndex: index, endIndex: cursor, type: 'operator' });
+                index = cursor;
+                continue;
+            }
+
+            if ('()[]{}:;,.'.includes(ch)) {
+                tokens.push({ startIndex: index, endIndex: index + 1, type: 'punctuation' });
+            }
+            index += 1;
+        }
+        return tokens;
+    }
+
+    _buildIncrementalPayload(previousText, nextText, previousPayload) {
+        const diff = this._diffTexts(previousText, nextText);
+        if (!diff || !previousPayload) {
+            return null;
+        }
+        const oldStarts = this._buildLineStarts(previousText);
+        const newStarts = this._buildLineStarts(nextText);
+        const oldStartLineInfo = this._lineInfoAt(oldStarts, previousText.length, diff.start);
+        const oldEndLineInfo = this._lineInfoAt(oldStarts, previousText.length, diff.previousEnd);
+        const newEndLineInfo = this._lineInfoAt(newStarts, nextText.length, diff.nextEnd);
+        const affectedOldStart = oldStartLineInfo.lineStart;
+        const affectedOldEnd = oldEndLineInfo.lineEnd;
+        const affectedNewStart = oldStartLineInfo.lineStart;
+        const affectedNewEnd = newEndLineInfo.lineEnd;
+        const lineDelta = this._countNewlines(diff.insertedText) - this._countNewlines(diff.removedText);
+
+        const remapRange = (range) => {
+            if (!range) return null;
+            if (range.endIndex <= affectedOldStart) {
+                return { ...range };
+            }
+            if (range.startIndex >= affectedOldEnd) {
+                return {
+                    ...range,
+                    startIndex: range.startIndex + diff.delta,
+                    endIndex: range.endIndex + diff.delta,
+                };
+            }
+            return null;
+        };
+
+        const shiftedTokens = [];
+        for (const token of previousPayload.tokens || []) {
+            const mapped = remapRange(token);
+            if (mapped) {
+                shiftedTokens.push(mapped);
+            }
+        }
+        shiftedTokens.push(...this._tokenizeIncrementalRange(nextText, affectedNewStart, affectedNewEnd));
+        shiftedTokens.sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
+
+        const shiftedDiagnostics = [];
+        for (const diag of previousPayload.diagnostics || []) {
+            const mapped = remapRange(diag);
+            if (mapped) {
+                shiftedDiagnostics.push(mapped);
+            }
+        }
+        shiftedDiagnostics.sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
+
+        const shiftedFolds = [];
+        for (const range of previousPayload.foldingRanges || []) {
+            if (range.endLine < oldStartLineInfo.line) {
+                shiftedFolds.push({ ...range });
+                continue;
+            }
+            if (range.startLine > oldEndLineInfo.line) {
+                shiftedFolds.push({
+                    ...range,
+                    startLine: range.startLine + lineDelta,
+                    endLine: range.endLine + lineDelta,
+                });
+            }
+        }
+
+        const remapPosition = (position) => {
+            if (!Number.isFinite(position)) return position;
+            if (position <= affectedOldStart) return position;
+            if (position >= affectedOldEnd) return position + diff.delta;
+            return null;
+        };
+
+        const semanticTokens = [];
+        for (const token of previousPayload.semanticTokens || []) {
+            const start = remapPosition(token?.exprSpan?.start);
+            const end = remapPosition(token?.exprSpan?.end);
+            if (start == null || end == null) continue;
+            const argStart = token?.argSpan ? remapPosition(token.argSpan.start) : null;
+            const argEnd = token?.argSpan ? remapPosition(token.argSpan.end) : null;
+            semanticTokens.push({
+                ...token,
+                exprSpan: { start, end },
+                argSpan: argStart != null && argEnd != null ? { start: argStart, end: argEnd } : null,
+            });
+        }
+
+        const inlayHints = [];
+        for (const hint of previousPayload.inlayHints || []) {
+            const position = remapPosition(hint?.position);
+            const start = remapPosition(hint?.exprSpan?.start);
+            const end = remapPosition(hint?.exprSpan?.end);
+            if (position == null || start == null || end == null) continue;
+            inlayHints.push({
+                ...hint,
+                position,
+                exprSpan: { start, end },
+            });
+        }
+
+        return {
+            ...previousPayload,
+            tokens: shiftedTokens,
+            diagnostics: shiftedDiagnostics,
+            foldingRanges: shiftedFolds,
+            semanticTokens,
+            inlayHints,
+        };
     }
 
     _wasm() {
@@ -141,6 +414,7 @@ class NEPLg2LanguageProvider {
                     config: { highlightWhitespace: false, highlightIndent: true },
                 };
             this.lastUpdatePayload = payload;
+            this.lastAnalyzedText = this.text;
             this.updateCallback(payload);
             return;
         }
@@ -209,6 +483,7 @@ class NEPLg2LanguageProvider {
             diagnostics: [...(payloadBase.diagnostics || []), ...fallbackDiagnostics].sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex),
         };
         this.lastUpdatePayload = payload;
+        this.lastAnalyzedText = this.text;
         this.updateCallback(payload);
     }
 
