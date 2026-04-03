@@ -1,6 +1,6 @@
 [build]
 target = "web/index.html"
-public_url = "/web/dist/"
+public_url = "/NEPLg2/"
 
 [watch]
 ignore = ["web/dist_ts"]

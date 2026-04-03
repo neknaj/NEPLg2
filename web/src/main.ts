@@ -280,9 +280,21 @@ function start_app() {
         terminal.resizeEditor();
     });
 
+    function openInitialDocument() {
+        const initialPath = vfs.exists('/examples/rpn.nepl') ? '/examples/rpn.nepl' : '/README';
+        try {
+            tabManager.openFile(initialPath);
+        } catch (error) {
+            console.error(`[Playground] Failed to open initial document: ${initialPath}`, error);
+            if (initialPath !== '/README' && vfs.exists('/README')) {
+                tabManager.openFile('/README');
+            }
+        }
+    }
+
     // --- Initialization ---
     fileExplorer.render();
-    tabManager.openFile('/examples/rpn.nepl');
+    openInitialDocument();
 
     // Make globally available
     (window as any).editor = editor;
