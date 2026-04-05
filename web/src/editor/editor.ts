@@ -300,6 +300,7 @@ class CanvasEditor {
             return false;
         }
         const previousText = this.text;
+        const textChanged = this.normalizeEditorText(runtimeState.text) !== previousText;
         this.text = this.normalizeEditorText(runtimeState.text);
         this.cursor = runtimeState.cursor;
         this.selectionStart = runtimeState.selectionStart;
@@ -309,10 +310,12 @@ class CanvasEditor {
         this.undoStack = Array.isArray(runtimeState.undoStack) ? runtimeState.undoStack : [];
         this.redoStack = Array.isArray(runtimeState.redoStack) ? runtimeState.redoStack : [];
         this.preferredCursorX = -1;
-        this.updateLines();
+        if (textChanged) {
+            this.updateLines();
+        }
         this.scrollToCursor();
         this.resetCursorBlink();
-        if (this.text !== previousText) {
+        if (textChanged) {
             this.updateText(this.text);
         }
         this.updateOccurrencesHighlight();

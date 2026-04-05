@@ -1,3 +1,23 @@
+# 2026-04-05 メモ (矢印キーで highlight が消える問題の修正)
+
+- [状況]:
+  - 文字入力では syntax highlight が維持される一方、矢印キーでカーソル移動した直後だけ highlight が消える不具合があった。
+- [原因]:
+  - `web/src/editor/editor.ts` の `applyCoreRuntimeState()` が、text が変わっていないカーソル移動でも毎回 `updateLines()` を呼んでいた。
+  - `updateLines()` は `tokensByLine` と `diagnosticsByLine` を破棄するため、矢印キー移動では render cache だけ消え、その後は `updateText()` が走らないので解析 payload による再構築も起こらなかった。
+- [修正]:
+  - `applyCoreRuntimeState()` は runtime state の `text` が実際に変わった場合だけ `updateLines()` と `updateText()` を呼ぶように変更した。
+  - これにより、カーソル移動では既存の highlight cache を保持し、文字編集時だけ行情報と解析更新をやり直すように整理した。
+  - surface 回帰確認として `nodesrc/playground_editor_surface_test_runner.js` を追加し、DOM なし mock で `applyCoreRuntimeState()` の cache 保持を検証できるようにした。
+  - 同 runner で cursor move だけでなく selection 変更と overwrite mode 切替でも text 非変更なら cache を壊さないことを確認する。
+- [確認]:
+  - `node nodesrc/playground_editor_surface_test_runner.js`: 通過
+  - `npm --prefix web run build:ts`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: 12/12 passed
+- [plan.mdとの差分]:
+  - editor core と surface の責務分離方針に沿って、cursor movement を text mutation と切り離した。surface での cache 管理と analysis 更新境界が以前より明確になった。
+
 # 2026-04-03 メモ (hover expr 抽出と遅延表示の修正)
 
 - [状況]:
