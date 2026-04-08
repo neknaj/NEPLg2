@@ -2,6 +2,7 @@ export interface Tab {
     path: string;
     content: string;
     isPermanent: boolean;
+    isEditable: boolean;
 }
 
 export class TabManager {
@@ -32,6 +33,7 @@ export class TabManager {
 
         const newContent = this.vfs.readFile(path);
         const contentStr = typeof newContent === 'string' ? this.normalizeText(newContent) : "Binary file...";
+        const isEditable = this.vfs.isEditable(path);
 
         // Logic: If current active tab is NOT PERMANENT and UNEDITED, replace it instead of creating new one
         if (this.activeTabIndex >= 0) {
@@ -44,6 +46,7 @@ export class TabManager {
                     currentTab.path = path;
                     currentTab.content = contentStr;
                     currentTab.isPermanent = false; // Still provisional
+                    currentTab.isEditable = isEditable;
                     this.setActiveTab(this.activeTabIndex);
                     return;
                 }
@@ -53,13 +56,16 @@ export class TabManager {
         // Save current tab before opening new one
         this.saveCurrentTab();
 
-        this.tabs.push({ path, content: contentStr, isPermanent: false });
+        this.tabs.push({ path, content: contentStr, isPermanent: false, isEditable });
         this.setActiveTab(this.tabs.length - 1);
     }
 
     saveCurrentTab() {
         if (this.activeTabIndex >= 0) {
             const currentTab = this.tabs[this.activeTabIndex];
+            if (!currentTab.isEditable) {
+                return;
+            }
             const text = this.normalizeText(typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text);
 
             if (text !== currentTab.content) {
@@ -74,6 +80,9 @@ export class TabManager {
         this.activeTabIndex = index;
         const tab = this.tabs[index];
         this.editor.setText(tab.content);
+        if (typeof this.editor.setEditable === 'function') {
+            this.editor.setEditable(tab.isEditable);
+        }
         // Explicitly set the path on the editor if possible
         if (this.editor) {
             if (typeof this.editor.setPath === 'function') {
@@ -94,6 +103,9 @@ export class TabManager {
                 this.setActiveTab(this.activeTabIndex);
             } else {
                 this.editor.setText("");
+                if (typeof this.editor.setEditable === 'function') {
+                    this.editor.setEditable(false);
+                }
                 if (this.editor) {
                     if (typeof this.editor.setPath === 'function') {
                         this.editor.setPath(null);
@@ -112,11 +124,11 @@ export class TabManager {
         this.container.innerHTML = "";
         this.tabs.forEach((tab, i) => {
             const el = document.createElement('div');
-            el.className = `tab ${i === this.activeTabIndex ? 'active' : ''} ${!tab.isPermanent ? 'provisional' : ''}`;
+            el.className = `tab ${i === this.activeTabIndex ? 'active' : ''} ${!tab.isPermanent ? 'provisional' : ''} ${!tab.isEditable ? 'readonly' : ''}`;
 
             const title = document.createElement('span');
             title.className = 'tab-title';
-            title.textContent = tab.path.split('/').pop() || tab.path;
+            title.textContent = `${!tab.isEditable ? '🔒 ' : ''}${tab.path.split('/').pop() || tab.path}`;
 
             const close = document.createElement('span');
             close.className = 'tab-close';

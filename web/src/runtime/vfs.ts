@@ -1,13 +1,18 @@
 export class VFS {
     files: Map<string, string | Uint8Array>;
+    readOnlyFiles: Set<string>;
 
     constructor() {
         this.files = new Map();
+        this.readOnlyFiles = new Set();
         // Populated by main.js
     }
 
-    writeFile(path: string, content: string | Uint8Array) {
+    writeFile(path: string, content: string | Uint8Array, options: { force?: boolean } = {}) {
         if (!path.startsWith('/')) path = '/' + path;
+        if (!options.force && this.readOnlyFiles.has(path)) {
+            throw new Error(`File is read-only: ${path}`);
+        }
         this.files.set(path, content);
     }
 
@@ -22,6 +27,27 @@ export class VFS {
     exists(path: string): boolean {
         if (!path.startsWith('/')) path = '/' + path;
         return this.files.has(path);
+    }
+
+    setReadOnly(path: string, readOnly: boolean = true) {
+        if (!path.startsWith('/')) path = '/' + path;
+        if (readOnly) {
+            this.readOnlyFiles.add(path);
+        } else {
+            this.readOnlyFiles.delete(path);
+        }
+    }
+
+    isReadOnly(path: string): boolean {
+        if (!path.startsWith('/')) path = '/' + path;
+        return this.readOnlyFiles.has(path);
+    }
+
+    isEditable(path: string): boolean {
+        if (!path.startsWith('/')) path = '/' + path;
+        if (this.isReadOnly(path)) return false;
+        const content = this.files.get(path);
+        return typeof content === 'string';
     }
 
     isDir(path: string): boolean {

@@ -79,6 +79,8 @@ class EditorInputHandler {
     }
     onPaste(e) {
         e.preventDefault();
+        if (!this.editor.getEditable || !this.editor.getEditable())
+            return;
         const pasteText = e.clipboardData.getData('text/plain');
         if (pasteText) {
             this.editor.insertText(pasteText);
@@ -86,6 +88,8 @@ class EditorInputHandler {
     }
     onCut(e) {
         e.preventDefault();
+        if (!this.editor.getEditable || !this.editor.getEditable())
+            return;
         if (!this.editor.hasSelection())
             return;
         this.onCopy(e);
@@ -170,6 +174,10 @@ class EditorInputHandler {
     onInput(e) {
         if (this.editor.isComposing)
             return;
+        if (!this.editor.getEditable || !this.editor.getEditable()) {
+            this.textarea.value = '';
+            return;
+        }
         const newText = e.target.value;
         if (newText) {
             if (!this.editor.applyCoreStateCommand({ kind: 'insert_text', text: newText })) {
@@ -182,6 +190,7 @@ class EditorInputHandler {
     async onKeydown(e) {
         if (this.editor.isComposing)
             return;
+        const isEditable = !this.editor.getEditable || this.editor.getEditable();
         const coreBridge = this.editor.getCoreBridge ? this.editor.getCoreBridge() : null;
         if (coreBridge && typeof coreBridge.mapKeyboardEventToCoreCommand === 'function') {
             const coreCommand = coreBridge.mapKeyboardEventToCoreCommand({
@@ -220,6 +229,8 @@ class EditorInputHandler {
         if ((e.ctrlKey || e.metaKey)) {
             switch (e.key.toLowerCase()) {
                 case '/':
+                    if (!isEditable)
+                        return;
                     e.preventDefault();
                     if (this.editor.languageProvider) {
                         const { start, end } = this.editor.getSelectionRange();
@@ -244,6 +255,8 @@ class EditorInputHandler {
         }
         switch (e.key) {
             case 'Enter':
+                if (!isEditable)
+                    return;
                 e.preventDefault();
                 await this.editor.handleEnterKey();
                 return;
@@ -327,6 +340,8 @@ class EditorInputHandler {
             case 'Insert':
                 return;
             case 'Backspace':
+                if (!isEditable)
+                    return;
                 e.preventDefault();
                 if (!this.editor.applyCoreStateCommand({ kind: 'delete_backward' })) {
                     if (this.editor.hasSelection()) {
@@ -340,6 +355,8 @@ class EditorInputHandler {
                 this.editor.triggerCompletion();
                 break;
             case 'Delete':
+                if (!isEditable)
+                    return;
                 e.preventDefault();
                 if (!this.editor.applyCoreStateCommand({ kind: 'delete_forward' })) {
                     if (this.editor.hasSelection()) {
@@ -353,6 +370,8 @@ class EditorInputHandler {
                 break;
             case 'Tab':
                 e.preventDefault();
+                if (!isEditable)
+                    return;
                 if (this.editor.languageProvider) {
                     const { start, end } = this.editor.getSelectionRange();
                     const result = await this.editor.languageProvider.adjustIndentation(start, end, e.shiftKey);
@@ -365,6 +384,10 @@ class EditorInputHandler {
                 }
                 return;
             default:
+                if (!isEditable && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    e.preventDefault();
+                    return;
+                }
                 this.editor.preferredCursorX = -1;
                 break;
         }

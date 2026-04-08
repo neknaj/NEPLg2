@@ -81,6 +81,19 @@ export class PlaygroundEditor {
         this.path = path;
     }
 
+    setEditable(editable: boolean): void {
+        if (typeof this.inner.setEditable === 'function') {
+            this.inner.setEditable(editable);
+        }
+    }
+
+    getEditable(): boolean {
+        if (typeof this.inner.getEditable === 'function') {
+            return this.inner.getEditable();
+        }
+        return true;
+    }
+
     getPath(): string | null {
         return this.path;
     }

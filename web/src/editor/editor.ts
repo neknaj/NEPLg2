@@ -137,6 +137,7 @@ class CanvasEditor {
         this.blinkInterval = 500;
         this.preferredCursorX = -1;
         this.isOverwriteMode = false;
+        this.isEditable = true;
         this.visibleLines = 0;
         this.lineYPositions = [];
         this.lineStartIndices = [];
@@ -274,6 +275,16 @@ class CanvasEditor {
     focus() { if (this.isFocused)
         return; this.isFocused = true; this.textarea.focus(); this.resetCursorBlink(); }
     blur() { this.isFocused = false; this.textarea.blur(); this.domUI.hidePopup(); this.domUI.hideCompletion(); }
+    setEditable(editable) {
+        this.isEditable = Boolean(editable);
+        this.textarea.readOnly = !this.isEditable;
+        if (!this.isEditable) {
+            this.domUI.hideCompletion();
+        }
+    }
+    getEditable() {
+        return this.isEditable;
+    }
     normalizeEditorText(text) {
         return String(text ?? '').replace(/\r\n?/g, '\n');
     }

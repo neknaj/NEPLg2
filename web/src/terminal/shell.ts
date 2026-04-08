@@ -145,13 +145,16 @@ export class Shell {
                 
                 if (editorText !== undefined) {
                     const isTargetFile = typeof inputFile === 'string' && (inputFile === editorPath || (inputFile.startsWith('/') && inputFile === (editorPath.startsWith('/') ? editorPath : '/' + editorPath)));
+                    const editorEditable = typeof this.editor.getEditable === 'function' ? this.editor.getEditable() : true;
                     
                     if (!inputFile || isTargetFile) {
                         source = editorText;
                         inputPath = editorPath || "editor";
-                        if (editorPath) {
+                        if (editorPath && editorEditable) {
                             this.vfs.writeFile(editorPath, editorText);
                             this.terminal.print(`(Using synced editor content for ${editorPath})`);
+                        } else if (editorPath) {
+                            this.terminal.print(`(Using read-only editor view for ${editorPath})`);
                         } else {
                             this.terminal.print("(Using editor content)");
                         }

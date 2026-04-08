@@ -14607,3 +14607,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `npm --prefix web run build:ts`: 通過
   - `trunk build --release`: 通過
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `11/11 passed`
+# 2026-04-08 Playground editability 判定修正
+
+- 現象:
+  - playground で「どのファイルが編集可能か」の判定が surface 側に存在せず、VFS・tab・editor input・shell sync の判断が分離していた。
+  - そのため、read-only にしたいファイルでも通常入力や一部ショートカット経由で編集経路に入れる余地があり、逆に bundled file 全体を read-only 扱いすると examples まで編集不能になって playground の主用途を壊す状態だった。
+- 原因:
+  - 編集可能性の source of truth が無く、`CanvasEditor` は常に editable、`TabManager` は常に保存可能、`VFS` は常に書き込み可能という前提だった。
+  - 初期 mount 時に file attribute が付与されていなかったため、bundled stdlib / README / examples の区別も無かった。
+- 修正:
+  - `web/src/runtime/vfs.ts` に read-only file 管理を追加し、`isEditable()` を VFS 起点で判定するようにした。
+  - `web/src/main.ts` で mount helper を追加し、`/stdlib/**` と `/README` は read-only、`/examples/**` は editable として初期化するようにした。
+  - `web/src/library/tabs.ts` で tab ごとに `isEditable` を保持し、tab 切替時に editor surface へ伝播、read-only tab では保存を抑止するようにした。
+  - `web/src/editor/editor.ts` / `web/src/editor-core/browser-adapter.ts` に `setEditable()` / `getEditable()` を追加した。
+  - `web/src/editor/editor-input-handler.ts` で paste / cut / input / Enter / Backspace / Delete / Tab / printable key / `Ctrl+/` を read-only 時に停止するようにした。
+  - `web/src/terminal/shell.ts` で read-only editor view を実行時同期の対象から外し、VFS へ誤って書き戻さないようにした。
+  - `nodesrc/playground_editability_test_runner.js` を追加し、read-only 判定と tab 保存挙動を CLI で回帰確認できるようにした。
+- 確認:
+  - `npm --prefix web run build:ts`
+  - `node nodesrc/playground_editability_test_runner.js`
+  - `node nodesrc/playground_editor_surface_test_runner.js`
+  - `trunk build --release`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
+  - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+- plan.md との差異:
+  - plan にある editor 全面再設計のうち、今回は editability 判定の一貫化に限定して修正した。
+  - examples を read-only にはせず editable のまま維持している。これは playground の初期編集対象を壊さないための判断。

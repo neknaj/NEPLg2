@@ -21,6 +21,12 @@ function start_app() {
     // --- Core Dependencies ---
     console.log("[Playground] Initializing VFS...");
     const vfs = new VFS();
+    const mountTextFile = (path: string, content: unknown, options: { readOnly?: boolean } = {}) => {
+        const normalizedPath = String(path);
+        const text = String(content ?? '').replace(/\r\n?/g, '\n');
+        vfs.writeFile(normalizedPath, text, { force: true });
+        vfs.setReadOnly(normalizedPath, Boolean(options.readOnly));
+    };
 
     let wasm: any;
     try {
@@ -44,14 +50,14 @@ function start_app() {
                 const stdlibVfs = wasm.get_bundled_stdlib_vfs();
                 if (stdlibVfs && typeof stdlibVfs === 'object') {
                     for (const [p, content] of Object.entries(stdlibVfs)) {
-                        vfs.writeFile(String(p), String(content ?? ''));
+                        mountTextFile(String(p), content, { readOnly: true });
                     }
                 }
             } else if (wasm.get_stdlib_files) {
                 const stdlibFiles = wasm.get_stdlib_files();
                 if (stdlibFiles && Array.isArray(stdlibFiles)) {
                     for (const [path, content] of stdlibFiles) {
-                        vfs.writeFile('/stdlib/' + path, content);
+                        mountTextFile('/stdlib/' + path, content, { readOnly: true });
                     }
                 }
             }
@@ -61,7 +67,7 @@ function start_app() {
                 const exampleFiles = wasm.get_example_files();
                 if (exampleFiles && Array.isArray(exampleFiles)) {
                     for (const [path, content] of exampleFiles) {
-                        vfs.writeFile('/examples/' + path, content);
+                        mountTextFile('/examples/' + path, content, { readOnly: false });
                     }
                 }
             }
@@ -69,7 +75,7 @@ function start_app() {
             // Load README
             if (wasm.get_readme) {
                 const readme = wasm.get_readme();
-                vfs.writeFile('/README', readme);
+                mountTextFile('/README', readme, { readOnly: true });
             }
         } catch (e) {
             console.error("[Playground] WASM initSync failed:", e);
