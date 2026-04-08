@@ -8,6 +8,8 @@ export interface LeafPanelSnapshot {
     panelKind: PanelKind;
     activePath?: string | null;
     paths?: string[];
+    zoom?: number;
+    pathZooms?: Record<string, number>;
 }
 
 export interface SplitNodeSnapshot {
@@ -136,6 +138,8 @@ export function normalizeTree(root: WorkspaceNode | null): WorkspaceNode | null 
     if (root.kind === 'leaf') {
         root.paths = Array.isArray(root.paths) ? root.paths.filter(Boolean) : [];
         root.activePath = root.activePath && root.paths.includes(root.activePath) ? root.activePath : (root.paths[0] || null);
+        root.zoom = Number.isFinite(root.zoom) ? Number(root.zoom) : 1;
+        root.pathZooms = root.pathZooms && typeof root.pathZooms === 'object' ? { ...root.pathZooms } : {};
         return root;
     }
     root.first = normalizeTree(root.first)!;

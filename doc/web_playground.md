@@ -22,6 +22,8 @@ The playground now uses a split-tree workspace instead of the old fixed three-pa
 - File open requests from the explorer also target the focused editor panel, creating or reusing editor state through the workspace manager.
 - Drag-and-drop currently supports moving panels across `left`, `right`, `top`, and `bottom` drop zones. Center-drop merges are implemented for editor panels by merging tab sets.
 - Explorer duplication is intentionally blocked, and the last explorer or last editor panel cannot be closed.
+- Editor panels keep zoom per active tab, and terminal panels keep zoom per panel.
+- Zoom controls are `Ctrl+Wheel`, `Ctrl++`, `Ctrl+-`, `Ctrl+0`, and two-finger pinch on touch devices. The current zoom is shown as a temporary badge overlay in the panel.
 
 ## Terminal features
 

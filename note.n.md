@@ -14719,3 +14719,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build --release`
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
   - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+# 2026-04-09 Playground panel-local zoom
+
+- 現状:
+  - `bemstudy` の tab zoom を参考に、playground でも panel-local の zoom を追加した。
+  - editor は active tab ごとに独立した zoom を持ち、terminal は panel ごとの zoom を持つ。
+  - `Ctrl+wheel`, `Ctrl++`, `Ctrl+-`, `Ctrl+0`, 2 本指 pinch で zoom を変更でき、操作中は panel 右上に倍率バッジをオーバーレイ表示する。
+- 実装:
+  - `web/src/workspace/panel-layout.ts`
+    - workspace snapshot の leaf に `zoom` と `pathZooms` を追加し、normalize 時に zoom state を保持するようにした。
+  - `web/src/library/tabs.ts`
+    - tab state に `zoom` を追加し、`getTabSnapshot`, `restoreTabs`, `getActiveZoom`, `setActiveZoom` を通じて tab ごとの zoom を保持できるようにした。
+  - `web/src/workspace/panel-manager.ts`
+    - panel-local zoom の clamp / apply / persist / overlay badge を追加した。
+    - `Ctrl+wheel` と keyboard shortcut、touch pinch を focused panel に対して解決し、editor は active tab、terminal は panel 単位で zoom を変えるようにした。
+    - runtime 作成時や tab 切替時に zoom を再適用し、workspace restore 後も倍率が戻るようにした。
+  - `web/styles.css`
+    - zoom 操作時に panel 右上へ出る `panel-zoom-badge` を追加した。
+  - `nodesrc/playground_workspace_test_runner.js`
+    - leaf zoom state が normalize / clone で失われないことを固定した。
+  - `nodesrc/playground_editability_test_runner.js`
+    - editable tab ごとの zoom state が tab 切替後も維持されることを固定した。
+- 確認:
+  - `npm --prefix web run build:ts`
+  - `node nodesrc/playground_workspace_test_runner.js`
+  - `node nodesrc/playground_editability_test_runner.js`
+  - `trunk build --release`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
+  - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+- plan.md との差分:
+  - plan に明示されていた機能ではないが、workspace 化後の panel-local state として zoom を追加した。
+  - editor は tab ごとの zoom、terminal は panel ごとの zoom で、Explorer には zoom を持たせていない。

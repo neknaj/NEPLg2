@@ -113,12 +113,15 @@ async function runEditabilityRegression() {
         assert.equal(editor.path, '/examples/second.nepl');
         assert.equal(editor.editable, true);
         assert.equal(tabs.activeTab.isEditable, true);
+        tabs.setActiveZoom(1.5);
+        assert.equal(tabs.getActiveZoom(), 1.5);
         editor.text = '#entry main\nprint "second edited"\n';
         tabs.setActiveTab(0);
         tabs.setActiveTab(tabs.tabs.findIndex((tab) => tab.path === '/examples/second.nepl'));
         assert.equal(editor.path, '/examples/second.nepl');
         assert.equal(editor.editable, true);
         assert.equal(vfs.readFile('/examples/second.nepl'), '#entry main\nprint "second edited"\n');
+        assert.equal(tabs.getActiveZoom(), 1.5);
 
         tabs.openFile('/stdlib/std/io.nepl');
         assert.equal(editor.editable, false);
@@ -132,6 +135,7 @@ async function runEditabilityRegression() {
                 'editable example files remain writable',
                 'tab switching propagates editable state to the editor surface',
                 'switching between editable tabs preserves editability and saves the previous tab',
+                'editable tabs preserve their own zoom state across tab switches',
             ],
         };
     } finally {

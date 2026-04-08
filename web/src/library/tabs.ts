@@ -3,6 +3,7 @@ export interface Tab {
     content: string;
     isPermanent: boolean;
     isEditable: boolean;
+    zoom: number;
 }
 
 export interface TabSnapshot {
@@ -16,12 +17,22 @@ export class TabManager {
     editor: any;
     vfs: any;
     onStateChange: (() => void) | null;
+    onActiveTabChange: ((tab: Tab | null) => void) | null;
 
-    constructor(container: HTMLElement, editor: any, vfs: any, options: { onStateChange?: (() => void) | null } = {}) {
+    constructor(
+        container: HTMLElement,
+        editor: any,
+        vfs: any,
+        options: {
+            onStateChange?: (() => void) | null;
+            onActiveTabChange?: ((tab: Tab | null) => void) | null;
+        } = {},
+    ) {
         this.container = container;
         this.editor = editor;
         this.vfs = vfs;
         this.onStateChange = options.onStateChange || null;
+        this.onActiveTabChange = options.onActiveTabChange || null;
     }
 
     normalizeText(text: string): string {
@@ -34,14 +45,15 @@ export class TabManager {
         }
     }
 
-    getTabSnapshot(): { paths: string[]; activePath: string | null } {
+    getTabSnapshot(): { paths: string[]; activePath: string | null; pathZooms: Record<string, number> } {
         return {
             paths: this.tabs.map((tab) => tab.path),
             activePath: this.activeTab?.path || null,
+            pathZooms: Object.fromEntries(this.tabs.map((tab) => [tab.path, tab.zoom])),
         };
     }
 
-    restoreTabs(paths: string[], activePath: string | null = null) {
+    restoreTabs(paths: string[], activePath: string | null = null, pathZooms: Record<string, number> = {}) {
         this.tabs = [];
         this.activeTabIndex = -1;
         for (const path of paths) {
@@ -55,6 +67,7 @@ export class TabManager {
                 content: contentStr,
                 isPermanent: true,
                 isEditable: this.vfs.isEditable(path),
+                zoom: Number.isFinite(pathZooms[path]) ? Number(pathZooms[path]) : 1,
             });
         }
         if (this.tabs.length === 0) {
@@ -67,6 +80,9 @@ export class TabManager {
             }
             this.render();
             this.notifyStateChange();
+            if (this.onActiveTabChange) {
+                this.onActiveTabChange(null);
+            }
             return;
         }
         const index = activePath ? this.tabs.findIndex((tab) => tab.path === activePath) : 0;
@@ -94,6 +110,7 @@ export class TabManager {
                     currentTab.content = contentStr;
                     currentTab.isPermanent = false;
                     currentTab.isEditable = isEditable;
+                    currentTab.zoom = 1;
                     this.setActiveTab(this.activeTabIndex, { focusEditor: true, persistCurrent: false });
                     return;
                 }
@@ -101,7 +118,7 @@ export class TabManager {
         }
 
         this.saveCurrentTab();
-        this.tabs.push({ path, content: contentStr, isPermanent: false, isEditable });
+        this.tabs.push({ path, content: contentStr, isPermanent: false, isEditable, zoom: 1 });
         this.setActiveTab(this.tabs.length - 1);
     }
 
@@ -143,6 +160,9 @@ export class TabManager {
         }
         this.render();
         this.notifyStateChange();
+        if (this.onActiveTabChange) {
+            this.onActiveTabChange(tab);
+        }
         if (options.focusEditor !== false && typeof this.editor.focus === 'function') {
             this.editor.focus();
         }
@@ -168,6 +188,9 @@ export class TabManager {
                 if (typeof this.editor.setPath === 'function') {
                     this.editor.setPath(null);
                 }
+                if (this.onActiveTabChange) {
+                    this.onActiveTabChange(null);
+                }
             }
         } else if (this.activeTabIndex > index) {
             this.activeTabIndex -= 1;
@@ -187,6 +210,7 @@ export class TabManager {
                     content: typeof content === 'string' ? this.normalizeText(content) : 'Binary file...',
                     isPermanent: true,
                     isEditable: this.vfs.isEditable(path),
+                    zoom: 1,
                 });
             }
         }
@@ -221,5 +245,20 @@ export class TabManager {
 
     get activeTab(): Tab | null {
         return this.activeTabIndex >= 0 ? this.tabs[this.activeTabIndex] : null;
+    }
+
+    getActiveZoom(): number {
+        return this.activeTab?.zoom ?? 1;
+    }
+
+    setActiveZoom(zoom: number) {
+        if (!this.activeTab) {
+            return;
+        }
+        this.activeTab.zoom = zoom;
+        this.notifyStateChange();
+        if (this.onActiveTabChange) {
+            this.onActiveTabChange(this.activeTab);
+        }
     }
 }

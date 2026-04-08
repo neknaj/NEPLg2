@@ -37,6 +37,12 @@ async function runWorkspaceRegression() {
     assert.equal(layout.countLeavesByKind(clone.root, 'explorer'), 1);
     assert.equal(layout.countLeavesByKind(clone.root, 'terminal'), 1);
 
+    editor.zoom = 1.4;
+    editor.pathZooms = { '/examples/demo.nepl': 1.4 };
+    const normalizedLeaf = layout.normalizeTree(editor);
+    assert.equal(normalizedLeaf.zoom, 1.4);
+    assert.equal(normalizedLeaf.pathZooms['/examples/demo.nepl'], 1.4);
+
     return {
         ok: true,
         checks: [
@@ -44,6 +50,7 @@ async function runWorkspaceRegression() {
             'editor leaves can be split and moved in the tree',
             'closing a leaf normalizes the split tree',
             'workspace snapshots can be cloned without losing panel kinds',
+            'leaf zoom state survives normalize and clone operations',
         ],
     };
 }

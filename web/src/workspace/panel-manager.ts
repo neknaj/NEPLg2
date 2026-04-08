@@ -30,6 +30,7 @@ type EditorRuntime = {
     canvas: HTMLCanvasElement;
     textarea: HTMLTextAreaElement;
     completionList: HTMLElement;
+    zoomBadgeEl: HTMLElement;
     editor: PlaygroundEditor;
     tabManager: TabManager;
 };
@@ -42,6 +43,7 @@ type TerminalRuntime = {
     contentEl: HTMLElement;
     canvas: HTMLCanvasElement;
     textarea: HTMLTextAreaElement;
+    zoomBadgeEl: HTMLElement;
     terminal: CanvasTerminal;
 };
 
@@ -82,6 +84,8 @@ export class PlaygroundPanelManager {
     dragSourceLeafId: string | null;
     resizeState: { splitId: string; dir: 'h' | 'v'; rect: DOMRect } | null;
     currentFontSize: number;
+    zoomBadgeTimerMap: Map<string, number>;
+    pinchState: { leafId: string; initialZoom: number; initialDist: number } | null;
 
     constructor(options: PanelManagerOptions) {
         this.root = options.root;
@@ -97,12 +101,20 @@ export class PlaygroundPanelManager {
         this.dragSourceLeafId = null;
         this.resizeState = null;
         this.currentFontSize = 14;
+        this.zoomBadgeTimerMap = new Map();
+        this.pinchState = null;
         this.bindWindowEvents();
     }
 
     bindWindowEvents() {
         window.addEventListener('mousemove', (event) => this.handleResizeMove(event));
         window.addEventListener('mouseup', () => this.stopResize());
+        document.addEventListener('wheel', (event) => this.handleZoomWheel(event), { passive: false });
+        document.addEventListener('touchstart', (event) => this.handlePinchStart(event), { passive: false });
+        document.addEventListener('touchmove', (event) => this.handlePinchMove(event), { passive: false });
+        document.addEventListener('touchend', () => this.endPinch());
+        document.addEventListener('touchcancel', () => this.endPinch());
+        document.addEventListener('keydown', (event) => this.handleZoomShortcut(event));
     }
 
     loadWorkspaceSnapshot(): WorkspaceSnapshot {
@@ -137,9 +149,14 @@ export class PlaygroundPanelManager {
                 const tabState = runtime.tabManager.getTabSnapshot();
                 leaf.paths = tabState.paths;
                 leaf.activePath = tabState.activePath;
+                leaf.pathZooms = tabState.pathZooms;
+                leaf.zoom = runtime.tabManager.getActiveZoom();
             } else {
                 leaf.paths = [];
                 leaf.activePath = null;
+                if (runtime.panelKind === 'terminal') {
+                    leaf.zoom = this.resolveLeafZoom(leaf.id);
+                }
             }
         }
     }
@@ -247,7 +264,10 @@ export class PlaygroundPanelManager {
         header.appendChild(titleEl);
         header.appendChild(actions);
         rootEl.appendChild(header);
-        return { rootEl, header, titleEl, actions };
+        const zoomBadgeEl = document.createElement('div');
+        zoomBadgeEl.className = 'panel-zoom-badge';
+        rootEl.appendChild(zoomBadgeEl);
+        return { rootEl, header, titleEl, actions, zoomBadgeEl };
     }
 
     createPanelButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -260,6 +280,204 @@ export class PlaygroundPanelManager {
             onClick();
         });
         return button;
+    }
+
+    clampPanelZoom(value: number): number {
+        const next = Number.isFinite(value) ? value : 1;
+        return Math.max(0.6, Math.min(2.4, Math.round(next * 100) / 100));
+    }
+
+    resolveLeafZoom(leafId: string): number {
+        const leaf = findNode(this.snapshot.root, leafId)?.node;
+        if (!leaf || leaf.kind !== 'leaf') {
+            return 1;
+        }
+        if (leaf.panelKind === 'editor') {
+            const activePath = leaf.activePath || null;
+            if (activePath && leaf.pathZooms && Number.isFinite(leaf.pathZooms[activePath])) {
+                return Number(leaf.pathZooms[activePath]);
+            }
+        }
+        return Number.isFinite(leaf.zoom) ? Number(leaf.zoom) : 1;
+    }
+
+    setLeafZoom(leafId: string, zoom: number, options: { showBadge?: boolean } = {}) {
+        const leaf = findNode(this.snapshot.root, leafId)?.node;
+        const runtime = this.leafRuntimeMap.get(leafId);
+        if (!leaf || leaf.kind !== 'leaf' || !runtime) {
+            return false;
+        }
+        const clampedZoom = this.clampPanelZoom(zoom);
+        if (leaf.panelKind === 'editor') {
+            leaf.zoom = clampedZoom;
+            const editorRuntime = runtime as EditorRuntime;
+            const activePath = editorRuntime.tabManager.activeTab?.path || leaf.activePath || null;
+            if (activePath) {
+                leaf.pathZooms = leaf.pathZooms || {};
+                leaf.pathZooms[activePath] = clampedZoom;
+                editorRuntime.tabManager.setActiveZoom(clampedZoom);
+            }
+            editorRuntime.editor.setFontSize(Math.round(this.currentFontSize * clampedZoom));
+            if (options.showBadge !== false) {
+                this.showZoomBadge(leafId, clampedZoom);
+            }
+            this.saveWorkspaceSnapshot();
+            return true;
+        }
+        if (leaf.panelKind === 'terminal') {
+            leaf.zoom = clampedZoom;
+            const terminalRuntime = runtime as TerminalRuntime;
+            terminalRuntime.terminal.setFontSize(Math.round(this.currentFontSize * clampedZoom));
+            if (options.showBadge !== false) {
+                this.showZoomBadge(leafId, clampedZoom);
+            }
+            this.saveWorkspaceSnapshot();
+            return true;
+        }
+        return false;
+    }
+
+    showZoomBadge(leafId: string, zoom: number) {
+        const runtime = this.leafRuntimeMap.get(leafId);
+        if (!runtime || runtime.panelKind === 'explorer') {
+            return;
+        }
+        const badgeEl = runtime.zoomBadgeEl;
+        badgeEl.textContent = `${Math.round(zoom * 100)}%`;
+        badgeEl.classList.add('visible');
+        const previousTimer = this.zoomBadgeTimerMap.get(leafId);
+        if (previousTimer) {
+            window.clearTimeout(previousTimer);
+        }
+        const nextTimer = window.setTimeout(() => {
+            badgeEl.classList.remove('visible');
+            this.zoomBadgeTimerMap.delete(leafId);
+        }, 900);
+        this.zoomBadgeTimerMap.set(leafId, nextTimer);
+    }
+
+    applyLeafZoom(leafId: string, options: { showBadge?: boolean } = {}) {
+        const leaf = findNode(this.snapshot.root, leafId)?.node;
+        if (!leaf || leaf.kind !== 'leaf') {
+            return;
+        }
+        const zoom = this.resolveLeafZoom(leafId);
+        if (leaf.panelKind === 'editor') {
+            const runtime = this.leafRuntimeMap.get(leafId);
+            if (runtime && runtime.panelKind === 'editor') {
+                runtime.editor.setFontSize(Math.round(this.currentFontSize * zoom));
+                if (options.showBadge) {
+                    this.showZoomBadge(leafId, zoom);
+                }
+            }
+            return;
+        }
+        if (leaf.panelKind === 'terminal') {
+            const runtime = this.leafRuntimeMap.get(leafId);
+            if (runtime && runtime.panelKind === 'terminal') {
+                runtime.terminal.setFontSize(Math.round(this.currentFontSize * zoom));
+                if (options.showBadge) {
+                    this.showZoomBadge(leafId, zoom);
+                }
+            }
+        }
+    }
+
+    adjustZoomForLeaf(leafId: string, delta: number, reset = false): boolean {
+        const leaf = findNode(this.snapshot.root, leafId)?.node;
+        if (!leaf || leaf.kind !== 'leaf' || leaf.panelKind === 'explorer') {
+            return false;
+        }
+        const nextZoom = reset ? 1 : this.resolveLeafZoom(leafId) + delta;
+        return this.setLeafZoom(leafId, nextZoom, { showBadge: true });
+    }
+
+    getLeafIdFromEventTarget(target: EventTarget | null): string | null {
+        const element = target instanceof HTMLElement ? target : null;
+        const panelEl = element ? element.closest('.panel') : null;
+        return panelEl?.getAttribute('data-panel-id') || null;
+    }
+
+    pinchDistance(touches: TouchList): number {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.hypot(dx, dy);
+    }
+
+    handleZoomWheel(event: WheelEvent) {
+        if (!event.ctrlKey) {
+            return;
+        }
+        const leafId = this.getLeafIdFromEventTarget(event.target);
+        if (!leafId) {
+            return;
+        }
+        const leaf = findNode(this.snapshot.root, leafId)?.node;
+        if (!leaf || leaf.kind !== 'leaf' || leaf.panelKind === 'explorer') {
+            return;
+        }
+        this.setFocusedLeaf(leafId);
+        const delta = event.deltaY < 0 ? 0.1 : -0.1;
+        if (this.adjustZoomForLeaf(leafId, delta)) {
+            event.preventDefault();
+        }
+    }
+
+    handlePinchStart(event: TouchEvent) {
+        if (event.touches.length !== 2) {
+            return;
+        }
+        const leafId = this.getLeafIdFromEventTarget(event.target);
+        if (!leafId) {
+            return;
+        }
+        const leaf = findNode(this.snapshot.root, leafId)?.node;
+        if (!leaf || leaf.kind !== 'leaf' || leaf.panelKind === 'explorer') {
+            return;
+        }
+        event.preventDefault();
+        this.setFocusedLeaf(leafId);
+        this.pinchState = {
+            leafId,
+            initialZoom: this.resolveLeafZoom(leafId),
+            initialDist: this.pinchDistance(event.touches),
+        };
+    }
+
+    handlePinchMove(event: TouchEvent) {
+        if (!this.pinchState || event.touches.length !== 2) {
+            return;
+        }
+        event.preventDefault();
+        const zoom = this.clampPanelZoom(this.pinchState.initialZoom * (this.pinchDistance(event.touches) / this.pinchState.initialDist));
+        this.setLeafZoom(this.pinchState.leafId, zoom, { showBadge: true });
+    }
+
+    endPinch() {
+        this.pinchState = null;
+    }
+
+    handleZoomShortcut(event: KeyboardEvent) {
+        if (!event.ctrlKey && !event.metaKey) {
+            return;
+        }
+        const leafId = this.snapshot.focusedLeafId;
+        if (!leafId) {
+            return;
+        }
+        if (event.key === '=' || event.key === '+') {
+            if (this.adjustZoomForLeaf(leafId, 0.1)) {
+                event.preventDefault();
+            }
+        } else if (event.key === '-') {
+            if (this.adjustZoomForLeaf(leafId, -0.1)) {
+                event.preventDefault();
+            }
+        } else if (event.key === '0') {
+            if (this.adjustZoomForLeaf(leafId, 0, true)) {
+                event.preventDefault();
+            }
+        }
     }
 
     createEditorRuntime(leaf: Extract<WorkspaceNode, { kind: 'leaf' }>): EditorRuntime {
@@ -297,6 +515,7 @@ export class PlaygroundPanelManager {
             canvas,
             textarea,
             completionList,
+            zoomBadgeEl: shell.zoomBadgeEl,
             editor: null as unknown as PlaygroundEditor,
             tabManager: null as unknown as TabManager,
         };
@@ -336,11 +555,20 @@ export class PlaygroundPanelManager {
                     const state = runtime.tabManager.getTabSnapshot();
                     targetLeaf.paths = state.paths;
                     targetLeaf.activePath = state.activePath;
+                    targetLeaf.pathZooms = state.pathZooms;
+                    targetLeaf.zoom = runtime.tabManager.getActiveZoom();
                 }
                 this.saveWorkspaceSnapshot();
                 if (this.snapshot.focusedLeafId === leaf.id) {
                     this.syncStatusBar();
                 }
+            },
+            onActiveTabChange: () => {
+                const targetLeaf = findNode(this.snapshot.root, leaf.id)?.node;
+                if (targetLeaf && targetLeaf.kind === 'leaf') {
+                    targetLeaf.zoom = runtime.tabManager.getActiveZoom();
+                }
+                this.applyLeafZoom(leaf.id);
             },
         });
 
@@ -348,7 +576,8 @@ export class PlaygroundPanelManager {
         shell.actions.appendChild(this.createPanelButton('D', 'Split down', () => this.splitPanel(leaf.id, 'v')));
         shell.actions.appendChild(this.createPanelButton('x', 'Close panel', () => this.closePanel(leaf.id)));
 
-        runtime.tabManager.restoreTabs(leaf.paths || [], leaf.activePath || null);
+        runtime.tabManager.restoreTabs(leaf.paths || [], leaf.activePath || null, leaf.pathZooms || {});
+        runtime.editor.setFontSize(Math.round(this.currentFontSize * this.resolveLeafZoom(leaf.id)));
         return runtime;
     }
 
@@ -381,12 +610,14 @@ export class PlaygroundPanelManager {
             contentEl,
             canvas,
             textarea,
+            zoomBadgeEl: shell.zoomBadgeEl,
             terminal,
         };
 
         shell.actions.appendChild(this.createPanelButton('R', 'Split right', () => this.splitPanel(leaf.id, 'h')));
         shell.actions.appendChild(this.createPanelButton('D', 'Split down', () => this.splitPanel(leaf.id, 'v')));
         shell.actions.appendChild(this.createPanelButton('x', 'Close panel', () => this.closePanel(leaf.id)));
+        terminal.setFontSize(Math.round(this.currentFontSize * this.resolveLeafZoom(leaf.id)));
         return runtime;
     }
 
@@ -474,11 +705,7 @@ export class PlaygroundPanelManager {
     setFontSize(size: number) {
         this.currentFontSize = size;
         for (const runtime of this.leafRuntimeMap.values()) {
-            if (runtime.panelKind === 'editor') {
-                runtime.editor.setFontSize(size);
-            } else if (runtime.panelKind === 'terminal') {
-                runtime.terminal.setFontSize(size);
-            }
+            this.applyLeafZoom(runtime.leafId);
         }
     }
 
@@ -563,6 +790,10 @@ export class PlaygroundPanelManager {
             return;
         }
         const newLeaf = createLeaf(location.node.panelKind);
+        newLeaf.zoom = this.resolveLeafZoom(leafId);
+        if (location.node.panelKind === 'editor' && location.node.activePath) {
+            newLeaf.pathZooms = { [location.node.activePath]: this.resolveLeafZoom(leafId) };
+        }
         const activePath = location.node.activePath || null;
         this.snapshot.root = splitLeaf(this.snapshot.root, leafId, dir, newLeaf, 'after');
         this.snapshot.focusedLeafId = newLeaf.id;
