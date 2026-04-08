@@ -28,6 +28,17 @@ class NEPLg2LanguageProvider {
         this.updateCallback = callback || (() => {});
     }
 
+    _cancelPendingAnalysis() {
+        if (this.pendingTimer != null) {
+            clearTimeout(this.pendingTimer);
+            this.pendingTimer = null;
+        }
+        if (this.pendingIdleCallback != null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+            window.cancelIdleCallback(this.pendingIdleCallback);
+            this.pendingIdleCallback = null;
+        }
+    }
+
     updateText(text) {
         const nextText = text || '';
         const previousText = this.text;
@@ -44,14 +55,7 @@ class NEPLg2LanguageProvider {
             }
         }
         this.analysisVersion += 1;
-        if (this.pendingTimer != null) {
-            clearTimeout(this.pendingTimer);
-            this.pendingTimer = null;
-        }
-        if (this.pendingIdleCallback != null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
-            window.cancelIdleCallback(this.pendingIdleCallback);
-            this.pendingIdleCallback = null;
-        }
+        this._cancelPendingAnalysis();
         const version = this.analysisVersion;
         this.pendingTimer = setTimeout(() => {
             this.pendingTimer = null;
@@ -64,6 +68,18 @@ class NEPLg2LanguageProvider {
                 this._analyzeAndPublish(version);
             }
         }, this.analyzeDelayMs);
+    }
+
+    replaceDocumentText(text) {
+        const nextText = text || '';
+        if (nextText === this.text && this.lastAnalyzedText === nextText && this.lastUpdatePayload) {
+            return;
+        }
+        this._cancelPendingAnalysis();
+        this.text = nextText;
+        this._rebuildOffsetMaps();
+        this.analysisVersion += 1;
+        this._analyzeAndPublish(this.analysisVersion);
     }
 
     _diffTexts(previousText, nextText) {

@@ -89,12 +89,11 @@ function startApp() {
     document.querySelector('.status-left')?.appendChild(analysisSpan);
     const terminalStatusSpan = document.getElementById('terminal-status') as HTMLElement;
 
-    const neplProvider = new NEPLg2LanguageProvider();
     const panelManager = new PlaygroundPanelManager({
         root: workspaceRoot,
         popup,
         vfs,
-        neplProvider,
+        createNeplProvider: () => new NEPLg2LanguageProvider(),
         cursorSpan,
         analysisSpan,
         terminalStatusSpan,

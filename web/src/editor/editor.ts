@@ -226,6 +226,7 @@ class CanvasEditor {
             clearFolds: true,
             resetScroll: true,
             clearDerivedHighlights: true,
+            replaceDocumentText: true,
         });
     }
     /**
@@ -236,6 +237,17 @@ class CanvasEditor {
         if (this.languageProvider) {
             this.languageProvider.updateText(this.normalizeEditorText(text));
         }
+    }
+    replaceDocumentText(text) {
+        if (!this.languageProvider) {
+            return;
+        }
+        const normalized = this.normalizeEditorText(text);
+        if (typeof this.languageProvider.replaceDocumentText === 'function') {
+            this.languageProvider.replaceDocumentText(normalized);
+            return;
+        }
+        this.languageProvider.updateText(normalized);
     }
     resizeEditor() {
         const container = this.canvas.parentElement;
@@ -369,7 +381,12 @@ class CanvasEditor {
         this.scrollToCursor();
         this.resetCursorBlink();
         if (textChanged) {
-            this.updateText(this.text);
+            if (options.replaceDocumentText) {
+                this.replaceDocumentText(this.text);
+            }
+            else {
+                this.updateText(this.text);
+            }
         }
         this.updateOccurrencesHighlight();
         this.updateBracketMatching();

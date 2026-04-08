@@ -1,3 +1,33 @@
+# 2026-04-09 メモ (複数タブ切替で syntax highlight が壊れる問題の修正)
+
+- [原因]:
+  - editor の `setText()` は tab 切替や file open のような「別文書への切替」にも使われていたが、内部では通常の `updateText()` と同じ経路で language provider に流していた。
+  - `NEPLg2LanguageProvider.updateText()` は増分編集中の provisional payload を前提にしているため、前タブと次タブのような unrelated な文書間でも差分 token を流用し、一時的に壊れた highlight を出していた。
+  - さらに workspace では editor panel 間で provider インスタンスを共有しており、複数 editor panel を開くと `onUpdate` と解析状態が相互上書きされる構造だった。
+- [修正]:
+  - `web/src/language/neplg2/neplg2-provider.ts`
+    - pending timer / idle callback の共通停止処理を追加した。
+    - tab/file 切替用の `replaceDocumentText()` を追加し、増分 provisional を使わずに同期解析へ直行するようにした。
+  - `web/src/editor/editor.ts`
+    - `setText()` を full-document replace として扱い、通常編集の `updateText()` と切り分けた。
+  - `web/src/workspace/panel-manager.ts`
+    - editor panel ごとに `createNeplProvider()` から新しい provider を作るようにして、解析状態と callback を panel 間で共有しないようにした。
+  - `web/src/main.ts`
+    - panel manager へ provider factory を渡す形に変更した。
+  - `nodesrc/playground_editor_surface_test_runner.js`
+    - `setText()` が incremental ではなく full-document replace を使うことを固定した。
+- [確認済み]:
+  - `npm --prefix web run build:ts`: 通過
+  - `node nodesrc/playground_editor_surface_test_runner.js`: 通過
+  - `node nodesrc/playground_drag_drop_test_runner.js`: 通過
+  - `node nodesrc/playground_workspace_test_runner.js`: 通過
+  - `node nodesrc/playground_tab_transfer_test_runner.js`: 通過
+  - `node nodesrc/playground_editability_test_runner.js`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: 12/12 passed
+- [plan.mdとの差異]:
+  - 今回は syntax highlight 崩壊の根本原因に絞り、tab switch を full-document replace 化した。さらに大きい pure core 移譲ではなく、surface と provider 境界の責務修正で収束させている。
+
 # 2026-04-09 メモ (tab bar drop を split から分離)
 
 - [確認]:

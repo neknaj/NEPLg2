@@ -49,6 +49,16 @@ function createMockEditor() {
         foldedLines: new Set([1]),
         scrollX: 12,
         scrollY: 34,
+        languageProvider: {
+            updateTextCallCount: 0,
+            replaceDocumentTextCallCount: 0,
+            updateText() {
+                this.updateTextCallCount += 1;
+            },
+            replaceDocumentText() {
+                this.replaceDocumentTextCallCount += 1;
+            },
+        },
         updateLines() {
             this.updateLinesCallCount += 1;
             this.tokensByLine = [];
@@ -83,6 +93,8 @@ function runSurfaceRegression() {
     const applyCoreRuntimeState = CanvasEditor.prototype.applyCoreRuntimeState;
     const applyResolvedEditorState = CanvasEditor.prototype.applyResolvedEditorState;
     const replaceTextRange = CanvasEditor.prototype.replaceTextRange;
+    const setText = CanvasEditor.prototype.setText;
+    const replaceDocumentText = CanvasEditor.prototype.replaceDocumentText;
 
     const cursorMoveEditor = createMockEditor();
     cursorMoveEditor.applyResolvedEditorState = applyResolvedEditorState;
@@ -146,6 +158,7 @@ function runSurfaceRegression() {
 
     const resetEditor = createMockEditor();
     resetEditor.applyResolvedEditorState = applyResolvedEditorState;
+    resetEditor.replaceDocumentText = replaceDocumentText;
     const resetResult = applyResolvedEditorState.call(resetEditor, {
         text: 'gamma\n',
         cursor: 0,
@@ -180,6 +193,13 @@ function runSurfaceRegression() {
     assert.equal(replaceEditor.updateLinesCallCount, 1);
     assert.equal(replaceEditor.updateTextCallCount, 1);
 
+    const setTextEditor = createMockEditor();
+    setTextEditor.applyResolvedEditorState = applyResolvedEditorState;
+    setTextEditor.replaceDocumentText = replaceDocumentText;
+    setText.call(setTextEditor, 'delta\n');
+    assert.equal(setTextEditor.languageProvider.replaceDocumentTextCallCount, 1);
+    assert.equal(setTextEditor.languageProvider.updateTextCallCount, 0);
+
     return {
         ok: true,
         checks: [
@@ -188,6 +208,7 @@ function runSurfaceRegression() {
             'reset-style updates clear stale highlights and notify cursor listeners',
             'selection replacement triggers a single provider update',
             'text edit still refreshes line caches and provider text',
+            'setText uses full-document replace instead of incremental analysis',
         ],
     };
 }

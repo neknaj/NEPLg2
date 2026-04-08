@@ -69,7 +69,7 @@ type PanelManagerOptions = {
     root: HTMLElement;
     popup: HTMLElement;
     vfs: any;
-    neplProvider: any;
+    createNeplProvider: () => any;
     cursorSpan: HTMLElement;
     analysisSpan: HTMLElement;
     terminalStatusSpan: HTMLElement;
@@ -81,7 +81,7 @@ export class PlaygroundPanelManager {
     root: HTMLElement;
     popup: HTMLElement;
     vfs: any;
-    neplProvider: any;
+    createNeplProvider: () => any;
     cursorSpan: HTMLElement;
     analysisSpan: HTMLElement;
     terminalStatusSpan: HTMLElement;
@@ -98,7 +98,7 @@ export class PlaygroundPanelManager {
         this.root = options.root;
         this.popup = options.popup;
         this.vfs = options.vfs;
-        this.neplProvider = options.neplProvider;
+        this.createNeplProvider = options.createNeplProvider;
         this.cursorSpan = options.cursorSpan;
         this.analysisSpan = options.analysisSpan;
         this.terminalStatusSpan = options.terminalStatusSpan;
@@ -546,7 +546,7 @@ export class PlaygroundPanelManager {
             popup: this.popup,
             problemsPanel: null,
             completionList,
-            languageProviders: { nepl: this.neplProvider },
+            languageProviders: { nepl: this.createNeplProvider() },
             initialLanguage: 'nepl',
             onCursorChange: (index: number) => {
                 if (this.snapshot.focusedLeafId !== leaf.id) {

@@ -25,6 +25,8 @@ The playground now uses a split-tree workspace instead of the old fixed three-pa
 - Explorer files can be dragged onto an editor panel to open there, or dropped on a panel edge to create a new editor split and open the file there.
 - Dragging onto an editor panel's tab bar is treated as tab attachment, not as split creation.
 - Center-drop merges for editor panels preserve tab snapshots instead of re-reading from VFS.
+- Tab switching is treated as a full-document replace, so syntax highlighting does not reuse incremental payloads across unrelated files.
+- Each editor panel owns its own language provider instance; analysis state is not shared across panels.
 - Explorer duplication is intentionally blocked, and the last explorer or last editor panel cannot be closed.
 - Editor panels keep zoom per active tab, and terminal panels keep zoom per panel.
 - Zoom controls are `Ctrl+Wheel`, `Ctrl++`, `Ctrl+-`, `Ctrl+0`, and two-finger pinch on touch devices. The current zoom is shown as a temporary badge overlay in the panel.
