@@ -1,3 +1,31 @@
+# 2026-04-09 メモ (tab bar drop を split から分離)
+
+- [確認]:
+  - panel drag/drop を広げた結果、editor panel の tab bar 上に drop しても panel 全体の drop 判定が先に効き、edge 判定で split される経路が残っていた。
+  - 期待される挙動は `tab bar = tab 追加 / panel merge`、`panel body = split / move` の分離であり、ここが surface の責務として曖昧だった。
+- [実装]:
+  - `web/src/workspace/drag-drop.ts`
+    - drag payload と tab bar 上の drop action 解決を pure helper に切り出した。
+  - `web/src/workspace/panel-manager.ts`
+    - editor panel の `tabbar` に専用 `dragover` / `drop` を追加した。
+    - tab bar 上では editor tab は attach、explorer file は open、editor panel は merge として処理し、panel 本体の split 判定へ流さないようにした。
+    - panel 本体の drop とは highlight も分離した。
+  - `web/styles.css`
+    - tab bar 専用の drop highlight を追加した。
+  - `nodesrc/playground_drag_drop_test_runner.js`
+    - tab bar の drop intent が attach/open/merge に解決されることを固定した。
+- [確認済み]:
+  - `npm --prefix web run build:ts`: 通過
+  - `node nodesrc/playground_drag_drop_test_runner.js`: 通過
+  - `node nodesrc/playground_tab_transfer_test_runner.js`: 通過
+  - `node nodesrc/playground_workspace_test_runner.js`: 通過
+  - `node nodesrc/playground_editability_test_runner.js`: 通過
+  - `node nodesrc/playground_editor_surface_test_runner.js`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: 12/12 passed
+- [plan.mdとの差異]:
+  - 現段階では tab bar drop の意図解決を pure helper 化し、実際の reorder までは入れていない。目的は split 誤判定の根絶と、tab 追加/merge の明確化に絞っている。
+
 # 2026-04-09 メモ (workspace drag/drop を panel / tab / explorer file に拡張)
 
 - [確認]:

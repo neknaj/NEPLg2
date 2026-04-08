@@ -19,6 +19,13 @@ import {
     WorkspaceNode,
     WorkspaceSnapshot,
 } from './panel-layout.js';
+import {
+    PanelDragPayload,
+    TabDragPayload,
+    ExplorerFileDragPayload,
+    WorkspaceDragPayload,
+    resolveTabbarDropAction,
+} from './drag-drop.js';
 
 type EditorRuntime = {
     leafId: string;
@@ -67,24 +74,6 @@ type PanelManagerOptions = {
     analysisSpan: HTMLElement;
     terminalStatusSpan: HTMLElement;
 };
-
-type PanelDragPayload = {
-    kind: 'panel';
-    leafId: string;
-};
-
-type TabDragPayload = {
-    kind: 'editor-tab';
-    leafId: string;
-    path: string;
-};
-
-type ExplorerFileDragPayload = {
-    kind: 'explorer-file';
-    path: string;
-};
-
-type WorkspaceDragPayload = PanelDragPayload | TabDragPayload | ExplorerFileDragPayload;
 
 const WORKSPACE_STORAGE_KEY = 'neplg2-playground-workspace-v1';
 
@@ -512,6 +501,9 @@ export class PlaygroundPanelManager {
         const shell = this.createLeafRoot(leaf.id, 'editor', 'Editor');
         const tabbarEl = document.createElement('div');
         tabbarEl.className = 'tabbar';
+        tabbarEl.addEventListener('dragover', (event) => this.handleTabbarDragOver(event, leaf.id));
+        tabbarEl.addEventListener('dragleave', () => this.clearTabbarDropHighlight(leaf.id));
+        tabbarEl.addEventListener('drop', (event) => this.handleTabbarDrop(event, leaf.id));
         shell.rootEl.appendChild(tabbarEl);
 
         const contentEl = document.createElement('div');
@@ -1041,6 +1033,68 @@ export class PlaygroundPanelManager {
     clearAllDropHighlights() {
         for (const runtime of this.leafRuntimeMap.values()) {
             runtime.rootEl.classList.remove('panel-drop-left', 'panel-drop-right', 'panel-drop-top', 'panel-drop-bottom', 'panel-drop-center');
+            if (runtime.panelKind === 'editor') {
+                runtime.tabbarEl.classList.remove('tabbar-drop-merge');
+            }
+        }
+    }
+
+    setTabbarDropHighlight(leafId: string) {
+        this.clearAllDropHighlights();
+        const runtime = this.leafRuntimeMap.get(leafId);
+        if (runtime && runtime.panelKind === 'editor') {
+            runtime.tabbarEl.classList.add('tabbar-drop-merge');
+        }
+    }
+
+    clearTabbarDropHighlight(leafId: string) {
+        const runtime = this.leafRuntimeMap.get(leafId);
+        if (runtime && runtime.panelKind === 'editor') {
+            runtime.tabbarEl.classList.remove('tabbar-drop-merge');
+        }
+    }
+
+    handleTabbarDragOver(event: DragEvent, targetLeafId: string) {
+        const targetRuntime = this.leafRuntimeMap.get(targetLeafId);
+        const payload = this.getDragPayload(event);
+        const action = resolveTabbarDropAction(payload, targetRuntime?.panelKind || 'explorer');
+        if (!action) {
+            this.clearTabbarDropHighlight(targetLeafId);
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        this.setTabbarDropHighlight(targetLeafId);
+    }
+
+    handleTabbarDrop(event: DragEvent, targetLeafId: string) {
+        event.preventDefault();
+        event.stopPropagation();
+        const payload = this.getDragPayload(event);
+        this.dragPayload = null;
+        this.clearAllDropHighlights();
+        const targetRuntime = this.leafRuntimeMap.get(targetLeafId);
+        const action = resolveTabbarDropAction(payload, targetRuntime?.panelKind || 'explorer');
+        if (!payload || !targetRuntime || targetRuntime.panelKind !== 'editor' || !action) {
+            return;
+        }
+        if (action === 'attach-tab' && payload.kind === 'editor-tab') {
+            this.moveDraggedTab(payload, targetLeafId, 'center');
+            return;
+        }
+        if (action === 'open-file' && payload.kind === 'explorer-file') {
+            this.openDraggedFile(payload.path, targetLeafId, 'center');
+            return;
+        }
+        if (action === 'merge-panel' && payload.kind === 'panel') {
+            const sourceRuntime = this.leafRuntimeMap.get(payload.leafId);
+            if (!sourceRuntime || sourceRuntime.panelKind !== 'editor' || payload.leafId === targetLeafId) {
+                return;
+            }
+            targetRuntime.tabManager.mergeFrom(sourceRuntime.tabManager);
+            this.closePanel(payload.leafId);
+            this.setFocusedLeaf(targetLeafId);
+            targetRuntime.editor.focus();
         }
     }
 

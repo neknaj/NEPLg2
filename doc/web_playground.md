@@ -23,6 +23,7 @@ The playground now uses a split-tree workspace instead of the old fixed three-pa
 - Drag-and-drop supports moving panel shells across `left`, `right`, `top`, and `bottom` drop zones.
 - Editor tabs can be dragged onto another editor panel to merge there, or dropped on a panel edge to create a new split and move the tab into it.
 - Explorer files can be dragged onto an editor panel to open there, or dropped on a panel edge to create a new editor split and open the file there.
+- Dragging onto an editor panel's tab bar is treated as tab attachment, not as split creation.
 - Center-drop merges for editor panels preserve tab snapshots instead of re-reading from VFS.
 - Explorer duplication is intentionally blocked, and the last explorer or last editor panel cannot be closed.
 - Editor panels keep zoom per active tab, and terminal panels keep zoom per panel.
@@ -59,4 +60,5 @@ The playground editor redesign is expected to stay testable without a browser.
 - Inspect the generated JSON summary to confirm case counts, failures, and per-case snapshots.
 - The CLI suite now covers keyboard/state fixtures, pure text editing, left-right and vertical cursor movement, Home/End, PageUp/PageDown, and pure analysis fixtures for highlight payloads, problems, hover, definition, and occurrences.
 - Workspace-specific headless checks include `node nodesrc/playground_workspace_test_runner.js` and `node nodesrc/playground_tab_transfer_test_runner.js`.
+- Drag/drop intent checks include `node nodesrc/playground_drag_drop_test_runner.js`.
 - `trunk build` is still a hard requirement before commit, but it depends on the `trunk` binary being available in the environment.
