@@ -70,7 +70,7 @@ export class TabManager {
             return;
         }
         const index = activePath ? this.tabs.findIndex((tab) => tab.path === activePath) : 0;
-        this.setActiveTab(index >= 0 ? index : 0);
+        this.setActiveTab(index >= 0 ? index : 0, { focusEditor: false, persistCurrent: false });
     }
 
     openFile(path: string) {
@@ -94,7 +94,7 @@ export class TabManager {
                     currentTab.content = contentStr;
                     currentTab.isPermanent = false;
                     currentTab.isEditable = isEditable;
-                    this.setActiveTab(this.activeTabIndex);
+                    this.setActiveTab(this.activeTabIndex, { focusEditor: true, persistCurrent: false });
                     return;
                 }
             }
@@ -122,9 +122,13 @@ export class TabManager {
         }
     }
 
-    setActiveTab(index: number) {
+    setActiveTab(index: number, options: { focusEditor?: boolean; persistCurrent?: boolean } = {}) {
         if (index < 0 || index >= this.tabs.length) {
             return;
+        }
+        const shouldPersistCurrent = options.persistCurrent !== false;
+        if (shouldPersistCurrent && this.activeTabIndex >= 0 && this.activeTabIndex !== index) {
+            this.saveCurrentTab();
         }
         this.activeTabIndex = index;
         const tab = this.tabs[index];
@@ -139,6 +143,9 @@ export class TabManager {
         }
         this.render();
         this.notifyStateChange();
+        if (options.focusEditor !== false && typeof this.editor.focus === 'function') {
+            this.editor.focus();
+        }
     }
 
     closeTab(index: number, e?: Event) {
@@ -152,7 +159,7 @@ export class TabManager {
         if (this.activeTabIndex === index) {
             this.activeTabIndex = this.tabs.length > 0 ? Math.max(0, index - 1) : -1;
             if (this.activeTabIndex >= 0) {
-                this.setActiveTab(this.activeTabIndex);
+                this.setActiveTab(this.activeTabIndex, { focusEditor: false, persistCurrent: false });
             } else {
                 this.editor.setText('');
                 if (typeof this.editor.setEditable === 'function') {

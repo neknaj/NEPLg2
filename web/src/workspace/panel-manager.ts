@@ -416,6 +416,16 @@ export class PlaygroundPanelManager {
             return;
         }
         this.snapshot.focusedLeafId = leafId;
+        for (const [runtimeLeafId, runtime] of this.leafRuntimeMap.entries()) {
+            if (runtimeLeafId === leafId) {
+                continue;
+            }
+            if (runtime.panelKind === 'editor') {
+                runtime.editor.blur();
+            } else if (runtime.panelKind === 'terminal') {
+                runtime.terminal.blur();
+            }
+        }
         this.syncFocusedClasses();
         this.syncStatusBar();
         this.saveWorkspaceSnapshot();

@@ -42,6 +42,7 @@ function createMockEditor(initialText = '') {
         text: initialText,
         path: null,
         editable: false,
+        focusCallCount: 0,
         setTextCalls: [],
         setEditableCalls: [],
         setPathCalls: [],
@@ -58,6 +59,9 @@ function createMockEditor(initialText = '') {
         },
         getEditable() {
             return this.editable;
+        },
+        focus() {
+            this.focusCallCount += 1;
         },
         setPath(pathValue) {
             this.path = pathValue;
@@ -104,6 +108,18 @@ async function runEditabilityRegression() {
         tabs.saveCurrentTab();
         assert.equal(vfs.readFile('/examples/demo.nepl'), '#entry main\nprint "edited"\n');
 
+        vfs.writeFile('/examples/second.nepl', '#entry main\nprint "second"\n', { force: true });
+        tabs.openFile('/examples/second.nepl');
+        assert.equal(editor.path, '/examples/second.nepl');
+        assert.equal(editor.editable, true);
+        assert.equal(tabs.activeTab.isEditable, true);
+        editor.text = '#entry main\nprint "second edited"\n';
+        tabs.setActiveTab(0);
+        tabs.setActiveTab(tabs.tabs.findIndex((tab) => tab.path === '/examples/second.nepl'));
+        assert.equal(editor.path, '/examples/second.nepl');
+        assert.equal(editor.editable, true);
+        assert.equal(vfs.readFile('/examples/second.nepl'), '#entry main\nprint "second edited"\n');
+
         tabs.openFile('/stdlib/std/io.nepl');
         assert.equal(editor.editable, false);
         assert.equal(tabs.activeTab.isEditable, false);
@@ -115,6 +131,7 @@ async function runEditabilityRegression() {
                 'readonly tabs disable editor mutation and skip save',
                 'editable example files remain writable',
                 'tab switching propagates editable state to the editor surface',
+                'switching between editable tabs preserves editability and saves the previous tab',
             ],
         };
     } finally {

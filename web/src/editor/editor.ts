@@ -272,9 +272,29 @@ class CanvasEditor {
         this.utils.clearCache();
         this.resizeEditor();
     }
-    focus() { if (this.isFocused)
-        return; this.isFocused = true; this.textarea.focus(); this.resetCursorBlink(); }
-    blur() { this.isFocused = false; this.textarea.blur(); this.domUI.hidePopup(); this.domUI.hideCompletion(); }
+    setFocusState(isFocused) {
+        const nextFocused = Boolean(isFocused);
+        this.isFocused = nextFocused;
+        this.cursorBlinkState = nextFocused;
+        if (nextFocused) {
+            this.resetCursorBlink();
+            return;
+        }
+        this.domUI.hidePopup();
+        this.domUI.hideCompletion();
+    }
+    focus() {
+        this.setFocusState(true);
+        if (typeof document === 'undefined' || document.activeElement !== this.textarea) {
+            this.textarea.focus();
+        }
+    }
+    blur() {
+        this.setFocusState(false);
+        if (typeof document !== 'undefined' && document.activeElement === this.textarea) {
+            this.textarea.blur();
+        }
+    }
     setEditable(editable) {
         this.isEditable = Boolean(editable);
         this.textarea.readOnly = !this.isEditable;

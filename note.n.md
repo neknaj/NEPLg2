@@ -14671,3 +14671,38 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - plan では terminal process を 1 本に維持し、複数 terminal panel は同一実行基盤の別 view とする方針だったが、現状は terminal panel を増やした場合に `CanvasTerminal` / `Shell` も panel ごとに独立して作成している。
   - center drop の合流は editor panel 同士の tab merge のみ対応で、terminal panel 同士の center merge と shared terminal session は未実装である。
   - mobile 縮退 layout は panel shell を縦積みにする簡易対応までで、drag/drop を touch 向けに最適化するところまでは未着手である。
+# 2026-04-09 Playground explorer / focus / tab editing 修正
+
+- 現状:
+  - workspace 化後の playground で、explorer に file / folder の視覚的な区別が弱く、panel 切替時の editor / terminal cursor blink も実フォーカスと完全には揃っていなかった。
+  - さらに editor tab 切替時に、tabbar click が editor panel 外扱いで blur される経路と、tab 切替時の focus / save 同期不足が重なり、2 個目以降の tab で編集しづらい状態になっていた。
+- 実装:
+  - `web/src/library/explorer.ts`
+    - explorer item を disclosure / icon / label の 3 要素構成に変更し、folder open/close と file を class で描き分けるようにした。
+  - `web/styles.css`
+    - explorer 用の disclosure icon、folder icon、file icon、label overflow を追加し、開閉状態が見える見た目にした。
+  - `web/src/editor/editor.ts`
+    - editor focus state を `setFocusState()` に集約し、cursor blink と popup / completion の表示を実フォーカスに同期するようにした。
+  - `web/src/editor/editor-input-handler.ts`
+    - outside click 判定を `canvas.parentElement` ではなく editor panel 全体に広げ、tabbar click で editor が誤って blur されないようにした。
+    - textarea の native focus / blur を editor state に反映するようにした。
+  - `web/src/library/tabs.ts`
+    - `setActiveTab()` に current tab 保存と focus 再同期を入れ、editable tab 間の切替で編集状態と path が正しく追従するようにした。
+    - `restoreTabs()` や close 後の再選択では不要な focus を避けつつ、通常の tab 切替では editor を再 focus するように分けた。
+  - `web/src/terminal/terminal.ts`
+    - terminal に `isFocused` を持たせ、cursor blink と cursor 描画を textarea focus にだけ同期するようにした。
+    - panel が非 focus になった terminal は blink を止めるようにした。
+  - `web/src/workspace/panel-manager.ts`
+    - focused leaf 切替時に、非 focus の editor / terminal を明示的に blur するようにして panel 間の cursor 状態を揃えた。
+  - `nodesrc/playground_editability_test_runner.js`
+    - editable tab を複数開いた状態で tab 切替しても editability が崩れず、切替時に前の tab の内容が保存されることを固定した。
+- 確認:
+  - `npm --prefix web run build:ts`
+  - `node nodesrc/playground_editability_test_runner.js`
+  - `node nodesrc/playground_editor_surface_test_runner.js`
+  - `node nodesrc/playground_workspace_test_runner.js`
+  - `trunk build --release`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
+  - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+- plan.md との差分:
+  - 今回は panel workspace 設計そのものではなく、workspace 化で表面化した explorer 見た目と focus / tab 編集不整合の修正に限定した。

@@ -501,18 +501,90 @@ canvas {
     color: var(--text-primary);
 }
 
-.explorer-item.folder::before {
-    content: "▸";
-    font-size: 11px;
+.explorer-disclosure {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 10px;
+    position: relative;
 }
 
-.explorer-item.folder.open::before {
-    content: "▾";
+.explorer-disclosure::before {
+    content: "";
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 5px solid var(--text-secondary);
+    transition: transform 0.14s ease;
 }
 
-.explorer-item.file::before {
-    content: "•";
-    font-size: 11px;
+.explorer-disclosure.open::before {
+    transform: rotate(90deg) translateX(-1px);
+    transform-origin: 2px 50%;
+}
+
+.explorer-disclosure.empty::before {
+    display: none;
+}
+
+.explorer-icon {
+    position: relative;
+    display: inline-block;
+    flex: 0 0 auto;
+}
+
+.explorer-icon-folder {
+    width: 14px;
+    height: 10px;
+    border: 1px solid rgba(130, 194, 255, 0.55);
+    border-radius: 2px;
+    background: rgba(74, 163, 255, 0.14);
+}
+
+.explorer-icon-folder::before {
+    content: "";
+    position: absolute;
+    left: 1px;
+    top: -4px;
+    width: 7px;
+    height: 4px;
+    border: 1px solid rgba(130, 194, 255, 0.55);
+    border-bottom: none;
+    border-radius: 2px 2px 0 0;
+    background: rgba(74, 163, 255, 0.18);
+}
+
+.explorer-icon-folder.open {
+    background: rgba(130, 194, 255, 0.18);
+    border-color: rgba(130, 194, 255, 0.72);
+}
+
+.explorer-icon-file {
+    width: 12px;
+    height: 14px;
+    border: 1px solid rgba(237, 245, 255, 0.34);
+    border-radius: 2px;
+    background: rgba(237, 245, 255, 0.08);
+}
+
+.explorer-icon-file::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 5px;
+    height: 5px;
+    background: linear-gradient(135deg, transparent 50%, rgba(237, 245, 255, 0.34) 50%);
+}
+
+.explorer-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .explorer-children {

@@ -25,13 +25,27 @@ export class FileExplorer {
     renderItem(parentPath: string, name: string, parentEl: HTMLElement) {
         const fullPath = (parentPath === '/' ? '/' : parentPath + '/') + name;
         const isDir = this.vfs.isDir(fullPath);
+        const isOpen = isDir && this.expandedFolders.has(fullPath);
 
         const itemEl = document.createElement('div');
         itemEl.className = `explorer-item ${isDir ? 'folder' : 'file'}`;
-        if (isDir && this.expandedFolders.has(fullPath)) {
+        if (isOpen) {
             itemEl.classList.add('open');
         }
-        itemEl.textContent = name;
+
+        const disclosureEl = document.createElement('span');
+        disclosureEl.className = `explorer-disclosure ${isDir ? '' : 'empty'} ${isOpen ? 'open' : ''}`.trim();
+
+        const iconEl = document.createElement('span');
+        iconEl.className = `explorer-icon ${isDir ? 'explorer-icon-folder' : 'explorer-icon-file'} ${isOpen ? 'open' : ''}`.trim();
+
+        const labelEl = document.createElement('span');
+        labelEl.className = 'explorer-label';
+        labelEl.textContent = name;
+
+        itemEl.appendChild(disclosureEl);
+        itemEl.appendChild(iconEl);
+        itemEl.appendChild(labelEl);
 
         itemEl.onclick = (e) => {
             e.stopPropagation();

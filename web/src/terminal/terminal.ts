@@ -38,6 +38,7 @@ export class CanvasTerminal {
     scrollTop: number;
     maxScrollTop: number;
     cursorVisible: boolean;
+    isFocused: boolean;
     blinkInterval: any;
     ansiState: { fg: string, bg: string | undefined, bold: boolean };
     lastLineEndedWithNewline: boolean;
@@ -87,11 +88,15 @@ export class CanvasTerminal {
         this.scrollTop = 0;
         this.maxScrollTop = 0;
         this.cursorVisible = true;
+        this.isFocused = false;
 
         // Dependencies - initialize Shell last
         this.shell = new Shell(this, (options as any).vfs || null);
 
         this.blinkInterval = setInterval(() => {
+            if (!this.isFocused) {
+                return;
+            }
             this.cursorVisible = !this.cursorVisible;
             if (!this.isComposing) this.render();
         }, 500);
@@ -103,7 +108,6 @@ export class CanvasTerminal {
         this.updateMetrics();
         this.bindEvents();
         this.resize();
-        this.focus();
 
         this.print([
             { text: "Welcome to ", color: this.colors.gray },
@@ -140,6 +144,8 @@ export class CanvasTerminal {
         this.textarea.addEventListener('compositionstart', this.handleCompositionStart.bind(this));
         this.textarea.addEventListener('compositionupdate', this.handleCompositionUpdate.bind(this));
         this.textarea.addEventListener('compositionend', this.handleCompositionEnd.bind(this));
+        this.textarea.addEventListener('focus', () => this.setFocusState(true));
+        this.textarea.addEventListener('blur', () => this.setFocusState(false));
 
         this.canvas.addEventListener('mousedown', (e) => {
             this.focus();
@@ -176,7 +182,24 @@ export class CanvasTerminal {
     }
 
     focus() {
-        this.textarea.focus();
+        this.setFocusState(true);
+        if (typeof document === 'undefined' || document.activeElement !== this.textarea) {
+            this.textarea.focus();
+        }
+        this.restartBlink();
+    }
+
+    blur() {
+        this.setFocusState(false);
+        if (typeof document !== 'undefined' && document.activeElement === this.textarea) {
+            this.textarea.blur();
+        }
+    }
+
+    setFocusState(isFocused: boolean) {
+        this.isFocused = Boolean(isFocused);
+        this.cursorVisible = this.isFocused;
+        this.render();
     }
 
     handleInput(e: any) {
@@ -527,7 +550,7 @@ export class CanvasTerminal {
                 inputX += compWidth;
             }
 
-            if (this.cursorVisible && !this.isComposing) {
+            if (this.isFocused && this.cursorVisible && !this.isComposing) {
                 this.ctx.fillStyle = this.colors.cursor;
                 this.ctx.fillRect(inputX, y, 2, this.charHeight);
             }
@@ -539,9 +562,12 @@ export class CanvasTerminal {
     }
 
     restartBlink() {
-        this.cursorVisible = true;
+        this.cursorVisible = this.isFocused;
         clearInterval(this.blinkInterval);
         this.blinkInterval = setInterval(() => {
+            if (!this.isFocused) {
+                return;
+            }
             this.cursorVisible = !this.cursorVisible;
             if (!this.isComposing) this.render();
         }, 500);

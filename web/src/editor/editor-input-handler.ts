@@ -41,13 +41,19 @@ class EditorInputHandler {
         window.addEventListener('mouseup', this.onMouseUp.bind(this));
         this.canvas.addEventListener('wheel', this.onWheel.bind(this));
         document.addEventListener('click', (e) => {
-            const editorContainer = this.canvas.parentElement;
+            const editorContainer = this.canvas.closest('.panel');
             const problemsContainer = this.editor.domUI.problemsPanel ? this.editor.domUI.problemsPanel.parentElement : null;
             const isClickInside = (editorContainer && editorContainer.contains(e.target)) ||
                 (problemsContainer && problemsContainer.contains(e.target));
             if (!isClickInside) {
                 this.editor.blur();
             }
+        });
+        this.textarea.addEventListener('focus', () => {
+            this.editor.setFocusState(true);
+        });
+        this.textarea.addEventListener('blur', () => {
+            this.editor.setFocusState(false);
         });
         this.textarea.addEventListener('input', this.onInput.bind(this));
         this.textarea.addEventListener('keydown', this.onKeydown.bind(this));
