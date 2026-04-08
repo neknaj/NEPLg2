@@ -155,6 +155,7 @@ select:hover {
 }
 
 .workspace-shell {
+    display: flex;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -164,6 +165,8 @@ select:hover {
 .split-node {
     display: flex;
     flex: 1;
+    width: 100%;
+    height: 100%;
     min-width: 0;
     min-height: 0;
     overflow: hidden;

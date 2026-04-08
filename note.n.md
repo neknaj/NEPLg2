@@ -14750,3 +14750,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - plan.md との差分:
   - plan に明示されていた機能ではないが、workspace 化後の panel-local state として zoom を追加した。
   - editor は tab ごとの zoom、terminal は panel ごとの zoom で、Explorer には zoom を持たせていない。
+# 2026-04-09 Workspace root sizing 修正
+
+- 現状:
+  - panel workspace 化後、editor が panel 領域いっぱいに広がらず、小さく縮んで見えるケースがあった。
+- 原因:
+  - `#workspace-root` 自体ではなく、その親の `.workspace-shell` が block のままで、子の `.workspace` に付けた `flex: 1` が高さ確保に効いていなかった。
+  - その結果、split tree の `height: auto` 連鎖になり、canvas 親要素の `getBoundingClientRect()` が期待より小さくなっていた。
+- 実装:
+  - `web/styles.css`
+    - `.workspace-shell` を flex container に変更した。
+    - `.workspace` と `.split-node` に `width: 100%` と `height: 100%` を追加し、panel shell から canvas container まで高さを確実に引き継ぐようにした。
+- 確認:
+  - `npm --prefix web run build:ts`
+  - `trunk build --release`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
+  - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+# 2026-04-09 Header layout reset button
+
+- 現状:
+  - workspace を分割・移動したあと、header からワンクリックで default layout に戻す導線がなかった。
+- 実装:
+  - `web/index.html`
+    - header に `Layout` ボタンを追加した。
+  - `web/src/workspace/panel-manager.ts`
+    - `resetWorkspaceLayout()` を追加し、saved workspace snapshot を default split tree へ戻して redraw できるようにした。
+  - `web/src/main.ts`
+    - `Layout` ボタンから reset API を呼び、editor tab が空なら初期ドキュメントを開き、font size と focus を再同期するようにした。
+- 確認:
+  - `npm --prefix web run build:ts`
+  - `trunk build --release`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
+  - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`

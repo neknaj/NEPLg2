@@ -134,6 +134,12 @@ export class PlaygroundPanelManager {
         return snapshot;
     }
 
+    resetWorkspaceLayout() {
+        this.snapshot = createDefaultWorkspace();
+        hydratePanelCounter(this.snapshot.root);
+        this.redraw();
+    }
+
     saveWorkspaceSnapshot() {
         this.syncSnapshotFromRuntimes();
         localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(this.snapshot));

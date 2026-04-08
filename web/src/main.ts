@@ -78,6 +78,7 @@ function startApp() {
     const compileBtn = document.getElementById('compile-button') as HTMLButtonElement;
     const helpBtn = document.getElementById('help-button') as HTMLButtonElement;
     const editorHelpBtn = document.getElementById('editor-help-button') as HTMLButtonElement;
+    const resetLayoutBtn = document.getElementById('reset-layout-button') as HTMLButtonElement;
     const clearBtn = document.getElementById('clear-button') as HTMLButtonElement;
     const stopBtn = document.getElementById('stop-button') as HTMLButtonElement;
     const cursorSpan = document.getElementById('cursor-pos') as HTMLElement;
@@ -136,6 +137,14 @@ function startApp() {
     editorHelpBtn.addEventListener('click', (event) => {
         event.stopPropagation();
         panelManager.showEditorHelp(editorHelpBtn.getBoundingClientRect());
+    });
+    resetLayoutBtn.addEventListener('click', () => {
+        panelManager.resetWorkspaceLayout();
+        if (!panelManager.getActiveEditorTabPath()) {
+            openInitialDocument();
+        }
+        panelManager.setFontSize(parseInt(fontSizeSelect.value, 10));
+        panelManager.focusDefaultEditor();
     });
     clearBtn.addEventListener('click', () => {
         const terminal = panelManager.getFocusedTerminalRuntime();
