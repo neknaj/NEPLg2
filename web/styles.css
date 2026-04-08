@@ -341,6 +341,10 @@ select:hover {
     color: var(--text-primary);
 }
 
+.tab.dragging {
+    opacity: 0.45;
+}
+
 .tab.active {
     background: var(--bg-canvas);
     color: var(--text-primary);
@@ -528,6 +532,14 @@ canvas {
 .explorer-item:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+.explorer-item.file {
+    cursor: grab;
+}
+
+.explorer-item.dragging {
+    opacity: 0.45;
 }
 
 .explorer-disclosure {

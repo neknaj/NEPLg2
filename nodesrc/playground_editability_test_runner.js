@@ -30,8 +30,15 @@ function createMockDocument() {
                 tagName,
                 className: '',
                 textContent: '',
+                draggable: false,
                 onclick: null,
                 appendChild() {},
+                addEventListener() {},
+                removeEventListener() {},
+                classList: {
+                    add() {},
+                    remove() {},
+                },
             };
         },
     };

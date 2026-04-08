@@ -1,3 +1,30 @@
+# 2026-04-09 メモ (workspace drag/drop を panel / tab / explorer file に拡張)
+
+- [確認]:
+  - review の `insertText()` 二重 provider 通知は現行 `web/src/editor/editor.ts` では `replaceTextRange()` 経由に整理済みで、同じ不具合は再現しなかった。
+  - ただし workspace 側の drag/drop は panel header 移動に偏っていて、editor tab や explorer file を split tree に自然に流し込む導線が不足していた。
+- [実装]:
+  - `web/src/library/tabs.ts`
+    - active tab の内容と zoom を保ったまま panel 間を移せるように `detachTabByPath()` / `attachTab()` / `exportTabs()` を追加した。
+    - tab 要素を draggable にして、drag start を panel manager へ通知するようにした。
+    - panel center merge も VFS 再読込ではなく tab snapshot の移送に切り替え、unsaved に近い状態を落とさないようにした。
+  - `web/src/library/explorer.ts`
+    - file item を draggable にし、panel manager へ file path を渡せるようにした。
+  - `web/src/workspace/panel-manager.ts`
+    - drag payload を `panel` / `editor-tab` / `explorer-file` に分離した。
+    - panel drop 判定を payload 種別ごとに整理し、tab/file を editor center drop で開く、edge drop で新しい editor split を作って開くようにした。
+    - 既存の panel drag も同じ payload 処理に統合した。
+  - `web/styles.css`
+    - draggable tab / explorer item の視覚状態を追加した。
+  - `nodesrc/playground_tab_transfer_test_runner.js`
+    - DOM なしで tab detach/attach/merge の内容保持を固定する headless runner を追加した。
+- [確認済み]:
+  - `npm --prefix web run build:ts`: 通過
+  - `node nodesrc/playground_tab_transfer_test_runner.js`: 通過
+  - `node nodesrc/playground_workspace_test_runner.js`: 通過
+- [plan.mdとの差異]:
+  - panel / tab / explorer file の drag/drop は追加できたが、今回のドロップ先は panel 全体ベースで、tabbar 専用の細粒度 drop indicator まではまだ入れていない。
+
 # 2026-04-08 メモ (editor state 更新経路の統一)
 
 - [状況]:

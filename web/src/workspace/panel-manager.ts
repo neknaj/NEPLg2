@@ -68,6 +68,24 @@ type PanelManagerOptions = {
     terminalStatusSpan: HTMLElement;
 };
 
+type PanelDragPayload = {
+    kind: 'panel';
+    leafId: string;
+};
+
+type TabDragPayload = {
+    kind: 'editor-tab';
+    leafId: string;
+    path: string;
+};
+
+type ExplorerFileDragPayload = {
+    kind: 'explorer-file';
+    path: string;
+};
+
+type WorkspaceDragPayload = PanelDragPayload | TabDragPayload | ExplorerFileDragPayload;
+
 const WORKSPACE_STORAGE_KEY = 'neplg2-playground-workspace-v1';
 
 export class PlaygroundPanelManager {
@@ -81,7 +99,7 @@ export class PlaygroundPanelManager {
     snapshot: WorkspaceSnapshot;
     leafRuntimeMap: Map<string, LeafRuntime>;
     splitDomMap: Map<string, { first: HTMLElement; second: HTMLElement }>;
-    dragSourceLeafId: string | null;
+    dragPayload: WorkspaceDragPayload | null;
     resizeState: { splitId: string; dir: 'h' | 'v'; rect: DOMRect } | null;
     currentFontSize: number;
     zoomBadgeTimerMap: Map<string, number>;
@@ -98,7 +116,7 @@ export class PlaygroundPanelManager {
         this.snapshot = this.loadWorkspaceSnapshot();
         this.leafRuntimeMap = new Map();
         this.splitDomMap = new Map();
-        this.dragSourceLeafId = null;
+        this.dragPayload = null;
         this.resizeState = null;
         this.currentFontSize = 14;
         this.zoomBadgeTimerMap = new Map();
@@ -109,6 +127,10 @@ export class PlaygroundPanelManager {
     bindWindowEvents() {
         window.addEventListener('mousemove', (event) => this.handleResizeMove(event));
         window.addEventListener('mouseup', () => this.stopResize());
+        document.addEventListener('dragend', () => {
+            this.dragPayload = null;
+            this.clearAllDropHighlights();
+        });
         document.addEventListener('wheel', (event) => this.handleZoomWheel(event), { passive: false });
         document.addEventListener('touchstart', (event) => this.handlePinchStart(event), { passive: false });
         document.addEventListener('touchmove', (event) => this.handlePinchMove(event), { passive: false });
@@ -576,6 +598,9 @@ export class PlaygroundPanelManager {
                 }
                 this.applyLeafZoom(leaf.id);
             },
+            onTabDragStart: ({ path, event }) => {
+                this.setDragPayload(event, { kind: 'editor-tab', leafId: leaf.id, path });
+            },
         });
 
         shell.actions.appendChild(this.createPanelButton('R', 'Split right', () => this.splitPanel(leaf.id, 'h')));
@@ -639,7 +664,16 @@ export class PlaygroundPanelManager {
             rootEl: shell.rootEl,
             headerTitleEl: shell.titleEl,
             contentEl,
-            explorer: new FileExplorer(contentEl, this.vfs, (path) => this.openFileInFocusedEditor(path)),
+            explorer: new FileExplorer(
+                contentEl,
+                this.vfs,
+                (path) => this.openFileInFocusedEditor(path),
+                {
+                    onFileDragStart: (path, event) => {
+                        this.setDragPayload(event, { kind: 'explorer-file', path });
+                    },
+                },
+            ),
         };
 
         shell.actions.appendChild(this.createPanelButton('Rf', 'Refresh explorer', () => runtime.explorer.refresh()));
@@ -833,11 +867,132 @@ export class PlaygroundPanelManager {
     }
 
     handleDragStart(event: DragEvent, leafId: string) {
-        this.dragSourceLeafId = leafId;
-        if (event.dataTransfer) {
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', leafId);
+        this.setDragPayload(event, { kind: 'panel', leafId });
+    }
+
+    setDragPayload(event: DragEvent, payload: WorkspaceDragPayload) {
+        this.dragPayload = payload;
+        if (!event.dataTransfer) {
+            return;
         }
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('application/x-nepl-workspace-drag', JSON.stringify(payload));
+        const plainText = payload.kind === 'explorer-file'
+            ? payload.path
+            : payload.kind === 'panel'
+                ? payload.leafId
+                : payload.path;
+        event.dataTransfer.setData('text/plain', plainText);
+    }
+
+    getDragPayload(event?: DragEvent): WorkspaceDragPayload | null {
+        if (this.dragPayload) {
+            return this.dragPayload;
+        }
+        if (!event?.dataTransfer) {
+            return null;
+        }
+        const raw = event.dataTransfer.getData('application/x-nepl-workspace-drag');
+        if (!raw) {
+            return null;
+        }
+        try {
+            return JSON.parse(raw) as WorkspaceDragPayload;
+        } catch (error) {
+            console.warn('[Playground] Failed to parse drag payload', error);
+            return null;
+        }
+    }
+
+    canDropPayloadOnLeaf(payload: WorkspaceDragPayload | null, targetLeafId: string, zone: DropZone): boolean {
+        if (!payload) {
+            return false;
+        }
+        const targetLocation = findNode(this.snapshot.root, targetLeafId);
+        if (!targetLocation || targetLocation.node.kind !== 'leaf') {
+            return false;
+        }
+        if (payload.kind === 'panel') {
+            if (payload.leafId === targetLeafId) {
+                return false;
+            }
+            if (zone === 'center') {
+                const sourceRuntime = this.leafRuntimeMap.get(payload.leafId);
+                const targetRuntime = this.leafRuntimeMap.get(targetLeafId);
+                return sourceRuntime?.panelKind === 'editor' && targetRuntime?.panelKind === 'editor';
+            }
+            return true;
+        }
+        if (payload.kind === 'editor-tab') {
+            if (zone === 'center') {
+                return targetLocation.node.panelKind === 'editor';
+            }
+            if (payload.leafId === targetLeafId) {
+                return true;
+            }
+            return true;
+        }
+        if (payload.kind === 'explorer-file') {
+            if (zone === 'center') {
+                return targetLocation.node.panelKind === 'editor';
+            }
+            return true;
+        }
+        return false;
+    }
+
+    ensureEditorLeafForDrop(targetLeafId: string, zone: DropZone): string | null {
+        const targetLocation = findNode(this.snapshot.root, targetLeafId);
+        if (!targetLocation || targetLocation.node.kind !== 'leaf') {
+            return null;
+        }
+        if (zone === 'center') {
+            return targetLocation.node.panelKind === 'editor' ? targetLeafId : null;
+        }
+        const dir: 'h' | 'v' = zone === 'left' || zone === 'right' ? 'h' : 'v';
+        const place = zone === 'left' || zone === 'top' ? 'before' : 'after';
+        const newLeaf = createLeaf('editor');
+        this.snapshot.root = splitLeaf(this.snapshot.root, targetLeafId, dir, newLeaf, place);
+        this.snapshot.focusedLeafId = newLeaf.id;
+        this.redraw();
+        return newLeaf.id;
+    }
+
+    moveDraggedTab(payload: TabDragPayload, targetLeafId: string, zone: DropZone) {
+        const sourceRuntime = this.leafRuntimeMap.get(payload.leafId);
+        if (!sourceRuntime || sourceRuntime.panelKind !== 'editor') {
+            return;
+        }
+        if (payload.leafId === targetLeafId && zone === 'center') {
+            sourceRuntime.tabManager.setActiveTab(sourceRuntime.tabManager.tabs.findIndex((tab) => tab.path === payload.path));
+            return;
+        }
+        const destinationLeafId = this.ensureEditorLeafForDrop(targetLeafId, zone);
+        if (!destinationLeafId) {
+            return;
+        }
+        const tab = sourceRuntime.tabManager.detachTabByPath(payload.path);
+        const targetRuntime = this.leafRuntimeMap.get(destinationLeafId);
+        if (!tab || !targetRuntime || targetRuntime.panelKind !== 'editor') {
+            return;
+        }
+        this.setFocusedLeaf(destinationLeafId);
+        targetRuntime.tabManager.attachTab(tab, { activate: true, focusEditor: true });
+        targetRuntime.editor.focus();
+    }
+
+    openDraggedFile(path: string, targetLeafId: string, zone: DropZone) {
+        const destinationLeafId = this.ensureEditorLeafForDrop(targetLeafId, zone);
+        if (!destinationLeafId) {
+            return;
+        }
+        const targetRuntime = this.leafRuntimeMap.get(destinationLeafId);
+        if (!targetRuntime || targetRuntime.panelKind !== 'editor') {
+            return;
+        }
+        this.setFocusedLeaf(destinationLeafId);
+        targetRuntime.tabManager.openFile(path);
+        targetRuntime.editor.focus();
     }
 
     computeDropZone(event: DragEvent, panelEl: HTMLElement): DropZone {
@@ -854,15 +1009,17 @@ export class PlaygroundPanelManager {
     }
 
     handlePanelDragOver(event: DragEvent, leafId: string) {
-        if (!this.dragSourceLeafId || this.dragSourceLeafId === leafId) {
-            return;
-        }
-        event.preventDefault();
         const runtime = this.leafRuntimeMap.get(leafId);
         if (!runtime) {
             return;
         }
         const zone = this.computeDropZone(event, runtime.rootEl);
+        const payload = this.getDragPayload(event);
+        if (!this.canDropPayloadOnLeaf(payload, leafId, zone)) {
+            this.clearDropHighlight(leafId);
+            return;
+        }
+        event.preventDefault();
         this.setDropHighlight(leafId, zone);
     }
 
@@ -889,27 +1046,43 @@ export class PlaygroundPanelManager {
 
     handlePanelDrop(event: DragEvent, targetLeafId: string) {
         event.preventDefault();
-        const sourceLeafId = this.dragSourceLeafId;
-        this.dragSourceLeafId = null;
+        const payload = this.getDragPayload(event);
+        this.dragPayload = null;
         this.clearAllDropHighlights();
-        if (!sourceLeafId || sourceLeafId === targetLeafId) {
+        if (!payload) {
             return;
         }
-        const sourceRuntime = this.leafRuntimeMap.get(sourceLeafId);
         const targetRuntime = this.leafRuntimeMap.get(targetLeafId);
-        if (!sourceRuntime || !targetRuntime) {
+        if (!targetRuntime) {
             return;
         }
         const zone = this.computeDropZone(event, targetRuntime.rootEl);
-        if (zone === 'center' && sourceRuntime.panelKind === 'editor' && targetRuntime.panelKind === 'editor') {
-            targetRuntime.tabManager.mergeFrom(sourceRuntime.tabManager);
-            this.closePanel(sourceLeafId);
-            this.setFocusedLeaf(targetLeafId);
+        if (!this.canDropPayloadOnLeaf(payload, targetLeafId, zone)) {
             return;
         }
-        this.snapshot.root = moveLeaf(this.snapshot.root, sourceLeafId, targetLeafId, zone);
-        this.snapshot.focusedLeafId = sourceLeafId;
-        this.redraw();
+        if (payload.kind === 'panel') {
+            const sourceRuntime = this.leafRuntimeMap.get(payload.leafId);
+            if (!sourceRuntime) {
+                return;
+            }
+            if (zone === 'center' && sourceRuntime.panelKind === 'editor' && targetRuntime.panelKind === 'editor') {
+                targetRuntime.tabManager.mergeFrom(sourceRuntime.tabManager);
+                this.closePanel(payload.leafId);
+                this.setFocusedLeaf(targetLeafId);
+                return;
+            }
+            this.snapshot.root = moveLeaf(this.snapshot.root, payload.leafId, targetLeafId, zone);
+            this.snapshot.focusedLeafId = payload.leafId;
+            this.redraw();
+            return;
+        }
+        if (payload.kind === 'editor-tab') {
+            this.moveDraggedTab(payload, targetLeafId, zone);
+            return;
+        }
+        if (payload.kind === 'explorer-file') {
+            this.openDraggedFile(payload.path, targetLeafId, zone);
+        }
     }
 
     startResize(event: MouseEvent, splitId: string, dir: 'h' | 'v') {

@@ -20,7 +20,10 @@ The playground now uses a split-tree workspace instead of the old fixed three-pa
 - Split ratios and focused panel state are saved in localStorage and restored on the next launch.
 - Toolbar actions such as `Run`, `Compile`, `Help`, and `Save` target the focused editor panel.
 - File open requests from the explorer also target the focused editor panel, creating or reusing editor state through the workspace manager.
-- Drag-and-drop currently supports moving panels across `left`, `right`, `top`, and `bottom` drop zones. Center-drop merges are implemented for editor panels by merging tab sets.
+- Drag-and-drop supports moving panel shells across `left`, `right`, `top`, and `bottom` drop zones.
+- Editor tabs can be dragged onto another editor panel to merge there, or dropped on a panel edge to create a new split and move the tab into it.
+- Explorer files can be dragged onto an editor panel to open there, or dropped on a panel edge to create a new editor split and open the file there.
+- Center-drop merges for editor panels preserve tab snapshots instead of re-reading from VFS.
 - Explorer duplication is intentionally blocked, and the last explorer or last editor panel cannot be closed.
 - Editor panels keep zoom per active tab, and terminal panels keep zoom per panel.
 - Zoom controls are `Ctrl+Wheel`, `Ctrl++`, `Ctrl+-`, `Ctrl+0`, and two-finger pinch on touch devices. The current zoom is shown as a temporary badge overlay in the panel.
@@ -55,4 +58,5 @@ The playground editor redesign is expected to stay testable without a browser.
 - The formal CLI check is `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=/tmp/playground-editor-tests.json`.
 - Inspect the generated JSON summary to confirm case counts, failures, and per-case snapshots.
 - The CLI suite now covers keyboard/state fixtures, pure text editing, left-right and vertical cursor movement, Home/End, PageUp/PageDown, and pure analysis fixtures for highlight payloads, problems, hover, definition, and occurrences.
+- Workspace-specific headless checks include `node nodesrc/playground_workspace_test_runner.js` and `node nodesrc/playground_tab_transfer_test_runner.js`.
 - `trunk build` is still a hard requirement before commit, but it depends on the `trunk` binary being available in the environment.

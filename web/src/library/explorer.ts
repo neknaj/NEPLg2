@@ -2,12 +2,19 @@ export class FileExplorer {
     container: HTMLElement;
     vfs: any;
     onFileClick: (path: string) => void;
+    onFileDragStart: ((path: string, event: DragEvent) => void) | null;
     expandedFolders: Set<string> = new Set(['/', '/examples', '/stdlib']);
 
-    constructor(container: HTMLElement, vfs: any, onFileClick: (path: string) => void) {
+    constructor(
+        container: HTMLElement,
+        vfs: any,
+        onFileClick: (path: string) => void,
+        options: { onFileDragStart?: ((path: string, event: DragEvent) => void) | null } = {},
+    ) {
         this.container = container;
         this.vfs = vfs;
         this.onFileClick = onFileClick;
+        this.onFileDragStart = options.onFileDragStart || null;
     }
 
     refresh() {
@@ -31,6 +38,18 @@ export class FileExplorer {
         itemEl.className = `explorer-item ${isDir ? 'folder' : 'file'}`;
         if (isOpen) {
             itemEl.classList.add('open');
+        }
+        if (!isDir) {
+            itemEl.draggable = true;
+            itemEl.addEventListener('dragstart', (event) => {
+                itemEl.classList.add('dragging');
+                if (this.onFileDragStart) {
+                    this.onFileDragStart(fullPath, event);
+                }
+            });
+            itemEl.addEventListener('dragend', () => {
+                itemEl.classList.remove('dragging');
+            });
         }
 
         const disclosureEl = document.createElement('span');

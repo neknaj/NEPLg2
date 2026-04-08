@@ -10,6 +10,13 @@ export interface TabSnapshot {
     path: string;
 }
 
+export interface TabDragInfo {
+    path: string;
+    index: number;
+    tab: Tab;
+    event: DragEvent;
+}
+
 export class TabManager {
     tabs: Tab[] = [];
     activeTabIndex = -1;
@@ -18,6 +25,7 @@ export class TabManager {
     vfs: any;
     onStateChange: (() => void) | null;
     onActiveTabChange: ((tab: Tab | null) => void) | null;
+    onTabDragStart: ((info: TabDragInfo) => void) | null;
 
     constructor(
         container: HTMLElement,
@@ -26,6 +34,7 @@ export class TabManager {
         options: {
             onStateChange?: (() => void) | null;
             onActiveTabChange?: ((tab: Tab | null) => void) | null;
+            onTabDragStart?: ((info: TabDragInfo) => void) | null;
         } = {},
     ) {
         this.container = container;
@@ -33,6 +42,7 @@ export class TabManager {
         this.vfs = vfs;
         this.onStateChange = options.onStateChange || null;
         this.onActiveTabChange = options.onActiveTabChange || null;
+        this.onTabDragStart = options.onTabDragStart || null;
     }
 
     normalizeText(text: string): string {
@@ -51,6 +61,11 @@ export class TabManager {
             activePath: this.activeTab?.path || null,
             pathZooms: Object.fromEntries(this.tabs.map((tab) => [tab.path, tab.zoom])),
         };
+    }
+
+    exportTabs(): Tab[] {
+        this.saveCurrentTab();
+        return this.tabs.map((tab) => ({ ...tab }));
     }
 
     restoreTabs(paths: string[], activePath: string | null = null, pathZooms: Record<string, number> = {}) {
@@ -139,6 +154,19 @@ export class TabManager {
         }
     }
 
+    createDetachedPlaceholder() {
+        this.editor.setText('');
+        if (typeof this.editor.setEditable === 'function') {
+            this.editor.setEditable(false);
+        }
+        if (typeof this.editor.setPath === 'function') {
+            this.editor.setPath(null);
+        }
+        if (this.onActiveTabChange) {
+            this.onActiveTabChange(null);
+        }
+    }
+
     setActiveTab(index: number, options: { focusEditor?: boolean; persistCurrent?: boolean } = {}) {
         if (index < 0 || index >= this.tabs.length) {
             return;
@@ -199,18 +227,60 @@ export class TabManager {
         this.notifyStateChange();
     }
 
+    detachTabByPath(path: string): Tab | null {
+        const index = this.tabs.findIndex((tab) => tab.path === path);
+        if (index < 0) {
+            return null;
+        }
+        if (index === this.activeTabIndex) {
+            this.saveCurrentTab();
+        }
+        const [tab] = this.tabs.splice(index, 1);
+        if (this.activeTabIndex === index) {
+            this.activeTabIndex = this.tabs.length > 0 ? Math.max(0, index - 1) : -1;
+            if (this.activeTabIndex >= 0) {
+                this.setActiveTab(this.activeTabIndex, { focusEditor: false, persistCurrent: false });
+            } else {
+                this.createDetachedPlaceholder();
+            }
+        } else if (this.activeTabIndex > index) {
+            this.activeTabIndex -= 1;
+        }
+        this.render();
+        this.notifyStateChange();
+        return { ...tab };
+    }
+
+    attachTab(tab: Tab, options: { activate?: boolean; focusEditor?: boolean } = {}) {
+        const normalizedTab: Tab = {
+            ...tab,
+            content: this.normalizeText(tab.content),
+            zoom: Number.isFinite(tab.zoom) ? Number(tab.zoom) : 1,
+        };
+        const existingIndex = this.tabs.findIndex((item) => item.path === normalizedTab.path);
+        if (existingIndex >= 0) {
+            this.tabs[existingIndex] = normalizedTab;
+        } else {
+            this.tabs.push(normalizedTab);
+        }
+        const nextIndex = existingIndex >= 0 ? existingIndex : this.tabs.length - 1;
+        if (options.activate !== false) {
+            this.setActiveTab(nextIndex, { focusEditor: options.focusEditor !== false, persistCurrent: false });
+        } else {
+            this.render();
+            this.notifyStateChange();
+        }
+    }
+
     mergeFrom(other: TabManager) {
-        const sourcePaths = other.tabs.map((tab) => tab.path);
+        const sourceTabs = other.exportTabs();
         const targetPaths = new Set(this.tabs.map((tab) => tab.path));
-        for (const path of sourcePaths) {
-            if (!targetPaths.has(path) && this.vfs.exists(path)) {
-                const content = this.vfs.readFile(path);
+        for (const tab of sourceTabs) {
+            if (!targetPaths.has(tab.path)) {
                 this.tabs.push({
-                    path,
-                    content: typeof content === 'string' ? this.normalizeText(content) : 'Binary file...',
-                    isPermanent: true,
-                    isEditable: this.vfs.isEditable(path),
-                    zoom: 1,
+                    ...tab,
+                    content: this.normalizeText(tab.content),
+                    zoom: Number.isFinite(tab.zoom) ? Number(tab.zoom) : 1,
                 });
             }
         }
@@ -226,6 +296,7 @@ export class TabManager {
         this.tabs.forEach((tab, index) => {
             const el = document.createElement('div');
             el.className = `tab ${index === this.activeTabIndex ? 'active' : ''} ${!tab.isPermanent ? 'provisional' : ''} ${!tab.isEditable ? 'readonly' : ''}`;
+            el.draggable = true;
 
             const title = document.createElement('span');
             title.className = 'tab-title';
@@ -239,6 +310,15 @@ export class TabManager {
             el.appendChild(title);
             el.appendChild(close);
             el.onclick = () => this.setActiveTab(index);
+            el.addEventListener('dragstart', (event) => {
+                el.classList.add('dragging');
+                if (this.onTabDragStart) {
+                    this.onTabDragStart({ path: tab.path, index, tab: { ...tab }, event });
+                }
+            });
+            el.addEventListener('dragend', () => {
+                el.classList.remove('dragging');
+            });
             this.container.appendChild(el);
         });
     }
