@@ -1,3 +1,25 @@
+# 2026-04-08 メモ (editor state 更新経路の統一)
+
+- [状況]:
+  - review で、undo/redo、file load、selection 付き入力の経路が `applyCoreRuntimeState()` と異なる後処理を持っており、cursor 依存の highlight と provider 更新回数に不整合が残っていることが分かった。
+- [原因]:
+  - `web/src/editor/editor.ts` が state 適用と text 置換を各メソッドで個別に実装しており、`setText()`、`applyState()`、`insertText()`、`deleteSelection()`、`replaceSelectionAndSetCursor()`、`applyTextEdit()`、`acceptCompletion()` の間で `updateLines()`、`updateText()`、`updateBracketMatching()`、`onCursorChange` の呼び方が揃っていなかった。
+  - `editor-input-handler.ts` の Backspace / Delete fallback も text を直接書き換えており、共通規則を外れていた。
+- [修正]:
+  - `CanvasEditor` に `applyResolvedEditorState()` と `replaceTextRange()` を追加し、text mutation と state-only mutation の後処理を共通化した。
+  - `applyCoreRuntimeState()`、`setText()`、`applyState()`、`insertText()`、`deleteSelection()`、`replaceSelectionAndSetCursor()`、`applyTextEdit()`、`acceptCompletion()` を共通 helper 経由へ寄せた。
+  - text 非変更時は `updateLines()` / `updateText()` を走らせず、cursor / selection / overwrite 更新では bracket matching・occurrences・cursor change 通知だけを同期するようにした。
+  - selection 付き置換は `replaceTextRange()` で一括処理し、provider 更新が 1 回だけになるようにした。
+  - `editor-input-handler.ts` の Backspace / Delete fallback も `replaceTextRange()` を使うように統一した。
+  - `nodesrc/playground_editor_surface_test_runner.js` を拡張し、cursor move、selection/overwrite 更新、file load 相当の reset、selection replacement の回帰を DOM なしで確認できるようにした。
+- [確認]:
+  - `node nodesrc/playground_editor_surface_test_runner.js`: 通過
+  - `npm --prefix web run build:ts`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: 12/12 passed
+- [plan.mdとの差分]:
+  - editor の state 更新責務を pure core へ全部移し切る前段として、surface 側の state mutation を単一 helper に集約した。これで今後の browser adapter / pure core への分離でも、surface 側で扱うべき副作用が明確になった。
+
 # 2026-04-05 メモ (矢印キーで highlight が消える問題の修正)
 
 - [状況]:

@@ -333,14 +333,8 @@ class EditorInputHandler {
                         this.editor.deleteSelection();
                     }
                     else if (this.editor.cursor > 0) {
-                        this.editor.recordHistory();
                         const prevCursor = this.editor.cursor - 1;
-                        this.editor.text = this.editor.text.slice(0, prevCursor) + this.editor.text.slice(this.editor.cursor);
-                        this.editor.setCursor(prevCursor);
-                        this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
-                        this.editor.updateLines();
-                        this.editor.updateText(this.editor.text);
-                        this.editor.updateOccurrencesHighlight();
+                        this.editor.replaceTextRange(prevCursor, this.editor.cursor, '', prevCursor, prevCursor);
                     }
                 }
                 this.editor.triggerCompletion();
@@ -352,11 +346,7 @@ class EditorInputHandler {
                         this.editor.deleteSelection();
                     }
                     else if (this.editor.cursor < this.editor.text.length) {
-                        this.editor.recordHistory();
-                        this.editor.text = this.editor.text.slice(0, this.editor.cursor) + this.editor.text.slice(this.editor.cursor + 1);
-                        this.editor.updateLines();
-                        this.editor.updateText(this.editor.text);
-                        this.editor.updateOccurrencesHighlight();
+                        this.editor.replaceTextRange(this.editor.cursor, this.editor.cursor + 1, '', this.editor.cursor, this.editor.cursor);
                     }
                 }
                 this.editor.triggerCompletion();

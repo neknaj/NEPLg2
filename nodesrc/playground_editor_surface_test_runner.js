@@ -45,6 +45,10 @@ function createMockEditor() {
         resetCursorBlinkCallCount: 0,
         updateOccurrencesHighlightCallCount: 0,
         updateBracketMatchingCallCount: 0,
+        onCursorChangeCallCount: 0,
+        foldedLines: new Set([1]),
+        scrollX: 12,
+        scrollY: 34,
         updateLines() {
             this.updateLinesCallCount += 1;
             this.tokensByLine = [];
@@ -65,15 +69,23 @@ function createMockEditor() {
         updateBracketMatching() {
             this.updateBracketMatchingCallCount += 1;
         },
-        onCursorChange: null,
+        recordHistory() {
+            this.recordHistoryCallCount = (this.recordHistoryCallCount || 0) + 1;
+        },
+        onCursorChange() {
+            this.onCursorChangeCallCount += 1;
+        },
     };
 }
 
 function runSurfaceRegression() {
     const CanvasEditor = loadCanvasEditorClass();
     const applyCoreRuntimeState = CanvasEditor.prototype.applyCoreRuntimeState;
+    const applyResolvedEditorState = CanvasEditor.prototype.applyResolvedEditorState;
+    const replaceTextRange = CanvasEditor.prototype.replaceTextRange;
 
     const cursorMoveEditor = createMockEditor();
+    cursorMoveEditor.applyResolvedEditorState = applyResolvedEditorState;
     const cursorMoveResult = applyCoreRuntimeState.call(cursorMoveEditor, {
         text: 'alpha\nbeta\n',
         cursor: 3,
@@ -92,6 +104,7 @@ function runSurfaceRegression() {
     assert.deepStrictEqual(cursorMoveEditor.diagnosticsByLine, [[{ startCol: 0, endCol: 5, severity: 'warning', message: 'x' }], []]);
 
     const stateOnlyEditor = createMockEditor();
+    stateOnlyEditor.applyResolvedEditorState = applyResolvedEditorState;
     const stateOnlyResult = applyCoreRuntimeState.call(stateOnlyEditor, {
         text: 'alpha\nbeta\n',
         cursor: 5,
@@ -109,10 +122,13 @@ function runSurfaceRegression() {
     assert.equal(stateOnlyEditor.isOverwriteMode, true);
     assert.equal(stateOnlyEditor.selectionStart, 2);
     assert.equal(stateOnlyEditor.selectionEnd, 5);
+    assert.equal(stateOnlyEditor.updateBracketMatchingCallCount, 1);
+    assert.equal(stateOnlyEditor.onCursorChangeCallCount, 1);
     assert.deepStrictEqual(stateOnlyEditor.tokensByLine, [[{ startCol: 0, endCol: 5, type: 'variable' }], []]);
     assert.deepStrictEqual(stateOnlyEditor.diagnosticsByLine, [[{ startCol: 0, endCol: 5, severity: 'warning', message: 'x' }], []]);
 
     const textEditEditor = createMockEditor();
+    textEditEditor.applyResolvedEditorState = applyResolvedEditorState;
     const textEditResult = applyCoreRuntimeState.call(textEditEditor, {
         text: 'alpha!\nbeta\n',
         cursor: 6,
@@ -128,11 +144,49 @@ function runSurfaceRegression() {
     assert.equal(textEditEditor.updateLinesCallCount, 1);
     assert.equal(textEditEditor.updateTextCallCount, 1);
 
+    const resetEditor = createMockEditor();
+    resetEditor.applyResolvedEditorState = applyResolvedEditorState;
+    const resetResult = applyResolvedEditorState.call(resetEditor, {
+        text: 'gamma\n',
+        cursor: 0,
+        selectionStart: 0,
+        selectionEnd: 0,
+    }, {
+        clearHistory: true,
+        clearFolds: true,
+        resetScroll: true,
+        clearDerivedHighlights: true,
+    });
+
+    assert.equal(resetResult, true);
+    assert.equal(resetEditor.scrollX, 0);
+    assert.equal(resetEditor.scrollY, 0);
+    assert.equal(resetEditor.undoStack.length, 0);
+    assert.equal(resetEditor.redoStack.length, 0);
+    assert.equal(resetEditor.foldedLines.size, 0);
+    assert.equal(resetEditor.updateBracketMatchingCallCount, 1);
+    assert.equal(resetEditor.onCursorChangeCallCount, 1);
+
+    const replaceEditor = createMockEditor();
+    replaceEditor.applyResolvedEditorState = applyResolvedEditorState;
+    replaceEditor.selectionStart = 1;
+    replaceEditor.selectionEnd = 4;
+    const replaceResult = replaceTextRange.call(replaceEditor, 1, 4, 'ZZ', 3, 3);
+
+    assert.equal(replaceResult, true);
+    assert.equal(replaceEditor.recordHistoryCallCount, 1);
+    assert.equal(replaceEditor.text, 'aZZa\nbeta\n');
+    assert.equal(replaceEditor.cursor, 3);
+    assert.equal(replaceEditor.updateLinesCallCount, 1);
+    assert.equal(replaceEditor.updateTextCallCount, 1);
+
     return {
         ok: true,
         checks: [
             'cursor move preserves language render caches',
             'selection and overwrite updates preserve language render caches',
+            'reset-style updates clear stale highlights and notify cursor listeners',
+            'selection replacement triggers a single provider update',
             'text edit still refreshes line caches and provider text',
         ],
     };

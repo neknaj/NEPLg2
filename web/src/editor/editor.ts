@@ -215,20 +215,17 @@ class CanvasEditor {
      * @param {string} text - 新しいテキストコンテンツ
      */
     setText(text) {
-        this.text = this.normalizeEditorText(text);
-        this.cursor = 0;
-        this.selectionStart = 0;
-        this.selectionEnd = 0;
-        this.undoStack = [];
-        this.redoStack = [];
-        this.foldedLines.clear();
-        this.scrollX = 0;
-        this.scrollY = 0;
-        this.updateLines();
-        if (this.languageProvider) {
-            this.languageProvider.updateText(this.text);
-        }
-        this.scrollToCursor();
+        this.applyResolvedEditorState({
+            text,
+            cursor: 0,
+            selectionStart: 0,
+            selectionEnd: 0,
+        }, {
+            clearHistory: true,
+            clearFolds: true,
+            resetScroll: true,
+            clearDerivedHighlights: true,
+        });
     }
     /**
      * 言語プロバイダにテキストの更新を通知します。
@@ -295,23 +292,48 @@ class CanvasEditor {
             redoStack: this.redoStack || [],
         };
     }
-    applyCoreRuntimeState(runtimeState) {
-        if (!runtimeState) {
+    applyResolvedEditorState(nextState, options = {}) {
+        if (!nextState) {
             return false;
         }
-        const previousText = this.text;
-        const textChanged = this.normalizeEditorText(runtimeState.text) !== previousText;
-        this.text = this.normalizeEditorText(runtimeState.text);
-        this.cursor = runtimeState.cursor;
-        this.selectionStart = runtimeState.selectionStart;
-        this.selectionEnd = runtimeState.selectionEnd;
-        this.corePreferredCursorColumn = runtimeState.preferredCursorColumn ?? null;
-        this.isOverwriteMode = Boolean(runtimeState.isOverwriteMode);
-        this.undoStack = Array.isArray(runtimeState.undoStack) ? runtimeState.undoStack : [];
-        this.redoStack = Array.isArray(runtimeState.redoStack) ? runtimeState.redoStack : [];
-        this.preferredCursorX = -1;
+        const normalizedText = this.normalizeEditorText(nextState.text);
+        const textChanged = normalizedText !== this.text;
+        this.text = normalizedText;
+        this.cursor = Math.max(0, Math.min(this.text.length, Number(nextState.cursor ?? 0)));
+        this.selectionStart = Math.max(0, Math.min(this.text.length, Number(nextState.selectionStart ?? this.cursor)));
+        this.selectionEnd = Math.max(0, Math.min(this.text.length, Number(nextState.selectionEnd ?? this.cursor)));
+        this.corePreferredCursorColumn = Object.prototype.hasOwnProperty.call(nextState, 'preferredCursorColumn')
+            ? nextState.preferredCursorColumn ?? null
+            : null;
+        if (Object.prototype.hasOwnProperty.call(nextState, 'isOverwriteMode')) {
+            this.isOverwriteMode = Boolean(nextState.isOverwriteMode);
+        }
+        if (Array.isArray(nextState.undoStack)) {
+            this.undoStack = nextState.undoStack;
+        }
+        if (Array.isArray(nextState.redoStack)) {
+            this.redoStack = nextState.redoStack;
+        }
+        if (options.clearHistory) {
+            this.undoStack = [];
+            this.redoStack = [];
+        }
+        if (options.clearFolds) {
+            this.foldedLines.clear();
+        }
+        if (options.resetScroll) {
+            this.scrollX = 0;
+            this.scrollY = 0;
+        }
+        if (options.resetPreferredCursorX !== false) {
+            this.preferredCursorX = -1;
+        }
         if (textChanged) {
             this.updateLines();
+        }
+        if (options.clearDerivedHighlights) {
+            this.highlightedOccurrences = [];
+            this.bracketHighlights = [];
         }
         this.scrollToCursor();
         this.resetCursorBlink();
@@ -320,9 +342,31 @@ class CanvasEditor {
         }
         this.updateOccurrencesHighlight();
         this.updateBracketMatching();
-        if (this.onCursorChange)
+        if (this.onCursorChange) {
             this.onCursorChange(this.cursor);
+        }
         return true;
+    }
+    replaceTextRange(start, end, replacement, selectionStart, selectionEnd, options = {}) {
+        const rangeStart = Math.max(0, Math.min(this.text.length, Number(start ?? 0)));
+        const rangeEnd = Math.max(rangeStart, Math.min(this.text.length, Number(end ?? rangeStart)));
+        const normalizedReplacement = this.normalizeEditorText(replacement);
+        if (options.recordHistory !== false) {
+            this.recordHistory();
+        }
+        const nextText = this.text.slice(0, rangeStart) + normalizedReplacement + this.text.slice(rangeEnd);
+        const fallbackCursor = rangeStart + normalizedReplacement.length;
+        const nextSelectionStart = selectionStart ?? fallbackCursor;
+        const nextSelectionEnd = selectionEnd ?? nextSelectionStart;
+        return this.applyResolvedEditorState({
+            text: nextText,
+            cursor: nextSelectionEnd,
+            selectionStart: nextSelectionStart,
+            selectionEnd: nextSelectionEnd,
+        }, options);
+    }
+    applyCoreRuntimeState(runtimeState) {
+        return this.applyResolvedEditorState(runtimeState);
     }
     applyCoreStateCommand(command) {
         const bridge = this.getCoreBridge();
@@ -335,24 +379,15 @@ class CanvasEditor {
     // --- Text and State Manipulation ---
     insertText(newText) {
         newText = this.normalizeEditorText(newText);
-        this.recordHistory();
-        if (this.hasSelection()) {
-            this.deleteSelection(false);
-        }
-        if (this.isOverwriteMode && this.cursor < this.text.length && newText !== '\n') {
-            const end = this.cursor + newText.length;
-            this.text = this.text.slice(0, this.cursor) + newText + this.text.slice(end);
-            this.setCursor(this.cursor + newText.length);
-        }
-        else {
-            const prevCursor = this.cursor;
-            this.text = this.text.slice(0, prevCursor) + newText + this.text.slice(prevCursor);
-            this.setCursor(prevCursor + newText.length);
-        }
-        this.selectionStart = this.selectionEnd = this.cursor;
-        this.updateLines();
-        this.updateText(this.text);
-        this.updateOccurrencesHighlight();
+        const { start, end } = this.getSelectionRange();
+        const replaceStart = this.hasSelection() ? start : this.cursor;
+        const replaceEnd = this.hasSelection()
+            ? end
+            : (this.isOverwriteMode && this.cursor < this.text.length && newText !== '\n')
+                ? Math.min(this.text.length, this.cursor + newText.length)
+                : this.cursor;
+        const nextCursor = replaceStart + newText.length;
+        this.replaceTextRange(replaceStart, replaceEnd, newText, nextCursor, nextCursor);
     }
     deleteSelection(history = true) {
         if (history) {
@@ -360,13 +395,8 @@ class CanvasEditor {
         }
         if (!this.hasSelection())
             return;
-        const { start } = this.getSelectionRange();
-        this.text = this.text.slice(0, start) + this.text.slice(this.getSelectionRange().end);
-        this.setCursor(start);
-        this.selectionStart = this.selectionEnd = this.cursor;
-        this.updateLines();
-        this.updateText(this.text);
-        this.updateOccurrencesHighlight();
+        const { start, end } = this.getSelectionRange();
+        this.replaceTextRange(start, end, '', start, start, { recordHistory: false });
     }
     setCursor(index, resetX = true) {
         this.cursor = Math.max(0, Math.min(this.text.length, index));
@@ -652,15 +682,14 @@ class CanvasEditor {
     applyState(state) {
         if (!state)
             return;
-        this.text = state.text;
-        this.cursor = state.cursor;
-        this.selectionStart = state.selectionStart;
-        this.selectionEnd = state.selectionEnd;
-        this.updateLines();
-        this.scrollToCursor();
-        this.resetCursorBlink();
-        this.updateText(this.text);
-        this.updateOccurrencesHighlight();
+        this.applyResolvedEditorState({
+            text: state.text,
+            cursor: state.cursor,
+            selectionStart: state.selectionStart,
+            selectionEnd: state.selectionEnd,
+        }, {
+            clearDerivedHighlights: true,
+        });
     }
     undo() {
         if (this.undoStack.length === 0)
@@ -694,25 +723,20 @@ class CanvasEditor {
         this.insertText('\n' + currentIndent);
     }
     replaceSelectionAndSetCursor(text, cursorOffsetFromStart) {
-        this.recordHistory();
         const { start, end } = this.getSelectionRange();
-        this.text = this.text.slice(0, start) + text + this.text.slice(end);
         const newCursorPos = start + cursorOffsetFromStart;
-        this.setCursor(newCursorPos);
-        this.selectionStart = this.selectionEnd = this.cursor;
-        this.updateLines();
-        this.updateText(this.text);
-        this.updateOccurrencesHighlight();
+        this.replaceTextRange(start, end, text, newCursorPos, newCursorPos);
     }
     applyTextEdit(newText, newSelectionStart, newSelectionEnd) {
         this.recordHistory();
-        this.text = newText;
-        this.selectionStart = newSelectionStart;
-        this.selectionEnd = newSelectionEnd;
-        this.updateLines();
-        this.updateText(this.text);
-        this.setCursor(this.selectionEnd, false);
-        this.updateOccurrencesHighlight();
+        this.applyResolvedEditorState({
+            text: newText,
+            cursor: newSelectionEnd,
+            selectionStart: newSelectionStart,
+            selectionEnd: newSelectionEnd,
+        }, {
+            resetPreferredCursorX: false,
+        });
     }
     toggleFold(startLine) {
         if (this.foldedLines.has(startLine)) {
@@ -754,16 +778,8 @@ class CanvasEditor {
         const placeholderIndex = rawInsertText.indexOf(cursorPlaceholder);
         const finalInsertText = placeholderIndex !== -1 ? rawInsertText.replace(cursorPlaceholder, '') : rawInsertText;
         const finalCursorOffset = placeholderIndex !== -1 ? placeholderIndex : rawInsertText.length;
-        const textBeforeSelection = this.text.slice(0, startIndex);
-        const textAfterSelection = this.text.slice(this.cursor);
-        this.recordHistory();
-        this.text = textBeforeSelection + finalInsertText + textAfterSelection;
         const newCursorPos = startIndex + finalCursorOffset;
-        this.setCursor(newCursorPos);
-        this.selectionStart = this.selectionEnd = this.cursor;
-        this.updateLines();
-        this.updateText(this.text);
-        this.updateOccurrencesHighlight();
+        this.replaceTextRange(startIndex, this.cursor, finalInsertText, newCursorPos, newCursorPos);
         this.domUI.hideCompletion();
     }
 }
