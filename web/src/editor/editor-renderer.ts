@@ -184,7 +184,7 @@ class EditorRenderer {
             }
 
             // カレント行ハイライト
-            if (cursorPos.row === i) {
+            if (this.editor.isFocused && cursorPos.row === i) {
                 const yLine = y + lineHeight - 0.5;
                 this.ctx.strokeStyle = this.editor.colors.currentLine;
                 this.ctx.lineWidth = 1 / dpr;

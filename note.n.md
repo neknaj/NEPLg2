@@ -14706,3 +14706,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
 - plan.md との差分:
   - 今回は panel workspace 設計そのものではなく、workspace 化で表面化した explorer 見た目と focus / tab 編集不整合の修正に限定した。
+# 2026-04-09 Playground cursor visibility 調整
+
+- 現状:
+  - focus を失った panel でも、editor 側では current line の境界線が残って見え、cursor が消え切っていないように見える状態があった。
+- 実装:
+  - `web/src/editor/editor-renderer.ts`
+    - current line の描画も `editor.isFocused` 条件に揃え、focus 中の editor にだけ cursor 系の視覚表現が出るようにした。
+- 確認:
+  - `npm --prefix web run build:ts`
+  - `node nodesrc/playground_editor_surface_test_runner.js`
+  - `trunk build --release`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
+  - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
