@@ -8,9 +8,20 @@ The web playground lives under `web/` and is built by Trunk (`Trunk.toml` target
 ## Local development
 
 - Run `trunk serve` and open `http://127.0.0.1:8080/`.
-- The embedded editor is optional. If `web/vendor/editorsample` is missing, the fallback textarea is used.
 - GitHub Pages builds pass `--public-url /NEPL-g2/` so the published site resolves assets under that prefix.
 - If you set `--public-url` to a subpath (e.g. `/web/dist/`), `trunk serve` will also expect that base path. Open `http://127.0.0.1:8080/web/dist/` or pass `--serve-base / --ws-base /` to serve from root while keeping asset URLs under the subpath.
+
+## Panel workspace
+
+The playground now uses a split-tree workspace instead of the old fixed three-pane layout.
+
+- The root layout starts with `Explorer | (Editor / Terminal)`.
+- Each leaf panel owns its own shell, focus state, and, for editor panels, its own tab state.
+- Split ratios and focused panel state are saved in localStorage and restored on the next launch.
+- Toolbar actions such as `Run`, `Compile`, `Help`, and `Save` target the focused editor panel.
+- File open requests from the explorer also target the focused editor panel, creating or reusing editor state through the workspace manager.
+- Drag-and-drop currently supports moving panels across `left`, `right`, `top`, and `bottom` drop zones. Center-drop merges are implemented for editor panels by merging tab sets.
+- Explorer duplication is intentionally blocked, and the last explorer or last editor panel cannot be closed.
 
 ## Terminal features
 

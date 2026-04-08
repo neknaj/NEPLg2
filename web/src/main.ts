@@ -1,25 +1,22 @@
-import { CanvasTerminal } from './terminal/terminal.js';
 import { VFS } from './runtime/vfs.js';
-import { TabManager } from './library/tabs.js';
-import { FileExplorer } from './library/explorer.js';
 import './editor-core/bridge.js';
 import './editor-core/language-analysis.js';
-import { createPlaygroundEditor } from './editor-core/browser-adapter.js';
+import { PlaygroundPanelManager } from './workspace/panel-manager.js';
 
 declare const NEPLg2LanguageProvider: any;
 
-console.log("[Playground] main.js loaded (TS-MIGRATION)");
-let start_flag = false;
+console.log('[Playground] main.js loaded (panel workspace)');
+let startFlag = false;
 
-window.addEventListener("TrunkApplicationStarted", start_app);
-window.setTimeout(start_app, 1000);
+window.addEventListener('TrunkApplicationStarted', startApp);
+window.setTimeout(startApp, 1000);
 
-function start_app() {
-    if (start_flag) return;
-    start_flag = true;
+function startApp() {
+    if (startFlag) {
+        return;
+    }
+    startFlag = true;
 
-    // --- Core Dependencies ---
-    console.log("[Playground] Initializing VFS...");
     const vfs = new VFS();
     const mountTextFile = (path: string, content: unknown, options: { readOnly?: boolean } = {}) => {
         const normalizedPath = String(path);
@@ -30,287 +27,137 @@ function start_app() {
 
     let wasm: any;
     try {
-        wasm = (window as any).wasmBindings
-    }
-    catch (e) {
-        console.error("[Playground] WASM bindings not found, retrying in 1 second...", e);
-        start_flag = false; // Allow retry
-        window.setTimeout(start_app, 1000);
+        wasm = (window as any).wasmBindings;
+    } catch (error) {
+        console.error('[Playground] WASM bindings not found, retrying...', error);
+        startFlag = false;
+        window.setTimeout(startApp, 1000);
         return;
     }
-    console.log("[Playground] Trunk application started. Initializing...");
 
     if (wasm && wasm.initSync) {
         try {
             wasm.initSync();
-            console.log("[Playground] WASM initSync complete.");
-
-            // Mount stdlib into VFS
             if (wasm.get_bundled_stdlib_vfs) {
                 const stdlibVfs = wasm.get_bundled_stdlib_vfs();
                 if (stdlibVfs && typeof stdlibVfs === 'object') {
-                    for (const [p, content] of Object.entries(stdlibVfs)) {
-                        mountTextFile(String(p), content, { readOnly: true });
+                    for (const [path, content] of Object.entries(stdlibVfs)) {
+                        mountTextFile(String(path), content, { readOnly: true });
                     }
                 }
             } else if (wasm.get_stdlib_files) {
                 const stdlibFiles = wasm.get_stdlib_files();
                 if (stdlibFiles && Array.isArray(stdlibFiles)) {
                     for (const [path, content] of stdlibFiles) {
-                        mountTextFile('/stdlib/' + path, content, { readOnly: true });
+                        mountTextFile(`/stdlib/${path}`, content, { readOnly: true });
                     }
                 }
             }
 
-            // Mount examples into VFS
             if (wasm.get_example_files) {
                 const exampleFiles = wasm.get_example_files();
                 if (exampleFiles && Array.isArray(exampleFiles)) {
                     for (const [path, content] of exampleFiles) {
-                        mountTextFile('/examples/' + path, content, { readOnly: false });
+                        mountTextFile(`/examples/${path}`, content, { readOnly: false });
                     }
                 }
             }
 
-            // Load README
             if (wasm.get_readme) {
-                const readme = wasm.get_readme();
-                mountTextFile('/README', readme, { readOnly: true });
+                mountTextFile('/README', wasm.get_readme(), { readOnly: true });
             }
-        } catch (e) {
-            console.error("[Playground] WASM initSync failed:", e);
+        } catch (error) {
+            console.error('[Playground] WASM initSync failed:', error);
         }
     }
 
-    // --- DOM Elements ---
-    const editorCanvas = document.getElementById('editor-canvas') as HTMLCanvasElement;
-    const editorTextarea = document.getElementById('editor-hidden-input') as HTMLTextAreaElement;
-    const completionList = document.getElementById('completion-list') as HTMLElement;
-    const generalPopup = document.getElementById('general-popup') as HTMLElement;
-    const terminalCanvas = document.getElementById('terminal-canvas') as HTMLCanvasElement;
-    const terminalTextarea = document.getElementById('terminal-hidden-input') as HTMLTextAreaElement;
+    const workspaceRoot = document.getElementById('workspace-root') as HTMLElement;
+    const popup = document.getElementById('general-popup') as HTMLElement;
     const fontSizeSelect = document.getElementById('font-size-select') as HTMLSelectElement;
-
-    const explorerContent = document.getElementById('explorer-content') as HTMLElement;
-    const tabsContainer = document.getElementById('tabs-container') as HTMLElement;
-    const refreshExplorerBtn = document.getElementById('refresh-explorer') as HTMLElement;
-
     const runBtn = document.getElementById('run-button') as HTMLButtonElement;
     const compileBtn = document.getElementById('compile-button') as HTMLButtonElement;
     const helpBtn = document.getElementById('help-button') as HTMLButtonElement;
     const editorHelpBtn = document.getElementById('editor-help-button') as HTMLButtonElement;
     const clearBtn = document.getElementById('clear-button') as HTMLButtonElement;
     const stopBtn = document.getElementById('stop-button') as HTMLButtonElement;
-
-    const cursorSpan = document.getElementById('cursor-pos') as HTMLSpanElement;
-    const statusLeft = document.querySelector('.status-left') as HTMLElement;
+    const cursorSpan = document.getElementById('cursor-pos') as HTMLElement;
     const analysisSpan = document.createElement('span');
     analysisSpan.id = 'analysis-info';
-    analysisSpan.style.marginLeft = '12px';
     analysisSpan.style.opacity = '0.9';
     analysisSpan.textContent = '';
-    if (statusLeft) {
-        statusLeft.appendChild(analysisSpan);
-    }
+    document.querySelector('.status-left')?.appendChild(analysisSpan);
+    const terminalStatusSpan = document.getElementById('terminal-status') as HTMLElement;
 
-    // --- Editor Setup ---
     const neplProvider = new NEPLg2LanguageProvider();
-    let cursorTicket = 0;
-    const editor = createPlaygroundEditor({
-        canvas: editorCanvas,
-        textarea: editorTextarea,
-        popup: generalPopup,
-        problemsPanel: null,
-        completionList: completionList,
-        languageProviders: {
-            nepl: neplProvider
-        },
-        initialLanguage: 'nepl',
-        onCursorChange: async (index: number) => {
-            const pos = editor.getCursorPosition(index);
-            cursorSpan.textContent = `Ln ${pos.row + 1}, Col ${pos.col + 1}`;
-            const ticket = ++cursorTicket;
-            const insight = editor.getTokenInsight(index);
-            if (ticket !== cursorTicket) {
-                return;
-            }
-            if (!insight) {
-                analysisSpan.textContent = '';
-                return;
-            }
-            const parts: string[] = [];
-            if (insight.inferredType) parts.push(`<${insight.inferredType}>`);
-            if (insight.resolvedDefinition) {
-                parts.push(`${insight.resolvedDefinition.kind}:${insight.resolvedDefinition.name}`);
-            } else if (insight.resolvedDefId != null) {
-                parts.push(`def#${insight.resolvedDefId}`);
-            }
-            if (insight.argIndex != null) parts.push(`arg${insight.argIndex}`);
-            if (Array.isArray(insight.candidateDefIds) && insight.candidateDefIds.length > 1) {
-                parts.push(`candidates=${insight.candidateDefIds.length}`);
-            }
-            analysisSpan.textContent = parts.join(' | ');
-        }
+    const panelManager = new PlaygroundPanelManager({
+        root: workspaceRoot,
+        popup,
+        vfs,
+        neplProvider,
+        cursorSpan,
+        analysisSpan,
+        terminalStatusSpan,
     });
+    panelManager.redraw();
 
-    // --- Tab & Explorer Setup ---
-    const tabManager = new TabManager(tabsContainer, editor, vfs);
-    const fileExplorer = new FileExplorer(explorerContent, vfs, (path) => {
-        tabManager.openFile(path);
-    });
-
-    // --- Terminal Setup ---
-    const terminal = new CanvasTerminal(terminalCanvas, terminalTextarea, null, { vfs });
-
-    // Inject dependencies into shell
-    if (terminal.shell) {
-        terminal.shell.editor = editor;
-        terminal.shell.vfs = vfs;
-        (terminal.shell as any).tabManager = tabManager;
-    }
-
-    // --- Resizer Logic ---
-    const setupResizer = (resizerId: string, leftPaneId: string, isHorizontal: boolean) => {
-        const resizer = document.getElementById(resizerId);
-        const leftPane = document.getElementById(leftPaneId);
-        if (!resizer || !leftPane) return;
-
-        let isResizing = false;
-
-        resizer.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            document.body.style.cursor = isHorizontal ? 'col-resize' : 'row-resize';
-            resizer.classList.add('dragging');
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isResizing) return;
-            if (isHorizontal) {
-                const width = e.clientX - leftPane.getBoundingClientRect().left;
-                leftPane.style.width = width + 'px';
-            }
-            editor.resizeEditor();
-            terminal.resizeEditor();
-        });
-
-        document.addEventListener('mouseup', () => {
-            isResizing = false;
-            document.body.style.cursor = 'default';
-            resizer.classList.remove('dragging');
-        });
+    const openInitialDocument = () => {
+        const initialPath = vfs.exists('/examples/rpn.nepl') ? '/examples/rpn.nepl' : '/README';
+        panelManager.openFileInFocusedEditor(initialPath);
     };
 
-    setupResizer('explorer-resizer', 'explorer-pane', true);
-    setupResizer('workspace-resizer', 'editor-pane', true);
+    if (!panelManager.getActiveEditorTabPath()) {
+        openInitialDocument();
+    }
 
-    // --- Simple Commands ---
-    function executeCommand(cmd: string) {
-        if (terminal.shell.isRunning) {
-            terminal.printWarning("Execution Guard: The terminal is currently busy (process running or waiting for input). Please wait or use 'Stop' button.");
-            return;
-        }
-        tabManager.saveCurrentTab(); // Sync before execution
-        terminal.currentInput = cmd;
-        terminal.execute();
+    function executeCommand(command: string) {
+        panelManager.saveFocusedEditorTab();
+        panelManager.executeInFocusedTerminal(command);
     }
 
     function runCurrentFile() {
-        tabManager.saveCurrentTab();
-        const activeTab = tabManager.activeTab;
-        if (!activeTab) {
-            const currentPath = editor.getPath() || "/README";
-            executeCommand(`neplg2 run ${currentPath}`);
-            return;
-        }
-
-        const content = activeTab.content;
-        if (!content.includes("#entry")) {
-            terminal.printWarning("Warning: No '#entry' directive found in the current file. This program might not have an entry point if it's meant to be executable.");
-        }
-
-        executeCommand(`neplg2 run -i ${activeTab.path}`);
+        panelManager.saveFocusedEditorTab();
+        const activePath = panelManager.getActiveEditorTabPath() || '/README';
+        executeCommand(`neplg2 run -i ${activePath}`);
     }
 
     function compileCurrentFile() {
-        tabManager.saveCurrentTab();
-        const activeTab = tabManager.activeTab;
-        if (!activeTab) {
-            const currentPath = editor.getPath() || "/README";
-            executeCommand(`neplg2 build ${currentPath} --emit wat`);
-            return;
-        }
-        executeCommand(`neplg2 build --emit wat -i ${activeTab.path}`);
+        panelManager.saveFocusedEditorTab();
+        const activePath = panelManager.getActiveEditorTabPath() || '/README';
+        executeCommand(`neplg2 build --emit wat -i ${activePath}`);
     }
 
     function updateFontSize() {
-        const size = parseInt(fontSizeSelect.value);
-        editor.setFontSize(size);
-        terminal.setFontSize(size);
+        panelManager.setFontSize(parseInt(fontSizeSelect.value, 10));
     }
-
-    // --- Event Listeners ---
-    fontSizeSelect.addEventListener('change', updateFontSize);
-    refreshExplorerBtn.addEventListener('click', () => fileExplorer.refresh());
 
     runBtn.addEventListener('click', runCurrentFile);
     compileBtn.addEventListener('click', compileCurrentFile);
     helpBtn.addEventListener('click', () => executeCommand('help'));
-    editorHelpBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const rect = editorHelpBtn.getBoundingClientRect();
-        const guide = [
-            'Editor機能ガイド',
-            '',
-            'Hover: シンボル上にマウス停止で型/定義情報を表示',
-            '定義ジャンプ: F12',
-            '参照ハイライト: カーソル移動で同名参照を強調',
-            '補完: 入力中に候補表示、Enter/Tabで確定',
-            'コメント切替: Ctrl+/',
-            '単語移動: Ctrl+← / Ctrl+→',
-            '',
-            '注: parser が失敗する入力では Hover/定義ジャンプは',
-            'lex ベースのフォールバック情報のみ表示されます。',
-        ].join('\n');
-        editor.showPopup(guide, rect.left, rect.bottom + 8);
-        editor.focus();
+    editorHelpBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        panelManager.showEditorHelp(editorHelpBtn.getBoundingClientRect());
     });
-    clearBtn.addEventListener('click', () => terminal.clear());
+    clearBtn.addEventListener('click', () => {
+        const terminal = panelManager.getFocusedTerminalRuntime();
+        if (terminal) {
+            terminal.terminal.clear();
+        }
+    });
     stopBtn.addEventListener('click', () => {
-        if (terminal.shell && terminal.shell.interrupt) {
-            terminal.shell.interrupt();
+        const terminal = panelManager.getFocusedTerminalRuntime();
+        if (terminal?.terminal.shell?.interrupt) {
+            terminal.terminal.shell.interrupt();
         }
     });
+    fontSizeSelect.addEventListener('change', updateFontSize);
 
-    window.addEventListener('resize', () => {
-        editor.resizeEditor();
-        terminal.resizeEditor();
-    });
+    window.addEventListener('resize', () => panelManager.resizeAll());
 
-    function openInitialDocument() {
-        const initialPath = vfs.exists('/examples/rpn.nepl') ? '/examples/rpn.nepl' : '/README';
-        try {
-            tabManager.openFile(initialPath);
-        } catch (error) {
-            console.error(`[Playground] Failed to open initial document: ${initialPath}`, error);
-            if (initialPath !== '/README' && vfs.exists('/README')) {
-                tabManager.openFile('/README');
-            }
-        }
-    }
-
-    // --- Initialization ---
-    fileExplorer.render();
-    openInitialDocument();
-
-    // Make globally available
-    (window as any).editor = editor;
-    (window as any).terminal = terminal;
     (window as any).executeCommand = executeCommand;
-    (window as any).tabManager = tabManager;
+    (window as any).panelManager = panelManager;
 
     setTimeout(() => {
-        editor.resizeEditor();
-        terminal.resizeEditor();
-        editor.focus();
+        updateFontSize();
+        panelManager.focusDefaultEditor();
     }, 100);
 }

@@ -32,12 +32,13 @@
     <div class="app-container">
         <header class="app-header">
             <div class="logo">
-                <span class="logo-text">NEPLg2</span> <span class="badge">Playground</span>
+                <span class="logo-text">NEPLg2</span>
+                <span class="badge">Playground</span>
             </div>
             <div class="controls">
-                <a href="./tests.html" target="_blank" style="color: var(--text-secondary); text-decoration: none; font-size: 12px; align-self: center;" title="Compiler Tests">Tests</a>
-                <a href="./tutorials/getting_started/00_index.html" target="_blank" style="color: var(--text-secondary); text-decoration: none; font-size: 12px; align-self: center;" title="Getting Started Tutorial">Tutorial</a>
-                <a href="./doc/stdlib/index.html" target="_blank" style="color: var(--text-secondary); text-decoration: none; font-size: 12px; align-self: center;" title="Standard Library Documentation">Stdlib</a>
+                <a href="./tests.html" target="_blank" class="header-link" title="Compiler Tests">Tests</a>
+                <a href="./tutorials/getting_started/00_index.html" target="_blank" class="header-link" title="Getting Started Tutorial">Tutorial</a>
+                <a href="./doc/stdlib/index.html" target="_blank" class="header-link" title="Standard Library Documentation">Stdlib</a>
                 <div class="control-group">
                     <label for="font-size-select">Size:</label>
                     <select id="font-size-select">
@@ -50,56 +51,18 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <button id="run-button" class="btn" title="Run the program">▶ Run</button>
-                    <button id="compile-button" class="btn" title="Compile to WAT">🔧 Compile</button>
-                    <button id="help-button" class="btn" title="Show help">🧪 Help</button>
-                    <button id="editor-help-button" class="btn" title="Editor feature help">🧭 Editor</button>
-                    <button id="clear-button" class="btn" title="Clear terminal">🗑 Clear</button>
-                    <button id="stop-button" class="btn btn-danger" title="Stop execution">🛑 Stop</button>
+                    <button id="run-button" class="btn" title="Run the program">Run</button>
+                    <button id="compile-button" class="btn" title="Compile to WAT">Compile</button>
+                    <button id="help-button" class="btn" title="Show help">Help</button>
+                    <button id="editor-help-button" class="btn" title="Editor feature help">Editor</button>
+                    <button id="clear-button" class="btn" title="Clear terminal">Clear</button>
+                    <button id="stop-button" class="btn btn-danger" title="Stop execution">Stop</button>
                 </div>
             </div>
         </header>
 
-        <main class="workspace">
-            <section class="pane explorer-pane" id="explorer-pane">
-                <div class="pane-header">
-                    <span class="pane-title">Explorer</span>
-                    <button class="icon-btn" id="refresh-explorer" title="Refresh Explorer">🔄</button>
-                </div>
-                <div class="explorer-content" id="explorer-content">
-                    <!-- VFS Tree will be rendered here -->
-                </div>
-            </section>
-
-            <div class="resizer" id="explorer-resizer"></div>
-
-            <section class="pane editor-pane">
-                <div class="tabs-container" id="tabs-container">
-                    <!-- Tabs will be rendered here -->
-                </div>
-                <!-- Removed old pane-header from here as tabs replace it -->
-                <div class="canvas-container" id="editor-container">
-                    <canvas id="editor-canvas"></canvas>
-                    <textarea id="editor-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off"
-                        autocapitalize="off" spellcheck="false"></textarea>
-                    <!-- Completion Popup -->
-                    <ul id="completion-list" class="popup-menu hidden"></ul>
-                </div>
-            </section>
-
-            <div class="resizer" id="workspace-resizer"></div>
-
-            <section class="pane terminal-pane">
-                <div class="pane-header">
-                    <span class="pane-title">Terminal</span>
-                    <span class="terminal-status" id="terminal-status">wasi-target</span>
-                </div>
-                <div class="canvas-container" id="terminal-container">
-                    <canvas id="terminal-canvas"></canvas>
-                    <textarea id="terminal-hidden-input" class="hidden-input" autocomplete="off" autocorrect="off"
-                        autocapitalize="off" spellcheck="false"></textarea>
-                </div>
-            </section>
+        <main class="workspace-shell">
+            <div class="workspace" id="workspace-root"></div>
         </main>
 
         <div id="general-popup" class="popup-tooltip hidden"></div>
@@ -109,14 +72,13 @@
                 <span id="cursor-pos">Ln 1, Col 1</span>
             </div>
             <div class="status-right">
+                <span id="terminal-status">wasi-target</span>
                 <span id="editor-lang">NEPLg2</span>
                 <span id="editor-encoding">UTF-8</span>
                 <span id="editor-indent">Spaces: 4</span>
             </div>
         </footer>
     </div>
-
-    <!-- 変更禁止 -->
 
     <link data-trunk rel="copy-dir" href="dist_ts">
     <script src="./dist_ts/editor/editor-utils.js"></script>
@@ -129,7 +91,6 @@
     <script src="./dist_ts/language/markdown/md-provider.js"></script>
     <script src="./dist_ts/language/neplg2/neplg2-provider.js"></script>
     <script src="./dist_ts/library/canvas-editor-lib.js"></script>
-    <!-- Scripts -->
     <script type="module" src="dist_ts/main.js"></script>
 </body>
 

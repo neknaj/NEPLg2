@@ -14633,3 +14633,41 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - plan.md との差異:
   - plan にある editor 全面再設計のうち、今回は editability 判定の一貫化に限定して修正した。
   - examples を read-only にはせず editable のまま維持している。これは playground の初期編集対象を壊さないための判断。
+# 2026-04-08 Playground panel workspace 再設計
+
+- 現状:
+  - Web playground の固定 3 分割 DOM を廃止し、split tree ベースの panel workspace に置き換えた。
+  - Explorer / Editor / Terminal はすべて leaf panel として workspace tree に参加し、split ratio と focused panel を localStorage に保存・復元するようにした。
+  - focused editor panel に対して file open / run / compile / help / save を解決するように main 側の導線を切り替えた。
+  - editor panel は panel-local の tab state を持ち、workspace snapshot には editor ごとの paths / activePath を保存する。
+  - split handle による比率変更、panel split right / split down / close、drag and drop による panel move を実装した。
+  - center drop は editor panel 同士の tab merge にだけ対応し、Explorer の複製は禁止、最後の editor / explorer panel は close できないように保護している。
+- 実装:
+  - `web/src/workspace/panel-layout.ts`
+    - `WorkspaceNode`, `SplitNodeSnapshot`, `LeafPanelSnapshot`, `WorkspaceSnapshot` を追加した。
+    - split / close / move / normalize / restore の pure state 操作を分離し、panel manager から再利用できるようにした。
+  - `web/src/workspace/panel-manager.ts`
+    - split tree の DOM 描画、focused panel 管理、workspace restore/save、toolbar 対象解決、panel drag/drop、split resize をまとめる manager を追加した。
+    - editor / terminal / explorer を runtime map で保持し、workspace redraw 後も leaf id 単位で再利用するようにした。
+  - `web/src/library/tabs.ts`
+    - editor panel ごとに tab state を持てるよう `restoreTabs`, `mergeFrom`, `getTabSnapshot`, `onStateChange` を追加した。
+  - `web/src/main.ts`
+    - 旧 resizer ベースの固定 pane 初期化をやめ、workspace root と `PlaygroundPanelManager` を使う構成へ切り替えた。
+    - open / run / compile / help / clear / stop は focused panel 解決経路から実行するようにした。
+  - `web/index.html` / `web/styles.css`
+    - 固定 `explorer-pane` / `editor-pane` / `terminal-pane` を除去し、panel shell / tab bar / split handle を持つ workspace DOM と styles に更新した。
+  - `nodesrc/playground_workspace_test_runner.js`
+    - workspace snapshot の split / move / close / restore を browser なしで確認する CLI runner を追加した。
+- 確認:
+  - `npm --prefix web run build:ts`
+  - `node nodesrc/playground_workspace_test_runner.js`
+  - `node nodesrc/playground_editability_test_runner.js`
+  - `node nodesrc/playground_editor_surface_test_runner.js`
+  - `trunk build --release`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
+  - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+- plan.md との差分:
+  - split tree / localStorage restore / panel-local tab state / focused panel 解決 / split handle / drag and drop の骨格は実装した。
+  - plan では terminal process を 1 本に維持し、複数 terminal panel は同一実行基盤の別 view とする方針だったが、現状は terminal panel を増やした場合に `CanvasTerminal` / `Shell` も panel ごとに独立して作成している。
+  - center drop の合流は editor panel 同士の tab merge のみ対応で、terminal panel 同士の center merge と shared terminal session は未実装である。
+  - mobile 縮退 layout は panel shell を縦積みにする簡易対応までで、drag/drop を touch 向けに最適化するところまでは未着手である。

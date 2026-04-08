@@ -5,47 +5,94 @@ export interface Tab {
     isEditable: boolean;
 }
 
+export interface TabSnapshot {
+    path: string;
+}
+
 export class TabManager {
     tabs: Tab[] = [];
-    activeTabIndex: number = -1;
+    activeTabIndex = -1;
     container: HTMLElement;
     editor: any;
     vfs: any;
+    onStateChange: (() => void) | null;
 
-    constructor(container: HTMLElement, editor: any, vfs: any) {
+    constructor(container: HTMLElement, editor: any, vfs: any, options: { onStateChange?: (() => void) | null } = {}) {
         this.container = container;
         this.editor = editor;
         this.vfs = vfs;
+        this.onStateChange = options.onStateChange || null;
     }
 
     normalizeText(text: string): string {
         return String(text ?? '').replace(/\r\n?/g, '\n');
     }
 
+    notifyStateChange() {
+        if (this.onStateChange) {
+            this.onStateChange();
+        }
+    }
+
+    getTabSnapshot(): { paths: string[]; activePath: string | null } {
+        return {
+            paths: this.tabs.map((tab) => tab.path),
+            activePath: this.activeTab?.path || null,
+        };
+    }
+
+    restoreTabs(paths: string[], activePath: string | null = null) {
+        this.tabs = [];
+        this.activeTabIndex = -1;
+        for (const path of paths) {
+            if (!this.vfs.exists(path)) {
+                continue;
+            }
+            const newContent = this.vfs.readFile(path);
+            const contentStr = typeof newContent === 'string' ? this.normalizeText(newContent) : 'Binary file...';
+            this.tabs.push({
+                path,
+                content: contentStr,
+                isPermanent: true,
+                isEditable: this.vfs.isEditable(path),
+            });
+        }
+        if (this.tabs.length === 0) {
+            this.editor.setText('');
+            if (typeof this.editor.setEditable === 'function') {
+                this.editor.setEditable(false);
+            }
+            if (typeof this.editor.setPath === 'function') {
+                this.editor.setPath(null);
+            }
+            this.render();
+            this.notifyStateChange();
+            return;
+        }
+        const index = activePath ? this.tabs.findIndex((tab) => tab.path === activePath) : 0;
+        this.setActiveTab(index >= 0 ? index : 0);
+    }
+
     openFile(path: string) {
-        // Find if already open
-        let index = this.tabs.findIndex(t => t.path === path);
+        const index = this.tabs.findIndex((tab) => tab.path === path);
         if (index !== -1) {
-            this.saveCurrentTab(); // Save whatever was in the previous tab before switching
+            this.saveCurrentTab();
             this.setActiveTab(index);
             return;
         }
 
         const newContent = this.vfs.readFile(path);
-        const contentStr = typeof newContent === 'string' ? this.normalizeText(newContent) : "Binary file...";
+        const contentStr = typeof newContent === 'string' ? this.normalizeText(newContent) : 'Binary file...';
         const isEditable = this.vfs.isEditable(path);
 
-        // Logic: If current active tab is NOT PERMANENT and UNEDITED, replace it instead of creating new one
         if (this.activeTabIndex >= 0) {
             const currentTab = this.tabs[this.activeTabIndex];
             if (!currentTab.isPermanent) {
                 const currentEditorText = this.normalizeText(typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text);
-
-                // If content in editor is exactly what's in the tab record (meaning no edits since load/save)
                 if (currentEditorText === currentTab.content) {
                     currentTab.path = path;
                     currentTab.content = contentStr;
-                    currentTab.isPermanent = false; // Still provisional
+                    currentTab.isPermanent = false;
                     currentTab.isEditable = isEditable;
                     this.setActiveTab(this.activeTabIndex);
                     return;
@@ -53,92 +100,114 @@ export class TabManager {
             }
         }
 
-        // Save current tab before opening new one
         this.saveCurrentTab();
-
         this.tabs.push({ path, content: contentStr, isPermanent: false, isEditable });
         this.setActiveTab(this.tabs.length - 1);
     }
 
     saveCurrentTab() {
-        if (this.activeTabIndex >= 0) {
-            const currentTab = this.tabs[this.activeTabIndex];
-            if (!currentTab.isEditable) {
-                return;
-            }
-            const text = this.normalizeText(typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text);
-
-            if (text !== currentTab.content) {
-                currentTab.content = text;
-                currentTab.isPermanent = true; // Mark as permanent once edited
-                this.vfs.writeFile(currentTab.path, currentTab.content);
-            }
+        if (this.activeTabIndex < 0) {
+            return;
+        }
+        const currentTab = this.tabs[this.activeTabIndex];
+        if (!currentTab || !currentTab.isEditable) {
+            return;
+        }
+        const text = this.normalizeText(typeof this.editor.getText === 'function' ? this.editor.getText() : this.editor.text);
+        if (text !== currentTab.content) {
+            currentTab.content = text;
+            currentTab.isPermanent = true;
+            this.vfs.writeFile(currentTab.path, currentTab.content);
+            this.notifyStateChange();
         }
     }
 
     setActiveTab(index: number) {
+        if (index < 0 || index >= this.tabs.length) {
+            return;
+        }
         this.activeTabIndex = index;
         const tab = this.tabs[index];
         this.editor.setText(tab.content);
         if (typeof this.editor.setEditable === 'function') {
             this.editor.setEditable(tab.isEditable);
         }
-        // Explicitly set the path on the editor if possible
-        if (this.editor) {
-            if (typeof this.editor.setPath === 'function') {
-                this.editor.setPath(tab.path);
-            } else {
-                (this.editor as any).path = tab.path;
-            }
+        if (typeof this.editor.setPath === 'function') {
+            this.editor.setPath(tab.path);
+        } else {
+            this.editor.path = tab.path;
         }
         this.render();
+        this.notifyStateChange();
     }
 
     closeTab(index: number, e?: Event) {
-        if (e) e.stopPropagation();
+        if (e) {
+            e.stopPropagation();
+        }
+        if (index < 0 || index >= this.tabs.length) {
+            return;
+        }
         this.tabs.splice(index, 1);
         if (this.activeTabIndex === index) {
-            this.activeTabIndex = this.tabs.length > 0 ? 0 : -1;
+            this.activeTabIndex = this.tabs.length > 0 ? Math.max(0, index - 1) : -1;
             if (this.activeTabIndex >= 0) {
                 this.setActiveTab(this.activeTabIndex);
             } else {
-                this.editor.setText("");
+                this.editor.setText('');
                 if (typeof this.editor.setEditable === 'function') {
                     this.editor.setEditable(false);
                 }
-                if (this.editor) {
-                    if (typeof this.editor.setPath === 'function') {
-                        this.editor.setPath(null);
-                    } else {
-                        (this.editor as any).path = null;
-                    }
+                if (typeof this.editor.setPath === 'function') {
+                    this.editor.setPath(null);
                 }
             }
         } else if (this.activeTabIndex > index) {
-            this.activeTabIndex--;
+            this.activeTabIndex -= 1;
         }
         this.render();
+        this.notifyStateChange();
+    }
+
+    mergeFrom(other: TabManager) {
+        const sourcePaths = other.tabs.map((tab) => tab.path);
+        const targetPaths = new Set(this.tabs.map((tab) => tab.path));
+        for (const path of sourcePaths) {
+            if (!targetPaths.has(path) && this.vfs.exists(path)) {
+                const content = this.vfs.readFile(path);
+                this.tabs.push({
+                    path,
+                    content: typeof content === 'string' ? this.normalizeText(content) : 'Binary file...',
+                    isPermanent: true,
+                    isEditable: this.vfs.isEditable(path),
+                });
+            }
+        }
+        if (this.activeTabIndex < 0 && this.tabs.length > 0) {
+            this.activeTabIndex = 0;
+        }
+        this.render();
+        this.notifyStateChange();
     }
 
     render() {
-        this.container.innerHTML = "";
-        this.tabs.forEach((tab, i) => {
+        this.container.innerHTML = '';
+        this.tabs.forEach((tab, index) => {
             const el = document.createElement('div');
-            el.className = `tab ${i === this.activeTabIndex ? 'active' : ''} ${!tab.isPermanent ? 'provisional' : ''} ${!tab.isEditable ? 'readonly' : ''}`;
+            el.className = `tab ${index === this.activeTabIndex ? 'active' : ''} ${!tab.isPermanent ? 'provisional' : ''} ${!tab.isEditable ? 'readonly' : ''}`;
 
             const title = document.createElement('span');
             title.className = 'tab-title';
-            title.textContent = `${!tab.isEditable ? '🔒 ' : ''}${tab.path.split('/').pop() || tab.path}`;
+            title.textContent = `${!tab.isEditable ? '[ro] ' : ''}${tab.path.split('/').pop() || tab.path}`;
 
             const close = document.createElement('span');
             close.className = 'tab-close';
-            close.textContent = '×';
-            close.onclick = (e) => this.closeTab(i, e);
+            close.textContent = 'x';
+            close.onclick = (event) => this.closeTab(index, event);
 
             el.appendChild(title);
             el.appendChild(close);
-            el.onclick = () => this.setActiveTab(i);
-
+            el.onclick = () => this.setActiveTab(index);
             this.container.appendChild(el);
         });
     }

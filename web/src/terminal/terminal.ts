@@ -578,4 +578,8 @@ export class CanvasTerminal {
         this.textarea.style.top = `${this.canvas.offsetTop + y}px`;
         this.textarea.style.height = `${this.charHeight}px`;
     }
+
+    dispose() {
+        clearInterval(this.blinkInterval);
+    }
 }
