@@ -14901,3 +14901,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - 今回はまず compile/run の main-thread blocking を止めることを優先し、worker protocol は `compile_result` / `stdout` / `stdin_request` / `exit` / `error` まで実装した。
   - progress の細粒度通知や stderr 専用の UI 表示、複数 terminal panel 間の shared backend 化は未着手で、今後の todo に残している。
+# 2026-04-09 メモ (directive / import ハイライト欠落の修正)
+
+- [原因]:
+  - `web/src/editor-core/language-analysis.ts` と `web/src/language/neplg2/neplg2-provider.ts` の token 正規化で、`DirEntry` / `DirTarget` / `DirImport` などの directive token が `keyword` ではなく `default` に落ちていた。
+  - `#import "..." as *` の `as` も `Ident` として `variable` 扱いになっており、directive 行が全体としてほぼ無彩色に見えていた。
+- [実装]:
+  - directive token (`Dir*`) を `keyword` として扱うようにした。
+  - `as` と `pub` は `Ident` でも文法キーワードとして `keyword` に寄せた。
+  - `Ampersand` を `operator`、`UnitLiteral` を `punctuation` として補強した。
+  - `tests/playground_editor/analysis_directives_imports/` を追加して、`#entry` / `#target` / `#import` / import path string / `as` / `*` の色分けを formal CLI suite に固定した。
+- [確認]:
+  - `npm --prefix web run build:ts`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - 今回は surface や renderer ではなく token 正規化層の不備が原因だったので、修正は language analysis / provider の highlight 分類に限定した。

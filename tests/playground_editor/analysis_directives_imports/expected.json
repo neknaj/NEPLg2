@@ -1,0 +1,79 @@
+{
+  "outputs": [
+    {
+      "kind": "update_payload",
+      "value": {
+        "tokens": [
+          {
+            "startIndex": 0,
+            "endIndex": 6,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 7,
+            "endIndex": 11,
+            "type": "variable"
+          },
+          {
+            "startIndex": 12,
+            "endIndex": 19,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 20,
+            "endIndex": 23,
+            "type": "variable"
+          },
+          {
+            "startIndex": 25,
+            "endIndex": 32,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 33,
+            "endIndex": 43,
+            "type": "string"
+          },
+          {
+            "startIndex": 44,
+            "endIndex": 46,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 47,
+            "endIndex": 48,
+            "type": "operator"
+          },
+          {
+            "startIndex": 49,
+            "endIndex": 56,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 57,
+            "endIndex": 68,
+            "type": "string"
+          },
+          {
+            "startIndex": 69,
+            "endIndex": 71,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 72,
+            "endIndex": 73,
+            "type": "operator"
+          }
+        ],
+        "diagnostics": [],
+        "foldingRanges": [],
+        "semanticTokens": [],
+        "inlayHints": [],
+        "config": {
+          "highlightWhitespace": false,
+          "highlightIndent": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "std/stdio" as *

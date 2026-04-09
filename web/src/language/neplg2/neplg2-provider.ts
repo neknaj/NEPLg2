@@ -532,16 +532,17 @@ class NEPLg2LanguageProvider {
         return all;
     }
 
-    _tokenType(kind, debug) {
+    _tokenType(kind, debug, value) {
         if (!kind) return 'default';
-        if (kind.startsWith('Kw') || kind === 'At' || kind === 'PathSep') return 'keyword';
+        if (kind.startsWith('Kw') || kind.startsWith('Dir') || kind === 'At' || kind === 'PathSep') return 'keyword';
         if (kind.includes('String') || kind.includes('Mlstr')) return 'string';
         if (kind.includes('BoolLiteral')) return 'boolean';
         if (kind.includes('IntLiteral') || kind.includes('FloatLiteral')) return 'number';
         if (kind.includes('Comment')) return 'comment';
+        if (kind === 'Ident' && (value === 'as' || value === 'pub')) return 'keyword';
         if (kind === 'Ident') return 'variable';
-        if (kind === 'Pipe' || kind === 'Arrow' || kind === 'Plus' || kind === 'Minus' || kind === 'Star' || kind === 'Slash' || kind === 'Equals') return 'operator';
-        if (kind === 'LParen' || kind === 'RParen' || kind === 'LAngle' || kind === 'RAngle' || kind === 'Colon' || kind === 'Semicolon' || kind === 'Comma' || kind === 'Dot') return 'punctuation';
+        if (kind === 'Pipe' || kind === 'Arrow' || kind === 'Plus' || kind === 'Minus' || kind === 'Star' || kind === 'Slash' || kind === 'Equals' || kind === 'Ampersand') return 'operator';
+        if (kind === 'LParen' || kind === 'RParen' || kind === 'LAngle' || kind === 'RAngle' || kind === 'Colon' || kind === 'Semicolon' || kind === 'Comma' || kind === 'Dot' || kind === 'UnitLiteral') return 'punctuation';
         if (debug && String(debug).includes('Fn')) return 'function';
         return 'default';
     }
@@ -559,7 +560,7 @@ class NEPLg2LanguageProvider {
             const span = this._spanFrom(tok) || { startIndex: 0, endIndex: 0 };
             if (!Number.isFinite(span.startIndex) || !Number.isFinite(span.endIndex)) continue;
             if (span.endIndex <= span.startIndex) continue;
-            let t = this._tokenType(String(tok.kind || ''), tok.debug);
+            let t = this._tokenType(String(tok.kind || ''), tok.debug, typeof tok?.value === 'string' ? tok.value : undefined);
 
             const tr = tokenRes[idx];
             if (tr && tr.resolved_def_id != null) {

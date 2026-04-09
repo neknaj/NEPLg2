@@ -300,18 +300,19 @@ function normalizeSeverity(severity?: string): 'error' | 'warning' {
     return String(severity ?? 'error').toLowerCase().includes('warn') ? 'warning' : 'error';
 }
 
-function normalizeTokenType(kind?: string, debug?: string): string {
+function normalizeTokenType(kind?: string, debug?: string, value?: string): string {
     if (!kind) {
         return 'default';
     }
-    if (kind.startsWith('Kw') || kind === 'At' || kind === 'PathSep') return 'keyword';
+    if (kind.startsWith('Kw') || kind.startsWith('Dir') || kind === 'At' || kind === 'PathSep') return 'keyword';
     if (kind.includes('String') || kind.includes('Mlstr')) return 'string';
     if (kind.includes('BoolLiteral')) return 'boolean';
     if (kind.includes('IntLiteral') || kind.includes('FloatLiteral')) return 'number';
     if (kind.includes('Comment')) return 'comment';
+    if (kind === 'Ident' && (value === 'as' || value === 'pub')) return 'keyword';
     if (kind === 'Ident') return 'variable';
-    if (kind === 'Pipe' || kind === 'Arrow' || kind === 'Plus' || kind === 'Minus' || kind === 'Star' || kind === 'Slash' || kind === 'Equals') return 'operator';
-    if (kind === 'LParen' || kind === 'RParen' || kind === 'LAngle' || kind === 'RAngle' || kind === 'Colon' || kind === 'Semicolon' || kind === 'Comma' || kind === 'Dot') return 'punctuation';
+    if (kind === 'Pipe' || kind === 'Arrow' || kind === 'Plus' || kind === 'Minus' || kind === 'Star' || kind === 'Slash' || kind === 'Equals' || kind === 'Ampersand') return 'operator';
+    if (kind === 'LParen' || kind === 'RParen' || kind === 'LAngle' || kind === 'RAngle' || kind === 'Colon' || kind === 'Semicolon' || kind === 'Comma' || kind === 'Dot' || kind === 'UnitLiteral') return 'punctuation';
     if (debug && String(debug).includes('Fn')) return 'function';
     return 'default';
 }
@@ -488,7 +489,7 @@ function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
             continue;
         }
 
-        let type = normalizeTokenType(kind, token?.debug);
+        let type = normalizeTokenType(kind, token?.debug, typeof token?.value === 'string' ? token.value : undefined);
         const resolution = tokenResolutionAt(prepared, tokenIndex);
         if (resolution?.resolved_def_id != null) {
             const definition = prepared.definitionById.get(Number(resolution.resolved_def_id));

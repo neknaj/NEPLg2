@@ -1,0 +1,166 @@
+{
+  "lex": {
+    "tokens": [
+      {
+        "kind": "DirEntry",
+        "value": "main",
+        "span": {
+          "start": 0,
+          "end": 6,
+          "start_line": 0,
+          "start_col": 0,
+          "end_line": 0,
+          "end_col": 6
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "main",
+        "span": {
+          "start": 7,
+          "end": 11,
+          "start_line": 0,
+          "start_col": 7,
+          "end_line": 0,
+          "end_col": 11
+        }
+      },
+      {
+        "kind": "DirTarget",
+        "value": "std",
+        "span": {
+          "start": 12,
+          "end": 19,
+          "start_line": 1,
+          "start_col": 0,
+          "end_line": 1,
+          "end_col": 7
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "std",
+        "span": {
+          "start": 20,
+          "end": 23,
+          "start_line": 1,
+          "start_col": 8,
+          "end_line": 1,
+          "end_col": 11
+        }
+      },
+      {
+        "kind": "DirImport",
+        "value": "core/mem",
+        "span": {
+          "start": 25,
+          "end": 32,
+          "start_line": 3,
+          "start_col": 0,
+          "end_line": 3,
+          "end_col": 7
+        }
+      },
+      {
+        "kind": "StringLiteral",
+        "value": "core/mem",
+        "span": {
+          "start": 33,
+          "end": 43,
+          "start_line": 3,
+          "start_col": 8,
+          "end_line": 3,
+          "end_col": 18
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "as",
+        "span": {
+          "start": 44,
+          "end": 46,
+          "start_line": 3,
+          "start_col": 19,
+          "end_line": 3,
+          "end_col": 21
+        }
+      },
+      {
+        "kind": "Star",
+        "span": {
+          "start": 47,
+          "end": 48,
+          "start_line": 3,
+          "start_col": 22,
+          "end_line": 3,
+          "end_col": 23
+        }
+      },
+      {
+        "kind": "DirImport",
+        "value": "std/stdio",
+        "span": {
+          "start": 49,
+          "end": 56,
+          "start_line": 4,
+          "start_col": 0,
+          "end_line": 4,
+          "end_col": 7
+        }
+      },
+      {
+        "kind": "StringLiteral",
+        "value": "std/stdio",
+        "span": {
+          "start": 57,
+          "end": 68,
+          "start_line": 4,
+          "start_col": 8,
+          "end_line": 4,
+          "end_col": 19
+        }
+      },
+      {
+        "kind": "Ident",
+        "value": "as",
+        "span": {
+          "start": 69,
+          "end": 71,
+          "start_line": 4,
+          "start_col": 20,
+          "end_line": 4,
+          "end_col": 22
+        }
+      },
+      {
+        "kind": "Star",
+        "span": {
+          "start": 72,
+          "end": 73,
+          "start_line": 4,
+          "start_col": 23,
+          "end_line": 4,
+          "end_col": 24
+        }
+      }
+    ],
+    "diagnostics": []
+  },
+  "parse": {
+    "module": {
+      "root": null
+    },
+    "diagnostics": [],
+    "lex_diagnostics": []
+  },
+  "resolve": {
+    "definitions": [],
+    "references": [],
+    "diagnostics": []
+  },
+  "semantics": {
+    "diagnostics": [],
+    "token_resolution": [],
+    "token_semantics": []
+  }
+}
