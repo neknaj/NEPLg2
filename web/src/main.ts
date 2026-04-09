@@ -1,4 +1,5 @@
 import { VFS } from './runtime/vfs.js';
+import { readCompilerAssetsFromDocument } from './runtime/compiler-assets.js';
 import './editor-core/bridge.js';
 import './editor-core/language-analysis.js';
 import { PlaygroundPanelManager } from './workspace/panel-manager.js';
@@ -99,6 +100,8 @@ function startApp() {
         terminalStatusSpan,
     });
     panelManager.redraw();
+
+    (window as any).NEPLg2CompilerAssets = readCompilerAssetsFromDocument(document);
 
     const openInitialDocument = () => {
         const initialPath = vfs.exists('/examples/rpn.nepl') ? '/examples/rpn.nepl' : '/README';

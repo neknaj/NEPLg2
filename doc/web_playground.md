@@ -43,6 +43,8 @@ WAT generation is provided by the "WATを生成" button in the editor panel.
 
 Standard input is provided via the terminal `stdin` textarea. Output is captured
 from WASI `fd_write` and rendered in the terminal pane.
+- `neplg2 build` / `neplg2 run` and `wasmi` execution now run in a dedicated web worker, so compile and execution no longer block the workspace UI.
+- The worker owns long-running WASI execution and streams stdout/stderr back to the terminal while stdin continues to be accepted from the focused terminal panel.
 
 ## Notes
 
@@ -63,4 +65,5 @@ The playground editor redesign is expected to stay testable without a browser.
 - The CLI suite now covers keyboard/state fixtures, pure text editing, left-right and vertical cursor movement, Home/End, PageUp/PageDown, and pure analysis fixtures for highlight payloads, problems, hover, definition, and occurrences.
 - Workspace-specific headless checks include `node nodesrc/playground_workspace_test_runner.js` and `node nodesrc/playground_tab_transfer_test_runner.js`.
 - Drag/drop intent checks include `node nodesrc/playground_drag_drop_test_runner.js`.
+- Terminal worker protocol checks include `node nodesrc/playground_shell_worker_test_runner.js`.
 - `trunk build` is still a hard requirement before commit, but it depends on the `trunk` binary being available in the environment.

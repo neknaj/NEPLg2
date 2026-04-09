@@ -14867,3 +14867,37 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build --release`
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`
   - `tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+# 2026-04-09 メモ (playground terminal の UI blocking 解消)
+
+- [原因]:
+  - `web/src/terminal/shell.ts` の `neplg2 build/run` は `window.wasmBindings.compile_outputs_with_vfs(...)` を main thread で直接呼んでおり、重い compile 中に workspace 全体の UI が停止していた。
+  - 一方で `wasmi` 実行だけは `web/src/runtime/worker.ts` の worker に分離されていたため、compile と run で stdio / interrupt / 実行状態の責務が分断されていた。
+  - この構造だと compile 中は redraw・pointer・focus・terminal input が止まりやすく、長時間処理の途中出力も worker 側に統一できない。
+- [実装]:
+  - `web/src/runtime/compiler-assets.ts`
+    - Trunk が生成する `modulepreload` / `preload` から compiler JS/WASM asset URL を解決する helper を追加した。
+  - `web/src/main.ts`
+    - 起動時に compiler asset URL を `window.NEPLg2CompilerAssets` として確定させ、terminal/shell が DOM 依存を増やさず worker へ渡せるようにした。
+  - `web/src/runtime/worker.ts`
+    - 旧 `run` 専用 worker を `run-wasm` と `execute-neplg2` の 2 系統を扱う実行 worker に再設計した。
+    - worker 側で compiler module を dynamic import し、`compile_outputs_with_vfs` を worker 内で実行するようにした。
+    - compile 結果は `compile_result` として main thread に返し、WASI 実行時の `stdout` / `stdin_request` / `exit` / `error` は従来どおり stream する構造に揃えた。
+  - `web/src/terminal/shell.ts`
+    - compile / run / wasmi をすべて worker process protocol に統一した。
+    - main thread では VFS 同期、compile output の保存、terminal 描画だけを担当し、重い処理は worker に閉じ込めた。
+    - `interrupt()`、SharedArrayBuffer stdin、`isRunning` は compile/run 共通で機能するように整理した。
+  - `nodesrc/playground_shell_worker_test_runner.js`
+    - compiler asset 解決、worker compile protocol 使用、compile output の VFS 反映、worker stdout stream を headless に確認する runner を追加した。
+- [確認]:
+  - `npm --prefix web run build:ts`: 通過
+  - `node nodesrc/playground_shell_worker_test_runner.js`: 通過
+  - `node nodesrc/playground_editor_surface_test_runner.js`: 通過
+  - `node nodesrc/playground_workspace_test_runner.js`: 通過
+  - `node nodesrc/playground_tab_transfer_test_runner.js`: 通過
+  - `node nodesrc/playground_drag_drop_test_runner.js`: 通過
+  - `node nodesrc/playground_editability_test_runner.js`: 通過
+  - `trunk build --release`: 通過
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=12`, `passedCount=12`, `failedCount=0`
+- [plan.mdとの差分]:
+  - 今回はまず compile/run の main-thread blocking を止めることを優先し、worker protocol は `compile_result` / `stdout` / `stdin_request` / `exit` / `error` まで実装した。
+  - progress の細粒度通知や stderr 専用の UI 表示、複数 terminal panel 間の shared backend 化は未着手で、今後の todo に残している。

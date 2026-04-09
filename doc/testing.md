@@ -51,6 +51,12 @@ npm --prefix web run build:ts
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=/tmp/playground-editor-tests.json
 ```
 
+Run the worker-backed terminal regression after shell/runtime changes:
+
+```bash
+node nodesrc/playground_shell_worker_test_runner.js
+```
+
 ## Where tests live
 
 ### `tests/compiler/*.n.md`
@@ -155,6 +161,7 @@ Use the smallest assertion that makes failures obvious.
 - The formal entrypoint is `nodesrc/cli.js --playground-editor-tests`, which writes an aggregate JSON summary.
 - `nodesrc/playground_editor_test_runner.js` remains the lower-level runner used by the CLI path.
 - Current coverage includes shortcut/history cases, text insert/delete, left-right movement, up-down movement, Home/End, PageUp/PageDown, and analysis snapshots.
+- Terminal/process regressions are covered separately by `nodesrc/playground_shell_worker_test_runner.js`, which verifies that compile/run requests stay on the worker side and that compile outputs/stdout are routed back correctly.
 
 ## Current guidance
 
