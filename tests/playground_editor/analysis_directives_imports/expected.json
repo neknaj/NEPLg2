@@ -21,47 +21,57 @@
           },
           {
             "startIndex": 20,
-            "endIndex": 23,
+            "endIndex": 21,
+            "type": "number"
+          },
+          {
+            "startIndex": 22,
+            "endIndex": 29,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 30,
+            "endIndex": 33,
             "type": "variable"
           },
           {
-            "startIndex": 25,
-            "endIndex": 32,
+            "startIndex": 35,
+            "endIndex": 42,
             "type": "keyword"
           },
           {
-            "startIndex": 33,
-            "endIndex": 43,
+            "startIndex": 43,
+            "endIndex": 53,
             "type": "string"
           },
           {
-            "startIndex": 44,
-            "endIndex": 46,
-            "type": "keyword"
-          },
-          {
-            "startIndex": 47,
-            "endIndex": 48,
-            "type": "operator"
-          },
-          {
-            "startIndex": 49,
+            "startIndex": 54,
             "endIndex": 56,
             "type": "keyword"
           },
           {
             "startIndex": 57,
-            "endIndex": 68,
-            "type": "string"
+            "endIndex": 58,
+            "type": "operator"
           },
           {
-            "startIndex": 69,
-            "endIndex": 71,
+            "startIndex": 59,
+            "endIndex": 66,
             "type": "keyword"
           },
           {
-            "startIndex": 72,
-            "endIndex": 73,
+            "startIndex": 67,
+            "endIndex": 78,
+            "type": "string"
+          },
+          {
+            "startIndex": 79,
+            "endIndex": 81,
+            "type": "keyword"
+          },
+          {
+            "startIndex": 82,
+            "endIndex": 83,
             "type": "operator"
           }
         ],

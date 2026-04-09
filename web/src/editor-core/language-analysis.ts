@@ -126,6 +126,15 @@ export type EditorUpdatePayload = {
     };
 };
 
+type TextDiff = {
+    start: number;
+    previousEnd: number;
+    nextEnd: number;
+    delta: number;
+    insertedText: string;
+    removedText: string;
+};
+
 export type DefinitionCandidate = {
     id?: number;
     name?: string;
@@ -212,6 +221,65 @@ function buildOffsetMaps(text: string): OffsetMaps {
     }
 
     return { lineStarts, byteOffsets };
+}
+
+function diffTexts(previousText: string, nextText: string): TextDiff | null {
+    if (previousText === nextText) {
+        return null;
+    }
+    let start = 0;
+    while (start < previousText.length && start < nextText.length && previousText[start] === nextText[start]) {
+        start += 1;
+    }
+    let previousEnd = previousText.length;
+    let nextEnd = nextText.length;
+    while (previousEnd > start && nextEnd > start && previousText[previousEnd - 1] === nextText[nextEnd - 1]) {
+        previousEnd -= 1;
+        nextEnd -= 1;
+    }
+    return {
+        start,
+        previousEnd,
+        nextEnd,
+        delta: nextText.length - previousText.length,
+        insertedText: nextText.slice(start, nextEnd),
+        removedText: previousText.slice(start, previousEnd),
+    };
+}
+
+function countNewlines(text: string): number {
+    let count = 0;
+    for (let index = 0; index < text.length; index += 1) {
+        if (text.charCodeAt(index) === 10) {
+            count += 1;
+        }
+    }
+    return count;
+}
+
+function lineInfoAt(offsets: OffsetMaps, textLength: number, index: number): { line: number; lineStart: number; lineEnd: number } {
+    let line = 0;
+    while (line + 1 < offsets.lineStarts.length && offsets.lineStarts[line + 1] <= index) {
+        line += 1;
+    }
+    return {
+        line,
+        lineStart: offsets.lineStarts[line],
+        lineEnd: line + 1 < offsets.lineStarts.length ? offsets.lineStarts[line + 1] - 1 : textLength,
+    };
+}
+
+function remapIndex(index: number, affectedStart: number, affectedEnd: number, delta: number): number | null {
+    if (!Number.isFinite(index)) {
+        return null;
+    }
+    if (index <= affectedStart) {
+        return index;
+    }
+    if (index >= affectedEnd) {
+        return index + delta;
+    }
+    return null;
 }
 
 function lineColToIndex(text: string, offsets: OffsetMaps, line?: number, col?: number): number | null {
@@ -702,6 +770,105 @@ export function buildEditorUpdatePayloadFromAnalysis(text: string, snapshot?: La
     };
 }
 
+export function remapEditorUpdatePayloadForTextChange(previousText: string, nextText: string, previousPayload?: EditorUpdatePayload | null): EditorUpdatePayload | null {
+    if (!previousPayload) {
+        return null;
+    }
+    const diff = diffTexts(previousText, nextText);
+    if (!diff) {
+        return previousPayload;
+    }
+
+    const previousOffsets = buildOffsetMaps(previousText);
+    const nextOffsets = buildOffsetMaps(nextText);
+    const previousStartLine = lineInfoAt(previousOffsets, previousText.length, diff.start);
+    const previousEndLine = lineInfoAt(previousOffsets, previousText.length, diff.previousEnd);
+    const nextEndLine = lineInfoAt(nextOffsets, nextText.length, diff.nextEnd);
+    const affectedPreviousStart = previousStartLine.lineStart;
+    const affectedPreviousEnd = previousEndLine.lineEnd;
+    const lineDelta = countNewlines(diff.insertedText) - countNewlines(diff.removedText);
+
+    const remapRange = <T extends { startIndex: number; endIndex: number }>(range: T): T | null => {
+        if (range.endIndex <= affectedPreviousStart) {
+            return { ...range };
+        }
+        if (range.startIndex >= affectedPreviousEnd) {
+            return {
+                ...range,
+                startIndex: range.startIndex + diff.delta,
+                endIndex: range.endIndex + diff.delta,
+            };
+        }
+        return null;
+    };
+
+    const tokens = (previousPayload.tokens || [])
+        .map((token) => remapRange(token))
+        .filter((token): token is EditorToken => Boolean(token))
+        .sort((left, right) => left.startIndex - right.startIndex || left.endIndex - right.endIndex);
+
+    const diagnostics = (previousPayload.diagnostics || [])
+        .map((diagnostic) => remapRange(diagnostic))
+        .filter((diagnostic): diagnostic is EditorDiagnostic => Boolean(diagnostic))
+        .sort((left, right) => left.startIndex - right.startIndex || left.endIndex - right.endIndex);
+
+    const foldingRanges = (previousPayload.foldingRanges || [])
+        .flatMap((range) => {
+            if (range.endLine < previousStartLine.line) {
+                return [{ ...range }];
+            }
+            if (range.startLine > previousEndLine.line) {
+                return [{
+                    ...range,
+                    startLine: range.startLine + lineDelta,
+                    endLine: range.endLine + lineDelta,
+                }];
+            }
+            return [];
+        })
+        .sort((left, right) => left.startLine - right.startLine || left.endLine - right.endLine);
+
+    const semanticTokens = (previousPayload.semanticTokens || [])
+        .flatMap((token) => {
+            const exprStart = remapIndex(token.exprSpan.start, affectedPreviousStart, affectedPreviousEnd, diff.delta);
+            const exprEnd = remapIndex(token.exprSpan.end, affectedPreviousStart, affectedPreviousEnd, diff.delta);
+            if (exprStart == null || exprEnd == null) {
+                return [];
+            }
+            const argStart = token.argSpan ? remapIndex(token.argSpan.start, affectedPreviousStart, affectedPreviousEnd, diff.delta) : null;
+            const argEnd = token.argSpan ? remapIndex(token.argSpan.end, affectedPreviousStart, affectedPreviousEnd, diff.delta) : null;
+            return [{
+                ...token,
+                exprSpan: { start: exprStart, end: exprEnd },
+                argSpan: argStart != null && argEnd != null ? { start: argStart, end: argEnd } : null,
+            }];
+        });
+
+    const inlayHints = (previousPayload.inlayHints || [])
+        .flatMap((hint) => {
+            const position = remapIndex(hint.position, affectedPreviousStart, affectedPreviousEnd, diff.delta);
+            const exprStart = remapIndex(hint.exprSpan.start, affectedPreviousStart, affectedPreviousEnd, diff.delta);
+            const exprEnd = remapIndex(hint.exprSpan.end, affectedPreviousStart, affectedPreviousEnd, diff.delta);
+            if (position == null || exprStart == null || exprEnd == null) {
+                return [];
+            }
+            return [{
+                ...hint,
+                position,
+                exprSpan: { start: exprStart, end: exprEnd },
+            }];
+        });
+
+    return {
+        ...previousPayload,
+        tokens,
+        diagnostics,
+        foldingRanges,
+        semanticTokens,
+        inlayHints,
+    };
+}
+
 export function getTokenInsightFromAnalysis(text: string, snapshot: LanguageAnalysisSnapshot | null | undefined, index: number): TokenInsight | null {
     const prepared = prepareAnalysis(text, snapshot);
     const hit = tokenAt(prepared, index);
@@ -868,6 +1035,7 @@ export function getOccurrencesFromAnalysis(text: string, snapshot: LanguageAnaly
 
 const bridge = {
     buildEditorUpdatePayloadFromAnalysis,
+    remapEditorUpdatePayloadForTextChange,
     getTokenInsightFromAnalysis,
     getHoverInfoFromAnalysis,
     getDefinitionLocationFromAnalysis,

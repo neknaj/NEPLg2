@@ -95,6 +95,7 @@ function runSurfaceRegression() {
     const replaceTextRange = CanvasEditor.prototype.replaceTextRange;
     const setText = CanvasEditor.prototype.setText;
     const replaceDocumentText = CanvasEditor.prototype.replaceDocumentText;
+    const rebuildLanguageRenderCaches = CanvasEditor.prototype.rebuildLanguageRenderCaches;
 
     const cursorMoveEditor = createMockEditor();
     cursorMoveEditor.applyResolvedEditorState = applyResolvedEditorState;
@@ -200,6 +201,30 @@ function runSurfaceRegression() {
     assert.equal(setTextEditor.languageProvider.replaceDocumentTextCallCount, 1);
     assert.equal(setTextEditor.languageProvider.updateTextCallCount, 0);
 
+    const cacheEditor = createMockEditor();
+    cacheEditor.tokens = [
+        { startIndex: 0, endIndex: 4, type: 'keyword' },
+        { startIndex: 2, endIndex: 6, type: 'function' },
+        { startIndex: 6, endIndex: 7, type: 'punctuation' },
+    ];
+    cacheEditor.diagnostics = [
+        { startIndex: 1, endIndex: 3, severity: 'warning', message: 'warn' },
+        { startIndex: 2, endIndex: 5, severity: 'error', message: 'err' },
+    ];
+    cacheEditor.lines = ['abcdefg', ''];
+    cacheEditor.lineStartIndices = [0, 8];
+    cacheEditor.indexToRowCol = CanvasEditor.prototype.indexToRowCol;
+    rebuildLanguageRenderCaches.call(cacheEditor);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(cacheEditor.tokensByLine[0])), [
+        { startCol: 0, endCol: 2, type: 'keyword' },
+        { startCol: 2, endCol: 6, type: 'function' },
+        { startCol: 6, endCol: 7, type: 'punctuation' },
+    ]);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(cacheEditor.diagnosticsByLine[0])), [
+        { startCol: 1, endCol: 2, severity: 'warning', message: 'warn' },
+        { startCol: 2, endCol: 5, severity: 'error', message: 'err' },
+    ]);
+
     return {
         ok: true,
         checks: [
@@ -209,6 +234,7 @@ function runSurfaceRegression() {
             'selection replacement triggers a single provider update',
             'text edit still refreshes line caches and provider text',
             'setText uses full-document replace instead of incremental analysis',
+            'render caches normalize overlapping token and diagnostic segments',
         ],
     };
 }

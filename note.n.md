@@ -14921,3 +14921,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
 - [plan.mdとの差分]:
   - 今回は surface や renderer ではなく token 正規化層の不備が原因だったので、修正は language analysis / provider の highlight 分類に限定した。
+# 2026-04-09 メモ (playground highlight 経路の一本化と surface 正規化)
+
+- [原因]:
+  - syntax highlight の生成経路が `web/src/editor-core/language-analysis.ts` と `web/src/language/neplg2/neplg2-provider.ts` に二重化しており、final payload と provisional payload で token 分類規則が一致していなかった。
+  - provider 側の provisional highlight は独自 token scanner で再字句解析していたため、directive/import や function 昇格の扱いが final analysis とずれ、タブ切替や差分更新で色が揺れていた。
+  - `CanvasEditor.rebuildLanguageRenderCaches()` は line ごとの segment を単純 sort するだけで、overlap や重複の正規化がなく、複数 token が同じ列に重なったときの描画優先順位が不定だった。
+- [修正]:
+  - `web/src/editor-core/language-analysis.ts`
+    - `analysis snapshot -> EditorUpdatePayload` を唯一の highlight 変換器として維持しつつ、差分更新用の `remapEditorUpdatePayloadForTextChange()` を追加した。
+    - provisional 更新でも独自 tokenization は行わず、前回の final payload を安全に remap して影響範囲外だけ再利用する形に統一した。
+  - `web/src/language/neplg2/neplg2-provider.ts`
+    - `_tokenType`、`_tokenizeDirectiveSpan`、`_buildEditorTokens` などの独自 highlight helper を削除し、bridge 経由に一本化した。
+    - provisional payload は `window.NEPLPlaygroundLanguageAnalysis.remapEditorUpdatePayloadForTextChange(...)` のみを使うようにした。
+  - `web/src/editor/editor.ts`
+    - `rebuildLanguageRenderCaches()` に overlap 正規化を追加し、token/diagnostic segment を「昇順・重複なし・隣接 merge 済み」の描画入力へ整形するようにした。
+    - token priority は `comment > string > function > keyword > number/boolean > operator > punctuation > variable > default` に固定した。
+  - `tests/playground_editor/analysis_directives_imports`
+    - `#indent` を含むケースへ更新し、directive 行の keyword/string/number/operator/variable 分解を formal fixture に固定した。
+  - `nodesrc/playground_editor_surface_test_runner.js`
+    - overlap token/diagnostic の正規化と、`setText()` が full-document replace を使うことを headless で固定した。
+- [確認]:
+  - `npm --prefix web run build:ts`: 成功
+  - `node nodesrc/playground_editor_surface_test_runner.js`: 成功
+  - `trunk build --release`: 成功
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: 13/13 passed
+- [plan.mdとの差分]:
+  - `analysis_payload_basic` がすでに function / punctuation / variable の fixture を持っていたため、新しい mixed fixture は追加せず、directive/import 側のケース拡張と surface runner の強化で回帰を固定した。

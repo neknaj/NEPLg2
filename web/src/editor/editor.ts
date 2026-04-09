@@ -514,7 +514,58 @@ class CanvasEditor {
     rebuildLanguageRenderCaches() {
         const lineCount = this.lines.length;
 
-        const buildSegments = (items, build) => {
+        const normalizeLineSegments = (segments, priority) => {
+            const sorted = (segments || []).slice().sort((left, right) =>
+                left.startCol - right.startCol ||
+                left.endCol - right.endCol ||
+                priority(left) - priority(right)
+            );
+            const normalized = [];
+            for (const segment of sorted) {
+                const startCol = Number(segment.startCol ?? 0);
+                const endCol = Number(segment.endCol ?? startCol);
+                if (!Number.isFinite(startCol) || !Number.isFinite(endCol) || endCol <= startCol) {
+                    continue;
+                }
+                let nextStart = startCol;
+                while (normalized.length > 0 && normalized[normalized.length - 1].endCol > nextStart) {
+                    const previous = normalized[normalized.length - 1];
+                    if (priority(previous) <= priority(segment)) {
+                        nextStart = previous.endCol;
+                        break;
+                    }
+                    if (previous.startCol >= nextStart) {
+                        normalized.pop();
+                        continue;
+                    }
+                    previous.endCol = nextStart;
+                    if (previous.endCol <= previous.startCol) {
+                        normalized.pop();
+                        continue;
+                    }
+                    break;
+                }
+                if (endCol <= nextStart) {
+                    continue;
+                }
+                const candidate = { ...segment, startCol: nextStart, endCol };
+                const previous = normalized[normalized.length - 1];
+                if (previous && previous.endCol === candidate.startCol && priority(previous) === priority(candidate)) {
+                    const previousType = Object.prototype.hasOwnProperty.call(previous, 'type') ? previous.type : previous.severity;
+                    const candidateType = Object.prototype.hasOwnProperty.call(candidate, 'type') ? candidate.type : candidate.severity;
+                    const previousMessage = Object.prototype.hasOwnProperty.call(previous, 'message') ? previous.message : null;
+                    const candidateMessage = Object.prototype.hasOwnProperty.call(candidate, 'message') ? candidate.message : null;
+                    if (previousType === candidateType && previousMessage === candidateMessage) {
+                        previous.endCol = candidate.endCol;
+                        continue;
+                    }
+                }
+                normalized.push(candidate);
+            }
+            return normalized;
+        };
+
+        const buildSegments = (items, build, priority) => {
             const out = Array.from({ length: lineCount }, () => []);
             for (const item of items) {
                 const startRC = this.indexToRowCol(item.startIndex);
@@ -535,8 +586,8 @@ class CanvasEditor {
             }
 
             // 描画側で単純な前進走査をするためにソート
-            for (const list of out) {
-                list.sort((a, b) => a.startCol - b.startCol);
+            for (let index = 0; index < out.length; index += 1) {
+                out[index] = normalizeLineSegments(out[index], priority);
             }
             return out;
         };
@@ -545,14 +596,28 @@ class CanvasEditor {
             startCol: s,
             endCol: e,
             type: t.type
-        }));
+        }), (segment) => {
+            const order = {
+                comment: 0,
+                string: 1,
+                function: 2,
+                keyword: 3,
+                number: 4,
+                boolean: 4,
+                operator: 5,
+                punctuation: 6,
+                variable: 7,
+                default: 8,
+            };
+            return order[segment.type] ?? 100;
+        });
 
         this.diagnosticsByLine = buildSegments(this.diagnostics, (d, s, e) => ({
             startCol: s,
             endCol: e,
             severity: d.severity,
             message: d.message
-        }));
+        }), (segment) => segment.severity === 'error' ? 0 : 1);
     }
 
     hasSelection() { return this.selectionStart !== this.selectionEnd; }

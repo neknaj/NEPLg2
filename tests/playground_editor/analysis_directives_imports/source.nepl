@@ -1,4 +1,5 @@
 #entry main
+#indent 4
 #target std
 
 #import "core/mem" as *
