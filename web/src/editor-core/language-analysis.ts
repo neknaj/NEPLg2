@@ -317,6 +317,91 @@ function normalizeTokenType(kind?: string, debug?: string, value?: string): stri
     return 'default';
 }
 
+function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNullable<ReturnType<typeof spanFromPrepared>>): EditorToken[] {
+    const lineEnd = prepared.text.indexOf('\n', span.startIndex);
+    const expandedEnd = lineEnd === -1 ? prepared.text.length : lineEnd;
+    const text = prepared.text.slice(span.startIndex, Math.max(span.endIndex, expandedEnd));
+    const tokens: EditorToken[] = [];
+    let offset = 0;
+
+    const push = (start: number, end: number, type: string) => {
+        if (end > start) {
+            tokens.push({
+                startIndex: span.startIndex + start,
+                endIndex: span.startIndex + end,
+                type,
+            });
+        }
+    };
+
+    while (offset < text.length) {
+        const ch = text[offset];
+        if (/\s/.test(ch)) {
+            offset += 1;
+            continue;
+        }
+        if (ch === '#') {
+            let cursor = offset + 1;
+            while (cursor < text.length && /[A-Za-z0-9_-]/.test(text[cursor])) {
+                cursor += 1;
+            }
+            push(offset, cursor, 'keyword');
+            offset = cursor;
+            continue;
+        }
+        if (ch === '"' || ch === '\'') {
+            const quote = ch;
+            let cursor = offset + 1;
+            while (cursor < text.length) {
+                const current = text[cursor];
+                if (current === '\\') {
+                    cursor += 2;
+                    continue;
+                }
+                cursor += 1;
+                if (current === quote) {
+                    break;
+                }
+            }
+            push(offset, Math.min(cursor, text.length), 'string');
+            offset = Math.min(cursor, text.length);
+            continue;
+        }
+        if (/[0-9]/.test(ch)) {
+            let cursor = offset + 1;
+            while (cursor < text.length && /[0-9_]/.test(text[cursor])) {
+                cursor += 1;
+            }
+            push(offset, cursor, 'number');
+            offset = cursor;
+            continue;
+        }
+        if (/[A-Za-z_]/.test(ch)) {
+            let cursor = offset + 1;
+            while (cursor < text.length && /[A-Za-z0-9_-]/.test(text[cursor])) {
+                cursor += 1;
+            }
+            const word = text.slice(offset, cursor);
+            push(offset, cursor, word === 'as' || word === 'pub' ? 'keyword' : 'variable');
+            offset = cursor;
+            continue;
+        }
+        if ('*&|+-/=!'.includes(ch)) {
+            push(offset, offset + 1, 'operator');
+            offset += 1;
+            continue;
+        }
+        if ('()[]{}:;,.<>'.includes(ch)) {
+            push(offset, offset + 1, 'punctuation');
+            offset += 1;
+            continue;
+        }
+        offset += 1;
+    }
+
+    return tokens;
+}
+
 function prepareAnalysis(text: string, snapshot?: LanguageAnalysisSnapshot | null): PreparedLanguageAnalysis {
     const safeSnapshot = snapshot ?? {};
     const definitions = Array.isArray(safeSnapshot.resolve?.definitions) ? safeSnapshot.resolve?.definitions : [];
@@ -486,6 +571,11 @@ function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
         }
         const span = spanFromPrepared(prepared, token);
         if (!span || span.endIndex <= span.startIndex) {
+            continue;
+        }
+
+        if (kind.startsWith('Dir')) {
+            output.push(...tokenizeDirectiveSpan(prepared, span));
             continue;
         }
 

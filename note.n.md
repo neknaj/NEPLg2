@@ -14906,10 +14906,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [原因]:
   - `web/src/editor-core/language-analysis.ts` と `web/src/language/neplg2/neplg2-provider.ts` の token 正規化で、`DirEntry` / `DirTarget` / `DirImport` などの directive token が `keyword` ではなく `default` に落ちていた。
   - `#import "..." as *` の `as` も `Ident` として `variable` 扱いになっており、directive 行が全体としてほぼ無彩色に見えていた。
+- [追加調査]:
+  - 実際の `analyze_semantics()` 出力を確認すると、directive は `#entry` や `#import` だけではなく「行全体を 1 token」として返していた。
+  - そのため `DirImport` を単に `keyword` にしても、`"core/math"` や `as *` を別色にできず、期待する見た目にはならなかった。
 - [実装]:
   - directive token (`Dir*`) を `keyword` として扱うようにした。
   - `as` と `pub` は `Ident` でも文法キーワードとして `keyword` に寄せた。
   - `Ampersand` を `operator`、`UnitLiteral` を `punctuation` として補強した。
+  - directive token は surface 用に source 行から再分解し、`#import` / string literal / `as` / `*` を個別 token として描画側へ渡すようにした。
   - `tests/playground_editor/analysis_directives_imports/` を追加して、`#entry` / `#target` / `#import` / import path string / `as` / `*` の色分けを formal CLI suite に固定した。
 - [確認]:
   - `npm --prefix web run build:ts`: 通過

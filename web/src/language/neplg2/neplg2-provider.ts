@@ -546,6 +546,90 @@ class NEPLg2LanguageProvider {
         if (debug && String(debug).includes('Fn')) return 'function';
         return 'default';
     }
+    _tokenizeDirectiveSpan(span) {
+        const lineEnd = this.text.indexOf('\n', span.startIndex);
+        const expandedEnd = lineEnd === -1 ? this.text.length : lineEnd;
+        const text = this.text.slice(span.startIndex, Math.max(span.endIndex, expandedEnd));
+        const tokens = [];
+        let offset = 0;
+
+        const push = (start, end, type) => {
+            if (end > start) {
+                tokens.push({
+                    startIndex: span.startIndex + start,
+                    endIndex: span.startIndex + end,
+                    type,
+                });
+            }
+        };
+
+        while (offset < text.length) {
+            const ch = text[offset];
+            if (/\s/.test(ch)) {
+                offset += 1;
+                continue;
+            }
+            if (ch === '#') {
+                let cursor = offset + 1;
+                while (cursor < text.length && /[A-Za-z0-9_-]/.test(text[cursor])) {
+                    cursor += 1;
+                }
+                push(offset, cursor, 'keyword');
+                offset = cursor;
+                continue;
+            }
+            if (ch === '"' || ch === '\'') {
+                const quote = ch;
+                let cursor = offset + 1;
+                while (cursor < text.length) {
+                    const current = text[cursor];
+                    if (current === '\\') {
+                        cursor += 2;
+                        continue;
+                    }
+                    cursor += 1;
+                    if (current === quote) {
+                        break;
+                    }
+                }
+                push(offset, Math.min(cursor, text.length), 'string');
+                offset = Math.min(cursor, text.length);
+                continue;
+            }
+            if (/[0-9]/.test(ch)) {
+                let cursor = offset + 1;
+                while (cursor < text.length && /[0-9_]/.test(text[cursor])) {
+                    cursor += 1;
+                }
+                push(offset, cursor, 'number');
+                offset = cursor;
+                continue;
+            }
+            if (/[A-Za-z_]/.test(ch)) {
+                let cursor = offset + 1;
+                while (cursor < text.length && /[A-Za-z0-9_-]/.test(text[cursor])) {
+                    cursor += 1;
+                }
+                const word = text.slice(offset, cursor);
+                push(offset, cursor, word === 'as' || word === 'pub' ? 'keyword' : 'variable');
+                offset = cursor;
+                continue;
+            }
+            if ('*&|+-/=!'.includes(ch)) {
+                push(offset, offset + 1, 'operator');
+                offset += 1;
+                continue;
+            }
+            if ('()[]{}:;,.<>'.includes(ch)) {
+                push(offset, offset + 1, 'punctuation');
+                offset += 1;
+                continue;
+            }
+            offset += 1;
+        }
+
+        return tokens;
+    }
 
     _buildEditorTokens() {
         const lexTokens = Array.isArray(this.lex?.tokens) ? this.lex.tokens : [];
@@ -560,6 +644,10 @@ class NEPLg2LanguageProvider {
             const span = this._spanFrom(tok) || { startIndex: 0, endIndex: 0 };
             if (!Number.isFinite(span.startIndex) || !Number.isFinite(span.endIndex)) continue;
             if (span.endIndex <= span.startIndex) continue;
+            if (kind.startsWith('Dir')) {
+                normalized.push(...this._tokenizeDirectiveSpan(span));
+                continue;
+            }
             let t = this._tokenType(String(tok.kind || ''), tok.debug, typeof tok?.value === 'string' ? tok.value : undefined);
 
             const tr = tokenRes[idx];
