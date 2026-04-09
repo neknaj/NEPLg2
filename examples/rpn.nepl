@@ -10,7 +10,6 @@
 //:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
 //:     ##: 
 //:     ##: > 1 2 +
-//:     ##: 1 2 +
 //:     ##: 3
 //:     ##: ok: result = 3
 //:     ##: > bye
@@ -23,7 +22,6 @@
 //:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
 //:     ##: 
 //:     ##: > 2 7 -
-//:     ##: 2 7 -
 //:     ##: -5
 //:     ##: ok: result = -5
 //:     ##: > bye
@@ -57,10 +55,6 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 1 トークンあたり O(1)、全体で O(n)（n = トークン数）
-
-// ──────────────────────────────────────────────
-// UI ヘルパ
-// ──────────────────────────────────────────────
 
 //: print_error: エラーメッセージを赤色太字で出力する
 //:
@@ -170,10 +164,6 @@ fn print_step_after <(Stack<i32>,i32,Vec<str>,i32)*>()> (stack, res, tokens, i):
 
     print "\n";
 
-// ──────────────────────────────────────────────
-// 演算ロジック
-// ──────────────────────────────────────────────
-
 //: apply_op: スタックから 2 値を取り出して二項演算を適用する
 //:
 //: [目的/もくてき]:
@@ -188,9 +178,7 @@ fn apply_op <(Stack<i32>,str,Vec<str>,i32)*>Stack<i32>> (stack, token, tokens, i
         else:
             let b <i32> unwrap stk::pop<i32> stack;
             let a <i32> unwrap stk::pop<i32> stack;
-            
             print_step_before stack a b token tokens i;
-            
             let res <i32>:
                 if:
                     s::str_eq token "+"
@@ -206,9 +194,7 @@ fn apply_op <(Stack<i32>,str,Vec<str>,i32)*>Stack<i32>> (stack, token, tokens, i
                                     else:
                                         print_error "unknown operator";
                                         0
-                                        
             print_step_after stack res tokens i;
-            
             stk::push<i32> stack res
             |> unwrap_ok<Stack<i32>, Diag>
 
@@ -237,10 +223,6 @@ fn process_token <(Stack<i32>,str,Vec<str>,i32)*>Stack<i32>> (stack, token, toke
                                 print_error "unknown token";
                                 stack
             next_stack
-
-// ──────────────────────────────────────────────
-// メイン処理
-// ──────────────────────────────────────────────
 
 //: eval_line: 1 行の RPN 式を評価する
 //:

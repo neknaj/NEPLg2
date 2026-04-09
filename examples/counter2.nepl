@@ -1,3 +1,19 @@
+//: neplg2:test[counter2, strip_ansi]
+//: [目的/もくてき]: carriage return を含む簡易アニメーション出力を確認する
+//: stdout: "\rcount = 0\n\rcount = 1\n\rcount = 2\n\rcount = 3\n\rcount = 4\n\rcount = 5\n\rcount = 6\n\rcount = 7\n\rcount = 8\n\rcount = 9\n"
+//:
+//: counter2: 行を上書きしながら進むカウンタ表示
+//:
+//: [目的/もくてき]:
+//: - ANSI と `\r` を使った簡易な TUI 風表示の最小例を示します。
+//: - `counter.nepl` と同じループ構造で、表示方法だけを変えた比較例です。
+//:
+//: [実装/じっそう]:
+//: - 各反復の先頭で `\r` と `\x1b[2K` を出力し、現在行を消してから描画します。
+//: - 値の更新自体は `counter.nepl` と同じく 1 ずつ増やします。
+//:
+//: [注意/ちゅうい]:
+//: - ANSI 非対応の環境では制御文字がそのまま見えることがあります。
 #entry main
 #indent 4
 #target std
@@ -5,6 +21,10 @@
 #import "core/math"
 #import "std/stdio"
 
+//: main: 0 から 9 までを上書き表示しながら進める
+//:
+//: [目的/もくてき]:
+//: - 制御文字を含む標準出力の例を示します。
 fn main <()*> ()> ():
     let mut x <i32> 0;
     while lt x 10:

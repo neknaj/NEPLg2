@@ -2,15 +2,39 @@
 #indent 4
 #target std
 
-//: neplg2:test[bf_hello_world, normalize_newlines, strip_ansi]
-//: [目的/もくてき]: Hello World プログラムの実行
-//: stdin: "+++++++++[>++++++++>+++++++++++>+++>+<<<<-]>.>++.+++++++..+++.>+++++.<<+++++++++++++++.>.+++.------.--------.>+.>+.\n"
+//: neplg2:test[bf_single_char, normalize_newlines, strip_ansi]
+//: [目的/もくてき]: 単純な加算と出力が動くことを確認する
+//: stdin: "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.\n"
 //: stdout: mlstr:
 //:     ##: Brainfuck Runner
 //:     ##: enter BF program. Ctrl+Z to exit.
 //:     ##: 
-//:     ##: > Hello World!
+//:     ##: > A
 //:     ##: > bye
+//:
+//: neplg2:test[bf_unmatched_right_bracket, normalize_newlines, strip_ansi]
+//: [目的/もくてき]: 不正なジャンプ対応がエラーとして報告されることを確認する
+//: stdin: "]\n"
+//: stdout: mlstr:
+//:     ##: Brainfuck Runner
+//:     ##: enter BF program. Ctrl+Z to exit.
+//:     ##: 
+//:     ##: > error: unmatched ']'
+//:     ##: > bye
+//:
+//: bf: Brainfuck 実行器のサンプル
+//:
+//: [目的/もくてき]:
+//: - 文字列を簡単な VM で逐次解釈する例を示します。
+//: - スタック・生メモリ・文字列処理をまとめて使う、少し大きめの example です。
+//:
+//: [実装/じっそう]:
+//: - `[` と `]` の対応は事前にジャンプ表を作って高速化します。
+//: - 実行時は `pc` と `dp` を進めながら 1 命令ずつ解釈します。
+//:
+//: [注意/ちゅうい]:
+//: - `,` は簡略化のため常に 0 を読み込みます。
+//: - メモリテープは固定長 30000 セルで、左右端は循環します。
 
 #import "core/mem" as *
 #import "core/math" as *
@@ -21,19 +45,28 @@
 #import "alloc/diag/error" as *
 #import "alloc/collections/stack" as stk
 
-// ──────────────────────────────────────────────
-// UI ヘルパ
-// ──────────────────────────────────────────────
+//: print_error: Brainfuck 実行時エラーを赤色で表示する
+//:
+//: [目的/もくてき]:
+//: - ジャンプ対応不整合などを利用者へ分かりやすく伝えます。
 fn print_error <(str)*>()> (msg):
     print ansi_bold;
     print_color ansi_red "error: ";
     print ansi_reset;
     println_color ansi_red msg
 
+//: print_prompt: REPL の入力待ちプロンプトを表示する
+//:
+//: [目的/もくてき]:
+//: - 各入力行の先頭を視認しやすくします。
 fn print_prompt <()*>()> ():
     print ansi_bold;
     print_color ansi_green "> "
 
+//: print_byte: 1 byte を 1 文字として出力する
+//:
+//: [目的/もくてき]:
+//: - Brainfuck の `.` 命令を実装します。
 fn print_byte <(i32)*>()> (b):
     let out <i32> alloc_raw 5;
     store_i32 out 1;
@@ -41,11 +74,10 @@ fn print_byte <(i32)*>()> (b):
     print out;
     dealloc_raw out 5
 
-// ──────────────────────────────────────────────
-// 評価ロジック
-// ──────────────────────────────────────────────
-
 //: compile_jumps: '[' と ']' のジャンプ先を事前計算する
+//:
+//: [目的/もくてき]:
+//: - ループ命令の対応位置を事前に求め、実行時の分岐を O(1) にします。
 fn compile_jumps <(i32,i32)*>Result<i32,str>> (code_ptr, code_len):
     let jump_table <i32> alloc_raw mul code_len 4;
     fill_i32 jump_table code_len 0;
@@ -94,6 +126,10 @@ fn compile_jumps <(i32,i32)*>Result<i32,str>> (code_ptr, code_len):
                 else:
                     ok<i32, str> jump_table
 
+//: eval_line: 1 行の Brainfuck プログラムを実行する
+//:
+//: [目的/もくてき]:
+//: - ジャンプ表を準備し、1 命令ずつ解釈して出力します。
 fn eval_line <(i32,str)*>()> (mem_buf, code):
     let code_len <i32> s::len code;
     let code_ptr <i32> add code 4;
@@ -173,9 +209,10 @@ fn eval_line <(i32,str)*>()> (mem_buf, code):
             print "\n";
             dealloc_raw jump_table mul code_len 4
 
-// ──────────────────────────────────────────────
-// メイン処理
-// ──────────────────────────────────────────────
+//: main: Brainfuck REPL のエントリーポイント
+//:
+//: [目的/もくてき]:
+//: - バナーを表示し、1 行ごとに Brainfuck プログラムを受け付けます。
 fn main <()*>()> ():
     print ansi_bold;
     println_color ansi_cyan "Brainfuck Runner";

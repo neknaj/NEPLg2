@@ -71,7 +71,7 @@ function normalizeOutputByTags(s, tags) {
         out = out.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     }
     if (Array.isArray(tags) && tags.includes('strip_ansi')) {
-        out = out.replace(/\x1b\[[0-9;]*m/g, '');
+        out = out.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
     }
     if (Array.isArray(tags) && tags.includes('trim_stdout')) {
         out = out.trim();

@@ -14921,6 +14921,39 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
 - [plan.mdとの差分]:
   - 今回は surface や renderer ではなく token 正規化層の不備が原因だったので、修正は language analysis / provider の highlight 分類に限定した。
+# 2026-04-10 メモ (examples の doctest 実働化とコメント整備)
+
+- [原因]:
+  - `examples/*.nepl` の先頭には `//: neplg2:test` が書かれていたが、`nodesrc/parser.{ts,js}` は fenced code block 付き doctest しか収集しておらず、examples の file-level doctest は実際には 1 件も走っていなかった。
+  - さらに `stdout: mlstr:` の複数行メタデータも parser が解釈しておらず、examples の既存期待値記法がそのままでは検証に使えない状態だった。
+  - `nodesrc/run_doctest.js` / `nodesrc/tests.js` の `strip_ansi` も色コードの `...m` しか除去しておらず、`counter2.nepl` の `\x1b[2K` のような ANSI 制御を比較で扱えなかった。
+- [実装]:
+  - `nodesrc/parser.ts`
+    - `.nepl` では fenced code block が無い `neplg2:test` を file-level doctest として扱い、ファイル全体を source にする fallback を追加した。
+    - `stdout: mlstr:` / `stdin: mlstr:` / `stderr: mlstr:` を `##:` 行から復元する処理を追加した。
+    - 連続した `neplg2:test` を正しく分離できるように meta scan の停止条件を整理した。
+  - `nodesrc/parser.js`
+    - 上記の Node 実行用 JS 反映を行い、実運用の test runner でも同じ挙動になるようそろえた。
+  - `nodesrc/run_doctest.js`, `nodesrc/tests.js`
+    - `strip_ansi` を汎用 CSI シーケンスまで除去する形へ広げ、色コードだけでなく `\x1b[2K` などの制御も比較前に正規化できるようにした。
+  - `examples/helloworld.nepl`, `examples/counter.nepl`, `examples/counter2.nepl`, `examples/fib.nepl`, `examples/stdio.nepl`, `examples/nm.nepl`, `examples/bf.nepl`, `examples/rpn_regacy.nepl`
+    - `examples/rpn.nepl` に合わせた日本語のドキュメントコメントへ統一し、各 example の目的・実装・注意点が読めるようにした。
+    - doctest を追加または修正して、example 自体が回帰確認できるようにした。
+  - `examples/nm.nepl`
+    - `--help` / 未知オプションのとき usage 表示後に stdin を読まず終了するように修正した。
+  - `doc/examples.md`, `doc/testing.md`
+    - examples を focused に確認するコマンドと運用方針を文書化した。
+- [確認]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-tests.json -j 1`: `total=12`, `passed=12`, `failed=0`, `errored=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
+- [実装状況]:
+  - examples の短いサンプルは comment 形式と doctest 導線をそろえられた。
+  - examples の file-level doctest は parser / runner 側から正式に解釈されるようになった。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 今回は examples 整備の過程で test infrastructure 側の未対応仕様が原因と分かったため、sample だけでなく `nodesrc/parser*` と runner の正規化処理も修正対象に含めた。
+  - `examples/bf.nepl` では loop を含む Brainfuck サンプルが期待どおり動かない追加差異を確認したため、現時点では確実に通る sample と bracket error を固定し、loop 系の根本調査は `todo.md` に残した。
 # 2026-04-09 メモ (playground highlight 経路の一本化と surface 正規化)
 
 - [原因]:

@@ -1,3 +1,32 @@
+//: neplg2:test[nm_help, normalize_newlines]
+//: [目的/もくてき]: help オプションが usage を表示して終了することを確認する
+//: argv: ["--help"]
+//: stdout: mlstr:
+//:     ##: Neknaj Markdown (Neknaj Prefix Language) CLI
+//:     ##: 
+//:     ##: Reads Markdown from stdin and writes AST or HTML to stdout.
+//:     ##: 
+//:     ##: Usage:
+//:     ##:   nekmaj [--ast|--html]
+//:     ##: 
+//:     ##: Options:
+//:     ##:   --ast   Output AST (default)
+//:     ##:   --html  Output HTML
+//:     ##: 
+//:
+//: nm: Neknaj Markdown を変換する CLI サンプル
+//:
+//: [目的/もくてき]:
+//: - `std/env/cliarg` と `read_all` を使う CLI 例を示します。
+//: - Markdown パーサと HTML 生成器を組み合わせる、少し大きめの example です。
+//:
+//: [実装/じっそう]:
+//: - 引数で `--ast` / `--html` / `--help` を解釈します。
+//: - 実行モードのときだけ stdin を読み、AST JSON か HTML を出力します。
+//:
+//: [注意/ちゅうい]:
+//: - `--help` と未知オプションでは usage を表示して終了します。
+//: - `read_all` の上限は stdlib 側の仕様に従います。
 #entry main
 #indent 4
 #target std
@@ -11,6 +40,10 @@
 #import "nm/parser" as *
 #import "nm/html_gen" as *
 
+//: print_usage: 利用方法を標準出力へ表示する
+//:
+//: [目的/もくてき]:
+//: - CLI の引数一覧と基本用途をまとめて表示します。
 fn print_usage <()*> ()> ():
     println "Neknaj Markdown (Neknaj Prefix Language) CLI";
     println "";
@@ -25,14 +58,17 @@ fn print_usage <()*> ()> ():
     println "";
     ()
 
+//: main: 引数に応じて AST か HTML を出力する
+//:
+//: [目的/もくてき]:
+//: - help 表示と通常変換の分岐を行います。
 fn main <()*> ()> ():
-
-    // Parse args
     let argc <i32> cliarg_count;
     let mut mode <str> "--ast";
+    let mut should_run <bool> true;
 
     let mut i <i32> 1;
-    while lt i argc:
+    while and lt i argc should_run:
         do:
             match cliarg_get i:
                 Option::Some a:
@@ -48,30 +84,34 @@ fn main <()*> ()> ():
                                         or str_eq a "-h" str_eq a "--help"
                                         then:
                                             print_usage;
+                                            set should_run false;
                                             set i argc;
                                             ()
                                         else:
                                             println "warning: unknown option";
                                             print_usage;
+                                            set should_run false;
                                             ()
                 Option::None:
                     ()
             set i add i 1;
 
-    // Read stdin (note: stdlib read_all is capped; see docs)
-    let input <str> read_all;
-
-    let doc <Document> parse_markdown input;
-
     if:
-        str_eq mode "--html"
+        should_run
         then:
-            let html <str> render_document doc;
-            print html;
-            print "\n";
-            ()
+            let input <str> read_all;
+            let doc <Document> parse_markdown input;
+            if:
+                str_eq mode "--html"
+                then:
+                    let html <str> render_document doc;
+                    print html;
+                    print "\n";
+                    ()
+                else:
+                    let ast <str> document_to_json doc;
+                    print ast;
+                    print "\n";
+                    ()
         else:
-            let ast <str> document_to_json doc;
-            print ast;
-            print "\n";
             ()

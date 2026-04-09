@@ -1,15 +1,29 @@
-//: main: 1行読み取り、受け取った文字列をそのまま表示するサンプル
+//: neplg2:test[stdio_ascii, normalize_newlines, strip_ansi]
+//: stdin: "sample\n"
+//: stdout: mlstr:
+//:     ##: accepting input...
+//:     ##: > input:
+//:     ##: sample
 //:
-//: neplg2:test[stdio, normalize_newlines, strip_ansi]
-//: stdin: ./tests/a.in
-//: stdout: ./tests/a.out
-//:
-//: neplg2:test[stdio, normalize_newlines, strip_ansi]
+//: neplg2:test[stdio_inline, normalize_newlines, strip_ansi]
 //: stdin: "hello\n"
 //: stdout: mlstr:
 //:     ##: accepting input...
 //:     ##: > input:
 //:     ##: hello
+//:
+//: stdio: 1 行入力をそのまま表示する基本例
+//:
+//: [目的/もくてき]:
+//: - `read_line` で 1 行を受け取り、そのまま表示する最小の入出力例を示します。
+//: - fixture 入力と inline 入力の両方で doctest できる形を提供します。
+//:
+//: [実装/じっそう]:
+//: - 開始メッセージを出したあと、`read_line` で 1 行読み込みます。
+//: - 読み取った文字列を見出し付きでそのまま `println` します。
+//:
+//: [注意/ちゅうい]:
+//: - `read_line` は末尾改行を含まない文字列を返します。
 #entry main
 #indent 4
 #target std
@@ -18,6 +32,10 @@
 #import "core/math" as *
 #import "std/stdio" as *
 
+//: main: 受け取った 1 行をそのまま表示する
+//:
+//: [目的/もくてき]:
+//: - NEPLg2 のもっとも基本的な標準入力サンプルを示します。
 fn main <()*> ()> ():
     println_color ansi_green "accepting input...";
     print "> ";

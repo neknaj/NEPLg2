@@ -25,6 +25,12 @@ Run focused doctests and test files with JSON output:
 node nodesrc/tests.js -i tests/compiler -i tests/stdlib --no-tree -o /tmp/tests.json -j 15
 ```
 
+Run only the executable examples and inspect the aggregated JSON:
+
+```bash
+node nodesrc/tests.js -i examples --no-tree -o /tmp/examples-tests.json -j 8
+```
+
 Run one doctest directly:
 
 ```bash

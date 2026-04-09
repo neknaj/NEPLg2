@@ -62,7 +62,7 @@ interface Doctest {
   code: string;
   hiddenMap: boolean[];
   stdin: string | null;
-  argv: string | null;
+  argv: unknown;
   stdout: string | null;
   stderr: string | null;
   ret: unknown;
@@ -149,15 +149,39 @@ function parseDiagSpanList(raw: unknown): DiagSpan[] {
   return vals.map(v => parseDiagSpanEntry(v)).filter((x): x is DiagSpan => x !== null);
 }
 
+function parseMlstrMeta(lines: string[], start: number, opts: ScanOptions): { value: string; nextIndex: number } {
+  const parts: string[] = [];
+  let j = start;
+  while (j < lines.length) {
+    const line = opts.lineTransform(lines[j]);
+    const m = line.match(/^\s*##:\s?(.*)$/);
+    if (!m) break;
+    parts.push(m[1]);
+    j++;
+  }
+  return {
+    value: parts.length > 0 ? parts.join("\n") + "\n" : "",
+    nextIndex: j,
+  };
+}
+
 // ===== Doctest Scanner =====
 
 interface ScanOptions {
   lineTransform: (raw: string) => string;
   isHiddenLine: (raw: string) => boolean;
+  isDocLine?: (raw: string) => boolean;
+  fallbackCode?: string | null;
 }
 
 function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
   const doctests: Doctest[] = [];
+  const fallbackCode = typeof opts.fallbackCode === "string"
+    ? (opts.fallbackCode.endsWith("\n") ? opts.fallbackCode : opts.fallbackCode + "\n")
+    : null;
+  const fallbackHiddenMap = fallbackCode
+    ? fallbackCode.replace(/\r\n/g, "\n").split("\n").slice(0, -1).map(() => false)
+    : [];
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
@@ -187,17 +211,24 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
 
     let j = i + 1;
     while (j < lines.length) {
-      const l2 = opts.lineTransform(lines[j]);
+      const raw2 = lines[j];
+      const l2 = opts.lineTransform(raw2);
+      if (/^\s*neplg2:test(?:\[[^\]]+\])?\s*$/.test(l2)) break;
       const mm = l2.match(
         /^\s*(stdin|argv|stdout|stderr|ret|diag_id|diag_ids|diag_span|diag_spans)\s*:\s*(.*?)\s*$/,
       );
       if (mm) {
         const k = mm[1];
-        if (k === "diag_id") {
-          const v = parseInt(String(parseMetaValue(mm[2] ?? "")).trim(), 10);
+        const rawValue = mm[2] ?? "";
+        if ((k === "stdin" || k === "stdout" || k === "stderr") && String(rawValue).trim() === "mlstr:") {
+          const parsed = parseMlstrMeta(lines, j + 1, opts);
+          meta[k] = parsed.value;
+          j = parsed.nextIndex - 1;
+        } else if (k === "diag_id") {
+          const v = parseInt(String(parseMetaValue(rawValue)).trim(), 10);
           if (Number.isFinite(v)) meta.diag_ids.push(v);
         } else if (k === "diag_ids") {
-          const rawVals = parseMetaValue(mm[2] ?? "");
+          const rawVals = parseMetaValue(rawValue);
           const vals: unknown[] = Array.isArray(rawVals)
             ? rawVals
             : String(rawVals).split(",").map(x => x.trim()).filter(Boolean);
@@ -206,23 +237,42 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
             if (Number.isFinite(v)) meta.diag_ids.push(v);
           }
         } else if (k === "diag_span") {
-          const one = parseDiagSpanEntry(parseMetaValue(mm[2] ?? ""));
+          const one = parseDiagSpanEntry(parseMetaValue(rawValue));
           if (one) meta.diag_spans.push(one);
         } else if (k === "diag_spans") {
-          meta.diag_spans.push(...parseDiagSpanList(mm[2] ?? ""));
+          meta.diag_spans.push(...parseDiagSpanList(rawValue));
         } else {
           const mk = k as "stdin" | "argv" | "stdout" | "stderr" | "ret";
           if (mk === "ret") {
-            meta.ret = parseRetValue(mm[2]);
+            meta.ret = parseRetValue(rawValue);
           } else {
-            meta[mk] = parseMetaValue(mm[2]) as string | null;
+            meta[mk] = parseMetaValue(rawValue) as string | null;
           }
         }
       }
       if (/^\s*```\s*neplg2\s*$/.test(l2)) break;
+      if (opts.isDocLine && !opts.isDocLine(raw2)) break;
       j++;
     }
-    if (j >= lines.length) continue;
+    const hasFence = j < lines.length && /^\s*```\s*neplg2\s*$/.test(opts.lineTransform(lines[j]));
+    if (!hasFence) {
+      if (fallbackCode !== null) {
+        doctests.push({
+          tags,
+          code: fallbackCode,
+          hiddenMap: fallbackHiddenMap.slice(),
+          stdin: meta.stdin,
+          argv: meta.argv,
+          stdout: meta.stdout,
+          stderr: meta.stderr,
+          ret: meta.ret,
+          diag_ids: meta.diag_ids,
+          diag_spans: meta.diag_spans,
+        });
+        i = j - 1;
+      }
+      continue;
+    }
 
     j++;
     const codeLines: string[] = [];
@@ -264,6 +314,7 @@ function parseNmdText(text: string): { doctests: Doctest[] } {
   const doctests = scanForDoctests(lines, {
     lineTransform: (raw) => raw,
     isHiddenLine: (raw) => raw.startsWith("|"),
+    isDocLine: () => true,
   });
   return { doctests };
 }
@@ -278,6 +329,8 @@ function parseNeplText(text: string): { doctests: Doctest[]; docText: string } {
       return (m[1] ? "|" : "") + m[2];
     },
     isHiddenLine: (raw) => /^\s*\/\/:\|/.test(raw),
+    isDocLine: (raw) => /^\s*\/\/:/.test(raw),
+    fallbackCode: text,
   });
 
   const docLines: string[] = [];

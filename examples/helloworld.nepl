@@ -1,8 +1,31 @@
+//: neplg2:test[helloworld, normalize_newlines]
+//: [目的/もくてき]: 最小の標準出力サンプルが 2 行を表示することを確認する
+//: stdout: mlstr:
+//:     ##: Hello World!
+//:     ##: こんにちは世界!
+//:
+//: helloworld: もっとも短い標準出力サンプル
+//:
+//: [目的/もくてき]:
+//: - `std/stdio` を使った最小構成の `#target std` プログラムを示します。
+//: - ASCII と日本語文字列の両方を `println` で出力する例です。
+//:
+//: [実装/じっそう]:
+//: - `main` から `println` を 2 回呼ぶだけの構成です。
+//: - 標準ライブラリ import と entry 関数の最小形も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - `std/stdio` を使うので `#target std` が必要です。
+//: - 出力順は呼び出し順そのままです。
 #entry main
 #target std
 
 #import "std/stdio"
 
+//: main: 2 つの固定メッセージを順に出力する
+//:
+//: [目的/もくてき]:
+//: - `println` の基本的な使い方を示します。
 fn main <()*>()> ():
     println "Hello World!";
     println "こんにちは世界!";

@@ -1173,7 +1173,7 @@ function pickTopIssues(results, limit) {
 }
 
 function stripAnsi(s) {
-    return String(s || '').replace(/\x1b\[[0-9;]*m/g, '');
+    return String(s || '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
 }
 
 function summarizeError(raw) {
