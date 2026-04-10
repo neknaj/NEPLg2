@@ -2,9 +2,9 @@
 #indent 4
 #target std
 
-//: neplg2:test[bf_single_char, normalize_newlines, strip_ansi]
-//: [目的/もくてき]: 単純な加算と出力が動くことを確認する
-//: stdin: "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.\n"
+//: neplg2:test[bf_loop_output, normalize_newlines, strip_ansi]
+//: [目的/もくてき]: loop を使った転送と出力が正しく動くことを確認する
+//: stdin: "++++++++[>++++++++<-]>+.\n"
 //: stdout: mlstr:
 //:     ##: Brainfuck Runner
 //:     ##: enter BF program. Ctrl+Z to exit.
@@ -130,7 +130,10 @@ fn compile_jumps <(i32,i32)*>Result<i32,str>> (code_ptr, code_len):
 //:
 //: [目的/もくてき]:
 //: - ジャンプ表を準備し、1 命令ずつ解釈して出力します。
-fn eval_line <(i32,str)*>()> (mem_buf, code):
+//:
+//: [注意点/ちゅういてん]:
+//: - テープ長は呼び出し側から明示的に受け取り、WASM の memory page 数とは混同しません。
+fn eval_line <(i32,i32,str)*>()> (mem_buf, tape_len, code):
     let code_len <i32> s::len code;
     let code_ptr <i32> add code 4;
     
@@ -138,13 +141,13 @@ fn eval_line <(i32,str)*>()> (mem_buf, code):
         Result::Err msg:
             print_error msg
         Result::Ok jump_table:
-            let mut dp <i32> 0;
+            let mut ptr_idx <i32> 0;
             let mut pc <i32> 0;
 
             while lt pc code_len:
                 do:
                     let cmd <i32> load_u8 add code_ptr pc;
-                    let p <i32> add mem_buf dp;
+                    let p <i32> add mem_buf ptr_idx;
                     
                     if:
                         eq cmd 43 // '+'
@@ -159,20 +162,20 @@ fn eval_line <(i32,str)*>()> (mem_buf, code):
                     if:
                         eq cmd 62 // '>'
                         then:
-                            set dp add dp 1;
+                            set ptr_idx add ptr_idx 1;
                             if:
-                                ge dp mem_size
-                                then: set dp 0
+                                ge ptr_idx tape_len
+                                then: set ptr_idx 0
                                 else: ()
                         else: ()
 
                     if:
                         eq cmd 60 // '<'
                         then:
-                            set dp sub dp 1;
+                            set ptr_idx sub ptr_idx 1;
                             if:
-                                lt dp 0
-                                then: set dp sub mem_size 1
+                                lt ptr_idx 0
+                                then: set ptr_idx sub tape_len 1
                                 else: ()
                         else: ()
 
@@ -189,19 +192,25 @@ fn eval_line <(i32,str)*>()> (mem_buf, code):
                     if:
                         eq cmd 91 // '['
                         then:
+                            let should_skip <bool> eq load_u8 p 0;
                             if:
-                                eq load_u8 p 0
-                                then: set pc load_i32 add jump_table mul pc 4
-                                else: ()
+                                should_skip
+                                then:
+                                    set pc load_i32 add jump_table mul pc 4
+                                else:
+                                    ()
                         else: ()
 
                     if:
                         eq cmd 93 // ']'
                         then:
+                            let should_jump_back <bool> ne load_u8 p 0;
                             if:
-                                ne load_u8 p 0
-                                then: set pc load_i32 add jump_table mul pc 4
-                                else: ()
+                                should_jump_back
+                                then:
+                                    set pc load_i32 add jump_table mul pc 4
+                                else:
+                                    ()
                         else: ()
 
                     set pc add pc 1;
@@ -219,7 +228,7 @@ fn main <()*>()> ():
     println_color ansi_gray "enter BF program. Ctrl+Z to exit.";
     println "";
 
-    let mem_size <i32> 30000;
+    let tape_len <i32> 30000;
     let mut running <bool> true;
 
     while running:
@@ -234,7 +243,7 @@ fn main <()*>()> ():
                     println_color ansi_yellow "bye";
                     set running false
                 else:
-                    let mem_buf <i32> alloc_raw mem_size;
-                    fill_u8 mem_buf mem_size 0;
-                    eval_line mem_buf input;
-                    dealloc_raw mem_buf mem_size
+                    let mem_buf <i32> alloc_raw tape_len;
+                    fill_u8 mem_buf tape_len 0;
+                    eval_line mem_buf tape_len input;
+                    dealloc_raw mem_buf tape_len

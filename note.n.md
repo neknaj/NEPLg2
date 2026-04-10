@@ -14981,3 +14981,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: 13/13 passed
 - [plan.mdとの差分]:
   - `analysis_payload_basic` がすでに function / punctuation / variable の fixture を持っていたため、新しい mixed fixture は追加せず、directive/import 側のケース拡張と surface runner の強化で回帰を固定した。
+
+# 2026-04-10 メモ (examples/bf.nepl loop サンプルの根本修正)
+
+- [原因]:
+  - `examples/bf.nepl` の `eval_line` がテープ長として `mem_size` を参照していたが、ここで解決されていたのは `main` のローカル変数ではなく `core/mem` の `mem_size` だった。
+  - そのため `>` / `<` の折り返し判定が 30000 セルではなく WASM memory page 数に依存し、loop を含む Brainfuck でポインタが不正に巻き戻っていた。
+  - この誤判定のあとに不正な位置を触ることで、局所変数が壊れたような不安定な挙動に見えていた。
+- [修正]:
+  - `examples/bf.nepl`
+    - `eval_line` の引数に `tape_len` を追加し、折り返し判定を明示的に呼び出し側から受け取るようにした。
+    - `main` 側のローカル変数名も `mem_size` から `tape_len` に変更し、`core/mem` の `mem_size` と衝突しないようにした。
+    - 一時的に入れていたデバッグ出力を除去した。
+    - 先頭 doctest を loop を含む `++++++++[>++++++++<-]>+.` に更新し、bracket/jump を通る経路を常時検証するようにした。
+- [確認]:
+  - `node nodesrc/run_doctest.js -i examples/bf.nepl -n 1`: pass
+  - `++[>++<-]>++.` を追加確認し、出力が `\x06` になることを確認
+  - `trunk build`: success
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-tests.json -j 1`: `total=12`, `passed=12`, `failed=0`, `errored=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体の変更は不要。
+  - 残件としてメモしていた `examples/bf.nepl` の loop サンプル不具合は解消したため `todo.md` から削除した。
