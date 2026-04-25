@@ -1,7 +1,3 @@
-#entry main
-#indent 4
-#target std
-
 //: neplg2:test[bf_loop_output, normalize_newlines, strip_ansi]
 //: [目的/もくてき]: loop を使った転送と出力が正しく動くことを確認する
 //: stdin: "++++++++[>++++++++<-]>+.\n"
@@ -35,6 +31,10 @@
 //: [注意/ちゅうい]:
 //: - `,` は簡略化のため常に 0 を読み込みます。
 //: - メモリテープは固定長 30000 セルで、左右端は循環します。
+
+#entry main
+#indent 4
+#target std
 
 #import "core/math" as *
 #import "core/result" as *

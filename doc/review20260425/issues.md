@@ -11,8 +11,8 @@
 | core | 9 | 9 |
 | cli | 8 | 5 |
 | stdlib | 9 | 6 |
-| examples | 0 | 7 |
-| 合計 | 26 | 27 |
+| examples | 0 | 8 |
+| 合計 | 26 | 28 |
 
 ## Core
 
@@ -86,3 +86,4 @@
 | [RV-EXAMPLE-005](./examples.md#rv-example-005-rpn_legacy-example-のコメントに変更履歴が残っている) | true | verified | P3 | doc | `rpn_legacy.nepl` のソースコメントから旧ファイル名履歴を除き、利用上の注意へ整理済み |
 | [RV-EXAMPLE-006](./examples.md#rv-example-006-nm-example-の-usage-表示が実体名とずれている) | true | verified | P3 | doc | `nm.nepl` の usage 表示を実体名の `nm` に統一済み |
 | [RV-EXAMPLE-007](./examples.md#rv-example-007-rpn-example-の先頭構成が-docdoctest-基準から外れている) | true | verified | P3 | doc | `rpn.nepl` の先頭を doctest / 概要コメント / directive の順へ整理済み |
+| [RV-EXAMPLE-008](./examples.md#rv-example-008-bf-example-の先頭構成が-docdoctest-基準から外れている) | true | verified | P3 | doc | `bf.nepl` の先頭を doctest / 概要コメント / directive の順へ整理済み |

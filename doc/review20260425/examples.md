@@ -274,3 +274,38 @@ doctest と example 概要コメントをファイル先頭へまとめ、その
 確認済み:
 
 - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-header-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)
+
+## RV-EXAMPLE-008: bf example の先頭構成が doc/doctest 基準から外れている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P3
+- 種別: doc
+- 対象: `examples/bf.nepl`
+
+### 根拠
+
+- `examples/bf.nepl`: ファイル先頭が `#entry` / `#indent` / `#target` から始まっていた。
+- `doc/examples.md`: ファイル先頭に日本語のドキュメントコメントと doctest をまとめる形式を基準としている。
+
+### 問題
+
+`bf.nepl` は大きめの VM example ですが、先頭が directive から始まるため、読者が最初にテスト内容とサンプルの目的を把握しづらい構成でした。
+
+### 影響
+
+大きめの example ほど、最初に目的と制約を読めることが重要です。先頭構成が他の example とずれると、doc 生成後の読みやすさと保守時の一貫性が下がります。
+
+### 修正方針
+
+doctest と example 概要コメントをファイル先頭へ置き、その後に `#entry` / `#indent` / `#target` と import を置きます。実装と出力仕様は変更しません。
+
+### 対応結果
+
+`examples/bf.nepl` の先頭を doctest、概要コメント、directive/import の順に整理しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-header-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)

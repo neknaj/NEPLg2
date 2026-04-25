@@ -1,3 +1,18 @@
+# 2026-04-26 メモ (bf example の先頭構成整理)
+
+- [状況]:
+  - `examples/bf.nepl` はファイル先頭が `#entry` / `#indent` / `#target` から始まっていた。
+  - 大きめの VM example であり、先頭で doctest と目的を読める構成に揃える必要があった。
+- [修正]:
+  - doctest と `bf` の概要コメントを先頭にまとめ、その後に directive / import を置く構成へ整理した。
+  - 実装と出力仕様は変更していない。
+  - `doc/review20260425/examples.md` と `issues.md` に `RV-EXAMPLE-008` を追加した。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-header-tests.json -j 2`: 2/2 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。実行可能 example の説明構成だけを現行方針へ揃えた。
+
 # 2026-04-26 メモ (rpn example の先頭構成整理)
 
 - [状況]:
