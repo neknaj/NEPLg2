@@ -1,3 +1,16 @@
+# 2026-04-26 メモ (nm example の現行表記化)
+
+- [状況]:
+  - `examples/nm.nepl` の `print_usage` と `main` に旧式の関数型表記 `<()*> ()>` が残っていた。
+- [修正]:
+  - `print_usage` と `main` の型表記を `<()*>()>` に更新した。
+  - CLI 引数処理、usage 表示、AST/HTML 出力の挙動は変更していない。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/nm.nepl --no-tree -o tmp/nm-example-tests.json -j 2`: 1/1 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。実行可能 example 側だけを現行構文へ揃えた。
+
 # 2026-04-26 メモ (fib example の現行表記化)
 
 - [状況]:
