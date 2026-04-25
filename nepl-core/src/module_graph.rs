@@ -10,16 +10,16 @@
 extern crate alloc;
 extern crate std;
 
-use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::format;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 use crate::ast::{Directive, ImportClause, Module, Visibility};
 use crate::diagnostic::Severity;
 use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
 use crate::span::FileId;
+use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs;
@@ -179,12 +179,7 @@ impl ModuleGraphBuilder {
                         )?;
                     }
                     crate::ast::Stmt::EnumDef(e) if e.vis == crate::ast::Visibility::Pub => {
-                        Self::insert_export(
-                            &mut exports,
-                            &e.name.name,
-                            ExportKind::Enum,
-                            node.id,
-                        )?;
+                        Self::insert_export(&mut exports, &e.name.name, ExportKind::Enum, node.id)?;
                     }
                     _ => {}
                 }
@@ -250,13 +245,7 @@ impl ModuleGraphBuilder {
         if map.contains_key(name) {
             return Err(ModuleGraphError::DuplicateExport(name.to_string()));
         }
-        map.insert(
-            name.to_string(),
-            ExportEntry {
-                kind,
-                source,
-            },
-        );
+        map.insert(name.to_string(), ExportEntry { kind, source });
         Ok(())
     }
 
@@ -282,7 +271,11 @@ impl ModuleGraphBuilder {
         let src = read_file_to_string(path)?;
         let file_id = FileId(cache.len() as u32);
         let lex = lexer::lex(file_id, &src);
-        if lex.diagnostics.iter().any(|d| d.severity == Severity::Error) {
+        if lex
+            .diagnostics
+            .iter()
+            .any(|d| d.severity == Severity::Error)
+        {
             return Err(ModuleGraphError::Parse(lex.diagnostics));
         }
         let parse = parser::parse_tokens(file_id, lex);
@@ -301,7 +294,13 @@ impl ModuleGraphBuilder {
         // collect imports
         let mut import_specs = Vec::new();
         for d in &module.directives {
-            if let Directive::Import { path: p, clause, vis, .. } = d {
+            if let Directive::Import {
+                path: p,
+                clause,
+                vis,
+                ..
+            } = d
+            {
                 let spec = self.resolve_import(p, package, path)?;
                 import_specs.push(ImportDecl {
                     spec,

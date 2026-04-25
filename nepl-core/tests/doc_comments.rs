@@ -46,8 +46,8 @@ fn answer <()->i32> ():
 #[test]
 fn stdlib_hashmap_struct_has_doc_comment() {
     let mut loader = Loader::new(stdlib_root());
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../stdlib/alloc/collections/hashmap.nepl");
+    let path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../stdlib/alloc/collections/hashmap.nepl");
     let loaded = loader.load(&path).expect("load stdlib hashmap");
 
     let hashmap = loaded
@@ -69,8 +69,8 @@ fn stdlib_hashmap_struct_has_doc_comment() {
 #[test]
 fn stdlib_fenwick_module_doc_is_separate_from_struct_doc() {
     let mut loader = Loader::new(stdlib_root());
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../stdlib/alloc/collections/fenwick.nepl");
+    let path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../stdlib/alloc/collections/fenwick.nepl");
     let loaded = loader.load(&path).expect("load stdlib fenwick");
 
     let module_doc = loaded.module.doc.as_deref().expect("module doc");

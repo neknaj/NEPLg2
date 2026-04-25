@@ -1,10 +1,10 @@
 mod harness;
+use harness::run_main_i32;
 use nepl_core::loader::Loader;
 use nepl_core::typecheck;
 use nepl_core::BuildProfile;
 use nepl_core::{compile_module, CompileOptions, CompileTarget};
 use std::path::PathBuf;
-use harness::run_main_i32;
 
 fn stdlib_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

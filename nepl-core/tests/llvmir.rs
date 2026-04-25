@@ -30,7 +30,8 @@ fn llvmir_block_allows_internal_indentation_as_raw_text() {
 
     let parse = parser::parse_tokens(FileId(0), lex);
     assert!(
-        parse.diagnostics
+        parse
+            .diagnostics
             .iter()
             .all(|d| !matches!(d.severity, Severity::Error)),
         "unexpected parser errors: {:?}",
@@ -49,7 +50,10 @@ fn llvmir_block_allows_internal_indentation_as_raw_text() {
     };
 
     assert!(
-        block.lines.iter().any(|l| l.starts_with("  ; deeper comment")),
+        block
+            .lines
+            .iter()
+            .any(|l| l.starts_with("  ; deeper comment")),
         "internal indent must be preserved in raw llvmir text: {:?}",
         block.lines
     );
@@ -77,7 +81,8 @@ fn f <()->i32> ():
     let lex = lexer::lex(FileId(0), src);
     let parse = parser::parse_tokens(FileId(0), lex);
     assert!(
-        parse.diagnostics
+        parse
+            .diagnostics
             .iter()
             .all(|d| !matches!(d.severity, Severity::Error)),
         "unexpected parser errors: {:?}",

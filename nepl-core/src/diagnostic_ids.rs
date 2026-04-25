@@ -393,18 +393,14 @@ impl DiagnosticId {
             DiagnosticId::AmbiguousImport => "ambiguous import",
             DiagnosticId::LexerUnknownDirective => "unknown directive",
             DiagnosticId::LexerUnknownToken => "unknown token",
-            DiagnosticId::LexerIndentTabsNotAllowed => {
-                "tabs are not allowed for indentation"
-            }
+            DiagnosticId::LexerIndentTabsNotAllowed => "tabs are not allowed for indentation",
             DiagnosticId::LexerExpectedIndentedBlock => {
                 "expected indented block after raw directive"
             }
             DiagnosticId::LexerInvalidPubDirectivePrefix => {
                 "pub prefix is only allowed for #import"
             }
-            DiagnosticId::LexerIndentWidthMismatch => {
-                "indentation is not aligned to #indent width"
-            }
+            DiagnosticId::LexerIndentWidthMismatch => "indentation is not aligned to #indent width",
             DiagnosticId::LexerIndentLevelMismatch => {
                 "indentation level does not match any previous indent"
             }
@@ -423,7 +419,9 @@ impl DiagnosticId {
             DiagnosticId::TypeReturnTypeMismatch => "return type does not match signature",
             DiagnosticId::TypeAnnotationMismatch => "type annotation mismatch",
             DiagnosticId::TypeAmbiguousOverload => "ambiguous overload",
-            DiagnosticId::TypeNoMatchingOverload => "function signature does not match any overload",
+            DiagnosticId::TypeNoMatchingOverload => {
+                "function signature does not match any overload"
+            }
             DiagnosticId::TypeMatchScrutineeMustBeEnum => "match scrutinee must be an enum",
             DiagnosticId::TypeDuplicateMatchArm => "duplicate match arm",
             DiagnosticId::TypeNonExhaustiveMatch => "non-exhaustive match",
@@ -454,35 +452,21 @@ impl DiagnosticId {
             DiagnosticId::TypeVariableTypeArgsNotAllowed => {
                 "type arguments are not allowed for variables"
             }
-            DiagnosticId::TypePureCallsImpureFunction => {
-                "pure context cannot call impure function"
-            }
+            DiagnosticId::TypePureCallsImpureFunction => "pure context cannot call impure function",
             DiagnosticId::TypeAssignmentTypeMismatch => "type mismatch in assignment",
-            DiagnosticId::TypeAssignmentUndefinedVariable => {
-                "undefined variable for assignment"
-            }
+            DiagnosticId::TypeAssignmentUndefinedVariable => "undefined variable for assignment",
             DiagnosticId::TypeIfArityMismatch => "if expects three arguments",
             DiagnosticId::TypeIfConditionTypeMismatch => "if condition must be bool",
             DiagnosticId::TypeWhileArityMismatch => "while expects two arguments",
             DiagnosticId::TypeWhileConditionTypeMismatch => "while condition must be bool",
             DiagnosticId::TypeWhileBodyTypeMismatch => "while body must be unit",
             DiagnosticId::TypeMatchUnknownVariant => "unknown enum variant in match",
-            DiagnosticId::TypeMatchPayloadBindingInvalid => {
-                "variant has no payload to bind"
-            }
-            DiagnosticId::TypeMatchArmsTypeMismatch => {
-                "match arms have incompatible types"
-            }
-            DiagnosticId::TypeIntrinsicTypeArgArityMismatch => {
-                "callsite_span expects 1 type arg"
-            }
+            DiagnosticId::TypeMatchPayloadBindingInvalid => "variant has no payload to bind",
+            DiagnosticId::TypeMatchArmsTypeMismatch => "match arms have incompatible types",
+            DiagnosticId::TypeIntrinsicTypeArgArityMismatch => "callsite_span expects 1 type arg",
             DiagnosticId::TypeIntrinsicArgArityMismatch => "intrinsic expects 1 argument",
-            DiagnosticId::TypeIntrinsicArgTypeMismatch => {
-                "intrinsic argument type mismatch"
-            }
-            DiagnosticId::TypeCopyImplTargetNotCopy => {
-                "copy impl target type is not copyable"
-            }
+            DiagnosticId::TypeIntrinsicArgTypeMismatch => "intrinsic argument type mismatch",
+            DiagnosticId::TypeCopyImplTargetNotCopy => "copy impl target type is not copyable",
             DiagnosticId::TypeCopyImplRequiresClone => {
                 "copy impl requires clone impl for the same target type"
             }
@@ -492,16 +476,12 @@ impl DiagnosticId {
             DiagnosticId::TypeUseUniquelyBorrowedValue => "use of uniquely borrowed value",
             DiagnosticId::TypeUseMovedValue => "use of moved value",
             DiagnosticId::TypeUsePossiblyMovedValue => "use of potentially moved value",
-            DiagnosticId::TypeAssignSharedBorrowedValue => {
-                "cannot assign to shared borrowed value"
-            }
+            DiagnosticId::TypeAssignSharedBorrowedValue => "cannot assign to shared borrowed value",
             DiagnosticId::TypeAssignUniquelyBorrowedValue => {
                 "cannot assign to uniquely borrowed value"
             }
             DiagnosticId::TypeDropSharedBorrowedValue => "cannot drop shared borrowed value",
-            DiagnosticId::TypeDropUniquelyBorrowedValue => {
-                "cannot drop uniquely borrowed value"
-            }
+            DiagnosticId::TypeDropUniquelyBorrowedValue => "cannot drop uniquely borrowed value",
             DiagnosticId::TypeDropMovedValue => "drop of moved value",
             DiagnosticId::TypeDropPossiblyMovedValue => "drop of potentially moved value",
             DiagnosticId::TypeUniqueBorrowSharedBorrowedValue => {
@@ -511,9 +491,7 @@ impl DiagnosticId {
                 "cannot borrow uniquely borrowed value"
             }
             DiagnosticId::TypeBorrowMovedValue => "borrow of moved value",
-            DiagnosticId::TypeBorrowPossiblyMovedValue => {
-                "borrow of potentially moved value"
-            }
+            DiagnosticId::TypeBorrowPossiblyMovedValue => "borrow of potentially moved value",
             DiagnosticId::TypeLoopPotentiallyMovedValue => "potentially moved value in loop",
             DiagnosticId::TypeTraitMethodTypeArgsNotSupported => {
                 "type arguments are not supported for trait methods yet"
@@ -551,9 +529,7 @@ impl DiagnosticId {
                 "impl type parameters are not supported yet"
             }
             DiagnosticId::TypeUnknownTrait => "unknown trait",
-            DiagnosticId::TypeImplTargetMustBeConcrete => {
-                "impl target type must be concrete"
-            }
+            DiagnosticId::TypeImplTargetMustBeConcrete => "impl target type must be concrete",
             DiagnosticId::TypeFunctionSignatureMustBeFunction => {
                 "function signature must be a function type"
             }
@@ -578,9 +554,7 @@ impl DiagnosticId {
             DiagnosticId::TypeMultipleActiveRawBodies => {
                 "multiple active raw bodies in one function"
             }
-            DiagnosticId::TypeRawBodyTargetMismatch => {
-                "raw body does not match the active target"
-            }
+            DiagnosticId::TypeRawBodyTargetMismatch => "raw body does not match the active target",
             DiagnosticId::TypeUnknownTraitCapability => "unknown trait capability",
             DiagnosticId::CodegenWasmUnsupportedExternSignature => {
                 "unsupported extern signature for wasm"
@@ -588,9 +562,7 @@ impl DiagnosticId {
             DiagnosticId::CodegenWasmUnsupportedFunctionSignature => {
                 "unsupported function signature for wasm"
             }
-            DiagnosticId::CodegenWasmMissingReturnValue => {
-                "function expected to return value"
-            }
+            DiagnosticId::CodegenWasmMissingReturnValue => "function expected to return value",
             DiagnosticId::CodegenWasmRawLineParseError => "invalid raw wasm line",
             DiagnosticId::CodegenWasmLlvmIrBodyNotSupported => {
                 "llvm ir block cannot be compiled by wasm backend"
@@ -608,9 +580,7 @@ impl DiagnosticId {
                 "unsupported indirect call signature for wasm"
             }
             DiagnosticId::CodegenWasmUnknownIntrinsic => "unknown codegen intrinsic",
-            DiagnosticId::CodegenWasmUnsupportedEnumPayloadType => {
-                "unsupported enum payload type"
-            }
+            DiagnosticId::CodegenWasmUnsupportedEnumPayloadType => "unsupported enum payload type",
             DiagnosticId::CodegenWasmUnsupportedStructFieldType => {
                 "unsupported struct field type for codegen"
             }
@@ -619,7 +589,6 @@ impl DiagnosticId {
             }
         }
     }
-
 }
 
 /// 既存呼び出し互換: 数値IDから短い説明を返します。

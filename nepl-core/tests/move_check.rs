@@ -11,7 +11,6 @@ fn compile_move_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
         .load_inline("<test>".into(), source.to_string())
         .expect("load");
 
-
     match compile_module(
         loaded.module,
         CompileOptions {
@@ -189,7 +188,9 @@ fn main <()*>()>():
     let r <&Wrapper> &x; // error: borrow of moved value
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("borrow of moved value")));
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("borrow of moved value")));
 }
 
 #[test]
@@ -211,7 +212,9 @@ fn main <()*>()>():
     let y <Wrapper> x; // error: use of moved value x
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("use of moved value")));
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("use of moved value")));
 }
 
 #[test]
@@ -233,7 +236,9 @@ fn main <()*>()>():
     let b <Wrapper> s.f; // error: use of moved value
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("use of moved value")));
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("use of moved value")));
 }
 
 #[test]

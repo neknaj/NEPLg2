@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use nepl_core::nm::render_document_markdown;
 use nepl_language::{
-    analyze_loaded_semantics, default_stdlib_root, load_inline_module_with_provider, EditorDiagnostic,
-    NameDefinitionInfo, SemanticExpressionInfo, SemanticsAnalysis, TextRange,
+    analyze_loaded_semantics, default_stdlib_root, load_inline_module_with_provider,
+    EditorDiagnostic, NameDefinitionInfo, SemanticExpressionInfo, SemanticsAnalysis, TextRange,
 };
 use serde_json::{json, Value};
 
@@ -308,13 +308,15 @@ fn update_document(
     )
 }
 
-fn analyze_document(state: &ServerState, entry_path: &Path, source: &str) -> Result<SemanticsAnalysis> {
+fn analyze_document(
+    state: &ServerState,
+    entry_path: &Path,
+    source: &str,
+) -> Result<SemanticsAnalysis> {
     let stdlib_root = state
         .stdlib_root
         .clone()
-        .or_else(|| {
-            find_repo_root(entry_path).map(default_stdlib_root)
-        })
+        .or_else(|| find_repo_root(entry_path).map(default_stdlib_root))
         .ok_or_else(|| anyhow!("failed to resolve stdlib root"))?;
 
     let entry_path = entry_path.to_path_buf();
@@ -329,16 +331,23 @@ fn analyze_document(state: &ServerState, entry_path: &Path, source: &str) -> Res
         })
     };
 
-    let loaded = load_inline_module_with_provider(stdlib_root, entry_path.clone(), source.to_string(), &mut provider)?;
+    let loaded = load_inline_module_with_provider(
+        stdlib_root,
+        entry_path.clone(),
+        source.to_string(),
+        &mut provider,
+    )?;
     Ok(analyze_loaded_semantics(source, &loaded))
 }
 
 fn find_hover(document: &DocumentState, line: usize, character: usize) -> Option<Value> {
-    let hint = document
-        .analysis
-        .token_hints
-        .iter()
-        .find(|hint| range_contains_position(hint.ref_range.as_ref().or(hint.expression_range.as_ref()), line, character))?;
+    let hint = document.analysis.token_hints.iter().find(|hint| {
+        range_contains_position(
+            hint.ref_range.as_ref().or(hint.expression_range.as_ref()),
+            line,
+            character,
+        )
+    })?;
 
     let mut parts = Vec::new();
     if let Some(name) = &hint.name {
@@ -416,7 +425,11 @@ fn build_semantic_tokens(analysis: &SemanticsAnalysis) -> Value {
             continue;
         }
 
-        let delta_line = if emitted_any { line.saturating_sub(prev_line) } else { line };
+        let delta_line = if emitted_any {
+            line.saturating_sub(prev_line)
+        } else {
+            line
+        };
         let delta_start = if emitted_any && delta_line == 0 {
             start.saturating_sub(prev_start)
         } else {
@@ -431,7 +444,10 @@ fn build_semantic_tokens(analysis: &SemanticsAnalysis) -> Value {
     json!({ "data": encoded })
 }
 
-fn semantic_token_type(token: &nepl_language::TokenInfo, analysis: &SemanticsAnalysis) -> Option<u32> {
+fn semantic_token_type(
+    token: &nepl_language::TokenInfo,
+    analysis: &SemanticsAnalysis,
+) -> Option<u32> {
     let idx = analysis
         .tokens
         .iter()
@@ -442,10 +458,14 @@ fn semantic_token_type(token: &nepl_language::TokenInfo, analysis: &SemanticsAna
         "DocComment" => 10,
         "StringLiteral" => 11,
         "IntLiteral" | "FloatLiteral" | "BoolLiteral" => 12,
-        "Colon" | "Semicolon" | "Pipe" | "Arrow" | "PathSep" | "At" | "Dot" | "Ampersand" | "Star" | "Minus" | "Equals" => 13,
+        "Colon" | "Semicolon" | "Pipe" | "Arrow" | "PathSep" | "At" | "Dot" | "Ampersand"
+        | "Star" | "Minus" | "Equals" => 13,
         kind if kind.starts_with("Kw") || kind.starts_with("Dir") => 9,
         "Ident" => {
-            match hint.and_then(|hint| hint.resolved_definition.as_ref()).map(|definition| definition.kind) {
+            match hint
+                .and_then(|hint| hint.resolved_definition.as_ref())
+                .map(|definition| definition.kind)
+            {
                 Some("fn") | Some("fn_alias") => 8,
                 Some("param") => 5,
                 Some("struct") => 2,
@@ -518,8 +538,8 @@ fn range_contains_position(range: Option<&TextRange>, line: usize, character: us
     let Some(range) = range else {
         return false;
     };
-    let starts_before = line > range.start.line
-        || (line == range.start.line && character >= range.start.column);
+    let starts_before =
+        line > range.start.line || (line == range.start.line && character >= range.start.column);
     let ends_after =
         line < range.end.line || (line == range.end.line && character <= range.end.column);
     starts_before && ends_after
@@ -636,22 +656,28 @@ fn write_message(writer: &mut dyn Write, value: &Value) -> Result<()> {
 
 fn write_result(writer: &mut dyn Write, id: Option<Value>, result: Value) -> Result<()> {
     if let Some(id) = id {
-        write_message(writer, &json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": result
-        }))
+        write_message(
+            writer,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": result
+            }),
+        )
     } else {
         Ok(())
     }
 }
 
 fn write_notification(writer: &mut dyn Write, method: &str, params: Value) -> Result<()> {
-    write_message(writer, &json!({
-        "jsonrpc": "2.0",
-        "method": method,
-        "params": params
-    }))
+    write_message(
+        writer,
+        &json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params
+        }),
+    )
 }
 
 fn log_message(writer: &mut dyn Write, typ: i32, message: &str) -> Result<()> {

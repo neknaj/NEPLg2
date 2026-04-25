@@ -238,7 +238,9 @@ impl TypeCtx {
                 }
             }
             TypeKind::Struct {
-                type_params, fields, ..
+                type_params,
+                fields,
+                ..
             } => {
                 for tp in type_params {
                     self.collect_type_var_bindings(*tp, seen, out);
@@ -462,8 +464,14 @@ impl TypeCtx {
                     && self.type_pattern_matches_inner(*a_r, *b_r, mapping, seen)
             }
             (
-                TypeKind::Apply { base: a_base, args: a_args },
-                TypeKind::Apply { base: b_base, args: b_args },
+                TypeKind::Apply {
+                    base: a_base,
+                    args: a_args,
+                },
+                TypeKind::Apply {
+                    base: b_base,
+                    args: b_args,
+                },
             ) => {
                 self.type_pattern_matches_inner(*a_base, *b_base, mapping, seen)
                     && a_args.len() == b_args.len()
@@ -583,7 +591,9 @@ impl TypeCtx {
             TypeKind::Tuple { items } => items.iter().all(|t| self.is_copy(*t)),
             TypeKind::Struct { .. } | TypeKind::Enum { .. } => self.has_copy_impl_target(resolved),
             TypeKind::Apply { base, .. } => match self.get_ref(self.resolve_id(*base)) {
-                TypeKind::Struct { .. } | TypeKind::Enum { .. } => self.has_copy_impl_target(resolved),
+                TypeKind::Struct { .. } | TypeKind::Enum { .. } => {
+                    self.has_copy_impl_target(resolved)
+                }
                 _ => self.has_copy_impl_target(resolved),
             },
             TypeKind::Var(v) => v.binding.map(|b| self.is_copy(b)).unwrap_or(v.copy_cap),
@@ -638,13 +648,11 @@ impl TypeCtx {
             | TypeKind::Never => true,
             TypeKind::Reference(_, _) => true,
             TypeKind::Box(_) => false,
-            TypeKind::Enum { variants, .. } => variants
-                .iter()
-                .all(|v| {
-                    v.payload
-                        .map(|p| self.is_copy_eligible_inner(p, visiting, mapping, allow_opaque_named))
-                        .unwrap_or(true)
-                }),
+            TypeKind::Enum { variants, .. } => variants.iter().all(|v| {
+                v.payload
+                    .map(|p| self.is_copy_eligible_inner(p, visiting, mapping, allow_opaque_named))
+                    .unwrap_or(true)
+            }),
             TypeKind::Struct { fields, .. } => fields
                 .iter()
                 .all(|f| self.is_copy_eligible_inner(*f, visiting, mapping, allow_opaque_named)),
@@ -658,7 +666,9 @@ impl TypeCtx {
                     .unwrap_or_else(|| self.resolve_id(*base));
                 match self.get_ref(resolved_base) {
                     TypeKind::Struct {
-                        type_params, fields, ..
+                        type_params,
+                        fields,
+                        ..
                     } => {
                         if type_params.len() != args.len() {
                             false
@@ -671,9 +681,14 @@ impl TypeCtx {
                                     .unwrap_or_else(|| self.resolve_id(*arg));
                                 nested.insert(self.resolve_id(*tp), rhs);
                             }
-                            fields
-                                .iter()
-                                .all(|f| self.is_copy_eligible_inner(*f, visiting, &nested, allow_opaque_named))
+                            fields.iter().all(|f| {
+                                self.is_copy_eligible_inner(
+                                    *f,
+                                    visiting,
+                                    &nested,
+                                    allow_opaque_named,
+                                )
+                            })
                         }
                     }
                     TypeKind::Enum {
@@ -694,7 +709,14 @@ impl TypeCtx {
                             }
                             variants.iter().all(|v| {
                                 v.payload
-                                    .map(|p| self.is_copy_eligible_inner(p, visiting, &nested, allow_opaque_named))
+                                    .map(|p| {
+                                        self.is_copy_eligible_inner(
+                                            p,
+                                            visiting,
+                                            &nested,
+                                            allow_opaque_named,
+                                        )
+                                    })
                                     .unwrap_or(true)
                             })
                         }
@@ -727,12 +749,7 @@ impl TypeCtx {
         self.same_type_inner(self.resolve_id(a), self.resolve_id(b), &mut seen)
     }
 
-    fn same_type_inner(
-        &self,
-        a: TypeId,
-        b: TypeId,
-        seen: &mut BTreeSet<(TypeId, TypeId)>,
-    ) -> bool {
+    fn same_type_inner(&self, a: TypeId, b: TypeId, seen: &mut BTreeSet<(TypeId, TypeId)>) -> bool {
         let ra = self.resolve_id(a);
         let rb = self.resolve_id(b);
         if ra == rb {
@@ -848,10 +865,7 @@ impl TypeCtx {
                             }
                     })
             }
-            (
-                TypeKind::Apply { base: ba, args: aa },
-                TypeKind::Apply { base: bb, args: ab },
-            ) => {
+            (TypeKind::Apply { base: ba, args: aa }, TypeKind::Apply { base: bb, args: ab }) => {
                 aa.len() == ab.len()
                     && self.same_type_inner(*ba, *bb, seen)
                     && aa
@@ -1132,7 +1146,14 @@ impl TypeCtx {
                 }
                 Ok(a)
             }
-            (TypeKind::Enum { name: na, type_params: ta, .. }, TypeKind::Apply { base: bb, args: ab }) => {
+            (
+                TypeKind::Enum {
+                    name: na,
+                    type_params: ta,
+                    ..
+                },
+                TypeKind::Apply { base: bb, args: ab },
+            ) => {
                 if ta.len() != ab.len() {
                     return Err(UnifyError::Mismatch);
                 }
@@ -1155,7 +1176,14 @@ impl TypeCtx {
                 }
                 Ok(a)
             }
-            (TypeKind::Apply { base: ba, args: aa }, TypeKind::Enum { name: nb, type_params: tb, .. }) => {
+            (
+                TypeKind::Apply { base: ba, args: aa },
+                TypeKind::Enum {
+                    name: nb,
+                    type_params: tb,
+                    ..
+                },
+            ) => {
                 if aa.len() != tb.len() {
                     return Err(UnifyError::Mismatch);
                 }
@@ -1178,7 +1206,14 @@ impl TypeCtx {
                 }
                 Ok(a)
             }
-            (TypeKind::Struct { name: na, type_params: ta, .. }, TypeKind::Apply { base: bb, args: ab }) => {
+            (
+                TypeKind::Struct {
+                    name: na,
+                    type_params: ta,
+                    ..
+                },
+                TypeKind::Apply { base: bb, args: ab },
+            ) => {
                 if ta.len() != ab.len() {
                     return Err(UnifyError::Mismatch);
                 }
@@ -1201,7 +1236,14 @@ impl TypeCtx {
                 }
                 Ok(a)
             }
-            (TypeKind::Apply { base: ba, args: aa }, TypeKind::Struct { name: nb, type_params: tb, .. }) => {
+            (
+                TypeKind::Apply { base: ba, args: aa },
+                TypeKind::Struct {
+                    name: nb,
+                    type_params: tb,
+                    ..
+                },
+            ) => {
                 if aa.len() != tb.len() {
                     return Err(UnifyError::Mismatch);
                 }
@@ -1224,7 +1266,7 @@ impl TypeCtx {
                 }
                 Ok(a)
             }
-        _ => Err(UnifyError::Mismatch),
+            _ => Err(UnifyError::Mismatch),
         }
     }
 
@@ -1321,14 +1363,18 @@ impl TypeCtx {
                 let mut changed = false;
                 for tp in type_params {
                     let nt = self.substitute_inner(tp, mapping, seen);
-                    if nt != tp { changed = true; }
+                    if nt != tp {
+                        changed = true;
+                    }
                     new_tps.push(nt);
                 }
                 let mut new_vars = Vec::new();
                 for v in variants {
                     let new_payload = v.payload.map(|p| {
                         let np = self.substitute_inner(p, mapping, seen);
-                        if np != p { changed = true; }
+                        if np != p {
+                            changed = true;
+                        }
                         np
                     });
                     new_vars.push(EnumVariantInfo {
@@ -1358,13 +1404,17 @@ impl TypeCtx {
                 let mut changed = false;
                 for tp in type_params {
                     let nt = self.substitute_inner(tp, mapping, seen);
-                    if nt != tp { changed = true; }
+                    if nt != tp {
+                        changed = true;
+                    }
                     new_tps.push(nt);
                 }
                 let mut new_fs = Vec::new();
                 for f in fields {
                     let nf = self.substitute_inner(f, mapping, seen);
-                    if nf != f { changed = true; }
+                    if nf != f {
+                        changed = true;
+                    }
                     new_fs.push(nf);
                 }
                 if changed {
@@ -1384,7 +1434,9 @@ impl TypeCtx {
                 let mut changed = false;
                 for item in items {
                     let ni = self.substitute_inner(item, mapping, seen);
-                    if ni != item { changed = true; }
+                    if ni != item {
+                        changed = true;
+                    }
                     new_items.push(ni);
                 }
                 if changed {
@@ -1403,18 +1455,24 @@ impl TypeCtx {
                 let mut changed = false;
                 for tp in type_params {
                     let nt = self.substitute_inner(tp, mapping, seen);
-                    if nt != tp { changed = true; }
+                    if nt != tp {
+                        changed = true;
+                    }
                     new_tps.push(nt);
                 }
                 let mut new_ps = Vec::new();
                 for p in params {
                     let np = self.substitute_inner(p, mapping, seen);
-                    if np != p { changed = true; }
+                    if np != p {
+                        changed = true;
+                    }
                     new_ps.push(np);
                 }
                 let new_r = self.substitute_inner(result, mapping, seen);
-                if new_r != result { changed = true; }
-                
+                if new_r != result {
+                    changed = true;
+                }
+
                 if changed {
                     self.function(new_tps, new_ps, new_r, effect)
                 } else {
@@ -1426,12 +1484,16 @@ impl TypeCtx {
                 let mut changed = false;
                 for a in args {
                     let na = self.substitute_inner(a, mapping, seen);
-                    if na != a { changed = true; }
+                    if na != a {
+                        changed = true;
+                    }
                     new_args.push(na);
                 }
                 let new_base = self.substitute_inner(base, mapping, seen);
-                if new_base != base { changed = true; }
-                
+                if new_base != base {
+                    changed = true;
+                }
+
                 if changed {
                     self.apply(new_base, new_args)
                 } else {
@@ -1537,9 +1599,7 @@ impl TypeCtx {
             TypeKind::Never => String::from("never"),
             TypeKind::Named(name) => name.clone(),
             TypeKind::Enum {
-                name,
-                type_params,
-                ..
+                name, type_params, ..
             } => {
                 if type_params.is_empty() {
                     name.clone()
@@ -1556,9 +1616,7 @@ impl TypeCtx {
                 }
             }
             TypeKind::Struct {
-                name,
-                type_params,
-                ..
+                name, type_params, ..
             } => {
                 if type_params.is_empty() {
                     name.clone()

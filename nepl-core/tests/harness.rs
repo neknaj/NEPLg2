@@ -27,7 +27,9 @@ pub fn compile_src(src: &str) -> Vec<u8> {
 /// Compile source with explicit options (uses Loader to resolve imports).
 pub fn compile_src_with_options(src: &str, options: CompileOptions) -> Vec<u8> {
     let mut loader = Loader::new(stdlib_root());
-    let loaded = loader.load_inline(PathBuf::from("test.nepl"), src.to_string()).expect("load");
+    let loaded = loader
+        .load_inline(PathBuf::from("test.nepl"), src.to_string())
+        .expect("load");
     let artifact = compile_module(loaded.module, options).expect("compile failure");
     artifact.wasm
 }
@@ -286,12 +288,7 @@ pub fn run_main_wasi_i32(src: &str) -> i32 {
                     return 21;
                 }
                 let argc = caller.data().args.len() as u32;
-                let buf_size: u32 = caller
-                    .data()
-                    .args
-                    .iter()
-                    .map(|a| a.len() as u32)
-                    .sum();
+                let buf_size: u32 = caller.data().args.iter().map(|a| a.len() as u32).sum();
                 let mem_len = memory.data(&caller).len();
                 let argc_offset = argc_ptr as usize;
                 let buf_offset = argv_buf_size_ptr as usize;
@@ -335,10 +332,7 @@ pub fn run_main_wasi_i32(src: &str) -> i32 {
                         return 21;
                     }
                     let ptr_bytes = (buf_offset as u32).to_le_bytes();
-                    if memory
-                        .write(&mut caller, argv_offset, &ptr_bytes)
-                        .is_err()
-                    {
+                    if memory.write(&mut caller, argv_offset, &ptr_bytes).is_err() {
                         return 21;
                     }
                     if buf_offset + arg.len() > mem_len {
@@ -433,9 +427,9 @@ pub fn run_main_wasi_i32(src: &str) -> i32 {
                     if offset + 8 > data_snapshot.len() {
                         return 21;
                     }
-                    let base = u32::from_le_bytes(
-                        data_snapshot[offset..offset + 4].try_into().unwrap(),
-                    ) as usize;
+                    let base =
+                        u32::from_le_bytes(data_snapshot[offset..offset + 4].try_into().unwrap())
+                            as usize;
                     let len = u32::from_le_bytes(
                         data_snapshot[offset + 4..offset + 8].try_into().unwrap(),
                     ) as usize;
@@ -511,9 +505,9 @@ pub fn run_main_wasi_i32(src: &str) -> i32 {
                     if offset + 8 > data_snapshot.len() {
                         return 21;
                     }
-                    let base = u32::from_le_bytes(
-                        data_snapshot[offset..offset + 4].try_into().unwrap(),
-                    ) as usize;
+                    let base =
+                        u32::from_le_bytes(data_snapshot[offset..offset + 4].try_into().unwrap())
+                            as usize;
                     let len = u32::from_le_bytes(
                         data_snapshot[offset + 4..offset + 8].try_into().unwrap(),
                     ) as usize;
@@ -1083,8 +1077,10 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
             "args_sizes_get",
             |mut caller: Caller<'_, ()>, argc_ptr: i32, argv_buf_size_ptr: i32| -> i32 {
                 if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
-                    mem.write(&mut caller, argc_ptr as usize, &0u32.to_le_bytes()).ok();
-                    mem.write(&mut caller, argv_buf_size_ptr as usize, &0u32.to_le_bytes()).ok();
+                    mem.write(&mut caller, argc_ptr as usize, &0u32.to_le_bytes())
+                        .ok();
+                    mem.write(&mut caller, argv_buf_size_ptr as usize, &0u32.to_le_bytes())
+                        .ok();
                 }
                 0
             },
@@ -1122,12 +1118,12 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
                         if off + 8 > data_snapshot.len() {
                             break;
                         }
-                        let ptr = u32::from_le_bytes(
-                            data_snapshot[off..off + 4].try_into().unwrap(),
-                        ) as usize;
-                        let len = u32::from_le_bytes(
-                            data_snapshot[off + 4..off + 8].try_into().unwrap(),
-                        ) as usize;
+                        let ptr =
+                            u32::from_le_bytes(data_snapshot[off..off + 4].try_into().unwrap())
+                                as usize;
+                        let len =
+                            u32::from_le_bytes(data_snapshot[off + 4..off + 8].try_into().unwrap())
+                                as usize;
                         if ptr + len > data_snapshot.len() {
                             break;
                         }
@@ -1304,8 +1300,7 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
                         } else {
                             0
                         };
-                        mem.write(&mut caller, hdr as usize, &sz.to_le_bytes())
-                            .ok();
+                        mem.write(&mut caller, hdr as usize, &sz.to_le_bytes()).ok();
                         mem.write(&mut caller, (hdr + 4) as usize, &cur_head.to_le_bytes())
                             .ok();
                         mem.write(&mut caller, 4usize, &hdr.to_le_bytes()).ok();

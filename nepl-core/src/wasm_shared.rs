@@ -92,9 +92,13 @@ fn has_unbound_type_var(ctx: &TypeCtx, ty: TypeId) -> bool {
             Some(next) => has_unbound_type_var(ctx, next),
             None => true,
         },
-        TypeKind::Enum { type_params, .. } => type_params.iter().any(|t| has_unbound_type_var(ctx, *t)),
+        TypeKind::Enum { type_params, .. } => {
+            type_params.iter().any(|t| has_unbound_type_var(ctx, *t))
+        }
         TypeKind::Struct {
-            type_params, fields, ..
+            type_params,
+            fields,
+            ..
         } => {
             type_params.iter().any(|t| has_unbound_type_var(ctx, *t))
                 || fields.iter().any(|t| has_unbound_type_var(ctx, *t))
@@ -110,17 +114,15 @@ fn has_unbound_type_var(ctx: &TypeCtx, ty: TypeId) -> bool {
                 || params.iter().any(|t| has_unbound_type_var(ctx, *t))
                 || has_unbound_type_var(ctx, result)
         }
-        TypeKind::Apply { base, args } => {
-            match ctx.get(ctx.resolve_id(base)) {
-                TypeKind::Enum { .. } | TypeKind::Struct { .. } => {
-                    args.iter().any(|t| has_unbound_type_var(ctx, *t))
-                }
-                _ => {
-                    has_unbound_type_var(ctx, base)
-                        || args.iter().any(|t| has_unbound_type_var(ctx, *t))
-                }
+        TypeKind::Apply { base, args } => match ctx.get(ctx.resolve_id(base)) {
+            TypeKind::Enum { .. } | TypeKind::Struct { .. } => {
+                args.iter().any(|t| has_unbound_type_var(ctx, *t))
             }
-        }
+            _ => {
+                has_unbound_type_var(ctx, base)
+                    || args.iter().any(|t| has_unbound_type_var(ctx, *t))
+            }
+        },
         TypeKind::Box(inner) | TypeKind::Reference(inner, _) => has_unbound_type_var(ctx, inner),
         _ => false,
     }
@@ -303,7 +305,11 @@ pub(crate) fn collect_reachable_wasm_functions(module: &HirModule) -> BTreeSet<S
     reachable
 }
 
-fn collect_indirect_sigs(expr: &HirExpr, out: &mut Vec<(Vec<ValType>, Vec<ValType>)>, ctx: &TypeCtx) {
+fn collect_indirect_sigs(
+    expr: &HirExpr,
+    out: &mut Vec<(Vec<ValType>, Vec<ValType>)>,
+    ctx: &TypeCtx,
+) {
     match &expr.kind {
         HirExprKind::CallIndirect {
             callee,

@@ -141,29 +141,38 @@ impl MoveCheckContext {
             }
             Some(VarState::BorrowedShared) => {
                 if !is_copy {
-                    self.diagnostics.push(Diagnostic::error(
-                        alloc::format!("cannot move out of shared borrowed value: `{}`", name),
-                        span,
-                    ).with_id(DiagnosticId::TypeMoveFromSharedBorrowedValue));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!("cannot move out of shared borrowed value: `{}`", name),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeMoveFromSharedBorrowedValue),
+                    );
                 }
             }
             Some(VarState::BorrowedUnique) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("use of uniquely borrowed value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeUseUniquelyBorrowedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("use of uniquely borrowed value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeUseUniquelyBorrowedValue),
+                );
             }
             Some(VarState::Moved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("use of moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeUseMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(alloc::format!("use of moved value: `{}`", name), span)
+                        .with_id(DiagnosticId::TypeUseMovedValue),
+                );
             }
             Some(VarState::PossiblyMoved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("use of potentially moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeUsePossiblyMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("use of potentially moved value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeUsePossiblyMovedValue),
+                );
             }
             None => {}
         }
@@ -178,16 +187,22 @@ impl MoveCheckContext {
     fn check_assign(&mut self, name: &str, span: Span) {
         match self.get_state(name) {
             Some(VarState::BorrowedShared) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("cannot assign to shared borrowed value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeAssignSharedBorrowedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("cannot assign to shared borrowed value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeAssignSharedBorrowedValue),
+                );
             }
             Some(VarState::BorrowedUnique) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("cannot assign to uniquely borrowed value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeAssignUniquelyBorrowedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("cannot assign to uniquely borrowed value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeAssignUniquelyBorrowedValue),
+                );
             }
             _ => {
                 self.set_state(name, VarState::Valid);
@@ -199,28 +214,37 @@ impl MoveCheckContext {
         match self.get_state(name) {
             Some(VarState::Valid) => self.set_state(name, VarState::Moved),
             Some(VarState::BorrowedShared) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("cannot drop shared borrowed value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeDropSharedBorrowedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("cannot drop shared borrowed value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeDropSharedBorrowedValue),
+                );
             }
             Some(VarState::BorrowedUnique) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("cannot drop uniquely borrowed value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeDropUniquelyBorrowedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("cannot drop uniquely borrowed value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeDropUniquelyBorrowedValue),
+                );
             }
             Some(VarState::Moved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("drop of moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeDropMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(alloc::format!("drop of moved value: `{}`", name), span)
+                        .with_id(DiagnosticId::TypeDropMovedValue),
+                );
             }
             Some(VarState::PossiblyMoved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("drop of potentially moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeDropPossiblyMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("drop of potentially moved value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeDropPossiblyMovedValue),
+                );
             }
             None => {}
         }
@@ -241,32 +265,41 @@ impl MoveCheckContext {
             Some(VarState::BorrowedShared) => match kind {
                 BorrowKind::Shared => {}
                 BorrowKind::Unique => {
-                    self.diagnostics.push(Diagnostic::error(
-                        alloc::format!(
-                            "cannot uniquely borrow shared borrowed value: `{}`",
-                            name
-                        ),
-                        span,
-                    ).with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!(
+                                "cannot uniquely borrow shared borrowed value: `{}`",
+                                name
+                            ),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue),
+                    );
                 }
             },
             Some(VarState::BorrowedUnique) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("cannot borrow uniquely borrowed value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("cannot borrow uniquely borrowed value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue),
+                );
             }
             Some(VarState::Moved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("borrow of moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeBorrowMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(alloc::format!("borrow of moved value: `{}`", name), span)
+                        .with_id(DiagnosticId::TypeBorrowMovedValue),
+                );
             }
             Some(VarState::PossiblyMoved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("borrow of potentially moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeBorrowPossiblyMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("borrow of potentially moved value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
+                );
             }
             None => {}
         }
@@ -280,32 +313,41 @@ impl MoveCheckContext {
             Some(VarState::Valid) => {}
             Some(VarState::BorrowedShared) => {
                 if matches!(kind, BorrowKind::Unique) {
-                    self.diagnostics.push(Diagnostic::error(
-                        alloc::format!(
-                            "cannot uniquely borrow shared borrowed value: `{}`",
-                            name
-                        ),
-                        span,
-                    ).with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!(
+                                "cannot uniquely borrow shared borrowed value: `{}`",
+                                name
+                            ),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue),
+                    );
                 }
             }
             Some(VarState::BorrowedUnique) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("cannot borrow uniquely borrowed value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("cannot borrow uniquely borrowed value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue),
+                );
             }
             Some(VarState::Moved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("borrow of moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeBorrowMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(alloc::format!("borrow of moved value: `{}`", name), span)
+                        .with_id(DiagnosticId::TypeBorrowMovedValue),
+                );
             }
             Some(VarState::PossiblyMoved) => {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("borrow of potentially moved value: `{}`", name),
-                    span,
-                ).with_id(DiagnosticId::TypeBorrowPossiblyMovedValue));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("borrow of potentially moved value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
+                );
             }
             None => {}
         }
@@ -424,8 +466,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                     }
                     ctx.undo_history(&else_diff);
 
-                    let mut all_modified: BTreeSet<String> =
-                        then_diff.keys().cloned().collect();
+                    let mut all_modified: BTreeSet<String> = then_diff.keys().cloned().collect();
                     all_modified.extend(else_diff.keys().cloned());
 
                     for name in all_modified {
@@ -456,13 +497,21 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                         let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
                         ctx.set_state(&name, merged);
                         if matches!(merged, VarState::PossiblyMoved)
-                            && matches!(start_state, VarState::Valid | VarState::BorrowedShared | VarState::BorrowedUnique)
+                            && matches!(
+                                start_state,
+                                VarState::Valid
+                                    | VarState::BorrowedShared
+                                    | VarState::BorrowedUnique
+                            )
                             && matches!(end_state, VarState::Moved | VarState::PossiblyMoved)
                         {
-                            ctx.diagnostics.push(Diagnostic::error(
-                                alloc::format!("potentially moved value: `{}`", name),
-                                args[1].span,
-                            ).with_id(DiagnosticId::TypeLoopPotentiallyMovedValue));
+                            ctx.diagnostics.push(
+                                Diagnostic::error(
+                                    alloc::format!("potentially moved value: `{}`", name),
+                                    args[1].span,
+                                )
+                                .with_id(DiagnosticId::TypeLoopPotentiallyMovedValue),
+                            );
                         }
                     }
                     visit_expr(&args[0], ctx, tctx);
@@ -540,13 +589,19 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
                 ctx.set_state(&name, merged);
                 if matches!(merged, VarState::PossiblyMoved)
-                    && matches!(start_state, VarState::Valid | VarState::BorrowedShared | VarState::BorrowedUnique)
+                    && matches!(
+                        start_state,
+                        VarState::Valid | VarState::BorrowedShared | VarState::BorrowedUnique
+                    )
                     && matches!(end_state, VarState::Moved | VarState::PossiblyMoved)
                 {
-                    ctx.diagnostics.push(Diagnostic::error(
-                        alloc::format!("potentially moved value: `{}`", name),
-                        expr.span,
-                    ).with_id(DiagnosticId::TypeLoopPotentiallyMovedValue));
+                    ctx.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!("potentially moved value: `{}`", name),
+                            expr.span,
+                        )
+                        .with_id(DiagnosticId::TypeLoopPotentiallyMovedValue),
+                    );
                 }
             }
             visit_expr(cond, ctx, tctx);
@@ -631,36 +686,34 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             name,
             type_args,
             args,
-        } => {
-            match name.as_str() {
-                "load" => {
-                    let is_copy_load = type_args
-                        .get(0)
-                        .map(|ty| tctx.is_copy(*ty))
-                        .unwrap_or(false);
-                    if let Some(addr) = args.get(0) {
-                        if is_copy_load {
-                            visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Shared);
-                        } else if !visit_field_move_source(addr, ctx, tctx) {
-                            visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Unique);
-                        }
-                    }
-                }
-                "store" => {
-                    if let Some(addr) = args.get(0) {
+        } => match name.as_str() {
+            "load" => {
+                let is_copy_load = type_args
+                    .get(0)
+                    .map(|ty| tctx.is_copy(*ty))
+                    .unwrap_or(false);
+                if let Some(addr) = args.get(0) {
+                    if is_copy_load {
+                        visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Shared);
+                    } else if !visit_field_move_source(addr, ctx, tctx) {
                         visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Unique);
-                    }
-                    if let Some(val) = args.get(1) {
-                        visit_expr(val, ctx, tctx);
-                    }
-                }
-                _ => {
-                    for arg in args {
-                        visit_expr(arg, ctx, tctx);
                     }
                 }
             }
-        }
+            "store" => {
+                if let Some(addr) = args.get(0) {
+                    visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Unique);
+                }
+                if let Some(val) = args.get(1) {
+                    visit_expr(val, ctx, tctx);
+                }
+            }
+            _ => {
+                for arg in args {
+                    visit_expr(arg, ctx, tctx);
+                }
+            }
+        },
         HirExprKind::AddrOf(inner) => {
             visit_borrow(inner, ctx, tctx, BorrowKind::Shared);
         }

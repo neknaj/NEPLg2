@@ -6,7 +6,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use nepl_core::ast::{Block, Directive, FnBody, MatchArm, Module, PrefixExpr, PrefixItem, Stmt, Symbol};
+use nepl_core::ast::{
+    Block, Directive, FnBody, MatchArm, Module, PrefixExpr, PrefixItem, Stmt, Symbol,
+};
 use nepl_core::compiler::BuildProfile;
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_ids::DiagnosticId;
@@ -275,7 +277,13 @@ impl NameResolutionTrace {
         }
     }
 
-    fn define(&mut self, name: String, kind: &'static str, span: Span, doc: Option<String>) -> usize {
+    fn define(
+        &mut self,
+        name: String,
+        kind: &'static str,
+        span: Span,
+        doc: Option<String>,
+    ) -> usize {
         let existing_candidates = self.lookup_candidates(&name);
         let id = self.defs.len();
         let depth = self.current_depth();
@@ -298,7 +306,10 @@ impl NameResolutionTrace {
                 "info"
             };
             let message = if severity == "warning" {
-                format!("important symbol '{}' is shadowed by {} definition", name, kind)
+                format!(
+                    "important symbol '{}' is shadowed by {} definition",
+                    name, kind
+                )
             } else {
                 format!("'{}' shadows an outer definition", name)
             };
@@ -464,7 +475,14 @@ pub fn analyze_semantics(source: &str) -> SemanticsAnalysis {
     let tokens = lex_result.tokens.clone();
     let token_infos = tokens_to_editor(source, None, &tokens);
     let parse_result = parse_tokens(file_id, lex_result);
-    analyze_semantics_from_parts(source, None, tokens, token_infos, parse_result.module, parse_result.diagnostics)
+    analyze_semantics_from_parts(
+        source,
+        None,
+        tokens,
+        token_infos,
+        parse_result.module,
+        parse_result.diagnostics,
+    )
 }
 
 pub fn analyze_loaded_semantics(source: &str, loaded: &LoadResult) -> SemanticsAnalysis {
@@ -472,7 +490,14 @@ pub fn analyze_loaded_semantics(source: &str, loaded: &LoadResult) -> SemanticsA
     let lex_result = lex(file_id, source);
     let tokens = lex_result.tokens.clone();
     let token_infos = tokens_to_editor(source, Some(&loaded.source_map), &tokens);
-    analyze_semantics_from_loaded(source, Some(&loaded.source_map), tokens, token_infos, &loaded.module, lex_result.diagnostics)
+    analyze_semantics_from_loaded(
+        source,
+        Some(&loaded.source_map),
+        tokens,
+        token_infos,
+        &loaded.module,
+        lex_result.diagnostics,
+    )
 }
 
 fn analyze_semantics_from_parts(
@@ -641,7 +666,13 @@ fn build_semantics_output(
         .iter()
         .map(|item| semantic_token_to_editor(source, source_map, item))
         .collect::<Vec<_>>();
-    let token_hints = build_token_hints(source, source_map, tokens, &token_semantics_trace, resolve_trace);
+    let token_hints = build_token_hints(
+        source,
+        source_map,
+        tokens,
+        &token_semantics_trace,
+        resolve_trace,
+    );
 
     SemanticsAnalysis {
         ok,
@@ -665,7 +696,12 @@ fn build_token_resolution(
     let mut out = Vec::new();
     for token in tokens {
         if let Some(reference) = best_ref_for_token(resolve_trace, token.span) {
-            out.push(ref_trace_to_editor(source, source_map, reference, &resolve_trace.defs));
+            out.push(ref_trace_to_editor(
+                source,
+                source_map,
+                reference,
+                &resolve_trace.defs,
+            ));
         }
     }
     out
@@ -726,29 +762,35 @@ fn build_token_hints(
         let semantics = token_semantics.get(token_index);
         let reference = best_ref_for_token(resolve_trace, token.span);
 
-        let (resolved_definition, candidate_definitions, candidate_def_ids, resolved_def_id, name, ref_range) =
-            if let Some(reference) = reference {
-                let resolved_definition = reference
-                    .resolved_def_id
-                    .and_then(|id| resolve_trace.defs.get(id))
-                    .map(|def| def_trace_to_editor(source, source_map, def));
-                let candidate_definitions = reference
-                    .candidate_def_ids
-                    .iter()
-                    .filter_map(|id| resolve_trace.defs.get(*id))
-                    .map(|def| def_trace_to_editor(source, source_map, def))
-                    .collect::<Vec<_>>();
-                (
-                    resolved_definition,
-                    candidate_definitions,
-                    reference.candidate_def_ids.clone(),
-                    reference.resolved_def_id,
-                    Some(reference.name.clone()),
-                    Some(range_from_span(source, source_map, reference.span)),
-                )
-            } else {
-                (None, Vec::new(), Vec::new(), None, None, None)
-            };
+        let (
+            resolved_definition,
+            candidate_definitions,
+            candidate_def_ids,
+            resolved_def_id,
+            name,
+            ref_range,
+        ) = if let Some(reference) = reference {
+            let resolved_definition = reference
+                .resolved_def_id
+                .and_then(|id| resolve_trace.defs.get(id))
+                .map(|def| def_trace_to_editor(source, source_map, def));
+            let candidate_definitions = reference
+                .candidate_def_ids
+                .iter()
+                .filter_map(|id| resolve_trace.defs.get(*id))
+                .map(|def| def_trace_to_editor(source, source_map, def))
+                .collect::<Vec<_>>();
+            (
+                resolved_definition,
+                candidate_definitions,
+                reference.candidate_def_ids.clone(),
+                reference.resolved_def_id,
+                Some(reference.name.clone()),
+                Some(range_from_span(source, source_map, reference.span)),
+            )
+        } else {
+            (None, Vec::new(), Vec::new(), None, None, None)
+        };
 
         out.push(TokenHintInfo {
             token_index,
@@ -907,7 +949,10 @@ fn def_trace_to_editor(
         range: range_from_span(source, source_map, definition.span),
         scope_depth: definition.scope_depth,
         doc: definition.doc.clone(),
-        doc_ast: definition.doc.as_ref().map(|doc| nepl_core::nm::parse_document(doc)),
+        doc_ast: definition
+            .doc
+            .as_ref()
+            .map(|doc| nepl_core::nm::parse_document(doc)),
     }
 }
 
@@ -1163,7 +1208,9 @@ fn hoist_block_defs(trace: &mut NameResolutionTrace, block: &Block) {
                 );
             }
             Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
-                if let Some(PrefixItem::Symbol(Symbol::Let { name, mutable, .. })) = expr.items.first() {
+                if let Some(PrefixItem::Symbol(Symbol::Let { name, mutable, .. })) =
+                    expr.items.first()
+                {
                     if !*mutable {
                         trace.define(name.name.clone(), "let_hoisted", name.span, None);
                     }
@@ -1276,7 +1323,12 @@ fn trace_stmt(trace: &mut NameResolutionTrace, stmt: &Stmt) {
         },
         Stmt::FnAlias(alias) => {
             trace.reference(alias.target.name.clone(), alias.target.span);
-            trace.define(alias.name.name.clone(), "fn_alias", alias.name.span, alias.doc.clone());
+            trace.define(
+                alias.name.name.clone(),
+                "fn_alias",
+                alias.name.span,
+                alias.doc.clone(),
+            );
         }
         Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
             trace_prefix_expr(trace, expr);
@@ -1292,7 +1344,10 @@ fn trace_block(trace: &mut NameResolutionTrace, block: &Block) {
     }
 }
 
-fn best_ref_for_token<'a>(trace: &'a NameResolutionTrace, token_span: Span) -> Option<&'a NameRefTrace> {
+fn best_ref_for_token<'a>(
+    trace: &'a NameResolutionTrace,
+    token_span: Span,
+) -> Option<&'a NameRefTrace> {
     let mut best: Option<&NameRefTrace> = None;
     for reference in &trace.refs {
         if span_contains(reference.span, token_span) {
@@ -1507,7 +1562,10 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
                         diagnostics.push(
                             Diagnostic::error("multiple #target directives are not allowed", *span)
                                 .with_id(DiagnosticId::MultipleTargetDirective)
-                                .with_secondary_label(prev_span, Some("previous #target here".into())),
+                                .with_secondary_label(
+                                    prev_span,
+                                    Some("previous #target here".into()),
+                                ),
                         );
                     } else {
                         found = Some((target, *span));
@@ -1522,7 +1580,12 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
         }
     }
 
-    (found.map(|(target, _)| target).unwrap_or(CompileTarget::Wasm), diagnostics)
+    (
+        found
+            .map(|(target, _)| target)
+            .unwrap_or(CompileTarget::Wasm),
+        diagnostics,
+    )
 }
 
 fn parse_target_name(target: &str) -> Option<CompileTarget> {
@@ -1547,7 +1610,10 @@ mod tests {
         let source = "//: adds numbers\nfn add <(i32,i32)->i32> (a,b):\n    add a b;\n";
         let analysis = analyze_lex(source);
         assert!(analysis.ok);
-        assert!(analysis.tokens.iter().any(|token| token.kind == "DocComment"));
+        assert!(analysis
+            .tokens
+            .iter()
+            .any(|token| token.kind == "DocComment"));
     }
 
     #[test]
@@ -1589,18 +1655,27 @@ fn main <()->i32> ():
             if path.ends_with("dep.nepl") {
                 Ok("#no_prelude\n//: from dep\nfn dep_value <()->i32> ():\n    7\n".to_string())
             } else {
-                Err(LoaderError::Io(format!("missing source: {}", path.display())))
+                Err(LoaderError::Io(format!(
+                    "missing source: {}",
+                    path.display()
+                )))
             }
         };
         let loaded = load_inline_module_with_provider("/stdlib", entry_path, source, &mut provider)
             .expect("load module with provider");
-        let analysis = analyze_loaded_name_resolution(source, &loaded, NameResolutionOptions::default());
+        let analysis =
+            analyze_loaded_name_resolution(source, &loaded, NameResolutionOptions::default());
         let reference = analysis
             .references
             .iter()
-            .find(|reference| reference.name == "dep_value" && reference.resolved_definition.is_some())
+            .find(|reference| {
+                reference.name == "dep_value" && reference.resolved_definition.is_some()
+            })
             .expect("resolved dep_value");
-        let resolved = reference.resolved_definition.clone().expect("resolved definition");
+        let resolved = reference
+            .resolved_definition
+            .clone()
+            .expect("resolved definition");
         assert_eq!(resolved.doc.as_deref(), Some("from dep"));
         assert!(resolved.range.path.is_some());
     }

@@ -79,7 +79,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until String type is implemented
+#[should_panic] // Will panic until String type is implemented
 fn test_string_to_str_implicit_conversion() {
     // String -> str should be allowed implicitly (borrowing)
     // This test assumes we have a print function that takes `str`
@@ -96,7 +96,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until String constructor is implemented
+#[should_panic] // Will panic until String constructor is implemented
 fn test_str_to_string_explicit_conversion_constructor() {
     // str -> String should require explicit conversion (allocation)
     // Approach A: Constructor function
@@ -113,7 +113,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until to_string is implemented
+#[should_panic] // Will panic until to_string is implemented
 fn test_str_to_string_explicit_conversion_function() {
     // str -> String should require explicit conversion (allocation)
     // Approach B: Standard function
@@ -144,7 +144,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until String type is implemented
+#[should_panic] // Will panic until String type is implemented
 fn test_string_ownership() {
     // `String` should have ownership - should be moved, not copied
     let src = r#"
@@ -160,7 +160,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Should panic with move check error
+#[should_panic] // Should panic with move check error
 fn test_string_use_after_move() {
     // Using String after move should be an error
     let src = r#"
@@ -175,7 +175,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until borrowing is implemented
+#[should_panic] // Will panic until borrowing is implemented
 fn test_str_from_string_borrow() {
     // Creating a str view from String (borrowing)
     let src = r#"
@@ -219,7 +219,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic] 
+#[should_panic]
 fn test_mlstr_missing_prefix() {
     // Lines without ##: prefix should be an error
     let src = r#"
@@ -250,7 +250,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until concat/StringBuilder is implemented
+#[should_panic] // Will panic until concat/StringBuilder is implemented
 fn test_string_concatenation() {
     // String concatenation should use StringBuilder for O(n) performance
     let src = r#"
@@ -294,7 +294,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until str_eq is implemented
+#[should_panic] // Will panic until str_eq is implemented
 fn test_str_comparison() {
     // String comparison operations
     let src = r#"
@@ -311,7 +311,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until these functions are implemented
+#[should_panic] // Will panic until these functions are implemented
 fn test_str_operations() {
     // Common string operations should work on str
     let src = r#"
@@ -328,7 +328,7 @@ fn main <()*>()> ():
 }
 
 #[test]
-#[should_panic]  // Will panic until StringBuilder is implemented
+#[should_panic] // Will panic until StringBuilder is implemented
 fn test_string_builder() {
     // StringBuilder for efficient string building
     let src = r#"

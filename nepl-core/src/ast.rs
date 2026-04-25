@@ -93,7 +93,9 @@ pub enum Symbol {
         mutable: bool,
         no_shadow: bool,
     },
-    Set { name: Ident },
+    Set {
+        name: Ident,
+    },
     If(Span),
     While(Span),
     AddrOf(Span),

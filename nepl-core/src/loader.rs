@@ -31,12 +31,12 @@ impl core::fmt::Display for LoaderError {
 }
 
 impl std::error::Error for LoaderError {}
- 
- impl From<CoreError> for LoaderError {
-     fn from(e: CoreError) -> Self {
-         LoaderError::Core(e)
-     }
- }
+
+impl From<CoreError> for LoaderError {
+    fn from(e: CoreError) -> Self {
+        LoaderError::Core(e)
+    }
+}
 
 /// Holds all loaded sources and their assigned FileId.
 #[derive(Debug, Clone)]
@@ -185,7 +185,10 @@ impl Loader {
                 return Err(e);
             }
         };
-        std::eprintln!("[Loader] load_inline_with_provider: success. cache_size={}", cache.len());
+        std::eprintln!(
+            "[Loader] load_inline_with_provider: success. cache_size={}",
+            cache.len()
+        );
         self.source_map = sm.clone();
         Ok(LoadResult {
             module,
@@ -268,7 +271,11 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
-        std::eprintln!("[Loader] load_from_contents_with: path={:?}, canon={:?}", path, canon);
+        std::eprintln!(
+            "[Loader] load_from_contents_with: path={:?}, canon={:?}",
+            path,
+            canon
+        );
         if let Some(m) = cache.get(&canon) {
             return Ok(m.clone());
         }
@@ -296,7 +303,6 @@ impl Loader {
         std::eprintln!("[Loader] finished contents for {:?}", canon);
         Ok(module)
     }
-
 
     fn load_file(
         &self,
@@ -691,7 +697,12 @@ impl Loader {
         if p.extension().is_none() {
             p = p.with_extension("nepl");
         }
-        std::eprintln!("[Loader] resolve_path: base={:?}, spec={:?} -> {:?}", base, spec, p);
+        std::eprintln!(
+            "[Loader] resolve_path: base={:?}, spec={:?} -> {:?}",
+            base,
+            spec,
+            p
+        );
         p
     }
 }

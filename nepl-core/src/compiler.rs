@@ -149,7 +149,10 @@ impl<'a> TargetGateParser<'a> {
 
 fn target_gate_atom_allows(gate: &str, active: CompileTarget) -> bool {
     match gate {
-        "wasm" => matches!(active, CompileTarget::Wasm | CompileTarget::Wasi | CompileTarget::Wasix),
+        "wasm" => matches!(
+            active,
+            CompileTarget::Wasm | CompileTarget::Wasi | CompileTarget::Wasix
+        ),
         // bare_wasm: plain WASM without WASI (use for stubs that conflict with wasi extern decls)
         "bare_wasm" => matches!(active, CompileTarget::Wasm),
         "wasi" => matches!(active, CompileTarget::Wasi | CompileTarget::Wasix),
@@ -369,7 +372,8 @@ pub fn prepare_module_for_codegen_with_source_map(
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
 ) -> Result<PreparedProgram, CoreError> {
-    let precheck_diags = crate::target_precheck::precheck_module_before_codegen(module, target, profile);
+    let precheck_diags =
+        crate::target_precheck::precheck_module_before_codegen(module, target, profile);
     if precheck_diags
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
@@ -466,7 +470,9 @@ fn resolve_hir_entry_name(
 
 fn find_entry_directive_span(module: &ast::Module, entry: &str) -> Option<Span> {
     module.root.items.iter().find_map(|stmt| match stmt {
-        ast::Stmt::Directive(ast::Directive::Entry { name }) if name.name == entry => Some(name.span),
+        ast::Stmt::Directive(ast::Directive::Entry { name }) if name.name == entry => {
+            Some(name.span)
+        }
         _ => None,
     })
 }
@@ -484,10 +490,7 @@ fn find_mangled_signature_separator(name: &str) -> Option<usize> {
     None
 }
 
-fn collect_reachable_functions(
-    module: &crate::hir::HirModule,
-    entry: &str,
-) -> Vec<String> {
+fn collect_reachable_functions(module: &crate::hir::HirModule, entry: &str) -> Vec<String> {
     let mut function_map: BTreeMap<String, &crate::hir::HirFunction> = BTreeMap::new();
     for f in &module.functions {
         function_map.insert(f.name.clone(), f);
@@ -507,10 +510,7 @@ fn collect_reachable_functions(
     visited.into_iter().collect()
 }
 
-fn collect_called_functions_from_body(
-    body: &crate::hir::HirBody,
-    stack: &mut Vec<String>,
-) {
+fn collect_called_functions_from_body(body: &crate::hir::HirBody, stack: &mut Vec<String>) {
     match body {
         crate::hir::HirBody::Block(block) => collect_called_functions_from_block(block, stack),
         crate::hir::HirBody::Wasm(_) => {}
@@ -541,19 +541,13 @@ fn collect_called_functions_from_body(
     }
 }
 
-fn collect_called_functions_from_block(
-    block: &crate::hir::HirBlock,
-    stack: &mut Vec<String>,
-) {
+fn collect_called_functions_from_block(block: &crate::hir::HirBlock, stack: &mut Vec<String>) {
     for line in &block.lines {
         collect_called_functions_from_expr(&line.expr, stack);
     }
 }
 
-fn collect_called_functions_from_expr(
-    expr: &crate::hir::HirExpr,
-    stack: &mut Vec<String>,
-) {
+fn collect_called_functions_from_expr(expr: &crate::hir::HirExpr, stack: &mut Vec<String>) {
     match &expr.kind {
         crate::hir::HirExprKind::Call { callee, args } => {
             if let crate::hir::FuncRef::User(name, _) = callee {
@@ -754,7 +748,11 @@ fn build_wat_comments(types: &crate::types::TypeCtx, module: &crate::hir::HirMod
         if !func.params.is_empty() {
             out.push_str("  params:\n");
             for p in &func.params {
-                out.push_str(&format!("    {} : {}\n", p.name, types.type_to_string(p.ty)));
+                out.push_str(&format!(
+                    "    {} : {}\n",
+                    p.name,
+                    types.type_to_string(p.ty)
+                ));
             }
         }
         let mut locals: BTreeMap<String, crate::types::TypeId> = BTreeMap::new();
@@ -842,8 +840,7 @@ fn collect_expr_locals(
                 collect_expr_locals(arg, locals);
             }
         }
-        crate::hir::HirExprKind::AddrOf(inner)
-        | crate::hir::HirExprKind::Deref(inner) => {
+        crate::hir::HirExprKind::AddrOf(inner) | crate::hir::HirExprKind::Deref(inner) => {
             collect_expr_locals(inner, locals);
         }
         crate::hir::HirExprKind::Block(block) => {
@@ -897,12 +894,14 @@ fn resolve_target(
                 let parsed = parse_target_name(target.as_str());
                 if let Some(t) = parsed {
                     if let Some((_, prev_span)) = found {
-                        diags.push(Diagnostic::error(
-                            "multiple #target directives are not allowed",
-                            *span,
-                        )
-                        .with_id(DiagnosticId::MultipleTargetDirective)
-                        .with_secondary_label(prev_span, Some("previous #target here".into())));
+                        diags.push(
+                            Diagnostic::error("multiple #target directives are not allowed", *span)
+                                .with_id(DiagnosticId::MultipleTargetDirective)
+                                .with_secondary_label(
+                                    prev_span,
+                                    Some("previous #target here".into()),
+                                ),
+                        );
                     } else {
                         found = Some((t, *span));
                     }

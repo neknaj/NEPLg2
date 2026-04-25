@@ -94,7 +94,8 @@ pub fn precheck_llvm_codegen(
         }
         if let HirBody::Block(block) = &f.body {
             let result_kind = ctx.get(ctx.resolve_id(f.result));
-            if !matches!(result_kind, crate::types::TypeKind::Unit) && !block_produces_value(ctx, block)
+            if !matches!(result_kind, crate::types::TypeKind::Unit)
+                && !block_produces_value(ctx, block)
             {
                 out.push(
                     Diagnostic::error("function expected to return value", f.span)
@@ -116,7 +117,10 @@ fn precheck_llvm_expr_tree(block: &HirBlock, out: &mut Vec<Diagnostic>) {
 fn check_llvm_expr(expr: &HirExpr, out: &mut Vec<Diagnostic>) {
     match &expr.kind {
         HirExprKind::Intrinsic { name, args, .. } => {
-            if !LLVM_SUPPORTED_INTRINSICS.iter().any(|n| *n == name.as_str()) {
+            if !LLVM_SUPPORTED_INTRINSICS
+                .iter()
+                .any(|n| *n == name.as_str())
+            {
                 out.push(
                     Diagnostic::error("unknown codegen intrinsic for llvm", expr.span)
                         .with_id(DiagnosticId::TypeUnknownIntrinsic),

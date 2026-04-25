@@ -1,16 +1,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use nepl_core::{
-    compile_module,
-    compile_module_with_source_map,
+    compile_module, compile_module_with_source_map,
     diagnostic::{Diagnostic, Severity},
     error::CoreError,
     loader::{Loader, SourceMap},
@@ -165,13 +164,19 @@ struct Cli {
     emit: Vec<Emit>,
 
     // WAT 出力（wat / wat-min）の先頭に、-i で指定した入力ソースをコメントとして付加する
-    #[arg(long, help = "Attach the input source as WAT comments at the top of wat/wat-min outputs")]
+    #[arg(
+        long,
+        help = "Attach the input source as WAT comments at the top of wat/wat-min outputs"
+    )]
     attach_source: bool,
 
     #[arg(long, help = "Run the code if the output format is wasm")]
     run: bool,
 
-    #[arg(long, help = "Only check the code for errors without generating output")]
+    #[arg(
+        long,
+        help = "Only check the code for errors without generating output"
+    )]
     check: bool,
     #[arg(
         value_name = "ARGS",
@@ -192,7 +197,12 @@ struct Cli {
     #[arg(short, long, global = true, help = "Enable verbose compiler logging")]
     verbose: bool,
 
-    #[arg(long, value_enum, value_name = "PROFILE", help = "Compile profile: debug or release")]
+    #[arg(
+        long,
+        value_enum,
+        value_name = "PROFILE",
+        help = "Compile profile: debug or release"
+    )]
     profile: Option<ProfileArg>,
 }
 
@@ -223,7 +233,11 @@ enum Command {
 struct TestArgs {
     #[arg(value_name = "FILTER")]
     filter: Option<String>,
-    #[arg(long, default_value = "tests", help = "Relative path inside stdlib to scan for .nepl tests")]
+    #[arg(
+        long,
+        default_value = "tests",
+        help = "Relative path inside stdlib to scan for .nepl tests"
+    )]
     dir: String,
 }
 
@@ -237,12 +251,11 @@ fn execute(cli: Cli) -> Result<()> {
         return run_tests(args, cli.verbose);
     }
     if !cli.run && !cli.check && cli.output.is_none() {
-        return Err(anyhow::anyhow!("Either --run, --check or --output is required"));
+        return Err(anyhow::anyhow!(
+            "Either --run, --check or --output is required"
+        ));
     }
-    let program_name = cli
-        .input
-        .clone()
-        .unwrap_or_else(|| "<stdin>".to_string());
+    let program_name = cli.input.clone().unwrap_or_else(|| "<stdin>".to_string());
     let input_path = cli.input.clone();
     let (module, source_map) = match &cli.input {
         Some(path) => {
@@ -253,7 +266,8 @@ fn execute(cli: Cli) -> Result<()> {
             match loader.load(&entry) {
                 Ok(res) => (res.module, loader.source_map().clone()),
                 Err(e) => {
-                    if let nepl_core::loader::LoaderError::Core(CoreError::Diagnostics(diags)) = &e {
+                    if let nepl_core::loader::LoaderError::Core(CoreError::Diagnostics(diags)) = &e
+                    {
                         render_diagnostics(diags, loader.source_map());
                         std::process::exit(1);
                     }
@@ -268,7 +282,8 @@ fn execute(cli: Cli) -> Result<()> {
             match loader.load_inline(PathBuf::from("<stdin>"), buf) {
                 Ok(res) => (res.module, loader.source_map().clone()),
                 Err(e) => {
-                    if let nepl_core::loader::LoaderError::Core(CoreError::Diagnostics(diags)) = &e {
+                    if let nepl_core::loader::LoaderError::Core(CoreError::Diagnostics(diags)) = &e
+                    {
                         render_diagnostics(diags, loader.source_map());
                         std::process::exit(1);
                     }
@@ -308,7 +323,7 @@ fn execute(cli: Cli) -> Result<()> {
         ProfileArg::Release => BuildProfile::Release,
     });
     let active_profile = profile.unwrap_or(BuildProfile::detect());
-            if matches!(run_target, CompileTarget::Llvm) {
+    if matches!(run_target, CompileTarget::Llvm) {
         if cli.run {
             return Err(anyhow::anyhow!(
                 "--run is not supported for --target llvm (emit .ll and execute with clang/lli)"
@@ -322,13 +337,23 @@ fn execute(cli: Cli) -> Result<()> {
         let base = output_base_from_arg(output);
 
         if emits.contains(&Emit::Llvm) {
-            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target(&module, run_target, active_profile, false)
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+                &module,
+                run_target,
+                active_profile,
+                false,
+            )
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             write_bytes(&base.with_extension("ll"), ir.as_bytes())?;
         }
         if emits.contains(&Emit::LlvmMin) {
-            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target(&module, run_target, active_profile, true)
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+                &module,
+                run_target,
+                active_profile,
+                true,
+            )
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             write_bytes(&output_path(&base, Emit::LlvmMin), ir.as_bytes())?;
         }
         return Ok(());
@@ -344,7 +369,7 @@ fn execute(cli: Cli) -> Result<()> {
         Ok(a) => {
             eprintln!("DEBUG: compile_module returned Ok");
             a
-        },
+        }
         Err(CoreError::Diagnostics(diags)) => {
             eprintln!("DEBUG: compile_module returned Diagnostics");
             render_diagnostics(&diags, &source_map);
@@ -353,7 +378,7 @@ fn execute(cli: Cli) -> Result<()> {
         Err(e) => {
             eprintln!("DEBUG: compile_module returned Err: {:?}", e);
             return Err(anyhow::anyhow!(e.to_string()));
-        },
+        }
     };
 
     if is_check {
@@ -366,26 +391,25 @@ fn execute(cli: Cli) -> Result<()> {
 
         // --attach-source が true の場合、wat / wat-min の先頭に入力ソースをコメントとして付加する
         // stdin から読み込んだ場合（--input が無い）は付加できないのでエラーにする
-        let attached_source = if cli.attach_source
-            && (emits.contains(&Emit::Wat) || emits.contains(&Emit::WatMin))
-        {
-            let input = input_path
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("--attach-source requires --input"))?;
-            Some(read_attached_source(Path::new(input))?)
-        } else {
-            None
-        };
+        let attached_source =
+            if cli.attach_source && (emits.contains(&Emit::Wat) || emits.contains(&Emit::WatMin)) {
+                let input = input_path
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("--attach-source requires --input"))?;
+                Some(read_attached_source(Path::new(input))?)
+            } else {
+                None
+            };
 
         write_outputs(
-             &base,
-             &artifact.wasm,
-             &artifact.wat_comments,
-             &emits,
-             attached_source.as_ref(),
-             None,
-             None,
-         )?;
+            &base,
+            &artifact.wasm,
+            &artifact.wat_comments,
+            &emits,
+            attached_source.as_ref(),
+            None,
+            None,
+        )?;
     }
     if cli.run {
         let mut wasm_args = Vec::new();
@@ -542,12 +566,14 @@ fn expand_emits(emits: &[Emit]) -> BTreeSet<Emit> {
     set
 }
 
-
 // このラッパーが依存している NEPLg2 コンパイラの情報（固定値）
 // 生成した WAT に「どのコンパイラで生成したか」を残すために使う
 const NEPLG2_REPO_URL: &str = "https://github.com/neknaj/NEPLg2/";
 const NEPLG2_COMPILER_COMMIT: &str = env!("NEPLG2_COMPILER_COMMIT");
-const NEPLG2_COMPILER_COMMIT_URL: &str = concat!("https://github.com/neknaj/NEPLg2/commit/", env!("NEPLG2_COMPILER_COMMIT"));
+const NEPLG2_COMPILER_COMMIT_URL: &str = concat!(
+    "https://github.com/neknaj/NEPLg2/commit/",
+    env!("NEPLG2_COMPILER_COMMIT")
+);
 
 struct AttachedSource {
     path: PathBuf,
@@ -556,8 +582,8 @@ struct AttachedSource {
 
 fn read_attached_source(path: &Path) -> Result<AttachedSource> {
     // 入力ファイル（-i）の内容を読み込み、WAT のコメントとして埋め込める形にする
-    let bytes = fs::read(path)
-        .with_context(|| format!("failed to read input file {}", path.display()))?;
+    let bytes =
+        fs::read(path).with_context(|| format!("failed to read input file {}", path.display()))?;
     let text = String::from_utf8_lossy(&bytes).to_string();
     Ok(AttachedSource {
         path: path.to_path_buf(),
@@ -852,12 +878,7 @@ fn run_wasm(
                     return 21;
                 }
                 let argc = caller.data().args.len() as u32;
-                let buf_size: u32 = caller
-                    .data()
-                    .args
-                    .iter()
-                    .map(|a| a.len() as u32)
-                    .sum();
+                let buf_size: u32 = caller.data().args.iter().map(|a| a.len() as u32).sum();
                 let mem_len = memory.data(&caller).len();
                 let argc_offset = argc_ptr as usize;
                 let buf_offset = argv_buf_size_ptr as usize;
@@ -899,10 +920,7 @@ fn run_wasm(
                         return 21;
                     }
                     let ptr_bytes = (buf_offset as u32).to_le_bytes();
-                    if memory
-                        .write(&mut caller, argv_offset, &ptr_bytes)
-                        .is_err()
-                    {
+                    if memory.write(&mut caller, argv_offset, &ptr_bytes).is_err() {
                         return 21;
                     }
                     if buf_offset + arg.len() > mem_len {
@@ -1007,7 +1025,11 @@ fn run_wasm(
                 let stdout_tty = [if caller.data().tty_stdout_tty { 1 } else { 0 }];
                 let stderr_tty = [if caller.data().tty_stderr_tty { 1 } else { 0 }];
                 let echo = [if caller.data().tty_echo { 1 } else { 0 }];
-                let line_buffered = [if caller.data().tty_line_buffered { 1 } else { 0 }];
+                let line_buffered = [if caller.data().tty_line_buffered {
+                    1
+                } else {
+                    0
+                }];
                 if memory.write(&mut caller, base + 16, &stdin_tty).is_err() {
                     return 21;
                 }
@@ -1020,7 +1042,10 @@ fn run_wasm(
                 if memory.write(&mut caller, base + 19, &echo).is_err() {
                     return 21;
                 }
-                if memory.write(&mut caller, base + 20, &line_buffered).is_err() {
+                if memory
+                    .write(&mut caller, base + 20, &line_buffered)
+                    .is_err()
+                {
                     return 21;
                 }
                 0
@@ -1332,8 +1357,9 @@ fn detect_module_target(module: &nepl_core::ast::Module) -> Option<CompileTarget
     }
 
     module.root.items.iter().find_map(|stmt| {
-        if let nepl_core::ast::Stmt::Directive(nepl_core::ast::Directive::Target { target, .. }) =
-            stmt
+        if let nepl_core::ast::Stmt::Directive(nepl_core::ast::Directive::Target {
+            target, ..
+        }) = stmt
         {
             match target.as_str() {
                 "wasi" | "std" => Some(CompileTarget::Wasi),
@@ -1363,10 +1389,9 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) {
             Severity::Warning => "warning",
         };
         let code = d.code.unwrap_or("");
-        let id_display = d
-            .id
-            .map(|v| format!("[D{}]", v.as_u32()))
-            .unwrap_or_default();
+        let id_display =
+            d.id.map(|v| format!("[D{}]", v.as_u32()))
+                .unwrap_or_default();
         let primary = &d.primary;
         let (line, col) = sm
             .line_col(primary.span.file_id, primary.span.start)
@@ -1446,10 +1471,7 @@ mod tests {
 
     #[test]
     fn output_base_handles_extensions() {
-        assert_eq!(
-            output_base_from_arg("out/a.wasm"),
-            PathBuf::from("out/a")
-        );
+        assert_eq!(output_base_from_arg("out/a.wasm"), PathBuf::from("out/a"));
         assert_eq!(output_base_from_arg("out/a.wat"), PathBuf::from("out/a"));
         assert_eq!(
             output_base_from_arg("out/a.min.wat"),
@@ -1528,6 +1550,8 @@ fn main <()->i32> ():
         assert!(wat_path.exists());
         assert!(wat_min_path.exists());
         assert!(!fs::read_to_string(wat_path).unwrap_or_default().is_empty());
-        assert!(!fs::read_to_string(wat_min_path).unwrap_or_default().is_empty());
+        assert!(!fs::read_to_string(wat_min_path)
+            .unwrap_or_default()
+            .is_empty());
     }
 }

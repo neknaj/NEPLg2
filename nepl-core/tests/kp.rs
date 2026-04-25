@@ -106,8 +106,7 @@ fn main <()*>()> ():
     close sc;
     unwrap_ok dealloc pref mul pref_len 4;
 "#;
-    let out =
-        run_main_capture_stdout_with_stdin(src, b"5 3\n1 2 3 4 5\n1 3\n2 5\n1 5\n");
+    let out = run_main_capture_stdout_with_stdin(src, b"5 3\n1 2 3 4 5\n1 3\n2 5\n1 5\n");
     assert_eq!(out, "6\n14\n15\n");
 }
 

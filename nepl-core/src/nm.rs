@@ -51,15 +51,29 @@ pub struct CodeBlock {
 pub enum InlineNode {
     Text(String),
     CodeInline(String),
-    Math { display: bool, text: String },
-    Ruby { base: Vec<InlineNode>, ruby: Vec<InlineNode> },
-    Gloss { base: Vec<InlineNode>, notes: Vec<Vec<InlineNode>> },
-    Link { text: Vec<InlineNode>, href: String },
+    Math {
+        display: bool,
+        text: String,
+    },
+    Ruby {
+        base: Vec<InlineNode>,
+        ruby: Vec<InlineNode>,
+    },
+    Gloss {
+        base: Vec<InlineNode>,
+        notes: Vec<Vec<InlineNode>>,
+    },
+    Link {
+        text: Vec<InlineNode>,
+        href: String,
+    },
 }
 
 pub fn parse_document(source: &str) -> Document {
     let lines = normalize_lines(source);
-    let mut root = Container::Document(Document { children: Vec::new() });
+    let mut root = Container::Document(Document {
+        children: Vec::new(),
+    });
     let mut path: Vec<usize> = Vec::new();
     let mut levels: Vec<usize> = Vec::new();
     let mut i = 0usize;
@@ -187,10 +201,13 @@ pub fn parse_inlines(text: &str) -> Vec<InlineNode> {
     while i < chars.len() {
         if starts_with_chars(&chars, i, &['$', '$']) {
             if let Some(end) = find_subsequence(&chars, i + 2, &['$', '$']) {
-                push_inline(&mut out, InlineNode::Math {
-                    display: true,
-                    text: chars[i + 2..end].iter().collect(),
-                });
+                push_inline(
+                    &mut out,
+                    InlineNode::Math {
+                        display: true,
+                        text: chars[i + 2..end].iter().collect(),
+                    },
+                );
                 i = end + 2;
                 continue;
             }
@@ -198,10 +215,13 @@ pub fn parse_inlines(text: &str) -> Vec<InlineNode> {
 
         if chars[i] == '$' {
             if let Some(end) = find_char(&chars, i + 1, '$') {
-                push_inline(&mut out, InlineNode::Math {
-                    display: false,
-                    text: chars[i + 1..end].iter().collect(),
-                });
+                push_inline(
+                    &mut out,
+                    InlineNode::Math {
+                        display: false,
+                        text: chars[i + 1..end].iter().collect(),
+                    },
+                );
                 i = end + 1;
                 continue;
             }
@@ -296,7 +316,10 @@ fn current_children_mut<'a>(root: &'a mut Container, path: &[usize]) -> &'a mut 
     }
 }
 
-fn descend_children_mut<'a>(children: &'a mut Vec<BlockNode>, path: &[usize]) -> &'a mut Vec<BlockNode> {
+fn descend_children_mut<'a>(
+    children: &'a mut Vec<BlockNode>,
+    path: &[usize],
+) -> &'a mut Vec<BlockNode> {
     if let Some((idx, rest)) = path.split_first() {
         let (_, tail) = children.split_at_mut(*idx);
         match tail.first_mut() {
@@ -433,7 +456,9 @@ fn render_blocks_markdown(blocks: &[BlockNode], out: &mut String) {
         }
         match block {
             BlockNode::Section(section) => render_section_markdown(section, out),
-            BlockNode::Paragraph(paragraph) => out.push_str(&render_inlines_markdown(&paragraph.inlines)),
+            BlockNode::Paragraph(paragraph) => {
+                out.push_str(&render_inlines_markdown(&paragraph.inlines))
+            }
             BlockNode::List(list) => {
                 for item in &list.items {
                     out.push_str("- ");
@@ -533,8 +558,12 @@ mod tests {
     #[test]
     fn parse_gloss_and_ruby() {
         let inlines = parse_inlines("{[日本語/にほんご]/Japanese} [漢字/かんじ]");
-        assert!(inlines.iter().any(|node| matches!(node, InlineNode::Gloss { .. })));
-        assert!(inlines.iter().any(|node| matches!(node, InlineNode::Ruby { .. })));
+        assert!(inlines
+            .iter()
+            .any(|node| matches!(node, InlineNode::Gloss { .. })));
+        assert!(inlines
+            .iter()
+            .any(|node| matches!(node, InlineNode::Ruby { .. })));
     }
 
     #[test]

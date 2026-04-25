@@ -28,17 +28,17 @@ pub mod hir;
 pub mod lexer;
 pub mod loader;
 pub mod log;
-pub mod monomorphize;
 pub mod module_graph;
+pub mod monomorphize;
 pub mod nm;
 pub mod parser;
 pub mod passes;
 pub mod resolve;
-pub mod wasm_shared;
 pub mod runtime_helpers;
 pub mod target_precheck;
 pub mod typecheck;
 pub mod types;
+pub mod wasm_shared;
 
 pub use compiler::{
     compile_module, compile_module_with_source_map, compile_wasm, BuildProfile,

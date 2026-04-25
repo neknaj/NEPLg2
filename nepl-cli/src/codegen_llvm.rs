@@ -101,7 +101,9 @@ fn ensure_llvm_toolchain(cfg: &LlvmToolchainConfig) -> Result<()> {
             triple_out.status
         ));
     }
-    let triple = String::from_utf8_lossy(&triple_out.stdout).trim().to_string();
+    let triple = String::from_utf8_lossy(&triple_out.stdout)
+        .trim()
+        .to_string();
     if let Some(needle) = &cfg.triple_must_contain {
         if !triple.contains(needle) {
             return Err(anyhow!(

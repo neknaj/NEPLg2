@@ -24,14 +24,19 @@ fn main <() -> i32> ():
 "#;
     let lex = lexer::lex(FileId(0), src);
     assert!(
-        lex.diagnostics.iter().all(|d| d.severity != Severity::Error),
+        lex.diagnostics
+            .iter()
+            .all(|d| d.severity != Severity::Error),
         "unexpected lexer errors: {:?}",
         lex.diagnostics
     );
     let parse = parser::parse_tokens(FileId(0), lex);
     let module = parse.module.expect("module");
     assert!(
-        parse.diagnostics.iter().all(|d| d.severity != Severity::Error),
+        parse
+            .diagnostics
+            .iter()
+            .all(|d| d.severity != Severity::Error),
         "unexpected parser errors: {:?}",
         parse.diagnostics
     );
@@ -135,9 +140,7 @@ fn build_visible_map_reports_ambiguous_open() {
     let resolved = resolve_imports(&g, &export_defs);
     let (_visible, diags) = build_visible_map(&defs, &resolved);
     assert!(
-        diags
-            .iter()
-            .any(|d| d.message.contains("ambiguous import")),
+        diags.iter().any(|d| d.message.contains("ambiguous import")),
         "expected ambiguous import diagnostic, got {:?}",
         diags
     );
@@ -179,7 +182,7 @@ fn package_import_resolves_std() {
         &entry,
         "#import \"std/util\" as *\n#entry main\nfn main <() -> ()> ():\n    ()\n",
     )
-        .unwrap();
+    .unwrap();
     fs::write(
         &stdlib.join("util.nepl"),
         "pub fn util <() -> ()> ():\n    ()\n",
@@ -239,7 +242,11 @@ fn resolve_import_default_alias_from_package() {
         "#import \"kp/util\"\n#entry main\nfn main <() -> ()> ():\n    ()\n",
     )
     .unwrap();
-    fs::write(&pkg.join("util.nepl"), "pub fn util <() -> ()> ():\n    ()\n").unwrap();
+    fs::write(
+        &pkg.join("util.nepl"),
+        "pub fn util <() -> ()> ():\n    ()\n",
+    )
+    .unwrap();
 
     let builder = ModuleGraphBuilder::new(stdlib.clone()).with_dep("kp", pkg.clone());
     let g = builder.build(&entry).unwrap();

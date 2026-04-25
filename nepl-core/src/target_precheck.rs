@@ -56,9 +56,10 @@ pub fn gate_allows(
     active_profile: BuildProfile,
 ) -> Option<bool> {
     match directive {
-        Directive::IfTarget { target: gate, .. } => {
-            Some(crate::compiler::target_gate_allows_expr(gate.as_str(), target))
-        }
+        Directive::IfTarget { target: gate, .. } => Some(crate::compiler::target_gate_allows_expr(
+            gate.as_str(),
+            target,
+        )),
         Directive::IfProfile { profile, .. } => {
             Some(profile_allows(profile.as_str(), active_profile))
         }
@@ -178,25 +179,22 @@ pub fn precheck_function_raw_body_target(
 ) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     match &function.body {
-        FnBody::Parsed(block) => match select_active_raw_body(
-            block,
-            target,
-            profile,
-            function.name.name.as_str(),
-        ) {
-            Ok(Some(raw)) => {
-                if !is_raw_body_allowed_for_target(raw.kind(), target) {
-                    out.push(raw_body_target_mismatch_diagnostic(
-                        raw.span(),
-                        function.name.name.as_str(),
-                        target,
-                        raw.kind(),
-                    ));
+        FnBody::Parsed(block) => {
+            match select_active_raw_body(block, target, profile, function.name.name.as_str()) {
+                Ok(Some(raw)) => {
+                    if !is_raw_body_allowed_for_target(raw.kind(), target) {
+                        out.push(raw_body_target_mismatch_diagnostic(
+                            raw.span(),
+                            function.name.name.as_str(),
+                            target,
+                            raw.kind(),
+                        ));
+                    }
                 }
+                Ok(None) => {}
+                Err(diag) => out.push(diag),
             }
-            Ok(None) => {}
-            Err(diag) => out.push(diag),
-        },
+        }
         FnBody::Wasm(w) => {
             if !is_raw_body_allowed_for_target(RawBodyKind::Wasm, target) {
                 out.push(raw_body_target_mismatch_diagnostic(

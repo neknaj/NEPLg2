@@ -4,12 +4,12 @@
 extern crate alloc;
 extern crate std;
 
+use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use alloc::borrow::Cow;
 
 use wasm_encoder::{
     CodeSection, ConstExpr, DataSection, ElementMode, ElementSection, ElementSegment, Elements,
@@ -107,7 +107,9 @@ fn type_storage_align_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
             let base = ctx.resolve_id(base);
             match ctx.get(base) {
                 TypeKind::Struct {
-                    type_params, fields, ..
+                    type_params,
+                    fields,
+                    ..
                 } => {
                     let mut tmp = ctx.clone();
                     let mapping = type_params
@@ -182,7 +184,9 @@ fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
             let base = ctx.resolve_id(base);
             match ctx.get(base) {
                 TypeKind::Struct {
-                    type_params, fields, ..
+                    type_params,
+                    fields,
+                    ..
                 } => {
                     let mut tmp = ctx.clone();
                     let mapping = type_params
@@ -257,7 +261,11 @@ fn tuple_field_layout(ctx: &TypeCtx, ty: TypeId, index: usize) -> Option<(TypeId
     }
 }
 
-fn tuple_field_layouts_by_result(ctx: &TypeCtx, ty: TypeId, result_ty: TypeId) -> Vec<(u32, TypeId, u32)> {
+fn tuple_field_layouts_by_result(
+    ctx: &TypeCtx,
+    ty: TypeId,
+    result_ty: TypeId,
+) -> Vec<(u32, TypeId, u32)> {
     let ty = ctx.resolve_id(ty);
     match ctx.get(ty) {
         TypeKind::Tuple { items } => {
@@ -528,7 +536,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         let key = (f.params.clone(), f.results.clone());
         sig_map.entry(key).or_insert_with(|| {
             let idx = type_section.len();
-            type_section.ty().function(f.params.clone(), f.results.clone());
+            type_section
+                .ty()
+                .function(f.params.clone(), f.results.clone());
             idx
         });
     }
@@ -536,7 +546,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
         let key = (imp.params.clone(), imp.results.clone());
         sig_map.entry(key).or_insert_with(|| {
             let idx = type_section.len();
-            type_section.ty().function(imp.params.clone(), imp.results.clone());
+            type_section
+                .ty()
+                .function(imp.params.clone(), imp.results.clone());
             idx
         });
     }
@@ -668,9 +680,13 @@ fn has_unbound_type_var(ctx: &TypeCtx, ty: TypeId) -> bool {
             Some(next) => has_unbound_type_var(ctx, next),
             None => true,
         },
-        TypeKind::Enum { type_params, .. } => type_params.iter().any(|t| has_unbound_type_var(ctx, *t)),
+        TypeKind::Enum { type_params, .. } => {
+            type_params.iter().any(|t| has_unbound_type_var(ctx, *t))
+        }
         TypeKind::Struct {
-            type_params, fields, ..
+            type_params,
+            fields,
+            ..
         } => {
             type_params.iter().any(|t| has_unbound_type_var(ctx, *t))
                 || fields.iter().any(|t| has_unbound_type_var(ctx, *t))
@@ -935,10 +951,7 @@ fn emit_inline_alloc(locals: &mut LocalMap, insts: &mut Vec<Instruction<'static>
     insts.push(Instruction::LocalGet(base_local));
 }
 
-fn emit_alloc_call(
-    locals: &mut LocalMap,
-    insts: &mut Vec<Instruction<'static>>,
-) {
+fn emit_alloc_call(locals: &mut LocalMap, insts: &mut Vec<Instruction<'static>>) {
     if let Some(idx) = locals.alloc_helper_idx {
         insts.push(Instruction::Call(idx));
     } else {
@@ -1395,7 +1408,7 @@ fn gen_expr(
                     return None;
                 }
                 let vt = valtype(&ty_kind);
-                
+
                 // address
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
                 // value
@@ -1451,9 +1464,7 @@ fn gen_expr(
                 }
             } else if name == "get_field" {
                 if args.len() != 2 {
-                    panic!(
-                        "internal compiler error: intrinsic get_field requires two args"
-                    );
+                    panic!("internal compiler error: intrinsic get_field requires two args");
                 }
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
                 let base_local = locals.alloc_temp(ValType::I32);
@@ -1631,9 +1642,7 @@ fn gen_expr(
                 }
             } else if name == "set_field" {
                 if args.len() != 3 {
-                    panic!(
-                        "internal compiler error: intrinsic set_field requires three args"
-                    );
+                    panic!("internal compiler error: intrinsic set_field requires three args");
                 }
                 let Some((field_ty, offset)) =
                     aggregate_field_layout(ctx, args[0].ty, &args[1], strings)
@@ -2136,7 +2145,8 @@ fn gen_expr(
                     None => wasm_encoder::BlockType::Empty,
                 }));
                 if let Some(bind) = &arm.bind_local {
-                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm.variant) {
+                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm.variant)
+                    {
                         let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
                         if let Some(vt) = valtype(&ctx.get(payload_ty)) {
                             let payload_offset = match vt {
@@ -2375,7 +2385,6 @@ pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
     crate::wasm_shared::is_supported_wasm_intrinsic(name)
 }
 
-
 fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> u32 {
     let name = if let Some(pos) = variant.rfind("::") {
         &variant[pos + 2..]
@@ -2428,4 +2437,3 @@ fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option
         _ => None,
     }
 }
-

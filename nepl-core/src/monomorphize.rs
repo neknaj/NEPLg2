@@ -8,9 +8,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::hir::*;
-use crate::runtime_helpers::{
-    find_runtime_helper_key, RuntimeHelperKind,
-};
+use crate::runtime_helpers::{find_runtime_helper_key, RuntimeHelperKind};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
@@ -164,7 +162,11 @@ impl<'a> Monomorphizer<'a> {
                 type_params.iter().any(|tp| self.type_has_unbound_var(*tp))
                     || fields.iter().any(|field| self.type_has_unbound_var(*field))
             }
-            TypeKind::Enum { type_params, variants, .. } => {
+            TypeKind::Enum {
+                type_params,
+                variants,
+                ..
+            } => {
                 type_params.iter().any(|tp| self.type_has_unbound_var(*tp))
                     || variants
                         .iter()
@@ -185,7 +187,9 @@ impl<'a> Monomorphizer<'a> {
                 self.type_has_unbound_var(base)
                     || args.iter().any(|arg| self.type_has_unbound_var(*arg))
             }
-            TypeKind::Box(inner) | TypeKind::Reference(inner, _) => self.type_has_unbound_var(inner),
+            TypeKind::Box(inner) | TypeKind::Reference(inner, _) => {
+                self.type_has_unbound_var(inner)
+            }
             _ => false,
         }
     }
@@ -243,7 +247,11 @@ impl<'a> Monomorphizer<'a> {
                         walk_expr(ctx, func_name, arg, out);
                     }
                 }
-                HirExprKind::If { cond, then_branch, else_branch } => {
+                HirExprKind::If {
+                    cond,
+                    then_branch,
+                    else_branch,
+                } => {
                     walk_expr(ctx, func_name, cond, out);
                     walk_expr(ctx, func_name, then_branch, out);
                     walk_expr(ctx, func_name, else_branch, out);
@@ -357,14 +365,12 @@ impl<'a> Monomorphizer<'a> {
                         _ => resolved,
                     };
                     *self_ty = dispatch_self_ty;
-                    if let Some(name) =
-                        self.resolve_trait_impl_name(
-                            trait_name.as_str(),
-                            trait_args,
-                            method.as_str(),
-                            dispatch_self_ty,
-                        )
-                    {
+                    if let Some(name) = self.resolve_trait_impl_name(
+                        trait_name.as_str(),
+                        trait_args,
+                        method.as_str(),
+                        dispatch_self_ty,
+                    ) {
                         *callee = FuncRef::User(
                             self.request_instantiation(name, trait_args.clone()),
                             Vec::new(),
@@ -402,8 +408,7 @@ impl<'a> Monomorphizer<'a> {
             | HirExprKind::Set { value, .. }
             | HirExprKind::AddrOf(value)
             | HirExprKind::Deref(value) => self.resolve_trait_calls_in_expr(value),
-            HirExprKind::TupleConstruct { items }
-            | HirExprKind::Intrinsic { args: items, .. } => {
+            HirExprKind::TupleConstruct { items } | HirExprKind::Intrinsic { args: items, .. } => {
                 for item in items {
                     self.resolve_trait_calls_in_expr(item);
                 }
@@ -436,7 +441,11 @@ impl<'a> Monomorphizer<'a> {
         method: &str,
         resolved_self_ty: TypeId,
     ) -> Option<String> {
-        let key = (String::from(trait_name), String::from(method), resolved_self_ty);
+        let key = (
+            String::from(trait_name),
+            String::from(method),
+            resolved_self_ty,
+        );
         if let Some(name) = self.impl_map.get(&key) {
             return Some(name.clone());
         }
@@ -561,7 +570,9 @@ impl<'a> Monomorphizer<'a> {
                     let related = self
                         .funcs
                         .keys()
-                        .filter(|cand| cand.contains("partition") || cand.contains(orig_name.as_str()))
+                        .filter(|cand| {
+                            cand.contains("partition") || cand.contains(orig_name.as_str())
+                        })
                         .cloned()
                         .collect::<Vec<_>>();
                     std::eprintln!(
@@ -605,7 +616,7 @@ impl<'a> Monomorphizer<'a> {
 
         match &mut f.body {
             HirBody::Block(b) => self.substitute_block(b, &mapping, &local_names),
-            HirBody::Wasm(_) => {} // Wasm blocks don't hold TypeIds usually
+            HirBody::Wasm(_) => {}   // Wasm blocks don't hold TypeIds usually
             HirBody::LlvmIr(_) => {} // LLVM IR blocks don't hold TypeIds usually
         }
 
@@ -710,14 +721,12 @@ impl<'a> Monomorphizer<'a> {
                             _ => resolved,
                         };
                         *self_ty = dispatch_self_ty;
-                        if let Some(func_name) =
-                            self.resolve_trait_impl_name(
-                                trait_name.as_str(),
-                                trait_args,
-                                method.as_str(),
-                                dispatch_self_ty,
-                            )
-                        {
+                        if let Some(func_name) = self.resolve_trait_impl_name(
+                            trait_name.as_str(),
+                            trait_args,
+                            method.as_str(),
+                            dispatch_self_ty,
+                        ) {
                             let inst = self.request_instantiation(func_name, trait_args.clone());
                             *callee = FuncRef::User(inst, Vec::new());
                         }
@@ -753,7 +762,7 @@ impl<'a> Monomorphizer<'a> {
                 self.substitute_expr(cond, mapping, local_names);
                 self.substitute_expr(body, mapping, local_names);
             }
-        HirExprKind::Match { scrutinee, arms } => {
+            HirExprKind::Match { scrutinee, arms } => {
                 self.substitute_expr(scrutinee, mapping, local_names);
                 for arm in arms {
                     self.substitute_expr(&mut arm.body, mapping, local_names);

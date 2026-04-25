@@ -48,9 +48,24 @@ fn print_diagnostics_summary(diags: &alloc::vec::Vec<crate::diagnostic::Diagnost
         };
         // Display primary span as file_id:start-end for quick location.
         let span = &d.primary.span;
-        std::eprintln!("- {}: {} (span: {:?}:{:?}-{:?})", sev, d.message, span.file_id, span.start, span.end);
+        std::eprintln!(
+            "- {}: {} (span: {:?}:{:?}-{:?})",
+            sev,
+            d.message,
+            span.file_id,
+            span.start,
+            span.end
+        );
         for sec in d.secondary.iter() {
-            std::eprintln!("  note: {:?}:{:?}-{:?} {}", sec.span.file_id, sec.span.start, sec.span.end, sec.message.as_ref().unwrap_or(&alloc::string::String::new()));
+            std::eprintln!(
+                "  note: {:?}:{:?}-{:?} {}",
+                sec.span.file_id,
+                sec.span.start,
+                sec.span.end,
+                sec.message
+                    .as_ref()
+                    .unwrap_or(&alloc::string::String::new())
+            );
         }
     }
 }
@@ -115,7 +130,7 @@ impl TraitSemantics {
                         if !copy_traits.iter().any(|(_, id)| *id == info.self_ty) {
                             copy_traits.push((name.clone(), info.self_ty));
                         }
-                    },
+                    }
                     TraitCapability::Clone => {
                         if !clone_traits.iter().any(|(_, id)| *id == info.self_ty) {
                             clone_traits.push((name.clone(), info.self_ty));
@@ -263,7 +278,7 @@ fn collect_type_params(
                         format!("unknown trait bound '{}'", b.name.name),
                         p.name.span,
                     )
-                        .with_id(DiagnosticId::TypeUnknownTraitBound),
+                    .with_id(DiagnosticId::TypeUnknownTraitBound),
                 );
             }
         }
@@ -321,13 +336,7 @@ fn type_param_has_trait_bound(
             return true;
         }
         if let Some((base, args)) = parse_trait_ref_name(trait_name, ctx) {
-            return trait_application_matches(
-                ctx,
-                &base,
-                &args,
-                &b.trait_base_name,
-                &b.trait_args,
-            );
+            return trait_application_matches(ctx, &base, &args, &b.trait_base_name, &b.trait_args);
         }
         false
     };
@@ -335,10 +344,10 @@ fn type_param_has_trait_bound(
     if let Some(bounds) = type_param_bounds.get(&resolved) {
         return bounds.iter().any(matches_bound);
     }
-    if type_param_bounds.iter().any(|(tp, bounds)| {
-        ctx.resolve_id(*tp) == resolved
-            && bounds.iter().any(matches_bound)
-    }) {
+    if type_param_bounds
+        .iter()
+        .any(|(tp, bounds)| ctx.resolve_id(*tp) == resolved && bounds.iter().any(matches_bound))
+    {
         return true;
     }
     let label = match ctx.get(resolved) {
@@ -438,13 +447,7 @@ fn infer_type_param_from_instantiated_pair(
                 found = merge_inferred_instantiation(
                     ctx,
                     found,
-                    infer_type_param_from_instantiated_pair(
-                        ctx,
-                        *pa,
-                        *pb,
-                        target_tp,
-                        target_label,
-                    ),
+                    infer_type_param_from_instantiated_pair(ctx, *pa, *pb, target_tp, target_label),
                 );
             }
             merge_inferred_instantiation(
@@ -460,29 +463,34 @@ fn infer_type_param_from_instantiated_pair(
             )
         }
         (
-            TypeKind::Enum { type_params: args_a, .. },
-            TypeKind::Enum { type_params: args_b, .. },
+            TypeKind::Enum {
+                type_params: args_a,
+                ..
+            },
+            TypeKind::Enum {
+                type_params: args_b,
+                ..
+            },
         )
         | (
-            TypeKind::Struct { type_params: args_a, .. },
-            TypeKind::Struct { type_params: args_b, .. },
+            TypeKind::Struct {
+                type_params: args_a,
+                ..
+            },
+            TypeKind::Struct {
+                type_params: args_b,
+                ..
+            },
         )
-        | (
-            TypeKind::Apply { args: args_a, .. },
-            TypeKind::Apply { args: args_b, .. },
-        ) if args_a.len() == args_b.len() => {
+        | (TypeKind::Apply { args: args_a, .. }, TypeKind::Apply { args: args_b, .. })
+            if args_a.len() == args_b.len() =>
+        {
             let mut found = None;
             for (aa, ab) in args_a.iter().zip(args_b.iter()) {
                 found = merge_inferred_instantiation(
                     ctx,
                     found,
-                    infer_type_param_from_instantiated_pair(
-                        ctx,
-                        *aa,
-                        *ab,
-                        target_tp,
-                        target_label,
-                    ),
+                    infer_type_param_from_instantiated_pair(ctx, *aa, *ab, target_tp, target_label),
                 );
             }
             found
@@ -495,26 +503,14 @@ fn infer_type_param_from_instantiated_pair(
                 found = merge_inferred_instantiation(
                     ctx,
                     found,
-                    infer_type_param_from_instantiated_pair(
-                        ctx,
-                        *ia,
-                        *ib,
-                        target_tp,
-                        target_label,
-                    ),
+                    infer_type_param_from_instantiated_pair(ctx, *ia, *ib, target_tp, target_label),
                 );
             }
             found
         }
         (TypeKind::Box(inner_a), TypeKind::Box(inner_b))
         | (TypeKind::Reference(inner_a, _), TypeKind::Reference(inner_b, _)) => {
-            infer_type_param_from_instantiated_pair(
-                ctx,
-                inner_a,
-                inner_b,
-                target_tp,
-                target_label,
-            )
+            infer_type_param_from_instantiated_pair(ctx, inner_a, inner_b, target_tp, target_label)
         }
         _ => None,
     }
@@ -693,10 +689,14 @@ pub fn typecheck(
         }
         match item {
             Stmt::EnumDef(e) => {
-                if enums.contains_key(&e.name.name) || env.lookup_any_defined(&e.name.name).is_some() {
+                if enums.contains_key(&e.name.name)
+                    || env.lookup_any_defined(&e.name.name).is_some()
+                {
                     continue;
                 }
-                if env.lookup_any_defined(&e.name.name).is_some() || structs.contains_key(&e.name.name) {
+                if env.lookup_any_defined(&e.name.name).is_some()
+                    || structs.contains_key(&e.name.name)
+                {
                     diagnostics.push(
                         Diagnostic::error("name already used by another item", e.name.span)
                             .with_id(DiagnosticId::TypeItemNameConflict),
@@ -764,7 +764,7 @@ pub fn typecheck(
                         ctx.apply(ty, tps.clone())
                     };
                     let func_ty = ctx.function(tps.clone(), params.clone(), ret_ty, Effect::Pure);
-                    
+
                     // Simple name (e.g. "Some")
                     env.insert_global(Binding {
                         name: v.name.clone(),
@@ -784,7 +784,7 @@ pub fn typecheck(
                             captures: Vec::new(),
                         },
                     });
-                    
+
                     // Qualified name (e.g. "Option::Some")
                     env.insert_global(Binding {
                         name: format!("{}::{}", e.name.name, v.name),
@@ -807,10 +807,14 @@ pub fn typecheck(
                 }
             }
             Stmt::StructDef(s) => {
-                if structs.contains_key(&s.name.name) || env.lookup_any_defined(&s.name.name).is_some() {
+                if structs.contains_key(&s.name.name)
+                    || env.lookup_any_defined(&s.name.name).is_some()
+                {
                     continue;
                 }
-                if env.lookup_any_defined(&s.name.name).is_some() || enums.contains_key(&s.name.name) {
+                if env.lookup_any_defined(&s.name.name).is_some()
+                    || enums.contains_key(&s.name.name)
+                {
                     diagnostics.push(
                         Diagnostic::error("name already used by another item", s.name.span)
                             .with_id(DiagnosticId::TypeItemNameConflict),
@@ -851,7 +855,7 @@ pub fn typecheck(
                         field_names: f_names.clone(),
                     },
                 );
-                
+
                 let is_tag_unit_struct = fs.len() == 1
                     && f_names.len() == 1
                     && f_names[0] == "tag"
@@ -901,8 +905,13 @@ pub fn typecheck(
             }
             Stmt::Trait(t) => {
                 let mut f_labels = LabelEnv::new();
-                let (tps, _bounds_vec, _bounds_map) =
-                    collect_type_params(&mut ctx, &mut f_labels, &t.type_params, &traits, &mut diagnostics);
+                let (tps, _bounds_vec, _bounds_map) = collect_type_params(
+                    &mut ctx,
+                    &mut f_labels,
+                    &t.type_params,
+                    &traits,
+                    &mut diagnostics,
+                );
                 let mut capabilities = Vec::new();
                 for cap in &t.capabilities {
                     match cap {
@@ -962,7 +971,7 @@ pub fn typecheck(
                     let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
                     methods.insert(m.name.name.clone(), sig);
                 }
-                    traits.insert(
+                traits.insert(
                     t.name.name.clone(),
                     TraitInfo {
                         doc: t.doc.clone(),
@@ -1065,8 +1074,13 @@ pub fn typecheck(
                 continue;
             }
             let mut f_labels = LabelEnv::new();
-            let (tps, _bounds_vec, impl_bounds_map) =
-                collect_type_params(&mut ctx, &mut f_labels, &i.type_params, &traits, &mut diagnostics);
+            let (tps, _bounds_vec, impl_bounds_map) = collect_type_params(
+                &mut ctx,
+                &mut f_labels,
+                &i.type_params,
+                &traits,
+                &mut diagnostics,
+            );
             let target_ty = type_from_expr(&mut ctx, &mut f_labels, &i.target_ty);
             let applied_trait_name = if let Some(trait_ref) = &i.trait_ref {
                 let trait_info = traits.get(&trait_ref.name.name).unwrap();
@@ -1128,11 +1142,8 @@ pub fn typecheck(
                         || ctx.type_pattern_matches(target_ty, imp.target_ty))
             }) {
                 diagnostics.push(
-                    Diagnostic::error(
-                        "duplicate impl for same trait and target type",
-                        i.span,
-                    )
-                    .with_id(DiagnosticId::TypeDuplicateImplForTraitTarget),
+                    Diagnostic::error("duplicate impl for same trait and target type", i.span)
+                        .with_id(DiagnosticId::TypeDuplicateImplForTraitTarget),
                 );
                 duplicate_impl_spans.insert((i.span.file_id.0, i.span.start, i.span.end));
                 continue;
@@ -1241,8 +1252,13 @@ pub fn typecheck(
         }
         if let Stmt::FnDef(f) = item {
             let mut f_labels = LabelEnv::new();
-            let (mut tps, _bounds_vec, bounds_map) =
-                collect_type_params(&mut ctx, &mut f_labels, &f.type_params, &traits, &mut diagnostics);
+            let (mut tps, _bounds_vec, bounds_map) = collect_type_params(
+                &mut ctx,
+                &mut f_labels,
+                &f.type_params,
+                &traits,
+                &mut diagnostics,
+            );
 
             let mut ty = type_from_expr(&mut ctx, &mut f_labels, &f.signature);
             // If it's a function type, we need to inject the type parameters
@@ -1318,31 +1334,25 @@ pub fn typecheck(
                                     conflict.span,
                                 )
                                 .with_id(DiagnosticId::TypeNoShadowViolation)
-                                .with_secondary_label(
-                                    f.name.span,
-                                    Some("shadow attempt".into()),
-                                ),
+                                .with_secondary_label(f.name.span, Some("shadow attempt".into())),
                             );
                             continue;
                         }
                         // 関数同名はオーバーロードとして扱う（異なるシグネチャは許可）。
                     } else {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            format!(
-                                "cannot shadow non-shadowable symbol '{}'",
-                                f.name.name
-                            ),
-                            f.name.span,
-                        )
-                        .with_id(DiagnosticId::TypeNoShadowViolation),
-                    );
-                    diagnostics.push(
-                        Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                            .with_id(DiagnosticId::TypeNoShadowViolation)
-                            .with_secondary_label(f.name.span, Some("shadow attempt".into())),
-                    );
-                    continue;
+                        diagnostics.push(
+                            Diagnostic::error(
+                                format!("cannot shadow non-shadowable symbol '{}'", f.name.name),
+                                f.name.span,
+                            )
+                            .with_id(DiagnosticId::TypeNoShadowViolation),
+                        );
+                        diagnostics.push(
+                            Diagnostic::error("non-shadowable declaration is here", blocked.span)
+                                .with_id(DiagnosticId::TypeNoShadowViolation)
+                                .with_secondary_label(f.name.span, Some("shadow attempt".into())),
+                        );
+                        continue;
                     }
                 }
                 if f.no_shadow
@@ -1417,27 +1427,37 @@ pub fn typecheck(
         }
         let mut target_infos = Vec::new();
         for target in targets {
-            let (symbol, effect, arity, builtin, field_accessor, bounds, captures) = match &target.kind {
-                BindingKind::Func {
-                    symbol,
-                    effect,
-                    arity,
-                    builtin,
-                    field_accessor,
-                    type_param_bounds,
-                    captures,
-                } => (
-                    symbol.clone(),
-                    *effect,
-                    *arity,
-                    *builtin,
-                    *field_accessor,
-                    type_param_bounds.clone(),
-                    captures.clone(),
-                ),
-                _ => continue,
-            };
-            target_infos.push((target.ty, symbol, effect, arity, builtin, field_accessor, bounds, captures));
+            let (symbol, effect, arity, builtin, field_accessor, bounds, captures) =
+                match &target.kind {
+                    BindingKind::Func {
+                        symbol,
+                        effect,
+                        arity,
+                        builtin,
+                        field_accessor,
+                        type_param_bounds,
+                        captures,
+                    } => (
+                        symbol.clone(),
+                        *effect,
+                        *arity,
+                        *builtin,
+                        *field_accessor,
+                        type_param_bounds.clone(),
+                        captures.clone(),
+                    ),
+                    _ => continue,
+                };
+            target_infos.push((
+                target.ty,
+                symbol,
+                effect,
+                arity,
+                builtin,
+                field_accessor,
+                bounds,
+                captures,
+            ));
         }
         for (ty, symbol, effect, arity, builtin, field_accessor, bounds, captures) in target_infos {
             if let Some(prev) = find_same_signature_func(&env, &alias.name.name, ty, &ctx) {
@@ -1483,31 +1503,25 @@ pub fn typecheck(
                                 conflict.span,
                             )
                             .with_id(DiagnosticId::TypeNoShadowViolation)
-                            .with_secondary_label(
-                                alias.name.span,
-                                Some("shadow attempt".into()),
-                            ),
+                            .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
                         );
                         break;
                     }
                     // 関数同名はオーバーロードとして扱う（異なるシグネチャは許可）。
                 } else {
-                diagnostics.push(
-                    Diagnostic::error(
-                        format!(
-                            "cannot shadow non-shadowable symbol '{}'",
-                            alias.name.name
-                        ),
-                        alias.name.span,
-                    )
-                    .with_id(DiagnosticId::TypeNoShadowViolation),
-                );
-                diagnostics.push(
-                    Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                        .with_id(DiagnosticId::TypeNoShadowViolation)
-                        .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
-                );
-                break;
+                    diagnostics.push(
+                        Diagnostic::error(
+                            format!("cannot shadow non-shadowable symbol '{}'", alias.name.name),
+                            alias.name.span,
+                        )
+                        .with_id(DiagnosticId::TypeNoShadowViolation),
+                    );
+                    diagnostics.push(
+                        Diagnostic::error("non-shadowable declaration is here", blocked.span)
+                            .with_id(DiagnosticId::TypeNoShadowViolation)
+                            .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
+                    );
+                    break;
                 }
             }
             if alias.no_shadow
@@ -1702,11 +1716,15 @@ pub fn typecheck(
             doc: info.doc.clone(),
             name: name.clone(),
             type_params: info.type_params.clone(),
-            capabilities: info.capabilities.iter().map(|cap| match cap {
-                TraitCapability::Copy => crate::ast::TraitCapability::Copy,
-                TraitCapability::Clone => crate::ast::TraitCapability::Clone,
-                TraitCapability::Drop => crate::ast::TraitCapability::Drop,
-            }).collect(),
+            capabilities: info
+                .capabilities
+                .iter()
+                .map(|cap| match cap {
+                    TraitCapability::Copy => crate::ast::TraitCapability::Copy,
+                    TraitCapability::Clone => crate::ast::TraitCapability::Clone,
+                    TraitCapability::Drop => crate::ast::TraitCapability::Drop,
+                })
+                .collect(),
             methods: info.methods.clone(),
             span: info.span,
         });
@@ -1766,8 +1784,13 @@ pub fn typecheck(
 
             let mut impl_methods = Vec::new();
             let mut f_labels = LabelEnv::new();
-            let (tps, _bounds_vec, impl_bounds_map) =
-                collect_type_params(&mut ctx, &mut f_labels, &i.type_params, &traits, &mut diagnostics);
+            let (tps, _bounds_vec, impl_bounds_map) = collect_type_params(
+                &mut ctx,
+                &mut f_labels,
+                &i.type_params,
+                &traits,
+                &mut diagnostics,
+            );
             let target_ty = type_from_expr(&mut ctx, &mut f_labels, &i.target_ty);
             if trait_info.type_params.len() != trait_ref.args.len() {
                 diagnostics.push(
@@ -1845,7 +1868,10 @@ pub fn typecheck(
                     }
                 };
                 let mut mapping = BTreeMap::new();
-                mapping.insert(ctx.resolve_id(trait_info.self_ty), ctx.resolve_id(target_ty));
+                mapping.insert(
+                    ctx.resolve_id(trait_info.self_ty),
+                    ctx.resolve_id(target_ty),
+                );
                 for (tp, arg) in trait_info.type_params.iter().zip(trait_args.iter()) {
                     mapping.insert(ctx.resolve_id(*tp), ctx.resolve_id(*arg));
                 }
@@ -1853,8 +1879,11 @@ pub fn typecheck(
                 let actual_sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
                 if !ctx.same_type(expected_sig, actual_sig) {
                     diagnostics.push(
-                        Diagnostic::error("impl method signature does not match trait", m.name.span)
-                            .with_id(DiagnosticId::TypeImplMethodSignatureMismatch),
+                        Diagnostic::error(
+                            "impl method signature does not match trait",
+                            m.name.span,
+                        )
+                        .with_id(DiagnosticId::TypeImplMethodSignatureMismatch),
                     );
                     continue;
                 }
@@ -1896,7 +1925,8 @@ pub fn typecheck(
                 };
                 diagnostics.extend(checked.diagnostics);
                 let mut func = checked.function;
-                let mangled = mangle_impl_method(&applied_trait_name, &m.name.name, target_ty, &ctx);
+                let mangled =
+                    mangle_impl_method(&applied_trait_name, &m.name.name, target_ty, &ctx);
                 func.name = mangled.clone();
                 functions.push(func.clone());
                 functions.extend(nested_functions);
@@ -1910,7 +1940,10 @@ pub fn typecheck(
                 if !seen_methods.contains(trait_method) {
                     diagnostics.push(
                         Diagnostic::error(
-                            format!("missing method '{}' for trait '{}'", trait_method, trait_name),
+                            format!(
+                                "missing method '{}' for trait '{}'",
+                                trait_method, trait_name
+                            ),
                             i.span,
                         )
                         .with_id(DiagnosticId::TypeImplMissingTraitMethod),
@@ -2047,9 +2080,7 @@ fn check_function(
         return Err(diags);
     }
     diags.extend(crate::target_precheck::precheck_function_raw_body_target(
-        f,
-        target,
-        profile,
+        f, target, profile,
     ));
     if diags
         .iter()
@@ -2072,7 +2103,11 @@ fn check_function(
             kind: BindingKind::Var,
         });
     }
-    for (param, ty) in f.params.iter().zip(params_ty.iter().skip(captured_params.len())) {
+    for (param, ty) in f
+        .params
+        .iter()
+        .zip(params_ty.iter().skip(captured_params.len()))
+    {
         emit_shadow_warning(&mut diags, env, &param.name, param.span, "parameter");
         let _ = env.insert_local(Binding {
             name: param.name.clone(),
@@ -2119,10 +2154,13 @@ fn check_function(
                     match checker.check_block(b, 0, true, Some(result_ty)) {
                         Some((blk, _val)) => {
                             if checker.ctx.unify(blk.ty, result_ty).is_err() {
-                                checker.diagnostics.push(Diagnostic::error(
-                                    "return type does not match signature",
-                                    f.name.span,
-                                ).with_id(DiagnosticId::TypeReturnTypeMismatch));
+                                checker.diagnostics.push(
+                                    Diagnostic::error(
+                                        "return type does not match signature",
+                                        f.name.span,
+                                    )
+                                    .with_id(DiagnosticId::TypeReturnTypeMismatch),
+                                );
                             }
                             HirBody::Block(blk)
                         }
@@ -2158,24 +2196,23 @@ fn check_function(
     };
     for (bound, ty, span) in pending_trait_checks {
         let resolved = ctx.resolve_id(ty);
-        let satisfied =
-            type_param_has_trait_bound(ctx, &type_param_bounds, ty, &bound.name)
-                || type_param_has_trait_bound(ctx, &type_param_bounds, resolved, &bound.name)
-                || impls.iter().any(|imp| {
-                    imp.trait_base_name
-                        .as_deref()
-                        .map(|base| {
-                            trait_application_matches(
-                                ctx,
-                                &bound.trait_base_name,
-                                &bound.trait_args,
-                                base,
-                                &imp.trait_args,
-                            )
-                        })
-                        .unwrap_or(false)
-                        && ctx.type_pattern_matches(imp.target_ty, resolved)
-                });
+        let satisfied = type_param_has_trait_bound(ctx, &type_param_bounds, ty, &bound.name)
+            || type_param_has_trait_bound(ctx, &type_param_bounds, resolved, &bound.name)
+            || impls.iter().any(|imp| {
+                imp.trait_base_name
+                    .as_deref()
+                    .map(|base| {
+                        trait_application_matches(
+                            ctx,
+                            &bound.trait_base_name,
+                            &bound.trait_args,
+                            base,
+                            &imp.trait_args,
+                        )
+                    })
+                    .unwrap_or(false)
+                    && ctx.type_pattern_matches(imp.target_ty, resolved)
+            });
         if !satisfied {
             diag_out.push(
                 Diagnostic::error(
@@ -2206,36 +2243,36 @@ fn check_function(
             }
         });
     let mut function = HirFunction {
-            doc: f.doc.clone(),
-            name: out_name,
-            func_ty, // assigned here
-            params: {
-                let mut out = Vec::new();
-                for (name, ty) in captured_params.iter() {
-                    out.push(HirParam {
-                        name: name.clone(),
-                        ty: *ty,
-                        mutable: false,
-                    });
-                }
-                for (p, ty) in f
-                    .params
-                    .iter()
-                    .zip(params_ty.iter().skip(captured_params.len()))
-                {
-                    out.push(HirParam {
-                        name: p.name.clone(),
-                        ty: *ty,
-                        mutable: false,
-                    });
-                }
-                out
-            },
-            result: result_ty,
-            effect,
-            body,
-            span: f.name.span,
-        };
+        doc: f.doc.clone(),
+        name: out_name,
+        func_ty, // assigned here
+        params: {
+            let mut out = Vec::new();
+            for (name, ty) in captured_params.iter() {
+                out.push(HirParam {
+                    name: name.clone(),
+                    ty: *ty,
+                    mutable: false,
+                });
+            }
+            for (p, ty) in f
+                .params
+                .iter()
+                .zip(params_ty.iter().skip(captured_params.len()))
+            {
+                out.push(HirParam {
+                    name: p.name.clone(),
+                    ty: *ty,
+                    mutable: false,
+                });
+            }
+            out
+        },
+        result: result_ty,
+        effect,
+        body,
+        span: f.name.span,
+    };
     resolve_type_ids_in_function(ctx, &mut function);
     if crate::log::is_verbose() && function.name.contains("partition") {
         let block_ty = match &function.body {
@@ -2308,12 +2345,13 @@ impl<'a> BlockChecker<'a> {
     }
 
     fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {
-        if matches!(self.current_effect, Effect::Pure) && matches!(raw_body_effect(body), Effect::Impure)
+        if matches!(self.current_effect, Effect::Pure)
+            && matches!(raw_body_effect(body), Effect::Impure)
         {
-            self.diagnostics.push(Diagnostic::error(
-                "pure context cannot call impure function",
-                span,
-            ).with_id(DiagnosticId::TypePureCallsImpureFunction));
+            self.diagnostics.push(
+                Diagnostic::error("pure context cannot call impure function", span)
+                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+            );
             return false;
         }
         true
@@ -2499,8 +2537,7 @@ impl<'a> BlockChecker<'a> {
             if !stack[j].auto_call {
                 continue;
             }
-            let Some((params, _result, _effect)) =
-                self.function_signature_for_entry(&stack[j])
+            let Some((params, _result, _effect)) = self.function_signature_for_entry(&stack[j])
             else {
                 continue;
             };
@@ -2542,8 +2579,7 @@ impl<'a> BlockChecker<'a> {
             if !stack[j].auto_call {
                 continue;
             }
-            let Some((params, _result, _effect)) =
-                self.function_signature_for_entry(&stack[j])
+            let Some((params, _result, _effect)) = self.function_signature_for_entry(&stack[j])
             else {
                 continue;
             };
@@ -2601,8 +2637,7 @@ impl<'a> BlockChecker<'a> {
             if !stack[j].auto_call {
                 continue;
             }
-            let Some((params, _result, _effect)) =
-                self.function_signature_for_entry(&stack[j])
+            let Some((params, _result, _effect)) = self.function_signature_for_entry(&stack[j])
             else {
                 continue;
             };
@@ -2763,7 +2798,11 @@ impl<'a> BlockChecker<'a> {
                 open_calls.push(i);
             }
         }
-        self.reduce_calls(&mut pending, &mut open_calls, expected_input.map(|t| (t, 0)));
+        self.reduce_calls(
+            &mut pending,
+            &mut open_calls,
+            expected_input.map(|t| (t, 0)),
+        );
         if pending.len() == 1 {
             pending.pop()
         } else {
@@ -2803,21 +2842,19 @@ impl<'a> BlockChecker<'a> {
         }
         let available_args = stack.len().saturating_sub(pos + 1);
         match &entry.expr.kind {
-            HirExprKind::Var(name) => self.env.lookup_all_callables(name).iter().any(|b| {
-                match &b.kind {
-                    BindingKind::Func { arity, captures, .. } => arity.saturating_sub(captures.len()) > available_args,
-                    _ => false,
-                }
+            HirExprKind::Var(name) => self.env.lookup_all_callables(name).iter().any(|b| match &b
+                .kind
+            {
+                BindingKind::Func {
+                    arity, captures, ..
+                } => arity.saturating_sub(captures.len()) > available_args,
+                _ => false,
             }),
             _ => false,
         }
     }
 
-    fn should_defer_overloaded_nullary_entry(
-        &mut self,
-        stack: &[StackEntry],
-        pos: usize,
-    ) -> bool {
+    fn should_defer_overloaded_nullary_entry(&mut self, stack: &[StackEntry], pos: usize) -> bool {
         if pos >= stack.len() {
             return false;
         }
@@ -2826,11 +2863,13 @@ impl<'a> BlockChecker<'a> {
             return false;
         }
         let has_nullary_overload = match &entry.expr.kind {
-            HirExprKind::Var(name) => self.env.lookup_all_callables(name).iter().any(|b| {
-                match &b.kind {
-                    BindingKind::Func { arity, captures, .. } => arity.saturating_sub(captures.len()) == 0,
-                    _ => false,
-                }
+            HirExprKind::Var(name) => self.env.lookup_all_callables(name).iter().any(|b| match &b
+                .kind
+            {
+                BindingKind::Func {
+                    arity, captures, ..
+                } => arity.saturating_sub(captures.len()) == 0,
+                _ => false,
             }),
             _ => false,
         };
@@ -2881,7 +2920,10 @@ impl<'a> BlockChecker<'a> {
                     if arity <= available_args {
                         if matches!(
                             self.ctx.get(self.ctx.resolve_id(b.ty)),
-                            TypeKind::Function { effect: Effect::Pure, .. }
+                            TypeKind::Function {
+                                effect: Effect::Pure,
+                                ..
+                            }
                         ) {
                             has_pure = true;
                         } else {
@@ -2904,7 +2946,10 @@ impl<'a> BlockChecker<'a> {
                 }
                 let is_pure = matches!(
                     self.ctx.get(self.ctx.resolve_id(b.ty)),
-                    TypeKind::Function { effect: Effect::Pure, .. }
+                    TypeKind::Function {
+                        effect: Effect::Pure,
+                        ..
+                    }
                 );
                 let should_replace = match &best {
                     None => true,
@@ -2950,8 +2995,7 @@ impl<'a> BlockChecker<'a> {
         // 型変数が他の型変数へ束縛された場合、resolve 後の TypeId が
         // 直接 type_param_bounds に存在しないことがあるため、正規化後 ID でも照合する。
         if self.type_param_bounds.iter().any(|(tp, bounds)| {
-            self.ctx.resolve_id(*tp) == resolved
-                && bounds.iter().any(matches_bound)
+            self.ctx.resolve_id(*tp) == resolved && bounds.iter().any(matches_bound)
         }) {
             return true;
         }
@@ -2993,24 +3037,20 @@ impl<'a> BlockChecker<'a> {
                 self.ctx.type_to_string(ty),
                 self.ctx.resolve_id(ty),
             );
-            for imp in self
-                .impls
-                .iter()
-                .filter(|imp| {
-                    imp.trait_base_name
-                        .as_deref()
-                        .map(|base| {
-                            trait_application_matches(
-                                self.ctx,
-                                &bound.trait_base_name,
-                                &bound.trait_args,
-                                base,
-                                &imp.trait_args,
-                            )
-                        })
-                        .unwrap_or(false)
-                })
-            {
+            for imp in self.impls.iter().filter(|imp| {
+                imp.trait_base_name
+                    .as_deref()
+                    .map(|base| {
+                        trait_application_matches(
+                            self.ctx,
+                            &bound.trait_base_name,
+                            &bound.trait_args,
+                            base,
+                            &imp.trait_args,
+                        )
+                    })
+                    .unwrap_or(false)
+            }) {
                 std::eprintln!(
                     "  impl candidate target={} ({:?}) same_type={}",
                     self.ctx.type_to_string(imp.target_ty),
@@ -3159,8 +3199,7 @@ impl<'a> BlockChecker<'a> {
         ) -> Option<(TypeId, usize)> {
             if emit_diagnostics {
                 checker.diagnostics.push(
-                    Diagnostic::error(message, span)
-                        .with_id(DiagnosticId::TypeInvalidFieldAccess),
+                    Diagnostic::error(message, span).with_id(DiagnosticId::TypeInvalidFieldAccess),
                 );
             }
             None
@@ -3175,7 +3214,10 @@ impl<'a> BlockChecker<'a> {
             } => match idx {
                 FieldIdx::Index(i) => {
                     if i < fields.len() {
-                        Some((fields[i], composite_field_offset_bytes(self.ctx, &fields, i)))
+                        Some((
+                            fields[i],
+                            composite_field_offset_bytes(self.ctx, &fields, i),
+                        ))
                     } else {
                         invalid_field(
                             self,
@@ -3187,7 +3229,10 @@ impl<'a> BlockChecker<'a> {
                 }
                 FieldIdx::Name(name) => {
                     if let Some(i) = field_names.iter().position(|n| *n == name) {
-                        Some((fields[i], composite_field_offset_bytes(self.ctx, &fields, i)))
+                        Some((
+                            fields[i],
+                            composite_field_offset_bytes(self.ctx, &fields, i),
+                        ))
                     } else {
                         invalid_field(
                             self,
@@ -3368,7 +3413,10 @@ impl<'a> BlockChecker<'a> {
                     match idx {
                         FieldIdx::Index(i) => {
                             if i < fields.len() {
-                                Some((fields[i], composite_field_offset_bytes(self.ctx, &fields, i)))
+                                Some((
+                                    fields[i],
+                                    composite_field_offset_bytes(self.ctx, &fields, i),
+                                ))
                             } else {
                                 invalid_field(
                                     self,
@@ -3380,7 +3428,10 @@ impl<'a> BlockChecker<'a> {
                         }
                         FieldIdx::Name(name) => {
                             if let Some(i) = field_names.iter().position(|n| *n == name) {
-                                Some((fields[i], composite_field_offset_bytes(self.ctx, &fields, i)))
+                                Some((
+                                    fields[i],
+                                    composite_field_offset_bytes(self.ctx, &fields, i),
+                                ))
                             } else {
                                 invalid_field(
                                     self,
@@ -3534,19 +3585,25 @@ impl<'a> BlockChecker<'a> {
                             }
                             // 関数同名はオーバーロードとして扱う（異なるシグネチャは許可）。
                         } else {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                format!("cannot shadow non-shadowable symbol '{}'", f.name.name),
-                                f.name.span,
-                            )
-                            .with_id(DiagnosticId::TypeNoShadowViolation),
-                        );
-                        self.diagnostics.push(
-                            Diagnostic::error("non-shadowable declaration is here", blocked.span)
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    format!(
+                                        "cannot shadow non-shadowable symbol '{}'",
+                                        f.name.name
+                                    ),
+                                    f.name.span,
+                                )
+                                .with_id(DiagnosticId::TypeNoShadowViolation),
+                            );
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "non-shadowable declaration is here",
+                                    blocked.span,
+                                )
                                 .with_id(DiagnosticId::TypeNoShadowViolation)
                                 .with_secondary_label(f.name.span, Some("shadow attempt".into())),
-                        );
-                        continue;
+                            );
+                            continue;
                         }
                     }
                     if f.no_shadow
@@ -3571,7 +3628,8 @@ impl<'a> BlockChecker<'a> {
                         continue;
                     }
                     if !captures.is_empty() {
-                        let mut lifted_params = captures.iter().map(|(_, t)| *t).collect::<Vec<_>>();
+                        let mut lifted_params =
+                            captures.iter().map(|(_, t)| *t).collect::<Vec<_>>();
                         lifted_params.extend(params.iter().copied());
                         ty = self
                             .ctx
@@ -3625,7 +3683,7 @@ impl<'a> BlockChecker<'a> {
                 },
                 type_args: Vec::new(),
                 assign: None,
-                            auto_call: true,
+                auto_call: true,
             });
         }
 
@@ -3689,10 +3747,13 @@ impl<'a> BlockChecker<'a> {
                             if let Stmt::ExprSemi(_, semi_span) = stmt {
                                 if stack.len() != base_depth + 1 {
                                     let sp = semi_span.unwrap_or(typed.span);
-                                    self.diagnostics.push(Diagnostic::error(
-                                        "statement must leave exactly one value on the stack",
-                                        sp,
-                                    ).with_id(DiagnosticId::TypeStackExtraValues));
+                                    self.diagnostics.push(
+                                        Diagnostic::error(
+                                            "statement must leave exactly one value on the stack",
+                                            sp,
+                                        )
+                                        .with_id(DiagnosticId::TypeStackExtraValues),
+                                    );
                                     while stack.len() > base_depth {
                                         stack.pop();
                                     }
@@ -3735,9 +3796,12 @@ impl<'a> BlockChecker<'a> {
                             let mut lifted_params =
                                 captures.iter().map(|(_, t)| *t).collect::<Vec<_>>();
                             lifted_params.extend(params.iter().copied());
-                            f_ty =
-                                self.ctx
-                                    .function(type_params.clone(), lifted_params, result, effect);
+                            f_ty = self.ctx.function(
+                                type_params.clone(),
+                                lifted_params,
+                                result,
+                                effect,
+                            );
                         }
                     } else {
                         self.diagnostics.push(Diagnostic::error(
@@ -3769,10 +3833,16 @@ impl<'a> BlockChecker<'a> {
                                         let arg_tys: Vec<TypeId> = b
                                             .args
                                             .iter()
-                                            .map(|arg| type_from_expr(self.ctx, &mut self.labels, arg))
+                                            .map(|arg| {
+                                                type_from_expr(self.ctx, &mut self.labels, arg)
+                                            })
                                             .collect();
                                         bounds.push(TraitBoundRef {
-                                            name: format_trait_ref_name(&b.name.name, &arg_tys, self.ctx),
+                                            name: format_trait_ref_name(
+                                                &b.name.name,
+                                                &arg_tys,
+                                                self.ctx,
+                                            ),
                                             trait_base_name: b.name.name.clone(),
                                             trait_args: arg_tys,
                                             trait_self_ty: info.self_ty,
@@ -3882,11 +3952,23 @@ impl<'a> BlockChecker<'a> {
         };
 
         if std::env::var("NEPL_DUMP_HIR").is_ok() {
-            dump!("NEPL_DUMP_HIR: block span={:?} lines={} final_ty={:?} value_ty={:?}", block.span, lines.len(), final_ty, value_ty);
+            dump!(
+                "NEPL_DUMP_HIR: block span={:?} lines={} final_ty={:?} value_ty={:?}",
+                block.span,
+                lines.len(),
+                final_ty,
+                value_ty
+            );
             // Print env scopes and a compact preview of the HIR lines for diagnosis
             dump!("NEPL_DUMP_HIR: env scopes=\n{:?}", self.env.scopes);
             for (i, l) in lines.iter().enumerate() {
-                dump!("NEPL_DUMP_HIR: line {} -> expr.kind = {:?}, ty={:?}, drop={}", i, l.expr.kind, l.expr.ty, l.drop_result);
+                dump!(
+                    "NEPL_DUMP_HIR: line {} -> expr.kind = {:?}, ty={:?}, drop={}",
+                    i,
+                    l.expr.kind,
+                    l.expr.ty,
+                    l.drop_result
+                );
             }
         }
 
@@ -3918,10 +4000,10 @@ impl<'a> BlockChecker<'a> {
         let mut open_calls: Vec<usize> = Vec::new();
         // Initialize open_calls from existing stack (if any)
         for (i, entry) in stack.iter().enumerate() {
-             let rty = self.ctx.resolve(entry.ty);
-             if entry.auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
-                 open_calls.push(i);
-             }
+            let rty = self.ctx.resolve(entry.ty);
+            if entry.auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                open_calls.push(i);
+            }
         }
 
         let mut dropped = false;
@@ -3962,10 +4044,8 @@ impl<'a> BlockChecker<'a> {
                             let v = match parse_i32_literal(text) {
                                 Some(v) => v,
                                 None => {
-                                    self.diagnostics.push(Diagnostic::error(
-                                        "invalid integer literal",
-                                        *span,
-                                    ));
+                                    self.diagnostics
+                                        .push(Diagnostic::error("invalid integer literal", *span));
                                     0
                                 }
                             };
@@ -3991,7 +4071,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
-                            auto_call: true,
+                        auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
@@ -4007,37 +4087,39 @@ impl<'a> BlockChecker<'a> {
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
                             let selected_from_qualified = qualified_bindings.is_some();
-                            let selected_binding = if let Some((_, qualified)) = &qualified_bindings {
+                            let selected_binding = if let Some((_, qualified)) = &qualified_bindings
+                            {
                                 if qualified.len() == 1 {
                                     Some((qualified[0].clone(), false))
                                 } else {
                                     None
                                 }
                             } else {
-                                let explicit_callable_candidate = if !*forced_value && !type_args.is_empty() {
-                                    let mut matching = self
-                                        .env
-                                        .lookup_all_callables(&id.name)
-                                        .into_iter()
-                                        .filter(|binding| {
-                                            let ty = self.ctx.resolve_id(binding.ty);
-                                            match self.ctx.get(ty) {
-                                                TypeKind::Function { type_params, .. } => {
-                                                    type_params.len() == type_args.len()
+                                let explicit_callable_candidate =
+                                    if !*forced_value && !type_args.is_empty() {
+                                        let mut matching = self
+                                            .env
+                                            .lookup_all_callables(&id.name)
+                                            .into_iter()
+                                            .filter(|binding| {
+                                                let ty = self.ctx.resolve_id(binding.ty);
+                                                match self.ctx.get(ty) {
+                                                    TypeKind::Function { type_params, .. } => {
+                                                        type_params.len() == type_args.len()
+                                                    }
+                                                    _ => false,
                                                 }
-                                                _ => false,
-                                            }
-                                        })
-                                        .cloned()
-                                        .collect::<Vec<_>>();
-                                    if matching.len() == 1 {
-                                        Some(matching.remove(0))
+                                            })
+                                            .cloned()
+                                            .collect::<Vec<_>>();
+                                        if matching.len() == 1 {
+                                            Some(matching.remove(0))
+                                        } else {
+                                            None
+                                        }
                                     } else {
                                         None
-                                    }
-                                } else {
-                                    None
-                                };
+                                    };
                                 let expected_function_from_outer = self
                                     .infer_expected_from_outer_consumer_next_arg(
                                         &stack,
@@ -4062,12 +4144,10 @@ impl<'a> BlockChecker<'a> {
                                         }
                                     })
                                     .unwrap_or(false);
-                                let expected_function_from_outer =
-                                    expected_function_from_outer
-                                        || expected_function_from_ascription;
-                                let value_candidate = self
-                                    .env
-                                    .lookup_value_for_read(&id.name, !in_let_self_init);
+                                let expected_function_from_outer = expected_function_from_outer
+                                    || expected_function_from_ascription;
+                                let value_candidate =
+                                    self.env.lookup_value_for_read(&id.name, !in_let_self_init);
                                 let has_any_value = self.env.lookup_value_any(&id.name).is_some();
                                 let value_is_function = value_candidate
                                     .map(|b| {
@@ -4112,7 +4192,8 @@ impl<'a> BlockChecker<'a> {
                                     .cloned()
                                     .map(|binding| (binding, expected_function_from_outer))
                             };
-                            if let Some((binding, expected_function_from_outer)) = selected_binding {
+                            if let Some((binding, expected_function_from_outer)) = selected_binding
+                            {
                                 if *forced_value {
                                     match &binding.kind {
                                         BindingKind::Func { captures, .. } => {
@@ -4164,10 +4245,15 @@ impl<'a> BlockChecker<'a> {
                                     }
                                     _ => {
                                         if !type_args.is_empty() {
-                                            self.diagnostics.push(Diagnostic::error(
-                                                "type arguments are not allowed for variables",
-                                                id.span,
-                                            ).with_id(DiagnosticId::TypeVariableTypeArgsNotAllowed));
+                                            self.diagnostics.push(
+                                                Diagnostic::error(
+                                                    "type arguments are not allowed for variables",
+                                                    id.span,
+                                                )
+                                                .with_id(
+                                                    DiagnosticId::TypeVariableTypeArgsNotAllowed,
+                                                ),
+                                            );
                                         }
                                         Vec::new()
                                     }
@@ -4195,34 +4281,33 @@ impl<'a> BlockChecker<'a> {
                                     .and_then(|expected_ty| {
                                         let resolved_target = self.ctx.resolve(expected_ty);
                                         match self.ctx.get(resolved_target) {
-                                            TypeKind::Function { params, .. } => {
-                                                Some(
-                                                    if params.len() == 1
-                                                        && matches!(
-                                                            self.ctx.get(self.ctx.resolve_id(params[0])),
-                                                            TypeKind::Unit
-                                                        )
-                                                    {
-                                                        0
-                                                    } else {
-                                                        params.len()
-                                                    },
-                                                )
-                                            }
+                                            TypeKind::Function { params, .. } => Some(
+                                                if params.len() == 1
+                                                    && matches!(
+                                                        self.ctx
+                                                            .get(self.ctx.resolve_id(params[0])),
+                                                        TypeKind::Unit
+                                                    )
+                                                {
+                                                    0
+                                                } else {
+                                                    params.len()
+                                                },
+                                            ),
                                             _ => None,
                                         }
                                     });
-                                let mut bindings = if let Some((member, qualified)) = &qualified_bindings
-                                {
-                                    lookup_name = member.clone();
-                                    qualified.clone()
-                                } else {
-                                    self.env
-                                        .lookup_all_any_defined(&lookup_name)
-                                        .into_iter()
-                                        .cloned()
-                                        .collect()
-                                };
+                                let mut bindings =
+                                    if let Some((member, qualified)) = &qualified_bindings {
+                                        lookup_name = member.clone();
+                                        qualified.clone()
+                                    } else {
+                                        self.env
+                                            .lookup_all_any_defined(&lookup_name)
+                                            .into_iter()
+                                            .cloned()
+                                            .collect()
+                                    };
                                 if bindings.is_empty() && qualified_bindings.is_none() {
                                     if let Some((ns, member)) = parse_variant_name(&id.name) {
                                         if !self.enums.contains_key(ns)
@@ -4253,118 +4338,133 @@ impl<'a> BlockChecker<'a> {
                                     });
                                 }
                                 if !bindings.is_empty() {
-                                let callable_overload_count = bindings
-                                    .iter()
-                                    .filter(|b| matches!(b.kind, BindingKind::Func { .. }))
-                                    .count();
-                                let overloaded_callable_only = callable_overload_count > 1
-                                    && bindings
+                                    let callable_overload_count = bindings
                                         .iter()
-                                        .all(|b| matches!(b.kind, BindingKind::Func { .. }));
-                                if overloaded_callable_only && !*forced_value && type_args.is_empty() {
-                                    let remaining_items = expr.items.len().saturating_sub(idx + 1);
-                                    let mut arities: Vec<usize> = bindings
-                                        .iter()
-                                        .filter_map(|b| match b.kind {
-                                            BindingKind::Func { arity, .. } => Some(arity),
-                                            _ => None,
-                                        })
-                                        .collect();
-                                    arities.sort_unstable();
-                                    arities.dedup();
-                                    let inferred_arity = outer_expected_callable_arity
-                                        .filter(|a| arities.contains(a))
-                                        .or_else(|| {
-                                            if matches!(
-                                                expr.items.get(idx + 1),
-                                                Some(PrefixItem::Pipe(_))
-                                            ) && arities.contains(&0)
-                                            {
-                                                return Some(0);
-                                            }
-                                            arities
-                                                .iter()
-                                                .copied()
-                                                .filter(|a| *a <= remaining_items)
-                                                .max()
-                                        })
-                                        .or_else(|| arities.first().copied())
-                                        .unwrap_or(0);
-                                    let mut params = Vec::new();
-                                    for _ in 0..inferred_arity {
-                                        params.push(self.ctx.fresh_var(None));
-                                    }
-                                    let result = self.ctx.fresh_var(None);
-                                    let ty = self.ctx.function(
-                                        Vec::new(),
-                                        params,
-                                        result,
-                                        Effect::Pure,
-                                    );
-                                    stack.push(StackEntry {
-                                        ty,
-                                        expr: HirExpr {
+                                        .filter(|b| matches!(b.kind, BindingKind::Func { .. }))
+                                        .count();
+                                    let overloaded_callable_only = callable_overload_count > 1
+                                        && bindings
+                                            .iter()
+                                            .all(|b| matches!(b.kind, BindingKind::Func { .. }));
+                                    if overloaded_callable_only
+                                        && !*forced_value
+                                        && type_args.is_empty()
+                                    {
+                                        let remaining_items =
+                                            expr.items.len().saturating_sub(idx + 1);
+                                        let mut arities: Vec<usize> = bindings
+                                            .iter()
+                                            .filter_map(|b| match b.kind {
+                                                BindingKind::Func { arity, .. } => Some(arity),
+                                                _ => None,
+                                            })
+                                            .collect();
+                                        arities.sort_unstable();
+                                        arities.dedup();
+                                        let inferred_arity = outer_expected_callable_arity
+                                            .filter(|a| arities.contains(a))
+                                            .or_else(|| {
+                                                if matches!(
+                                                    expr.items.get(idx + 1),
+                                                    Some(PrefixItem::Pipe(_))
+                                                ) && arities.contains(&0)
+                                                {
+                                                    return Some(0);
+                                                }
+                                                arities
+                                                    .iter()
+                                                    .copied()
+                                                    .filter(|a| *a <= remaining_items)
+                                                    .max()
+                                            })
+                                            .or_else(|| arities.first().copied())
+                                            .unwrap_or(0);
+                                        let mut params = Vec::new();
+                                        for _ in 0..inferred_arity {
+                                            params.push(self.ctx.fresh_var(None));
+                                        }
+                                        let result = self.ctx.fresh_var(None);
+                                        let ty = self.ctx.function(
+                                            Vec::new(),
+                                            params,
+                                            result,
+                                            Effect::Pure,
+                                        );
+                                        stack.push(StackEntry {
                                             ty,
-                                            kind: HirExprKind::Var(lookup_name.clone()),
-                                            span: id.span,
-                                        },
-                                        type_args: Vec::new(),
-                                        assign: None,
-                                        auto_call: true,
-                                    });
-                                    last_expr = Some(stack.last().unwrap().expr.clone());
-                                } else if let Some(binding) = bindings
-                                    .iter()
-                                    .cloned()
-                                    .find(|b| matches!(b.kind, BindingKind::Var))
-                                {
-                                    if *forced_value {
-                                        self.diagnostics.push(Diagnostic::error(
+                                            expr: HirExpr {
+                                                ty,
+                                                kind: HirExprKind::Var(lookup_name.clone()),
+                                                span: id.span,
+                                            },
+                                            type_args: Vec::new(),
+                                            assign: None,
+                                            auto_call: true,
+                                        });
+                                        last_expr = Some(stack.last().unwrap().expr.clone());
+                                    } else if let Some(binding) = bindings
+                                        .iter()
+                                        .cloned()
+                                        .find(|b| matches!(b.kind, BindingKind::Var))
+                                    {
+                                        if *forced_value {
+                                            self.diagnostics.push(Diagnostic::error(
                                             "only callable symbols can be referenced with '@'",
                                             id.span,
                                         ).with_id(DiagnosticId::TypeAtRequiresCallable));
-                                        return None;
-                                    }
-                                    if !type_args.is_empty() {
-                                        self.diagnostics.push(Diagnostic::error(
-                                            "type arguments are not allowed for variables",
-                                            id.span,
-                                        ).with_id(DiagnosticId::TypeVariableTypeArgsNotAllowed));
-                                    }
-                                    let ty = binding.ty;
-                                    stack.push(StackEntry {
-                                        ty,
-                                        expr: HirExpr {
+                                            return None;
+                                        }
+                                        if !type_args.is_empty() {
+                                            self.diagnostics.push(
+                                                Diagnostic::error(
+                                                    "type arguments are not allowed for variables",
+                                                    id.span,
+                                                )
+                                                .with_id(
+                                                    DiagnosticId::TypeVariableTypeArgsNotAllowed,
+                                                ),
+                                            );
+                                        }
+                                        let ty = binding.ty;
+                                        stack.push(StackEntry {
                                             ty,
-                                            kind: HirExprKind::Var(lookup_name.clone()),
-                                            span: id.span,
-                                        },
-                                        type_args: Vec::new(),
-                                        assign: None,
-                                        auto_call: !*forced_value,
-                                    });
-                                    if crate::log::is_verbose()
-                                        && matches!(lookup_name.as_str(), "A" | "use_a" | "DefaultHash32" | "new" | "must_hm")
-                                    {
-                                        std::eprintln!(
-                                            "push value {} ty={} auto_call={}",
-                                            lookup_name,
-                                            self.ctx.type_to_string(ty),
-                                            !*forced_value
-                                        );
-                                    }
-                                    last_expr = Some(stack.last().unwrap().expr.clone());
-                                } else {
-                                    let expected_callable_arity = pending_ascription
-                                        .and_then(|(target_ty, base_len)| {
-                                            if stack.len() == base_len {
-                                                let resolved_target = self.ctx.resolve(target_ty);
-                                                match self.ctx.get(resolved_target) {
-                                                    TypeKind::Function { params, .. } => {
-                                                        Some(
+                                            expr: HirExpr {
+                                                ty,
+                                                kind: HirExprKind::Var(lookup_name.clone()),
+                                                span: id.span,
+                                            },
+                                            type_args: Vec::new(),
+                                            assign: None,
+                                            auto_call: !*forced_value,
+                                        });
+                                        if crate::log::is_verbose()
+                                            && matches!(
+                                                lookup_name.as_str(),
+                                                "A" | "use_a" | "DefaultHash32" | "new" | "must_hm"
+                                            )
+                                        {
+                                            std::eprintln!(
+                                                "push value {} ty={} auto_call={}",
+                                                lookup_name,
+                                                self.ctx.type_to_string(ty),
+                                                !*forced_value
+                                            );
+                                        }
+                                        last_expr = Some(stack.last().unwrap().expr.clone());
+                                    } else {
+                                        let expected_callable_arity = pending_ascription
+                                            .and_then(|(target_ty, base_len)| {
+                                                if stack.len() == base_len {
+                                                    let resolved_target =
+                                                        self.ctx.resolve(target_ty);
+                                                    match self.ctx.get(resolved_target) {
+                                                        TypeKind::Function { params, .. } => Some(
                                                             if params.len() == 1
                                                                 && matches!(
-                                                                    self.ctx.get(self.ctx.resolve_id(params[0])),
+                                                                    self.ctx.get(
+                                                                        self.ctx
+                                                                            .resolve_id(params[0])
+                                                                    ),
                                                                     TypeKind::Unit
                                                                 )
                                                             {
@@ -4372,20 +4472,19 @@ impl<'a> BlockChecker<'a> {
                                                             } else {
                                                                 params.len()
                                                             },
-                                                        )
+                                                        ),
+                                                        _ => None,
                                                     }
-                                                    _ => None,
+                                                } else {
+                                                    None
                                                 }
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                        .or(outer_expected_callable_arity);
-                                    if let Some(exp_arity) = expected_callable_arity {
-                                        let allow_fnvalue_selection =
-                                            *forced_value || idx + 1 >= expr.items.len();
-                                        if allow_fnvalue_selection {
-                                        let mut arity_candidates: Vec<&Binding> = bindings
+                                            })
+                                            .or(outer_expected_callable_arity);
+                                        if let Some(exp_arity) = expected_callable_arity {
+                                            let allow_fnvalue_selection =
+                                                *forced_value || idx + 1 >= expr.items.len();
+                                            if allow_fnvalue_selection {
+                                                let mut arity_candidates: Vec<&Binding> = bindings
                                             .iter()
                                             .filter(|b| {
                                                 matches!(
@@ -4394,140 +4493,152 @@ impl<'a> BlockChecker<'a> {
                                                 )
                                             })
                                             .collect();
-                                        if arity_candidates.len() == 1 {
-                                            let binding = arity_candidates.remove(0);
-                                            if *forced_value {
-                                                if let BindingKind::Func { captures, .. } =
-                                                    &binding.kind
-                                                {
-                                                    if !captures.is_empty() {
-                                                        self.diagnostics.push(Diagnostic::error(
+                                                if arity_candidates.len() == 1 {
+                                                    let binding = arity_candidates.remove(0);
+                                                    if *forced_value {
+                                                        if let BindingKind::Func {
+                                                            captures, ..
+                                                        } = &binding.kind
+                                                        {
+                                                            if !captures.is_empty() {
+                                                                self.diagnostics.push(Diagnostic::error(
                                                             "capturing function cannot be used as a function value yet",
                                                             id.span,
                                                         ).with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported));
-                                                        return None;
+                                                                return None;
+                                                            }
+                                                        }
                                                     }
+                                                    let mut explicit_args = Vec::new();
+                                                    if !type_args.is_empty() {
+                                                        for arg_expr in type_args {
+                                                            explicit_args.push(type_from_expr(
+                                                                self.ctx,
+                                                                self.labels,
+                                                                arg_expr,
+                                                            ));
+                                                        }
+                                                    }
+                                                    let ty = binding.ty;
+                                                    let fn_symbol = match &binding.kind {
+                                                        BindingKind::Func { symbol, .. } => {
+                                                            symbol.clone()
+                                                        }
+                                                        _ => lookup_name.clone(),
+                                                    };
+                                                    stack.push(StackEntry {
+                                                        ty,
+                                                        expr: HirExpr {
+                                                            ty,
+                                                            // 期待関数型で一意に選べた過負荷関数は
+                                                            // ここで関数値として確定させる。
+                                                            kind: HirExprKind::FnValue(fn_symbol),
+                                                            span: id.span,
+                                                        },
+                                                        type_args: explicit_args,
+                                                        assign: None,
+                                                        auto_call: false,
+                                                    });
+                                                    last_expr =
+                                                        Some(stack.last().unwrap().expr.clone());
+                                                    continue;
+                                                } else if arity_candidates.len() > 1 {
+                                                    self.diagnostics.push(
+                                                        Diagnostic::error(
+                                                            "ambiguous overload",
+                                                            id.span,
+                                                        )
+                                                        .with_id(
+                                                            DiagnosticId::TypeAmbiguousOverload,
+                                                        ),
+                                                    );
+                                                    return None;
                                                 }
                                             }
-                                            let mut explicit_args = Vec::new();
-                                            if !type_args.is_empty() {
-                                                for arg_expr in type_args {
-                                                    explicit_args.push(type_from_expr(
-                                                        self.ctx,
-                                                        self.labels,
-                                                        arg_expr,
-                                                    ));
-                                                }
-                                            }
-                                            let ty = binding.ty;
-                                            let fn_symbol = match &binding.kind {
-                                                BindingKind::Func { symbol, .. } => {
-                                                    symbol.clone()
-                                                }
-                                                _ => lookup_name.clone(),
-                                            };
-                                            stack.push(StackEntry {
-                                                ty,
-                                                expr: HirExpr {
-                                                    ty,
-                                                    // 期待関数型で一意に選べた過負荷関数は
-                                                    // ここで関数値として確定させる。
-                                                    kind: HirExprKind::FnValue(fn_symbol),
-                                                    span: id.span,
-                                                },
-                                                type_args: explicit_args,
-                                                assign: None,
-                                                auto_call: false,
-                                            });
-                                            last_expr = Some(stack.last().unwrap().expr.clone());
-                                            continue;
-                                        } else if arity_candidates.len() > 1 {
-                                            self.diagnostics.push(
-                                                Diagnostic::error("ambiguous overload", id.span)
-                                                    .with_id(DiagnosticId::TypeAmbiguousOverload),
-                                            );
-                                            return None;
                                         }
-                                        }
-                                    }
-                                    let mut effect = None;
-                                    let mut arity = None;
-                                    for b in &bindings {
-                                        if let BindingKind::Func {
-                                            effect: e,
-                                            arity: a,
-                                            ..
-                                        } = b.kind
-                                        {
-                                            if effect.is_none() {
-                                                effect = Some(e);
-                                            } else if effect != Some(e) {
-                                                self.diagnostics.push(Diagnostic::error(
+                                        let mut effect = None;
+                                        let mut arity = None;
+                                        for b in &bindings {
+                                            if let BindingKind::Func {
+                                                effect: e,
+                                                arity: a,
+                                                ..
+                                            } = b.kind
+                                            {
+                                                if effect.is_none() {
+                                                    effect = Some(e);
+                                                } else if effect != Some(e) {
+                                                    self.diagnostics.push(Diagnostic::error(
                                                     "overloaded functions must have the same effect",
                                                     id.span,
                                                 ).with_id(DiagnosticId::TypeOverloadEffectMismatch));
-                                            }
-                                            if arity.is_none() {
-                                                arity = Some(a);
+                                                }
+                                                if arity.is_none() {
+                                                    arity = Some(a);
+                                                }
                                             }
                                         }
-                                    }
-                                    let arity = arity.unwrap_or(0);
-                                    let effect = effect.unwrap_or(Effect::Pure);
-                                    let has_captures = bindings.iter().any(|b| {
+                                        let arity = arity.unwrap_or(0);
+                                        let effect = effect.unwrap_or(Effect::Pure);
+                                        let has_captures = bindings.iter().any(|b| {
                                         matches!(
                                             &b.kind,
                                             BindingKind::Func { captures, .. } if !captures.is_empty()
                                         )
                                     });
-                                    if *forced_value && has_captures {
-                                        self.diagnostics.push(Diagnostic::error(
+                                        if *forced_value && has_captures {
+                                            self.diagnostics.push(Diagnostic::error(
                                             "capturing function cannot be used as a function value yet",
                                             id.span,
                                         ).with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported));
-                                        return None;
-                                    }
-                                    let mut explicit_args = Vec::new();
-                                    if !type_args.is_empty() {
-                                        for arg_expr in type_args {
-                                            explicit_args
-                                                .push(type_from_expr(self.ctx, self.labels, arg_expr));
+                                            return None;
                                         }
-                                    }
-                                    let mut params = Vec::new();
-                                    for _ in 0..arity {
-                                        params.push(self.ctx.fresh_var(None));
-                                    }
-                                    let result = self.ctx.fresh_var(None);
-                                    let ty = self
-                                        .ctx
-                                        .function(Vec::new(), params, result, effect);
-                                    stack.push(StackEntry {
-                                        ty,
-                                        expr: HirExpr {
+                                        let mut explicit_args = Vec::new();
+                                        if !type_args.is_empty() {
+                                            for arg_expr in type_args {
+                                                explicit_args.push(type_from_expr(
+                                                    self.ctx,
+                                                    self.labels,
+                                                    arg_expr,
+                                                ));
+                                            }
+                                        }
+                                        let mut params = Vec::new();
+                                        for _ in 0..arity {
+                                            params.push(self.ctx.fresh_var(None));
+                                        }
+                                        let result = self.ctx.fresh_var(None);
+                                        let ty =
+                                            self.ctx.function(Vec::new(), params, result, effect);
+                                        stack.push(StackEntry {
                                             ty,
-                                            kind: if *forced_value {
-                                                HirExprKind::FnValue(lookup_name.clone())
-                                            } else {
-                                                HirExprKind::Var(lookup_name.clone())
+                                            expr: HirExpr {
+                                                ty,
+                                                kind: if *forced_value {
+                                                    HirExprKind::FnValue(lookup_name.clone())
+                                                } else {
+                                                    HirExprKind::Var(lookup_name.clone())
+                                                },
+                                                span: id.span,
                                             },
-                                            span: id.span,
-                                        },
-                                        type_args: explicit_args,
-                                        assign: None,
-                            auto_call: true,
-                                    });
-                                    if crate::log::is_verbose()
-                                        && matches!(lookup_name.as_str(), "A" | "use_a" | "DefaultHash32" | "new" | "must_hm")
-                                    {
-                                        std::eprintln!(
-                                            "push callable {} ty={} auto_call=true",
-                                            lookup_name,
-                                            self.ctx.type_to_string(ty)
-                                        );
+                                            type_args: explicit_args,
+                                            assign: None,
+                                            auto_call: true,
+                                        });
+                                        if crate::log::is_verbose()
+                                            && matches!(
+                                                lookup_name.as_str(),
+                                                "A" | "use_a" | "DefaultHash32" | "new" | "must_hm"
+                                            )
+                                        {
+                                            std::eprintln!(
+                                                "push callable {} ty={} auto_call=true",
+                                                lookup_name,
+                                                self.ctx.type_to_string(ty)
+                                            );
+                                        }
+                                        last_expr = Some(stack.last().unwrap().expr.clone());
                                     }
-                                    last_expr = Some(stack.last().unwrap().expr.clone());
-                                }
                                 } else if let Some((trait_name, method_name)) =
                                     parse_variant_name(&id.name)
                                 {
@@ -4549,7 +4660,9 @@ impl<'a> BlockChecker<'a> {
                                                     None,
                                                 );
                                             let method_self = self
-                                                .infer_unique_type_param_for_trait(&applied_trait_name)
+                                                .infer_unique_type_param_for_trait(
+                                                    &applied_trait_name,
+                                                )
                                                 .unwrap_or_else(|| {
                                                     self.ctx.fresh_var(Some(String::from("Self")))
                                                 });
@@ -4576,13 +4689,16 @@ impl<'a> BlockChecker<'a> {
                                             });
                                             last_expr = Some(stack.last().unwrap().expr.clone());
                                         } else {
-                                            self.diagnostics.push(Diagnostic::error(
-                                                format!(
-                                                    "unknown method '{}' for trait '{}'",
-                                                    method_name, trait_name
-                                                ),
-                                                id.span,
-                                            ).with_id(DiagnosticId::TypeTraitMethodNotFound));
+                                            self.diagnostics.push(
+                                                Diagnostic::error(
+                                                    format!(
+                                                        "unknown method '{}' for trait '{}'",
+                                                        method_name, trait_name
+                                                    ),
+                                                    id.span,
+                                                )
+                                                .with_id(DiagnosticId::TypeTraitMethodNotFound),
+                                            );
                                             return None;
                                         }
                                     } else {
@@ -4609,20 +4725,23 @@ impl<'a> BlockChecker<'a> {
                         // (shadowing outer bindings) rather than reusing an outer binding.
                         let ty = if let Some(b) = self.env.lookup_current_value(&name.name) {
                             if b.no_shadow && b.span != name.span {
-                                self.diagnostics.push(Diagnostic::error(
-                                    format!("cannot shadow non-shadowable symbol '{}'", name.name),
-                                    name.span,
-                                ).with_id(DiagnosticId::TypeNoShadowViolation));
                                 self.diagnostics.push(
                                     Diagnostic::error(
-                                        "non-shadowable declaration is here",
-                                        b.span,
-                                    )
-                                    .with_id(DiagnosticId::TypeNoShadowViolation)
-                                    .with_secondary_label(
+                                        format!(
+                                            "cannot shadow non-shadowable symbol '{}'",
+                                            name.name
+                                        ),
                                         name.span,
-                                        Some("shadow attempt".into()),
-                                    ),
+                                    )
+                                    .with_id(DiagnosticId::TypeNoShadowViolation),
+                                );
+                                self.diagnostics.push(
+                                    Diagnostic::error("non-shadowable declaration is here", b.span)
+                                        .with_id(DiagnosticId::TypeNoShadowViolation)
+                                        .with_secondary_label(
+                                            name.span,
+                                            Some("shadow attempt".into()),
+                                        ),
                                 );
                                 return None;
                             }
@@ -4630,34 +4749,37 @@ impl<'a> BlockChecker<'a> {
                         } else {
                             if let Some(blocked) = shadow_blocked_by_nonshadow(self.env, &name.name)
                             {
-                                self.diagnostics.push(Diagnostic::error(
-                                    format!(
-                                        "cannot shadow non-shadowable symbol '{}'",
-                                        name.name
-                                    ),
-                                    name.span,
-                                ).with_id(DiagnosticId::TypeNoShadowViolation));
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        format!(
+                                            "cannot shadow non-shadowable symbol '{}'",
+                                            name.name
+                                        ),
+                                        name.span,
+                                    )
+                                    .with_id(DiagnosticId::TypeNoShadowViolation),
+                                );
                                 self.diagnostics.push(
                                     Diagnostic::error(
                                         "non-shadowable declaration is here",
                                         blocked.span,
                                     )
                                     .with_id(DiagnosticId::TypeNoShadowViolation)
-                                    .with_secondary_label(
-                                        name.span,
-                                        Some("shadow attempt".into()),
-                                    ),
+                                    .with_secondary_label(name.span, Some("shadow attempt".into())),
                                 );
                                 return None;
                             }
                             if *no_shadow && self.env.lookup_any(&name.name).is_some() {
-                                self.diagnostics.push(Diagnostic::error(
-                                    format!(
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        format!(
                                         "noshadow declaration '{}' conflicts with existing symbol",
                                         name.name
                                     ),
-                                    name.span,
-                                ).with_id(DiagnosticId::TypeNoShadowConflict));
+                                        name.span,
+                                    )
+                                    .with_id(DiagnosticId::TypeNoShadowConflict),
+                                );
                                 return None;
                             }
                             let t = self.ctx.fresh_var(None);
@@ -4703,10 +4825,10 @@ impl<'a> BlockChecker<'a> {
                             self.env.lookup_value_with_scope(&name.name)
                         {
                             if !binding.mutable {
-                                self.diagnostics.push(Diagnostic::error(
-                                    "cannot set immutable variable",
-                                    name.span,
-                                ).with_id(DiagnosticId::TypeImmutableMutation));
+                                self.diagnostics.push(
+                                    Diagnostic::error("cannot set immutable variable", name.span)
+                                        .with_id(DiagnosticId::TypeImmutableMutation),
+                                );
                             }
                             let effect = if scope_index == 0 {
                                 Effect::Impure
@@ -4733,11 +4855,10 @@ impl<'a> BlockChecker<'a> {
                             // defer applying ascription until the expression is complete
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
-                            self.diagnostics
-                                .push(
-                                    Diagnostic::error("undefined variable", name.span)
-                                        .with_id(DiagnosticId::TypeUndefinedVariable),
-                                );
+                            self.diagnostics.push(
+                                Diagnostic::error("undefined variable", name.span)
+                                    .with_id(DiagnosticId::TypeUndefinedVariable),
+                            );
                         }
                     }
                     Symbol::AddrOf(span) => {
@@ -4825,12 +4946,13 @@ impl<'a> BlockChecker<'a> {
                 },
                 PrefixItem::Intrinsic(intrin, sp) => {
                     let intrin_effect = intrinsic_effect(&intrin.name);
-                    if matches!(self.current_effect, Effect::Pure) && matches!(intrin_effect, Effect::Impure)
+                    if matches!(self.current_effect, Effect::Pure)
+                        && matches!(intrin_effect, Effect::Impure)
                     {
-                        self.diagnostics.push(Diagnostic::error(
-                            "pure context cannot call impure function",
-                            *sp,
-                        ).with_id(DiagnosticId::TypePureCallsImpureFunction));
+                        self.diagnostics.push(
+                            Diagnostic::error("pure context cannot call impure function", *sp)
+                                .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                        );
                         return None;
                     }
 
@@ -4838,52 +4960,52 @@ impl<'a> BlockChecker<'a> {
                     for t in &intrin.type_args {
                         type_args.push(type_from_expr(self.ctx, self.labels, t));
                     }
-                    
+
                     let mut args = Vec::new();
                     for arg in &intrin.args {
                         let mut arg_stack = Vec::new();
-                        if let Some((hexpr, _)) =
-                            self.check_prefix(arg, 0, &mut arg_stack, None)
-                        {
+                        if let Some((hexpr, _)) = self.check_prefix(arg, 0, &mut arg_stack, None) {
                             args.push(hexpr);
                         } else {
-                             return None;
+                            return None;
                         }
                     }
-                    
+
                     let ty = if intrin.name == "size_of" || intrin.name == "align_of" {
                         self.ctx.i32()
                     } else if intrin.name == "load" {
                         if type_args.len() == 1 {
-                             type_args[0]
+                            type_args[0]
                         } else {
-                             self.ctx.unit()
+                            self.ctx.unit()
                         }
                     } else if intrin.name == "store" {
-                         self.ctx.unit()
+                        self.ctx.unit()
                     } else if intrin.name == "callsite_span" {
                         if type_args.len() == 1 {
                             type_args[0]
                         } else {
-                            self.diagnostics
-                                .push(
-                                    Diagnostic::error("callsite_span expects 1 type arg", *sp)
-                                        .with_id(DiagnosticId::TypeIntrinsicTypeArgArityMismatch),
-                                );
+                            self.diagnostics.push(
+                                Diagnostic::error("callsite_span expects 1 type arg", *sp)
+                                    .with_id(DiagnosticId::TypeIntrinsicTypeArgArityMismatch),
+                            );
                             self.ctx.unit()
                         }
                     } else if intrin.name == "get_field" || intrin.name == "set_field" {
                         self.ctx.unit() // temporary, will continue below
                     } else if intrin.name == "unreachable" {
-                         self.ctx.never()
+                        self.ctx.never()
                     } else if intrin.name == "i32_to_f32" {
                         self.ctx.f32()
                     } else if intrin.name == "i32_to_u8" {
                         self.ctx.u8()
                     } else if intrin.name == "i32_to_u32" {
-                        self.ctx
-                            .lookup_named("u32")
-                            .unwrap_or_else(|| self.ctx.register_named("u32".to_string(), TypeKind::Named("u32".to_string())))
+                        self.ctx.lookup_named("u32").unwrap_or_else(|| {
+                            self.ctx.register_named(
+                                "u32".to_string(),
+                                TypeKind::Named("u32".to_string()),
+                            )
+                        })
                     } else if intrin.name == "f32_to_i32" {
                         self.ctx.i32()
                     } else if intrin.name == "u8_to_i32" {
@@ -4891,13 +5013,19 @@ impl<'a> BlockChecker<'a> {
                     } else if intrin.name == "u32_to_i32" {
                         self.ctx.i32()
                     } else if intrin.name == "i64_to_u64" {
-                        self.ctx
-                            .lookup_named("u64")
-                            .unwrap_or_else(|| self.ctx.register_named("u64".to_string(), TypeKind::Named("u64".to_string())))
+                        self.ctx.lookup_named("u64").unwrap_or_else(|| {
+                            self.ctx.register_named(
+                                "u64".to_string(),
+                                TypeKind::Named("u64".to_string()),
+                            )
+                        })
                     } else if intrin.name == "u64_to_i64" {
-                        self.ctx
-                            .lookup_named("i64")
-                            .unwrap_or_else(|| self.ctx.register_named("i64".to_string(), TypeKind::Named("i64".to_string())))
+                        self.ctx.lookup_named("i64").unwrap_or_else(|| {
+                            self.ctx.register_named(
+                                "i64".to_string(),
+                                TypeKind::Named("i64".to_string()),
+                            )
+                        })
                     } else if intrin.name == "reinterpret_i32_f32" {
                         self.ctx.f32()
                     } else if intrin.name == "reinterpret_f32_i32" {
@@ -4915,136 +5043,137 @@ impl<'a> BlockChecker<'a> {
                     };
 
                     if intrin.name == "get_field" {
-                            let obj = args[0].clone();
-                            let idx = &args[1];
-                            let res = match &idx.kind {
-                                HirExprKind::LiteralI32(val) => {
-                                    self.resolve_field_access(obj.ty, FieldIdx::Index(*val as usize), *sp)
-                                }
-                                HirExprKind::LiteralStr(sid) => {
-                                    let name = self.string_table.get(*sid).unwrap().clone();
-                                    self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
-                                }
-                                _ => None,
-                            };
-                            if let Some((f_ty, offset)) = res {
-                                 // Unify our determined ty (fresh var) with the actual field type
-                                 let _ = self.ctx.unify(ty, f_ty);
-
-                                 // Lower to load(add(obj, offset))
-                                 let addr_expr = if offset == 0 {
-                                     obj
-                                 } else {
-                                     HirExpr {
-                                         ty: self.ctx.i32(),
-                                         kind: HirExprKind::Intrinsic {
-                                             name: "add".to_string(),
-                                             type_args: vec![self.ctx.i32()],
-                                             args: vec![
-                                                 obj,
-                                                 HirExpr {
-                                                     ty: self.ctx.i32(),
-                                                     kind: HirExprKind::LiteralI32(offset as i32),
-                                                     span: idx.span,
-                                                 }
-                                             ],
-                                         },
-                                         span: *sp,
-                                     }
-                                 };
-                                 let hexpr = HirExpr {
-                                     ty: f_ty,
-                                     kind: HirExprKind::Intrinsic {
-                                         name: "load".to_string(),
-                                         type_args: vec![f_ty],
-                                         args: vec![addr_expr],
-                                     },
-                                     span: *sp,
-                                 };
-                                 stack.push(StackEntry {
-                                     ty: f_ty,
-                                     expr: hexpr.clone(),
-                                     type_args: Vec::new(),
-                                     assign: None,
-                            auto_call: true,
-                                 });
-                                 last_expr = Some(hexpr);
-                                 continue;
+                        let obj = args[0].clone();
+                        let idx = &args[1];
+                        let res = match &idx.kind {
+                            HirExprKind::LiteralI32(val) => self.resolve_field_access(
+                                obj.ty,
+                                FieldIdx::Index(*val as usize),
+                                *sp,
+                            ),
+                            HirExprKind::LiteralStr(sid) => {
+                                let name = self.string_table.get(*sid).unwrap().clone();
+                                self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
                             }
-                            // which pushes HirExprKind::Intrinsic and uses the fresh variable 'ty'.
-                    } else if intrin.name == "set_field" {
-                            let obj = args[0].clone();
-                            let idx = &args[1];
-                            let val = args[2].clone();
-                            let res = match &idx.kind {
-                                HirExprKind::LiteralI32(v) => {
-                                    self.resolve_field_access(obj.ty, FieldIdx::Index(*v as usize), *sp)
-                                }
-                                HirExprKind::LiteralStr(sid) => {
-                                    let name = self.string_table.get(*sid).unwrap().clone();
-                                    self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
-                                }
-                                _ => None,
-                            };
-                            if let Some((f_ty, offset)) = res {
-                                // Unify value type with field type
-                                if let Err(_) = self.ctx.unify(val.ty, f_ty) {
-                                     self.diagnostics.push(
-                                         Diagnostic::error(
-                                             format!(
-                                                 "type mismatch in set_field: expected {}, found {}",
-                                                 self.ctx.type_to_string(f_ty),
-                                                 self.ctx.type_to_string(val.ty)
-                                             ),
-                                             *sp,
-                                         )
-                                         .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
-                                     );
-                                }
+                            _ => None,
+                        };
+                        if let Some((f_ty, offset)) = res {
+                            // Unify our determined ty (fresh var) with the actual field type
+                            let _ = self.ctx.unify(ty, f_ty);
 
-                                // Lower to store(add(obj, offset), val)
-                                let addr_expr = if offset == 0 {
-                                    obj
-                                } else {
-                                    HirExpr {
-                                        ty: self.ctx.i32(),
-                                        kind: HirExprKind::Intrinsic {
-                                            name: "add".to_string(),
-                                            type_args: vec![self.ctx.i32()],
-                                            args: vec![
-                                                obj,
-                                                HirExpr {
-                                                    ty: self.ctx.i32(),
-                                                    kind: HirExprKind::LiteralI32(offset as i32),
-                                                    span: idx.span,
-                                                }
-                                            ],
-                                        },
-                                        span: *sp,
-                                    }
-                                };
-                                let hexpr = HirExpr {
-                                    ty: self.ctx.unit(),
+                            // Lower to load(add(obj, offset))
+                            let addr_expr = if offset == 0 {
+                                obj
+                            } else {
+                                HirExpr {
+                                    ty: self.ctx.i32(),
                                     kind: HirExprKind::Intrinsic {
-                                        name: "store".to_string(),
-                                        type_args: vec![f_ty],
-                                        args: vec![addr_expr, val],
+                                        name: "add".to_string(),
+                                        type_args: vec![self.ctx.i32()],
+                                        args: vec![
+                                            obj,
+                                            HirExpr {
+                                                ty: self.ctx.i32(),
+                                                kind: HirExprKind::LiteralI32(offset as i32),
+                                                span: idx.span,
+                                            },
+                                        ],
                                     },
                                     span: *sp,
-                                };
-                                stack.push(StackEntry {
-                                    ty: self.ctx.unit(),
-                                    expr: hexpr.clone(),
-                                    type_args: Vec::new(),
-                                    assign: None,
-                            auto_call: true,
-                                });
-                                last_expr = Some(hexpr);
-                                continue;
+                                }
+                            };
+                            let hexpr = HirExpr {
+                                ty: f_ty,
+                                kind: HirExprKind::Intrinsic {
+                                    name: "load".to_string(),
+                                    type_args: vec![f_ty],
+                                    args: vec![addr_expr],
+                                },
+                                span: *sp,
+                            };
+                            stack.push(StackEntry {
+                                ty: f_ty,
+                                expr: hexpr.clone(),
+                                type_args: Vec::new(),
+                                assign: None,
+                                auto_call: true,
+                            });
+                            last_expr = Some(hexpr);
+                            continue;
+                        }
+                        // which pushes HirExprKind::Intrinsic and uses the fresh variable 'ty'.
+                    } else if intrin.name == "set_field" {
+                        let obj = args[0].clone();
+                        let idx = &args[1];
+                        let val = args[2].clone();
+                        let res = match &idx.kind {
+                            HirExprKind::LiteralI32(v) => {
+                                self.resolve_field_access(obj.ty, FieldIdx::Index(*v as usize), *sp)
                             }
+                            HirExprKind::LiteralStr(sid) => {
+                                let name = self.string_table.get(*sid).unwrap().clone();
+                                self.resolve_field_access(obj.ty, FieldIdx::Name(name), *sp)
+                            }
+                            _ => None,
+                        };
+                        if let Some((f_ty, offset)) = res {
+                            // Unify value type with field type
+                            if let Err(_) = self.ctx.unify(val.ty, f_ty) {
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        format!(
+                                            "type mismatch in set_field: expected {}, found {}",
+                                            self.ctx.type_to_string(f_ty),
+                                            self.ctx.type_to_string(val.ty)
+                                        ),
+                                        *sp,
+                                    )
+                                    .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
+                                );
+                            }
+
+                            // Lower to store(add(obj, offset), val)
+                            let addr_expr = if offset == 0 {
+                                obj
+                            } else {
+                                HirExpr {
+                                    ty: self.ctx.i32(),
+                                    kind: HirExprKind::Intrinsic {
+                                        name: "add".to_string(),
+                                        type_args: vec![self.ctx.i32()],
+                                        args: vec![
+                                            obj,
+                                            HirExpr {
+                                                ty: self.ctx.i32(),
+                                                kind: HirExprKind::LiteralI32(offset as i32),
+                                                span: idx.span,
+                                            },
+                                        ],
+                                    },
+                                    span: *sp,
+                                }
+                            };
+                            let hexpr = HirExpr {
+                                ty: self.ctx.unit(),
+                                kind: HirExprKind::Intrinsic {
+                                    name: "store".to_string(),
+                                    type_args: vec![f_ty],
+                                    args: vec![addr_expr, val],
+                                },
+                                span: *sp,
+                            };
+                            stack.push(StackEntry {
+                                ty: self.ctx.unit(),
+                                expr: hexpr.clone(),
+                                type_args: Vec::new(),
+                                assign: None,
+                                auto_call: true,
+                            });
+                            last_expr = Some(hexpr);
+                            continue;
+                        }
                     }
 
-                    
                     // Validate intrinsic argument types for known cast/bitcast intrinsics
                     if intrin.name == "i32_to_f32"
                         || intrin.name == "reinterpret_i32_f32"
@@ -5052,77 +5181,97 @@ impl<'a> BlockChecker<'a> {
                         || intrin.name == "i32_to_u32"
                     {
                         if args.len() != 1 {
-                            self.diagnostics.push(Diagnostic::error(
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ).with_id(DiagnosticId::TypeIntrinsicArgArityMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error("intrinsic expects 1 argument", *sp)
+                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                            );
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.i32()) {
-                            self.diagnostics.push(Diagnostic::error(
-                                "intrinsic argument type mismatch (expected i32)",
-                                *sp,
-                            ).with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "intrinsic argument type mismatch (expected i32)",
+                                    *sp,
+                                )
+                                .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                            );
                         }
-                    } else if intrin.name == "f32_to_i32" || intrin.name == "reinterpret_f32_i32"
-                    {
+                    } else if intrin.name == "f32_to_i32" || intrin.name == "reinterpret_f32_i32" {
                         if args.len() != 1 {
-                            self.diagnostics.push(Diagnostic::error(
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ).with_id(DiagnosticId::TypeIntrinsicArgArityMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error("intrinsic expects 1 argument", *sp)
+                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                            );
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.f32()) {
-                            self.diagnostics.push(Diagnostic::error(
-                                "intrinsic argument type mismatch (expected f32)",
-                                *sp,
-                            ).with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "intrinsic argument type mismatch (expected f32)",
+                                    *sp,
+                                )
+                                .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                            );
                         }
                     } else if intrin.name == "u8_to_i32" || intrin.name == "u32_to_i32" {
                         if args.len() != 1 {
-                            self.diagnostics.push(Diagnostic::error(
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ).with_id(DiagnosticId::TypeIntrinsicArgArityMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error("intrinsic expects 1 argument", *sp)
+                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                            );
                         } else {
                             let expected = if intrin.name == "u8_to_i32" {
                                 self.ctx.u8()
                             } else {
-                                self.ctx
-                                    .lookup_named("u32")
-                                    .unwrap_or_else(|| self.ctx.register_named("u32".to_string(), TypeKind::Named("u32".to_string())))
+                                self.ctx.lookup_named("u32").unwrap_or_else(|| {
+                                    self.ctx.register_named(
+                                        "u32".to_string(),
+                                        TypeKind::Named("u32".to_string()),
+                                    )
+                                })
                             };
                             if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(Diagnostic::error(
-                                    format!(
-                                        "intrinsic argument type mismatch (expected {})",
-                                        self.ctx.type_to_string(expected)
-                                    ),
-                                    *sp,
-                                ).with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch));
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        format!(
+                                            "intrinsic argument type mismatch (expected {})",
+                                            self.ctx.type_to_string(expected)
+                                        ),
+                                        *sp,
+                                    )
+                                    .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                );
                             }
                         }
                     } else if intrin.name == "i64_to_u64" || intrin.name == "u64_to_i64" {
                         if args.len() != 1 {
-                            self.diagnostics.push(Diagnostic::error(
-                                "intrinsic expects 1 argument",
-                                *sp,
-                            ).with_id(DiagnosticId::TypeIntrinsicArgArityMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error("intrinsic expects 1 argument", *sp)
+                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                            );
                         } else {
                             let expected = if intrin.name == "i64_to_u64" {
-                                self.ctx
-                                    .lookup_named("i64")
-                                    .unwrap_or_else(|| self.ctx.register_named("i64".to_string(), TypeKind::Named("i64".to_string())))
+                                self.ctx.lookup_named("i64").unwrap_or_else(|| {
+                                    self.ctx.register_named(
+                                        "i64".to_string(),
+                                        TypeKind::Named("i64".to_string()),
+                                    )
+                                })
                             } else {
-                                self.ctx
-                                    .lookup_named("u64")
-                                    .unwrap_or_else(|| self.ctx.register_named("u64".to_string(), TypeKind::Named("u64".to_string())))
+                                self.ctx.lookup_named("u64").unwrap_or_else(|| {
+                                    self.ctx.register_named(
+                                        "u64".to_string(),
+                                        TypeKind::Named("u64".to_string()),
+                                    )
+                                })
                             };
                             if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(Diagnostic::error(
-                                    format!(
-                                        "intrinsic argument type mismatch (expected {})",
-                                        self.ctx.type_to_string(expected)
-                                    ),
-                                    *sp,
-                                ).with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch));
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        format!(
+                                            "intrinsic argument type mismatch (expected {})",
+                                            self.ctx.type_to_string(expected)
+                                        ),
+                                        *sp,
+                                    )
+                                    .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                );
                             }
                         }
                     }
@@ -5140,7 +5289,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
-                            auto_call: true,
+                        auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
@@ -5166,8 +5315,7 @@ impl<'a> BlockChecker<'a> {
                     let mut elem_tys = Vec::new();
                     for elem in items {
                         let mut elem_stack = Vec::new();
-                        if let Some((hexpr, _)) =
-                            self.check_prefix(elem, 0, &mut elem_stack, None)
+                        if let Some((hexpr, _)) = self.check_prefix(elem, 0, &mut elem_stack, None)
                         {
                             elem_tys.push(hexpr.ty);
                             elems.push(hexpr);
@@ -5185,15 +5333,13 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
-                            auto_call: true,
+                        auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
                 }
                 PrefixItem::Group(inner, _sp) => {
                     let mut group_stack = Vec::new();
-                    if let Some((hexpr, _)) =
-                        self.check_prefix(inner, 0, &mut group_stack, None)
-                    {
+                    if let Some((hexpr, _)) = self.check_prefix(inner, 0, &mut group_stack, None) {
                         stack.push(StackEntry {
                             ty: hexpr.ty,
                             expr: hexpr,
@@ -5235,10 +5381,13 @@ impl<'a> BlockChecker<'a> {
                 }
                 PrefixItem::Pipe(sp) => {
                     if pipe_pending.is_some() {
-                        self.diagnostics.push(Diagnostic::error(
-                            "pipe already pending; consecutive |> not allowed",
-                            *sp,
-                        ).with_id(DiagnosticId::TypePipeError));
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                "pipe already pending; consecutive |> not allowed",
+                                *sp,
+                            )
+                            .with_id(DiagnosticId::TypePipeError),
+                        );
                         continue;
                     }
                     // Don't drain past any let/set binding on the stack.
@@ -5248,11 +5397,10 @@ impl<'a> BlockChecker<'a> {
                         .map(|p| base_depth.max(p + 1))
                         .unwrap_or(base_depth);
                     if stack.len() == pipe_base {
-                        self.diagnostics
-                            .push(
-                                Diagnostic::error("pipe requires a value on the stack", *sp)
-                                    .with_id(DiagnosticId::TypePipeError),
-                            );
+                        self.diagnostics.push(
+                            Diagnostic::error("pipe requires a value on the stack", *sp)
+                                .with_id(DiagnosticId::TypePipeError),
+                        );
                         continue;
                     }
                     let pending = stack.drain(pipe_base..).collect::<Vec<_>>();
@@ -5274,10 +5422,13 @@ impl<'a> BlockChecker<'a> {
                                 top,
                                 pending_ascription.map(|(target, _)| target),
                             ) else {
-                                self.diagnostics.push(Diagnostic::error(
-                                    "pipe left-hand side did not reduce to a single value",
-                                    expr.span,
-                                ).with_id(DiagnosticId::TypePipeError));
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        "pipe left-hand side did not reduce to a single value",
+                                        expr.span,
+                                    )
+                                    .with_id(DiagnosticId::TypePipeError),
+                                );
                                 continue;
                             };
                             // pipe では「関数を積んだ直後に引数を注入」するため、
@@ -5289,18 +5440,20 @@ impl<'a> BlockChecker<'a> {
                             stack.push(lowered_val);
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
-                            self.diagnostics.push(Diagnostic::error(
-                                "pipe target must be a callable expression",
-                                expr.span,
-                            ).with_id(DiagnosticId::TypePipeError));
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "pipe target must be a callable expression",
+                                    expr.span,
+                                )
+                                .with_id(DiagnosticId::TypePipeError),
+                            );
                             stack.extend(pending);
                         }
                     } else {
-                        self.diagnostics
-                            .push(
-                                Diagnostic::error("pipe target missing", expr.span)
-                                    .with_id(DiagnosticId::TypePipeError),
-                            );
+                        self.diagnostics.push(
+                            Diagnostic::error("pipe target missing", expr.span)
+                                .with_id(DiagnosticId::TypePipeError),
+                        );
                         stack.extend(pending);
                     }
                 }
@@ -5362,7 +5515,8 @@ impl<'a> BlockChecker<'a> {
                 if next_is_pipe {
                     if let Some(assign_pos) = stack.iter().rposition(|e| e.assign.is_some()) {
                         let guard_pos = assign_pos + 1;
-                        pending_base = Some(pending_base.map_or(guard_pos, |base| base.max(guard_pos)));
+                        pending_base =
+                            Some(pending_base.map_or(guard_pos, |base| base.max(guard_pos)));
                         pipe_guard = true;
                     }
                 }
@@ -5371,7 +5525,7 @@ impl<'a> BlockChecker<'a> {
                 } else {
                     self.reduce_calls(stack, &mut open_calls, reduction_expected);
                 }
-                            // std::eprintln!("  Stack after reduce: {:?}", stack.iter().map(|e| self.ctx.type_to_string(e.ty)).collect::<Vec<_>>());
+                // std::eprintln!("  Stack after reduce: {:?}", stack.iter().map(|e| self.ctx.type_to_string(e.ty)).collect::<Vec<_>>());
 
                 // Try applying pending ascription after call reduction.
                 if !next_is_pipe {
@@ -5385,11 +5539,10 @@ impl<'a> BlockChecker<'a> {
         }
 
         if pipe_pending.is_some() {
-            self.diagnostics
-                .push(
-                    Diagnostic::error("pipe has no target", expr.span)
-                        .with_id(DiagnosticId::TypePipeError),
-                );
+            self.diagnostics.push(
+                Diagnostic::error("pipe has no target", expr.span)
+                    .with_id(DiagnosticId::TypePipeError),
+            );
         }
 
         let leading_let = matches!(
@@ -5474,32 +5627,41 @@ impl<'a> BlockChecker<'a> {
                     stack[base_depth + 1].expr.clone()
                 } else {
                     match &result_expr.kind {
-                    HirExprKind::Var(n) if n == &name.name => {
-                        if let Some(le) = last_expr.clone() { le } else { result_expr.clone() }
-                    }
-                    HirExprKind::Block(blk) => {
-                        // Detect `if:` layout: block with exactly 3 lines and the
-                        // original prefix contained an `if` symbol. In that case
-                        // synthesize an `If` node from the three lines.
-                        if blk.lines.len() == 3 && expr.items.iter().any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_)))) {
-                            let cond = blk.lines[0].expr.clone();
-                            let then_branch = blk.lines[1].expr.clone();
-                            let else_branch = blk.lines[2].expr.clone();
-                            HirExpr {
-                                ty: then_branch.ty,
-                                kind: HirExprKind::If {
-                                    cond: Box::new(cond),
-                                    then_branch: Box::new(then_branch),
-                                    else_branch: Box::new(else_branch),
-                                },
-                                span: result_expr.span,
+                        HirExprKind::Var(n) if n == &name.name => {
+                            if let Some(le) = last_expr.clone() {
+                                le
+                            } else {
+                                result_expr.clone()
                             }
-                        } else {
-                            result_expr.clone()
                         }
+                        HirExprKind::Block(blk) => {
+                            // Detect `if:` layout: block with exactly 3 lines and the
+                            // original prefix contained an `if` symbol. In that case
+                            // synthesize an `If` node from the three lines.
+                            if blk.lines.len() == 3
+                                && expr
+                                    .items
+                                    .iter()
+                                    .any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
+                            {
+                                let cond = blk.lines[0].expr.clone();
+                                let then_branch = blk.lines[1].expr.clone();
+                                let else_branch = blk.lines[2].expr.clone();
+                                HirExpr {
+                                    ty: then_branch.ty,
+                                    kind: HirExprKind::If {
+                                        cond: Box::new(cond),
+                                        then_branch: Box::new(then_branch),
+                                        else_branch: Box::new(else_branch),
+                                    },
+                                    span: result_expr.span,
+                                }
+                            } else {
+                                result_expr.clone()
+                            }
+                        }
+                        _ => result_expr.clone(),
                     }
-                    _ => result_expr.clone(),
-                }
                 };
 
                 if let Some(b) = self.env.lookup_mut(&name.name) {
@@ -5537,17 +5699,16 @@ impl<'a> BlockChecker<'a> {
             if let Err(_) = self.ctx.unify(top.ty, target) {
                 let actual_ty = self.ctx.type_to_string(top.ty);
                 let expected_ty = self.ctx.type_to_string(target);
-                self.diagnostics
-                    .push(
-                        Diagnostic::error(
-                            format!(
-                                "type annotation mismatch (expected {}, got {})",
-                                expected_ty, actual_ty
-                            ),
-                            span,
-                        )
-                            .with_id(DiagnosticId::TypeAnnotationMismatch),
-                    );
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        format!(
+                            "type annotation mismatch (expected {}, got {})",
+                            expected_ty, actual_ty
+                        ),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeAnnotationMismatch),
+                );
             } else {
                 let resolved = self.ctx.resolve_id(target);
                 top.ty = resolved;
@@ -5659,10 +5820,20 @@ impl<'a> BlockChecker<'a> {
     ) {
         let mut no_progress_states = BTreeSet::new();
         loop {
-            dump!("{}: stack=[{}]", label, stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
+            dump!(
+                "{}: stack=[{}]",
+                label,
+                stack
+                    .iter()
+                    .map(|e| match &e.expr.kind {
+                        HirExprKind::Var(n) => n.clone(),
+                        _ => "<expr>".to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
 
-            let Some(mut func_pos) =
-                self.next_reducible_call_pos(stack, open_calls, min_func_pos)
+            let Some(mut func_pos) = self.next_reducible_call_pos(stack, open_calls, min_func_pos)
             else {
                 break;
             };
@@ -5678,8 +5849,9 @@ impl<'a> BlockChecker<'a> {
                 {
                     self.choose_callable_type_by_available_arity(name, available_args)
                 }
-                HirExprKind::Var(name) if self.env.lookup_value(name).is_none() => self
-                    .choose_callable_type_by_available_arity(name, available_args),
+                HirExprKind::Var(name) if self.env.lookup_value(name).is_none() => {
+                    self.choose_callable_type_by_available_arity(name, available_args)
+                }
                 _ => None,
             };
             let ty_for_infer = chosen_callable
@@ -5700,10 +5872,13 @@ impl<'a> BlockChecker<'a> {
                     ..
                 } => (params, result, effect),
                 _ => {
-                    self.diagnostics.push(Diagnostic::error(
-                        "call reduction found non-function after instantiation",
-                        stack[func_pos].expr.span,
-                    ).with_id(DiagnosticId::TypeCallReductionLimitExceeded));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            "call reduction found non-function after instantiation",
+                            stack[func_pos].expr.span,
+                        )
+                        .with_id(DiagnosticId::TypeCallReductionLimitExceeded),
+                    );
                     break;
                 }
             };
@@ -5759,7 +5934,16 @@ impl<'a> BlockChecker<'a> {
                 if label == "reduce_calls_guarded"
                     && matches!(
                         debug_name.as_deref(),
-                        Some("get" | "is_none" | "must_hm" | "make_hm" | "new" | "DefaultHash32" | "A" | "use_a")
+                        Some(
+                            "get"
+                                | "is_none"
+                                | "must_hm"
+                                | "make_hm"
+                                | "new"
+                                | "DefaultHash32"
+                                | "A"
+                                | "use_a"
+                        )
                     )
                 {
                     let before = stack
@@ -5785,25 +5969,29 @@ impl<'a> BlockChecker<'a> {
                     && label == "reduce_calls_guarded"
                     && matches!(
                         debug_name.as_deref(),
-                        Some("get" | "is_none" | "must_hm" | "make_hm" | "new" | "DefaultHash32" | "A" | "use_a")
+                        Some(
+                            "get"
+                                | "is_none"
+                                | "must_hm"
+                                | "make_hm"
+                                | "new"
+                                | "DefaultHash32"
+                                | "A"
+                                | "use_a"
+                        )
                     )
                 {
                     std::eprintln!("      guarded result {}", self.ctx.type_to_string(val.ty));
                 }
                 stack.insert(func_pos, val);
-                self.update_open_calls_after_reduction(
-                    stack,
-                    open_calls,
-                    func_pos,
-                    args_to_take,
-                );
+                self.update_open_calls_after_reduction(stack, open_calls, func_pos, args_to_take);
                 if stack.len() >= before_len {
                     let state_key = self.call_reduction_state_key(stack);
                     if !no_progress_states.insert(state_key) {
-                        self.diagnostics.push(Diagnostic::error(
-                            "call reduction made no progress",
-                            Span::dummy(),
-                        ).with_id(DiagnosticId::TypeCallReductionLimitExceeded));
+                        self.diagnostics.push(
+                            Diagnostic::error("call reduction made no progress", Span::dummy())
+                                .with_id(DiagnosticId::TypeCallReductionLimitExceeded),
+                        );
                         break;
                     }
                 } else {
@@ -5824,7 +6012,11 @@ impl<'a> BlockChecker<'a> {
         self.reduce_calls_from(stack, open_calls, 0, expected, "reduce_calls");
     }
 
-    fn resolve_dotted_field_symbol(&mut self, id: &Ident, forced_value: bool) -> Option<StackEntry> {
+    fn resolve_dotted_field_symbol(
+        &mut self,
+        id: &Ident,
+        forced_value: bool,
+    ) -> Option<StackEntry> {
         if !id.name.contains('.') || id.name.contains("::") {
             return None;
         }
@@ -5910,7 +6102,10 @@ impl<'a> BlockChecker<'a> {
     /// 例: `Result::Ok`, `Result::Err` → `Result<fresh_A, fresh_B>` を返す。
     /// これにより `match with_capacity<.T> n:` のような式でオーバーロードが
     /// 解決できるようになる（スクルーティニーに期待型が伝播される）。
-    fn infer_expected_type_from_match_arms(&mut self, arms: &[crate::ast::MatchArm]) -> Option<TypeId> {
+    fn infer_expected_type_from_match_arms(
+        &mut self,
+        arms: &[crate::ast::MatchArm],
+    ) -> Option<TypeId> {
         let first_arm = arms.first()?;
         let variant_name = &first_arm.variant.name;
         // "EnumName::VariantName" → "EnumName"
@@ -5925,7 +6120,10 @@ impl<'a> BlockChecker<'a> {
         if type_params.is_empty() {
             Some(enum_ty)
         } else {
-            let fresh_vars: Vec<TypeId> = type_params.iter().map(|_| self.ctx.fresh_var(None)).collect();
+            let fresh_vars: Vec<TypeId> = type_params
+                .iter()
+                .map(|_| self.ctx.fresh_var(None))
+                .collect();
             Some(self.ctx.apply(enum_ty, fresh_vars))
         }
     }
@@ -5938,19 +6136,31 @@ impl<'a> BlockChecker<'a> {
         let expected_scrut_ty = self.infer_expected_type_from_match_arms(&m.arms);
         // evaluate scrutinee
         let mut tmp_stack = Vec::new();
-        if let Some((scrut_expr, _)) = self.check_prefix(&m.scrutinee, 0, &mut tmp_stack, expected_scrut_ty) {
+        if let Some((scrut_expr, _)) =
+            self.check_prefix(&m.scrutinee, 0, &mut tmp_stack, expected_scrut_ty)
+        {
             let scrut_ty = scrut_expr.ty;
             let resolved_ty = self.ctx.resolve(scrut_ty);
             let variants = match self.ctx.get(resolved_ty) {
                 TypeKind::Enum { variants, .. } => Some(variants.clone()),
                 TypeKind::Bool => Some(alloc::vec![
-                    EnumVariantInfo { name: "true".to_string(), payload: None },
-                    EnumVariantInfo { name: "false".to_string(), payload: None },
+                    EnumVariantInfo {
+                        name: "true".to_string(),
+                        payload: None
+                    },
+                    EnumVariantInfo {
+                        name: "false".to_string(),
+                        payload: None
+                    },
                 ]),
                 TypeKind::Apply { base, args } => {
                     let base_ty = self.ctx.resolve(base);
                     match self.ctx.get(base_ty) {
-                        TypeKind::Enum { type_params, variants, .. } => {
+                        TypeKind::Enum {
+                            type_params,
+                            variants,
+                            ..
+                        } => {
                             if type_params.len() == args.len() {
                                 let mut mapping = alloc::collections::BTreeMap::new();
                                 for (tp, arg) in type_params.iter().zip(args.iter()) {
@@ -5960,7 +6170,9 @@ impl<'a> BlockChecker<'a> {
                                 for v in variants {
                                     new_vars.push(EnumVariantInfo {
                                         name: v.name.clone(),
-                                        payload: v.payload.map(|p| self.ctx.substitute(p, &mapping)),
+                                        payload: v
+                                            .payload
+                                            .map(|p| self.ctx.substitute(p, &mapping)),
                                     });
                                 }
                                 Some(new_vars)
@@ -5974,11 +6186,10 @@ impl<'a> BlockChecker<'a> {
                 _ => None,
             };
             if variants.is_none() {
-                self.diagnostics
-                    .push(
-                        Diagnostic::error("match scrutinee must be an enum", m.span)
-                            .with_id(DiagnosticId::TypeMatchScrutineeMustBeEnum),
-                    );
+                self.diagnostics.push(
+                    Diagnostic::error("match scrutinee must be an enum", m.span)
+                        .with_id(DiagnosticId::TypeMatchScrutineeMustBeEnum),
+                );
                 return None;
             }
             let variants = variants.unwrap();
@@ -5992,19 +6203,21 @@ impl<'a> BlockChecker<'a> {
                     &arm.variant.name
                 };
                 if !seen.insert(arm_var_name.to_string()) {
-                    self.diagnostics
-                        .push(
-                            Diagnostic::error("duplicate match arm", arm.variant.span)
-                                .with_id(DiagnosticId::TypeDuplicateMatchArm),
-                        );
+                    self.diagnostics.push(
+                        Diagnostic::error("duplicate match arm", arm.variant.span)
+                            .with_id(DiagnosticId::TypeDuplicateMatchArm),
+                    );
                     continue;
                 }
                 let var_info = variants.iter().find(|v| v.name == arm_var_name);
                 if var_info.is_none() {
-                self.diagnostics.push(Diagnostic::error(
-                    alloc::format!("unknown enum variant '{}' in match", arm.variant.name),
-                    arm.variant.span,
-                ).with_id(DiagnosticId::TypeMatchUnknownVariant));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!("unknown enum variant '{}' in match", arm.variant.name),
+                            arm.variant.span,
+                        )
+                        .with_id(DiagnosticId::TypeMatchUnknownVariant),
+                    );
                     continue;
                 }
                 let var_info = var_info.unwrap();
@@ -6029,10 +6242,10 @@ impl<'a> BlockChecker<'a> {
                             kind: BindingKind::Var,
                         });
                     } else {
-                        self.diagnostics.push(Diagnostic::error(
-                            "variant has no payload to bind",
-                            bind.span,
-                        ).with_id(DiagnosticId::TypeMatchPayloadBindingInvalid));
+                        self.diagnostics.push(
+                            Diagnostic::error("variant has no payload to bind", bind.span)
+                                .with_id(DiagnosticId::TypeMatchPayloadBindingInvalid),
+                        );
                     }
                 }
                 let (blk, val_ty) = self.check_block(&arm.body, 0, false, None)?;
@@ -6040,14 +6253,17 @@ impl<'a> BlockChecker<'a> {
                 let body_ty = val_ty.unwrap_or(self.ctx.unit());
                 if let Some(t) = result_ty {
                     if let Err(_) = self.ctx.unify(t, body_ty) {
-                        self.diagnostics.push(Diagnostic::error(
-                            alloc::format!(
-                                "match arms have incompatible types: {} and {}",
-                                self.ctx.type_to_string(t),
-                                self.ctx.type_to_string(body_ty)
-                            ),
-                            arm.span,
-                        ).with_id(DiagnosticId::TypeMatchArmsTypeMismatch));
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                alloc::format!(
+                                    "match arms have incompatible types: {} and {}",
+                                    self.ctx.type_to_string(t),
+                                    self.ctx.type_to_string(body_ty)
+                                ),
+                                arm.span,
+                            )
+                            .with_id(DiagnosticId::TypeMatchArmsTypeMismatch),
+                        );
                     }
                 } else {
                     result_ty = Some(body_ty);
@@ -6065,11 +6281,10 @@ impl<'a> BlockChecker<'a> {
             // exhaustiveness
             for v in variants {
                 if !seen.contains(&v.name) {
-                    self.diagnostics
-                        .push(
-                            Diagnostic::error("non-exhaustive match", m.span)
-                                .with_id(DiagnosticId::TypeNonExhaustiveMatch),
-                        );
+                    self.diagnostics.push(
+                        Diagnostic::error("non-exhaustive match", m.span)
+                            .with_id(DiagnosticId::TypeNonExhaustiveMatch),
+                    );
                     break;
                 }
             }
@@ -6218,42 +6433,37 @@ impl<'a> BlockChecker<'a> {
         type_args: Vec<TypeId>,
         expected_ret: Option<TypeId>,
     ) -> Option<StackEntry> {
-        if params.is_empty()
-            && args.len() == 1
-            && matches!(args[0].expr.kind, HirExprKind::Unit)
-        {
+        if params.is_empty() && args.len() == 1 && matches!(args[0].expr.kind, HirExprKind::Unit) {
             args.clear();
         }
 
-        if matches!(self.current_effect, Effect::Pure)
-            && matches!(effect, Effect::Impure)
-        {
-            self.diagnostics.push(Diagnostic::error(
-                "pure context cannot call impure function",
-                func.expr.span,
-            ).with_id(DiagnosticId::TypePureCallsImpureFunction));
+        if matches!(self.current_effect, Effect::Pure) && matches!(effect, Effect::Impure) {
+            self.diagnostics.push(
+                Diagnostic::error("pure context cannot call impure function", func.expr.span)
+                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+            );
             return None;
         }
 
         // Assignment operators
-            if let Some(assign) = func.assign {
-                if args.len() != 1 {
-                    self.diagnostics.push(Diagnostic::error(
-                        "assignment expects one argument",
-                        func.expr.span,
-                    ).with_id(DiagnosticId::TypeAssignmentArityMismatch));
-                    return None;
-                }
+        if let Some(assign) = func.assign {
+            if args.len() != 1 {
+                self.diagnostics.push(
+                    Diagnostic::error("assignment expects one argument", func.expr.span)
+                        .with_id(DiagnosticId::TypeAssignmentArityMismatch),
+                );
+                return None;
+            }
             // Handle field store first since it doesn't need variable lookup
             if let AssignKind::Store(addr) = assign {
-                    if !params.is_empty() {
-                        if let Err(_) = self.ctx.unify(params[0], args[0].ty) {
-                            self.diagnostics.push(Diagnostic::error(
-                                "type mismatch in field assignment",
-                                func.expr.span,
-                            ).with_id(DiagnosticId::TypeAssignmentTypeMismatch));
-                        }
+                if !params.is_empty() {
+                    if let Err(_) = self.ctx.unify(params[0], args[0].ty) {
+                        self.diagnostics.push(
+                            Diagnostic::error("type mismatch in field assignment", func.expr.span)
+                                .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
+                        );
                     }
+                }
                 return Some(StackEntry {
                     ty: self.ctx.unit(),
                     expr: HirExpr {
@@ -6267,12 +6477,17 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
-                            auto_call: true,
+                    auto_call: true,
                 });
             } else if matches!(assign, AssignKind::AddrOf) {
-                if args.len() != 1 { return None; }
+                if args.len() != 1 {
+                    return None;
+                }
                 if crate::log::is_verbose() {
-                    std::eprintln!("apply_function: Reducing AddrOf, inner={:?}", args[0].expr.kind);
+                    std::eprintln!(
+                        "apply_function: Reducing AddrOf, inner={:?}",
+                        args[0].expr.kind
+                    );
                 }
                 let inner_ty = args[0].ty;
                 let res_ty = self.ctx.reference(inner_ty, false);
@@ -6285,18 +6500,26 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
-                            auto_call: true,
+                    auto_call: true,
                 });
             } else if matches!(assign, AssignKind::Deref) {
-                if args.len() != 1 { return None; }
+                if args.len() != 1 {
+                    return None;
+                }
                 let arg_ty = self.ctx.resolve(args[0].ty);
                 let inner_ty = match self.ctx.get(arg_ty) {
                     TypeKind::Reference(inner, _) => inner,
                     _ => {
-                        self.diagnostics.push(Diagnostic::error(
-                            format!("cannot dereference non-reference type: {}", self.ctx.type_to_string(arg_ty)),
-                            args[0].expr.span,
-                        ).with_id(DiagnosticId::TypeInvalidDeref));
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                format!(
+                                    "cannot dereference non-reference type: {}",
+                                    self.ctx.type_to_string(arg_ty)
+                                ),
+                                args[0].expr.span,
+                            )
+                            .with_id(DiagnosticId::TypeInvalidDeref),
+                        );
                         self.ctx.never()
                     }
                 };
@@ -6309,7 +6532,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
-                            auto_call: true,
+                    auto_call: true,
                 });
             }
 
@@ -6325,10 +6548,10 @@ impl<'a> BlockChecker<'a> {
                 let b_mut = b.mutable;
                 let b_defined = b.defined;
                 if let Err(_) = self.ctx.unify(b_ty, args[0].ty) {
-                    self.diagnostics.push(Diagnostic::error(
-                        "type mismatch in assignment",
-                        func.expr.span,
-                    ).with_id(DiagnosticId::TypeAssignmentTypeMismatch));
+                    self.diagnostics.push(
+                        Diagnostic::error("type mismatch in assignment", func.expr.span)
+                            .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
+                    );
                 }
                 match assign {
                     AssignKind::Let => {
@@ -6353,10 +6576,10 @@ impl<'a> BlockChecker<'a> {
                     }
                     AssignKind::Set => {
                         if !b_defined {
-                            self.diagnostics.push(Diagnostic::error(
-                                "cannot set undefined variable",
-                                func.expr.span,
-                            ).with_id(DiagnosticId::TypeUndefinedVariable));
+                            self.diagnostics.push(
+                                Diagnostic::error("cannot set undefined variable", func.expr.span)
+                                    .with_id(DiagnosticId::TypeUndefinedVariable),
+                            );
                         }
                         if !b_mut {
                             self.diagnostics.push(
@@ -6382,10 +6605,13 @@ impl<'a> BlockChecker<'a> {
                     _ => unreachable!(),
                 }
             } else {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("undefined variable for assignment: {}", name),
-                    func.expr.span,
-                ).with_id(DiagnosticId::TypeAssignmentUndefinedVariable));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        format!("undefined variable for assignment: {}", name),
+                        func.expr.span,
+                    )
+                    .with_id(DiagnosticId::TypeAssignmentUndefinedVariable),
+                );
                 return None;
             }
         }
@@ -6394,17 +6620,17 @@ impl<'a> BlockChecker<'a> {
         match &func.expr.kind {
             HirExprKind::Var(name) if name == "if" => {
                 if args.len() != 3 {
-                    self.diagnostics.push(Diagnostic::error(
-                        "if expects three arguments",
-                        func.expr.span,
-                    ).with_id(DiagnosticId::TypeIfArityMismatch));
+                    self.diagnostics.push(
+                        Diagnostic::error("if expects three arguments", func.expr.span)
+                            .with_id(DiagnosticId::TypeIfArityMismatch),
+                    );
                     return None;
                 }
                 if self.ctx.unify(args[0].ty, self.ctx.bool()).is_err() {
-                    self.diagnostics.push(Diagnostic::error(
-                        "if condition must be bool",
-                        args[0].expr.span,
-                    ).with_id(DiagnosticId::TypeIfConditionTypeMismatch));
+                    self.diagnostics.push(
+                        Diagnostic::error("if condition must be bool", args[0].expr.span)
+                            .with_id(DiagnosticId::TypeIfConditionTypeMismatch),
+                    );
                 }
                 let branch_ty = self.ctx.unify(args[1].ty, args[2].ty).unwrap_or(args[1].ty);
                 return Some(StackEntry {
@@ -6420,28 +6646,28 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
-                            auto_call: true,
+                    auto_call: true,
                 });
             }
             HirExprKind::Var(name) if name == "while" => {
                 if args.len() != 2 {
-                    self.diagnostics.push(Diagnostic::error(
-                        "while expects two arguments",
-                        func.expr.span,
-                    ).with_id(DiagnosticId::TypeWhileArityMismatch));
+                    self.diagnostics.push(
+                        Diagnostic::error("while expects two arguments", func.expr.span)
+                            .with_id(DiagnosticId::TypeWhileArityMismatch),
+                    );
                     return None;
                 }
                 if self.ctx.unify(args[0].ty, self.ctx.bool()).is_err() {
-                    self.diagnostics.push(Diagnostic::error(
-                        "while condition must be bool",
-                        args[0].expr.span,
-                    ).with_id(DiagnosticId::TypeWhileConditionTypeMismatch));
+                    self.diagnostics.push(
+                        Diagnostic::error("while condition must be bool", args[0].expr.span)
+                            .with_id(DiagnosticId::TypeWhileConditionTypeMismatch),
+                    );
                 }
                 if self.ctx.unify(args[1].ty, self.ctx.unit()).is_err() {
-                    self.diagnostics.push(Diagnostic::error(
-                        "while body must be unit",
-                        args[1].expr.span,
-                    ).with_id(DiagnosticId::TypeWhileBodyTypeMismatch));
+                    self.diagnostics.push(
+                        Diagnostic::error("while body must be unit", args[1].expr.span)
+                            .with_id(DiagnosticId::TypeWhileBodyTypeMismatch),
+                    );
                 }
                 return Some(StackEntry {
                     ty: self.ctx.unit(),
@@ -6455,7 +6681,7 @@ impl<'a> BlockChecker<'a> {
                     },
                     type_args: Vec::new(),
                     assign: None,
-                            auto_call: true,
+                    auto_call: true,
                 });
             }
             HirExprKind::Var(name) if name == "let" || name == "set" => {
@@ -6463,7 +6689,7 @@ impl<'a> BlockChecker<'a> {
             }
             _ => {}
         }
-        
+
         // General call or let/set
         if let HirExprKind::Var(name) | HirExprKind::FnValue(name) = &func.expr.kind {
             if crate::log::is_verbose() && name.contains("Result") {
@@ -6571,7 +6797,12 @@ impl<'a> BlockChecker<'a> {
                                 .map(|p| tmp_ctx.substitute(*p, &mapping))
                                 .collect::<Vec<_>>();
                             let substituted_result = tmp_ctx.substitute(result, &mapping);
-                            tmp_ctx.function(Vec::new(), substituted_params, substituted_result, effect)
+                            tmp_ctx.function(
+                                Vec::new(),
+                                substituted_params,
+                                substituted_result,
+                                effect,
+                            )
                         } else {
                             let (inst_ty, _args, _mapping) = tmp_ctx.instantiate(binding.ty);
                             inst_ty
@@ -6641,16 +6872,16 @@ impl<'a> BlockChecker<'a> {
                             if let Some(expected) = expected_ret {
                                 if tmp_ctx.unify(c_result, expected).is_err() {
                                     if crate::log::is_verbose() {
-                                    std::eprintln!(
+                                        std::eprintln!(
                                         "overload debug: skip '{}' candidate {} reason=expected_ret result={} expected={}",
                                         name,
                                         function_signature_string(self.ctx, binding.ty),
                                         tmp_ctx.type_to_string(c_result),
                                         self.ctx.type_to_string(expected)
                                     );
+                                    }
+                                    ok = false;
                                 }
-                                ok = false;
-                            }
                             }
                         }
                         if ok {
@@ -6661,10 +6892,11 @@ impl<'a> BlockChecker<'a> {
                                     function_signature_string(self.ctx, binding.ty)
                                 );
                             }
-                            let type_param_count = match self.ctx.get(self.ctx.resolve_id(binding.ty)) {
-                                TypeKind::Function { type_params, .. } => type_params.len(),
-                                _ => 0,
-                            };
+                            let type_param_count =
+                                match self.ctx.get(self.ctx.resolve_id(binding.ty)) {
+                                    TypeKind::Function { type_params, .. } => type_params.len(),
+                                    _ => 0,
+                                };
                             let instantiated_specificity =
                                 function_user_param_specificity(&tmp_ctx, inst_ty, args.len());
                             let declared_specificity =
@@ -6691,7 +6923,10 @@ impl<'a> BlockChecker<'a> {
                             .filter(|c| {
                                 matches!(
                                     self.ctx.get(c.binding.ty),
-                                    TypeKind::Function { effect: Effect::Pure, .. }
+                                    TypeKind::Function {
+                                        effect: Effect::Pure,
+                                        ..
+                                    }
                                 )
                             })
                             .cloned()
@@ -6721,19 +6956,24 @@ impl<'a> BlockChecker<'a> {
                                 .join(" | ");
                             std::eprintln!(
                                 "overload debug: no candidate for '{}' args=[{}] candidates=[{}]",
-                                name, arg_tys, all
+                                name,
+                                arg_tys,
+                                all
                             );
                         }
                         if mismatch_count {
-                            self.diagnostics.push(Diagnostic::error(
-                                "type arguments do not match any overload",
-                                func.expr.span,
-                            ).with_id(DiagnosticId::TypeOverloadTypeArgsMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "type arguments do not match any overload",
+                                    func.expr.span,
+                                )
+                                .with_id(DiagnosticId::TypeOverloadTypeArgsMismatch),
+                            );
                         } else {
-                            self.diagnostics.push(Diagnostic::error(
-                                "no matching overload found",
-                                func.expr.span,
-                            ).with_id(DiagnosticId::TypeNoMatchingOverload));
+                            self.diagnostics.push(
+                                Diagnostic::error("no matching overload found", func.expr.span)
+                                    .with_id(DiagnosticId::TypeNoMatchingOverload),
+                            );
                         }
                         return None;
                     }
@@ -6815,10 +7055,10 @@ impl<'a> BlockChecker<'a> {
                         candidates = narrowed;
                     }
                     if candidates.len() > 1 {
-                        self.diagnostics.push(Diagnostic::error(
-                            "ambiguous overload",
-                            func.expr.span,
-                        ).with_id(DiagnosticId::TypeAmbiguousOverload));
+                        self.diagnostics.push(
+                            Diagnostic::error("ambiguous overload", func.expr.span)
+                                .with_id(DiagnosticId::TypeAmbiguousOverload),
+                        );
                         return None;
                     }
 
@@ -6828,52 +7068,59 @@ impl<'a> BlockChecker<'a> {
                         _ => None,
                     };
                     let (selected_symbol, selected_builtin) = match &binding.kind {
-                        BindingKind::Func { symbol, builtin, .. } => {
-                            (symbol.clone(), *builtin)
-                        }
+                        BindingKind::Func {
+                            symbol, builtin, ..
+                        } => (symbol.clone(), *builtin),
                         _ => (name.clone(), None),
                     };
                     let (inst_ty, mut resolved_args, type_arg_mapping) =
                         if !explicit_type_args.is_empty() {
-                        let func_data = if let TypeKind::Function {
-                            type_params,
-                            params,
-                            result,
-                            effect,
-                        } = self.ctx.get(binding.ty)
-                        {
-                            Some((type_params.clone(), params.clone(), result, effect))
+                            let func_data = if let TypeKind::Function {
+                                type_params,
+                                params,
+                                result,
+                                effect,
+                            } = self.ctx.get(binding.ty)
+                            {
+                                Some((type_params.clone(), params.clone(), result, effect))
+                            } else {
+                                None
+                            };
+                            let Some((type_params, params, result, effect)) = func_data else {
+                                return None;
+                            };
+                            if type_params.len() != explicit_type_args.len() {
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        "type arguments do not match overload",
+                                        func.expr.span,
+                                    )
+                                    .with_id(DiagnosticId::TypeOverloadTypeArgsMismatch),
+                                );
+                                return None;
+                            }
+                            let mut mapping = BTreeMap::new();
+                            for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
+                                mapping.insert(self.ctx.resolve_id(*p), self.ctx.resolve_id(*a));
+                            }
+                            let substituted_params = params
+                                .iter()
+                                .map(|p| self.ctx.substitute(*p, &mapping))
+                                .collect::<Vec<_>>();
+                            let substituted_result = self.ctx.substitute(result, &mapping);
+                            (
+                                self.ctx.function(
+                                    Vec::new(),
+                                    substituted_params,
+                                    substituted_result,
+                                    effect,
+                                ),
+                                explicit_type_args.clone(),
+                                mapping,
+                            )
                         } else {
-                            None
+                            self.ctx.instantiate(binding.ty)
                         };
-                        let Some((type_params, params, result, effect)) = func_data else {
-                            return None;
-                        };
-                        if type_params.len() != explicit_type_args.len() {
-                            self.diagnostics.push(Diagnostic::error(
-                                "type arguments do not match overload",
-                                func.expr.span,
-                            ).with_id(DiagnosticId::TypeOverloadTypeArgsMismatch));
-                            return None;
-                        }
-                        let mut mapping = BTreeMap::new();
-                        for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
-                            mapping.insert(self.ctx.resolve_id(*p), self.ctx.resolve_id(*a));
-                        }
-                        let substituted_params = params
-                            .iter()
-                            .map(|p| self.ctx.substitute(*p, &mapping))
-                            .collect::<Vec<_>>();
-                        let substituted_result = self.ctx.substitute(result, &mapping);
-                        (
-                            self.ctx
-                                .function(Vec::new(), substituted_params, substituted_result, effect),
-                            explicit_type_args.clone(),
-                            mapping,
-                        )
-                    } else {
-                        self.ctx.instantiate(binding.ty)
-                    };
 
                     let (c_params, c_result, c_effect) = match self.ctx.get(inst_ty) {
                         TypeKind::Function {
@@ -6897,26 +7144,30 @@ impl<'a> BlockChecker<'a> {
                     }
                     let user_params = &c_params[captures.len()..];
                     if user_params.len() != args.len() {
-                        self.diagnostics.push(Diagnostic::error(
-                            "argument count mismatch",
-                            func.expr.span,
-                        ).with_id(DiagnosticId::TypeArgumentArityMismatch));
+                        self.diagnostics.push(
+                            Diagnostic::error("argument count mismatch", func.expr.span)
+                                .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                        );
                         return None;
                     }
                     for (arg, param_ty) in args.iter().zip(user_params.iter()) {
                         if self.ctx.unify(arg.ty, *param_ty).is_err() {
-                            self.diagnostics.push(Diagnostic::error(
-                                "argument type mismatch",
-                                arg.expr.span,
-                            ).with_id(DiagnosticId::TypeArgumentTypeMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error("argument type mismatch", arg.expr.span)
+                                    .with_id(DiagnosticId::TypeArgumentTypeMismatch),
+                            );
                         }
                     }
-                    if matches!(self.current_effect, Effect::Pure) && matches!(c_effect, Effect::Impure)
+                    if matches!(self.current_effect, Effect::Pure)
+                        && matches!(c_effect, Effect::Impure)
                     {
-                        self.diagnostics.push(Diagnostic::error(
-                            "pure context cannot call impure function",
-                            func.expr.span,
-                        ).with_id(DiagnosticId::TypePureCallsImpureFunction));
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                "pure context cannot call impure function",
+                                func.expr.span,
+                            )
+                            .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                        );
                         return None;
                     }
 
@@ -6927,12 +7178,9 @@ impl<'a> BlockChecker<'a> {
                     if let TypeKind::Function { type_params, .. } = self.ctx.get(binding.ty) {
                         if type_params.len() == resolved_args.len() {
                             for (idx, tp) in type_params.iter().enumerate() {
-                                if let Some(inferred) = infer_instantiated_type_arg(
-                                    self.ctx,
-                                    binding.ty,
-                                    inst_ty,
-                                    *tp,
-                                ) {
+                                if let Some(inferred) =
+                                    infer_instantiated_type_arg(self.ctx, binding.ty, inst_ty, *tp)
+                                {
                                     resolved_args[idx] = self.ctx.resolve_id(inferred);
                                 }
                             }
@@ -6940,8 +7188,7 @@ impl<'a> BlockChecker<'a> {
                     }
 
                     if let BindingKind::Func {
-                        type_param_bounds,
-                        ..
+                        type_param_bounds, ..
                     } = &binding.kind
                     {
                         if !type_param_bounds.is_empty() {
@@ -6992,29 +7239,36 @@ impl<'a> BlockChecker<'a> {
                                                 .join(", ")
                                         );
                                     }
-                                    if self.trait_bound_satisfied_by_ref(&substituted_bound, *raw_arg)
-                                        || self.trait_bound_satisfied_by_ref(&substituted_bound, resolved_arg)
+                                    if self
+                                        .trait_bound_satisfied_by_ref(&substituted_bound, *raw_arg)
+                                        || self.trait_bound_satisfied_by_ref(
+                                            &substituted_bound,
+                                            resolved_arg,
+                                        )
                                     {
                                         continue;
                                     }
                                     let inferred_arg = infer_instantiated_type_arg(
-                                        self.ctx,
-                                        binding.ty,
-                                        inst_ty,
-                                        *tp,
+                                        self.ctx, binding.ty, inst_ty, *tp,
                                     )
                                     .unwrap_or(resolved_arg);
-                                    if self.trait_bound_satisfied_by_ref(&substituted_bound, inferred_arg) {
+                                    if self.trait_bound_satisfied_by_ref(
+                                        &substituted_bound,
+                                        inferred_arg,
+                                    ) {
                                         continue;
                                     }
                                     if self.is_concrete_type(inferred_arg) {
-                                        self.diagnostics.push(Diagnostic::error(
-                                            format!(
-                                                "type does not satisfy trait bound '{}'",
-                                                substituted_bound.name
-                                            ),
-                                            func.expr.span,
-                                        ).with_id(DiagnosticId::TypeTraitBoundUnsatisfied));
+                                        self.diagnostics.push(
+                                            Diagnostic::error(
+                                                format!(
+                                                    "type does not satisfy trait bound '{}'",
+                                                    substituted_bound.name
+                                                ),
+                                                func.expr.span,
+                                            )
+                                            .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
+                                        );
                                     } else {
                                         self.pending_trait_bound_checks.push((
                                             substituted_bound,
@@ -7059,7 +7313,9 @@ impl<'a> BlockChecker<'a> {
                                                         obj,
                                                         HirExpr {
                                                             ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(offset as i32),
+                                                            kind: HirExprKind::LiteralI32(
+                                                                offset as i32,
+                                                            ),
                                                             span: idx.span,
                                                         },
                                                     ],
@@ -7082,7 +7338,9 @@ impl<'a> BlockChecker<'a> {
                                             assign: None,
                                             auto_call: true,
                                         });
-                                    } else if field_accessor == FieldAccessorKind::Put && args.len() == 3 {
+                                    } else if field_accessor == FieldAccessorKind::Put
+                                        && args.len() == 3
+                                    {
                                         let val = args[2].expr.clone();
                                         let _ = self.ctx.unify(val.ty, f_ty);
                                         let addr_expr = if offset == 0 {
@@ -7097,7 +7355,9 @@ impl<'a> BlockChecker<'a> {
                                                         obj,
                                                         HirExpr {
                                                             ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(offset as i32),
+                                                            kind: HirExprKind::LiteralI32(
+                                                                offset as i32,
+                                                            ),
                                                             span: idx.span,
                                                         },
                                                     ],
@@ -7152,17 +7412,23 @@ impl<'a> BlockChecker<'a> {
                                     );
                                 }
                                 if c_params.len() == 1 && args.len() != 1 {
-                                    self.diagnostics.push(Diagnostic::error(
-                                        "constructor expects one argument",
-                                        func.expr.span,
-                                    ).with_id(DiagnosticId::TypeArgumentArityMismatch));
+                                    self.diagnostics.push(
+                                        Diagnostic::error(
+                                            "constructor expects one argument",
+                                            func.expr.span,
+                                        )
+                                        .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                                    );
                                     return None;
                                 }
                                 if c_params.is_empty() && !args.is_empty() {
-                                    self.diagnostics.push(Diagnostic::error(
-                                        "constructor takes no arguments",
-                                        func.expr.span,
-                                    ).with_id(DiagnosticId::TypeArgumentArityMismatch));
+                                    self.diagnostics.push(
+                                        Diagnostic::error(
+                                            "constructor takes no arguments",
+                                            func.expr.span,
+                                        )
+                                        .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                                    );
                                     return None;
                                 }
                                 let payload_expr = if c_params.len() == 1 {
@@ -7193,23 +7459,29 @@ impl<'a> BlockChecker<'a> {
                                     },
                                     type_args: Vec::new(),
                                     assign: None,
-                            auto_call: true,
+                                    auto_call: true,
                                 });
                             }
                         }
                     }
                     if let Some(s) = self.structs.get(name) {
                         if args.len() != c_params.len() {
-                            self.diagnostics.push(Diagnostic::error(
-                                "struct constructor arity mismatch",
-                                func.expr.span,
-                            ).with_id(DiagnosticId::TypeArgumentArityMismatch));
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "struct constructor arity mismatch",
+                                    func.expr.span,
+                                )
+                                .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                            );
                             return None;
                         }
                         let is_tag_unit_struct = s.fields.len() == 1
                             && s.field_names.len() == 1
                             && s.field_names[0] == "tag"
-                            && matches!(self.ctx.get(self.ctx.resolve_id(s.fields[0])), TypeKind::Unit);
+                            && matches!(
+                                self.ctx.get(self.ctx.resolve_id(s.fields[0])),
+                                TypeKind::Unit
+                            );
                         let applied_ty = if resolved_args.is_empty() {
                             s.ty
                         } else {
@@ -7252,39 +7524,38 @@ impl<'a> BlockChecker<'a> {
                                     &args,
                                     expected_ret,
                                 );
-                                let applied_trait_args =
-                                    self.infer_trait_application_args(
-                                        trait_info,
-                                        *sig,
-                                        &args,
-                                        expected_ret,
-                                    );
+                                let applied_trait_args = self.infer_trait_application_args(
+                                    trait_info,
+                                    *sig,
+                                    &args,
+                                    expected_ret,
+                                );
                                 let mut inferred_self_ty = None;
-                                if let (Some(self_hint), Some(first_param), Some(arg)) =
-                                    (type_args.first().copied(), user_params.first().copied(), args.first())
-                                {
+                                if let (Some(self_hint), Some(first_param), Some(arg)) = (
+                                    type_args.first().copied(),
+                                    user_params.first().copied(),
+                                    args.first(),
+                                ) {
                                     if self.ctx.same_type(first_param, self_hint) {
                                         let candidate = self.ctx.resolve_id(arg.ty);
-                                        let candidate_ok =
-                                            self.type_param_has_bound_ref(
-                                                candidate,
-                                                trait_name,
-                                                &applied_trait_args,
-                                            )
-                                                || self.impls.iter().any(|imp| {
-                                                    imp.trait_base_name.as_deref()
-                                                        == Some(trait_name)
-                                                        && imp.trait_args.len()
-                                                            == applied_trait_args.len()
-                                                        && trait_application_matches(
-                                                            self.ctx,
-                                                            trait_name,
-                                                            &applied_trait_args,
-                                                            trait_name,
-                                                            &imp.trait_args,
-                                                        )
-                                                        && self.ctx.type_pattern_matches(imp.target_ty, candidate)
-                                                });
+                                        let candidate_ok = self.type_param_has_bound_ref(
+                                            candidate,
+                                            trait_name,
+                                            &applied_trait_args,
+                                        ) || self.impls.iter().any(|imp| {
+                                            imp.trait_base_name.as_deref() == Some(trait_name)
+                                                && imp.trait_args.len() == applied_trait_args.len()
+                                                && trait_application_matches(
+                                                    self.ctx,
+                                                    trait_name,
+                                                    &applied_trait_args,
+                                                    trait_name,
+                                                    &imp.trait_args,
+                                                )
+                                                && self
+                                                    .ctx
+                                                    .type_pattern_matches(imp.target_ty, candidate)
+                                        });
                                         if candidate_ok {
                                             inferred_self_ty = Some(candidate);
                                         }
@@ -7315,11 +7586,11 @@ impl<'a> BlockChecker<'a> {
                                             .or(Some(resolved_hint));
                                     }
                                 }
-                            if inferred_self_ty.is_none() {
-                                if let Some(first) = args.first() {
-                                    inferred_self_ty = Some(self.ctx.resolve_id(first.ty));
+                                if inferred_self_ty.is_none() {
+                                    if let Some(first) = args.first() {
+                                        inferred_self_ty = Some(self.ctx.resolve_id(first.ty));
+                                    }
                                 }
-                            }
                                 if let Some(self_ty) = inferred_self_ty {
                                     trait_callee = Some(FuncRef::Trait {
                                         trait_name: trait_name.to_string(),
@@ -7393,11 +7664,8 @@ impl<'a> BlockChecker<'a> {
                                     }
                                     if ambiguous {
                                         self.diagnostics.push(
-                                            Diagnostic::error(
-                                                "ambiguous overload",
-                                                arg_expr.span,
-                                            )
-                                            .with_id(DiagnosticId::TypeAmbiguousOverload),
+                                            Diagnostic::error("ambiguous overload", arg_expr.span)
+                                                .with_id(DiagnosticId::TypeAmbiguousOverload),
                                         );
                                         return None;
                                     }
@@ -7426,18 +7694,17 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
-                            auto_call: true,
+                        auto_call: true,
                     });
                 }
             }
         }
 
-
         if let HirExprKind::Var(name) = &func.expr.kind {
             if self.env.lookup_all_callables(name).is_empty() {
-                    if let Some((trait_name, method_name)) = parse_variant_name(name) {
-                        if let Some(trait_info) = self.traits.get(trait_name) {
-                            if let Some(sig) = trait_info.methods.get(method_name) {
+                if let Some((trait_name, method_name)) = parse_variant_name(name) {
+                    if let Some(trait_info) = self.traits.get(trait_name) {
+                        if let Some(sig) = trait_info.methods.get(method_name) {
                             let applied_trait_name = self.infer_trait_application_name(
                                 trait_name,
                                 trait_info,
@@ -7445,33 +7712,38 @@ impl<'a> BlockChecker<'a> {
                                 &args,
                                 expected_ret,
                             );
-                            let applied_trait_args =
-                                self.infer_trait_application_args(trait_info, *sig, &args, expected_ret);
+                            let applied_trait_args = self.infer_trait_application_args(
+                                trait_info,
+                                *sig,
+                                &args,
+                                expected_ret,
+                            );
                             let mut inferred_self_ty = None;
-                            if let (Some(self_hint), Some(first_param), Some(arg)) =
-                                (type_args.first().copied(), params.first().copied(), args.first())
-                            {
+                            if let (Some(self_hint), Some(first_param), Some(arg)) = (
+                                type_args.first().copied(),
+                                params.first().copied(),
+                                args.first(),
+                            ) {
                                 if self.ctx.same_type(first_param, self_hint) {
                                     let candidate = self.ctx.resolve_id(arg.ty);
-                                    let candidate_ok =
-                                        self.type_param_has_bound_ref(
-                                            candidate,
-                                            trait_name,
-                                            &applied_trait_args,
-                                        )
-                                            || self.impls.iter().any(|imp| {
-                                                imp.trait_base_name.as_deref()
-                                                    == Some(trait_name)
-                                                    && imp.trait_args.len() == applied_trait_args.len()
-                                                    && trait_application_matches(
-                                                        self.ctx,
-                                                        trait_name,
-                                                        &applied_trait_args,
-                                                        trait_name,
-                                                        &imp.trait_args,
-                                                    )
-                                                    && self.ctx.type_pattern_matches(imp.target_ty, candidate)
-                                            });
+                                    let candidate_ok = self.type_param_has_bound_ref(
+                                        candidate,
+                                        trait_name,
+                                        &applied_trait_args,
+                                    ) || self.impls.iter().any(|imp| {
+                                        imp.trait_base_name.as_deref() == Some(trait_name)
+                                            && imp.trait_args.len() == applied_trait_args.len()
+                                            && trait_application_matches(
+                                                self.ctx,
+                                                trait_name,
+                                                &applied_trait_args,
+                                                trait_name,
+                                                &imp.trait_args,
+                                            )
+                                            && self
+                                                .ctx
+                                                .type_pattern_matches(imp.target_ty, candidate)
+                                    });
                                     if candidate_ok {
                                         inferred_self_ty = Some(candidate);
                                     }
@@ -7509,41 +7781,45 @@ impl<'a> BlockChecker<'a> {
                                 ).with_id(DiagnosticId::TypeTraitBoundUnsatisfied));
                                 return None;
                             };
-                                let trait_ok = self.type_param_has_bound_ref(
-                                    self_ty,
-                                    trait_name,
-                                    &applied_trait_args,
-                                )
-                                    || self.impls.iter().any(|imp| {
-                                        imp.trait_base_name.as_deref()
-                                            == Some(trait_name)
-                                            && imp.trait_args.len() == applied_trait_args.len()
-                                            && trait_application_matches(
-                                                self.ctx,
-                                                trait_name,
-                                                &applied_trait_args,
-                                                trait_name,
-                                                &imp.trait_args,
-                                            )
-                                        && self.ctx.type_pattern_matches(imp.target_ty, self_ty)
-                                });
+                            let trait_ok = self.type_param_has_bound_ref(
+                                self_ty,
+                                trait_name,
+                                &applied_trait_args,
+                            ) || self.impls.iter().any(|imp| {
+                                imp.trait_base_name.as_deref() == Some(trait_name)
+                                    && imp.trait_args.len() == applied_trait_args.len()
+                                    && trait_application_matches(
+                                        self.ctx,
+                                        trait_name,
+                                        &applied_trait_args,
+                                        trait_name,
+                                        &imp.trait_args,
+                                    )
+                                    && self.ctx.type_pattern_matches(imp.target_ty, self_ty)
+                            });
                             if !trait_ok {
-                                self.diagnostics.push(Diagnostic::error(
-                                    format!(
-                                        "type does not satisfy trait bound '{}'",
-                                        applied_trait_name
-                                    ),
-                                    func.expr.span,
-                                ).with_id(DiagnosticId::TypeTraitBoundUnsatisfied));
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        format!(
+                                            "type does not satisfy trait bound '{}'",
+                                            applied_trait_name
+                                        ),
+                                        func.expr.span,
+                                    )
+                                    .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
+                                );
                                 return None;
                             }
                             if matches!(self.current_effect, Effect::Pure)
                                 && matches!(effect, Effect::Impure)
                             {
-                                self.diagnostics.push(Diagnostic::error(
-                                    "pure context cannot call impure function",
-                                    func.expr.span,
-                                ).with_id(DiagnosticId::TypePureCallsImpureFunction));
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        "pure context cannot call impure function",
+                                        func.expr.span,
+                                    )
+                                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                                );
                                 return None;
                             }
                             let resolved_result = self.ctx.resolve_id(result);
@@ -7571,10 +7847,10 @@ impl<'a> BlockChecker<'a> {
                 }
             } else if self.env.lookup_value(name).is_some() {
                 if !matches!(self.ctx.get(func.ty), TypeKind::Function { .. }) {
-                    self.diagnostics.push(Diagnostic::error(
-                        "variable is not callable",
-                        func.expr.span,
-                    ).with_id(DiagnosticId::TypeVariableNotCallable));
+                    self.diagnostics.push(
+                        Diagnostic::error("variable is not callable", func.expr.span)
+                            .with_id(DiagnosticId::TypeVariableNotCallable),
+                    );
                     return None;
                 }
             }
@@ -7590,10 +7866,13 @@ impl<'a> BlockChecker<'a> {
                     .iter()
                     .any(|b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()));
                 if has_capture {
-                    self.diagnostics.push(Diagnostic::error(
-                        "capturing function cannot be used as a function value yet",
-                        func.expr.span,
-                    ).with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            "capturing function cannot be used as a function value yet",
+                            func.expr.span,
+                        )
+                        .with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported),
+                    );
                     false
                 } else {
                     true
@@ -7609,10 +7888,13 @@ impl<'a> BlockChecker<'a> {
                         .iter()
                         .any(|b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()));
                     if has_capture {
-                        self.diagnostics.push(Diagnostic::error(
-                            "capturing function cannot be passed as a function value yet",
-                            func.expr.span,
-                        ).with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported));
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                "capturing function cannot be passed as a function value yet",
+                                func.expr.span,
+                            )
+                            .with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported),
+                        );
                         false
                     } else {
                         true
@@ -7622,17 +7904,14 @@ impl<'a> BlockChecker<'a> {
             _ => matches!(self.ctx.get(func.ty), TypeKind::Function { .. }),
         };
         if !allow_indirect {
-            self.diagnostics.push(Diagnostic::error(
-                "indirect call requires a function value",
-                func.expr.span,
-            ).with_id(DiagnosticId::TypeIndirectCallRequiresFunctionValue));
+            self.diagnostics.push(
+                Diagnostic::error("indirect call requires a function value", func.expr.span)
+                    .with_id(DiagnosticId::TypeIndirectCallRequiresFunctionValue),
+            );
             return None;
         }
 
-        let resolved_params: Vec<TypeId> = args
-            .iter()
-            .map(|a| self.ctx.resolve_id(a.ty))
-            .collect();
+        let resolved_params: Vec<TypeId> = args.iter().map(|a| self.ctx.resolve_id(a.ty)).collect();
         let mut resolved_result = self.ctx.resolve_id(result);
         if let Some(expected) = expected_ret {
             if self.ctx.unify(resolved_result, expected).is_ok() {
@@ -7653,7 +7932,7 @@ impl<'a> BlockChecker<'a> {
             },
             type_args: Vec::new(),
             assign: None,
-                            auto_call: true,
+            auto_call: true,
         })
     }
 }
@@ -7780,8 +8059,7 @@ fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
             | HirExprKind::Set { value, .. }
             | HirExprKind::AddrOf(value)
             | HirExprKind::Deref(value) => pending.push(value),
-            HirExprKind::TupleConstruct { items }
-            | HirExprKind::Intrinsic { args: items, .. } => {
+            HirExprKind::TupleConstruct { items } | HirExprKind::Intrinsic { args: items, .. } => {
                 for item in items {
                     pending.push(item);
                 }
@@ -7796,7 +8074,9 @@ fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
                     pending.push(payload);
                 }
             }
-            HirExprKind::StructConstruct { type_args, fields, .. } => {
+            HirExprKind::StructConstruct {
+                type_args, fields, ..
+            } => {
                 for ty in type_args {
                     *ty = ctx.resolve_id(*ty);
                 }
@@ -7993,11 +8273,7 @@ impl Env {
         None
     }
 
-    fn lookup_value_for_read(
-        &self,
-        name: &str,
-        allow_undefined_nonmut: bool,
-    ) -> Option<&Binding> {
+    fn lookup_value_for_read(&self, name: &str, allow_undefined_nonmut: bool) -> Option<&Binding> {
         for scope in self.scopes.iter().rev() {
             if let Some(b) = scope.values.iter().rev().find(|b| {
                 if b.name != name {
@@ -8014,7 +8290,11 @@ impl Env {
     fn lookup_all_callables(&self, name: &str) -> Vec<&Binding> {
         let mut items = Vec::new();
         for scope in self.scopes.iter().rev() {
-            for b in scope.callables.iter().filter(|b| b.name == name && b.defined) {
+            for b in scope
+                .callables
+                .iter()
+                .filter(|b| b.name == name && b.defined)
+            {
                 items.push(b);
             }
         }
@@ -8151,10 +8431,7 @@ fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> usize {
             .iter()
             .map(|f| type_storage_size_bytes(ctx, *f))
             .sum(),
-        TypeKind::Tuple { items } => items
-            .iter()
-            .map(|t| type_storage_size_bytes(ctx, *t))
-            .sum(),
+        TypeKind::Tuple { items } => items.iter().map(|t| type_storage_size_bytes(ctx, *t)).sum(),
         _ => 4,
     }
 }
@@ -8201,10 +8478,7 @@ fn emit_shadow_warning(
         if !is_important_shadow_symbol(name) {
             return;
         }
-        let message = format!(
-            "important symbol '{}' is shadowed by local {}",
-            name, kind
-        );
+        let message = format!("important symbol '{}' is shadowed by local {}", name, kind);
         let mut diag = Diagnostic::warning(message, span);
         diag = diag.with_secondary_label(
             shadowed.span,
@@ -8223,8 +8497,13 @@ fn emit_shadow_warning(
 }
 
 fn shadow_blocked_by_nonshadow<'a>(env: &'a Env, name: &str) -> Option<&'a Binding> {
-    env.lookup_any(name)
-        .and_then(|b| if b.no_shadow && b.defined { Some(b) } else { None })
+    env.lookup_any(name).and_then(|b| {
+        if b.no_shadow && b.defined {
+            Some(b)
+        } else {
+            None
+        }
+    })
 }
 
 fn is_callable_binding(binding: &Binding) -> bool {
@@ -8238,8 +8517,7 @@ fn find_same_signature_func<'a>(
     ctx: &TypeCtx,
 ) -> Option<&'a Binding> {
     env.lookup_all_callables(name).into_iter().find(|b| {
-        matches!(b.kind, BindingKind::Func { .. })
-            && same_function_signature(ctx, b.ty, ty)
+        matches!(b.kind, BindingKind::Func { .. }) && same_function_signature(ctx, b.ty, ty)
     })
 }
 
@@ -8296,7 +8574,9 @@ fn type_shape_specificity(ctx: &TypeCtx, ty: TypeId) -> usize {
                 .sum::<usize>()
                 + type_shape_specificity(ctx, result)
         }
-        TypeKind::Box(inner) | TypeKind::Reference(inner, _) => 1 + type_shape_specificity(ctx, inner),
+        TypeKind::Box(inner) | TypeKind::Reference(inner, _) => {
+            1 + type_shape_specificity(ctx, inner)
+        }
     }
 }
 
@@ -8361,7 +8641,10 @@ fn build_qualified_import_targets(
     }
     let mut out: BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>> = BTreeMap::new();
     for directive in directives {
-        let Directive::Import { path, clause, span, .. } = directive else {
+        let Directive::Import {
+            path, clause, span, ..
+        } = directive
+        else {
             continue;
         };
         let aliases: Vec<String> = match clause {
@@ -8450,26 +8733,24 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
         TypeExpr::Bool => ctx.bool(),
         TypeExpr::Str => ctx.str(),
         TypeExpr::Never => ctx.never(),
-        TypeExpr::Named(name) => {
-            match name.as_str() {
-                "i32" => ctx.i32(),
-                "u8" => ctx.u8(),
-                "f32" => ctx.f32(),
-                "bool" => ctx.bool(),
-                "str" => ctx.str(),
-                "never" => ctx.never(),
-                _ => {
-                    if let Some(id) = labels.get(name) {
-                        return *id;
-                    }
-                    if let Some(id) = ctx.lookup_named(name) {
-                        id
-                    } else {
-                        ctx.register_named(name.clone(), TypeKind::Named(name.clone()))
-                    }
+        TypeExpr::Named(name) => match name.as_str() {
+            "i32" => ctx.i32(),
+            "u8" => ctx.u8(),
+            "f32" => ctx.f32(),
+            "bool" => ctx.bool(),
+            "str" => ctx.str(),
+            "never" => ctx.never(),
+            _ => {
+                if let Some(id) = labels.get(name) {
+                    return *id;
+                }
+                if let Some(id) = ctx.lookup_named(name) {
+                    id
+                } else {
+                    ctx.register_named(name.clone(), TypeKind::Named(name.clone()))
                 }
             }
-        }
+        },
         TypeExpr::Apply(base, args) => {
             let b = type_from_expr(ctx, labels, base);
             let mut arg_tys = Vec::new();
@@ -8651,14 +8932,7 @@ fn same_function_signature(ctx: &TypeCtx, a: TypeId, b: TypeId) -> bool {
     }
     let mut seen = BTreeSet::new();
     for (ta, tb) in pa.iter().zip(pb.iter()) {
-        if !same_type_with_signature_generics(
-            ctx,
-            *ta,
-            *tb,
-            &map_ab,
-            &map_ba,
-            &mut seen,
-        ) {
+        if !same_type_with_signature_generics(ctx, *ta, *tb, &map_ab, &map_ba, &mut seen) {
             return false;
         }
     }
@@ -8709,10 +8983,7 @@ fn same_type_with_signature_generics(
                     same_type_with_signature_generics(ctx, *ta, *tb, map_ab, map_ba, seen)
                 })
         }
-        (
-            TypeKind::Apply { base: ba, args: aa },
-            TypeKind::Apply { base: bb, args: ab },
-        ) => {
+        (TypeKind::Apply { base: ba, args: aa }, TypeKind::Apply { base: bb, args: ab }) => {
             aa.len() == ab.len()
                 && same_type_with_signature_generics(ctx, ba, bb, map_ab, map_ba, seen)
                 && aa.iter().zip(ab.iter()).all(|(ta, tb)| {
@@ -8743,14 +9014,7 @@ fn same_type_with_signature_generics(
                     nested_ba.insert(ctx.resolve_id(*tb), ctx.resolve_id(*ta));
                 }
                 pa.iter().zip(pb.iter()).all(|(ta, tb)| {
-                    same_type_with_signature_generics(
-                        ctx,
-                        *ta,
-                        *tb,
-                        &nested_ab,
-                        &nested_ba,
-                        seen,
-                    )
+                    same_type_with_signature_generics(ctx, *ta, *tb, &nested_ab, &nested_ba, seen)
                 }) && same_type_with_signature_generics(
                     ctx, resa, resb, &nested_ab, &nested_ba, seen,
                 )
@@ -8917,9 +9181,7 @@ fn signature_type_string(ctx: &TypeCtx, ty: TypeId, generics: &BTreeMap<TypeId, 
             s
         }
         TypeKind::Enum {
-            name,
-            type_params,
-            ..
+            name, type_params, ..
         } => {
             if type_params.is_empty() {
                 name
@@ -8936,9 +9198,7 @@ fn signature_type_string(ctx: &TypeCtx, ty: TypeId, generics: &BTreeMap<TypeId, 
             }
         }
         TypeKind::Struct {
-            name,
-            type_params,
-            ..
+            name, type_params, ..
         } => {
             if type_params.is_empty() {
                 name
@@ -8991,9 +9251,7 @@ fn type_contains_unbound_var(ctx: &TypeCtx, ty: TypeId) -> bool {
             if !type_params.is_empty() {
                 return true;
             }
-            params
-                .iter()
-                .any(|p| type_contains_unbound_var(ctx, *p))
+            params.iter().any(|p| type_contains_unbound_var(ctx, *p))
                 || type_contains_unbound_var(ctx, result)
         }
         TypeKind::Tuple { items } => items.iter().any(|t| type_contains_unbound_var(ctx, *t)),
@@ -9038,11 +9296,7 @@ fn profile_allows(profile: &str, active: BuildProfile) -> bool {
     }
 }
 
-fn gate_allows(
-    d: &Directive,
-    target: CompileTarget,
-    active_profile: BuildProfile,
-) -> Option<bool> {
+fn gate_allows(d: &Directive, target: CompileTarget, active_profile: BuildProfile) -> Option<bool> {
     match d {
         Directive::IfTarget { target: gate, .. } => Some(target_allows(gate.as_str(), target)),
         Directive::IfProfile { profile, .. } => {

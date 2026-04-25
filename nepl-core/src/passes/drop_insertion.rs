@@ -77,7 +77,9 @@ impl<'a> DropInsertionContext<'a> {
     }
 
     fn get_var(&self, name: &str) -> Option<VarInfo> {
-        self.var_stacks.get(name).and_then(|stack| stack.last().copied())
+        self.var_stacks
+            .get(name)
+            .and_then(|stack| stack.last().copied())
     }
 
     fn set_state(&mut self, name: &str, state: VarState) {
@@ -140,7 +142,11 @@ pub fn insert_drops(module: &mut HirModule, types: &mut TypeCtx) {
 
 fn find_drop_plan(module: &HirModule, unit_ty: TypeId) -> Option<DropPlan> {
     for tr in &module.traits {
-        if !tr.capabilities.iter().any(|cap| *cap == TraitCapability::Drop) {
+        if !tr
+            .capabilities
+            .iter()
+            .any(|cap| *cap == TraitCapability::Drop)
+        {
             continue;
         }
         let method_name = if tr.methods.contains_key("drop") {

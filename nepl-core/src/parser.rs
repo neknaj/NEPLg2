@@ -99,7 +99,8 @@ impl Parser {
                 Diagnostic::error(
                     alloc::format!(
                         "parser recursion limit exceeded while parsing {} (limit={})",
-                        kind, MAX_PARSE_RECURSION_DEPTH
+                        kind,
+                        MAX_PARSE_RECURSION_DEPTH
                     ),
                     span,
                 )
@@ -123,7 +124,9 @@ impl Parser {
                 return None;
             }
             match &expr.items[0] {
-                PrefixItem::Symbol(Symbol::Ident(id, targs, _)) if targs.is_empty() => Some(id.clone()),
+                PrefixItem::Symbol(Symbol::Ident(id, targs, _)) if targs.is_empty() => {
+                    Some(id.clone())
+                }
                 _ => None,
             }
         }
@@ -278,7 +281,6 @@ impl Parser {
         self.parse_block_until_internal(end)
     }
 
-
     fn parse_block_until_internal(&mut self, end: TokenEnd) -> Option<Block> {
         let mut items = Vec::new();
         let mut start_span = self.peek_span().unwrap_or_else(Span::dummy);
@@ -356,13 +358,15 @@ impl Parser {
                 } else {
                     false
                 };
-                
+
                 if is_else {
                     if let Some(prev) = items.last_mut() {
                         if let Stmt::Expr(pe) | Stmt::ExprSemi(pe, _) = prev {
                             self.collapse_if_then_tail_for_glued_else(pe);
                             // Extract and modify the current expression
-                            if let Stmt::Expr(ref mut curr_e) | Stmt::ExprSemi(ref mut curr_e, _) = &mut stmt {
+                            if let Stmt::Expr(ref mut curr_e) | Stmt::ExprSemi(ref mut curr_e, _) =
+                                &mut stmt
+                            {
                                 // Remove the 'else' marker and get remaining items
                                 Self::take_role_from_expr(curr_e);
                                 let mut curr_items = core::mem::take(&mut curr_e.items);
@@ -385,7 +389,9 @@ impl Parser {
             prev_has_if = match &stmt {
                 Stmt::Expr(e) | Stmt::ExprSemi(e, _) => {
                     // Check if expression contains Symbol::If (typically near the end before Block)
-                    e.items.iter().any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
+                    e.items
+                        .iter()
+                        .any(|it| matches!(it, PrefixItem::Symbol(Symbol::If(_))))
                 }
                 _ => false,
             };
@@ -401,7 +407,7 @@ impl Parser {
         } else {
             start_span
         };
-        
+
         Some(Block {
             items,
             span: start_span.join(end_span).unwrap_or(start_span),
@@ -438,13 +444,14 @@ impl Parser {
         if block_items.is_empty() {
             return;
         }
-        let block_span = if let (Some(first), Some(last)) = (block_items.first(), block_items.last()) {
-            self.stmt_span(first)
-                .join(self.stmt_span(last))
-                .unwrap_or_else(|| self.stmt_span(first))
-        } else {
-            expr.span
-        };
+        let block_span =
+            if let (Some(first), Some(last)) = (block_items.first(), block_items.last()) {
+                self.stmt_span(first)
+                    .join(self.stmt_span(last))
+                    .unwrap_or_else(|| self.stmt_span(first))
+            } else {
+                expr.span
+            };
         expr.items.push(PrefixItem::Block(
             Block {
                 items: block_items,
@@ -645,7 +652,10 @@ impl Parser {
             }
             TokenKind::DirIndentWidth(width) => {
                 let span = self.next().unwrap().span;
-                Some(Stmt::Directive(Directive::IndentWidth { width: width, span }))
+                Some(Stmt::Directive(Directive::IndentWidth {
+                    width: width,
+                    span,
+                }))
             }
             TokenKind::DirExtern {
                 module,
@@ -658,7 +668,10 @@ impl Parser {
                 Some(Stmt::Directive(Directive::Extern {
                     module: module.to_string(),
                     name: name.to_string(),
-                    func: Ident { name: func.to_string(), span },
+                    func: Ident {
+                        name: func.to_string(),
+                        span,
+                    },
                     signature: sig,
                     span,
                 }))
@@ -675,33 +688,37 @@ impl Parser {
             }
             TokenKind::DirInclude(path) => {
                 let span = self.next().unwrap().span;
-                Some(Stmt::Directive(Directive::Include { path: path.to_string(), span }))
+                Some(Stmt::Directive(Directive::Include {
+                    path: path.to_string(),
+                    span,
+                }))
             }
             TokenKind::DirPrelude(p) => {
                 let span = self.next().unwrap().span;
-                Some(Stmt::Directive(Directive::Prelude { path: p.to_string(), span }))
+                Some(Stmt::Directive(Directive::Prelude {
+                    path: p.to_string(),
+                    span,
+                }))
             }
             TokenKind::DirNoPrelude => {
                 let span = self.next().unwrap().span;
                 Some(Stmt::Directive(Directive::NoPrelude { span }))
             }
-            TokenKind::KwPub => {
-                match self.peek_kind_at(1) {
-                    Some(TokenKind::KwStruct) => self.parse_struct(),
-                    Some(TokenKind::KwEnum) => self.parse_enum(),
-                    Some(TokenKind::KwFn) => self.parse_fn(),
-                    Some(TokenKind::KwTrait) => self.parse_trait(),
-                    Some(TokenKind::KwImpl) => self.parse_impl(),
-                    _ => {
-                        let span = self.peek_span().unwrap_or_else(Span::dummy);
-                        self.push_error_with_id(
-                            DiagnosticId::ParserUnexpectedToken,
-                            "unexpected token after pub",
-                            span,
-                        );
-                        self.next();
-                        None
-                    }
+            TokenKind::KwPub => match self.peek_kind_at(1) {
+                Some(TokenKind::KwStruct) => self.parse_struct(),
+                Some(TokenKind::KwEnum) => self.parse_enum(),
+                Some(TokenKind::KwFn) => self.parse_fn(),
+                Some(TokenKind::KwTrait) => self.parse_trait(),
+                Some(TokenKind::KwImpl) => self.parse_impl(),
+                _ => {
+                    let span = self.peek_span().unwrap_or_else(Span::dummy);
+                    self.push_error_with_id(
+                        DiagnosticId::ParserUnexpectedToken,
+                        "unexpected token after pub",
+                        span,
+                    );
+                    self.next();
+                    None
                 }
             },
             TokenKind::KwStruct => self.parse_struct(),
@@ -865,8 +882,7 @@ impl Parser {
             name: Ident { name, span: nspan },
             no_shadow,
             type_params: Vec::new(),
-            signature: signature
-                .unwrap_or_else(|| Self::infer_signature_from_params(params.len())),
+            signature: signature.unwrap_or_else(|| Self::infer_signature_from_params(params.len())),
             params,
             body: fn_body,
         }))
@@ -998,7 +1014,6 @@ impl Parser {
             span: name_tok.1,
         };
 
-
         if (matches!(self.peek_kind(), Some(TokenKind::Ident(_)))
             && matches!(self.peek_kind_at(1), Some(TokenKind::Semicolon)))
             || (matches!(self.peek_kind(), Some(TokenKind::At))
@@ -1116,11 +1131,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics
-                        .push(
-                            Diagnostic::error("expected wasm text line", span)
-                                .with_id(DiagnosticId::ParserExpectedToken),
-                        );
+                    self.diagnostics.push(
+                        Diagnostic::error("expected wasm text line", span)
+                            .with_id(DiagnosticId::ParserExpectedToken),
+                    );
                     self.next();
                 }
             }
@@ -1156,11 +1170,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics
-                        .push(
-                            Diagnostic::error("expected llvm ir text line", span)
-                                .with_id(DiagnosticId::ParserExpectedToken),
-                        );
+                    self.diagnostics.push(
+                        Diagnostic::error("expected llvm ir text line", span)
+                            .with_id(DiagnosticId::ParserExpectedToken),
+                    );
                     self.next();
                 }
             }
@@ -1265,11 +1278,8 @@ impl Parser {
                 Some(tr) => Some(tr),
                 _ => {
                     self.diagnostics.push(
-                        Diagnostic::error(
-                            "expected trait name before 'for'",
-                            kw_span,
-                        )
-                        .with_id(DiagnosticId::ParserExpectedIdentifier),
+                        Diagnostic::error("expected trait name before 'for'", kw_span)
+                            .with_id(DiagnosticId::ParserExpectedIdentifier),
                     );
                     None
                 }
@@ -1519,14 +1529,24 @@ impl Parser {
                     match self.peek_kind() {
                         Some(TokenKind::IntLiteral(_)) => {
                             let tok = self.next().unwrap();
-                            let v = if let TokenKind::IntLiteral(v) = tok.kind { v } else { unreachable!() };
+                            let v = if let TokenKind::IntLiteral(v) = tok.kind {
+                                v
+                            } else {
+                                unreachable!()
+                            };
                             let combined = alloc::format!("-{}", v);
-                            items.push(PrefixItem::Literal(Literal::Int(combined), minus_span.join(tok.span).unwrap_or(minus_span)));
+                            items.push(PrefixItem::Literal(
+                                Literal::Int(combined),
+                                minus_span.join(tok.span).unwrap_or(minus_span),
+                            ));
                         }
                         Some(TokenKind::FloatLiteral(v)) => {
                             let tok = self.next().unwrap();
                             let combined = alloc::format!("-{}", v);
-                            items.push(PrefixItem::Literal(Literal::Float(combined), minus_span.join(tok.span).unwrap_or(minus_span)));
+                            items.push(PrefixItem::Literal(
+                                Literal::Float(combined),
+                                minus_span.join(tok.span).unwrap_or(minus_span),
+                            ));
                         }
                         _ => {
                             items.push(PrefixItem::Symbol(Symbol::Ident(
@@ -1576,7 +1596,10 @@ impl Parser {
                     let (name, span) = self.expect_ident()?;
                     self.consume_if(&TokenKind::Equals);
                     items.push(PrefixItem::Symbol(Symbol::Set {
-                        name: Ident { name, span: set_tok.span.join(span).unwrap_or(span) },
+                        name: Ident {
+                            name,
+                            span: set_tok.span.join(span).unwrap_or(span),
+                        },
                     }));
                 }
                 TokenKind::DirIntrinsic => {
@@ -1586,16 +1609,15 @@ impl Parser {
                             let tok = self.next().unwrap();
                             if let TokenKind::StringLiteral(s) = tok.kind {
                                 (s, tok.span)
-                            } else { unreachable!() }
+                            } else {
+                                unreachable!()
+                            }
                         }
                         _ => {
                             let sp = self.peek_span().unwrap_or(kw_span);
                             self.diagnostics.push(
-                                Diagnostic::error(
-                                    "expected string literal for intrinsic name",
-                                    sp,
-                                )
-                                .with_id(DiagnosticId::ParserExpectedToken),
+                                Diagnostic::error("expected string literal for intrinsic name", sp)
+                                    .with_id(DiagnosticId::ParserExpectedToken),
                             );
                             return None;
                         }
@@ -1621,11 +1643,8 @@ impl Parser {
                     } else {
                         let sp = self.peek_span().unwrap_or(kw_span);
                         self.diagnostics.push(
-                            Diagnostic::error(
-                                "expected '(' after intrinsic name/res",
-                                sp,
-                            )
-                            .with_id(DiagnosticId::ParserExpectedToken),
+                            Diagnostic::error("expected '(' after intrinsic name/res", sp)
+                                .with_id(DiagnosticId::ParserExpectedToken),
                         );
                         return None;
                     };
@@ -1636,7 +1655,7 @@ impl Parser {
                     } else {
                         self.parse_tuple_items(lp)?
                     };
-                    
+
                     let end_span = args_span;
                     items.push(PrefixItem::Intrinsic(
                         IntrinsicExpr {
@@ -1746,11 +1765,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics
-                        .push(
-                            Diagnostic::error("unexpected token in expression", span)
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                    self.diagnostics.push(
+                        Diagnostic::error("unexpected token in expression", span)
+                            .with_id(DiagnosticId::ParserUnexpectedToken),
+                    );
                     self.next();
                 }
             }
@@ -1809,11 +1827,10 @@ impl Parser {
                 self.peek_span().unwrap_or(lp_span)
             } else {
                 let sp = self.peek_span().unwrap_or_else(Span::dummy);
-                self.diagnostics
-                    .push(
-                        Diagnostic::error("expected ')' after parenthesized expression", sp)
-                            .with_id(DiagnosticId::ParserExpectedToken),
-                    );
+                self.diagnostics.push(
+                    Diagnostic::error("expected ')' after parenthesized expression", sp)
+                        .with_id(DiagnosticId::ParserExpectedToken),
+                );
                 sp
             };
             let span = lp_span.join(rp).unwrap_or(lp_span);
@@ -1896,11 +1913,11 @@ impl Parser {
                 }
                 _ if in_trailing_semis => {
                     let sp = self.peek_span().unwrap_or_else(Span::dummy);
-                        self.push_error_with_id(
-                            DiagnosticId::ParserUnexpectedToken,
-                            "unexpected token after ';' (only one statement per line)",
-                            sp,
-                        );
+                    self.push_error_with_id(
+                        DiagnosticId::ParserUnexpectedToken,
+                        "unexpected token after ';' (only one statement per line)",
+                        sp,
+                    );
                     while !self.is_end(&TokenEnd::Line)
                         && !matches!(self.peek_kind(), Some(TokenKind::Comma | TokenKind::RParen))
                     {
@@ -2169,11 +2186,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics
-                        .push(
-                            Diagnostic::error("unexpected token in expression", span)
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                    self.diagnostics.push(
+                        Diagnostic::error("unexpected token in expression", span)
+                            .with_id(DiagnosticId::ParserUnexpectedToken),
+                    );
                     self.next();
                 }
             }
@@ -2210,11 +2226,10 @@ impl Parser {
             self.next().unwrap().span
         } else {
             let sp = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics
-                .push(
-                    Diagnostic::error("expected ':' after match", sp)
-                        .with_id(DiagnosticId::ParserExpectedToken),
-                );
+            self.diagnostics.push(
+                Diagnostic::error("expected ':' after match", sp)
+                    .with_id(DiagnosticId::ParserExpectedToken),
+            );
             Span::dummy()
         };
         let arms = self.parse_match_arms()?;
@@ -2266,11 +2281,10 @@ impl Parser {
                 TokenKind::Colon => break,
                 TokenKind::Semicolon => {
                     let sp = self.next().unwrap().span;
-                    self.diagnostics
-                        .push(
-                            Diagnostic::error("';' must appear at end of a line", sp)
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                    self.diagnostics.push(
+                        Diagnostic::error("';' must appear at end of a line", sp)
+                            .with_id(DiagnosticId::ParserUnexpectedToken),
+                    );
                     // recovery: skip until colon or end of line
                     while !self.is_end(&TokenEnd::Line) {
                         self.next();
@@ -2384,7 +2398,6 @@ impl Parser {
         // Normalize 'then'/'else' markers inside scrutinee/prefix until colon.
         self.normalize_then_else(&mut items);
 
-
         let end_span = items
             .last()
             .map(|i| self.item_span(i))
@@ -2494,7 +2507,9 @@ impl Parser {
                         _ => None,
                     };
                     if let Some(inner) = inner_opt {
-                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = inner.items.first() {
+                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) =
+                            inner.items.first()
+                        {
                             let role = if id.name == "cond" {
                                 IfRole::Cond
                             } else if id.name == "then" {
@@ -2541,7 +2556,9 @@ impl Parser {
                         _ => None,
                     };
                     if let Some(inner) = inner_opt {
-                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = inner.items.first() {
+                        if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) =
+                            inner.items.first()
+                        {
                             let role = if id.name == "cond" {
                                 WhileRole::Cond
                             } else if id.name == "do" {
@@ -2649,13 +2666,11 @@ impl Parser {
     fn reject_layout_semicolon(&self, stmt: &Stmt, context: &str) -> Result<(), Diagnostic> {
         if let Stmt::ExprSemi(_, semi_span) = stmt {
             let span = semi_span.unwrap_or(self.stmt_span(stmt));
-            return Err(
-                Diagnostic::error(
-                    alloc::format!("';' is not allowed in {} layout expression", context),
-                    span,
-                )
-                .with_id(DiagnosticId::ParserUnexpectedToken),
-            );
+            return Err(Diagnostic::error(
+                alloc::format!("';' is not allowed in {} layout expression", context),
+                span,
+            )
+            .with_id(DiagnosticId::ParserUnexpectedToken));
         }
         Ok(())
     }
@@ -2761,7 +2776,7 @@ impl Parser {
         // Assign to slots: positional first, then fill by role.
         // If NO markers are used, we expect exactly `expected` branches and they map positionally.
         let mut slots: Vec<Option<PrefixExpr>> = vec![None; expected];
-        
+
         let role_to_index = |role: IfRole| -> Option<usize> {
             match (expected, role) {
                 (3, IfRole::Cond) => Some(0),
@@ -2782,7 +2797,9 @@ impl Parser {
                     .unwrap()
             } else {
                 let span = if let (Some(f), Some(l)) = (stmts.first(), stmts.last()) {
-                    self.stmt_span(f).join(self.stmt_span(l)).unwrap_or_else(|| self.stmt_span(f))
+                    self.stmt_span(f)
+                        .join(self.stmt_span(l))
+                        .unwrap_or_else(|| self.stmt_span(f))
                 } else {
                     header_span
                 };
@@ -2798,25 +2815,28 @@ impl Parser {
                 let idx = match role_to_index(r) {
                     Some(i) => i,
                     None => {
-                        return Err(
-                            Diagnostic::error("invalid marker in this if-layout form", expr.span)
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                        return Err(Diagnostic::error(
+                            "invalid marker in this if-layout form",
+                            expr.span,
+                        )
+                        .with_id(DiagnosticId::ParserUnexpectedToken));
                     }
                 };
                 if let Some(prev_idx) = last_role_idx {
                     if idx < prev_idx {
-                        return Err(
-                            Diagnostic::error("invalid marker order in if-layout block", expr.span)
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                        return Err(Diagnostic::error(
+                            "invalid marker order in if-layout block",
+                            expr.span,
+                        )
+                        .with_id(DiagnosticId::ParserUnexpectedToken));
                     }
                 }
                 if slots[idx].is_some() {
-                    return Err(
-                        Diagnostic::error("duplicate marker in if-layout block", expr.span)
-                            .with_id(DiagnosticId::ParserUnexpectedToken),
-                    );
+                    return Err(Diagnostic::error(
+                        "duplicate marker in if-layout block",
+                        expr.span,
+                    )
+                    .with_id(DiagnosticId::ParserUnexpectedToken));
                 }
                 slots[idx] = Some(expr);
                 last_role_idx = Some(idx);
@@ -2825,10 +2845,11 @@ impl Parser {
                     next_unfilled += 1;
                 }
                 if next_unfilled >= expected {
-                    return Err(
-                        Diagnostic::error("too many expressions in if-layout block", expr.span)
-                            .with_id(DiagnosticId::ParserUnexpectedToken),
-                    );
+                    return Err(Diagnostic::error(
+                        "too many expressions in if-layout block",
+                        expr.span,
+                    )
+                    .with_id(DiagnosticId::ParserUnexpectedToken));
                 }
                 slots[next_unfilled] = Some(expr);
                 next_unfilled += 1;
@@ -2836,11 +2857,10 @@ impl Parser {
         }
 
         if slots.iter().any(|s| s.is_none()) {
-            return Err(Diagnostic::error(
-                "missing expression(s) in if-layout block",
-                header_span,
-            )
-            .with_id(DiagnosticId::ParserExpectedToken));
+            return Err(
+                Diagnostic::error("missing expression(s) in if-layout block", header_span)
+                    .with_id(DiagnosticId::ParserExpectedToken),
+            );
         }
 
         Ok(slots.into_iter().map(|s| s.unwrap()).collect())
@@ -2871,13 +2891,11 @@ impl Parser {
             if let Some(role) = Self::take_role_from_expr(&mut marker_expr) {
                 if marker_expr.items.is_empty() {
                     if pending_role.is_some() {
-                        return Err(
-                            Diagnostic::error(
-                                "duplicate marker in if-layout block",
-                                marker_expr.span,
-                            )
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                        return Err(Diagnostic::error(
+                            "duplicate marker in if-layout block",
+                            marker_expr.span,
+                        )
+                        .with_id(DiagnosticId::ParserUnexpectedToken));
                     }
                     pending_role = Some(role);
                 } else {
@@ -2896,11 +2914,10 @@ impl Parser {
         }
 
         if pending_role.is_some() {
-            return Err(Diagnostic::error(
-                "missing expression(s) in if-layout block",
-                header_span,
-            )
-            .with_id(DiagnosticId::ParserExpectedToken));
+            return Err(
+                Diagnostic::error("missing expression(s) in if-layout block", header_span)
+                    .with_id(DiagnosticId::ParserExpectedToken),
+            );
         }
 
         let mut slots: Vec<Option<PrefixExpr>> = vec![None; expected];
@@ -2922,25 +2939,28 @@ impl Parser {
                 let idx = match role_to_index(r) {
                     Some(i) => i,
                     None => {
-                        return Err(
-                            Diagnostic::error("invalid marker in this if-layout form", expr.span)
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                        return Err(Diagnostic::error(
+                            "invalid marker in this if-layout form",
+                            expr.span,
+                        )
+                        .with_id(DiagnosticId::ParserUnexpectedToken));
                     }
                 };
                 if let Some(prev_idx) = last_role_idx {
                     if idx < prev_idx {
-                        return Err(
-                            Diagnostic::error("invalid marker order in if-layout block", expr.span)
-                                .with_id(DiagnosticId::ParserUnexpectedToken),
-                        );
+                        return Err(Diagnostic::error(
+                            "invalid marker order in if-layout block",
+                            expr.span,
+                        )
+                        .with_id(DiagnosticId::ParserUnexpectedToken));
                     }
                 }
                 if slots[idx].is_some() {
-                    return Err(
-                        Diagnostic::error("duplicate marker in if-layout block", expr.span)
-                            .with_id(DiagnosticId::ParserUnexpectedToken),
-                    );
+                    return Err(Diagnostic::error(
+                        "duplicate marker in if-layout block",
+                        expr.span,
+                    )
+                    .with_id(DiagnosticId::ParserUnexpectedToken));
                 }
                 slots[idx] = Some(expr);
                 last_role_idx = Some(idx);
@@ -2949,10 +2969,11 @@ impl Parser {
                     next_unfilled += 1;
                 }
                 if next_unfilled >= expected {
-                    return Err(
-                        Diagnostic::error("too many expressions in if-layout block", expr.span)
-                            .with_id(DiagnosticId::ParserUnexpectedToken),
-                    );
+                    return Err(Diagnostic::error(
+                        "too many expressions in if-layout block",
+                        expr.span,
+                    )
+                    .with_id(DiagnosticId::ParserUnexpectedToken));
                 }
                 slots[next_unfilled] = Some(expr);
                 next_unfilled += 1;
@@ -2960,11 +2981,10 @@ impl Parser {
         }
 
         if slots.iter().any(|s| s.is_none()) {
-            return Err(Diagnostic::error(
-                "missing expression(s) in if-layout block",
-                header_span,
-            )
-            .with_id(DiagnosticId::ParserExpectedToken));
+            return Err(
+                Diagnostic::error("missing expression(s) in if-layout block", header_span)
+                    .with_id(DiagnosticId::ParserExpectedToken),
+            );
         }
 
         Ok(slots.into_iter().map(|s| s.unwrap()).collect())
@@ -3036,7 +3056,9 @@ impl Parser {
                     .unwrap()
             } else {
                 let span = if let (Some(f), Some(l)) = (stmts.first(), stmts.last()) {
-                    self.stmt_span(f).join(self.stmt_span(l)).unwrap_or_else(|| self.stmt_span(f))
+                    self.stmt_span(f)
+                        .join(self.stmt_span(l))
+                        .unwrap_or_else(|| self.stmt_span(f))
                 } else {
                     header_span
                 };
@@ -3060,10 +3082,11 @@ impl Parser {
                     }
                 };
                 if slots[idx].is_some() {
-                    return Err(
-                        Diagnostic::error("duplicate marker in while-layout block", expr.span)
-                            .with_id(DiagnosticId::ParserUnexpectedToken),
-                    );
+                    return Err(Diagnostic::error(
+                        "duplicate marker in while-layout block",
+                        expr.span,
+                    )
+                    .with_id(DiagnosticId::ParserUnexpectedToken));
                 }
                 slots[idx] = Some(expr);
             } else {
@@ -3125,11 +3148,10 @@ impl Parser {
     fn parse_match_arms(&mut self) -> Option<Vec<MatchArm>> {
         if !self.consume_if(&TokenKind::Newline) {
             let sp = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics
-                .push(
-                    Diagnostic::error("expected newline after match ':'", sp)
-                        .with_id(DiagnosticId::ParserExpectedToken),
-                );
+            self.diagnostics.push(
+                Diagnostic::error("expected newline after match ':'", sp)
+                    .with_id(DiagnosticId::ParserExpectedToken),
+            );
         }
         self.expect(&TokenKind::Indent)?;
         let mut arms = Vec::new();
@@ -3183,11 +3205,8 @@ impl Parser {
                 if let Some((name, span)) = self.expect_ident() {
                     if !has_dot {
                         self.diagnostics.push(
-                            Diagnostic::error(
-                                "type parameter must be written as .T",
-                                span,
-                            )
-                            .with_id(DiagnosticId::ParserInvalidTypeExpr),
+                            Diagnostic::error("type parameter must be written as .T", span)
+                                .with_id(DiagnosticId::ParserInvalidTypeExpr),
                         );
                     }
                     let mut bounds = Vec::new();
@@ -3196,8 +3215,8 @@ impl Parser {
                             bounds.push(bound);
                         } else {
                             let sp = self.peek_span().unwrap_or(span);
-                                self.diagnostics.push(
-                                    Diagnostic::error("expected trait name after ':'", sp)
+                            self.diagnostics.push(
+                                Diagnostic::error("expected trait name after ':'", sp)
                                     .with_id(DiagnosticId::ParserExpectedIdentifier),
                             );
                         }
@@ -3282,7 +3301,6 @@ impl Parser {
     fn parse_type_expr(&mut self) -> Option<TypeExpr> {
         self.parse_type_expr_internal()
     }
-
 
     fn parse_type_expr_internal(&mut self) -> Option<TypeExpr> {
         match self.peek_kind()? {
@@ -3395,11 +3413,10 @@ impl Parser {
             }
             _ => {
                 let span = self.peek_span().unwrap_or_else(Span::dummy);
-                self.diagnostics
-                    .push(
-                        Diagnostic::error("invalid type expression", span)
-                            .with_id(DiagnosticId::ParserInvalidTypeExpr),
-                    );
+                self.diagnostics.push(
+                    Diagnostic::error("invalid type expression", span)
+                        .with_id(DiagnosticId::ParserInvalidTypeExpr),
+                );
                 self.next();
                 None
             }
@@ -3426,11 +3443,8 @@ impl Parser {
         }
         if is_mut && no_shadow {
             self.diagnostics.push(
-                Diagnostic::error(
-                    "noshadow cannot be used with let mut",
-                    let_span,
-                )
-                .with_id(DiagnosticId::ParserUnexpectedToken),
+                Diagnostic::error("noshadow cannot be used with let mut", let_span)
+                    .with_id(DiagnosticId::ParserUnexpectedToken),
             );
         }
         (is_mut, no_shadow)
@@ -3496,7 +3510,8 @@ impl Parser {
                         Diagnostic::error(
                             alloc::format!(
                                 "legacy tuple field access '.{}' is removed; use 'get <tuple> {}'",
-                                idx_text, idx_text
+                                idx_text,
+                                idx_text
                             ),
                             dot_span.join(idx_tok.span).unwrap_or(dot_span),
                         )
@@ -3547,7 +3562,10 @@ impl Parser {
         {
             self.diagnostics.push(
                 Diagnostic::error(
-                    alloc::format!("'{}' is a reserved keyword and cannot be used as an identifier", full),
+                    alloc::format!(
+                        "'{}' is a reserved keyword and cannot be used as an identifier",
+                        full
+                    ),
                     end_span,
                 )
                 .with_id(DiagnosticId::ParserReservedKeywordIdentifier),
@@ -3721,25 +3739,22 @@ impl Parser {
     }
 
     fn is_eof(&self) -> bool {
-        self.peek_kind().map_or(true, |k| matches!(k, TokenKind::Eof))
+        self.peek_kind()
+            .map_or(true, |k| matches!(k, TokenKind::Eof))
     }
 
     fn is_end(&self, end: &TokenEnd) -> bool {
         match end {
             TokenEnd::Eof => self.is_eof(),
-            TokenEnd::Dedent => {
-                self.peek_kind()
-                    .map_or(true, |k| matches!(k, TokenKind::Dedent | TokenKind::Eof))
-            }
+            TokenEnd::Dedent => self
+                .peek_kind()
+                .map_or(true, |k| matches!(k, TokenKind::Dedent | TokenKind::Eof)),
             TokenEnd::Line => {
                 if self.is_pipe_continuation() {
                     false
                 } else {
                     self.peek_kind().map_or(true, |k| {
-                        matches!(
-                            k,
-                            TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof
-                        )
+                        matches!(k, TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof)
                     })
                 }
             }
@@ -3894,26 +3909,22 @@ impl Parser {
                 Some(TokenKind::Newline) => {
                     let err_span = self.next().map(|t| t.span).unwrap_or(span);
                     self.diagnostics.push(
-                        Diagnostic::error(
-                            "mlstr lines must start with '##:'",
-                            err_span,
-                        )
-                        .with_id(DiagnosticId::ParserUnexpectedToken),
+                        Diagnostic::error("mlstr lines must start with '##:'", err_span)
+                            .with_id(DiagnosticId::ParserUnexpectedToken),
                     );
                 }
                 Some(TokenKind::Dedent) | Some(TokenKind::Eof) => break,
                 Some(_) => {
                     let err_span = self.peek_span().unwrap_or(span);
                     self.diagnostics.push(
-                        Diagnostic::error(
-                            "mlstr lines must start with '##:'",
-                            err_span,
-                        )
-                        .with_id(DiagnosticId::ParserUnexpectedToken),
+                        Diagnostic::error("mlstr lines must start with '##:'", err_span)
+                            .with_id(DiagnosticId::ParserUnexpectedToken),
                     );
                     while let Some(kind) = self.peek_kind() {
-                        if matches!(kind, TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof)
-                        {
+                        if matches!(
+                            kind,
+                            TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof
+                        ) {
                             break;
                         }
                         self.next();
@@ -3926,11 +3937,8 @@ impl Parser {
         self.consume_if(&TokenKind::Dedent);
         if !saw_mlstr_line {
             self.diagnostics.push(
-                Diagnostic::error(
-                    "mlstr requires at least one '##:' line",
-                    span,
-                )
-                .with_id(DiagnosticId::ParserExpectedToken),
+                Diagnostic::error("mlstr requires at least one '##:' line", span)
+                    .with_id(DiagnosticId::ParserExpectedToken),
             );
         }
         Some(text)

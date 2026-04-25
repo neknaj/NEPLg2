@@ -10,13 +10,11 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, Stmt, TypeExpr};
 use crate::ast::Directive;
+use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, Stmt, TypeExpr};
 use crate::compiler::{self, BuildProfile, CompileTarget, PreparedLlvmProgram};
 use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
-use crate::runtime_helpers::{
-    helper_base_name, helper_candidates, RuntimeHelperKind,
-};
+use crate::runtime_helpers::{helper_base_name, helper_candidates, RuntimeHelperKind};
 use crate::target_precheck::{self, ActiveRawBody};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -38,7 +36,11 @@ impl core::fmt::Display for LlvmCodegenError {
                 )
             }
             LlvmCodegenError::TypecheckFailed { reason } => {
-                write!(f, "failed to typecheck module for llvm lowering: {}", reason)
+                write!(
+                    f,
+                    "failed to typecheck module for llvm lowering: {}",
+                    reason
+                )
             }
             LlvmCodegenError::MissingEntryFunction { function } => write!(
                 f,
@@ -92,7 +94,8 @@ pub fn emit_ll_from_module_for_target(
                     }
                     if !raw_call_requirements.is_empty() {
                         if let Some((ps, ret)) = ast_fn_signature_llty(&def.signature) {
-                            let key = raw_abi_signature_key(def.name.name.as_str(), ps.as_slice(), ret);
+                            let key =
+                                raw_abi_signature_key(def.name.name.as_str(), ps.as_slice(), ret);
                             if selected_raw_ll_sigs.contains(key.as_str()) {
                                 continue;
                             }
@@ -105,7 +108,10 @@ pub fn emit_ll_from_module_for_target(
                         &raw_name_counts,
                         &mut raw_canonical_taken,
                     );
-                    collect_defined_functions_from_llvmir_block(&normalized, &mut emitted_functions);
+                    collect_defined_functions_from_llvmir_block(
+                        &normalized,
+                        &mut emitted_functions,
+                    );
                     append_llvmir_block(&mut out, &normalized);
                 }
                 FnBody::Parsed(block) => {
@@ -125,7 +131,10 @@ pub fn emit_ll_from_module_for_target(
                                 &raw_name_counts,
                                 &mut raw_canonical_taken,
                             );
-                            collect_defined_functions_from_llvmir_block(&normalized, &mut emitted_functions);
+                            collect_defined_functions_from_llvmir_block(
+                                &normalized,
+                                &mut emitted_functions,
+                            );
                             append_llvmir_block(&mut out, &normalized);
                         }
                         Ok(Some(ActiveRawBody::Wasm(_))) => {
@@ -173,8 +182,12 @@ pub fn emit_ll_from_module_for_target(
     if let Some(entry) = entry_names.last() {
         let mut resolved_entry = entry.clone();
         if !emitted_functions.iter().any(|n| n == entry) {
-            resolved_entry =
-                try_lower_entry_from_hir(&prepared, entry.as_str(), &mut out, &mut emitted_functions)?;
+            resolved_entry = try_lower_entry_from_hir(
+                &prepared,
+                entry.as_str(),
+                &mut out,
+                &mut emitted_functions,
+            )?;
         }
         if !emitted_functions.iter().any(|n| n == &resolved_entry) {
             return Err(LlvmCodegenError::MissingEntryFunction {
@@ -312,12 +325,14 @@ fn collect_required_raw_calls_fixed_point(
                     }
                 }
                 FnBody::Parsed(block) => {
-                    if let Ok(Some(ActiveRawBody::LlvmIr(raw))) = target_precheck::select_active_raw_body(
-                        block,
-                        target,
-                        profile,
-                        def.name.name.as_str(),
-                    ) {
+                    if let Ok(Some(ActiveRawBody::LlvmIr(raw))) =
+                        target_precheck::select_active_raw_body(
+                            block,
+                            target,
+                            profile,
+                            def.name.name.as_str(),
+                        )
+                    {
                         if let Some((params, ret)) = ast_fn_signature_llty(&def.signature) {
                             candidates.push(Candidate {
                                 name: def.name.name.as_str(),
@@ -372,7 +387,12 @@ fn collect_active_ast_raw_name_counts(
         let has_raw = match &def.body {
             FnBody::LlvmIr(_) => true,
             FnBody::Parsed(block) => matches!(
-                target_precheck::select_active_raw_body(block, target, profile, def.name.name.as_str()),
+                target_precheck::select_active_raw_body(
+                    block,
+                    target,
+                    profile,
+                    def.name.name.as_str()
+                ),
                 Ok(Some(ActiveRawBody::LlvmIr(_)))
             ),
             FnBody::Wasm(_) => false,
@@ -555,7 +575,11 @@ fn deduplicate_overloaded_llvm_symbols(src: &str) -> String {
                 new_name.clone(),
             );
             if let Some(line) = lines.get_mut(d.idx) {
-                *line = replace_signature_symbol_name(line.as_str(), d.name.as_str(), new_name.as_str());
+                *line = replace_signature_symbol_name(
+                    line.as_str(),
+                    d.name.as_str(),
+                    new_name.as_str(),
+                );
             }
         }
     }
@@ -566,7 +590,8 @@ fn deduplicate_overloaded_llvm_symbols(src: &str) -> String {
         if let Some(req) = parse_llvm_call_requirement(line.as_str()) {
             let k = ir_sig_key(req.name.as_str(), req.params.as_slice(), req.ret);
             if let Some(new_name) = rename_map.get(k.as_str()) {
-                *line = replace_call_symbol_name(line.as_str(), req.name.as_str(), new_name.as_str());
+                *line =
+                    replace_call_symbol_name(line.as_str(), req.name.as_str(), new_name.as_str());
             }
         }
     }
@@ -841,8 +866,8 @@ fn try_lower_entry_from_hir(
     let mut declared_extern_symbols: BTreeSet<String> = BTreeSet::new();
     for ex in &hir.externs {
         let local_name_raw = ex.local_name.as_str();
-        let base_alias = find_mangled_signature_separator(local_name_raw)
-            .map(|sep| &local_name_raw[..sep]);
+        let base_alias =
+            find_mangled_signature_separator(local_name_raw).map(|sep| &local_name_raw[..sep]);
         let needs_base = base_alias
             .map(|base| prepared.reachable_set.contains(base))
             .unwrap_or(false);
@@ -862,7 +887,10 @@ fn try_lower_entry_from_hir(
         }
 
         if declared_extern_symbols.insert(ex.name.clone()) {
-            out.push_str(&format!("declare {} {}({})\n", ret, external_name, params_ll));
+            out.push_str(&format!(
+                "declare {} {}({})\n",
+                ret, external_name, params_ll
+            ));
         }
 
         if ex.local_name != ex.name {
@@ -883,7 +911,10 @@ fn try_lower_entry_from_hir(
             out.push_str(&format!("define {} {}({}) {{\n", ret, local_name, args));
             out.push_str("entry:\n");
             if ret == "void" {
-                out.push_str(&format!("  call {} {}({})\n", ret, external_name, call_args));
+                out.push_str(&format!(
+                    "  call {} {}({})\n",
+                    ret, external_name, call_args
+                ));
                 out.push_str("  ret void\n");
             } else {
                 out.push_str(&format!(
@@ -926,7 +957,10 @@ fn try_lower_entry_from_hir(
                         out.push_str(&format!("  call {} {}({})\n", ret, local_name, call_args));
                         out.push_str("  ret void\n");
                     } else {
-                        out.push_str(&format!("  %ret = call {} {}({})\n", ret, local_name, call_args));
+                        out.push_str(&format!(
+                            "  %ret = call {} {}({})\n",
+                            ret, local_name, call_args
+                        ));
                         out.push_str(&format!("  ret {} %ret\n", ret));
                     }
                     out.push_str("}\n");
@@ -1028,7 +1062,9 @@ fn try_lower_entry_from_hir(
     }
 
     if resolved_entry == "main" && emitted_functions.iter().any(|n| n == "__nepl_entry_main") {
-        out.push_str("define i32 @main() {\nentry:\n  call void @__nepl_entry_main()\n  ret i32 0\n}\n\n");
+        out.push_str(
+            "define i32 @main() {\nentry:\n  call void @__nepl_entry_main()\n  ret i32 0\n}\n\n",
+        );
         emitted_functions.push(String::from("main"));
     }
     if llvm_output_mentions_symbol(out, "alloc") && !llvm_output_has_function(out, "alloc") {
@@ -1071,7 +1107,8 @@ fn emit_alias_to_symbol(
     out: &mut String,
     emitted_functions: &mut Vec<String>,
 ) -> bool {
-    let base_available = emitted_functions.iter().any(|n| n == base) || llvm_output_has_function(out, base);
+    let base_available =
+        emitted_functions.iter().any(|n| n == base) || llvm_output_has_function(out, base);
     if !base_available {
         return false;
     }
@@ -1179,7 +1216,9 @@ fn emit_base_alias_to_mangled(
 }
 
 fn emit_fallback_linear_memory_runtime(out: &mut String) {
-    out.push_str("@__nepl_fallback_mem = internal global [67108864 x i8] zeroinitializer, align 16\n");
+    out.push_str(
+        "@__nepl_fallback_mem = internal global [67108864 x i8] zeroinitializer, align 16\n",
+    );
     out.push_str("@__nepl_fallback_heap = internal global i32 16, align 4\n");
     out.push_str("define internal i32 @__nepl_fallback_alloc(i32 %size) {\n");
     out.push_str("entry:\n");
@@ -1223,7 +1262,11 @@ fn collect_hir_signatures(types: &TypeCtx, module: &HirModule) -> BTreeMap<Strin
         if crate::wasm_shared::should_skip_wasm_codegen_for_generic(types, f) {
             continue;
         }
-        let params = f.params.iter().map(|p| llty_for_type(types, p.ty)).collect::<Vec<_>>();
+        let params = f
+            .params
+            .iter()
+            .map(|p| llty_for_type(types, p.ty))
+            .collect::<Vec<_>>();
         let ret = llty_for_type(types, f.result);
         out.insert(f.name.clone(), FnSig { params, ret });
     }
@@ -1375,7 +1418,11 @@ fn lower_hir_expr(
         })),
         HirExprKind::LiteralBool(v) => Ok(Some(LlValue {
             ty: LlTy::I32,
-            repr: if *v { String::from("1") } else { String::from("0") },
+            repr: if *v {
+                String::from("1")
+            } else {
+                String::from("0")
+            },
         })),
         HirExprKind::LiteralStr(id) => lower_hir_string_literal(types, ctx, *id as usize),
         HirExprKind::Unit => Ok(None),
@@ -1402,10 +1449,7 @@ fn lower_hir_expr(
                 bty.ir(),
                 bptr
             ));
-            Ok(Some(LlValue {
-                ty: bty,
-                repr: tmp,
-            }))
+            Ok(Some(LlValue { ty: bty, repr: tmp }))
         }
         HirExprKind::Let { name, value, .. } => {
             let Some(v) = lower_hir_expr(types, ctx, value)? else {
@@ -1475,7 +1519,9 @@ fn lower_hir_expr(
         HirExprKind::Call { callee, args } => {
             let callee_name = match callee {
                 FuncRef::Builtin(name) | FuncRef::User(name, _) => name.as_str(),
-                FuncRef::Trait { trait_name, method, .. } => {
+                FuncRef::Trait {
+                    trait_name, method, ..
+                } => {
                     panic!(
                         "internal compiler error: unresolved trait call {}::{} reached llvm codegen",
                         trait_name, method
@@ -1690,10 +1736,7 @@ fn lower_hir_expr(
                 );
             }
             let cond_i1 = ctx.next_tmp();
-            ctx.push_line(&format!(
-                "  {} = icmp ne i32 {}, 0",
-                cond_i1, cond_v.repr
-            ));
+            ctx.push_line(&format!("  {} = icmp ne i32 {}, 0", cond_i1, cond_v.repr));
             let result_ty = llty_for_type(types, expr.ty);
             let result_slot = if result_ty != LlTy::Void {
                 let slot = ctx.next_tmp();
@@ -2160,54 +2203,59 @@ fn lower_hir_expr(
                             // （_ 以外への束縛利用は後段で拡張する）
                             // 現時点では match 評価の継続のみ行う。
                         } else {
-                        let payload_offset = match payload_ll {
-                            LlTy::I64 | LlTy::F64 => 8,
-                            _ => 4,
-                        };
-                        let base_ptr8 = ctx.linear_i8_ptr_from_i32(scr_v.repr.as_str());
-                        let payload_ptr8 = ctx.next_tmp();
-                        ctx.push_line(&format!(
-                            "  {} = getelementptr i8, i8* {}, i64 {}",
-                            payload_ptr8, base_ptr8, payload_offset
-                        ));
+                            let payload_offset = match payload_ll {
+                                LlTy::I64 | LlTy::F64 => 8,
+                                _ => 4,
+                            };
+                            let base_ptr8 = ctx.linear_i8_ptr_from_i32(scr_v.repr.as_str());
+                            let payload_ptr8 = ctx.next_tmp();
+                            ctx.push_line(&format!(
+                                "  {} = getelementptr i8, i8* {}, i64 {}",
+                                payload_ptr8, base_ptr8, payload_offset
+                            ));
 
-                        let local_ptr = ctx.next_tmp();
-                        let local_val = if matches!(types.get(types.resolve_id(payload_ty)), TypeKind::U8)
-                        {
-                            let p = ctx.next_tmp();
-                            let raw = ctx.next_tmp();
-                            let z = ctx.next_tmp();
-                            ctx.push_line(&format!("  {} = bitcast i8* {} to i8*", p, payload_ptr8));
-                            ctx.push_line(&format!("  {} = load i8, i8* {}, align 1", raw, p));
-                            ctx.push_line(&format!("  {} = zext i8 {} to i32", z, raw));
-                            z
-                        } else {
-                            let typed_ptr = ctx.next_tmp();
-                            let loaded = ctx.next_tmp();
+                            let local_ptr = ctx.next_tmp();
+                            let local_val = if matches!(
+                                types.get(types.resolve_id(payload_ty)),
+                                TypeKind::U8
+                            ) {
+                                let p = ctx.next_tmp();
+                                let raw = ctx.next_tmp();
+                                let z = ctx.next_tmp();
+                                ctx.push_line(&format!(
+                                    "  {} = bitcast i8* {} to i8*",
+                                    p, payload_ptr8
+                                ));
+                                ctx.push_line(&format!("  {} = load i8, i8* {}, align 1", raw, p));
+                                ctx.push_line(&format!("  {} = zext i8 {} to i32", z, raw));
+                                z
+                            } else {
+                                let typed_ptr = ctx.next_tmp();
+                                let loaded = ctx.next_tmp();
+                                ctx.push_line(&format!(
+                                    "  {} = bitcast i8* {} to {}*",
+                                    typed_ptr,
+                                    payload_ptr8,
+                                    payload_ll.ir()
+                                ));
+                                ctx.push_line(&format!(
+                                    "  {} = load {}, {}* {}, align 1",
+                                    loaded,
+                                    payload_ll.ir(),
+                                    payload_ll.ir(),
+                                    typed_ptr
+                                ));
+                                loaded
+                            };
+                            ctx.push_line(&format!("  {} = alloca {}", local_ptr, payload_ll.ir()));
                             ctx.push_line(&format!(
-                                "  {} = bitcast i8* {} to {}*",
-                                typed_ptr,
-                                payload_ptr8,
-                                payload_ll.ir()
-                            ));
-                            ctx.push_line(&format!(
-                                "  {} = load {}, {}* {}, align 1",
-                                loaded,
+                                "  store {} {}, {}* {}, align 1",
                                 payload_ll.ir(),
+                                local_val,
                                 payload_ll.ir(),
-                                typed_ptr
+                                local_ptr
                             ));
-                            loaded
-                        };
-                        ctx.push_line(&format!("  {} = alloca {}", local_ptr, payload_ll.ir()));
-                        ctx.push_line(&format!(
-                            "  store {} {}, {}* {}, align 1",
-                            payload_ll.ir(),
-                            local_val,
-                            payload_ll.ir(),
-                            local_ptr
-                        ));
-                        ctx.bind_local(bind.as_str(), local_ptr, payload_ll);
+                            ctx.bind_local(bind.as_str(), local_ptr, payload_ll);
                         }
                     }
                 }
@@ -2322,7 +2370,10 @@ fn lower_hir_expr(
                             "  {} = getelementptr i8, i8* {}, i64 {}",
                             src_byte_ptr, src_ptr, off
                         ));
-                        ctx.push_line(&format!("  {} = load i8, i8* {}, align 1", byte, src_byte_ptr));
+                        ctx.push_line(&format!(
+                            "  {} = load i8, i8* {}, align 1",
+                            byte, src_byte_ptr
+                        ));
                         ctx.push_line(&format!(
                             "  {} = getelementptr i8, i8* {}, i64 {}",
                             dst_byte_ptr, dst_ptr, off
@@ -2408,7 +2459,10 @@ fn lower_hir_expr(
                             "  {} = getelementptr i8, i8* {}, i64 {}",
                             src_byte_ptr, src_ptr, off
                         ));
-                        ctx.push_line(&format!("  {} = load i8, i8* {}, align 1", byte, src_byte_ptr));
+                        ctx.push_line(&format!(
+                            "  {} = load i8, i8* {}, align 1",
+                            byte, src_byte_ptr
+                        ));
                         ctx.push_line(&format!(
                             "  {} = getelementptr i8, i8* {}, i64 {}",
                             dst_byte_ptr, dst_ptr, off
@@ -2543,7 +2597,9 @@ fn lower_hir_expr(
                 ));
                 ctx.push_line(&format!(
                     "  {} = bitcast i8* {} to {}*",
-                    typed_ptr, field_ptr8, out_ty.ir()
+                    typed_ptr,
+                    field_ptr8,
+                    out_ty.ir()
                 ));
                 ctx.push_line(&format!(
                     "  {} = load {}, {}* {}, align 1",
@@ -2654,7 +2710,9 @@ fn lower_hir_expr(
                 ));
                 ctx.push_line(&format!(
                     "  {} = bitcast i8* {} to {}*",
-                    typed_ptr, field_ptr8, val_ty.ir()
+                    typed_ptr,
+                    field_ptr8,
+                    val_ty.ir()
                 ));
                 ctx.push_line(&format!(
                     "  store {} {}, {}* {}, align 1",
@@ -2901,15 +2959,16 @@ fn lower_hir_string_literal(
         total_len
     ));
     let len_ptr = ctx.linear_typed_ptr_from_i32(ptr_tmp.as_str(), LlTy::I32);
-    ctx.push_line(&format!("  store i32 {}, i32* {}, align 1", bytes.len(), len_ptr));
+    ctx.push_line(&format!(
+        "  store i32 {}, i32* {}, align 1",
+        bytes.len(),
+        len_ptr
+    ));
     for (idx, b) in bytes.iter().enumerate() {
         let off = ctx.next_tmp();
         ctx.push_line(&format!("  {} = add i32 {}, {}", off, ptr_tmp, idx + 4));
         let ptr8 = ctx.linear_i8_ptr_from_i32(off.as_str());
-        ctx.push_line(&format!(
-            "  store i8 {}, i8* {}, align 1",
-            *b as i32, ptr8
-        ));
+        ctx.push_line(&format!("  store i8 {}, i8* {}, align 1", *b as i32, ptr8));
     }
     Ok(Some(LlValue {
         ty: LlTy::I32,
@@ -2971,7 +3030,9 @@ fn type_storage_align_bytes(types: &TypeCtx, ty: TypeId) -> i64 {
             let base = types.resolve_id(base);
             match types.get(base) {
                 TypeKind::Struct {
-                    type_params, fields, ..
+                    type_params,
+                    fields,
+                    ..
                 } => {
                     let mut tmp = types.clone();
                     let mapping = type_params
@@ -3046,7 +3107,9 @@ fn type_storage_size_bytes(types: &TypeCtx, ty: TypeId) -> i64 {
             let base = types.resolve_id(base);
             match types.get(base) {
                 TypeKind::Struct {
-                    type_params, fields, ..
+                    type_params,
+                    fields,
+                    ..
                 } => {
                     let mut tmp = types.clone();
                     let mapping = type_params
@@ -3194,9 +3257,7 @@ fn aggregate_field_layout(
 }
 
 fn ll_symbol(name: &str) -> String {
-    let escaped = name
-        .replace('\\', "\\5C")
-        .replace('"', "\\22");
+    let escaped = name.replace('\\', "\\5C").replace('"', "\\22");
     format!("@\"{}\"", escaped)
 }
 
@@ -3281,10 +3342,9 @@ fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> i32 {
     };
     let enum_ty = ctx.resolve_id(enum_ty);
     match ctx.get(enum_ty) {
-        TypeKind::Enum { variants, .. } => variants
-            .iter()
-            .position(|v| v.name == name)
-            .unwrap_or(0) as i32,
+        TypeKind::Enum { variants, .. } => {
+            variants.iter().position(|v| v.name == name).unwrap_or(0) as i32
+        }
         TypeKind::Apply { base, .. } => enum_variant_tag(ctx, base, name),
         _ => 0,
     }
@@ -3574,7 +3634,8 @@ fn body <(i32)->i32> (x):
     x
 "#;
         let module = parse_module(src);
-        let ll = emit_ll_from_module(&module).expect("unsupported parsed function should be skipped");
+        let ll =
+            emit_ll_from_module(&module).expect("unsupported parsed function should be skipped");
         assert!(!ll.contains("define i32 @body("));
     }
 
@@ -3609,8 +3670,13 @@ fn l <()->i32> ():
         }
 "#;
         let module = parse_module(src);
-        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug, false)
-            .expect("llvm-gated items should compile");
+        let ll = emit_ll_from_module_for_target(
+            &module,
+            CompileTarget::Llvm,
+            BuildProfile::Debug,
+            false,
+        )
+        .expect("llvm-gated items should compile");
         assert!(ll.contains("define i32 @l()"));
         assert!(!ll.contains("define i32 @w()"));
     }
@@ -3631,8 +3697,13 @@ fn f <()->i32> ():
         }
 "#;
         let module = parse_module(src);
-        let ll = emit_ll_from_module_for_target(&module, CompileTarget::Llvm, BuildProfile::Debug, false)
-            .expect("llvm raw function body should be selected");
+        let ll = emit_ll_from_module_for_target(
+            &module,
+            CompileTarget::Llvm,
+            BuildProfile::Debug,
+            false,
+        )
+        .expect("llvm raw function body should be selected");
         assert!(ll.contains("define i32 @f()"));
         assert!(ll.contains("ret i32 42"));
     }
@@ -3669,5 +3740,4 @@ fn boot <()->i32> ():
         assert!(ll.contains("define i32 @main()"));
         assert!(ll.contains("call i32 @boot()"));
     }
-
 }

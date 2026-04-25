@@ -9,13 +9,13 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 
 use crate::ast::{EnumDef, FnAlias, FnDef, StructDef, Visibility};
-use crate::module_graph::{ExportEntry, ExportKind, ExportTable, ModuleGraph, ModuleId};
 use crate::ast::{ImportClause, ImportItem};
-use alloc::vec::Vec;
-use alloc::string::ToString;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
+use crate::module_graph::{ExportEntry, ExportKind, ExportTable, ModuleGraph, ModuleId};
 use alloc::collections::BTreeSet;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DefId(pub u32);
@@ -55,9 +55,7 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
         let mut map = BTreeMap::new();
         for stmt in &node.module.root.items {
             match stmt {
-                crate::ast::Stmt::FnDef(FnDef { name, vis, .. })
-                    if *vis == Visibility::Pub =>
-                {
+                crate::ast::Stmt::FnDef(FnDef { name, vis, .. }) if *vis == Visibility::Pub => {
                     let id = DefId(next_id);
                     next_id += 1;
                     map.insert(
@@ -69,9 +67,7 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
                         },
                     );
                 }
-                crate::ast::Stmt::FnAlias(FnAlias { name, vis, .. })
-                    if *vis == Visibility::Pub =>
-                {
+                crate::ast::Stmt::FnAlias(FnAlias { name, vis, .. }) if *vis == Visibility::Pub => {
                     let id = DefId(next_id);
                     next_id += 1;
                     map.insert(
@@ -97,9 +93,7 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
                         },
                     );
                 }
-                crate::ast::Stmt::EnumDef(EnumDef { name, vis, .. })
-                    if *vis == Visibility::Pub =>
-                {
+                crate::ast::Stmt::EnumDef(EnumDef { name, vis, .. }) if *vis == Visibility::Pub => {
                     let id = DefId(next_id);
                     next_id += 1;
                     map.insert(
@@ -120,7 +114,10 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
 }
 
 /// Compose DefTable with ExportTable to know which module exports which DefId.
-pub fn compose_exports(defs: &DefTable, exports: &ExportTable) -> BTreeMap<ModuleId, BTreeMap<String, DefInfo>> {
+pub fn compose_exports(
+    defs: &DefTable,
+    exports: &ExportTable,
+) -> BTreeMap<ModuleId, BTreeMap<String, DefInfo>> {
     let mut out = BTreeMap::new();
     for (mid, map) in &exports.map {
         let mut exp_map = BTreeMap::new();
@@ -188,7 +185,8 @@ pub fn resolve_imports(
                                 continue;
                             }
                             if let Some(def) = e.get(name) {
-                                selective.insert(alias.clone().unwrap_or(name.clone()), def.clone());
+                                selective
+                                    .insert(alias.clone().unwrap_or(name.clone()), def.clone());
                             }
                         }
                     }
@@ -199,10 +197,7 @@ pub fn resolve_imports(
                 }
             }
         }
-        let exports_map = exports
-            .get(&node.id)
-            .cloned()
-            .unwrap_or_else(BTreeMap::new);
+        let exports_map = exports.get(&node.id).cloned().unwrap_or_else(BTreeMap::new);
         modules.insert(
             node.id,
             ResolvedModule {
@@ -228,7 +223,10 @@ fn last_segment(path: &str) -> &str {
 pub fn build_visible_map(
     defs: &DefTable,
     resolved: &ResolvedGraph,
-) -> (BTreeMap<ModuleId, BTreeMap<String, DefInfo>>, Vec<Diagnostic>) {
+) -> (
+    BTreeMap<ModuleId, BTreeMap<String, DefInfo>>,
+    Vec<Diagnostic>,
+) {
     let mut out = BTreeMap::new();
     let mut diags = Vec::new();
     for (mid, rm) in &resolved.modules {

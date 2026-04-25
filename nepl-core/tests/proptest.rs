@@ -77,7 +77,11 @@ impl ProptestRunner {
 // ソースコード生成方式: 入力をリテラルとして埋め込んだソースを毎回コンパイル・実行する
 // 利点: 確実、標準入出力Parseなどが不要
 // 欠点: 遅い（コンパイル時間 x 回数）-> しかしNEPLは高速なので100回程度なら許容範囲
-fn check_nepl_property_fn<F>(input: i32, nepl_fn_body: &str, expected_check: F) -> Result<(), String>
+fn check_nepl_property_fn<F>(
+    input: i32,
+    nepl_fn_body: &str,
+    expected_check: F,
+) -> Result<(), String>
 where
     F: Fn(i32) -> Result<(), String>,
 {
@@ -98,14 +102,14 @@ fn main <()*>i32> ():
 
     // 実行 (panicせずResultで返すために catch_unwind したいが、run_main_i32はpanicするので
     // 今回は検証用ロジックをNEPL側ではなくRust側で持つ形にする)
-    
+
     // run_main_i32 はコンパイル/実行エラーで panic するため、この簡易フレームワークでは
     // 「正常終了して値が返ること」を確認する。
     // *本来は harness 側で Result を返す改修が必要*
-    
+
     // ここでは簡易的に panic を許容してテストランナーごと止める形式とする。
     let result = std::panic::catch_unwind(|| run_main_i32(&src));
-    
+
     match result {
         Ok(v) => expected_check(v),
         Err(_) => Err("NEPL execution panicked (compilation error or runtime panic)".to_string()),
@@ -116,7 +120,7 @@ fn main <()*>i32> ():
 fn prop_add_commutative() {
     // Property: commutative property of addition (a + b = b + a)
     // テスト対象関数: add(x, 10) と add(10, x) が等しいかチェックする簡易版
-    
+
     let runner = ProptestRunner::new(20); // 20回試行
     let strategy = I32Range::new(-1000, 1000);
 
@@ -139,7 +143,7 @@ fn target_function <(i32)->i32> (x):
 #[test]
 fn prop_sub_inverse() {
     // Property: (x + 10) - 10 = x
-    
+
     let runner = ProptestRunner::new(20);
     let strategy = I32Range::new(-1000, 1000);
 
