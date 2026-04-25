@@ -67,18 +67,9 @@ fn print_prompt <()*>()> ():
 //:
 //: [目的/もくてき]:
 //: - Brainfuck のテープやジャンプ表のような固定長領域を、raw memory ではなく `Vec<i32>` として用意します。
-fn make_i32_vec <(i32,i32)*>Vec<i32>> (n, value):
-    let mut out <Vec<i32>>:
-        v::with_capacity<i32> n
-        |> unwrap_ok<Vec<i32>, StdErrorKind>
-    let mut i <i32> 0
-    while lt i n:
-        do:
-            set out:
-                v::push<i32> out value
-                |> unwrap_ok<Vec<i32>, StdErrorKind>
-            set i add i 1
-    out
+//: - 確保失敗は呼び出し側で扱えるように `Result` として返します。
+fn make_i32_vec <(i32,i32)*>Result<Vec<i32>, StdErrorKind>> (n, value):
+    v::filled<i32> n value
 
 //: cell_inc: Brainfuck cell を 1 増やす
 //:
@@ -101,54 +92,68 @@ fn cell_dec <(i32)->i32> (v):
 //: - ループ命令の対応位置を `Vec<i32>` に保存し、実行時の分岐を O(1) にします。
 fn compile_jumps <(str)*>Result<Vec<i32>,str>> (code):
     let code_len <i32> s::len code
-    let jump_table <Vec<i32>> make_i32_vec code_len 0
-    let mut stk <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>
-
-    let mut pc <i32> 0;
-    let mut error <bool> false;
-
-    while and lt pc code_len not error:
-        do:
-            let ch <i32> match s::byte_at code pc:
-                Option::Some b:
-                    b
-                Option::None:
-                    0
-            if:
-                eq ch 91 // '['
-                then:
-                    set stk unwrap_ok<Stack<i32>, Diag> push<i32> stk pc
-                else: 
-                    if:
-                        eq ch 93 // ']'
-                        then:
-                            let pop_res <Option<i32>> stk::pop_ref<i32> &stk
-                            match pop_res:
-                                Option::Some start_pc:
-                                    v::replace_ref<i32> &jump_table start_pc pc;
-                                    v::replace_ref<i32> &jump_table pc start_pc
-                                Option::None:
-                                    set error true
-                        else:
-                            ();
-            set pc add pc 1;
-
-    let empty <bool> stk::is_empty_ref<i32> &stk
-    stk::free<i32> stk;
-
-    if:
-        error
-        then:
-            v::free<i32> jump_table;
-            err<Vec<i32>, str> "unmatched ']'"
-        else:
-            if:
-                not empty
-                then:
+    match make_i32_vec code_len 0:
+        Result::Err _:
+            err<Vec<i32>, str> "out of memory"
+        Result::Ok jump_table:
+            match stk::new<i32>:
+                Result::Err _:
                     v::free<i32> jump_table;
-                    err<Vec<i32>, str> "unmatched '['"
-                else:
-                    ok<Vec<i32>, str> jump_table
+                    err<Vec<i32>, str> "out of memory"
+                Result::Ok stk0:
+                    let mut stk <Stack<i32>> stk0
+                    let mut pc <i32> 0;
+                    let mut error <bool> false;
+                    let mut error_msg <str> "";
+
+                    while and lt pc code_len not error:
+                        do:
+                            let ch <i32> match s::byte_at code pc:
+                                Option::Some b:
+                                    b
+                                Option::None:
+                                    0
+                            if:
+                                eq ch 91 // '['
+                                then:
+                                    match stk::push_ref<i32> &stk pc:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _:
+                                            set error true;
+                                            set error_msg "out of memory"
+                                else:
+                                    if:
+                                        eq ch 93 // ']'
+                                        then:
+                                            let pop_res <Option<i32>> stk::pop_ref<i32> &stk
+                                            match pop_res:
+                                                Option::Some start_pc:
+                                                    v::replace_ref<i32> &jump_table start_pc pc;
+                                                    v::replace_ref<i32> &jump_table pc start_pc
+                                                Option::None:
+                                                    set error true;
+                                                    set error_msg "unmatched ']'"
+                                        else:
+                                            ();
+                            set pc add pc 1;
+
+                    let empty <bool> stk::is_empty_ref<i32> &stk
+                    stk::free<i32> stk;
+
+                    if:
+                        error
+                        then:
+                            v::free<i32> jump_table;
+                            err<Vec<i32>, str> error_msg
+                        else:
+                            if:
+                                not empty
+                                then:
+                                    v::free<i32> jump_table;
+                                    err<Vec<i32>, str> "unmatched '['"
+                                else:
+                                    ok<Vec<i32>, str> jump_table
 
 //: current_cell: テープの現在セルを読む
 //:
@@ -181,94 +186,96 @@ fn jump_target <(&Vec<i32>,i32)->i32> (jump_table, pc):
 //: - テープ長は呼び出し側から明示的に受け取り、内部表現には `Vec<i32>` を使います。
 fn eval_line <(i32,str)*>()> (tape_len, code):
     let code_len <i32> s::len code;
-    let tape <Vec<i32>> make_i32_vec tape_len 0
+    match make_i32_vec tape_len 0:
+        Result::Err _:
+            print_error "out of memory"
+        Result::Ok tape:
+            match compile_jumps code:
+                Result::Err msg:
+                    print_error msg
+                Result::Ok jump_table:
+                    let mut ptr_idx <i32> 0;
+                    let mut pc <i32> 0;
 
-    match compile_jumps code:
-        Result::Err msg:
-            print_error msg
-        Result::Ok jump_table:
-            let mut ptr_idx <i32> 0;
-            let mut pc <i32> 0;
+                    while lt pc code_len:
+                        do:
+                            let cmd <i32> match s::byte_at code pc:
+                                Option::Some b:
+                                    b
+                                Option::None:
+                                    0
+                            let cell <i32> current_cell &tape ptr_idx
 
-            while lt pc code_len:
-                do:
-                    let cmd <i32> match s::byte_at code pc:
-                        Option::Some b:
-                            b
-                        Option::None:
-                            0
-                    let cell <i32> current_cell &tape ptr_idx
-                    
-                    if:
-                        eq cmd 43 // '+'
-                        then: v::replace_ref<i32> &tape ptr_idx cell_inc cell
-                        else: ()
-
-                    if:
-                        eq cmd 45 // '-'
-                        then: v::replace_ref<i32> &tape ptr_idx cell_dec cell
-                        else: ()
-
-                    if:
-                        eq cmd 62 // '>'
-                        then:
-                            set ptr_idx add ptr_idx 1;
                             if:
-                                ge ptr_idx tape_len
-                                then: set ptr_idx 0
+                                eq cmd 43 // '+'
+                                then: v::replace_ref<i32> &tape ptr_idx cell_inc cell
                                 else: ()
-                        else: ()
 
-                    if:
-                        eq cmd 60 // '<'
-                        then:
-                            set ptr_idx sub ptr_idx 1;
                             if:
-                                lt ptr_idx 0
-                                then: set ptr_idx sub tape_len 1
+                                eq cmd 45 // '-'
+                                then: v::replace_ref<i32> &tape ptr_idx cell_dec cell
                                 else: ()
-                        else: ()
 
-                    if:
-                        eq cmd 46 // '.'
-                        then: print_byte cell
-                        else: ()
-
-                    if:
-                        eq cmd 44 // ','
-                        then: v::replace_ref<i32> &tape ptr_idx 0
-                        else: ()
-
-                    if:
-                        eq cmd 91 // '['
-                        then:
-                            let should_skip <bool> eq cell 0;
                             if:
-                                should_skip
+                                eq cmd 62 // '>'
                                 then:
-                                    set pc jump_target &jump_table pc
-                                else:
-                                    ()
-                        else: ()
+                                    set ptr_idx add ptr_idx 1;
+                                    if:
+                                        ge ptr_idx tape_len
+                                        then: set ptr_idx 0
+                                        else: ()
+                                else: ()
 
-                    if:
-                        eq cmd 93 // ']'
-                        then:
-                            let should_jump_back <bool> ne cell 0;
                             if:
-                                should_jump_back
+                                eq cmd 60 // '<'
                                 then:
-                                    set pc jump_target &jump_table pc
-                                else:
-                                    ()
-                        else: ()
+                                    set ptr_idx sub ptr_idx 1;
+                                    if:
+                                        lt ptr_idx 0
+                                        then: set ptr_idx sub tape_len 1
+                                        else: ()
+                                else: ()
 
-                    set pc add pc 1;
+                            if:
+                                eq cmd 46 // '.'
+                                then: print_byte cell
+                                else: ()
 
-            print "\n";
-            v::free<i32> jump_table
+                            if:
+                                eq cmd 44 // ','
+                                then: v::replace_ref<i32> &tape ptr_idx 0
+                                else: ()
 
-    v::free<i32> tape
+                            if:
+                                eq cmd 91 // '['
+                                then:
+                                    let should_skip <bool> eq cell 0;
+                                    if:
+                                        should_skip
+                                        then:
+                                            set pc jump_target &jump_table pc
+                                        else:
+                                            ()
+                                else: ()
+
+                            if:
+                                eq cmd 93 // ']'
+                                then:
+                                    let should_jump_back <bool> ne cell 0;
+                                    if:
+                                        should_jump_back
+                                        then:
+                                            set pc jump_target &jump_table pc
+                                        else:
+                                            ()
+                                else: ()
+
+                            set pc add pc 1;
+
+                    print "\n";
+                    v::free<i32> jump_table
+
+            v::free<i32> tape
 
 //: main: Brainfuck REPL のエントリーポイント
 //:

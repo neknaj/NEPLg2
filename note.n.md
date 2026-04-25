@@ -15930,3 +15930,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `rpn` example は低レベル memory 操作ではなく stdlib public API と `Result` の明示処理を示す方針へ寄せた。
+
+# 2026-04-26 メモ (RV-EXAMPLE-011 bf の panic helper 依存解消)
+
+- [原因]:
+  - `examples/bf.nepl` は raw memory 依存を解消済みだったが、tape / jump table の固定長 Vec 初期化と jump stack の更新で `unwrap_ok` が残っていた。
+  - `Vec` には固定長 buffer を同じ値で初期化して `Result<Vec<T>, StdErrorKind>` として返す public API がなく、example 側に `with_capacity` + `push` + `unwrap_ok` loop が必要になっていた。
+  - `Stack::push` は consuming API なので、jump stack 更新の失敗時に handle を保持して後始末するには `push_ref` が必要だった。
+- [修正]:
+  - `stdlib/alloc/collections/vec.nepl` に `.T: Copy` 限定の `filled` を追加し、固定長 Vec 初期化を stdlib 側へ集約した。
+  - `bf.nepl` の `make_i32_vec` を `Result<Vec<i32>, StdErrorKind>` returning helper に変更し、tape / jump table 確保失敗を `out of memory` として処理するようにした。
+  - `compile_jumps` は `stk::new` / `stk::push_ref` を `match` で扱い、失敗時も確保済み Vec / Stack を解放するようにした。
+  - `doc/review20260425/stdlib.md` / `issues.md` に `RV-STDLIB-017`、`doc/review20260425/examples.md` / `issues.md` に `RV-EXAMPLE-011` を追加し、verified とした。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-filled-tests.json -j 2`: `total=39`, `passed=39`, `failed=0`
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-filled-tests.json -j 2`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-bf-filled-tests.json -j 4`: `total=12`, `passed=12`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `bf` example は fixed-size VM memory/table を stdlib `Vec::filled` で構築し、低レベル memory 操作や panic helper ではなく `Result` を明示処理する方向へ寄せた。

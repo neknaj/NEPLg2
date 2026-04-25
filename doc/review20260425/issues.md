@@ -10,9 +10,9 @@
 |---|---:|---:|
 | core | 8 | 12 |
 | cli | 7 | 6 |
-| stdlib | 9 | 7 |
-| examples | 0 | 10 |
-| 合計 | 24 | 35 |
+| stdlib | 9 | 8 |
+| examples | 0 | 11 |
+| 合計 | 24 | 37 |
 
 ## Core
 
@@ -77,6 +77,7 @@
 | [RV-STDLIB-014](./stdlib.md#rv-stdlib-014-stack-の-更新-api-が-by-value-pop-に偏り所有値の継続利用を阻害する) | true | verified | P1 | architecture | `Stack` に `get_ref` / `pop_ref` を追加し、Copy 要素を借用経由で読み取り・取り出しできるよう修正済み |
 | [RV-STDLIB-015](./stdlib.md#rv-stdlib-015-bytevec-操作の-public-api-不足により-example-が-raw-memory-へ依存する) | true | verified | P1 | architecture | `Vec::replace_ref` / `string::byte_at` / `stdio::print_byte` を追加し、byte VM を raw memory なしで書けるよう修正済み |
 | [RV-STDLIB-016](./stdlib.md#rv-stdlib-016-stack-push-が所有権を消費し-example-で-panic-helper-回避を妨げる) | true | verified | P1 | architecture | `Stack::push_ref` を追加し、Copy 要素を借用 stack へ追加して失敗時も handle を保持できるよう修正済み |
+| [RV-STDLIB-017](./stdlib.md#rv-stdlib-017-vec-に固定長初期化-api-がなく-example-が-panic-helper-に依存する) | true | verified | P1 | architecture | `Vec::filled` を追加し、固定長 buffer/table を `Result` で作れるよう修正済み |
 
 ## Examples
 
@@ -92,3 +93,4 @@
 | [RV-EXAMPLE-008](./examples.md#rv-example-008-bf-example-の先頭構成が-docdoctest-基準から外れている) | true | verified | P3 | doc | `bf.nepl` の先頭を doctest / 概要コメント / directive の順へ整理済み |
 | [RV-EXAMPLE-009](./examples.md#rv-example-009-rpn_legacy-example-が-stack-push-失敗を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `rpn_legacy.nepl` の stack 初期化・push を `match` / `push_ref` へ移行し、`unwrap_ok` 依存を除去済み |
 | [RV-EXAMPLE-010](./examples.md#rv-example-010-rpn-example-が-stack-push-失敗を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `rpn.nepl` の stack 初期化・push を `match` / `push_ref` へ移行し、`unwrap_ok` 依存を除去済み |
+| [RV-EXAMPLE-011](./examples.md#rv-example-011-bf-example-が-vecstack-初期化を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `bf.nepl` の Vec/Stack 初期化を `filled` / `push_ref` / `match` へ移行し、`unwrap_ok` 依存を除去済み |

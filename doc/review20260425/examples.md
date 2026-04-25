@@ -386,3 +386,42 @@ stdlib に追加した `stk::push_ref` を利用し、`rpn_legacy.nepl` 側で�
 - `trunk build`
 - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-push-ref-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)
 - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-rpn-push-ref.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+
+## RV-EXAMPLE-011: bf example が Vec/Stack 初期化を unwrap_ok で panic させる
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: architecture
+- 対象: `examples/bf.nepl`, `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
+
+### 根拠
+
+- `examples/bf.nepl`: `make_i32_vec` の `with_capacity` / `push` と、jump stack の `new` / `push` で `unwrap_ok` を使っていた。
+- `stdlib/core/result.nepl`: `unwrap_ok` は unsafe helper とされ、通常コードでは `match` などで失敗を明示的に扱う方針になっている。
+- `RV-STDLIB-016` / `RV-STDLIB-017`: Stack push と Vec 固定長初期化は、stdlib public API を補わないと example 側で後始末を含む失敗処理を書きづらかった。
+
+### 問題
+
+`bf.nepl` は raw memory を使わない VM example へ改善済みでしたが、allocation failure は panic helper に任せたままでした。特に tape / jump table は固定長で初期化する典型用途なのに、stdlib に対応 API がないため、example 側に loop + `unwrap_ok` が残っていました。
+
+### 影響
+
+VM example が `Result` handling の現行方針とずれ、固定長 buffer/table の作り方として古い書き方を示してしまいます。Stack / Vec の失敗処理も example 間で一貫しません。
+
+### 修正方針
+
+stdlib の `Vec::filled` と既存の `Stack::push_ref` を使い、`bf.nepl` 側では `make_i32_vec` / `compile_jumps` / `eval_line` が `Result` を `match` で扱うようにします。確保失敗時は確保済みの collection を解放して `out of memory` を返すか表示します。
+
+### 対応結果
+
+`bf.nepl` から `unwrap_ok` を除去しました。jump table と tape は `Vec::filled` で初期化し、jump stack は `stk::new` / `stk::push_ref` の `Result` を明示的に処理します。既存の正常系・不正 bracket 出力は維持しています。
+
+### 検証
+
+確認済み:
+
+- `trunk build`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-filled-tests.json -j 2` (`total=39`, `passed=39`, `failed=0`)
+- `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-filled-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-bf-filled-tests.json -j 4` (`total=12`, `passed=12`, `failed=0`)

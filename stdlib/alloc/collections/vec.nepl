@@ -2,7 +2,7 @@
 //: [連続/れんぞく]メモリを[用/もち]いる[可変長/かへんちょう][配列/はいれつ]
 //:
 //: ### [目的/もくてき]
-//: - `Vec<.T>` を[提供/ていきょう]し、`push` / `get` / `pop` / `replace` などの[基本/きほん][操作/そうさ]を[共通/きょうつう] API として[使/つか]えるようにします。
+//: - `Vec<.T>` を[提供/ていきょう]し、`push` / `filled` / `get` / `pop` / `replace` などの[基本/きほん][操作/そうさ]を[共通/きょうつう] API として[使/つか]えるようにします。
 //: - `alloc/collections` の[他/ほか]の[構造/こうぞう]が[依存/いそん]する[基礎/きそ][配列/はいれつ]として[機能/きのう]します。
 //:
 //: ### [実装/じっそう]
@@ -218,6 +218,66 @@ fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
             match alloc_ptr<.T> mul cap size_of<.T>:
                 Result::Ok data:
                     Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 cap data
+                Result::Err _e:
+                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+
+//: ## filled
+//: [同/おな]じ Copy [値/あたい]で[満/み]たした `Vec<.T>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - [固定長/こていちょう]の buffer や table を、`with_capacity` + `push` の loop ではなく 1 つの API で[作成/さくせい]します。
+//: - [確保/かくほ][失敗/しっぱい]は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `n <= 0` なら[空/から]の `Vec` を[返/かえ]します。
+//: - `n > 0` なら `n` [要素分/ようそぶん]を typed `alloc_ptr<.T>` で[確保/かくほ]し、先頭から順に `store` で同じ値を書き込みます。
+//: - 書き込み完了後は `len = cap = n` の `Vec` として[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T: Copy` に[限定/げんてい]します。同じ値を複数セルへ複製して保持するためです。
+//: - [返/かえ]った `Vec` は通常どおり `free` で[解放/かいほう]してください。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん][計算量/けいさんりょう]は O(n)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]は O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match filled<i32> 3 7:
+//:         Result::Ok v:
+//:             let len_ok <bool> eq len_ref<i32> &v 3
+//:             let mid_ok <bool>:
+//:                 match get_ref<i32> &v 1:
+//:                     Option::Some x:
+//:                         eq x 7
+//:                     Option::None:
+//:                         false
+//:             free<i32> v;
+//:             if and len_ok mid_ok 0 1
+//:         Result::Err _:
+//:             1
+//: ```
+fn filled <.T: Copy> <(i32,.T)->Result<Vec<.T>, StdErrorKind>> (n, value):
+    if:
+        le n 0
+        then:
+            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 0 mem_ptr_wrap 0
+        else:
+            match alloc_ptr<.T> mul n size_of<.T>:
+                Result::Ok data:
+                    let mut i <i32> 0
+                    while lt i n:
+                        do:
+                            let write_off <i32> mul i size_of<.T>
+                            store<.T> add mem_ptr_addr data write_off value
+                            set i add i 1
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> n n data
                 Result::Err _e:
                     Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
 
