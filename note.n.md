@@ -16240,3 +16240,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 標準入力 example の説明と回帰を UTF-8 前提に揃えたもので、言語仕様や stdlib API の変更はない。
+
+# 2026-04-26 メモ (RV-EXAMPLE-013 helloworld example の #indent 明示)
+
+- [原因]:
+  - `examples/helloworld.nepl` だけが `#entry main` / `#target std` の間に `#indent 4` を持たず、他の実行可能 example とヘッダ構成がずれていた。
+  - 現在は既定値で動作しているが、最小 example はコピーされやすいため、インデント規則を明示しない見本を残すのは不適切だった。
+- [修正]:
+  - `examples/helloworld.nepl` に `#indent 4` を追加し、標準ヘッダを `#entry main` / `#indent 4` / `#target std` に統一した。
+  - `doc/review20260425/examples.md` / `issues.md` に `RV-EXAMPLE-013` を追加し、verified として記録した。
+- [検証]:
+  - `node nodesrc/tests.js -i examples/helloworld.nepl --no-tree -o tmp/helloworld-indent-tests.json -j 2`: `total=1`, `passed=1`, `failed=0`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-helloworld-indent-tests.json -j 4`: `total=12`, `passed=12`, `failed=0`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-example-013.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 実行可能 example の directive 明示を揃えた保守修正であり、言語仕様や stdlib API の変更はない。

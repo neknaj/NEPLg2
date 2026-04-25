@@ -465,3 +465,43 @@ stdlib の `Vec::filled` と既存の `Stack::push_ref` を使い、`bf.nepl` �
 - `trunk build`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-example-012.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 - `git diff --check`
+
+## RV-EXAMPLE-013: helloworld example だけが標準ヘッダの #indent を欠いている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P3
+- 種別: maintenance
+- 対象: `examples/helloworld.nepl`
+
+### 根拠
+
+- `examples/helloworld.nepl`: 他の実行可能 example と異なり、`#entry main` と `#target std` の間に `#indent 4` がなかった。
+- `doc/examples.md`: ファイル先頭に doctest と概要コメントをまとめる形式を基準としており、実行 directive も小さい example 間で揃える必要がある。
+- `examples/**`: `helloworld.nepl` 以外の `.nepl` example はすべて `#indent 4` を明示していた。
+
+### 問題
+
+`helloworld.nepl` は最小 example としてコピーされやすいにもかかわらず、標準的な `#entry` / `#indent` / `#target` ヘッダから外れていました。現在の parser では既定値により実行できていますが、利用者が新規ファイルを作るときの見本としては不完全です。
+
+### 影響
+
+インデント規則を明示しないサンプルが先頭にあると、他 example や tutorial とヘッダ構成がずれます。将来 `#indent` の既定や診断を厳格化した場合にも、最小例だけが例外として残ります。
+
+### 修正方針
+
+`helloworld.nepl` に `#indent 4` を追加し、他の example と同じ `#entry main` / `#indent 4` / `#target std` の並びへ統一します。実装と出力仕様は変更しません。
+
+### 対応結果
+
+`examples/helloworld.nepl` の directive を標準ヘッダへ揃えました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i examples/helloworld.nepl --no-tree -o tmp/helloworld-indent-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
+- `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-helloworld-indent-tests.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-example-013.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+- `git diff --check`

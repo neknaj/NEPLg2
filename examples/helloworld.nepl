@@ -18,6 +18,7 @@
 //: - `std/stdio` を使うので `#target std` が必要です。
 //: - 出力順は呼び出し順そのままです。
 #entry main
+#indent 4
 #target std
 
 #import "std/stdio" as *

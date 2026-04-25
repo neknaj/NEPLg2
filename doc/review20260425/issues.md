@@ -11,8 +11,8 @@
 | core | 4 | 18 |
 | cli | 4 | 10 |
 | stdlib | 10 | 8 |
-| examples | 0 | 12 |
-| 合計 | 18 | 48 |
+| examples | 0 | 13 |
+| 合計 | 18 | 49 |
 
 ## Core
 
@@ -99,3 +99,4 @@
 | [RV-EXAMPLE-010](./examples.md#rv-example-010-rpn-example-が-stack-push-失敗を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `rpn.nepl` の stack 初期化・push を `match` / `push_ref` へ移行し、`unwrap_ok` 依存を除去済み |
 | [RV-EXAMPLE-011](./examples.md#rv-example-011-bf-example-が-vecstack-初期化を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `bf.nepl` の Vec/Stack 初期化を `filled` / `push_ref` / `match` へ移行し、`unwrap_ok` 依存を除去済み |
 | [RV-EXAMPLE-012](./examples.md#rv-example-012-stdio-example-が-utf-8-標準入力を回帰確認していない) | true | verified | P3 | test | `stdio.nepl` に UTF-8 入力の doctest を追加し、説明を ASCII / UTF-8 入力へ整理済み |
+| [RV-EXAMPLE-013](./examples.md#rv-example-013-helloworld-example-だけが標準ヘッダの-indent-を欠いている) | true | verified | P3 | maintenance | `helloworld.nepl` に `#indent 4` を追加し、examples の標準ヘッダを統一済み |
