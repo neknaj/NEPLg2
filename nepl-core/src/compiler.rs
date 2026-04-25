@@ -295,10 +295,15 @@ pub fn prepare_module_for_llvm_codegen(
     entry_names: &[String],
 ) -> Result<PreparedLlvmProgram, CoreError> {
     let program = prepare_module_for_codegen(module, target, profile)?;
+    let raw_entry_defs = collect_top_level_llvm_defined_functions(module, target, profile);
     let mut reachable_set = BTreeSet::new();
     let mut resolved_entries = BTreeMap::new();
     for entry in entry_names {
-        let resolved = resolve_hir_entry_name(module, &program.hir_module, entry.as_str())?;
+        let resolved = match resolve_hir_entry_name(module, &program.hir_module, entry.as_str()) {
+            Ok(resolved) => resolved,
+            Err(_) if raw_entry_defs.contains(entry) => continue,
+            Err(err) => return Err(err),
+        };
         resolved_entries.insert(entry.clone(), resolved.clone());
         for name in collect_reachable_functions(&program.hir_module, resolved.as_str()) {
             reachable_set.insert(name.clone());
@@ -370,6 +375,20 @@ fn find_entry_directive_span(module: &ast::Module, entry: &str) -> Option<Span> 
         }
         _ => None,
     })
+}
+
+fn collect_top_level_llvm_defined_functions(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+) -> BTreeSet<String> {
+    let mut names = Vec::new();
+    for idx in crate::target_precheck::active_stmt_indices(&module.root, target, profile) {
+        if let ast::Stmt::LlvmIr(block) = &module.root.items[idx] {
+            crate::llvm_ir::collect_defined_functions_from_llvmir_block(block, &mut names);
+        }
+    }
+    names.into_iter().collect()
 }
 
 fn find_mangled_signature_separator(name: &str) -> Option<usize> {

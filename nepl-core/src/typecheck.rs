@@ -2023,6 +2023,8 @@ pub fn typecheck(
         }
         if func_symbols.len() == 1 {
             Some(func_symbols.remove(0))
+        } else if top_level_llvmir_defines_entry(module, target, profile, name.as_str()) {
+            None
         } else {
             diagnostics.push(
                 Diagnostic::error("entry function is missing or ambiguous", entry_span)
@@ -2057,6 +2059,27 @@ pub fn typecheck(
         diagnostics,
         types: ctx,
     }
+}
+
+fn top_level_llvmir_defines_entry(
+    module: &crate::ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    entry: &str,
+) -> bool {
+    if !matches!(target, CompileTarget::Llvm) {
+        return false;
+    }
+    for idx in crate::target_precheck::active_stmt_indices(&module.root, target, profile) {
+        if let Stmt::LlvmIr(block) = &module.root.items[idx] {
+            for line in &block.lines {
+                if crate::llvm_ir::parse_defined_function_name(line) == Some(entry) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 // ---------------------------------------------------------------------

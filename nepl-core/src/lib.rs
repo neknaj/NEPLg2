@@ -26,6 +26,7 @@ pub mod codegen_wasm;
 pub mod compiler;
 pub mod hir;
 pub mod lexer;
+mod llvm_ir;
 #[cfg(not(target_os = "none"))]
 pub mod loader;
 pub mod log;

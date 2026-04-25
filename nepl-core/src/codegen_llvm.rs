@@ -16,6 +16,9 @@ use crate::compiler::{self, BuildProfile, CompileTarget, PreparedLlvmProgram};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
+use crate::llvm_ir::{
+    collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
+};
 use crate::runtime_helpers::{helper_base_name, helper_candidates, RuntimeHelperKind};
 use crate::span::Span;
 use crate::target_precheck::{self, ActiveRawBody};
@@ -3506,55 +3509,6 @@ fn summarize_diagnostics_for_message(diags: &[crate::diagnostic::Diagnostic]) ->
     parts.join(" / ")
 }
 
-fn collect_defined_functions_from_llvmir_block(
-    block: &crate::ast::LlvmIrBlock,
-    out: &mut Vec<String>,
-) {
-    for line in &block.lines {
-        if let Some(name) = parse_defined_function_name(line) {
-            if !out.iter().any(|n| n == name) {
-                out.push(String::from(name));
-            }
-        }
-    }
-}
-
-fn parse_defined_function_name(line: &str) -> Option<&str> {
-    parse_signature_function_name(line, true)
-}
-
-fn parse_declared_or_defined_function_name(line: &str) -> Option<&str> {
-    parse_signature_function_name(line, false)
-}
-
-fn parse_signature_function_name(line: &str, define_only: bool) -> Option<&str> {
-    // define/declare のシグネチャ行から関数名を抽出する。
-    // 例: define i32 @foo(i32 %x) {
-    // 例: declare i32 @"foo"(i32 %x)
-    let trimmed = line.trim_start();
-    let is_define = trimmed.starts_with("define ");
-    let is_declare = trimmed.starts_with("declare ");
-    if define_only {
-        if !is_define {
-            return None;
-        }
-    } else if !is_define && !is_declare {
-        return None;
-    }
-    let at = trimmed.find('@')?;
-    let rest = &trimmed[(at + 1)..];
-    let end = rest.find('(')?;
-    let mut name = &rest[..end];
-    if name.starts_with('"') && name.ends_with('"') && name.len() >= 2 {
-        name = &name[1..name.len() - 1];
-    }
-    if name.is_empty() {
-        None
-    } else {
-        Some(name)
-    }
-}
-
 fn llvm_output_has_function(out: &str, name: &str) -> bool {
     out.lines()
         .filter_map(parse_declared_or_defined_function_name)
@@ -3824,6 +3778,41 @@ fn boot <()->i32> ():
 "#;
         let module = parse_module(src);
         let ll = emit_ll_from_module(&module).expect("entry bridge should be emitted");
+        assert!(ll.contains("define i32 @boot()"));
+        assert!(ll.contains("define i32 @main()"));
+        assert!(ll.contains("call i32 @boot()"));
+    }
+
+    #[test]
+    fn emit_ll_accepts_top_level_raw_main_entry() {
+        let src = r#"
+#target llvm
+#entry main
+#llvmir:
+    define i32 @main() {
+    entry:
+        ret i32 7
+    }
+"#;
+        let module = parse_module(src);
+        let ll = emit_ll_from_module(&module).expect("raw top-level main should satisfy #entry");
+        assert!(ll.contains("define i32 @main()"));
+        assert!(ll.contains("ret i32 7"));
+    }
+
+    #[test]
+    fn emit_ll_bridges_top_level_raw_non_main_entry() {
+        let src = r#"
+#target llvm
+#entry boot
+#llvmir:
+    define i32 @boot() {
+    entry:
+        ret i32 11
+    }
+"#;
+        let module = parse_module(src);
+        let ll = emit_ll_from_module(&module).expect("raw top-level entry should be bridged");
         assert!(ll.contains("define i32 @boot()"));
         assert!(ll.contains("define i32 @main()"));
         assert!(ll.contains("call i32 @boot()"));

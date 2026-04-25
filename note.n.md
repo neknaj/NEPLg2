@@ -16369,3 +16369,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - compiler doctest 回帰のissue状態更新であり、実装や仕様は変更していない。
+
+# 2026-04-26 メモ (RV-CORE-027 LLVM top-level raw entry 解決)
+
+- [原因]:
+  - GitHub Actions run `24943072735` の `llvm-test` は、`tests/compiler/llvm_target.n.md::doctest#1/#4/#5` で `D3092 entry function is missing or ambiguous` を返して失敗していた。
+  - 該当fixtureは top-level `#llvmir` で `define i32 @main()` を直接定義しているが、typecheck と LLVM prepare 段の `#entry` 解決は HIR 関数だけを見ていた。
+  - そのため raw LLVM IR 側に entry symbol が存在しても、NEPL の `fn main` が無いという理由で誤診断していた。
+- [対応]:
+  - `nepl-core/src/llvm_ir.rs` を追加し、LLVM IR の `define` / `declare` 署名行から関数名を抽出する処理を共有化した。
+  - LLVM target では active top-level `#llvmir` が `#entry` と同名の `define` を持つ場合、typecheck が D3092 を出さないようにした。
+  - LLVM prepare 段も raw entry definition を entry として扱い、HIR reachability 解決を要求しないようにした。
+  - `codegen_llvm` の単体テストに top-level raw `@main` と raw `@boot` entry bridge の回帰を追加した。
+- [issue更新]:
+  - `RV-CORE-027` を追加し、`verified` とした。
+  - `doc/review20260425/issues.md` の集計を core open 3 / resolved 24、合計 open 16 / resolved 56 に更新した。
+- [検証]:
+  - `cargo fmt --all --check`
+  - `cargo test -p nepl-core codegen_llvm::tests -- --nocapture`: `9 passed`
+  - `cargo test -p nepl-cli -- --nocapture`: `21 passed`, `2 ignored`
+  - `trunk build`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-027.json`: `13/13 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - LLVM backend の raw entry 受理は現行実装の検証範囲として追加したもので、言語仕様の大枠は変更していない。
