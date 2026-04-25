@@ -136,11 +136,11 @@ Rust CLI の test サブコマンドを Node doctest runner と統合するか�
 
 ## RV-CLI-004: WASI fd_write が stdout 専用で stderr を扱えない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `nepl-cli/src/main.rs`
+- 対象: `nepl-cli/src/main.rs`, `nepl-cli/tests/cli_output.rs`
 
 ### 根拠
 
@@ -159,9 +159,26 @@ WASI 互換性が不足し、標準エラーを使うプログラムが正常に
 
 fd 1 と fd 2 を分けて host stdout/stderr へ書きます。stdout buffering と stderr immediate flush の方針を明記し、`nwritten` は両方で正しく返します。
 
+### 対応結果
+
+`fd_write` の iovec 読み取りを stdout/stderr 共通の helper に切り出し、fd 1 は既存の stdout buffer 方針を維持、fd 2 は host stderr へ即時 flush するようにしました。`nwritten` の書き戻しも共通化し、負の pointer / 範囲外 iovec は `fault` として扱います。
+
+`nepl-cli/tests/cli_output.rs` に fd 2 へ `err` を書き込む WASI fixture を追加し、成功時に stdout が空で stderr が期待値になることを固定しました。
+
 ### 検証
 
 WASI program から fd 2 へ出力する fixture を追加し、stderr 比較を固定します。
+
+確認済み:
+
+- `cargo fmt --all --check`: pass
+- `cargo test -p nepl-cli --test cli_output run_wasi_fd_write_supports_stderr -- --nocapture`: pass
+- `cargo test -p nepl-cli`: pass
+- `cargo check --workspace`: pass
+- `node tests/compiler/tree/run.js`: `19/19 passed`
+- `trunk build`: pass
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-004.json`: `13/13 passed`
+- `git diff --check`: pass
 
 ## RV-CLI-005: path_open が WASI の preopen モデルを実装していない
 

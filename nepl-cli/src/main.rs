@@ -28,6 +28,9 @@ macro_rules! cli_verbose {
     };
 }
 
+const WASI_ERRNO_BADF: i32 = 8;
+const WASI_ERRNO_FAULT: i32 = 21;
+
 struct AllocState {
     // head of free list (address in linear memory), 0 == null
     free_head: u32,
@@ -147,6 +150,77 @@ fn flush_stdout_buffer(state: &mut AllocState) -> io::Result<()> {
     state.stdout_buf.clear();
     state.stdout_last_flush = Instant::now();
     Ok(())
+}
+
+fn read_wasi_iov_bytes(
+    memory: wasmi::Memory,
+    caller: &Caller<'_, AllocState>,
+    iovs: i32,
+    iovs_len: i32,
+) -> Result<(Vec<u8>, bool), i32> {
+    if iovs < 0 || iovs_len < 0 {
+        return Err(WASI_ERRNO_FAULT);
+    }
+    let data_snapshot = memory.data(caller).to_vec();
+    let count = usize::try_from(iovs_len).map_err(|_| WASI_ERRNO_FAULT)?;
+    let table_len = count.checked_mul(8).ok_or(WASI_ERRNO_FAULT)?;
+    let mut offset = iovs as usize;
+    if offset
+        .checked_add(table_len)
+        .is_none_or(|end| end > data_snapshot.len())
+    {
+        return Err(WASI_ERRNO_FAULT);
+    }
+
+    let mut bytes = Vec::new();
+    let mut saw_newline = false;
+    for _ in 0..count {
+        let base =
+            u32::from_le_bytes(data_snapshot[offset..offset + 4].try_into().unwrap()) as usize;
+        let len =
+            u32::from_le_bytes(data_snapshot[offset + 4..offset + 8].try_into().unwrap()) as usize;
+        offset += 8;
+        if base
+            .checked_add(len)
+            .is_none_or(|end| end > data_snapshot.len())
+        {
+            return Err(WASI_ERRNO_FAULT);
+        }
+        let slice = &data_snapshot[base..base + len];
+        if slice.contains(&b'\n') {
+            saw_newline = true;
+        }
+        bytes.extend_from_slice(slice);
+    }
+    Ok((bytes, saw_newline))
+}
+
+fn write_wasi_u32(
+    memory: wasmi::Memory,
+    caller: &mut Caller<'_, AllocState>,
+    ptr: i32,
+    value: u32,
+) -> i32 {
+    if ptr < 0 {
+        return WASI_ERRNO_FAULT;
+    }
+    let offset = ptr as usize;
+    if offset
+        .checked_add(4)
+        .is_none_or(|end| end > memory.data(&*caller).len())
+    {
+        return WASI_ERRNO_FAULT;
+    }
+    if memory.write(caller, offset, &value.to_le_bytes()).is_err() {
+        return WASI_ERRNO_FAULT;
+    }
+    0
+}
+
+fn write_host_stderr(bytes: &[u8]) -> io::Result<()> {
+    let mut err = io::stderr().lock();
+    err.write_all(bytes)?;
+    err.flush()
 }
 
 /// コマンドライン引数を定義するための構造体
@@ -1237,7 +1311,6 @@ fn run_wasm(
                 0
             },
         )?;
-        // Minimal wasi fd_write implementation for stdout (fd 1)
         linker.func_wrap(
             "wasi_snapshot_preview1",
             "fd_write",
@@ -1247,55 +1320,40 @@ fn run_wasm(
              iovs_len: i32,
              nwritten: i32|
              -> i32 {
-                if fd != 1 {
-                    return 8; // badf
+                if fd != 1 && fd != 2 {
+                    return WASI_ERRNO_BADF;
                 }
                 let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
                     Some(m) => m,
-                    None => return 21, // enomem-ish
+                    None => return WASI_ERRNO_FAULT,
                 };
-                let data_snapshot = memory.data(&caller).to_vec(); // snapshot to avoid alias issues
-                let mut total = 0usize;
-                let mut offset = iovs as usize;
-                let mut saw_newline = false;
-                for _ in 0..iovs_len {
-                    if offset + 8 > data_snapshot.len() {
-                        return 21;
-                    }
-                    let base =
-                        u32::from_le_bytes(data_snapshot[offset..offset + 4].try_into().unwrap())
-                            as usize;
-                    let len = u32::from_le_bytes(
-                        data_snapshot[offset + 4..offset + 8].try_into().unwrap(),
-                    ) as usize;
-                    offset += 8;
-                    if base + len > data_snapshot.len() {
-                        return 21;
-                    }
-                    let slice = &data_snapshot[base..base + len];
-                    if slice.contains(&b'\n') {
-                        saw_newline = true;
-                    }
-                    caller.data_mut().stdout_buf.extend_from_slice(slice);
-                    total += len;
-                }
-                let should_flush = {
-                    let state = caller.data();
-                    saw_newline
-                        || state.stdout_buf.len() >= 8192
-                        || state.stdout_last_flush.elapsed() >= Duration::from_millis(16)
+
+                let (bytes, saw_newline) =
+                    match read_wasi_iov_bytes(memory, &caller, iovs, iovs_len) {
+                        Ok(v) => v,
+                        Err(errno) => return errno,
+                    };
+                let total = match u32::try_from(bytes.len()) {
+                    Ok(v) => v,
+                    Err(_) => return WASI_ERRNO_FAULT,
                 };
-                if should_flush && flush_stdout_buffer(caller.data_mut()).is_err() {
-                    return 21;
-                }
-                // write nwritten
-                if let Some(mem) = caller.get_export("memory").and_then(|e| e.into_memory()) {
-                    let bytes = (total as u32).to_le_bytes();
-                    if (nwritten as usize) + 4 <= mem.data(&caller).len() {
-                        mem.write(&mut caller, nwritten as usize, &bytes).ok();
+
+                if fd == 1 {
+                    caller.data_mut().stdout_buf.extend_from_slice(&bytes);
+                    let should_flush = {
+                        let state = caller.data();
+                        saw_newline
+                            || state.stdout_buf.len() >= 8192
+                            || state.stdout_last_flush.elapsed() >= Duration::from_millis(16)
+                    };
+                    if should_flush && flush_stdout_buffer(caller.data_mut()).is_err() {
+                        return WASI_ERRNO_FAULT;
                     }
+                } else if write_host_stderr(&bytes).is_err() {
+                    return WASI_ERRNO_FAULT;
                 }
-                0
+
+                write_wasi_u32(memory, &mut caller, nwritten, total)
             },
         )?;
     }

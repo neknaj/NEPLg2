@@ -16102,3 +16102,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - plan の「Core は WASI 無しのただの WASM」という境界に合わせ、host I/O と path 処理を `target_os = "none"` の core build から外した。
+# 2026-04-25 メモ (RV-CLI-004 WASI fd_write stderr 対応)
+
+- [原因]:
+  - `nepl-cli` の WASI runtime は `fd_write` で fd 1 だけを許可しており、fd 2 を `badf` として返していた。
+  - iovec の読み取りと `nwritten` 書き戻しが stdout 専用 closure 内に直書きされていたため、stderr 対応を追加すると境界検査の重複が増える構造だった。
+- [修正]:
+  - `read_wasi_iov_bytes` と `write_wasi_u32` を追加し、stdout/stderr 共通で iovec と `nwritten` を扱うようにした。
+  - fd 1 は既存の stdout buffering を維持し、fd 2 は host stderr へ即時 flush するようにした。
+  - `nepl-cli/tests/cli_output.rs` に fd 2 へ `err` を書く WASI fixture を追加し、stdout が空で stderr が一致することを固定した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-cli --test cli_output run_wasi_fd_write_supports_stderr -- --nocapture`: pass
+  - `cargo test -p nepl-cli`: pass
+  - `cargo check --workspace`: pass
+  - `node tests/compiler/tree/run.js`: `19/19 passed`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-004.json`: `13/13 passed`
+  - `git diff --check`: pass
+- [review issue]:
+  - `doc/review20260425/cli.md` / `issues.md` の `RV-CLI-004` を `verified` に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CLI runtime の WASI 互換性を補う修正であり、言語仕様の変更はない。
