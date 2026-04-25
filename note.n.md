@@ -1,3 +1,16 @@
+# 2026-04-26 メモ (helloworld example の import 表記更新)
+
+- [状況]:
+  - `examples/helloworld.nepl` は関数型表記は現行形だったが、`#import "std/stdio"` が alias なしのまま残っていた。
+- [修正]:
+  - import を `#import "std/stdio" as *` に揃えた。
+  - 出力内容と `main` の構造は変更していない。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/helloworld.nepl --no-tree -o tmp/helloworld-example-tests.json -j 2`: 1/1 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。実行可能 example 側だけを現行 import 表記へ揃えた。
+
 # 2026-04-26 メモ (legacy RPN example の stdlib API 化)
 
 - [状況]:

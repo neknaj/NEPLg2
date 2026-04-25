@@ -20,7 +20,7 @@
 #entry main
 #target std
 
-#import "std/stdio"
+#import "std/stdio" as *
 
 //: main: 2 つの固定メッセージを順に出力する
 //:
