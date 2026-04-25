@@ -15304,3 +15304,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 長い prefix chain を typecheck できるようにしたが、native CLI の後段 pipeline は別 Issue として残した。
+
+# 2026-04-25 メモ (RV-CORE-004 TypeCtx clone 削減)
+
+- [原因]:
+  - overload candidate 評価で `TypeCtx` 全体を候補ごとに clone しており、stdlib の多重定義名が増えるほど arena 全体 copy が hot path に乗っていた。
+  - 関数値引数の候補照合でも同じ clone があり、codegen の generic `Apply` layout 計算も `TypeCtx` clone + `substitute` で一時型を作っていた。
+- [修正]:
+  - `TypeCtx` に checkpoint/rollback を追加し、型変数束縛、named type table、copy/drop trait target、copy trait flag を復元できるようにした。
+  - overload candidate 評価と関数値候補照合を checkpoint 上の一時 `instantiate` / `unify` に変更し、候補ごとの `TypeCtx` clone を除去した。
+  - wasm/LLVM の storage size / align / field offset 計算は type parameter mapping を引き回し、layout 用の `TypeCtx` clone を不要にした。
+  - `nepl-core/tests/typectx_checkpoint.rs` を追加し、rollback が一時 arena entry と文脈状態を戻すことを固定した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check --workspace`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test typectx_checkpoint`: `2 passed`
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-rv-core-004.json -j 1`: `total=45`, `passed=45`, `failed=0`
+  - `trunk build`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [補足]:
+  - `cargo test -p nepl-core --test overload` は baseline worktree (`4f66ba7`) でも同じ 3 件が失敗するため、今回の回帰ではない。
+  - `cargo fmt --all` は `55beca8 Format Rust workspace` として、RV-CORE-004 とは別 commit に分離した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - overload 解決の性能劣化原因を `TypeCtx` 全体 clone から rollback 方式へ移し、core hot path の改善を進めた。

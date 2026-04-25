@@ -140,11 +140,11 @@ prefix expression の縮約が「全走査して middle remove」を繰り返す
 
 ## RV-CORE-004: overload 解決が候補ごとに TypeCtx 全体を clone している
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: performance
-- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/codegen_llvm.rs`, `nepl-core/src/codegen_wasm.rs`
+- 対象: `nepl-core/src/types.rs`, `nepl-core/src/typecheck.rs`, `nepl-core/src/codegen_llvm.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-core/tests/typectx_checkpoint.rs`
 
 ### 根拠
 
@@ -163,11 +163,28 @@ prefix expression の縮約が「全走査して middle remove」を繰り返す
 
 ### 修正方針
 
-候補検査用の snapshot/rollback を `TypeCtx` に実装し、arena 全体 clone を禁止します。型代入は trail に記録し、候補検査後に rollback します。layout 計算は substitution cache を導入します。
+候補検査用の checkpoint/rollback を `TypeCtx` に実装し、候補ごとの arena 全体 clone を除去しました。型変数束縛と named type table の変更は undo log で戻し、copy/drop trait target と copy trait flag は checkpoint の長さ・値へ復元します。これにより、候補検査中の一時的な `instantiate` / `unify` / `substitute` が外側の型文脈へ漏れません。
+
+overload candidate 走査と関数値引数の候補照合は、`TypeCtx::clone()` ではなく checkpoint 上の一時変更として評価し、各候補の終了時に rollback します。codegen の generic `Apply` layout 計算は、`TypeCtx` を clone して `substitute` する方式をやめ、type parameter mapping を引き回して storage size / align / field offset を計算する形に変更しました。
 
 ### 検証
 
-overload 解決ごとの candidate count、clone count、unify count を profiling counter として取得し、修正前後で比較します。
+確認済み:
+
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core --test typectx_checkpoint` (`2 passed`)
+- `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-rv-core-004.json -j 1` (`total=45`, `passed=45`, `failed=0`)
+- `trunk build`
+- `node tests/compiler/tree/run.js` (`total=19`, `passed=19`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+
+追加した fixture:
+
+- `nepl-core/tests/typectx_checkpoint.rs`: checkpoint が型変数束縛、一時 arena entry、named type table、copy/drop trait target、copy trait flag を復元することを確認。
+
+補足:
+
+- `cargo test -p nepl-core --test overload` は、HEAD から分けた baseline worktree でも同じ 3 件が失敗する既存状態でした。RV-CORE-004 の回帰判定には、現行の `tests/compiler/overload.n.md` doctest を使用しています。
 
 ## RV-CORE-005: loader が import clause を無視して全 import をフラット結合している
 

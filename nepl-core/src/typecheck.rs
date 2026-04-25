@@ -6761,14 +6761,14 @@ impl<'a> BlockChecker<'a> {
                             BindingKind::Func { captures, .. } => captures.len(),
                             _ => 0,
                         };
-                        let mut tmp_ctx = self.ctx.clone();
+                        let checkpoint = self.ctx.checkpoint();
                         let inst_ty = if !explicit_type_args.is_empty() {
                             let func_data = if let TypeKind::Function {
                                 type_params,
                                 params,
                                 result,
                                 effect,
-                            } = tmp_ctx.get(binding.ty)
+                            } = self.ctx.get(binding.ty)
                             {
                                 Some((type_params, params, result, effect))
                             } else {
@@ -6782,33 +6782,35 @@ impl<'a> BlockChecker<'a> {
                                         function_signature_string(self.ctx, binding.ty)
                                     );
                                 }
+                                self.ctx.rollback(checkpoint);
                                 continue;
                             };
                             if type_params.len() != explicit_type_args.len() {
                                 mismatch_count = true;
+                                self.ctx.rollback(checkpoint);
                                 continue;
                             }
                             let mut mapping = BTreeMap::new();
                             for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
-                                mapping.insert(tmp_ctx.resolve_id(*p), tmp_ctx.resolve_id(*a));
+                                mapping.insert(self.ctx.resolve_id(*p), self.ctx.resolve_id(*a));
                             }
                             let substituted_params = params
                                 .iter()
-                                .map(|p| tmp_ctx.substitute(*p, &mapping))
+                                .map(|p| self.ctx.substitute(*p, &mapping))
                                 .collect::<Vec<_>>();
-                            let substituted_result = tmp_ctx.substitute(result, &mapping);
-                            tmp_ctx.function(
+                            let substituted_result = self.ctx.substitute(result, &mapping);
+                            self.ctx.function(
                                 Vec::new(),
                                 substituted_params,
                                 substituted_result,
                                 effect,
                             )
                         } else {
-                            let (inst_ty, _args, _mapping) = tmp_ctx.instantiate(binding.ty);
+                            let (inst_ty, _args, _mapping) = self.ctx.instantiate(binding.ty);
                             inst_ty
                         };
 
-                        let func_ty = tmp_ctx.get(inst_ty);
+                        let func_ty = self.ctx.get(inst_ty);
                         let (c_params, c_result, _c_effect) = match func_ty {
                             TypeKind::Function {
                                 params,
@@ -6824,6 +6826,7 @@ impl<'a> BlockChecker<'a> {
                                         function_signature_string(self.ctx, binding.ty)
                                     );
                                 }
+                                self.ctx.rollback(checkpoint);
                                 continue;
                             }
                         };
@@ -6837,6 +6840,7 @@ impl<'a> BlockChecker<'a> {
                                     capture_len
                                 );
                             }
+                            self.ctx.rollback(checkpoint);
                             continue;
                         }
                         let user_params = &c_params[capture_len..];
@@ -6850,18 +6854,19 @@ impl<'a> BlockChecker<'a> {
                                     args.len()
                                 );
                             }
+                            self.ctx.rollback(checkpoint);
                             continue;
                         }
                         let mut ok = true;
                         for (arg, pty) in args.iter().zip(user_params.iter()) {
-                            if tmp_ctx.unify(arg.ty, *pty).is_err() {
+                            if self.ctx.unify(arg.ty, *pty).is_err() {
                                 if crate::log::is_verbose() {
                                     std::eprintln!(
                                         "overload debug: skip '{}' candidate {} reason=unify arg={} param={}",
                                         name,
                                         function_signature_string(self.ctx, binding.ty),
                                         self.ctx.type_to_string(arg.ty),
-                                        tmp_ctx.type_to_string(*pty)
+                                        self.ctx.type_to_string(*pty)
                                     );
                                 }
                                 ok = false;
@@ -6870,13 +6875,13 @@ impl<'a> BlockChecker<'a> {
                         }
                         if ok && use_expected {
                             if let Some(expected) = expected_ret {
-                                if tmp_ctx.unify(c_result, expected).is_err() {
+                                if self.ctx.unify(c_result, expected).is_err() {
                                     if crate::log::is_verbose() {
                                         std::eprintln!(
                                         "overload debug: skip '{}' candidate {} reason=expected_ret result={} expected={}",
                                         name,
                                         function_signature_string(self.ctx, binding.ty),
-                                        tmp_ctx.type_to_string(c_result),
+                                        self.ctx.type_to_string(c_result),
                                         self.ctx.type_to_string(expected)
                                     );
                                     }
@@ -6898,7 +6903,7 @@ impl<'a> BlockChecker<'a> {
                                     _ => 0,
                                 };
                             let instantiated_specificity =
-                                function_user_param_specificity(&tmp_ctx, inst_ty, args.len());
+                                function_user_param_specificity(self.ctx, inst_ty, args.len());
                             let declared_specificity =
                                 function_user_param_specificity(self.ctx, binding.ty, args.len());
                             candidates.push(OverloadCandidate {
@@ -6912,6 +6917,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                             });
                         }
+                        self.ctx.rollback(checkpoint);
                     }
 
                     // In a pure context, if both pure and impure candidates match,
@@ -7651,10 +7657,12 @@ impl<'a> BlockChecker<'a> {
                                         if captures_len != 0 {
                                             continue;
                                         }
-                                        let mut tmp_ctx = self.ctx.clone();
+                                        let checkpoint = self.ctx.checkpoint();
                                         let (cand_ty, _fresh, _mapping) =
-                                            tmp_ctx.instantiate(cb.ty);
-                                        if tmp_ctx.unify(cand_ty, *param_ty).is_ok() {
+                                            self.ctx.instantiate(cb.ty);
+                                        let matched = self.ctx.unify(cand_ty, *param_ty).is_ok();
+                                        self.ctx.rollback(checkpoint);
+                                        if matched {
                                             if matched_symbol.is_some() {
                                                 ambiguous = true;
                                                 break;

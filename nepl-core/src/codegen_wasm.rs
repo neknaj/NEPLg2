@@ -81,25 +81,51 @@ fn align_to(x: u32, align: u32) -> u32 {
     (x + mask) & !mask
 }
 
-fn type_storage_align_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
+fn mapped_type_id(ctx: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
     let ty = ctx.resolve_id(ty);
+    mapping.get(&ty).copied().unwrap_or(ty)
+}
+
+fn extend_type_mapping(
+    ctx: &TypeCtx,
+    parent: &BTreeMap<TypeId, TypeId>,
+    type_params: &[TypeId],
+    args: &[TypeId],
+) -> BTreeMap<TypeId, TypeId> {
+    let mut mapping = parent.clone();
+    for (param, arg) in type_params.iter().copied().zip(args.iter().copied()) {
+        mapping.insert(ctx.resolve_id(param), mapped_type_id(ctx, arg, parent));
+    }
+    mapping
+}
+
+fn type_storage_align_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
+    type_storage_align_bytes_mapped(ctx, ty, &BTreeMap::new())
+}
+
+fn type_storage_align_bytes_mapped(
+    ctx: &TypeCtx,
+    ty: TypeId,
+    mapping: &BTreeMap<TypeId, TypeId>,
+) -> u32 {
+    let ty = mapped_type_id(ctx, ty, mapping);
     match ctx.get(ty) {
         TypeKind::U8 => 1,
         TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
         TypeKind::Struct { fields, .. } => fields
             .iter()
-            .map(|field| type_storage_align_bytes(ctx, *field))
+            .map(|field| type_storage_align_bytes_mapped(ctx, *field, mapping))
             .max()
             .unwrap_or(1),
         TypeKind::Tuple { items } => items
             .iter()
-            .map(|item| type_storage_align_bytes(ctx, *item))
+            .map(|item| type_storage_align_bytes_mapped(ctx, *item, mapping))
             .max()
             .unwrap_or(1),
         TypeKind::Enum { variants, .. } => variants
             .iter()
             .filter_map(|variant| variant.payload)
-            .map(|payload| type_storage_align_bytes(ctx, payload))
+            .map(|payload| type_storage_align_bytes_mapped(ctx, payload, mapping))
             .max()
             .unwrap_or(4)
             .max(4),
@@ -111,19 +137,10 @@ fn type_storage_align_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
                     fields,
                     ..
                 } => {
-                    let mut tmp = ctx.clone();
-                    let mapping = type_params
+                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
+                    fields
                         .iter()
-                        .copied()
-                        .zip(args.iter().copied())
-                        .collect::<BTreeMap<_, _>>();
-                    let substituted = fields
-                        .iter()
-                        .map(|field| tmp.substitute(*field, &mapping))
-                        .collect::<Vec<_>>();
-                    substituted
-                        .iter()
-                        .map(|field| type_storage_align_bytes(&tmp, *field))
+                        .map(|field| type_storage_align_bytes_mapped(ctx, *field, &nested_mapping))
                         .max()
                         .unwrap_or(1)
                 }
@@ -132,20 +149,13 @@ fn type_storage_align_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
                     variants,
                     ..
                 } => {
-                    let mut tmp = ctx.clone();
-                    let mapping = type_params
-                        .iter()
-                        .copied()
-                        .zip(args.iter().copied())
-                        .collect::<BTreeMap<_, _>>();
-                    let substituted = variants
+                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
+                    variants
                         .iter()
                         .filter_map(|variant| variant.payload)
-                        .map(|payload| tmp.substitute(payload, &mapping))
-                        .collect::<Vec<_>>();
-                    substituted
-                        .iter()
-                        .map(|payload| type_storage_align_bytes(&tmp, *payload))
+                        .map(|payload| {
+                            type_storage_align_bytes_mapped(ctx, payload, &nested_mapping)
+                        })
                         .max()
                         .unwrap_or(4)
                         .max(4)
@@ -158,24 +168,32 @@ fn type_storage_align_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
 }
 
 fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
-    let ty = ctx.resolve_id(ty);
+    type_storage_size_bytes_mapped(ctx, ty, &BTreeMap::new())
+}
+
+fn type_storage_size_bytes_mapped(
+    ctx: &TypeCtx,
+    ty: TypeId,
+    mapping: &BTreeMap<TypeId, TypeId>,
+) -> u32 {
+    let ty = mapped_type_id(ctx, ty, mapping);
     match ctx.get(ty) {
         TypeKind::Unit | TypeKind::Never => 0,
         TypeKind::U8 => 1,
         TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
         TypeKind::Struct { fields, .. } => fields
             .iter()
-            .map(|field| type_storage_size_bytes(ctx, *field))
+            .map(|field| type_storage_size_bytes_mapped(ctx, *field, mapping))
             .sum(),
         TypeKind::Tuple { items } => items
             .iter()
-            .map(|item| type_storage_size_bytes(ctx, *item))
+            .map(|item| type_storage_size_bytes_mapped(ctx, *item, mapping))
             .sum(),
         TypeKind::Enum { variants, .. } => {
             let payload = variants
                 .iter()
                 .filter_map(|variant| variant.payload)
-                .map(|payload| type_storage_size_bytes(ctx, payload))
+                .map(|payload| type_storage_size_bytes_mapped(ctx, payload, mapping))
                 .max()
                 .unwrap_or(0);
             4 + payload
@@ -188,19 +206,10 @@ fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
                     fields,
                     ..
                 } => {
-                    let mut tmp = ctx.clone();
-                    let mapping = type_params
+                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
+                    fields
                         .iter()
-                        .copied()
-                        .zip(args.iter().copied())
-                        .collect::<BTreeMap<_, _>>();
-                    let substituted = fields
-                        .iter()
-                        .map(|field| tmp.substitute(*field, &mapping))
-                        .collect::<Vec<_>>();
-                    substituted
-                        .iter()
-                        .map(|field| type_storage_size_bytes(&tmp, *field))
+                        .map(|field| type_storage_size_bytes_mapped(ctx, *field, &nested_mapping))
                         .sum()
                 }
                 TypeKind::Enum {
@@ -208,20 +217,13 @@ fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
                     variants,
                     ..
                 } => {
-                    let mut tmp = ctx.clone();
-                    let mapping = type_params
-                        .iter()
-                        .copied()
-                        .zip(args.iter().copied())
-                        .collect::<BTreeMap<_, _>>();
-                    let substituted = variants
+                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
+                    let payload = variants
                         .iter()
                         .filter_map(|variant| variant.payload)
-                        .map(|payload| tmp.substitute(payload, &mapping))
-                        .collect::<Vec<_>>();
-                    let payload = substituted
-                        .iter()
-                        .map(|payload| type_storage_size_bytes(&tmp, *payload))
+                        .map(|payload| {
+                            type_storage_size_bytes_mapped(ctx, payload, &nested_mapping)
+                        })
                         .max()
                         .unwrap_or(0);
                     4 + payload
@@ -315,20 +317,11 @@ fn struct_field_layout_by_name(
                     ..
                 } => {
                     let index = field_names.iter().position(|name| name == field_name)?;
-                    let mut tmp = ctx.clone();
-                    let mapping = type_params
+                    let mapping = extend_type_mapping(ctx, &BTreeMap::new(), &type_params, &args);
+                    let field_ty = mapped_type_id(ctx, *fields.get(index)?, &mapping);
+                    let offset = fields[..index]
                         .iter()
-                        .copied()
-                        .zip(args.iter().copied())
-                        .collect::<BTreeMap<_, _>>();
-                    let substituted = fields
-                        .iter()
-                        .map(|field| tmp.substitute(*field, &mapping))
-                        .collect::<Vec<_>>();
-                    let field_ty = *substituted.get(index)?;
-                    let offset = substituted[..index]
-                        .iter()
-                        .map(|field| type_storage_size_bytes(&tmp, *field))
+                        .map(|field| type_storage_size_bytes_mapped(ctx, *field, &mapping))
                         .sum();
                     Some((field_ty, offset))
                 }
@@ -1469,9 +1462,10 @@ fn gen_expr(
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
                 let base_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalSet(base_local));
-                if let Some((field_ty, offset)) =
+                if let Some((_field_ty, offset)) =
                     aggregate_field_layout(ctx, args[0].ty, &args[1], strings)
                 {
+                    let field_ty = expr.ty;
                     if is_aggregate_storage_type(ctx, field_ty) {
                         let size = type_storage_size_bytes(ctx, field_ty) as i32;
                         insts.push(Instruction::I32Const(size));
@@ -1644,13 +1638,14 @@ fn gen_expr(
                 if args.len() != 3 {
                     panic!("internal compiler error: intrinsic set_field requires three args");
                 }
-                let Some((field_ty, offset)) =
+                let Some((_field_ty, offset)) =
                     aggregate_field_layout(ctx, args[0].ty, &args[1], strings)
                 else {
                     panic!(
                         "internal compiler error: unsupported set_field selector reached wasm codegen"
                     );
                 };
+                let field_ty = args[2].ty;
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
                 let base_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalSet(base_local));

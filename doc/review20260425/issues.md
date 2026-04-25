@@ -8,10 +8,10 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 12 | 3 |
+| core | 11 | 4 |
 | cli | 7 | 1 |
 | stdlib | 8 | 4 |
-| 合計 | 27 | 8 |
+| 合計 | 26 | 9 |
 
 ## Core
 
@@ -20,7 +20,7 @@
 | [RV-CORE-001](./core.md#rv-core-001-core-の-no_std-境界が崩れている) | false | open | P1 | architecture | core が `no_std` を掲げながら `std` に依存している |
 | [RV-CORE-002](./core.md#rv-core-002-typecheckrs-が巨大化しすぎて責務が分離できていない) | false | open | P1 | architecture | `typecheck.rs` が型推論・名前解決・HIR 生成・trait 処理を抱え込んでいる |
 | [RV-CORE-003](./core.md#rv-core-003-reduce_calls-が-on2-化しやすく固定上限で正当な入力を落とす) | true | verified | P0 | performance | 固定上限・全走査・deep clone を除去し、1105 call chain を typecheck 可能に修正済み |
-| [RV-CORE-004](./core.md#rv-core-004-overload-解決が候補ごとに-typectx-全体を-clone-している) | false | open | P0 | performance | overload 解決で `TypeCtx` 全体 clone を多用している |
+| [RV-CORE-004](./core.md#rv-core-004-overload-解決が候補ごとに-typectx-全体を-clone-している) | true | verified | P0 | performance | `TypeCtx` checkpoint/rollback と mapping-based layout により overload/codegen の全体 clone を除去済み |
 | [RV-CORE-005](./core.md#rv-core-005-loader-が-import-clause-を無視して全-import-をフラット結合している) | false | open | P1 | bug | `as name` / selective import が loader の item 結合に反映されていない |
 | [RV-CORE-006](./core.md#rv-core-006-通常実行でデバッグ出力が-stderr-へ漏れる) | false | open | P1 | bug | loader などが verbose gate なしに `eprintln!` している |
 | [RV-CORE-007](./core.md#rv-core-007-codegen-が診断ではなく-panic-で落ちる経路を多数持つ) | false | open | P0 | bug | backend が unsupported HIR を `panic!` で処理している |

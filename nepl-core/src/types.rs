@@ -71,7 +71,7 @@ pub struct EnumVariantInfo {
 }
 
 /// Arena-based type context with simple unification.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TypeCtx {
     arena: Vec<TypeKind>,
     unit: TypeId,
@@ -85,6 +85,51 @@ pub struct TypeCtx {
     copy_impl_targets: Vec<TypeId>,
     copy_trait_enabled: bool,
     drop_impl_targets: Vec<TypeId>,
+    undo_log: Vec<TypeCtxUndo>,
+    active_snapshots: usize,
+}
+
+#[derive(Debug, Clone)]
+enum TypeCtxUndo {
+    Arena {
+        id: TypeId,
+        previous: TypeKind,
+    },
+    Named {
+        name: String,
+        previous: Option<TypeId>,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TypeCtxCheckpoint {
+    arena_len: usize,
+    undo_len: usize,
+    copy_impl_targets_len: usize,
+    drop_impl_targets_len: usize,
+    copy_trait_enabled: bool,
+    active_snapshots: usize,
+}
+
+impl Clone for TypeCtx {
+    fn clone(&self) -> Self {
+        Self {
+            arena: self.arena.clone(),
+            unit: self.unit,
+            i32_ty: self.i32_ty,
+            u8_ty: self.u8_ty,
+            f32_ty: self.f32_ty,
+            bool_ty: self.bool_ty,
+            str_ty: self.str_ty,
+            never_ty: self.never_ty,
+            named: self.named.clone(),
+            copy_impl_targets: self.copy_impl_targets.clone(),
+            copy_trait_enabled: self.copy_trait_enabled,
+            drop_impl_targets: self.drop_impl_targets.clone(),
+            undo_log: Vec::new(),
+            active_snapshots: 0,
+        }
+    }
 }
 
 static GLOBAL_UNIFY_DEPTH: AtomicUsize = AtomicUsize::new(0);
@@ -127,7 +172,68 @@ impl TypeCtx {
             copy_impl_targets: Vec::new(),
             copy_trait_enabled: false,
             drop_impl_targets: Vec::new(),
+            undo_log: Vec::new(),
+            active_snapshots: 0,
         }
+    }
+
+    pub fn checkpoint(&mut self) -> TypeCtxCheckpoint {
+        let checkpoint = TypeCtxCheckpoint {
+            arena_len: self.arena.len(),
+            undo_len: self.undo_log.len(),
+            copy_impl_targets_len: self.copy_impl_targets.len(),
+            drop_impl_targets_len: self.drop_impl_targets.len(),
+            copy_trait_enabled: self.copy_trait_enabled,
+            active_snapshots: self.active_snapshots,
+        };
+        self.active_snapshots += 1;
+        checkpoint
+    }
+
+    pub fn rollback(&mut self, checkpoint: TypeCtxCheckpoint) {
+        while self.undo_log.len() > checkpoint.undo_len {
+            match self.undo_log.pop().unwrap() {
+                TypeCtxUndo::Arena { id, previous } => {
+                    if id.0 < self.arena.len() {
+                        self.arena[id.0] = previous;
+                    }
+                }
+                TypeCtxUndo::Named { name, previous } => {
+                    if let Some(previous) = previous {
+                        self.named.insert(name, previous);
+                    } else {
+                        self.named.remove(&name);
+                    }
+                }
+            }
+        }
+        self.arena.truncate(checkpoint.arena_len);
+        self.copy_impl_targets
+            .truncate(checkpoint.copy_impl_targets_len);
+        self.drop_impl_targets
+            .truncate(checkpoint.drop_impl_targets_len);
+        self.copy_trait_enabled = checkpoint.copy_trait_enabled;
+        self.active_snapshots = checkpoint.active_snapshots;
+    }
+
+    fn record_arena_update(&mut self, id: TypeId) {
+        if self.active_snapshots == 0 || id.0 >= self.arena.len() {
+            return;
+        }
+        self.undo_log.push(TypeCtxUndo::Arena {
+            id,
+            previous: self.arena[id.0].clone(),
+        });
+    }
+
+    fn record_named_update(&mut self, name: &String) {
+        if self.active_snapshots == 0 {
+            return;
+        }
+        self.undo_log.push(TypeCtxUndo::Named {
+            name: name.clone(),
+            previous: self.named.get(name).copied(),
+        });
     }
 
     pub fn unit(&self) -> TypeId {
@@ -171,6 +277,7 @@ impl TypeCtx {
         clone_cap: bool,
         drop_cap: bool,
     ) {
+        self.record_arena_update(var);
         if let TypeKind::Var(tv) = &mut self.arena[var.0] {
             tv.copy_cap = copy_cap;
             tv.clone_cap = clone_cap;
@@ -193,6 +300,7 @@ impl TypeCtx {
         snapshot: &alloc::collections::BTreeMap<TypeId, Option<TypeId>>,
     ) {
         for (var, binding) in snapshot {
+            self.record_arena_update(*var);
             if let TypeKind::Var(tv) = &mut self.arena[var.0] {
                 tv.binding = *binding;
             }
@@ -286,6 +394,7 @@ impl TypeCtx {
             let eid = *existing;
             match &self.arena[eid.0] {
                 TypeKind::Named(_) => {
+                    self.record_arena_update(eid);
                     self.arena[eid.0] = kind;
                 }
                 _ => {}
@@ -294,6 +403,7 @@ impl TypeCtx {
         } else {
             let id = TypeId(self.arena.len());
             self.arena.push(kind);
+            self.record_named_update(&name);
             self.named.insert(name, id);
             id
         }
@@ -1275,12 +1385,14 @@ impl TypeCtx {
         if target == var {
             return;
         }
+        self.record_arena_update(var);
         if let TypeKind::Var(tv) = &mut self.arena[var.0] {
             tv.binding = Some(target);
         }
     }
 
     fn bind_var_value(&mut self, var: TypeId, value: &TypeKind) {
+        self.record_arena_update(var);
         self.arena[var.0] = TypeKind::Var(TypeVar {
             label: match value {
                 TypeKind::Var(tv) => tv.label.clone(),
