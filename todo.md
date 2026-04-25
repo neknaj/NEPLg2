@@ -16,6 +16,5 @@
 
 - `doc/review20260425/issues.md` の P0 Issue (`RV-CORE-003`, `RV-CORE-004`, `RV-CORE-007`) を再現テスト付きで順に修正する
 - `RV-STDLIB-012` で `HashKey` / `Hasher` の独自 clone/copy capability を標準 `Clone` / `Copy` trait へ整理する
-- `RV-CORE-014` で `.Pair` から取り出した generic collection の型が overload 解決へ伝播しない問題を修正する
 - `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
 - Issue を修正したら対応する `core.md` / `cli.md` / `stdlib.md` の `解決済` と `状態` を更新し、確認結果を `note.n.md` に記録する

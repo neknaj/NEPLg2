@@ -439,11 +439,11 @@ move checker で call target の parameter type を参照し、parameter が `&T
 
 ## RV-CORE-014: Pair から取り出した generic collection の型が overload 解決へ伝播しない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/codegen_wasm.rs`, `stdlib/alloc/collections/vec.nepl`
+- 対象: `nepl-core/src/typecheck.rs`, `tests/compiler/overload.n.md`, `stdlib/alloc/collections/vec.nepl`
 
 ### 根拠
 
@@ -453,7 +453,7 @@ move checker で call target の parameter type を参照し、parameter が `&T
 
 ### 問題
 
-`.Pair` のような generic tuple 相当の値から `get` で取り出した collection の型情報が、その後の overloaded function call に十分伝播していません。結果として `Vec<i32>` であるべき値に対して `len<i32>` の候補を選べず、正常な stdlib doctest が compile error になります。
+`.Pair` のような generic tuple 相当の値から `get` で取り出した collection の型情報が、その後の overloaded function call に十分伝播していませんでした。原因は field accessor ではなく、関数本体で `.Pair` が実際の tuple 型へ推論された後、関数チェック終了時の snapshot 復元でその束縛まで破棄していた点でした。結果として `Vec<i32>` であるべき値に対して `len<i32>` の候補を選べず、正常な stdlib doctest が compile error になっていました。
 
 ### 影響
 
@@ -461,8 +461,15 @@ move checker で call target の parameter type を参照し、parameter が `&T
 
 ### 修正方針
 
-`get` intrinsic / field accessor の結果型を expected type と overload argument type へ確実に反映します。候補選択時に generic tuple / `.Pair` の field 型を解決済み `TypeId` として保持し、後続の `len<i32>` へ渡る引数型が `Vec<i32>` として見えるようにします。backend panic に進む経路は `RV-CORE-007` と合わせて診断へ落とします。
+関数チェック成功時の型変数復元を、明示的な関数 type parameter の束縛に限定しました。`.Pair` のようなシグネチャ内の非 type parameter 推論結果は保持し、field accessor / overload 解決から `Vec<i32>` として参照できるようにしました。関数チェック失敗時は従来どおり関数シグネチャ全体の snapshot を復元し、失敗した部分推論が外へ漏れないようにしています。
 
 ### 検証
 
-`tests/compiler` に `.Pair` から取り出した `Vec<i32>` に `len<i32>` / `get<i32>` を呼ぶ最小再現を追加します。`stdlib/alloc/collections/vec.nepl` の `partition` doctest が通ることも確認します。
+確認済み:
+
+- `cargo check -p nepl-core`
+- `cargo run -p nepl-cli -- -i tmp/rv-core-014-repro.nepl --check --target core`
+- `trunk build`
+- `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-rv-core-014.json -j 1` (`total=45`, `passed=45`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-rv-core-014.json -j 1` (`total=37`, `passed=37`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)

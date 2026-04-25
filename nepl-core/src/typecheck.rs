@@ -1987,6 +1987,20 @@ pub fn typecheck(
 // Function checking
 // ---------------------------------------------------------------------
 
+fn snapshot_function_type_param_bindings(
+    ctx: &TypeCtx,
+    func_ty: TypeId,
+) -> BTreeMap<TypeId, Option<TypeId>> {
+    let mut out = BTreeMap::new();
+    let TypeKind::Function { type_params, .. } = ctx.get(func_ty) else {
+        return out;
+    };
+    for tp in type_params {
+        out.extend(ctx.snapshot_type_var_bindings(tp));
+    }
+    out
+}
+
 fn check_function(
     f: &FnDef,
     func_ty: TypeId,
@@ -2009,6 +2023,7 @@ fn check_function(
 ) -> Result<CheckedFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let func_ty_snapshot = ctx.snapshot_type_var_bindings(func_ty);
+    let type_param_snapshot = snapshot_function_type_param_bindings(ctx, func_ty);
     let (params_ty, result_ty, effect) = match ctx.get(func_ty) {
         TypeKind::Function {
             params,
@@ -2175,7 +2190,12 @@ fn check_function(
     let has_error = diag_out
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error));
+    if has_error {
+        ctx.restore_type_var_bindings(&func_ty_snapshot);
+        return Err(diag_out);
+    }
 
+    ctx.restore_type_var_bindings(&type_param_snapshot);
     let out_name = env
         .lookup_func_symbol(&f.name.name, func_ty, ctx)
         .unwrap_or_else(|| {
@@ -2239,15 +2259,10 @@ fn check_function(
             ctx.type_to_string(function.func_ty)
         );
     }
-    ctx.restore_type_var_bindings(&func_ty_snapshot);
-    if has_error {
-        Err(diag_out)
-    } else {
-        Ok(CheckedFunction {
-            function,
-            diagnostics: diag_out,
-        })
-    }
+    Ok(CheckedFunction {
+        function,
+        diagnostics: diag_out,
+    })
 }
 
 // ---------------------------------------------------------------------

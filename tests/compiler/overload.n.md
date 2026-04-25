@@ -250,6 +250,35 @@ fn main <()*>i32> ():
     v::len v
 ```
 
+## overload_pair_field_from_generic_result_keeps_tuple_type
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "alloc/collections/vec" as v
+#import "core/field" as *
+#import "core/math" as *
+#import "core/result" as *
+
+fn pair_with_empty <.T> <(Vec<.T>)->Result<.Pair, StdErrorKind>> (left):
+    let right <Vec<.T>> uwok v::new<.T>;
+    Result::Ok<.Pair, StdErrorKind> Tuple:
+        left
+        right
+
+fn main <()*>i32> ():
+    let xs <Vec<i32>>:
+        v::new<i32>
+        |> uwok
+        |> v::push<i32> 1 |> uwok
+    let parts unwrap_ok pair_with_empty<i32> xs;
+    let evens get parts 0;
+    if eq v::len<i32> evens 1 1 0
+```
+
 ## overload_result_inferred_from_outer_arg_context
 
 neplg2:test

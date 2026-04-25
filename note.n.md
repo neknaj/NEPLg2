@@ -15233,6 +15233,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - owning collection handle は shallow copy できない move-only 値として扱う方針へ寄せた。要素 drop と deep clone は別 Issue で継続する。
 
+# 2026-04-25 メモ (RV-CORE-014 .Pair 推論結果の保持)
+
+- [原因]:
+  - `partition` のように `Result<.Pair, E>` を返す関数では、関数本体の `Tuple:` により `.Pair` が具体的な tuple 型へ推論される。
+  - しかし `check_function` が関数チェック後に関数シグネチャ全体の type variable snapshot を復元していたため、`.Pair` の推論済み tuple 束縛まで失われていた。
+  - その結果、`get parts 0` が tuple field accessor として確定できず、後続の `len<i32> evens` で `Vec<i32>` overload を選べなかった。
+- [対応]:
+  - 関数チェック成功時は、明示的な関数 type parameter の束縛だけを復元するようにした。
+  - `.Pair` のようなシグネチャ内の非 type parameter 推論結果は保持し、field accessor と overload 解決へ伝播させるようにした。
+  - 関数チェック失敗時は従来どおりシグネチャ全体の snapshot を復元し、失敗した推論結果が外へ漏れないようにした。
+  - `tests/compiler/overload.n.md` に `Result<.Pair, StdErrorKind>` から取り出した `Vec<i32>` に `len<i32>` を呼ぶ回帰テストを追加した。
+  - `doc/review20260425/issues.md` と `doc/review20260425/core.md` の `RV-CORE-014` を `verified` に更新し、`todo.md` から削除した。
+- [確認]:
+  - `cargo check -p nepl-core`
+  - `cargo run -p nepl-cli -- -i tmp/rv-core-014-repro.nepl --check --target core`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-rv-core-014.json -j 1`: `total=45`, `passed=45`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-rv-core-014.json -j 1`: `total=37`, `passed=37`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.Pair` を tuple 戻り値の型推論結果として安全に保持できるようにし、stdlib collection API の既存仕様を通せる状態へ近づけた。
+
 # 2026-04-25 nodesrc CLI への Discord 投稿追加
 
 - `nodesrc/cli.js` に Discord Webhook 投稿モードを追加:
