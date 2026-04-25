@@ -23,6 +23,7 @@
 | [editor_extensions.md](./editor_extensions.md) | エディタ拡張方針 |
 | [llvm_ir_setup.md](./llvm_ir_setup.md) | LLVM IR セットアップ |
 | [testing.md](./testing.md) | テスト（NEPLg2.0 現行） |
+| [review20260425/](./review20260425/issues.md) | NEPLg2.0 現行実装レビュー Issue 台帳（core / cli / stdlib） |
 | [debug.md](./debug.md) | デバッグ |
 | [web_playground.md](./web_playground.md) | Web Playground |
 | [web_playground_editor_redevelopment_plan.md](./web_playground_editor_redevelopment_plan.md) | Web Playground editor 再開発計画 |

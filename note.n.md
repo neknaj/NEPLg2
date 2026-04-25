@@ -15003,3 +15003,71 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体の変更は不要。
   - 残件としてメモしていた `examples/bf.nepl` の loop サンプル不具合は解消したため `todo.md` から削除した。
+
+# 2026-04-10 メモ (tutorials の UTF-8 方針確認)
+
+- [確認]:
+  - `tutorials/getting_started/`、`doc/`、`examples/` をバイト列で走査し、UTF-8 として読めないファイルや UTF-8 BOM 付きファイルがないことを確認した。
+  - さらに `git ls-files` 上の主要テキスト拡張子（`.n.md`, `.md`, `.nepl`, `.ts`, `.js`, `.json`, `.rs`, `.html`, `.css`, `.toml`, `.yml`, `.yaml`, `.txt`）全体でも、UTF-8 非対応ファイルと BOM 付きファイルが 0 件であることを確認した。
+  - したがって、現時点で見えていた文字化けは実ファイルの混在エンコードではなく、出力系の表示条件に由来する可能性が高い。
+- [対応]:
+  - `nodesrc/check_utf8.js` を追加し、追跡中のテキストファイルが UTF-8 かつ BOM なしであることを機械的に検査できるようにした。
+  - `doc/testing.md` に UTF-8 確認コマンドを追記し、tutorial では総ルビと日本語を安定して扱うため UTF-8 without BOM を維持する方針を明記した。
+  - `todo.md` に tutorial 全体の総ルビ統一と doctest 見直しを残件として追加した。
+- [確認コマンド]:
+  - `node nodesrc/check_utf8.js`
+  - `node nodesrc/check_utf8.js tutorials/getting_started`
+- [plan.mdとの差分]:
+  - `plan.md` 自体の変更は不要。
+  - tutorial の本文再整備はこれから行うが、その前提条件として文字コード統一の確認と自動検査を先に整えた。
+
+# 2026-04-10 メモ (tutorial サンプルコードコメントの整備)
+
+- [方針]:
+  - examples と同じく、コードコメントは日本語で書き、行ごとの実況ではなく「何を固定するサンプルか」「どの処理の流れを見せたいか」を短く説明する形へ寄せた。
+  - そのため、不要な設定説明コメントは削除し、複雑なサンプルだけに目的コメントを追加した。
+- [修正]:
+  - `tutorials/getting_started/00_index.n.md`
+    - 埋め込みサンプルのコメント方針を明記した。
+  - `tutorials/getting_started/01_hello_world.n.md`
+    - 「諸々を設定します」のような低情報コメントを削除し、`main` の目的だけを短く示すコメントへ変更した。
+  - `tutorials/getting_started/10_project_fizzbuzz.n.md`
+    - `show_line` と `print_fizzbuzz_1_to_n` に、変換対象と出力方針を示すコメントを追加した。
+  - `tutorials/getting_started/11_testing_workflow.n.md`
+    - 絶対値関数の意図、チェック列の固定方針、レポート出力の役割が分かるコメントを追加した。
+  - `tutorials/getting_started/22_competitive_io_and_arith.n.md`
+    - scanner/writer を使う I/O の雛形サンプルに、各コード片が何を固定しているか分かるコメントを追加した。
+  - `tutorials/getting_started/24_competitive_dp_basics.n.md`
+    - rolling DP の意図が分かるコメントを追加した。
+  - `tutorials/getting_started/26_competitive_graph_bfs.n.md`
+    - 距離表示と BFS 実行の役割が分かるコメントを追加した。
+  - `tutorials/getting_started/27_competitive_algorithms_catalog.n.md`
+    - 競プロ用テンプレートが「Vec へ集めて走査する雛形」であることを示すコメントを追加した。
+- [確認]:
+  - 全 `tutorials/getting_started` 一括の `nodesrc/tests.js` 実行は、この環境ではタイムアウトした。
+  - ただし、今回変更した章の先頭 doctest は個別に確認した。
+  - `node nodesrc/run_doctest.js -i tutorials/getting_started/01_hello_world.n.md -n 1`: pass
+  - `node nodesrc/run_doctest.js -i tutorials/getting_started/10_project_fizzbuzz.n.md -n 1`: pass
+  - `node nodesrc/run_doctest.js -i tutorials/getting_started/11_testing_workflow.n.md -n 1`: pass
+  - `node nodesrc/run_doctest.js -i tutorials/getting_started/22_competitive_io_and_arith.n.md -n 1`: pass
+  - `node nodesrc/run_doctest.js -i tutorials/getting_started/24_competitive_dp_basics.n.md -n 1`: pass
+  - `node nodesrc/run_doctest.js -i tutorials/getting_started/26_competitive_graph_bfs.n.md -n 1`: pass
+  - `node nodesrc/run_doctest.js -i tutorials/getting_started/27_competitive_algorithms_catalog.n.md -n 1`: pass
+
+# 2026-04-25 メモ (NEPLg2.0 実装レビュー Issue 管理の作成)
+
+- [実装]:
+  - `doc/review20260425/README.md` に Issue ID、状態、解決済フラグ、優先度、記録形式を定義した。
+  - `doc/review20260425/issues.md` に core 12件、cli 8件、stdlib 10件、合計30件の Issue 台帳を作成した。
+  - `doc/review20260425/core.md`、`doc/review20260425/cli.md`、`doc/review20260425/stdlib.md` に各 Issue の根拠、問題、影響、修正方針、検証観点を記録した。
+  - `doc/README.md` にレビュー台帳へのリンクを追加した。
+- [確認した主な問題]:
+  - `nepl-cli --check` が compile 前に成功しており、型エラーや import エラーを検出していない。
+  - `typecheck.rs` の call reduction と overload 解決に、`Vec::remove`、全候補再走査、`TypeCtx` clone が重なっており、大規模入力で遅くなりやすい。
+  - `stdlib/core/mem.nepl` の allocator は address 0 の metadata 衝突と free-list split の再連結漏れを持つ。
+  - owning collection の `Vec` / `Stack` が `Copy` / `Clone` を実装しており、解放や所有権の仕様と矛盾している。
+- [確認]:
+  - 今回はレビュー文書の追加のみで、compiler build / doctest は未実行。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 現行実装には no_std core、UTF-8 str 保証、セルフホスト compiler など、`plan.md` の目標との差分が残っているため、レビュー Issue として追跡対象にした。

@@ -1,0 +1,340 @@
+# Stdlib レビュー
+
+作成日: 2026-04-25
+
+対象: `stdlib/**`
+
+## レビュー範囲
+
+| 区分 | 主なファイル |
+|---|---|
+| core | `stdlib/core/mem.nepl`, `stdlib/core/math.nepl`, `stdlib/core/result.nepl`, `stdlib/core/option.nepl`, `stdlib/core/traits/**` |
+| alloc | `stdlib/alloc/string.nepl`, `stdlib/alloc/io.nepl`, `stdlib/alloc/collections/**`, `stdlib/alloc/diag/**`, `stdlib/alloc/encoding/json.nepl` |
+| std | `stdlib/std/stdio.nepl`, `stdlib/std/streamio.nepl`, `stdlib/std/fs.nepl`, `stdlib/std/env/cliarg.nepl`, `stdlib/std/test.nepl` |
+| platform / tools | `stdlib/platforms/wasix/tui.nepl`, `stdlib/nm/**`, `stdlib/kp/**` |
+| self-host | `stdlib/neplg2/**` |
+
+## 総評
+
+stdlib は API 数が多く、コメントと doctest はかなり整備されています。一方で、低レベルメモリ管理と owning collection の所有権設計が現行 compiler の Resource IR 不足を補えていません。特に allocator と `Vec` / `Stack` の `Copy` 実装は、実行時のメモリ破壊に直結する可能性があります。
+
+また、I/O と filesystem 周辺は skip test が多く、CLI runtime の WASI 実装不足と合わせて未検証領域が残っています。`stdlib/neplg2` は現時点では placeholder で、セルフホスト compiler と呼べる実装にはなっていません。
+
+## RV-STDLIB-001: allocator がアドレス 0 のメタデータと最初のブロックを衝突させる
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `stdlib/core/mem.nepl`
+
+### 根拠
+
+- `stdlib/core/mem.nepl:8`: 0..4 に heap_ptr、4..8 に free_list_head を置く設計コメント。
+- `stdlib/core/mem.nepl:236`: `alloc_raw`。
+- `stdlib/core/mem.nepl:304`: `let heap_ptr <i32> load_i32 0`。
+- `stdlib/core/mem.nepl:305`: `let start <i32> align8 heap_ptr`。
+- `stdlib/core/mem.nepl:314`: `store_i32 0 new_heap`。
+- `stdlib/core/mem.nepl:315`: `store_i32 start total`。
+
+### 問題
+
+初回 allocation では `heap_ptr` が 0 のため `start` も 0 になります。その直後に `store_i32 0 new_heap` で heap pointer を書いた後、`store_i32 start total` が同じ address 0 に block header を書きます。結果として heap metadata と最初の allocation header が衝突します。
+
+さらに、最初の block の header address は 0 になり、free list の null sentinel と区別できません。`dealloc_raw` で free list head に 0 を入れても「空」と同じ意味になるため、最初の block は再利用不能です。
+
+### 影響
+
+allocator の根本不整合です。小さな program では偶然動いても、allocation / deallocation が増えると heap pointer、free list、block header の意味が破壊されます。
+
+### 修正方針
+
+allocator 初期化を明示し、heap base を 8 以上に固定します。`alloc_raw` は heap pointer が 0 の場合に allocator metadata を初期化し、payload block は metadata 領域を避けます。0 sentinel と実 block address が衝突しないようにします。
+
+### 検証
+
+最初の allocation を free して再 allocation したとき同じ block が再利用されるテストを追加します。heap metadata 0..8 が payload 書き込みで壊れないことも確認します。
+
+## RV-STDLIB-002: free list 分割で余りブロックがリストへ戻らない
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `stdlib/core/mem.nepl`
+
+### 根拠
+
+- `stdlib/core/mem.nepl:260`: free list から見つけた block を unlink。
+- `stdlib/core/mem.nepl:264`: `remain` を計算。
+- `stdlib/core/mem.nepl:269`: `new_blk` を作る。
+- `stdlib/core/mem.nepl:270`: `new_blk` に remain size を書く。
+- `stdlib/core/mem.nepl:272`: `new_blk_next_ptr` に old next を書く。
+- しかし `prev` または free list head を `new_blk` に差し替える処理がない。
+
+### 問題
+
+free block を split したとき、余り block の header は作っていますが、free list head または previous node の next に接続していません。つまり余り領域が free list から失われます。
+
+### 影響
+
+free list reuse が進むほど断片化ではなく実質リークになります。長時間動く stdlib test や string/Vec-heavy code でメモリ消費が増え続けます。
+
+### 修正方針
+
+unlink 前に split 判定するか、split 後に `new_blk` を同じ位置へ再 link します。`prev == 0` なら free list head を `new_blk` に、そうでなければ `prev.next = new_blk` にします。
+
+### 検証
+
+大きい block を free し、小さい allocation で split した後、残りサイズに収まる allocation が free list から取られることをテストします。
+
+## RV-STDLIB-003: 所有権を持つ Vec/Stack が Copy/Clone になっている
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
+
+### 根拠
+
+- `stdlib/alloc/collections/vec.nepl:114`: `impl<.T> Copy for Vec<.T>`。
+- `stdlib/alloc/collections/vec.nepl:118`: `impl<.T> Clone for Vec<.T>` が shallow copy。
+- `stdlib/alloc/collections/vec.nepl:1519`: `free` が `data` 領域を解放。
+- `stdlib/alloc/collections/stack.nepl:99`: `impl<.T> Copy for Stack<.T>`。
+- `stdlib/alloc/collections/stack.nepl:548`: `free` が内部領域を解放。
+
+### 問題
+
+`Vec` と `Stack` は heap buffer の所有権を持つのに `Copy` / shallow `Clone` です。コピー後に片方を変更すると alias 先も同じ buffer を見ます。両方を `free` すると double free になります。
+
+### 影響
+
+compiler の move checker が `Copy` と判断すると、所有権移動を検出できません。メモリ破壊、use-after-free、double free が stdlib の通常 API で発生します。
+
+### 修正方針
+
+owning collection は `Copy` を実装しません。`Clone` は deep copy として実装するか、当面は削除します。軽量 handle と owning handle を型で分離します。
+
+### 検証
+
+`let b a; free a; free b` が compile_fail または runtime-safe になるテストを追加します。`clone` を残す場合は deep copy 後に片方の変更が他方へ影響しないことをテストします。
+
+## RV-STDLIB-004: collection free が要素の Drop を呼ばない
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `stdlib/alloc/collections/**`
+
+### 根拠
+
+- `stdlib/alloc/collections/vec.nepl:1519`: `free` は `data` buffer を dealloc するだけ。
+- `stdlib/alloc/collections/hashmap.nepl:457`: hashmap free も entries buffer と header を直接解放。
+- `stdlib/alloc/collections/list.nepl:481`: list free は node を順に raw dealloc。
+- `stdlib/core/traits/drop.nepl:6`: compiler 側が Drop trait から auto drop を構成する方針がコメントされている。
+
+### 問題
+
+`Vec<str>` や `Vec<Owned>` のような要素がさらに所有権を持つ場合、collection の `free` は要素ごとの drop を呼びません。逆に shallow copy と組み合わさると double free も起こり得ます。
+
+### 影響
+
+stdlib の collection を使うほど、要素所有権のリークまたは二重解放が増えます。Resource IR がない現行 compiler では型システムでも補足しきれません。
+
+### 修正方針
+
+collection は `Drop<T>` bound を持つ要素 cleanup と、単純 dealloc の fast path を分けます。最低限、owning element を含む collection は `free` の仕様で責務を明確にし、compiler drop pass と整合させます。
+
+### 検証
+
+drop counter を持つテスト用型を作り、`Vec<T>` / `List<T>` / `HashMap<K,V>` の free で要素 drop 回数が一致することを確認します。
+
+## RV-STDLIB-005: stdio read_all が 4096 byte で切り捨てる
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `stdlib/std/stdio.nepl`, `stdlib/std/streamio.nepl`
+
+### 根拠
+
+- `stdlib/std/stdio.nepl:400`: `read_all` の説明に最大 4096 byte とある。
+- `stdlib/std/stdio.nepl:407`: 4096 byte 超過は切り捨てると明記。
+- `stdlib/std/stdio.nepl:430`: `let cap <i32> 4096`。
+- `stdlib/std/streamio.nepl:10`: streamio も text read は 4096 byte 固定と説明。
+
+### 問題
+
+`read_all` という名前にもかかわらず、text input を全て読みません。4096 byte を超える入力は正常系として切り捨てられます。
+
+### 影響
+
+競技プログラミングや CLI tool の標準入力で誤答になります。バグとして発見しづらく、入力サイズに依存します。
+
+### 修正方針
+
+`stdio_read_all_bytes` を基礎にし、EOF まで growable buffer で読みます。固定長 helper が必要なら `read_chunk` など別名にします。
+
+### 検証
+
+4097 byte 以上の stdin を与え、`len read_all` が入力 byte 数と一致するテストを追加します。
+
+## RV-STDLIB-006: fs/cliarg の主要テストが skip されている
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/std/fs.nepl`, `stdlib/std/env/cliarg.nepl`
+
+### 根拠
+
+- `stdlib/std/fs.nepl:174`, `244`, `435`, `469`, `510`: fs API の doctest が `neplg2:test[skip]`。
+- `stdlib/std/env/cliarg.nepl:227`, `275`, `331`, `401`, `521`: cliarg API の doctest が `skip`。
+- `nepl-cli/src/main.rs:842` 以降: args host functions は Rust CLI runtime 側で実装されているが、stdlib 側の主要 doctest は実行されない。
+
+### 問題
+
+filesystem と argv は runtime 依存が強いにもかかわらず、回帰テストが skip されています。CLI runtime と stdlib wrapper のズレを検出できません。
+
+### 影響
+
+path_open、args_get、fd_read の ABI 不一致や buffer size バグが残りやすくなります。
+
+### 修正方針
+
+test runner に fixture file と argv/stdin 指定を持たせ、fs/cliarg の最小成功・失敗ケースを実行可能にします。skip は runtime 未対応のケースだけに限定します。
+
+### 検証
+
+`fs_read_to_string` で fixture file を読む test、`cliarg_count` / `cliarg_get` の argv test を追加します。
+
+## RV-STDLIB-007: str の UTF-8 保証が実装で守られていない
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `stdlib/alloc/string.nepl`, `stdlib/std/fs.nepl`, `stdlib/alloc/io.nepl`
+
+### 根拠
+
+- `plan.md`: 文字列は UTF-8 保証された immutable 値という方針。
+- `stdlib/alloc/string.nepl:111`: `string_data_ptr` は raw layout を直接扱う。
+- `stdlib/std/fs.nepl:48`: UTF-8 検証は行わず byte 列をそのまま str に格納すると説明。
+- `stdlib/std/fs.nepl:443`: `fs_bytes_to_string` が `ByteBuf` を `str` へ変換する。
+
+### 問題
+
+`str` 型が UTF-8 保証を持つ仕様なのに、filesystem / byte buffer から検証なしで `str` を作る経路があります。これにより `str` として不正な byte列が入り得ます。
+
+### 影響
+
+文字列 API、HTML/NM generator、debug/serialize が UTF-8 前提で動く場合に壊れます。将来 `char` / Unicode 処理を追加するとさらに深刻になります。
+
+### 修正方針
+
+`ByteBuf -> str` は UTF-8 validate を必須にし、失敗時は `Result::Err` を返します。raw bytes が必要な API は `ByteBuf` のまま扱います。
+
+### 検証
+
+不正 UTF-8 byte を含む file/buffer で `fs_read_to_string` が Err になるテストを追加します。
+
+## RV-STDLIB-008: self-host compiler がプレースホルダのまま
+
+- 解決済: false
+- 状態: open
+- 優先度: P2
+- 種別: architecture
+- 対象: `stdlib/neplg2/**`
+
+### 根拠
+
+- `stdlib/neplg2/core/parser.nepl`: 17 行の skip doctest だけ。
+- `stdlib/neplg2/core/typecheck.nepl`: 17 行の skip doctest だけ。
+- `stdlib/neplg2/core/ast.nepl`: 17 行の skip doctest だけ。
+- `stdlib/neplg2/cli/main.nepl`: 17 行の skip doctest だけ。
+- `doc/self_host.md`: `stdlib/neplg2` を self-host compiler 本体として位置づけている。
+
+### 問題
+
+self-host compiler のディレクトリは存在しますが、実装はありません。`core/ast`, `parser`, `typecheck`, `diagnostic`, `span`, `cli/main` が同じ placeholder 形式です。
+
+### 影響
+
+セルフホスト計画の進捗が実装から判別できません。Rust compiler の分割計画と NEPL 側 module の対応表も未確立です。
+
+### 修正方針
+
+まず `span`, `diagnostic`, `ast token subset`, `lexer` の最小実装から milestone を切ります。placeholder file には TODO ではなく、実装段階と依存関係を明記します。
+
+### 検証
+
+`stdlib/neplg2/core/span.nepl` など最小 module ごとに doctest を実行可能にし、skip を外します。
+
+## RV-STDLIB-009: 巨大 stdlib ファイルが分割されていない
+
+- 解決済: false
+- 状態: open
+- 優先度: P2
+- 種別: architecture
+- 対象: `stdlib/core/math.nepl`, `stdlib/alloc/string.nepl`, `stdlib/std/stdio.nepl`, `stdlib/alloc/collections/vec.nepl`
+
+### 根拠
+
+- `stdlib/core/math.nepl`: 4435 行。
+- `stdlib/alloc/string.nepl`: 2134 行。
+- `stdlib/std/streamio.nepl`: 1525 行。
+- `stdlib/alloc/collections/vec.nepl`: 1488 行。
+- `stdlib/std/stdio.nepl`: 1403 行。
+
+### 問題
+
+stdlib の主要 file が肥大化しています。API、内部 helper、target-specific raw body、doctest が同居しており、修正範囲の把握が難しくなっています。
+
+### 影響
+
+コンパイル性能にも影響します。loader が import file を丸ごと clone / merge する現状では、巨大 stdlib file はそのまま型検査候補数と clone 量を増やします。
+
+### 修正方針
+
+`math/i32`, `math/i64`, `math/f32`, `math/f64`、`string/parse`, `string/format`, `stdio/read`, `stdio/write` のように用途別 module へ分割します。public facade は既存 path 互換を保ちます。
+
+### 検証
+
+分割前後で public import path の doctest が同じ結果になることを確認します。
+
+## RV-STDLIB-010: Result/Option の unsafe helper が通常コードに広く残っている
+
+- 解決済: false
+- 状態: open
+- 優先度: P2
+- 種別: bug
+- 対象: `stdlib/**`
+
+### 根拠
+
+- `stdlib/core/result.nepl:11`: `unwrap_ok` / `unwrap_err` は unsafe helper と説明。
+- `stdlib/core/option.nepl:13`: `unwrap` は unsafe helper と説明。
+- `stdlib/alloc/string.nepl`: `unwrap_ok` / `unwrap` を内部処理で多数使用。
+- `stdlib/std/env/cliarg.nepl:174`: `unwrap<i32> load_u8 ...` のような経路。
+
+### 問題
+
+unsafe helper と明記されている `unwrap` 系が stdlib 内部の通常処理に残っています。境界チェック済みの箇所もありますが、前提が崩れると `unreachable` に落ち、Result として呼び出し側へ返せません。
+
+### 影響
+
+I/O、文字列、parser 系で入力依存の trap が起きやすくなります。エラーを値として扱う stdlib 方針と矛盾します。
+
+### 修正方針
+
+public API と input-dependent code では `unwrap` 系を禁止し、`match` で `Result` / `Option` を返します。内部不変条件だけに `unwrap_unchecked` 的な名前を付けて限定します。
+
+### 検証
+
+`rg "unwrap"` の許可リストを作り、stdlib test で unsafe helper の新規使用を検出します。
+

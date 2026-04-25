@@ -6,3 +6,14 @@
 - pointer 操作、fold click、scroll、completion UI の surface 回帰を CLI で検証できるようにする
 - terminal worker protocol の compile progress / cancellation reason / stderr 表示を playground UI に反映する
 - `tests/playground_editor/` 縺ｫ real-world source (複雑な型注釈 / nested block / multi-line string) 縺ｮ highlight fixture 繧定ｿｽ蜉縺励…urface 蝗槫ｸｰ繧ら判繧肴鋤縺医ｋ
+
+2026-04-10 Tutorials
+
+- `tutorials/getting_started/` 全体を `00_index.n.md` と同じ総ルビ方針へ統一し、章ごとの説明粒度・導入・まとめ・次章導線を整理する
+- tutorial の doctest 群を章単位で見直し、学習内容に対して不足している実行例や回帰確認を追加する
+
+2026-04-25 Review
+
+- `doc/review20260425/issues.md` の P0 Issue (`RV-CLI-001`, `RV-CORE-003`, `RV-CORE-004`, `RV-CORE-007`, `RV-STDLIB-001`, `RV-STDLIB-002`, `RV-STDLIB-003`) を再現テスト付きで順に修正する
+- `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
+- Issue を修正したら対応する `core.md` / `cli.md` / `stdlib.md` の `解決済` と `状態` を更新し、確認結果を `note.n.md` に記録する
