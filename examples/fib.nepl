@@ -28,16 +28,14 @@
 #indent 4
 #target std
 
-#import "core/math"
-#use std::math::*
-#import "std/stdio"
-#use std::stdio::*
+#import "core/math" as *
+#import "std/stdio" as *
 
 //: main: フィボナッチ列の先頭 10 項を表示する
 //:
 //: [目的/もくてき]:
 //: - 状態を持つ逐次計算の基本形を示します。
-fn main <()*> ()> ():
+fn main <()*>()> ():
     let mut a <i32> 0;
     let mut b <i32> 1;
     let mut i <i32> 0;
@@ -45,7 +43,7 @@ fn main <()*> ()> ():
         do:
             print "fib = ";
             println_i32 a;
-            let mut next add a b;
+            let next add a b;
             set a b;
             set b next;
             set i add i 1;

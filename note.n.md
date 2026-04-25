@@ -1,3 +1,18 @@
+# 2026-04-26 メモ (fib example の現行表記化)
+
+- [状況]:
+  - `examples/fib.nepl` に旧式の `#use std::...::*` と `fn main <()*> ()>` が残っていた。
+  - 一時値 `next` は再代入されないが `let mut` で宣言されていた。
+- [修正]:
+  - import を `#import "..." as *` に統一し、`#use` を削除した。
+  - `main` の型表記を `fn main <()*>()>` に更新した。
+  - `next` は immutable な `let` に変更し、可変状態は `a` / `b` / `i` に限定した。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/fib.nepl --no-tree -o tmp/fib-example-tests.json -j 2`: 1/1 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。実行可能 example 側だけを現行構文と明確な可変性へ揃えた。
+
 # 2026-04-26 メモ (counter2 example の現行表記化)
 
 - [状況]:
