@@ -15375,3 +15375,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `--check` の責務を成果物生成から分離した。artifact 生成側の再帰 traversal は別 Issue で継続する。
+
+# 2026-04-25 メモ (RV-CORE-016 artifact codegen pipeline stack overflow 修正)
+
+- [原因]:
+  - `RV-CORE-015` で `--check` は artifact 生成から分離できたが、実際の wasm artifact 生成では monomorphize / move check / wasm precheck / wasm lowering に深い `HirExpr` の再帰 traversal が残っていた。
+  - 1105 個の `inc` を連ねた prefix call chain は型検査上正当だが、後段 pass が native stack を消費し、diagnostic ではなく `STATUS_STACK_OVERFLOW` で異常終了していた。
+- [修正]:
+  - monomorphize で非 generic 関数の元 HIR を clone せず移動し、mapping が空の具象関数では body 全体 substitute を避けて callee queue だけを iterative traversal で処理するようにした。
+  - move check は borrow / control-flow に関わらない単純な値式を explicit stack で走査する fast path を追加し、既存 semantics が必要な式は従来の処理へ残した。
+  - `wasm_shared` と wasm codegen precheck の reachable / signature / indirect-call 収集を recursive walk から explicit stack へ変更した。
+  - wasm lowering に単純な literal / variable / direct call tree の iterative post-order lowering を追加し、深い direct call chain を native stack に積まずに instruction 化できるようにした。
+  - `nepl-core/tests/check_pipeline.rs` に `compile_wasm` の deep prefix chain regression を追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test check_pipeline`: `3 passed`
+  - `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --target core -o tmp/rv-core-003-large-rv-core-016.wasm`: success
+  - `cargo check --workspace`: pass
+  - `trunk build`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 深い式に対する後段 compiler pipeline の stack 使用を減らし、core の artifact 生成安定性を改善した。

@@ -14,7 +14,6 @@
 
 2026-04-25 Review
 
-- `RV-CORE-016`: 深い HIR の artifact codegen pipeline stack overflow を iterative traversal で修正する
 - `RV-STDLIB-012` で `HashKey` / `Hasher` の独自 clone/copy capability を標準 `Clone` / `Copy` trait へ整理する
 - `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
 - Issue を修正したら対応する `core.md` / `cli.md` / `stdlib.md` の `解決済` と `状態` を更新し、確認結果を `note.n.md` に記録する

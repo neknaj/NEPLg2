@@ -222,95 +222,109 @@ fn check_indirect_sig_expr(
     wasm_sig_set: &BTreeSet<WasmSig>,
     out: &mut Vec<Diagnostic>,
 ) {
-    match &expr.kind {
-        HirExprKind::CallIndirect {
-            callee,
-            params,
-            result,
-            args,
-        } => {
-            if let Some(sig) = wasm_shared::wasm_sig_ids(ctx, *result, params) {
-                if !wasm_sig_set.contains(&sig) {
-                    out.push(
-                        Diagnostic::error("missing wasm signature for indirect call", expr.span)
+    let mut stack = Vec::new();
+    stack.push(expr);
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::CallIndirect {
+                callee,
+                params,
+                result,
+                args,
+            } => {
+                if let Some(sig) = wasm_shared::wasm_sig_ids(ctx, *result, params) {
+                    if !wasm_sig_set.contains(&sig) {
+                        out.push(
+                            Diagnostic::error(
+                                "missing wasm signature for indirect call",
+                                expr.span,
+                            )
                             .with_id(DiagnosticId::CodegenWasmMissingIndirectSignature),
+                        );
+                    }
+                } else {
+                    out.push(
+                        Diagnostic::error(
+                            "unsupported indirect call signature for wasm",
+                            expr.span,
+                        )
+                        .with_id(DiagnosticId::CodegenWasmUnsupportedIndirectSignature),
                     );
                 }
-            } else {
-                out.push(
-                    Diagnostic::error("unsupported indirect call signature for wasm", expr.span)
-                        .with_id(DiagnosticId::CodegenWasmUnsupportedIndirectSignature),
-                );
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+                stack.push(callee);
             }
-            check_indirect_sig_expr(ctx, callee, wasm_sig_set, out);
-            for arg in args {
-                check_indirect_sig_expr(ctx, arg, wasm_sig_set, out);
+            HirExprKind::Call { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
             }
-        }
-        HirExprKind::Call { args, .. } => {
-            for arg in args {
-                check_indirect_sig_expr(ctx, arg, wasm_sig_set, out);
+            HirExprKind::Intrinsic { name, args, .. } => {
+                if !wasm_shared::is_supported_wasm_intrinsic(name) {
+                    out.push(
+                        Diagnostic::error("unknown codegen intrinsic", expr.span)
+                            .with_id(DiagnosticId::CodegenWasmUnknownIntrinsic),
+                    );
+                }
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
             }
-        }
-        HirExprKind::Intrinsic { name, args, .. } => {
-            if !wasm_shared::is_supported_wasm_intrinsic(name) {
-                out.push(
-                    Diagnostic::error("unknown codegen intrinsic", expr.span)
-                        .with_id(DiagnosticId::CodegenWasmUnknownIntrinsic),
-                );
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                stack.push(else_branch);
+                stack.push(then_branch);
+                stack.push(cond);
             }
-            for arg in args {
-                check_indirect_sig_expr(ctx, arg, wasm_sig_set, out);
+            HirExprKind::While { cond, body } => {
+                stack.push(body);
+                stack.push(cond);
             }
-        }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            check_indirect_sig_expr(ctx, cond, wasm_sig_set, out);
-            check_indirect_sig_expr(ctx, then_branch, wasm_sig_set, out);
-            check_indirect_sig_expr(ctx, else_branch, wasm_sig_set, out);
-        }
-        HirExprKind::While { cond, body } => {
-            check_indirect_sig_expr(ctx, cond, wasm_sig_set, out);
-            check_indirect_sig_expr(ctx, body, wasm_sig_set, out);
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            check_indirect_sig_expr(ctx, scrutinee, wasm_sig_set, out);
-            for arm in arms {
-                check_indirect_sig_expr(ctx, &arm.body, wasm_sig_set, out);
+            HirExprKind::Match { scrutinee, arms } => {
+                for arm in arms.iter().rev() {
+                    stack.push(&arm.body);
+                }
+                stack.push(scrutinee);
             }
-        }
-        HirExprKind::Block(b) => precheck_wasm_indirect_signature(ctx, b, wasm_sig_set, out),
-        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
-            check_indirect_sig_expr(ctx, value, wasm_sig_set, out);
-        }
-        HirExprKind::EnumConstruct { payload, .. } => {
-            if let Some(p) = payload {
-                check_indirect_sig_expr(ctx, p, wasm_sig_set, out);
+            HirExprKind::Block(block) => {
+                for line in block.lines.iter().rev() {
+                    stack.push(&line.expr);
+                }
             }
-        }
-        HirExprKind::StructConstruct { fields, .. } => {
-            for f in fields {
-                check_indirect_sig_expr(ctx, f, wasm_sig_set, out);
+            HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+                stack.push(value);
             }
-        }
-        HirExprKind::TupleConstruct { items } => {
-            for it in items {
-                check_indirect_sig_expr(ctx, it, wasm_sig_set, out);
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
             }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
+            }
+            HirExprKind::TupleConstruct { items } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
+            }
+            HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+                stack.push(inner);
+            }
+            HirExprKind::Drop { .. } => {}
+            HirExprKind::Unit
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Var(_)
+            | HirExprKind::FnValue(_) => {}
         }
-        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
-            check_indirect_sig_expr(ctx, inner, wasm_sig_set, out);
-        }
-        HirExprKind::Drop { .. } => {}
-        HirExprKind::Unit
-        | HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Var(_)
-        | HirExprKind::FnValue(_) => {}
     }
 }

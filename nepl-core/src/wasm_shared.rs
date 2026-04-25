@@ -157,81 +157,84 @@ fn collect_called_functions_from_expr(
     out: &mut BTreeSet<String>,
     has_indirect: &mut bool,
 ) {
-    match &expr.kind {
-        HirExprKind::Call { callee, args } => {
-            if let FuncRef::User(name, _) = callee {
+    let mut stack = vec![expr];
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::Call { callee, args } => {
+                if let FuncRef::User(name, _) = callee {
+                    out.insert(name.clone());
+                }
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                *has_indirect = true;
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+                stack.push(callee);
+            }
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                stack.push(else_branch);
+                stack.push(then_branch);
+                stack.push(cond);
+            }
+            HirExprKind::While { cond, body } => {
+                stack.push(body);
+                stack.push(cond);
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                for arm in arms.iter().rev() {
+                    stack.push(&arm.body);
+                }
+                stack.push(scrutinee);
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
+            }
+            HirExprKind::TupleConstruct { items } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
+            }
+            HirExprKind::Block(block) => {
+                for line in block.lines.iter().rev() {
+                    stack.push(&line.expr);
+                }
+            }
+            HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+                stack.push(value);
+            }
+            HirExprKind::Intrinsic { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+                stack.push(inner);
+            }
+            HirExprKind::Var(name) | HirExprKind::FnValue(name) => {
                 out.insert(name.clone());
             }
-            for a in args {
-                collect_called_functions_from_expr(a, out, has_indirect);
-            }
+            HirExprKind::Unit
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Drop { .. } => {}
         }
-        HirExprKind::CallIndirect { callee, args, .. } => {
-            *has_indirect = true;
-            collect_called_functions_from_expr(callee, out, has_indirect);
-            for a in args {
-                collect_called_functions_from_expr(a, out, has_indirect);
-            }
-        }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            collect_called_functions_from_expr(cond, out, has_indirect);
-            collect_called_functions_from_expr(then_branch, out, has_indirect);
-            collect_called_functions_from_expr(else_branch, out, has_indirect);
-        }
-        HirExprKind::While { cond, body } => {
-            collect_called_functions_from_expr(cond, out, has_indirect);
-            collect_called_functions_from_expr(body, out, has_indirect);
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            collect_called_functions_from_expr(scrutinee, out, has_indirect);
-            for arm in arms {
-                collect_called_functions_from_expr(&arm.body, out, has_indirect);
-            }
-        }
-        HirExprKind::EnumConstruct { payload, .. } => {
-            if let Some(p) = payload {
-                collect_called_functions_from_expr(p, out, has_indirect);
-            }
-        }
-        HirExprKind::StructConstruct { fields, .. } => {
-            for f in fields {
-                collect_called_functions_from_expr(f, out, has_indirect);
-            }
-        }
-        HirExprKind::TupleConstruct { items } => {
-            for i in items {
-                collect_called_functions_from_expr(i, out, has_indirect);
-            }
-        }
-        HirExprKind::Block(b) => {
-            for line in &b.lines {
-                collect_called_functions_from_expr(&line.expr, out, has_indirect);
-            }
-        }
-        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
-            collect_called_functions_from_expr(value, out, has_indirect);
-        }
-        HirExprKind::Intrinsic { args, .. } => {
-            for a in args {
-                collect_called_functions_from_expr(a, out, has_indirect);
-            }
-        }
-        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
-            collect_called_functions_from_expr(inner, out, has_indirect);
-        }
-        HirExprKind::Var(name) | HirExprKind::FnValue(name) => {
-            out.insert(name.clone());
-        }
-        HirExprKind::Unit
-        | HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Drop { .. } => {}
     }
 }
 
@@ -310,103 +313,104 @@ fn collect_indirect_sigs(
     out: &mut Vec<(Vec<ValType>, Vec<ValType>)>,
     ctx: &TypeCtx,
 ) {
-    match &expr.kind {
-        HirExprKind::CallIndirect {
-            callee,
-            params,
-            result,
-            args,
-        } => {
-            let mut p = Vec::new();
-            let mut ok = true;
-            for ty in params {
-                let kind = ctx.get(ctx.resolve_id(*ty));
-                if let Some(vt) = valtype(&kind) {
-                    p.push(vt);
-                } else {
-                    ok = false;
-                    break;
+    let mut stack = vec![expr];
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::CallIndirect {
+                callee,
+                params,
+                result,
+                args,
+            } => {
+                let mut param_types = Vec::new();
+                let mut ok = true;
+                for ty in params {
+                    let kind = ctx.get(ctx.resolve_id(*ty));
+                    if let Some(vt) = valtype(&kind) {
+                        param_types.push(vt);
+                    } else {
+                        ok = false;
+                        break;
+                    }
+                }
+                if ok {
+                    let res_kind = ctx.get(ctx.resolve_id(*result));
+                    let results = if let Some(vt) = valtype(&res_kind) {
+                        vec![vt]
+                    } else {
+                        Vec::new()
+                    };
+                    out.push((param_types, results));
+                }
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+                stack.push(callee);
+            }
+            HirExprKind::Call { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
                 }
             }
-            if ok {
-                let res_kind = ctx.get(ctx.resolve_id(*result));
-                let r = if let Some(vt) = valtype(&res_kind) {
-                    vec![vt]
-                } else if matches!(res_kind, TypeKind::Unit) {
-                    Vec::new()
-                } else {
-                    Vec::new()
-                };
-                out.push((p, r));
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                stack.push(else_branch);
+                stack.push(then_branch);
+                stack.push(cond);
             }
-            collect_indirect_sigs(callee, out, ctx);
-            for a in args {
-                collect_indirect_sigs(a, out, ctx);
+            HirExprKind::While { cond, body } => {
+                stack.push(body);
+                stack.push(cond);
             }
-        }
-        HirExprKind::Call { args, .. } => {
-            for a in args {
-                collect_indirect_sigs(a, out, ctx);
+            HirExprKind::Match { scrutinee, arms } => {
+                for arm in arms.iter().rev() {
+                    stack.push(&arm.body);
+                }
+                stack.push(scrutinee);
             }
-        }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            collect_indirect_sigs(cond, out, ctx);
-            collect_indirect_sigs(then_branch, out, ctx);
-            collect_indirect_sigs(else_branch, out, ctx);
-        }
-        HirExprKind::While { cond, body } => {
-            collect_indirect_sigs(cond, out, ctx);
-            collect_indirect_sigs(body, out, ctx);
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            collect_indirect_sigs(scrutinee, out, ctx);
-            for arm in arms {
-                collect_indirect_sigs(&arm.body, out, ctx);
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
             }
-        }
-        HirExprKind::EnumConstruct { payload, .. } => {
-            if let Some(p) = payload {
-                collect_indirect_sigs(p, out, ctx);
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
             }
-        }
-        HirExprKind::StructConstruct { fields, .. } => {
-            for f in fields {
-                collect_indirect_sigs(f, out, ctx);
+            HirExprKind::TupleConstruct { items } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
             }
-        }
-        HirExprKind::TupleConstruct { items } => {
-            for item in items {
-                collect_indirect_sigs(item, out, ctx);
+            HirExprKind::Block(block) => {
+                for line in block.lines.iter().rev() {
+                    stack.push(&line.expr);
+                }
             }
-        }
-        HirExprKind::Block(b) => {
-            for line in &b.lines {
-                collect_indirect_sigs(&line.expr, out, ctx);
+            HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+                stack.push(value);
             }
-        }
-        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
-            collect_indirect_sigs(value, out, ctx);
-        }
-        HirExprKind::Intrinsic { args, .. } => {
-            for a in args {
-                collect_indirect_sigs(a, out, ctx);
+            HirExprKind::Intrinsic { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
             }
+            HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+                stack.push(inner);
+            }
+            HirExprKind::Unit
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Var(_)
+            | HirExprKind::FnValue(_)
+            | HirExprKind::Drop { .. } => {}
         }
-        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
-            collect_indirect_sigs(inner, out, ctx);
-        }
-        HirExprKind::Unit
-        | HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Var(_)
-        | HirExprKind::FnValue(_)
-        | HirExprKind::Drop { .. } => {}
     }
 }
 

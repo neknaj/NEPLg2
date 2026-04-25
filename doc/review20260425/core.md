@@ -562,11 +562,11 @@ move checker で call target の parameter type を参照し、parameter が `&T
 
 ## RV-CORE-016: 深い HIR を artifact codegen pipeline が再帰処理して stack overflow する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `nepl-core/src/passes/drop_insertion.rs`, `nepl-core/src/passes/move_check.rs`, `nepl-core/src/passes/codegen_precheck.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/monomorphize.rs`
+- 対象: `nepl-core/src/monomorphize.rs`, `nepl-core/src/passes/move_check.rs`, `nepl-core/src/passes/codegen_precheck.rs`, `nepl-core/src/wasm_shared.rs`, `nepl-core/src/codegen_wasm.rs`
 
 ### 根拠
 
@@ -588,6 +588,21 @@ artifact 生成に必要な HIR pass / codegen backend は、深い `HirExpr` �
 
 artifact 生成側の HIR traversal を段階別に切り分け、深い call chain で再帰しない iterative visitor へ置き換えます。最低限、1105-call chain の wasm 出力が stack overflow せず成功する regression を追加します。
 
+### 対応
+
+monomorphize では非 generic 関数の元 HIR を clone せず移動し、type parameter mapping が空の具象関数では body 全体の再帰 substitute を避け、callee queue のみを iterative traversal で処理するようにしました。move check は borrow / control-flow に関わらない単純な値式を explicit stack で走査する fast path を追加し、既存の ownership semantics が必要な式は従来の分岐へ残しています。
+
+wasm codegen precheck と signature / reachable collection は shared helper 側で recursive walk をやめ、explicit stack で `HirExpr` を辿るようにしました。さらに wasm lowering では単純な literal / variable / direct call tree を iterative post-order lowering できる path を追加し、1105 個の prefix call chain を native stack に積まずに wasm instruction へ落とせるようにしました。
+
 ### 検証
 
-未対応。修正時には `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --target core -o tmp/rv-core-003-large.wasm` が stack overflow せず終了することを確認します。
+確認済み:
+
+- `cargo fmt --all --check`
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core --test check_pipeline` (`3 passed`)
+- `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --target core -o tmp/rv-core-003-large-rv-core-016.wasm`
+- `cargo check --workspace`
+- `trunk build`
+- `node tests/compiler/tree/run.js` (`total=19`, `passed=19`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`13/13 passed`)

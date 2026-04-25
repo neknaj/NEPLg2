@@ -358,111 +358,6 @@ fn aggregate_field_layout(
     }
 }
 
-fn collect_indirect_sigs(
-    expr: &HirExpr,
-    out: &mut Vec<(Vec<ValType>, Vec<ValType>)>,
-    ctx: &TypeCtx,
-) {
-    match &expr.kind {
-        HirExprKind::CallIndirect {
-            callee,
-            params,
-            result,
-            args,
-        } => {
-            let mut p = Vec::new();
-            let mut ok = true;
-            for ty in params {
-                let kind = ctx.get(ctx.resolve_id(*ty));
-                if let Some(vt) = valtype(&kind) {
-                    p.push(vt);
-                } else {
-                    ok = false;
-                    break;
-                }
-            }
-            if ok {
-                let res_kind = ctx.get(ctx.resolve_id(*result));
-                let r = if let Some(vt) = valtype(&res_kind) {
-                    vec![vt]
-                } else if matches!(res_kind, TypeKind::Unit) {
-                    Vec::new()
-                } else {
-                    Vec::new()
-                };
-                out.push((p, r));
-            }
-            collect_indirect_sigs(callee, out, ctx);
-            for a in args {
-                collect_indirect_sigs(a, out, ctx);
-            }
-        }
-        HirExprKind::Call { args, .. } => {
-            for a in args {
-                collect_indirect_sigs(a, out, ctx);
-            }
-        }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            collect_indirect_sigs(cond, out, ctx);
-            collect_indirect_sigs(then_branch, out, ctx);
-            collect_indirect_sigs(else_branch, out, ctx);
-        }
-        HirExprKind::While { cond, body } => {
-            collect_indirect_sigs(cond, out, ctx);
-            collect_indirect_sigs(body, out, ctx);
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            collect_indirect_sigs(scrutinee, out, ctx);
-            for arm in arms {
-                collect_indirect_sigs(&arm.body, out, ctx);
-            }
-        }
-        HirExprKind::EnumConstruct { payload, .. } => {
-            if let Some(p) = payload {
-                collect_indirect_sigs(p, out, ctx);
-            }
-        }
-        HirExprKind::StructConstruct { fields, .. } => {
-            for f in fields {
-                collect_indirect_sigs(f, out, ctx);
-            }
-        }
-        HirExprKind::TupleConstruct { items } => {
-            for item in items {
-                collect_indirect_sigs(item, out, ctx);
-            }
-        }
-        HirExprKind::Block(b) => {
-            for line in &b.lines {
-                collect_indirect_sigs(&line.expr, out, ctx);
-            }
-        }
-        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
-            collect_indirect_sigs(value, out, ctx);
-        }
-        HirExprKind::Intrinsic { args, .. } => {
-            for a in args {
-                collect_indirect_sigs(a, out, ctx);
-            }
-        }
-        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
-            collect_indirect_sigs(inner, out, ctx);
-        }
-        HirExprKind::Unit
-        | HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Var(_)
-        | HirExprKind::FnValue(_)
-        | HirExprKind::Drop { .. } => {}
-    }
-}
-
 pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult, Vec<Diagnostic>> {
     if crate::log::is_verbose() {
         let names = module
@@ -561,18 +456,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
             idx
         });
     }
-    let mut indirect_sigs = Vec::new();
-    for f in &module.functions {
-        if crate::wasm_shared::should_skip_wasm_codegen_for_generic(ctx, f) {
-            continue;
-        }
-        if let HirBody::Block(b) = &f.body {
-            for line in &b.lines {
-                collect_indirect_sigs(&line.expr, &mut indirect_sigs, ctx);
-            }
-        }
-    }
-    for (params, results) in indirect_sigs {
+    for (params, results) in crate::wasm_shared::collect_wasm_signature_set(ctx, module) {
         let key = (params.clone(), results.clone());
         sig_map.entry(key).or_insert_with(|| {
             let idx = type_section.len();
@@ -1139,6 +1023,183 @@ fn predeclare_block_locals(ctx: &TypeCtx, block: &HirBlock, locals: &mut LocalMa
     }
 }
 
+fn can_lower_simple_expr_iteratively(expr: &HirExpr) -> bool {
+    let mut stack = Vec::new();
+    stack.push(expr);
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::Call { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit
+            | HirExprKind::Var(_)
+            | HirExprKind::FnValue(_)
+            | HirExprKind::Drop { .. } => {}
+            HirExprKind::CallIndirect { .. }
+            | HirExprKind::If { .. }
+            | HirExprKind::While { .. }
+            | HirExprKind::Block(_)
+            | HirExprKind::Intrinsic { .. }
+            | HirExprKind::EnumConstruct { .. }
+            | HirExprKind::StructConstruct { .. }
+            | HirExprKind::TupleConstruct { .. }
+            | HirExprKind::Match { .. }
+            | HirExprKind::Let { .. }
+            | HirExprKind::Set { .. }
+            | HirExprKind::AddrOf(_)
+            | HirExprKind::Deref(_) => return false,
+        }
+    }
+    true
+}
+
+fn missing_direct_call_name(ctx: &TypeCtx, callee: &FuncRef) -> String {
+    match callee {
+        FuncRef::Builtin(n) | FuncRef::User(n, _) => n.clone(),
+        FuncRef::Trait {
+            trait_name,
+            trait_args: _,
+            method,
+            self_ty,
+        } => {
+            let mut s = trait_name.clone();
+            s.push_str("::");
+            s.push_str(method);
+            s.push_str(" [self=");
+            s.push_str(&ctx.type_to_string(*self_ty));
+            s.push(']');
+            s
+        }
+    }
+}
+
+fn emit_direct_call(
+    ctx: &TypeCtx,
+    callee: &FuncRef,
+    span: Span,
+    name_map: &BTreeMap<String, u32>,
+    insts: &mut Vec<Instruction<'static>>,
+) -> LowerResult<()> {
+    if let Some(idx) = match callee {
+        FuncRef::Builtin(n) | FuncRef::User(n, _) => name_map.get(n),
+        FuncRef::Trait { .. } => None,
+    } {
+        insts.push(Instruction::Call(*idx));
+        Ok(())
+    } else {
+        Err(codegen_error(
+            format!(
+                "unknown function '{}' reached wasm codegen",
+                missing_direct_call_name(ctx, callee)
+            ),
+            span,
+            DiagnosticId::CodegenWasmUnknownFunction,
+        ))
+    }
+}
+
+enum SimpleExprFrame<'a> {
+    Expr(&'a HirExpr),
+    FinishCall { callee: &'a FuncRef, span: Span },
+}
+
+fn gen_simple_expr_iteratively(
+    ctx: &TypeCtx,
+    expr: &HirExpr,
+    name_map: &BTreeMap<String, u32>,
+    strings: &StringLower,
+    locals: &mut LocalMap,
+    insts: &mut Vec<Instruction<'static>>,
+) -> LowerResult<Option<ValType>> {
+    let mut stack = Vec::new();
+    stack.push(SimpleExprFrame::Expr(expr));
+    while let Some(frame) = stack.pop() {
+        match frame {
+            SimpleExprFrame::Expr(expr) => match &expr.kind {
+                HirExprKind::LiteralI32(v) => {
+                    insts.push(Instruction::I32Const(*v));
+                }
+                HirExprKind::LiteralF32(v) => {
+                    insts.push(Instruction::F32Const((*v).into()));
+                }
+                HirExprKind::LiteralBool(b) => {
+                    insts.push(Instruction::I32Const(if *b { 1 } else { 0 }));
+                }
+                HirExprKind::LiteralStr(id) => {
+                    if let Some(off) = strings.offset(*id) {
+                        insts.push(Instruction::I32Const(off as i32));
+                    } else {
+                        return Err(codegen_error(
+                            "string literal not found during codegen",
+                            expr.span,
+                            DiagnosticId::CodegenWasmStringLiteralNotFound,
+                        ));
+                    }
+                }
+                HirExprKind::Unit | HirExprKind::Drop { .. } => {}
+                HirExprKind::Var(name) => {
+                    if let Some(idx) = locals.lookup(name) {
+                        if valtype(&ctx.get(expr.ty)).is_some() {
+                            insts.push(Instruction::LocalGet(idx));
+                        }
+                    } else if let Some(fidx) = find_function_value_index(name_map, name) {
+                        insts.push(Instruction::I32Const(fidx as i32));
+                    } else {
+                        return Err(codegen_error(
+                            format!("unknown variable '{}' reached wasm codegen", name),
+                            expr.span,
+                            DiagnosticId::CodegenWasmUnknownVariable,
+                        ));
+                    }
+                }
+                HirExprKind::FnValue(name) => {
+                    if let Some(fidx) = find_function_value_index(name_map, name) {
+                        insts.push(Instruction::I32Const(fidx as i32));
+                    } else {
+                        return Err(codegen_error(
+                            format!("unknown function value '{}' reached wasm codegen", name),
+                            expr.span,
+                            DiagnosticId::CodegenWasmUnknownFunctionValue,
+                        ));
+                    }
+                }
+                HirExprKind::Call { callee, args } => {
+                    stack.push(SimpleExprFrame::FinishCall {
+                        callee,
+                        span: expr.span,
+                    });
+                    for arg in args.iter().rev() {
+                        stack.push(SimpleExprFrame::Expr(arg));
+                    }
+                }
+                HirExprKind::CallIndirect { .. }
+                | HirExprKind::If { .. }
+                | HirExprKind::While { .. }
+                | HirExprKind::Block(_)
+                | HirExprKind::Intrinsic { .. }
+                | HirExprKind::EnumConstruct { .. }
+                | HirExprKind::StructConstruct { .. }
+                | HirExprKind::TupleConstruct { .. }
+                | HirExprKind::Match { .. }
+                | HirExprKind::Let { .. }
+                | HirExprKind::Set { .. }
+                | HirExprKind::AddrOf(_)
+                | HirExprKind::Deref(_) => unreachable!("iterative wasm lowering precheck failed"),
+            },
+            SimpleExprFrame::FinishCall { callee, span } => {
+                emit_direct_call(ctx, callee, span, name_map, insts)?;
+            }
+        }
+    }
+    Ok(valtype(&ctx.get(expr.ty)))
+}
+
 fn gen_expr(
     ctx: &TypeCtx,
     expr: &HirExpr,
@@ -1148,6 +1209,10 @@ fn gen_expr(
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
 ) -> LowerResult<Option<ValType>> {
+    if can_lower_simple_expr_iteratively(expr) {
+        return gen_simple_expr_iteratively(ctx, expr, name_map, strings, locals, insts);
+    }
+
     Ok(match &expr.kind {
         HirExprKind::LiteralI32(v) => {
             insts.push(Instruction::I32Const(*v));
@@ -1209,35 +1274,7 @@ fn gen_expr(
             for arg in args {
                 gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts)?;
             }
-            if let Some(idx) = match callee {
-                FuncRef::Builtin(n) | FuncRef::User(n, _) => name_map.get(n),
-                FuncRef::Trait { .. } => None,
-            } {
-                insts.push(Instruction::Call(*idx));
-            } else {
-                let missing = match callee {
-                    FuncRef::Builtin(n) | FuncRef::User(n, _) => n.clone(),
-                    FuncRef::Trait {
-                        trait_name,
-                        trait_args: _,
-                        method,
-                        self_ty,
-                    } => {
-                        let mut s = trait_name.clone();
-                        s.push_str("::");
-                        s.push_str(method);
-                        s.push_str(" [self=");
-                        s.push_str(&ctx.type_to_string(*self_ty));
-                        s.push(']');
-                        s
-                    }
-                };
-                return Err(codegen_error(
-                    format!("unknown function '{}' reached wasm codegen", missing),
-                    expr.span,
-                    DiagnosticId::CodegenWasmUnknownFunction,
-                ));
-            }
+            emit_direct_call(ctx, callee, expr.span, name_map, insts)?;
             valtype(&ctx.get(expr.ty))
         }
         HirExprKind::CallIndirect {

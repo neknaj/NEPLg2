@@ -8,10 +8,10 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 10 | 6 |
+| core | 9 | 7 |
 | cli | 7 | 1 |
 | stdlib | 8 | 4 |
-| 合計 | 25 | 11 |
+| 合計 | 24 | 12 |
 
 ## Core
 
@@ -32,7 +32,7 @@
 | [RV-CORE-013](./core.md#rv-core-013-参照引数の関数呼び出しが一時-borrow-にならず所有値を固定する) | true | verified | P0 | bug | 参照 parameter の call argument を一時 borrow として評価するよう修正済み |
 | [RV-CORE-014](./core.md#rv-core-014-pair-から取り出した-generic-collection-の型が-overload-解決へ伝播しない) | true | verified | P1 | bug | `.Pair` の推論済み tuple 型を保持し、取得した `Vec<T>` の `len` overload が解決できるよう修正済み |
 | [RV-CORE-015](./core.md#rv-core-015-深い-hir-を-check-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | `--check` を artifact 生成から分離し、1105 call chain が check-only path で成功するよう修正済み |
-| [RV-CORE-016](./core.md#rv-core-016-深い-hir-を-artifact-codegen-pipeline-が再帰処理して-stack-overflow-する) | false | open | P1 | bug | 実際の wasm artifact 生成は深い HIR でまだ native stack overflow する |
+| [RV-CORE-016](./core.md#rv-core-016-深い-hir-を-artifact-codegen-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | artifact 生成側の深い HIR traversal を iterative 化し、1105 call chain の wasm 生成を修正済み |
 
 ## CLI
 

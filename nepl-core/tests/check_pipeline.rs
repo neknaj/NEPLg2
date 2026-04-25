@@ -1,6 +1,6 @@
 use nepl_core::error::CoreError;
 use nepl_core::span::FileId;
-use nepl_core::{check_module, lexer, parser, CompileOptions};
+use nepl_core::{check_module, compile_wasm, lexer, parser, CompileOptions};
 
 fn parse_module(source: &str) -> nepl_core::ast::Module {
     let lexed = lexer::lex(FileId(0), source);
@@ -30,6 +30,18 @@ fn check_module_accepts_deep_prefix_chain_without_codegen_stack_overflow() {
 
     check_module(module, CompileOptions::default())
         .expect("check-only pipeline should not enter recursive artifact generation");
+}
+
+#[test]
+fn compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow() {
+    let artifact = compile_wasm(
+        FileId(0),
+        &deep_identity_source(1105),
+        CompileOptions::default(),
+    )
+    .expect("artifact pipeline should lower a deep prefix call chain without stack overflow");
+
+    assert!(!artifact.wasm.is_empty());
 }
 
 #[test]

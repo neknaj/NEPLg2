@@ -213,11 +213,18 @@ impl<'a> Monomorphizer<'a> {
     }
 
     fn collect_unresolved_trait_calls(&self, func: &HirFunction) -> Vec<String> {
-        fn walk_expr(ctx: &TypeCtx, func_name: &str, expr: &HirExpr, out: &mut Vec<String>) {
+        let mut out = Vec::new();
+        let mut stack = Vec::new();
+        if let HirBody::Block(block) = &func.body {
+            for line in block.lines.iter().rev() {
+                stack.push(&line.expr);
+            }
+        }
+        while let Some(expr) = stack.pop() {
             match &expr.kind {
                 HirExprKind::Call { callee, args } => {
-                    for arg in args {
-                        walk_expr(ctx, func_name, arg, out);
+                    for arg in args.iter().rev() {
+                        stack.push(arg);
                     }
                     if let FuncRef::Trait {
                         trait_name,
@@ -228,63 +235,67 @@ impl<'a> Monomorphizer<'a> {
                     {
                         let rendered_args = trait_args
                             .iter()
-                            .map(|ty| ctx.type_to_string(*ty))
+                            .map(|ty| self.ctx.type_to_string(*ty))
                             .collect::<Vec<_>>()
                             .join(", ");
                         out.push(format!(
                             "{} :: {}<{}>::{} [self={}]",
-                            func_name,
+                            func.name,
                             trait_name,
                             rendered_args,
                             method,
-                            ctx.type_to_string(*self_ty),
+                            self.ctx.type_to_string(*self_ty),
                         ));
                     }
                 }
                 HirExprKind::CallIndirect { callee, args, .. } => {
-                    walk_expr(ctx, func_name, callee, out);
-                    for arg in args {
-                        walk_expr(ctx, func_name, arg, out);
+                    for arg in args.iter().rev() {
+                        stack.push(arg);
                     }
+                    stack.push(callee);
                 }
                 HirExprKind::If {
                     cond,
                     then_branch,
                     else_branch,
                 } => {
-                    walk_expr(ctx, func_name, cond, out);
-                    walk_expr(ctx, func_name, then_branch, out);
-                    walk_expr(ctx, func_name, else_branch, out);
+                    stack.push(else_branch);
+                    stack.push(then_branch);
+                    stack.push(cond);
                 }
                 HirExprKind::While { cond, body } => {
-                    walk_expr(ctx, func_name, cond, out);
-                    walk_expr(ctx, func_name, body, out);
+                    stack.push(body);
+                    stack.push(cond);
                 }
                 HirExprKind::Match { scrutinee, arms } => {
-                    walk_expr(ctx, func_name, scrutinee, out);
-                    for arm in arms {
-                        walk_expr(ctx, func_name, &arm.body, out);
+                    for arm in arms.iter().rev() {
+                        stack.push(&arm.body);
+                    }
+                    stack.push(scrutinee);
+                }
+                HirExprKind::Block(block) => {
+                    for line in block.lines.iter().rev() {
+                        stack.push(&line.expr);
                     }
                 }
-                HirExprKind::Block(block) => walk_block(ctx, func_name, block, out),
                 HirExprKind::Let { value, .. }
                 | HirExprKind::Set { value, .. }
                 | HirExprKind::AddrOf(value)
-                | HirExprKind::Deref(value) => walk_expr(ctx, func_name, value, out),
+                | HirExprKind::Deref(value) => stack.push(value),
                 HirExprKind::TupleConstruct { items }
                 | HirExprKind::Intrinsic { args: items, .. } => {
-                    for item in items {
-                        walk_expr(ctx, func_name, item, out);
+                    for item in items.iter().rev() {
+                        stack.push(item);
                     }
                 }
                 HirExprKind::EnumConstruct { payload, .. } => {
                     if let Some(payload) = payload {
-                        walk_expr(ctx, func_name, payload, out);
+                        stack.push(payload);
                     }
                 }
                 HirExprKind::StructConstruct { fields, .. } => {
-                    for field in fields {
-                        walk_expr(ctx, func_name, field, out);
+                    for field in fields.iter().rev() {
+                        stack.push(field);
                     }
                 }
                 HirExprKind::FnValue(_)
@@ -296,16 +307,6 @@ impl<'a> Monomorphizer<'a> {
                 | HirExprKind::LiteralStr(_)
                 | HirExprKind::Drop { .. } => {}
             }
-        }
-        fn walk_block(ctx: &TypeCtx, func_name: &str, block: &HirBlock, out: &mut Vec<String>) {
-            for line in &block.lines {
-                walk_expr(ctx, func_name, &line.expr, out);
-            }
-        }
-
-        let mut out = Vec::new();
-        if let HirBody::Block(block) = &func.body {
-            walk_block(self.ctx, &func.name, block, &mut out);
         }
         out
     }
@@ -335,102 +336,107 @@ impl<'a> Monomorphizer<'a> {
     }
 
     fn resolve_trait_calls_in_block(&mut self, block: &mut HirBlock) {
-        for line in &mut block.lines {
-            self.resolve_trait_calls_in_expr(&mut line.expr);
+        let mut stack = Vec::new();
+        for line in block.lines.iter_mut().rev() {
+            stack.push(&mut line.expr);
         }
-    }
-
-    fn resolve_trait_calls_in_expr(&mut self, expr: &mut HirExpr) {
-        match &mut expr.kind {
-            HirExprKind::Call { callee, args } => {
-                for arg in args.iter_mut() {
-                    self.resolve_trait_calls_in_expr(arg);
-                }
-                if let FuncRef::Trait {
-                    trait_name,
-                    trait_args,
-                    method,
-                    self_ty,
-                } = callee
-                {
-                    for trait_arg in trait_args.iter_mut() {
-                        *trait_arg = self.ctx.resolve_id(*trait_arg);
-                    }
-                    let resolved = self.ctx.resolve_id(*self_ty);
-                    let dispatch_self_ty = match self.ctx.get(resolved) {
-                        TypeKind::Var(_) => args
-                            .first()
-                            .map(|arg| self.ctx.resolve_id(arg.ty))
-                            .unwrap_or(resolved),
-                        _ => resolved,
-                    };
-                    *self_ty = dispatch_self_ty;
-                    if let Some(name) = self.resolve_trait_impl_name(
-                        trait_name.as_str(),
+        while let Some(expr) = stack.pop() {
+            match &mut expr.kind {
+                HirExprKind::Call { callee, args } => {
+                    if let FuncRef::Trait {
+                        trait_name,
                         trait_args,
-                        method.as_str(),
-                        dispatch_self_ty,
-                    ) {
-                        *callee = FuncRef::User(
-                            self.request_instantiation(name, trait_args.clone()),
-                            Vec::new(),
-                        );
+                        method,
+                        self_ty,
+                    } = callee
+                    {
+                        for trait_arg in trait_args.iter_mut() {
+                            *trait_arg = self.ctx.resolve_id(*trait_arg);
+                        }
+                        let resolved = self.ctx.resolve_id(*self_ty);
+                        let dispatch_self_ty = match self.ctx.get(resolved) {
+                            TypeKind::Var(_) => args
+                                .first()
+                                .map(|arg| self.ctx.resolve_id(arg.ty))
+                                .unwrap_or(resolved),
+                            _ => resolved,
+                        };
+                        *self_ty = dispatch_self_ty;
+                        if let Some(name) = self.resolve_trait_impl_name(
+                            trait_name.as_str(),
+                            trait_args,
+                            method.as_str(),
+                            dispatch_self_ty,
+                        ) {
+                            *callee = FuncRef::User(
+                                self.request_instantiation(name, trait_args.clone()),
+                                Vec::new(),
+                            );
+                        }
+                    }
+                    for arg in args.iter_mut().rev() {
+                        stack.push(arg);
                     }
                 }
-            }
-            HirExprKind::CallIndirect { callee, args, .. } => {
-                self.resolve_trait_calls_in_expr(callee);
-                for arg in args {
-                    self.resolve_trait_calls_in_expr(arg);
+                HirExprKind::CallIndirect { callee, args, .. } => {
+                    for arg in args.iter_mut().rev() {
+                        stack.push(arg);
+                    }
+                    stack.push(callee.as_mut());
                 }
-            }
-            HirExprKind::If {
-                cond,
-                then_branch,
-                else_branch,
-            } => {
-                self.resolve_trait_calls_in_expr(cond);
-                self.resolve_trait_calls_in_expr(then_branch);
-                self.resolve_trait_calls_in_expr(else_branch);
-            }
-            HirExprKind::While { cond, body } => {
-                self.resolve_trait_calls_in_expr(cond);
-                self.resolve_trait_calls_in_expr(body);
-            }
-            HirExprKind::Match { scrutinee, arms } => {
-                self.resolve_trait_calls_in_expr(scrutinee);
-                for arm in arms {
-                    self.resolve_trait_calls_in_expr(&mut arm.body);
+                HirExprKind::If {
+                    cond,
+                    then_branch,
+                    else_branch,
+                } => {
+                    stack.push(else_branch.as_mut());
+                    stack.push(then_branch.as_mut());
+                    stack.push(cond.as_mut());
                 }
-            }
-            HirExprKind::Block(block) => self.resolve_trait_calls_in_block(block),
-            HirExprKind::Let { value, .. }
-            | HirExprKind::Set { value, .. }
-            | HirExprKind::AddrOf(value)
-            | HirExprKind::Deref(value) => self.resolve_trait_calls_in_expr(value),
-            HirExprKind::TupleConstruct { items } | HirExprKind::Intrinsic { args: items, .. } => {
-                for item in items {
-                    self.resolve_trait_calls_in_expr(item);
+                HirExprKind::While { cond, body } => {
+                    stack.push(body.as_mut());
+                    stack.push(cond.as_mut());
                 }
-            }
-            HirExprKind::EnumConstruct { payload, .. } => {
-                if let Some(payload) = payload {
-                    self.resolve_trait_calls_in_expr(payload);
+                HirExprKind::Match { scrutinee, arms } => {
+                    for arm in arms.iter_mut().rev() {
+                        stack.push(&mut arm.body);
+                    }
+                    stack.push(scrutinee.as_mut());
                 }
-            }
-            HirExprKind::StructConstruct { fields, .. } => {
-                for field in fields {
-                    self.resolve_trait_calls_in_expr(field);
+                HirExprKind::Block(block) => {
+                    for line in block.lines.iter_mut().rev() {
+                        stack.push(&mut line.expr);
+                    }
                 }
+                HirExprKind::Let { value, .. }
+                | HirExprKind::Set { value, .. }
+                | HirExprKind::AddrOf(value)
+                | HirExprKind::Deref(value) => stack.push(value.as_mut()),
+                HirExprKind::TupleConstruct { items }
+                | HirExprKind::Intrinsic { args: items, .. } => {
+                    for item in items.iter_mut().rev() {
+                        stack.push(item);
+                    }
+                }
+                HirExprKind::EnumConstruct { payload, .. } => {
+                    if let Some(payload) = payload {
+                        stack.push(payload.as_mut());
+                    }
+                }
+                HirExprKind::StructConstruct { fields, .. } => {
+                    for field in fields.iter_mut().rev() {
+                        stack.push(field);
+                    }
+                }
+                HirExprKind::FnValue(_)
+                | HirExprKind::Var(_)
+                | HirExprKind::Unit
+                | HirExprKind::LiteralI32(_)
+                | HirExprKind::LiteralF32(_)
+                | HirExprKind::LiteralBool(_)
+                | HirExprKind::LiteralStr(_)
+                | HirExprKind::Drop { .. } => {}
             }
-            HirExprKind::FnValue(_)
-            | HirExprKind::Var(_)
-            | HirExprKind::Unit
-            | HirExprKind::LiteralI32(_)
-            | HirExprKind::LiteralF32(_)
-            | HirExprKind::LiteralBool(_)
-            | HirExprKind::LiteralStr(_)
-            | HirExprKind::Drop { .. } => {}
         }
     }
 
@@ -527,6 +533,132 @@ impl<'a> Monomorphizer<'a> {
         mangled
     }
 
+    fn take_function_for_instantiation(
+        &mut self,
+        orig_name: &str,
+        can_move_original: bool,
+    ) -> Option<HirFunction> {
+        if can_move_original {
+            if let Some(func) = self.funcs.remove(orig_name) {
+                return Some(func);
+            }
+        }
+        self.funcs.get(orig_name).cloned()
+    }
+
+    fn queue_concrete_callees(&mut self, func: &mut HirFunction) {
+        if let HirBody::Block(block) = &mut func.body {
+            self.queue_concrete_callees_in_block(block);
+        }
+    }
+
+    fn queue_concrete_callees_in_block(&mut self, block: &mut HirBlock) {
+        let mut stack = Vec::new();
+        for line in block.lines.iter_mut().rev() {
+            stack.push(&mut line.expr);
+        }
+        while let Some(expr) = stack.pop() {
+            match &mut expr.kind {
+                HirExprKind::Call { callee, args } => {
+                    for arg in args.iter_mut().rev() {
+                        stack.push(arg);
+                    }
+                    match callee {
+                        FuncRef::User(name, type_args) => {
+                            for arg in type_args.iter_mut() {
+                                *arg = self.ctx.resolve_id(*arg);
+                            }
+                            let inst = if let Some(found) =
+                                self.resolve_user_function_name(name.as_str())
+                            {
+                                self.request_instantiation(found, type_args.clone())
+                            } else {
+                                self.request_instantiation(name.clone(), type_args.clone())
+                            };
+                            *name = inst;
+                            type_args.clear();
+                        }
+                        FuncRef::Trait {
+                            trait_args,
+                            self_ty,
+                            ..
+                        } => {
+                            for trait_arg in trait_args.iter_mut() {
+                                *trait_arg = self.ctx.resolve_id(*trait_arg);
+                            }
+                            *self_ty = self.ctx.resolve_id(*self_ty);
+                        }
+                        FuncRef::Builtin(_) => {}
+                    }
+                }
+                HirExprKind::CallIndirect { callee, args, .. } => {
+                    for arg in args.iter_mut().rev() {
+                        stack.push(arg);
+                    }
+                    stack.push(callee.as_mut());
+                }
+                HirExprKind::If {
+                    cond,
+                    then_branch,
+                    else_branch,
+                } => {
+                    stack.push(else_branch.as_mut());
+                    stack.push(then_branch.as_mut());
+                    stack.push(cond.as_mut());
+                }
+                HirExprKind::While { cond, body } => {
+                    stack.push(body.as_mut());
+                    stack.push(cond.as_mut());
+                }
+                HirExprKind::Match { scrutinee, arms } => {
+                    for arm in arms.iter_mut().rev() {
+                        stack.push(&mut arm.body);
+                    }
+                    stack.push(scrutinee.as_mut());
+                }
+                HirExprKind::EnumConstruct { payload, .. } => {
+                    if let Some(payload) = payload {
+                        stack.push(payload.as_mut());
+                    }
+                }
+                HirExprKind::StructConstruct { fields, .. } => {
+                    for field in fields.iter_mut().rev() {
+                        stack.push(field);
+                    }
+                }
+                HirExprKind::TupleConstruct { items } => {
+                    for item in items.iter_mut().rev() {
+                        stack.push(item);
+                    }
+                }
+                HirExprKind::Block(block) => {
+                    for line in block.lines.iter_mut().rev() {
+                        stack.push(&mut line.expr);
+                    }
+                }
+                HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+                    stack.push(value.as_mut());
+                }
+                HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+                    stack.push(inner.as_mut());
+                }
+                HirExprKind::Intrinsic { args, .. } => {
+                    for arg in args.iter_mut().rev() {
+                        stack.push(arg);
+                    }
+                }
+                HirExprKind::Unit
+                | HirExprKind::LiteralI32(_)
+                | HirExprKind::LiteralF32(_)
+                | HirExprKind::LiteralBool(_)
+                | HirExprKind::LiteralStr(_)
+                | HirExprKind::Var(_)
+                | HirExprKind::FnValue(_)
+                | HirExprKind::Drop { .. } => {}
+            }
+        }
+    }
+
     fn process_instantiation(&mut self, orig_name: String, args: Vec<TypeId>) {
         let mut resolved_args = Vec::new();
         for arg in &args {
@@ -563,8 +695,8 @@ impl<'a> Monomorphizer<'a> {
             );
         }
 
-        let mut f = match self.funcs.get(&orig_name) {
-            Some(f) => f.clone(),
+        let mut f = match self.take_function_for_instantiation(&orig_name, args.is_empty()) {
+            Some(f) => f,
             None => {
                 if crate::log::is_verbose() {
                     let related = self
@@ -592,32 +724,35 @@ impl<'a> Monomorphizer<'a> {
             }
         }
 
-        let mut local_names: BTreeSet<String> = BTreeSet::new();
-        for p in &f.params {
-            local_names.insert(p.name.clone());
-        }
-        if let HirBody::Block(b) = &f.body {
-            collect_local_names_in_block(b, &mut local_names);
-        }
-
-        // Substitute body
         f.name = mangled.clone();
-        f.result = self.ctx.substitute(f.result, &mapping);
-        for p in &mut f.params {
-            p.ty = self.ctx.substitute(p.ty, &mapping);
-        }
-        f.func_ty = match self.ctx.get(f.func_ty) {
-            TypeKind::Function { effect, .. } if !args.is_empty() => {
-                let params = f.params.iter().map(|p| p.ty).collect::<Vec<_>>();
-                self.ctx.function(Vec::new(), params, f.result, effect)
+        if mapping.is_empty() {
+            self.queue_concrete_callees(&mut f);
+        } else {
+            let mut local_names: BTreeSet<String> = BTreeSet::new();
+            for p in &f.params {
+                local_names.insert(p.name.clone());
             }
-            _ => self.ctx.substitute(f.func_ty, &mapping),
-        };
+            if let HirBody::Block(b) = &f.body {
+                collect_local_names_in_block(b, &mut local_names);
+            }
 
-        match &mut f.body {
-            HirBody::Block(b) => self.substitute_block(b, &mapping, &local_names),
-            HirBody::Wasm(_) => {}   // Wasm blocks don't hold TypeIds usually
-            HirBody::LlvmIr(_) => {} // LLVM IR blocks don't hold TypeIds usually
+            f.result = self.ctx.substitute(f.result, &mapping);
+            for p in &mut f.params {
+                p.ty = self.ctx.substitute(p.ty, &mapping);
+            }
+            f.func_ty = match self.ctx.get(f.func_ty) {
+                TypeKind::Function { effect, .. } => {
+                    let params = f.params.iter().map(|p| p.ty).collect::<Vec<_>>();
+                    self.ctx.function(Vec::new(), params, f.result, effect)
+                }
+                _ => self.ctx.substitute(f.func_ty, &mapping),
+            };
+
+            match &mut f.body {
+                HirBody::Block(b) => self.substitute_block(b, &mapping, &local_names),
+                HirBody::Wasm(_) => {} // Wasm blocks don't hold TypeIds usually
+                HirBody::LlvmIr(_) => {} // LLVM IR blocks don't hold TypeIds usually
+            }
         }
 
         if let HirBody::Block(b) = &f.body {

@@ -420,7 +420,164 @@ fn visit_call_args_with_params(
     }
 }
 
+fn can_visit_expr_iteratively(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> bool {
+    let mut stack = Vec::new();
+    stack.push(expr);
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::Var(_)
+            | HirExprKind::FnValue(_)
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit
+            | HirExprKind::Drop { .. } => {}
+            HirExprKind::Call { callee, args } => {
+                match callee {
+                    FuncRef::Builtin(name) | FuncRef::User(name, _)
+                        if name == "get" || name == "if" || name == "while" =>
+                    {
+                        return false;
+                    }
+                    _ => {}
+                }
+                let params = match callee {
+                    FuncRef::User(name, _) => ctx.function_params.get(name).map(Vec::as_slice),
+                    _ => None,
+                };
+                for (i, arg) in args.iter().enumerate().rev() {
+                    let param_ty = params.and_then(|p| p.get(i)).copied();
+                    if param_ty
+                        .and_then(|ty| reference_borrow_kind(tctx, ty))
+                        .is_some()
+                    {
+                        return false;
+                    }
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::CallIndirect {
+                callee,
+                params,
+                args,
+                ..
+            } => {
+                for (i, arg) in args.iter().enumerate().rev() {
+                    if params
+                        .get(i)
+                        .copied()
+                        .and_then(|ty| reference_borrow_kind(tctx, ty))
+                        .is_some()
+                    {
+                        return false;
+                    }
+                    stack.push(arg);
+                }
+                stack.push(callee);
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
+            }
+            HirExprKind::TupleConstruct { items } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
+            }
+            HirExprKind::Intrinsic { name, args, .. } => {
+                if name == "load" || name == "store" {
+                    return false;
+                }
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::If { .. }
+            | HirExprKind::While { .. }
+            | HirExprKind::Match { .. }
+            | HirExprKind::Block(_)
+            | HirExprKind::Let { .. }
+            | HirExprKind::Set { .. }
+            | HirExprKind::AddrOf(_)
+            | HirExprKind::Deref(_) => return false,
+        }
+    }
+    true
+}
+
+fn visit_expr_iteratively(
+    expr: &HirExpr,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) {
+    let mut stack = Vec::new();
+    stack.push(expr);
+    while let Some(expr) = stack.pop() {
+        let is_copy = tctx.is_copy(expr.ty);
+        match &expr.kind {
+            HirExprKind::Var(name) => ctx.check_use(name, expr.span, is_copy),
+            HirExprKind::Drop { name } => ctx.check_drop(name, expr.span),
+            HirExprKind::Call { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+                stack.push(callee);
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
+            }
+            HirExprKind::TupleConstruct { items } | HirExprKind::Intrinsic { args: items, .. } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
+            }
+            HirExprKind::FnValue(_)
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit => {}
+            HirExprKind::If { .. }
+            | HirExprKind::While { .. }
+            | HirExprKind::Match { .. }
+            | HirExprKind::Block(_)
+            | HirExprKind::Let { .. }
+            | HirExprKind::Set { .. }
+            | HirExprKind::AddrOf(_)
+            | HirExprKind::Deref(_) => unreachable!("iterative move check precheck failed"),
+        }
+    }
+}
+
 fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::TypeCtx) {
+    if can_visit_expr_iteratively(expr, ctx, tctx) {
+        visit_expr_iteratively(expr, ctx, tctx);
+        return;
+    }
+
     let is_copy = tctx.is_copy(expr.ty);
     // ctx.diagnostics.push(Diagnostic::warning(alloc::format!("DEBUG: visiting kind {:?}", expr.kind), expr.span));
 
