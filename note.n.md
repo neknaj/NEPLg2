@@ -16221,3 +16221,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 今回は実装修正ではなく、CI結果をレビューIssue管理へ反映した。
+
+# 2026-04-26 メモ (RV-EXAMPLE-012 stdio example UTF-8 入力確認)
+
+- [原因]:
+  - `examples/stdio.nepl` の doctest は `sample` と `hello` の ASCII 入力だけを確認しており、1 行入力 example として UTF-8 入力の回帰を持っていなかった。
+  - コメントでは「fixture 入力と inline 入力の両方」と説明していたが、実際にはどちらも inline `stdin:` を使う doctest だった。
+- [修正]:
+  - 2 つ目の doctest を `stdio_utf8` に変更し、`こんにちは` を stdin から読み取ってそのまま表示する回帰にした。
+  - example コメントを ASCII / UTF-8 入力の説明へ更新し、`doc/examples.md` の一覧も同じ表現へ揃えた。
+  - `doc/review20260425/examples.md` / `issues.md` に `RV-EXAMPLE-012` を追加し、verified として記録した。
+- [検証]:
+  - `node nodesrc/tests.js -i examples/stdio.nepl --no-tree -o tmp/stdio-utf8-tests.json -j 2`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-stdio-utf8-tests.json -j 4`: `total=12`, `passed=12`, `failed=0`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-example-012.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 標準入力 example の説明と回帰を UTF-8 前提に揃えたもので、言語仕様や stdlib API の変更はない。

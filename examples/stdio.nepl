@@ -5,18 +5,18 @@
 //:     ##: > input:
 //:     ##: sample
 //:
-//: neplg2:test[stdio_inline, normalize_newlines, strip_ansi]
-//: stdin: "hello\n"
+//: neplg2:test[stdio_utf8, normalize_newlines, strip_ansi]
+//: stdin: "こんにちは\n"
 //: stdout: mlstr:
 //:     ##: accepting input...
 //:     ##: > input:
-//:     ##: hello
+//:     ##: こんにちは
 //:
 //: stdio: 1 行入力をそのまま表示する基本例
 //:
 //: [目的/もくてき]:
 //: - `read_line` で 1 行を受け取り、そのまま表示する最小の入出力例を示します。
-//: - fixture 入力と inline 入力の両方で doctest できる形を提供します。
+//: - ASCII 入力と UTF-8 入力の両方で doctest できる形を提供します。
 //:
 //: [実装/じっそう]:
 //: - 開始メッセージを出したあと、`read_line` で 1 行読み込みます。
@@ -24,6 +24,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `read_line` は末尾改行を含まない文字列を返します。
+//: - 入力文字列は UTF-8 として扱われ、日本語などの非 ASCII 文字もそのまま表示します。
 #entry main
 #indent 4
 #target std

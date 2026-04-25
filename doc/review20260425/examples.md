@@ -425,3 +425,43 @@ stdlib の `Vec::filled` と既存の `Stack::push_ref` を使い、`bf.nepl` �
 - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-filled-tests.json -j 2` (`total=39`, `passed=39`, `failed=0`)
 - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-filled-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)
 - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-bf-filled-tests.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+
+## RV-EXAMPLE-012: stdio example が UTF-8 標準入力を回帰確認していない
+
+- 解決済: true
+- 状態: verified
+- 優先度: P3
+- 種別: test
+- 対象: `examples/stdio.nepl`, `doc/examples.md`
+
+### 根拠
+
+- `examples/stdio.nepl`: doctest が `sample` と `hello` の ASCII 入力だけを確認していた。
+- `examples/stdio.nepl`: コメントでは「fixture 入力と inline 入力の両方」と説明していたが、実際にはどちらも inline `stdin:` の doctest だった。
+- `doc/examples.md`: `stdio.nepl` を「1 行入力の基本例」とだけ説明しており、UTF-8 入力を扱う例であることが分からなかった。
+
+### 問題
+
+標準入力 example は、利用者が `read_line` の文字列境界を確認する最小例です。しかし ASCII だけを重複して検証していたため、NEPLg2 のテキストファイルと文字列が UTF-8 前提であることを example 側で示せていませんでした。加えて、コメントが実際の doctest 形式とずれていました。
+
+### 影響
+
+日本語などの非 ASCII 入力がそのまま `read_line` / `println` 経路を通ることを examples の回帰で確認できません。利用者向けの説明も実態とずれ、標準入力サンプルとしての信頼性が下がります。
+
+### 修正方針
+
+重複していた 2 つ目の ASCII doctest を UTF-8 入力の回帰に置き換えます。コメントは「ASCII 入力と UTF-8 入力」を確認する説明へ修正し、`doc/examples.md` の一覧も同じ表現へ揃えます。
+
+### 対応結果
+
+`examples/stdio.nepl` に `stdio_utf8` doctest を追加し、`こんにちは` を stdin から読み取ってそのまま表示することを確認する形にしました。コメントの「fixture / inline」表現を削除し、UTF-8 入力をそのまま表示する注意点を追加しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i examples/stdio.nepl --no-tree -o tmp/stdio-utf8-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-stdio-utf8-tests.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-example-012.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+- `git diff --check`

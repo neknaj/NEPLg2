@@ -30,7 +30,7 @@ node nodesrc/tests.js -i examples --no-tree -o tmp/examples-tests.json -j 4
 - `fib.nepl`
   状態を持つ逐次計算の例
 - `stdio.nepl`
-  1 行入力の基本例
+  ASCII / UTF-8 の 1 行入力の基本例
 - `bf.nepl`
   Brainfuck 実行器
 - `rpn.nepl`
