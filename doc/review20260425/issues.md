@@ -9,10 +9,10 @@
 | 領域 | Open | 解決済 |
 |---|---:|---:|
 | core | 3 | 18 |
-| cli | 6 | 7 |
+| cli | 5 | 8 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 18 | 44 |
+| 合計 | 17 | 45 |
 
 ## Core
 
@@ -48,7 +48,7 @@
 | [RV-CLI-002](./cli.md#rv-cli-002-通常実行で-debug-ログが出力される) | true | verified | P1 | bug | CLI の内部 debug/progress 出力を verbose gate 配下へ移動済み |
 | [RV-CLI-003](./cli.md#rv-cli-003-nepl-cli-test-が-nmd-doctest-を対象にしない) | false | open | P1 | test | Rust CLI の test サブコマンドが `.nepl` だけを集める |
 | [RV-CLI-004](./cli.md#rv-cli-004-wasi-fd_write-が-stdout-専用で-stderr-を扱えない) | true | verified | P1 | bug | fd 1/2 の共通 iovec 読み取りと stderr immediate flush を実装済み |
-| [RV-CLI-005](./cli.md#rv-cli-005-path_open-が-wasi-の-preopen-モデルを実装していない) | false | open | P1 | security | host path を直接 `fs::read` する |
+| [RV-CLI-005](./cli.md#rv-cli-005-path_open-が-wasi-の-preopen-モデルを実装していない) | true | verified | P1 | security | fd 3 preopen root、read-only rights、relative path sandbox 検証を実装済み |
 | [RV-CLI-006](./cli.md#rv-cli-006-stdlib-root-がビルド時パスに固定されている) | false | open | P2 | architecture | 配布バイナリで stdlib 解決が壊れやすい |
 | [RV-CLI-007](./cli.md#rv-cli-007-llvm-toolchain-条件が既定で-linux--clang-2110-に固定される) | false | open | P2 | bug | LLVM ターゲットの可搬性が低い |
 | [RV-CLI-008](./cli.md#rv-cli-008-nodesrc-cli-が未知引数をエラーにしない) | false | open | P3 | test | ドキュメント生成 CLI の typo を検出できない |

@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self, Read, Write};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -30,6 +30,10 @@ macro_rules! cli_verbose {
 
 const WASI_ERRNO_BADF: i32 = 8;
 const WASI_ERRNO_FAULT: i32 = 21;
+const WASI_ERRNO_INVAL: i32 = 28;
+const WASI_ERRNO_NOENT: i32 = 44;
+const WASI_ERRNO_NOTCAPABLE: i32 = 76;
+const WASI_RIGHT_FD_READ: i64 = 1 << 1;
 
 struct AllocState {
     // head of free list (address in linear memory), 0 == null
@@ -38,6 +42,7 @@ struct AllocState {
     stdin_pos: usize,
     stdin_eof: bool,
     args: Vec<Vec<u8>>,
+    preopens: BTreeMap<i32, PathBuf>,
     files: BTreeMap<i32, FileState>,
     next_fd: i32,
     tty_cols: u32,
@@ -221,6 +226,44 @@ fn write_host_stderr(bytes: &[u8]) -> io::Result<()> {
     let mut err = io::stderr().lock();
     err.write_all(bytes)?;
     err.flush()
+}
+
+fn default_preopens() -> BTreeMap<i32, PathBuf> {
+    let root = std::env::current_dir()
+        .ok()
+        .and_then(|p| p.canonicalize().ok())
+        .unwrap_or_else(|| PathBuf::from("."));
+    let mut preopens = BTreeMap::new();
+    preopens.insert(3, root);
+    preopens
+}
+
+fn path_open_rights_are_readonly(rights_base: i64, rights_inherit: i64) -> bool {
+    let allowed = WASI_RIGHT_FD_READ;
+    let base_ok = rights_base == 0 || (rights_base & !allowed) == 0;
+    let inherit_ok = rights_inherit == 0 || (rights_inherit & !allowed) == 0;
+    base_ok && inherit_ok
+}
+
+fn resolve_preopen_read_path(root: &Path, guest_path: &str) -> Result<PathBuf, i32> {
+    let path = Path::new(guest_path);
+    if path.as_os_str().is_empty()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                Component::Prefix(_) | Component::RootDir | Component::ParentDir
+            )
+        })
+    {
+        return Err(WASI_ERRNO_NOTCAPABLE);
+    }
+
+    let candidate = root.join(path);
+    let canonical = candidate.canonicalize().map_err(|_| WASI_ERRNO_NOENT)?;
+    if !canonical.starts_with(root) || !canonical.is_file() {
+        return Err(WASI_ERRNO_NOTCAPABLE);
+    }
+    Ok(canonical)
 }
 
 /// コマンドライン引数を定義するための構造体
@@ -1036,48 +1079,68 @@ fn run_wasm(
             "wasi_snapshot_preview1",
             "path_open",
             |mut caller: Caller<'_, AllocState>,
-             _dirfd: i32,
-             _dirflags: i32,
+             dirfd: i32,
+             dirflags: i32,
              path_ptr: i32,
              path_len: i32,
-             _oflags: i32,
-             _rights_base: i64,
-             _rights_inherit: i64,
-             _fdflags: i32,
+             oflags: i32,
+             rights_base: i64,
+             rights_inherit: i64,
+             fdflags: i32,
              fd_out: i32|
              -> i32 {
                 let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
                     Some(m) => m,
-                    None => return 21,
+                    None => return WASI_ERRNO_FAULT,
                 };
-                if path_ptr < 0 || path_len < 0 || fd_out < 0 {
-                    return 21;
+                if dirflags != 0 || oflags != 0 || fdflags != 0 {
+                    return WASI_ERRNO_INVAL;
                 }
+                if !path_open_rights_are_readonly(rights_base, rights_inherit) {
+                    return WASI_ERRNO_NOTCAPABLE;
+                }
+                if path_ptr < 0 || path_len < 0 || fd_out < 0 {
+                    return WASI_ERRNO_FAULT;
+                }
+                let root = match caller.data().preopens.get(&dirfd) {
+                    Some(root) => root.clone(),
+                    None => return WASI_ERRNO_BADF,
+                };
                 let mem = memory.data(&caller);
                 let start = path_ptr as usize;
-                let end = start.saturating_add(path_len as usize);
-                if end > mem.len() || (fd_out as usize) + 4 > mem.len() {
-                    return 21;
+                let end = match start.checked_add(path_len as usize) {
+                    Some(end) => end,
+                    None => return WASI_ERRNO_FAULT,
+                };
+                if end > mem.len() {
+                    return WASI_ERRNO_FAULT;
                 }
-                let path = std::str::from_utf8(&mem[start..end]).unwrap_or("");
+                if fd_out as usize > mem.len().saturating_sub(4) {
+                    return WASI_ERRNO_FAULT;
+                }
+                let path = match std::str::from_utf8(&mem[start..end]) {
+                    Ok(path) => path,
+                    Err(_) => return WASI_ERRNO_INVAL,
+                };
+                let path = match resolve_preopen_read_path(&root, path) {
+                    Ok(path) => path,
+                    Err(errno) => return errno,
+                };
                 let data = match fs::read(path) {
                     Ok(d) => d,
-                    Err(_) => return 44,
+                    Err(_) => return WASI_ERRNO_NOENT,
                 };
                 let fd = caller.data().next_fd;
-                caller.data_mut().next_fd += 1;
-                caller
-                    .data_mut()
-                    .files
-                    .insert(fd, FileState { data, pos: 0 });
-                let fd_bytes = (fd as u32).to_le_bytes();
-                if memory
-                    .write(&mut caller, fd_out as usize, &fd_bytes)
-                    .is_err()
+                let fd_u32 = match u32::try_from(fd) {
+                    Ok(fd) => fd,
+                    Err(_) => return WASI_ERRNO_FAULT,
+                };
                 {
-                    return 21;
+                    let state = caller.data_mut();
+                    state.next_fd += 1;
+                    state.files.insert(fd, FileState { data, pos: 0 });
                 }
-                0
+                write_wasi_u32(memory, &mut caller, fd_out, fd_u32)
             },
         )?;
         linker.func_wrap(
@@ -1378,6 +1441,7 @@ fn run_wasm(
             stdin_pos: 0,
             stdin_eof: false,
             args: args_bytes,
+            preopens: default_preopens(),
             files: BTreeMap::new(),
             next_fd: 4,
             tty_cols,

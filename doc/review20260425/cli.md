@@ -182,11 +182,11 @@ WASI program から fd 2 へ出力する fixture を追加し、stderr 比較を
 
 ## RV-CLI-005: path_open が WASI の preopen モデルを実装していない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: security
-- 対象: `nepl-cli/src/main.rs`, `stdlib/std/fs.nepl`
+- 対象: `nepl-cli/src/main.rs`, `nepl-cli/tests/cli_output.rs`
 
 ### 根拠
 
@@ -206,9 +206,26 @@ WASI 互換性だけでなく、sandbox として危険です。テストが hos
 
 preopen table を `AllocState` に持ち、`path_open` は dirfd と rights を検査して preopen root 内の canonical path のみ許可します。読み込み専用から始め、errno を WASI の値に合わせます。
 
+### 対応結果
+
+`AllocState` に preopen table を追加し、fd 3 を CLI 実行時の current directory に対応する preopen root として初期化しました。`path_open` は dirfd、flags、rights、guest path、fd_out pointer を検査し、relative path を canonicalize した上で preopen root 内の通常ファイルだけを読み込みます。
+
+`..`、absolute path、別 drive prefix、unsupported flags / rights は sandbox 逸脱または invalid として拒否します。存在しない path は `NOENT`、不正な memory range は `FAULT`、未登録 dirfd は `BADF` を返すようにし、host path を guest 文字列から直接 `fs::read` する経路を削除しました。
+
 ### 検証
 
-preopen 内ファイル読み込み、preopen 外 `..` 拒否、存在しない path の errno をテストします。
+preopen 内ファイル読み込み、preopen 外 `..` 拒否、存在しない path の errno を `nepl-cli/tests/cli_output.rs` の raw WASI fixture で固定しました。`stdlib/std/fs.nepl` 経由の doctest 実行は `RV-STDLIB-006` の範囲で扱い、ここでは CLI runtime の `path_open` sandbox 境界だけを切り分けて検証しています。
+
+確認済み:
+
+- `cargo fmt --all --check`: pass
+- `cargo test -p nepl-cli --test cli_output run_wasi_path_open -- --nocapture`: 3 passed
+- `cargo test -p nepl-cli`: unit 8 passed, integration 8 passed, ignored 2
+- `cargo check --workspace`: pass
+- `node tests/compiler/tree/run.js`: 19/19 passed
+- `trunk build`: pass
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-005.json`: 13/13 passed
+- `git diff --check`: pass
 
 ## RV-CLI-006: stdlib root がビルド時パスに固定されている
 

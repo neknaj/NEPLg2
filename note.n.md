@@ -16125,3 +16125,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CLI runtime の WASI 互換性を補う修正であり、言語仕様の変更はない。
+
+# 2026-04-25 メモ (RV-CLI-005 WASI path_open preopen sandbox)
+
+- [原因]:
+  - `nepl-cli` の WASI runtime は `path_open` で guest path を host path として直接 `fs::read` しており、dirfd / rights / flags / preopen root の検査をしていなかった。
+  - `stdlib/std/fs.nepl` は fd 3 の preopen directory を仮定しているが、CLI runtime 側に preopen table がなく、sandbox 境界が runtime 実装として表現されていなかった。
+  - `path_open` の不正 pointer / 不正 UTF-8 / 存在しない file / sandbox escape が同じように扱われ、WASI errno として検証できる状態ではなかった。
+- [修正]:
+  - `AllocState` に preopen table を追加し、fd 3 を CLI 実行時の current directory の canonical path に対応付けた。
+  - `path_open` で dirfd、flags、rights、guest path、fd_out pointer を検査し、relative path の canonical path が preopen root 内の通常ファイルである場合だけ読み込むようにした。
+  - `..` / absolute path / Windows drive prefix は `NOTCAPABLE`、未登録 dirfd は `BADF`、存在しない path は `NOENT`、memory fault は `FAULT` として返すようにした。
+  - `nepl-cli/tests/cli_output.rs` に raw WASI fixture を追加し、preopen 内読み込み、parent escape 拒否、missing file の errno を固定した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-cli --test cli_output run_wasi_path_open -- --nocapture`: 3 passed
+  - `cargo test -p nepl-cli`: unit 8 passed, integration 8 passed, ignored 2
+  - `cargo check --workspace`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-005.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+  - `git diff --check`: pass
+- [review issue]:
+  - `doc/review20260425/cli.md` / `issues.md` の `RV-CLI-005` を `verified` に更新し、集計を更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CLI runtime の WASI preopen sandbox を補う修正であり、言語仕様の変更はない。
+  - `stdlib/std/fs.nepl` 経由の runner 整備は既存の `RV-STDLIB-006` の範囲に残し、今回は `path_open` host function の境界を raw WASI fixture で切り分けた。
