@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::hir::HirBody;
@@ -54,10 +55,6 @@ pub const IMPURE_IO_EFFECT_MARKERS: &[&str] = &[
     "environ_sizes_get",
 ];
 
-pub fn marker_is_impure_io(text: &str) -> bool {
-    IMPURE_IO_EFFECT_MARKERS.iter().any(|m| text.contains(m))
-}
-
 pub fn intrinsic_effect(name: &str) -> Effect {
     if IMPURE_IO_EFFECT_MARKERS.iter().any(|m| *m == name) {
         Effect::Impure
@@ -66,18 +63,82 @@ pub fn intrinsic_effect(name: &str) -> Effect {
     }
 }
 
-pub fn raw_lines_effect(lines: &[String]) -> Effect {
-    if lines.iter().any(|line| marker_is_impure_io(line)) {
-        Effect::Impure
-    } else {
-        Effect::Pure
+pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {
+    let lines = match body {
+        HirBody::Wasm(w) => &w.lines,
+        HirBody::LlvmIr(l) => &l.lines,
+        HirBody::Block(_) => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for line in lines {
+        let callee = match body {
+            HirBody::Wasm(_) => wasm_direct_callee(line),
+            HirBody::LlvmIr(_) => llvm_direct_callee(line),
+            HirBody::Block(_) => None,
+        };
+        if let Some(callee) = callee {
+            out.push(callee);
+        }
+    }
+    out
+}
+
+fn wasm_direct_callee(line: &str) -> Option<String> {
+    let code = strip_wasm_comment(line).trim();
+    let mut parts = code.split_whitespace();
+    if parts.next()? != "call" {
+        return None;
+    }
+    parts.next().map(normalize_raw_symbol)
+}
+
+fn strip_wasm_comment(line: &str) -> &str {
+    let semi = line.find(";;");
+    let slash = line.find("//");
+    match (semi, slash) {
+        (Some(a), Some(b)) => &line[..core::cmp::min(a, b)],
+        (Some(a), None) | (None, Some(a)) => &line[..a],
+        (None, None) => line,
     }
 }
 
-pub fn raw_body_effect(body: &HirBody) -> Effect {
-    match body {
-        HirBody::Wasm(w) => raw_lines_effect(&w.lines),
-        HirBody::LlvmIr(l) => raw_lines_effect(&l.lines),
-        HirBody::Block(_) => Effect::Pure,
+fn llvm_direct_callee(line: &str) -> Option<String> {
+    let code = line.split(';').next().unwrap_or(line).trim();
+    let call_idx = code.find("call ")?;
+    let rest = &code[(call_idx + "call ".len())..];
+    let at_idx = rest.find('@')?;
+    let after_at = &rest[(at_idx + 1)..];
+    parse_llvm_symbol(after_at).map(normalize_raw_symbol)
+}
+
+fn parse_llvm_symbol(text: &str) -> Option<&str> {
+    let text = text.trim_start();
+    if let Some(rest) = text.strip_prefix('"') {
+        let end = rest.find('"')?;
+        return Some(&rest[..end]);
+    }
+    let end = text
+        .find(|c: char| c == '(' || c.is_whitespace())
+        .unwrap_or(text.len());
+    if end == 0 {
+        None
+    } else {
+        Some(&text[..end])
+    }
+}
+
+fn normalize_raw_symbol(symbol: &str) -> String {
+    let trimmed = symbol.trim();
+    let without_prefix = trimmed
+        .strip_prefix('$')
+        .or_else(|| trimmed.strip_prefix('@'))
+        .unwrap_or(trimmed);
+    if let Some(inner) = without_prefix
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+    {
+        String::from(inner)
+    } else {
+        String::from(without_prefix)
     }
 }

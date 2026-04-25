@@ -15779,3 +15779,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CLI を外部 tool / test runner から呼ぶ前提で、stdout/stderr の責務境界を明確にした。
+
+# 2026-04-25 メモ (RV-CORE-008 raw body effect 判定の宣言依存化)
+
+- [原因]:
+  - raw wasm / LLVM IR の effect 判定が行文字列の `contains` に依存していたため、コメント内の `fd_write` や `fd_write_like` のような部分一致で false positive が発生し得た。
+  - 実際の direct call target と NEPL 側の callable / extern 宣言の effect が結び付いておらず、raw body の純粋性検査を根拠あるものとして扱えなかった。
+- [修正]:
+  - `nepl-core/src/effects.rs` に raw wasm / LLVM IR の direct call target 抽出を追加し、コメントと部分文字列を effect 判定から除外した。
+  - `nepl-core/src/typecheck.rs` では抽出した target を宣言済み callable / extern symbol の effect と照合し、宣言がない場合だけ既知 WASI I/O marker の完全一致 fallback を使うようにした。
+  - `llvm.*` intrinsic は LLVM 内部 intrinsic として pure 扱いにした。
+  - `nepl-core/tests/effects.rs` に、コメント内 marker、部分文字列 name、宣言済み impure extern direct call の回帰テストを追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test effects`: `5 passed`
+  - `cargo fmt --all --check`: pass
+  - `cargo check --workspace`: pass
+  - `trunk build`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
+- [新規 issue]:
+  - `cargo test -p nepl-core` で first-class function / lambda の wasm codegen が `CodegenWasmUnknownVariable` / `CodegenWasmUnknownFunctionValue` になる既存不具合を確認したため、`RV-CORE-017` として追加した。
+- [既存残件]:
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-stdlib --no-tree -o tmp/rv-core-008-move-effect.json` は `23/26`。raw body effect の compile_fail は維持されているが、D3090 impl method signature mismatch の既存失敗が残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - raw body effect は文字列包含ではなく、direct call target と宣言済み effect の対応で検査する方向へ寄せた。

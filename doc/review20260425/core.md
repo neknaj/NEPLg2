@@ -306,11 +306,11 @@ unsupported intrinsic、unknown field selector、invalid raw wasm を `tests/com
 
 ## RV-CORE-008: effect 判定が文字列包含に依存していて不健全
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `nepl-core/src/effects.rs`, `nepl-core/src/typecheck.rs`
+- 対象: `nepl-core/src/effects.rs`, `nepl-core/src/typecheck.rs`, `nepl-core/tests/effects.rs`
 
 ### 根拠
 
@@ -330,9 +330,27 @@ pure 関数から外部 I/O が呼べる、または pure な raw body が impur
 
 raw body は明示 effect annotation を必須にするか、extern / intrinsic 宣言に effect を持たせて call graph で伝播します。文字列検索は診断補助に限定します。
 
+### 対応
+
+raw body の effect 推定から行文字列の `contains` 判定を削除し、raw wasm / LLVM IR の direct call target だけを抽出するようにしました。コメント内の `fd_write` や、`fd_write_like` のように impure marker を部分文字列として含むだけの名前は effect 判定に使いません。
+
+抽出した call target は、まず NEPL 側の宣言済み callable / extern symbol の effect と照合します。同じ target に impure な宣言があれば impure とし、pure 宣言だけなら pure として扱います。宣言が見つからない場合に限り、`fd_write` などの既知 WASI I/O marker と完全一致する intrinsic fallback で impure 判定します。LLVM の `llvm.*` intrinsic は compiler intrinsic として pure 扱いにしました。
+
 ### 検証
 
-pure 関数内の `fd_write` wrapper、コメントに `fd_write` を含む pure raw body、syscall 経由 I/O のテストを追加します。
+確認済み:
+
+- `cargo test -p nepl-core --test effects` (`5 passed`)
+- `cargo fmt --all --check`
+- `cargo check --workspace`
+- `trunk build`
+- `node tests/compiler/tree/run.js` (`total=19`, `passed=19`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`13/13 passed`)
+
+既存残件:
+
+- `cargo test -p nepl-core` で見つかった first-class function / lambda wasm codegen の失敗は `RV-CORE-017` として分離し、後続修正で解決済みです。
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-stdlib --no-tree -o tmp/rv-core-008-move-effect.json` は `23/26` です。raw body effect の `fd_write` compile_fail は維持されていますが、既存の D3090 impl method signature mismatch が `doctest#5` から `doctest#7` で残っています。
 
 ## RV-CORE-009: move/borrow/drop が Resource IR なしで後付け実装されている
 

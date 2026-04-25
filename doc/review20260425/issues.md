@@ -25,7 +25,7 @@
 | [RV-CORE-005](./core.md#rv-core-005-loader-が-import-clause-を無視して全-import-をフラット結合している) | false | open | P1 | bug | `as name` / selective import が loader の item 結合に反映されていない |
 | [RV-CORE-006](./core.md#rv-core-006-通常実行でデバッグ出力が-stderr-へ漏れる) | true | verified | P1 | bug | core loader/type string の debug 出力を verbose gate 配下へ移動済み |
 | [RV-CORE-007](./core.md#rv-core-007-codegen-が診断ではなく-panic-で落ちる経路を多数持つ) | true | verified | P0 | bug | WASM/LLVM backend の explicit panic 経路を diagnostic error に変換し、codegen compile_fail と直接 HIR 回帰テストを追加済み |
-| [RV-CORE-008](./core.md#rv-core-008-effect-判定が文字列包含に依存していて不健全) | false | open | P1 | bug | raw body の effect が文字列検索で決まり、純粋性検査が信用できない |
+| [RV-CORE-008](./core.md#rv-core-008-effect-判定が文字列包含に依存していて不健全) | true | verified | P1 | bug | raw body の direct call target を宣言済み effect で判定し、文字列包含依存を除去済み |
 | [RV-CORE-009](./core.md#rv-core-009-moveborrowdrop-が-resource-ir-なしで後付け実装されている) | false | open | P1 | architecture | ownership / borrow / drop が HIR 走査だけで実装されている |
 | [RV-CORE-010](./core.md#rv-core-010-name-resolution-が二重化し本パイプラインに統合されていない) | false | open | P2 | architecture | `resolve.rs` と `name_resolve.rs` が分かれ、後者は skeleton のまま |
 | [RV-CORE-011](./core.md#rv-core-011-typeexpr-が-span-を保持せず診断位置が失われる) | false | open | P2 | bug | `TypeExpr::span()` が常に dummy を返す |

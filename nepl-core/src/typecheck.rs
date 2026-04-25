@@ -15,7 +15,7 @@ use crate::builtins::BuiltinKind;
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
-use crate::effects::{intrinsic_effect, raw_body_effect};
+use crate::effects::{intrinsic_effect, raw_body_direct_callees};
 use crate::hir::*;
 use crate::loader::SourceMap;
 use crate::span::Span;
@@ -2345,16 +2345,50 @@ impl<'a> BlockChecker<'a> {
     }
 
     fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {
-        if matches!(self.current_effect, Effect::Pure)
-            && matches!(raw_body_effect(body), Effect::Impure)
-        {
-            self.diagnostics.push(
-                Diagnostic::error("pure context cannot call impure function", span)
-                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
-            );
-            return false;
+        if matches!(self.current_effect, Effect::Pure) {
+            for callee in raw_body_direct_callees(body) {
+                if self.raw_callee_is_impure(&callee) {
+                    self.diagnostics.push(
+                        Diagnostic::error("pure context cannot call impure function", span)
+                            .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                    );
+                    return false;
+                }
+            }
         }
         true
+    }
+
+    fn raw_callee_is_impure(&self, callee: &str) -> bool {
+        if callee.starts_with("llvm.") {
+            return false;
+        }
+        if let Some(effect) = self.raw_callee_declared_effect(callee) {
+            return matches!(effect, Effect::Impure);
+        }
+        matches!(intrinsic_effect(callee), Effect::Impure)
+    }
+
+    fn raw_callee_declared_effect(&self, callee: &str) -> Option<Effect> {
+        let mut saw_pure = false;
+        for binding in self
+            .env
+            .lookup_all_callables(callee)
+            .into_iter()
+            .chain(self.env.lookup_all_callables_by_symbol(callee).into_iter())
+        {
+            if let BindingKind::Func { effect, .. } = &binding.kind {
+                if matches!(effect, Effect::Impure) {
+                    return Some(Effect::Impure);
+                }
+                saw_pure = true;
+            }
+        }
+        if saw_pure {
+            Some(Effect::Pure)
+        } else {
+            None
+        }
     }
 
     fn select_target_raw_body(&mut self, block: &Block) -> Option<HirBody> {
