@@ -15126,3 +15126,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib allocator の free list 再利用が split remainder を保持できるようになり、レビューで記録した P0 メモリリーク系バグを 1 件解消した。
+
+# 2026-04-25 メモ (RV-STDLIB-011 追加)
+
+- [発見]:
+  - `RV-STDLIB-003` の対応調査中に、`Vec` / `Stack` から `Copy` を外すだけでは既存 read API が所有権を消費してしまうことを確認した。
+  - `stdlib/core/traits/copy.nepl` の `Clone::clone` も `<(Self)->Self>` の by-value なので、非 Copy 所有型を「元を残して複製」する能力として使えない。
+- [対応]:
+  - `doc/review20260425/issues.md` と `doc/review20260425/stdlib.md` に `RV-STDLIB-011` を追加した。
+  - `RV-STDLIB-011` は `RV-STDLIB-003` の前提になるため、todo に明示した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 現行 stdlib API が move / borrow 方針と噛み合っていない箇所を、追加 Issue として追跡対象にした。

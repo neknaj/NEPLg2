@@ -357,3 +357,34 @@ public API と input-dependent code では `unwrap` 系を禁止し、`match` �
 ### 検証
 
 `rg "unwrap"` の許可リストを作り、stdlib test で unsafe helper の新規使用を検出します。
+
+## RV-STDLIB-011: Clone と collection read API が by-value で非 Copy 所有型を扱えない
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: architecture
+- 対象: `stdlib/core/traits/copy.nepl`, `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
+
+### 根拠
+
+- `stdlib/core/traits/copy.nepl`: `Clone::clone` は `<(Self)->Self>` で、非 Copy 値を複製する前に元の値を move する形になっている。
+- `stdlib/alloc/collections/vec.nepl`: `len`, `cap`, `get`, `data_len` などの read API が `Vec<.T>` を by-value で受け取る。
+- `stdlib/alloc/collections/stack.nepl`: `len`, `is_empty`, `peek` などの read API が `Stack<.T>` を by-value で受け取る。
+- `tests/compiler/move_effect.n.md`: 非 Copy 値は by-value で渡すと move 後再利用不可になることを検証している。
+
+### 問題
+
+`RV-STDLIB-003` で `Vec` / `Stack` から `Copy` を外すと、読み取り API を呼んだだけで所有権を消費します。さらに現在の `Clone` は `Self` を値渡しで受けるため、非 Copy 所有型を「元を残して複製」する能力としては使えません。
+
+### 影響
+
+`Vec` / `Stack` を正しく非 Copy にするための前提が stdlib API 側にありません。このまま `Copy` を削除すると、既存の正常な読み取りや `free` 前の確認処理が move error になり、逆に `Copy` を残すと double free / aliasing が残ります。
+
+### 修正方針
+
+`Clone` を borrow-based な形へ移行するか、非 Copy 所有型向けに `clone_ref` 相当の能力を追加します。あわせて `Vec` / `Stack` の read API を所有権を消費しない形へ移行し、その後 `RV-STDLIB-003` で `Copy` と shallow `Clone` を削除します。
+
+### 検証
+
+`Vec` / `Stack` から `Copy` を外した状態で、`len` / `get` / `peek` の後に `free` できることを確認する compile/run テストを追加します。さらに `Vec` / `Stack` の単純代入後再利用が compile fail になることを確認します。

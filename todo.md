@@ -15,5 +15,6 @@
 2026-04-25 Review
 
 - `doc/review20260425/issues.md` の P0 Issue (`RV-CORE-003`, `RV-CORE-004`, `RV-CORE-007`, `RV-STDLIB-003`) を再現テスト付きで順に修正する
+- `RV-STDLIB-003` の前提として `RV-STDLIB-011` を解決し、非 Copy 所有型でも読み取り API と clone API が所有権を消費しない形へ整理する
 - `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
 - Issue を修正したら対応する `core.md` / `cli.md` / `stdlib.md` の `解決済` と `状態` を更新し、確認結果を `note.n.md` に記録する
