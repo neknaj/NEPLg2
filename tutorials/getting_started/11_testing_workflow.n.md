@@ -17,10 +17,12 @@ ret: 0
 #import "core/result" as *
 #import "std/test" as *
 
+// 負の値だけ符号を反転し、絶対値を返します。
 fn abs_i32 <(i32)->i32> (x):
     if lt x 0 then sub 0 x else x
 
 fn main <()*>i32> ():
+    // 典型値と境界値を先に固定し、仕様を崩さないようにします。
     let checks <Vec<Result<(),str>>>:
         checks_new
         |> checks_push assert_eq_i32 0 abs_i32 0
@@ -46,6 +48,7 @@ stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
 #import "core/result" as *
 
 fn main <()*>i32> ():
+    // 判定結果を一覧化してから終了コードへ落とします。
     let checks <Vec<Result<(),str>>>:
         checks_new
         |> checks_push Result<(),str>::Ok ()

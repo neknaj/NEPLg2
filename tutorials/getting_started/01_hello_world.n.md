@@ -8,14 +8,13 @@ NEPLg2 で実行可能な最小プログラムです。
 neplg2:test[stdio, normalize_newlines]
 stdout: "Hello, NEPL!\n"
 ```neplg2
-// 諸々を設定します
 #entry main
 #indent 4
 #target std
 
-// stdioをインポートします。
 #import "std/stdio" as *
 
+// 標準出力へ 1 行だけ表示する最小構成です。
 fn main <()*> ()> ():
     println "Hello, NEPL!";
 ```

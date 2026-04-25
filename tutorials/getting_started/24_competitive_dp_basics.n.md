@@ -22,6 +22,7 @@ stdout: "13\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
+// 直前 2 状態だけを持つ rolling DP で通り数を更新します。
 fn ways <(i32)*>i64> (n):
     if le n 1:
         then <i64> cast 1

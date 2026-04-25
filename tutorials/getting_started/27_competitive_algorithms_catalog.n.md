@@ -21,6 +21,7 @@ stdout: "60\n"
 #import "core/mem" as *
 
 fn main <()*> ()> ():
+    // 入力を Vec に貯め、配列走査の雛形として合計を計算します。
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
     let n <i32> read sc;
     let mut a <Vec<i32>> unwrap_ok new<i32>;

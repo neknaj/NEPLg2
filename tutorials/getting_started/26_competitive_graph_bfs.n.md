@@ -20,6 +20,7 @@ stdout: "0 1 2 3\n"
 #import "kp/kpgraph" as *
 #import "std/stdio" as *
 
+// 距離配列を空白区切りで整形して表示します。
 fn print_dist <(Vec<i32>)*>()> (dist):
     let span <VecDataLen<i32>> data_len<i32> dist;
     let n <i32> get span "len";
@@ -35,6 +36,7 @@ fn print_dist <(Vec<i32>)*>()> (dist):
     println ""
 |
 fn main <()*> ()> ():
+    // 線形グラフを構築し、0 番からの BFS 距離をまとめて出力します。
     let g <DenseGraph> dense_graph_new 4;
     let g_mem <i32> alloc_raw size_of<DenseGraph>;
     store<DenseGraph> g_mem g;

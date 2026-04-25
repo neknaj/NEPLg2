@@ -16,6 +16,7 @@ stdout: "6 -> Fizz\n10 -> Buzz\n30 -> FizzBuzz\n7 -> 7\n"
 #import "std/stdio" as *
 #import "alloc/string" as *
 
+// 1 つの値を FizzBuzz 表記へ変換して表示します。
 fn show_line <(i32)*>()> (n):
     print_i32 n;
     print " -> ";
@@ -52,6 +53,7 @@ stdout: "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz
 #import "std/stdio" as *
 #import "alloc/string" as *
 
+// 1 から n までを順に判定し、その場で標準出力へ流します。
 fn print_fizzbuzz_1_to_n <(i32)*>()> (n):
     let mut i <i32> 1;
     while le i n:

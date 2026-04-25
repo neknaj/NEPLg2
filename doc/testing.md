@@ -31,6 +31,13 @@ Run only the executable examples and inspect the aggregated JSON:
 node nodesrc/tests.js -i examples --no-tree -o /tmp/examples-tests.json -j 8
 ```
 
+Verify that tracked text files are UTF-8 without BOM:
+
+```bash
+node nodesrc/check_utf8.js
+node nodesrc/check_utf8.js tutorials/getting_started
+```
+
 Run one doctest directly:
 
 ```bash
@@ -109,6 +116,10 @@ Tutorials also contain doctests.
 
 These act as executable documentation and should reflect the current stdlib
 layout and API style.
+
+Tutorial documents should also stay UTF-8 without BOM so ruby annotations and
+Japanese text render consistently across the CLI, generated HTML, and the web
+playground.
 
 ## Runtime model used by `nodesrc`
 
