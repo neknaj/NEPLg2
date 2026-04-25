@@ -686,10 +686,13 @@ fn main <()->i32> ():
     id 1
 ```
 
-## overloads_with_different_arity_are_allowed
+## overloads_with_different_arity_are_error
 
-neplg2:test
-ret: 1
+Rust integration test と同じく、同じ名前の overload は arity が違っても曖昧定義として扱われます。
+この fixture は成功実行ではなく `D3005` の診断を期待します。
+
+neplg2:test[compile_fail]
+diag_id: 3005
 ```neplg2
 
 #entry main

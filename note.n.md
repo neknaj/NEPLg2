@@ -16058,3 +16058,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - lowered module の物理的な AST 分割はまだ導入せず、現行 AST と HIR/typecheck pipeline を崩さない範囲で gate 判定の source of truth と invalid 診断を先に統一した。
   - `tests/compiler/neplg2.n.md` の既存 overload arity fixture 不整合は、言語仕様確認が必要なため別 issue として扱う。
+
+# 2026-04-26 メモ (RV-CORE-021 neplg2.n.md overload arity fixture 不整合)
+
+- [原因]:
+  - `nepl-core/tests/neplg2.rs` では `overloads_with_different_arity_are_error` が現行仕様として固定されている。
+  - 一方で `tests/compiler/neplg2.n.md` は `overloads_with_different_arity_are_allowed` として成功実行を期待しており、Node doctest runner で `D3005 ambiguous overload` になっていた。
+- [修正]:
+  - `.n.md` 側の fixture 名を `overloads_with_different_arity_are_error` に変更した。
+  - 期待値を `neplg2:test[compile_fail]` + `diag_id: 3005` に変更し、Rust integration test と同じ仕様を検証するようにした。
+  - `doc/review20260425/core.md` / `issues.md` の `RV-CORE-021` を verified に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 overloads_with_different_arity_are_error -- --nocapture`: 1 passed
+  - `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg2-rv-core-021.json -j 2`: `total=45`, `passed=45`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 言語仕様を変更せず、現行 compiler の診断仕様に doctest fixture を揃えた。

@@ -887,8 +887,8 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 
 ## RV-CORE-021: neplg2.n.md の overload arity fixture が Rust test と不整合
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P2
 - 種別: test
 - 対象: `tests/compiler/neplg2.n.md`, `nepl-core/tests/neplg2.rs`
@@ -911,6 +911,11 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 
 言語仕様として「同名 overload の arity 差を許可する」のか「現行通り error とする」のかを確認し、Rust test と `.n.md` doctest を同じ期待値へ揃えます。現行実装を維持する場合は `.n.md` 側を compile_fail + diagnostic ID 期待へ更新します。
 
+### 対応
+
+現行 Rust test の `overloads_with_different_arity_are_error` に合わせ、`tests/compiler/neplg2.n.md` の fixture 名と期待値を `compile_fail` + `diag_id: 3005` へ変更しました。これにより `neplg2.n.md` の doctest と Rust integration test が同じ仕様を検証します。
+
 ### 検証
 
-修正時には `cargo test -p nepl-core --test neplg2` と `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree` を両方通します。
+- `cargo test -p nepl-core --test neplg2 overloads_with_different_arity_are_error -- --nocapture` (`1 passed`)
+- `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg2-rv-core-021.json -j 2` (`total=45`, `passed=45`, `failed=0`)

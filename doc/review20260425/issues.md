@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 5 | 16 |
+| core | 4 | 17 |
 | cli | 7 | 6 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 21 | 41 |
+| 合計 | 20 | 42 |
 
 ## Core
 
@@ -38,7 +38,7 @@
 | [RV-CORE-018](./core.md#rv-core-018-nested-aggregate-を-tuple-から取り出すと-2-番目以降の値が壊れる) | true | verified | P0 | bug | named generic aggregate の storage layout 解決を修正し、`Tuple(Vec, Vec)` の 2 番目以降を正しく copy できるよう修正済み |
 | [RV-CORE-019](./core.md#rv-core-019-generic-wrapper--nested-generic-enum-の期待型伝播が-typenomatchingoverload-になる) | true | verified | P1 | bug | generic wrapper / nested generic enum の型引数汚染を防ぎ、`TypeNoMatchingOverload` を修正済み |
 | [RV-CORE-020](./core.md#rv-core-020-pipe-左辺の部分適用が-d3013-になり-rust-test-と-doctest-の状態が不整合) | true | verified | P2 | bug | pipe 左辺の退避範囲を未完了 callable の直近引数式に限定し、`pipe_nested_pipes` / `pipe_in_if` の skip を解除済み |
-| [RV-CORE-021](./core.md#rv-core-021-neplg2nmd-の-overload-arity-fixture-が-rust-test-と不整合) | false | open | P2 | test | `tests/compiler/neplg2.n.md` の overload arity doctest が現行 Rust test と不整合 |
+| [RV-CORE-021](./core.md#rv-core-021-neplg2nmd-の-overload-arity-fixture-が-rust-test-と不整合) | true | verified | P2 | test | overload arity doctest を現行 Rust test と同じ `D3005` compile_fail 期待へ修正済み |
 
 ## CLI
 
