@@ -1,3 +1,19 @@
+# 2026-04-26 メモ (legacy RPN example の stdlib API 化)
+
+- [状況]:
+  - `examples/rpn_regacy.nepl` はファイル名に typo があり、`core/mem` の raw allocation / load / store と `read_line` buffer の明示 `dealloc_raw` に依存していた。
+  - 互換用の小さな RPN REPL でありながら、利用者へ低レベルメモリ操作と内部 layout 前提を示す example になっていた。
+- [修正]:
+  - ファイル名を `examples/rpn_legacy.nepl` へ変更した。
+  - 入力処理を `str_trim` / `str_split` / `to_i32`、stack 処理を `Stack` / `Vec` / `pop_ref` / `push` に寄せ、raw memory 操作を削除した。
+  - `doc/examples.md` と `doc/review20260425` を更新し、`RV-EXAMPLE-003` を verified として追加した。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-example-tests.json -j 2`: 1/1 passed
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-after-rpn-legacy.json -j 4`: 12/12 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。raw memory を見せる旧 example ではなく、現行 stdlib の public API を使う互換 example として整理した。
+
 # 2026-04-26 メモ (nm example の現行表記化)
 
 - [状況]:

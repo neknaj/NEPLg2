@@ -1,0 +1,197 @@
+//: neplg2:test[rpn_legacy_simple, normalize_newlines, strip_ansi]
+//: [目的/もくてき]: 互換 RPN REPL で基本加算が動くことを確認する
+//: stdin: "1 2 +\n"
+//: stdout: mlstr:
+//:     ##: RPN REPL
+//:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
+//:     ##: 
+//:     ##: > ok: result = 3
+//:     ##: > bye
+//:
+//: rpn_legacy: 互換用の簡潔な RPN REPL
+//:
+//: [目的/もくてき]:
+//: - 以前の小さな RPN REPL example と同じ出力仕様を、現行 stdlib の public API だけで示します。
+//: - `rpn.nepl` より表示を控えめにし、tokenize / stack / result 表示の最小構成を読みやすく保ちます。
+//:
+//: [実装/じっそう]:
+//: - 入力行は `str_trim` と `str_split` でトークン化します。
+//: - 計算スタックは `Stack<i32>` を使い、取り出しは `pop_ref` で stack handle の所有権を保ちます。
+//: - 数値解析は `to_i32` に委譲し、文字列や stack の内部 layout は直接読みません。
+//:
+//: [注意/ちゅうい]:
+//: - 対応演算子は `+` `-` `*` の 3 種です。
+//: - 旧ファイル名の `rpn_regacy.nepl` は typo だったため、この example は `rpn_legacy.nepl` として管理します。
+#entry main
+#indent 4
+#target std
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/stdio" as *
+#import "alloc/string" as s
+#import "alloc/collections/stack" as stk
+#import "alloc/collections/vec" as v
+#import "alloc/diag/error" as *
+
+//: print_error: エラーメッセージを赤色で表示する
+//:
+//: [目的/もくてき]:
+//: - REPL の利用者向けエラーを `error: <msg>` 形式で標準出力へ出します。
+fn print_error <(str)*>()> (msg):
+    print ansi_bold;
+    print ansi_red;
+    print "error:";
+    print ansi_reset;
+    print " ";
+    println_color ansi_red msg;
+
+//: print_prompt: 入力待ちプロンプトを表示する
+//:
+//: [目的/もくてき]:
+//: - 各入力行の先頭に `> ` を表示します。
+fn print_prompt <()*>()> ():
+    print ansi_bold;
+    print_color ansi_green "> ";
+
+//: print_result: 計算結果を表示する
+//:
+//: [目的/もくてき]:
+//: - `ok: result = <val>` 形式で 1 行の結果を出力します。
+fn print_result <(i32)*>()> (val):
+    print ansi_bold;
+    print_color ansi_green "ok";
+    print_color ansi_gray ": result = ";
+    print ansi_bold;
+    print ansi_cyan;
+    print_i32 val;
+    print ansi_reset;
+    print "\n";
+
+//: apply_op: stack 上の 2 値へ二項演算を適用する
+//:
+//: [目的/もくてき]:
+//: - `+` `-` `*` を適用し、結果を同じ stack に積み直します。
+//: - stack が不足する場合はエラーを表示し、stack をそのまま返します。
+fn apply_op <(Stack<i32>,str)*>Stack<i32>> (stack, token):
+    if:
+        lt stk::len_ref<i32> &stack 2
+        then:
+            print_error "stack underflow";
+            stack
+        else:
+            match stk::pop_ref<i32> &stack:
+                Option::Some b:
+                    match stk::pop_ref<i32> &stack:
+                        Option::Some a:
+                            let res <i32>:
+                                if:
+                                    s::str_eq token "+"
+                                    then add a b
+                                    else:
+                                        if:
+                                            s::str_eq token "-"
+                                            then sub a b
+                                            else mul a b
+                            stk::push<i32> stack res
+                            |> unwrap_ok<Stack<i32>, Diag>
+                        Option::None:
+                            print_error "stack underflow";
+                            stack
+                Option::None:
+                    print_error "stack underflow";
+                    stack
+
+//: process_token: 1 token を数値または演算子として処理する
+//:
+//: [目的/もくてき]:
+//: - 数値 token は stack に積み、演算子 token は `apply_op` へ渡します。
+//: - 空 token や解析不能 token は、REPL 全体を落とさず値として処理します。
+fn process_token <(Stack<i32>,str)*>Stack<i32>> (stack, token):
+    if:
+        s::str_eq token ""
+        then:
+            stack
+        else:
+            let is_op <bool> or or s::str_eq token "+" s::str_eq token "-" s::str_eq token "*";
+            if:
+                is_op
+                then:
+                    apply_op stack token
+                else:
+                    match s::to_i32 token:
+                        Result::Ok val:
+                            stk::push<i32> stack val
+                            |> unwrap_ok<Stack<i32>, Diag>
+                        Result::Err _:
+                            print_error "unknown token";
+                            stack
+
+//: eval_line: 1 行の RPN 式を評価する
+//:
+//: [目的/もくてき]:
+//: - スペース区切りの RPN 式を評価し、結果または stack 個数エラーを表示します。
+//: - `Vec<str>` と `Stack<i32>` は処理後に明示的に `free` します。
+fn eval_line <(str)*>()> (line):
+    let trimmed <str> s::str_trim line;
+    let tokens <Vec<str>> s::str_split trimmed " ";
+    let n <i32> v::len_ref<str> &tokens;
+
+    let mut stack <Stack<i32>>:
+        stk::new<i32>
+        |> unwrap_ok<Stack<i32>, Diag>
+
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            match v::get_ref<str> &tokens i:
+                Option::Some tok:
+                    set stack process_token stack tok;
+                Option::None:
+                    ()
+            set i add i 1;
+
+    let sp <i32> stk::len_ref<i32> &stack;
+    if:
+        eq sp 1
+        then:
+            match stk::pop_ref<i32> &stack:
+                Option::Some val:
+                    print_result val;
+                Option::None:
+                    ()
+        else:
+            if:
+                eq sp 0
+                then:
+                    ()
+                else:
+                    print_error s::concat3 "stack has " s::from_i32 sp " values";
+
+    stk::free<i32> stack;
+    v::free<str> tokens;
+
+//: main: RPN REPL のエントリーポイント
+//:
+//: [目的/もくてき]:
+//: - 初期バナーを表示し、EOF 相当の空入力まで 1 行ずつ評価します。
+fn main <()*>()> ():
+    print ansi_bold;
+    println_color ansi_cyan "RPN REPL";
+    println_color ansi_gray "enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.";
+    println "";
+
+    let mut running <bool> true;
+    while running:
+        do:
+            print_prompt;
+            let input <str> read_line;
+            if:
+                eq s::len input 0
+                then:
+                    print ansi_bold;
+                    println_color ansi_yellow "bye";
+                    set running false;
+                else:
+                    eval_line input;

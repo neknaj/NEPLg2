@@ -35,7 +35,7 @@ node nodesrc/tests.js -i examples --no-tree -o tmp/examples-tests.json -j 4
   Brainfuck 実行器
 - `rpn.nepl`
   高水準 stdlib を使った RPN REPL
-- `rpn_regacy.nepl`
-  生メモリ中心の旧式 RPN REPL
+- `rpn_legacy.nepl`
+  互換用の簡潔な RPN REPL
 - `nm.nepl`
   Markdown 変換 CLI
