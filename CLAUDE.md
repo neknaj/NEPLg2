@@ -51,7 +51,7 @@ trunk build
 NO_COLOR=false node nodesrc/tests.js -i tests -i stdlib -o /tmp/tests-dual-full.json --runner all --llvm-all --assert-io --strict-dual --no-tree -j 2
 
 # LLVM tests (requires clang 21.1.0)
-NEPL_LLVM_CLANG_BIN=/path/to/clang node nodesrc/tests.js -i tests/llvm_target.n.md --runner llvm --llvm-compile-only -j 2
+NEPL_LLVM_CLANG_BIN=/path/to/clang node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tmp/tests-llvm-smoke.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2
 ```
 
 Always run `trunk build` before running `nodesrc/tests.js`. Confirm tests pass before committing.

@@ -9,10 +9,10 @@
 | 領域 | Open | 解決済 |
 |---|---:|---:|
 | core | 4 | 18 |
-| cli | 4 | 10 |
+| cli | 3 | 11 |
 | stdlib | 10 | 8 |
 | examples | 0 | 13 |
-| 合計 | 18 | 49 |
+| 合計 | 17 | 50 |
 
 ## Core
 
@@ -58,7 +58,7 @@
 | [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | false | open | P1 | test | `llvm-test` の full dual backend verification が 10 分 timeout で cancelled になる |
 | [RV-CLI-012](./cli.md#rv-cli-012-trunk-build-が-clean-checkout-で-webexamples-不在により失敗する) | true | verified | P2 | test | `web/examples` を npm prebuild で同期し、ローカル `trunk build` を clean checkout でも通るように修正済み |
 | [RV-CLI-013](./cli.md#rv-cli-013-playground-editor-cli-fixture-が-windows-crlf-checkout-で失敗する) | true | verified | P2 | test | fixture source を LF 正規化し、Windows checkout の CRLF で `nodesrc/cli.js` JSON テストが崩れないよう修正済み |
-| [RV-CLI-014](./cli.md#rv-cli-014-llvm-smoke-test-が存在しない-fixture-path-を指して-0件成功扱いになる) | false | open | P0 | test | CI が `tests/llvm_target.n.md` を指定しているが実ファイルは `tests/compiler/llvm_target.n.md`。LLVM smoke が `total=0` でも成功する |
+| [RV-CLI-014](./cli.md#rv-cli-014-llvm-smoke-test-が存在しない-fixture-path-を指して-0件成功扱いになる) | true | fixed | P0 | test | LLVM smoke の input path を `tests/compiler/llvm_target.n.md` に修正し、明示input 0件収集を error 扱いに修正済み |
 
 ## Stdlib
 

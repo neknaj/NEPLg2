@@ -106,8 +106,8 @@ CLI 内部の `DEBUG:` 出力と `nepl-cli test` の内部進捗ログを `cli_v
 
 ## RV-CLI-003: nepl-cli test が n.md doctest を対象にしない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: fixed
 - 優先度: P1
 - 種別: test
 - 対象: `nepl-cli/src/main.rs`, `nodesrc/tests.js`
@@ -542,17 +542,18 @@ GitHub Actions の Linux runner では表面化しにくい一方、Windows 開�
 
 ## RV-CLI-014: LLVM smoke test が存在しない fixture path を指して 0件成功扱いになる
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: fixed
 - 優先度: P0
 - 種別: test
-- 対象: `.github/workflows/ci.yml`, `nodesrc/tests.js`, `tests/compiler/llvm_target.n.md`
+- 対象: `.github/workflows/ci.yml`, `nodesrc/tests.js`, `tests/compiler/llvm_target.n.md`, `CLAUDE.md`
 
 ### 根拠
 
 - `.github/workflows/ci.yml:351` は `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2` を実行している。
 - repository 内の実ファイルは `tests/compiler/llvm_target.n.md` であり、`tests/llvm_target.n.md` は存在しない。
 - GitHub Actions run `24940960078` の `llvm-test` job ではこの smoke step が成功扱いになったが、artifact `llvm-tests/tests-llvm.json` は `total=0`, `passed=0`, `failed=0`, `errored=0` だった。
+- `CLAUDE.md` の LLVM test 例にも同じ存在しない path が残っており、さらに `nodesrc/tests.js` 必須の `-o` が欠けていた。
 
 ### 問題
 
@@ -566,8 +567,21 @@ LLVM backend の最小コンパイル確認が無効化されます。`Full dual
 
 CI の input path を `tests/compiler/llvm_target.n.md` に修正します。加えて、`nodesrc/tests.js` は明示 input に対して 0件収集になった場合は exit code 1 にします。ただし `--changed` のように差分なしが正常なモードがある場合は、そのモードだけ 0件を許容するように条件を分けます。
 
+### 対応結果
+
+`.github/workflows/ci.yml` の LLVM smoke input を `tests/compiler/llvm_target.n.md` に修正しました。さらに `nodesrc/tests.js` で、`--changed` ではない明示 input から runner 対象の doctest を1件も収集できなかった場合に `nodesrc/tests/no-runnable-doctests` の error result を JSON に書き、exit code 1 で失敗するようにしました。`CLAUDE.md` のLLVM smoke例も同じ実在pathと `-o tmp/tests-llvm-smoke.json` 付きのコマンドへ更新しました。
+
+これにより、CI のパス指定ミスや runner filter の不整合で `total=0` の artifact が成功扱いになることを防ぎます。
+
 ### 検証
 
-- `node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tmp/tests-llvm-smoke.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2`
-- `node nodesrc/tests.js -i tests/llvm_target.n.md -o tmp/tests-llvm-missing.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2` が失敗すること
-- push CI の `LLVM doctests via nodesrc runner` が `total>0` を記録すること
+確認済み:
+
+- `node nodesrc/tests.js -i tests/llvm_target.n.md -o tmp/tests-llvm-missing.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2`: 期待通り exit code 1、`summary.total=1`, `errored=1`
+- `node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tmp/tests-llvm-smoke.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2`: Windows では LLVM Linux target gate により失敗するが、`summary.total=6` を収集することを確認
+- `node nodesrc/tests.js --changed -o tmp/tests-changed-empty-rv-cli-014.json --no-tree --no-stdlib`: `--changed` の差分なしは従来通り `summary.total=0` で成功
+- `node --check nodesrc/tests.js`
+
+未確認:
+
+- push CI の Linux `LLVM doctests via nodesrc runner` が `total>0` かつ smoke 成功を記録すること。

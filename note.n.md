@@ -16258,3 +16258,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 実行可能 example の directive 明示を揃えた保守修正であり、言語仕様や stdlib API の変更はない。
+
+# 2026-04-26 メモ (RV-CLI-014 LLVM smoke 0件成功の修正)
+
+- [原因]:
+  - CI の `llvm-test` job は LLVM smoke で `tests/llvm_target.n.md` を指定していたが、実ファイルは `tests/compiler/llvm_target.n.md` だった。
+  - `nodesrc/tests.js` は存在しない明示 input や runner filter 後に実行対象が0件になった場合でも、`summary.total=0` の JSON を書いて成功扱いにしていた。
+  - そのため run `24940960078` では LLVM smoke が実質0件にもかかわらず成功し、直後の full dual backend verification timeout だけが表面化していた。
+- [修正]:
+  - `.github/workflows/ci.yml` の LLVM smoke input を `tests/compiler/llvm_target.n.md` に修正した。
+  - `nodesrc/tests.js` で `--changed` ではない明示 input から runner 対象 doctest を1件も収集できない場合、`nodesrc/tests/no-runnable-doctests` の error result を出して exit code 1 にするようにした。
+  - `CLAUDE.md` の LLVM smoke 例も実在pathと `-o tmp/tests-llvm-smoke.json` 付きのコマンドへ更新した。
+  - `doc/review20260425/cli.md` / `issues.md` の `RV-CLI-014` を `fixed` に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/llvm_target.n.md -o tmp/tests-llvm-missing.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2`: 期待通り失敗、`summary.total=1`, `errored=1`
+  - `node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tmp/tests-llvm-smoke.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2`: Windows では LLVM Linux target gate で失敗するが、`summary.total=6` を収集
+  - `node nodesrc/tests.js --changed -o tmp/tests-changed-empty-rv-cli-014.json --no-tree --no-stdlib`: pass、`summary.total=0`
+  - `node --check nodesrc/tests.js`: pass
+- [未確認]:
+  - Linux CI の `LLVM doctests via nodesrc runner` が `total>0` かつ smoke 成功を記録すること。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CI検証設計の修正であり、言語仕様や stdlib API の変更はない。

@@ -348,7 +348,7 @@ jobs:
                   clang -dumpmachine | grep -q linux
 
             - name: LLVM doctests via nodesrc runner
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2
+              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2
 
             - name: Full dual backend verification
               run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests -i stdlib -o tests-dual-full.json --runner all --llvm-all --assert-io --strict-dual -j 2

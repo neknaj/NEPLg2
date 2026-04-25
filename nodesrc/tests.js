@@ -1293,6 +1293,67 @@ async function main() {
         _llvmExplicit: isLlvmCase(c),
     }));
 
+    const runnableCaseCount = runner === 'wasm'
+        ? wasmCases.length
+        : runner === 'llvm'
+            ? llvmCases.length
+            : wasmCases.length + llvmCases.length;
+    if (runnableCaseCount === 0 && !changedOnly) {
+        const scanInputLabels = scanInputs.map((p) => path.relative(process.cwd(), path.resolve(p)));
+        const error = `no runnable doctests collected for inputs: ${scanInputLabels.join(', ') || '(none)'}`;
+        const results = [{
+            ok: false,
+            id: 'nodesrc/tests/no-runnable-doctests',
+            file: 'nodesrc/tests.js',
+            index: 0,
+            tags: ['scan'],
+            status: 'error',
+            phase: 'scan',
+            error,
+            detail: {
+                runner,
+                all_cases: allCases.length,
+                wasm_cases: wasmCases.length,
+                llvm_cases: llvmCases.length,
+            },
+            worker: 0,
+        }];
+        const summary = summarize(results);
+        const out = {
+            schema: 'neplg2-doctest/v1',
+            generated_at: new Date().toISOString(),
+            jobs,
+            runner,
+            llvm_all: llvmAll,
+            assert_io: assertIo,
+            strict_dual: strictDual,
+            llvm_compile_only: llvmCompileOnly,
+            dist_hint: distHint || null,
+            resolved_dist_dirs: [],
+            scan: {
+                changed: changedOnly,
+                changed_base: changedBase,
+                inputs: scanInputLabels,
+                include_stdlib: effectiveIncludeStdlib,
+                include_tree: effectiveIncludeTree,
+            },
+            summary,
+            results,
+        };
+        const outAbs = path.resolve(outPath);
+        ensureDir(path.dirname(outAbs));
+        fs.writeFileSync(outAbs, JSON.stringify(out, null, 2));
+        const topIssues = pickTopIssues(results, 5);
+        console.log(JSON.stringify({
+            dist: { hint: distHint || null, resolved: [] },
+            summary,
+            scan: out.scan,
+            top_issues: topIssues,
+        }, null, 2));
+        process.exitCode = 1;
+        return;
+    }
+
     let results = [];
     if (runner === 'wasm') {
         results = await runAll(wasmCases, jobs, distHint);
