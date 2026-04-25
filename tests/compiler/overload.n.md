@@ -321,10 +321,10 @@ fn main <()*>i32> ():
     v::len v
 ```
 
-## overload_select_by_arity
+## overload_different_arity_is_error
 
-neplg2:test
-ret: 13
+neplg2:test[compile_fail]
+diag_id: 3005
 ```neplg2
 #entry main
 #indent 4
@@ -346,10 +346,10 @@ fn main <()->i32> ():
     add a b
 ```
 
-## overload_select_by_arity_unary_simple
+## overload_different_arity_unary_simple_is_error
 
-neplg2:test
-ret: 6
+neplg2:test[compile_fail]
+diag_id: 3005
 ```neplg2
 #entry main
 #indent 4
@@ -512,10 +512,10 @@ fn main <()->i32> ():
     if eq v 15 1 0
 ```
 
-## overload_select_by_arity_from_param_context_unary
+## overload_different_arity_from_param_context_unary_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3006
+diag_id: 3005
 ```neplg2
 #entry main
 #indent 4
@@ -535,10 +535,10 @@ fn main <()->i32> ():
     use_unary 5 calc
 ```
 
-## overload_select_by_arity_from_param_context_binary
+## overload_different_arity_from_param_context_binary_is_error
 
-neplg2:test
-ret: 7
+neplg2:test[compile_fail]
+diag_id: 3005
 ```neplg2
 #entry main
 #indent 4
@@ -558,10 +558,10 @@ fn main <()->i32> ():
     use_binary 3 4 calc
 ```
 
-## overload_select_by_arity_with_pipe_unary
+## overload_different_arity_with_pipe_unary_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3006
+diag_id: 3005
 ```neplg2
 #entry main
 #indent 4

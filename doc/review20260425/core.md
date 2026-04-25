@@ -944,7 +944,7 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 
 - GitHub Actions run `24940960078` (`Fix RV-CLI-008 node cli argument errors`, head `96ae78bc872a314d857ec8e8c2f77fd7e38c7393`) の `wasi-test` / `nmd-doctest` が失敗している。
 - `gh run view 24940960078 --repo neknaj/NEPLg2 --log-failed` で、`node nodesrc/tests.js -i tests -o tests-current.json -j 4` と `node nodesrc/tests.js -i tests -o nmd-tests.json -j 4` の両方が `total=693`, `passed=661`, `failed=31`, `errored=1` を返した。
-- 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。`move_check.n.md::doctest#7` は `RV-CORE-024`、`move_effect.n.md` の `D3090` 3件は `RV-CORE-025` に分離し、修正済み。
+- 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。`move_check.n.md::doctest#7` は `RV-CORE-024`、`move_effect.n.md` の `D3090` 3件は `RV-CORE-025`、`overload.n.md` の5件は `RV-CORE-026` に分離し、修正済み。
 - `tests/compiler/raw_body_precheck.n.md::doctest#6` も `expected compile_fail, but compiled successfully` になっていた。この件は unit 引数の zero-sized lowering 対応後の fixture ずれとして `RV-CORE-023` に分離し、修正済み。
 
 ### 問題
@@ -1073,3 +1073,36 @@ GitHub Actions run `24940960078` とローカル再現で、`tests/compiler/move
 - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/core-move-raw-rv-core-025.json -j 1` (`total=46`, `passed=46`, `failed=0`)
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-025.json` (`13/13 passed`)
 - `git diff --check`
+
+## RV-CORE-026: overload.n.md に同名arity違いを許可する旧fixtureが残っている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P2
+- 種別: test
+- 対象: `tests/compiler/overload.n.md`, `nepl-core/tests/overload.rs`
+
+### 根拠
+
+GitHub Actions run `24940960078` とローカル再現で、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` が失敗しました。5件はいずれも `calc <(i32)->i32>` と `calc <(i32,i32)->i32>` を同時定義し、同名かつarity違いの overload を選択できる前提のfixtureでした。
+
+### 問題
+
+Rust integration test `nepl-core/tests/overload.rs` は「overloaded functions must have the same number of arguments」と明記しています。また `RV-CORE-021` で `tests/compiler/neplg2.n.md` 側も同名arity違いを D3005 として扱う方針へ更新済みです。`overload.n.md` だけ旧仕様のまま残っていたため、現行compilerの D3005 / D3068 を失敗として扱っていました。
+
+### 影響
+
+`overload.n.md` の5件が赤くなり、実際に必要な same-arity overload 解決や型注釈による戻り値選択の回帰と、仕様外のarity違いfixtureが混ざっていました。
+
+### 修正方針
+
+同名arity違いの overload は選択テストではなく拒否テストとして扱います。既存の same-arity overload / 戻り値型選択 / 引数型選択のfixtureは維持し、arity違いの5件だけを D3005 compile_fail 期待へ揃えます。
+
+### 対応
+
+`overload_select_by_arity*` 系の5件を `overload_different_arity*_is_error` に改名し、実行期待または D3006 期待を `compile_fail` + `diag_id: 3005` へ変更しました。
+
+### 検証
+
+- `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-rv-core-026.json -j 1` (`total=45`, `passed=45`, `failed=0`)
+- `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-rv-core-026.json -j 4` (`total=474`, `passed=474`, `failed=0`)

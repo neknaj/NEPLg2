@@ -16337,3 +16337,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 標準 `Clone` の仕様に合わせたtest fixture修正であり、compiler実装は変更していない。
+
+# 2026-04-26 メモ (RV-CORE-026 overload arity fixture の修正)
+
+- [原因]:
+  - GitHub Actions run `24940960078` で `tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` が失敗していた。
+  - 5件はいずれも `calc <(i32)->i32>` と `calc <(i32,i32)->i32>` のような同名arity違い overload を許可する旧fixtureだった。
+  - 現行仕様は Rust integration test と `RV-CORE-021` で整理した通り、同名 overload は同じarityである必要があり、arity違いは D3005 として拒否する。
+- [修正]:
+  - `overload_select_by_arity*` 系5件を `overload_different_arity*_is_error` に改名した。
+  - 実行期待または D3006 期待を `compile_fail` + `diag_id: 3005` に変更し、現行仕様と一致させた。
+  - `doc/review20260425/core.md` / `issues.md` に `RV-CORE-026` を追加し、`RV-CORE-022` から分離済みとして記録した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-rv-core-026.json -j 1`: `total=45`, `passed=45`, `failed=0`
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-rv-core-026.json -j 4`: `total=474`, `passed=474`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - overload 解決仕様は変更せず、旧fixtureを現行仕様へ揃えた。
