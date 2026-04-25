@@ -8,10 +8,10 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 12 | 1 |
+| core | 13 | 1 |
 | cli | 7 | 1 |
 | stdlib | 9 | 3 |
-| 合計 | 28 | 5 |
+| 合計 | 29 | 5 |
 
 ## Core
 
@@ -30,6 +30,7 @@
 | [RV-CORE-011](./core.md#rv-core-011-typeexpr-が-span-を保持せず診断位置が失われる) | false | open | P2 | bug | `TypeExpr::span()` が常に dummy を返す |
 | [RV-CORE-012](./core.md#rv-core-012-targetprofile-gate-の評価が複数箇所に散っている) | false | open | P2 | architecture | target gate が compiler/typecheck/target_precheck に分散している |
 | [RV-CORE-013](./core.md#rv-core-013-参照引数の関数呼び出しが一時-borrow-にならず所有値を固定する) | true | verified | P0 | bug | 参照 parameter の call argument を一時 borrow として評価するよう修正済み |
+| [RV-CORE-014](./core.md#rv-core-014-pair-から取り出した-generic-collection-の型が-overload-解決へ伝播しない) | false | open | P1 | bug | `.Pair` から取得した `Vec<T>` に対する `len` overload が解決できない |
 
 ## CLI
 

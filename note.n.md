@@ -15200,3 +15200,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `Vec` / `Stack` 非 Copy 化の前提として、参照引数 call の borrow lifetime を関数呼び出し式内に限定できるようにした。
+
+# 2026-04-25 メモ (RV-CORE-014 追加)
+
+- [発見]:
+  - `RV-STDLIB-003` の検証中、`stdlib/alloc/collections/vec.nepl::doctest#28` が `partition` の戻り値 `.Pair` から `Vec<i32>` を取り出した後の `len<i32>` overload 解決で失敗することを確認した。
+  - `Vec` / `Stack` の shallow `Copy` / `Clone` 削除とは独立した、generic field access 結果の型伝播または overload 解決の問題です。
+- [対応]:
+  - `doc/review20260425/issues.md` と `doc/review20260425/core.md` に `RV-CORE-014` を追加した。
+  - `todo.md` に `.Pair` から取り出した generic collection の overload 解決修正を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の collection doctest を妨げる compiler 側の型伝播バグを追加 Issue として追跡対象にした。

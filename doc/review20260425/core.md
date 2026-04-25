@@ -436,3 +436,33 @@ move checker で call target の parameter type を参照し、parameter が `&T
 - `trunk build`
 - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-rv-core-013.json -j 1` (`total=14`, `passed=14`, `failed=0`)
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+
+## RV-CORE-014: Pair から取り出した generic collection の型が overload 解決へ伝播しない
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/codegen_wasm.rs`, `stdlib/alloc/collections/vec.nepl`
+
+### 根拠
+
+- `stdlib/alloc/collections/vec.nepl::doctest#28`: `partition` の戻り値 `.Pair` から `let evens get parts 0` で取り出した後、`len<i32> evens` が `error[D3006]: no matching overload found` になる。
+- 同じ箇所へ明示型注釈を付けると、過去の調査では overload error ではなく codegen の internal panic 経路へ進んだ。
+- `RV-CORE-004` は overload 解決の clone 過多を扱うが、この件は `.Pair` field access 結果の型伝播と overload 候補選択の正当性問題です。
+
+### 問題
+
+`.Pair` のような generic tuple 相当の値から `get` で取り出した collection の型情報が、その後の overloaded function call に十分伝播していません。結果として `Vec<i32>` であるべき値に対して `len<i32>` の候補を選べず、正常な stdlib doctest が compile error になります。
+
+### 影響
+
+`partition` のように複数の collection を返す API を利用したコードで、明示型注釈なしに後続 API を呼べません。型注釈で回避しようとしても backend panic 経路へ進む可能性があり、診断品質と codegen 安全性の両方に影響します。
+
+### 修正方針
+
+`get` intrinsic / field accessor の結果型を expected type と overload argument type へ確実に反映します。候補選択時に generic tuple / `.Pair` の field 型を解決済み `TypeId` として保持し、後続の `len<i32>` へ渡る引数型が `Vec<i32>` として見えるようにします。backend panic に進む経路は `RV-CORE-007` と合わせて診断へ落とします。
+
+### 検証
+
+`tests/compiler` に `.Pair` から取り出した `Vec<i32>` に `len<i32>` / `get<i32>` を呼ぶ最小再現を追加します。`stdlib/alloc/collections/vec.nepl` の `partition` doctest が通ることも確認します。
