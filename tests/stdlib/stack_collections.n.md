@@ -182,3 +182,72 @@ fn main <()*>i32> ():
         Option::None:
             1
 ```
+
+## stack_get_ref_keeps_stack
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/stack" as *
+#import "alloc/diag/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
+    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
+    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
+    let first_ok <bool> match get_ref<i32> &s 0:
+        Option::Some v:
+            eq v 10
+        Option::None:
+            false
+    let len_before <i32> len_ref<i32> &s;
+    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 30;
+    let ok <bool> and first_ok and eq len_before 2 eq len_ref<i32> &s 3;
+    free<i32> s;
+    if ok 1 0
+```
+
+## stack_pop_ref_keeps_stack
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/stack" as *
+#import "alloc/diag/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
+    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
+    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
+    let a <Option<i32>> pop_ref<i32> &s;
+    let b <Option<i32>> pop_ref<i32> &s;
+    let empty_ok <bool> eq len_ref<i32> &s 0;
+    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 30;
+    let a_ok <bool> match a:
+        Option::Some v:
+            eq v 20
+        Option::None:
+            false
+    let b_ok <bool> match b:
+        Option::Some v:
+            eq v 10
+        Option::None:
+            false
+    let ok <bool> and a_ok and b_ok and empty_ok eq len_ref<i32> &s 1;
+    free<i32> s;
+    if ok 1 0
+```

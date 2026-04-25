@@ -431,3 +431,40 @@ hash collection 用の `HashKey` / `Hasher` が、標準 `Clone` / `Copy` と別
 ### 検証
 
 `tests/stdlib/traits_hash.n.md` の custom key / hasher doctest を標準 `Clone::clone &x` の形へ移行します。非 Copy key では by-value clone が使えないことを compile_fail で確認し、hash collection の key 取得・挿入・検索が所有権を破壊しないことを追加テストで確認します。
+
+## RV-STDLIB-013: Stack の 更新 API が by-value pop に偏り所有値の継続利用を阻害する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: architecture
+- 対象: `stdlib/alloc/collections/stack.nepl`, `stdlib/tests/stack.n.md`, `tests/stdlib/stack_collections.n.md`
+
+### 根拠
+
+- `stdlib/alloc/collections/stack.nepl:334`: `pop` は `Stack<.T>` を by-value で受け取り、呼び出し元の stack handle を move する。
+- `stdlib/alloc/collections/stack.nepl:511`: `len_ref` は存在するが、末尾を取り出して length を更新する借用 API がなかった。
+- `examples/rpn.nepl`: `pop` 後に同じ stack を表示・push・free しようとして move checker に止められる。
+- `examples/bf.nepl`: bracket 対応表の作成で `pop` 後に `is_empty` / `free` しようとして move checker に止められる。
+
+### 問題
+
+`Stack` から `Copy` を外した後、読み取りは `len_ref` / `peek_ref` で対応できましたが、更新を伴う取り出しは by-value `pop` しかありませんでした。`pop` を使うと stack handle の所有権が移動するため、典型的な「pop してから同じ stack を使い続ける」処理が書けません。
+
+### 影響
+
+example が `core/mem` / `core/field` で `Stack` 内部 layout を直接読む方向へ流れ、stdlib の public API を使うという例として不適切になります。所有権上も、低レベルメモリ操作のほうが move checker を迂回しやすく、根本的な安全化に逆行します。
+
+### 修正方針
+
+`Stack` に `get_ref` と `pop_ref` を追加しました。どちらも `&Stack<.T>` を受け取り、`.T: Copy` に限定して memory から値を読み出します。`pop_ref` は header の length を更新しますが、stack handle の所有権は移動しないため、呼び出し後も `push` / `free` を継続できます。所有権を持つ要素については、別途 move/drop 設計を伴う API が必要なので対象外とします。
+
+### 対応結果
+
+`stdlib/alloc/collections/stack.nepl` に `get_ref` / `pop_ref` と doctest を追加し、`stdlib/tests/stack.n.md` と `tests/stdlib/stack_collections.n.md` に借用後も同じ stack を更新・解放できる回帰テストを追加しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-ref-tests.json -j 4` (`total=31`, `passed=31`, `failed=0`)

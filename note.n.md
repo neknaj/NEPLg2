@@ -1,3 +1,17 @@
+# 2026-04-25 メモ (Stack の借用 pop/get API 追加)
+
+- [状況]:
+  - examples の失敗を調査した結果、`rpn.nepl` と `bf.nepl` は `Stack::pop` 後に同じ `Stack` を表示・push・free しようとして move checker に止められていた。
+  - `Stack` には `len_ref` / `peek_ref` はあったが、末尾を取り出して長さを更新する借用 API と、任意位置を読む借用 API がなかった。
+- [修正]:
+  - `stdlib/alloc/collections/stack.nepl` に `.T: Copy` 限定の `get_ref` / `pop_ref` を追加した。
+  - `stdlib/tests/stack.n.md` と `tests/stdlib/stack_collections.n.md` に、借用 API の後も同じ stack を更新・解放できる回帰テストを追加した。
+  - `doc/review20260425/stdlib.md` / `issues.md` に `RV-STDLIB-013` を追加し、修正済み verified として記録した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-ref-tests.json -j 4`: 31/31 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。所有権を持つ collection は shallow copy しない方針を保ち、example を低レベルメモリ操作へ逃がさないために stdlib の public API を補強した。
+
 # 2026-04-25 メモ (examples 検証用 trunk build 前提の修正)
 
 - [状況]:
