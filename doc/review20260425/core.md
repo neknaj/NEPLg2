@@ -416,33 +416,49 @@ cross-file import、qualified alias、shadowing、ambiguous open import の tree
 
 ## RV-CORE-011: TypeExpr が span を保持せず診断位置が失われる
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P2
 - 種別: bug
 - 対象: `nepl-core/src/ast.rs`, `nepl-core/src/parser.rs`, `nepl-core/src/typecheck.rs`
 
 ### 根拠
 
-- `nepl-core/src/ast.rs:41`: `TypeExpr::span()` が常に `Span::dummy()`。
-- `nepl-core/src/parser.rs`: 型式 parsing の各所で `Span::dummy()` fallback が多い。
-- `nepl-core/src/typecheck.rs:5547`: call reduction limit diagnostic も `Span::dummy()`。
+- `nepl-core/src/ast.rs`: `TypeExpr::span()` が常に `Span::dummy()` を返していました。
+- `nepl-core/src/parser.rs`: 型式 parsing が元 token の開始・終了 span を AST へ保存していませんでした。
+- `nepl-core/src/typecheck.rs`: call reduction no-progress diagnostic が `Span::dummy()` を使っていました。
 
 ### 問題
 
-型注釈や型式のエラー位置を正確に出せません。dummy span は `<unknown>:1:1` のような診断に化け、修正箇所が分からなくなります。
+型注釈や型式のエラー位置を正確に出せません。dummy span は `<unknown>:1:1` のような診断に化け、修正箇所が分からなくなっていました。
 
 ### 影響
 
-ユーザー体験が悪く、compile_fail テストで span を固定しにくくなります。内部バグの triage でも、問題の型式を特定しづらいです。
+ユーザー体験が悪く、compile_fail テストで span を固定しにくい状態でした。内部バグの triage でも、問題の型式を特定しづらくなっていました。
 
 ### 修正方針
 
-`TypeExpr` を enum + span wrapper にするか、各 variant に span を持たせます。parser は型式の開始・終了 span を保存し、typecheck diagnostic では必ず元の型式 span を使います。
+`TypeExpr` に source span を持てる wrapper を追加します。parser は型式の開始・終了 span を保存し、typecheck / codegen 側は wrapper を剥がして既存の型意味論を維持します。diagnostic は `TypeExpr::span()` から元の型式位置を使います。
+
+### 対応
+
+`TypeExpr::Spanned` と `span` / `as_unspanned` / `into_unspanned` / `with_span` を追加し、parser の `parse_type_expr` が実 token 範囲を wrapper として保存するようにしました。`type_from_expr` と LLVM signature lowering は `as_unspanned` 経由で処理し、span wrapper が型解決の意味論へ混入しないようにしています。
+
+generic impl target の `TypeImplTargetMustBeConcrete` 診断が `impl Marker for .T` の `.T` 範囲を指す regression を追加しました。call reduction no-progress diagnostic も dummy span ではなく現在の call reduction 対象 expression span を使うようにしました。
 
 ### 検証
 
-型注釈 mismatch、trait bound mismatch、generic arity mismatch の `diag_span` テストを追加します。
+確認済み:
+
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core --test neplg2 impl_generic_target_diagnostic_uses_type_expr_span -- --nocapture` (`1 passed`)
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core --test neplg2` (`36 passed`)
+- `trunk build`
+- `cargo test -p nepl-core`
+- `cargo check --workspace`
+- `node tests/compiler/tree/run.js` (`19/19 passed`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-011.json` (`13/13 passed`)
 
 ## RV-CORE-012: target/profile gate の評価が複数箇所に散っている
 

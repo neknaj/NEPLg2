@@ -15918,6 +15918,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - pipe は parser 特殊処理ではなく、typecheck の stack 退避範囲を呼び出し未完了状態に合わせる方針で修正した。
 
+# 2026-04-25 メモ (RV-CORE-011 TypeExpr span 修正)
+
+- [原因]:
+  - `TypeExpr::span()` が常に `Span::dummy()` を返しており、impl target など型式由来の診断が元の型式位置を指せなかった。
+  - parser は型式を AST へ積む時に開始 token と終了 token の範囲を保存していなかった。
+  - call reduction no-progress diagnostic も dummy span を使っており、進捗停止箇所を特定しづらかった。
+- [修正]:
+  - `TypeExpr::Spanned` と `span` / `as_unspanned` / `into_unspanned` / `with_span` を追加し、型式の source span を wrapper として保持するようにした。
+  - `parse_type_expr` は実 token 範囲を `TypeExpr::Spanned` に保存し、`type_from_expr` と LLVM signature lowering は `as_unspanned` で意味論だけを処理するようにした。
+  - call reduction no-progress diagnostic は dummy ではなく現在の reduction 対象 expression span を使うようにした。
+  - `impl Marker for .T` の `.T` 範囲を `TypeImplTargetMustBeConcrete` が指す regression を追加した。
+- [検証]:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test neplg2 impl_generic_target_diagnostic_uses_type_expr_span -- --nocapture`: pass
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test neplg2`: 36 passed
+  - `trunk build`: pass
+  - `cargo test -p nepl-core`: pass
+  - `cargo check --workspace`: pass
+  - `node tests/compiler/tree/run.js`: 19/19 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-011.json`: 13/13 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 型式の意味論は変えず、AST 上の span metadata を wrapper として追加する方針にした。
+
 # 2026-04-26 メモ (RV-EXAMPLE-009 rpn_legacy の panic helper 依存解消)
 
 - [原因]:

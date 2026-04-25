@@ -35,11 +35,52 @@ pub enum TypeExpr {
         result: Box<TypeExpr>,
         effect: Effect,
     },
+    Spanned(Box<TypeExpr>, Span),
 }
 
 impl TypeExpr {
     pub fn span(&self) -> Span {
-        Span::dummy()
+        match self {
+            TypeExpr::Spanned(_, span) => *span,
+            TypeExpr::Apply(base, args) => args
+                .last()
+                .and_then(|last| base.span().join(last.span()))
+                .unwrap_or_else(|| base.span()),
+            TypeExpr::Boxed(inner) | TypeExpr::Reference(inner, _) => inner.span(),
+            TypeExpr::Tuple(items) => items
+                .first()
+                .zip(items.last())
+                .and_then(|(first, last)| first.span().join(last.span()))
+                .unwrap_or_else(Span::dummy),
+            TypeExpr::Function { params, result, .. } => params
+                .first()
+                .map(|first| first.span())
+                .unwrap_or_else(|| result.span())
+                .join(result.span())
+                .unwrap_or_else(|| result.span()),
+            _ => Span::dummy(),
+        }
+    }
+
+    pub fn as_unspanned(&self) -> &TypeExpr {
+        let mut current = self;
+        loop {
+            match current {
+                TypeExpr::Spanned(inner, _) => current = inner.as_ref(),
+                other => return other,
+            }
+        }
+    }
+
+    pub fn into_unspanned(self) -> TypeExpr {
+        match self {
+            TypeExpr::Spanned(inner, _) => inner.into_unspanned(),
+            other => other,
+        }
+    }
+
+    pub fn with_span(self, span: Span) -> TypeExpr {
+        TypeExpr::Spanned(Box::new(self), span)
     }
 }
 

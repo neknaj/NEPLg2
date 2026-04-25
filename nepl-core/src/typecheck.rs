@@ -1610,7 +1610,7 @@ pub fn typecheck(
                         tmp_labels.insert(tp.name.name.clone(), tv);
                         sig_type_params.push(tv);
                     }
-                    let sig_ty = match &f.signature {
+                    let sig_ty = match f.signature.as_unspanned() {
                         TypeExpr::Function {
                             params,
                             result,
@@ -6112,8 +6112,12 @@ impl<'a> BlockChecker<'a> {
                 if stack.len() >= before_len {
                     let state_key = self.call_reduction_state_key(stack);
                     if !no_progress_states.insert(state_key) {
+                        let span = stack
+                            .get(func_pos)
+                            .map(|entry| entry.expr.span)
+                            .unwrap_or_else(Span::dummy);
                         self.diagnostics.push(
-                            Diagnostic::error("call reduction made no progress", Span::dummy())
+                            Diagnostic::error("call reduction made no progress", span)
                                 .with_id(DiagnosticId::TypeCallReductionLimitExceeded),
                         );
                         break;
@@ -8962,7 +8966,7 @@ impl StringTable {
 }
 
 fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> TypeId {
-    match t {
+    match t.as_unspanned() {
         TypeExpr::Unit => ctx.unit(),
         TypeExpr::I32 => ctx.i32(),
         TypeExpr::U8 => ctx.u8(),
@@ -9036,6 +9040,7 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
             let i = type_from_expr(ctx, labels, inner);
             ctx.reference(i, *is_mut)
         }
+        TypeExpr::Spanned(inner, _) => type_from_expr(ctx, labels, inner),
     }
 }
 

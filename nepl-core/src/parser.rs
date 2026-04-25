@@ -1068,7 +1068,7 @@ impl Parser {
         };
 
         let params = self.parse_param_list()?;
-        let signature = match signature {
+        let signature = match signature.as_unspanned() {
             TypeExpr::Function {
                 params: p,
                 result,
@@ -1078,13 +1078,15 @@ impl Parser {
                 for _ in 0..params.len() {
                     inferred_params.push(TypeExpr::Label(None));
                 }
+                let signature_span = signature.span();
                 TypeExpr::Function {
                     params: inferred_params,
-                    result,
-                    effect,
+                    result: result.clone(),
+                    effect: *effect,
                 }
+                .with_span(signature_span)
             }
-            other => other,
+            _ => signature,
         };
         self.expect(&TokenKind::Colon)?;
         let body = self.parse_block_after_colon()?;
@@ -3282,12 +3284,12 @@ impl Parser {
     }
 
     fn type_expr_to_trait_ref(expr: TypeExpr, span: Span) -> Option<TraitRef> {
-        match expr {
+        match expr.into_unspanned() {
             TypeExpr::Named(name) => Some(TraitRef {
                 name: Ident { name, span },
                 args: Vec::new(),
             }),
-            TypeExpr::Apply(base, args) => match *base {
+            TypeExpr::Apply(base, args) => match (*base).into_unspanned() {
                 TypeExpr::Named(name) => Some(TraitRef {
                     name: Ident { name, span },
                     args,
@@ -3299,7 +3301,11 @@ impl Parser {
     }
 
     fn parse_type_expr(&mut self) -> Option<TypeExpr> {
-        self.parse_type_expr_internal()
+        let start_span = self.peek_span().unwrap_or_else(Span::dummy);
+        let ty = self.parse_type_expr_internal()?;
+        let end_span = self.previous_span().unwrap_or(start_span);
+        let span = start_span.join(end_span).unwrap_or(start_span);
+        Some(ty.with_span(span))
     }
 
     fn parse_type_expr_internal(&mut self) -> Option<TypeExpr> {
@@ -3728,6 +3734,13 @@ impl Parser {
         self.tokens.get(self.pos)
     }
 
+    fn previous_span(&self) -> Option<Span> {
+        self.pos
+            .checked_sub(1)
+            .and_then(|idx| self.tokens.get(idx))
+            .map(|tok| tok.span)
+    }
+
     fn next(&mut self) -> Option<Token> {
         if self.pos < self.tokens.len() {
             let t = self.tokens[self.pos].clone();
@@ -4051,28 +4064,29 @@ fn parse_type_expr_str(s: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Opti
         }
     }
     let result = simple_type_atom(ret_part.trim(), span, diags)?;
-    Some(TypeExpr::Function {
-        params,
-        result: Box::new(result),
-        effect: eff,
-    })
+    Some(
+        TypeExpr::Function {
+            params,
+            result: Box::new(result),
+            effect: eff,
+        }
+        .with_span(span),
+    )
 }
 
 fn simple_type_atom(t: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Option<TypeExpr> {
-    match t {
-        "i32" => Some(TypeExpr::I32),
-        "u8" => Some(TypeExpr::U8),
-        "f32" => Some(TypeExpr::F32),
-        "i64" => Some(TypeExpr::Named("i64".to_string())),
-        "f64" => Some(TypeExpr::Named("f64".to_string())),
-        "bool" => Some(TypeExpr::Bool),
-        "never" => Some(TypeExpr::Never),
-        "str" => Some(TypeExpr::Str),
-        "()" => Some(TypeExpr::Unit),
-        _ if t.starts_with('.') => {
-            Some(TypeExpr::Label(Some(t.trim_start_matches('.').to_string())))
-        }
-        _ if t.is_empty() => Some(TypeExpr::Label(None)),
+    let ty = match t {
+        "i32" => TypeExpr::I32,
+        "u8" => TypeExpr::U8,
+        "f32" => TypeExpr::F32,
+        "i64" => TypeExpr::Named("i64".to_string()),
+        "f64" => TypeExpr::Named("f64".to_string()),
+        "bool" => TypeExpr::Bool,
+        "never" => TypeExpr::Never,
+        "str" => TypeExpr::Str,
+        "()" => TypeExpr::Unit,
+        _ if t.starts_with('.') => TypeExpr::Label(Some(t.trim_start_matches('.').to_string())),
+        _ if t.is_empty() => TypeExpr::Label(None),
         _ if t
             .chars()
             .next()
@@ -4080,14 +4094,15 @@ fn simple_type_atom(t: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Option<
             .unwrap_or(false)
             && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') =>
         {
-            Some(TypeExpr::Named(t.to_string()))
+            TypeExpr::Named(t.to_string())
         }
         _ => {
             diags.push(
                 Diagnostic::error("unknown type in signature", span)
                     .with_id(DiagnosticId::ParserInvalidExternSignature),
             );
-            None
+            return None;
         }
-    }
+    };
+    Some(ty.with_span(span))
 }

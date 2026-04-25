@@ -1,3 +1,5 @@
+use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::error::CoreError;
 use nepl_core::span::FileId;
 use nepl_core::{compile_wasm, BuildProfile, CompileOptions, CompileTarget};
 mod harness;
@@ -622,6 +624,46 @@ fn main <()->i32> ():
     call_show 1
 "#;
     compile_err(src);
+}
+
+#[test]
+fn impl_generic_target_diagnostic_uses_type_expr_span() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait Marker:
+    fn mark <(Self)->i32> (x):
+        0
+
+impl Marker for .T:
+    fn mark <(.T)->i32> (x):
+        0
+
+fn main <()->i32> ():
+    0
+"#;
+    let target_start = src.find(".T").expect("generic impl target") as u32;
+    let target_end = target_start + ".T".len() as u32;
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("generic impl target should fail") else {
+        panic!("expected diagnostics");
+    };
+    let diag = diags
+        .iter()
+        .find(|d| d.id == Some(DiagnosticId::TypeImplTargetMustBeConcrete))
+        .unwrap_or_else(|| panic!("missing concrete impl target diagnostic: {:?}", diags));
+    assert_eq!(diag.primary.span.file_id, FileId(0));
+    assert_eq!(diag.primary.span.start, target_start);
+    assert_eq!(diag.primary.span.end, target_end);
 }
 
 #[test]

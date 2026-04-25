@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 7 | 13 |
+| core | 6 | 14 |
 | cli | 7 | 6 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 23 | 38 |
+| 合計 | 22 | 39 |
 
 ## Core
 
@@ -28,7 +28,7 @@
 | [RV-CORE-008](./core.md#rv-core-008-effect-判定が文字列包含に依存していて不健全) | true | verified | P1 | bug | raw body の direct call target を宣言済み effect で判定し、文字列包含依存を除去済み |
 | [RV-CORE-009](./core.md#rv-core-009-moveborrowdrop-が-resource-ir-なしで後付け実装されている) | false | open | P1 | architecture | ownership / borrow / drop が HIR 走査だけで実装されている |
 | [RV-CORE-010](./core.md#rv-core-010-name-resolution-が二重化し本パイプラインに統合されていない) | false | open | P2 | architecture | `resolve.rs` と `name_resolve.rs` が分かれ、後者は skeleton のまま |
-| [RV-CORE-011](./core.md#rv-core-011-typeexpr-が-span-を保持せず診断位置が失われる) | false | open | P2 | bug | `TypeExpr::span()` が常に dummy を返す |
+| [RV-CORE-011](./core.md#rv-core-011-typeexpr-が-span-を保持せず診断位置が失われる) | true | verified | P2 | bug | `TypeExpr::Spanned` で型式 span を保持し、impl target と call reduction 診断の dummy span を解消済み |
 | [RV-CORE-012](./core.md#rv-core-012-targetprofile-gate-の評価が複数箇所に散っている) | false | open | P2 | architecture | target gate が compiler/typecheck/target_precheck に分散している |
 | [RV-CORE-013](./core.md#rv-core-013-参照引数の関数呼び出しが一時-borrow-にならず所有値を固定する) | true | verified | P0 | bug | 参照 parameter の call argument を一時 borrow として評価するよう修正済み |
 | [RV-CORE-014](./core.md#rv-core-014-pair-から取り出した-generic-collection-の型が-overload-解決へ伝播しない) | true | verified | P1 | bug | `.Pair` の推論済み tuple 型を保持し、取得した `Vec<T>` の `len` overload が解決できるよう修正済み |

@@ -298,7 +298,7 @@ fn should_emit_ast_llvmir_fn(
 }
 
 fn ast_fn_signature_llty(sig: &TypeExpr) -> Option<(Vec<LlTy>, LlTy)> {
-    let TypeExpr::Function { params, result, .. } = sig else {
+    let TypeExpr::Function { params, result, .. } = sig.as_unspanned() else {
         return None;
     };
     let mut ps = Vec::new();
@@ -310,7 +310,7 @@ fn ast_fn_signature_llty(sig: &TypeExpr) -> Option<(Vec<LlTy>, LlTy)> {
 }
 
 fn llty_for_type_expr(ty: &TypeExpr) -> Option<LlTy> {
-    match ty {
+    match ty.as_unspanned() {
         TypeExpr::Unit | TypeExpr::Never => Some(LlTy::Void),
         TypeExpr::I32 | TypeExpr::U8 | TypeExpr::Bool | TypeExpr::Str => Some(LlTy::I32),
         TypeExpr::F32 => Some(LlTy::F32),
@@ -323,6 +323,7 @@ fn llty_for_type_expr(ty: &TypeExpr) -> Option<LlTy> {
         | TypeExpr::Named(_)
         | TypeExpr::Label(_) => Some(LlTy::I32),
         TypeExpr::Function { .. } => Some(LlTy::I32),
+        TypeExpr::Spanned(inner, _) => llty_for_type_expr(inner),
     }
 }
 
@@ -3623,11 +3624,11 @@ fn lower_parsed_fn_with_gates(
         return None;
     }
 
-    let result_ty = match signature {
+    let result_ty = match signature.as_unspanned() {
         TypeExpr::Function { result, .. } => result.as_ref(),
         _ => return None,
     };
-    if !matches!(result_ty, TypeExpr::I32) {
+    if !matches!(result_ty.as_unspanned(), TypeExpr::I32) {
         return None;
     }
 
