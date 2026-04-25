@@ -390,3 +390,34 @@ public API と input-dependent code では `unwrap` 系を禁止し、`match` �
 ### 検証
 
 `tests/stdlib/traits_text.n.md` で `Clone::clone &x` が generic bound 経由で動作することを確認しました。`stdlib/alloc/collections/vec.nepl` と `stdlib/alloc/collections/stack.nepl` の doctest で、`len_ref` / `get_ref` / `peek_ref` の後も元の collection を更新できることを確認しました。
+
+## RV-STDLIB-012: HashKey/Hasher の clone/copy capability が標準 trait と不整合
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: architecture
+- 対象: `stdlib/core/traits/hash_key.nepl`, `stdlib/core/traits/hash.nepl`, `tests/stdlib/traits_hash.n.md`
+
+### 根拠
+
+- `stdlib/core/traits/hash_key.nepl`: `HashKey` が `#capability clone` / `#capability copy` と by-value `fn clone <(Self)->Self>` を独自に持っている。
+- `stdlib/core/traits/hash.nepl`: `Hasher<.K>` が `#capability clone` / `#capability copy` を要求するが、標準 `Clone` / `Copy` の method とは trait 上で接続されていない。
+- `RV-STDLIB-011` で標準 `Clone::clone` を `(&Self)->Self` に移行した後も、hash 系 trait だけ旧 by-value clone semantics が残る。
+- `tests/stdlib/traits_hash.n.md`: custom key / hasher の doctest が hash 系 trait の capability を再実装している。
+
+### 問題
+
+hash collection 用の `HashKey` / `Hasher` が、標準 `Clone` / `Copy` と別の capability として clone/copy を表現しています。`HashKey` の by-value `clone` は非 Copy key では元の値を消費するため、標準 `Clone` と同じ意味になりません。`Hasher` は capability だけを掲げており、実際に `Clone` / `Copy` trait を満たすことと型システム上で同期しません。
+
+### 影響
+
+`Vec` / `Stack` の shallow `Copy` 削除と同じ方向で hash collection を安全化するとき、key / hasher が本当に copy 可能なのか、borrow して clone できるのかを trait bound から判断できません。所有権を持つ key を hash collection に入れる設計へ進むと、move checker と capability 判定の不整合が runtime aliasing や誤った compile 許可につながります。
+
+### 修正方針
+
+`HashKey` から独自 `clone` capability を外し、必要な箇所では標準 `Clone` / `Copy` trait を明示的に bound します。key の比較と hash 計算は `HashKey` に残し、複製・コピー可能性は `core/traits/copy.nepl` の trait に一本化します。`Hasher` も `#capability clone` / `#capability copy` ではなく、collection API が必要な場面で `.H: Clone` / `.H: Copy` を要求する形へ分離します。
+
+### 検証
+
+`tests/stdlib/traits_hash.n.md` の custom key / hasher doctest を標準 `Clone::clone &x` の形へ移行します。非 Copy key では by-value clone が使えないことを compile_fail で確認し、hash collection の key 取得・挿入・検索が所有権を破壊しないことを追加テストで確認します。

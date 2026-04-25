@@ -15158,3 +15158,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `Vec` / `Stack` の shallow `Copy` / `Clone` 削除は `RV-STDLIB-003` として継続する。今回の対応はその前提になる borrow-based API の整備に限定した。
+
+# 2026-04-25 メモ (RV-STDLIB-012 追加)
+
+- [発見]:
+  - `RV-STDLIB-011` の対応中、標準 `Clone::clone` を `(&Self)->Self` に移行しても、`HashKey` だけは `#capability clone` と by-value `clone` を独自に持ち続けることを確認した。
+  - `Hasher<.K>` も `#capability clone` / `#capability copy` を要求するが、標準 `Clone` / `Copy` trait と型システム上で同期していない。
+- [対応]:
+  - `doc/review20260425/issues.md` と `doc/review20260425/stdlib.md` に `RV-STDLIB-012` を追加した。
+  - `todo.md` に hash 系 capability を標準 `Clone` / `Copy` へ整理する作業を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - ownership / borrow 方針と stdlib hash trait の capability 設計がずれている箇所を追加 Issue として追跡対象にした。

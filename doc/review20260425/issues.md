@@ -10,8 +10,8 @@
 |---|---:|---:|
 | core | 12 | 0 |
 | cli | 7 | 1 |
-| stdlib | 8 | 3 |
-| 合計 | 27 | 4 |
+| stdlib | 9 | 3 |
+| 合計 | 28 | 4 |
 
 ## Core
 
@@ -58,3 +58,4 @@
 | [RV-STDLIB-009](./stdlib.md#rv-stdlib-009-巨大-stdlib-ファイルが分割されていない) | false | open | P2 | architecture | `math.nepl` / `string.nepl` / `stdio.nepl` が巨大化 |
 | [RV-STDLIB-010](./stdlib.md#rv-stdlib-010-resultoption-の-unsafe-helper-が通常コードに広く残っている) | false | open | P2 | bug | `unwrap` / `unwrap_ok` が stdlib 内部で panic 経路を広げている |
 | [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | true | verified | P0 | architecture | `Clone` と `Vec` / `Stack` の read API を borrow-based に移行する前提を追加済み |
+| [RV-STDLIB-012](./stdlib.md#rv-stdlib-012-hashkeyhasher-の-clonecopy-capability-が標準-trait-と不整合) | false | open | P1 | architecture | `HashKey` / `Hasher` が独自の clone/copy capability を持ち、標準 `Clone` / `Copy` と不整合 |
