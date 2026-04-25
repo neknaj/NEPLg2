@@ -555,6 +555,7 @@ pub fn typecheck(
     let mut pending_copy_clone_checks: Vec<(TypeId, Span)> = Vec::new();
     let mut duplicate_impl_spans: BTreeSet<(u32, u32, u32)> = BTreeSet::new();
     let qualified_import_targets = build_qualified_import_targets(module, source_map);
+    let unqualified_import_visibility = build_unqualified_import_visibility(module, source_map);
 
     let mut entry: Option<(String, Span)> = None;
     let mut externs: Vec<HirExtern> = Vec::new();
@@ -1712,6 +1713,7 @@ pub fn typecheck(
                 &impls,
                 &mut nested_functions,
                 &qualified_import_targets,
+                &unqualified_import_visibility,
             ) {
                 Ok(checked) => {
                     diagnostics.extend(checked.diagnostics);
@@ -1929,6 +1931,7 @@ pub fn typecheck(
                     &impls,
                     &mut nested_functions,
                     &qualified_import_targets,
+                    &unqualified_import_visibility,
                 ) {
                     Ok(checked) => checked,
                     Err(mut diags) => {
@@ -2066,6 +2069,7 @@ fn check_function(
     impls: &Vec<ImplInfo>,
     generated_functions: &mut Vec<HirFunction>,
     qualified_import_targets: &BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>>,
+    unqualified_import_visibility: &UnqualifiedImportVisibilityMap,
 ) -> Result<CheckedFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let func_ty_snapshot = ctx.snapshot_type_var_bindings(func_ty);
@@ -2148,6 +2152,7 @@ fn check_function(
             instantiations,
             type_param_bounds: type_param_bounds.clone(),
             qualified_import_targets,
+            unqualified_import_visibility,
             traits,
             impls,
             generated_functions,
@@ -2332,6 +2337,7 @@ struct BlockChecker<'a> {
     instantiations: &'a mut BTreeMap<String, Vec<Vec<TypeId>>>, // new
     type_param_bounds: BTreeMap<TypeId, Vec<TraitBoundRef>>,
     qualified_import_targets: &'a BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>>,
+    unqualified_import_visibility: &'a UnqualifiedImportVisibilityMap,
     traits: &'a BTreeMap<String, TraitInfo>,
     impls: &'a Vec<ImplInfo>,
     generated_functions: &'a mut Vec<HirFunction>,
@@ -2355,6 +2361,126 @@ impl<'a> BlockChecker<'a> {
             .cloned()
             .collect::<Vec<_>>();
         Some((member.to_string(), bindings))
+    }
+
+    fn unqualified_lookup_names(&self, id: &Ident) -> Vec<String> {
+        let mut names = vec![id.name.clone()];
+        if let Some(imports) = self.unqualified_import_visibility.get(&id.span.file_id.0) {
+            for visibility in imports.values() {
+                if let UnqualifiedImportVisibility::Selected(selected) = visibility {
+                    if let Some(source_name) = selected.get(&id.name) {
+                        if !names.iter().any(|name| name == source_name) {
+                            names.push(source_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+        names
+    }
+
+    fn binding_is_visible_unqualified(&self, id: &Ident, binding: &Binding) -> bool {
+        if binding.span.file_id == id.span.file_id {
+            return binding.name == id.name;
+        }
+        let Some(imports) = self.unqualified_import_visibility.get(&id.span.file_id.0) else {
+            return true;
+        };
+        let Some(visibility) = imports.get(&binding.span.file_id.0) else {
+            return false;
+        };
+        match visibility {
+            UnqualifiedImportVisibility::Hidden => false,
+            UnqualifiedImportVisibility::All => binding.name == id.name,
+            UnqualifiedImportVisibility::Selected(selected) => selected
+                .get(&id.name)
+                .map(|source_name| source_name == &binding.name)
+                .unwrap_or(false),
+        }
+    }
+
+    fn lookup_all_unqualified_any_defined(&self, id: &Ident) -> Vec<&Binding> {
+        let names = self.unqualified_lookup_names(id);
+        for scope in self.env.scopes.iter().rev() {
+            let mut items = Vec::new();
+            for name in &names {
+                items.extend(scope.values.iter().filter(|b| {
+                    b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
+                }));
+                items.extend(scope.callables.iter().filter(|b| {
+                    b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
+                }));
+            }
+            if !items.is_empty() {
+                return items;
+            }
+        }
+        Vec::new()
+    }
+
+    fn lookup_all_unqualified_callables(&self, id: &Ident) -> Vec<&Binding> {
+        let names = self.unqualified_lookup_names(id);
+        let mut items = Vec::new();
+        for scope in self.env.scopes.iter().rev() {
+            for name in &names {
+                items.extend(scope.callables.iter().filter(|b| {
+                    b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
+                }));
+            }
+        }
+        items
+    }
+
+    fn lookup_unqualified_callable_any(&self, id: &Ident) -> Option<&Binding> {
+        let names = self.unqualified_lookup_names(id);
+        for scope in self.env.scopes.iter().rev() {
+            for name in &names {
+                if let Some(binding) = scope.callables.iter().rev().find(|b| {
+                    b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
+                }) {
+                    return Some(binding);
+                }
+            }
+        }
+        None
+    }
+
+    fn lookup_unqualified_value_any(&self, id: &Ident) -> Option<&Binding> {
+        let names = self.unqualified_lookup_names(id);
+        for scope in self.env.scopes.iter().rev() {
+            for name in &names {
+                if let Some(binding) = scope
+                    .values
+                    .iter()
+                    .rev()
+                    .find(|b| b.name == *name && self.binding_is_visible_unqualified(id, b))
+                {
+                    return Some(binding);
+                }
+            }
+        }
+        None
+    }
+
+    fn lookup_unqualified_value_for_read(
+        &self,
+        id: &Ident,
+        allow_undefined_nonmut: bool,
+    ) -> Option<&Binding> {
+        let names = self.unqualified_lookup_names(id);
+        for scope in self.env.scopes.iter().rev() {
+            for name in &names {
+                if let Some(binding) = scope.values.iter().rev().find(|b| {
+                    if b.name != *name || !self.binding_is_visible_unqualified(id, b) {
+                        return false;
+                    }
+                    b.defined || (allow_undefined_nonmut && !b.mutable)
+                }) {
+                    return Some(binding);
+                }
+            }
+        }
+        None
     }
 
     fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {
@@ -3961,6 +4087,7 @@ impl<'a> BlockChecker<'a> {
                         self.impls,
                         self.generated_functions,
                         self.qualified_import_targets,
+                        self.unqualified_import_visibility,
                     ) {
                         Ok(checked) => {
                             self.diagnostics.extend(checked.diagnostics);
@@ -4178,8 +4305,7 @@ impl<'a> BlockChecker<'a> {
                                 let explicit_callable_candidate =
                                     if !*forced_value && !type_args.is_empty() {
                                         let mut matching = self
-                                            .env
-                                            .lookup_all_callables(&id.name)
+                                            .lookup_all_unqualified_callables(id)
                                             .into_iter()
                                             .filter(|binding| {
                                                 let ty = self.ctx.resolve_id(binding.ty);
@@ -4227,8 +4353,8 @@ impl<'a> BlockChecker<'a> {
                                 let expected_function_from_outer = expected_function_from_outer
                                     || expected_function_from_ascription;
                                 let value_candidate =
-                                    self.env.lookup_value_for_read(&id.name, !in_let_self_init);
-                                let has_any_value = self.env.lookup_value_any(&id.name).is_some();
+                                    self.lookup_unqualified_value_for_read(id, !in_let_self_init);
+                                let has_any_value = self.lookup_unqualified_value_any(id).is_some();
                                 let value_is_function = value_candidate
                                     .map(|b| {
                                         let rty = self.ctx.resolve_id(b.ty);
@@ -4240,7 +4366,7 @@ impl<'a> BlockChecker<'a> {
                                     && expr.items.get(idx + 1).is_some()
                                     && (!has_any_value || !value_is_function)
                                 {
-                                    self.env.lookup_callable_any(&id.name)
+                                    self.lookup_unqualified_callable_any(id)
                                 } else {
                                     None
                                 };
@@ -4250,7 +4376,7 @@ impl<'a> BlockChecker<'a> {
                                     .or(value_candidate)
                                     .or_else(|| {
                                         if !has_any_value {
-                                            self.env.lookup_callable_any(&id.name)
+                                            self.lookup_unqualified_callable_any(id)
                                         } else {
                                             None
                                         }
@@ -4260,7 +4386,7 @@ impl<'a> BlockChecker<'a> {
                                             && !expected_function_from_outer
                                             && matches!(binding.kind, BindingKind::Func { .. })
                                             && type_args.is_empty()
-                                            && self.env.lookup_all_callables(&id.name).len() > 1
+                                            && self.lookup_all_unqualified_callables(id).len() > 1
                                             && expr.items.get(idx + 1).is_some();
                                         if should_delay_overload_resolution {
                                             None
@@ -4305,11 +4431,12 @@ impl<'a> BlockChecker<'a> {
                                     BindingKind::Func { symbol, .. }
                                         if *forced_value
                                             || expected_function_from_outer
-                                            || selected_from_qualified =>
+                                            || selected_from_qualified
+                                            || binding.name != id.name =>
                                     {
                                         HirExprKind::FnValue(symbol.clone())
                                     }
-                                    _ => HirExprKind::Var(id.name.clone()),
+                                    _ => HirExprKind::Var(binding.name.clone()),
                                 };
                                 let explicit_args = match binding.kind {
                                     BindingKind::Func { .. } => {
@@ -4382,8 +4509,7 @@ impl<'a> BlockChecker<'a> {
                                         lookup_name = member.clone();
                                         qualified.clone()
                                     } else {
-                                        self.env
-                                            .lookup_all_any_defined(&lookup_name)
+                                        self.lookup_all_unqualified_any_defined(id)
                                             .into_iter()
                                             .cloned()
                                             .collect()
@@ -4393,9 +4519,12 @@ impl<'a> BlockChecker<'a> {
                                         if !self.enums.contains_key(ns)
                                             && !self.traits.contains_key(ns)
                                         {
+                                            let member_id = Ident {
+                                                name: member.to_string(),
+                                                span: id.span,
+                                            };
                                             let alt = self
-                                                .env
-                                                .lookup_all_any_defined(member)
+                                                .lookup_all_unqualified_any_defined(&member_id)
                                                 .into_iter()
                                                 .cloned()
                                                 .collect::<Vec<_>>();
@@ -8400,29 +8529,6 @@ impl Env {
         None
     }
 
-    fn lookup_value_any(&self, name: &str) -> Option<&Binding> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(b) = scope.values.iter().rev().find(|b| b.name == name) {
-                return Some(b);
-            }
-        }
-        None
-    }
-
-    fn lookup_value_for_read(&self, name: &str, allow_undefined_nonmut: bool) -> Option<&Binding> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(b) = scope.values.iter().rev().find(|b| {
-                if b.name != name {
-                    return false;
-                }
-                b.defined || (allow_undefined_nonmut && !b.mutable)
-            }) {
-                return Some(b);
-            }
-        }
-        None
-    }
-
     fn lookup_all_callables(&self, name: &str) -> Vec<&Binding> {
         let mut items = Vec::new();
         for scope in self.scopes.iter().rev() {
@@ -8451,20 +8557,6 @@ impl Env {
             }
         }
         items
-    }
-
-    fn lookup_callable_any(&self, name: &str) -> Option<&Binding> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(b) = scope
-                .callables
-                .iter()
-                .rev()
-                .find(|b| b.name == name && b.defined)
-            {
-                return Some(b);
-            }
-        }
-        None
     }
 
     fn lookup_callable(&self, name: &str) -> Option<&Binding> {
@@ -8859,12 +8951,223 @@ fn detect_field_accessor_fn(def: &FnDef) -> Option<FieldAccessorKind> {
 }
 
 fn normalized_import_suffix(module: &str, ext: &str) -> String {
-    let mut s = module.replace('\\', "/");
+    let normalized = module.replace('\\', "/");
+    let mut parts = Vec::new();
+    for part in normalized.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    let mut s = parts.join("/");
     if !s.starts_with('/') {
         s.insert(0, '/');
     }
     s.push_str(ext);
     s
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum UnqualifiedImportVisibility {
+    Hidden,
+    All,
+    Selected(BTreeMap<String, String>),
+}
+
+type UnqualifiedImportVisibilityMap = BTreeMap<u32, BTreeMap<u32, UnqualifiedImportVisibility>>;
+
+fn import_target_files(source_map: &SourceMap, path: &str) -> BTreeSet<u32> {
+    let suffixes = [
+        normalized_import_suffix(path, ".nepl"),
+        normalized_import_suffix(path, ".n.md"),
+    ];
+    source_map
+        .iter_paths()
+        .filter_map(|(file_id, path)| {
+            let mut normalized = path.to_string_lossy().replace('\\', "/");
+            if !normalized.starts_with('/') {
+                normalized.insert(0, '/');
+            }
+            if suffixes.iter().any(|suffix| normalized.ends_with(suffix)) {
+                Some(file_id.0)
+            } else {
+                None
+            }
+        })
+        .collect::<BTreeSet<_>>()
+}
+
+fn import_clause_unqualified_visibility(clause: &ImportClause) -> UnqualifiedImportVisibility {
+    match clause {
+        ImportClause::DefaultAlias | ImportClause::Alias(_) => UnqualifiedImportVisibility::Hidden,
+        ImportClause::Open | ImportClause::Merge => UnqualifiedImportVisibility::All,
+        ImportClause::Selective(items) => {
+            if items.iter().any(|item| item.glob) {
+                return UnqualifiedImportVisibility::All;
+            }
+            let mut selected = BTreeMap::new();
+            for item in items {
+                selected.insert(
+                    item.alias.clone().unwrap_or_else(|| item.name.clone()),
+                    item.name.clone(),
+                );
+            }
+            UnqualifiedImportVisibility::Selected(selected)
+        }
+    }
+}
+
+fn merge_unqualified_import_visibility(
+    current: &mut UnqualifiedImportVisibility,
+    next: UnqualifiedImportVisibility,
+) {
+    match (current, next) {
+        (current @ UnqualifiedImportVisibility::Hidden, UnqualifiedImportVisibility::All)
+        | (current @ UnqualifiedImportVisibility::Selected(_), UnqualifiedImportVisibility::All) => {
+            *current = UnqualifiedImportVisibility::All;
+        }
+        (
+            UnqualifiedImportVisibility::Selected(current),
+            UnqualifiedImportVisibility::Selected(next),
+        ) => {
+            current.extend(next);
+        }
+        (
+            current @ UnqualifiedImportVisibility::Hidden,
+            UnqualifiedImportVisibility::Selected(next),
+        ) => {
+            *current = UnqualifiedImportVisibility::Selected(next);
+        }
+        (UnqualifiedImportVisibility::All, _) => {}
+        (_, UnqualifiedImportVisibility::Hidden) => {}
+    }
+}
+
+fn insert_unqualified_import_visibility(
+    out: &mut UnqualifiedImportVisibilityMap,
+    source_file: u32,
+    target_files: BTreeSet<u32>,
+    visibility: UnqualifiedImportVisibility,
+) {
+    if target_files.is_empty() {
+        return;
+    }
+    let source_visibility = out.entry(source_file).or_insert_with(BTreeMap::new);
+    for target_file in target_files {
+        source_visibility
+            .entry(target_file)
+            .and_modify(|current| merge_unqualified_import_visibility(current, visibility.clone()))
+            .or_insert_with(|| visibility.clone());
+    }
+}
+
+fn expand_unqualified_import_visibility(out: &mut UnqualifiedImportVisibilityMap) {
+    loop {
+        let snapshot = out.clone();
+        let mut changed = false;
+        for (source_file, targets) in &snapshot {
+            for (middle_file, visibility) in targets {
+                if *visibility != UnqualifiedImportVisibility::All {
+                    continue;
+                }
+                let Some(middle_targets) = snapshot.get(middle_file) else {
+                    continue;
+                };
+                for (target_file, next_visibility) in middle_targets {
+                    let source_visibility = out.entry(*source_file).or_insert_with(BTreeMap::new);
+                    let before = source_visibility.get(target_file).cloned();
+                    source_visibility
+                        .entry(*target_file)
+                        .and_modify(|current| {
+                            merge_unqualified_import_visibility(current, next_visibility.clone())
+                        })
+                        .or_insert_with(|| next_visibility.clone());
+                    if source_visibility.get(target_file).cloned() != before {
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+}
+
+fn build_unqualified_import_visibility(
+    module: &crate::ast::Module,
+    source_map: Option<&SourceMap>,
+) -> UnqualifiedImportVisibilityMap {
+    let Some(source_map) = source_map else {
+        return BTreeMap::new();
+    };
+    let mut directives: Vec<&Directive> = module.directives.iter().collect();
+    for item in &module.root.items {
+        if let Stmt::Directive(d) = item {
+            directives.push(d);
+        }
+    }
+    let mut out = BTreeMap::new();
+    for (file_id, _) in source_map.iter_paths() {
+        out.entry(file_id.0).or_insert_with(BTreeMap::new);
+    }
+    let root_file = source_map.iter_paths().next().map(|(file_id, _)| file_id.0);
+    let mut root_has_no_prelude = false;
+    let mut root_has_explicit_prelude = false;
+    for directive in directives {
+        match directive {
+            Directive::Import {
+                path, clause, span, ..
+            } => {
+                insert_unqualified_import_visibility(
+                    &mut out,
+                    span.file_id.0,
+                    import_target_files(source_map, path),
+                    import_clause_unqualified_visibility(clause),
+                );
+            }
+            Directive::Include { path, span } => {
+                insert_unqualified_import_visibility(
+                    &mut out,
+                    span.file_id.0,
+                    import_target_files(source_map, path),
+                    UnqualifiedImportVisibility::All,
+                );
+            }
+            Directive::Prelude { path, span } => {
+                if Some(span.file_id.0) == root_file {
+                    root_has_explicit_prelude = true;
+                }
+                insert_unqualified_import_visibility(
+                    &mut out,
+                    span.file_id.0,
+                    import_target_files(source_map, path),
+                    UnqualifiedImportVisibility::All,
+                );
+            }
+            Directive::NoPrelude { span } => {
+                if Some(span.file_id.0) == root_file {
+                    root_has_no_prelude = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    if let Some(root_file) = root_file {
+        if !root_has_no_prelude && !root_has_explicit_prelude {
+            insert_unqualified_import_visibility(
+                &mut out,
+                root_file,
+                import_target_files(source_map, "std/prelude_base"),
+                UnqualifiedImportVisibility::All,
+            );
+        }
+    }
+    expand_unqualified_import_visibility(&mut out);
+    out
 }
 
 fn build_qualified_import_targets(
@@ -8900,21 +9203,7 @@ fn build_qualified_import_targets(
         if aliases.is_empty() {
             continue;
         }
-        let suffixes = [
-            normalized_import_suffix(path, ".nepl"),
-            normalized_import_suffix(path, ".n.md"),
-        ];
-        let target_files = source_map
-            .iter_paths()
-            .filter_map(|(file_id, path)| {
-                let normalized = path.to_string_lossy().replace('\\', "/");
-                if suffixes.iter().any(|suffix| normalized.ends_with(suffix)) {
-                    Some(file_id.0)
-                } else {
-                    None
-                }
-            })
-            .collect::<BTreeSet<_>>();
+        let target_files = import_target_files(source_map, path);
         if target_files.is_empty() {
             continue;
         }

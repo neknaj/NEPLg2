@@ -188,8 +188,8 @@ overload candidate 走査と関数値引数の候補照合は、`TypeCtx::clone(
 
 ## RV-CORE-005: loader が import clause を無視して全 import をフラット結合している
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
 - 対象: `nepl-core/src/loader.rs`, `nepl-core/src/parser.rs`, `nepl-core/src/typecheck.rs`
@@ -213,9 +213,26 @@ overload candidate 走査と関数値引数の候補照合は、`TypeCtx::clone(
 
 loader は AST を物理的に結合せず、module graph と export/import table を構築するだけにします。可視性は `resolve` stage で clause に従って解決し、HIR には canonical symbol を渡します。
 
+### 対応
+
+現行 pipeline は qualified import と codegen が loader の flat merge 済み AST を前提にしているため、この issue では main typecheck の名前解決境界を根本修正しました。`SourceMap` と import directive の `span.file_id` から「参照元 file -> import 先 file -> 未修飾可視性」を構築し、未修飾 lookup を import clause で必ず filter するようにしています。
+
+`as name` / default alias は未修飾参照から隠し、qualified alias は既存の alias target map で維持します。`as { a }` は選択した symbol のみ、`as { a as b }` は alias 名のみを公開します。`as *` / `as @merge` と selective glob は既存 `module_graph` の open semantics に合わせて全 symbol を未修飾公開します。
+
+可視性 table は `#include` と `#prelude` / default prelude も扱い、`as *` / `as @merge` / prelude / include の open closure は参照元へ伝播させます。一方で selective import の import 先がさらに open import している場合でも、未選択の transitive symbol が参照元へ漏れないよう、直接可視性がない target file は未修飾 lookup から除外します。
+
+相対 import の `./dep` が source map suffix と一致しない経路も同時に修正し、import target file の正規化を qualified / unqualified lookup で共通化しました。loader の物理非結合化は、既存の `RV-CORE-010` で main pipeline と `resolve.rs` を統合する時に扱います。
+
 ### 検証
 
-`as name` で未修飾参照が失敗するテスト、selective import で未選択 symbol が失敗する compile_fail テスト、open import の曖昧性テストを追加します。
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core --test import_clause -- --nocapture`: 7 passed
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core`
+- `node tests/compiler/tree/run.js`: 19/19 passed
+- `trunk build`
+- `cargo check --workspace`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-005.json`: 13/13 passed
 
 ## RV-CORE-006: 通常実行でデバッグ出力が stderr へ漏れる
 

@@ -16000,3 +16000,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `bf` example は fixed-size VM memory/table を stdlib `Vec::filled` で構築し、低レベル memory 操作や panic helper ではなく `Result` を明示処理する方向へ寄せた。
+
+# 2026-04-26 メモ (RV-CORE-005 import clause 可視性)
+
+- [原因]:
+  - loader は import 先の AST item を現行 module に flat merge しており、main typecheck の未修飾名前解決が import clause を見ずに imported binding を候補へ入れていた。
+  - qualified alias 用の target file map はあったが、未修飾 lookup 用の file 間可視性 table がなく、`#import "dep" as dep` や `as { allowed }` でも未選択 symbol が見える可能性があった。
+  - import path の suffix 正規化が `./dep` と source map path の比較で揃わず、相対 import の alias target と可視性判定が一致しない経路があった。
+- [修正]:
+  - `SourceMap` と import directive span から `source file -> target file -> unqualified visibility` を構築し、`BlockChecker` の未修飾 value/callable lookup をこの可視性で filter するようにした。
+  - default alias / `as name` は未修飾参照を隠し、qualified alias は既存 target map で維持するようにした。
+  - selective import は選択 symbol のみを公開し、`as { old as new }` は alias 名だけを公開するようにした。
+  - `as *` / `as @merge` と selective glob は既存 `module_graph` の open semantics に合わせて全 symbol を未修飾公開するようにした。
+  - `#include` と `#prelude` / default prelude を可視性 table に含め、open import closure を計算して prelude や stdlib 内 import chain を壊さないようにした。
+  - selective import 先がさらに open import している場合でも、直接可視性のない transitive symbol は参照元へ漏れないようにした。
+  - import target file の suffix 正規化を qualified / unqualified lookup で共通化し、`./dep` のような相対 path も一致するようにした。
+  - `nepl-core/tests/import_clause.rs` を追加し、alias/default/selective/transitive leak/selective alias/selective glob/open import の main pipeline 回帰を固定した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: 7 passed
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core`: pass
+  - `node tests/compiler/tree/run.js`: 19/19 passed
+  - `trunk build`: pass
+  - `cargo check --workspace`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-005.json`: 13/13 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 現行 pipeline は qualified import と codegen が loader の flat merge 済み AST を前提にしているため、RV-CORE-005 では未修飾名前解決の import clause 境界を先に修正した。
+  - loader の物理非結合化は main pipeline と `resolve.rs` の統合を扱う `RV-CORE-010` の範囲に残す。
