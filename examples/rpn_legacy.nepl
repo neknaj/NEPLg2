@@ -21,7 +21,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - 対応演算子は `+` `-` `*` の 3 種です。
-//: - 旧ファイル名の `rpn_regacy.nepl` は typo だったため、この example は `rpn_legacy.nepl` として管理します。
+//: - EOF 相当の空行を受け取ると `bye` を表示して終了します。
 #entry main
 #indent 4
 #target std

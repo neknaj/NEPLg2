@@ -168,3 +168,38 @@ import は wildcard import が必要なものを `as *` に統一し、名前空
 - `trunk build`
 - `node nodesrc/tests.js -i examples/helloworld.nepl --no-tree -o tmp/helloworld-example-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
 - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-final.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+
+## RV-EXAMPLE-005: rpn_legacy example のコメントに変更履歴が残っている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P3
+- 種別: doc
+- 対象: `examples/rpn_legacy.nepl`
+
+### 根拠
+
+- `examples/rpn_legacy.nepl`: 先頭コメントの注意欄に、旧 typo ファイル名からの変更履歴が残っていた。
+- `doc/examples.md`: サンプル内コメントには処理の目的や構造を説明し、変更履歴を書かない方針としている。
+
+### 問題
+
+example 本体のコメントは利用者が読む現在の使い方に集中させるべきです。旧ファイル名の履歴説明は review issue 側に残せば十分で、source comment に置くと利用者向けの注意としてはノイズになります。
+
+### 影響
+
+`rpn_legacy.nepl` が「現在の簡潔な RPN REPL」の例ではなく、過去の修正経緯を説明する文書に寄ってしまいます。doc 方針ともずれ、他の example にも変更履歴コメントを残す前例になります。
+
+### 修正方針
+
+履歴は `RV-EXAMPLE-003` の issue 記録に集約します。example 本体では、実行時の終了条件など利用者が知るべき仕様だけを注意欄に残します。
+
+### 対応結果
+
+`examples/rpn_legacy.nepl` の旧ファイル名履歴コメントを削除し、EOF 相当の空行で終了する仕様説明へ置き換えました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-comment-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)

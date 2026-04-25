@@ -1,3 +1,18 @@
+# 2026-04-26 メモ (rpn_legacy example の履歴コメント整理)
+
+- [状況]:
+  - `examples/rpn_legacy.nepl` は実装自体は現行 stdlib API に移行済みだったが、先頭コメントの注意欄に旧 typo ファイル名の変更履歴が残っていた。
+  - `doc/examples.md` では、サンプル内コメントに変更履歴を書かない方針としている。
+- [修正]:
+  - 旧ファイル名履歴は review issue 側の `RV-EXAMPLE-003` に残し、`examples/rpn_legacy.nepl` からは削除した。
+  - 代わりに、利用者向けの仕様として EOF 相当の空行で終了することを記述した。
+  - `doc/review20260425/examples.md` と `issues.md` に `RV-EXAMPLE-005` を追加した。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-comment-tests.json -j 2`: 1/1 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。example の説明コメントを現行の利用者向け情報へ整理した。
+
 # 2026-04-26 メモ (basic/tools examples の review issue 記録)
 
 - [状況]:
