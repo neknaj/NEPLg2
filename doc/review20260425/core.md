@@ -856,8 +856,8 @@ nominal な enum / struct の `Apply` は base 定義本体を unify せず、�
 
 ## RV-CORE-020: pipe 左辺の部分適用が D3013 になり Rust test と doctest の状態が不整合
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P2
 - 種別: bug
 - 対象: `nepl-core/src/typecheck.rs`, `nepl-core/tests/pipe_operator.rs`, `tests/compiler/pipe_operator.n.md`
@@ -931,3 +931,38 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 
 - `cargo test -p nepl-core --test neplg2 overloads_with_different_arity_are_error -- --nocapture` (`1 passed`)
 - `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg2-rv-core-021.json -j 2` (`total=45`, `passed=45`, `failed=0`)
+
+## RV-CORE-022: GitHub Actions 24940960078 で compiler doctest が広範囲に回帰している
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/passes/**`, `tests/compiler/*.n.md`, `tests/stdlib/*.n.md`
+
+### 根拠
+
+- GitHub Actions run `24940960078` (`Fix RV-CLI-008 node cli argument errors`, head `96ae78bc872a314d857ec8e8c2f77fd7e38c7393`) の `wasi-test` / `nmd-doctest` が失敗している。
+- `gh run view 24940960078 --repo neknaj/NEPLg2 --log-failed` で、`node nodesrc/tests.js -i tests -o tests-current.json -j 4` と `node nodesrc/tests.js -i tests -o nmd-tests.json -j 4` の両方が `total=693`, `passed=661`, `failed=31`, `errored=1` を返した。
+- 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。
+- `tests/compiler/raw_body_precheck.n.md::doctest#6` も `expected compile_fail, but compiled successfully` になっており、precheck が本来落とすべき入力を通している可能性がある。
+
+### 問題
+
+core compiler の move/effect/trait impl/overload/raw-body precheck が同時に赤くなっており、単なる fixture ずれとして処理すると危険です。特に compile_fail が成功扱いになるケースは、不正な所有権移動や effect 境界違反を実行可能コードとして通す可能性があります。
+
+### 影響
+
+`wasi-test` と `nmd-doctest` が同じ failure set で落ちるため、main CI は compiler regression を検出した状態で失敗します。stdlib 側の失敗にも core compiler の D3006 / D3016 が混ざるため、stdlib 実装の問題と core 側の型推論・stack discipline 問題を切り分けにくくなっています。
+
+### 修正方針
+
+まず `tests-current.json` の failure を root cause 別に最小再現へ分解します。compile_fail が成功するものは move/effect/precheck の安全性問題として P0 で先に直し、`D3090` は trait method signature の期待型生成と impl 側 signature 正規化を比較します。overload 系は `RV-CORE-021` の arity 方針と `tests/compiler/overload.n.md` の期待値が現在の仕様に一致しているかを確認し、仕様が正しければ resolver 側、fixture が古ければ doctest 側を修正します。
+
+### 検証
+
+- `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/overload.n.md -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/core-ci-regressions.json -j 1`
+- `node nodesrc/tests.js -i tests -o tmp/tests-current-after-rv-core-022.json -j 4`
+- `cargo test -p nepl-core`
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-022.json`

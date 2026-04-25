@@ -447,6 +447,8 @@ hash collection 用の `HashKey` / `Hasher` が、標準 `Clone` / `Copy` と別
 - 同 run: `stdlib/alloc/collections/btreeset.nepl`、`queue.nepl`、`ringbuffer.nepl` でも同様に `new` / constructor 系 doctest が expected collection type に対して `unit` を返した扱いになっている。
 - 同 run: `stdlib/alloc/collections/fenwick.nepl` など 14 件が `stdlib/alloc/collections/vec.nepl:938` の `error[D3016]: expression left extra values on the stack` で失敗。
 - 同 run: collection diagnostic / hashmap / set 系で `RuntimeError: unreachable`、`RuntimeError: memory access out of bounds`、`error[D1206]: indentation is not aligned to #indent width` も出ている。
+- GitHub Actions run `24940960078` の `stdlib-test`: `total=398`, `passed=340`, `failed=58`, `errored=0`。失敗は `btreemap.nepl` 6件、`btreeset.nepl` 5件、`fenwick.nepl` 5件、`ringbuffer.nepl` 5件、`queue.nepl` 4件、`sparse_set.nepl` 4件など collection 系に集中している。
+- 同 run: 失敗種別は `D3004` が20件、`D3006` が16件、`D3016` が14件で、constructor / overload / stack discipline の問題が主です。
 
 ### 問題
 
@@ -470,6 +472,8 @@ CI の `stdlib-test` が常に失敗し、標準 collection の利用可否を�
 ### 検証
 
 修正後は `node nodesrc/tests.js -i stdlib/alloc/collections -o tmp/collections-rv-stdlib-013.json -j 1` と `node nodesrc/tests.js -i tests/stdlib -o tmp/tests-stdlib-rv-stdlib-013.json -j 1` を通します。CI では `stdlib-test` artifact の summary が `failed=0`, `errored=0` になることを確認します。
+
+2026-04-26 時点では run `24940960078` の artifact `stdlib-tests/stdlib-tests.json` で失敗が58件残っています。修正時はこの artifact の failure set を baseline として、constructor 系と `vec_find_impl` / `vec_take_while_len_impl` 系を別コミットで切り分けます。
 
 ## RV-STDLIB-014: Stack の 更新 API が by-value pop に偏り所有値の継続利用を阻害する
 
@@ -626,3 +630,36 @@ Brainfuck の tape / jump table のような固定長初期化は stdlib の代�
 - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-filled-tests.json -j 2` (`total=39`, `passed=39`, `failed=0`)
 - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-filled-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)
 - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-bf-filled-tests.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+
+## RV-STDLIB-018: streamio の WASI doctest が trait bound 不一致と出力破損で失敗する
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `stdlib/std/streamio.nepl`, `tests/stdlib/streamio.n.md`, `nodesrc/run_test.js`
+
+### 根拠
+
+- GitHub Actions run `24940960078` の `wasi-test` / `nmd-doctest` artifact で、`tests/stdlib/streamio.n.md` が5件失敗している。
+- `doctest#2` と `doctest#12` は `error[D3069]: type does not satisfy trait bound 'StreamWritable'` で `write bytes0` が解決できない。
+- `doctest#5` は `writeln` が `D3006`、pipe が `D3013`、`close` が `D3016` で失敗している。
+- `doctest#6` は expected `line1\nline2` に対して actual が `" \u0000\u0000\u0000\u000b\u0000\u0000\u0000\u0010\u0000\u0000"`、`doctest#7` は expected `text via read` に対して actual が `"\r\u0000\u0000\u0000\u0010\u0000\u0000\u0000 rea\u0000"` になり、文字列ではなく raw layout 由来の bytes が stdout に混入している。
+
+### 問題
+
+streamio は trait bound 解決と runtime I/O の両方で壊れています。compile failure は `StreamWritable` の impl / marker / import のいずれかが現在の型推論と噛み合っていないことを示し、runtime stdout mismatch は `str` / byte buffer / stream write の境界で内部 layout をそのまま出力している可能性を示します。
+
+### 影響
+
+標準 I/O wrapper が信頼できず、tutorial や競技プログラミング向け I/O の検証が止まります。`stdio.read_all` や UTF-8 保証の issue と関連する可能性がありますが、streamio 固有の trait 解決と出力破損を先に最小再現へ分ける必要があります。
+
+### 修正方針
+
+まず `tests/stdlib/streamio.n.md` の5失敗を compile と runtime に分けます。compile 側は `StreamWritable` impl の対象型、import clause、generic bound の正規化を確認します。runtime 側は `write` / `writeln` が `str` の data pointer と length を正しく取り出しているか、`ByteBuf` と `str` を混同していないかを確認します。修正は `unwrap` や raw memory で覆わず、stream abstraction の境界で型と layout を明確にします。
+
+### 検証
+
+- `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-rv-stdlib-018.json -j 1`
+- `node nodesrc/tests.js -i tests/stdlib -o tmp/tests-stdlib-streamio-after.json -j 4`
+- `node nodesrc/tests.js -i tests -o tmp/tests-current-streamio-after.json -j 4`

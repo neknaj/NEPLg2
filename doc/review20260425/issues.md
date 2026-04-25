@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 3 | 18 |
-| cli | 3 | 10 |
-| stdlib | 9 | 8 |
+| core | 4 | 18 |
+| cli | 4 | 10 |
+| stdlib | 10 | 8 |
 | examples | 0 | 11 |
-| 合計 | 15 | 47 |
+| 合計 | 18 | 47 |
 
 ## Core
 
@@ -39,6 +39,7 @@
 | [RV-CORE-019](./core.md#rv-core-019-generic-wrapper--nested-generic-enum-の期待型伝播が-typenomatchingoverload-になる) | true | verified | P1 | bug | generic wrapper / nested generic enum の型引数汚染を防ぎ、`TypeNoMatchingOverload` を修正済み |
 | [RV-CORE-020](./core.md#rv-core-020-pipe-左辺の部分適用が-d3013-になり-rust-test-と-doctest-の状態が不整合) | true | verified | P2 | bug | pipe 左辺の退避範囲を未完了 callable の直近引数式に限定し、`pipe_nested_pipes` / `pipe_in_if` の skip を解除済み |
 | [RV-CORE-021](./core.md#rv-core-021-neplg2nmd-の-overload-arity-fixture-が-rust-test-と不整合) | true | verified | P2 | test | overload arity doctest を現行 Rust test と同じ `D3005` compile_fail 期待へ修正済み |
+| [RV-CORE-022](./core.md#rv-core-022-github-actions-24940960078-で-compiler-doctest-が広範囲に回帰している) | false | open | P0 | bug | `wasi-test` / `nmd-doctest` が `tests` で 31 failed / 1 errored。move/effect/overload/raw precheck など core compiler 回帰が混在 |
 
 ## CLI
 
@@ -57,6 +58,7 @@
 | [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | false | open | P1 | test | `llvm-test` の full dual backend verification が 10 分 timeout で cancelled になる |
 | [RV-CLI-012](./cli.md#rv-cli-012-trunk-build-が-clean-checkout-で-webexamples-不在により失敗する) | true | verified | P2 | test | `web/examples` を npm prebuild で同期し、ローカル `trunk build` を clean checkout でも通るように修正済み |
 | [RV-CLI-013](./cli.md#rv-cli-013-playground-editor-cli-fixture-が-windows-crlf-checkout-で失敗する) | true | verified | P2 | test | fixture source を LF 正規化し、Windows checkout の CRLF で `nodesrc/cli.js` JSON テストが崩れないよう修正済み |
+| [RV-CLI-014](./cli.md#rv-cli-014-llvm-smoke-test-が存在しない-fixture-path-を指して-0件成功扱いになる) | false | open | P0 | test | CI が `tests/llvm_target.n.md` を指定しているが実ファイルは `tests/compiler/llvm_target.n.md`。LLVM smoke が `total=0` でも成功する |
 
 ## Stdlib
 
@@ -79,6 +81,7 @@
 | [RV-STDLIB-015](./stdlib.md#rv-stdlib-015-bytevec-操作の-public-api-不足により-example-が-raw-memory-へ依存する) | true | verified | P1 | architecture | `Vec::replace_ref` / `string::byte_at` / `stdio::print_byte` を追加し、byte VM を raw memory なしで書けるよう修正済み |
 | [RV-STDLIB-016](./stdlib.md#rv-stdlib-016-stack-push-が所有権を消費し-example-で-panic-helper-回避を妨げる) | true | verified | P1 | architecture | `Stack::push_ref` を追加し、Copy 要素を借用 stack へ追加して失敗時も handle を保持できるよう修正済み |
 | [RV-STDLIB-017](./stdlib.md#rv-stdlib-017-vec-に固定長初期化-api-がなく-example-が-panic-helper-に依存する) | true | verified | P1 | architecture | `Vec::filled` を追加し、固定長 buffer/table を `Result` で作れるよう修正済み |
+| [RV-STDLIB-018](./stdlib.md#rv-stdlib-018-streamio-の-wasi-doctest-が-trait-bound-不一致と出力破損で失敗する) | false | open | P1 | bug | `tests/stdlib/streamio.n.md` が `D3069` / `D3006` と stdout の binary layout 混入で 5 件失敗 |
 
 ## Examples
 

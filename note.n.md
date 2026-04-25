@@ -16204,3 +16204,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Node documentation/test CLI の error handling 修正であり、言語仕様や compiler 実装の変更はない。
+
+# 2026-04-26 メモ (GitHub Actions run 24940960078 の issue 更新)
+
+- [確認]:
+  - `gh run view 24940960078 --repo neknaj/NEPLg2 --json ...` で run 全体が failure であることを確認した。
+  - `wasi-test` と `nmd-doctest` は `tests` 入力で `total=693`, `passed=661`, `failed=31`, `errored=1`。
+  - `stdlib-test` は `total=398`, `passed=340`, `failed=58`, `errored=0`。
+  - `llvm-test` は `Full dual backend verification` が cancelled。smoke step は成功扱いだが `tests-llvm.json` は `total=0`。
+- [issue更新]:
+  - `RV-CORE-022` を追加し、move/effect/overload/raw precheck など compiler doctest の広範囲回帰を記録した。
+  - `RV-CLI-011` に run `24940960078` の LLVM timeout 再確認結果を追記した。
+  - `RV-CLI-014` を追加し、CI が存在しない `tests/llvm_target.n.md` を指して LLVM smoke が0件成功扱いになる問題を分離した。
+  - `RV-STDLIB-013` に current run の stdlib collection failure 件数を追記した。
+  - `RV-STDLIB-018` を追加し、`streamio.n.md` の trait bound 不一致と stdout 破損を記録した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 今回は実装修正ではなく、CI結果をレビューIssue管理へ反映した。

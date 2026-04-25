@@ -471,6 +471,12 @@ LLVM smoke test と full dual backend verification を分けます。まず smok
 
 push CI で `llvm-test` または分割後の LLVM jobs が cancelled にならず、`llvm-tests` artifact に `tests-llvm.json` と full verification の結果 JSON が残ることを確認します。full verification を別 workflow に逃がす場合は、main CI の必須判定と Pages status summary の扱いを明示します。
 
+### 2026-04-26 CI確認
+
+`gh run view 24940960078 --repo neknaj/NEPLg2 --job 73034680000 --log` で再確認しました。`LLVM doctests via nodesrc runner` は成功扱いですが、`tests-llvm.json` の summary は `total=0`, `passed=0`, `failed=0`, `errored=0` でした。その直後の `Full dual backend verification` は `21:27:48Z` に開始し、`21:34:59Z` に `The operation was canceled.` で止まっています。artifact upload は `tests-llvm.json` だけを 435 bytes で保存しており、`tests-dual-full.json` は残っていません。job cleanup では `node` と `nepl-cli` の orphan process も kill されています。
+
+この結果から、timeout 対策だけでなく「途中結果を残せない」「smoke が0件で成功している」という検証設計の問題も同時に扱う必要があります。0件 smoke は `RV-CLI-014` として分離します。
+
 ## RV-CLI-012: trunk build が clean checkout で web/examples 不在により失敗する
 
 - 解決済: true
@@ -533,3 +539,35 @@ GitHub Actions の Linux runner では表面化しにくい一方、Windows 開�
 確認済み:
 
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-017.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+
+## RV-CLI-014: LLVM smoke test が存在しない fixture path を指して 0件成功扱いになる
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: test
+- 対象: `.github/workflows/ci.yml`, `nodesrc/tests.js`, `tests/compiler/llvm_target.n.md`
+
+### 根拠
+
+- `.github/workflows/ci.yml:351` は `node nodesrc/tests.js -i tests/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2` を実行している。
+- repository 内の実ファイルは `tests/compiler/llvm_target.n.md` であり、`tests/llvm_target.n.md` は存在しない。
+- GitHub Actions run `24940960078` の `llvm-test` job ではこの smoke step が成功扱いになったが、artifact `llvm-tests/tests-llvm.json` は `total=0`, `passed=0`, `failed=0`, `errored=0` だった。
+
+### 問題
+
+LLVM backend の smoke test が実質的に1件も走っていません。`nodesrc/tests.js` が存在しない input path または0件収集を成功として扱っているため、CI上は smoke が通ったように見えます。
+
+### 影響
+
+LLVM backend の最小コンパイル確認が無効化されます。`Full dual backend verification` が timeout/cancelled になる現状では、LLVM backend の実行可能性を確認する最後の短時間ゲートも機能していません。
+
+### 修正方針
+
+CI の input path を `tests/compiler/llvm_target.n.md` に修正します。加えて、`nodesrc/tests.js` は明示 input に対して 0件収集になった場合は exit code 1 にします。ただし `--changed` のように差分なしが正常なモードがある場合は、そのモードだけ 0件を許容するように条件を分けます。
+
+### 検証
+
+- `node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tmp/tests-llvm-smoke.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2`
+- `node nodesrc/tests.js -i tests/llvm_target.n.md -o tmp/tests-llvm-missing.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2` が失敗すること
+- push CI の `LLVM doctests via nodesrc runner` が `total>0` を記録すること
