@@ -1,3 +1,17 @@
+# 2026-04-26 メモ (nm example の usage 表示修正)
+
+- [状況]:
+  - `examples/nm.nepl` の help usage が `nekmaj [--ast|--html]` になっていた。
+  - repo 全体では `nekmaj` という実体はなく、example と stdlib module は `nm.nepl` / `nm/parser` / `nm/html_gen` として管理されている。
+- [修正]:
+  - help の期待値と `print_usage` の出力を `nm [--ast|--html]` に統一した。
+  - `doc/review20260425/examples.md` と `issues.md` に `RV-EXAMPLE-006` を追加した。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/nm.nepl --no-tree -o tmp/nm-usage-tests.json -j 2`: 1/1 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。CLI example の表示名だけを実体名へ揃えた。
+
 # 2026-04-26 メモ (rpn_legacy example の履歴コメント整理)
 
 - [状況]:

@@ -7,7 +7,7 @@
 //:     ##: Reads Markdown from stdin and writes AST or HTML to stdout.
 //:     ##: 
 //:     ##: Usage:
-//:     ##:   nekmaj [--ast|--html]
+//:     ##:   nm [--ast|--html]
 //:     ##: 
 //:     ##: Options:
 //:     ##:   --ast   Output AST (default)
@@ -50,7 +50,7 @@ fn print_usage <()*>()> ():
     println "Reads Markdown from stdin and writes AST or HTML to stdout.";
     println "";
     println "Usage:";
-    println "  nekmaj [--ast|--html]";
+    println "  nm [--ast|--html]";
     println "";
     println "Options:";
     println "  --ast   Output AST (default)";

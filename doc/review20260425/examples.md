@@ -203,3 +203,38 @@ example 本体のコメントは利用者が読む現在の使い方に集中さ
 確認済み:
 
 - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-comment-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
+
+## RV-EXAMPLE-006: nm example の usage 表示が実体名とずれている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P3
+- 種別: doc
+- 対象: `examples/nm.nepl`
+
+### 根拠
+
+- `examples/nm.nepl`: help の Usage が `nekmaj [--ast|--html]` になっていた。
+- repo 全体では `nekmaj` という実行名はこの help 以外に出てこず、example と stdlib module は `nm.nepl` / `nm/parser` / `nm/html_gen` として管理されている。
+
+### 問題
+
+CLI example の usage は、利用者がそのままコピーする実行名です。実体と一致しない名前を表示すると、example のファイル名や import module 名と help の案内が分裂します。
+
+### 影響
+
+利用者が `nekmaj` という存在しない名前を探す可能性があります。小さな typo ですが、CLI サンプルの信頼性とドキュメントの一貫性を下げます。
+
+### 修正方針
+
+実体名に合わせて Usage を `nm [--ast|--html]` へ統一します。doctest の期待値も同時に更新し、help 表示の回帰として確認します。
+
+### 対応結果
+
+`examples/nm.nepl` の help 期待値と `print_usage` の出力を `nm [--ast|--html]` に更新しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i examples/nm.nepl --no-tree -o tmp/nm-usage-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
