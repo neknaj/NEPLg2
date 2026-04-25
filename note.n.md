@@ -1,3 +1,28 @@
+# 2026-04-25 メモ (RV-CORE-018 nested aggregate layout 修正)
+
+- [状況]:
+  - `stdlib/tests/vec.n.md::doctest#2` で、`partition` の odd 側 `Vec<i32>` を `.Pair` / tuple から取り出すと先頭要素が `expected=1 actual=0` になっていた。
+  - 直接回帰として `Tuple(Vec<i32>, Vec<i32>)` の 2 番目を取り出す検査を追加すると、修正前は `len_ref` が `8`、先頭要素が `61` になり、2 番目 field offset が `Vec` の実サイズではなく 4 byte として計算されていることを確認した。
+- [原因]:
+  - storage layout 計算で `Apply { base: Named("Vec"), ... }` の base を named type 実体へ解決しておらず、`Vec<i32>` が fallback の 4 byte として扱われていた。
+  - その結果、`Tuple(Vec<i32>, Vec<i32>)` の 2 番目 field offset が 12 byte ではなく 4 byte になり、1 本目の `Vec` の `cap` 以降を 2 本目の `Vec` として読んでいた。
+- [修正]:
+  - `TypeCtx::resolve_named_type_id` を公開し、WASM / LLVM / typecheck の storage size / align / field offset 計算で named generic aggregate の base を実体へ解決するようにした。
+  - aggregate `get` の nested aggregate copy 後に destination pointer を式値として返すようにした。
+  - `stdlib/tests/vec.n.md` に `Tuple(Vec<i32>, Vec<i32>)` の 2 番目を直接検証する回帰を追加した。
+  - `doc/review20260425/core.md` と `issues.md` の `RV-CORE-018` を `verified` に更新し、`todo.md` から削除した。
+- [確認済み]:
+  - `cargo fmt --all --check`
+  - `cargo test -p nepl-core --test tuple_new_syntax`: 20 passed
+  - `cargo test -p nepl-core`: pass
+  - `cargo check --workspace`: pass
+  - `trunk build`
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md -o tmp/vec-tests-rv-core-018-after-rebase.json -j 1`: 21/21 passed
+  - `node tests/compiler/tree/run.js`: 19/19 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-018.json`: 13/13 passed
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の修正は現行 compiler backend の aggregate ABI / layout の不整合を修正するもので、セルフホスト compiler 計画への直接変更はない。
+
 # 2026-04-26 メモ (bf example の先頭構成整理)
 
 - [状況]:

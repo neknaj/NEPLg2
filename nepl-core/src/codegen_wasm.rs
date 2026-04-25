@@ -91,7 +91,7 @@ fn align_to(x: u32, align: u32) -> u32 {
 
 fn mapped_type_id(ctx: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
     let ty = ctx.resolve_id(ty);
-    mapping.get(&ty).copied().unwrap_or(ty)
+    ctx.resolve_named_type_id(mapping.get(&ty).copied().unwrap_or(ty))
 }
 
 fn extend_type_mapping(
@@ -138,7 +138,7 @@ fn type_storage_align_bytes_mapped(
             .unwrap_or(4)
             .max(4),
         TypeKind::Apply { base, args } => {
-            let base = ctx.resolve_id(base);
+            let base = ctx.resolve_named_type_id(base);
             match ctx.get(base) {
                 TypeKind::Struct {
                     type_params,
@@ -168,6 +168,11 @@ fn type_storage_align_bytes_mapped(
                         .unwrap_or(4)
                         .max(4)
                 }
+                TypeKind::Tuple { items } => items
+                    .iter()
+                    .map(|item| type_storage_align_bytes_mapped(ctx, *item, mapping))
+                    .max()
+                    .unwrap_or(1),
                 _ => 4,
             }
         }
@@ -207,7 +212,7 @@ fn type_storage_size_bytes_mapped(
             4 + payload
         }
         TypeKind::Apply { base, args } => {
-            let base = ctx.resolve_id(base);
+            let base = ctx.resolve_named_type_id(base);
             match ctx.get(base) {
                 TypeKind::Struct {
                     type_params,
@@ -236,6 +241,10 @@ fn type_storage_size_bytes_mapped(
                         .unwrap_or(0);
                     4 + payload
                 }
+                TypeKind::Tuple { items } => items
+                    .iter()
+                    .map(|item| type_storage_size_bytes_mapped(ctx, *item, mapping))
+                    .sum(),
                 _ => 4,
             }
         }
@@ -244,11 +253,11 @@ fn type_storage_size_bytes_mapped(
 }
 
 fn is_aggregate_storage_type(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let ty = ctx.resolve_id(ty);
+    let ty = ctx.resolve_named_type_id(ty);
     match ctx.get(ty) {
         TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. } => true,
         TypeKind::Apply { base, .. } => matches!(
-            ctx.get(ctx.resolve_id(base)),
+            ctx.get(ctx.resolve_named_type_id(base)),
             TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. }
         ),
         _ => false,
@@ -256,7 +265,7 @@ fn is_aggregate_storage_type(ctx: &TypeCtx, ty: TypeId) -> bool {
 }
 
 fn tuple_field_layout(ctx: &TypeCtx, ty: TypeId, index: usize) -> Option<(TypeId, u32)> {
-    let ty = ctx.resolve_id(ty);
+    let ty = ctx.resolve_named_type_id(ty);
     match ctx.get(ty) {
         TypeKind::Tuple { items } => {
             let item_ty = *items.get(index)?;
@@ -276,14 +285,14 @@ fn tuple_field_layouts_by_result(
     ty: TypeId,
     result_ty: TypeId,
 ) -> Vec<(u32, TypeId, u32)> {
-    let ty = ctx.resolve_id(ty);
+    let ty = ctx.resolve_named_type_id(ty);
     match ctx.get(ty) {
         TypeKind::Tuple { items } => {
             let mut out = Vec::new();
             let mut offset = 0u32;
-            let want = ctx.resolve_id(result_ty);
+            let want = ctx.resolve_named_type_id(result_ty);
             for (index, item_ty) in items.iter().copied().enumerate() {
-                if ctx.resolve_id(item_ty) == want {
+                if ctx.resolve_named_type_id(item_ty) == want {
                     out.push((index as u32, item_ty, offset));
                 }
                 offset += type_storage_size_bytes(ctx, item_ty);
@@ -300,7 +309,7 @@ fn struct_field_layout_by_name(
     ty: TypeId,
     field_name: &str,
 ) -> Option<(TypeId, u32)> {
-    let ty = ctx.resolve_id(ty);
+    let ty = ctx.resolve_named_type_id(ty);
     match ctx.get(ty) {
         TypeKind::Struct {
             fields,
@@ -316,7 +325,7 @@ fn struct_field_layout_by_name(
             Some((field_ty, offset))
         }
         TypeKind::Apply { base, args } => {
-            let base = ctx.resolve_id(base);
+            let base = ctx.resolve_named_type_id(base);
             match ctx.get(base) {
                 TypeKind::Struct {
                     type_params,
@@ -1584,6 +1593,7 @@ fn gen_expr(
                                 memory_index: 0,
                             }));
                         }
+                        insts.push(Instruction::LocalGet(dst_local));
                         return Ok(Some(ValType::I32));
                     }
                     let field_kind = ctx.get(field_ty);
@@ -1684,6 +1694,7 @@ fn gen_expr(
                         }
                         insts.push(Instruction::End);
                     }
+                    insts.push(Instruction::LocalGet(dst_local));
                     Some(ValType::I32)
                 } else {
                     let out_local = locals.alloc_temp(ValType::I32);
@@ -2591,6 +2602,7 @@ fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> u32 {
     } else {
         variant
     };
+    let enum_ty = ctx.resolve_named_type_id(enum_ty);
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => variants
             .iter()
@@ -2608,12 +2620,13 @@ fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option
     } else {
         variant
     };
+    let enum_ty = ctx.resolve_named_type_id(enum_ty);
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => variants
             .iter()
             .find(|v| v.name == name)
             .and_then(|v| v.payload),
-        TypeKind::Apply { base, args } => match ctx.get(base) {
+        TypeKind::Apply { base, args } => match ctx.get(ctx.resolve_named_type_id(base)) {
             TypeKind::Enum {
                 variants,
                 type_params,

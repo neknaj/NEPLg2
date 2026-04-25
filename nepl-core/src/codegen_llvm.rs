@@ -3088,7 +3088,7 @@ fn ll_storage_size(ty: LlTy) -> i64 {
 
 fn mapped_type_id(types: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
     let ty = types.resolve_id(ty);
-    mapping.get(&ty).copied().unwrap_or(ty)
+    types.resolve_named_type_id(mapping.get(&ty).copied().unwrap_or(ty))
 }
 
 fn extend_type_mapping(
@@ -3136,7 +3136,7 @@ fn type_storage_align_bytes_mapped(
             .unwrap_or(4)
             .max(4),
         TypeKind::Apply { base, args } => {
-            let base = types.resolve_id(base);
+            let base = types.resolve_named_type_id(base);
             match types.get(base) {
                 TypeKind::Struct {
                     type_params,
@@ -3168,6 +3168,11 @@ fn type_storage_align_bytes_mapped(
                         .unwrap_or(4)
                         .max(4)
                 }
+                TypeKind::Tuple { items } => items
+                    .iter()
+                    .map(|item| type_storage_align_bytes_mapped(types, *item, mapping))
+                    .max()
+                    .unwrap_or(1),
                 _ => 4,
             }
         }
@@ -3207,7 +3212,7 @@ fn type_storage_size_bytes_mapped(
             4 + payload
         }
         TypeKind::Apply { base, args } => {
-            let base = types.resolve_id(base);
+            let base = types.resolve_named_type_id(base);
             match types.get(base) {
                 TypeKind::Struct {
                     type_params,
@@ -3236,6 +3241,10 @@ fn type_storage_size_bytes_mapped(
                         .unwrap_or(0);
                     4 + payload
                 }
+                TypeKind::Tuple { items } => items
+                    .iter()
+                    .map(|item| type_storage_size_bytes_mapped(types, *item, mapping))
+                    .sum(),
                 _ => 4,
             }
         }
@@ -3244,11 +3253,11 @@ fn type_storage_size_bytes_mapped(
 }
 
 fn is_aggregate_storage_type(types: &TypeCtx, ty: TypeId) -> bool {
-    let ty = types.resolve_id(ty);
+    let ty = types.resolve_named_type_id(ty);
     match types.get(ty) {
         TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. } => true,
         TypeKind::Apply { base, .. } => matches!(
-            types.get(types.resolve_id(base)),
+            types.get(types.resolve_named_type_id(base)),
             TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. }
         ),
         _ => false,
@@ -3256,7 +3265,7 @@ fn is_aggregate_storage_type(types: &TypeCtx, ty: TypeId) -> bool {
 }
 
 fn tuple_field_layout(types: &TypeCtx, ty: TypeId, index: usize) -> Option<(TypeId, i64)> {
-    let ty = types.resolve_id(ty);
+    let ty = types.resolve_named_type_id(ty);
     match types.get(ty) {
         TypeKind::Tuple { items } => {
             let item_ty = *items.get(index)?;
@@ -3276,7 +3285,7 @@ fn struct_field_layout_by_name(
     ty: TypeId,
     field_name: &str,
 ) -> Option<(TypeId, i64)> {
-    let ty = types.resolve_id(ty);
+    let ty = types.resolve_named_type_id(ty);
     match types.get(ty) {
         TypeKind::Struct {
             fields,
@@ -3292,7 +3301,7 @@ fn struct_field_layout_by_name(
             Some((field_ty, offset))
         }
         TypeKind::Apply { base, args } => {
-            let base = types.resolve_id(base);
+            let base = types.resolve_named_type_id(base);
             match types.get(base) {
                 TypeKind::Struct {
                     type_params,
@@ -3418,7 +3427,7 @@ fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> i32 {
     } else {
         variant
     };
-    let enum_ty = ctx.resolve_id(enum_ty);
+    let enum_ty = ctx.resolve_named_type_id(enum_ty);
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => {
             variants.iter().position(|v| v.name == name).unwrap_or(0) as i32
@@ -3434,13 +3443,13 @@ fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option
     } else {
         variant
     };
-    let enum_ty = ctx.resolve_id(enum_ty);
+    let enum_ty = ctx.resolve_named_type_id(enum_ty);
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => variants
             .iter()
             .find(|v| v.name == name)
             .and_then(|v| v.payload),
-        TypeKind::Apply { base, args } => match ctx.get(base) {
+        TypeKind::Apply { base, args } => match ctx.get(ctx.resolve_named_type_id(base)) {
             TypeKind::Enum {
                 variants,
                 type_params,

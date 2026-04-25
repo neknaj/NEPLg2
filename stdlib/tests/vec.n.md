@@ -208,6 +208,23 @@ fn main <()*>i32> ():
         |> push 6 |> uwok
     set checks checks_push checks check all<i32> all_src is_even;
 
+    let tuple_left <Vec<i32>>:
+        unwrap_ok new<i32>
+        |> push 10 |> uwok
+    let tuple_right <Vec<i32>>:
+        unwrap_ok new<i32>
+        |> push 1 |> uwok
+    let tuple_parts Tuple:
+        tuple_left
+        tuple_right
+    let tuple_right_got <Vec<i32>> get tuple_parts 1;
+    set checks checks_push checks check_eq_i32 1 len_ref<i32> &tuple_right_got;
+    match get_ref<i32> &tuple_right_got 0:
+        Option::Some x:
+            set checks checks_push checks check_eq_i32 1 x
+        Option::None:
+            set checks checks_push checks Result<(),str>::Err "tuple Vec second field returned None";
+
     let partition_even_len_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok

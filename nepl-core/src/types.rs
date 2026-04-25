@@ -463,7 +463,8 @@ impl TypeCtx {
         }
     }
 
-    fn resolve_named_type_id(&self, id: TypeId) -> TypeId {
+    /// 型変数の束縛と名前付き型の実体をたどり、名義型判定やレイアウト計算で使う ID を返す。
+    pub fn resolve_named_type_id(&self, id: TypeId) -> TypeId {
         let mut cur = self.resolve_id(id);
         let mut i = 0;
         loop {

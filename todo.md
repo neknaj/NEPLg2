@@ -15,7 +15,6 @@
 2026-04-25 Review
 
 - `RV-STDLIB-012` で `HashKey` / `Hasher` の独自 clone/copy capability を標準 `Clone` / `Copy` trait へ整理する
-- `RV-CORE-018` で nested aggregate を tuple から取り出すと 2 番目以降の `Vec` payload が壊れる runtime 値化けを修正する
 - `RV-CLI-011` で LLVM full dual backend verification を分割または shard し、CI timeout / cancelled を解消する
 - `RV-STDLIB-013` で stdlib collection doctest 群を所有型 API 移行後の実装に合わせ、`stdlib-test` を green に戻す
 - `RV-CORE-020` で pipe 左辺の部分適用と control expression 内 pipe を、target 注入後に overload / arity 解決する stage へ整理する

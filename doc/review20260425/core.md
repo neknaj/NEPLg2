@@ -705,11 +705,11 @@ GitHub Actions での確認は、この修正を push した後の run で行い
 
 ## RV-CORE-018: nested aggregate を tuple から取り出すと 2 番目以降の値が壊れる
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
-- 対象: `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`, `nepl-core/src/typecheck.rs`
+- 対象: `nepl-core/src/types.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`, `nepl-core/src/typecheck.rs`, `stdlib/tests/vec.n.md`
 
 ### 根拠
 
@@ -731,10 +731,26 @@ GitHub Actions での確認は、この修正を push した後の run で行い
 
 WASM / LLVM の aggregate layout を同じ仕様に揃え、tuple field access が nested struct の size / alignment / field offset を正しく使うことを確認します。最小回帰として、2 本の `Vec<i32>` を tuple に入れて 2 番目を取り出し、len と先頭要素を検査する doctest または Rust integration test を追加します。
 
+### 対応
+
+根本原因は、generic named struct の `Apply` base が `Named("Vec")` のまま storage layout 計算へ渡る経路で、`Vec<i32>` を実体 struct の 12 byte ではなく fallback の 4 byte として扱っていたことでした。そのため `Tuple(Vec<i32>, Vec<i32>)` の 2 番目 field offset が 12 ではなく 4 になり、最初の `Vec` の `cap` 以降を 2 番目の `Vec` として読んでいました。
+
+`TypeCtx::resolve_named_type_id` を layout 計算から使えるように公開し、WASM / LLVM / typecheck の storage size / align / field offset 計算で `Apply` の base を named type 実体へ解決するようにしました。併せて aggregate `get` が nested aggregate を byte copy した後に destination pointer を stack へ戻すようにし、copy 結果を正しく式値として返すようにしました。
+
+`stdlib/tests/vec.n.md` には `Tuple(Vec<i32>, Vec<i32>)` の 2 番目を直接取り出して `len_ref` と先頭要素を確認する回帰を追加しました。これにより `partition` の偶然の値化けだけでなく、aggregate field offset の直接破壊を検出できます。
+
 ### 検証
 
-- `stdlib/tests/vec.n.md::doctest#2` が `partition` の even / odd 両側で `Vec` 要素を正しく読めること。
-- nested `Tuple(Vec<i32>, Vec<i32>)` の 2 番目以降の `Vec` で `len_ref` / `get_ref` が正しいこと。
+確認済み:
+
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core --test tuple_new_syntax` (`20 passed`)
+- `cargo test -p nepl-core`
+- `cargo check --workspace`
+- `trunk build`
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md -o tmp/vec-tests-rv-core-018-after-rebase.json -j 1` (`total=21`, `passed=21`, `failed=0`)
+- `node tests/compiler/tree/run.js` (`total=19`, `passed=19`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-018.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 
 ## RV-CORE-019: generic wrapper / nested generic enum の期待型伝播が TypeNoMatchingOverload になる
 
