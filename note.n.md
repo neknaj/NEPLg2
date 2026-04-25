@@ -15330,3 +15330,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - overload 解決の性能劣化原因を `TypeCtx` 全体 clone から rollback 方式へ移し、core hot path の改善を進めた。
+
+# 2026-04-25 メモ (RV-CORE-007 codegen panic 診断化)
+
+- [原因]:
+  - WASM backend は precheck 済みであることを前提に、unsupported signature、raw wasm parse error、unknown variable / function / intrinsic、string literal table mismatch、field selector mismatch を `panic!` / `unwrap()` で処理していた。
+  - LLVM backend も lowering invariant failure を `panic!` にしており、precheck 漏れや HIR 不整合が compile error ではなく compiler crash になっていた。
+  - `get_field` / `set_field` は backend 実装がある一方、precheck の supported intrinsic list から漏れており、診断責務がずれていた。
+- [修正]:
+  - `codegen_wasm::generate_wasm` を `Result<CodegenResult, Vec<Diagnostic>>` に変更し、production 経路の explicit `panic!` / `unwrap()` / `expect()` を diagnostic 返却へ置き換えた。
+  - `LlvmCodegenError::CodegenDiagnostic` を追加し、LLVM lowering の explicit `panic!` を diagnostic error へ変換した。
+  - codegen diagnostic ID を追加し、WASM/LLVM の unknown symbol、unsupported intrinsic、field selector、lowered signature missing などを追跡可能にした。
+  - `get_field` / `set_field` を WASM / LLVM precheck の supported intrinsic として扱うようにした。
+  - `nepl-core/tests/codegen_diagnostics.rs` と `tests/compiler/codegen_diagnostics.n.md` を追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test codegen_diagnostics`: `3 passed`
+  - `cargo test -p nepl-core codegen_llvm::tests`: `7 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/codegen_diagnostics.n.md --no-tree -o tmp/codegen-diagnostics-rv-core-007.json -j 1`: `total=3`, `passed=3`, `failed=0`
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - backend crash を compile diagnostic として返す経路を整備し、web / CLI / doctest runner が異常終了ではなく診断として扱えるようにした。

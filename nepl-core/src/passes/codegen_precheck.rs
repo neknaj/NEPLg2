@@ -17,6 +17,8 @@ const LLVM_SUPPORTED_INTRINSICS: &[&str] = &[
     "align_of",
     "load",
     "store",
+    "get_field",
+    "set_field",
     "unreachable",
     "add",
     "f32_to_i32",

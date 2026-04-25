@@ -27,8 +27,8 @@ NEPLg2.0 の core は、動く経路を増やすために型検査・名前解�
 
 ## RV-CORE-001: core の no_std 境界が崩れている
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: architecture
 - 対象: `nepl-core/src/lib.rs`, `nepl-core/src/compiler.rs`, `nepl-core/src/typecheck.rs`, `nepl-core/src/codegen_wasm.rs`
@@ -278,9 +278,15 @@ CLI / web / doctest runner が compiler crash と compile error を区別でき�
 
 codegen API を `Result<CodegenResult, Vec<Diagnostic>>` に寄せ、panic 経路をすべて `DiagnosticId::Codegen...` 付きエラーに置き換えます。precheck は「panic を防ぐ安全網」ではなく「早い診断」の位置づけにします。
 
+### 対応
+
+`codegen_wasm::generate_wasm` を `Result<CodegenResult, Vec<Diagnostic>>` に変更し、unsupported signature、raw wasm parse error、missing return、unknown variable / function / intrinsic、string literal table mismatch、field selector mismatch、aggregate lower 非対応を `Diagnostic` として返すようにしました。これにより `codegen_wasm.rs` の production 経路から explicit `panic!` / `unwrap()` / `expect()` を除去しました。
+
+LLVM backend は `LlvmCodegenError::CodegenDiagnostic` を追加し、raw body mismatch、unknown variable / function / function value、unsupported intrinsic、残りの lowering invariant failure を diagnostic error として返すようにしました。`get_field` / `set_field` は WASM / LLVM の precheck supported intrinsic list に追加し、precheck と backend の supported set がずれて誤診断になる問題も同時に修正しました。
+
 ### 検証
 
-unsupported intrinsic、unknown field selector、invalid raw wasm を compile_fail として固定し、プロセスが panic しないことを確認します。
+unsupported intrinsic、unknown field selector、invalid raw wasm を `tests/compiler/codegen_diagnostics.n.md` の compile_fail として固定しました。precheck を bypass した backend 直接呼び出しについては `nepl-core/tests/codegen_diagnostics.rs` で unsupported function signature、unknown variable、missing string literal が panic ではなく diagnostic を返すことを確認しました。
 
 ## RV-CORE-008: effect 判定が文字列包含に依存していて不健全
 

@@ -7,7 +7,7 @@ extern crate std;
 use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -19,14 +19,22 @@ use wasm_encoder::{
 };
 
 use crate::diagnostic::Diagnostic;
+use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::*;
 use crate::runtime_helpers::{self, RuntimeHelperKind};
+use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 #[derive(Debug)]
 pub struct CodegenResult {
     pub bytes: Option<Vec<u8>>,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+type LowerResult<T> = Result<T, Diagnostic>;
+
+fn codegen_error(message: impl Into<String>, span: Span, id: DiagnosticId) -> Diagnostic {
+    Diagnostic::error(message.into(), span).with_id(id)
 }
 
 #[derive(Debug, Clone)]
@@ -455,7 +463,7 @@ fn collect_indirect_sigs(
     }
 }
 
-pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
+pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult, Vec<Diagnostic>> {
     if crate::log::is_verbose() {
         let names = module
             .functions
@@ -474,10 +482,14 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     // Extern imports
     for ext in &module.externs {
         let Some(sig) = wasm_sig_ids(ctx, ext.result, &ext.params) else {
-            panic!(
-                "internal compiler error: unsupported extern signature reached wasm codegen for '{}'",
-                ext.local_name
-            );
+            return Err(vec![codegen_error(
+                format!(
+                    "unsupported extern signature reached wasm codegen for '{}'",
+                    ext.local_name
+                ),
+                ext.span,
+                DiagnosticId::CodegenWasmUnsupportedExternSignature,
+            )]);
         };
         imports.push(ImportLower::function(
             ext.module.clone(),
@@ -502,10 +514,14 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
             continue;
         }
         let Some(sig) = wasm_sig(ctx, f.result, &f.params) else {
-            panic!(
-                "internal compiler error: unsupported function signature reached wasm codegen for '{}'",
-                f.name
-            );
+            return Err(vec![codegen_error(
+                format!(
+                    "unsupported function signature reached wasm codegen for '{}'",
+                    f.name
+                ),
+                f.span,
+                DiagnosticId::CodegenWasmUnsupportedFunctionSignature,
+            )]);
         };
         functions.push(FuncLower::user(f, sig));
     }
@@ -568,20 +584,32 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     let mut import_section = ImportSection::new();
     for imp in &imports {
         let key = (imp.params.clone(), imp.results.clone());
-        let type_idx = *sig_map.get(&key).unwrap();
+        let Some(type_idx) = sig_map.get(&key).copied() else {
+            return Err(vec![codegen_error(
+                format!("missing lowered wasm signature for import '{}'", imp.name),
+                Span::dummy(),
+                DiagnosticId::CodegenWasmMissingLoweredSignature,
+            )]);
+        };
         import_section.import(&imp.module, &imp.field, EntityType::Function(type_idx));
     }
 
     let mut func_section = FunctionSection::new();
     for f in &functions {
         let key = (f.params.clone(), f.results.clone());
-        let type_idx = *sig_map.get(&key).unwrap();
+        let Some(type_idx) = sig_map.get(&key).copied() else {
+            return Err(vec![codegen_error(
+                format!("missing lowered wasm signature for function '{}'", f.name),
+                Span::dummy(),
+                DiagnosticId::CodegenWasmMissingLoweredSignature,
+            )]);
+        };
         func_section.function(type_idx);
     }
 
     let mut code_section = CodeSection::new();
     for f in &functions {
-        let body = lower_body(ctx, f, &name_to_index, &sig_map, &strings);
+        let body = lower_body(ctx, f, &name_to_index, &sig_map, &strings).map_err(|d| vec![d])?;
         code_section.function(&body);
     }
 
@@ -656,10 +684,10 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> CodegenResult {
     module_bytes.section(&code_section);
     module_bytes.section(&data_section);
 
-    CodegenResult {
+    Ok(CodegenResult {
         bytes: Some(module_bytes.finish()),
         diagnostics: Vec::new(),
-    }
+    })
 }
 
 pub(crate) fn should_skip_wasm_codegen_for_generic(ctx: &TypeCtx, f: &HirFunction) -> bool {
@@ -976,7 +1004,7 @@ fn lower_body<'a>(
     name_map: &BTreeMap<String, u32>,
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
     strings: &StringLower,
-) -> Function {
+) -> LowerResult<Function> {
     match func.body {
         FuncBodyLower::User(f) => lower_user(ctx, f, name_map, sig_map, strings),
     }
@@ -992,7 +1020,7 @@ fn lower_user(
     name_map: &BTreeMap<String, u32>,
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
     strings: &StringLower,
-) -> Function {
+) -> LowerResult<Function> {
     let mut locals = LocalMap::new(func.params.len());
     for p in &func.params {
         locals.register_param(p.name.clone(), p.ty);
@@ -1011,13 +1039,17 @@ fn lower_user(
                 strings,
                 &mut locals,
                 &mut insts,
-            );
+            )?;
             let expected = valtype(&ctx.get(func.result));
             if expected.is_some() && produced.flatten().is_none() {
-                panic!(
-                    "internal compiler error: wasm codegen reached function '{}' without return value after precheck",
-                    func.name
-                );
+                return Err(codegen_error(
+                    format!(
+                        "function '{}' reached wasm codegen without a return value",
+                        func.name
+                    ),
+                    func.span,
+                    DiagnosticId::CodegenWasmMissingReturnValue,
+                ));
             }
         }
         HirBody::Wasm(wb) => {
@@ -1025,19 +1057,27 @@ fn lower_user(
                 match parse_wasm_line(line, &locals) {
                     Ok(mut v) => insts.append(&mut v),
                     Err(msg) => {
-                        panic!(
-                            "internal compiler error: wasm raw line parse failed after precheck in function '{}': {}",
-                            func.name, msg
-                        );
+                        return Err(codegen_error(
+                            format!(
+                                "wasm raw line parse failed in function '{}': {}",
+                                func.name, msg
+                            ),
+                            wb.span,
+                            DiagnosticId::CodegenWasmRawLineParseError,
+                        ));
                     }
                 }
             }
         }
         HirBody::LlvmIr(_) => {
-            panic!(
-                "internal compiler error: wasm codegen reached llvmir body in function '{}' after precheck",
-                func.name
-            );
+            return Err(codegen_error(
+                format!(
+                    "llvm ir body reached wasm codegen in function '{}'",
+                    func.name
+                ),
+                func.span,
+                DiagnosticId::CodegenWasmLlvmIrBodyNotSupported,
+            ));
         }
     }
 
@@ -1046,7 +1086,7 @@ fn lower_user(
         wasm_func.instruction(&inst);
     }
     wasm_func.instruction(&Instruction::End);
-    wasm_func
+    Ok(wasm_func)
 }
 
 fn gen_block(
@@ -1057,7 +1097,7 @@ fn gen_block(
     strings: &StringLower,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
-) -> Option<Option<ValType>> {
+) -> LowerResult<Option<Option<ValType>>> {
     // gen_block semantics:
     // - Each `HirLine` may set `drop_result` to indicate that the
     //   value produced by that line should be dropped (emit `drop`).
@@ -1074,7 +1114,7 @@ fn gen_block(
     predeclare_block_locals(ctx, block, locals);
     let mut last_val: Option<ValType> = None;
     for line in &block.lines {
-        let val = gen_expr(ctx, &line.expr, name_map, sig_map, strings, locals, insts);
+        let val = gen_expr(ctx, &line.expr, name_map, sig_map, strings, locals, insts)?;
         if line.drop_result {
             if val.is_some() {
                 insts.push(Instruction::Drop);
@@ -1088,7 +1128,7 @@ fn gen_block(
         }
     }
     locals.end_scope();
-    Some(last_val)
+    Ok(Some(last_val))
 }
 
 fn predeclare_block_locals(ctx: &TypeCtx, block: &HirBlock, locals: &mut LocalMap) {
@@ -1107,8 +1147,8 @@ fn gen_expr(
     strings: &StringLower,
     locals: &mut LocalMap,
     insts: &mut Vec<Instruction<'static>>,
-) -> Option<ValType> {
-    match &expr.kind {
+) -> LowerResult<Option<ValType>> {
+    Ok(match &expr.kind {
         HirExprKind::LiteralI32(v) => {
             insts.push(Instruction::I32Const(*v));
             Some(ValType::I32)
@@ -1126,7 +1166,11 @@ fn gen_expr(
                 insts.push(Instruction::I32Const(off as i32));
                 Some(ValType::I32)
             } else {
-                panic!("internal compiler error: string literal not found during codegen")
+                return Err(codegen_error(
+                    "string literal not found during codegen",
+                    expr.span,
+                    DiagnosticId::CodegenWasmStringLiteralNotFound,
+                ));
             }
         }
         HirExprKind::Unit => None,
@@ -1142,10 +1186,11 @@ fn gen_expr(
                 insts.push(Instruction::I32Const(fidx as i32));
                 Some(ValType::I32)
             } else {
-                panic!(
-                    "internal compiler error: unknown variable '{}' reached wasm codegen",
-                    name
-                )
+                return Err(codegen_error(
+                    format!("unknown variable '{}' reached wasm codegen", name),
+                    expr.span,
+                    DiagnosticId::CodegenWasmUnknownVariable,
+                ));
             }
         }
         HirExprKind::FnValue(name) => {
@@ -1153,15 +1198,16 @@ fn gen_expr(
                 insts.push(Instruction::I32Const(fidx as i32));
                 Some(ValType::I32)
             } else {
-                panic!(
-                    "internal compiler error: unknown function value '{}' reached wasm codegen",
-                    name
-                )
+                return Err(codegen_error(
+                    format!("unknown function value '{}' reached wasm codegen", name),
+                    expr.span,
+                    DiagnosticId::CodegenWasmUnknownFunctionValue,
+                ));
             }
         }
         HirExprKind::Call { callee, args } => {
             for arg in args {
-                gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts)?;
             }
             if let Some(idx) = match callee {
                 FuncRef::Builtin(n) | FuncRef::User(n, _) => name_map.get(n),
@@ -1186,10 +1232,11 @@ fn gen_expr(
                         s
                     }
                 };
-                panic!(
-                    "internal compiler error: unknown function '{}' reached wasm codegen",
-                    missing
-                );
+                return Err(codegen_error(
+                    format!("unknown function '{}' reached wasm codegen", missing),
+                    expr.span,
+                    DiagnosticId::CodegenWasmUnknownFunction,
+                ));
             }
             valtype(&ctx.get(expr.ty))
         }
@@ -1200,9 +1247,9 @@ fn gen_expr(
             args,
         } => {
             for arg in args {
-                gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts)?;
             }
-            gen_expr(ctx, callee, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, callee, name_map, sig_map, strings, locals, insts)?;
             if let Some(sig) = wasm_sig_ids(ctx, *result, params) {
                 if let Some(type_idx) = sig_map.get(&sig) {
                     insts.push(Instruction::CallIndirect {
@@ -1210,14 +1257,18 @@ fn gen_expr(
                         table_index: 0,
                     });
                 } else {
-                    panic!(
-                        "internal compiler error: missing wasm signature for indirect call after precheck"
-                    );
+                    return Err(codegen_error(
+                        "missing wasm signature for indirect call",
+                        expr.span,
+                        DiagnosticId::CodegenWasmMissingIndirectSignature,
+                    ));
                 }
             } else {
-                panic!(
-                    "internal compiler error: wasm codegen reached unsupported indirect signature after precheck"
-                );
+                return Err(codegen_error(
+                    "unsupported indirect call signature for wasm",
+                    expr.span,
+                    DiagnosticId::CodegenWasmUnsupportedIndirectSignature,
+                ));
             }
             valtype(&ctx.get(expr.ty))
         }
@@ -1226,15 +1277,15 @@ fn gen_expr(
             then_branch,
             else_branch,
         } => {
-            gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts)?;
             let result_ty = valtype(&ctx.get(expr.ty));
             match result_ty {
                 Some(vt) => insts.push(Instruction::If(wasm_encoder::BlockType::Result(vt))),
                 None => insts.push(Instruction::If(wasm_encoder::BlockType::Empty)),
             }
-            gen_expr(ctx, then_branch, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, then_branch, name_map, sig_map, strings, locals, insts)?;
             insts.push(Instruction::Else);
-            gen_expr(ctx, else_branch, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, else_branch, name_map, sig_map, strings, locals, insts)?;
             insts.push(Instruction::End);
             result_ty
         }
@@ -1251,17 +1302,17 @@ fn gen_expr(
             // end
             insts.push(Instruction::Block(wasm_encoder::BlockType::Empty));
             insts.push(Instruction::Loop(wasm_encoder::BlockType::Empty));
-            gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts)?;
             insts.push(Instruction::I32Eqz);
             insts.push(Instruction::BrIf(1));
-            gen_expr(ctx, body, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, body, name_map, sig_map, strings, locals, insts)?;
             insts.push(Instruction::Br(0));
             insts.push(Instruction::End);
             insts.push(Instruction::End);
             None
         }
         HirExprKind::Block(b) => {
-            gen_block(ctx, b, name_map, sig_map, strings, locals, insts).flatten()
+            gen_block(ctx, b, name_map, sig_map, strings, locals, insts)?.flatten()
         }
         HirExprKind::Intrinsic {
             name,
@@ -1283,7 +1334,7 @@ fn gen_expr(
                 let ty_kind = ctx.get(ty);
                 if is_aggregate_storage_type(ctx, ty) {
                     let size = type_storage_size_bytes(ctx, ty) as i32;
-                    gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                    gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
                     insts.push(Instruction::I32Const(size));
@@ -1313,11 +1364,11 @@ fn gen_expr(
                         }));
                     }
                     insts.push(Instruction::LocalGet(dst_local));
-                    return Some(ValType::I32);
+                    return Ok(Some(ValType::I32));
                 }
                 let vt = valtype(&ty_kind);
                 // address
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 match vt {
                     Some(ValType::I32) => {
                         if matches!(ty_kind, TypeKind::U8) {
@@ -1369,10 +1420,10 @@ fn gen_expr(
                 let ty = type_args[0];
                 let ty_kind = ctx.get(ty);
                 if is_aggregate_storage_type(ctx, ty) {
-                    gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                    gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                     let dst_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(dst_local));
-                    gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts);
+                    gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
                     let size = type_storage_size_bytes(ctx, ty) as i32;
@@ -1398,14 +1449,14 @@ fn gen_expr(
                             memory_index: 0,
                         }));
                     }
-                    return None;
+                    return Ok(None);
                 }
                 let vt = valtype(&ty_kind);
 
                 // address
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 // value
-                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
 
                 match vt {
                     Some(ValType::I32) => {
@@ -1457,9 +1508,13 @@ fn gen_expr(
                 }
             } else if name == "get_field" {
                 if args.len() != 2 {
-                    panic!("internal compiler error: intrinsic get_field requires two args");
+                    return Err(codegen_error(
+                        "intrinsic get_field requires two args",
+                        expr.span,
+                        DiagnosticId::CodegenWasmIntrinsicArityMismatch,
+                    ));
                 }
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 let base_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalSet(base_local));
                 if let Some((_field_ty, offset)) =
@@ -1492,7 +1547,7 @@ fn gen_expr(
                                 memory_index: 0,
                             }));
                         }
-                        return Some(ValType::I32);
+                        return Ok(Some(ValType::I32));
                     }
                     let field_kind = ctx.get(field_ty);
                     insts.push(Instruction::LocalGet(base_local));
@@ -1500,7 +1555,7 @@ fn gen_expr(
                         insts.push(Instruction::I32Const(offset as i32));
                         insts.push(Instruction::I32Add);
                     }
-                    return match valtype(&field_kind) {
+                    return Ok(match valtype(&field_kind) {
                         Some(ValType::I32) => {
                             if matches!(field_kind, TypeKind::U8) {
                                 insts.push(Instruction::I32Load8U(MemArg {
@@ -1546,15 +1601,17 @@ fn gen_expr(
                             None
                         }
                         _ => None,
-                    };
+                    });
                 }
                 let candidate_layouts = tuple_field_layouts_by_result(ctx, args[0].ty, expr.ty);
                 if candidate_layouts.is_empty() {
-                    panic!(
-                        "internal compiler error: unsupported get_field selector reached wasm codegen"
-                    );
+                    return Err(codegen_error(
+                        "unsupported get_field selector reached wasm codegen",
+                        expr.span,
+                        DiagnosticId::CodegenWasmUnsupportedFieldSelector,
+                    ));
                 }
-                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
                 let idx_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalSet(idx_local));
                 if is_aggregate_storage_type(ctx, expr.ty) {
@@ -1624,9 +1681,11 @@ fn gen_expr(
                                 insts.push(Instruction::LocalSet(out_local));
                             }
                             _ => {
-                                panic!(
-                                    "internal compiler error: unsupported runtime get_field valtype reached wasm codegen"
-                                );
+                                return Err(codegen_error(
+                                    "unsupported runtime get_field valtype reached wasm codegen",
+                                    expr.span,
+                                    DiagnosticId::CodegenWasmUnsupportedFieldValueType,
+                                ));
                             }
                         }
                         insts.push(Instruction::End);
@@ -1636,21 +1695,27 @@ fn gen_expr(
                 }
             } else if name == "set_field" {
                 if args.len() != 3 {
-                    panic!("internal compiler error: intrinsic set_field requires three args");
+                    return Err(codegen_error(
+                        "intrinsic set_field requires three args",
+                        expr.span,
+                        DiagnosticId::CodegenWasmIntrinsicArityMismatch,
+                    ));
                 }
                 let Some((_field_ty, offset)) =
                     aggregate_field_layout(ctx, args[0].ty, &args[1], strings)
                 else {
-                    panic!(
-                        "internal compiler error: unsupported set_field selector reached wasm codegen"
-                    );
+                    return Err(codegen_error(
+                        "unsupported set_field selector reached wasm codegen",
+                        expr.span,
+                        DiagnosticId::CodegenWasmUnsupportedFieldSelector,
+                    ));
                 };
                 let field_ty = args[2].ty;
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 let base_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalSet(base_local));
                 if is_aggregate_storage_type(ctx, field_ty) {
-                    gen_expr(ctx, &args[2], name_map, sig_map, strings, locals, insts);
+                    gen_expr(ctx, &args[2], name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
                     let size = type_storage_size_bytes(ctx, field_ty) as i32;
@@ -1682,7 +1747,7 @@ fn gen_expr(
                         insts.push(Instruction::I32Const(offset as i32));
                         insts.push(Instruction::I32Add);
                     }
-                    gen_expr(ctx, &args[2], name_map, sig_map, strings, locals, insts);
+                    gen_expr(ctx, &args[2], name_map, sig_map, strings, locals, insts)?;
                     match valtype(&field_kind) {
                         Some(ValType::I32) => {
                             if matches!(field_kind, TypeKind::U8) {
@@ -1772,57 +1837,58 @@ fn gen_expr(
                 Some(ValType::I32)
             } else if name == "i32_to_f32" {
                 // signed convert i32 -> f32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 insts.push(Instruction::F32ConvertI32S);
                 Some(ValType::F32)
             } else if name == "i32_to_u8" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 insts.push(Instruction::I32Const(255));
                 insts.push(Instruction::I32And);
                 Some(ValType::I32)
             } else if name == "i32_to_u32" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 Some(ValType::I32)
             } else if name == "f32_to_i32" {
                 // signed trunc f32 -> i32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 insts.push(Instruction::I32TruncF32S);
                 Some(ValType::I32)
             } else if name == "u8_to_i32" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 Some(ValType::I32)
             } else if name == "u32_to_i32" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 Some(ValType::I32)
             } else if name == "i64_to_u64" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 Some(ValType::I64)
             } else if name == "u64_to_i64" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 Some(ValType::I64)
             } else if name == "reinterpret_i32_f32" {
                 // bitcast i32 -> f32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 insts.push(Instruction::F32ReinterpretI32);
                 Some(ValType::F32)
             } else if name == "reinterpret_f32_i32" {
                 // bitcast f32 -> i32
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 insts.push(Instruction::I32ReinterpretF32);
                 Some(ValType::I32)
             } else if name == "add" {
-                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts);
-                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
+                gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
                 insts.push(Instruction::I32Add);
                 Some(ValType::I32)
             } else if name == "unreachable" {
                 insts.push(Instruction::Unreachable);
                 None
             } else {
-                panic!(
-                    "internal compiler error: unknown intrinsic '{}' reached wasm codegen",
-                    name
-                )
+                return Err(codegen_error(
+                    format!("unknown intrinsic '{}' reached wasm codegen", name),
+                    expr.span,
+                    DiagnosticId::CodegenWasmUnknownIntrinsic,
+                ));
             }
         }
         HirExprKind::EnumConstruct {
@@ -1856,7 +1922,7 @@ fn gen_expr(
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(payload_offset));
                         insts.push(Instruction::I32Add);
-                        gen_expr(ctx, p, name_map, sig_map, strings, locals, insts);
+                        gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
                         match vt {
                             ValType::I32 => insts.push(Instruction::I32Store(MemArg {
                                 offset: 0,
@@ -1879,15 +1945,17 @@ fn gen_expr(
                                 memory_index: 0,
                             })),
                             _ => {
-                                panic!(
-                                    "internal compiler error: unsupported enum payload valtype reached wasm codegen"
-                                );
+                                return Err(codegen_error(
+                                    "unsupported enum payload valtype reached wasm codegen",
+                                    expr.span,
+                                    DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
+                                ));
                             }
                         }
                     }
                     None => {
                         // Preserve side effects even when payload has no runtime representation (e.g. unit).
-                        gen_expr(ctx, p, name_map, sig_map, strings, locals, insts);
+                        gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
                     }
                 }
             }
@@ -1915,7 +1983,7 @@ fn gen_expr(
                 let field_ty = f.ty;
                 let vk = ctx.get(field_ty);
                 if is_aggregate_storage_type(ctx, field_ty) {
-                    gen_expr(ctx, f, name_map, sig_map, strings, locals, insts);
+                    gen_expr(ctx, f, name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
                     let field_size = type_storage_size_bytes(ctx, field_ty) as i32;
@@ -1944,7 +2012,7 @@ fn gen_expr(
                 match valtype(&vk) {
                     Some(vt) => {
                         let temp = locals.alloc_temp(vt);
-                        gen_expr(ctx, f, name_map, sig_map, strings, locals, insts);
+                        gen_expr(ctx, f, name_map, sig_map, strings, locals, insts)?;
                         insts.push(Instruction::LocalSet(temp));
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(offset as i32));
@@ -1983,15 +2051,17 @@ fn gen_expr(
                                 }))
                             }
                             _ => {
-                                panic!(
-                                    "internal compiler error: unsupported struct field valtype reached wasm codegen"
-                                );
+                                return Err(codegen_error(
+                                    "unsupported struct field valtype reached wasm codegen",
+                                    expr.span,
+                                    DiagnosticId::CodegenWasmUnsupportedStructFieldType,
+                                ));
                             }
                         }
                     }
                     None => {
                         // Preserve side effects even when the field type is unit.
-                        gen_expr(ctx, f, name_map, sig_map, strings, locals, insts);
+                        gen_expr(ctx, f, name_map, sig_map, strings, locals, insts)?;
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(offset as i32));
                         insts.push(Instruction::I32Add);
@@ -2022,7 +2092,7 @@ fn gen_expr(
                 let item_ty = item.ty;
                 let vk = ctx.get(item_ty);
                 if is_aggregate_storage_type(ctx, item_ty) {
-                    gen_expr(ctx, item, name_map, sig_map, strings, locals, insts);
+                    gen_expr(ctx, item, name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
                     let item_size = type_storage_size_bytes(ctx, item_ty) as i32;
@@ -2051,7 +2121,7 @@ fn gen_expr(
                 match valtype(&vk) {
                     Some(vt) => {
                         let temp = locals.alloc_temp(vt);
-                        gen_expr(ctx, item, name_map, sig_map, strings, locals, insts);
+                        gen_expr(ctx, item, name_map, sig_map, strings, locals, insts)?;
                         insts.push(Instruction::LocalSet(temp));
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(offset as i32));
@@ -2090,15 +2160,17 @@ fn gen_expr(
                                 }))
                             }
                             _ => {
-                                panic!(
-                                    "internal compiler error: unsupported tuple element valtype reached wasm codegen"
-                                );
+                                return Err(codegen_error(
+                                    "unsupported tuple element valtype reached wasm codegen",
+                                    expr.span,
+                                    DiagnosticId::CodegenWasmUnsupportedTupleElementType,
+                                ));
                             }
                         }
                     }
                     None => {
                         // Unit takes 0 bytes in the tuple layout; just evaluate for side effects.
-                        gen_expr(ctx, item, name_map, sig_map, strings, locals, insts);
+                        gen_expr(ctx, item, name_map, sig_map, strings, locals, insts)?;
                     }
                 }
             }
@@ -2106,7 +2178,7 @@ fn gen_expr(
         }
         HirExprKind::Match { scrutinee, arms } => {
             // evaluate scrutinee pointer once
-            gen_expr(ctx, scrutinee, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, scrutinee, name_map, sig_map, strings, locals, insts)?;
             let ptr_local = locals.alloc_temp(ValType::I32);
             insts.push(Instruction::LocalSet(ptr_local));
             let result_ty = valtype(&ctx.get(expr.ty));
@@ -2117,7 +2189,7 @@ fn gen_expr(
             if arms.is_empty() {
                 insts.push(Instruction::Unreachable);
                 insts.push(Instruction::End);
-                return result_ty;
+                return Ok(result_ty);
             }
 
             let tag_local = locals.alloc_temp(ValType::I32);
@@ -2172,15 +2244,19 @@ fn gen_expr(
                                     align: 3,
                                     memory_index: 0,
                                 })),
-                                _ => panic!(
-                                    "internal compiler error: unsupported enum payload valtype in match reached wasm codegen"
-                                ),
+                                _ => {
+                                    return Err(codegen_error(
+                                        "unsupported enum payload valtype in match reached wasm codegen",
+                                        expr.span,
+                                        DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
+                                    ));
+                                }
                             }
                             insts.push(Instruction::LocalSet(lidx));
                         }
                     }
                 }
-                gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts)?;
                 if is_last {
                     insts.push(Instruction::Else);
                     insts.push(Instruction::Unreachable);
@@ -2198,7 +2274,7 @@ fn gen_expr(
         }
         HirExprKind::Let { name, value, .. } => {
             let idx = locals.ensure_local(name.clone(), value.ty, ctx);
-            gen_expr(ctx, value, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, value, name_map, sig_map, strings, locals, insts)?;
             if valtype(&ctx.get(value.ty)).is_some() {
                 insts.push(Instruction::LocalSet(idx));
             }
@@ -2206,15 +2282,16 @@ fn gen_expr(
         }
         HirExprKind::Set { name, value } => {
             if let Some(idx) = locals.lookup(name) {
-                gen_expr(ctx, value, name_map, sig_map, strings, locals, insts);
+                gen_expr(ctx, value, name_map, sig_map, strings, locals, insts)?;
                 if valtype(&ctx.get(value.ty)).is_some() {
                     insts.push(Instruction::LocalSet(idx));
                 }
             } else {
-                panic!(
-                    "internal compiler error: unknown variable '{}' in set reached wasm codegen",
-                    name
-                );
+                return Err(codegen_error(
+                    format!("unknown variable '{}' in set reached wasm codegen", name),
+                    expr.span,
+                    DiagnosticId::CodegenWasmUnknownVariable,
+                ));
             }
             None
         }
@@ -2223,14 +2300,14 @@ fn gen_expr(
             None
         }
         HirExprKind::AddrOf(inner) => {
-            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
             valtype(&ctx.get(expr.ty))
         }
         HirExprKind::Deref(inner) => {
-            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts);
+            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
             valtype(&ctx.get(expr.ty))
         }
-    }
+    })
 }
 
 // ---------------------------------------------------------------------

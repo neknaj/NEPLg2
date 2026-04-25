@@ -619,7 +619,13 @@ fn emit_wasm(
     hir_module: &crate::hir::HirModule,
     mut diagnostics: Vec<Diagnostic>,
 ) -> Result<CompilationArtifact, CoreError> {
-    let cg = codegen_wasm::generate_wasm(types, hir_module);
+    let cg = match codegen_wasm::generate_wasm(types, hir_module) {
+        Ok(cg) => cg,
+        Err(mut codegen_diags) => {
+            diagnostics.append(&mut codegen_diags);
+            return Err(CoreError::from_diagnostics(diagnostics));
+        }
+    };
     diagnostics.extend(cg.diagnostics);
     let Some(bytes) = cg.bytes else {
         return Err(CoreError::from_diagnostics(diagnostics));

@@ -450,6 +450,8 @@ pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
             | "align_of"
             | "load"
             | "store"
+            | "get_field"
+            | "set_field"
             | "callsite_span"
             | "i32_to_f32"
             | "i32_to_u8"

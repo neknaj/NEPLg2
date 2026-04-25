@@ -14,7 +14,6 @@
 
 2026-04-25 Review
 
-- `doc/review20260425/issues.md` の P0 Issue (`RV-CORE-007`) を再現テスト付きで修正する
 - `RV-CORE-015`: 深い HIR の codegen / `--check` pipeline stack overflow を iterative traversal または check-only path で修正する
 - `RV-STDLIB-012` で `HashKey` / `Hasher` の独自 clone/copy capability を標準 `Clone` / `Copy` trait へ整理する
 - `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する

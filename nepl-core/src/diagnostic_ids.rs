@@ -249,6 +249,26 @@ pub enum DiagnosticId {
     CodegenWasmUnsupportedStructFieldType = 4014,
     /// tuple element 型が WASM lower 非対応。
     CodegenWasmUnsupportedTupleElementType = 4015,
+    /// codegen intrinsic の引数数が backend 期待と一致しない。
+    CodegenWasmIntrinsicArityMismatch = 4016,
+    /// field selector を backend が解決できない。
+    CodegenWasmUnsupportedFieldSelector = 4017,
+    /// field の runtime 表現を backend が lower できない。
+    CodegenWasmUnsupportedFieldValueType = 4018,
+    /// lower 済み関数の type section signature が失われている。
+    CodegenWasmMissingLoweredSignature = 4019,
+    /// LLVM backend で target mismatch の raw body を受理。
+    CodegenLlvmRawBodyMismatch = 4101,
+    /// LLVM backend の未知の変数参照。
+    CodegenLlvmUnknownVariable = 4102,
+    /// LLVM backend の未知の関数値参照。
+    CodegenLlvmUnknownFunctionValue = 4103,
+    /// LLVM backend の未知の関数呼び出し。
+    CodegenLlvmUnknownFunction = 4104,
+    /// LLVM backend の未知の intrinsic。
+    CodegenLlvmUnknownIntrinsic = 4105,
+    /// LLVM backend が lower できない HIR 形状。
+    CodegenLlvmUnsupportedHir = 4106,
 }
 
 impl DiagnosticId {
@@ -380,6 +400,16 @@ impl DiagnosticId {
             4013 => Some(DiagnosticId::CodegenWasmUnsupportedEnumPayloadType),
             4014 => Some(DiagnosticId::CodegenWasmUnsupportedStructFieldType),
             4015 => Some(DiagnosticId::CodegenWasmUnsupportedTupleElementType),
+            4016 => Some(DiagnosticId::CodegenWasmIntrinsicArityMismatch),
+            4017 => Some(DiagnosticId::CodegenWasmUnsupportedFieldSelector),
+            4018 => Some(DiagnosticId::CodegenWasmUnsupportedFieldValueType),
+            4019 => Some(DiagnosticId::CodegenWasmMissingLoweredSignature),
+            4101 => Some(DiagnosticId::CodegenLlvmRawBodyMismatch),
+            4102 => Some(DiagnosticId::CodegenLlvmUnknownVariable),
+            4103 => Some(DiagnosticId::CodegenLlvmUnknownFunctionValue),
+            4104 => Some(DiagnosticId::CodegenLlvmUnknownFunction),
+            4105 => Some(DiagnosticId::CodegenLlvmUnknownIntrinsic),
+            4106 => Some(DiagnosticId::CodegenLlvmUnsupportedHir),
             _ => None,
         }
     }
@@ -587,6 +617,26 @@ impl DiagnosticId {
             DiagnosticId::CodegenWasmUnsupportedTupleElementType => {
                 "unsupported tuple element type for codegen"
             }
+            DiagnosticId::CodegenWasmIntrinsicArityMismatch => {
+                "codegen intrinsic argument count mismatch"
+            }
+            DiagnosticId::CodegenWasmUnsupportedFieldSelector => {
+                "unsupported field selector for codegen"
+            }
+            DiagnosticId::CodegenWasmUnsupportedFieldValueType => {
+                "unsupported field value type for codegen"
+            }
+            DiagnosticId::CodegenWasmMissingLoweredSignature => {
+                "missing lowered wasm function signature"
+            }
+            DiagnosticId::CodegenLlvmRawBodyMismatch => "raw body does not match the LLVM backend",
+            DiagnosticId::CodegenLlvmUnknownVariable => "unknown variable in LLVM codegen",
+            DiagnosticId::CodegenLlvmUnknownFunctionValue => {
+                "unknown function value in LLVM codegen"
+            }
+            DiagnosticId::CodegenLlvmUnknownFunction => "unknown function in LLVM codegen",
+            DiagnosticId::CodegenLlvmUnknownIntrinsic => "unknown intrinsic in LLVM codegen",
+            DiagnosticId::CodegenLlvmUnsupportedHir => "unsupported HIR in LLVM codegen",
         }
     }
 }

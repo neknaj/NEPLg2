@@ -13,8 +13,11 @@ use alloc::vec::Vec;
 use crate::ast::Directive;
 use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, Stmt, TypeExpr};
 use crate::compiler::{self, BuildProfile, CompileTarget, PreparedLlvmProgram};
+use crate::diagnostic::Diagnostic;
+use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
 use crate::runtime_helpers::{helper_base_name, helper_candidates, RuntimeHelperKind};
+use crate::span::Span;
 use crate::target_precheck::{self, ActiveRawBody};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -24,6 +27,7 @@ pub enum LlvmCodegenError {
     MissingLlvmIrBlock,
     TypecheckFailed { reason: String },
     MissingEntryFunction { function: String },
+    CodegenDiagnostic { diagnostic: Diagnostic },
 }
 
 impl core::fmt::Display for LlvmCodegenError {
@@ -47,8 +51,33 @@ impl core::fmt::Display for LlvmCodegenError {
                 "entry function '{}' was not found in lowered module",
                 function
             ),
+            LlvmCodegenError::CodegenDiagnostic { diagnostic } => write!(
+                f,
+                "llvm codegen failed: {}",
+                summarize_diagnostics_for_message(core::slice::from_ref(diagnostic))
+            ),
         }
     }
+}
+
+fn llvm_codegen_error(
+    message: impl Into<String>,
+    span: Span,
+    id: DiagnosticId,
+) -> LlvmCodegenError {
+    LlvmCodegenError::CodegenDiagnostic {
+        diagnostic: Diagnostic::error(message.into(), span).with_id(id),
+    }
+}
+
+macro_rules! llvm_codegen_bail {
+    ($($arg:tt)*) => {{
+        return Err(llvm_codegen_error(
+            format!($($arg)*),
+            Span::dummy(),
+            DiagnosticId::CodegenLlvmUnsupportedHir,
+        ));
+    }};
 }
 
 /// `#llvmir` ブロックを連結して LLVM IR テキストを生成する。
@@ -138,10 +167,14 @@ pub fn emit_ll_from_module_for_target(
                             append_llvmir_block(&mut out, &normalized);
                         }
                         Ok(Some(ActiveRawBody::Wasm(_))) => {
-                            panic!(
-                                "internal compiler error: llvm codegen reached wasm raw body after precheck in function '{}'",
-                                def.name.name
-                            );
+                            return Err(llvm_codegen_error(
+                                format!(
+                                    "wasm raw body reached llvm codegen in function '{}'",
+                                    def.name.name
+                                ),
+                                def.name.span,
+                                DiagnosticId::CodegenLlvmRawBodyMismatch,
+                            ));
                         }
                         Ok(None) => {
                             if let Some(lowered) = lower_parsed_fn_with_gates(
@@ -158,20 +191,20 @@ pub fn emit_ll_from_module_for_target(
                             }
                         }
                         Err(diag) => {
-                            panic!(
-                                "internal compiler error: llvm codegen reached invalid active raw-body selection after precheck in function '{}' ({})",
-                                def.name.name,
-                                summarize_diagnostics_for_message(&[diag])
-                            );
+                            return Err(LlvmCodegenError::CodegenDiagnostic { diagnostic: diag });
                         }
                     }
                 }
                 FnBody::Wasm(_) => {
                     if is_ast_fn_reachable(def.name.name.as_str(), reachable_hint) {
-                        panic!(
-                            "internal compiler error: llvm codegen reached wasm function body after precheck in function '{}'",
-                            def.name.name
-                        );
+                        return Err(llvm_codegen_error(
+                            format!(
+                                "wasm function body reached llvm codegen in function '{}'",
+                                def.name.name
+                            ),
+                            def.name.span,
+                            DiagnosticId::CodegenLlvmRawBodyMismatch,
+                        ));
                     }
                 }
             },
@@ -1022,7 +1055,7 @@ fn try_lower_entry_from_hir(
                 }
             }
             HirBody::Wasm(_) => {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: llvm lowering reached wasm body after precheck in function '{}'",
                     func.name
                 );
@@ -1345,9 +1378,11 @@ fn lower_hir_function(
                 if v.ty == ret_ty {
                     ctx.push_line(&format!("  ret {} {}", ret_ty.ir(), v.repr));
                 } else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: return type mismatch in '{}' ({:?} -> {:?})",
-                        func.name, v.ty, ret_ty
+                        func.name,
+                        v.ty,
+                        ret_ty
                     );
                 }
             } else {
@@ -1434,10 +1469,11 @@ fn lower_hir_expr(
                         repr: format!("{}", fid),
                     }));
                 }
-                panic!(
-                    "internal compiler error: unknown variable '{}' reached llvm codegen",
-                    name
-                );
+                return Err(llvm_codegen_error(
+                    format!("unknown variable '{}' reached llvm codegen", name),
+                    expr.span,
+                    DiagnosticId::CodegenLlvmUnknownVariable,
+                ));
             };
             let bty = binding.ty;
             let bptr = binding.ptr.clone();
@@ -1464,9 +1500,10 @@ fn lower_hir_expr(
                 (ptr, v.ty)
             };
             if v.ty != pty {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: let type mismatch in llvm codegen ({:?} -> {:?})",
-                    v.ty, pty
+                    v.ty,
+                    pty
                 );
             }
             ctx.push_line(&format!(
@@ -1480,18 +1517,20 @@ fn lower_hir_expr(
         }
         HirExprKind::Set { name, value } => {
             let Some(binding) = ctx.lookup_local_fuzzy(name.as_str()).cloned() else {
-                panic!(
-                    "internal compiler error: set on unknown variable '{}' reached llvm codegen",
-                    name
-                );
+                return Err(llvm_codegen_error(
+                    format!("set on unknown variable '{}' reached llvm codegen", name),
+                    expr.span,
+                    DiagnosticId::CodegenLlvmUnknownVariable,
+                ));
             };
             let Some(v) = lower_hir_expr(types, ctx, value)? else {
                 return Ok(None);
             };
             if v.ty != binding.ty {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: set type mismatch in llvm codegen ({:?} -> {:?})",
-                    v.ty, binding.ty
+                    v.ty,
+                    binding.ty
                 );
             }
             ctx.push_line(&format!(
@@ -1510,10 +1549,11 @@ fn lower_hir_expr(
                     repr: format!("{}", fid),
                 }))
             } else {
-                panic!(
-                    "internal compiler error: unknown function value '{}' reached llvm codegen",
-                    name
-                )
+                Err(llvm_codegen_error(
+                    format!("unknown function value '{}' reached llvm codegen", name),
+                    expr.span,
+                    DiagnosticId::CodegenLlvmUnknownFunctionValue,
+                ))
             }
         }
         HirExprKind::Call { callee, args } => {
@@ -1522,10 +1562,14 @@ fn lower_hir_expr(
                 FuncRef::Trait {
                     trait_name, method, ..
                 } => {
-                    panic!(
-                        "internal compiler error: unresolved trait call {}::{} reached llvm codegen",
-                        trait_name, method
-                    );
+                    return Err(llvm_codegen_error(
+                        format!(
+                            "unresolved trait call {}::{} reached llvm codegen",
+                            trait_name, method
+                        ),
+                        expr.span,
+                        DiagnosticId::CodegenLlvmUnknownFunction,
+                    ));
                 }
             };
             let mut lowered_args = Vec::new();
@@ -1535,16 +1579,20 @@ fn lower_hir_expr(
                 }
             }
             let Some(sig) = ctx.sigs.get(callee_name) else {
-                panic!(
-                    "internal compiler error: missing function signature for '{}' in llvm codegen",
-                    callee_name
-                );
+                return Err(llvm_codegen_error(
+                    format!(
+                        "missing function signature for '{}' in llvm codegen",
+                        callee_name
+                    ),
+                    expr.span,
+                    DiagnosticId::CodegenLlvmUnknownFunction,
+                ));
             };
             let mut args_ir = Vec::new();
             for (idx, v) in lowered_args.iter().enumerate() {
                 let ty = sig.params.get(idx).copied().unwrap_or(v.ty);
                 if ty != v.ty {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: call argument type mismatch in llvm codegen for '{}' ({:?} vs {:?})",
                         callee_name, ty, v.ty
                     );
@@ -1581,13 +1629,13 @@ fn lower_hir_expr(
             args,
         } => {
             let Some(callee_v) = lower_hir_expr(types, ctx, callee)? else {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: call_indirect callee must produce a value in '{}'",
                     ctx.function_name
                 );
             };
             if callee_v.ty != LlTy::I32 {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: call_indirect callee must be i32 function id in '{}'",
                     ctx.function_name
                 );
@@ -1596,7 +1644,7 @@ fn lower_hir_expr(
             let mut lowered_args = Vec::new();
             for a in args {
                 let Some(v) = lower_hir_expr(types, ctx, a)? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: call_indirect argument must produce a value in '{}'",
                         ctx.function_name
                     );
@@ -1609,14 +1657,14 @@ fn lower_hir_expr(
                 .collect::<Vec<_>>();
             let ret_ll = llty_for_type(types, *result);
             if lowered_args.len() != param_ll.len() {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: call_indirect argument length mismatch in '{}'",
                     ctx.function_name
                 );
             }
             for (idx, v) in lowered_args.iter().enumerate() {
                 if v.ty != param_ll[idx] {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: call_indirect argument type mismatch at {} in '{}' ({:?} vs {:?})",
                         idx, ctx.function_name, param_ll[idx], v.ty
                     );
@@ -1635,7 +1683,7 @@ fn lower_hir_expr(
                 }
             }
             if candidates.is_empty() {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: call_indirect has no matching candidate in '{}'",
                     ctx.function_name
                 );
@@ -1724,13 +1772,13 @@ fn lower_hir_expr(
             else_branch,
         } => {
             let Some(cond_v) = lower_hir_expr(types, ctx, cond)? else {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: if condition must produce a value in '{}'",
                     ctx.function_name
                 );
             };
             if cond_v.ty != LlTy::I32 {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: if condition must be i32/bool-compatible in '{}' (got {:?})",
                     ctx.function_name, cond_v.ty
                 );
@@ -1757,7 +1805,7 @@ fn lower_hir_expr(
             if let Some(tv) = lower_hir_expr(types, ctx, then_branch)? {
                 if let Some(slot) = result_slot.as_ref() {
                     if tv.ty != result_ty {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: then branch result type mismatch in '{}' ({:?} vs {:?})",
                             ctx.function_name, tv.ty, result_ty
                         );
@@ -1777,7 +1825,7 @@ fn lower_hir_expr(
             if let Some(ev) = lower_hir_expr(types, ctx, else_branch)? {
                 if let Some(slot) = result_slot.as_ref() {
                     if ev.ty != result_ty {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: else branch result type mismatch in '{}' ({:?} vs {:?})",
                             ctx.function_name, ev.ty, result_ty
                         );
@@ -1817,13 +1865,13 @@ fn lower_hir_expr(
             ctx.push_line(&format!("  br label %{}", cond_label));
             ctx.push_line(&format!("{}:", cond_label));
             let Some(cond_v) = lower_hir_expr(types, ctx, cond)? else {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: while condition must produce a value in '{}'",
                     ctx.function_name
                 );
             };
             if cond_v.ty != LlTy::I32 {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: while condition must be i32/bool-compatible in '{}' (got {:?})",
                     ctx.function_name, cond_v.ty
                 );
@@ -1854,12 +1902,16 @@ fn lower_hir_expr(
                 None => (0i64, 4i32),
             };
 
-            let alloc_name = resolve_alloc_symbol(ctx).ok_or_else(|| {
-                panic!(
-                    "internal compiler error: alloc function is required for enum construction in '{}'",
-                    ctx.function_name
-                )
-            })?;
+            let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                return Err(llvm_codegen_error(
+                    format!(
+                        "alloc function is required for enum construction in '{}'",
+                        ctx.function_name
+                    ),
+                    Span::dummy(),
+                    DiagnosticId::CodegenLlvmUnknownFunction,
+                ));
+            };
 
             let ptr = ctx.next_tmp();
             ctx.push_line(&format!(
@@ -1883,13 +1935,13 @@ fn lower_hir_expr(
                         }));
                     }
                     let Some(pv) = pv else {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: enum payload must produce a value in '{}'",
                             ctx.function_name
                         );
                     };
                     if pv.ty != vty {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: enum payload type mismatch in '{}' ({:?} vs {:?})",
                             ctx.function_name, vty, pv.ty
                         );
@@ -1933,12 +1985,16 @@ fn lower_hir_expr(
                 offsets.push(total_size as i64);
                 total_size += type_storage_size_bytes(types, f.ty) as i32;
             }
-            let alloc_name = resolve_alloc_symbol(ctx).ok_or_else(|| {
-                panic!(
-                    "internal compiler error: alloc function is required for struct construction in '{}'",
-                    ctx.function_name
-                )
-            })?;
+            let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                return Err(llvm_codegen_error(
+                    format!(
+                        "alloc function is required for struct construction in '{}'",
+                        ctx.function_name
+                    ),
+                    Span::dummy(),
+                    DiagnosticId::CodegenLlvmUnknownFunction,
+                ));
+            };
             let ptr = ctx.next_tmp();
             ctx.push_line(&format!(
                 "  {} = call i32 {}(i32 {})",
@@ -1952,13 +2008,13 @@ fn lower_hir_expr(
                 let fv = lower_hir_expr(types, ctx, f)?;
                 if is_aggregate_storage_type(types, field_ty) {
                     let Some(fv) = fv else {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: aggregate struct field must produce a value in '{}'",
                             ctx.function_name
                         );
                     };
                     if fv.ty != LlTy::I32 {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: aggregate struct field must lower to pointer in '{}'",
                             ctx.function_name
                         );
@@ -1998,13 +2054,13 @@ fn lower_hir_expr(
                     continue;
                 }
                 let Some(fv) = fv else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: struct field must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if fv.ty != fty {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: struct field type mismatch in '{}' ({:?} vs {:?})",
                         ctx.function_name, fty, fv.ty
                     );
@@ -2042,12 +2098,16 @@ fn lower_hir_expr(
                 offsets.push(total_size as i64);
                 total_size += type_storage_size_bytes(types, item.ty) as i32;
             }
-            let alloc_name = resolve_alloc_symbol(ctx).ok_or_else(|| {
-                panic!(
-                    "internal compiler error: alloc function is required for tuple construction in '{}'",
-                    ctx.function_name
-                )
-            })?;
+            let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                return Err(llvm_codegen_error(
+                    format!(
+                        "alloc function is required for tuple construction in '{}'",
+                        ctx.function_name
+                    ),
+                    Span::dummy(),
+                    DiagnosticId::CodegenLlvmUnknownFunction,
+                ));
+            };
             let ptr = ctx.next_tmp();
             ctx.push_line(&format!(
                 "  {} = call i32 {}(i32 {})",
@@ -2061,13 +2121,13 @@ fn lower_hir_expr(
                 let iv = lower_hir_expr(types, ctx, item)?;
                 if is_aggregate_storage_type(types, item_ty) {
                     let Some(iv) = iv else {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: aggregate tuple item must produce a value in '{}'",
                             ctx.function_name
                         );
                     };
                     if iv.ty != LlTy::I32 {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: aggregate tuple item must lower to pointer in '{}'",
                             ctx.function_name
                         );
@@ -2107,15 +2167,17 @@ fn lower_hir_expr(
                     continue;
                 }
                 let Some(iv) = iv else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: tuple item must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if iv.ty != ity {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: tuple item type mismatch in '{}' ({:?} vs {:?})",
-                        ctx.function_name, ity, iv.ty
+                        ctx.function_name,
+                        ity,
+                        iv.ty
                     );
                 }
                 let base_ptr8 = ctx.linear_i8_ptr_from_i32(ptr.as_str());
@@ -2146,19 +2208,19 @@ fn lower_hir_expr(
         }
         HirExprKind::Match { scrutinee, arms } => {
             let Some(scr_v) = lower_hir_expr(types, ctx, scrutinee)? else {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: match scrutinee must produce a value in '{}'",
                     ctx.function_name
                 );
             };
             if scr_v.ty != LlTy::I32 {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: match scrutinee must be enum pointer (i32) in '{}' (got {:?})",
                     ctx.function_name, scr_v.ty
                 );
             }
             if arms.is_empty() {
-                panic!(
+                llvm_codegen_bail!(
                     "internal compiler error: match must have at least one arm in '{}'",
                     ctx.function_name
                 );
@@ -2267,7 +2329,7 @@ fn lower_hir_expr(
                         continue;
                     };
                     if v.ty != result_ty {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: match arm result type mismatch in '{}' ({:?} vs {:?})",
                             ctx.function_name, result_ty, v.ty
                         );
@@ -2326,19 +2388,19 @@ fn lower_hir_expr(
             }
             if name == "load" {
                 if type_args.len() != 1 || args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic load requires one type arg and one value arg in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(ptr_v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic load pointer must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if ptr_v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic load pointer must be i32 in '{}' (got {:?})",
                         ctx.function_name, ptr_v.ty
                     );
@@ -2347,12 +2409,16 @@ fn lower_hir_expr(
                 let ty_kind = types.get(ty_id);
                 if is_aggregate_storage_type(types, ty_id) {
                     let size = type_storage_size_bytes(types, ty_id);
-                    let alloc_name = resolve_alloc_symbol(ctx).ok_or_else(|| {
-                        panic!(
-                            "internal compiler error: alloc function is required for intrinsic load in '{}'",
-                            ctx.function_name
-                        )
-                    })?;
+                    let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                        return Err(llvm_codegen_error(
+                            format!(
+                                "alloc function is required for intrinsic load in '{}'",
+                                ctx.function_name
+                            ),
+                            Span::dummy(),
+                            DiagnosticId::CodegenLlvmUnknownFunction,
+                        ));
+                    };
                     let dst = ctx.next_tmp();
                     ctx.push_line(&format!(
                         "  {} = call i32 {}(i32 {})",
@@ -2416,25 +2482,25 @@ fn lower_hir_expr(
             }
             if name == "store" {
                 if type_args.len() != 1 || args.len() != 2 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic store requires one type arg and two value args in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(ptr_v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic store pointer must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 let Some(val_v) = lower_hir_expr(types, ctx, &args[1])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic store value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if ptr_v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic store pointer must be i32 in '{}' (got {:?})",
                         ctx.function_name, ptr_v.ty
                     );
@@ -2443,7 +2509,7 @@ fn lower_hir_expr(
                 let ty_kind = types.get(ty_id);
                 if is_aggregate_storage_type(types, ty_id) {
                     if val_v.ty != LlTy::I32 {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: intrinsic store aggregate expects i32 handle in '{}' (got {:?})",
                             ctx.function_name, val_v.ty
                         );
@@ -2476,7 +2542,7 @@ fn lower_hir_expr(
                 }
                 if matches!(ty_kind, TypeKind::U8) {
                     if val_v.ty != LlTy::I32 {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: intrinsic store<u8> expects i32 value in '{}' (got {:?})",
                             ctx.function_name, val_v.ty
                         );
@@ -2489,7 +2555,7 @@ fn lower_hir_expr(
                 }
                 let store_ty = llty_for_type(types, ty_id);
                 if val_v.ty != store_ty {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic store type mismatch in '{}' ({:?} vs {:?})",
                         ctx.function_name, store_ty, val_v.ty
                     );
@@ -2510,7 +2576,7 @@ fn lower_hir_expr(
             }
             if name == "get_field" {
                 if args.len() != 2 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic get_field requires two args in '{}'",
                         ctx.function_name
                     );
@@ -2518,32 +2584,36 @@ fn lower_hir_expr(
                 let Some((_field_ty, offset)) =
                     aggregate_field_layout(types, ctx, args[0].ty, &args[1])
                 else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: unsupported get_field selector reached llvm lowering in '{}'",
                         ctx.function_name
                     );
                 };
                 let field_ty = expr.ty;
                 let Some(base_v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic get_field base must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if base_v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic get_field base must be i32 in '{}' (got {:?})",
                         ctx.function_name, base_v.ty
                     );
                 }
                 if is_aggregate_storage_type(types, field_ty) {
                     let size = type_storage_size_bytes(types, field_ty);
-                    let alloc_name = resolve_alloc_symbol(ctx).ok_or_else(|| {
-                        panic!(
-                            "internal compiler error: alloc function is required for aggregate get_field in '{}'",
-                            ctx.function_name
-                        )
-                    })?;
+                    let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                        return Err(llvm_codegen_error(
+                            format!(
+                                "alloc function is required for aggregate get_field in '{}'",
+                                ctx.function_name
+                            ),
+                            Span::dummy(),
+                            DiagnosticId::CodegenLlvmUnknownFunction,
+                        ));
+                    };
                     let dst = ctx.next_tmp();
                     ctx.push_line(&format!(
                         "  {} = call i32 {}(i32 {})",
@@ -2616,7 +2686,7 @@ fn lower_hir_expr(
             }
             if name == "set_field" {
                 if args.len() != 3 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic set_field requires three args in '{}'",
                         ctx.function_name
                     );
@@ -2624,33 +2694,33 @@ fn lower_hir_expr(
                 let Some((_field_ty, offset)) =
                     aggregate_field_layout(types, ctx, args[0].ty, &args[1])
                 else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: unsupported set_field selector reached llvm lowering in '{}'",
                         ctx.function_name
                     );
                 };
                 let field_ty = args[2].ty;
                 let Some(base_v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic set_field base must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if base_v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic set_field base must be i32 in '{}' (got {:?})",
                         ctx.function_name, base_v.ty
                     );
                 }
                 if is_aggregate_storage_type(types, field_ty) {
                     let Some(src_v) = lower_hir_expr(types, ctx, &args[2])? else {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: aggregate set_field value must produce a value in '{}'",
                             ctx.function_name
                         );
                     };
                     if src_v.ty != LlTy::I32 {
-                        panic!(
+                        llvm_codegen_bail!(
                             "internal compiler error: aggregate set_field value must lower to i32 handle in '{}'",
                             ctx.function_name
                         );
@@ -2692,13 +2762,13 @@ fn lower_hir_expr(
                     return Ok(None);
                 }
                 let Some(val_v) = lower_hir_expr(types, ctx, &args[2])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: set_field value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if val_v.ty != val_ty {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: set_field value type mismatch in '{}' ({:?} vs {:?})",
                         ctx.function_name, val_ty, val_v.ty
                     );
@@ -2727,25 +2797,25 @@ fn lower_hir_expr(
             }
             if name == "add" {
                 if args.len() != 2 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic add expects two arguments in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(a) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic add lhs must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 let Some(b) = lower_hir_expr(types, ctx, &args[1])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic add rhs must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if a.ty != LlTy::I32 || b.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic add supports i32 only in '{}' ({:?}, {:?})",
                         ctx.function_name, a.ty, b.ty
                     );
@@ -2759,19 +2829,19 @@ fn lower_hir_expr(
             }
             if name == "f32_to_i32" {
                 if args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic f32_to_i32 expects one argument in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic f32_to_i32 value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if v.ty != LlTy::F32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic f32_to_i32 expects f32 in '{}' (got {:?})",
                         ctx.function_name, v.ty
                     );
@@ -2785,19 +2855,19 @@ fn lower_hir_expr(
             }
             if name == "i32_to_u8" {
                 if args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i32_to_u8 expects one argument in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i32_to_u8 value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i32_to_u8 expects i32 in '{}' (got {:?})",
                         ctx.function_name, v.ty
                     );
@@ -2811,19 +2881,19 @@ fn lower_hir_expr(
             }
             if name == "i32_to_u32" {
                 if args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i32_to_u32 expects one argument in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i32_to_u32 value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i32_to_u32 expects i32 in '{}' (got {:?})",
                         ctx.function_name, v.ty
                     );
@@ -2832,19 +2902,19 @@ fn lower_hir_expr(
             }
             if name == "u8_to_i32" {
                 if args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u8_to_i32 expects one argument in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u8_to_i32 value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u8_to_i32 expects i32 in '{}' (got {:?})",
                         ctx.function_name, v.ty
                     );
@@ -2858,19 +2928,19 @@ fn lower_hir_expr(
             }
             if name == "u32_to_i32" {
                 if args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u32_to_i32 expects one argument in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u32_to_i32 value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if v.ty != LlTy::I32 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u32_to_i32 expects i32 in '{}' (got {:?})",
                         ctx.function_name, v.ty
                     );
@@ -2879,19 +2949,19 @@ fn lower_hir_expr(
             }
             if name == "i64_to_u64" {
                 if args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i64_to_u64 expects one argument in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i64_to_u64 value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if v.ty != LlTy::I64 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic i64_to_u64 expects i64 in '{}' (got {:?})",
                         ctx.function_name, v.ty
                     );
@@ -2900,37 +2970,43 @@ fn lower_hir_expr(
             }
             if name == "u64_to_i64" {
                 if args.len() != 1 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u64_to_i64 expects one argument in '{}'",
                         ctx.function_name
                     );
                 }
                 let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u64_to_i64 value must produce a value in '{}'",
                         ctx.function_name
                     );
                 };
                 if v.ty != LlTy::I64 {
-                    panic!(
+                    llvm_codegen_bail!(
                         "internal compiler error: intrinsic u64_to_i64 expects i64 in '{}' (got {:?})",
                         ctx.function_name, v.ty
                     );
                 }
                 return Ok(Some(v));
             }
-            panic!(
-                "internal compiler error: unsupported intrinsic '{}' reached llvm lowering in '{}'",
-                name, ctx.function_name
-            );
+            Err(llvm_codegen_error(
+                format!(
+                    "unsupported intrinsic '{}' reached llvm lowering in '{}'",
+                    name, ctx.function_name
+                ),
+                expr.span,
+                DiagnosticId::CodegenLlvmUnknownIntrinsic,
+            ))
         }
         HirExprKind::Drop { .. } => Ok(None),
-        other => {
-            panic!(
-                "internal compiler error: unsupported expression kind reached llvm lowering in '{}' ({:?})",
+        other => Err(llvm_codegen_error(
+            format!(
+                "unsupported expression kind reached llvm lowering in '{}' ({:?})",
                 ctx.function_name, other
-            );
-        }
+            ),
+            expr.span,
+            DiagnosticId::CodegenLlvmUnsupportedHir,
+        )),
     }
 }
 
@@ -2940,18 +3016,23 @@ fn lower_hir_string_literal(
     id: usize,
 ) -> Result<Option<LlValue>, LlvmCodegenError> {
     let Some(s) = ctx.strings.get(id) else {
-        panic!(
+        llvm_codegen_bail!(
             "internal compiler error: string literal id {} was out of bounds in '{}'",
-            id, ctx.function_name
+            id,
+            ctx.function_name
         );
     };
     let bytes = s.as_bytes();
-    let alloc_name = resolve_alloc_symbol(ctx).ok_or_else(|| {
-        panic!(
-            "internal compiler error: alloc function is required to materialize string literals in '{}'",
-            ctx.function_name
-        )
-    })?;
+    let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+        return Err(llvm_codegen_error(
+            format!(
+                "alloc function is required to materialize string literals in '{}'",
+                ctx.function_name
+            ),
+            Span::dummy(),
+            DiagnosticId::CodegenLlvmUnknownFunction,
+        ));
+    };
     let ptr_tmp = ctx.next_tmp();
     let total_len = (bytes.len() + 4) as i32;
     ctx.push_line(&format!(
