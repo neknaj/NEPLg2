@@ -15212,3 +15212,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib の collection doctest を妨げる compiler 側の型伝播バグを追加 Issue として追跡対象にした。
+
+# 2026-04-25 メモ (RV-STDLIB-003 Vec/Stack shallow Copy/Clone 削除)
+
+- [原因]:
+  - `Vec<.T>` / `Stack<.T>` は heap buffer を所有するにもかかわらず `Copy` と shallow `Clone` を実装していた。
+  - そのため同じ buffer を指す owning handle を複数作れてしまい、`free` の二重実行や aliasing mutation を move checker が防げない構造だった。
+- [対応]:
+  - `stdlib/alloc/collections/vec.nepl` と `stdlib/alloc/collections/stack.nepl` から shallow `Copy` / `Clone` impl を削除した。
+  - `let moved v; free v; free moved` と同等の double free pattern が compile_fail になる doctest を `Vec` / `Stack` に追加した。
+  - deep clone は `T` の clone/drop 方針と合わせて設計する必要があるため、今回は危険な shallow clone の削除に限定した。
+  - `doc/review20260425/issues.md` と `doc/review20260425/stdlib.md` の `RV-STDLIB-003` を `verified` に更新し、`todo.md` の P0 残件から削除した。
+- [確認]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl --no-tree -o tmp/stack-rv-stdlib-003-final.json -j 1`: `total=12`, `passed=12`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-rv-stdlib-003-final.json -j 1`: `total=37`, `passed=36`, `failed=1`
+  - `vec.nepl::doctest#28` は `.Pair` から取り出した `Vec<i32>` の overload 解決問題で、`RV-CORE-014` として分離した。
+  - `trunk build`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - owning collection handle は shallow copy できない move-only 値として扱う方針へ寄せた。要素 drop と deep clone は別 Issue で継続する。

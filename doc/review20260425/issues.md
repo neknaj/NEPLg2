@@ -10,8 +10,8 @@
 |---|---:|---:|
 | core | 13 | 1 |
 | cli | 7 | 1 |
-| stdlib | 9 | 3 |
-| 合計 | 29 | 5 |
+| stdlib | 8 | 4 |
+| 合計 | 28 | 6 |
 
 ## Core
 
@@ -51,7 +51,7 @@
 |---|---|---|---|---|---|
 | [RV-STDLIB-001](./stdlib.md#rv-stdlib-001-allocator-がアドレス-0-のメタデータと最初のブロックを衝突させる) | true | verified | P0 | bug | `alloc_raw` の初回 allocation が heap metadata 後ろから始まるよう修正済み |
 | [RV-STDLIB-002](./stdlib.md#rv-stdlib-002-free-list-分割で余りブロックがリストへ戻らない) | true | verified | P0 | bug | split remainder を free list の同じ位置へ戻すよう修正済み |
-| [RV-STDLIB-003](./stdlib.md#rv-stdlib-003-所有権を持つ-vecstack-が-copyclone-になっている) | false | open | P0 | bug | owning handle の shallow copy が double free / aliasing を招く |
+| [RV-STDLIB-003](./stdlib.md#rv-stdlib-003-所有権を持つ-vecstack-が-copyclone-になっている) | true | verified | P0 | bug | `Vec` / `Stack` の shallow `Copy` / `Clone` を削除し double free パターンを compile_fail 化 |
 | [RV-STDLIB-004](./stdlib.md#rv-stdlib-004-collection-free-が要素の-drop-を呼ばない) | false | open | P1 | bug | `Vec<T>` などが要素所有権を解放しない |
 | [RV-STDLIB-005](./stdlib.md#rv-stdlib-005-stdio-read_all-が-4096-byte-で切り捨てる) | false | open | P1 | bug | text stdin が固定長で途切れる |
 | [RV-STDLIB-006](./stdlib.md#rv-stdlib-006-fscliarg-の主要テストが-skip-されている) | false | open | P1 | test | I/O 系 stdlib の回帰が実行されない |

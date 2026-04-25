@@ -110,8 +110,8 @@ free list から見つけた block を split する場合は、余り block `new
 
 ## RV-STDLIB-003: 所有権を持つ Vec/Stack が Copy/Clone になっている
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
@@ -134,11 +134,21 @@ compiler の move checker が `Copy` と判断すると、所有権移動を検�
 
 ### 修正方針
 
-owning collection は `Copy` を実装しません。`Clone` は deep copy として実装するか、当面は削除します。軽量 handle と owning handle を型で分離します。
+`Vec` / `Stack` の `Copy` impl と shallow `Clone` impl を削除しました。owning collection は値渡しで所有権が移動し、`free` 後の同じ buffer への別名所有を作れないようにします。
+
+`Clone` は deep copy として設計する余地がありますが、要素 `T` の clone/drop 方針が未整理な段階で shallow clone を残すと危険なため、今回は削除に留めました。
 
 ### 検証
 
-`let b a; free a; free b` が compile_fail または runtime-safe になるテストを追加します。`clone` を残す場合は deep copy 後に片方の変更が他方へ影響しないことをテストします。
+`let moved v; free v; free moved` と同等の double free pattern が compile_fail になる doctest を `Vec` / `Stack` に追加しました。`RV-CORE-013` の修正により、`len_ref &v` / `peek_ref &stk` のような borrow-based read API は読み取り後に元の collection を更新できます。
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl --no-tree -o tmp/stack-rv-stdlib-003-final.json -j 1` (`total=12`, `passed=12`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-rv-stdlib-003-final.json -j 1` (`total=37`, `passed=36`, `failed=1`)
+- `vec.nepl::doctest#28` の失敗は `partition` 戻り値 `.Pair` から取り出した `Vec<i32>` の overload 解決問題で、`RV-CORE-014` として分離しました。
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 
 ## RV-STDLIB-004: collection free が要素の Drop を呼ばない
 

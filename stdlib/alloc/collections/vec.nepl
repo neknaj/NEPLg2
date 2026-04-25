@@ -103,22 +103,28 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `Vec<.T>` [自体/じたい]は `data` [領域/りょういき]の[所有権/しょゆうけん]を[持/も]ちます。
+//: - `Vec<.T>` は shallow copy できません。値を[渡/わた]すと[所有権/しょゆうけん]が[移動/いどう]します。
 //: - [再確保/さいかくほ]により `data` の[番地/ばんち]が[変/か]わるため、[生/なま]アドレスを[長期/ちょうき]に[保持/ほじ]してはいけません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - struct [自体/じたい]の[読/よ]み[書/か]きは O(1) です。
+//:
+//: neplg2:test[compile_fail]
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok new<i32>;
+//:     let moved <Vec<i32>> v;
+//:     free<i32> v;
+//:     free<i32> moved;
+//:     0
+//: ```
 struct Vec<.T>:
     len <i32>
     cap <i32>
     data <MemPtr<.T>>
-
-impl<.T> Copy for Vec<.T>:
-    fn copy_mark <(Vec<.T>)->Vec<.T>> (v):
-        v
-
-impl<.T> Clone for Vec<.T>:
-    fn clone <(&Vec<.T>)->Vec<.T>> (v):
-        *v
 
 //: ## VecDataLen
 //: `Vec<.T>` の data/len をまとめて[返/かえ]す[軽量/けいりょう] struct

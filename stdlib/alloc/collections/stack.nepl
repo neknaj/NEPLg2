@@ -12,6 +12,7 @@
 //: - `push` / `clear` は更新後の `Stack<.T>` を返します。
 //: - `pop` は `Option<.T>` を返します。
 //: - `peek` は値のみを返します。
+//: - `Stack<.T>` は shallow copy できません。値を[渡/わた]すと[所有権/しょゆうけん]が[移動/いどう]します。
 //: - `free` 後のスタック値は再利用できません。
 //:
 //: [計算量/けいさんりょう]:
@@ -84,6 +85,21 @@
 //:             0
 //:     ok0
 //: ```
+//:
+//: neplg2:test[compile_fail]
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let stk <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     let moved <Stack<i32>> stk;
+//:     free<i32> stk;
+//:     free<i32> moved;
+//:     0
+//: ```
 
 #indent 4
 
@@ -96,14 +112,6 @@
 
 struct Stack<.T>:
     hdr <MemPtr<u8>>
-
-impl<.T> Copy for Stack<.T>:
-    fn copy_mark <(Stack<.T>)->Stack<.T>> (stk):
-        stk
-
-impl<.T> Clone for Stack<.T>:
-    fn clone <(&Stack<.T>)->Stack<.T>> (stk):
-        *stk
 
 //: stack_header_len_ptr: ヘッダの length [欄/らん]を[指/さ]す
 //:
