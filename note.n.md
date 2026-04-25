@@ -15182,3 +15182,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib の所有権安全化を妨げる compiler 側の具体的な borrow checker バグを追加 Issue として追跡対象にした。
+
+# 2026-04-25 メモ (RV-CORE-013 一時 borrow 呼び出し修正)
+
+- [原因]:
+  - move checker は通常 call の引数を parameter type に関係なく `visit_expr` しており、`&x` を永続 borrow と同じ扱いにしていた。
+  - そのため `observe &x` のような参照引数呼び出し後も、非 Copy 所有値 `x` がスコープ終端まで shared borrow 状態に残っていた。
+- [対応]:
+  - `nepl-core/src/passes/move_check.rs` で HIR function の parameter 型表を作り、call 引数の対応 parameter が `&T` / `&mut T` の場合は一時 borrow として評価するようにした。
+  - `tests/compiler/move_check.n.md` に、非 Copy 値を参照引数に渡した後で move できる回帰テストを追加した。
+  - `doc/review20260425/issues.md` と `doc/review20260425/core.md` の `RV-CORE-013` を `verified` に更新し、`todo.md` の P0 残件から削除した。
+- [確認]:
+  - `cargo check -p nepl-core`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-rv-core-013.json -j 1`: `total=14`, `passed=14`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Vec` / `Stack` 非 Copy 化の前提として、参照引数 call の borrow lifetime を関数呼び出し式内に限定できるようにした。

@@ -402,8 +402,8 @@ target gate の boolean expression、unknown gate、profile gate、raw body sele
 
 ## RV-CORE-013: 参照引数の関数呼び出しが一時 borrow にならず所有値を固定する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `nepl-core/src/passes/move_check.rs`, `tests/compiler/move_check.n.md`, `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
@@ -424,8 +424,15 @@ target gate の boolean expression、unknown gate、profile gate、raw body sele
 
 ### 修正方針
 
-move checker で call target の parameter type を参照し、parameter が `&T` / `&mut T` の場合は対応する引数を一時 borrow として評価します。`&x` は呼び出し式の評価中だけ borrow し、呼び出し後の `x` の所有権状態を `Valid` のまま保ちます。非参照引数の by-value move と、永続的な local borrow (`let r &x`) は従来どおり区別します。
+move checker で call target の parameter type を参照し、parameter が `&T` / `&mut T` の場合は対応する引数を一時 borrow として評価するよう修正しました。`&x` は呼び出し式の評価中だけ borrow し、呼び出し後の `x` の所有権状態を `Valid` のまま保ちます。非参照引数の by-value move と、永続的な local borrow (`let r &x`) は従来どおり区別します。
 
 ### 検証
 
-`tests/compiler/move_check.n.md` に「非 Copy 値を参照引数へ渡した後に move できる」回帰テストと、「local に保持した shared borrow 中の move は引き続き拒否される」回帰テストを追加します。`Vec` / `Stack` の `len_ref` / `peek_ref` doctest でも、読み取り後に元の collection を更新できることを確認します。
+`tests/compiler/move_check.n.md` に「非 Copy 値を参照引数へ渡した後に move できる」回帰テストを追加しました。既存の「local に保持した shared borrow 中の move は引き続き拒否される」compile_fail と合わせて確認しています。
+
+確認済み:
+
+- `cargo check -p nepl-core`
+- `trunk build`
+- `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-rv-core-013.json -j 1` (`total=14`, `passed=14`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)

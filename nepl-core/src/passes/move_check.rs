@@ -1,17 +1,15 @@
 #![no_std]
 extern crate alloc;
 
-use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::{String, ToString};
-use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
-use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirModule};
+use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirModule};
 use crate::span::Span;
-use crate::types::TypeId;
+use crate::types::{TypeId, TypeKind};
 
 /// Tracks ownership state of variables.
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
@@ -30,6 +28,8 @@ enum BorrowKind {
 }
 
 struct MoveCheckContext {
+    /// Function parameter types after monomorphization.
+    function_params: BTreeMap<String, Vec<TypeId>>,
     /// State of all variables currently in scope.
     /// Stack of variable states (for shadowing support).
     var_stacks: BTreeMap<String, Vec<VarState>>,
@@ -44,6 +44,7 @@ struct MoveCheckContext {
 impl MoveCheckContext {
     fn new() -> Self {
         Self {
+            function_params: BTreeMap::new(),
             var_stacks: BTreeMap::new(),
             diagnostics: Vec::new(),
             scopes: Vec::new(),
@@ -166,6 +167,12 @@ impl MoveCheckContext {
             }
             None => {}
         }
+    }
+
+    fn with_function_params(function_params: BTreeMap<String, Vec<TypeId>>) -> Self {
+        let mut ctx = Self::new();
+        ctx.function_params = function_params;
+        ctx
     }
 
     fn check_assign(&mut self, name: &str, span: Span) {
@@ -335,6 +342,42 @@ fn visit_block(block: &HirBlock, ctx: &mut MoveCheckContext, tctx: &crate::types
     ctx.pop_scope();
 }
 
+fn reference_borrow_kind(tctx: &crate::types::TypeCtx, ty: TypeId) -> Option<BorrowKind> {
+    match tctx.get_ref(tctx.resolve_id(ty)) {
+        TypeKind::Reference(_, true) => Some(BorrowKind::Unique),
+        TypeKind::Reference(_, false) => Some(BorrowKind::Shared),
+        _ => None,
+    }
+}
+
+fn visit_reference_call_arg(
+    arg: &HirExpr,
+    kind: BorrowKind,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) {
+    match &arg.kind {
+        HirExprKind::AddrOf(inner) => visit_temporary_borrow(inner, ctx, tctx, kind),
+        _ => visit_expr(arg, ctx, tctx),
+    }
+}
+
+fn visit_call_args_with_params(
+    args: &[HirExpr],
+    params: Option<&[TypeId]>,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) {
+    for (i, arg) in args.iter().enumerate() {
+        let param_ty = params.and_then(|p| p.get(i)).copied();
+        if let Some(kind) = param_ty.and_then(|ty| reference_borrow_kind(tctx, ty)) {
+            visit_reference_call_arg(arg, kind, ctx, tctx);
+        } else {
+            visit_expr(arg, ctx, tctx);
+        }
+    }
+}
+
 fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::TypeCtx) {
     let is_copy = tctx.is_copy(expr.ty);
     // ctx.diagnostics.push(Diagnostic::warning(alloc::format!("DEBUG: visiting kind {:?}", expr.kind), expr.span));
@@ -426,16 +469,21 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 }
             }
             _ => {
-                for arg in args {
-                    visit_expr(arg, ctx, tctx);
-                }
+                let params = match callee {
+                    FuncRef::User(name, _) => ctx.function_params.get(name).cloned(),
+                    _ => None,
+                };
+                visit_call_args_with_params(args, params.as_deref(), ctx, tctx);
             }
         },
-        HirExprKind::CallIndirect { callee, args, .. } => {
+        HirExprKind::CallIndirect {
+            callee,
+            params,
+            args,
+            ..
+        } => {
             visit_expr(callee, ctx, tctx);
-            for arg in args {
-                visit_expr(arg, ctx, tctx);
-            }
+            visit_call_args_with_params(args, Some(params.as_slice()), ctx, tctx);
         }
         HirExprKind::If {
             cond,
@@ -702,10 +750,20 @@ fn get_top(map: &BTreeMap<String, Vec<VarState>>, name: &str) -> Option<VarState
 }
 
 pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic> {
-    let mut ctx = MoveCheckContext::new();
+    let function_params: BTreeMap<String, Vec<TypeId>> = module
+        .functions
+        .iter()
+        .map(|func| {
+            (
+                func.name.clone(),
+                func.params.iter().map(|param| param.ty).collect(),
+            )
+        })
+        .collect();
+    let mut diagnostics = Vec::new();
 
     for func in &module.functions {
-        let mut f_ctx = MoveCheckContext::new();
+        let mut f_ctx = MoveCheckContext::with_function_params(function_params.clone());
         for param in &func.params {
             f_ctx.declare_param(param.name.clone());
         }
@@ -715,8 +773,8 @@ pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic>
             _ => {}
         }
 
-        ctx.diagnostics.extend(f_ctx.diagnostics);
+        diagnostics.extend(f_ctx.diagnostics);
     }
 
-    ctx.diagnostics
+    diagnostics
 }

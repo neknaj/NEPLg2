@@ -160,6 +160,33 @@ fn main <()->i32> ():
     0
 ```
 
+## move_reference_call_arg_is_temporary_borrow
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn observe <(&LocalToken)->i32> (_x):
+    1
+
+fn consume <(LocalToken)->i32> (_x):
+    0
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    observe &x
+    consume x
+```
+
 ## move_borrow_after_move_err
 
 neplg2:test[compile_fail]
