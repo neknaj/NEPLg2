@@ -15279,3 +15279,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 
 - 追加対応（報告運用）:
   - `doc/progress_report_template.md` を追加し、Discord 投稿用レポートの最低構成（「直近の改良」「これからする内容」「検証」）を統一。
+
+# 2026-04-25 メモ (RV-CORE-003 call reduction 上限撤廃)
+
+- [原因]:
+  - `reduce_calls` / `reduce_calls_guarded` に 1000 回固定上限があり、正当な長い prefix call chain が `TypeCallReductionLimitExceeded` になり得た。
+  - call 縮約ごとに stack 後方を全走査し、callee と引数を `Vec::remove` で抜いていたため、長い式で O(n^2) 化しやすかった。
+  - 固定上限を外すと、深い HIR の `clone()` と recursive type-id resolution が stack overflow / O(n^2) の別原因になることも確認した。
+- [対応]:
+  - `reduce_calls` / `reduce_calls_guarded` を共通の `reduce_calls_from` へ統合し、`open_calls` を末尾候補スタックとして使う方式へ変更した。
+  - callee と引数を連続範囲の `drain` で取り出し、1000 回固定上限を state key による no-progress detection へ置き換えた。
+  - 通常 call の HIR args は owned `args` から move し、`check_prefix` の final expression も stack から move して deep clone を避けるようにした。
+  - HIR type ID resolution を明示スタックの iterative traversal に変更し、struct constructor の type args も解決対象に含めた。
+  - 1105-call typecheck regression と tree semantics fixture を追加した。
+  - typecheck 後の native CLI / codegen pipeline stack overflow は `RV-CORE-015` として分離した。
+- [確認]:
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --test call_reduction`
+  - `trunk build`
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [未解決]:
+  - `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --check --target core` は typecheck 後の compile pipeline で native stack overflow する。`RV-CORE-015` で継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 長い prefix chain を typecheck できるようにしたが、native CLI の後段 pipeline は別 Issue として残した。

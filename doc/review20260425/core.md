@@ -90,23 +90,24 @@ core をブラウザ / WASM / self-host bootstrap で再利用する際に、hos
 
 ## RV-CORE-003: reduce_calls が O(n^2) 化しやすく固定上限で正当な入力を落とす
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: performance
-- 対象: `nepl-core/src/typecheck.rs`
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/tests/call_reduction.rs`, `tests/compiler/tree/19_call_reduction_large_prefix.js`
 
 ### 根拠
 
-- `nepl-core/src/typecheck.rs:5540`: `reduce_calls` に `max_iterations = 1000`。
-- `nepl-core/src/typecheck.rs:5553`: 各 iteration で stack を後ろから全走査。
-- `nepl-core/src/typecheck.rs:5629`: 引数取り出しに `stack.remove(func_pos + 1)` を使用。
-- `nepl-core/src/typecheck.rs:5632`: callee 取り出しも `stack.remove(func_pos)`。
-- `nepl-core/src/typecheck.rs:5730`: guarded reduction 側にも同じ 1000 上限。
+- 旧実装の `reduce_calls` は `max_iterations = 1000` の固定上限で停止していた。
+- 旧実装の `reduce_calls` / `reduce_calls_guarded` は各 iteration で stack を後ろから全走査していた。
+- 旧実装は引数取り出しに `stack.remove(func_pos + 1)`、callee 取り出しに `stack.remove(func_pos)` を使っていた。
+- guarded reduction 側にも同じ固定上限と全走査 / middle remove が重複していた。
 
 ### 問題
 
 prefix expression の縮約が「全走査して middle remove」を繰り返すため、長い式や overload が多い式で O(n^2) 以上になりやすいです。さらに iteration 上限が 1000 固定なので、入力が正しくても `TypeCallReductionLimitExceeded` になる可能性があります。
+
+対応中に、縮約上限を外すだけでは深い HIR の後段 traversal / codegen で native stack overflow が残ることも確認しました。この残件は `RV-CORE-015` として分離し、ここでは `reduce_calls` と typecheck/semantics 段階の根本原因を修正対象にしています。
 
 ### 影響
 
@@ -114,11 +115,28 @@ prefix expression の縮約が「全走査して middle remove」を繰り返す
 
 ### 修正方針
 
-`Vec` の middle remove を避け、index span を持つ reduction queue または小さな call frame stack に置き換えます。上限で止めるのではなく、進捗がない状態を検出して診断する方式にします。
+`reduce_calls` / `reduce_calls_guarded` を共通の縮約ループへ統合し、`open_calls` を末尾候補スタックとして使うようにしました。通常の prefix chain では毎 iteration の全 stack 走査を行わず、callee と引数は連続範囲の `drain` で取り出すため、`Vec::remove` の繰り返しを避けます。
+
+固定の 1000 回上限は削除し、0-arity などで stack 長が縮まらない場合だけ状態キーで進捗なしを検出する方式にしました。また、縮約済みの深い HIR を毎回 clone していた通常 call の引数生成と `check_prefix` 戻り値生成を move ベースに変更し、長い chain の typecheck が再帰 clone で stack overflow しないようにしました。型 ID 解決の HIR 式走査も明示スタックに置き換えています。
 
 ### 検証
 
-長い prefix chain、深い pipe、overload 候補が多い call を含む performance fixture を追加し、縮約回数と処理時間を JSON に出します。
+確認済み:
+
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core --test call_reduction`
+- `trunk build`
+- `node tests/compiler/tree/run.js` (`total=19`, `passed=19`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+
+追加した fixture:
+
+- `nepl-core/tests/call_reduction.rs`: 1105 個の prefix call chain が typecheck できることを確認。
+- `tests/compiler/tree/19_call_reduction_large_prefix.js`: wasm API の semantics 経由で 1105-call chain が `ok=true` になることを JSON 出力で確認。
+
+未解決の後段問題:
+
+- `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --check --target core` は、typecheck 後の compile pipeline で native stack overflow になる。この codegen / `--check` 側の深い HIR traversal は `RV-CORE-015` で追跡します。
 
 ## RV-CORE-004: overload 解決が候補ごとに TypeCtx 全体を clone している
 
@@ -473,3 +491,32 @@ move checker で call target の parameter type を参照し、parameter が `&T
 - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-rv-core-014.json -j 1` (`total=45`, `passed=45`, `failed=0`)
 - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-rv-core-014.json -j 1` (`total=37`, `passed=37`, `failed=0`)
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+
+## RV-CORE-015: 深い HIR を codegen pipeline が再帰処理して stack overflow する
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `nepl-core/src/compiler.rs`, `nepl-core/src/passes/drop_insertion.rs`, `nepl-core/src/passes/move_check.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-cli/src/main.rs`
+
+### 根拠
+
+- `RV-CORE-003` の 1105 identity prefix call chain は typecheck / wasm semantics では通る。
+- 一方で `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --check --target core` は、`DEBUG: Calling compile_module` 後に `thread 'main' has overflowed its stack` で異常終了する。
+
+### 問題
+
+`--check` は型検査だけで終わらず compile pipeline を進めています。後段の drop insertion / move check / codegen precheck / wasm codegen などが深い `HirExpr` を再帰的にたどるため、型検査済みの正当な長い式でも native stack overflow で落ちます。
+
+### 影響
+
+深いが正当なプログラムを CLI で確認できず、診断ではなくプロセス異常終了になります。CI や editor integration では入力サイズに依存して compiler process が落ちるため、`RV-CORE-003` の typecheck 改善だけではユーザー体験が安定しません。
+
+### 修正方針
+
+`--check` の責務を型検査成功可否に限定できる path を分離するか、後段 HIR pass / codegen の recursive visitor を明示スタック方式へ置き換えます。どちらの場合も stack overflow / panic ではなく、成功または通常の diagnostic として終了することを確認します。
+
+### 検証
+
+修正時には 1105-call chain を native CLI の regression として追加し、`cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --check --target core` が stack overflow せず終了することを確認します。

@@ -5441,7 +5441,17 @@ impl<'a> BlockChecker<'a> {
         let result_expr = if leading_let && stack.len() >= base_depth + 2 {
             stack[base_depth + 1].expr.clone()
         } else if stack.len() == base_depth + 1 {
-            stack.last().unwrap().expr.clone()
+            if leading_let {
+                stack.last().unwrap().expr.clone()
+            } else {
+                let top = stack.last_mut().unwrap();
+                let placeholder = HirExpr {
+                    ty: top.expr.ty,
+                    kind: HirExprKind::Unit,
+                    span: top.expr.span,
+                };
+                core::mem::replace(&mut top.expr, placeholder)
+            }
         } else if let Some(ref e) = last_expr {
             e.clone()
         } else {
@@ -5546,41 +5556,117 @@ impl<'a> BlockChecker<'a> {
         }
     }
 
-    fn reduce_calls(
+    fn stack_entry_is_open_call(&mut self, entry: &StackEntry) -> bool {
+        let rty = self.ctx.resolve(entry.ty);
+        entry.auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. })
+    }
+
+    fn rebuild_open_calls(
+        &mut self,
+        stack: &[StackEntry],
+        open_calls: &mut Vec<usize>,
+        min_func_pos: usize,
+    ) {
+        open_calls.clear();
+        for i in min_func_pos..stack.len() {
+            if self.stack_entry_is_open_call(&stack[i]) {
+                open_calls.push(i);
+            }
+        }
+    }
+
+    fn next_reducible_call_pos(
+        &mut self,
+        stack: &[StackEntry],
+        open_calls: &mut Vec<usize>,
+        min_func_pos: usize,
+    ) -> Option<usize> {
+        if open_calls.is_empty() {
+            self.rebuild_open_calls(stack, open_calls, min_func_pos);
+        }
+        let mut cursor = open_calls.len();
+        while cursor > 0 {
+            cursor -= 1;
+            let i = open_calls[cursor];
+            if i < min_func_pos || i >= stack.len() || !self.stack_entry_is_open_call(&stack[i]) {
+                open_calls.remove(cursor);
+                continue;
+            }
+            if self.should_defer_overloaded_nullary_entry(stack, i) {
+                continue;
+            }
+            return Some(i);
+        }
+        None
+    }
+
+    fn update_open_calls_after_reduction(
+        &mut self,
+        stack: &[StackEntry],
+        open_calls: &mut Vec<usize>,
+        func_pos: usize,
+        args_to_take: usize,
+    ) {
+        let removed_end = func_pos + 1 + args_to_take;
+        let first_removed = open_calls.partition_point(|&i| i < func_pos);
+        let first_after_removed = open_calls.partition_point(|&i| i < removed_end);
+        open_calls.drain(first_removed..first_after_removed);
+        for i in &mut open_calls[first_removed..] {
+            *i = i.saturating_sub(args_to_take);
+        }
+        if func_pos < stack.len() && self.stack_entry_is_open_call(&stack[func_pos]) {
+            open_calls.insert(first_removed, func_pos);
+        }
+        open_calls.dedup();
+    }
+
+    fn call_reduction_state_key(&self, stack: &[StackEntry]) -> String {
+        let mut out = String::new();
+        for entry in stack {
+            out.push_str(&self.ctx.type_to_string(entry.ty));
+            out.push(':');
+            match &entry.expr.kind {
+                HirExprKind::Var(name) => {
+                    out.push_str("var:");
+                    out.push_str(name);
+                }
+                HirExprKind::FnValue(name) => {
+                    out.push_str("fn:");
+                    out.push_str(name);
+                }
+                HirExprKind::Call { callee, args } => {
+                    out.push_str("call:");
+                    out.push_str(&format!("{:?}/{}", callee, args.len()));
+                }
+                HirExprKind::CallIndirect { args, .. } => {
+                    out.push_str("call_indirect:");
+                    out.push_str(&args.len().to_string());
+                }
+                _ => out.push_str("expr"),
+            }
+            out.push('|');
+        }
+        out
+    }
+
+    fn reduce_calls_from(
         &mut self,
         stack: &mut Vec<StackEntry>,
-        _open_calls: &mut Vec<usize>,
+        open_calls: &mut Vec<usize>,
+        min_func_pos: usize,
         expected: Option<(TypeId, usize)>,
+        label: &str,
     ) {
-        let max_iterations = 1000; // Safety limit to prevent infinite loops
-        let mut iterations = 0;
+        let mut no_progress_states = BTreeSet::new();
         loop {
-            iterations += 1;
-            if iterations > max_iterations {
-                self.diagnostics.push(Diagnostic::error(
-                    "reduce_calls exceeded maximum iterations (possible infinite loop)",
-                    Span::dummy(),
-                ).with_id(DiagnosticId::TypeCallReductionLimitExceeded));
-                break;
-            }
-            dump!("reduce_calls: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
+            dump!("{}: stack=[{}]", label, stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
 
-            let mut func_pos = None;
-            for i in (0..stack.len()).rev() {
-                let rty = self.ctx.resolve(stack[i].ty);
-                if !(stack[i].auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. })) {
-                    continue;
-                }
-                if self.should_defer_overloaded_nullary_entry(stack, i) {
-                    continue;
-                }
-                func_pos = Some(i);
-                break;
-            }
-            let Some(mut func_pos) = func_pos else {
+            let Some(mut func_pos) =
+                self.next_reducible_call_pos(stack, open_calls, min_func_pos)
+            else {
                 break;
             };
-            if let Some(outer) = self.find_outer_function_consumer(stack, func_pos, 0) {
+            if let Some(outer) = self.find_outer_function_consumer(stack, func_pos, min_func_pos) {
                 func_pos = outer;
             }
 
@@ -5599,7 +5685,7 @@ impl<'a> BlockChecker<'a> {
             let ty_for_infer = chosen_callable
                 .map(|(_, ty)| ty)
                 .unwrap_or(stack[func_pos].ty);
-            let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
+            let (inst_ty, _fresh_args) = if !stack[func_pos].type_args.is_empty() {
                 (ty_for_infer, stack[func_pos].type_args.clone())
             } else {
                 let (inst_ty, fresh_args, _mapping) = self.ctx.instantiate(ty_for_infer);
@@ -5614,7 +5700,11 @@ impl<'a> BlockChecker<'a> {
                     ..
                 } => (params, result, effect),
                 _ => {
-                    continue;
+                    self.diagnostics.push(Diagnostic::error(
+                        "call reduction found non-function after instantiation",
+                        stack[func_pos].expr.span,
+                    ).with_id(DiagnosticId::TypeCallReductionLimitExceeded));
+                    break;
                 }
             };
             let needed_args = chosen_callable
@@ -5628,7 +5718,7 @@ impl<'a> BlockChecker<'a> {
             let args_to_take = needed_args + if consume_unit_sugar { 1 } else { 0 };
             if stack.len() < func_pos + 1 + args_to_take {
                 break;
-            };
+            }
             let expected_ret = expected.and_then(|(target, base_len)| {
                 let new_len = stack.len().saturating_sub(args_to_take);
                 if new_len == base_len + 1 {
@@ -5637,20 +5727,49 @@ impl<'a> BlockChecker<'a> {
                     None
                 }
             });
-            let outer_expected = self.infer_expected_from_outer_consumer(stack, func_pos, 0);
+            let outer_expected =
+                self.infer_expected_from_outer_consumer(stack, func_pos, min_func_pos);
             let expected_ret = expected_ret.or(outer_expected);
-            let mut args = Vec::new();
-            for _ in 0..args_to_take {
-                args.push(stack.remove(func_pos + 1));
-            }
 
-            let mut func_entry = stack.remove(func_pos);
+            let before_len = stack.len();
+            let drained = stack
+                .drain(func_pos..func_pos + 1 + args_to_take)
+                .collect::<Vec<_>>();
+            let mut drained = drained.into_iter();
+            let Some(mut func_entry) = drained.next() else {
+                break;
+            };
+            let args = drained.collect::<Vec<_>>();
             func_entry.ty = inst_ty;
             func_entry.expr.ty = inst_ty;
             let explicit_type_args = func_entry.type_args.clone();
-                if crate::log::is_verbose() {
-                    std::eprintln!("    Reducing: {} at pos {} with {} args, assign={:?}", self.ctx.type_to_string(inst_ty), func_pos, params.len(), func_entry.assign);
+            let debug_name = match &func_entry.expr.kind {
+                HirExprKind::Var(name) => Some(name.clone()),
+                _ => None,
+            };
+            if crate::log::is_verbose() {
+                std::eprintln!(
+                    "    Reducing {}: {} at pos {} with {} args, assign={:?}",
+                    label,
+                    self.ctx.type_to_string(inst_ty),
+                    func_pos,
+                    params.len(),
+                    func_entry.assign
+                );
+                if label == "reduce_calls_guarded"
+                    && matches!(
+                        debug_name.as_deref(),
+                        Some("get" | "is_none" | "must_hm" | "make_hm" | "new" | "DefaultHash32" | "A" | "use_a")
+                    )
+                {
+                    let before = stack
+                        .iter()
+                        .map(|e| self.ctx.type_to_string(e.ty))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    std::eprintln!("      stack before guarded apply [{}]", before);
                 }
+            }
             let applied = self.apply_function(
                 func_entry,
                 params,
@@ -5662,11 +5781,47 @@ impl<'a> BlockChecker<'a> {
             );
 
             if let Some(val) = applied {
+                if crate::log::is_verbose()
+                    && label == "reduce_calls_guarded"
+                    && matches!(
+                        debug_name.as_deref(),
+                        Some("get" | "is_none" | "must_hm" | "make_hm" | "new" | "DefaultHash32" | "A" | "use_a")
+                    )
+                {
+                    std::eprintln!("      guarded result {}", self.ctx.type_to_string(val.ty));
+                }
                 stack.insert(func_pos, val);
+                self.update_open_calls_after_reduction(
+                    stack,
+                    open_calls,
+                    func_pos,
+                    args_to_take,
+                );
+                if stack.len() >= before_len {
+                    let state_key = self.call_reduction_state_key(stack);
+                    if !no_progress_states.insert(state_key) {
+                        self.diagnostics.push(Diagnostic::error(
+                            "call reduction made no progress",
+                            Span::dummy(),
+                        ).with_id(DiagnosticId::TypeCallReductionLimitExceeded));
+                        break;
+                    }
+                } else {
+                    no_progress_states.clear();
+                }
             } else {
                 break;
             }
         }
+    }
+
+    fn reduce_calls(
+        &mut self,
+        stack: &mut Vec<StackEntry>,
+        open_calls: &mut Vec<usize>,
+        expected: Option<(TypeId, usize)>,
+    ) {
+        self.reduce_calls_from(stack, open_calls, 0, expected, "reduce_calls");
     }
 
     fn resolve_dotted_field_symbol(&mut self, id: &Ident, forced_value: bool) -> Option<StackEntry> {
@@ -5738,146 +5893,17 @@ impl<'a> BlockChecker<'a> {
     fn reduce_calls_guarded(
         &mut self,
         stack: &mut Vec<StackEntry>,
-        _open_calls: &mut Vec<usize>,
+        open_calls: &mut Vec<usize>,
         min_func_pos: usize,
         expected: Option<(TypeId, usize)>,
     ) {
-        let max_iterations = 1000; // Safety limit to prevent infinite loops
-        let mut iterations = 0;
-        loop {
-            iterations += 1;
-            if iterations > max_iterations {
-                self.diagnostics.push(Diagnostic::error(
-                    "reduce_calls_guarded exceeded maximum iterations (possible infinite loop)",
-                    Span::dummy(),
-                ).with_id(DiagnosticId::TypeCallReductionLimitExceeded));
-                break;
-            }
-            dump!("reduce_calls_guarded: stack=[{}]", stack.iter().map(|e| match &e.expr.kind { HirExprKind::Var(n) => n.clone(), _ => "<expr>".to_string() }).collect::<Vec<_>>().join(","));
-
-            let mut func_pos: Option<usize> = None;
-            for i in (min_func_pos..stack.len()).rev() {
-                let rty = self.ctx.resolve(stack[i].ty);
-                if !(stack[i].auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. })) {
-                    continue;
-                }
-                if self.should_defer_overloaded_nullary_entry(stack, i) {
-                    continue;
-                }
-                func_pos = Some(i);
-                break;
-            }
-            let Some(mut func_pos) = func_pos else {
-                break;
-            };
-            if let Some(outer) = self.find_outer_function_consumer(stack, func_pos, min_func_pos) {
-                func_pos = outer;
-            }
-
-            let available_args = stack.len().saturating_sub(func_pos + 1);
-            let chosen_callable = match &stack[func_pos].expr.kind {
-                HirExprKind::Var(name)
-                    if stack[func_pos].type_args.is_empty()
-                        && self.env.lookup_all_callables(name).len() > 1 =>
-                {
-                    self.choose_callable_type_by_available_arity(name, available_args)
-                }
-                HirExprKind::Var(name) if self.env.lookup_value(name).is_none() => self
-                    .choose_callable_type_by_available_arity(name, available_args),
-                _ => None,
-            };
-            let ty_for_infer = chosen_callable
-                .map(|(_, ty)| ty)
-                .unwrap_or(stack[func_pos].ty);
-            let (inst_ty, fresh_args) = if !stack[func_pos].type_args.is_empty() {
-                (ty_for_infer, stack[func_pos].type_args.clone())
-            } else {
-                let (inst_ty, fresh_args, _mapping) = self.ctx.instantiate(ty_for_infer);
-                (inst_ty, fresh_args)
-            };
-            let func_ty = self.ctx.get(inst_ty);
-            let (params, result, effect) = match func_ty {
-                TypeKind::Function {
-                    params,
-                    result,
-                    effect,
-                    ..
-                } => (params, result, effect),
-                _ => {
-                    continue;
-                }
-            };
-            let needed_args = chosen_callable
-                .map(|(arity, _)| arity)
-                .unwrap_or_else(|| self.user_visible_arity(&stack[func_pos].expr, &params));
-            let consume_unit_sugar = needed_args == 0
-                && stack
-                    .get(func_pos + 1)
-                    .map(|e| matches!(e.expr.kind, HirExprKind::Unit))
-                    .unwrap_or(false);
-            let args_to_take = needed_args + if consume_unit_sugar { 1 } else { 0 };
-            if stack.len() < func_pos + 1 + args_to_take {
-                break;
-            }
-            let expected_ret = expected.and_then(|(target, base_len)| {
-                let new_len = stack.len().saturating_sub(args_to_take);
-                if new_len == base_len + 1 {
-                    Some(target)
-                } else {
-                    None
-                }
-            });
-            let outer_expected =
-                self.infer_expected_from_outer_consumer(stack, func_pos, min_func_pos);
-            let expected_ret = expected_ret.or(outer_expected);
-            let mut args = Vec::new();
-            for _ in 0..args_to_take {
-                args.push(stack.remove(func_pos + 1));
-            }
-
-            let mut func_entry = stack.remove(func_pos);
-            func_entry.ty = inst_ty;
-            func_entry.expr.ty = inst_ty;
-            let explicit_type_args = func_entry.type_args.clone();
-            let debug_name = match &func_entry.expr.kind {
-                HirExprKind::Var(name) => Some(name.clone()),
-                _ => None,
-            };
-                if crate::log::is_verbose() {
-                    std::eprintln!("    Reducing (guarded): {} at pos {} with {} args, assign={:?}", self.ctx.type_to_string(inst_ty), func_pos, params.len(), func_entry.assign);
-                    if matches!(debug_name.as_deref(), Some("get" | "is_none" | "must_hm" | "make_hm" | "new" | "DefaultHash32" | "A" | "use_a")) {
-                        let before = stack
-                            .iter()
-                            .map(|e| self.ctx.type_to_string(e.ty))
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        std::eprintln!("      stack before guarded apply [{}]", before);
-                    }
-                }
-            let applied = self.apply_function(
-                func_entry,
-                params,
-                result,
-                effect,
-                args,
-                explicit_type_args,
-                expected_ret,
-            );
-
-            if let Some(val) = applied {
-                if crate::log::is_verbose() {
-                    if matches!(debug_name.as_deref(), Some("get" | "is_none" | "must_hm" | "make_hm" | "new" | "DefaultHash32" | "A" | "use_a")) {
-                        std::eprintln!(
-                            "      guarded result {}",
-                            self.ctx.type_to_string(val.ty)
-                        );
-                    }
-                }
-                stack.insert(func_pos, val);
-            } else {
-                break;
-            }
-        }
+        self.reduce_calls_from(
+            stack,
+            open_calls,
+            min_func_pos,
+            expected,
+            "reduce_calls_guarded",
+        );
     }
 
     /// マッチアームのバリアント名からスクルーティニーの期待型を推論する。
@@ -7215,70 +7241,6 @@ impl<'a> BlockChecker<'a> {
                         });
                     }
 
-                    let mut final_args: Vec<HirExpr> = Vec::new();
-                    for (cap_name, cap_ty) in captures.iter() {
-                        let resolved_cap_ty = self
-                            .env
-                            .lookup_value(cap_name)
-                            .map(|b| self.ctx.resolve_id(b.ty))
-                            .unwrap_or(*cap_ty);
-                        final_args.push(HirExpr {
-                            ty: resolved_cap_ty,
-                            kind: HirExprKind::Var(cap_name.clone()),
-                            span: func.expr.span,
-                        });
-                    }
-                    for (arg, param_ty) in args.iter().zip(user_params.iter()) {
-                        let mut arg_expr = arg.expr.clone();
-                        if let HirExprKind::Var(var_name) = &arg_expr.kind {
-                            if self.env.lookup_value(var_name).is_none() {
-                                let callables = self.env.lookup_all_callables(var_name);
-                                if !callables.is_empty() {
-                                    let mut matched_symbol: Option<String> = None;
-                                    let mut ambiguous = false;
-                                    for cb in callables {
-                                        let (symbol, captures_len) = match &cb.kind {
-                                            BindingKind::Func {
-                                                symbol, captures, ..
-                                            } => (symbol.clone(), captures.len()),
-                                            _ => continue,
-                                        };
-                                        if captures_len != 0 {
-                                            continue;
-                                        }
-                                        let mut tmp_ctx = self.ctx.clone();
-                                        let (cand_ty, _fresh, _mapping) =
-                                            tmp_ctx.instantiate(cb.ty);
-                                        if tmp_ctx.unify(cand_ty, *param_ty).is_ok() {
-                                            if matched_symbol.is_some() {
-                                                ambiguous = true;
-                                                break;
-                                            }
-                                            matched_symbol = Some(symbol);
-                                        }
-                                    }
-                                    if ambiguous {
-                                        self.diagnostics.push(
-                                            Diagnostic::error(
-                                                "ambiguous overload",
-                                                arg_expr.span,
-                                            )
-                                            .with_id(DiagnosticId::TypeAmbiguousOverload),
-                                        );
-                                        return None;
-                                    }
-                                    if let Some(symbol) = matched_symbol {
-                                        arg_expr = HirExpr {
-                                            ty: arg.ty,
-                                            kind: HirExprKind::FnValue(symbol),
-                                            span: arg_expr.span,
-                                        };
-                                    }
-                                }
-                            }
-                        }
-                        final_args.push(arg_expr);
-                    }
                     let mut trait_callee: Option<FuncRef> = None;
                     if let Some((trait_name, method_name)) = parse_variant_name(name) {
                         if let Some(trait_info) = self.traits.get(trait_name) {
@@ -7386,6 +7348,71 @@ impl<'a> BlockChecker<'a> {
                         }
                         FuncRef::User(selected_symbol.clone(), resolved_args.clone())
                     };
+                    let mut final_args: Vec<HirExpr> = Vec::new();
+                    for (cap_name, cap_ty) in captures.iter() {
+                        let resolved_cap_ty = self
+                            .env
+                            .lookup_value(cap_name)
+                            .map(|b| self.ctx.resolve_id(b.ty))
+                            .unwrap_or(*cap_ty);
+                        final_args.push(HirExpr {
+                            ty: resolved_cap_ty,
+                            kind: HirExprKind::Var(cap_name.clone()),
+                            span: func.expr.span,
+                        });
+                    }
+                    for (arg, param_ty) in args.into_iter().zip(user_params.iter()) {
+                        let arg_ty = arg.ty;
+                        let mut arg_expr = arg.expr;
+                        if let HirExprKind::Var(var_name) = &arg_expr.kind {
+                            if self.env.lookup_value(var_name).is_none() {
+                                let callables = self.env.lookup_all_callables(var_name);
+                                if !callables.is_empty() {
+                                    let mut matched_symbol: Option<String> = None;
+                                    let mut ambiguous = false;
+                                    for cb in callables {
+                                        let (symbol, captures_len) = match &cb.kind {
+                                            BindingKind::Func {
+                                                symbol, captures, ..
+                                            } => (symbol.clone(), captures.len()),
+                                            _ => continue,
+                                        };
+                                        if captures_len != 0 {
+                                            continue;
+                                        }
+                                        let mut tmp_ctx = self.ctx.clone();
+                                        let (cand_ty, _fresh, _mapping) =
+                                            tmp_ctx.instantiate(cb.ty);
+                                        if tmp_ctx.unify(cand_ty, *param_ty).is_ok() {
+                                            if matched_symbol.is_some() {
+                                                ambiguous = true;
+                                                break;
+                                            }
+                                            matched_symbol = Some(symbol);
+                                        }
+                                    }
+                                    if ambiguous {
+                                        self.diagnostics.push(
+                                            Diagnostic::error(
+                                                "ambiguous overload",
+                                                arg_expr.span,
+                                            )
+                                            .with_id(DiagnosticId::TypeAmbiguousOverload),
+                                        );
+                                        return None;
+                                    }
+                                    if let Some(symbol) = matched_symbol {
+                                        arg_expr = HirExpr {
+                                            ty: arg_ty,
+                                            kind: HirExprKind::FnValue(symbol),
+                                            span: arg_expr.span,
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                        final_args.push(arg_expr);
+                    }
                     let resolved_result = self.ctx.resolve_id(c_result);
                     return Some(StackEntry {
                         ty: resolved_result,
@@ -7681,99 +7708,111 @@ fn resolve_type_ids_in_block(ctx: &TypeCtx, block: &mut HirBlock) {
 }
 
 fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
-    expr.ty = ctx.resolve_id(expr.ty);
-    match &mut expr.kind {
-        HirExprKind::Call { callee, args } => {
-            match callee {
-                FuncRef::User(_, type_args) => {
-                    for ty in type_args {
-                        *ty = ctx.resolve_id(*ty);
+    let mut pending = Vec::new();
+    pending.push(expr);
+    while let Some(expr) = pending.pop() {
+        expr.ty = ctx.resolve_id(expr.ty);
+        match &mut expr.kind {
+            HirExprKind::Call { callee, args } => {
+                match callee {
+                    FuncRef::User(_, type_args) => {
+                        for ty in type_args {
+                            *ty = ctx.resolve_id(*ty);
+                        }
                     }
-                }
-                FuncRef::Trait {
-                    trait_args,
-                    self_ty,
-                    ..
-                } => {
-                    for ty in trait_args {
-                        *ty = ctx.resolve_id(*ty);
+                    FuncRef::Trait {
+                        trait_args,
+                        self_ty,
+                        ..
+                    } => {
+                        for ty in trait_args {
+                            *ty = ctx.resolve_id(*ty);
+                        }
+                        *self_ty = ctx.resolve_id(*self_ty);
                     }
-                    *self_ty = ctx.resolve_id(*self_ty);
+                    FuncRef::Builtin(_) => {}
                 }
-                FuncRef::Builtin(_) => {}
+                for arg in args {
+                    pending.push(arg);
+                }
             }
-            for arg in args {
-                resolve_type_ids_in_expr(ctx, arg);
+            HirExprKind::CallIndirect {
+                callee,
+                params,
+                result,
+                args,
+            } => {
+                pending.push(callee);
+                for ty in params {
+                    *ty = ctx.resolve_id(*ty);
+                }
+                *result = ctx.resolve_id(*result);
+                for arg in args {
+                    pending.push(arg);
+                }
             }
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                pending.push(cond);
+                pending.push(then_branch);
+                pending.push(else_branch);
+            }
+            HirExprKind::While { cond, body } => {
+                pending.push(cond);
+                pending.push(body);
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                pending.push(scrutinee);
+                for arm in arms {
+                    pending.push(&mut arm.body);
+                }
+            }
+            HirExprKind::Block(block) => {
+                block.ty = ctx.resolve_id(block.ty);
+                for line in &mut block.lines {
+                    pending.push(&mut line.expr);
+                }
+            }
+            HirExprKind::Let { value, .. }
+            | HirExprKind::Set { value, .. }
+            | HirExprKind::AddrOf(value)
+            | HirExprKind::Deref(value) => pending.push(value),
+            HirExprKind::TupleConstruct { items }
+            | HirExprKind::Intrinsic { args: items, .. } => {
+                for item in items {
+                    pending.push(item);
+                }
+            }
+            HirExprKind::EnumConstruct {
+                type_args, payload, ..
+            } => {
+                for ty in type_args {
+                    *ty = ctx.resolve_id(*ty);
+                }
+                if let Some(payload) = payload {
+                    pending.push(payload);
+                }
+            }
+            HirExprKind::StructConstruct { type_args, fields, .. } => {
+                for ty in type_args {
+                    *ty = ctx.resolve_id(*ty);
+                }
+                for field in fields {
+                    pending.push(field);
+                }
+            }
+            HirExprKind::FnValue(_)
+            | HirExprKind::Var(_)
+            | HirExprKind::Unit
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Drop { .. } => {}
         }
-        HirExprKind::CallIndirect {
-            callee,
-            params,
-            result,
-            args,
-        } => {
-            resolve_type_ids_in_expr(ctx, callee);
-            for ty in params {
-                *ty = ctx.resolve_id(*ty);
-            }
-            *result = ctx.resolve_id(*result);
-            for arg in args {
-                resolve_type_ids_in_expr(ctx, arg);
-            }
-        }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            resolve_type_ids_in_expr(ctx, cond);
-            resolve_type_ids_in_expr(ctx, then_branch);
-            resolve_type_ids_in_expr(ctx, else_branch);
-        }
-        HirExprKind::While { cond, body } => {
-            resolve_type_ids_in_expr(ctx, cond);
-            resolve_type_ids_in_expr(ctx, body);
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            resolve_type_ids_in_expr(ctx, scrutinee);
-            for arm in arms {
-                resolve_type_ids_in_expr(ctx, &mut arm.body);
-            }
-        }
-        HirExprKind::Block(block) => resolve_type_ids_in_block(ctx, block),
-        HirExprKind::Let { value, .. }
-        | HirExprKind::Set { value, .. }
-        | HirExprKind::AddrOf(value)
-        | HirExprKind::Deref(value) => resolve_type_ids_in_expr(ctx, value),
-        HirExprKind::TupleConstruct { items }
-        | HirExprKind::Intrinsic { args: items, .. } => {
-            for item in items {
-                resolve_type_ids_in_expr(ctx, item);
-            }
-        }
-        HirExprKind::EnumConstruct {
-            type_args, payload, ..
-        } => {
-            for ty in type_args {
-                *ty = ctx.resolve_id(*ty);
-            }
-            if let Some(payload) = payload {
-                resolve_type_ids_in_expr(ctx, payload);
-            }
-        }
-        HirExprKind::StructConstruct { fields, .. } => {
-            for field in fields {
-                resolve_type_ids_in_expr(ctx, field);
-            }
-        }
-        HirExprKind::FnValue(_)
-        | HirExprKind::Var(_)
-        | HirExprKind::Unit
-        | HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Drop { .. } => {}
     }
 }
 
