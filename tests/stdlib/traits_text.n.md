@@ -26,7 +26,7 @@ ret: 14
 #import "core/traits/copy" as *
 
 fn clone_add <.T: Clone> <(.T,.T,(.T,.T)->i32)->i32> (x, y, f):
-    f Clone::clone x Clone::clone y
+    f Clone::clone &x Clone::clone &y
 
 fn add_i32 <(i32,i32)->i32> (a, b):
     add a b

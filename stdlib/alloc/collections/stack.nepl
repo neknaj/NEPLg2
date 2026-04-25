@@ -91,6 +91,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
 struct Stack<.T>:
@@ -101,8 +102,8 @@ impl<.T> Copy for Stack<.T>:
         stk
 
 impl<.T> Clone for Stack<.T>:
-    fn clone <(Stack<.T>)->Stack<.T>> (stk):
-        stk
+    fn clone <(&Stack<.T>)->Stack<.T>> (stk):
+        *stk
 
 //: stack_header_len_ptr: ヘッダの length [欄/らん]を[指/さ]す
 //:
@@ -417,6 +418,28 @@ fn peek <.T> <(Stack<.T>)->Option<.T>> (stk):
             let v <.T> load<.T> add mem_ptr_addr data off
             some<.T> v
 
+//: peek_ref: `Stack<.T>` を[消費/しょうひ]せずに Copy [要素/ようそ]を[参照/さんしょう]する
+//:
+//: ### [目的/もくてき]
+//: - `&Stack<.T>` を[受/う]け[取/と]り、stack handle の所有権を[移動/いどう]せずに[末尾/まつび][要素/ようそ]を[読/よ]みます。
+//: - memory から[値/あたい]を[読/よ]み[出/だ]して[返/かえ]すため、`.T: Copy` に[限定/げんてい]します。
+fn peek_ref <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
+    let stk0 <Stack<.T>> *stk
+    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
+    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
+    let len <i32> load_i32 mem_ptr_addr len_ptr
+    if:
+        eq len 0
+        then:
+            none<.T>
+        else:
+            let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
+            let last <i32> sub len 1
+            let off <i32> mul last size_of<.T>
+            let v <.T> load<.T> add mem_ptr_addr data off
+            some<.T> v
+
 //: len: 長さを返す
 //:
 //: ### [目的/もくてき]
@@ -450,6 +473,37 @@ fn peek <.T> <(Stack<.T>)->Option<.T>> (stk):
 fn len <.T> <(Stack<.T>)->i32> (stk):
     stack_len_raw<.T> stk
 
+//: len_ref: `Stack<.T>` を[消費/しょうひ]せずに[長/なが]さを[返/かえ]す
+//:
+//: ### [実装/じっそう]
+//: - `&Stack<.T>` を dereference して header の length を O(1) で[読/よ]みます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st0 <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>
+//:     let st1 <Stack<i32>> uwok push<i32> st0 10
+//:     let n <i32> len_ref<i32> &st1
+//:     let top_ok <bool>:
+//:         match peek_ref<i32> &st1:
+//:             Option::Some x:
+//:                 eq x 10
+//:             Option::None:
+//:                 false
+//:     let st2 <Stack<i32>> uwok push<i32> st1 20
+//:     if and top_ok and eq n 1 eq len<i32> st2 2 0 1
+//: ```
+fn len_ref <.T> <(&Stack<.T>)->i32> (stk):
+    let stk0 <Stack<.T>> *stk
+    stack_len_raw<.T> stk0
+
 //: is_empty: 空か判定する
 //:
 //: ### [目的/もくてき]
@@ -479,6 +533,13 @@ fn len <.T> <(Stack<.T>)->i32> (stk):
 //: ```
 fn is_empty <.T> <(Stack<.T>)->bool> (stk):
     eq len<.T> stk 0
+
+//: is_empty_ref: `Stack<.T>` を[消費/しょうひ]せずに[空/から]かどうかを[返/かえ]す
+//:
+//: ### [実装/じっそう]
+//: - `len_ref` で[長/なが]さを[読/よ]み、0 と[比較/ひかく]します。
+fn is_empty_ref <.T> <(&Stack<.T>)->bool> (stk):
+    eq len_ref<.T> stk 0
 
 //: clear: すべての要素を削除する
 //:

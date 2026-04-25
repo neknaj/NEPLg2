@@ -64,8 +64,8 @@ impl Copy for StdinStream:
         stream
 
 impl Clone for StdinStream:
-    fn clone <(StdinStream)->StdinStream> (stream):
-        stream
+    fn clone <(&StdinStream)->StdinStream> (stream):
+        *stream
 
 //: ## StdoutStream
 //: [標準出力/ひょうじゅんしゅつりょく]を[表/あらわ]す[軽量/けいりょう] handle
@@ -83,8 +83,8 @@ impl Copy for StdoutStream:
         stream
 
 impl Clone for StdoutStream:
-    fn clone <(StdoutStream)->StdoutStream> (stream):
-        stream
+    fn clone <(&StdoutStream)->StdoutStream> (stream):
+        *stream
 
 //: ## TextInputStream
 //: in-memory text を stream として[扱/あつか]う[軽量/けいりょう] handle
@@ -127,8 +127,8 @@ impl Copy for StreamScanner:
         sc
 
 impl Clone for StreamScanner:
-    fn clone <(StreamScanner)->StreamScanner> (sc):
-        sc
+    fn clone <(&StreamScanner)->StreamScanner> (sc):
+        *sc
 
 enum StreamScannerHeaderField:
     BufPtr

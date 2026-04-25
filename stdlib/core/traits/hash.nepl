@@ -80,8 +80,8 @@ struct DefaultHash32:
     tag <()>
 
 impl Clone for DefaultHash32:
-    fn clone <(DefaultHash32)->DefaultHash32> (self):
-        self
+    fn clone <(&DefaultHash32)->DefaultHash32> (self):
+        *self
 
 impl Copy for DefaultHash32:
     fn copy_mark <(DefaultHash32)->DefaultHash32> (self):

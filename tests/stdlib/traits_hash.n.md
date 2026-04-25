@@ -77,8 +77,8 @@ struct ModHasher:
     tag <()>
 
 impl Clone for ModHasher:
-    fn clone <(ModHasher)->ModHasher> (self):
-        self
+    fn clone <(&ModHasher)->ModHasher> (self):
+        *self
 
 impl Copy for ModHasher:
     fn copy_mark <(ModHasher)->ModHasher> (self):
@@ -169,8 +169,8 @@ struct ModHasher:
     tag <()>
 
 impl Clone for ModHasher:
-    fn clone <(ModHasher)->ModHasher> (self):
-        self
+    fn clone <(&ModHasher)->ModHasher> (self):
+        *self
 
 impl Copy for ModHasher:
     fn copy_mark <(ModHasher)->ModHasher> (self):

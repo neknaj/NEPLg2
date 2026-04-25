@@ -15138,3 +15138,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 現行 stdlib API が move / borrow 方針と噛み合っていない箇所を、追加 Issue として追跡対象にした。
+
+# 2026-04-25 メモ (RV-STDLIB-011 borrow-based clone/read API 対応)
+
+- [原因]:
+  - `Clone::clone` が `Self` を by-value で受けていたため、非 Copy 所有型では「元を残して複製する」API として使えなかった。
+  - `Vec` / `Stack` の読み取り API は collection handle を by-value で受けており、`RV-STDLIB-003` で `Copy` を削除すると読み取りだけで move になってしまう構造だった。
+- [対応]:
+  - `stdlib/core/traits/copy.nepl` の `Clone::clone` を `(&Self)->Self` に変更し、標準の軽量 Copy 型 impl を参照渡しへ揃えた。
+  - `Vec` に `len_ref`, `cap_ref`, `data_ptr_ref`, `data_mem_ptr_ref`, `data_len_ref`, `is_empty_ref`, `get_ref` を追加した。
+  - `Stack` に `len_ref`, `is_empty_ref`, `peek_ref` を追加した。
+  - `get_ref` / `peek_ref` は要素を memory から読み出して返すため `.T: Copy` に限定した。
+  - `doc/review20260425/issues.md` と `doc/review20260425/stdlib.md` の `RV-STDLIB-011` を `verified` に更新した。
+- [確認]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/traits_text.n.md -n 1`: pass
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 7`: pass
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/stack.nepl -n 8`: pass
+  - `node nodesrc/tests.js -i tests/compiler/prelude_copy.n.md --no-tree -o tmp/prelude-copy-tests.json -j 1`: `total=4`, `passed=4`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Vec` / `Stack` の shallow `Copy` / `Clone` 削除は `RV-STDLIB-003` として継続する。今回の対応はその前提になる borrow-based API の整備に限定した。

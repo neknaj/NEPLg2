@@ -76,8 +76,8 @@ impl Copy for PrefixI32:
         pref
 
 impl Clone for PrefixI32:
-    fn clone <(PrefixI32)->PrefixI32> (pref):
-        pref
+    fn clone <(&PrefixI32)->PrefixI32> (pref):
+        *pref
 
 //: prefix_build_vec_i32: Vec<i32> から累積和ハンドルを作る
 //:

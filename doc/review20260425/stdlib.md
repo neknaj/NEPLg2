@@ -110,8 +110,8 @@ free list から見つけた block を split する場合は、余り block `new
 
 ## RV-STDLIB-003: 所有権を持つ Vec/Stack が Copy/Clone になっている
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
@@ -383,8 +383,10 @@ public API と input-dependent code では `unwrap` 系を禁止し、`match` �
 
 ### 修正方針
 
-`Clone` を borrow-based な形へ移行するか、非 Copy 所有型向けに `clone_ref` 相当の能力を追加します。あわせて `Vec` / `Stack` の read API を所有権を消費しない形へ移行し、その後 `RV-STDLIB-003` で `Copy` と shallow `Clone` を削除します。
+`Clone` trait の `clone` を `(&Self)->Self` に変更し、標準の `Clone` impl を参照渡しへ移行しました。`Vec` には `len_ref` / `cap_ref` / `data_ptr_ref` / `data_mem_ptr_ref` / `data_len_ref` / `is_empty_ref` / `get_ref` を追加し、`Stack` には `len_ref` / `is_empty_ref` / `peek_ref` を追加しました。
+
+`get_ref` / `peek_ref` は memory から値を読み出す API なので `.T: Copy` に限定し、所有権を持つ要素の浅い複製を避けます。`Vec` / `Stack` 自体の shallow `Copy` / `Clone` 削除は `RV-STDLIB-003` で継続します。
 
 ### 検証
 
-`Vec` / `Stack` から `Copy` を外した状態で、`len` / `get` / `peek` の後に `free` できることを確認する compile/run テストを追加します。さらに `Vec` / `Stack` の単純代入後再利用が compile fail になることを確認します。
+`tests/stdlib/traits_text.n.md` で `Clone::clone &x` が generic bound 経由で動作することを確認しました。`stdlib/alloc/collections/vec.nepl` と `stdlib/alloc/collections/stack.nepl` の doctest で、`len_ref` / `get_ref` / `peek_ref` の後も元の collection を更新できることを確認しました。

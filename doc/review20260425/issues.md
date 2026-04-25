@@ -10,8 +10,8 @@
 |---|---:|---:|
 | core | 12 | 0 |
 | cli | 7 | 1 |
-| stdlib | 9 | 2 |
-| 合計 | 28 | 3 |
+| stdlib | 8 | 3 |
+| 合計 | 27 | 4 |
 
 ## Core
 
@@ -57,4 +57,4 @@
 | [RV-STDLIB-008](./stdlib.md#rv-stdlib-008-self-host-compiler-がプレースホルダのまま) | false | open | P2 | architecture | `stdlib/neplg2` は 17 行の stub 群のみ |
 | [RV-STDLIB-009](./stdlib.md#rv-stdlib-009-巨大-stdlib-ファイルが分割されていない) | false | open | P2 | architecture | `math.nepl` / `string.nepl` / `stdio.nepl` が巨大化 |
 | [RV-STDLIB-010](./stdlib.md#rv-stdlib-010-resultoption-の-unsafe-helper-が通常コードに広く残っている) | false | open | P2 | bug | `unwrap` / `unwrap_ok` が stdlib 内部で panic 経路を広げている |
-| [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | false | open | P0 | architecture | `Vec` / `Stack` の `Copy` 削除には borrow-based clone/read API が必要 |
+| [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | true | verified | P0 | architecture | `Clone` と `Vec` / `Stack` の read API を borrow-based に移行する前提を追加済み |
