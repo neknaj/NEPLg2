@@ -16280,3 +16280,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CI検証設計の修正であり、言語仕様や stdlib API の変更はない。
+
+# 2026-04-26 メモ (RV-CORE-023 raw_body_precheck fixture の修正)
+
+- [原因]:
+  - GitHub Actions run `24940960078` で `tests/compiler/raw_body_precheck.n.md::doctest#6` が `expected compile_fail, but compiled successfully` になっていた。
+  - 該当 fixture は `fn bad <(())->i32> (u):` を unsupported WASM function signature として扱っていたが、`RV-CORE-018` 後は unit 引数を zero-sized 値として WASM parameter から省略できる。
+  - そのため compile_fail が通らなくなった原因は precheck の取り逃しではなく、D4002 を確認する fixture が現在の仕様とずれていたことだった。
+- [修正]:
+  - `raw_body_precheck.n.md` の D4002 fixture を `never` 戻り値の `fn main <()->never> ():` に変更し、現在も WASM signature へ落とせない関数を検証するようにした。
+  - `doc/review20260425/core.md` / `issues.md` に `RV-CORE-023` を追加し、`RV-CORE-022` から分離済みとして記録した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-body-precheck-rv-core-023.json -j 1`: `total=5`, `passed=5`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 今回は compiler 実装を戻さず、zero-sized unit 引数対応後の test fixture を現在の仕様へ揃えた。

@@ -945,7 +945,7 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 - GitHub Actions run `24940960078` (`Fix RV-CLI-008 node cli argument errors`, head `96ae78bc872a314d857ec8e8c2f77fd7e38c7393`) の `wasi-test` / `nmd-doctest` が失敗している。
 - `gh run view 24940960078 --repo neknaj/NEPLg2 --log-failed` で、`node nodesrc/tests.js -i tests -o tests-current.json -j 4` と `node nodesrc/tests.js -i tests -o nmd-tests.json -j 4` の両方が `total=693`, `passed=661`, `failed=31`, `errored=1` を返した。
 - 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。
-- `tests/compiler/raw_body_precheck.n.md::doctest#6` も `expected compile_fail, but compiled successfully` になっており、precheck が本来落とすべき入力を通している可能性がある。
+- `tests/compiler/raw_body_precheck.n.md::doctest#6` も `expected compile_fail, but compiled successfully` になっていた。この件は unit 引数の zero-sized lowering 対応後の fixture ずれとして `RV-CORE-023` に分離し、修正済み。
 
 ### 問題
 
@@ -966,3 +966,35 @@ core compiler の move/effect/trait impl/overload/raw-body precheck が同時に
 - `cargo test -p nepl-core`
 - `trunk build`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-022.json`
+
+## RV-CORE-023: raw_body_precheck の unsupported signature fixture が zero-sized unit 引数対応後の仕様とずれている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P2
+- 種別: test
+- 対象: `tests/compiler/raw_body_precheck.n.md`, `nepl-core/src/wasm_shared.rs`, `nepl-core/src/codegen_wasm.rs`
+
+### 根拠
+
+GitHub Actions run `24940960078` の `wasi-test` / `nmd-doctest` で、`tests/compiler/raw_body_precheck.n.md::doctest#6` が `expected compile_fail, but compiled successfully` になりました。ローカルでも `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-body-precheck-rv-core-022.json -j 1` により同じ1件だけを再現しました。
+
+### 問題
+
+該当 fixture は `fn bad <(())->i32> (u):` を「WASM backend が扱えない関数 signature」として D4002 を期待していました。しかし `RV-CORE-018` 対応で unit 引数は zero-sized 値として WASM parameter から省略され、local lowering でも slot を持たない値として扱えるようになっています。したがって `(())->i32` は現在の実装では未対応 signature ではなく、compile_fail 期待が古くなっていました。
+
+### 影響
+
+この fixture が赤いままだと、実際の raw body / codegen precheck regression と、仕様変更後の doctest ずれが `RV-CORE-022` の failure set 内で混ざります。D4002 の回帰確認としても、既に対応済みの unit 引数を使うため検出内容が不正確でした。
+
+### 修正方針
+
+D4002 の意図は「WASM signature へ落とせない関数を codegen 前に診断する」ことなので、現在も未対応である `never` 戻り値を使う fixture に変更します。unit 引数の対応は維持し、zero-sized lowering を戻して表面上 compile_fail にする修正は行いません。
+
+### 対応
+
+`raw_body_precheck.n.md` の `wasm_precheck_rejects_unsupported_function_signature` を `wasm_precheck_rejects_unsupported_function_result` に変更し、`fn main <()->never> ():` が `#intrinsic "unreachable" <> ()` を返すケースで D4002 を期待するようにしました。
+
+### 検証
+
+- `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-body-precheck-rv-core-023.json -j 1` (`total=5`, `passed=5`, `failed=0`)

@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 4 | 18 |
+| core | 4 | 19 |
 | cli | 3 | 11 |
 | stdlib | 10 | 8 |
 | examples | 0 | 13 |
-| 合計 | 17 | 50 |
+| 合計 | 17 | 51 |
 
 ## Core
 
@@ -40,6 +40,7 @@
 | [RV-CORE-020](./core.md#rv-core-020-pipe-左辺の部分適用が-d3013-になり-rust-test-と-doctest-の状態が不整合) | true | verified | P2 | bug | pipe 左辺の退避範囲を未完了 callable の直近引数式に限定し、`pipe_nested_pipes` / `pipe_in_if` の skip を解除済み |
 | [RV-CORE-021](./core.md#rv-core-021-neplg2nmd-の-overload-arity-fixture-が-rust-test-と不整合) | true | verified | P2 | test | overload arity doctest を現行 Rust test と同じ `D3005` compile_fail 期待へ修正済み |
 | [RV-CORE-022](./core.md#rv-core-022-github-actions-24940960078-で-compiler-doctest-が広範囲に回帰している) | false | open | P0 | bug | `wasi-test` / `nmd-doctest` が `tests` で 31 failed / 1 errored。move/effect/overload/raw precheck など core compiler 回帰が混在 |
+| [RV-CORE-023](./core.md#rv-core-023-raw_body_precheck-の-unsupported-signature-fixture-が-zero-sized-unit-引数対応後の仕様とずれている) | true | verified | P2 | test | `raw_body_precheck` の D4002 fixture を現在も未対応の `never` 戻り値 signature へ更新済み |
 
 ## CLI
 

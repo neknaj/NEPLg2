@@ -82,7 +82,7 @@ fn main <()->i32> ():
     1
 ```
 
-## wasm_precheck_rejects_unsupported_function_signature
+## wasm_precheck_rejects_unsupported_function_result
 
 neplg2:test[compile_fail]
 diag_id: 4002
@@ -91,9 +91,6 @@ diag_id: 4002
 #entry main
 #indent 4
 
-fn bad <(())->i32> (u):
-    1
-
-fn main <()->i32> ():
-    bad ()
+fn main <()->never> ():
+    #intrinsic "unreachable" <> ()
 ```
