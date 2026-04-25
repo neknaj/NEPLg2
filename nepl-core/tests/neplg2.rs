@@ -432,11 +432,12 @@ fn list_get_out_of_bounds_err() {
 #indent 4
 #import "alloc/collections/list" as *
 #import "core/option" as *
+#import "core/result" as *
 
 fn main <()* >i32> ():
-    let lst list_nil<i32>;
-    let lst list_cons<i32> 1 lst;
-    let r list_get<i32> lst 10;
+    let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
+    let lst uwok cons<i32> 1 lst;
+    let r get<i32> lst 10;
     match r:
         Some v:
             v
@@ -555,7 +556,8 @@ fn foo <(i32)->f32> (x):
     1.0
 
 fn main <()->i32> ():
-    foo 1
+    let y foo 1;
+    0
 "#;
     compile_err(src);
 }

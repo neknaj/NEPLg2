@@ -546,6 +546,16 @@ impl<'a> Monomorphizer<'a> {
         self.funcs.get(orig_name).cloned()
     }
 
+    fn function_has_type_params(&self, name: &str) -> bool {
+        let Some(func) = self.funcs.get(name) else {
+            return false;
+        };
+        match self.ctx.get(self.ctx.resolve_id(func.func_ty)) {
+            TypeKind::Function { type_params, .. } => !type_params.is_empty(),
+            _ => false,
+        }
+    }
+
     fn queue_concrete_callees(&mut self, func: &mut HirFunction) {
         let mut local_names: BTreeSet<String> = BTreeSet::new();
         for p in &func.params {
@@ -715,7 +725,8 @@ impl<'a> Monomorphizer<'a> {
             );
         }
 
-        let mut f = match self.take_function_for_instantiation(&orig_name, args.is_empty()) {
+        let can_move_original = args.is_empty() && !self.function_has_type_params(&orig_name);
+        let mut f = match self.take_function_for_instantiation(&orig_name, can_move_original) {
             Some(f) => f,
             None => {
                 if crate::log::is_verbose() {

@@ -27,12 +27,30 @@ enum BorrowKind {
     Unique,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BorrowBinding {
+    source: String,
+    kind: BorrowKind,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct BorrowCount {
+    shared: usize,
+    unique: usize,
+}
+
 struct MoveCheckContext {
     /// Function parameter types after monomorphization.
     function_params: BTreeMap<String, Vec<TypeId>>,
     /// State of all variables currently in scope.
     /// Stack of variable states (for shadowing support).
     var_stacks: BTreeMap<String, Vec<VarState>>,
+    /// Borrow source held by each reference binding, aligned with `var_stacks`.
+    borrow_stacks: BTreeMap<String, Vec<Option<BorrowBinding>>>,
+    /// Active borrow counts per source variable.
+    borrow_counts: BTreeMap<String, BorrowCount>,
+    /// Remaining variable uses in active blocks for last-use borrow release.
+    use_counts: Vec<BTreeMap<String, usize>>,
     /// Diagnostics (errors) collected.
     diagnostics: Vec<Diagnostic>,
     /// Scopes for variable cleanup
@@ -46,6 +64,9 @@ impl MoveCheckContext {
         Self {
             function_params: BTreeMap::new(),
             var_stacks: BTreeMap::new(),
+            borrow_stacks: BTreeMap::new(),
+            borrow_counts: BTreeMap::new(),
+            use_counts: Vec::new(),
             diagnostics: Vec::new(),
             scopes: Vec::new(),
             history: Vec::new(),
@@ -59,20 +80,35 @@ impl MoveCheckContext {
     fn pop_scope(&mut self) {
         let vars_to_pop = self.scopes.pop().unwrap_or_default();
         for name in vars_to_pop {
+            self.release_borrow_binding(&name);
             if let Some(stack) = self.var_stacks.get_mut(&name) {
                 stack.pop();
                 if stack.is_empty() {
                     self.var_stacks.remove(&name);
                 }
             }
+            if let Some(stack) = self.borrow_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.borrow_stacks.remove(&name);
+                }
+            }
         }
     }
 
     fn declare_var(&mut self, name: String) {
+        self.declare_var_with_borrow(name, None);
+    }
+
+    fn declare_var_with_borrow(&mut self, name: String, borrow: Option<BorrowBinding>) {
         self.var_stacks
             .entry(name.clone())
             .or_default()
             .push(VarState::Valid);
+        self.borrow_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(borrow);
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name);
         }
@@ -98,6 +134,80 @@ impl MoveCheckContext {
                 }
                 *last = state;
             }
+        }
+    }
+
+    fn push_use_counts(&mut self, counts: BTreeMap<String, usize>) {
+        self.use_counts.push(counts);
+    }
+
+    fn pop_use_counts(&mut self) {
+        self.use_counts.pop();
+    }
+
+    fn remaining_uses(&self, name: &str) -> usize {
+        self.use_counts
+            .iter()
+            .filter_map(|counts| counts.get(name))
+            .sum()
+    }
+
+    fn note_var_use(&mut self, name: &str) {
+        for counts in &mut self.use_counts {
+            if let Some(count) = counts.get_mut(name) {
+                *count = count.saturating_sub(1);
+            }
+        }
+        if self.remaining_uses(name) == 0 {
+            self.release_borrow_binding(name);
+        }
+    }
+
+    fn increment_borrow_count(&mut self, name: &str, kind: BorrowKind) {
+        let count = self.borrow_counts.entry(name.to_string()).or_default();
+        match kind {
+            BorrowKind::Shared => count.shared += 1,
+            BorrowKind::Unique => count.unique += 1,
+        }
+    }
+
+    fn release_borrow_binding(&mut self, name: &str) {
+        let binding = self
+            .borrow_stacks
+            .get_mut(name)
+            .and_then(|stack| stack.last_mut())
+            .and_then(|slot| slot.take());
+        if let Some(binding) = binding {
+            self.release_source_borrow(binding.source.as_str(), binding.kind);
+        }
+    }
+
+    fn release_source_borrow(&mut self, source: &str, kind: BorrowKind) {
+        let Some(count) = self.borrow_counts.get_mut(source) else {
+            return;
+        };
+        match kind {
+            BorrowKind::Shared => count.shared = count.shared.saturating_sub(1),
+            BorrowKind::Unique => count.unique = count.unique.saturating_sub(1),
+        }
+        let next = if count.unique > 0 {
+            Some(VarState::BorrowedUnique)
+        } else if count.shared > 0 {
+            Some(VarState::BorrowedShared)
+        } else {
+            None
+        };
+        if next.is_none() {
+            self.borrow_counts.remove(source);
+        }
+        match (self.get_state(source), next) {
+            (Some(VarState::BorrowedShared | VarState::BorrowedUnique), Some(state)) => {
+                self.set_state(source, state);
+            }
+            (Some(VarState::BorrowedShared | VarState::BorrowedUnique), None) => {
+                self.set_state(source, VarState::Valid);
+            }
+            _ => {}
         }
     }
 
@@ -250,9 +360,9 @@ impl MoveCheckContext {
         }
     }
 
-    fn check_borrow(&mut self, name: &str, span: Span, kind: BorrowKind, is_copy: bool) {
+    fn check_borrow(&mut self, name: &str, span: Span, kind: BorrowKind, is_copy: bool) -> bool {
         if is_copy {
-            return;
+            return true;
         }
         match self.get_state(name) {
             Some(VarState::Valid) => {
@@ -260,10 +370,15 @@ impl MoveCheckContext {
                     BorrowKind::Shared => VarState::BorrowedShared,
                     BorrowKind::Unique => VarState::BorrowedUnique,
                 };
+                self.increment_borrow_count(name, kind);
                 self.set_state(name, next);
+                true
             }
             Some(VarState::BorrowedShared) => match kind {
-                BorrowKind::Shared => {}
+                BorrowKind::Shared => {
+                    self.increment_borrow_count(name, kind);
+                    true
+                }
                 BorrowKind::Unique => {
                     self.diagnostics.push(
                         Diagnostic::error(
@@ -275,6 +390,7 @@ impl MoveCheckContext {
                         )
                         .with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue),
                     );
+                    false
                 }
             },
             Some(VarState::BorrowedUnique) => {
@@ -285,12 +401,14 @@ impl MoveCheckContext {
                     )
                     .with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue),
                 );
+                false
             }
             Some(VarState::Moved) => {
                 self.diagnostics.push(
                     Diagnostic::error(alloc::format!("borrow of moved value: `{}`", name), span)
                         .with_id(DiagnosticId::TypeBorrowMovedValue),
                 );
+                false
             }
             Some(VarState::PossiblyMoved) => {
                 self.diagnostics.push(
@@ -300,8 +418,9 @@ impl MoveCheckContext {
                     )
                     .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
                 );
+                false
             }
-            None => {}
+            None => true,
         }
     }
 
@@ -376,11 +495,100 @@ impl MoveCheckContext {
 }
 
 // Logic to traverse HIR
+fn collect_var_uses_block(block: &HirBlock) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    let mut stack = Vec::new();
+    for line in block.lines.iter().rev() {
+        stack.push(&line.expr);
+    }
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::Var(name) => {
+                *counts.entry(name.clone()).or_insert(0) += 1;
+            }
+            HirExprKind::Call { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+                stack.push(callee);
+            }
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                stack.push(else_branch);
+                stack.push(then_branch);
+                stack.push(cond);
+            }
+            HirExprKind::While { cond, body } => {
+                stack.push(body);
+                stack.push(cond);
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                for arm in arms.iter().rev() {
+                    stack.push(&arm.body);
+                }
+                stack.push(scrutinee);
+            }
+            HirExprKind::Block(block) => {
+                for line in block.lines.iter().rev() {
+                    stack.push(&line.expr);
+                }
+            }
+            HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+                stack.push(value);
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
+            }
+            HirExprKind::TupleConstruct { items } | HirExprKind::Intrinsic { args: items, .. } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
+            }
+            HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+                stack.push(inner);
+            }
+            HirExprKind::FnValue(_)
+            | HirExprKind::Unit
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Drop { .. } => {}
+        }
+    }
+    counts
+}
+
+fn borrow_source_name(expr: &HirExpr) -> Option<String> {
+    match &expr.kind {
+        HirExprKind::Var(name) => Some(name.clone()),
+        HirExprKind::Deref(inner) => borrow_source_name(inner),
+        _ => None,
+    }
+}
+
 fn visit_block(block: &HirBlock, ctx: &mut MoveCheckContext, tctx: &crate::types::TypeCtx) {
     ctx.push_scope();
+    ctx.push_use_counts(collect_var_uses_block(block));
     for line in &block.lines {
         visit_expr(&line.expr, ctx, tctx);
     }
+    ctx.pop_use_counts();
     ctx.pop_scope();
 }
 
@@ -526,7 +734,10 @@ fn visit_expr_iteratively(
     while let Some(expr) = stack.pop() {
         let is_copy = tctx.is_copy(expr.ty);
         match &expr.kind {
-            HirExprKind::Var(name) => ctx.check_use(name, expr.span, is_copy),
+            HirExprKind::Var(name) => {
+                ctx.check_use(name, expr.span, is_copy);
+                ctx.note_var_use(name);
+            }
             HirExprKind::Drop { name } => ctx.check_drop(name, expr.span),
             HirExprKind::Call { args, .. } => {
                 for arg in args.iter().rev() {
@@ -584,6 +795,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
     match &expr.kind {
         HirExprKind::Var(name) => {
             ctx.check_use(name, expr.span, is_copy);
+            ctx.note_var_use(name);
         }
         HirExprKind::FnValue(_) => {}
         HirExprKind::Call { callee, args } => match callee {
@@ -818,11 +1030,30 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             ctx.check_assign(name, expr.span);
         }
         HirExprKind::Let { name, value, .. } => {
-            visit_expr(value, ctx, tctx);
+            if let HirExprKind::AddrOf(inner) = &value.kind {
+                let binding = borrow_source_name(inner).and_then(|source| {
+                    let is_copy = tctx.is_copy(inner.ty);
+                    if ctx.check_borrow(source.as_str(), inner.span, BorrowKind::Shared, is_copy) {
+                        Some(BorrowBinding {
+                            source,
+                            kind: BorrowKind::Shared,
+                        })
+                    } else {
+                        None
+                    }
+                });
+                ctx.declare_var_with_borrow(name.clone(), binding);
+                ctx.set_state(name, VarState::Valid);
+                if ctx.remaining_uses(name) == 0 {
+                    ctx.release_borrow_binding(name);
+                }
+            } else {
+                visit_expr(value, ctx, tctx);
 
-            // A new binding starts as Valid.
-            ctx.declare_var(name.clone());
-            ctx.set_state(name, VarState::Valid);
+                // A new binding starts as Valid.
+                ctx.declare_var(name.clone());
+                ctx.set_state(name, VarState::Valid);
+            }
         }
         HirExprKind::StructConstruct { fields, .. } => {
             for f in fields {

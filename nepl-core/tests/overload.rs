@@ -64,7 +64,7 @@ fn val_cast <(i32)->i32> (v):
 
 // Case 2: i32 -> bool (non-zero check)
 fn val_cast <(i32)->bool> (v):
-    i32_ne v 0
+    ne v 0
 
 fn main <()*>i32> ():
     let v <i32> 10
@@ -103,7 +103,7 @@ fn main <()*>i32> ():
     let s1 <i32> my_print 100
     let s2 <i32> my_print true
     
-    i32_add s1 s2
+    add s1 s2
 "#;
     // 1 + 2 = 3
     let v = run_main_i32(src);
@@ -119,7 +119,7 @@ fn test_explicit_type_annotation_prefix() {
 
 // magic: Same input, different return types
 fn magic <(i32)->i32> (v):
-    i32_add v 1
+    add v 1
 
 fn magic <(i32)->bool> (v):
     true
@@ -154,7 +154,7 @@ fn grouped_argument_overload_uses_later_items_before_reduction() {
 struct S:
     tag <()>
 
-fn f <()->i32> ():
+fn f <(i32)->i32> (_n):
     1
 
 fn f <(S)->i32> (_s):

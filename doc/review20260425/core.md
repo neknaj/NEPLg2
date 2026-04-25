@@ -735,3 +735,71 @@ WASM / LLVM の aggregate layout を同じ仕様に揃え、tuple field access �
 
 - `stdlib/tests/vec.n.md::doctest#2` が `partition` の even / odd 両側で `Vec` 要素を正しく読めること。
 - nested `Tuple(Vec<i32>, Vec<i32>)` の 2 番目以降の `Vec` で `len_ref` / `get_ref` が正しいこと。
+
+## RV-CORE-019: generic wrapper / nested generic enum の期待型伝播が TypeNoMatchingOverload になる
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: bug
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/types.rs`, `nepl-core/tests/generics.rs`, `tests/compiler/generics.n.md`
+
+### 根拠
+
+`cargo test -p nepl-core` で、`tests/generics.rs` の `generics_make_pair_wrapper` / `generics_nested_option_match` が `TypeNoMatchingOverload` / `TypeReturnTypeMismatch` で失敗していました。
+
+### 問題
+
+`TypeCtx::unify` が `Apply` 型同士を比較する際に、`Pair` / `Option` などの nominal な enum / struct 定義本体まで unify していました。そのため `Pair<i32,bool>` の照合で共有定義側の型変数が具体型へ固定され、次の `Pair<bool,i32>` や nested generic enum constructor 呼び出しが壊れていました。
+
+### 対応
+
+nominal な enum / struct の `Apply` は base 定義本体を unify せず、同じ kind / name / arity であることだけを確認し、型引数だけを unify / compare するようにしました。`TypeCtx::substitute` でも nominal base は置換対象から外し、定義側 type parameter が instantiation 側へ漏れないようにしています。
+
+外側 callable から内側式の期待型を推論する経路では generic callable の宣言型をそのまま使わず、fresh instantiate した関数型から引数型を読ませるようにしました。
+
+検証中に red になった Rust integration fixture は、doctest 側の現行状態と揃えました。loader 経由テストでは `SourceMap` を保持し、古い `alloc/vec` / `vec_*` / `kp/kpread` 参照は現行 `alloc/collections/vec` / `std/streamio` API へ更新しています。
+
+### 検証
+
+確認済み:
+
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core --test generics generics_make_pair_wrapper` (`1 passed`)
+- `cargo test -p nepl-core --test generics generics_nested_option_match` (`1 passed`)
+- `cargo test -p nepl-core --test generics` (`24 passed`)
+- `cargo test -p nepl-core` (pass)
+- `cargo check --workspace`
+- `node nodesrc/tests.js -i tests/compiler/generics.n.md --no-stdlib --no-tree -o tmp/rv-core-019-generics.json -j 1` (`24/24 passed`)
+- `node tests/compiler/tree/run.js` (`19/19 passed`)
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`13/13 passed`)
+
+## RV-CORE-020: pipe 左辺の部分適用が D3013 になり Rust test と doctest の状態が不整合
+
+- 解決済: false
+- 状態: open
+- 優先度: P2
+- 種別: bug
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/tests/pipe_operator.rs`, `tests/compiler/pipe_operator.n.md`
+
+### 根拠
+
+`RV-CORE-019` の検証で `cargo test -p nepl-core` を実行すると、`nepl-core/tests/pipe_operator.rs` の `pipe_nested_pipes` / `pipe_in_if` が `TypePipeError` (`D3013`: pipe left-hand side did not reduce to a single value) で失敗しました。一方、同じ内容の `tests/compiler/pipe_operator.n.md` doctest は既に `neplg2:test[skip]` として記録されています。
+
+### 問題
+
+pipe 左辺に `add 1` や `if true 1` のような、後続の `|>` を見ないと値へ縮約できない式があると、現在の typecheck は pipe 注入前に左辺だけを単一値へ縮約しようとして失敗します。これは pipe と prefix call / control expression の結合規則が未整理であることが原因です。
+
+### 影響
+
+doctest と Rust integration test の期待状態が不整合になり、未実装として skip 済みのケースが `cargo test -p nepl-core` 全体を red にします。また、pipe の部分適用・if 内 pipe の仕様が固定できていないため、将来の parser/typecheck 改修で回帰しやすい状態です。
+
+### 修正方針
+
+pipe の左辺縮約を、次の pipe target と同時に解決する stage へ分離します。`PrefixItem::Pipe` を見つけた時点で左辺を即時に失敗させず、target への注入後に overload / arity 解決を行うようにします。仕様が固まるまでは Rust integration test も doctest と同じく ignored として扱い、未実装状態を issue で追跡します。
+
+### 検証
+
+- `cargo test -p nepl-core --test pipe_operator` (`18 passed`, `2 ignored`)
+- `node nodesrc/tests.js -i tests/compiler/pipe_operator.n.md --no-stdlib --no-tree -o tmp/rv-core-020-pipe.json -j 1` (`20/20 passed`)

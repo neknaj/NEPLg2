@@ -33,6 +33,13 @@ fn valtype(kind: &TypeKind) -> Option<ValType> {
     }
 }
 
+fn param_valtype(kind: &TypeKind) -> Option<Option<ValType>> {
+    match kind {
+        TypeKind::Unit => Some(None),
+        _ => valtype(kind).map(Some),
+    }
+}
+
 pub(crate) fn wasm_sig(
     ctx: &TypeCtx,
     result: TypeId,
@@ -41,10 +48,10 @@ pub(crate) fn wasm_sig(
     let mut param_types = Vec::new();
     for p in params {
         let vk = ctx.get(ctx.resolve_id(p.ty));
-        if let Some(v) = valtype(&vk) {
-            param_types.push(v);
-        } else {
-            return None;
+        match param_valtype(&vk) {
+            Some(Some(v)) => param_types.push(v),
+            Some(None) => {}
+            None => return None,
         }
     }
     let res_kind = ctx.get(ctx.resolve_id(result));
@@ -67,10 +74,10 @@ pub(crate) fn wasm_sig_ids(
     let mut param_types = Vec::new();
     for p in params {
         let vk = ctx.get(ctx.resolve_id(*p));
-        if let Some(v) = valtype(&vk) {
-            param_types.push(v);
-        } else {
-            return None;
+        match param_valtype(&vk) {
+            Some(Some(v)) => param_types.push(v),
+            Some(None) => {}
+            None => return None,
         }
     }
     let res_kind = ctx.get(ctx.resolve_id(result));

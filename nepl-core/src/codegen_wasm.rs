@@ -905,9 +905,9 @@ fn lower_user(
     sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
     strings: &StringLower,
 ) -> LowerResult<Function> {
-    let mut locals = LocalMap::new(func.params.len());
+    let mut locals = LocalMap::new();
     for p in &func.params {
-        locals.register_param(p.name.clone(), p.ty);
+        locals.register_param(p.name.clone(), p.ty, ctx);
     }
     locals.alloc_helper_idx = find_alloc_index(name_map, &func.name);
 
@@ -2341,8 +2341,93 @@ fn gen_expr(
             valtype(&ctx.get(expr.ty))
         }
         HirExprKind::Deref(inner) => {
-            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
-            valtype(&ctx.get(expr.ty))
+            let ty = ctx.resolve_id(expr.ty);
+            if is_aggregate_storage_type(ctx, ty) {
+                let size = type_storage_size_bytes(ctx, ty) as i32;
+                gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
+                let src_local = locals.alloc_temp(ValType::I32);
+                insts.push(Instruction::LocalSet(src_local));
+                insts.push(Instruction::I32Const(size));
+                emit_alloc_call(locals, insts);
+                let dst_local = locals.alloc_temp(ValType::I32);
+                insts.push(Instruction::LocalSet(dst_local));
+                for off in 0..size {
+                    insts.push(Instruction::LocalGet(dst_local));
+                    if off != 0 {
+                        insts.push(Instruction::I32Const(off));
+                        insts.push(Instruction::I32Add);
+                    }
+                    insts.push(Instruction::LocalGet(src_local));
+                    if off != 0 {
+                        insts.push(Instruction::I32Const(off));
+                        insts.push(Instruction::I32Add);
+                    }
+                    insts.push(Instruction::I32Load8U(MemArg {
+                        offset: 0,
+                        align: 0,
+                        memory_index: 0,
+                    }));
+                    insts.push(Instruction::I32Store8(MemArg {
+                        offset: 0,
+                        align: 0,
+                        memory_index: 0,
+                    }));
+                }
+                insts.push(Instruction::LocalGet(dst_local));
+                return Ok(Some(ValType::I32));
+            }
+            let ty_kind = ctx.get(ty);
+            let vt = valtype(&ty_kind);
+            let addr_vt = gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
+            match vt {
+                Some(ValType::I32) => {
+                    if matches!(ty_kind, TypeKind::U8) {
+                        insts.push(Instruction::I32Load8U(MemArg {
+                            offset: 0,
+                            align: 0,
+                            memory_index: 0,
+                        }));
+                    } else {
+                        insts.push(Instruction::I32Load(MemArg {
+                            offset: 0,
+                            align: 2,
+                            memory_index: 0,
+                        }));
+                    }
+                    Some(ValType::I32)
+                }
+                Some(ValType::F32) => {
+                    insts.push(Instruction::F32Load(MemArg {
+                        offset: 0,
+                        align: 2,
+                        memory_index: 0,
+                    }));
+                    Some(ValType::F32)
+                }
+                Some(ValType::I64) => {
+                    insts.push(Instruction::I64Load(MemArg {
+                        offset: 0,
+                        align: 3,
+                        memory_index: 0,
+                    }));
+                    Some(ValType::I64)
+                }
+                Some(ValType::F64) => {
+                    insts.push(Instruction::F64Load(MemArg {
+                        offset: 0,
+                        align: 3,
+                        memory_index: 0,
+                    }));
+                    Some(ValType::F64)
+                }
+                None => {
+                    if addr_vt.is_some() {
+                        insts.push(Instruction::Drop);
+                    }
+                    None
+                }
+                _ => None,
+            }
         }
     })
 }
@@ -2370,19 +2455,25 @@ struct LocalMap {
 }
 
 impl LocalMap {
-    fn new(param_count: usize) -> Self {
+    fn new() -> Self {
         Self {
             locals: Vec::new(),
             map: BTreeMap::new(),
             scopes: vec![Vec::new()],
-            next_idx: param_count as u32,
+            next_idx: 0,
             decls: Vec::new(),
             alloc_helper_idx: None,
         }
     }
 
-    fn register_param(&mut self, name: String, ty: TypeId) {
-        let idx = self.locals.len() as u32;
+    fn register_param(&mut self, name: String, ty: TypeId, ctx: &TypeCtx) {
+        let idx = if valtype(&ctx.get(ctx.resolve_id(ty))).is_some() {
+            let idx = self.next_idx;
+            self.next_idx += 1;
+            idx
+        } else {
+            0
+        };
         self.locals.push(LocalInfo {
             name: name.clone(),
             idx,

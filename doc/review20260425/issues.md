@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 9 | 9 |
-| cli | 8 | 5 |
+| core | 9 | 11 |
+| cli | 7 | 6 |
 | stdlib | 9 | 6 |
 | examples | 0 | 8 |
-| 合計 | 26 | 28 |
+| 合計 | 25 | 31 |
 
 ## Core
 
@@ -36,6 +36,8 @@
 | [RV-CORE-016](./core.md#rv-core-016-深い-hir-を-artifact-codegen-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | artifact 生成側の深い HIR traversal を iterative 化し、1105 call chain の wasm 生成を修正済み |
 | [RV-CORE-017](./core.md#rv-core-017-関数値として渡した関数と-lambda-が-backend-到達時に未登録になる) | true | fixed | P0 | bug | concrete 関数の monomorphize でも関数値 / lambda 参照を収集し、D4007 / D4008 の局所回帰を修正済み |
 | [RV-CORE-018](./core.md#rv-core-018-nested-aggregate-を-tuple-から取り出すと-2-番目以降の値が壊れる) | false | open | P0 | bug | `Tuple(Vec, Vec)` の 2 番目以降を取り出すと nested aggregate の data pointer / payload が壊れる |
+| [RV-CORE-019](./core.md#rv-core-019-generic-wrapper--nested-generic-enum-の期待型伝播が-typenomatchingoverload-になる) | true | verified | P1 | bug | generic wrapper / nested generic enum の型引数汚染を防ぎ、`TypeNoMatchingOverload` を修正済み |
+| [RV-CORE-020](./core.md#rv-core-020-pipe-左辺の部分適用が-d3013-になり-rust-test-と-doctest-の状態が不整合) | false | open | P2 | bug | `pipe_nested_pipes` / `pipe_in_if` は doctest で skip だが Rust test が成功前提のまま残っている |
 
 ## CLI
 

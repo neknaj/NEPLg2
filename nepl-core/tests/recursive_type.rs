@@ -44,7 +44,7 @@ fn recursive_struct_enum() {
     let source = r#"
 #target wasi
 #indent 4
-#import "alloc/vec" as *
+#import "alloc/collections/vec" as *
 
 struct A:
     b <Vec<B>>

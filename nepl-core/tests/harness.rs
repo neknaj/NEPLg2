@@ -1,5 +1,5 @@
 use nepl_core::loader::Loader;
-use nepl_core::{compile_module, CompileOptions, CompileTarget};
+use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::PathBuf;
@@ -12,8 +12,9 @@ pub fn compile_src(src: &str) -> Vec<u8> {
     let loaded = loader
         .load_inline("<test>".into(), src.to_string())
         .expect("load");
-    let artifact = compile_module(
+    let artifact = compile_module_with_source_map(
         loaded.module,
+        Some(&loaded.source_map),
         CompileOptions {
             target: Some(CompileTarget::Wasm),
             verbose: false,
@@ -30,7 +31,8 @@ pub fn compile_src_with_options(src: &str, options: CompileOptions) -> Vec<u8> {
     let loaded = loader
         .load_inline(PathBuf::from("test.nepl"), src.to_string())
         .expect("load");
-    let artifact = compile_module(loaded.module, options).expect("compile failure");
+    let artifact = compile_module_with_source_map(loaded.module, Some(&loaded.source_map), options)
+        .expect("compile failure");
     artifact.wasm
 }
 

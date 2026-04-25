@@ -128,7 +128,7 @@ fn prop_add_commutative() {
         // NEPLコード: x + 10 を計算
         let body = r#"
 fn target_function <(i32)->i32> (x):
-    i32_add x 10
+    add x 10
 "#;
         check_nepl_property_fn(x, body, |res| {
             if res == x + 10 {
@@ -150,8 +150,8 @@ fn prop_sub_inverse() {
     runner.run(strategy, |x| {
         let body = r#"
 fn target_function <(i32)->i32> (x):
-    let added <i32> i32_add x 10
-    i32_sub added 10
+    let added <i32> add x 10
+    sub added 10
 "#;
         check_nepl_property_fn(x, body, |res| {
             if res == x {

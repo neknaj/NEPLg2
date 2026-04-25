@@ -44,7 +44,8 @@ fn recursive_struct_enum_instantiation() {
     let source = r#"
 #target wasi
 #indent 4
-#import "alloc/vec" as *
+#import "core/result" as *
+#import "alloc/collections/vec" as *
 
 struct A:
     b <Vec<B>>
@@ -52,7 +53,7 @@ enum B:
     A <A>
 
 fn main <()*>()>():
-    let v <Vec<B>> vec_new<B>;
+    let v <Vec<B>> unwrap_ok new<B>;
     let a <A> A v;
     let b <B> B::A a;
     ()

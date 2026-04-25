@@ -15804,3 +15804,67 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - raw body effect は文字列包含ではなく、direct call target と宣言済み effect の対応で検査する方向へ寄せた。
+# 2026-04-25 メモ (RV-CORE-019 generic wrapper / nested generic enum 修正)
+
+- [原因]:
+  - `TypeCtx::unify` が `Apply` 型同士を比較する際に、`Pair` / `Option` などの nominal な enum / struct 定義本体まで unify していた。
+  - その結果、`Pair<i32,bool>` の照合で共有定義側の `.A` / `.B` が具体型へ固定され、次の `Pair<bool,i32>` や generic wrapper 呼び出しが `TypeNoMatchingOverload` になっていた。
+  - 外側 callable から内側式の期待型を推論する経路でも、generic callable の宣言型をそのまま読み、`Option` 定義側の `.T` を `Option<i32>` へ固定して nested constructor を壊していた。
+- [修正]:
+  - `nepl-core/src/types.rs` で nominal `Apply` の base は定義本体を unify せず、同じ enum / struct 名と arity であることだけを確認し、型引数だけを unify / compare するようにした。
+  - `TypeCtx::substitute` でも nominal `Apply` の base は型引数置換の対象から外し、定義側 type parameter を instantiation 側へ漏らさないようにした。
+  - `nepl-core/src/typecheck.rs` の `function_signature_for_entry` で、型引数なし generic callable の期待型推論には fresh instantiate した関数型を使うようにした。
+- [検証]:
+  - `cargo test -p nepl-core --test generics generics_make_pair_wrapper -- --nocapture`: pass
+  - `cargo test -p nepl-core --test generics generics_nested_option_match -- --nocapture`: pass
+  - `cargo fmt --all --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - generic enum / struct の `Apply` は nominal definition と instantiation を分離して扱う方針へ寄せた。
+
+# 2026-04-25 メモ (RV-CORE-019 検証中に見つけた追加修正と RV-CORE-020 追加)
+
+- [追加で判明した原因]:
+  - loaded module を使う Rust harness が `SourceMap` を捨てて `compile_module(...)` へ渡していたため、qualified import alias の復元が効かず、`v::new<Diag>` のような参照が bare `new` と同じ overload set に落ちる経路があった。
+  - monomorphize が generic 関数の型引数なし要求で元関数を `funcs` から remove し、後から具体型 instantiation が必要になった時に `CodegenWasmUnknownFunction` へ到達していた。
+  - `tests/compiler/pipe_operator.n.md` では skip 済みの `pipe_nested_pipes` / `pipe_in_if` が Rust integration test では成功前提のまま残っていた。
+- [修正]:
+  - `nepl-core/tests/harness.rs` は `compile_module_with_source_map(..., Some(&loaded.source_map), ...)` を使うようにし、loader 経由テストでも import clause / qualified alias を実運用と同じ条件で検証するようにした。
+  - `nepl-core/src/monomorphize.rs` は generic 関数の元本体を型引数なし要求で move せず、後続の具体型 instantiation が必ず clone できるようにした。
+  - 現行 `core/math` API に合わせて Rust overload fixture の旧 `i32_add` / `i32_ne` を `add` / `ne` へ更新し、mixed arity overload の regression は同 arity の引数型違いへ修正した。
+  - `pipe_nested_pipes` / `pipe_in_if` は doctest の skip 状態と揃えて Rust 側も ignored にし、根本修正は `RV-CORE-020` として review issue / todo に追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: pass
+  - `cargo test -p nepl-core --test overload -- --nocapture`: pass
+  - `cargo test -p nepl-core --test pipe_operator -- --nocapture`: `18 passed`, `2 ignored`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - pipe 左辺の部分適用は今回の issue 範囲外として、未実装状態を review issue に明示した。
+
+# 2026-04-25 メモ (RV-CORE-019 追加検証と fixture drift 修正)
+
+- [追加で判明した原因]:
+  - `cargo test -p nepl-core` を全体実行すると、`repro_recursive.rs` / `selfhost_req.rs` / `stdin_kpread_i32.nepl` に古い stdlib import と旧 API 名が残っていた。
+  - `alloc/vec` / `vec_new` / `vec_push` / `vec_get` / `kp/kpread` は現行 stdlib では `alloc/collections/vec` と `std/streamio` 系 API へ移行済みで、doctest 側は既に更新されていた。
+  - WASM backend 側では unit parameter を実 WASM signature に載せようとする経路、represented parameter の local index 割り当て、`Deref` の load lowering が stdlib 経由の実行テストで問題化する可能性があった。
+  - move checker は `let r &x` の borrow を lexical scope end まで保持しており、最後の参照使用後に所有値を使う正当な pattern を過剰に拒否し得た。
+- [修正]:
+  - Rust harness の loaded module compile を `compile_module_with_source_map(..., Some(&loaded.source_map), ...)` に統一し、loader の import clause / qualified alias を保持するようにした。
+  - 古い Rust fixture を現行 stdlib API に同期した。`repro_recursive.rs` と `recursive_type.rs` は `alloc/collections/vec`、`selfhost_req.rs` は doctest 側と同じ Vec / HashMap / fs failure check、`stdin_kpread_i32.nepl` は `std/streamio` scanner API にした。
+  - `wasm_shared` は unit parameter を signature から除外し、`codegen_wasm` は represented parameter だけを wasm local index に割り当てるようにした。
+  - `codegen_wasm` の `Deref` は scalar なら load、aggregate なら byte copy に分け、参照値の address を値としてそのまま返さないようにした。
+  - move checker は reference binding の borrow source と残り use count を追跡し、最後の参照使用または scope pop で borrow count を解放するようにした。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `git diff --check`: pass（最終確認前に trailing whitespace を1件修正）
+  - `cargo test -p nepl-core`: pass
+  - `cargo check --workspace`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md --no-stdlib --no-tree -o tmp/rv-core-019-generics.json -j 1`: `24/24 passed`
+  - `node nodesrc/tests.js -i tests/compiler/pipe_operator.n.md --no-stdlib --no-tree -o tmp/rv-core-020-pipe.json -j 1`: `20/20 passed`
+  - `node tests/compiler/tree/run.js`: `19/19 passed`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - RV-CORE-019 の根本原因は型引数汚染として修正し、検証で見つけた fixture drift は現行 stdlib / harness の実運用経路に同期した。

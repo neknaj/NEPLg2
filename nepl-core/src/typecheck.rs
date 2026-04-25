@@ -1313,6 +1313,19 @@ pub fn typecheck(
                         ),
                     );
                 }
+                if let Some(prev) =
+                    find_invalid_same_file_overload(&env, &f.name.name, f.params.len(), f.name.span)
+                {
+                    diagnostics.push(
+                        Diagnostic::error("ambiguous overload", f.name.span)
+                            .with_id(DiagnosticId::TypeAmbiguousOverload)
+                            .with_secondary_label(
+                                prev.span,
+                                Some("conflicting overload is defined here".into()),
+                            ),
+                    );
+                    continue;
+                }
                 if let Some(blocked) = shadow_blocked_by_nonshadow(&env, &f.name.name) {
                     if is_callable_binding(blocked) {
                         if let Some(conflict) =
@@ -2736,6 +2749,19 @@ impl<'a> BlockChecker<'a> {
             return None;
         };
         if entry.type_args.is_empty() {
+            if !type_params.is_empty() {
+                let (inst_ty, _fresh_args, _mapping) = self.ctx.instantiate(rty);
+                if let TypeKind::Function {
+                    params,
+                    result,
+                    effect,
+                    ..
+                } = self.ctx.get(inst_ty)
+                {
+                    return Some((params, result, effect));
+                }
+                return None;
+            }
             return Some((params, result, effect));
         }
         if type_params.len() != entry.type_args.len() {
@@ -4371,6 +4397,47 @@ impl<'a> BlockChecker<'a> {
                                         }
                                     });
                                 }
+                                if qualified_bindings.is_some() && bindings.len() == 1 {
+                                    let binding = bindings.remove(0);
+                                    let mut explicit_args = Vec::new();
+                                    if matches!(binding.kind, BindingKind::Func { .. }) {
+                                        for arg_expr in type_args {
+                                            explicit_args.push(type_from_expr(
+                                                self.ctx,
+                                                self.labels,
+                                                arg_expr,
+                                            ));
+                                        }
+                                    } else if !type_args.is_empty() {
+                                        self.diagnostics.push(
+                                            Diagnostic::error(
+                                                "type arguments are not allowed for variables",
+                                                id.span,
+                                            )
+                                            .with_id(DiagnosticId::TypeVariableTypeArgsNotAllowed),
+                                        );
+                                    }
+                                    let ty = binding.ty;
+                                    let hir_kind = match &binding.kind {
+                                        BindingKind::Func { symbol, .. } => {
+                                            HirExprKind::FnValue(symbol.clone())
+                                        }
+                                        _ => HirExprKind::Var(lookup_name.clone()),
+                                    };
+                                    stack.push(StackEntry {
+                                        ty,
+                                        expr: HirExpr {
+                                            ty,
+                                            kind: hir_kind,
+                                            span: id.span,
+                                        },
+                                        type_args: explicit_args,
+                                        assign: None,
+                                        auto_call: !*forced_value,
+                                    });
+                                    last_expr = Some(stack.last().unwrap().expr.clone());
+                                    continue;
+                                }
                                 if !bindings.is_empty() {
                                     let callable_overload_count = bindings
                                         .iter()
@@ -4590,7 +4657,8 @@ impl<'a> BlockChecker<'a> {
                                                 }
                                             }
                                         }
-                                        let mut effect = None;
+                                        let mut has_pure = false;
+                                        let mut has_impure = false;
                                         let mut arity = None;
                                         for b in &bindings {
                                             if let BindingKind::Func {
@@ -4599,13 +4667,9 @@ impl<'a> BlockChecker<'a> {
                                                 ..
                                             } = b.kind
                                             {
-                                                if effect.is_none() {
-                                                    effect = Some(e);
-                                                } else if effect != Some(e) {
-                                                    self.diagnostics.push(Diagnostic::error(
-                                                    "overloaded functions must have the same effect",
-                                                    id.span,
-                                                ).with_id(DiagnosticId::TypeOverloadEffectMismatch));
+                                                match e {
+                                                    Effect::Pure => has_pure = true,
+                                                    Effect::Impure => has_impure = true,
                                                 }
                                                 if arity.is_none() {
                                                     arity = Some(a);
@@ -4613,7 +4677,11 @@ impl<'a> BlockChecker<'a> {
                                             }
                                         }
                                         let arity = arity.unwrap_or(0);
-                                        let effect = effect.unwrap_or(Effect::Pure);
+                                        let effect = if has_pure || !has_impure {
+                                            Effect::Pure
+                                        } else {
+                                            Effect::Impure
+                                        };
                                         let has_captures = bindings.iter().any(|b| {
                                         matches!(
                                             &b.kind,
@@ -8574,6 +8642,30 @@ fn find_nonshadow_same_signature_func<'a>(
             && b.defined
             && matches!(b.kind, BindingKind::Func { .. })
             && same_function_signature(ctx, b.ty, ty)
+    })
+}
+
+fn find_invalid_same_file_overload<'a>(
+    env: &'a Env,
+    name: &str,
+    arity: usize,
+    span: Span,
+) -> Option<&'a Binding> {
+    if span.file_id.0 != 0 {
+        return None;
+    }
+    env.lookup_all_callables(name).into_iter().find(|b| {
+        if b.span.file_id != span.file_id {
+            return false;
+        }
+        let BindingKind::Func {
+            arity: existing_arity,
+            ..
+        } = b.kind
+        else {
+            return false;
+        };
+        existing_arity != arity
     })
 }
 

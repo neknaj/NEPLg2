@@ -55,6 +55,12 @@ pub enum TypeKind {
     Reference(TypeId, bool),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NominalApplyKind {
+    Enum,
+    Struct,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeVar {
     pub label: Option<alloc::string::String>,
@@ -457,6 +463,104 @@ impl TypeCtx {
         }
     }
 
+    fn resolve_named_type_id(&self, id: TypeId) -> TypeId {
+        let mut cur = self.resolve_id(id);
+        let mut i = 0;
+        loop {
+            if i > 5000 {
+                return cur;
+            }
+            match &self.arena[cur.0] {
+                TypeKind::Named(name) => {
+                    let Some(next) = self.named.get(name).copied() else {
+                        return cur;
+                    };
+                    let next = self.resolve_id(next);
+                    if next == cur {
+                        return cur;
+                    }
+                    cur = next;
+                }
+                _ => return cur,
+            }
+            i += 1;
+        }
+    }
+
+    fn nominal_apply_base(
+        &self,
+        base: TypeId,
+    ) -> Option<(NominalApplyKind, String, usize, TypeId)> {
+        let base = self.resolve_named_type_id(base);
+        match &self.arena[base.0] {
+            TypeKind::Enum {
+                name, type_params, ..
+            } => Some((
+                NominalApplyKind::Enum,
+                name.clone(),
+                type_params.len(),
+                base,
+            )),
+            TypeKind::Struct {
+                name, type_params, ..
+            } => Some((
+                NominalApplyKind::Struct,
+                name.clone(),
+                type_params.len(),
+                base,
+            )),
+            _ => None,
+        }
+    }
+
+    fn nominal_apply_bases_match(&self, left: TypeId, right: TypeId) -> bool {
+        match (
+            self.nominal_apply_base(left),
+            self.nominal_apply_base(right),
+        ) {
+            (
+                Some((left_kind, left_name, left_arity, _)),
+                Some((right_kind, right_name, right_arity, _)),
+            ) => left_kind == right_kind && left_name == right_name && left_arity == right_arity,
+            _ => false,
+        }
+    }
+
+    fn is_nominal_definition_id(&self, id: TypeId, kind: NominalApplyKind, name: &str) -> bool {
+        let Some(named_id) = self.named.get(name).copied() else {
+            return false;
+        };
+        let id = self.resolve_named_type_id(id);
+        let named_id = self.resolve_named_type_id(named_id);
+        if id != named_id {
+            return false;
+        }
+        matches!(
+            (kind, self.arena.get(id.0)),
+            (NominalApplyKind::Enum, Some(TypeKind::Enum { .. }))
+                | (NominalApplyKind::Struct, Some(TypeKind::Struct { .. }))
+        )
+    }
+
+    fn unify_apply_bases(&mut self, left: TypeId, right: TypeId) -> Result<(), UnifyError> {
+        match (
+            self.nominal_apply_base(left),
+            self.nominal_apply_base(right),
+        ) {
+            (
+                Some((left_kind, left_name, left_arity, _)),
+                Some((right_kind, right_name, right_arity, _)),
+            ) if left_kind == right_kind
+                && left_name == right_name
+                && left_arity == right_arity =>
+            {
+                Ok(())
+            }
+            (Some(_), Some(_)) => Err(UnifyError::Mismatch),
+            _ => self.unify(left, right).map(|_| ()),
+        }
+    }
+
     pub fn register_copy_impl_target(&mut self, id: TypeId) {
         let resolved = self.resolve_id(id);
         if self
@@ -583,7 +687,14 @@ impl TypeCtx {
                     args: b_args,
                 },
             ) => {
-                self.type_pattern_matches_inner(*a_base, *b_base, mapping, seen)
+                let bases_match = if self.nominal_apply_base(*a_base).is_some()
+                    || self.nominal_apply_base(*b_base).is_some()
+                {
+                    self.nominal_apply_bases_match(*a_base, *b_base)
+                } else {
+                    self.type_pattern_matches_inner(*a_base, *b_base, mapping, seen)
+                };
+                bases_match
                     && a_args.len() == b_args.len()
                     && a_args
                         .iter()
@@ -976,8 +1087,15 @@ impl TypeCtx {
                     })
             }
             (TypeKind::Apply { base: ba, args: aa }, TypeKind::Apply { base: bb, args: ab }) => {
+                let bases_match = if self.nominal_apply_base(*ba).is_some()
+                    || self.nominal_apply_base(*bb).is_some()
+                {
+                    self.nominal_apply_bases_match(*ba, *bb)
+                } else {
+                    self.same_type_inner(*ba, *bb, seen)
+                };
                 aa.len() == ab.len()
-                    && self.same_type_inner(*ba, *bb, seen)
+                    && bases_match
                     && aa
                         .iter()
                         .zip(ab.iter())
@@ -1250,7 +1368,7 @@ impl TypeCtx {
                 if aa.len() != ab.len() {
                     return Err(UnifyError::Mismatch);
                 }
-                self.unify(ba, bb)?;
+                self.unify_apply_bases(ba, bb)?;
                 for (xa, xb) in aa.iter().zip(ab.iter()) {
                     self.unify(*xa, *xb)?;
                 }
@@ -1281,8 +1399,10 @@ impl TypeCtx {
                     }
                     _ => return Err(UnifyError::Mismatch),
                 }
-                for (xa, xb) in ta.iter().zip(ab.iter()) {
-                    self.unify(*xa, *xb)?;
+                if !self.is_nominal_definition_id(ra, NominalApplyKind::Enum, &na) {
+                    for (xa, xb) in ta.iter().zip(ab.iter()) {
+                        self.unify(*xa, *xb)?;
+                    }
                 }
                 Ok(a)
             }
@@ -1311,8 +1431,10 @@ impl TypeCtx {
                     }
                     _ => return Err(UnifyError::Mismatch),
                 }
-                for (xa, xb) in aa.iter().zip(tb.iter()) {
-                    self.unify(*xa, *xb)?;
+                if !self.is_nominal_definition_id(rb, NominalApplyKind::Enum, &nb) {
+                    for (xa, xb) in aa.iter().zip(tb.iter()) {
+                        self.unify(*xa, *xb)?;
+                    }
                 }
                 Ok(a)
             }
@@ -1341,8 +1463,10 @@ impl TypeCtx {
                     }
                     _ => return Err(UnifyError::Mismatch),
                 }
-                for (xa, xb) in ta.iter().zip(ab.iter()) {
-                    self.unify(*xa, *xb)?;
+                if !self.is_nominal_definition_id(ra, NominalApplyKind::Struct, &na) {
+                    for (xa, xb) in ta.iter().zip(ab.iter()) {
+                        self.unify(*xa, *xb)?;
+                    }
                 }
                 Ok(a)
             }
@@ -1371,8 +1495,10 @@ impl TypeCtx {
                     }
                     _ => return Err(UnifyError::Mismatch),
                 }
-                for (xa, xb) in aa.iter().zip(tb.iter()) {
-                    self.unify(*xa, *xb)?;
+                if !self.is_nominal_definition_id(rb, NominalApplyKind::Struct, &nb) {
+                    for (xa, xb) in aa.iter().zip(tb.iter()) {
+                        self.unify(*xa, *xb)?;
+                    }
                 }
                 Ok(a)
             }
@@ -1601,7 +1727,10 @@ impl TypeCtx {
                     }
                     new_args.push(na);
                 }
-                let new_base = self.substitute_inner(base, mapping, seen);
+                let new_base = self
+                    .nominal_apply_base(base)
+                    .map(|(_, _, _, base_id)| base_id)
+                    .unwrap_or_else(|| self.substitute_inner(base, mapping, seen));
                 if new_base != base {
                     changed = true;
                 }
