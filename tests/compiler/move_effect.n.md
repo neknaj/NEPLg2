@@ -236,6 +236,7 @@ fn main <()->i32> ():
     let b <Boxed> Boxed @token_id
     let r &b
     let c b
+    let keep r
     0
 ```
 

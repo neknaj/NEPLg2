@@ -140,6 +140,28 @@ fn main <()->i32> ():
 
 ## move_reference_ok
 
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&LocalToken> &x
+    let y <LocalToken> x
+    0
+```
+
+## move_live_reference_blocks_move
+
 neplg2:test[compile_fail]
 diag_id: 3051
 ```neplg2
@@ -157,6 +179,7 @@ fn main <()->i32> ():
     let x <LocalToken> LocalToken @token_id
     let r <&LocalToken> &x
     let y <LocalToken> x
+    let z <&LocalToken> r
     0
 ```
 

@@ -173,6 +173,28 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_live_reference_blocks_move() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let r <&Wrapper> &x;
+    let y <Wrapper> x;
+    let z <&Wrapper> r;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot move out of shared borrowed value")));
+}
+
+#[test]
 fn move_borrow_after_move_err() {
     let source = r#"
 #target wasi

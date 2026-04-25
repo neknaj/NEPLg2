@@ -16295,3 +16295,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 今回は compiler 実装を戻さず、zero-sized unit 引数対応後の test fixture を現在の仕様へ揃えた。
+
+# 2026-04-26 メモ (RV-CORE-024 local borrow fixture の修正)
+
+- [原因]:
+  - GitHub Actions run `24940960078` で `tests/compiler/move_check.n.md::doctest#7` が `expected compile_fail, but compiled successfully` になっていた。
+  - 該当fixtureは `move_reference_ok` という名前で、Rust integration test でも成功期待だったが、`.n.md` 側だけ D3051 compile_fail になっていた。
+  - move checker は参照束縛の残り使用回数を見て、後続使用されない参照束縛の borrow を即時解放するため、`let r &x; let y x` は現在の仕様では成功する。
+- [修正]:
+  - `move_check.n.md::move_reference_ok` を通常実行テストへ戻した。
+  - `move_live_reference_blocks_move` を `move_check.n.md` と Rust integration test に追加し、参照束縛を後続使用する場合は D3051 で move を拒否することを固定した。
+  - `move_effect.n.md` の shared borrow compile_fail では `let keep r` を追加し、borrow が live な状態で D3051 を検証するようにした。
+  - `doc/review20260425/core.md` / `issues.md` に `RV-CORE-024` を追加し、`RV-CORE-022` から分離済みとして記録した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-rv-core-024.json -j 1`: `total=15`, `passed=15`, `failed=0`
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-rv-core-024.json -j 1`: `total=26`, `passed=23`, `failed=3`（残りは既存の D3090 3件）
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: `14 passed`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-024.json`: `13/13 passed`
+  - `git diff --check`: pass（CRLF置換警告のみ）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - ownership / borrow の実装仕様を変えず、last-use borrow release 後の正しいfixtureへ整理した。

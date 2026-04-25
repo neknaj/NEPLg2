@@ -566,7 +566,7 @@ move checker で call target の parameter type を参照し、parameter が `&T
 
 ### 検証
 
-`tests/compiler/move_check.n.md` に「非 Copy 値を参照引数へ渡した後に move できる」回帰テストを追加しました。既存の「local に保持した shared borrow 中の move は引き続き拒否される」compile_fail と合わせて確認しています。
+`tests/compiler/move_check.n.md` に「非 Copy 値を参照引数へ渡した後に move できる」回帰テストを追加しました。local に保持した shared borrow については、参照束縛が後続で使われる場合だけ move を拒否し、未使用の参照束縛は last-use 解析で borrow を解放する方針です。
 
 確認済み:
 
@@ -944,7 +944,7 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 
 - GitHub Actions run `24940960078` (`Fix RV-CLI-008 node cli argument errors`, head `96ae78bc872a314d857ec8e8c2f77fd7e38c7393`) の `wasi-test` / `nmd-doctest` が失敗している。
 - `gh run view 24940960078 --repo neknaj/NEPLg2 --log-failed` で、`node nodesrc/tests.js -i tests -o tests-current.json -j 4` と `node nodesrc/tests.js -i tests -o nmd-tests.json -j 4` の両方が `total=693`, `passed=661`, `failed=31`, `errored=1` を返した。
-- 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。
+- 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。`move_check.n.md::doctest#7` は `RV-CORE-024` に分離し、修正済み。
 - `tests/compiler/raw_body_precheck.n.md::doctest#6` も `expected compile_fail, but compiled successfully` になっていた。この件は unit 引数の zero-sized lowering 対応後の fixture ずれとして `RV-CORE-023` に分離し、修正済み。
 
 ### 問題
@@ -998,3 +998,43 @@ D4002 の意図は「WASM signature へ落とせない関数を codegen 前に�
 ### 検証
 
 - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-body-precheck-rv-core-023.json -j 1` (`total=5`, `passed=5`, `failed=0`)
+
+## RV-CORE-024: move_check の local borrow fixture が last-use borrow release 後の仕様とずれている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P2
+- 種別: test
+- 対象: `tests/compiler/move_check.n.md`, `tests/compiler/move_effect.n.md`, `nepl-core/tests/move_check.rs`
+
+### 根拠
+
+GitHub Actions run `24940960078` とローカル再現で、`tests/compiler/move_check.n.md::doctest#7` が `expected compile_fail, but compiled successfully` になりました。該当fixture名は `move_reference_ok` であり、Rust integration test `nepl-core/tests/move_check.rs::move_reference_ok` も同じ内容を成功期待として保持しています。
+
+### 問題
+
+`move_check.n.md` 側だけが `let r <&LocalToken> &x` の直後に `let y <LocalToken> x` するケースを D3051 compile_fail としていました。しかし move checker は参照束縛の残り使用回数を数え、参照束縛が後続で使われない場合は borrow を即時解放します。この last-use borrow release により、未使用参照を作っただけの値は move 可能です。
+
+一方で `tests/compiler/move_effect.n.md` の shared borrow 中 move fixture も `r` を後続で使っておらず、同じ理由でcompile_failとして不正確でした。これをそのまま strict に戻すと、未使用参照まで所有値をscope終端まで固定し、`RV-CORE-013` で直した borrow lifetime 方針と衝突します。
+
+### 影響
+
+CI の compiler doctest failure set に、実装退行ではなく仕様に反した compile_fail fixture が混ざります。また「未使用参照はmoveを阻害しない」と「後続使用される参照がある間はmoveを拒否する」という2つの安全性条件を別々に確認できません。
+
+### 修正方針
+
+未使用参照の fixture は成功期待に戻します。shared borrow中のmove拒否を確認するfixtureでは、参照束縛をmove後にも使用してborrowをliveに保ち、D3051を期待します。Rust integration testにも同じlive borrow拒否ケースを追加し、Node doctestとRust testの仕様を揃えます。
+
+### 対応
+
+`move_check.n.md::move_reference_ok` を通常実行テストへ戻し、`move_live_reference_blocks_move` を追加しました。`move_effect.n.md` の「非Copy値の shared borrow 中 move は拒否」は `let keep r` を追加し、borrowが後続使用される状態で `let c b` を拒否するfixtureにしました。Rust側にも `move_live_reference_blocks_move` を追加しました。
+
+### 検証
+
+- `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-rv-core-024.json -j 1` (`total=15`, `passed=15`, `failed=0`)
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-rv-core-024.json -j 1` (`total=26`, `passed=23`, `failed=3`; 残りは既存の `D3090` 3件)
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core --test move_check -- --nocapture` (`14 passed`)
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-024.json` (`13/13 passed`)
+- `git diff --check`
