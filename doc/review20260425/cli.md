@@ -60,11 +60,11 @@ CI やユーザーが `--check` を信用できません。コンパイル不能
 
 ## RV-CLI-002: 通常実行で DEBUG ログが出力される
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `nepl-cli/src/main.rs`
+- 対象: `nepl-cli/src/main.rs`, `nepl-cli/tests/cli_output.rs`
 
 ### 根拠
 
@@ -86,9 +86,23 @@ doctest の stdout/stderr 比較が不安定になります。CLI を他ツー�
 
 全 debug output を `cli.verbose` gate の下に移します。test progress は human mode と JSON mode を分け、出力先を統一します。
 
+### 対応結果
+
+CLI 内部の `DEBUG:` 出力と `nepl-cli test` の内部進捗ログを `cli_verbose!` に集約し、`--verbose` 指定時だけ出力するようにしました。`--check` 成功メッセージは診断用の stderr ではなく stdout に移し、通常成功時の stderr を空にできるようにしました。
+
+`nepl-cli/tests/cli_output.rs` を追加し、通常の `--check` / compile / `test` subcommand で debug 出力が stdout/stderr に混入しないことと、`--verbose` では CLI/core loader debug が見えることを固定しました。
+
 ### 検証
 
-正常 compile/run の stderr が空であることを fixture 化します。
+確認済み:
+
+- `cargo test -p nepl-cli --test cli_output`: `4 passed`
+- `cargo test -p nepl-cli`: unit `8 passed`, integration `4 passed`, ignored `2`
+- `cargo fmt --all --check`
+- `cargo check --workspace`
+- `trunk build`
+- `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
 
 ## RV-CLI-003: nepl-cli test が n.md doctest を対象にしない
 

@@ -42,7 +42,7 @@
 | ID | 解決済 | 状態 | 優先度 | 種別 | 要約 |
 |---|---|---|---|---|---|
 | [RV-CLI-001](./cli.md#rv-cli-001---check-がコンパイルせず成功を返す) | true | verified | P0 | bug | `--check` が compile 後に成功可否を返すよう修正済み |
-| [RV-CLI-002](./cli.md#rv-cli-002-通常実行で-debug-ログが出力される) | false | open | P1 | bug | CLI が `DEBUG:` を常時出す |
+| [RV-CLI-002](./cli.md#rv-cli-002-通常実行で-debug-ログが出力される) | true | verified | P1 | bug | CLI の内部 debug/progress 出力を verbose gate 配下へ移動済み |
 | [RV-CLI-003](./cli.md#rv-cli-003-nepl-cli-test-が-nmd-doctest-を対象にしない) | false | open | P1 | test | Rust CLI の test サブコマンドが `.nepl` だけを集める |
 | [RV-CLI-004](./cli.md#rv-cli-004-wasi-fd_write-が-stdout-専用で-stderr-を扱えない) | false | open | P1 | bug | fd 2 が `badf` になる |
 | [RV-CLI-005](./cli.md#rv-cli-005-path_open-が-wasi-の-preopen-モデルを実装していない) | false | open | P1 | security | host path を直接 `fs::read` する |

@@ -20,6 +20,14 @@ use wasmprinter::print_bytes;
 
 mod codegen_llvm;
 
+macro_rules! cli_verbose {
+    ($enabled:expr, $($arg:tt)*) => {
+        if $enabled {
+            eprintln!($($arg)*);
+        }
+    };
+}
+
 struct AllocState {
     // head of free list (address in linear memory), 0 == null
     free_head: u32,
@@ -260,9 +268,9 @@ fn execute(cli: Cli) -> Result<()> {
     let input_path = cli.input.clone();
     let (module, source_map) = match &cli.input {
         Some(path) => {
-            eprintln!("DEBUG: Creating Loader for path: {}", path);
+            cli_verbose!(cli.verbose, "DEBUG: Creating Loader for path: {}", path);
             let mut loader = Loader::new(stdlib_root()?);
-            eprintln!("DEBUG: Loader created, starting load");
+            cli_verbose!(cli.verbose, "DEBUG: Loader created, starting load");
             let entry = PathBuf::from(path);
             match loader.load(&entry) {
                 Ok(res) => (res.module, loader.source_map().clone()),
@@ -332,7 +340,7 @@ fn execute(cli: Cli) -> Result<()> {
     if is_check {
         match check_module_with_source_map(module, Some(&source_map), options) {
             Ok(()) => {
-                eprintln!("Check successful");
+                println!("Check successful");
                 return Ok(());
             }
             Err(CoreError::Diagnostics(diags)) => {
@@ -380,19 +388,19 @@ fn execute(cli: Cli) -> Result<()> {
         return Ok(());
     }
 
-    eprintln!("DEBUG: Calling compile_module");
+    cli_verbose!(cli.verbose, "DEBUG: Calling compile_module");
     let artifact = match compile_module_with_source_map(module, Some(&source_map), options) {
         Ok(a) => {
-            eprintln!("DEBUG: compile_module returned Ok");
+            cli_verbose!(cli.verbose, "DEBUG: compile_module returned Ok");
             a
         }
         Err(CoreError::Diagnostics(diags)) => {
-            eprintln!("DEBUG: compile_module returned Diagnostics");
+            cli_verbose!(cli.verbose, "DEBUG: compile_module returned Diagnostics");
             render_diagnostics(&diags, &source_map);
             return Err(anyhow::anyhow!("compilation failed"));
         }
         Err(e) => {
-            eprintln!("DEBUG: compile_module returned Err: {:?}", e);
+            cli_verbose!(cli.verbose, "DEBUG: compile_module returned Err: {:?}", e);
             return Err(anyhow::anyhow!(e.to_string()));
         }
     };
@@ -497,7 +505,11 @@ fn run_tests(args: TestArgs, verbose: bool) -> Result<()> {
 
 fn run_test_file(path: &Path, std_root: &Path, verbose: bool) -> Result<()> {
     let mut loader = Loader::new(std_root.to_path_buf());
-    println!("[nepl-cli] run_test_file: loading {}", path.display());
+    cli_verbose!(
+        verbose,
+        "[nepl-cli] run_test_file: loading {}",
+        path.display()
+    );
     let res = match loader.load(&path.to_path_buf()) {
         Ok(res) => res,
         Err(nepl_core::loader::LoaderError::Core(CoreError::Diagnostics(diags))) => {
@@ -506,7 +518,7 @@ fn run_test_file(path: &Path, std_root: &Path, verbose: bool) -> Result<()> {
         }
         Err(e) => return Err(anyhow::anyhow!(e.to_string())),
     };
-    println!("[nepl-cli] compile_module for {}", path.display());
+    cli_verbose!(verbose, "[nepl-cli] compile_module for {}", path.display());
     let artifact = match compile_module_with_source_map(
         res.module,
         Some(loader.source_map()),

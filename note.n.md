@@ -15758,3 +15758,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - higher-order function / lambda を stdlib と tutorial で使える状態へ近づけたが、`RV-STDLIB-013` と `RV-CLI-011` は未解決として残る。
+# 2026-04-25 メモ (RV-CLI-002 CLI debug 出力の verbose gate 化)
+
+- [原因]:
+  - CLI の loader 作成、compile 呼び出し、compile 結果の `DEBUG:` ログが `--verbose` を見ずに直接 stderr へ出ていた。
+  - `nepl-cli test` の内部進捗ログが stdout へ直接出ており、テスト結果や呼び出し側の stdout 比較に混入する状態だった。
+  - `--check` 成功メッセージが stderr に出ていたため、正常系の stderr を診断専用として扱えなかった。
+- [修正]:
+  - `cli_verbose!` を追加し、CLI 内部の debug/progress 出力を `--verbose` 指定時だけ出すように集約した。
+  - `--check` 成功時の `Check successful` は stdout へ移し、stderr は diagnostics/error 用に寄せた。
+  - `nepl-cli/tests/cli_output.rs` を追加し、通常実行では stderr/debug が空で、verbose 実行では debug が出ることを fixture 化した。
+- [検証]:
+  - `cargo test -p nepl-cli --test cli_output`: `4 passed`
+  - `cargo test -p nepl-cli`: unit `8 passed`, integration `4 passed`, ignored `2`
+  - `cargo fmt --all --check`: pass
+  - `cargo check --workspace`: pass
+  - `trunk build`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CLI を外部 tool / test runner から呼ぶ前提で、stdout/stderr の責務境界を明確にした。
