@@ -16318,3 +16318,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - ownership / borrow の実装仕様を変えず、last-use borrow release 後の正しいfixtureへ整理した。
+
+# 2026-04-26 メモ (RV-CORE-025 move_effect Clone signature fixture の修正)
+
+- [原因]:
+  - GitHub Actions run `24940960078` で `tests/compiler/move_effect.n.md::doctest#5/#6/#7` が `D3090 impl method signature does not match trait` で失敗していた。
+  - 3件はいずれも標準 `core/traits/copy` の `Clone` を import しているが、fixture側の `clone` signature が旧形の `(Self)->Self` になっていた。
+  - 標準 `Clone` は現在 `(&Self)->Self` であり、compiler が D3090 を出すのは正しい挙動だった。
+- [修正]:
+  - `Point` / `Pair<i32>` / `Score` の `impl Clone` を `fn clone <(&T)->T> (x): *x` へ変更した。
+  - `#no_prelude` で独自に by-value `Clone` trait を定義している後続fixtureは、そのtrait仕様の確認なので変更していない。
+  - `doc/review20260425/core.md` / `issues.md` に `RV-CORE-025` を追加し、`RV-CORE-022` から分離済みとして記録した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-rv-core-025-probe.json -j 1`: `total=26`, `passed=26`, `failed=0`
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/core-move-raw-rv-core-025.json -j 1`: `total=46`, `passed=46`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-025.json`: `13/13 passed`
+  - `git diff --check`: pass（CRLF置換警告のみ）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 標準 `Clone` の仕様に合わせたtest fixture修正であり、compiler実装は変更していない。

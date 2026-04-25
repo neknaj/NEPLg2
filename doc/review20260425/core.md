@@ -944,7 +944,7 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 
 - GitHub Actions run `24940960078` (`Fix RV-CLI-008 node cli argument errors`, head `96ae78bc872a314d857ec8e8c2f77fd7e38c7393`) の `wasi-test` / `nmd-doctest` が失敗している。
 - `gh run view 24940960078 --repo neknaj/NEPLg2 --log-failed` で、`node nodesrc/tests.js -i tests -o tests-current.json -j 4` と `node nodesrc/tests.js -i tests -o nmd-tests.json -j 4` の両方が `total=693`, `passed=661`, `failed=31`, `errored=1` を返した。
-- 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。`move_check.n.md::doctest#7` は `RV-CORE-024` に分離し、修正済み。
+- 代表例として `tests/compiler/move_check.n.md::doctest#7` は `expected compile_fail, but compiled successfully`、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` は `D3090 impl method signature does not match trait`、`tests/compiler/overload.n.md::doctest#13/#14/#23/#24/#25` は `D3005` / `D3068` / `D3006` の連鎖で失敗している。`move_check.n.md::doctest#7` は `RV-CORE-024`、`move_effect.n.md` の `D3090` 3件は `RV-CORE-025` に分離し、修正済み。
 - `tests/compiler/raw_body_precheck.n.md::doctest#6` も `expected compile_fail, but compiled successfully` になっていた。この件は unit 引数の zero-sized lowering 対応後の fixture ずれとして `RV-CORE-023` に分離し、修正済み。
 
 ### 問題
@@ -1037,4 +1037,39 @@ CI の compiler doctest failure set に、実装退行ではなく仕様に反�
 - `cargo test -p nepl-core --test move_check -- --nocapture` (`14 passed`)
 - `trunk build`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-024.json` (`13/13 passed`)
+- `git diff --check`
+
+## RV-CORE-025: move_effect の Copy fixture が標準 Clone signature 変更後の仕様とずれている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P2
+- 種別: test
+- 対象: `tests/compiler/move_effect.n.md`, `stdlib/core/traits/copy.nepl`
+
+### 根拠
+
+GitHub Actions run `24940960078` とローカル再現で、`tests/compiler/move_effect.n.md::doctest#5/#6/#7` が `D3090 impl method signature does not match trait` で失敗しました。3件はいずれも `#import "core/traits/copy" as *` した標準 `Clone` に対する impl で、method signature だけが `(Self)->Self` の旧形でした。
+
+### 問題
+
+標準 `Clone` は `stdlib/core/traits/copy.nepl` で `fn clone <(&Self)->Self> (x):` と定義されています。一方、`move_effect.n.md` の `Point` / `Pair<i32>` / `Score` fixture は `fn clone <(T)->T> (x): x` と実装していました。これは trait method signature と一致しないため、compiler が D3090 を返すのが正しい挙動です。
+
+### 影響
+
+標準 trait の仕様変更後も旧fixtureが残っていたため、`move_effect.n.md` の Copy capability 回帰が赤くなり、実装側の trait signature 正規化バグと区別しにくくなっていました。
+
+### 修正方針
+
+標準 `Clone` を使うfixtureは `(&T)->T` へ揃えます。`#no_prelude` で独自に by-value `Clone` trait を定義している後続fixtureは、そのtrait仕様を検証しているため変更しません。
+
+### 対応
+
+`Point` / `Pair<i32>` / `Score` の `impl Clone` を `fn clone <(&T)->T> (x): *x` へ変更しました。これにより標準 `Clone` の borrowed source 仕様と Copy capability fixture の期待値が一致します。
+
+### 検証
+
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-rv-core-025-probe.json -j 1` (`total=26`, `passed=26`, `failed=0`)
+- `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/core-move-raw-rv-core-025.json -j 1` (`total=46`, `passed=46`, `failed=0`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-025.json` (`13/13 passed`)
 - `git diff --check`

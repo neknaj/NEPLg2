@@ -111,8 +111,8 @@ struct Point:
     y <i32>
 
 impl Clone for Point:
-    fn clone <(Point)->Point> (x):
-        x
+    fn clone <(&Point)->Point> (x):
+        *x
 
 impl Copy for Point:
     fn copy_mark <(Point)->Point> (x):
@@ -145,8 +145,8 @@ struct Pair<.T>:
     b <.T>
 
 impl Clone for Pair<i32>:
-    fn clone <(Pair<i32>)->Pair<i32>> (x):
-        x
+    fn clone <(&Pair<i32>)->Pair<i32>> (x):
+        *x
 
 impl Copy for Pair<i32>:
     fn copy_mark <(Pair<i32>)->Pair<i32>> (x):
@@ -178,8 +178,8 @@ enum Score:
     Zero
 
 impl Clone for Score:
-    fn clone <(Score)->Score> (x):
-        x
+    fn clone <(&Score)->Score> (x):
+        *x
 
 impl Copy for Score:
     fn copy_mark <(Score)->Score> (x):
