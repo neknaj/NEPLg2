@@ -16178,3 +16178,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CLI の配布 layout 対応であり、言語仕様や stdlib 内容の変更はない。
+
+# 2026-04-25 メモ (RV-CLI-008 nodesrc CLI unknown argument)
+
+- [原因]:
+  - `nodesrc/cli.js` の独自 `parseArgs` は認識した option だけを処理し、未知の `--...` 引数を最後まで無視していた。
+  - 値が必要な option で値が不足した場合も明示的な usage error にならず、別の usage 分岐や runtime error と混ざる構造だった。
+  - 最終 catch は全ての throw を exit code 1 にしていたため、CLI の使い方ミスと処理中の失敗を区別できなかった。
+- [修正]:
+  - `UsageError` を追加し、unknown argument と required value missing を exit code 2 に分離した。
+  - `-i` / `-o` / exclude / site name / description prefix / Discord option の value check を共通化した。
+  - `--help` は従来通り exit code 0 とし、通常 runtime error は exit code 1 のまま維持した。
+  - `nodesrc/test_cli_args.js` を追加し、unknown argument、missing `-i` value、`--help` をプロセス exit code で検証した。
+- [検証]:
+  - `node nodesrc/test_cli_args.js`: pass
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-cli`: unit 9 passed, integration 12 passed, ignored 2
+  - `cargo check --workspace`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-008.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+  - `git diff --check`: pass
+- [review issue]:
+  - `doc/review20260425/cli.md` / `issues.md` の `RV-CLI-008` を `verified` に更新し、集計を更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Node documentation/test CLI の error handling 修正であり、言語仕様や compiler 実装の変更はない。

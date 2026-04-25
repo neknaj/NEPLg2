@@ -9,10 +9,10 @@
 | 領域 | Open | 解決済 |
 |---|---:|---:|
 | core | 3 | 18 |
-| cli | 4 | 9 |
+| cli | 3 | 10 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 16 | 46 |
+| 合計 | 15 | 47 |
 
 ## Core
 
@@ -51,7 +51,7 @@
 | [RV-CLI-005](./cli.md#rv-cli-005-path_open-が-wasi-の-preopen-モデルを実装していない) | true | verified | P1 | security | fd 3 preopen root、read-only rights、relative path sandbox 検証を実装済み |
 | [RV-CLI-006](./cli.md#rv-cli-006-stdlib-root-がビルド時パスに固定されている) | true | verified | P2 | architecture | `--stdlib-root` / `NEPL_STDLIB_ROOT` / 実行ファイル相対 / build fallback の解決順を実装済み |
 | [RV-CLI-007](./cli.md#rv-cli-007-llvm-toolchain-条件が既定で-linux--clang-2110-に固定される) | false | open | P2 | bug | LLVM ターゲットの可搬性が低い |
-| [RV-CLI-008](./cli.md#rv-cli-008-nodesrc-cli-が未知引数をエラーにしない) | false | open | P3 | test | ドキュメント生成 CLI の typo を検出できない |
+| [RV-CLI-008](./cli.md#rv-cli-008-nodesrc-cli-が未知引数をエラーにしない) | true | verified | P3 | test | unknown argument / value missing を usage error exit code 2 に修正済み |
 | [RV-CLI-009](./cli.md#rv-cli-009-wasm-bindgen-cli-cache-が-rust-cache-の後処理で壊れ-ci-bootstrap-が落ちる) | true | verified | P1 | test | workspace 専用 root と cache 検証を追加し、run `24932659255` の `build` job で bootstrap 成功を確認済み |
 | [RV-CLI-010](./cli.md#rv-cli-010-pages-fastfinal-deploy-が同じ-github-pages-artifact-名を使い-final-deploy-が落ちる) | true | verified | P1 | test | fast/final Pages artifact 名を分離し、run `24932659255` で final deploy 成功を確認済み |
 | [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | false | open | P1 | test | `llvm-test` の full dual backend verification が 10 分 timeout で cancelled になる |

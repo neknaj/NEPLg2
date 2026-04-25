@@ -21,6 +21,13 @@ let parserModuleCache = null;
 let htmlGenModuleCache = null;
 let htmlPlayModuleCache = null;
 
+class UsageError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'UsageError';
+    }
+}
+
 function getParserModule() {
     if (!parserModuleCache) {
         parserModuleCache = require('./parser');
@@ -53,31 +60,43 @@ function parseArgs(argv) {
     let webhookUrl = process.env.NEPL_DISCORD_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || '';
     const positional = [];
 
+    const requireValue = (flag, index) => {
+        if (index + 1 >= argv.length) {
+            throw new UsageError(`${flag} requires a value`);
+        }
+        return argv[index + 1];
+    };
+
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
-        if (a === '-i' && i + 1 < argv.length) {
-            inputs.push(argv[++i]);
+        if (a === '-i') {
+            inputs.push(requireValue(a, i));
+            i += 1;
             continue;
         }
-        if (a === '-o' && i + 1 < argv.length) {
-            const kv = argv[++i];
+        if (a === '-o') {
+            const kv = requireValue(a, i);
             const m = kv.match(/^([a-zA-Z0-9_]+)=(.*)$/);
             if (!m) {
-                throw new Error(`-o expects key=value, got: ${kv}`);
+                throw new UsageError(`-o expects key=value, got: ${kv}`);
             }
             outs[m[1]] = m[2];
+            i += 1;
             continue;
         }
-        if ((a === '--exclude-dir' || a === '--exclude-dirname') && i + 1 < argv.length) {
-            excludeDirs.push(argv[++i]);
+        if (a === '--exclude-dir' || a === '--exclude-dirname') {
+            excludeDirs.push(requireValue(a, i));
+            i += 1;
             continue;
         }
-        if (a === '--site-name' && i + 1 < argv.length) {
-            siteName = argv[++i];
+        if (a === '--site-name') {
+            siteName = requireValue(a, i);
+            i += 1;
             continue;
         }
-        if (a === '--description-prefix' && i + 1 < argv.length) {
-            descriptionPrefix = argv[++i];
+        if (a === '--description-prefix') {
+            descriptionPrefix = requireValue(a, i);
+            i += 1;
             continue;
         }
         if (a === '--playground-editor-tests') {
@@ -85,17 +104,13 @@ function parseArgs(argv) {
             continue;
         }
         if (a === '--discord') {
-            if (i + 1 >= argv.length) {
-                throw new Error('--discord requires a message argument');
-            }
-            discordMessage = argv[++i];
+            discordMessage = requireValue(a, i);
+            i += 1;
             continue;
         }
         if (a === '--discord-webhook-url') {
-            if (i + 1 >= argv.length) {
-                throw new Error('--discord-webhook-url requires a URL argument');
-            }
-            webhookUrl = argv[++i];
+            webhookUrl = requireValue(a, i);
+            i += 1;
             continue;
         }
         if (a === '-h' || a === '--help') {
@@ -115,6 +130,7 @@ function parseArgs(argv) {
             positional.push(a);
             continue;
         }
+        throw new UsageError(`unknown argument: ${a}`);
     }
     if (discordMessage === null && positional.length > 0 && inputs.length === 0 && Object.keys(outs).length === 0 && !playgroundEditorTests) {
         discordMessage = positional.join(' ');
@@ -957,9 +973,9 @@ if (require.main === module) {
     Promise.resolve()
         .then(() => main())
         .catch((e) => {
-        console.error(String(e?.stack || e?.message || e));
-        process.exit(1);
-    });
+            console.error(String(e?.message || e));
+            process.exit(e instanceof UsageError ? 2 : 1);
+        });
 }
 
 module.exports = {

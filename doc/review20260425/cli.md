@@ -304,11 +304,11 @@ strict mode と relaxed mode の CLI unit test を分けます。
 
 ## RV-CLI-008: nodesrc/cli が未知引数をエラーにしない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P3
 - 種別: test
-- 対象: `nodesrc/cli.js`
+- 対象: `nodesrc/cli.js`, `nodesrc/test_cli_args.js`
 
 ### 根拠
 
@@ -327,9 +327,26 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 
 未知引数は即 error にします。`--help` だけは例外です。将来的には `commander` などに寄せてもよいですが、まずは現行 parser に default error を追加します。
 
+### 対応結果
+
+`nodesrc/cli.js` に `UsageError` を追加し、未知引数と必須値不足を usage error として exit code 2 で返すようにしました。`-i` / `-o` / `--exclude-dir` / `--site-name` / `--description-prefix` / Discord options は共通の value checker を通し、値不足が通常の runtime error と混ざらないようにしました。
+
+通常の runtime error は引き続き exit code 1 とし、`--help` は exit code 0 のままです。これにより `--playgroud-editor-tests` のような typo が silent ignore されず、CI や手元確認で失敗として検出できます。
+
 ### 検証
 
-未知引数で exit code 2 になる Node CLI test を追加します。
+`nodesrc/test_cli_args.js` を追加し、未知引数、必須値不足、`--help` の exit code と出力を固定しました。
+
+確認済み:
+
+- `node nodesrc/test_cli_args.js`: pass
+- `cargo fmt --all --check`: pass
+- `cargo test -p nepl-cli`: unit 9 passed, integration 12 passed, ignored 2
+- `cargo check --workspace`: pass
+- `node tests/compiler/tree/run.js`: 19/19 passed
+- `trunk build`: pass
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-008.json`: 13/13 passed
+- `git diff --check`: pass
 
 ## RV-CLI-009: wasm-bindgen-cli cache が rust-cache の後処理で壊れ CI bootstrap が落ちる
 
