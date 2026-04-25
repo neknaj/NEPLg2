@@ -247,7 +247,6 @@ fn main <()->i32> ():
 }
 
 #[test]
-#[ignore = "matches skipped doctest: pipe left-hand partial reduction still reports D3013"]
 fn pipe_nested_pipes() {
     let src = r#"
 #entry main
@@ -263,7 +262,6 @@ fn main <()->i32> ():
 }
 
 #[test]
-#[ignore = "matches skipped doctest: pipe inside if still reports D3013"]
 fn pipe_in_if() {
     let src = r#"
 #entry main

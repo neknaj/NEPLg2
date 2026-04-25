@@ -15893,6 +15893,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - RV-CORE-019 の根本原因は型引数汚染として修正し、検証で見つけた fixture drift は現行 stdlib / harness の実運用経路に同期した。
+
+# 2026-04-25 メモ (RV-CORE-020 pipe 左辺の部分適用修正)
+
+- [原因]:
+  - `PrefixItem::Pipe` が stack の `base_depth` から末尾までを左辺として退避していたため、`add 1 |> add 2 3` では未完了の外側 `add` まで左辺に含まれていた。
+  - `if true 1 |> add 2 0` でも未完了の `if` が左辺に含まれ、target 注入前に `if true 1` を単一値へ縮約しようとして D3013 になっていた。
+- [修正]:
+  - `BlockChecker::pipe_pending_base` を追加し、未完了 callable が stack 末尾の値より下に残っている場合は、直近引数式だけを pipe 左辺として退避するようにした。
+  - `pipe_nested_pipes` / `pipe_in_if` の Rust integration test ignore と doctest skip を解除した。
+  - `doc/review20260425/core.md` / `issues.md` を `RV-CORE-020` verified に更新し、`todo.md` から対応予定を削除した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test pipe_operator pipe_nested_pipes -- --nocapture`: pass
+  - `cargo test -p nepl-core --test pipe_operator pipe_in_if -- --nocapture`: pass
+  - `cargo test -p nepl-core --test pipe_operator`: `20 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/pipe_operator.n.md --no-stdlib --no-tree -o tmp/rv-core-020-pipe-after-rebase.json -j 1`: `20/20 passed`
+  - `cargo test -p nepl-core`: pass
+  - `cargo check --workspace`: pass
+  - `node tests/compiler/tree/run.js`: `19/19 passed`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-020-after-rebase.json`: `13/13 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - pipe は parser 特殊処理ではなく、typecheck の stack 退避範囲を呼び出し未完了状態に合わせる方針で修正した。
+
 # 2026-04-26 メモ (RV-EXAMPLE-009 rpn_legacy の panic helper 依存解消)
 
 - [原因]:

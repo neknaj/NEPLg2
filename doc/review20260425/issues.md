@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 8 | 12 |
+| core | 7 | 13 |
 | cli | 7 | 6 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 24 | 37 |
+| 合計 | 23 | 38 |
 
 ## Core
 
@@ -37,7 +37,7 @@
 | [RV-CORE-017](./core.md#rv-core-017-関数値として渡した関数と-lambda-が-backend-到達時に未登録になる) | true | fixed | P0 | bug | concrete 関数の monomorphize でも関数値 / lambda 参照を収集し、D4007 / D4008 の局所回帰を修正済み |
 | [RV-CORE-018](./core.md#rv-core-018-nested-aggregate-を-tuple-から取り出すと-2-番目以降の値が壊れる) | true | verified | P0 | bug | named generic aggregate の storage layout 解決を修正し、`Tuple(Vec, Vec)` の 2 番目以降を正しく copy できるよう修正済み |
 | [RV-CORE-019](./core.md#rv-core-019-generic-wrapper--nested-generic-enum-の期待型伝播が-typenomatchingoverload-になる) | true | verified | P1 | bug | generic wrapper / nested generic enum の型引数汚染を防ぎ、`TypeNoMatchingOverload` を修正済み |
-| [RV-CORE-020](./core.md#rv-core-020-pipe-左辺の部分適用が-d3013-になり-rust-test-と-doctest-の状態が不整合) | false | open | P2 | bug | `pipe_nested_pipes` / `pipe_in_if` は doctest で skip だが Rust test が成功前提のまま残っている |
+| [RV-CORE-020](./core.md#rv-core-020-pipe-左辺の部分適用が-d3013-になり-rust-test-と-doctest-の状態が不整合) | true | verified | P2 | bug | pipe 左辺の退避範囲を未完了 callable の直近引数式に限定し、`pipe_nested_pipes` / `pipe_in_if` の skip を解除済み |
 
 ## CLI
 

@@ -59,8 +59,8 @@ core をブラウザ / WASM / self-host bootstrap で再利用する際に、hos
 
 ## RV-CORE-002: typecheck.rs が巨大化しすぎて責務が分離できていない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: architecture
 - 対象: `nepl-core/src/typecheck.rs`
@@ -805,17 +805,31 @@ nominal な enum / struct の `Apply` は base 定義本体を unify せず、�
 
 ### 問題
 
-pipe 左辺に `add 1` や `if true 1` のような、後続の `|>` を見ないと値へ縮約できない式があると、現在の typecheck は pipe 注入前に左辺だけを単一値へ縮約しようとして失敗します。これは pipe と prefix call / control expression の結合規則が未整理であることが原因です。
+pipe 左辺に `add 1` や `if true 1` のような、後続の `|>` を見ないと値へ縮約できない式があると、typecheck は `base_depth` から stack 末尾までを pipe 左辺として退避していました。そのため、未完了の外側 prefix call (`add` / `if`) まで左辺へ含まれ、target 注入前の左辺縮約で単一値にならず D3013 になっていました。
 
 ### 影響
 
-doctest と Rust integration test の期待状態が不整合になり、未実装として skip 済みのケースが `cargo test -p nepl-core` 全体を red にします。また、pipe の部分適用・if 内 pipe の仕様が固定できていないため、将来の parser/typecheck 改修で回帰しやすい状態です。
+doctest と Rust integration test の期待状態が不整合になり、pipe の部分適用・if 内 pipe の仕様が固定できていないため、parser/typecheck 改修で回帰しやすい状態でした。
 
 ### 修正方針
 
-pipe の左辺縮約を、次の pipe target と同時に解決する stage へ分離します。`PrefixItem::Pipe` を見つけた時点で左辺を即時に失敗させず、target への注入後に overload / arity 解決を行うようにします。仕様が固まるまでは Rust integration test も doctest と同じく ignored として扱い、未実装状態を issue で追跡します。
+pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了の外側 callable があるかを確認します。未完了 callable が直近の値より下に残っている場合は、その callable を左辺へ含めず、stack 末尾の直近引数式だけを pipe 左辺として target へ注入します。既に単一値へ縮約済みの top-level pipe では従来通り `base_depth` から退避します。
+
+### 対応
+
+`BlockChecker::pipe_pending_base` を追加し、`PrefixItem::Pipe` で退避する stack 範囲を未完了 callable に応じて決定するようにしました。これにより `add 1 |> add 2 3` は `add (1 |> add 2) 3` として、`if true 1 |> add 2 0` は `if true (1 |> add 2) 0` として型検査・実行できます。
+
+`nepl-core/tests/pipe_operator.rs` の `pipe_nested_pipes` / `pipe_in_if` の ignore を解除し、`tests/compiler/pipe_operator.n.md` の doctest skip も解除しました。
 
 ### 検証
 
-- `cargo test -p nepl-core --test pipe_operator` (`18 passed`, `2 ignored`)
-- `node nodesrc/tests.js -i tests/compiler/pipe_operator.n.md --no-stdlib --no-tree -o tmp/rv-core-020-pipe.json -j 1` (`20/20 passed`)
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core --test pipe_operator pipe_nested_pipes -- --nocapture` (`1 passed`)
+- `cargo test -p nepl-core --test pipe_operator pipe_in_if -- --nocapture` (`1 passed`)
+- `cargo test -p nepl-core --test pipe_operator` (`20 passed`)
+- `trunk build`
+- `node nodesrc/tests.js -i tests/compiler/pipe_operator.n.md --no-stdlib --no-tree -o tmp/rv-core-020-pipe-after-rebase.json -j 1` (`20/20 passed`)
+- `cargo test -p nepl-core`
+- `cargo check --workspace`
+- `node tests/compiler/tree/run.js` (`19/19 passed`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-020-after-rebase.json` (`13/13 passed`)

@@ -254,9 +254,7 @@ fn main <()->i32> ():
 
 ## pipe_nested_pipes
 
-D3013「pipe left-hand side did not reduce to a single value」が発生するため、現在未実装（スキップ）
-
-neplg2:test[skip]
+neplg2:test
 ret: 6
 ```neplg2
 
@@ -271,9 +269,7 @@ fn main <()->i32> ():
 
 ## pipe_in_if
 
-D3013「pipe left-hand side did not reduce to a single value」が発生するため、現在未実装（スキップ）
-
-neplg2:test[skip]
+neplg2:test
 ret: 3
 ```neplg2
 

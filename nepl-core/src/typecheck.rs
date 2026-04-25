@@ -2870,6 +2870,26 @@ impl<'a> BlockChecker<'a> {
         }
     }
 
+    fn pipe_pending_base(
+        &self,
+        stack: &[StackEntry],
+        open_calls: &[usize],
+        default_base: usize,
+    ) -> usize {
+        if stack.len() <= default_base + 1 {
+            return default_base;
+        }
+        let top_idx = stack.len() - 1;
+        if open_calls
+            .iter()
+            .any(|&idx| idx >= default_base && idx < top_idx)
+        {
+            top_idx
+        } else {
+            default_base
+        }
+    }
+
     fn has_unresolved_callable_between(
         &self,
         stack: &[StackEntry],
@@ -5493,11 +5513,13 @@ impl<'a> BlockChecker<'a> {
                         continue;
                     }
                     // Don't drain past any let/set binding on the stack.
-                    let pipe_base = stack
+                    let default_pipe_base = stack
                         .iter()
                         .rposition(|e| e.assign.is_some())
                         .map(|p| base_depth.max(p + 1))
                         .unwrap_or(base_depth);
+                    let pipe_base =
+                        self.pipe_pending_base(stack.as_slice(), &open_calls, default_pipe_base);
                     if stack.len() == pipe_base {
                         self.diagnostics.push(
                             Diagnostic::error("pipe requires a value on the stack", *sp)
