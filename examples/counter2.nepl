@@ -18,14 +18,14 @@
 #indent 4
 #target std
 
-#import "core/math"
-#import "std/stdio"
+#import "core/math" as *
+#import "std/stdio" as *
 
 //: main: 0 から 9 までを上書き表示しながら進める
 //:
 //: [目的/もくてき]:
 //: - 制御文字を含む標準出力の例を示します。
-fn main <()*> ()> ():
+fn main <()*>()> ():
     let mut x <i32> 0;
     while lt x 10:
         do:
