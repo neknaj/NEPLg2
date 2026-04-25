@@ -110,8 +110,8 @@ free list から見つけた block を split する場合は、余り block `new
 
 ## RV-STDLIB-003: 所有権を持つ Vec/Stack が Copy/Clone になっている
 
-- 解決済: true
-- 状態: verified
+- 解決済: false
+- 状態: open
 - 優先度: P0
 - 種別: bug
 - 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
@@ -360,8 +360,8 @@ public API と input-dependent code では `unwrap` 系を禁止し、`match` �
 
 ## RV-STDLIB-011: Clone と collection read API が by-value で非 Copy 所有型を扱えない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: architecture
 - 対象: `stdlib/core/traits/copy.nepl`, `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
