@@ -622,3 +622,46 @@ wasm codegen precheck と signature / reachable collection は shared helper 側
 - `trunk build`
 - `node tests/compiler/tree/run.js` (`total=19`, `passed=19`, `failed=0`)
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`13/13 passed`)
+
+## RV-CORE-017: 関数値として渡した関数と lambda が backend 到達時に未登録になる
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/monomorphize.rs`, `nepl-core/src/wasm_shared.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`
+
+### 根拠
+
+- GitHub Actions run `24932659255` の `wasi-test` / `nmd-doctest`: `tests/compiler/functions.n.md::doctest#6` が `error[D4008]: unknown function value 'square__i32__i32__pure' reached wasm codegen` で失敗。
+- 同 run: `tests/compiler/functions.n.md::doctest#8` が `error[D4007]: unknown variable 'add_op' reached wasm codegen`、`doctest#12` が generated lambda 名 `__lambda_0_214_218` の unknown variable で失敗。
+- 同 run: `tests/compiler/list_dot_map.n.md`、`tests/compiler/move_check.n.md`、`tests/compiler/overload.n.md`、`tests/compiler/prelude_copy.n.md`、`tests/compiler/typeannot.n.md` でも、関数値として渡した `inc` / `token_id` / `calc` / `as_i32` / `f` が `D4008` で失敗。
+- 同 run の `tutorials-test`: 競プロ I/O 系 tutorial 6 件が `stdlib/std/streamio.nepl` の `stream_writer_noncopy_marker__i32__i32__pure` を unknown function value として失敗。
+- `tests/compiler/tree/08_function_value_call_indirect.js` は function value call の lowering を期待しているが、実際の doctest / Rust integration 経路では関数値が backend へ届く前後の登録が揃っていない。
+
+### 問題
+
+型検査は higher-order function や lambda を通している一方で、monomorphize / reachable collection / backend lowering のどこかで、関数値としてだけ参照される関数や generated lambda が module の callable set に安定して登録されていません。その結果、ユーザーコード上は関数値として正当な式が、backend の内部不変条件エラーである `D4007` / `D4008` に到達します。
+
+これは `RV-CORE-007` で panic を diagnostic 化した後に可視化された根本バグです。diagnostic を返すこと自体は改善ですが、正当な higher-order code を compile できない状態は残っています。
+
+### 影響
+
+標準ライブラリの `List::map` / `filter` / `fold` 相当、`streamio` の writer marker、tutorial の競プロ I/O、関数値を返す基本サンプルが CI 上で失敗します。`wasi-test` / `nmd-doctest` / `tutorials-test` / `stdlib-test` にまたがるため、CI の大半が赤くなり、他の stdlib 不具合も同じ failure set に埋もれます。
+
+### 修正方針
+
+関数値を first-class に扱うための lowering 契約を明確にします。typecheck で関数値・lambda・indirect call の型を確定した後、monomorphize と reachable function collection は「直接 call される関数」だけでなく「値として参照される関数」と generated lambda も収集し、WASM / LLVM backend の function table と name map に登録します。
+
+`@func` と bare `func` の扱い、純粋/非純粋 signature、capturing lambda の未対応診断を整理し、未実装の capture は typecheck diagnostic に留めます。backend に到達してから unknown になる経路をなくします。
+
+### 検証
+
+最低限、次を regression として通します。
+
+- `cargo test -p nepl-core --test functions function_first_class`
+- `cargo test -p nepl-core --test functions function_return`
+- `cargo test -p nepl-core --test functions function_first_class_literal`
+- `node nodesrc/tests.js -i tests/compiler/functions.n.md -o tmp/functions-rv-core-017.json -j 1`
+- `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -o tmp/list-dot-map-rv-core-017.json -j 1`
+- `node nodesrc/tests.js -i tutorials/getting_started/22_competitive_io_and_arith.n.md -o tmp/tutorial-io-rv-core-017.json -j 1`

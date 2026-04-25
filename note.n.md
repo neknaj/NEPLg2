@@ -15470,3 +15470,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CI infrastructure の問題として修正し、言語仕様やコンパイラ本体の設計には影響しない。
+
+# 2026-04-25 メモ (GitHub Actions 修正後の検証と新規 Issue)
+
+- [確認]:
+  - commit `196bf97` の GitHub Actions run `24932659255` を `gh run view 24932659255 --repo neknaj/NEPLg2 --json status,conclusion,jobs,url` で確認した。
+  - `build` job は成功し、`Shared bootstrap build` と `Upload bootstrap build artifacts` が通った。これにより `RV-CLI-009` は CI 上で修正確認済みとした。
+  - `pages-fast-bundle` / `pages-fast-deploy` / `pages-final-bundle` / `pages-final-deploy` はすべて成功した。`github-pages` artifact 名重複は再発せず、`RV-CLI-010` は CI 上で修正確認済みとした。
+- [新規に見つかった問題]:
+  - `RV-CORE-017`
+    - `wasi-test` / `nmd-doctest` / `tutorials-test` / `stdlib-test` で、関数値として渡した関数や generated lambda が `error[D4007]` / `error[D4008]` として backend まで到達して失敗した。
+    - 代表例は `square__i32__i32__pure`、`add_op`、`__lambda_0_214_218`、`stream_writer_noncopy_marker__i32__i32__pure`。
+  - `RV-CLI-011`
+    - `llvm-test` は `Full dual backend verification` の途中で 10 分 timeout に達し、job が `cancelled` になった。
+    - LLVM smoke test は成功しているが、full verification の結果 JSON が残らない。
+  - `RV-STDLIB-013`
+    - `stdlib-test` は `total=388`, `passed=310`, `failed=78`。
+    - BTreeMap / BTreeSet / Queue / RingBuffer constructor doctest の `D3004`、`Vec` callback helper 周辺の `D3016`、collection runtime trap が混在しているため、stdlib collection 側の追跡 Issue として分離した。
+- [更新]:
+  - `doc/review20260425/issues.md` の集計と台帳を更新した。
+  - `doc/review20260425/core.md` に `RV-CORE-017` を追加した。
+  - `doc/review20260425/cli.md` で `RV-CLI-009` / `RV-CLI-010` を `verified` に更新し、`RV-CLI-011` を追加した。
+  - `doc/review20260425/stdlib.md` に `RV-STDLIB-013` を追加した。
+  - `todo.md` に未修正の新規 Issue を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CI infrastructure の詰まりを解消したことで、コンパイラ本体と stdlib の未解決回帰が GitHub Actions 上で可視化された。

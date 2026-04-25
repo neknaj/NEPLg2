@@ -268,8 +268,8 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 
 ## RV-CLI-009: wasm-bindgen-cli cache が rust-cache の後処理で壊れ CI bootstrap が落ちる
 
-- 解決済: false
-- 状態: fixed
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: test
 - 対象: `.github/actions/bootstrap-build/action.yml`, `.github/workflows/ci.yml`
@@ -309,14 +309,16 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 
 `.github/actions/bootstrap-build/action.yml` で `wasm-bindgen-cli` の install root を `${GITHUB_WORKSPACE}/.cache/wasm-bindgen-cli/0.2.108` へ移し、cache key を `0.2.108-v2` に変更しました。cache hit 後も `wasm-bindgen --version` が `0.2.108` を返すか検査し、壊れていれば専用 root を削除して `cargo install --root` で再 install します。
 
+GitHub Actions run `24932659255` の `build` job で `Shared bootstrap build` と `Upload bootstrap build artifacts` が成功し、bootstrap artifact 依存の後続 job へ進めることを確認しました。
+
 ### 検証
 
 `gh run view <run-id> --log-failed` で `Shared bootstrap build` が `wasm-bindgen --version` を通過することを確認します。壊れた cache が残っている状態でも、再 install または専用 path への install により `trunk build --release --public-url /NEPLg2/` まで進むことを確認します。
 
 ## RV-CLI-010: Pages fast/final deploy が同じ github-pages artifact 名を使い final deploy が落ちる
 
-- 解決済: false
-- 状態: fixed
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: test
 - 対象: `.github/workflows/ci.yml`
@@ -350,6 +352,39 @@ artifact 名分離ができない場合は、pending deploy と final deploy を
 
 `.github/workflows/ci.yml` で pending site の artifact 名を `github-pages-pending`、final site の artifact 名を `github-pages-final` に分け、各 `actions/deploy-pages@v4` の `artifact_name` に対応する名前を指定しました。
 
+GitHub Actions run `24932659255` で `pages-fast-bundle`、`pages-fast-deploy`、`pages-final-bundle`、`pages-final-deploy` が成功し、`Multiple artifacts named "github-pages"` が再発しないことを確認しました。
+
 ### 検証
 
 bootstrap が成功する状態で push CI を実行し、`pages-fast-deploy` と `pages-final-deploy` がそれぞれ意図した artifact を deploy することを確認します。`gh run view <run-id> --log-failed` で `Multiple artifacts named "github-pages"` が出ないことを確認します。
+
+## RV-CLI-011: llvm-test の full dual backend verification が CI timeout で cancelled になる
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `.github/workflows/ci.yml`, `nodesrc/tests.js`
+
+### 根拠
+
+- `.github/workflows/ci.yml:288`: `llvm-test` job の `timeout-minutes` は 10 分。
+- `.github/workflows/ci.yml:351`: `Full dual backend verification` は `timeout --signal=KILL 10m node nodesrc/tests.js -i tests -i stdlib -o tests-dual-full.json --runner all --llvm-all --assert-io --strict-dual -j 2` を実行する。
+- GitHub Actions run `24932659255`: `LLVM doctests via nodesrc runner` は成功したが、`Full dual backend verification` が完了せず、`llvm-test` job は `cancelled` になった。
+- 同 run の log では `14:11:16` に full dual backend verification が始まり、`14:18:26` に `The operation was canceled.` で停止している。`tests-dual-full.json` は upload されていない。
+
+### 問題
+
+`llvm-test` は LLVM toolchain の install / verify、compile-only smoke test、全 `tests` / `stdlib` の dual backend verification を 1 つの 10 分 job に詰め込んでいます。full dual backend verification は対象範囲が広く、現状の failing doctest 群や LLVM backend 起動コストも含めると、CI の job timeout 内に完了しません。
+
+### 影響
+
+`llvm-test` が cancelled になるため、LLVM backend の実際の失敗内容が JSON artifact として残りません。`pages-final-bundle` は `always()` で続行できますが、final status は `llvm_test: cancelled` になり、CI が「LLVM backend の回帰」なのか「検証設計の timeout」なのかを切り分けにくくなります。
+
+### 修正方針
+
+LLVM smoke test と full dual backend verification を分けます。まず smoke test は短時間で必ず artifact を残す job とし、full dual backend verification は対象を shard するか、changed-only / nightly 相当の別 workflow に分離します。`nodesrc/tests.js` 側でも一定件数ごとに progress と部分 JSON を flush できるようにし、timeout 時にも最後に処理していた test id が分かるようにします。
+
+### 検証
+
+push CI で `llvm-test` または分割後の LLVM jobs が cancelled にならず、`llvm-tests` artifact に `tests-llvm.json` と full verification の結果 JSON が残ることを確認します。full verification を別 workflow に逃がす場合は、main CI の必須判定と Pages status summary の扱いを明示します。

@@ -15,5 +15,8 @@
 2026-04-25 Review
 
 - `RV-STDLIB-012` で `HashKey` / `Hasher` の独自 clone/copy capability を標準 `Clone` / `Copy` trait へ整理する
+- `RV-CORE-017` で関数値 / lambda / indirect call の backend 登録漏れを修正し、`D4007` / `D4008` の CI 失敗を解消する
+- `RV-CLI-011` で LLVM full dual backend verification を分割または shard し、CI timeout / cancelled を解消する
+- `RV-STDLIB-013` で stdlib collection doctest 群を所有型 API 移行後の実装に合わせ、`stdlib-test` を green に戻す
 - `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
 - Issue を修正したら対応する `core.md` / `cli.md` / `stdlib.md` の `解決済` と `状態` を更新し、確認結果を `note.n.md` に記録する

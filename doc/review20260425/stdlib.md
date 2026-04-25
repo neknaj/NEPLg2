@@ -431,3 +431,42 @@ hash collection 用の `HashKey` / `Hasher` が、標準 `Clone` / `Copy` と別
 ### 検証
 
 `tests/stdlib/traits_hash.n.md` の custom key / hasher doctest を標準 `Clone::clone &x` の形へ移行します。非 Copy key では by-value clone が使えないことを compile_fail で確認し、hash collection の key 取得・挿入・検索が所有権を破壊しないことを追加テストで確認します。
+
+## RV-STDLIB-013: stdlib collection doctest 群が所有型 API 移行後の実装とずれている
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/alloc/collections/**`, `stdlib/tests/**`, `tests/stdlib/**`
+
+### 根拠
+
+- GitHub Actions run `24932659255` の `stdlib-test`: `total=388`, `passed=310`, `failed=78`, `errored=0`。
+- 同 run: `stdlib/alloc/collections/btreemap.nepl::doctest#2` から `#7` が `error[D3004]: type annotation mismatch (expected BTreeMap_K_V_i32_i32, got unit)` で失敗。
+- 同 run: `stdlib/alloc/collections/btreeset.nepl`、`queue.nepl`、`ringbuffer.nepl` でも同様に `new` / constructor 系 doctest が expected collection type に対して `unit` を返した扱いになっている。
+- 同 run: `stdlib/alloc/collections/fenwick.nepl` など 14 件が `stdlib/alloc/collections/vec.nepl:938` の `error[D3016]: expression left extra values on the stack` で失敗。
+- 同 run: collection diagnostic / hashmap / set 系で `RuntimeError: unreachable`、`RuntimeError: memory access out of bounds`、`error[D1206]: indentation is not aligned to #indent width` も出ている。
+
+### 問題
+
+collection 系 stdlib は、`RV-STDLIB-003` / `RV-STDLIB-011` で所有型と borrow-based read API へ寄せた後も、doctest と一部 helper 実装が旧 API・旧構文・旧 ownership 前提を含んだまま残っています。constructor の戻り値を `unwrap_ok ... new<T>` で受ける箇所が `unit` と推論されるケース、`Vec` の predicate callback helper が stack 形を崩すケース、runtime trap へ進む collection diagnostic ケースが同じ `stdlib-test` に混在しています。
+
+`RV-CORE-017` の function value 問題に巻き込まれている callback 系 failure もありますが、BTreeMap / BTreeSet / Queue / RingBuffer の constructor doctest や runtime trap は stdlib 側の実装・ドキュメント・テスト fixture の差分として分離して追跡します。
+
+### 影響
+
+CI の `stdlib-test` が常に失敗し、標準 collection の利用可否を確認できません。tutorial や user code が collection を使う場合にも、型検査で落ちるもの、runtime trap するもの、test fixture の書き方だけが古いものを切り分けられず、stdlib の信頼性を評価できない状態になります。
+
+### 修正方針
+
+まず failure を原因別に棚卸しします。
+
+- constructor / `new` 系 doctest は、現在の zero-argument call、effect marker、`unwrap_ok` の型引数指定に合わせて最小再現を作る。
+- `vec_find_impl` / `vec_take_while_len_impl` など callback helper は `RV-CORE-017` 修正後に再実行し、core 側に残る failure と stdlib 側の stack discipline failure を分ける。
+- runtime trap 系は `unwrap` による trap、allocator / free、collection invariant 破壊のどれかを JSON artifact と最小 fixture で特定する。
+- doctest の indentation failure は実装修正と混ぜず、該当コメントブロックを formatter / parser 方針に合わせて直す。
+
+### 検証
+
+修正後は `node nodesrc/tests.js -i stdlib/alloc/collections -o tmp/collections-rv-stdlib-013.json -j 1` と `node nodesrc/tests.js -i tests/stdlib -o tmp/tests-stdlib-rv-stdlib-013.json -j 1` を通します。CI では `stdlib-test` artifact の summary が `failed=0`, `errored=0` になることを確認します。

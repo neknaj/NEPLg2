@@ -8,10 +8,10 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 8 | 8 |
-| cli | 9 | 1 |
-| stdlib | 8 | 4 |
-| 合計 | 25 | 13 |
+| core | 9 | 8 |
+| cli | 8 | 3 |
+| stdlib | 9 | 4 |
+| 合計 | 26 | 15 |
 
 ## Core
 
@@ -33,6 +33,7 @@
 | [RV-CORE-014](./core.md#rv-core-014-pair-から取り出した-generic-collection-の型が-overload-解決へ伝播しない) | true | verified | P1 | bug | `.Pair` の推論済み tuple 型を保持し、取得した `Vec<T>` の `len` overload が解決できるよう修正済み |
 | [RV-CORE-015](./core.md#rv-core-015-深い-hir-を-check-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | `--check` を artifact 生成から分離し、1105 call chain が check-only path で成功するよう修正済み |
 | [RV-CORE-016](./core.md#rv-core-016-深い-hir-を-artifact-codegen-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | artifact 生成側の深い HIR traversal を iterative 化し、1105 call chain の wasm 生成を修正済み |
+| [RV-CORE-017](./core.md#rv-core-017-関数値として渡した関数と-lambda-が-backend-到達時に未登録になる) | false | open | P0 | bug | higher-order function / lambda を含む doctest が `D4007` / `D4008` で wasm codegen まで到達して失敗する |
 
 ## CLI
 
@@ -46,8 +47,9 @@
 | [RV-CLI-006](./cli.md#rv-cli-006-stdlib-root-がビルド時パスに固定されている) | false | open | P2 | architecture | 配布バイナリで stdlib 解決が壊れやすい |
 | [RV-CLI-007](./cli.md#rv-cli-007-llvm-toolchain-条件が既定で-linux--clang-2110-に固定される) | false | open | P2 | bug | LLVM ターゲットの可搬性が低い |
 | [RV-CLI-008](./cli.md#rv-cli-008-nodesrc-cli-が未知引数をエラーにしない) | false | open | P3 | test | ドキュメント生成 CLI の typo を検出できない |
-| [RV-CLI-009](./cli.md#rv-cli-009-wasm-bindgen-cli-cache-が-rust-cache-の後処理で壊れ-ci-bootstrap-が落ちる) | false | fixed | P1 | test | `wasm-bindgen-cli` を workspace 専用 root に install/cache する修正を追加。GitHub Actions での検証待ち |
-| [RV-CLI-010](./cli.md#rv-cli-010-pages-fastfinal-deploy-が同じ-github-pages-artifact-名を使い-final-deploy-が落ちる) | false | fixed | P1 | test | fast/final Pages artifact 名を分離する修正を追加。GitHub Actions での検証待ち |
+| [RV-CLI-009](./cli.md#rv-cli-009-wasm-bindgen-cli-cache-が-rust-cache-の後処理で壊れ-ci-bootstrap-が落ちる) | true | verified | P1 | test | workspace 専用 root と cache 検証を追加し、run `24932659255` の `build` job で bootstrap 成功を確認済み |
+| [RV-CLI-010](./cli.md#rv-cli-010-pages-fastfinal-deploy-が同じ-github-pages-artifact-名を使い-final-deploy-が落ちる) | true | verified | P1 | test | fast/final Pages artifact 名を分離し、run `24932659255` で final deploy 成功を確認済み |
+| [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | false | open | P1 | test | `llvm-test` の full dual backend verification が 10 分 timeout で cancelled になる |
 
 ## Stdlib
 
@@ -65,3 +67,4 @@
 | [RV-STDLIB-010](./stdlib.md#rv-stdlib-010-resultoption-の-unsafe-helper-が通常コードに広く残っている) | false | open | P2 | bug | `unwrap` / `unwrap_ok` が stdlib 内部で panic 経路を広げている |
 | [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | true | verified | P0 | architecture | `Clone` と `Vec` / `Stack` の read API を borrow-based に移行する前提を追加済み |
 | [RV-STDLIB-012](./stdlib.md#rv-stdlib-012-hashkeyhasher-の-clonecopy-capability-が標準-trait-と不整合) | false | open | P1 | architecture | `HashKey` / `Hasher` が独自の clone/copy capability を持ち、標準 `Clone` / `Copy` と不整合 |
+| [RV-STDLIB-013](./stdlib.md#rv-stdlib-013-stdlib-collection-doctest-群が所有型-api-移行後の実装とずれている) | false | open | P1 | test | collection doctest が `D3004` / `D3016` / runtime trap で広範囲に失敗し、API と実装の差分が残っている |
