@@ -1,3 +1,21 @@
+# 2026-04-25 メモ (examples 検証用 trunk build 前提の修正)
+
+- [状況]:
+  - examples を修正する前に全体確認として `trunk build` と `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-baseline.json -j 4` を実行した。
+  - 初回の `trunk build` は `tsc` 不在で失敗したため、`npm --prefix web ci` で `web` 依存を導入した。
+  - その後 `trunk build` は `web/examples` 不在で失敗した。`web/index.html` は `examples` を Trunk の `copy-dir` 対象にするが、`web/examples` は git 管理外で、CI の bootstrap action だけが事前コピーしていた。
+- [修正]:
+  - `nodesrc/sync_web_examples.js` を追加し、`examples/*.nepl` を `web/examples` へ同期するようにした。
+  - `web/package.json` の `build:ts` から同期 script を呼び、既存の Trunk prebuild hook でローカルでも同じ前提を満たすようにした。
+  - `doc/review20260425/cli.md` / `issues.md` に `RV-CLI-009` を追加し、修正済み verified として記録した。
+- [確認済み]:
+  - `cargo build --workspace --locked`: 通過
+  - `web\node_modules\.bin\tsc.cmd -p nodesrc\tsconfig.json`: 通過
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-baseline.json -j 4`: 12 件中 8 件通過。失敗は既存の `examples/rpn.nepl` と `examples/bf.nepl` の move checker エラー。
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。examples を現行実装で検証可能にするため、CI だけにあった `web/examples` 同期をローカル build 経路へ寄せた。
+
 # 2026-04-09 メモ (複数タブ切替で syntax highlight が壊れる問題の修正)
 
 - [原因]:

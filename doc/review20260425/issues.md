@@ -9,9 +9,9 @@
 | 領域 | Open | 解決済 |
 |---|---:|---:|
 | core | 8 | 8 |
-| cli | 7 | 1 |
+| cli | 7 | 2 |
 | stdlib | 8 | 4 |
-| 合計 | 23 | 13 |
+| 合計 | 23 | 14 |
 
 ## Core
 
@@ -46,6 +46,7 @@
 | [RV-CLI-006](./cli.md#rv-cli-006-stdlib-root-がビルド時パスに固定されている) | false | open | P2 | architecture | 配布バイナリで stdlib 解決が壊れやすい |
 | [RV-CLI-007](./cli.md#rv-cli-007-llvm-toolchain-条件が既定で-linux--clang-2110-に固定される) | false | open | P2 | bug | LLVM ターゲットの可搬性が低い |
 | [RV-CLI-008](./cli.md#rv-cli-008-nodesrc-cli-が未知引数をエラーにしない) | false | open | P3 | test | ドキュメント生成 CLI の typo を検出できない |
+| [RV-CLI-009](./cli.md#rv-cli-009-trunk-build-が-clean-checkout-で-webexamples-不在により失敗する) | true | verified | P2 | test | `web/examples` を npm prebuild で同期し、ローカル `trunk build` を clean checkout でも通るように修正済み |
 
 ## Stdlib
 
