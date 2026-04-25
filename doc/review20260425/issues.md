@@ -11,8 +11,8 @@
 | core | 9 | 9 |
 | cli | 8 | 5 |
 | stdlib | 9 | 6 |
-| examples | 0 | 3 |
-| 合計 | 26 | 23 |
+| examples | 0 | 4 |
+| 合計 | 26 | 24 |
 
 ## Core
 
@@ -82,3 +82,4 @@
 | [RV-EXAMPLE-001](./examples.md#rv-example-001-rpn-example-が-stackvec-の内部表現と-by-value-api-に依存している) | true | verified | P1 | architecture | `rpn.nepl` を `Stack` / `Vec` の借用 API 中心に書き直し、低レベルメモリ操作と move error を除去済み |
 | [RV-EXAMPLE-002](./examples.md#rv-example-002-bf-example-が-raw-memory-と-by-value-stack-pop-に依存している) | true | verified | P1 | architecture | `bf.nepl` を `Vec` / `Stack` / string byte API 中心へ書き直し、raw allocation と move error を除去済み |
 | [RV-EXAMPLE-003](./examples.md#rv-example-003-legacy-rpn-example-が-raw-memory-と-typo-名に依存している) | true | verified | P1 | architecture | `rpn_regacy.nepl` を `rpn_legacy.nepl` に改名し、stdlib public API 中心へ書き直し済み |
+| [RV-EXAMPLE-004](./examples.md#rv-example-004-basicstools-example-に旧-import--entry-表記が残っている) | true | verified | P2 | maintenance | basics/tools examples の import と entry 関数型表記を現行形へ統一済み |

@@ -1,3 +1,16 @@
+# 2026-04-26 メモ (basic/tools examples の review issue 記録)
+
+- [状況]:
+  - `helloworld`, `counter`, `counter2`, `fib`, `nm` の旧 import / entry 表記修正は完了していたが、review issue 台帳へのまとまった記録が不足していた。
+- [修正]:
+  - `doc/review20260425/examples.md` に `RV-EXAMPLE-004` を追加した。
+  - `doc/review20260425/issues.md` の examples / 合計の解決済数を更新した。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-final.json -j 4`: 12/12 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。review issue 台帳へ、実行可能 example の現行化作業を追記した。
+
 # 2026-04-26 メモ (helloworld example の import 表記更新)
 
 - [状況]:

@@ -130,3 +130,41 @@ example が「低レベルメモリ操作を使わず stdlib を活用する」�
 
 - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-example-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
 - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-after-rpn-legacy.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+
+## RV-EXAMPLE-004: basics/tools example に旧 import / entry 表記が残っている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P2
+- 種別: maintenance
+- 対象: `examples/helloworld.nepl`, `examples/counter.nepl`, `examples/counter2.nepl`, `examples/fib.nepl`, `examples/nm.nepl`
+
+### 根拠
+
+- `examples/helloworld.nepl`: `#import "std/stdio"` が alias なしのまま残っていた。
+- `examples/counter.nepl`, `examples/counter2.nepl`, `examples/fib.nepl`: import が現行の `as *` 表記に揃っていなかった。
+- `examples/fib.nepl`, `examples/nm.nepl`: entry 関数や helper 関数の関数型表記が古い形のまま残っていた。
+
+### 問題
+
+basics/tools の example は最初に読む小さなサンプルであり、現行の import と関数型表記を示す必要があります。古い表記が混在すると、利用者が新しい stdlib/API の書き方ではなく互換的な古い形を写してしまいます。
+
+### 影響
+
+小さな example ほどコピーされやすいため、alias なし import や古い entry 関数型表記が新規コードへ広がります。loader や型表記の仕様を整理するときにも、example 側に古い互換前提が残り続けます。
+
+### 修正方針
+
+import は wildcard import が必要なものを `as *` に統一し、名前空間付きで使うものは alias を明示します。entry 関数と helper 関数は `fn name <(args)->ret> (...)` の現行形へ揃え、挙動は変更しません。
+
+### 対応結果
+
+`helloworld.nepl`, `counter.nepl`, `counter2.nepl`, `fib.nepl`, `nm.nepl` の import / 関数型表記を現行形へ更新しました。`fib.nepl` の不要な `mut` も同時に外し、出力仕様と doctest の意図は維持しています。
+
+### 検証
+
+確認済み:
+
+- `trunk build`
+- `node nodesrc/tests.js -i examples/helloworld.nepl --no-tree -o tmp/helloworld-example-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
+- `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-final.json -j 4` (`total=12`, `passed=12`, `failed=0`)
