@@ -15425,3 +15425,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - core を library として使う経路で、通常実行時に loader/type string debug が stderr を汚染しない境界へ寄せた。
+
+# 2026-04-25 メモ (RV-CLI-009 GitHub Actions wasm-bindgen cache 破損 Issue 追加)
+
+- [調査]:
+  - GitHub Actions run `24931603415` を `gh run view 24931603415 --repo neknaj/NEPLg2` と `gh run view 24931603415 --repo neknaj/NEPLg2 --log-failed` で確認した。
+  - 一次失敗は `build` job の `Shared bootstrap build` で、`wasm-bindgen --version` が `/home/runner/work/_temp/...sh: line 1: wasm-bindgen: command not found` になり exit code 127 で失敗していた。
+  - `pages-final-bundle` の `bootstrap-build` artifact 不在と `pages-final-deploy` の `github-pages` artifact 不在は、build job が artifact upload 前に止まった派生失敗だった。
+  - 直前の run `24931584140` でも同じ `wasm-bindgen: command not found` を確認した。
+  - さらに run `24929865567` の build job では、`wasm-bindgen-cli` install と verify は成功していたが、その後の post step で `... Cleaning cargo/bin ...` の後に `Cache saved with key: wasm-bindgen-cli-Linux-X64-0.2.108` が実行されていた。
+  - `gh cache list --repo neknaj/NEPLg2 --key wasm-bindgen-cli-Linux-X64-0.2.108` では該当 cache が `626 B` で、`wasm-bindgen` バイナリを含むサイズではなかった。
+- [原因]:
+  - `.github/actions/bootstrap-build/action.yml` は `actions/cache@v4` で `~/.cargo/bin/wasm-bindgen` などを cache し、cache hit 時は `cargo install --locked wasm-bindgen-cli --version 0.2.108` を実行しない。
+  - 同じ composite action の後段で `Swatinem/rust-cache@v2` を実行しており、この action の post step が `~/.cargo/bin` を掃除する。
+  - Actions の post step は main step と逆順に実行されるため、`Swatinem/rust-cache` が `~/.cargo/bin` を掃除した後に、wasm-bindgen 用 `actions/cache` が空に近い内容を正常 key として保存していた。
+  - 次回以降は壊れた cache に hit して install を飛ばすため、`wasm-bindgen --version` で `command not found` になる。
+- [追加確認]:
+  - run `24929865567` では build と final bundle が通った後、`pages-final-deploy` が `Multiple artifacts named "github-pages" were unexpectedly found for this workflow run. Artifact count is 2.` で失敗していた。
+  - `.github/workflows/ci.yml` では `pages-fast-bundle` と `pages-final-bundle` がどちらも既定名 `github-pages` の Pages artifact を upload し、`pages-fast-deploy` と `pages-final-deploy` も既定 artifact 名を参照している。
+  - run `24931603415` の Pages artifact 不在は build 失敗の派生だが、bootstrap 修正後には同名 Pages artifact 問題が再発する可能性があるため、別 Issue として分離した。
+- [対応]:
+  - `doc/review20260425/issues.md` と `doc/review20260425/cli.md` に `RV-CLI-009` と `RV-CLI-010` を追加した。
+  - `todo.md` に `RV-CLI-009` と `RV-CLI-010` の修正作業を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CI/test infrastructure 側の cache 設計不備として管理し、コンパイラ本体や stdlib の回帰とは分離して追跡する。

@@ -265,3 +265,83 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 ### 検証
 
 未知引数で exit code 2 になる Node CLI test を追加します。
+
+## RV-CLI-009: wasm-bindgen-cli cache が rust-cache の後処理で壊れ CI bootstrap が落ちる
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `.github/actions/bootstrap-build/action.yml`, `.github/workflows/ci.yml`
+
+### 根拠
+
+- `.github/actions/bootstrap-build/action.yml:55`: `actions/cache@v4` で `~/.cargo/bin/wasm-bindgen` などを `wasm-bindgen-cli-Linux-X64-0.2.108` として cache している。
+- `.github/actions/bootstrap-build/action.yml:67`: cache hit 時は `cargo install --locked wasm-bindgen-cli --version 0.2.108` を実行しない。
+- `.github/actions/bootstrap-build/action.yml:83`: 直後に `wasm-bindgen --version` で存在確認している。
+- `.github/actions/bootstrap-build/action.yml:88`: 同じ composite action の後段で `Swatinem/rust-cache@v2` を実行している。
+- GitHub Actions run `24931603415`: `Shared bootstrap build` が `wasm-bindgen: command not found` により exit code 127 で失敗した。
+- GitHub Actions run `24929865567`: build job で `wasm-bindgen-cli` を install した後、post step で `... Cleaning cargo/bin ...` が出てから `Cache saved with key: wasm-bindgen-cli-Linux-X64-0.2.108` が実行された。
+- `gh cache list --repo neknaj/NEPLg2 --key wasm-bindgen-cli-Linux-X64-0.2.108` では該当 cache が `626 B` で、`wasm-bindgen` バイナリを含むサイズではなかった。
+
+### 問題
+
+`wasm-bindgen-cli` 専用 cache と `Swatinem/rust-cache` が同じ `~/.cargo/bin` を扱っています。GitHub Actions の post step は main step と逆順に実行されるため、後から定義された `Swatinem/rust-cache` の後処理が先に `~/.cargo/bin` を掃除し、その後で先に定義された `actions/cache` が wasm-bindgen 用 cache を保存します。
+
+その結果、`wasm-bindgen-cli-Linux-X64-0.2.108` という正常そうな key に、バイナリを含まない空に近い cache が保存されます。次回以降は cache hit により install step がスキップされ、`wasm-bindgen --version` が `command not found` で失敗します。
+
+### 影響
+
+`build` job が `Shared bootstrap build` で止まるため、`bootstrap-build` artifact が upload されません。`compile-test` / `rust-test` / `wasi-test` / `stdlib-test` など build に依存する job は実行されず、`pages-final-bundle` と `pages-final-deploy` も artifact 不在で派生失敗します。結果として CI が本来のコンパイラ・stdlib 回帰を検証できません。
+
+### 修正方針
+
+`wasm-bindgen-cli` の cache を `Swatinem/rust-cache` の `~/.cargo/bin` cleaning と競合しない形に変更します。候補は次のいずれかです。
+
+- `wasm-bindgen-cli` 専用 cache を廃止し、毎回 `cargo install --locked wasm-bindgen-cli --version 0.2.108` を実行する。
+- `cargo install --root` で workspace 内または専用 directory に install し、その directory を cache して `GITHUB_PATH` へ追加する。
+- cache hit 後も `command -v wasm-bindgen` と `wasm-bindgen --version` を検査し、壊れた cache の場合は再 install する。
+- 既存 key を変えて、壊れた `wasm-bindgen-cli-Linux-X64-0.2.108` cache を再利用しない。
+
+単に `Verify wasm-bindgen-cli` を消すのではなく、cache が壊れていても bootstrap が自己修復する構造にします。
+
+### 検証
+
+`gh run view <run-id> --log-failed` で `Shared bootstrap build` が `wasm-bindgen --version` を通過することを確認します。壊れた cache が残っている状態でも、再 install または専用 path への install により `trunk build --release --public-url /NEPLg2/` まで進むことを確認します。
+
+## RV-CLI-010: Pages fast/final deploy が同じ github-pages artifact 名を使い final deploy が落ちる
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `.github/workflows/ci.yml`
+
+### 根拠
+
+- `.github/workflows/ci.yml:389`: `pages-fast-bundle` が `actions/upload-pages-artifact@v3` を既定設定で実行している。
+- `.github/workflows/ci.yml:410`: `pages-fast-deploy` が `actions/deploy-pages@v4` を既定 artifact 名で実行している。
+- `.github/workflows/ci.yml:412`: `pages-final-bundle` は `needs` を `always()` で受け、同じ push run 内で final Pages artifact を作る。
+- `.github/workflows/ci.yml:496`: `pages-final-bundle` も `actions/upload-pages-artifact@v3` を既定設定で実行している。
+- `.github/workflows/ci.yml:517`: `pages-final-deploy` も `actions/deploy-pages@v4` を既定 artifact 名で実行している。
+- GitHub Actions run `24929865567`: build と final bundle は通ったが、`pages-final-deploy` が `Multiple artifacts named "github-pages" were unexpectedly found for this workflow run. Artifact count is 2.` で失敗した。
+
+### 問題
+
+`pages-fast-bundle` と `pages-final-bundle` が同じ workflow run 内で、どちらも既定名 `github-pages` の Pages artifact を upload します。`pages-fast-deploy` で pending site を先に出す設計自体は有効ですが、artifact は同じ run 内に残ります。
+
+そのため `pages-final-deploy` が final site を deploy しようとすると、`actions/deploy-pages` が同名 `github-pages` artifact を 2 つ見つけて停止します。今回 run `24931603415` では build が先に失敗したため `No artifacts named "github-pages"` として見えていますが、bootstrap が直ると run `24929865567` と同じ同名 artifact 問題が再発する可能性があります。
+
+### 影響
+
+push CI で Pages の pending deploy と final deploy を同じ workflow run に入れている限り、final Pages 更新が安定しません。テスト結果 JSON を merge した final site を公開できず、CI 上の失敗も実テスト失敗なのか Pages 配布設計の失敗なのか分かりにくくなります。
+
+### 修正方針
+
+fast と final の Pages artifact 名を分離し、それぞれの deploy step が対応する artifact 名を明示して参照するようにします。`actions/upload-pages-artifact` / `actions/deploy-pages` の対応 version で artifact name 指定が可能かを確認し、可能なら `github-pages-fast` と `github-pages-final` のように分けます。
+
+artifact 名分離ができない場合は、pending deploy と final deploy を別 workflow に分割するか、fast deploy を廃止して final deploy だけにするなど、同一 run 内に `github-pages` artifact が複数残らない構造へ変更します。
+
+### 検証
+
+bootstrap が成功する状態で push CI を実行し、`pages-fast-deploy` と `pages-final-deploy` がそれぞれ意図した artifact を deploy することを確認します。`gh run view <run-id> --log-failed` で `Multiple artifacts named "github-pages"` が出ないことを確認します。
