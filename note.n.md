@@ -15232,3 +15232,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - owning collection handle は shallow copy できない move-only 値として扱う方針へ寄せた。要素 drop と deep clone は別 Issue で継続する。
+
+# 2026-04-25 nodesrc CLI への Discord 投稿追加
+
+- `nodesrc/cli.js` に Discord Webhook 投稿モードを追加:
+  - `--discord "<message>"` もしくは `node nodesrc/cli.js "<message>"` でメッセージ投稿
+  - Webhook URL は `NEPL_DISCORD_WEBHOOK_URL`（第一優先）、`DISCORD_WEBHOOK_URL`（代替）、`--discord-webhook-url`（明示指定）
+  - Discord の content 文字数制約に合わせて 2000 文字までで分割投稿
+  - 429 / 5xx 時の再試行を実装（`NEPL_DISCORD_WEBHOOK_RETRIES`, `NEPL_DISCORD_WEBHOOK_TIMEOUT_MS`, `NEPL_DISCORD_WEBHOOK_MESSAGE_MAX` を環境変数で調整可能）
+  - `allowed_mentions` を抑制し、不要なメンション拡散を防止
+- 設計検討の出発点として、Discord 公式ドキュメント（Incoming Webhooks, Webhook Resource, Rate Limits）を確認して、URL パターン検証と再試行方針を決定
+- 既存モード（html/html_play/json + playground editor）と同時実行しないようにし、Discord モードでは排他扱いにした
+- `plan.md` は原則どおり変更なし。実装差分は本ノートと `doc/nodesrc_discord_webhook.md` に記録
+
+- 確認:
+  - `NEPL_DISCORD_WEBHOOK_URL` 経由（あなたのURLを環境変数に設定）で
+    - `node nodesrc/cli.js "positional test from nodesrc"`
+    - `node nodesrc/cli.js --discord "test from nodesrc"`
+    を実行し、どちらも `discord sent: chunks=1` を返して投稿成功を確認。
+  - `--discord-webhook-url` 併用でも同様に投稿可能。
+- 追加対応:
+  - 投稿時の表示名（`username`）を `NEPLg2 dev report` に固定。
+
+- 追加対応（報告運用）:
+  - `doc/progress_report_template.md` を追加し、Discord 投稿用レポートの最低構成（「直近の改良」「これからする内容」「検証」）を統一。

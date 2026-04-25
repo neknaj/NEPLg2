@@ -9,10 +9,13 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const http = require('node:http');
+const https = require('node:https');
 const { candidateDistDirs } = require('./util_paths');
 const { findCompilerDistDir } = require('./compiler_loader');
 const { buildEntriesFromAst } = require('./search');
 const { runCases: runPlaygroundEditorCases } = require('./playground_editor_test_runner');
+const DISCORD_WEBHOOK_USERNAME = 'NEPLg2 dev report';
 
 let parserModuleCache = null;
 let htmlGenModuleCache = null;
@@ -46,6 +49,9 @@ function parseArgs(argv) {
     let siteName = 'NEPLg2';
     let descriptionPrefix = 'NEPLg2';
     let playgroundEditorTests = false;
+    let discordMessage = null;
+    let webhookUrl = process.env.NEPL_DISCORD_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || '';
+    const positional = [];
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -78,11 +84,231 @@ function parseArgs(argv) {
             playgroundEditorTests = true;
             continue;
         }
+        if (a === '--discord') {
+            if (i + 1 >= argv.length) {
+                throw new Error('--discord requires a message argument');
+            }
+            discordMessage = argv[++i];
+            continue;
+        }
+        if (a === '--discord-webhook-url') {
+            if (i + 1 >= argv.length) {
+                throw new Error('--discord-webhook-url requires a URL argument');
+            }
+            webhookUrl = argv[++i];
+            continue;
+        }
         if (a === '-h' || a === '--help') {
-            return { help: true, inputs, outs, excludeDirs, siteName, descriptionPrefix, playgroundEditorTests };
+            return {
+                help: true,
+                inputs,
+                outs,
+                excludeDirs,
+                siteName,
+                descriptionPrefix,
+                playgroundEditorTests,
+                discordMessage,
+                webhookUrl,
+            };
+        }
+        if (!a.startsWith('-')) {
+            positional.push(a);
+            continue;
         }
     }
-    return { help: false, inputs, outs, excludeDirs, siteName, descriptionPrefix, playgroundEditorTests };
+    if (discordMessage === null && positional.length > 0 && inputs.length === 0 && Object.keys(outs).length === 0 && !playgroundEditorTests) {
+        discordMessage = positional.join(' ');
+    }
+    return {
+        help: false,
+        inputs,
+        outs,
+        excludeDirs,
+        siteName,
+        descriptionPrefix,
+        playgroundEditorTests,
+        discordMessage,
+        webhookUrl,
+    };
+}
+
+function parseIntEnv(name, fallback) {
+    const raw = process.env[name];
+    if (raw === undefined) {
+        return fallback;
+    }
+    const value = Number.parseInt(raw, 10);
+    if (!Number.isFinite(value) || value <= 0) {
+        return fallback;
+    }
+    return value;
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function ensureWebhookUrl(rawUrl) {
+    if (!rawUrl || String(rawUrl).trim().length === 0) {
+        throw new Error('Discord webhook URL is not set. Set NEPL_DISCORD_WEBHOOK_URL (or DISCORD_WEBHOOK_URL) or pass --discord-webhook-url.');
+    }
+    let url;
+    try {
+        url = new URL(rawUrl);
+    } catch (e) {
+        throw new Error(`invalid Discord webhook URL: ${rawUrl}`);
+    }
+    const pathname = url.pathname;
+    if (!/^\/api\/webhooks\/[^/]+\/[^/]+/.test(pathname)) {
+        throw new Error(`invalid Discord webhook URL: ${rawUrl}`);
+    }
+    return url;
+}
+
+function splitDiscordMessage(message, maxChunkLength) {
+    const source = String(message);
+    if (source.length === 0) return [];
+    const limit = Math.max(1, Math.floor(maxChunkLength));
+    const chunks = [];
+    let remaining = source;
+    while (remaining.length > limit) {
+        let cut = -1;
+        let idx = remaining.lastIndexOf('\n', limit + 1);
+        if (idx >= 1) {
+            cut = idx;
+        }
+        if (cut < 0) {
+            idx = remaining.lastIndexOf(' ', limit + 1);
+            if (idx >= 1) {
+                cut = idx;
+            }
+        }
+        if (cut < 0) {
+            cut = limit;
+        }
+        const head = remaining.slice(0, cut);
+        const tail = remaining.slice(cut).replace(/^\s+/, '');
+        chunks.push(head);
+        remaining = tail;
+    }
+    if (remaining.length > 0) {
+        chunks.push(remaining);
+    }
+    return chunks;
+}
+
+function parseRetryDelayMs(res, body) {
+    const header = res.headers['retry-after'];
+    if (header) {
+        const parsed = Number.parseFloat(header);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            return Math.ceil(parsed * 1000);
+        }
+    }
+    const bodyRetry = Number.parseFloat(body && body.retry_after);
+    if (Number.isFinite(bodyRetry) && bodyRetry >= 0) {
+        return Math.ceil(bodyRetry * 1000);
+    }
+    return 1000;
+}
+
+async function postDiscordChunk(url, content, attempt, maxAttempts, timeoutMs) {
+    const payload = JSON.stringify({
+        content,
+        username: DISCORD_WEBHOOK_USERNAME,
+        allowed_mentions: { parse: [] },
+    });
+
+    const requestUrl = url;
+    const client = requestUrl.protocol === 'https:' ? https : http;
+    const bodyChunks = [];
+
+    const response = await new Promise((resolve, reject) => {
+        const req = client.request(
+            {
+                method: 'POST',
+                hostname: requestUrl.hostname,
+                port: requestUrl.port || undefined,
+                path: `${requestUrl.pathname}${requestUrl.search}`,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(payload),
+                },
+            },
+            (res) => {
+                res.setEncoding('utf8');
+                res.on('data', (chunk) => bodyChunks.push(chunk));
+                res.on('end', () => {
+                    resolve({
+                        statusCode: res.statusCode || 0,
+                        headers: res.headers,
+                        body: bodyChunks.join(''),
+                    });
+                });
+            },
+        );
+        req.on('error', reject);
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error('Discord webhook request timeout'));
+        });
+        req.write(payload);
+        req.end();
+    });
+
+    const responseBody = response.body.trim().length > 0 ? response.body : '';
+    let responseJson = null;
+    if (responseBody) {
+        try {
+            responseJson = JSON.parse(responseBody);
+        } catch (e) {
+            responseJson = { raw: responseBody };
+        }
+    }
+
+    if (response.statusCode === 204 || (response.statusCode >= 200 && response.statusCode < 300)) {
+        return responseJson || { status: 'ok' };
+    }
+
+    if ((response.statusCode === 429 || response.statusCode >= 500) && attempt < maxAttempts) {
+        const retryAfterMs = parseRetryDelayMs(response, responseJson || {});
+        await sleep(retryAfterMs);
+        return postDiscordChunk(url, content, attempt + 1, maxAttempts, timeoutMs);
+    }
+
+    if (response.statusCode === 429) {
+        const reason = responseJson && responseJson.message ? responseJson.message : 'rate limited';
+        const global = responseJson && responseJson.global ? ' (global)' : '';
+        throw new Error(`Discord webhook request failed with 429${global}: ${reason}`);
+    }
+    const message = responseJson && responseJson.message ? responseJson.message : responseBody || `${response.statusCode}`;
+    throw new Error(`Discord webhook request failed with ${response.statusCode}: ${message}`);
+}
+
+async function sendDiscordMessage(message, webhookUrl) {
+    const url = ensureWebhookUrl(webhookUrl);
+    const maxChunkLength = parseIntEnv('NEPL_DISCORD_WEBHOOK_MESSAGE_MAX', 2000);
+    const timeoutMs = parseIntEnv('NEPL_DISCORD_WEBHOOK_TIMEOUT_MS', 15000);
+    const maxRetries = parseIntEnv('NEPL_DISCORD_WEBHOOK_RETRIES', 3);
+    const chunks = splitDiscordMessage(message, maxChunkLength);
+    if (chunks.length === 0) {
+        throw new Error('Discord message must not be empty.');
+    }
+    const posted = [];
+    for (let i = 0; i < chunks.length; i++) {
+        const content = chunks[i];
+        const result = await postDiscordChunk(url, content, 0, maxRetries, timeoutMs);
+        posted.push({
+            index: i + 1,
+            total: chunks.length,
+            contentLength: content.length,
+            result,
+        });
+    }
+    return {
+        url,
+        chunks: posted.length,
+        pieces: posted,
+    };
 }
 
 function ensureDir(p) {
@@ -237,13 +463,38 @@ async function runPlaygroundEditorCli(inputs, outPath) {
 }
 
 async function main() {
-    const { help, inputs, outs, excludeDirs, siteName, descriptionPrefix, playgroundEditorTests } = parseArgs(process.argv.slice(2));
+    const {
+        help,
+        inputs,
+        outs,
+        excludeDirs,
+        siteName,
+        descriptionPrefix,
+        playgroundEditorTests,
+        discordMessage,
+        webhookUrl,
+    } = parseArgs(process.argv.slice(2));
     const hasHtml = Boolean(outs.html);
     const hasHtmlPlay = Boolean(outs.html_play);
     const hasJson = Boolean(outs.json);
-    if (help || inputs.length === 0 || (!hasHtml && !hasHtmlPlay && !(playgroundEditorTests && hasJson))) {
-        console.log('Usage: node nodesrc/cli.js -i <input_dir_or_file> [-i ...] -o html=<output_dir> [-o html_play=<output_dir>] [-o json=<output_file>] [--exclude-dir <name>] [--site-name <name>] [--description-prefix <prefix>] [--playground-editor-tests]');
+    const hasDiscord = typeof discordMessage === 'string' && discordMessage.length > 0;
+    const hasDiscordTarget = hasDiscord;
+
+    if (help || (inputs.length === 0 && !hasDiscordTarget) || (!hasHtml && !hasHtmlPlay && !(playgroundEditorTests && hasJson) && !hasDiscordTarget)) {
+        console.log('Usage: node nodesrc/cli.js -i <input_dir_or_file> [-i ...] -o html=<output_dir> [-o html_play=<output_dir>] [-o json=<output_file>] [--exclude-dir <name>] [--site-name <name>] [--description-prefix <prefix>] [--playground-editor-tests] [--discord <message>] [--discord-webhook-url <url>]');
         process.exit(help ? 0 : 2);
+    }
+    if (hasDiscordTarget) {
+        if (hasHtml || hasHtmlPlay || playgroundEditorTests) {
+            throw new Error('Discord mode cannot be used together with html/html_play or playground-editor-tests options.');
+        }
+        if (inputs.length > 0) {
+            throw new Error('Discord mode cannot be used with -i inputs. Use only --discord or positional message text.');
+        }
+        const result = await sendDiscordMessage(discordMessage, webhookUrl);
+        const maskedToken = `${result.url.pathname.split('/').slice(0, 4).join('/')}...`;
+        console.log(`discord sent: chunks=${result.chunks}, url=${maskedToken}`);
+        return;
     }
     if (playgroundEditorTests) {
         if (!hasJson) {
