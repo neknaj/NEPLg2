@@ -1,3 +1,16 @@
+# 2026-04-26 メモ (counter example の現行表記化)
+
+- [状況]:
+  - `examples/counter.nepl` に旧式の関数型表記 `fn main <()*> ()>` と、alias なしの `#import` が残っていた。
+- [修正]:
+  - import を `as *` 付きに揃え、`main` の型表記を `fn main <()*>()>` に更新した。
+  - ループ処理と出力仕様は変更していない。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/counter.nepl --no-tree -o tmp/counter-example-tests.json -j 2`: 1/1 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。実行可能 example 側だけを現行構文へ揃えた。
+
 # 2026-04-25 メモ (bf example の最新API化)
 
 - [状況]:

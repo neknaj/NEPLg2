@@ -23,14 +23,14 @@
 #indent 4
 #target std
 
-#import "core/math"
-#import "std/stdio"
+#import "core/math" as *
+#import "std/stdio" as *
 
 //: main: 0 から 4 までを 1 行ずつ表示する
 //:
 //: [目的/もくてき]:
 //: - while ループの基本形を示します。
-fn main <()*> ()> ():
+fn main <()*>()> ():
     let mut x <i32> 0;
     while lt x 5:
         do:
