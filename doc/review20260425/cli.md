@@ -269,7 +269,7 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 ## RV-CLI-009: wasm-bindgen-cli cache が rust-cache の後処理で壊れ CI bootstrap が落ちる
 
 - 解決済: false
-- 状態: open
+- 状態: fixed
 - 優先度: P1
 - 種別: test
 - 対象: `.github/actions/bootstrap-build/action.yml`, `.github/workflows/ci.yml`
@@ -305,6 +305,10 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 
 単に `Verify wasm-bindgen-cli` を消すのではなく、cache が壊れていても bootstrap が自己修復する構造にします。
 
+### 対応
+
+`.github/actions/bootstrap-build/action.yml` で `wasm-bindgen-cli` の install root を `${GITHUB_WORKSPACE}/.cache/wasm-bindgen-cli/0.2.108` へ移し、cache key を `0.2.108-v2` に変更しました。cache hit 後も `wasm-bindgen --version` が `0.2.108` を返すか検査し、壊れていれば専用 root を削除して `cargo install --root` で再 install します。
+
 ### 検証
 
 `gh run view <run-id> --log-failed` で `Shared bootstrap build` が `wasm-bindgen --version` を通過することを確認します。壊れた cache が残っている状態でも、再 install または専用 path への install により `trunk build --release --public-url /NEPLg2/` まで進むことを確認します。
@@ -312,7 +316,7 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 ## RV-CLI-010: Pages fast/final deploy が同じ github-pages artifact 名を使い final deploy が落ちる
 
 - 解決済: false
-- 状態: open
+- 状態: fixed
 - 優先度: P1
 - 種別: test
 - 対象: `.github/workflows/ci.yml`
@@ -341,6 +345,10 @@ push CI で Pages の pending deploy と final deploy を同じ workflow run に
 fast と final の Pages artifact 名を分離し、それぞれの deploy step が対応する artifact 名を明示して参照するようにします。`actions/upload-pages-artifact` / `actions/deploy-pages` の対応 version で artifact name 指定が可能かを確認し、可能なら `github-pages-fast` と `github-pages-final` のように分けます。
 
 artifact 名分離ができない場合は、pending deploy と final deploy を別 workflow に分割するか、fast deploy を廃止して final deploy だけにするなど、同一 run 内に `github-pages` artifact が複数残らない構造へ変更します。
+
+### 対応
+
+`.github/workflows/ci.yml` で pending site の artifact 名を `github-pages-pending`、final site の artifact 名を `github-pages-final` に分け、各 `actions/deploy-pages@v4` の `artifact_name` に対応する名前を指定しました。
 
 ### 検証
 

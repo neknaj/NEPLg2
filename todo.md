@@ -14,8 +14,6 @@
 
 2026-04-25 Review
 
-- `RV-CLI-009` で GitHub Actions の `wasm-bindgen-cli` cache を `Swatinem/rust-cache` の cargo/bin cleaning と競合しない構造へ修正する
-- `RV-CLI-010` で GitHub Pages の fast/final artifact 名を分離し、final deploy が同名 artifact 複数で落ちない構造へ修正する
 - `RV-STDLIB-012` で `HashKey` / `Hasher` の独自 clone/copy capability を標準 `Clone` / `Copy` trait へ整理する
 - `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
 - Issue を修正したら対応する `core.md` / `cli.md` / `stdlib.md` の `解決済` と `状態` を更新し、確認結果を `note.n.md` に記録する

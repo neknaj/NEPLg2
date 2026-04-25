@@ -15450,3 +15450,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CI/test infrastructure 側の cache 設計不備として管理し、コンパイラ本体や stdlib の回帰とは分離して追跡する。
+
+# 2026-04-25 メモ (RV-CLI-009 / RV-CLI-010 GitHub Actions 修正)
+
+- [対応]:
+  - `RV-CLI-009`
+    - `.github/actions/bootstrap-build/action.yml` の `wasm-bindgen-cli` cache を `~/.cargo/bin` から workspace 下の `.cache/wasm-bindgen-cli/0.2.108` へ移した。
+    - cache key を `wasm-bindgen-cli-${{ runner.os }}-${{ runner.arch }}-0.2.108-v2` に変更し、壊れた既存 cache を再利用しないようにした。
+    - cache hit 時も `${root}/bin/wasm-bindgen --version` が `0.2.108` を返すか確認し、壊れていれば専用 root を削除して `cargo install --root` で再 install するようにした。
+    - 専用 root の `bin` を `GITHUB_PATH` に追加し、`Swatinem/rust-cache` の `~/.cargo/bin` cleaning と競合しない構造にした。
+  - `RV-CLI-010`
+    - `.github/workflows/ci.yml` の pending Pages artifact 名を `github-pages-pending`、final Pages artifact 名を `github-pages-final` に分けた。
+    - `actions/deploy-pages@v4` の `artifact_name` もそれぞれ対応する名前にし、同一 workflow run 内で `github-pages` 既定名が複数残らないようにした。
+  - `doc/review20260425/issues.md` と `doc/review20260425/cli.md` の `RV-CLI-009` / `RV-CLI-010` を `fixed` に更新した。
+  - 実装済みのため `todo.md` から `RV-CLI-009` / `RV-CLI-010` を削除した。
+- [確認]:
+  - ローカルでは workflow YAML と UTF-8 を確認する。
+  - 実際の検証は commit / push 後の GitHub Actions run で行う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CI infrastructure の問題として修正し、言語仕様やコンパイラ本体の設計には影響しない。

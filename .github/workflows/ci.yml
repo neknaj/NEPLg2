@@ -389,6 +389,7 @@ jobs:
             - name: Upload pending Pages artifact
               uses: actions/upload-pages-artifact@v3
               with:
+                  name: github-pages-pending
                   path: dist
 
     pages-fast-deploy:
@@ -408,6 +409,8 @@ jobs:
             - name: Deploy pending site
               id: deployment
               uses: actions/deploy-pages@v4
+              with:
+                  artifact_name: github-pages-pending
 
     pages-final-bundle:
         runs-on: ubuntu-latest
@@ -496,6 +499,7 @@ jobs:
             - name: Upload final Pages artifact
               uses: actions/upload-pages-artifact@v3
               with:
+                  name: github-pages-final
                   path: dist
 
     pages-final-deploy:
@@ -517,3 +521,5 @@ jobs:
             - name: Deploy final site
               id: deployment
               uses: actions/deploy-pages@v4
+              with:
+                  artifact_name: github-pages-final
