@@ -8,10 +8,10 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 12 | 0 |
+| core | 13 | 0 |
 | cli | 7 | 1 |
 | stdlib | 9 | 3 |
-| 合計 | 28 | 4 |
+| 合計 | 29 | 4 |
 
 ## Core
 
@@ -29,6 +29,7 @@
 | [RV-CORE-010](./core.md#rv-core-010-name-resolution-が二重化し本パイプラインに統合されていない) | false | open | P2 | architecture | `resolve.rs` と `name_resolve.rs` が分かれ、後者は skeleton のまま |
 | [RV-CORE-011](./core.md#rv-core-011-typeexpr-が-span-を保持せず診断位置が失われる) | false | open | P2 | bug | `TypeExpr::span()` が常に dummy を返す |
 | [RV-CORE-012](./core.md#rv-core-012-targetprofile-gate-の評価が複数箇所に散っている) | false | open | P2 | architecture | target gate が compiler/typecheck/target_precheck に分散している |
+| [RV-CORE-013](./core.md#rv-core-013-参照引数の関数呼び出しが一時-borrow-にならず所有値を固定する) | false | open | P0 | bug | `len_ref &v` のような参照引数呼び出し後も borrow が残り、非 Copy 値を再利用できない |
 
 ## CLI
 

@@ -400,3 +400,32 @@ gate evaluation を `passes/target_gate` 相当へ一本化し、AST から inac
 
 target gate の boolean expression、unknown gate、profile gate、raw body selection の matrix test を追加します。
 
+## RV-CORE-013: 参照引数の関数呼び出しが一時 borrow にならず所有値を固定する
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `nepl-core/src/passes/move_check.rs`, `tests/compiler/move_check.n.md`, `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/stack.nepl`
+
+### 根拠
+
+- `nepl-core/src/passes/move_check.rs`: 通常の関数呼び出し引数は `visit_expr` で処理され、`AddrOf` が `visit_borrow` によりスコープ終端までの borrow として記録される。
+- `stdlib/alloc/collections/vec.nepl`: `len_ref &v` の後に `push v ...` する doctest が、`Vec` から `Copy` を外した時点で `cannot move out of shared borrowed value` になる。
+- `stdlib/alloc/collections/stack.nepl`: `peek_ref &stk` / `len_ref &stk` も同じ構造です。
+
+### 問題
+
+`len_ref &v` のように参照を関数呼び出しへ渡すだけの式でも、move checker は `v` をスコープ終端まで shared borrow として扱います。参照引数の呼び出しは式の評価中だけの一時 borrow であるべきですが、現状では borrow が解放されないため、非 Copy 所有値を読み取った後に移動・更新できません。
+
+### 影響
+
+`Vec` / `Stack` を正しく非 Copy にすると、borrow-based read API を追加しても、その後の `push` / `free` / move が拒否されます。所有権を安全にした stdlib API と現在の borrow checker が噛み合わず、`RV-STDLIB-003` の根本修正を妨げます。
+
+### 修正方針
+
+move checker で call target の parameter type を参照し、parameter が `&T` / `&mut T` の場合は対応する引数を一時 borrow として評価します。`&x` は呼び出し式の評価中だけ borrow し、呼び出し後の `x` の所有権状態を `Valid` のまま保ちます。非参照引数の by-value move と、永続的な local borrow (`let r &x`) は従来どおり区別します。
+
+### 検証
+
+`tests/compiler/move_check.n.md` に「非 Copy 値を参照引数へ渡した後に move できる」回帰テストと、「local に保持した shared borrow 中の move は引き続き拒否される」回帰テストを追加します。`Vec` / `Stack` の `len_ref` / `peek_ref` doctest でも、読み取り後に元の collection を更新できることを確認します。

@@ -15170,3 +15170,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - ownership / borrow 方針と stdlib hash trait の capability 設計がずれている箇所を追加 Issue として追跡対象にした。
+
+# 2026-04-25 メモ (RV-CORE-013 追加)
+
+- [発見]:
+  - `RV-STDLIB-003` の対応中、`Vec` / `Stack` から `Copy` を外すと `len_ref &v` や `peek_ref &stk` の後に元の collection を move できなくなることを確認した。
+  - 原因は `_ref` API 表面ではなく、move checker が参照引数の関数呼び出しを一時 borrow として扱わず、スコープ終端までの borrow として記録している点にある。
+- [対応]:
+  - `doc/review20260425/issues.md` と `doc/review20260425/core.md` に `RV-CORE-013` を追加した。
+  - `todo.md` の P0 残件に `RV-CORE-013` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の所有権安全化を妨げる compiler 側の具体的な borrow checker バグを追加 Issue として追跡対象にした。
