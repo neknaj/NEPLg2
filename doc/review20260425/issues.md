@@ -8,17 +8,17 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 4 | 17 |
+| core | 3 | 18 |
 | cli | 7 | 6 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 20 | 42 |
+| 合計 | 19 | 43 |
 
 ## Core
 
 | ID | 解決済 | 状態 | 優先度 | 種別 | 要約 |
 |---|---|---|---|---|---|
-| [RV-CORE-001](./core.md#rv-core-001-core-の-no_std-境界が崩れている) | false | open | P1 | architecture | core が `no_std` を掲げながら `std` に依存している |
+| [RV-CORE-001](./core.md#rv-core-001-core-の-no_std-境界が崩れている) | true | verified | P1 | architecture | `SourceMap` と host module 境界を分離し、`wasm32v1-none` で core を check 可能に修正済み |
 | [RV-CORE-002](./core.md#rv-core-002-typecheckrs-が巨大化しすぎて責務が分離できていない) | false | open | P1 | architecture | `typecheck.rs` が型推論・名前解決・HIR 生成・trait 処理を抱え込んでいる |
 | [RV-CORE-003](./core.md#rv-core-003-reduce_calls-が-on2-化しやすく固定上限で正当な入力を落とす) | true | verified | P0 | performance | 固定上限・全走査・deep clone を除去し、1105 call chain を typecheck 可能に修正済み |
 | [RV-CORE-004](./core.md#rv-core-004-overload-解決が候補ごとに-typectx-全体を-clone-している) | true | verified | P0 | performance | `TypeCtx` checkpoint/rollback と mapping-based layout により overload/codegen の全体 clone を除去済み |

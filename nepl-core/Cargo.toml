@@ -5,10 +5,8 @@ edition = "2021"
 authors = ["NEPL Team"]
 
 [dependencies]
-thiserror.workspace = true
-wasm-encoder.workspace = true
-walkdir.workspace = true
-wasmparser = "0.244"
+wasm-encoder = { version = "0.244.0", default-features = false }
+wasmparser = { version = "0.244", default-features = false, features = ["validate"] }
 
 [dev-dependencies]
 wasmi.workspace = true

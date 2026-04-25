@@ -1019,7 +1019,10 @@ fn semantic_token_to_editor(
 
 fn range_from_span(source: &str, source_map: Option<&SourceMap>, span: Span) -> TextRange {
     let file_id = span.file_id.0;
-    let path = source_map.and_then(|map| map.path(span.file_id)).cloned();
+    let path = source_map.and_then(|map| {
+        map.path(span.file_id)
+            .map(|path| PathBuf::from(path.as_str()))
+    });
     let text = source_map
         .and_then(|map| map.get(span.file_id))
         .unwrap_or(source);

@@ -1,5 +1,6 @@
 #![no_std]
 extern crate alloc;
+#[cfg(not(target_os = "none"))]
 extern crate std;
 
 use alloc::boxed::Box;
@@ -8,7 +9,6 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use std::path::Path;
 
 use crate::ast::*;
 use crate::builtins::BuiltinKind;
@@ -17,30 +17,51 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::effects::{intrinsic_effect, raw_body_direct_callees};
 use crate::hir::*;
-use crate::loader::SourceMap;
+use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 
 // Helper to gate verbose HIR dumps. Use `dump!(...)` for noisy debug output
 // that should only appear when `NEPL_DUMP_HIR` is set.
 fn dump_enabled() -> bool {
-    std::env::var("NEPL_DUMP_HIR").is_ok()
+    #[cfg(target_os = "none")]
+    {
+        false
+    }
+    #[cfg(not(target_os = "none"))]
+    {
+        std::env::var("NEPL_DUMP_HIR").is_ok()
+    }
+}
+
+macro_rules! typecheck_log {
+    ($($arg:tt)*) => {{
+        #[cfg(target_os = "none")]
+        {
+            let _ = core::format_args!($($arg)*);
+        }
+        #[cfg(not(target_os = "none"))]
+        {
+            std::eprintln!($($arg)*);
+        }
+    }};
 }
 
 macro_rules! dump {
     ($($arg:tt)*) => {
         if dump_enabled() {
-            std::eprintln!($($arg)*);
+            typecheck_log!($($arg)*);
         }
     };
 }
 
+#[cfg(not(target_os = "none"))]
 fn print_diagnostics_summary(diags: &alloc::vec::Vec<crate::diagnostic::Diagnostic>) {
     if diags.is_empty() {
         return;
     }
     // Print a short, readable summary of diagnostics (one line per diagnostic)
-    std::eprintln!("Compiler diagnostics:");
+    typecheck_log!("Compiler diagnostics:");
     for d in diags.iter() {
         let sev = match d.severity {
             crate::diagnostic::Severity::Error => "error",
@@ -48,7 +69,7 @@ fn print_diagnostics_summary(diags: &alloc::vec::Vec<crate::diagnostic::Diagnost
         };
         // Display primary span as file_id:start-end for quick location.
         let span = &d.primary.span;
-        std::eprintln!(
+        typecheck_log!(
             "- {}: {} (span: {:?}:{:?}-{:?})",
             sev,
             d.message,
@@ -57,7 +78,7 @@ fn print_diagnostics_summary(diags: &alloc::vec::Vec<crate::diagnostic::Diagnost
             span.end
         );
         for sec in d.secondary.iter() {
-            std::eprintln!(
+            typecheck_log!(
                 "  note: {:?}:{:?}-{:?} {}",
                 sec.span.file_id,
                 sec.span.start,
@@ -69,6 +90,9 @@ fn print_diagnostics_summary(diags: &alloc::vec::Vec<crate::diagnostic::Diagnost
         }
     }
 }
+
+#[cfg(target_os = "none")]
+fn print_diagnostics_summary(_diags: &alloc::vec::Vec<crate::diagnostic::Diagnostic>) {}
 #[derive(Debug)]
 pub struct TypeCheckResult {
     pub module: Option<HirModule>,
@@ -1300,7 +1324,7 @@ pub fn typecheck(
                     continue;
                 }
                 if crate::log::is_verbose() {
-                    std::eprintln!("typecheck: registering global func {}", f.name.name);
+                    typecheck_log!("typecheck: registering global func {}", f.name.name);
                 }
                 if let Some(prev) = find_same_signature_func(&env, &f.name.name, ty, &ctx) {
                     diagnostics.push(
@@ -1394,7 +1418,7 @@ pub fn typecheck(
                 env.remove_duplicate_func(&f.name.name, ty, &ctx);
                 let symbol = mangle_function_symbol(&f.name.name, ty, &ctx);
                 if crate::log::is_verbose() && f.name.name == "new" {
-                    std::eprintln!(
+                    typecheck_log!(
                         "typecheck: registering global func new sig={}",
                         function_signature_string(&ctx, ty)
                     );
@@ -2308,7 +2332,7 @@ fn check_function(
                 .unwrap_or_else(|| String::from("<empty-block>")),
             _ => String::from("<non-block>"),
         };
-        std::eprintln!(
+        typecheck_log!(
             "check_function result debug: name={} result={} block_ty={} tail_ty={} func_ty={}",
             function.name,
             ctx.type_to_string(function.result),
@@ -3239,7 +3263,7 @@ impl<'a> BlockChecker<'a> {
             return self.type_param_has_bound_ref(ty, &bound.trait_base_name, &bound.trait_args);
         }
         if crate::log::is_verbose() {
-            std::eprintln!(
+            typecheck_log!(
                 "trait_bound_satisfied_by_ref: bound={} trait_self_ty={:?} ty={} ({:?})",
                 bound.name,
                 bound.trait_self_ty,
@@ -3260,7 +3284,7 @@ impl<'a> BlockChecker<'a> {
                     })
                     .unwrap_or(false)
             }) {
-                std::eprintln!(
+                typecheck_log!(
                     "  impl candidate target={} ({:?}) same_type={}",
                     self.ctx.type_to_string(imp.target_ty),
                     self.ctx.resolve_id(imp.target_ty),
@@ -4161,7 +4185,7 @@ impl<'a> BlockChecker<'a> {
             value_ty = None;
         };
 
-        if std::env::var("NEPL_DUMP_HIR").is_ok() {
+        if dump_enabled() {
             dump!(
                 "NEPL_DUMP_HIR: block span={:?} lines={} final_ty={:?} value_ty={:?}",
                 block.span,
@@ -4696,7 +4720,7 @@ impl<'a> BlockChecker<'a> {
                                                 "A" | "use_a" | "DefaultHash32" | "new" | "must_hm"
                                             )
                                         {
-                                            std::eprintln!(
+                                            typecheck_log!(
                                                 "push value {} ty={} auto_call={}",
                                                 lookup_name,
                                                 self.ctx.type_to_string(ty),
@@ -4885,7 +4909,7 @@ impl<'a> BlockChecker<'a> {
                                                 "A" | "use_a" | "DefaultHash32" | "new" | "must_hm"
                                             )
                                         {
-                                            std::eprintln!(
+                                            typecheck_log!(
                                                 "push callable {} ty={} auto_call=true",
                                                 lookup_name,
                                                 self.ctx.type_to_string(ty)
@@ -5117,7 +5141,7 @@ impl<'a> BlockChecker<'a> {
                     }
                     Symbol::AddrOf(span) => {
                         if crate::log::is_verbose() {
-                            std::eprintln!("check_prefix: pushing AddrOf to stack");
+                            typecheck_log!("check_prefix: pushing AddrOf to stack");
                         }
                         let a = self.ctx.fresh_var(None);
                         let ref_a = self.ctx.reference(a, false);
@@ -5839,7 +5863,7 @@ impl<'a> BlockChecker<'a> {
                     .map(|e| self.ctx.type_to_string(e.ty))
                     .collect::<Vec<_>>()
                     .join(", ");
-                std::eprintln!("prefix final extras before trim [{}]", tys);
+                typecheck_log!("prefix final extras before trim [{}]", tys);
             }
             for _ in 0..extras {
                 stack.pop();
@@ -6179,7 +6203,7 @@ impl<'a> BlockChecker<'a> {
                 _ => None,
             };
             if crate::log::is_verbose() {
-                std::eprintln!(
+                typecheck_log!(
                     "    Reducing {}: {} at pos {} with {} args, assign={:?}",
                     label,
                     self.ctx.type_to_string(inst_ty),
@@ -6207,7 +6231,7 @@ impl<'a> BlockChecker<'a> {
                         .map(|e| self.ctx.type_to_string(e.ty))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    std::eprintln!("      stack before guarded apply [{}]", before);
+                    typecheck_log!("      stack before guarded apply [{}]", before);
                 }
             }
             let applied = self.apply_function(
@@ -6237,7 +6261,7 @@ impl<'a> BlockChecker<'a> {
                         )
                     )
                 {
-                    std::eprintln!("      guarded result {}", self.ctx.type_to_string(val.ty));
+                    typecheck_log!("      guarded result {}", self.ctx.type_to_string(val.ty));
                 }
                 stack.insert(func_pos, val);
                 self.update_open_calls_after_reduction(stack, open_calls, func_pos, args_to_take);
@@ -6744,7 +6768,7 @@ impl<'a> BlockChecker<'a> {
                     return None;
                 }
                 if crate::log::is_verbose() {
-                    std::eprintln!(
+                    typecheck_log!(
                         "apply_function: Reducing AddrOf, inner={:?}",
                         args[0].expr.kind
                     );
@@ -6953,7 +6977,7 @@ impl<'a> BlockChecker<'a> {
         // General call or let/set
         if let HirExprKind::Var(name) | HirExprKind::FnValue(name) = &func.expr.kind {
             if crate::log::is_verbose() && name.contains("Result") {
-                std::eprintln!(
+                typecheck_log!(
                     "apply_function debug: callee={} type={} args=[{}] explicit_type_args=[{}]",
                     name,
                     self.ctx.type_to_string(func.ty),
@@ -6991,7 +7015,7 @@ impl<'a> BlockChecker<'a> {
                     let use_expected = expected_ret.is_some() && bindings.len() > 1;
                     if crate::log::is_verbose() && use_expected {
                         if let Some(expected) = expected_ret {
-                            std::eprintln!(
+                            typecheck_log!(
                                 "overload debug: '{}' using expected_ret={}",
                                 name,
                                 self.ctx.type_to_string(expected)
@@ -7011,7 +7035,7 @@ impl<'a> BlockChecker<'a> {
                     let mut mismatch_count = false;
                     for binding in &bindings {
                         if crate::log::is_verbose() {
-                            std::eprintln!(
+                            typecheck_log!(
                                 "overload debug: consider '{}' candidate {}",
                                 name,
                                 function_signature_string(self.ctx, binding.ty)
@@ -7036,7 +7060,7 @@ impl<'a> BlockChecker<'a> {
                             };
                             let Some((type_params, params, result, effect)) = func_data else {
                                 if crate::log::is_verbose() {
-                                    std::eprintln!(
+                                    typecheck_log!(
                                         "overload debug: skip '{}' candidate {} reason=not_function_after_type_args",
                                         name,
                                         function_signature_string(self.ctx, binding.ty)
@@ -7080,7 +7104,7 @@ impl<'a> BlockChecker<'a> {
                             } => (params, result, effect),
                             _ => {
                                 if crate::log::is_verbose() {
-                                    std::eprintln!(
+                                    typecheck_log!(
                                         "overload debug: skip '{}' candidate {} reason=not_function_instantiated",
                                         name,
                                         function_signature_string(self.ctx, binding.ty)
@@ -7092,7 +7116,7 @@ impl<'a> BlockChecker<'a> {
                         };
                         if c_params.len() < capture_len {
                             if crate::log::is_verbose() {
-                                std::eprintln!(
+                                typecheck_log!(
                                     "overload debug: skip '{}' candidate {} reason=capture_len params={} capture={}",
                                     name,
                                     function_signature_string(self.ctx, binding.ty),
@@ -7106,7 +7130,7 @@ impl<'a> BlockChecker<'a> {
                         let user_params = &c_params[capture_len..];
                         if user_params.len() != args.len() {
                             if crate::log::is_verbose() {
-                                std::eprintln!(
+                                typecheck_log!(
                                     "overload debug: skip '{}' candidate {} reason=arity user_params={} args={}",
                                     name,
                                     function_signature_string(self.ctx, binding.ty),
@@ -7121,7 +7145,7 @@ impl<'a> BlockChecker<'a> {
                         for (arg, pty) in args.iter().zip(user_params.iter()) {
                             if self.ctx.unify(arg.ty, *pty).is_err() {
                                 if crate::log::is_verbose() {
-                                    std::eprintln!(
+                                    typecheck_log!(
                                         "overload debug: skip '{}' candidate {} reason=unify arg={} param={}",
                                         name,
                                         function_signature_string(self.ctx, binding.ty),
@@ -7137,7 +7161,7 @@ impl<'a> BlockChecker<'a> {
                             if let Some(expected) = expected_ret {
                                 if self.ctx.unify(c_result, expected).is_err() {
                                     if crate::log::is_verbose() {
-                                        std::eprintln!(
+                                        typecheck_log!(
                                         "overload debug: skip '{}' candidate {} reason=expected_ret result={} expected={}",
                                         name,
                                         function_signature_string(self.ctx, binding.ty),
@@ -7151,7 +7175,7 @@ impl<'a> BlockChecker<'a> {
                         }
                         if ok {
                             if crate::log::is_verbose() {
-                                std::eprintln!(
+                                typecheck_log!(
                                     "overload debug: accept '{}' candidate {}",
                                     name,
                                     function_signature_string(self.ctx, binding.ty)
@@ -7220,7 +7244,7 @@ impl<'a> BlockChecker<'a> {
                                 })
                                 .collect::<Vec<_>>()
                                 .join(" | ");
-                            std::eprintln!(
+                            typecheck_log!(
                                 "overload debug: no candidate for '{}' args=[{}] candidates=[{}]",
                                 name,
                                 arg_tys,
@@ -7289,7 +7313,7 @@ impl<'a> BlockChecker<'a> {
                     if candidates.len() > 1 {
                         if crate::log::is_verbose() {
                             for candidate in &candidates {
-                                std::eprintln!(
+                                typecheck_log!(
                                     "overload debug: specificity '{}' candidate {} score={}",
                                     name,
                                     function_signature_string(self.ctx, candidate.binding.ty),
@@ -7482,7 +7506,7 @@ impl<'a> BlockChecker<'a> {
                                             .substitute(b.trait_self_ty, &type_arg_mapping),
                                     };
                                     if crate::log::is_verbose() {
-                                        std::eprintln!(
+                                        typecheck_log!(
                                             "trait-bound debug: callee='{}' tp={} raw_arg={} resolved_arg={} bound={} current_bounds={}",
                                             name,
                                             self.ctx.type_to_string(*tp),
@@ -7657,7 +7681,7 @@ impl<'a> BlockChecker<'a> {
                         if let Some(info) = self.enums.get(enm) {
                             if let Some(_vinfo) = info.variants.iter().find(|v| v.name == var) {
                                 if crate::log::is_verbose() && enm == "Result" && var == "Ok" {
-                                    std::eprintln!(
+                                    typecheck_log!(
                                         "enum ctor debug: name={} resolved_args=[{}] user_params=[{}] arg_tys=[{}] c_result={}",
                                         name,
                                         resolved_args
@@ -9023,6 +9047,26 @@ fn import_clause_unqualified_visibility(clause: &ImportClause) -> UnqualifiedImp
     }
 }
 
+fn default_import_alias(path: &str) -> Option<String> {
+    let file_name = path
+        .rsplit(|ch| ch == '/' || ch == '\\')
+        .next()
+        .unwrap_or(path)
+        .trim();
+    if file_name.is_empty() {
+        return None;
+    }
+    let stem = file_name
+        .strip_suffix(".nepl")
+        .or_else(|| file_name.strip_suffix(".n.md"))
+        .unwrap_or(file_name);
+    if stem.is_empty() {
+        None
+    } else {
+        Some(stem.to_string())
+    }
+}
+
 fn merge_unqualified_import_visibility(
     current: &mut UnqualifiedImportVisibility,
     next: UnqualifiedImportVisibility,
@@ -9195,10 +9239,8 @@ fn build_qualified_import_targets(
             continue;
         };
         let aliases: Vec<String> = match clause {
-            ImportClause::DefaultAlias => Path::new(path)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(|name| vec![name.to_string()])
+            ImportClause::DefaultAlias => default_import_alias(path)
+                .map(|alias| vec![alias])
                 .unwrap_or_default(),
             ImportClause::Alias(alias) => vec![alias.clone()],
             _ => Vec::new(),

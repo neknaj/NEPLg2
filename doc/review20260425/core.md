@@ -31,7 +31,7 @@ NEPLg2.0 の core は、動く経路を増やすために型検査・名前解�
 - 状態: verified
 - 優先度: P1
 - 種別: architecture
-- 対象: `nepl-core/src/lib.rs`, `nepl-core/src/compiler.rs`, `nepl-core/src/typecheck.rs`, `nepl-core/src/codegen_wasm.rs`
+- 対象: `nepl-core/Cargo.toml`, `nepl-core/src/lib.rs`, `nepl-core/src/source_map.rs`, `nepl-core/src/loader.rs`, `nepl-core/src/compiler.rs`, `nepl-core/src/typecheck.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/monomorphize.rs`, `nepl-core/src/types.rs`
 
 ### 根拠
 
@@ -51,11 +51,23 @@ core をブラウザ / WASM / self-host bootstrap で再利用する際に、hos
 
 ### 修正方針
 
-`SourceMap` の path 表示、debug output、host filesystem access を core API の外に出します。core は `alloc` までに限定し、CLI / web / test harness が path と I/O adapter を渡す構成に分けます。
+`SourceMap` を `loader.rs` から `source_map.rs` へ切り出し、path は `PathBuf` ではなく `alloc::String` の source label として保持するようにしました。host filesystem に依存する `loader` / `module_graph` / `resolve` は `target_os = "none"` では公開しない module に分離し、pure core 側の `compiler` / `typecheck` は `source_map::SourceMap` だけを見る構成に変更しました。
+
+`thiserror` / `walkdir` は `nepl-core` の未使用依存で、`wasm32v1-none` では transitive に `std` を要求していたため削除しました。`wasm-encoder` と `wasmparser` は default feature を無効化し、validator に必要な `validate` feature だけを有効化しています。
+
+debug logging は host target でのみ `std::eprintln!` を使い、`target_os = "none"` では format 引数を型検査するだけの no-op macro に集約しました。`typecheck.rs` の default import alias 処理は `std::path::Path` へ依存せず、import path 文字列から alias を導出します。
 
 ### 検証
 
-`nepl-core` を `wasm32-unknown-unknown` または同等の no_std 条件でビルドする CI job を追加します。
+- `cargo check -p nepl-core --target wasm32v1-none`: pass
+- `cargo fmt --all --check`: pass
+- `cargo check -p nepl-core`: pass
+- `cargo check --workspace`: pass
+- `cargo test -p nepl-core`: pass
+- `trunk build`: pass
+- `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-001.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- `git diff --check`: pass
 
 ## RV-CORE-002: typecheck.rs が巨大化しすぎて責務が分離できていない
 

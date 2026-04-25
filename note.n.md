@@ -16074,3 +16074,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 言語仕様を変更せず、現行 compiler の診断仕様に doctest fixture を揃えた。
+
+# 2026-04-25 メモ (RV-CORE-001 no_std core 境界)
+
+- [原因]:
+  - `nepl-core` は crate root で `#![no_std]` を宣言していたが、`compiler.rs` / `typecheck.rs` / `codegen_wasm.rs` / `monomorphize.rs` / `types.rs` が unconditional に `extern crate std` や `std::env` / `std::path::Path` / `std::eprintln!` を使っていた。
+  - `SourceMap` が `loader.rs` 内にあり、path 表現として `PathBuf` を保持していたため、診断用 source label と host filesystem path の境界が core 内で混ざっていた。
+  - `nepl-core` の依存に未使用の `thiserror` / `walkdir` が残り、`wasm-encoder` / `wasmparser` も default feature 経由で `std` 前提の依存を引いていた。
+- [修正]:
+  - `source_map.rs` を追加し、`SourceMap` / `SourcePath` を `alloc::String` ベースの no_std module として分離した。
+  - `loader` / `module_graph` / `resolve` は `target_os = "none"` では公開しない host module とし、pure core 側は `source_map::SourceMap` を直接参照する構成へ変更した。
+  - `thiserror` / `walkdir` を `nepl-core` 依存から削除し、`wasm-encoder` / `wasmparser` は default feature を無効化して必要 feature のみに絞った。
+  - verbose debug output は host target でのみ `std::eprintln!` を使い、no_std target では format 引数の型検査だけを行う no-op macro に置き換えた。
+  - `typecheck` の default import alias 導出を `std::path::Path` 依存から文字列処理へ変更した。
+- [検証]:
+  - `cargo check -p nepl-core --target wasm32v1-none`: pass
+  - `cargo fmt --all --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo check --workspace`: pass
+  - `cargo test -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-001.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+  - `git diff --check`: pass
+- [review issue]:
+  - `doc/review20260425/core.md` / `issues.md` の `RV-CORE-001` を `verified` とし、集計を更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - plan の「Core は WASI 無しのただの WASM」という境界に合わせ、host I/O と path 処理を `target_os = "none"` の core build から外した。

@@ -2,6 +2,7 @@
 
 #![no_std]
 extern crate alloc;
+#[cfg(not(target_os = "none"))]
 extern crate std;
 
 use alloc::borrow::Cow;
@@ -24,6 +25,19 @@ use crate::hir::*;
 use crate::runtime_helpers::{self, RuntimeHelperKind};
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
+
+macro_rules! wasm_log {
+    ($($arg:tt)*) => {{
+        #[cfg(target_os = "none")]
+        {
+            let _ = core::format_args!($($arg)*);
+        }
+        #[cfg(not(target_os = "none"))]
+        {
+            std::eprintln!($($arg)*);
+        }
+    }};
+}
 
 #[derive(Debug)]
 pub struct CodegenResult {
@@ -375,7 +389,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
             .filter(|f| f.name.starts_with("new__"))
             .map(|f| f.name.clone())
             .collect::<Vec<_>>();
-        std::eprintln!("wasm codegen functions(new*): {:?}", names);
+        wasm_log!("wasm codegen functions(new*): {:?}", names);
     }
     let strings = lower_strings(&module.string_literals);
 
@@ -407,7 +421,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
     // User functions
     for f in &module.functions {
         if crate::log::is_verbose() && f.name.contains("partition") {
-            std::eprintln!(
+            wasm_log!(
                 "wasm codegen candidate partition-like: {} skip={} func_ty={}",
                 f.name,
                 crate::wasm_shared::should_skip_wasm_codegen_for_generic(ctx, f),

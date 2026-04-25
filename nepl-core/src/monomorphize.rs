@@ -1,5 +1,6 @@
 #![no_std]
 extern crate alloc;
+#[cfg(not(target_os = "none"))]
 extern crate std;
 
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -10,6 +11,19 @@ use alloc::vec::Vec;
 use crate::hir::*;
 use crate::runtime_helpers::{find_runtime_helper_key, RuntimeHelperKind};
 use crate::types::{TypeCtx, TypeId, TypeKind};
+
+macro_rules! mono_log {
+    ($($arg:tt)*) => {{
+        #[cfg(target_os = "none")]
+        {
+            let _ = core::format_args!($($arg)*);
+        }
+        #[cfg(not(target_os = "none"))]
+        {
+            std::eprintln!($($arg)*);
+        }
+    }};
+}
 
 pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
     monomorphize_internal(ctx, module, true).0
@@ -62,7 +76,7 @@ fn monomorphize_internal(
         for (name, f) in &mono.funcs {
             if let TypeKind::Function { type_params, .. } = mono.ctx.get(f.func_ty) {
                 if crate::log::is_verbose() {
-                    std::eprintln!(
+                    mono_log!(
                         "monomorphize: checking {}, params.len={}",
                         name,
                         type_params.len()
@@ -91,7 +105,7 @@ fn monomorphize_internal(
 
     for name in initial {
         if crate::log::is_verbose() {
-            std::eprintln!("monomorphize: initial function {}", name);
+            mono_log!("monomorphize: initial function {}", name);
         }
         mono.request_instantiation(name, Vec::new());
     }
@@ -517,7 +531,7 @@ impl<'a> Monomorphizer<'a> {
                 .map(|arg| self.ctx.type_to_string(*arg))
                 .collect::<Vec<_>>()
                 .join(", ");
-            std::eprintln!(
+            mono_log!(
                 "monomorphize: request '{}' [{}] -> '{}'",
                 name,
                 rendered_args,
@@ -714,7 +728,7 @@ impl<'a> Monomorphizer<'a> {
         }
 
         if crate::log::is_verbose() && orig_name.contains("partition") {
-            std::eprintln!(
+            mono_log!(
                 "monomorphize: process '{}' -> '{}' args={}",
                 orig_name,
                 mangled,
@@ -738,7 +752,7 @@ impl<'a> Monomorphizer<'a> {
                         })
                         .cloned()
                         .collect::<Vec<_>>();
-                    std::eprintln!(
+                    mono_log!(
                         "monomorphize: missing original function '{}' candidates={:?}",
                         orig_name,
                         related
@@ -798,7 +812,7 @@ impl<'a> Monomorphizer<'a> {
         }
 
         if crate::log::is_verbose() && f.name.contains("partition") {
-            std::eprintln!(
+            mono_log!(
                 "monomorphize: insert specialized '{}' result={} block_ty={} func_ty={}",
                 mangled,
                 self.ctx.type_to_string(f.result),

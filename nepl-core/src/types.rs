@@ -1,14 +1,28 @@
 #![no_std]
 extern crate alloc;
+#[cfg(not(target_os = "none"))]
 extern crate std;
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ast::Effect;
+
+macro_rules! type_log {
+    ($($arg:tt)*) => {{
+        #[cfg(target_os = "none")]
+        {
+            let _ = core::format_args!($($arg)*);
+        }
+        #[cfg(not(target_os = "none"))]
+        {
+            std::eprintln!($($arg)*);
+        }
+    }};
+}
 
 /// Identifier for a type stored in the arena.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -1148,7 +1162,7 @@ impl TypeCtx {
             return self.unify(ra, rb);
         }
         if crate::log::is_verbose() {
-            std::eprintln!("unify: {:?} with {:?}", self.get(ra), self.get(rb));
+            type_log!("unify: {:?} with {:?}", self.get(ra), self.get(rb));
         }
         let ra = self.resolve(ra);
         let rb = self.resolve(rb);
@@ -1254,16 +1268,13 @@ impl TypeCtx {
                     if let (Some(pa), Some(pb)) = (a_var.payload, b_var.payload) {
                         if let Err(e) = self.unify(pa, pb) {
                             if crate::log::is_verbose() {
-                                std::eprintln!("unify: variant {} payload mismatch", a_var.name);
+                                type_log!("unify: variant {} payload mismatch", a_var.name);
                             }
                             return Err(e);
                         }
                     } else if a_var.payload.is_some() || b_var.payload.is_some() {
                         if crate::log::is_verbose() {
-                            std::eprintln!(
-                                "unify: variant {} payload presence mismatch",
-                                a_var.name
-                            );
+                            type_log!("unify: variant {} payload presence mismatch", a_var.name);
                         }
                         return Err(UnifyError::Mismatch);
                     }
@@ -1829,7 +1840,7 @@ impl TypeCtx {
         let ty = self.resolve_id(ty);
         if !seen.insert(ty) {
             if crate::log::is_verbose() {
-                std::eprintln!("CYCLE DETECTED in type_to_string: {:?}", ty);
+                type_log!("CYCLE DETECTED in type_to_string: {:?}", ty);
             }
             return String::from("cycle");
         }

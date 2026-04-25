@@ -10,7 +10,7 @@
 //!     -> codegen_wasm
 
 extern crate alloc;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_os = "none"))]
 extern crate std;
 
 pub mod diagnostic;
@@ -26,15 +26,19 @@ pub mod codegen_wasm;
 pub mod compiler;
 pub mod hir;
 pub mod lexer;
+#[cfg(not(target_os = "none"))]
 pub mod loader;
 pub mod log;
+#[cfg(not(target_os = "none"))]
 pub mod module_graph;
 pub mod monomorphize;
 pub mod nm;
 pub mod parser;
 pub mod passes;
+#[cfg(not(target_os = "none"))]
 pub mod resolve;
 pub mod runtime_helpers;
+pub mod source_map;
 pub mod target_gate;
 pub mod target_precheck;
 pub mod typecheck;

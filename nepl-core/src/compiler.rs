@@ -1,5 +1,4 @@
 #![no_std]
-extern crate std;
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
@@ -13,10 +12,10 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::error::CoreError;
 use crate::lexer;
-use crate::loader::SourceMap;
 use crate::monomorphize;
 use crate::parser;
 use crate::passes;
+use crate::source_map::SourceMap;
 use crate::span::FileId;
 use crate::span::Span;
 use crate::typecheck;
