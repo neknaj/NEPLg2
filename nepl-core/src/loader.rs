@@ -15,6 +15,14 @@ use std::fs;
 use std::path::{Component, PathBuf};
 extern crate std;
 
+macro_rules! loader_log {
+    ($($arg:tt)*) => {
+        if crate::log::is_verbose() {
+            std::eprintln!($($arg)*);
+        }
+    };
+}
+
 #[derive(Debug)]
 pub enum LoaderError {
     Io(String),
@@ -163,7 +171,7 @@ impl Loader {
         src: String,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
     ) -> Result<LoadResult, LoaderError> {
-        std::eprintln!("[Loader] load_inline_with_provider: path={:?}", path);
+        loader_log!("[Loader] load_inline_with_provider: path={:?}", path);
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
@@ -180,12 +188,12 @@ impl Loader {
         ) {
             Ok(m) => m,
             Err(e) => {
-                std::eprintln!("[Loader] load_inline_with_provider: failed: {:?}", e);
+                loader_log!("[Loader] load_inline_with_provider: failed: {:?}", e);
                 self.source_map = sm.clone();
                 return Err(e);
             }
         };
-        std::eprintln!(
+        loader_log!(
             "[Loader] load_inline_with_provider: success. cache_size={}",
             cache.len()
         );
@@ -271,7 +279,7 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
-        std::eprintln!(
+        loader_log!(
             "[Loader] load_from_contents_with: path={:?}, canon={:?}",
             path,
             canon
@@ -287,7 +295,7 @@ impl Loader {
         }
         let file_id = sm.add(canon.clone(), src.clone());
         let module = self.parse_module(file_id, src)?;
-        std::eprintln!("[Loader] processing directives for {:?}", canon);
+        loader_log!("[Loader] processing directives for {:?}", canon);
         let module = self.process_directives_with(
             canon.clone(),
             module,
@@ -300,7 +308,7 @@ impl Loader {
         )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
-        std::eprintln!("[Loader] finished contents for {:?}", canon);
+        loader_log!("[Loader] finished contents for {:?}", canon);
         Ok(module)
     }
 
@@ -323,12 +331,12 @@ impl Loader {
                 canon
             )));
         }
-        std::eprintln!("[Loader] Loading file: {:?}", canon);
+        loader_log!("[Loader] Loading file: {:?}", canon);
         let src = read_file_to_string(&canon)?;
         let file_id = sm.add(canon.clone(), src.clone());
-        std::eprintln!("[Loader] Parsing module: {:?}", canon);
+        loader_log!("[Loader] Parsing module: {:?}", canon);
         let module = self.parse_module(file_id, src)?;
-        std::eprintln!("[Loader] Processing directives for: {:?}", canon);
+        loader_log!("[Loader] Processing directives for: {:?}", canon);
         let module = self.process_directives(
             canon.clone(),
             module,
@@ -338,7 +346,7 @@ impl Loader {
             imported_once,
             is_root,
         )?;
-        std::eprintln!("[Loader] Finished loading: {:?}", canon);
+        loader_log!("[Loader] Finished loading: {:?}", canon);
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
         Ok(module)
@@ -697,7 +705,7 @@ impl Loader {
         if p.extension().is_none() {
             p = p.with_extension("nepl");
         }
-        std::eprintln!(
+        loader_log!(
             "[Loader] resolve_path: base={:?}, spec={:?} -> {:?}",
             base,
             spec,

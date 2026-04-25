@@ -247,6 +247,7 @@ fn main() -> Result<()> {
 }
 
 fn execute(cli: Cli) -> Result<()> {
+    nepl_core::log::set_verbose(cli.verbose);
     if let Some(Command::Test(args)) = cli.command {
         return run_tests(args, cli.verbose);
     }

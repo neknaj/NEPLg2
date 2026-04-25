@@ -8,10 +8,10 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 9 | 7 |
+| core | 8 | 8 |
 | cli | 7 | 1 |
 | stdlib | 8 | 4 |
-| 合計 | 24 | 12 |
+| 合計 | 23 | 13 |
 
 ## Core
 
@@ -22,7 +22,7 @@
 | [RV-CORE-003](./core.md#rv-core-003-reduce_calls-が-on2-化しやすく固定上限で正当な入力を落とす) | true | verified | P0 | performance | 固定上限・全走査・deep clone を除去し、1105 call chain を typecheck 可能に修正済み |
 | [RV-CORE-004](./core.md#rv-core-004-overload-解決が候補ごとに-typectx-全体を-clone-している) | true | verified | P0 | performance | `TypeCtx` checkpoint/rollback と mapping-based layout により overload/codegen の全体 clone を除去済み |
 | [RV-CORE-005](./core.md#rv-core-005-loader-が-import-clause-を無視して全-import-をフラット結合している) | false | open | P1 | bug | `as name` / selective import が loader の item 結合に反映されていない |
-| [RV-CORE-006](./core.md#rv-core-006-通常実行でデバッグ出力が-stderr-へ漏れる) | false | open | P1 | bug | loader などが verbose gate なしに `eprintln!` している |
+| [RV-CORE-006](./core.md#rv-core-006-通常実行でデバッグ出力が-stderr-へ漏れる) | true | verified | P1 | bug | core loader/type string の debug 出力を verbose gate 配下へ移動済み |
 | [RV-CORE-007](./core.md#rv-core-007-codegen-が診断ではなく-panic-で落ちる経路を多数持つ) | true | verified | P0 | bug | WASM/LLVM backend の explicit panic 経路を diagnostic error に変換し、codegen compile_fail と直接 HIR 回帰テストを追加済み |
 | [RV-CORE-008](./core.md#rv-core-008-effect-判定が文字列包含に依存していて不健全) | false | open | P1 | bug | raw body の effect が文字列検索で決まり、純粋性検査が信用できない |
 | [RV-CORE-009](./core.md#rv-core-009-moveborrowdrop-が-resource-ir-なしで後付け実装されている) | false | open | P1 | architecture | ownership / borrow / drop が HIR 走査だけで実装されている |

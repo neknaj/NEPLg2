@@ -219,11 +219,11 @@ loader は AST を物理的に結合せず、module graph と export/import tabl
 
 ## RV-CORE-006: 通常実行でデバッグ出力が stderr へ漏れる
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `nepl-core/src/loader.rs`, `nepl-core/src/typecheck.rs`, `nepl-core/src/types.rs`, `nepl-core/src/monomorphize.rs`
+- 対象: `nepl-core/src/loader.rs`, `nepl-core/src/types.rs`, `nepl-cli/src/main.rs`
 
 ### 根拠
 
@@ -245,9 +245,25 @@ doctest の `stderr` 比較、JSON 出力、CI log が不安定になります�
 
 core から直接 `eprintln!` を排除し、`Diagnostic` または injectable logger に統一します。debug-only log は `crate::log::is_verbose()` を通し、default は完全に無出力にします。
 
+### 対応
+
+loader の `[Loader]` 出力を `loader_log!` に集約し、`crate::log::is_verbose()` が有効な場合だけ stderr へ出すようにしました。`type_to_string` の cycle 検出ログも verbose gate 配下へ移動し、通常の型文字列化で stderr を汚染しないようにしました。
+
+CLI は loader を呼ぶ前に `nepl_core::log::set_verbose(cli.verbose)` を設定するようにし、`--verbose` が core loader にも伝播するようにしました。CLI 自身の `DEBUG:` 出力は既存の `RV-CLI-002` として別 issue で扱います。
+
 ### 検証
 
-正常 compile の stderr が空であることを CLI / Node runner の回帰テストに追加します。
+確認済み:
+
+- `cargo fmt --all --check`
+- `cargo check -p nepl-core`
+- `cargo build -p nepl-cli`
+- `target/debug/nepl-cli.exe --check -i tmp/rv-core-003-large.nepl --target core` で `[Loader]` 出力 0 件
+- `target/debug/nepl-cli.exe --verbose --check -i tmp/rv-core-003-large.nepl --target core` で `[Loader]` 出力あり
+- `cargo check --workspace`
+- `trunk build`
+- `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
 
 ## RV-CORE-007: codegen が診断ではなく panic で落ちる経路を多数持つ
 

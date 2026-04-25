@@ -15399,3 +15399,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 深い式に対する後段 compiler pipeline の stack 使用を減らし、core の artifact 生成安定性を改善した。
+
+# 2026-04-25 メモ (RV-CORE-006 core debug 出力の verbose gate 化)
+
+- [原因]:
+  - `Loader` が `[Loader] ...` の進捗ログを `crate::log::is_verbose()` を通さず直接 `eprintln!` していた。
+  - `TypeCtx::type_to_string` の cycle 検出も通常経路で stderr へ出る可能性があった。
+  - CLI は `CompileOptions.verbose` を compile 段階へ渡していたが、loader は compile より前に動くため、core の verbose flag が loader 実行時に設定されていなかった。
+- [修正]:
+  - `loader_log!` を追加し、loader の `[Loader]` 出力をすべて verbose gate 配下に集約した。
+  - `type_to_string` の cycle debug 出力を verbose gate 配下へ移動した。
+  - `nepl-cli` は loader を呼ぶ前に `nepl_core::log::set_verbose(cli.verbose)` を設定するようにした。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo build -p nepl-cli`: pass
+  - `target/debug/nepl-cli.exe --check -i tmp/rv-core-003-large.nepl --target core`: `[Loader]` 出力 0 件
+  - `target/debug/nepl-cli.exe --verbose --check -i tmp/rv-core-003-large.nepl --target core`: `[Loader]` 出力あり
+  - `cargo check --workspace`: pass
+  - `trunk build`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `13/13 passed`
+- [補足]:
+  - CLI 自身の `DEBUG:` 出力と `Check successful` の stderr 出力は `RV-CLI-002` の範囲として残した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - core を library として使う経路で、通常実行時に loader/type string debug が stderr を汚染しない境界へ寄せた。

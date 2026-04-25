@@ -1698,7 +1698,9 @@ impl TypeCtx {
     fn type_to_string_inner(&self, ty: TypeId, seen: &mut BTreeSet<TypeId>) -> String {
         let ty = self.resolve_id(ty);
         if !seen.insert(ty) {
-            std::eprintln!("CYCLE DETECTED in type_to_string: {:?}", ty);
+            if crate::log::is_verbose() {
+                std::eprintln!("CYCLE DETECTED in type_to_string: {:?}", ty);
+            }
             return String::from("cycle");
         }
         let res = match self.get(ty) {
