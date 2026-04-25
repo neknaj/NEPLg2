@@ -69,6 +69,24 @@
 //:     dealloc_raw p 4;
 //:     if and ok_ptr and ok_heap ok_free 1 0
 //: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let p0 <i32> alloc_raw 64;
+//:     dealloc_raw p0 64;
+//:     let p1 <i32> alloc_raw 8;
+//:     let p2 <i32> alloc_raw 16;
+//:     let ok0 <bool> eq p1 p0;
+//:     let ok1 <bool> eq p2 add p1 16;
+//:     dealloc_raw p2 16;
+//:     dealloc_raw p1 8;
+//:     if and ok0 ok1 1 0
+//: ```
 
 
 
@@ -271,14 +289,6 @@ fn alloc_raw <(i32)->i32> (size):
                         cond:
                             le total blk_sz
                         then:
-                            if:
-                                cond:
-                                    eq prev 0
-                                then:
-                                    store_i32 4 next
-                                else:
-                                    let prev_next_ptr <i32> add prev 4
-                                    store_i32 prev_next_ptr next
                             let remain <i32> sub blk_sz total
                             if:
                                 cond:
@@ -288,8 +298,24 @@ fn alloc_raw <(i32)->i32> (size):
                                     store_i32 new_blk remain
                                     let new_blk_next_ptr <i32> add new_blk 4
                                     store_i32 new_blk_next_ptr next
+                                    if:
+                                        cond:
+                                            eq prev 0
+                                        then:
+                                            store_i32 4 new_blk
+                                        else:
+                                            let prev_next_ptr <i32> add prev 4
+                                            store_i32 prev_next_ptr new_blk
                                     store_i32 cur total
                                 else:
+                                    if:
+                                        cond:
+                                            eq prev 0
+                                        then:
+                                            store_i32 4 next
+                                        else:
+                                            let prev_next_ptr <i32> add prev 4
+                                            store_i32 prev_next_ptr next
                                     store_i32 cur blk_sz
                             set found add cur header
                             set cur 0

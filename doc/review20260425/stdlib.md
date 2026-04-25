@@ -67,8 +67,8 @@ allocator 初期化を明示し、heap base を 8 以上に固定します。`al
 
 ## RV-STDLIB-002: free list 分割で余りブロックがリストへ戻らない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `stdlib/core/mem.nepl`
@@ -94,9 +94,19 @@ free list reuse が進むほど断片化ではなく実質リークになりま�
 
 unlink 前に split 判定するか、split 後に `new_blk` を同じ位置へ再 link します。`prev == 0` なら free list head を `new_blk` に、そうでなければ `prev.next = new_blk` にします。
 
+### 対応結果
+
+free list から見つけた block を split する場合は、余り block `new_blk` を free list head または `prev.next` に接続するようにしました。split しない場合だけ従来どおり `next` へつなぎ替えます。
+
 ### 検証
 
-大きい block を free し、小さい allocation で split した後、残りサイズに収まる allocation が free list から取られることをテストします。
+大きい block を free し、小さい allocation で split した後、残りサイズに収まる allocation が free list から取られることを確認する doctest を `stdlib/core/mem.nepl` に追加しました。
+
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 4`
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 
 ## RV-STDLIB-003: 所有権を持つ Vec/Stack が Copy/Clone になっている
 

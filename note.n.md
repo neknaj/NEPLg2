@@ -15107,3 +15107,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib の allocator が metadata 領域を壊す P0 バグを 1 件解消した。
+
+# 2026-04-25 メモ (RV-STDLIB-002 free list split 修正)
+
+- [原因]:
+  - `stdlib/core/mem.nepl` の `alloc_raw` は free block を split したとき、余り block の header は作るが、free list head または `prev.next` を `new_blk` に差し替えていなかった。
+  - 結果として split remainder が free list から失われ、再利用不能な領域になっていた。
+- [修正]:
+  - split する場合は `new_blk.next = next` を設定したうえで、`prev == 0` なら free list head を `new_blk` に、そうでなければ `prev.next = new_blk` に接続するようにした。
+  - split しない場合だけ、free list から対象 block を外して `next` へつなぎ替えるようにした。
+  - split 後の残り block が次の allocation に再利用される doctest を追加した。
+  - `doc/review20260425/issues.md` と `doc/review20260425/stdlib.md` の `RV-STDLIB-002` を `verified` に更新した。
+  - `todo.md` の P0 残件から `RV-STDLIB-002` を削除した。
+- [確認]:
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 4`: pass
+  - `trunk build`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib allocator の free list 再利用が split remainder を保持できるようになり、レビューで記録した P0 メモリリーク系バグを 1 件解消した。
