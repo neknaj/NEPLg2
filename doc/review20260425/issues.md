@@ -11,7 +11,8 @@
 | core | 8 | 8 |
 | cli | 7 | 2 |
 | stdlib | 8 | 5 |
-| 合計 | 23 | 15 |
+| examples | 0 | 1 |
+| 合計 | 23 | 16 |
 
 ## Core
 
@@ -65,3 +66,9 @@
 | [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | true | verified | P0 | architecture | `Clone` と `Vec` / `Stack` の read API を borrow-based に移行する前提を追加済み |
 | [RV-STDLIB-012](./stdlib.md#rv-stdlib-012-hashkeyhasher-の-clonecopy-capability-が標準-trait-と不整合) | false | open | P1 | architecture | `HashKey` / `Hasher` が独自の clone/copy capability を持ち、標準 `Clone` / `Copy` と不整合 |
 | [RV-STDLIB-013](./stdlib.md#rv-stdlib-013-stack-の-更新-api-が-by-value-pop-に偏り所有値の継続利用を阻害する) | true | verified | P1 | architecture | `Stack` に `get_ref` / `pop_ref` を追加し、Copy 要素を借用経由で読み取り・取り出しできるよう修正済み |
+
+## Examples
+
+| ID | 解決済 | 状態 | 優先度 | 種別 | 要約 |
+|---|---|---|---|---|---|
+| [RV-EXAMPLE-001](./examples.md#rv-example-001-rpn-example-が-stackvec-の内部表現と-by-value-api-に依存している) | true | verified | P1 | architecture | `rpn.nepl` を `Stack` / `Vec` の借用 API 中心に書き直し、低レベルメモリ操作と move error を除去済み |

@@ -1,3 +1,19 @@
+# 2026-04-25 メモ (rpn example の最新API化)
+
+- [状況]:
+  - `examples/rpn.nepl` は `Stack` の header/data pointer を `core/field` / `core/mem` で直接読み、`Vec<str>` と `Stack<i32>` を by-value API に渡していたため、現行の所有権規則で compile できなかった。
+  - `read_line` の stdin は doctest runner では echo されないため、既存の stdout 期待値も現行挙動とずれていた。
+- [修正]:
+  - `rpn.nepl` から `core/mem` / `core/field` import と raw header 読み取りを削除した。
+  - スタック表示を `stk::len_ref` / `stk::get_ref`、token 走査を `v::len_ref` / `v::get_ref`、演算時の取り出しを `stk::pop_ref` に寄せた。
+  - `pop` の `unwrap` 前提を `match` に変え、空 stack は値として処理するようにした。
+  - `doc/review20260425/examples.md` を追加し、`RV-EXAMPLE-001` を修正済み verified として記録した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-example-tests.json -j 2`: 2/2 passed
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-after-rpn.json -j 4`: 12件中10件 passed。残りは既存の `examples/bf.nepl` move checker error。
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。RPN example は高水準 stdlib の例として、collection 内部表現ではなく public API を使う形へ寄せた。
+
 # 2026-04-25 メモ (Stack の借用 pop/get API 追加)
 
 - [状況]:

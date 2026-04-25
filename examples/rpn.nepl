@@ -9,8 +9,7 @@
 //:     ##: RPN REPL
 //:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
 //:     ##: 
-//:     ##: > 1 2 +
-//:     ##: 3
+//:     ##: > 3
 //:     ##: ok: result = 3
 //:     ##: > bye
 //:
@@ -21,16 +20,13 @@
 //:     ##: RPN REPL
 //:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
 //:     ##: 
-//:     ##: > 2 7 -
-//:     ##: -5
+//:     ##: > -5
 //:     ##: ok: result = -5
 //:     ##: > bye
 
-#import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/field" as field
 #import "std/stdio" as *
 #import "alloc/string" as s
 #import "alloc/collections/stack" as stk
@@ -46,7 +42,7 @@
 //:
 //: [実装/じっそう]:
 //: - 入力を `str_split " "` でトークン化し、各トークンを順に処理します。
-//: - 処理経過のスタック状態を `  [ 値 | トップ値 ]` 形式で可視化します。
+//: - `Stack` / `Vec` の借用 API を使い、所有権を移動させずに途中状態を表示します。
 //: - 演算結果やエラーメッセージには ANSI カラーを使い、視認性を高く保ちます。
 //:
 //: [注意/ちゅうい]:
@@ -90,42 +86,45 @@ fn print_result <(i32)*>()> (val):
     print ansi_reset;
     print "\n";
 
-//: print_step_before: 途中計算の適用前状態を表示する
+//: print_stack_prefix: スタック内容を次の値の手前に表示する
 //:
 //: [目的/もくてき]:
-//: - `[stack] [a b op] [tokens]` の形式で演算子適用前の状態・ハイライトを出力します。
-fn print_step_before <(Stack<i32>,i32,i32,str,Vec<str>,i32)*>()> (stack, a, b, op, tokens, i):
-    let hdr <MemPtr<u8>> field::get stack "hdr";
-    let stk_len <i32> load_i32 mem_ptr_addr hdr;
-    let data <i32> load_i32 add mem_ptr_addr hdr 8;
-
+//: - 演算結果の前に、現在のスタック要素を先頭から順に表示します。
+//: - `Stack` の内部表現は読まず、`len_ref` と `get_ref` だけを使います。
+fn print_stack_prefix <(&Stack<i32>)*>()> (stack):
+    let stk_len <i32> stk::len_ref<i32> stack;
     let mut j <i32> 0;
     while lt j stk_len:
         do:
-            let elem <i32> load_i32 add data mul j 4;
-            print_i32 elem;
-            print " ";
-            set j add j 1;
-
-    print ansi_cyan;
-    print_i32 a;
-    print " ";
-    print_i32 b;
-    print " ";
-    print op;
-    print ansi_reset;
-
-    let n <i32> v::len<str> tokens;
-    let mut k <i32> add i 1;
-    while lt k n:
-        do:
-            print " ";
-            match v::get<str> tokens k:
-                Option::Some tok:
-                    print tok;
+            match stk::get_ref<i32> stack j:
+                Option::Some elem:
+                    print_i32 elem;
+                    print " ";
                 Option::None:
                     ();
-            set k add k 1;
+            set j add j 1;
+
+//: print_stack_line: スタック内容を 1 行として表示する
+//:
+//: [目的/もくてき]:
+//: - 最終的に値が複数残ったとき、エラー前に現在のスタック全体を表示します。
+fn print_stack_line <(&Stack<i32>)*>()> (stack):
+    let stk_len <i32> stk::len_ref<i32> stack;
+    let mut j <i32> 0;
+    while lt j stk_len:
+        do:
+            if:
+                gt j 0
+                then:
+                    print " ";
+                else:
+                    ();
+            match stk::get_ref<i32> stack j:
+                Option::Some elem:
+                    print_i32 elem;
+                Option::None:
+                    ();
+            set j add j 1;
 
     print "\n";
 
@@ -133,29 +132,18 @@ fn print_step_before <(Stack<i32>,i32,i32,str,Vec<str>,i32)*>()> (stack, a, b, o
 //:
 //: [目的/もくてき]:
 //: - `[stack] [res] [tokens]` の形式で演算子適用後の状態・ハイライトを出力します。
-fn print_step_after <(Stack<i32>,i32,Vec<str>,i32)*>()> (stack, res, tokens, i):
-    let hdr <MemPtr<u8>> field::get stack "hdr";
-    let stk_len <i32> load_i32 mem_ptr_addr hdr;
-    let data <i32> load_i32 add mem_ptr_addr hdr 8;
-
-    let mut j <i32> 0;
-    while lt j stk_len:
-        do:
-            let elem <i32> load_i32 add data mul j 4;
-            print_i32 elem;
-            print " ";
-            set j add j 1;
-
+fn print_step_after <(&Stack<i32>,i32,&Vec<str>,i32)*>()> (stack, res, tokens, i):
+    print_stack_prefix stack;
     print ansi_green;
     print_i32 res;
     print ansi_reset;
 
-    let n <i32> v::len<str> tokens;
+    let n <i32> v::len_ref<str> tokens;
     let mut k <i32> add i 1;
     while lt k n:
         do:
             print " ";
-            match v::get<str> tokens k:
+            match v::get_ref<str> tokens k:
                 Option::Some tok:
                     print tok;
                 Option::None:
@@ -168,41 +156,48 @@ fn print_step_after <(Stack<i32>,i32,Vec<str>,i32)*>()> (stack, res, tokens, i):
 //:
 //: [目的/もくてき]:
 //: - `+` `-` `*` のいずれかの演算を適用し、結果をスタックに積みます。
-//: - 適用前と適用後の状態をそれぞれ強調表示します。
-fn apply_op <(Stack<i32>,str,Vec<str>,i32)*>Stack<i32>> (stack, token, tokens, i):
+//: - `pop_ref` で stack handle の所有権を保ったまま 2 値を取り出します。
+fn apply_op <(Stack<i32>,str,&Vec<str>,i32)*>Stack<i32>> (stack, token, tokens, i):
     if:
-        lt stk::len<i32> stack 2
+        lt stk::len_ref<i32> &stack 2
         then:
             print_error "stack underflow";
             stack
         else:
-            let b <i32> unwrap stk::pop<i32> stack;
-            let a <i32> unwrap stk::pop<i32> stack;
-            print_step_before stack a b token tokens i;
-            let res <i32>:
-                if:
-                    s::str_eq token "+"
-                    then add a b
-                    else:
-                        if:
-                            s::str_eq token "-"
-                            then sub a b
-                            else:
+            match stk::pop_ref<i32> &stack:
+                Option::Some b:
+                    match stk::pop_ref<i32> &stack:
+                        Option::Some a:
+                            let res <i32>:
                                 if:
-                                    s::str_eq token "*"
-                                    then mul a b
+                                    s::str_eq token "+"
+                                    then add a b
                                     else:
-                                        print_error "unknown operator";
-                                        0
-            print_step_after stack res tokens i;
-            stk::push<i32> stack res
-            |> unwrap_ok<Stack<i32>, Diag>
+                                        if:
+                                            s::str_eq token "-"
+                                            then sub a b
+                                            else:
+                                                if:
+                                                    s::str_eq token "*"
+                                                    then mul a b
+                                                    else:
+                                                        print_error "unknown operator";
+                                                        0
+                            print_step_after &stack res tokens i;
+                            stk::push<i32> stack res
+                            |> unwrap_ok<Stack<i32>, Diag>
+                        Option::None:
+                            print_error "stack underflow";
+                            stack
+                Option::None:
+                    print_error "stack underflow";
+                    stack
 
 //: process_token: 1 つのトークンを分類して処理する
 //:
 //: [目的/もくてき]:
 //: - 演算子か数値かを判定しスタックに反映させ、トレースを表示します。
-fn process_token <(Stack<i32>,str,Vec<str>,i32)*>Stack<i32>> (stack, token, tokens, i):
+fn process_token <(Stack<i32>,str,&Vec<str>,i32)*>Stack<i32>> (stack, token, tokens, i):
     if:
         s::str_eq token ""
         then:
@@ -236,7 +231,7 @@ fn process_token <(Stack<i32>,str,Vec<str>,i32)*>Stack<i32>> (stack, token, toke
 fn eval_line <(str)*>()> (line):
     let trimmed <str> s::str_trim line;
     let tokens <Vec<str>> s::str_split trimmed " ";
-    let n <i32> v::len<str> tokens;
+    let n <i32> v::len_ref<str> &tokens;
 
     let mut stack <Stack<i32>>:
         stk::new<i32>
@@ -245,18 +240,18 @@ fn eval_line <(str)*>()> (line):
     let mut i <i32> 0;
     while lt i n:
         do:
-            match v::get<str> tokens i:
+            match v::get_ref<str> &tokens i:
                 Option::Some tok:
-                    set stack process_token stack tok tokens i;
+                    set stack process_token stack tok &tokens i;
                 Option::None:
                     ()
             set i add i 1;
 
-    let sp <i32> stk::len<i32> stack;
+    let sp <i32> stk::len_ref<i32> &stack;
     if:
         eq sp 1
         then:
-            match stk::pop<i32> stack:
+            match stk::pop_ref<i32> &stack:
                 Option::Some val:
                     print_result val;
                 Option::None:
@@ -266,22 +261,7 @@ fn eval_line <(str)*>()> (line):
                 eq sp 0
                 then: ()
                 else:
-                    // エラー前にスタックの全要素を出力
-                    let hdr <MemPtr<u8>> field::get stack "hdr";
-                    let len <i32> load_i32 mem_ptr_addr hdr;
-                    let data <i32> load_i32 add mem_ptr_addr hdr 8;
-                    let mut j <i32> 0;
-                    while lt j len:
-                        do:
-                            if:
-                                gt j 0
-                                then:
-                                    print " ";
-                                else: ()
-                            let elem <i32> load_i32 add data mul j 4;
-                            print_i32 elem;
-                            set j add j 1;
-                    print "\n";
+                    print_stack_line &stack;
                     print_error s::concat3 "stack has " s::from_i32 sp " values";
     
     stk::free<i32> stack;
