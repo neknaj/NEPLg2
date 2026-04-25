@@ -16152,3 +16152,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - CLI runtime の WASI preopen sandbox を補う修正であり、言語仕様の変更はない。
   - `stdlib/std/fs.nepl` 経由の runner 整備は既存の `RV-STDLIB-006` の範囲に残し、今回は `path_open` host function の境界を raw WASI fixture で切り分けた。
+
+# 2026-04-25 メモ (RV-CLI-006 stdlib root 解決順序)
+
+- [原因]:
+  - `nepl-cli` は stdlib root を `env!("CARGO_MANIFEST_DIR")/../stdlib` に固定しており、配布バイナリや別 layout では workspace 内の build-time path に依存していた。
+  - compile/check/run と `nepl-cli test` がどちらも同じ固定 path を直接呼んでおり、CLI option や環境変数で上書きできなかった。
+  - stdlib root が見つからない場合の診断は単一 path のみで、配布時にどの候補を探索したか分からなかった。
+- [修正]:
+  - global option `--stdlib-root <DIR>` と環境変数 `NEPL_STDLIB_ROOT` を追加した。
+  - stdlib root の探索順を `--stdlib-root`、`NEPL_STDLIB_ROOT`、実行ファイル隣接 `stdlib`、実行ファイル prefix の `stdlib`、build-time fallback に統一した。
+  - `core` と `std` directory を持つ canonical directory だけを採用し、明示 override が不正な場合は fallback せず候補一覧付きで失敗するようにした。
+  - 通常 compile/check/run と `nepl-cli test` の両方で同じ resolver を使うようにした。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-cli stdlib_root -- --nocapture`: unit 1 passed, integration 4 passed
+  - `cargo test -p nepl-cli`: unit 9 passed, integration 12 passed, ignored 2
+  - `cargo check --workspace`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-006.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+  - `git diff --check`: pass
+- [review issue]:
+  - `doc/review20260425/cli.md` / `issues.md` の `RV-CLI-006` を `verified` に更新し、集計を更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CLI の配布 layout 対応であり、言語仕様や stdlib 内容の変更はない。

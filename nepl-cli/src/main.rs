@@ -34,6 +34,7 @@ const WASI_ERRNO_INVAL: i32 = 28;
 const WASI_ERRNO_NOENT: i32 = 44;
 const WASI_ERRNO_NOTCAPABLE: i32 = 76;
 const WASI_RIGHT_FD_READ: i64 = 1 << 1;
+const NEPL_STDLIB_ROOT_ENV: &str = "NEPL_STDLIB_ROOT";
 
 struct AllocState {
     // head of free list (address in linear memory), 0 == null
@@ -276,6 +277,14 @@ struct Cli {
     #[arg(short, long)]
     input: Option<String>,
 
+    #[arg(
+        long,
+        value_name = "DIR",
+        global = true,
+        help = "Override stdlib root directory (also supported by NEPL_STDLIB_ROOT)"
+    )]
+    stdlib_root: Option<PathBuf>,
+
     #[arg(short, long, help = "Output base path (extensionless recommended)")]
     output: Option<String>,
 
@@ -374,19 +383,20 @@ fn main() -> Result<()> {
 fn execute(cli: Cli) -> Result<()> {
     nepl_core::log::set_verbose(cli.verbose);
     if let Some(Command::Test(args)) = cli.command {
-        return run_tests(args, cli.verbose);
+        return run_tests(args, cli.verbose, cli.stdlib_root.as_deref());
     }
     if !cli.run && !cli.check && cli.output.is_none() {
         return Err(anyhow::anyhow!(
             "Either --run, --check or --output is required"
         ));
     }
+    let std_root = stdlib_root(cli.stdlib_root.as_deref())?;
     let program_name = cli.input.clone().unwrap_or_else(|| "<stdin>".to_string());
     let input_path = cli.input.clone();
     let (module, source_map) = match &cli.input {
         Some(path) => {
             cli_verbose!(cli.verbose, "DEBUG: Creating Loader for path: {}", path);
-            let mut loader = Loader::new(stdlib_root()?);
+            let mut loader = Loader::new(std_root.clone());
             cli_verbose!(cli.verbose, "DEBUG: Loader created, starting load");
             let entry = PathBuf::from(path);
             match loader.load(&entry) {
@@ -404,7 +414,7 @@ fn execute(cli: Cli) -> Result<()> {
         None => {
             let mut buf = String::new();
             std::io::stdin().read_to_string(&mut buf)?;
-            let mut loader = Loader::new(stdlib_root()?);
+            let mut loader = Loader::new(std_root.clone());
             match loader.load_inline(PathBuf::from("<stdin>"), buf) {
                 Ok(res) => (res.module, loader.source_map().clone()),
                 Err(e) => {
@@ -564,13 +574,13 @@ fn execute(cli: Cli) -> Result<()> {
     Ok(())
 }
 
-fn run_tests(args: TestArgs, verbose: bool) -> Result<()> {
+fn run_tests(args: TestArgs, verbose: bool, stdlib_root_override: Option<&Path>) -> Result<()> {
     const ANSI_RESET: &str = "\x1b[0m";
     const ANSI_GREEN: &str = "\x1b[32m";
     const ANSI_RED: &str = "\x1b[31m";
     const ANSI_CYAN: &str = "\x1b[36m";
 
-    let std_root = stdlib_root()?;
+    let std_root = stdlib_root(stdlib_root_override)?;
     let dir = PathBuf::from(&args.dir);
     let base = if dir.is_absolute() {
         dir
@@ -1519,12 +1529,68 @@ fn detect_module_target(module: &nepl_core::ast::Module) -> Option<CompileTarget
     })
 }
 
-fn stdlib_root() -> Result<PathBuf> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("stdlib");
-    path.canonicalize()
-        .context(format!("stdlib directory not found at {}", path.display()))
+struct StdlibRootCandidate {
+    source: String,
+    path: PathBuf,
+}
+
+fn stdlib_root(override_root: Option<&Path>) -> Result<PathBuf> {
+    if let Some(path) = override_root {
+        return resolve_stdlib_root_candidates(vec![StdlibRootCandidate {
+            source: "--stdlib-root".to_string(),
+            path: path.to_path_buf(),
+        }]);
+    }
+
+    if let Some(path) = std::env::var_os(NEPL_STDLIB_ROOT_ENV).filter(|v| !v.is_empty()) {
+        return resolve_stdlib_root_candidates(vec![StdlibRootCandidate {
+            source: NEPL_STDLIB_ROOT_ENV.to_string(),
+            path: PathBuf::from(path),
+        }]);
+    }
+
+    let mut candidates = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            candidates.push(StdlibRootCandidate {
+                source: "current executable sibling".to_string(),
+                path: exe_dir.join("stdlib"),
+            });
+            if let Some(prefix_dir) = exe_dir.parent() {
+                candidates.push(StdlibRootCandidate {
+                    source: "current executable prefix".to_string(),
+                    path: prefix_dir.join("stdlib"),
+                });
+            }
+        }
+    }
+    candidates.push(StdlibRootCandidate {
+        source: "build-time fallback".to_string(),
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("stdlib"),
+    });
+    resolve_stdlib_root_candidates(candidates)
+}
+
+fn resolve_stdlib_root_candidates(candidates: Vec<StdlibRootCandidate>) -> Result<PathBuf> {
+    for candidate in &candidates {
+        if let Ok(root) = candidate.path.canonicalize() {
+            if root.join("core").is_dir() && root.join("std").is_dir() {
+                return Ok(root);
+            }
+        }
+    }
+
+    let tried = candidates
+        .iter()
+        .map(|candidate| format!("  - {}: {}", candidate.source, candidate.path.display()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Err(anyhow::anyhow!(
+        "stdlib directory not found. Tried:\n{}",
+        tried
+    ))
 }
 
 fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) {
@@ -1611,6 +1677,13 @@ mod tests {
         assert_eq!(cli.emit, vec![Emit::Wasm]);
         assert!(cli.run);
         assert!(cli.output.is_none());
+        assert!(cli.stdlib_root.is_none());
+    }
+
+    #[test]
+    fn cli_parses_stdlib_root() {
+        let cli = Cli::parse_from(["nepl-cli", "--run", "--stdlib-root", "custom/stdlib"]);
+        assert_eq!(cli.stdlib_root, Some(PathBuf::from("custom/stdlib")));
     }
 
     #[test]

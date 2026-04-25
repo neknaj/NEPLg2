@@ -9,10 +9,10 @@
 | 領域 | Open | 解決済 |
 |---|---:|---:|
 | core | 3 | 18 |
-| cli | 5 | 8 |
+| cli | 4 | 9 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 17 | 45 |
+| 合計 | 16 | 46 |
 
 ## Core
 
@@ -49,7 +49,7 @@
 | [RV-CLI-003](./cli.md#rv-cli-003-nepl-cli-test-が-nmd-doctest-を対象にしない) | false | open | P1 | test | Rust CLI の test サブコマンドが `.nepl` だけを集める |
 | [RV-CLI-004](./cli.md#rv-cli-004-wasi-fd_write-が-stdout-専用で-stderr-を扱えない) | true | verified | P1 | bug | fd 1/2 の共通 iovec 読み取りと stderr immediate flush を実装済み |
 | [RV-CLI-005](./cli.md#rv-cli-005-path_open-が-wasi-の-preopen-モデルを実装していない) | true | verified | P1 | security | fd 3 preopen root、read-only rights、relative path sandbox 検証を実装済み |
-| [RV-CLI-006](./cli.md#rv-cli-006-stdlib-root-がビルド時パスに固定されている) | false | open | P2 | architecture | 配布バイナリで stdlib 解決が壊れやすい |
+| [RV-CLI-006](./cli.md#rv-cli-006-stdlib-root-がビルド時パスに固定されている) | true | verified | P2 | architecture | `--stdlib-root` / `NEPL_STDLIB_ROOT` / 実行ファイル相対 / build fallback の解決順を実装済み |
 | [RV-CLI-007](./cli.md#rv-cli-007-llvm-toolchain-条件が既定で-linux--clang-2110-に固定される) | false | open | P2 | bug | LLVM ターゲットの可搬性が低い |
 | [RV-CLI-008](./cli.md#rv-cli-008-nodesrc-cli-が未知引数をエラーにしない) | false | open | P3 | test | ドキュメント生成 CLI の typo を検出できない |
 | [RV-CLI-009](./cli.md#rv-cli-009-wasm-bindgen-cli-cache-が-rust-cache-の後処理で壊れ-ci-bootstrap-が落ちる) | true | verified | P1 | test | workspace 専用 root と cache 検証を追加し、run `24932659255` の `build` job で bootstrap 成功を確認済み |

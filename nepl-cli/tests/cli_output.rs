@@ -5,7 +5,9 @@ use std::process::{Command, Output};
 use tempfile::TempDir;
 
 fn cli_command() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_nepl-cli"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_nepl-cli"));
+    command.env_remove("NEPL_STDLIB_ROOT");
+    command
 }
 
 fn ok_source() -> &'static str {
@@ -163,6 +165,18 @@ fn main <()*>i32> ():
 "#
 }
 
+fn extra_answer_source() -> &'static str {
+    "#indent 4\n\nfn answer <()->i32> ():\n    42\n"
+}
+
+fn source_using_extra_stdlib() -> &'static str {
+    "#entry main\n#indent 4\n\n#import \"extra/answer\" as *\n\nfn main <()->i32> ():\n    answer\n"
+}
+
+fn test_source_using_extra_stdlib() -> &'static str {
+    "#entry main\n#indent 4\n\n#import \"extra/answer\" as *\n\nfn main <()*>i32> ():\n    if eq answer 42 0 1\n"
+}
+
 fn write_source_at(dir: &Path, name: &str, source: &str) -> PathBuf {
     let path = dir.join(name);
     fs::write(&path, source).expect("write source");
@@ -175,6 +189,33 @@ fn write_source(dir: &TempDir, name: &str, source: &str) -> PathBuf {
 
 fn write_ok_source(dir: &TempDir, name: &str) -> PathBuf {
     write_source(dir, name, ok_source())
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) {
+    fs::create_dir_all(dst).expect("create destination dir");
+    for entry in fs::read_dir(src).expect("read source dir") {
+        let entry = entry.expect("read dir entry");
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        let file_type = entry.file_type().expect("read file type");
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path);
+        } else if file_type.is_file() {
+            fs::copy(&src_path, &dst_path).expect("copy file");
+        }
+    }
+}
+
+fn custom_stdlib_with_extra(dir: &TempDir) -> PathBuf {
+    let custom = dir.path().join("custom_stdlib");
+    let workspace_stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("stdlib");
+    copy_dir_recursive(&workspace_stdlib, &custom);
+    let extra_dir = custom.join("extra");
+    fs::create_dir_all(&extra_dir).expect("create extra stdlib dir");
+    fs::write(extra_dir.join("answer.nepl"), extra_answer_source()).expect("write extra module");
+    custom
 }
 
 fn output_text(bytes: &[u8]) -> String {
@@ -212,6 +253,107 @@ fn check_success_keeps_stderr_empty_without_verbose() {
     assert_success(&output);
     assert_clean_stderr(&output);
     assert!(output_text(&output.stdout).contains("Check successful"));
+}
+
+#[test]
+fn check_uses_explicit_stdlib_root() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let custom_stdlib = custom_stdlib_with_extra(&temp);
+    let source = write_source(&temp, "uses_extra.nepl", source_using_extra_stdlib());
+
+    let output = cli_command()
+        .args(["--check", "-i"])
+        .arg(&source)
+        .arg("--stdlib-root")
+        .arg(&custom_stdlib)
+        .args(["--target", "core"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(output_text(&output.stdout).contains("Check successful"));
+}
+
+#[test]
+fn check_uses_env_stdlib_root() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let custom_stdlib = custom_stdlib_with_extra(&temp);
+    let source = write_source(&temp, "uses_extra_env.nepl", source_using_extra_stdlib());
+
+    let output = cli_command()
+        .env("NEPL_STDLIB_ROOT", &custom_stdlib)
+        .args(["--check", "-i"])
+        .arg(&source)
+        .args(["--target", "core"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(output_text(&output.stdout).contains("Check successful"));
+}
+
+#[test]
+fn test_subcommand_uses_explicit_stdlib_root() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let custom_stdlib = custom_stdlib_with_extra(&temp);
+    let tests_dir = temp.path().join("cases");
+    fs::create_dir(&tests_dir).expect("create tests dir");
+    write_source_at(
+        &tests_dir,
+        "uses_extra.nepl",
+        test_source_using_extra_stdlib(),
+    );
+
+    let output = cli_command()
+        .arg("--stdlib-root")
+        .arg(&custom_stdlib)
+        .arg("test")
+        .arg("--dir")
+        .arg(&tests_dir)
+        .output()
+        .expect("run nepl-cli test");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(
+        output_text(&output.stdout).contains("uses_extra.nepl"),
+        "test output did not include case name:\n{}",
+        output_text(&output.stdout)
+    );
+}
+
+#[test]
+fn invalid_explicit_stdlib_root_reports_tried_candidate() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let source = write_ok_source(&temp, "ok.nepl");
+    let missing = temp.path().join("missing_stdlib");
+
+    let output = cli_command()
+        .args(["--check", "-i"])
+        .arg(&source)
+        .arg("--stdlib-root")
+        .arg(&missing)
+        .args(["--target", "core"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert!(
+        !output.status.success(),
+        "unexpected success\nstdout:\n{}\nstderr:\n{}",
+        output_text(&output.stdout),
+        output_text(&output.stderr)
+    );
+    let stderr = output_text(&output.stderr);
+    assert!(
+        stderr.contains("stdlib directory not found. Tried:"),
+        "missing diagnostic header:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("--stdlib-root") && stderr.contains("missing_stdlib"),
+        "missing tried candidate:\n{stderr}"
+    );
 }
 
 #[test]

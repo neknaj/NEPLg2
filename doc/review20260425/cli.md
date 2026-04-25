@@ -229,11 +229,11 @@ preopen 内ファイル読み込み、preopen 外 `..` 拒否、存在しない 
 
 ## RV-CLI-006: stdlib root がビルド時パスに固定されている
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P2
 - 種別: architecture
-- 対象: `nepl-cli/src/main.rs`
+- 対象: `nepl-cli/src/main.rs`, `nepl-cli/tests/cli_output.rs`
 
 ### 根拠
 
@@ -251,9 +251,26 @@ preopen 内ファイル読み込み、preopen 外 `..` 拒否、存在しない 
 
 優先順を `--stdlib-root`、`NEPL_STDLIB_ROOT`、実行ファイル相対、ビルド時 fallback にします。診断には探索した候補を出します。
 
+### 対応結果
+
+CLI に global option `--stdlib-root <DIR>` を追加し、通常 compile/check/run と `nepl-cli test` の両方で同じ stdlib root resolver を使うようにしました。明示 option がなければ `NEPL_STDLIB_ROOT`、実行ファイル隣接 layout、実行ファイル prefix layout、ビルド時 fallback の順で探索します。
+
+明示 option と環境変数は設定ミスを隠さないため、不正な directory の場合は fallback せずに失敗します。候補は `core` と `std` directory を持つ canonical directory だけを stdlib root として採用し、失敗時の診断に試行した source と path を出すようにしました。
+
 ### 検証
 
-temp dir に stdlib をコピーして `--stdlib-root` で compile する CLI テストを追加します。
+temp dir に stdlib をコピーし、default stdlib には存在しない `extra/answer` module を追加した上で、`--stdlib-root` と `NEPL_STDLIB_ROOT` の両方から import できることを CLI テストで固定しました。`nepl-cli test` subcommand でも global `--stdlib-root` が効くこと、不正な explicit root で試行候補を含む診断になることも確認しています。
+
+確認済み:
+
+- `cargo fmt --all --check`: pass
+- `cargo test -p nepl-cli stdlib_root -- --nocapture`: unit 1 passed, integration 4 passed
+- `cargo test -p nepl-cli`: unit 9 passed, integration 12 passed, ignored 2
+- `cargo check --workspace`: pass
+- `node tests/compiler/tree/run.js`: 19/19 passed
+- `trunk build`: pass
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-cli-006.json`: 13/13 passed
+- `git diff --check`: pass
 
 ## RV-CLI-007: LLVM toolchain 条件が既定で linux + clang 21.1.0 に固定される
 
