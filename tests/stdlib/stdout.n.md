@@ -52,6 +52,22 @@ fn main <()*>()> ():
     ()
 ```
 
+## print_byte_writes_single_byte
+
+neplg2:test[normalize_newlines]
+stdout: "A\nB"
+```neplg2
+#entry main
+#indent 4
+#target std
+#import "std/stdio" as *
+
+fn main <()*>()> ():
+    print_byte 65;
+    print "\n";
+    print_byte 66
+```
+
 ## stdout_japanese_utf8
 
 neplg2:test[normalize_newlines]

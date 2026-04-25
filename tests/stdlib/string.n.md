@@ -141,6 +141,35 @@ fn main <()* >()> ():
     print a
 ```
 
+## test_string_byte_at
+
+`byte_at` が byte index で ASCII byte を返し、範囲外を `None` にすることを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#target std
+#entry main
+#indent 4
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/option" as *
+
+fn main <()* >i32> ():
+    let ok0 <bool> match byte_at "AZ" 0:
+        Option::Some b:
+            eq b 65
+        Option::None:
+            false
+    let ok1 <bool> match byte_at "AZ" 1:
+        Option::Some b:
+            eq b 90
+        Option::None:
+            false
+    let ok2 <bool> is_none<i32> byte_at "AZ" 2
+    if and ok0 and ok1 ok2 0 1
+```
+
 ## test_string_literal_unicode
 
 以前は `compile_ok` で構文・型だけを見ていました。

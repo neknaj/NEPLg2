@@ -69,3 +69,31 @@ fn main <()*>i32> ():
     let ok1 eq len msg 20;
     if and ok0 ok1 1 0
 ```
+
+## string_byte_at
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/option" as *
+
+fn main <()*>i32> ():
+    let ok0 <bool> match byte_at "AZ" 0:
+        Option::Some b:
+            eq b 65
+        Option::None:
+            false
+    let ok1 <bool> match byte_at "AZ" 1:
+        Option::Some b:
+            eq b 90
+        Option::None:
+            false
+    let ok2 <bool> is_none<i32> byte_at "AZ" 2;
+    if and ok0 and ok1 ok2 1 0
+```

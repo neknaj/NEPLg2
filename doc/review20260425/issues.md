@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 8 | 8 |
+| core | 9 | 8 |
 | cli | 7 | 2 |
-| stdlib | 8 | 5 |
-| examples | 0 | 1 |
-| 合計 | 23 | 16 |
+| stdlib | 8 | 6 |
+| examples | 0 | 2 |
+| 合計 | 24 | 18 |
 
 ## Core
 
@@ -34,6 +34,7 @@
 | [RV-CORE-014](./core.md#rv-core-014-pair-から取り出した-generic-collection-の型が-overload-解決へ伝播しない) | true | verified | P1 | bug | `.Pair` の推論済み tuple 型を保持し、取得した `Vec<T>` の `len` overload が解決できるよう修正済み |
 | [RV-CORE-015](./core.md#rv-core-015-深い-hir-を-check-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | `--check` を artifact 生成から分離し、1105 call chain が check-only path で成功するよう修正済み |
 | [RV-CORE-016](./core.md#rv-core-016-深い-hir-を-artifact-codegen-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | artifact 生成側の深い HIR traversal を iterative 化し、1105 call chain の wasm 生成を修正済み |
+| [RV-CORE-017](./core.md#rv-core-017-wasm-codegen-が-stdlib-vec-の高階関数-doctest-で-function-value-を解決できない) | false | open | P1 | bug | `Vec` の map/fold/filter 系 doctest が `unknown function value` で wasm codegen 失敗する |
 
 ## CLI
 
@@ -66,9 +67,11 @@
 | [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | true | verified | P0 | architecture | `Clone` と `Vec` / `Stack` の read API を borrow-based に移行する前提を追加済み |
 | [RV-STDLIB-012](./stdlib.md#rv-stdlib-012-hashkeyhasher-の-clonecopy-capability-が標準-trait-と不整合) | false | open | P1 | architecture | `HashKey` / `Hasher` が独自の clone/copy capability を持ち、標準 `Clone` / `Copy` と不整合 |
 | [RV-STDLIB-013](./stdlib.md#rv-stdlib-013-stack-の-更新-api-が-by-value-pop-に偏り所有値の継続利用を阻害する) | true | verified | P1 | architecture | `Stack` に `get_ref` / `pop_ref` を追加し、Copy 要素を借用経由で読み取り・取り出しできるよう修正済み |
+| [RV-STDLIB-014](./stdlib.md#rv-stdlib-014-bytevec-操作の-public-api-不足により-example-が-raw-memory-へ依存する) | true | verified | P1 | architecture | `Vec::replace_ref` / `string::byte_at` / `stdio::print_byte` を追加し、byte VM を raw memory なしで書けるよう修正済み |
 
 ## Examples
 
 | ID | 解決済 | 状態 | 優先度 | 種別 | 要約 |
 |---|---|---|---|---|---|
 | [RV-EXAMPLE-001](./examples.md#rv-example-001-rpn-example-が-stackvec-の内部表現と-by-value-api-に依存している) | true | verified | P1 | architecture | `rpn.nepl` を `Stack` / `Vec` の借用 API 中心に書き直し、低レベルメモリ操作と move error を除去済み |
+| [RV-EXAMPLE-002](./examples.md#rv-example-002-bf-example-が-raw-memory-と-by-value-stack-pop-に依存している) | true | verified | P1 | architecture | `bf.nepl` を `Vec` / `Stack` / string byte API 中心へ書き直し、raw allocation と move error を除去済み |

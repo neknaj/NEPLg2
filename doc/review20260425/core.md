@@ -622,3 +622,33 @@ wasm codegen precheck と signature / reachable collection は shared helper 側
 - `trunk build`
 - `node tests/compiler/tree/run.js` (`total=19`, `passed=19`, `failed=0`)
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`13/13 passed`)
+
+## RV-CORE-017: WASM codegen が stdlib Vec の高階関数 doctest で function value を解決できない
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `nepl-core/src/codegen_wasm.rs`, `stdlib/alloc/collections/vec.nepl`, `stdlib/tests/vec.n.md`
+
+### 根拠
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl ...` で `map` / `fold` / `reduce` / `find` / `take_while` などの doctest が `error[D4008]: unknown function value ... reached wasm codegen` で失敗した。
+- `stdlib/alloc/collections/vec.nepl` は `(.T)->.U` や `(.U,.T)->.U` の関数値を引数に取る高階 API を持つ。
+- `nepl-core/src/codegen_wasm.rs` は未解決の function value が codegen に到達すると D4008 を出す。
+
+### 問題
+
+型検査後の HIR では高階関数へ渡された関数値が残っており、WASM backend が直接 call 可能な関数参照へ解決できていません。結果として stdlib の `Vec` 高階 API doctest が compile 段階で落ちます。
+
+### 影響
+
+`Vec::map` / `filter` / `fold` 系を利用する実用コードが wasm target で使えません。今回の bf 修正で必要な `replace_ref` などの低階 API は通りますが、stdlib 全体の doctest を広く回すと既存失敗として残ります。
+
+### 修正方針
+
+function value を渡す call について、monomorphize/typecheck 後に direct function reference として解決できるケースは backend へ届く前に確定します。間接呼び出しが必要なケースは wasm table/call_indirect の経路へ統一し、D4008 ではなく実装済み lowering へ流します。
+
+### 検証
+
+`stdlib/alloc/collections/vec.nepl` と `stdlib/tests/vec.n.md` の高階関数 doctest を wasm runner で実行し、`unknown function value` が発生しないことを確認します。

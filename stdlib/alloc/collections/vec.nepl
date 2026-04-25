@@ -659,6 +659,58 @@ fn replace <.T> <(Vec<.T>,i32,.T)->()> (v, idx, item):
                     let write_off <i32> mul idx size_of<.T>
                     store<.T> add mem_ptr_addr v_data write_off item
 
+//: ## replace_ref
+//: `Vec<.T>` を[消費/しょうひ]せずに Copy [要素/ようそ]を[上書/うわが]きする
+//:
+//: ### [目的/もくてき]
+//: - `&Vec<.T>` と index と item を[受/う]け[取/と]り、Vec handle の所有権を[移動/いどう]せずに[範囲内/はんいない]の[要素/ようそ]を[置/お]き[換/か]えます。
+//: - owning collection を更新しながら同じ Vec を[続/つづ]けて `get_ref` / `free` できるようにします。
+//:
+//: ### [実装/じっそう]
+//: - `len` と `data` を参照経由で[読/よ]み、`0 <= idx < len` のときだけ typed `store` します。
+//:
+//: ### [注意/ちゅうい]
+//: - 古い要素の drop を行わないため、`.T: Copy` に[限定/げんてい]します。
+//: - [範囲外/はんいがい]では失敗にせず、何も[変更/へんこう]しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     replace_ref<i32> &v 0 9;
+//:     match get_ref<i32> &v 0:
+//:         Option::Some x:
+//:             if eq x 9 0 1
+//:         Option::None:
+//:             1
+//: ```
+fn replace_ref <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
+    let vv_len <Vec<.T>> *v
+    let v_len <i32> field::get vv_len "len"
+    let vv_data <Vec<.T>> *v
+    let v_data <MemPtr<.T>> field::get vv_data "data"
+    if:
+        lt idx 0
+        then ()
+        else:
+            if:
+                le v_len idx
+                then ()
+                else:
+                    let write_off <i32> mul idx size_of<.T>
+                    store<.T> add mem_ptr_addr v_data write_off item
+
 //: ## pop
 //: [末尾/まつび][要素/ようそ]を[取/と]り[出/だ]す
 //:

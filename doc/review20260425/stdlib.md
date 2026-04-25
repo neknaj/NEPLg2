@@ -468,3 +468,44 @@ example が `core/mem` / `core/field` で `Stack` 内部 layout を直接読む�
 確認済み:
 
 - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-ref-tests.json -j 4` (`total=31`, `passed=31`, `failed=0`)
+
+## RV-STDLIB-014: byte/Vec 操作の public API 不足により example が raw memory へ依存する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: architecture
+- 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/string.nepl`, `stdlib/std/stdio.nepl`
+
+### 根拠
+
+- `examples/bf.nepl`: Brainfuck の tape と jump table を `alloc_raw` / `load_u8` / `store_u8` / `load_i32` / `store_i32` で直接操作していた。
+- `stdlib/alloc/collections/vec.nepl`: owning `Vec` を消費せずに要素を上書きする public API がなかった。
+- `stdlib/alloc/string.nepl`: `str` の byte を範囲チェック付きで読む public API がなかった。
+- `stdlib/std/stdio.nepl`: 1 byte を stdout に出す public API がなく、example 側が一時 `str` layout を raw memory で組み立てていた。
+
+### 問題
+
+byte VM のような実用的なサンプルを public stdlib API だけで書くための基本操作が不足していました。そのため example が collection や string の内部表現を直接扱い、現在推奨したい所有権・抽象化境界と矛盾していました。
+
+### 影響
+
+example が低レベル memory helper の利用例になってしまい、`Vec` / `str` / stdio の public API 境界が弱くなります。内部 layout の変更で example が壊れやすく、move checker の所有権規則も raw memory 操作で迂回されます。
+
+### 修正方針
+
+`Vec` には `.T: Copy` 限定の `replace_ref` を追加し、owning handle を消費せずに範囲内要素を上書きできるようにしました。`alloc/string` には `byte_at` を追加し、byte index の範囲チェックを `Option` で返すようにしました。`std/stdio` には `print_byte` を追加し、1 byte 出力を stdio 側へ集約しました。
+
+### 対応結果
+
+`examples/bf.nepl` は tape / jump table を `Vec<i32>`、命令読み取りを `s::byte_at`、byte 出力を `print_byte` で行えるようになりました。example 側から `core/mem` と raw allocation を除去しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 38`
+- `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 5`
+- `node nodesrc/run_doctest.js -i stdlib/std/stdio.nepl -n 1`
+- `node nodesrc/run_doctest.js -i stdlib/tests/vec.n.md -n 1`
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/stdout.n.md --no-tree -o tmp/string-stdout-api-tests.json -j 4` (`total=28`, `passed=28`, `failed=0`)

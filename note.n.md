@@ -1,3 +1,26 @@
+# 2026-04-25 メモ (bf example の最新API化)
+
+- [状況]:
+  - `examples/bf.nepl` は tape / jump table / 1 byte 出力を `core/mem` の raw allocation と load/store で実装していた。
+  - bracket 対応表の作成では `Stack::pop` 後に同じ stack を `is_empty` / `free` しようとして move checker に止められていた。
+  - bf を public API だけで書くには、`Vec` の借用置換、`str` の byte 読み取り、stdio の 1 byte 出力が不足していた。
+- [修正]:
+  - `stdlib/alloc/collections/vec.nepl` に `.T: Copy` 限定の `replace_ref` を追加した。
+  - `stdlib/alloc/string.nepl` に `byte_at`、`stdlib/std/stdio.nepl` に `print_byte` を追加した。
+  - `examples/bf.nepl` は tape / jump table を `Vec<i32>`、命令読み取りを `s::byte_at`、出力を `print_byte`、bracket stack の取り出しを `stk::pop_ref` に変更した。
+  - `doc/review20260425` に `RV-STDLIB-014` / `RV-EXAMPLE-002` を追加し、修正済み verified として記録した。
+  - 広めの `Vec` doctest 実行で高階関数の wasm codegen 既存失敗を確認したため、`RV-CORE-017` を open issue として追加した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-example-tests.json -j 2`: 2/2 passed
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-after-bf.json -j 4`: 12/12 passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 38`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 5`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/std/stdio.nepl -n 1`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/tests/vec.n.md -n 1`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/stdout.n.md --no-tree -o tmp/string-stdout-api-tests.json -j 4`: 28/28 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。低レベル memory を見せるのではなく、stdlib の public API を補強してから bf example をそこへ載せ替えた。
+
 # 2026-04-25 メモ (rpn example の最新API化)
 
 - [状況]:
