@@ -238,3 +238,39 @@ CLI example の usage は、利用者がそのままコピーする実行名で�
 確認済み:
 
 - `node nodesrc/tests.js -i examples/nm.nepl --no-tree -o tmp/nm-usage-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
+
+## RV-EXAMPLE-007: rpn example の先頭構成が doc/doctest 基準から外れている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P3
+- 種別: doc
+- 対象: `examples/rpn.nepl`
+
+### 根拠
+
+- `examples/rpn.nepl`: ファイル先頭が `#entry` / `#indent` / `#target` から始まっていた。
+- `examples/rpn.nepl`: example 概要コメントが import より後ろに分かれており、doctest とファイル概要が先頭にまとまっていなかった。
+- `doc/examples.md`: `examples/rpn.nepl` のように、ファイル先頭に日本語のドキュメントコメントと doctest をまとめる形式を基準としている。
+
+### 問題
+
+`rpn.nepl` は基準例として名前が挙がっているにもかかわらず、実際の先頭構成が基準とずれていました。利用者が例を読むとき、最初に目的と検証内容を把握しづらくなります。
+
+### 影響
+
+大きめの example ほど、先頭で何をするサンプルか分かることが重要です。directive と import が doc header を分断すると、他の example の書き方との一貫性も下がります。
+
+### 修正方針
+
+doctest と example 概要コメントをファイル先頭へまとめ、その後に `#entry` / `#indent` / `#target` と import を置きます。実装と出力仕様は変更しません。
+
+### 対応結果
+
+`examples/rpn.nepl` の先頭を doctest、概要コメント、directive/import の順に整理しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-header-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)

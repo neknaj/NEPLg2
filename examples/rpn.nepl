@@ -1,7 +1,3 @@
-#entry main
-#indent 4
-#target std
-
 //: neplg2:test[rpn_repl_simple, normalize_newlines, strip_ansi]
 //: [目的/もくてき]: REPL全体の統合テスト (1 2 +)
 //: stdin: "1 2 +\n"
@@ -24,15 +20,6 @@
 //:     ##: ok: result = -5
 //:     ##: > bye
 
-#import "core/math" as *
-#import "core/option" as *
-#import "core/result" as *
-#import "std/stdio" as *
-#import "alloc/string" as s
-#import "alloc/collections/stack" as stk
-#import "alloc/collections/vec" as v
-#import "alloc/diag/error" as *
-
 //: rpn: 逆ポーランド記法（RPN）電卓 TUI/REPL
 //:
 //: [目的/もくてき]:
@@ -51,6 +38,19 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 1 トークンあたり O(1)、全体で O(n)（n = トークン数）
+
+#entry main
+#indent 4
+#target std
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/stdio" as *
+#import "alloc/string" as s
+#import "alloc/collections/stack" as stk
+#import "alloc/collections/vec" as v
+#import "alloc/diag/error" as *
 
 //: print_error: エラーメッセージを赤色太字で出力する
 //:

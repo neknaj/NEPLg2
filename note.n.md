@@ -1,3 +1,18 @@
+# 2026-04-26 メモ (rpn example の先頭構成整理)
+
+- [状況]:
+  - `examples/rpn.nepl` はファイル先頭が `#entry` / `#indent` / `#target` から始まり、example 概要コメントが import 後に分かれていた。
+  - `doc/examples.md` では、ファイル先頭に日本語のドキュメントコメントと doctest をまとめる形式を基準としている。
+- [修正]:
+  - doctest と `rpn` の概要コメントを先頭にまとめ、その後に directive / import を置く構成へ整理した。
+  - 実装と出力仕様は変更していない。
+  - `doc/review20260425/examples.md` と `issues.md` に `RV-EXAMPLE-007` を追加した。
+- [確認済み]:
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-header-tests.json -j 2`: 2/2 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。実行可能 example の説明構成だけを現行方針へ揃えた。
+
 # 2026-04-26 メモ (nm example の usage 表示修正)
 
 - [状況]:
