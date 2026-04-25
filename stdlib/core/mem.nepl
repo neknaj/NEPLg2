@@ -8,6 +8,7 @@
 //: 実装(アルゴリズム):
 //: - free list と bump を併用し、8 バイト境界に整列します。
 //: - 0..4 に heap_ptr、4..8 に free_list_head を置きます。
+//: - 最初の割り当てブロックは metadata の後ろ、8 バイト目以降から始めます。
 //:
 //: 注意(重要):
 //: - 領域の再利用は簡易的で、細かな最適化は行いません。
@@ -50,6 +51,23 @@
 //:     let ok1 <bool> eq load_i32 p 123;
 //:     dealloc_raw p 4;
 //:     if and ok0 ok1 1 0
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let p <i32> alloc_raw 4;
+//:     let heap <i32> load_i32 0;
+//:     let free_head <i32> load_i32 4;
+//:     let ok_ptr <bool> ge p 16;
+//:     let ok_heap <bool> ge heap 24;
+//:     let ok_free <bool> eq free_head 0;
+//:     dealloc_raw p 4;
+//:     if and ok_ptr and ok_heap ok_free 1 0
 //: ```
 
 
@@ -284,7 +302,8 @@ fn alloc_raw <(i32)->i32> (size):
                 then:
                     found
                 else:
-                    let heap_ptr <i32> load_i32 0
+                    let heap_ptr0 <i32> load_i32 0
+                    let heap_ptr <i32> if lt heap_ptr0 8 8 heap_ptr0
                     let start <i32> align8 heap_ptr
                     let new_heap <i32> add start total
                     let cur_pages <i32> mem_size

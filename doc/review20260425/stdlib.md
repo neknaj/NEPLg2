@@ -22,8 +22,8 @@ stdlib は API 数が多く、コメントと doctest はかなり整備され�
 
 ## RV-STDLIB-001: allocator がアドレス 0 のメタデータと最初のブロックを衝突させる
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `stdlib/core/mem.nepl`
@@ -51,9 +51,19 @@ allocator の根本不整合です。小さな program では偶然動いても�
 
 allocator 初期化を明示し、heap base を 8 以上に固定します。`alloc_raw` は heap pointer が 0 の場合に allocator metadata を初期化し、payload block は metadata 領域を避けます。0 sentinel と実 block address が衝突しないようにします。
 
+### 対応結果
+
+`alloc_raw` の bump allocation で `heap_ptr` が metadata 領域内の場合は `8` へ進めるようにしました。これにより最初の block header は address `8` から始まり、返却 data pointer は address `16` 以降になります。
+
 ### 検証
 
-最初の allocation を free して再 allocation したとき同じ block が再利用されるテストを追加します。heap metadata 0..8 が payload 書き込みで壊れないことも確認します。
+初回 `alloc_raw 4` の返却アドレスが metadata 領域外であり、`load_i32 0` / `load_i32 4` が allocator state として壊れていないことを確認する doctest を `stdlib/core/mem.nepl` に追加しました。
+
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 3`
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 
 ## RV-STDLIB-002: free list 分割で余りブロックがリストへ戻らない
 
@@ -337,4 +347,3 @@ public API と input-dependent code では `unwrap` 系を禁止し、`match` �
 ### 検証
 
 `rg "unwrap"` の許可リストを作り、stdlib test で unsafe helper の新規使用を検出します。
-

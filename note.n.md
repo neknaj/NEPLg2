@@ -15089,3 +15089,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CLI の `--check` が compiler pipeline を通るようになり、レビューで記録した NEPLg2.0 現行実装の誤成功問題を 1 件解消した。
+
+# 2026-04-25 メモ (RV-STDLIB-001 allocator metadata 衝突修正)
+
+- [原因]:
+  - `stdlib/core/mem.nepl` の `alloc_raw` は初回 `heap_ptr` が `0` のまま bump allocation を開始し、block header を address `0` に書いていた。
+  - address `0..4` は `heap_ptr`、`4..8` は `free_list_head` として使う設計のため、最初の block header と allocator metadata が衝突していた。
+- [修正]:
+  - bump allocation 時に `heap_ptr` が metadata 領域内なら `8` へ進め、最初の block header を address `8` 以降に置くようにした。
+  - 初回 `alloc_raw 4` が address `16` 以降を返し、`heap_ptr` と `free_list_head` が壊れていないことを確認する doctest を追加した。
+  - `doc/review20260425/issues.md` と `doc/review20260425/stdlib.md` の `RV-STDLIB-001` を `verified` に更新した。
+  - `todo.md` の P0 残件から `RV-STDLIB-001` を削除した。
+- [確認]:
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 3`: pass
+  - `trunk build`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の allocator が metadata 領域を壊す P0 バグを 1 件解消した。
