@@ -57,6 +57,18 @@ fn main <()*>i32> ():
         |> push<i32> 20
         |> unwrap_ok
     replace<i32> s2 1 21;
+    let s2_ref:
+        unwrap_ok new<i32>
+        |> push<i32> 10
+        |> unwrap_ok
+        |> push<i32> 20
+        |> unwrap_ok
+    replace_ref<i32> &s2_ref 0 11;
+    match get_ref<i32> &s2_ref 0:
+        Option::Some x:
+            set checks checks_push checks check_eq_i32 11 x
+        Option::None:
+            set checks checks_push checks Result<(),str>::Err "replace_ref get 0 returned None";
 
     let o1:
         unwrap_ok new<i32>

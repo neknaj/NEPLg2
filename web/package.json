@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "trunk serve",
-    "build:ts": "tsc",
+    "build:ts": "node ../nodesrc/sync_web_examples.js && tsc",
     "build": "trunk build --release"
   },
   "keywords": [],

@@ -1,7 +1,7 @@
 //: stack: [後入先出/あといれさきだし]（LIFO）スタックを扱うライブラリ
 //:
 //: [目的/もくてき]:
-//: - `push` / `pop` / `peek` / `len` など、スタック操作の基本 API を提供します。
+//: - `push` / `pop` / `pop_ref` / `peek` / `get_ref` / `len` など、スタック操作の基本 API を提供します。
 //: - parser や探索処理で使いやすい軽量なスタック実装を提供します。
 //:
 //: [実装/じっそう]:
@@ -10,7 +10,8 @@
 //:
 //: [注意/ちゅうい]:
 //: - `push` / `clear` は更新後の `Stack<.T>` を返します。
-//: - `pop` は `Option<.T>` を返します。
+//: - `pop` は所有権を消費して `Option<.T>` を返します。
+//: - `pop_ref` は `&Stack<.T>` を受け取り、Copy 要素だけを取り出します。
 //: - `peek` は値のみを返します。
 //: - `Stack<.T>` は shallow copy できません。値を[渡/わた]すと[所有権/しょゆうけん]が[移動/いどう]します。
 //: - `free` 後のスタック値は再利用できません。
@@ -447,6 +448,130 @@ fn peek_ref <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
             let off <i32> mul last size_of<.T>
             let v <.T> load<.T> add mem_ptr_addr data off
             some<.T> v
+
+//: get_ref: `Stack<.T>` を[消費/しょうひ]せずに指定位置の Copy [要素/ようそ]を[取得/しゅとく]する
+//:
+//: ### [目的/もくてき]
+//: - `&Stack<.T>` と index を[受/う]け[取/と]り、stack handle の所有権を[移動/いどう]せずに[要素/ようそ]を[読/よ]みます。
+//: - [要素/ようそ]を memory から[読/よ]み[出/だ]して[返/かえ]すため、`.T: Copy` に[限定/げんてい]します。
+//:
+//: ### [実装/じっそう]
+//: - header の length を[読/よ]んで `0 <= idx < len` を[確認/かくにん]します。
+//: - [範囲内/はんいない]なら data pointer と `idx * size_of<.T>` から[位置/いち]を[計算/けいさん]して typed `load` します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T` が所有権を[持/も]つ[型/かた]の場合は、浅い[複製/ふくせい]を[避/さ]けるためこの API は使えません。
+//: - [範囲外/はんいがい]では `Option::None` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let mut st <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     set st unwrap_ok<Stack<i32>, Diag> push<i32> st 10;
+//:     set st unwrap_ok<Stack<i32>, Diag> push<i32> st 20;
+//:     let first_ok <bool> match get_ref<i32> &st 0:
+//:         Option::Some x:
+//:             eq x 10
+//:         Option::None:
+//:             false
+//:     let n <i32> len_ref<i32> &st;
+//:     set st unwrap_ok<Stack<i32>, Diag> push<i32> st 30;
+//:     if and first_ok and eq n 2 eq len_ref<i32> &st 3 0 1
+//: ```
+fn get_ref <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
+    let stk0 <Stack<.T>> *stk
+    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
+    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
+    let len <i32> load_i32 mem_ptr_addr len_ptr
+    if:
+        lt idx 0
+        then:
+            none<.T>
+        else:
+            if:
+                le len idx
+                then:
+                    none<.T>
+                else:
+                    let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
+                    let off <i32> mul idx size_of<.T>
+                    let v <.T> load<.T> add mem_ptr_addr data off
+                    some<.T> v
+
+//: pop_ref: `Stack<.T>` を[消費/しょうひ]せずに末尾の Copy [要素/ようそ]を[取/と]り[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - `&Stack<.T>` を[受/う]け[取/と]り、stack handle の所有権を[移動/いどう]せずに[末尾/まつび][要素/ようそ]を[取/と]り[出/だ]します。
+//: - 取り出し後も同じ `Stack<.T>` を `push` / `free` できるため、所有権を持つ collection を再束縛せずに安全に更新できます。
+//:
+//: ### [実装/じっそう]
+//: - `len == 0` なら `Option::None` を[返/かえ]します。
+//: - [要素/ようそ]がある[場合/ばあい]は最後の index から typed `load` し、header の length を 1 [減/へ]らします。
+//:
+//: ### [注意/ちゅうい]
+//: - memory から[値/あたい]を[読/よ]み[出/だ]して返すため、`.T: Copy` に[限定/げんてい]します。
+//: - `.T` が所有権を[持/も]つ[型/かた]の場合、要素の move/drop 設計が必要です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let mut st <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     set st unwrap_ok<Stack<i32>, Diag> push<i32> st 10;
+//:     set st unwrap_ok<Stack<i32>, Diag> push<i32> st 20;
+//:     let a <Option<i32>> pop_ref<i32> &st;
+//:     let b <Option<i32>> pop_ref<i32> &st;
+//:     let empty_ok <bool> eq len_ref<i32> &st 0;
+//:     set st unwrap_ok<Stack<i32>, Diag> push<i32> st 30;
+//:     let a_ok <bool> match a:
+//:         Option::Some x:
+//:             eq x 20
+//:         Option::None:
+//:             false
+//:     let b_ok <bool> match b:
+//:         Option::Some x:
+//:             eq x 10
+//:         Option::None:
+//:             false
+//:     if and a_ok and b_ok and empty_ok eq len_ref<i32> &st 1 0 1
+//: ```
+fn pop_ref <.T: Copy> <(&Stack<.T>)*>Option<.T>> (stk):
+    let stk0 <Stack<.T>> *stk
+    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
+    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
+    let len <i32> load_i32 mem_ptr_addr len_ptr
+    if:
+        eq len 0
+        then:
+            none<.T>
+        else:
+            let new_len <i32> sub len 1
+            let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
+            let off <i32> mul new_len size_of<.T>
+            let item <.T> load<.T> add mem_ptr_addr data off
+            store_i32 mem_ptr_addr len_ptr new_len
+            some<.T> item
 
 //: len: 長さを返す
 //:

@@ -388,3 +388,34 @@ LLVM smoke test と full dual backend verification を分けます。まず smok
 ### 検証
 
 push CI で `llvm-test` または分割後の LLVM jobs が cancelled にならず、`llvm-tests` artifact に `tests-llvm.json` と full verification の結果 JSON が残ることを確認します。full verification を別 workflow に逃がす場合は、main CI の必須判定と Pages status summary の扱いを明示します。
+
+## RV-CLI-012: trunk build が clean checkout で web/examples 不在により失敗する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P2
+- 種別: test
+- 対象: `web/package.json`, `web/index.html`, `nodesrc/sync_web_examples.js`
+
+### 根拠
+
+- `web/index.html:25`: `examples` を Trunk の `copy-dir` 対象にしている。
+- `.gitignore`: `/web/examples` を git 管理外にしている。
+- `.github/actions/bootstrap-build/action.yml`: CI では `cp examples/*.nepl web/examples/` を事前に実行しているが、ローカルの `trunk build` 経路には同等処理がなかった。
+
+### 問題
+
+clean checkout のローカル環境では `web/examples` が存在せず、`trunk build` が asset pipeline で失敗していました。README と `doc/examples.md` は `trunk build` を通常手順として案内しているため、必要な検証をローカルで再現できません。
+
+### 影響
+
+examples の修正後に要求される `trunk build` と `nodesrc/cli.js` / `nodesrc/tests.js` の確認へ進めません。CI だけが暗黙の事前同期を持つため、手元と CI の build 前提がずれます。
+
+### 修正方針
+
+`nodesrc/sync_web_examples.js` を追加し、`examples/*.nepl` を `web/examples` へ同期します。`web/package.json` の `build:ts` からこの script を呼び出し、Trunk の既存 prebuild hook 経路で Windows / Linux とも同じ準備を行います。
+
+### 検証
+
+- `trunk build`: 通過
+- `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-baseline.json -j 4`: build 成果物を読めることを確認。既存の `rpn.nepl` / `bf.nepl` の move checker エラーは examples 側の別問題として分離。

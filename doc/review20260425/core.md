@@ -638,6 +638,8 @@ wasm codegen precheck と signature / reachable collection は shared helper 側
 - 同 run: `tests/compiler/list_dot_map.n.md`、`tests/compiler/move_check.n.md`、`tests/compiler/overload.n.md`、`tests/compiler/prelude_copy.n.md`、`tests/compiler/typeannot.n.md` でも、関数値として渡した `inc` / `token_id` / `calc` / `as_i32` / `f` が `D4008` で失敗。
 - 同 run の `tutorials-test`: 競プロ I/O 系 tutorial 6 件が `stdlib/std/streamio.nepl` の `stream_writer_noncopy_marker__i32__i32__pure` を unknown function value として失敗。
 - `tests/compiler/tree/08_function_value_call_indirect.js` は function value call の lowering を期待しているが、実際の doctest / Rust integration 経路では関数値が backend へ届く前後の登録が揃っていない。
+- 手元の `stdlib/alloc/collections/vec.nepl` 広域 doctest でも、`map` / `fold` / `reduce` / `find` / `take_while` などの高階 API が `error[D4008]: unknown function value ... reached wasm codegen` で失敗した。
+- `Vec` 高階 API は `(.T)->.U` や `(.U,.T)->.U` の関数値を引数に取るため、CI の関数値 failure と同じ lowering 契約不備に含めて追跡する。
 
 ### 問題
 
@@ -647,7 +649,7 @@ wasm codegen precheck と signature / reachable collection は shared helper 側
 
 ### 影響
 
-標準ライブラリの `List::map` / `filter` / `fold` 相当、`streamio` の writer marker、tutorial の競プロ I/O、関数値を返す基本サンプルが CI 上で失敗します。`wasi-test` / `nmd-doctest` / `tutorials-test` / `stdlib-test` にまたがるため、CI の大半が赤くなり、他の stdlib 不具合も同じ failure set に埋もれます。
+標準ライブラリの `List::map` / `filter` / `fold` 相当、`Vec::map` / `filter` / `fold` 相当、`streamio` の writer marker、tutorial の競プロ I/O、関数値を返す基本サンプルが CI 上で失敗します。`wasi-test` / `nmd-doctest` / `tutorials-test` / `stdlib-test` にまたがるため、CI の大半が赤くなり、他の stdlib 不具合も同じ failure set に埋もれます。
 
 ### 修正方針
 
@@ -665,3 +667,5 @@ wasm codegen precheck と signature / reachable collection は shared helper 側
 - `node nodesrc/tests.js -i tests/compiler/functions.n.md -o tmp/functions-rv-core-017.json -j 1`
 - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -o tmp/list-dot-map-rv-core-017.json -j 1`
 - `node nodesrc/tests.js -i tutorials/getting_started/22_competitive_io_and_arith.n.md -o tmp/tutorial-io-rv-core-017.json -j 1`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -o tmp/vec-rv-core-017.json -j 1`
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md -o tmp/vec-tests-rv-core-017.json -j 1`

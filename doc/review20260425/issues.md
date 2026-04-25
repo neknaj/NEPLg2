@@ -9,9 +9,10 @@
 | 領域 | Open | 解決済 |
 |---|---:|---:|
 | core | 9 | 8 |
-| cli | 8 | 3 |
-| stdlib | 9 | 4 |
-| 合計 | 26 | 15 |
+| cli | 8 | 4 |
+| stdlib | 9 | 6 |
+| examples | 0 | 2 |
+| 合計 | 26 | 20 |
 
 ## Core
 
@@ -50,6 +51,7 @@
 | [RV-CLI-009](./cli.md#rv-cli-009-wasm-bindgen-cli-cache-が-rust-cache-の後処理で壊れ-ci-bootstrap-が落ちる) | true | verified | P1 | test | workspace 専用 root と cache 検証を追加し、run `24932659255` の `build` job で bootstrap 成功を確認済み |
 | [RV-CLI-010](./cli.md#rv-cli-010-pages-fastfinal-deploy-が同じ-github-pages-artifact-名を使い-final-deploy-が落ちる) | true | verified | P1 | test | fast/final Pages artifact 名を分離し、run `24932659255` で final deploy 成功を確認済み |
 | [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | false | open | P1 | test | `llvm-test` の full dual backend verification が 10 分 timeout で cancelled になる |
+| [RV-CLI-012](./cli.md#rv-cli-012-trunk-build-が-clean-checkout-で-webexamples-不在により失敗する) | true | verified | P2 | test | `web/examples` を npm prebuild で同期し、ローカル `trunk build` を clean checkout でも通るように修正済み |
 
 ## Stdlib
 
@@ -68,3 +70,12 @@
 | [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | true | verified | P0 | architecture | `Clone` と `Vec` / `Stack` の read API を borrow-based に移行する前提を追加済み |
 | [RV-STDLIB-012](./stdlib.md#rv-stdlib-012-hashkeyhasher-の-clonecopy-capability-が標準-trait-と不整合) | false | open | P1 | architecture | `HashKey` / `Hasher` が独自の clone/copy capability を持ち、標準 `Clone` / `Copy` と不整合 |
 | [RV-STDLIB-013](./stdlib.md#rv-stdlib-013-stdlib-collection-doctest-群が所有型-api-移行後の実装とずれている) | false | open | P1 | test | collection doctest が `D3004` / `D3016` / runtime trap で広範囲に失敗し、API と実装の差分が残っている |
+| [RV-STDLIB-014](./stdlib.md#rv-stdlib-014-stack-の-更新-api-が-by-value-pop-に偏り所有値の継続利用を阻害する) | true | verified | P1 | architecture | `Stack` に `get_ref` / `pop_ref` を追加し、Copy 要素を借用経由で読み取り・取り出しできるよう修正済み |
+| [RV-STDLIB-015](./stdlib.md#rv-stdlib-015-bytevec-操作の-public-api-不足により-example-が-raw-memory-へ依存する) | true | verified | P1 | architecture | `Vec::replace_ref` / `string::byte_at` / `stdio::print_byte` を追加し、byte VM を raw memory なしで書けるよう修正済み |
+
+## Examples
+
+| ID | 解決済 | 状態 | 優先度 | 種別 | 要約 |
+|---|---|---|---|---|---|
+| [RV-EXAMPLE-001](./examples.md#rv-example-001-rpn-example-が-stackvec-の内部表現と-by-value-api-に依存している) | true | verified | P1 | architecture | `rpn.nepl` を `Stack` / `Vec` の借用 API 中心に書き直し、低レベルメモリ操作と move error を除去済み |
+| [RV-EXAMPLE-002](./examples.md#rv-example-002-bf-example-が-raw-memory-と-by-value-stack-pop-に依存している) | true | verified | P1 | architecture | `bf.nepl` を `Vec` / `Stack` / string byte API 中心へ書き直し、raw allocation と move error を除去済み |

@@ -2,7 +2,7 @@
 
 作成日: 2026-04-25
 
-このディレクトリは、NEPLg2.0 の現行実装を `core`、`cli`、`stdlib` に分けてレビューし、見つかった問題を Issue として継続管理するための台帳です。
+このディレクトリは、NEPLg2.0 の現行実装を `core`、`cli`、`stdlib`、`examples` に分けてレビューし、見つかった問題を Issue として継続管理するための台帳です。
 
 ## 対象
 
@@ -11,6 +11,7 @@
 | core | `nepl-core/src/**` |
 | cli | `nepl-cli/src/**`, `nodesrc/**` の CLI / テスト実行系 |
 | stdlib | `stdlib/**` |
+| examples | `examples/**`, `doc/examples.md` |
 
 `plan.md` は参照専用です。実装との差分や修正方針はこのレビュー文書と `note.n.md` に記録します。
 
@@ -21,6 +22,7 @@
 | `RV-CORE` | Rust コンパイラコア | `RV-CORE-001` |
 | `RV-CLI` | Rust CLI / Node CLI / テスト実行系 | `RV-CLI-001` |
 | `RV-STDLIB` | NEPL stdlib / self-host 実装 | `RV-STDLIB-001` |
+| `RV-EXAMPLE` | 実行可能サンプル | `RV-EXAMPLE-001` |
 
 番号は領域ごとに 3 桁の連番にします。解決時も番号は再利用しません。
 
@@ -88,4 +90,5 @@
 | [core.md](./core.md) | `nepl-core` レビュー |
 | [cli.md](./cli.md) | `nepl-cli` / `nodesrc` レビュー |
 | [stdlib.md](./stdlib.md) | `stdlib` レビュー |
+| [examples.md](./examples.md) | `examples` レビュー |
 

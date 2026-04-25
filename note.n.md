@@ -1,3 +1,74 @@
+# 2026-04-25 メモ (bf example の最新API化)
+
+- [状況]:
+  - `examples/bf.nepl` は tape / jump table / 1 byte 出力を `core/mem` の raw allocation と load/store で実装していた。
+  - bracket 対応表の作成では `Stack::pop` 後に同じ stack を `is_empty` / `free` しようとして move checker に止められていた。
+  - bf を public API だけで書くには、`Vec` の借用置換、`str` の byte 読み取り、stdio の 1 byte 出力が不足していた。
+- [修正]:
+  - `stdlib/alloc/collections/vec.nepl` に `.T: Copy` 限定の `replace_ref` を追加した。
+  - `stdlib/alloc/string.nepl` に `byte_at`、`stdlib/std/stdio.nepl` に `print_byte` を追加した。
+  - `examples/bf.nepl` は tape / jump table を `Vec<i32>`、命令読み取りを `s::byte_at`、出力を `print_byte`、bracket stack の取り出しを `stk::pop_ref` に変更した。
+  - `doc/review20260425` に `RV-STDLIB-015` / `RV-EXAMPLE-002` を追加し、修正済み verified として記録した。
+  - 広めの `Vec` doctest 実行で高階関数の wasm codegen 既存失敗を確認したため、`RV-CORE-017` の根拠へ統合した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-example-tests.json -j 2`: 2/2 passed
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-after-bf.json -j 4`: 12/12 passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 38`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 5`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/std/stdio.nepl -n 1`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/tests/vec.n.md -n 1`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/stdout.n.md --no-tree -o tmp/string-stdout-api-tests.json -j 4`: 28/28 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。低レベル memory を見せるのではなく、stdlib の public API を補強してから bf example をそこへ載せ替えた。
+
+# 2026-04-25 メモ (rpn example の最新API化)
+
+- [状況]:
+  - `examples/rpn.nepl` は `Stack` の header/data pointer を `core/field` / `core/mem` で直接読み、`Vec<str>` と `Stack<i32>` を by-value API に渡していたため、現行の所有権規則で compile できなかった。
+  - `read_line` の stdin は doctest runner では echo されないため、既存の stdout 期待値も現行挙動とずれていた。
+- [修正]:
+  - `rpn.nepl` から `core/mem` / `core/field` import と raw header 読み取りを削除した。
+  - スタック表示を `stk::len_ref` / `stk::get_ref`、token 走査を `v::len_ref` / `v::get_ref`、演算時の取り出しを `stk::pop_ref` に寄せた。
+  - `pop` の `unwrap` 前提を `match` に変え、空 stack は値として処理するようにした。
+  - `doc/review20260425/examples.md` を追加し、`RV-EXAMPLE-001` を修正済み verified として記録した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-example-tests.json -j 2`: 2/2 passed
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-after-rpn.json -j 4`: 12件中10件 passed。残りは既存の `examples/bf.nepl` move checker error。
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。RPN example は高水準 stdlib の例として、collection 内部表現ではなく public API を使う形へ寄せた。
+
+# 2026-04-25 メモ (Stack の借用 pop/get API 追加)
+
+- [状況]:
+  - examples の失敗を調査した結果、`rpn.nepl` と `bf.nepl` は `Stack::pop` 後に同じ `Stack` を表示・push・free しようとして move checker に止められていた。
+  - `Stack` には `len_ref` / `peek_ref` はあったが、末尾を取り出して長さを更新する借用 API と、任意位置を読む借用 API がなかった。
+- [修正]:
+  - `stdlib/alloc/collections/stack.nepl` に `.T: Copy` 限定の `get_ref` / `pop_ref` を追加した。
+  - `stdlib/tests/stack.n.md` と `tests/stdlib/stack_collections.n.md` に、借用 API の後も同じ stack を更新・解放できる回帰テストを追加した。
+  - `doc/review20260425/stdlib.md` / `issues.md` に `RV-STDLIB-014` を追加し、修正済み verified として記録した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-ref-tests.json -j 4`: 31/31 passed
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。所有権を持つ collection は shallow copy しない方針を保ち、example を低レベルメモリ操作へ逃がさないために stdlib の public API を補強した。
+
+# 2026-04-25 メモ (examples 検証用 trunk build 前提の修正)
+
+- [状況]:
+  - examples を修正する前に全体確認として `trunk build` と `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-baseline.json -j 4` を実行した。
+  - 初回の `trunk build` は `tsc` 不在で失敗したため、`npm --prefix web ci` で `web` 依存を導入した。
+  - その後 `trunk build` は `web/examples` 不在で失敗した。`web/index.html` は `examples` を Trunk の `copy-dir` 対象にするが、`web/examples` は git 管理外で、CI の bootstrap action だけが事前コピーしていた。
+- [修正]:
+  - `nodesrc/sync_web_examples.js` を追加し、`examples/*.nepl` を `web/examples` へ同期するようにした。
+  - `web/package.json` の `build:ts` から同期 script を呼び、既存の Trunk prebuild hook でローカルでも同じ前提を満たすようにした。
+  - `doc/review20260425/cli.md` / `issues.md` に `RV-CLI-012` を追加し、修正済み verified として記録した。
+- [確認済み]:
+  - `cargo build --workspace --locked`: 通過
+  - `web\node_modules\.bin\tsc.cmd -p nodesrc\tsconfig.json`: 通過
+  - `trunk build`: 通過
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-baseline.json -j 4`: 12 件中 8 件通過。失敗は既存の `examples/rpn.nepl` と `examples/bf.nepl` の move checker エラー。
+- [plan.mdとの差異]:
+  - plan.md 自体は変更していない。examples を現行実装で検証可能にするため、CI だけにあった `web/examples` 同期をローカル build 経路へ寄せた。
+
 # 2026-04-09 メモ (複数タブ切替で syntax highlight が壊れる問題の修正)
 
 - [原因]:

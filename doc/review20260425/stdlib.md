@@ -470,3 +470,81 @@ CI の `stdlib-test` が常に失敗し、標準 collection の利用可否を�
 ### 検証
 
 修正後は `node nodesrc/tests.js -i stdlib/alloc/collections -o tmp/collections-rv-stdlib-013.json -j 1` と `node nodesrc/tests.js -i tests/stdlib -o tmp/tests-stdlib-rv-stdlib-013.json -j 1` を通します。CI では `stdlib-test` artifact の summary が `failed=0`, `errored=0` になることを確認します。
+
+## RV-STDLIB-014: Stack の 更新 API が by-value pop に偏り所有値の継続利用を阻害する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: architecture
+- 対象: `stdlib/alloc/collections/stack.nepl`, `stdlib/tests/stack.n.md`, `tests/stdlib/stack_collections.n.md`
+
+### 根拠
+
+- `stdlib/alloc/collections/stack.nepl:334`: `pop` は `Stack<.T>` を by-value で受け取り、呼び出し元の stack handle を move する。
+- `stdlib/alloc/collections/stack.nepl:511`: `len_ref` は存在するが、末尾を取り出して length を更新する借用 API がなかった。
+- `examples/rpn.nepl`: `pop` 後に同じ stack を表示・push・free しようとして move checker に止められる。
+- `examples/bf.nepl`: bracket 対応表の作成で `pop` 後に `is_empty` / `free` しようとして move checker に止められる。
+
+### 問題
+
+`Stack` から `Copy` を外した後、読み取りは `len_ref` / `peek_ref` で対応できましたが、更新を伴う取り出しは by-value `pop` しかありませんでした。`pop` を使うと stack handle の所有権が移動するため、典型的な「pop してから同じ stack を使い続ける」処理が書けません。
+
+### 影響
+
+example が `core/mem` / `core/field` で `Stack` 内部 layout を直接読む方向へ流れ、stdlib の public API を使うという例として不適切になります。所有権上も、低レベルメモリ操作のほうが move checker を迂回しやすく、根本的な安全化に逆行します。
+
+### 修正方針
+
+`Stack` に `get_ref` と `pop_ref` を追加しました。どちらも `&Stack<.T>` を受け取り、`.T: Copy` に限定して memory から値を読み出します。`pop_ref` は header の length を更新しますが、stack handle の所有権は移動しないため、呼び出し後も `push` / `free` を継続できます。所有権を持つ要素については、別途 move/drop 設計を伴う API が必要なので対象外とします。
+
+### 対応結果
+
+`stdlib/alloc/collections/stack.nepl` に `get_ref` / `pop_ref` と doctest を追加し、`stdlib/tests/stack.n.md` と `tests/stdlib/stack_collections.n.md` に借用後も同じ stack を更新・解放できる回帰テストを追加しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-ref-tests.json -j 4` (`total=31`, `passed=31`, `failed=0`)
+
+## RV-STDLIB-015: byte/Vec 操作の public API 不足により example が raw memory へ依存する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: architecture
+- 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/string.nepl`, `stdlib/std/stdio.nepl`
+
+### 根拠
+
+- `examples/bf.nepl`: Brainfuck の tape と jump table を `alloc_raw` / `load_u8` / `store_u8` / `load_i32` / `store_i32` で直接操作していた。
+- `stdlib/alloc/collections/vec.nepl`: owning `Vec` を消費せずに要素を上書きする public API がなかった。
+- `stdlib/alloc/string.nepl`: `str` の byte を範囲チェック付きで読む public API がなかった。
+- `stdlib/std/stdio.nepl`: 1 byte を stdout に出す public API がなく、example 側が一時 `str` layout を raw memory で組み立てていた。
+
+### 問題
+
+byte VM のような実用的なサンプルを public stdlib API だけで書くための基本操作が不足していました。そのため example が collection や string の内部表現を直接扱い、現在推奨したい所有権・抽象化境界と矛盾していました。
+
+### 影響
+
+example が低レベル memory helper の利用例になってしまい、`Vec` / `str` / stdio の public API 境界が弱くなります。内部 layout の変更で example が壊れやすく、move checker の所有権規則も raw memory 操作で迂回されます。
+
+### 修正方針
+
+`Vec` には `.T: Copy` 限定の `replace_ref` を追加し、owning handle を消費せずに範囲内要素を上書きできるようにしました。`alloc/string` には `byte_at` を追加し、byte index の範囲チェックを `Option` で返すようにしました。`std/stdio` には `print_byte` を追加し、1 byte 出力を stdio 側へ集約しました。
+
+### 対応結果
+
+`examples/bf.nepl` は tape / jump table を `Vec<i32>`、命令読み取りを `s::byte_at`、byte 出力を `print_byte` で行えるようになりました。example 側から `core/mem` と raw allocation を除去しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 38`
+- `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 5`
+- `node nodesrc/run_doctest.js -i stdlib/std/stdio.nepl -n 1`
+- `node nodesrc/run_doctest.js -i stdlib/tests/vec.n.md -n 1`
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/stdout.n.md --no-tree -o tmp/string-stdout-api-tests.json -j 4` (`total=28`, `passed=28`, `failed=0`)

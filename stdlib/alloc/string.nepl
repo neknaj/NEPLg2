@@ -180,6 +180,56 @@ fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
 fn len <(str)->i32> (s):
     load_i32 s
 
+//: byte_at: 文字列の指定 byte を読む
+//:
+//: [目的/もくてき]:
+//: - `str` の UTF-8 byte 列から、指定した byte index の値を `Option<i32>` として返します。
+//: - VM や tokenizer のように ASCII byte を直接見たい処理で、呼び出し側が raw pointer を扱わずに済むようにします。
+//:
+//: [実装/じっそう]:
+//: - `len` で範囲を確認し、本文先頭 pointer に index を足して `load_u8` します。
+//:
+//: [注意/ちゅうい]:
+//: - index は byte index です。Unicode の文字単位ではありません。
+//: - 範囲外では `Option::None` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let ok0 <bool> match byte_at "AZ" 0:
+//:         Option::Some b:
+//:             eq b 65
+//:         Option::None:
+//:             false
+//:     let ok1 <bool> match byte_at "AZ" 1:
+//:         Option::Some b:
+//:             eq b 90
+//:         Option::None:
+//:             false
+//:     if and ok0 and ok1 is_none<i32> byte_at "AZ" 2 0 1
+//: ```
+fn byte_at <(str,i32)->Option<i32>> (s, idx):
+    let n <i32> len s
+    if:
+        lt idx 0
+        then:
+            none<i32>
+        else:
+            if:
+                le n idx
+                then:
+                    none<i32>
+                else:
+                    load_u8 mem_ptr_add string_data_ptr s idx
+
 // concat: 2つの文字列を連結する
 //
 // 目的:

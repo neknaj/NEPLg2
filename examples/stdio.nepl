@@ -28,15 +28,13 @@
 #indent 4
 #target std
 
-#import "core/mem" as *
-#import "core/math" as *
 #import "std/stdio" as *
 
 //: main: 受け取った 1 行をそのまま表示する
 //:
 //: [目的/もくてき]:
 //: - NEPLg2 のもっとも基本的な標準入力サンプルを示します。
-fn main <()*> ()> ():
+fn main <()*>()> ():
     println_color ansi_green "accepting input...";
     print "> ";
     let input <str> read_line;
