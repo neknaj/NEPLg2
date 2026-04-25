@@ -86,6 +86,19 @@ fn print_result <(i32)*>()> (val):
     print ansi_reset;
     print "\n";
 
+//: push_or_report: stack への追加失敗を REPL のエラー表示に変換する
+//:
+//: [目的/もくてき]:
+//: - `push_ref` の `Result` を明示的に扱い、allocation failure を panic にしません。
+//: - stack handle の所有権は呼び出し側に残るため、失敗後も `free` できます。
+fn push_or_report <(&Stack<i32>,i32)*>bool> (stack, val):
+    match stk::push_ref<i32> stack val:
+        Result::Ok _:
+            true
+        Result::Err _:
+            print_error "out of memory";
+            false
+
 //: print_stack_prefix: スタック内容を次の値の手前に表示する
 //:
 //: [目的/もくてき]:
@@ -184,8 +197,8 @@ fn apply_op <(Stack<i32>,str,&Vec<str>,i32)*>Stack<i32>> (stack, token, tokens, 
                                                         print_error "unknown operator";
                                                         0
                             print_step_after &stack res tokens i;
-                            stk::push<i32> stack res
-                            |> unwrap_ok<Stack<i32>, Diag>
+                            push_or_report &stack res;
+                            stack
                         Option::None:
                             print_error "stack underflow";
                             stack
@@ -212,8 +225,8 @@ fn process_token <(Stack<i32>,str,&Vec<str>,i32)*>Stack<i32>> (stack, token, tok
                     else:
                         match s::to_i32 token:
                             Result::Ok val:
-                                stk::push<i32> stack val
-                                |> unwrap_ok<Stack<i32>, Diag>
+                                push_or_report &stack val;
+                                stack
                             Result::Err _:
                                 print_error "unknown token";
                                 stack
@@ -233,39 +246,41 @@ fn eval_line <(str)*>()> (line):
     let tokens <Vec<str>> s::str_split trimmed " ";
     let n <i32> v::len_ref<str> &tokens;
 
-    let mut stack <Stack<i32>>:
-        stk::new<i32>
-        |> unwrap_ok<Stack<i32>, Diag>
+    match stk::new<i32>:
+        Result::Ok stack0:
+            let mut stack <Stack<i32>> stack0;
+            let mut i <i32> 0;
+            while lt i n:
+                do:
+                    match v::get_ref<str> &tokens i:
+                        Option::Some tok:
+                            set stack process_token stack tok &tokens i;
+                        Option::None:
+                            ()
+                    set i add i 1;
 
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            match v::get_ref<str> &tokens i:
-                Option::Some tok:
-                    set stack process_token stack tok &tokens i;
-                Option::None:
-                    ()
-            set i add i 1;
-
-    let sp <i32> stk::len_ref<i32> &stack;
-    if:
-        eq sp 1
-        then:
-            match stk::pop_ref<i32> &stack:
-                Option::Some val:
-                    print_result val;
-                Option::None:
-                    ()
-        else:
+            let sp <i32> stk::len_ref<i32> &stack;
             if:
-                eq sp 0
-                then: ()
+                eq sp 1
+                then:
+                    match stk::pop_ref<i32> &stack:
+                        Option::Some val:
+                            print_result val;
+                        Option::None:
+                            ()
                 else:
-                    print_stack_line &stack;
-                    print_error s::concat3 "stack has " s::from_i32 sp " values";
-    
-    stk::free<i32> stack;
-    v::free<str> tokens;
+                    if:
+                        eq sp 0
+                        then: ()
+                        else:
+                            print_stack_line &stack;
+                            print_error s::concat3 "stack has " s::from_i32 sp " values";
+
+            stk::free<i32> stack;
+            v::free<str> tokens;
+        Result::Err _:
+            print_error "out of memory";
+            v::free<str> tokens;
 
 //: main: RPN TUI REPL のエントリーポイント
 //:

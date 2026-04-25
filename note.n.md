@@ -15888,3 +15888,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - examples は stdlib の public API を使う方針なので、`rpn_legacy` の `unwrap_ok` 除去に必要な `Stack::push_ref` を stdlib 側へ追加した。
+
+# 2026-04-26 メモ (RV-EXAMPLE-010 rpn の panic helper 依存解消)
+
+- [原因]:
+  - `examples/rpn.nepl` は `Stack` の借用 read/pop API に移行済みだったが、stack 初期化と push では `unwrap_ok<Stack<i32>, Diag>` が残っていた。
+  - `RV-STDLIB-016` と同じく、旧 `Stack::push` だけでは Err 側で stack handle を保持できないため、example 側だけの `match` 置換では後始末できなかった。
+- [修正]:
+  - `rpn.nepl` に `push_or_report` を追加し、数値 push と演算結果 push を `push_ref` + `match` 経由に変更した。
+  - `eval_line` の stack 初期化を `match stk::new<i32>` に変更し、確保失敗時も token `Vec` を解放するようにした。
+  - `doc/review20260425/examples.md` / `issues.md` に `RV-EXAMPLE-010` を追加し、verified とした。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-push-ref-tests.json -j 2`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-rpn-push-ref.json -j 4`: `total=12`, `passed=12`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `rpn` example は低レベル memory 操作ではなく stdlib public API と `Result` の明示処理を示す方針へ寄せた。

@@ -348,3 +348,41 @@ stdlib に追加した `stk::push_ref` を利用し、`rpn_legacy.nepl` 側で�
 - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl --no-tree -o tmp/stack-push-ref-tests.json -j 2` (`total=15`, `passed=15`, `failed=0`)
 - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-no-unwrap-tests.json -j 2` (`total=1`, `passed=1`, `failed=0`)
 - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-rpn-legacy-push-ref.json -j 4` (`total=12`, `passed=12`, `failed=0`)
+
+## RV-EXAMPLE-010: rpn example が Stack push 失敗を unwrap_ok で panic させる
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: architecture
+- 対象: `examples/rpn.nepl`, `stdlib/alloc/collections/stack.nepl`
+
+### 根拠
+
+- `examples/rpn.nepl`: stack 初期化と stack push の 3 箇所で `unwrap_ok<Stack<i32>, Diag>` を使っていた。
+- `stdlib/core/result.nepl`: `unwrap_ok` は unsafe helper とされ、通常コードでは `match` などで失敗を明示的に扱う方針になっている。
+- `RV-STDLIB-016`: consuming `Stack::push` だけでは `Err` 側で stack handle を保持できないため、`push_ref` を追加して根本原因を解消済み。
+
+### 問題
+
+`rpn.nepl` は現行 stdlib の借用 API を使う TUI example ですが、allocation failure だけは `unwrap_ok` に任せて panic 経路へ進んでいました。利用者へ「stdlib の Result を match で扱う」書き方を示す example として一貫していませんでした。
+
+### 影響
+
+通常出力は安定していても、error handling の例としては古い書き方が残ります。`rpn_legacy` と同系統の example 間で、stack 初期化・push の扱いがずれることも保守上の負担になります。
+
+### 修正方針
+
+`stk::push_ref` を利用する `push_or_report` を追加し、数値 push と演算結果 push を `Result<(), Diag>` の `match` で扱います。stack 初期化も `match stk::new<i32>` に変更し、確保失敗時は token `Vec` を解放して `out of memory` を表示します。
+
+### 対応結果
+
+`rpn.nepl` から `unwrap_ok` を除去しました。既存の REPL 出力、ステップ表示、最終結果表示は維持しています。
+
+### 検証
+
+確認済み:
+
+- `trunk build`
+- `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-push-ref-tests.json -j 2` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-rpn-push-ref.json -j 4` (`total=12`, `passed=12`, `failed=0`)

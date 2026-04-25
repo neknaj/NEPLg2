@@ -11,8 +11,8 @@
 | core | 9 | 11 |
 | cli | 7 | 6 |
 | stdlib | 9 | 7 |
-| examples | 0 | 9 |
-| 合計 | 25 | 33 |
+| examples | 0 | 10 |
+| 合計 | 25 | 34 |
 
 ## Core
 
@@ -91,3 +91,4 @@
 | [RV-EXAMPLE-007](./examples.md#rv-example-007-rpn-example-の先頭構成が-docdoctest-基準から外れている) | true | verified | P3 | doc | `rpn.nepl` の先頭を doctest / 概要コメント / directive の順へ整理済み |
 | [RV-EXAMPLE-008](./examples.md#rv-example-008-bf-example-の先頭構成が-docdoctest-基準から外れている) | true | verified | P3 | doc | `bf.nepl` の先頭を doctest / 概要コメント / directive の順へ整理済み |
 | [RV-EXAMPLE-009](./examples.md#rv-example-009-rpn_legacy-example-が-stack-push-失敗を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `rpn_legacy.nepl` の stack 初期化・push を `match` / `push_ref` へ移行し、`unwrap_ok` 依存を除去済み |
+| [RV-EXAMPLE-010](./examples.md#rv-example-010-rpn-example-が-stack-push-失敗を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `rpn.nepl` の stack 初期化・push を `match` / `push_ref` へ移行し、`unwrap_ok` 依存を除去済み |
