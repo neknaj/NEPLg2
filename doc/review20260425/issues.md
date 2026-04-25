@@ -9,9 +9,9 @@
 | 領域 | Open | 解決済 |
 |---|---:|---:|
 | core | 12 | 0 |
-| cli | 8 | 0 |
+| cli | 7 | 1 |
 | stdlib | 10 | 0 |
-| 合計 | 30 | 0 |
+| 合計 | 29 | 1 |
 
 ## Core
 
@@ -34,7 +34,7 @@
 
 | ID | 解決済 | 状態 | 優先度 | 種別 | 要約 |
 |---|---|---|---|---|---|
-| [RV-CLI-001](./cli.md#rv-cli-001---check-がコンパイルせず成功を返す) | false | open | P0 | bug | `--check` が loader 後すぐ成功する |
+| [RV-CLI-001](./cli.md#rv-cli-001---check-がコンパイルせず成功を返す) | true | verified | P0 | bug | `--check` が compile 後に成功可否を返すよう修正済み |
 | [RV-CLI-002](./cli.md#rv-cli-002-通常実行で-debug-ログが出力される) | false | open | P1 | bug | CLI が `DEBUG:` を常時出す |
 | [RV-CLI-003](./cli.md#rv-cli-003-nepl-cli-test-が-nmd-doctest-を対象にしない) | false | open | P1 | test | Rust CLI の test サブコマンドが `.nepl` だけを集める |
 | [RV-CLI-004](./cli.md#rv-cli-004-wasi-fd_write-が-stdout-専用で-stderr-を扱えない) | false | open | P1 | bug | fd 2 が `badf` になる |
@@ -57,4 +57,3 @@
 | [RV-STDLIB-008](./stdlib.md#rv-stdlib-008-self-host-compiler-がプレースホルダのまま) | false | open | P2 | architecture | `stdlib/neplg2` は 17 行の stub 群のみ |
 | [RV-STDLIB-009](./stdlib.md#rv-stdlib-009-巨大-stdlib-ファイルが分割されていない) | false | open | P2 | architecture | `math.nepl` / `string.nepl` / `stdio.nepl` が巨大化 |
 | [RV-STDLIB-010](./stdlib.md#rv-stdlib-010-resultoption-の-unsafe-helper-が通常コードに広く残っている) | false | open | P2 | bug | `unwrap` / `unwrap_ok` が stdlib 内部で panic 経路を広げている |
-

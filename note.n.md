@@ -15071,3 +15071,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 現行実装には no_std core、UTF-8 str 保証、セルフホスト compiler など、`plan.md` の目標との差分が残っているため、レビュー Issue として追跡対象にした。
+
+# 2026-04-25 メモ (RV-CLI-001 --check 修正)
+
+- [原因]:
+  - `nepl-cli --check` は loader の parse 成功後、`compile_module_with_source_map` より前で `Check successful` を返していた。
+  - そのため、型エラー、未定義シンボル、move check などの compile diagnostics を検出できていなかった。
+- [修正]:
+  - `nepl-cli/src/main.rs` の `cli.check` 判定を compile 実行後へ移動し、compile 成功時だけ `Check successful` を返すようにした。
+  - 未定義シンボルを含む入力で `--check` 相当の `execute` が失敗する回帰テスト `check_runs_compiler_diagnostics` を追加した。
+  - `doc/review20260425/issues.md` と `doc/review20260425/cli.md` の `RV-CLI-001` を `verified` に更新した。
+  - `todo.md` の P0 残件から `RV-CLI-001` を削除した。
+- [確認]:
+  - `cargo test -p nepl-cli check_runs_compiler_diagnostics`: pass
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CLI の `--check` が compiler pipeline を通るようになり、レビューで記録した NEPLg2.0 現行実装の誤成功問題を 1 件解消した。

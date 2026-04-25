@@ -21,8 +21,8 @@ Node 側は doctest 実行の中心になっていますが、HTML 生成 CLI、
 
 ## RV-CLI-001: --check がコンパイルせず成功を返す
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `nepl-cli/src/main.rs`
@@ -44,9 +44,19 @@ CI やユーザーが `--check` を信用できません。コンパイル不能
 
 `--check` では target/profile を確定したうえで `prepare_module_for_codegen_with_source_map` 相当まで実行します。wasm bytes は出さず、diagnostics が error を含む場合は exit code 1 にします。
 
+### 対応結果
+
+`nepl-cli/src/main.rs` の `cli.check` 分岐を `compile_module_with_source_map` 実行後へ移動しました。これにより loader だけでなく typecheck / monomorphize / move check / codegen precheck を通過した場合だけ `Check successful` を返します。
+
 ### 検証
 
-型エラーを含む入力で `nepl-cli --check -i file` が失敗する CLI テストを追加します。正常入力では stderr に不要ログを出さず成功することも確認します。
+`nepl-cli/src/main.rs` に `check_runs_compiler_diagnostics` を追加し、未定義シンボルを含む入力で `nepl-cli --check -i file` 相当が失敗することを確認します。
+
+確認済み:
+
+- `cargo test -p nepl-cli check_runs_compiler_diagnostics`
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 
 ## RV-CLI-002: 通常実行で DEBUG ログが出力される
 
@@ -255,4 +265,3 @@ CI や手元確認でテストを実行したつもりが、実際には別処�
 ### 検証
 
 未知引数で exit code 2 になる Node CLI test を追加します。
-

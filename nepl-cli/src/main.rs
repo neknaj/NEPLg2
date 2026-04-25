@@ -301,10 +301,7 @@ fn execute(cli: Cli) -> Result<()> {
         .or(module_decl_target)
         .unwrap_or(CompileTarget::Wasm);
 
-    if cli.check {
-        eprintln!("Check successful");
-        return Ok(());
-    }
+    let is_check = cli.check;
 
     let profile = cli.profile.map(|p| match p {
         ProfileArg::Debug => BuildProfile::Debug,
@@ -358,6 +355,12 @@ fn execute(cli: Cli) -> Result<()> {
             return Err(anyhow::anyhow!(e.to_string()));
         },
     };
+
+    if is_check {
+        eprintln!("Check successful");
+        return Ok(());
+    }
+
     if let Some(out) = &cli.output {
         let base = output_base_from_arg(out);
 
@@ -1455,6 +1458,33 @@ mod tests {
         assert_eq!(
             output_base_from_arg("out/a.custom"),
             PathBuf::from("out/a.custom")
+        );
+    }
+
+    #[test]
+    fn check_runs_compiler_diagnostics() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("check_fails.nepl");
+        fs::write(
+            &path,
+            r#"#entry main
+#target core
+#indent 4
+
+fn main <()->i32> ():
+    let bad <i32> unknown_symbol;
+    bad
+"#,
+        )
+        .expect("write source");
+
+        let input = path.to_str().expect("path utf8");
+        let cli = Cli::parse_from(["nepl-cli", "--check", "-i", input]);
+        let err = execute(cli).expect_err("--check must fail for compiler diagnostics");
+
+        assert!(
+            err.to_string().contains("compilation failed"),
+            "unexpected error: {err}"
         );
     }
 
