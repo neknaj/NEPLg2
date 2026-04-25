@@ -15355,3 +15355,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - backend crash を compile diagnostic として返す経路を整備し、web / CLI / doctest runner が異常終了ではなく診断として扱えるようにした。
+
+# 2026-04-25 メモ (RV-CORE-015 check-only pipeline 分離)
+
+- [原因]:
+  - `nepl-cli --check` が artifact 生成用の `compile_module_with_source_map` を呼んでおり、型検査後に drop insertion / monomorphize / move check / codegen precheck / wasm codegen まで進んでいた。
+  - `RV-CORE-003` で typecheck 可能になった 1105 identity prefix call chain は、後段の再帰 HIR traversal に渡ると native stack overflow していた。
+- [修正]:
+  - `nepl_core::check_module_with_source_map` / `check_module` を追加し、target/profile precheck と typecheck までを実行する check-only path を分離した。
+  - `nepl-cli --check` は check-only API を呼ぶようにし、未定義シンボルなどの compiler diagnostics は維持しつつ artifact 生成へ進まないようにした。
+  - core と CLI に 1105-call chain の regression を追加した。
+- [確認]:
+  - `cargo test -p nepl-core --test check_pipeline`: `2 passed`
+  - `cargo test -p nepl-cli check_`: `2 passed`
+  - `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --check --target core`: success
+- [未解決]:
+  - `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --target core -o tmp/rv-core-003-large-rv-core-015.wasm` は native stack overflow する。
+  - 実際の wasm artifact 生成側の深い HIR traversal は `RV-CORE-016` として追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `--check` の責務を成果物生成から分離した。artifact 生成側の再帰 traversal は別 Issue で継続する。

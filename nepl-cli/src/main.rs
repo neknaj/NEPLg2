@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use nepl_core::{
-    compile_module, compile_module_with_source_map,
+    check_module_with_source_map, compile_module_with_source_map,
     diagnostic::{Diagnostic, Severity},
     error::CoreError,
     loader::{Loader, SourceMap},
@@ -323,6 +323,26 @@ fn execute(cli: Cli) -> Result<()> {
         ProfileArg::Release => BuildProfile::Release,
     });
     let active_profile = profile.unwrap_or(BuildProfile::detect());
+    let options = CompileOptions {
+        target: target_override,
+        verbose: cli.verbose,
+        profile,
+    };
+    if is_check {
+        match check_module_with_source_map(module, Some(&source_map), options) {
+            Ok(()) => {
+                eprintln!("Check successful");
+                return Ok(());
+            }
+            Err(CoreError::Diagnostics(diags)) => {
+                render_diagnostics(&diags, &source_map);
+                return Err(anyhow::anyhow!("compilation failed"));
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!(e.to_string()));
+            }
+        }
+    }
     if matches!(run_target, CompileTarget::Llvm) {
         if cli.run {
             return Err(anyhow::anyhow!(
@@ -358,11 +378,6 @@ fn execute(cli: Cli) -> Result<()> {
         }
         return Ok(());
     }
-    let options = CompileOptions {
-        target: target_override,
-        verbose: cli.verbose,
-        profile,
-    };
 
     eprintln!("DEBUG: Calling compile_module");
     let artifact = match compile_module_with_source_map(module, Some(&source_map), options) {
@@ -380,11 +395,6 @@ fn execute(cli: Cli) -> Result<()> {
             return Err(anyhow::anyhow!(e.to_string()));
         }
     };
-
-    if is_check {
-        eprintln!("Check successful");
-        return Ok(());
-    }
 
     if let Some(out) = &cli.output {
         let base = output_base_from_arg(out);
@@ -1449,6 +1459,17 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) {
 mod tests {
     use super::*;
 
+    fn deep_identity_source(call_count: usize) -> String {
+        let mut source = String::from(
+            "#entry main\n#indent 4\n#target core\n\nfn inc <(i32)->i32> (x):\n    x\n\nfn main <()->i32> ():\n    ",
+        );
+        for _ in 0..call_count {
+            source.push_str("inc ");
+        }
+        source.push_str("0\n");
+        source
+    }
+
     #[test]
     fn cli_parses_defaults() {
         let cli = Cli::parse_from(["nepl-cli", "--run"]);
@@ -1508,6 +1529,18 @@ fn main <()->i32> ():
             err.to_string().contains("compilation failed"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn check_accepts_deep_prefix_chain_without_codegen_stack_overflow() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("check_deep.nepl");
+        fs::write(&path, deep_identity_source(1105)).expect("write source");
+
+        let input = path.to_str().expect("path utf8");
+        let cli = Cli::parse_from(["nepl-cli", "--check", "-i", input]);
+
+        execute(cli).expect("--check should not enter recursive codegen pipeline");
     }
 
     #[test]

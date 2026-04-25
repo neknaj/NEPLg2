@@ -41,7 +41,7 @@ pub mod types;
 pub mod wasm_shared;
 
 pub use compiler::{
-    compile_module, compile_module_with_source_map, compile_wasm, BuildProfile,
-    CompilationArtifact, CompileOptions, CompileTarget,
+    check_module, check_module_with_source_map, compile_module, compile_module_with_source_map,
+    compile_wasm, BuildProfile, CompilationArtifact, CompileOptions, CompileTarget,
 };
 pub use error::CoreError;

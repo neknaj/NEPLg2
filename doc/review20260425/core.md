@@ -515,13 +515,13 @@ move checker で call target の parameter type を参照し、parameter が `&T
 - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-rv-core-014.json -j 1` (`total=37`, `passed=37`, `failed=0`)
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 
-## RV-CORE-015: 深い HIR を codegen pipeline が再帰処理して stack overflow する
+## RV-CORE-015: 深い HIR を check pipeline が再帰処理して stack overflow する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `nepl-core/src/compiler.rs`, `nepl-core/src/passes/drop_insertion.rs`, `nepl-core/src/passes/move_check.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-cli/src/main.rs`
+- 対象: `nepl-core/src/compiler.rs`, `nepl-core/src/lib.rs`, `nepl-cli/src/main.rs`
 
 ### 根拠
 
@@ -538,8 +538,56 @@ move checker で call target の parameter type を参照し、parameter が `&T
 
 ### 修正方針
 
-`--check` の責務を型検査成功可否に限定できる path を分離するか、後段 HIR pass / codegen の recursive visitor を明示スタック方式へ置き換えます。どちらの場合も stack overflow / panic ではなく、成功または通常の diagnostic として終了することを確認します。
+`--check` の責務を型検査成功可否に限定できる path として分離します。artifact 生成が必要ない確認用途で、drop insertion / move check / codegen precheck / wasm codegen へ進まないようにします。
+
+### 対応
+
+`nepl_core::check_module_with_source_map` を追加し、target/profile precheck と typecheck までを実行する check-only path を提供しました。`nepl-cli --check` はこの API を呼ぶようにし、`compile_module_with_source_map` による artifact 生成へ進まないようにしました。
+
+これにより、`RV-CLI-001` で必要だった「未定義シンボルなどの compiler diagnostics を拾う」性質は維持しつつ、1105 identity prefix call chain のような深いが正当な入力で後段の再帰 pipeline に入らなくなりました。
+
+対応中に、`--output` による実際の wasm artifact 生成は同じ深い HIR で引き続き native stack overflow することを確認しました。この残件は `RV-CORE-016` として分離し、後段 HIR pass / codegen の iterative 化で追跡します。
 
 ### 検証
 
-修正時には 1105-call chain を native CLI の regression として追加し、`cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --check --target core` が stack overflow せず終了することを確認します。
+確認済み:
+
+- `cargo test -p nepl-core --test check_pipeline`
+- `cargo test -p nepl-cli check_`
+- `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --check --target core`
+
+未解決として分離:
+
+- `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --target core -o tmp/rv-core-003-large-rv-core-015.wasm` は `thread 'main' has overflowed its stack` で失敗する。artifact 生成側の深い HIR traversal は `RV-CORE-016` で追跡します。
+
+## RV-CORE-016: 深い HIR を artifact codegen pipeline が再帰処理して stack overflow する
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `nepl-core/src/passes/drop_insertion.rs`, `nepl-core/src/passes/move_check.rs`, `nepl-core/src/passes/codegen_precheck.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/monomorphize.rs`
+
+### 根拠
+
+`RV-CORE-015` の check-only path 分離後、同じ 1105 identity prefix call chain を実際に artifact 生成すると、`compile_module` 後段で native stack overflow します。
+
+再現:
+
+- `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --target core -o tmp/rv-core-003-large-rv-core-015.wasm`
+
+### 問題
+
+artifact 生成に必要な HIR pass / codegen backend は、深い `HirExpr` を再帰的に走査します。`--check` は分離済みですが、実際の wasm 出力では drop insertion、monomorphize、move check、codegen precheck、wasm codegen のいずれかで native stack を消費し、診断ではなくプロセス異常終了になります。
+
+### 影響
+
+型検査上は正当な深い式でも、wasm artifact を生成できません。CI や配布ビルドで入力サイズ依存の compiler crash が残ります。
+
+### 修正方針
+
+artifact 生成側の HIR traversal を段階別に切り分け、深い call chain で再帰しない iterative visitor へ置き換えます。最低限、1105-call chain の wasm 出力が stack overflow せず成功する regression を追加します。
+
+### 検証
+
+未対応。修正時には `cargo run -p nepl-cli -- -i tmp/rv-core-003-large.nepl --target core -o tmp/rv-core-003-large.wasm` が stack overflow せず終了することを確認します。
