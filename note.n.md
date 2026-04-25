@@ -16029,3 +16029,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - 現行 pipeline は qualified import と codegen が loader の flat merge 済み AST を前提にしているため、RV-CORE-005 では未修飾名前解決の import clause 境界を先に修正した。
   - loader の物理非結合化は main pipeline と `resolve.rs` の統合を扱う `RV-CORE-010` の範囲に残す。
+
+# 2026-04-26 メモ (RV-CORE-012 target/profile gate 評価の統合)
+
+- [原因]:
+  - `#if[target=...]` の boolean parser は `compiler.rs`、statement 有効判定は `typecheck.rs` と `target_precheck.rs` に分散していた。
+  - `#if[profile=...]` は typecheck/precheck 側に別実装があり、未知 profile や未知 target が false として静かに inactive 扱いになり得た。
+  - invalid gate の診断と active statement 集合の判定が同じ source of truth を共有しておらず、raw body precheck と typecheck/codegen の見方がずれる余地があった。
+- [修正]:
+  - `nepl-core/src/target_gate.rs` を追加し、target gate expression parser、profile gate 判定、directive 判定、invalid gate 診断を集約した。
+  - `compiler.rs` の public `target_gate_allows_expr` は互換 API として残し、実装は共通 evaluator へ委譲した。
+  - `typecheck.rs` と `target_precheck.rs` の gate 判定を共通 evaluator に置き換え、module gate validation を typecheck/precheck の入口へ追加した。
+  - `InvalidConditionalGate` 診断 ID を追加し、未知 target/profile gate と構文不正 gate を error として扱うようにした。
+  - function body 直下だけでなく、式内部の block / match arm / tuple / group / intrinsic argument も再帰的に gate validation するようにした。
+  - 既存の非該当 target skip テストは、未知 gate ではなく既知の false gate (`llvm` on wasm) を使うように更新した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core target_gate -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core --test neplg2 invalid_ -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core`: pass
+  - `trunk build`: pass
+  - `cargo check --workspace`: pass
+  - `node tests/compiler/tree/run.js`: `total=19`, `passed=19`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-012.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+  - `git diff --check`: pass
+  - `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg2-rv-core-012.json -j 2`: `total=45`, `passed=44`, `failed=1`。`doctest#39` の overload arity fixture 不整合で、target/profile gate 変更とは独立しているため `RV-CORE-021` として追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - lowered module の物理的な AST 分割はまだ導入せず、現行 AST と HIR/typecheck pipeline を崩さない範囲で gate 判定の source of truth と invalid 診断を先に統一した。
+  - `tests/compiler/neplg2.n.md` の既存 overload arity fixture 不整合は、言語仕様確認が必要なため別 issue として扱う。

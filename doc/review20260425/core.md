@@ -479,8 +479,8 @@ generic impl target の `TypeImplTargetMustBeConcrete` 診断が `impl Marker fo
 
 ## RV-CORE-012: target/profile gate の評価が複数箇所に散っている
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P2
 - 種別: architecture
 - 対象: `nepl-core/src/compiler.rs`, `nepl-core/src/target_precheck.rs`, `nepl-core/src/typecheck.rs`
@@ -504,9 +504,27 @@ target/profile gate の有効 statement 判定が複数箇所に散っていま�
 
 gate evaluation を `passes/target_gate` 相当へ一本化し、AST から inactive item を明示的に除外した lowered module を作ります。未知 gate は warning ではなく diagnostic error にします。
 
+### 対応
+
+`nepl-core/src/target_gate.rs` に target/profile gate の共通 evaluator と invalid gate 診断を集約しました。`compiler.rs`、`typecheck.rs`、`target_precheck.rs` は同じ evaluator を使うようにし、未知 target/profile や構文不正な gate は `InvalidConditionalGate` として診断します。
+
+関数直下だけでなく、式内部の block / match arm / tuple / group / intrinsic argument も再帰的に検証し、active statement 判定と診断の取りこぼしを防ぎます。既存の「非該当 target はスキップする」テストは、未知 gate ではなく既知の false gate (`llvm` on wasm) を使うよう更新しました。
+
 ### 検証
 
-target gate の boolean expression、unknown gate、profile gate、raw body selection の matrix test を追加します。
+追加・更新した検証:
+
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core target_gate -- --nocapture` (`4 passed`)
+- `cargo test -p nepl-core --test neplg2 invalid_ -- --nocapture` (`3 passed`)
+- `cargo test -p nepl-core` (pass)
+- `trunk build` (pass)
+- `cargo check --workspace` (pass)
+- `node tests/compiler/tree/run.js` (`19/19 passed`)
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-012.json` (`13/13 passed`)
+- `git diff --check` (pass)
+
+補足: `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg2-rv-core-012.json -j 2` は `doctest#39` の既存 fixture 不整合で 1 件失敗しました。これは target/profile gate 変更とは独立しているため、`RV-CORE-021` として追加しました。
 
 ## RV-CORE-013: 参照引数の関数呼び出しが一時 borrow にならず所有値を固定する
 
@@ -866,3 +884,33 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 - `cargo check --workspace`
 - `node tests/compiler/tree/run.js` (`19/19 passed`)
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-020-after-rebase.json` (`13/13 passed`)
+
+## RV-CORE-021: neplg2.n.md の overload arity fixture が Rust test と不整合
+
+- 解決済: false
+- 状態: open
+- 優先度: P2
+- 種別: test
+- 対象: `tests/compiler/neplg2.n.md`, `nepl-core/tests/neplg2.rs`
+
+### 根拠
+
+`RV-CORE-012` の検証で `trunk build` 後に `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg2-rv-core-012.json -j 2` を実行すると、`doctest#39` が `D3005 ambiguous overload` で失敗しました。
+
+同じ内容に対応する Rust integration test は `nepl-core/tests/neplg2.rs` の `overloads_with_different_arity_are_error` で、現行実装では同名かつ arity の異なる overload を error として扱っています。
+
+### 問題
+
+`tests/compiler/neplg2.n.md` 側の `overloads_with_different_arity_are_allowed` は、現行 Rust test と逆の仕様を期待しています。そのため Node doctest runner では red になりますが、Rust suite では green になり、compiler 仕様と doctest fixture のどちらが正か読み取りにくい状態です。
+
+### 影響
+
+`tests/compiler/neplg2.n.md` 全体の regression test が 1 件失敗し続けます。target/profile gate の検証とは独立した不整合ですが、同じ fixture を使うため、関連変更の検証結果を曇らせます。
+
+### 修正方針
+
+言語仕様として「同名 overload の arity 差を許可する」のか「現行通り error とする」のかを確認し、Rust test と `.n.md` doctest を同じ期待値へ揃えます。現行実装を維持する場合は `.n.md` 側を compile_fail + diagnostic ID 期待へ更新します。
+
+### 検証
+
+修正時には `cargo test -p nepl-core --test neplg2` と `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree` を両方通します。

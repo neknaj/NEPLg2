@@ -546,6 +546,9 @@ pub fn typecheck(
     let mut label_env = LabelEnv::new();
     let mut env = Env::new();
     let mut diagnostics = Vec::new();
+    diagnostics.extend(crate::target_gate::validate_module_gates(
+        module, target, profile,
+    ));
     let mut strings = StringTable::new();
     let mut enums: BTreeMap<String, EnumInfo> = BTreeMap::new();
     let mut structs: BTreeMap<String, StructInfo> = BTreeMap::new();
@@ -9815,26 +9818,8 @@ fn parse_i32_literal(text: &str) -> Option<i32> {
     Some(signed as i32)
 }
 
-fn target_allows(target: &str, active: CompileTarget) -> bool {
-    crate::compiler::target_gate_allows_expr(target, active)
-}
-
-fn profile_allows(profile: &str, active: BuildProfile) -> bool {
-    match profile {
-        "debug" => matches!(active, BuildProfile::Debug),
-        "release" => matches!(active, BuildProfile::Release),
-        _ => false,
-    }
-}
-
 fn gate_allows(d: &Directive, target: CompileTarget, active_profile: BuildProfile) -> Option<bool> {
-    match d {
-        Directive::IfTarget { target: gate, .. } => Some(target_allows(gate.as_str(), target)),
-        Directive::IfProfile { profile, .. } => {
-            Some(profile_allows(profile.as_str(), active_profile))
-        }
-        _ => None,
-    }
+    crate::target_gate::directive_gate_allows(d, target, active_profile)
 }
 
 #[derive(Clone, PartialEq, Debug)]

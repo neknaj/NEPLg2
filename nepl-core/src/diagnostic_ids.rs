@@ -15,6 +15,8 @@ pub enum DiagnosticId {
     UnknownTargetDirective = 1002,
     /// VFS/Loader でソース取得に失敗。
     LoaderFailure = 1003,
+    /// 条件付きコンパイル gate が不正。
+    InvalidConditionalGate = 1004,
     /// open import が複数候補で曖昧。
     AmbiguousImport = 1101,
     /// 字句解析で未知のディレクティブ。
@@ -283,6 +285,7 @@ impl DiagnosticId {
             1001 => Some(DiagnosticId::MultipleTargetDirective),
             1002 => Some(DiagnosticId::UnknownTargetDirective),
             1003 => Some(DiagnosticId::LoaderFailure),
+            1004 => Some(DiagnosticId::InvalidConditionalGate),
             1101 => Some(DiagnosticId::AmbiguousImport),
             1201 => Some(DiagnosticId::LexerUnknownDirective),
             1202 => Some(DiagnosticId::LexerUnknownToken),
@@ -420,6 +423,7 @@ impl DiagnosticId {
             DiagnosticId::MultipleTargetDirective => "multiple #target directives are not allowed",
             DiagnosticId::UnknownTargetDirective => "unknown target in #target",
             DiagnosticId::LoaderFailure => "loader error",
+            DiagnosticId::InvalidConditionalGate => "invalid conditional compilation gate",
             DiagnosticId::AmbiguousImport => "ambiguous import",
             DiagnosticId::LexerUnknownDirective => "unknown directive",
             DiagnosticId::LexerUnknownToken => "unknown token",

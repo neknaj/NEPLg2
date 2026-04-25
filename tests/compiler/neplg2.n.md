@@ -73,7 +73,7 @@ fn main <() -> i32> ():
 ## iftarget_non_wasm_is_skipped
 
 以前はコンパイル確認のみでした。
-`#if[target=other]` のブロックが非該当ターゲットではスキップされることを狙ったテストなので、
+`#if[target=llvm]` のブロックが wasm ターゲットではスキップされることを狙ったテストなので、
 実行時には main が 1 を返せる（= スキップが有効で bad 定義が影響しない）ことを `ret: 1` で確認します。
 
 neplg2:test
@@ -81,7 +81,7 @@ ret: 1
 ```neplg2
 #entry main
 
-#if[target=other]
+#if[target=llvm]
 fn bad <() -> i32> ():
     unknown_symbol
 
@@ -221,7 +221,7 @@ ret: 5
 #import "core/math" as *
 
 fn main <()->i32> ():
-    #if[target=other]
+    #if[target=llvm]
     unknown_symbol
     add 2 3
 ```
@@ -229,7 +229,7 @@ fn main <()->i32> ():
 ## iftarget_on_let_expression
 
 `#if[target=...]` を `let` 式に適用できることを確認します。
-無効ターゲットの `let bad ...` だけがスキップされ、後続の `let ok ...` は評価される必要があります。
+非該当ターゲットの `let bad ...` だけがスキップされ、後続の `let ok ...` は評価される必要があります。
 
 neplg2:test
 ret: 7
@@ -239,7 +239,7 @@ ret: 7
 #indent 4
 
 fn main <()->i32> ():
-    #if[target=other]
+    #if[target=llvm]
     let bad <i32> unknown_symbol;
     let ok <i32> 7;
     ok
@@ -248,7 +248,7 @@ fn main <()->i32> ():
 ## iftarget_on_if_expression
 
 `#if[target=...]` を `if` 式に適用できることを確認します。
-無効ターゲットの `if` 式だけがスキップされ、後続の `if` 式は通常どおり評価される必要があります。
+非該当ターゲットの `if` 式だけがスキップされ、後続の `if` 式は通常どおり評価される必要があります。
 
 neplg2:test
 ret: 9
@@ -258,7 +258,7 @@ ret: 9
 #indent 4
 
 fn main <()->i32> ():
-    #if[target=other]
+    #if[target=llvm]
     if true then 1 else unknown_symbol
     if true then 9 else 0
 ```

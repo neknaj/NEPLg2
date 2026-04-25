@@ -42,29 +42,12 @@ impl<'a> ActiveRawBody<'a> {
     }
 }
 
-fn profile_allows(profile: &str, active: BuildProfile) -> bool {
-    match profile {
-        "debug" => matches!(active, BuildProfile::Debug),
-        "release" => matches!(active, BuildProfile::Release),
-        _ => false,
-    }
-}
-
 pub fn gate_allows(
     directive: &Directive,
     target: CompileTarget,
     active_profile: BuildProfile,
 ) -> Option<bool> {
-    match directive {
-        Directive::IfTarget { target: gate, .. } => Some(crate::compiler::target_gate_allows_expr(
-            gate.as_str(),
-            target,
-        )),
-        Directive::IfProfile { profile, .. } => {
-            Some(profile_allows(profile.as_str(), active_profile))
-        }
-        _ => None,
-    }
+    crate::target_gate::directive_gate_allows(directive, target, active_profile)
 }
 
 pub fn active_stmt_indices(
@@ -286,6 +269,9 @@ pub fn precheck_module_before_codegen(
     profile: BuildProfile,
 ) -> Vec<Diagnostic> {
     let mut out = precheck_module_target_directives(module);
+    out.extend(crate::target_gate::validate_module_gates(
+        module, target, profile,
+    ));
     out.extend(precheck_module_raw_bodies(module, target, profile));
     out
 }

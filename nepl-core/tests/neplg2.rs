@@ -150,7 +150,7 @@ fn iftarget_non_wasm_is_skipped() {
     let src = r#"
 #entry main
 
-#if[target=other]
+#if[target=llvm]
 fn bad <() -> i32> ():
     unknown_symbol
 
@@ -158,6 +158,110 @@ fn main <() -> i32> ():
     1
 "#;
     compile_ok(src);
+}
+
+#[test]
+fn invalid_iftarget_is_diagnostic() {
+    let src = r#"
+#entry main
+
+#if[target=unknown_target]
+fn bad <() -> i32> ():
+    unknown_symbol
+
+fn main <() -> i32> ():
+    1
+"#;
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("unknown target gate should fail") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.id == Some(DiagnosticId::InvalidConditionalGate)),
+        "missing invalid conditional gate diagnostic: {:?}",
+        diags
+    );
+}
+
+#[test]
+fn invalid_ifprofile_is_diagnostic() {
+    let src = r#"
+#entry main
+
+#if[profile=staging]
+fn bad <() -> i32> ():
+    unknown_symbol
+
+fn main <() -> i32> ():
+    1
+"#;
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: Some(BuildProfile::Debug),
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("unknown profile gate should fail")
+    else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.id == Some(DiagnosticId::InvalidConditionalGate)),
+        "missing invalid conditional gate diagnostic: {:?}",
+        diags
+    );
+}
+
+#[test]
+fn invalid_iftarget_in_nested_block_is_diagnostic() {
+    let src = r#"
+#entry main
+#indent 4
+
+fn main <() -> i32> ():
+    if true:
+        then:
+            #if[target=unknown_target]
+            unknown_symbol
+            1
+        else:
+            0
+"#;
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("nested unknown target gate should fail")
+    else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.id == Some(DiagnosticId::InvalidConditionalGate)),
+        "missing invalid conditional gate diagnostic: {:?}",
+        diags
+    );
 }
 
 #[test]

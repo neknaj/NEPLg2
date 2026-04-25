@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 5 | 15 |
+| core | 5 | 16 |
 | cli | 7 | 6 |
 | stdlib | 9 | 8 |
 | examples | 0 | 11 |
-| 合計 | 21 | 40 |
+| 合計 | 21 | 41 |
 
 ## Core
 
@@ -29,7 +29,7 @@
 | [RV-CORE-009](./core.md#rv-core-009-moveborrowdrop-が-resource-ir-なしで後付け実装されている) | false | open | P1 | architecture | ownership / borrow / drop が HIR 走査だけで実装されている |
 | [RV-CORE-010](./core.md#rv-core-010-name-resolution-が二重化し本パイプラインに統合されていない) | false | open | P2 | architecture | `resolve.rs` と `name_resolve.rs` が分かれ、後者は skeleton のまま |
 | [RV-CORE-011](./core.md#rv-core-011-typeexpr-が-span-を保持せず診断位置が失われる) | true | verified | P2 | bug | `TypeExpr::Spanned` で型式 span を保持し、impl target と call reduction 診断の dummy span を解消済み |
-| [RV-CORE-012](./core.md#rv-core-012-targetprofile-gate-の評価が複数箇所に散っている) | false | open | P2 | architecture | target gate が compiler/typecheck/target_precheck に分散している |
+| [RV-CORE-012](./core.md#rv-core-012-targetprofile-gate-の評価が複数箇所に散っている) | true | verified | P2 | architecture | target/profile gate evaluator を集約し、未知 gate を `InvalidConditionalGate` 診断に修正済み |
 | [RV-CORE-013](./core.md#rv-core-013-参照引数の関数呼び出しが一時-borrow-にならず所有値を固定する) | true | verified | P0 | bug | 参照 parameter の call argument を一時 borrow として評価するよう修正済み |
 | [RV-CORE-014](./core.md#rv-core-014-pair-から取り出した-generic-collection-の型が-overload-解決へ伝播しない) | true | verified | P1 | bug | `.Pair` の推論済み tuple 型を保持し、取得した `Vec<T>` の `len` overload が解決できるよう修正済み |
 | [RV-CORE-015](./core.md#rv-core-015-深い-hir-を-check-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | `--check` を artifact 生成から分離し、1105 call chain が check-only path で成功するよう修正済み |
@@ -38,6 +38,7 @@
 | [RV-CORE-018](./core.md#rv-core-018-nested-aggregate-を-tuple-から取り出すと-2-番目以降の値が壊れる) | true | verified | P0 | bug | named generic aggregate の storage layout 解決を修正し、`Tuple(Vec, Vec)` の 2 番目以降を正しく copy できるよう修正済み |
 | [RV-CORE-019](./core.md#rv-core-019-generic-wrapper--nested-generic-enum-の期待型伝播が-typenomatchingoverload-になる) | true | verified | P1 | bug | generic wrapper / nested generic enum の型引数汚染を防ぎ、`TypeNoMatchingOverload` を修正済み |
 | [RV-CORE-020](./core.md#rv-core-020-pipe-左辺の部分適用が-d3013-になり-rust-test-と-doctest-の状態が不整合) | true | verified | P2 | bug | pipe 左辺の退避範囲を未完了 callable の直近引数式に限定し、`pipe_nested_pipes` / `pipe_in_if` の skip を解除済み |
+| [RV-CORE-021](./core.md#rv-core-021-neplg2nmd-の-overload-arity-fixture-が-rust-test-と不整合) | false | open | P2 | test | `tests/compiler/neplg2.n.md` の overload arity doctest が現行 Rust test と不整合 |
 
 ## CLI
 
