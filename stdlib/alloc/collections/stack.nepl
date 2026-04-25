@@ -1,7 +1,7 @@
 //: stack: [後入先出/あといれさきだし]（LIFO）スタックを扱うライブラリ
 //:
 //: [目的/もくてき]:
-//: - `push` / `pop` / `pop_ref` / `peek` / `get_ref` / `len` など、スタック操作の基本 API を提供します。
+//: - `push` / `push_ref` / `pop` / `pop_ref` / `peek` / `get_ref` / `len` など、スタック操作の基本 API を提供します。
 //: - parser や探索処理で使いやすい軽量なスタック実装を提供します。
 //:
 //: [実装/じっそう]:
@@ -10,6 +10,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `push` / `clear` は更新後の `Stack<.T>` を返します。
+//: - `push_ref` は `&Stack<.T>` を受け取り、Copy 要素だけを所有権を移動せずに追加します。
 //: - `pop` は所有権を消費して `Option<.T>` を返します。
 //: - `pop_ref` は `&Stack<.T>` を受け取り、Copy 要素だけを取り出します。
 //: - `peek` は値のみを返します。
@@ -319,6 +320,82 @@ fn push <.T> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
             store<.T> add mem_ptr_addr data off item
             store_i32 mem_ptr_addr len_ptr add len 1
             ok<Stack<.T>, Diag> Stack hdr
+
+//: push_ref: 借用した stack に Copy 要素を追加する
+//:
+//: [目的/もくてき]:
+//: - `&Stack<.T>` を受け取り、stack handle の所有権を移動せずに要素を末尾へ積みます。
+//: - 追加に成功した場合は `Result::Ok ()` を返し、容量拡張に失敗した場合は `Diag` を含む `Err` を返します。
+//:
+//: [実装/じっそう]:
+//: - borrowed stack から header を読み、length / capacity / data pointer を既存の `push` と同じ layout で更新します。
+//: - 容量が不足する場合は data buffer を 2 倍に `realloc_ptr` し、成功後に header を差し替えます。
+//:
+//: [注意/ちゅうい]:
+//: - `.T: Copy` に限定しています。失敗時に item の所有権回収を必要としない値だけを対象にするためです。
+//: - `push` と違い stack handle を返しません。呼び出し側は元の handle をそのまま `free` や `pop_ref` に使えます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 通常は O(1)、容量拡張が発生した場合は O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let created <Result<Stack<i32>, Diag>> new<i32>
+//:     match created:
+//:         Result::Ok st:
+//:             let pushed <bool>:
+//:                 match push_ref<i32> &st 10:
+//:                     Result::Ok _:
+//:                         true
+//:                     Result::Err _:
+//:                         false
+//:             let got <bool>:
+//:                 match pop_ref<i32> &st:
+//:                     Option::Some x:
+//:                         eq x 10
+//:                     Option::None:
+//:                         false
+//:             free<i32> st;
+//:             if and pushed got 0 1
+//:         Result::Err _:
+//:             1
+//: ```
+fn push_ref <.T: Copy> <(&Stack<.T>,.T)*>Result<(), Diag>> (stk, item):
+    let stk0 <Stack<.T>> *stk
+    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
+    let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 4
+    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
+    let len <i32> load_i32 mem_ptr_addr len_ptr
+    let cap <i32> load_i32 mem_ptr_addr cap_ptr
+    let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
+    if:
+        eq len cap
+        then:
+            let new_cap <i32> mul cap 2
+            match realloc_ptr<.T> data mul cap size_of<.T> mul new_cap size_of<.T>:
+                Result::Err _e:
+                    Result<(), Diag>::Err diag_out_of_memory "push_ref(realloc_raw)"
+                Result::Ok new_data:
+                    store_i32 mem_ptr_addr cap_ptr new_cap
+                    store_i32 mem_ptr_addr data_ptr_ptr mem_ptr_addr new_data
+                    let off <i32> mul len size_of<.T>
+                    store<.T> add mem_ptr_addr new_data off item
+                    store_i32 mem_ptr_addr len_ptr add len 1
+                    Result<(), Diag>::Ok ()
+        else:
+            let off <i32> mul len size_of<.T>
+            store<.T> add mem_ptr_addr data off item
+            store_i32 mem_ptr_addr len_ptr add len 1
+            Result<(), Diag>::Ok ()
 
 //: pop: 末尾要素を取り出す
 //:

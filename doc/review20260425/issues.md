@@ -10,9 +10,9 @@
 |---|---:|---:|
 | core | 9 | 11 |
 | cli | 7 | 6 |
-| stdlib | 9 | 6 |
-| examples | 0 | 8 |
-| 合計 | 25 | 31 |
+| stdlib | 9 | 7 |
+| examples | 0 | 9 |
+| 合計 | 25 | 33 |
 
 ## Core
 
@@ -76,6 +76,7 @@
 | [RV-STDLIB-013](./stdlib.md#rv-stdlib-013-stdlib-collection-doctest-群が所有型-api-移行後の実装とずれている) | false | open | P1 | test | collection doctest が `D3004` / `D3016` / runtime trap で広範囲に失敗し、API と実装の差分が残っている |
 | [RV-STDLIB-014](./stdlib.md#rv-stdlib-014-stack-の-更新-api-が-by-value-pop-に偏り所有値の継続利用を阻害する) | true | verified | P1 | architecture | `Stack` に `get_ref` / `pop_ref` を追加し、Copy 要素を借用経由で読み取り・取り出しできるよう修正済み |
 | [RV-STDLIB-015](./stdlib.md#rv-stdlib-015-bytevec-操作の-public-api-不足により-example-が-raw-memory-へ依存する) | true | verified | P1 | architecture | `Vec::replace_ref` / `string::byte_at` / `stdio::print_byte` を追加し、byte VM を raw memory なしで書けるよう修正済み |
+| [RV-STDLIB-016](./stdlib.md#rv-stdlib-016-stack-push-が所有権を消費し-example-で-panic-helper-回避を妨げる) | true | verified | P1 | architecture | `Stack::push_ref` を追加し、Copy 要素を借用 stack へ追加して失敗時も handle を保持できるよう修正済み |
 
 ## Examples
 
@@ -89,3 +90,4 @@
 | [RV-EXAMPLE-006](./examples.md#rv-example-006-nm-example-の-usage-表示が実体名とずれている) | true | verified | P3 | doc | `nm.nepl` の usage 表示を実体名の `nm` に統一済み |
 | [RV-EXAMPLE-007](./examples.md#rv-example-007-rpn-example-の先頭構成が-docdoctest-基準から外れている) | true | verified | P3 | doc | `rpn.nepl` の先頭を doctest / 概要コメント / directive の順へ整理済み |
 | [RV-EXAMPLE-008](./examples.md#rv-example-008-bf-example-の先頭構成が-docdoctest-基準から外れている) | true | verified | P3 | doc | `bf.nepl` の先頭を doctest / 概要コメント / directive の順へ整理済み |
+| [RV-EXAMPLE-009](./examples.md#rv-example-009-rpn_legacy-example-が-stack-push-失敗を-unwrap_ok-で-panic-させる) | true | verified | P1 | architecture | `rpn_legacy.nepl` の stack 初期化・push を `match` / `push_ref` へ移行し、`unwrap_ok` 依存を除去済み |

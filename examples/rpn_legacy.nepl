@@ -69,6 +69,19 @@ fn print_result <(i32)*>()> (val):
     print ansi_reset;
     print "\n";
 
+//: push_or_report: stack への追加失敗を REPL のエラー表示に変換する
+//:
+//: [目的/もくてき]:
+//: - 計算途中の `push_ref` 失敗を panic にせず、利用者へ `out of memory` として表示します。
+//: - `Stack<i32>` の所有権は呼び出し側に残るため、失敗後も `free` できます。
+fn push_or_report <(&Stack<i32>,i32)*>bool> (stack, val):
+    match stk::push_ref<i32> stack val:
+        Result::Ok _:
+            true
+        Result::Err _:
+            print_error "out of memory";
+            false
+
 //: apply_op: stack 上の 2 値へ二項演算を適用する
 //:
 //: [目的/もくてき]:
@@ -94,8 +107,8 @@ fn apply_op <(Stack<i32>,str)*>Stack<i32>> (stack, token):
                                             s::str_eq token "-"
                                             then sub a b
                                             else mul a b
-                            stk::push<i32> stack res
-                            |> unwrap_ok<Stack<i32>, Diag>
+                            push_or_report &stack res;
+                            stack
                         Option::None:
                             print_error "stack underflow";
                             stack
@@ -122,8 +135,8 @@ fn process_token <(Stack<i32>,str)*>Stack<i32>> (stack, token):
                 else:
                     match s::to_i32 token:
                         Result::Ok val:
-                            stk::push<i32> stack val
-                            |> unwrap_ok<Stack<i32>, Diag>
+                            push_or_report &stack val;
+                            stack
                         Result::Err _:
                             print_error "unknown token";
                             stack
@@ -138,39 +151,41 @@ fn eval_line <(str)*>()> (line):
     let tokens <Vec<str>> s::str_split trimmed " ";
     let n <i32> v::len_ref<str> &tokens;
 
-    let mut stack <Stack<i32>>:
-        stk::new<i32>
-        |> unwrap_ok<Stack<i32>, Diag>
+    match stk::new<i32>:
+        Result::Ok stack0:
+            let mut stack <Stack<i32>> stack0;
+            let mut i <i32> 0;
+            while lt i n:
+                do:
+                    match v::get_ref<str> &tokens i:
+                        Option::Some tok:
+                            set stack process_token stack tok;
+                        Option::None:
+                            ()
+                    set i add i 1;
 
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            match v::get_ref<str> &tokens i:
-                Option::Some tok:
-                    set stack process_token stack tok;
-                Option::None:
-                    ()
-            set i add i 1;
-
-    let sp <i32> stk::len_ref<i32> &stack;
-    if:
-        eq sp 1
-        then:
-            match stk::pop_ref<i32> &stack:
-                Option::Some val:
-                    print_result val;
-                Option::None:
-                    ()
-        else:
+            let sp <i32> stk::len_ref<i32> &stack;
             if:
-                eq sp 0
+                eq sp 1
                 then:
-                    ()
+                    match stk::pop_ref<i32> &stack:
+                        Option::Some val:
+                            print_result val;
+                        Option::None:
+                            ()
                 else:
-                    print_error s::concat3 "stack has " s::from_i32 sp " values";
+                    if:
+                        eq sp 0
+                        then:
+                            ()
+                        else:
+                            print_error s::concat3 "stack has " s::from_i32 sp " values";
 
-    stk::free<i32> stack;
-    v::free<str> tokens;
+            stk::free<i32> stack;
+            v::free<str> tokens;
+        Result::Err _:
+            print_error "out of memory";
+            v::free<str> tokens;
 
 //: main: RPN REPL のエントリーポイント
 //:

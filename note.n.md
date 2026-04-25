@@ -15868,3 +15868,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - RV-CORE-019 の根本原因は型引数汚染として修正し、検証で見つけた fixture drift は現行 stdlib / harness の実運用経路に同期した。
+# 2026-04-26 メモ (RV-EXAMPLE-009 rpn_legacy の panic helper 依存解消)
+
+- [原因]:
+  - `examples/rpn_legacy.nepl` は stack 初期化と push で `unwrap_ok<Stack<i32>, Diag>` を使っており、allocation failure が REPL の error 表示ではなく panic 経路になっていた。
+  - 既存の `Stack::push` は `Stack<.T>` を consuming に受け取るため、`Err` 側で元の stack handle を保持して `free` できず、example 側だけの `match` 置換では根本修正にならなかった。
+- [修正]:
+  - `stdlib/alloc/collections/stack.nepl` に `push_ref <.T: Copy> <(&Stack<.T>,.T)*>Result<(), Diag>>` を追加し、Copy 要素を借用 stack に追加できるようにした。
+  - `examples/rpn_legacy.nepl` に `push_or_report` を追加し、数値 push と演算結果 push を `push_ref` + `match` 経由に変更した。
+  - `eval_line` の stack 初期化を `match stk::new<i32>` に変更し、失敗時も token `Vec` を解放するようにした。
+- [review issue]:
+  - `doc/review20260425/stdlib.md` / `issues.md` に `RV-STDLIB-016` を追加し、verified とした。
+  - `doc/review20260425/examples.md` / `issues.md` に `RV-EXAMPLE-009` を追加し、verified とした。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl --no-tree -o tmp/stack-push-ref-tests.json -j 2`: `total=15`, `passed=15`, `failed=0`
+  - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-no-unwrap-tests.json -j 2`: `total=1`, `passed=1`, `failed=0`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-rpn-legacy-push-ref.json -j 4`: `total=12`, `passed=12`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - examples は stdlib の public API を使う方針なので、`rpn_legacy` の `unwrap_ok` 除去に必要な `Stack::push_ref` を stdlib 側へ追加した。
