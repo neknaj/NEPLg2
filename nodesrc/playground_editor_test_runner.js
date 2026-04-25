@@ -27,6 +27,10 @@ function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function readFixtureText(filePath) {
+    return fs.readFileSync(filePath, 'utf8').replace(/\r\n?/g, '\n');
+}
+
 function isDirectory(filePath) {
     try {
         return fs.statSync(filePath).isDirectory();
@@ -86,7 +90,7 @@ async function runCase(caseDir, bridge = null) {
     const commandsPath = path.join(caseDir, 'commands.json');
     const expectedPath = path.join(caseDir, 'expected.json');
 
-    const source = fs.existsSync(sourcePath) ? fs.readFileSync(sourcePath, 'utf8') : '';
+    const source = fs.existsSync(sourcePath) ? readFixtureText(sourcePath) : '';
     const commands = fs.existsSync(commandsPath) ? readJson(commandsPath) : [];
     let state = editorBridge.createEditorRuntimeState(source);
     for (const command of commands) {
@@ -104,7 +108,7 @@ async function runAnalysisCase(caseDir, bridge = null) {
     const requestsPath = path.join(caseDir, 'requests.json');
     const expectedPath = path.join(caseDir, 'expected.json');
 
-    const source = fs.existsSync(sourcePath) ? fs.readFileSync(sourcePath, 'utf8') : '';
+    const source = fs.existsSync(sourcePath) ? readFixtureText(sourcePath) : '';
     const analysis = fs.existsSync(analysisPath) ? readJson(analysisPath) : {};
     const requests = fs.existsSync(requestsPath) ? readJson(requestsPath) : [];
     const outputs = [];

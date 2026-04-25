@@ -547,12 +547,21 @@ impl<'a> Monomorphizer<'a> {
     }
 
     fn queue_concrete_callees(&mut self, func: &mut HirFunction) {
+        let mut local_names: BTreeSet<String> = BTreeSet::new();
+        for p in &func.params {
+            local_names.insert(p.name.clone());
+        }
         if let HirBody::Block(block) = &mut func.body {
-            self.queue_concrete_callees_in_block(block);
+            collect_local_names_in_block(block, &mut local_names);
+            self.queue_concrete_callees_in_block(block, &local_names);
         }
     }
 
-    fn queue_concrete_callees_in_block(&mut self, block: &mut HirBlock) {
+    fn queue_concrete_callees_in_block(
+        &mut self,
+        block: &mut HirBlock,
+        local_names: &BTreeSet<String>,
+    ) {
         let mut stack = Vec::new();
         for line in block.lines.iter_mut().rev() {
             stack.push(&mut line.expr);
@@ -647,13 +656,24 @@ impl<'a> Monomorphizer<'a> {
                         stack.push(arg);
                     }
                 }
+                HirExprKind::Var(name) => {
+                    if local_names.contains(name) {
+                        continue;
+                    }
+                    if let Some(found) = self.resolve_user_function_name(name.as_str()) {
+                        *name = self.request_instantiation(found, Vec::new());
+                    }
+                }
+                HirExprKind::FnValue(name) => {
+                    if let Some(found) = self.resolve_user_function_name(name.as_str()) {
+                        *name = self.request_instantiation(found, Vec::new());
+                    }
+                }
                 HirExprKind::Unit
                 | HirExprKind::LiteralI32(_)
                 | HirExprKind::LiteralF32(_)
                 | HirExprKind::LiteralBool(_)
                 | HirExprKind::LiteralStr(_)
-                | HirExprKind::Var(_)
-                | HirExprKind::FnValue(_)
                 | HirExprKind::Drop { .. } => {}
             }
         }

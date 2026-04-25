@@ -15621,3 +15621,39 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CI infrastructure の詰まりを解消したことで、コンパイラ本体と stdlib の未解決回帰が GitHub Actions 上で可視化された。
+
+# 2026-04-25 メモ (RV-CORE-017 関数値 monomorphize 修正)
+
+- [原因]:
+  - `monomorphize.rs` の generic 関数 path では `substitute_expr` が `FnValue` と non-local `Var` を `request_instantiation` へ通していた。
+  - 一方で、type parameter mapping が空の concrete 関数 path では `queue_concrete_callees` が direct `Call` しか収集せず、関数値として渡した関数や generated lambda を worklist に積んでいなかった。
+  - そのため `square__i32__i32__pure`、`add_op`、`__lambda_0_214_218` などが backend の `name_map` に入らず、`D4007` / `D4008` として wasm codegen まで到達していた。
+- [修正]:
+  - concrete 関数の param / let / match bind を local 名として収集したうえで、local ではない bare `Var` と `FnValue` をユーザー関数として解決し、direct call と同じ monomorphize queue に登録するようにした。
+  - これにより、直接呼ばれないが関数値として使われる関数も specialized function として backend に届く。
+- [追加で見つけた問題]:
+  - Windows checkout では `tests/playground_editor/**/source.nepl` が CRLF になり、`nodesrc/cli.js --playground-editor-tests` の snapshot が LF 前提の expected とずれて 11 件失敗した。
+  - upstream で `RV-CLI-012` が clean checkout の `web/examples` 同期問題として追加されていたため、`RV-CLI-013` として issue 化し、fixture runner の `source.nepl` 読み込み境界で LF 正規化するように修正した。
+  - `stdlib/tests/vec.n.md::doctest#2` は `RV-CORE-017` 修正後に compile から runtime まで進むようになったが、`partition` の odd 側 `Vec` の先頭要素が expected `1` / actual `0` になった。
+  - 一時再現 `tmp/rv-pair-vec-runtime.n.md` で `Tuple(Vec<i32>, Vec<i32>)` の 2 番目を取り出すだけでも先頭要素が壊れることを確認したため、nested aggregate field access の runtime 値化けとして `RV-CORE-018` に分離した。
+- [検証]:
+  - `cargo fmt --all -- --check`: pass
+  - `cargo test -p nepl-core --test functions function_first_class -- --nocapture`: `2 passed`
+  - `cargo test -p nepl-core --test functions function_return -- --nocapture`: pass
+  - `cargo test -p nepl-core --test functions`: `12 passed`, `1 ignored`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -o tmp/functions-rv-core-017.json -j 1`: `41/41 passed`
+  - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -o tmp/list-dot-map-rv-core-017.json -j 1`: `23/23 passed`
+  - `node nodesrc/tests.js -i tutorials/getting_started/22_competitive_io_and_arith.n.md -o tmp/tutorial-io-rv-core-017.json -j 1`: `22/22 passed`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -o tmp/vec-rv-core-017.json -j 1`: `57/57 passed`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-017.json`: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- [未解決として分離]:
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md -o tmp/vec-tests-rv-core-017.json -j 1`: `20/21 passed`, `stdlib/tests/vec.n.md::doctest#2` が `RV-CORE-018` の runtime 値化けで失敗。
+- [更新]:
+  - `doc/review20260425/core.md` と `doc/review20260425/issues.md` の `RV-CORE-017` を `fixed` に更新した。
+  - `doc/review20260425/core.md` と `doc/review20260425/issues.md` に `RV-CORE-018` を追加し、`todo.md` に修正作業を追加した。
+  - `doc/review20260425/cli.md` と `doc/review20260425/issues.md` に `RV-CLI-013` を追加し、同時修正済みとして `verified` にした。
+  - `todo.md` から実装済みの `RV-CORE-017` を削除した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - higher-order function / lambda を stdlib と tutorial で使える状態へ近づけたが、`RV-STDLIB-013` と `RV-CLI-011` は未解決として残る。

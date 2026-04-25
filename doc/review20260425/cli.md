@@ -419,3 +419,35 @@ examples の修正後に要求される `trunk build` と `nodesrc/cli.js` / `no
 
 - `trunk build`: 通過
 - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-baseline.json -j 4`: build 成果物を読めることを確認。既存の `rpn.nepl` / `bf.nepl` の move checker エラーは examples 側の別問題として分離。
+
+## RV-CLI-013: playground editor CLI fixture が Windows CRLF checkout で失敗する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P2
+- 種別: test
+- 対象: `nodesrc/playground_editor_test_runner.js`
+
+### 根拠
+
+- Windows checkout 後に `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-017.json` を実行すると、`caseCount=13`, `passedCount=2`, `failedCount=11` になった。
+- 失敗内容は `source.nepl` 由来の `\r\n` が editor state / syntax token / diagnostic span に入ることで、snapshot の cursor index や token index が LF 前提の expected とずれるものだった。
+- AGENTS.md の標準確認手順は `trunk build` 後に `nodesrc/cli.js` の JSON を確認することを求めているため、Windows ローカルでこのテストが通らないと修正前検証が不安定になる。
+
+### 問題
+
+playground editor の実装は入力境界で LF 正規化する前提ですが、CLI fixture runner は `source.nepl` を `fs.readFileSync(..., 'utf8')` でそのまま読み込んでいました。Git の checkout 設定で fixture が CRLF になると、editor core へ CRLF が渡り、行末文字数が変わって token span / selection / delete forward の結果が snapshot と一致しません。
+
+### 影響
+
+GitHub Actions の Linux runner では表面化しにくい一方、Windows 開発環境では `nodesrc/cli.js` の正式な JSON テストが失敗します。Rust 側や compiler 側の修正検証中に、無関係な playground editor snapshot 差分が混ざり、CI 修正の局所確認を妨げます。
+
+### 対応
+
+`nodesrc/playground_editor_test_runner.js` に fixture text reader を追加し、`source.nepl` 読み込み時に `\r\n` / `\r` を LF へ正規化するようにしました。expected JSON や command JSON は従来通り JSON として読み込み、テスト入力のテキスト境界だけを正規化しています。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-017.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)

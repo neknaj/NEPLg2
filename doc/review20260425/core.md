@@ -625,8 +625,8 @@ wasm codegen precheck と signature / reachable collection は shared helper 側
 
 ## RV-CORE-017: 関数値として渡した関数と lambda が backend 到達時に未登録になる
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: fixed
 - 優先度: P0
 - 種別: bug
 - 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/monomorphize.rs`, `nepl-core/src/wasm_shared.rs`, `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`
@@ -657,15 +657,63 @@ wasm codegen precheck と signature / reachable collection は shared helper 側
 
 `@func` と bare `func` の扱い、純粋/非純粋 signature、capturing lambda の未対応診断を整理し、未実装の capture は typecheck diagnostic に留めます。backend に到達してから unknown になる経路をなくします。
 
+### 対応
+
+`monomorphize.rs` の concrete 関数処理で、直接 call だけでなく `Var` / `FnValue` として現れる関数参照も収集し、対応する specialized function を worklist へ積むようにしました。
+
+generic 関数の `substitute_expr` では既に関数値参照を `request_instantiation` へ通していましたが、type parameter mapping が空の concrete 関数では `queue_concrete_callees` が direct `Call` しか見ていませんでした。そのため `square`、`add_op`、generated lambda のように値として渡される関数が backend の `name_map` に入らず、`D4007` / `D4008` に到達していました。
+
+今回の修正では concrete 関数の param / let / match bind を local 名として集めたうえで、local ではない bare `Var` と `FnValue` をユーザー関数として解決し、direct call と同じ monomorphize queue に登録します。
+
 ### 検証
 
-最低限、次を regression として通します。
+確認済み:
 
-- `cargo test -p nepl-core --test functions function_first_class`
-- `cargo test -p nepl-core --test functions function_return`
-- `cargo test -p nepl-core --test functions function_first_class_literal`
-- `node nodesrc/tests.js -i tests/compiler/functions.n.md -o tmp/functions-rv-core-017.json -j 1`
-- `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -o tmp/list-dot-map-rv-core-017.json -j 1`
-- `node nodesrc/tests.js -i tutorials/getting_started/22_competitive_io_and_arith.n.md -o tmp/tutorial-io-rv-core-017.json -j 1`
-- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -o tmp/vec-rv-core-017.json -j 1`
-- `node nodesrc/tests.js -i stdlib/tests/vec.n.md -o tmp/vec-tests-rv-core-017.json -j 1`
+- `cargo fmt --all -- --check`
+- `cargo test -p nepl-core --test functions function_first_class -- --nocapture` (`2 passed`)
+- `cargo test -p nepl-core --test functions function_return -- --nocapture`
+- `cargo test -p nepl-core --test functions` (`12 passed`, `1 ignored`)
+- `trunk build`
+- `node nodesrc/tests.js -i tests/compiler/functions.n.md -o tmp/functions-rv-core-017.json -j 1` (`41/41 passed`)
+- `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -o tmp/list-dot-map-rv-core-017.json -j 1` (`23/23 passed`)
+- `node nodesrc/tests.js -i tutorials/getting_started/22_competitive_io_and_arith.n.md -o tmp/tutorial-io-rv-core-017.json -j 1` (`22/22 passed`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -o tmp/vec-rv-core-017.json -j 1` (`57/57 passed`)
+
+未解決として分離:
+
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md -o tmp/vec-tests-rv-core-017.json -j 1` は `20/21 passed` で、`partition` の right bucket 読み取りが runtime 値不一致になる。関数値登録漏れではなく nested aggregate field access の問題として `RV-CORE-018` へ分離しました。
+
+GitHub Actions での確認は、この修正を push した後の run で行います。
+
+## RV-CORE-018: nested aggregate を tuple から取り出すと 2 番目以降の値が壊れる
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`, `nepl-core/src/typecheck.rs`
+
+### 根拠
+
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md -o tmp/vec-tests-rv-core-017.json -j 1`: `stdlib/tests/vec.n.md::doctest#2` が `err assert_eq_i32 failed: expected=1 actual=0` で失敗。
+- 失敗箇所は `partition<i32>` の戻り値 `.Pair` から `get parts 1` で取り出した odd 側 `Vec<i32>` の先頭要素。
+- 一時再現 `tmp/rv-pair-vec-runtime.n.md` では、`Tuple: left right` の 2 番目の `Vec<i32>` を `get pair 1` で取り出し、`get_ref &got_right 0` すると expected `1` に対して actual `2208` になった。
+
+### 問題
+
+`Vec<i32>` の単体操作と `partition` の predicate / length 計算は動いています。一方で、tuple に nested struct / aggregate を 2 つ入れた後、2 番目以降の aggregate を取り出すと内部 field、特に data pointer か payload layout が壊れます。
+
+`RV-CORE-014` は `.Pair` から取り出した generic collection の型伝播問題でしたが、今回は型検査は通り runtime 値が壊れるため別問題です。aggregate の ABI / layout / field selector lowering のどこかで、tuple field offset と nested struct value の copy 幅が一致していない可能性があります。
+
+### 影響
+
+`Vec::partition` の `(matched, rest)` の rest 側、複数 collection を返す stdlib API、nested struct を tuple / anonymous aggregate 経由で返すユーザーコードが誤った値を読みます。runtime trap ではなく値化けになるため、検出しにくいデータ破壊です。
+
+### 修正方針
+
+WASM / LLVM の aggregate layout を同じ仕様に揃え、tuple field access が nested struct の size / alignment / field offset を正しく使うことを確認します。最小回帰として、2 本の `Vec<i32>` を tuple に入れて 2 番目を取り出し、len と先頭要素を検査する doctest または Rust integration test を追加します。
+
+### 検証
+
+- `stdlib/tests/vec.n.md::doctest#2` が `partition` の even / odd 両側で `Vec` 要素を正しく読めること。
+- nested `Tuple(Vec<i32>, Vec<i32>)` の 2 番目以降の `Vec` で `len_ref` / `get_ref` が正しいこと。

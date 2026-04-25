@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 9 | 8 |
-| cli | 8 | 4 |
+| core | 9 | 9 |
+| cli | 8 | 5 |
 | stdlib | 9 | 6 |
 | examples | 0 | 2 |
-| 合計 | 26 | 20 |
+| 合計 | 26 | 22 |
 
 ## Core
 
@@ -34,7 +34,8 @@
 | [RV-CORE-014](./core.md#rv-core-014-pair-から取り出した-generic-collection-の型が-overload-解決へ伝播しない) | true | verified | P1 | bug | `.Pair` の推論済み tuple 型を保持し、取得した `Vec<T>` の `len` overload が解決できるよう修正済み |
 | [RV-CORE-015](./core.md#rv-core-015-深い-hir-を-check-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | `--check` を artifact 生成から分離し、1105 call chain が check-only path で成功するよう修正済み |
 | [RV-CORE-016](./core.md#rv-core-016-深い-hir-を-artifact-codegen-pipeline-が再帰処理して-stack-overflow-する) | true | verified | P1 | bug | artifact 生成側の深い HIR traversal を iterative 化し、1105 call chain の wasm 生成を修正済み |
-| [RV-CORE-017](./core.md#rv-core-017-関数値として渡した関数と-lambda-が-backend-到達時に未登録になる) | false | open | P0 | bug | higher-order function / lambda を含む doctest が `D4007` / `D4008` で wasm codegen まで到達して失敗する |
+| [RV-CORE-017](./core.md#rv-core-017-関数値として渡した関数と-lambda-が-backend-到達時に未登録になる) | true | fixed | P0 | bug | concrete 関数の monomorphize でも関数値 / lambda 参照を収集し、D4007 / D4008 の局所回帰を修正済み |
+| [RV-CORE-018](./core.md#rv-core-018-nested-aggregate-を-tuple-から取り出すと-2-番目以降の値が壊れる) | false | open | P0 | bug | `Tuple(Vec, Vec)` の 2 番目以降を取り出すと nested aggregate の data pointer / payload が壊れる |
 
 ## CLI
 
@@ -52,6 +53,7 @@
 | [RV-CLI-010](./cli.md#rv-cli-010-pages-fastfinal-deploy-が同じ-github-pages-artifact-名を使い-final-deploy-が落ちる) | true | verified | P1 | test | fast/final Pages artifact 名を分離し、run `24932659255` で final deploy 成功を確認済み |
 | [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | false | open | P1 | test | `llvm-test` の full dual backend verification が 10 分 timeout で cancelled になる |
 | [RV-CLI-012](./cli.md#rv-cli-012-trunk-build-が-clean-checkout-で-webexamples-不在により失敗する) | true | verified | P2 | test | `web/examples` を npm prebuild で同期し、ローカル `trunk build` を clean checkout でも通るように修正済み |
+| [RV-CLI-013](./cli.md#rv-cli-013-playground-editor-cli-fixture-が-windows-crlf-checkout-で失敗する) | true | verified | P2 | test | fixture source を LF 正規化し、Windows checkout の CRLF で `nodesrc/cli.js` JSON テストが崩れないよう修正済み |
 
 ## Stdlib
 
