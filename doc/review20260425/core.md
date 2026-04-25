@@ -934,11 +934,11 @@ pipe 左辺の退避範囲を決める時に、現在の stack 内に未完了�
 
 ## RV-CORE-022: GitHub Actions 24940960078 で compiler doctest が広範囲に回帰している
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
-- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/src/passes/**`, `tests/compiler/*.n.md`, `tests/stdlib/*.n.md`
+- 対象: `tests/compiler/*.n.md`, `nepl-core/tests/*.rs`, `nepl-core/src/typecheck.rs`, `nepl-core/src/passes/**`
 
 ### 根拠
 
@@ -959,13 +959,15 @@ core compiler の move/effect/trait impl/overload/raw-body precheck が同時に
 
 まず `tests-current.json` の failure を root cause 別に最小再現へ分解します。compile_fail が成功するものは move/effect/precheck の安全性問題として P0 で先に直し、`D3090` は trait method signature の期待型生成と impl 側 signature 正規化を比較します。overload 系は `RV-CORE-021` の arity 方針と `tests/compiler/overload.n.md` の期待値が現在の仕様に一致しているかを確認し、仕様が正しければ resolver 側、fixture が古ければ doctest 側を修正します。
 
+### 対応
+
+run `24940960078` の compiler doctest 代表failureを root cause 別に分離しました。`raw_body_precheck.n.md` の D4002 fixture ずれは `RV-CORE-023`、local borrow fixture ずれは `RV-CORE-024`、標準 `Clone` signature ずれは `RV-CORE-025`、同名arity違い overload fixture は `RV-CORE-026` として修正済みです。
+
+stdlib 側の残り failure は `RV-STDLIB-013` / `RV-STDLIB-018` に分離済みです。LLVM full dual backend verification の timeout / cancelled は `RV-CLI-011` に残し、この issue では compiler doctest suite の再検証完了をもって verified とします。
+
 ### 検証
 
-- `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/overload.n.md -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/core-ci-regressions.json -j 1`
-- `node nodesrc/tests.js -i tests -o tmp/tests-current-after-rv-core-022.json -j 4`
-- `cargo test -p nepl-core`
-- `trunk build`
-- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-rv-core-022.json`
+- `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-rv-core-026.json -j 4` (`total=474`, `passed=474`, `failed=0`)
 
 ## RV-CORE-023: raw_body_precheck の unsupported signature fixture が zero-sized unit 引数対応後の仕様とずれている
 

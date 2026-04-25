@@ -16354,3 +16354,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - overload 解決仕様は変更せず、旧fixtureを現行仕様へ揃えた。
+
+# 2026-04-26 メモ (RV-CORE-022 compiler doctest 回帰 umbrella の verified 化)
+
+- [確認]:
+  - run `24940960078` の compiler doctest 代表failureは `RV-CORE-023` から `RV-CORE-026` へ分離して修正した。
+  - `tests/compiler` 全体を再実行し、`total=474`, `passed=474`, `failed=0` を確認した。
+  - stdlib 側の残り failure は `RV-STDLIB-013` / `RV-STDLIB-018`、LLVM full dual backend verification の timeout / cancelled は `RV-CLI-011` として別管理に残している。
+- [issue更新]:
+  - `RV-CORE-022` を `verified` に変更した。
+  - `doc/review20260425/issues.md` の集計を core open 3 / resolved 23、合計 open 16 / resolved 55 へ更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-rv-core-026.json -j 4`: `total=474`, `passed=474`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - compiler doctest 回帰のissue状態更新であり、実装や仕様は変更していない。
