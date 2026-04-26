@@ -1,3 +1,21 @@
+# 2026-04-26 メモ (NEPLg2.0 self-host 計画と Issue 管理移行)
+
+- [状況]:
+  - NEPLg2.0 の現行 compiler を NEPLg2.0 自身で self-host するため、NEPLg3 実装設計のディレクトリ分割を参考にしつつ、NEPLg2.0 用の別計画として整理した。
+  - 旧 `doc/review20260425/` の `RV-...` 連番 ID は、複数箇所で同時に Issue を作ると衝突しやすいため、新しい `ISS-<UTC timestamp>-<slug>-<random/hash>` 形式へ移行した。
+- [修正]:
+  - `doc/neplg2/self_host_plan.md` を追加し、`stdlib/neplg2/` を NEPLg2.0 self-host compiler の正規ソースツリーとして再作成する計画、stage S0-S7、必要 interface、検証方針を記述した。
+  - `issues/` を新しい Issue 管理の正として追加し、`nodesrc/issues.js` で Issue 作成・旧 review 移行・index 生成・metadata 検証を行えるようにした。
+  - `nodesrc/issues.js` は index 内の `file` を `issues/` ディレクトリ相対で出力し、`--dir` 指定時にも Markdown link が壊れないようにした。
+  - 旧 `doc/review20260425` の 75 件を `issues/items/*.md` へ `legacy_id` 付きで移行し、self-host blocker 7 件を追加した。
+  - 旧 review 由来の `target` metadata は Markdown code span 記号を落として、機械処理しやすい path list として移行した。
+  - `doc/README.md`、`doc/self_host.md`、`nodesrc/README.n.md`、`todo.md` を新しい計画と Issue 管理へ接続した。
+- [確認済み]:
+  - `node nodesrc/issues.js index`: 82 件を index 化（open 23 / resolved 59）。
+  - `node nodesrc/issues.js check`: 82 files OK。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の self-host 計画は現行 NEPLg2.0 実装を対象とし、NEPLg3 仕様計画とは `doc/neplg2/` と `doc/neplg3/` で分離した。
+
 # 2026-04-26 メモ (NEPLg2.1 計画の NEPLg3 改名ドキュメント移行)
 
 - [状況]:

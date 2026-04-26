@@ -1,8 +1,19 @@
-# NEPLg3 セルフホスト計画
+# セルフホスト計画
 
-最終更新: 2026-03-16
+最終更新: 2026-04-26
 
 ---
+
+## 0. 計画の分離
+
+セルフホストは次の 2 系統で管理する。
+
+| 系統 | 目的 | 詳細 |
+|---|---|---|
+| NEPLg2.0 self-host | 現行 NEPLg2.0 コンパイラを NEPLg2.0 自身で再実装する | [neplg2/self_host_plan.md](./neplg2/self_host_plan.md) |
+| NEPLg3 self-host | NEPLg3 コンパイラを NEPLg3 自身で再実装する | 本文の §1 以降 |
+
+`stdlib/neplg2/` と `stdlib/neplg3/` は別の目的を持つ。NEPLg2.0 self-host の作業を `stdlib/neplg3/` に混ぜない。
 
 ## 1. 目的
 

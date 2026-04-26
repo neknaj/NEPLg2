@@ -77,6 +77,25 @@ Node.js から compiler/runtime を[呼/よ]び[出/だ]す CLI です。
 - `trunk build` [後/ご]の `web/dist` を[前提/ぜんてい]にします。
 - build [成果物/せいかぶつ]が[古/ふる]いと、Node.js [側/がわ]の[実行/じっこう]と[実装/じっそう]が[食/く]い[違/ちが]います。
 
+## `issues.js`
+
+`issues/items/*.md` の Issue を[検証/けんしょう]し、`issues/index.json` / `issues/index.md` を[生成/せいせい]します。
+
+### [主/おも]な[用途/ようと]
+
+- 旧 `doc/review20260425` の Issue を `issues/` へ[移行/いこう]
+- [衝突/しょうとつ]しにくい `ISS-...` ID の[新規/しんき] Issue [作成/さくせい]
+- commit [前/まえ]の Issue metadata [検証/けんしょう]
+
+### [例/れい]
+
+```bash
+node nodesrc/issues.js migrate-review20260425
+node nodesrc/issues.js new --area selfhost --title "stdlib fs write API is missing" --priority P1 --type architecture
+node nodesrc/issues.js index
+node nodesrc/issues.js check
+```
+
 ## reboot [中/ちゅう]の[使/つか]い[分/わ]け
 
 1. [広/ひろ]い[回帰/かいき][確認/かくにん]

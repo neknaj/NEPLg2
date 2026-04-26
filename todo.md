@@ -1,3 +1,12 @@
+2026-04-26 NEPLg2 Self-host
+
+- `ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C` に沿って `stdlib/neplg2/` の self-host compiler 骨格を作成する
+- `ISS-20260426T010001Z-STDFS-WRITE-B7C4D923` / `ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E` に沿って self-host CLI に必要な `std/fs` interface を実装する
+- `ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0` に沿って diagnostic 出力用の Result 付き stdout/stderr interface を設計する
+- `ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A` に沿って source loading 用 UTF-8 checked API を追加する
+- `ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11` に沿って WASM emitter 用 byte builder を整備する
+- `ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229` に沿って self-host CLI の argv parser と回帰テストを作る
+
 2026-04-26 NEPLg3 Migration
 
 - `nepl-core-g3/` の Stage 1 着手内容を `doc/neplg3/impl/compiler_structure.md` に沿って実作業へ分解する
@@ -23,5 +32,5 @@
 - `RV-STDLIB-012` で `HashKey` / `Hasher` の独自 clone/copy capability を標準 `Clone` / `Copy` trait へ整理する
 - `RV-CLI-011` で LLVM full dual backend verification を分割または shard し、CI timeout / cancelled を解消する
 - `RV-STDLIB-013` で stdlib collection doctest 群を所有型 API 移行後の実装に合わせ、`stdlib-test` を green に戻す
-- `doc/review20260425/issues.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
-- Issue を修正したら対応する `core.md` / `cli.md` / `stdlib.md` の `解決済` と `状態` を更新し、確認結果を `note.n.md` に記録する
+- `issues/index.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
+- Issue を修正したら対応する `issues/items/*.md` の `resolved` / `status` / `updated` を更新し、`node nodesrc/issues.js index` と `check` を通してから確認結果を `note.n.md` に記録する

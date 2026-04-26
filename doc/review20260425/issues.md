@@ -2,6 +2,9 @@
 
 作成日: 2026-04-25
 
+> この台帳は履歴スナップショットです。新しい正の台帳は [`../../issues/index.md`](../../issues/index.md) と [`../../issues/index.json`](../../issues/index.json) です。
+> 旧 `RV-...` ID は `issues/items/*.md` の `legacy_id` に保持しています。
+
 この台帳は概要のみを持ちます。詳細は各領域別ファイルを正とします。
 
 ## 集計
