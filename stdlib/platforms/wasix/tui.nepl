@@ -386,8 +386,10 @@ fn line_clip_to_cols <(str,i32)*>str> (s, cols):
         else:
             let n <i32> len s;
             let mut i <i32> 0;
+            let mut end <i32> 0;
             let mut w <i32> 0;
-            while lt i n:
+            let mut done <bool> false;
+            while and lt i n not done:
                 do:
                     let b <i32> str_byte_at s i;
                     let ch_len <i32> if:
@@ -411,11 +413,12 @@ fn line_clip_to_cols <(str,i32)*>str> (s, cols):
                     if:
                         lt cols next_w
                         then:
-                            set i n
+                            set done true
                         else:
                             set w next_w;
                             set i add i ch_len;
-            str_slice s 0 i
+                            set end i;
+            str_slice s 0 end
 
 //: text_wrap_lines: 表示幅で折り返した行配列を作る
 //:
@@ -599,20 +602,56 @@ fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, heig
             ();
     ()
 
+//: box_inner_cols: ボックス全体幅から内側幅を求める
+//:
+//: [目的/もくてき]:
+//: - narrow width の扱いを `line_box` / `line_top` / `line_bottom` で統一します。
+//:
+//: [実装/じっそう]:
+//: - `cols <= 2` では内側幅を 0 に丸め、負の繰り返し回数や呼び出し側ごとの分岐を避けます。
+fn box_inner_cols <(i32)->i32> (cols):
+    if:
+        lt cols 3
+        then:
+            0
+        else:
+            sub cols 2
+
+//: line_box_body: ボックス内側に入る本文を幅に合わせる
+//:
+//: [目的/もくてき]:
+//: - 本文が指定幅を超えても、ボックス行の表示幅が `cols` を超えないようにします。
+//:
+//: [実装/じっそう]:
+//: - 表示幅ベースで `inner` 以内に切り詰め、その後右側空白で `inner` 幅まで埋めます。
+fn line_box_body <(str,i32)*>str> (content, inner):
+    line_pad_to_cols line_clip_to_cols content inner inner
+
 //: line_box: 罫線付きの1行（`│ ... │`）を作る
 //:
 //: [目的/もくてき]:
 //: - 枠線付きUIの行構築を簡潔に行います。
 //:
 //: [実装/じっそう]:
-//: - 内側幅 `cols-2` に合わせて `content` を右パディングし、両端に縦罫線を付けます。
+//: - `cols <= 0` は空文字列、`cols == 1` は左罫線のみを返します。
+//: - `cols >= 2` では内側幅 `cols-2` に合わせて `content` を切り詰め・右パディングし、両端に縦罫線を付けます。
 //:
 //: [注意/ちゅうい]:
-//: - `cols < 2` のケースは呼び出し側で回避してください。
+//: - ANSI/OSC8 を含む `content` の厳密な切り詰めは対象外です。
 fn line_box <(str,i32)*>str> (content, cols):
-    let inner <i32> sub cols 2;
-    let body <str> line_pad_to_cols content inner;
-    concat3 "│" body "│"
+    if:
+        lt cols 1
+        then:
+            ""
+        else:
+            if:
+                eq cols 1
+                then:
+                    "│"
+                else:
+                    let inner <i32> box_inner_cols cols;
+                    let body <str> line_box_body content inner;
+                    concat3 "│" body "│"
 
 //: line_box_styled: 罫線付きの1行を色付き背景で作る
 //:
@@ -620,29 +659,67 @@ fn line_box <(str,i32)*>str> (content, cols):
 //: - 行全体の背景色を確実に塗りたい場合に使います。
 //:
 //: [実装/じっそう]:
-//: - 先に `content` を内側幅までパディングし、その結果全体に `style_text` を適用します。
+//: - 先に `content` を内側幅まで切り詰め・パディングし、その結果に `style_text` を適用します。
+//: - `cols <= 0` は空文字列、`cols == 1` は左罫線のみ、`cols == 2` は左右罫線のみを返します。
 //:
 //: [注意/ちゅうい]:
 //: - 罫線（`│`）自体は無色です。内側領域のみ色がつきます。
 fn line_box_styled <(i32,i32,str,i32)*>str> (fg, bg, content, cols):
-    let inner <i32> sub cols 2;
-    let body <str> line_pad_to_cols content inner;
-    let styled <str> style_text fg bg body;
-    concat3 "│" styled "│"
+    if:
+        lt cols 1
+        then:
+            ""
+        else:
+            if:
+                eq cols 1
+                then:
+                    "│"
+                else:
+                    let inner <i32> box_inner_cols cols;
+                    if:
+                        lt inner 1
+                        then:
+                            "││"
+                        else:
+                            let body <str> line_box_body content inner;
+                            let styled <str> style_text fg bg body;
+                            concat3 "│" styled "│"
 
 //: line_top: 上枠（`┌──┐`）を作る
 //:
 //: [目的/もくてき]:
 //: - ボックス描画の先頭行を生成します。
+//: - `cols <= 0` は空文字列、`cols == 1` は左上罫線のみを返します。
 fn line_top <(i32)*>str> (cols):
-    concat3 "┌" repeat_text "─" sub cols 2 "┐"
+    if:
+        lt cols 1
+        then:
+            ""
+        else:
+            if:
+                eq cols 1
+                then:
+                    "┌"
+                else:
+                    concat3 "┌" repeat_text "─" box_inner_cols cols "┐"
 
 //: line_bottom: 下枠（`└──┘`）を作る
 //:
 //: [目的/もくてき]:
 //: - ボックス描画の最終行を生成します。
+//: - `cols <= 0` は空文字列、`cols == 1` は左下罫線のみを返します。
 fn line_bottom <(i32)*>str> (cols):
-    concat3 "└" repeat_text "─" sub cols 2 "┘"
+    if:
+        lt cols 1
+        then:
+            ""
+        else:
+            if:
+                eq cols 1
+                then:
+                    "└"
+                else:
+                    concat3 "└" repeat_text "─" box_inner_cols cols "┘"
 
 //: style_text: 前景色/背景色を付与した文字列を作る
 //:

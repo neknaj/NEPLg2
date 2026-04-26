@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T11:36:04.630Z",
+  "generated_at": "2026-04-26T11:38:06.513Z",
   "counts": {
     "total": 122,
-    "open": 17,
-    "resolved": 105,
+    "open": 16,
+    "resolved": 106,
     "by_area": {
       "core": {
         "total": 39,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 43,
-        "open": 10,
-        "resolved": 33
+        "open": 9,
+        "resolved": 34
       },
       "cli": {
         "total": 17,
@@ -253,21 +253,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536.md"
-    },
-    {
-      "id": "ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2",
-      "title": "TUI box helpers rely on callers to avoid narrow column widths",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/platforms/wasix/tui.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2.md"
     },
     {
       "id": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
@@ -1723,6 +1708,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374.md"
+    },
+    {
+      "id": "ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2",
+      "title": "TUI box helpers rely on callers to avoid narrow column widths",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/platforms/wasix/tui.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2.md"
     },
     {
       "id": "ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907",

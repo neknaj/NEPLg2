@@ -1,3 +1,25 @@
+# 2026-04-26 メモ (ISS-20260426T060333140Z TUI narrow width)
+
+- 状況:
+  - `line_box` / `line_box_styled` / `line_top` / `line_bottom` が `cols - 2` をそのまま使い、`cols` 0, 1, 2 の契約を呼び出し側へ押し出していた。
+  - `line_box` は本文が内側幅を超えても clip しないため、`line_box "abc" 3` が `│abc│` になり指定幅を超えていた。
+  - 調査中に `line_clip_to_cols` が超過時に `i = n` を返しており、切り詰め helper として機能していないことも分かった。
+- 修正:
+  - `box_inner_cols` と `line_box_body` を追加し、内側幅の丸めと本文の clip/pad を一元化した。
+  - box helper は `cols <= 0` で空文字列、`cols == 1` で左罫線 1 文字、`cols >= 2` で指定幅内の罫線行を返す契約にした。
+  - `line_clip_to_cols` は表示幅を超える直前の byte index を保持して、その位置で `str_slice` するよう修正した。
+  - `tests/stdlib/features_tui.n.md` に narrow width と長い本文の回帰テストを追加した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/tui-narrow-width.json -j 1`: `total=4`, `passed=4`
+  - `node nodesrc/tests.js -i stdlib/features/tui.nepl -i tests/stdlib/features_tui.n.md --no-tree -o tmp/tui-narrow-width-focused-files.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/features/tui.nepl -i tests/stdlib/features_tui.n.md --with-tree --no-stdlib -o tmp/tui-narrow-width-tree.json -j 1`: `total=25`, `passed=25`
+  - `node nodesrc/issues.js index` / `node nodesrc/issues.js check`: pass
+  - `cargo fmt --all --check`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tui-narrow-width.json`: `13/13 passed`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/tui-narrow-width-stdlib-full.json -j 4`: 304 秒で timeout。partial JSON は `completed_results=0`。
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は TUI helper の端末幅境界条件を public API 内部で固定するもの。
+
 # 2026-04-26 メモ (ISS-20260426T111438071Z TUI buffer_new str store)
 
 - 状況:

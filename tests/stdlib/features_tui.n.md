@@ -77,3 +77,40 @@ fn main <()*>i32> ():
     tui::buffer_free b;
     0
 ```
+
+## features_tui_box_helpers_clamp_narrow_widths
+
+[目的/もくてき]:
+- `line_top` / `line_bottom` / `line_box` / `line_box_styled` が `cols` 0, 1, 2, 3 を内部で安全に扱うことを固定します。
+- 本文が内側幅より長いときも、呼び出し側が事前に clip しなくてよいことを確かめます。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target wasix
+
+#import "features/tui" as tui
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let checks <Vec<Result<(),str>>>:
+        checks_new
+        |> checks_push assert_str_eq "" tui::line_top 0
+        |> checks_push assert_str_eq "┌" tui::line_top 1
+        |> checks_push assert_str_eq "┌┐" tui::line_top 2
+        |> checks_push assert_str_eq "┌─┐" tui::line_top 3
+        |> checks_push assert_str_eq "" tui::line_bottom 0
+        |> checks_push assert_str_eq "└" tui::line_bottom 1
+        |> checks_push assert_str_eq "└┘" tui::line_bottom 2
+        |> checks_push assert_str_eq "└─┘" tui::line_bottom 3
+        |> checks_push assert_str_eq "" tui::line_box "abc" 0
+        |> checks_push assert_str_eq "│" tui::line_box "abc" 1
+        |> checks_push assert_str_eq "││" tui::line_box "abc" 2
+        |> checks_push assert_str_eq "│a│" tui::line_box "abc" 3
+        |> checks_push assert_str_eq "│ab│" tui::line_box "abcd" 4
+        |> checks_push assert_str_eq "││" tui::line_box_styled 1 4 "abc" 2
+        |> checks_push assert_str_eq "│\x1b[31;44ma\x1b[0m│" tui::line_box_styled 1 4 "abc" 3
+    checks_exit_code checks
+```
