@@ -15,22 +15,16 @@
 //:| #import "alloc/collections/vec/sort" as *
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//: fn mk <()*>Vec<i32>> ():
-//:     let v0 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> v0 3;
-//:     let v2 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> v1 1;
-//:     unwrap_ok<Vec<i32>, Diag> push<i32> v2 2
-//:
-//: fn sorted3 <()*>Vec<i32>> ():
-//:     let v0 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> v0 1;
-//:     let v2 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> v1 2;
-//:     unwrap_ok<Vec<i32>, Diag> push<i32> v2 3
-//:
-//: fn main <()*>()> ():
-//:     sort_quick<i32> mk;
-//:     assert sort_is_sorted<i32> sorted3;
+//: fn main <()*>i32> ():
+//:     let unsorted <Vec<i32>>:
+//:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
+//:         |> push 3 |> uwok
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:     let sorted <Vec<i32>> sort_quick_ret<i32> unsorted
+//:     if sort_is_sorted<i32> sorted 1 0
 //: ```
 //:
 //: neplg2:test
@@ -41,15 +35,17 @@
 //:| #import "alloc/collections/vec/sort" as *
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//: fn main <()*>()> ():
-//:     let u0 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> new<i32>;
-//:     let u1 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> u0 4;
-//:     let u2 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> u1 3;
-//:     let u3 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> u2 2;
-//:     let u4 <Vec<i32>> unwrap_ok<Vec<i32>, Diag> push<i32> u3 1;
-//:     sort_merge<i32> u4;
-//:     assert true;
+//: fn main <()*>i32> ():
+//:     let unsorted <Vec<i32>>:
+//:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
+//:         |> push 4 |> uwok
+//:         |> push 3 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 1 |> uwok
+//:     let sorted <Vec<i32>> sort_merge_ret<i32> unsorted
+//:     if sort_is_sorted<i32> sorted 1 0
 //: ```
 
 #indent 4
@@ -944,10 +940,10 @@ fn sort_merge_range_data <.T: Ord> <(i32,MemPtr<.T>,i32,i32)->()> (data_ptr, buf
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>>:
-//:         new<i32>
-//:         |> push 3
-//:         |> push 1
-//:         |> push 2
+//:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
+//:         |> push 3 |> uwok
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
 //:     sort_merge<i32> v;
 //:     0
 //: ```

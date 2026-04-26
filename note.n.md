@@ -95,7 +95,48 @@
   - `node nodesrc/tests.js -i stdlib/neplg3 --no-tree -o tmp/neplg3-stdlib-placeholder-tests.json -j 2`: 6/6 passed（全件 skip doctest として収集成功）。
 - [plan.mdとの差異]:
   - plan.md は変更していない。plan.md は旧 NEPLg2 起点の設計メモとして保持し、次世代仕様の正は `doc/neplg3/spec/` に移した。
+# 2026-04-26 メモ (RV-STDLIB-025 enum storage / zero-sized struct 修正)
 
+- 状況:
+  - `Vec<Result<(),str>>` の `std/test` 集約は、free-list 再利用後に `RuntimeError: unreachable`、破損 stdout、`Err` message の stale payload 読みを起こしていた。
+  - HashSet / HashMap の direct return-code 検証は通る一方、`checks_print_report` と組み合わせると heap / aggregate 表現の破壊が露出していた。
+- 原因:
+  - enum constructor が variant payload 側の size / offset に寄せて allocation と payload store を行い、`size_of<Result<...>>` / `store<Result<...>>` が使う full enum storage と一致していなかった。
+  - WASM の `StructConstruct` が unit field に 4 byte store を発行していた。`DefaultHash32` は `tag <()>` だけの 0 byte struct なので、`alloc_raw(0)` の戻り値 0 に書き込み、heap pointer を破壊していた。
+- 修正:
+  - WASM / LLVM の enum construct を full enum storage size で確保し、全体を 0 初期化してから tag / payload を書く形に統一した。
+  - aggregate enum payload は inline storage へ byte copy し、match binding も inline payload から aggregate object へ copy するようにした。
+  - WASM の zero-sized field は副作用評価だけ行い、storage への書き込みを発行しないようにした。
+  - `tests/compiler/intrinsic.n.md` に i64 payload enum store/load と 0 byte struct heap pointer の回帰を追加した。
+  - `tests/stdlib/std_test_collect.n.md` に HashSet / free-list 再利用後も `Vec<Result<(),str>>` の report が壊れない回帰を追加した。
+- 確認済み:
+  - `cargo fmt --check`
+  - `cargo check -p nepl-core`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --runner all --no-tree -o tmp/rv-stdlib-025-intrinsic-all-pass4.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --runner all --no-tree -o tmp/rv-stdlib-025-std-test-collect-all-pass4.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --runner all --no-tree -o tmp/rv-stdlib-025-hashset-all-pass4.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/rv-stdlib-025-hash-str-pass4.json -j 1`: 4/4 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は compiler backend の aggregate / enum ABI と stdlib test 回帰の整備で、セルフホスト compiler 計画自体への仕様変更はない。
+
+# 2026-04-26 メモ (RV-STDLIB-023 HashMap/HashSet runtime test green化)
+
+- [状況]:
+  - `stdlib/tests/hashmap_str.n.md` と `stdlib/tests/hashset_str.n.md` は memory OOB、`stdlib/tests/hashset.n.md` は return mismatch で落ちていた。
+  - HashMap / HashSet の直接操作を切り分けると、string key の insert / contains / get / update / remove は正常に動いた。
+  - 一方で `Vec<Result<(),str>>` に checks を積んだまま `free` smoke と `checks_print_report` を同じ doctest に混ぜると、free-list 再利用後に stale payload を読んで OOB / 誤判定することが分かった。
+- [修正]:
+  - string hash loop の再帰呼び出しで `idx + 1` と hash accumulator を事前束縛し、引数境界が曖昧にならない形へ変更した。
+  - HashMap / HashSet の `new` cleanup / `free` で解放 byte 数を明示束縛し、`free` には key / hasher 制約を付けた。
+  - string key runtime test は direct return-code 方式へ変更し、collection 本体の検証と `std/test` 集約問題を分離した。
+  - `free` smoke は独立 doctest に分けた。
+  - `doc/review20260425` で `RV-STDLIB-023` を verified にし、集約側の別問題を `RV-STDLIB-025` として追加した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hash-collections-rv-stdlib-023-pass8.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-023-pass2.json -j 4`: 382/382 passed
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の修正は stdlib runtime test と issue 台帳の整備で、セルフホスト compiler 計画自体への仕様変更はない。
 # 2026-04-25 メモ (RV-CORE-018 nested aggregate layout 修正)
 
 - [状況]:
@@ -16533,3 +16574,112 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - pipe 構文仕様は変えず、試験簡約が通常の call reduction と同じ前提で動くように揃えた。
+
+# 2026-04-26 メモ (RV-STDLIB-019 collection doctest 値ブロック末尾セミコロン修正)
+
+- [原因]:
+  - `BTreeMap` / `BTreeSet` / `Queue` / `RingBuffer` の doctest で、`let x <Collection>:` の値ブロック末尾に `;` が残っていた。
+  - NEPL の末尾セミコロン付き式は値を返さないため、ブロック全体が `unit` になり、`let` の型注釈と衝突して D3004 を出していた。
+- [修正]:
+  - `stdlib/alloc/collections/btreemap.nepl`
+  - `stdlib/alloc/collections/btreeset.nepl`
+  - `stdlib/alloc/collections/queue.nepl`
+  - `stdlib/alloc/collections/ringbuffer.nepl`
+  - 上記の doctest コメントで、collection を返す値ブロックの最終式からだけ `;` を削除した。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-019` を verified に更新した。
+  - stdlib 全体確認で残った22件を `RV-STDLIB-020` から `RV-STDLIB-024` へ分解した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/collection-semicolon-rv-stdlib-019.json -j 1`: `total=34`, `passed=34`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4`: `total=379`, `passed=357`, `failed=22`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-020`: Fenwick / SegmentTree D3016。
+  - `RV-STDLIB-021`: vec sort overload 不一致。
+  - `RV-STDLIB-022`: HashMap doctest indent 不整合。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib doctest fixture の構文修正であり、collection API の仕様変更はない。
+
+# 2026-04-26 メモ (RV-STDLIB-020 vec recursive helper の引数境界修正)
+
+- [原因]:
+  - Fenwick / SegmentTree doctest の D3016 は、Fenwick / SegmentTree 本体ではなく `stdlib/alloc/collections/vec.nepl` の `vec_find_impl` / `vec_take_while_len_impl` で発生していた。
+  - `vec_find_impl<.T> data len add idx 1 p` のように `idx + 1` を inline で渡しており、第三引数の境界が曖昧になって後続の関数値引数が余剰 stack value として残っていた。
+- [修正]:
+  - `vec_fold_impl` / `vec_reduce_impl` / `vec_find_impl` / `vec_take_while_len_impl` で `let next_idx <i32> add idx 1` を導入し、再帰呼び出しへ `next_idx` を渡す形へ統一した。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-020` を verified に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/tests/fenwick.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/fenwick-segtree-rv-stdlib-020.json -j 1`: `total=53`, `passed=53`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-020.json -j 4`: `total=379`, `passed=371`, `failed=8`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-021`: vec sort overload 不一致。
+  - `RV-STDLIB-022`: HashMap doctest indent 不整合。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Vec` helper の再帰引数評価を明確にしただけで、public API は変更していない。
+
+# 2026-04-26 メモ (RV-STDLIB-022 HashMap doctest indent 修正)
+
+- [原因]:
+  - `stdlib/alloc/collections/hashmap.nepl::doctest#3` は `if` の続きに置いた `match` block の indent が1スペース浅く、抽出後に `#indent 4` へ揃わず D1206 になっていた。
+  - indent を直すと、同じ `HashMap` owner に `get` を2回呼ぶ by-value API 上の move error も露出した。
+- [修正]:
+  - `match get hm1 3:` block の indent を `#indent 4` に揃えた。
+  - missing key の確認は空 map、existing value の確認は insert 後 map に分け、同一 owner を二度 consume しない fixture にした。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-022` を verified に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/hashmap.nepl -n 3 --dist dist`: `pass`, `return_value=1`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-indent-rv-stdlib-022.json -j 1`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-022.json -j 4`: `total=379`, `passed=372`, `failed=7`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-021`: vec sort overload 不一致。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - HashMap の実装や API は変更せず、doctest fixture を現行 parser / ownership 規則へ合わせた。
+
+# 2026-04-26 メモ (RV-STDLIB-021 vec sort doctest API 同期)
+
+- [原因]:
+  - `stdlib/alloc/collections/vec/sort.nepl` の doctest は、`Vec::new` / `Vec::push` の戻り値が `Result<Vec<T>, StdErrorKind>` になった後も `Diag` を指定していた。
+  - 破壊的 sort の例で `sort_quick<i32> mk` のように owner を返さない API を使っており、sort 後の検証に使う handle が残らない形だった。
+- [修正]:
+  - doctest の `unwrap_ok` 型引数を `StdErrorKind` へ同期した。
+  - sort 結果を検証する例は `sort_quick_ret` / `sort_merge_ret` を使い、`sort_is_sorted` で戻り値を確認する形へ変更した。
+  - `sort_merge` 本体の usage doctest は、現行 pipe style で Vec を構築して `sort_merge` を呼ぶ compile/run smoke として維持した。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-021` を verified に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 1 --dist dist`: `pass`, `return_value=1`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 2 --dist dist`: `pass`, `return_value=1`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 3 --dist dist`: `pass`, `return_value=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-sort-rv-stdlib-021.json -j 1`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-021.json -j 4`: `total=379`, `passed=375`, `failed=4`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - sort 実装や public API は変更せず、doctest を現行 Vec API に同期した。
+
+# 2026-04-26 メモ (RV-STDLIB-024 Deserialize doctest match arm 型統一)
+
+- [原因]:
+  - `stdlib/core/traits/deserialize.nepl::doctest#1` は `Result::Ok` arm で `assert_eq_i32` の `Result<(),str>` を返す一方、`Result::Err` arm では `test_fail ...;` により unit を返していた。
+  - さらに match 結果を main の終了値へ反映せず、末尾 `0` で成功扱いにしていた。
+- [修正]:
+  - `let check <Result<(),str>>:` で match 結果を束縛し、すべての arm が `Result<(),str>` を返すようにした。
+  - main は `result_exit_code check` を返し、assert 失敗や予期しない Err が runner の終了値へ反映されるようにした。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-024` を verified に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/core/traits/deserialize.nepl -n 1 --dist dist`: `pass`, `return_value=0`
+  - `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/deserialize-rv-stdlib-024.json -j 1`: `total=1`, `passed=1`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-024.json -j 4`: `total=379`, `passed=376`, `failed=3`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure の3件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Deserialize の実装や trait 仕様は変更せず、doctest の検査結果型と終了値反映を修正した。

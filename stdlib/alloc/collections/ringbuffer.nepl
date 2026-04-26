@@ -265,7 +265,7 @@ fn with_capacity <.T> <(i32)*>Result<RingBuffer<.T>, Diag>> (initial_cap):
 //:     let rb <RingBuffer<i32>>:
 //:         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
 //:         |> push 4 |> uwok
-//:         |> push 8 |> uwok;
+//:         |> push 8 |> uwok
 //:     if eq len rb 2 1 0
 //: ```
 fn len <.T> <(RingBuffer<.T>)->i32> (rb):
@@ -345,7 +345,7 @@ fn is_empty <.T> <(RingBuffer<.T>)->bool> (rb):
 //:     let rb <RingBuffer<i32>>:
 //:         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
 //:         |> push 10 |> uwok
-//:         |> push 20 |> uwok;
+//:         |> push 20 |> uwok
 //:     if eq len rb 2 1 0
 //: ```
 fn push <.T> <(RingBuffer<.T>, .T)*>Result<RingBuffer<.T>, Diag>> (rb, item):
@@ -412,7 +412,7 @@ fn push <.T> <(RingBuffer<.T>, .T)*>Result<RingBuffer<.T>, Diag>> (rb, item):
 //: fn main <()*>i32> ():
 //:     let rb <RingBuffer<i32>>:
 //:         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
-//:         |> push 10 |> uwok;
+//:         |> push 10 |> uwok
 //:     match pop rb:
 //:         Option::Some v:
 //:             if eq v 10 1 0
@@ -462,7 +462,7 @@ fn pop <.T> <(RingBuffer<.T>)*>Option<.T>> (rb):
 //: fn main <()*>i32> ():
 //:     let rb <RingBuffer<i32>>:
 //:         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
-//:         |> push 10 |> uwok;
+//:         |> push 10 |> uwok
 //:     match peek rb:
 //:         Option::Some v:
 //:             if eq v 10 1 0
@@ -508,7 +508,7 @@ fn peek <.T> <(RingBuffer<.T>)->Option<.T>> (rb):
 //:     let rb <RingBuffer<i32>>:
 //:         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
 //:         |> push 10 |> uwok
-//:         |> clear;
+//:         |> clear
 //:     if is_empty rb 1 0
 //: ```
 fn clear <.T> <(RingBuffer<.T>)*>RingBuffer<.T>> (rb):

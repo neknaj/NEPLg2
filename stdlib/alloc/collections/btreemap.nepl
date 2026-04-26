@@ -151,7 +151,7 @@ fn new <.K,.V> <()*>Result<BTreeMap<.K,.V>, Diag>> ():
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 3 30 |> uwok
-//:         |> insert 7 70 |> uwok;
+//:         |> insert 7 70 |> uwok
 //:     if eq len hm 2 1 0
 //: ```
 fn len <.K,.V> <(BTreeMap<.K,.V>)->i32> (hm):
@@ -171,7 +171,7 @@ fn len <.K,.V> <(BTreeMap<.K,.V>)->i32> (hm):
 //: fn main <()*>i32> ():
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
-//:         |> insert 7 70 |> uwok;
+//:         |> insert 7 70 |> uwok
 //:     if contains hm 7 1 0
 //: ```
 fn contains <.K: Ord,.V> <(BTreeMap<.K,.V>,.K)->bool> (hm, key):
@@ -195,7 +195,7 @@ fn contains <.K: Ord,.V> <(BTreeMap<.K,.V>,.K)->bool> (hm, key):
 //: fn main <()*>i32> ():
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
-//:         |> insert 7 70 |> uwok;
+//:         |> insert 7 70 |> uwok
 //:     match get hm 7:
 //:         Option::Some v:
 //:             if eq v 70 1 0
@@ -227,7 +227,7 @@ fn get <.K: Ord,.V> <(BTreeMap<.K,.V>,.K)->Option<.V>> (hm, key):
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
-//:         |> insert 3 30 |> uwok;
+//:         |> insert 3 30 |> uwok
 //:     if eq len hm 2 1 0
 //: ```
 fn insert <.K: Ord,.V> <(BTreeMap<.K,.V>,.K,.V)*>Result<BTreeMap<.K,.V>, Diag>> (hm, key, value):
@@ -276,7 +276,7 @@ fn insert <.K: Ord,.V> <(BTreeMap<.K,.V>,.K,.V)*>Result<BTreeMap<.K,.V>, Diag>> 
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
-//:         |> remove 7;
+//:         |> remove 7
 //:     if eq len hm 0 1 0
 //: ```
 fn remove <.K: Ord,.V> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (hm, key):
@@ -313,7 +313,7 @@ fn remove <.K: Ord,.V> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (hm, key):
 //:     let hm <BTreeMap<i32, i32>>:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
-//:         |> clear;
+//:         |> clear
 //:     if eq len hm 0 1 0
 //: ```
 fn clear <.K,.V> <(BTreeMap<.K,.V>)*>BTreeMap<.K,.V>> (hm):

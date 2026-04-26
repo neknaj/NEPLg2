@@ -140,7 +140,8 @@ fn new <.K: HashKey,.V,.H: Hasher<.K>> <(.H)*>Result<HashMap<.K,.V,.H>, Diag>> (
             if:
                 eq hdr 0
                 then:
-                    dealloc_raw entries mul cap size
+                    let entry_bytes <i32> mul cap size
+                    dealloc_raw entries entry_bytes
                     diag_err<HashMap<.K,.V,.H>> diag_out_of_memory "hashmap_new(header)"
                 else:
                     store_i32 hdr 0
@@ -299,15 +300,16 @@ fn insert <.K: HashKey,.V,.H: Hasher<.K>> <(HashMap<.K,.V,.H>,.K,.V)*>Result<Has
 //:| #import "core/result" as *
 //:| #import "core/option" as *
 //: fn main <()*>i32> ():
+//:     let hm_empty <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let missing <bool> is_none<i32> get hm_empty 4
 //:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 3 30;
-//:     if is_none<i32> get hm1 4 1
-//:        match get hm1 3:
-//:            Option::Some x:
-//:                if eq x 30 1 0
-//:            Option::None:
-//:                0
-//:        0
+//:     match get hm1 3:
+//:         Option::Some x:
+//:             let value_ok <bool> eq x 30
+//:             if and missing value_ok 1 0
+//:         Option::None:
+//:             0
 //: ```
 fn get <.K: HashKey,.V,.H: Hasher<.K>> <(HashMap<.K,.V,.H>,.K)->Option<.V>> (hm, key):
     let hdr <i32> field::get hm "hdr"
@@ -454,9 +456,11 @@ fn len <.K,.V,.H> <(HashMap<.K,.V,.H>)->i32> (hm):
 //:     free hm1;
 //:     0
 //: ```
-fn free <.K,.V,.H> <(HashMap<.K,.V,.H>)*>()> (hm):
+fn free <.K: HashKey,.V,.H: Hasher<.K>> <(HashMap<.K,.V,.H>)*>()> (hm):
     let hdr <i32> field::get hm "hdr"
     let cap <i32> load_i32 add hdr 4
     let entries <i32> load_i32 add hdr 8
-    dealloc_raw entries mul cap hashmap_entry_size<.K,.V>
+    let entry_size <i32> add 4 add size_of<.K> size_of<.V>
+    let entry_bytes <i32> mul cap entry_size
+    dealloc_raw entries entry_bytes
     dealloc_raw hdr 12

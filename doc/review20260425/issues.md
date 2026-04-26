@@ -13,9 +13,9 @@
 |---|---:|---:|
 | core | 3 | 26 |
 | cli | 3 | 11 |
-| stdlib | 11 | 8 |
+| stdlib | 10 | 15 |
 | examples | 0 | 13 |
-| 合計 | 17 | 58 |
+| 合計 | 16 | 65 |
 
 ## Core
 
@@ -92,7 +92,13 @@
 | [RV-STDLIB-016](./stdlib.md#rv-stdlib-016-stack-push-が所有権を消費し-example-で-panic-helper-回避を妨げる) | true | verified | P1 | architecture | `Stack::push_ref` を追加し、Copy 要素を借用 stack へ追加して失敗時も handle を保持できるよう修正済み |
 | [RV-STDLIB-017](./stdlib.md#rv-stdlib-017-vec-に固定長初期化-api-がなく-example-が-panic-helper-に依存する) | true | verified | P1 | architecture | `Vec::filled` を追加し、固定長 buffer/table を `Result` で作れるよう修正済み |
 | [RV-STDLIB-018](./stdlib.md#rv-stdlib-018-streamio-の-wasi-doctest-が-trait-bound-不一致と出力破損で失敗する) | false | open | P1 | bug | `tests/stdlib/streamio.n.md` が `D3069` / `D3006` と stdout の binary layout 混入で 5 件失敗 |
-| [RV-STDLIB-019](./stdlib.md#rv-stdlib-019-collection-doctest-の値ブロック末尾セミコロンが戻り値を-unit-にしている) | false | open | P0 | test | collection doctest の `let x <T>:` 値ブロック末尾 `;` が `unit` を返し、D3004 を発生させている |
+| [RV-STDLIB-019](./stdlib.md#rv-stdlib-019-collection-doctest-の値ブロック末尾セミコロンが戻り値を-unit-にしている) | true | verified | P0 | test | collection doctest の `let x <T>:` 値ブロック末尾 `;` を削除し、対象4ファイルの doctest 34件を green 化済み |
+| [RV-STDLIB-020](./stdlib.md#rv-stdlib-020-fenwicksegmenttree-doctest-が-d3016-expression-left-extra-values-で失敗する) | true | verified | P0 | test | `vec` recursive helper の `idx + 1` 引数境界を修正し、Fenwick / SegmentTree D3016 14件を green 化済み |
+| [RV-STDLIB-021](./stdlib.md#rv-stdlib-021-vec-sort-doctest-が-overload-解決不一致で失敗する) | true | verified | P1 | test | `vec/sort.nepl` doctest を current Vec Result API と `*_ret` sort helper に同期済み |
+| [RV-STDLIB-022](./stdlib.md#rv-stdlib-022-hashmap-doctest-にインデント不整合が残っている) | true | verified | P1 | test | `hashmap.nepl::doctest#3` の indent と by-value get fixture を修正済み |
+| [RV-STDLIB-023](./stdlib.md#rv-stdlib-023-hashmaphashset-の文字列-key-runtime-test-が-memory-oob-と-return-mismatch-で失敗する) | true | verified | P0 | bug | HashMap / HashSet string key runtime tests を direct return-code fixture と独立 free smoke に分離し、stdlib 382件を green 化済み |
+| [RV-STDLIB-024](./stdlib.md#rv-stdlib-024-deserialize-doctest-の-match-arm-が-result-と-unit-で不一致になる) | true | verified | P1 | test | `deserialize.nepl::doctest#1` の match arms を `Result<(),str>` に統一済み |
+| [RV-STDLIB-025](./stdlib.md#rv-stdlib-025-stdtest-の-vecresultstr-集約が-free-list-再利用後に-stale-payload-を読む) | true | verified | P1 | bug | enum storage を full-size / zero-init / inline aggregate copy に統一し、WASM の 0 byte struct field 書き込みによる heap pointer 破壊を修正済み |
 
 ## Examples
 

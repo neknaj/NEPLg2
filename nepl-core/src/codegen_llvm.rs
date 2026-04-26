@@ -863,6 +863,42 @@ impl<'a> LowerCtx<'a> {
     }
 }
 
+fn llvm_i8_ptr_at(ctx: &mut LowerCtx<'_>, base_ptr: &str, offset: i64) -> String {
+    if offset == 0 {
+        return base_ptr.to_string();
+    }
+    let out = ctx.next_tmp();
+    ctx.push_line(&format!(
+        "  {} = getelementptr i8, i8* {}, i64 {}",
+        out, base_ptr, offset
+    ));
+    out
+}
+
+fn emit_zero_linear_bytes_llvm(ctx: &mut LowerCtx<'_>, base_ptr: &str, size: i32) {
+    for off in 0..size {
+        let dst = llvm_i8_ptr_at(ctx, base_ptr, off as i64);
+        ctx.push_line(&format!("  store i8 0, i8* {}, align 1", dst));
+    }
+}
+
+fn emit_copy_linear_bytes_llvm(
+    ctx: &mut LowerCtx<'_>,
+    dst_base: &str,
+    dst_offset: i64,
+    src_base: &str,
+    src_offset: i64,
+    size: i64,
+) {
+    for off in 0..size {
+        let src = llvm_i8_ptr_at(ctx, src_base, src_offset + off);
+        let byte = ctx.next_tmp();
+        let dst = llvm_i8_ptr_at(ctx, dst_base, dst_offset + off);
+        ctx.push_line(&format!("  {} = load i8, i8* {}, align 1", byte, src));
+        ctx.push_line(&format!("  store i8 {}, i8* {}, align 1", byte, dst));
+    }
+}
+
 fn try_lower_entry_from_hir(
     prepared: &PreparedLlvmProgram,
     entry: &str,
@@ -1898,13 +1934,13 @@ fn lower_hir_expr(
             payload,
             type_args: _,
         } => {
-            let payload_ll = payload.as_ref().map(|p| llty_for_type(types, p.ty));
-            let (payload_offset, total_size) = match payload_ll {
-                Some(LlTy::I64) | Some(LlTy::F64) => (8i64, 16i32),
-                Some(LlTy::Void) => (0i64, 4i32),
-                Some(_) => (4i64, 8i32),
-                None => (0i64, 4i32),
-            };
+            let payload_offset = 4i64;
+            let payload_storage_size = payload
+                .as_ref()
+                .map(|p| payload_offset + type_storage_size_bytes(types, p.ty))
+                .unwrap_or(payload_offset);
+            let total_size =
+                (type_storage_size_bytes(types, expr.ty).max(payload_storage_size)) as i32;
 
             let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
                 return Err(llvm_codegen_error(
@@ -1925,13 +1961,44 @@ fn lower_hir_expr(
                 total_size
             ));
 
+            let base_ptr8 = ctx.linear_i8_ptr_from_i32(ptr.as_str());
+            emit_zero_linear_bytes_llvm(ctx, base_ptr8.as_str(), total_size);
+
             let tag = enum_variant_tag(types, expr.ty, variant.as_str());
-            let tag_ptr = ctx.linear_typed_ptr_from_i32(ptr.as_str(), LlTy::I32);
+            let tag_ptr = ctx.next_tmp();
+            ctx.push_line(&format!(
+                "  {} = bitcast i8* {} to i32*",
+                tag_ptr, base_ptr8
+            ));
             ctx.push_line(&format!("  store i32 {}, i32* {}, align 1", tag, tag_ptr));
 
             if let Some(p) = payload {
                 let pv = lower_hir_expr(types, ctx, p)?;
-                if let Some(vty) = payload_ll {
+                if is_aggregate_storage_type(types, p.ty) {
+                    let Some(pv) = pv else {
+                        llvm_codegen_bail!(
+                            "internal compiler error: enum aggregate payload must produce a value in '{}'",
+                            ctx.function_name
+                        );
+                    };
+                    if pv.ty != LlTy::I32 {
+                        llvm_codegen_bail!(
+                            "internal compiler error: enum aggregate payload type mismatch in '{}' ({:?})",
+                            ctx.function_name, pv.ty
+                        );
+                    }
+                    let src_ptr8 = ctx.linear_i8_ptr_from_i32(pv.repr.as_str());
+                    let payload_size = type_storage_size_bytes(types, p.ty);
+                    emit_copy_linear_bytes_llvm(
+                        ctx,
+                        base_ptr8.as_str(),
+                        payload_offset,
+                        src_ptr8.as_str(),
+                        0,
+                        payload_size,
+                    );
+                } else {
+                    let vty = llty_for_type(types, p.ty);
                     if vty == LlTy::Void {
                         return Ok(Some(LlValue {
                             ty: LlTy::I32,
@@ -1950,7 +2017,6 @@ fn lower_hir_expr(
                             ctx.function_name, vty, pv.ty
                         );
                     }
-                    let base_ptr8 = ctx.linear_i8_ptr_from_i32(ptr.as_str());
                     let payload_ptr8 = ctx.next_tmp();
                     let typed_ptr = ctx.next_tmp();
                     ctx.push_line(&format!(
@@ -2269,59 +2335,100 @@ fn lower_hir_expr(
                             // （_ 以外への束縛利用は後段で拡張する）
                             // 現時点では match 評価の継続のみ行う。
                         } else {
-                            let payload_offset = match payload_ll {
-                                LlTy::I64 | LlTy::F64 => 8,
-                                _ => 4,
-                            };
+                            let payload_offset = 4i64;
                             let base_ptr8 = ctx.linear_i8_ptr_from_i32(scr_v.repr.as_str());
-                            let payload_ptr8 = ctx.next_tmp();
-                            ctx.push_line(&format!(
-                                "  {} = getelementptr i8, i8* {}, i64 {}",
-                                payload_ptr8, base_ptr8, payload_offset
-                            ));
-
-                            let local_ptr = ctx.next_tmp();
-                            let local_val = if matches!(
-                                types.get(types.resolve_id(payload_ty)),
-                                TypeKind::U8
-                            ) {
-                                let p = ctx.next_tmp();
-                                let raw = ctx.next_tmp();
-                                let z = ctx.next_tmp();
+                            if is_aggregate_storage_type(types, payload_ty) {
+                                let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                                    return Err(llvm_codegen_error(
+                                        format!(
+                                            "alloc function is required for enum payload binding in '{}'",
+                                            ctx.function_name
+                                        ),
+                                        Span::dummy(),
+                                        DiagnosticId::CodegenLlvmUnknownFunction,
+                                    ));
+                                };
+                                let payload_size = type_storage_size_bytes(types, payload_ty);
+                                let payload_obj = ctx.next_tmp();
                                 ctx.push_line(&format!(
-                                    "  {} = bitcast i8* {} to i8*",
-                                    p, payload_ptr8
+                                    "  {} = call i32 {}(i32 {})",
+                                    payload_obj,
+                                    ll_symbol(alloc_name.as_str()),
+                                    payload_size
                                 ));
-                                ctx.push_line(&format!("  {} = load i8, i8* {}, align 1", raw, p));
-                                ctx.push_line(&format!("  {} = zext i8 {} to i32", z, raw));
-                                z
-                            } else {
-                                let typed_ptr = ctx.next_tmp();
-                                let loaded = ctx.next_tmp();
+                                let dst_ptr8 = ctx.linear_i8_ptr_from_i32(payload_obj.as_str());
+                                emit_copy_linear_bytes_llvm(
+                                    ctx,
+                                    dst_ptr8.as_str(),
+                                    0,
+                                    base_ptr8.as_str(),
+                                    payload_offset,
+                                    payload_size,
+                                );
+                                let local_ptr = ctx.next_tmp();
+                                ctx.push_line(&format!("  {} = alloca i32", local_ptr));
                                 ctx.push_line(&format!(
-                                    "  {} = bitcast i8* {} to {}*",
-                                    typed_ptr,
-                                    payload_ptr8,
+                                    "  store i32 {}, i32* {}, align 1",
+                                    payload_obj, local_ptr
+                                ));
+                                ctx.bind_local(bind.as_str(), local_ptr, LlTy::I32);
+                            } else {
+                                let payload_ptr8 = ctx.next_tmp();
+                                ctx.push_line(&format!(
+                                    "  {} = getelementptr i8, i8* {}, i64 {}",
+                                    payload_ptr8, base_ptr8, payload_offset
+                                ));
+
+                                let local_ptr = ctx.next_tmp();
+                                let local_val = if matches!(
+                                    types.get(types.resolve_id(payload_ty)),
+                                    TypeKind::U8
+                                ) {
+                                    let p = ctx.next_tmp();
+                                    let raw = ctx.next_tmp();
+                                    let z = ctx.next_tmp();
+                                    ctx.push_line(&format!(
+                                        "  {} = bitcast i8* {} to i8*",
+                                        p, payload_ptr8
+                                    ));
+                                    ctx.push_line(&format!(
+                                        "  {} = load i8, i8* {}, align 1",
+                                        raw, p
+                                    ));
+                                    ctx.push_line(&format!("  {} = zext i8 {} to i32", z, raw));
+                                    z
+                                } else {
+                                    let typed_ptr = ctx.next_tmp();
+                                    let loaded = ctx.next_tmp();
+                                    ctx.push_line(&format!(
+                                        "  {} = bitcast i8* {} to {}*",
+                                        typed_ptr,
+                                        payload_ptr8,
+                                        payload_ll.ir()
+                                    ));
+                                    ctx.push_line(&format!(
+                                        "  {} = load {}, {}* {}, align 1",
+                                        loaded,
+                                        payload_ll.ir(),
+                                        payload_ll.ir(),
+                                        typed_ptr
+                                    ));
+                                    loaded
+                                };
+                                ctx.push_line(&format!(
+                                    "  {} = alloca {}",
+                                    local_ptr,
                                     payload_ll.ir()
                                 ));
                                 ctx.push_line(&format!(
-                                    "  {} = load {}, {}* {}, align 1",
-                                    loaded,
+                                    "  store {} {}, {}* {}, align 1",
                                     payload_ll.ir(),
+                                    local_val,
                                     payload_ll.ir(),
-                                    typed_ptr
+                                    local_ptr
                                 ));
-                                loaded
-                            };
-                            ctx.push_line(&format!("  {} = alloca {}", local_ptr, payload_ll.ir()));
-                            ctx.push_line(&format!(
-                                "  store {} {}, {}* {}, align 1",
-                                payload_ll.ir(),
-                                local_val,
-                                payload_ll.ir(),
-                                local_ptr
-                            ));
-                            ctx.bind_local(bind.as_str(), local_ptr, payload_ll);
+                                ctx.bind_local(bind.as_str(), local_ptr, payload_ll);
+                            }
                         }
                     }
                 }

@@ -1127,6 +1127,50 @@ fn emit_direct_call(
     }
 }
 
+fn emit_linear_addr_from_local(ptr_local: u32, offset: i32, insts: &mut Vec<Instruction<'static>>) {
+    insts.push(Instruction::LocalGet(ptr_local));
+    if offset != 0 {
+        insts.push(Instruction::I32Const(offset));
+        insts.push(Instruction::I32Add);
+    }
+}
+
+fn emit_zero_linear_bytes(ptr_local: u32, size: i32, insts: &mut Vec<Instruction<'static>>) {
+    for off in 0..size {
+        emit_linear_addr_from_local(ptr_local, off, insts);
+        insts.push(Instruction::I32Const(0));
+        insts.push(Instruction::I32Store8(MemArg {
+            offset: 0,
+            align: 0,
+            memory_index: 0,
+        }));
+    }
+}
+
+fn emit_copy_linear_bytes(
+    dst_local: u32,
+    dst_offset: i32,
+    src_local: u32,
+    src_offset: i32,
+    size: i32,
+    insts: &mut Vec<Instruction<'static>>,
+) {
+    for off in 0..size {
+        emit_linear_addr_from_local(dst_local, dst_offset + off, insts);
+        emit_linear_addr_from_local(src_local, src_offset + off, insts);
+        insts.push(Instruction::I32Load8U(MemArg {
+            offset: 0,
+            align: 0,
+            memory_index: 0,
+        }));
+        insts.push(Instruction::I32Store8(MemArg {
+            offset: 0,
+            align: 0,
+            memory_index: 0,
+        }));
+    }
+}
+
 enum SimpleExprFrame<'a> {
     Expr(&'a HirExpr),
     FinishCall { callee: &'a FuncRef, span: Span },
@@ -1959,17 +2003,19 @@ fn gen_expr(
             payload,
             type_args: _,
         } => {
-            let payload_vt = payload.as_ref().and_then(|p| valtype(&ctx.get(p.ty)));
-            let (payload_offset, size) = match payload_vt {
-                Some(ValType::I64) | Some(ValType::F64) => (8i32, 16i32),
-                Some(_) => (4i32, 8i32),
-                None => (0i32, 4i32),
-            };
-            insts.push(Instruction::I32Const(size as i32));
+            let payload_offset = 4i32;
+            let payload_storage_size = payload
+                .as_ref()
+                .map(|p| payload_offset + type_storage_size_bytes(ctx, p.ty) as i32)
+                .unwrap_or(payload_offset);
+            let total_size =
+                (type_storage_size_bytes(ctx, expr.ty) as i32).max(payload_storage_size);
+            insts.push(Instruction::I32Const(total_size));
             emit_alloc_call(locals, insts);
             let ptr_local = locals.alloc_temp(ValType::I32);
-            insts.push(Instruction::LocalTee(ptr_local));
-            // store tag
+            insts.push(Instruction::LocalSet(ptr_local));
+            emit_zero_linear_bytes(ptr_local, total_size, insts);
+            emit_linear_addr_from_local(ptr_local, 0, insts);
             insts.push(Instruction::I32Const(
                 enum_variant_tag(ctx, expr.ty, variant) as i32,
             ));
@@ -1979,45 +2025,58 @@ fn gen_expr(
                 memory_index: 0,
             }));
             if let Some(p) = payload {
-                match payload_vt {
-                    Some(vt) => {
-                        insts.push(Instruction::LocalGet(ptr_local));
-                        insts.push(Instruction::I32Const(payload_offset));
-                        insts.push(Instruction::I32Add);
-                        gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
-                        match vt {
-                            ValType::I32 => insts.push(Instruction::I32Store(MemArg {
-                                offset: 0,
-                                align: 2,
-                                memory_index: 0,
-                            })),
-                            ValType::F32 => insts.push(Instruction::F32Store(MemArg {
-                                offset: 0,
-                                align: 2,
-                                memory_index: 0,
-                            })),
-                            ValType::I64 => insts.push(Instruction::I64Store(MemArg {
-                                offset: 0,
-                                align: 3,
-                                memory_index: 0,
-                            })),
-                            ValType::F64 => insts.push(Instruction::F64Store(MemArg {
-                                offset: 0,
-                                align: 3,
-                                memory_index: 0,
-                            })),
-                            _ => {
-                                return Err(codegen_error(
-                                    "unsupported enum payload valtype reached wasm codegen",
-                                    expr.span,
-                                    DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
-                                ));
+                if is_aggregate_storage_type(ctx, p.ty) {
+                    gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
+                    let src_local = locals.alloc_temp(ValType::I32);
+                    insts.push(Instruction::LocalSet(src_local));
+                    let payload_size = type_storage_size_bytes(ctx, p.ty) as i32;
+                    emit_copy_linear_bytes(
+                        ptr_local,
+                        payload_offset,
+                        src_local,
+                        0,
+                        payload_size,
+                        insts,
+                    );
+                } else {
+                    match valtype(&ctx.get(p.ty)) {
+                        Some(vt) => {
+                            emit_linear_addr_from_local(ptr_local, payload_offset, insts);
+                            gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
+                            match vt {
+                                ValType::I32 => insts.push(Instruction::I32Store(MemArg {
+                                    offset: 0,
+                                    align: 2,
+                                    memory_index: 0,
+                                })),
+                                ValType::F32 => insts.push(Instruction::F32Store(MemArg {
+                                    offset: 0,
+                                    align: 2,
+                                    memory_index: 0,
+                                })),
+                                ValType::I64 => insts.push(Instruction::I64Store(MemArg {
+                                    offset: 0,
+                                    align: 3,
+                                    memory_index: 0,
+                                })),
+                                ValType::F64 => insts.push(Instruction::F64Store(MemArg {
+                                    offset: 0,
+                                    align: 3,
+                                    memory_index: 0,
+                                })),
+                                _ => {
+                                    return Err(codegen_error(
+                                        "unsupported enum payload valtype reached wasm codegen",
+                                        expr.span,
+                                        DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
+                                    ));
+                                }
                             }
                         }
-                    }
-                    None => {
-                        // Preserve side effects even when payload has no runtime representation (e.g. unit).
-                        gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
+                        None => {
+                            // Preserve side effects even when payload has no runtime representation (e.g. unit).
+                            gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
+                        }
                     }
                 }
             }
@@ -2122,17 +2181,8 @@ fn gen_expr(
                         }
                     }
                     None => {
-                        // Preserve side effects even when the field type is unit.
+                        // unit field は storage を持たないため、副作用だけ評価する。
                         gen_expr(ctx, f, name_map, sig_map, strings, locals, insts)?;
-                        insts.push(Instruction::LocalGet(ptr_local));
-                        insts.push(Instruction::I32Const(offset as i32));
-                        insts.push(Instruction::I32Add);
-                        insts.push(Instruction::I32Const(0));
-                        insts.push(Instruction::I32Store(MemArg {
-                            offset: 0,
-                            align: 2,
-                            memory_index: 0,
-                        }));
                     }
                 }
             }
@@ -2277,14 +2327,25 @@ fn gen_expr(
                     if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm.variant)
                     {
                         let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
-                        if let Some(vt) = valtype(&ctx.get(payload_ty)) {
-                            let payload_offset = match vt {
-                                ValType::I64 | ValType::F64 => 8i32,
-                                _ => 4i32,
-                            };
-                            insts.push(Instruction::LocalGet(ptr_local));
-                            insts.push(Instruction::I32Const(payload_offset));
-                            insts.push(Instruction::I32Add);
+                        let payload_offset = 4i32;
+                        if is_aggregate_storage_type(ctx, payload_ty) {
+                            let payload_size = type_storage_size_bytes(ctx, payload_ty) as i32;
+                            insts.push(Instruction::I32Const(payload_size));
+                            emit_alloc_call(locals, insts);
+                            let dst_local = locals.alloc_temp(ValType::I32);
+                            insts.push(Instruction::LocalSet(dst_local));
+                            emit_copy_linear_bytes(
+                                dst_local,
+                                0,
+                                ptr_local,
+                                payload_offset,
+                                payload_size,
+                                insts,
+                            );
+                            insts.push(Instruction::LocalGet(dst_local));
+                            insts.push(Instruction::LocalSet(lidx));
+                        } else if let Some(vt) = valtype(&ctx.get(payload_ty)) {
+                            emit_linear_addr_from_local(ptr_local, payload_offset, insts);
                             match vt {
                                 ValType::I32 => insts.push(Instruction::I32Load(MemArg {
                                     offset: 0,

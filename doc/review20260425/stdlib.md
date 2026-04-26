@@ -633,8 +633,8 @@ Brainfuck の tape / jump table のような固定長初期化は stdlib の代�
 
 ## RV-STDLIB-018: streamio の WASI doctest が trait bound 不一致と出力破損で失敗する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
 - 対象: `stdlib/std/streamio.nepl`, `tests/stdlib/streamio.n.md`, `nodesrc/run_test.js`
@@ -690,7 +690,216 @@ collection doctest の一部が「値を返すブロック」と「文として�
 
 値ブロックとして collection を初期化している doctest から、ブロック末尾のセミコロンを削除します。ブロックの途中式や後続で値を捨てる文のセミコロンは維持し、戻り値が必要な箇所だけを修正します。
 
+### 対応結果
+
+`BTreeMap` / `BTreeSet` / `Queue` / `RingBuffer` の doctest コメントに残っていた、値ブロック末尾の `;` を削除しました。単行 `let x <T> ...;` や、後続で値を使わない通常文のセミコロンは維持しています。
+
 ### 検証
 
-- `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/collection-semicolon-rv-stdlib-019.json -j 1`
-- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4`
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/collection-semicolon-rv-stdlib-019.json -j 1` (`total=34`, `passed=34`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4` (`total=379`, `passed=357`, `failed=22`, `errored=0`)
+
+stdlib 全体の残り22件は、値ブロック末尾セミコロンとは別原因です。`RV-STDLIB-020` から `RV-STDLIB-024` へ分解して追跡します。
+
+## RV-STDLIB-020: Fenwick/SegmentTree doctest が D3016 expression left extra values で失敗する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P0
+- 種別: test
+- 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/fenwick.nepl`, `stdlib/alloc/collections/segment_tree.nepl`, `stdlib/tests/fenwick.n.md`, `stdlib/tests/segment_tree.n.md`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4` で、Fenwick 7件と SegmentTree 7件が `error[D3016]: expression left extra values on the stack` で失敗していました。
+
+最小再現の error span は Fenwick / SegmentTree ではなく `stdlib/alloc/collections/vec.nepl` の `vec_find_impl` と `vec_take_while_len_impl` を指していました。該当箇所は `vec_find_impl<.T> data len add idx 1 p` のように、再帰呼び出しの第三引数 `add idx 1` と後続引数 `p` の境界が曖昧な形でした。
+
+### 問題
+
+`vec` の再帰 helper は、関数呼び出し引数に `add idx 1` を inline で渡していました。prefix call の境界上、後続の関数値引数が余剰 stack value として残り、`#target std` の compile 時に Fenwick / SegmentTree の doctest まで巻き込んで失敗していました。
+
+### 修正方針
+
+`vec_fold_impl` / `vec_reduce_impl` / `vec_find_impl` / `vec_take_while_len_impl` で、次 index を `let next_idx <i32> add idx 1` として一度束縛し、再帰呼び出しには `next_idx` を渡します。同型の潜在不具合を残さないため、error span に出た2箇所だけでなく同じ書き方の recursive helper をまとめて修正します。
+
+### 対応結果
+
+`stdlib/alloc/collections/vec.nepl` の recursive helper 4箇所を、`idx + 1` を明示束縛してから再帰呼び出しへ渡す形に変更しました。Fenwick / SegmentTree 側の API や doctest の意味は変更していません。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/tests/fenwick.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/fenwick-segtree-rv-stdlib-020.json -j 1` (`total=53`, `passed=53`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-020.json -j 4` (`total=379`, `passed=371`, `failed=8`, `errored=0`)
+
+stdlib 全体の残り8件は `RV-STDLIB-021` から `RV-STDLIB-024` の範囲に残しています。
+
+## RV-STDLIB-021: vec sort doctest が overload 解決不一致で失敗する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/alloc/collections/vec/sort.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/alloc/collections/vec/sort.nepl::doctest#1` と `#2` が `D3021 type arguments do not match any overload`、`#3` が `D3006 no matching overload found` で失敗しています。
+
+### 問題
+
+`Vec` の `Result` 化や sort API の generic signature 変更後に、sort doctest の型引数または comparator の渡し方が現行 API とずれています。fixture 側だけの誤りか、sort API の公開 signature が使いにくい状態になっているかを切り分ける必要があります。
+
+### 修正方針
+
+`sort.nepl` の public signature と doctest の explicit type arguments を照合し、必要であれば doctest を現行 API に同期します。API 側の型引数順や comparator bound が不自然な場合は、利用側が安全に書ける形へ signature を調整します。
+
+### 対応結果
+
+`Vec::new` / `Vec::push` が `Result<Vec<T>, StdErrorKind>` を返す現行 API に合わせ、doctest の `unwrap_ok` 型引数を `StdErrorKind` に更新しました。破壊的 sort の後に検証する例は、owner を返す `sort_quick_ret` / `sort_merge_ret` を使って `sort_is_sorted` で確認する形へ変更しました。`sort_merge` 自体の usage doctest は、現行 pipe style で Vec を構築してから `sort_merge` を呼ぶ compile/run smoke として維持しています。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 1 --dist dist` (`pass`, `return_value=1`)
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 2 --dist dist` (`pass`, `return_value=1`)
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 3 --dist dist` (`pass`, `return_value=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-sort-rv-stdlib-021.json -j 1` (`total=3`, `passed=3`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-021.json -j 4` (`total=379`, `passed=375`, `failed=4`, `errored=0`)
+
+## RV-STDLIB-022: HashMap doctest にインデント不整合が残っている
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/alloc/collections/hashmap.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/alloc/collections/hashmap.nepl::doctest#3` が `error[D1206]: indentation is not aligned to #indent width` で失敗しています。
+
+### 問題
+
+hashmap の public doctest が、現行 parser の indent 幅ルールに合っていません。これは runtime 以前の fixture 品質問題で、HashMap API の実行時問題と混ざると原因調査を誤ります。
+
+### 修正方針
+
+該当 doctest の生成ソースを抽出し、`#indent` と本文 indent の不一致だけを直します。API の意味や検証内容は変えず、parser が受理する形に揃えます。
+
+### 対応結果
+
+`get` の doctest で `if` の続きに置いた `match` block の indent を `#indent 4` に合わせました。indent 修正後に同じ `HashMap` owner へ `get` を2回呼んでいる move error が露出したため、missing check 用の空 map と existing value check 用の map を分け、by-value API の所有権規則にも合う fixture にしました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/hashmap.nepl -n 3 --dist dist` (`pass`, `return_value=1`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-indent-rv-stdlib-022.json -j 1` (`total=7`, `passed=7`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-022.json -j 4` (`total=379`, `passed=372`, `failed=7`, `errored=0`)
+
+## RV-STDLIB-023: HashMap/HashSet の文字列 key runtime test が memory OOB と return mismatch で失敗する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P0
+- 種別: bug
+- 対象: `stdlib/tests/hashmap_str.n.md`, `stdlib/tests/hashset.n.md`, `stdlib/tests/hashset_str.n.md`, `stdlib/alloc/collections/hashmap.nepl`, `stdlib/alloc/collections/hashset.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/tests/hashmap_str.n.md::doctest#1` と `stdlib/tests/hashset_str.n.md::doctest#1` が `RuntimeError: memory access out of bounds`、`stdlib/tests/hashset.n.md::doctest#1` が return value mismatch で失敗しています。
+
+### 問題
+
+HashMap / HashSet の string key 経路または hashing / equality / ownership 境界で runtime が壊れています。compile fixture ではなく実行時の memory safety 問題なので、`unwrap` で覆うのではなく、key の格納・参照・hash 計算・drop 所有権のどこで invalid address になるかを特定する必要があります。
+
+### 修正方針
+
+まず int key と string key の差分を最小化し、hash function 入力の `str` layout、bucket / entry array の pointer、key copy / move の扱いを追跡します。runtime trap と return mismatch を同じ原因で説明できない場合は、さらに issue を分割します。
+
+### 対応結果
+
+HashMap / HashSet の直接操作を最小化したところ、string key の insert / contains / get / update / remove は direct return-code fixture では正常に動作しました。一方で、長い `Vec<Result<(),str>>` 集約と `checks_print_report`、さらに同一 doctest 内の `free` smoke を混ぜると、free-list 再利用後に `Result<(),str>` 集約が stale payload を読んで OOB / mismatch を起こすことを確認しました。この集約側の問題は `RV-STDLIB-025` として分離します。
+
+本 issue では、string hash loop の再帰引数を明示束縛に直し、HashMap / HashSet の `free` で entry byte 数と trait 制約を明示しました。runtime test は string key の collection 操作を direct return-code で検証し、`free` smoke は独立 doctest に分離して、collection 本体と `std/test` 集約問題が混ざらない形へ整理しました。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hash-collections-rv-stdlib-023-pass8.json -j 1` (`total=6`, `passed=6`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-023-pass2.json -j 4` (`total=382`, `passed=382`, `failed=0`, `errored=0`)
+
+## RV-STDLIB-024: Deserialize doctest の match arm が Result と unit で不一致になる
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/core/traits/deserialize.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/core/traits/deserialize.nepl::doctest#1` が `error[D3045]: match arms have incompatible types: Result_T_E_unit_str and unit` で失敗しています。
+
+### 問題
+
+deserialize doctest の `match` が、成功/失敗のどちらかの arm で `Result<(), str>` を返し、別 arm で `unit` を返しています。これは error path を検証する意図が型として明確になっていない状態です。
+
+### 修正方針
+
+doctest の期待結果を確認し、全 arm が同じ型を返すように揃えます。エラーを返すテストなら `Result` を明示し、単に失敗時に異常終了したいテストなら `panic` / `unreachable` 相当の既存テスト helper を適切に使います。
+
+### 対応結果
+
+`match deserialize<i32> "42"` の結果を `let check <Result<(),str>>:` に束縛し、`Result::Ok` / `Result::Err` の両 arm が `Result<(),str>` を返すように揃えました。`main` は `result_exit_code check` を返すため、assert 失敗や予期しない Err が runner の終了値へ反映されます。
+
+### 検証
+
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/core/traits/deserialize.nepl -n 1 --dist dist` (`pass`, `return_value=0`)
+- `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/deserialize-rv-stdlib-024.json -j 1` (`total=1`, `passed=1`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-024.json -j 4` (`total=379`, `passed=376`, `failed=3`, `errored=0`)
+
+## RV-STDLIB-025: std/test の Vec<Result<(),str>> 集約が free-list 再利用後に stale payload を読む
+
+- 解決済: true
+- 状態: verified
+- 優先度: P1
+- 種別: bug
+- 対象: `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`, `tests/compiler/intrinsic.n.md`, `tests/stdlib/std_test_collect.n.md`
+
+### 根拠
+
+`RV-STDLIB-023` の調査中、`Vec<Result<(),str>>` に成功結果を積んだ後で `HashSet::free` を呼び、その後 `checks_exit_code` / `checks_print_report` を実行すると、`RuntimeError: unreachable` や破損した `Err` message 表示が発生する最小再現を確認しました。raw pointer を同じ size で手動解放するケースや、HashMap / HashSet の direct return-code 検証は pass するため、collection lookup 本体とは別の集約 / enum storage / 0 byte aggregate の問題として切り分けました。
+
+### 問題
+
+2 つの backend 表現不整合が重なっていました。
+
+- enum constructor は variant payload だけに合わせて allocation / store offset を決めており、`Result<(),i64>` のように payload が 4 byte を超える型で `size_of<Result<...>>` / `store<Result<...>>` と一致しませんでした。
+- WASM の `StructConstruct` は unit field に storage がないにもかかわらず 4 byte store を発行していました。`DefaultHash32` は `tag <()>` だけを持つ 0 byte struct なので、`alloc_raw(0)` の戻り値 0 に書き込んで heap pointer を破壊し、後続の `std/test` stdout / `Vec<Result<(),str>>` 読み出しを壊していました。
+
+### 修正方針
+
+enum storage は tag + 最大 payload size の full-size object として確保し、construct 時に 0 初期化してから tag / payload を書くように統一しました。aggregate payload は enum payload 領域へ inline copy し、match binding でも同じ inline storage から copy します。
+
+WASM の unit field は storage slot を持たないため、struct construction では式の副作用だけ評価して store を発行しないようにしました。LLVM 側は既に `Void` field を skip していたため、enum storage 統一のみを合わせています。
+
+### 検証
+
+- `cargo fmt --check`
+- `cargo check -p nepl-core`
+- `trunk build`
+- `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --runner all --no-tree -o tmp/rv-stdlib-025-intrinsic-all-pass4.json -j 1` (`total=8`, `passed=8`)
+- `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --runner all --no-tree -o tmp/rv-stdlib-025-std-test-collect-all-pass4.json -j 1` (`total=3`, `passed=3`)
+- `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --runner all --no-tree -o tmp/rv-stdlib-025-hashset-all-pass4.json -j 1` (`total=2`, `passed=2`)
+- `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/rv-stdlib-025-hash-str-pass4.json -j 1` (`total=4`, `passed=4`)
