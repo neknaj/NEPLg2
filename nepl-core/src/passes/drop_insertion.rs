@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use alloc::format;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -34,6 +35,7 @@ struct DropInsertionContext<'a> {
     plan: &'a DropPlan,
     var_stacks: BTreeMap<String, Vec<VarInfo>>,
     scopes: Vec<Vec<String>>,
+    next_temp_id: usize,
 }
 
 impl<'a> DropInsertionContext<'a> {
@@ -43,6 +45,7 @@ impl<'a> DropInsertionContext<'a> {
             plan,
             var_stacks: BTreeMap::new(),
             scopes: Vec::new(),
+            next_temp_id: 0,
         }
     }
 
@@ -119,6 +122,16 @@ impl<'a> DropInsertionContext<'a> {
             });
         }
         out
+    }
+
+    fn fresh_assignment_temp(&mut self) -> String {
+        loop {
+            let name = format!("__nepl_drop_assign_tmp_{}", self.next_temp_id);
+            self.next_temp_id += 1;
+            if !self.var_stacks.contains_key(name.as_str()) {
+                return name;
+            }
+        }
     }
 }
 
@@ -296,8 +309,71 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
             insert_drops_in_expr(value, ctx);
         }
         HirExprKind::Set { name, value } => {
+            let target_name = name.clone();
+            let old_info = ctx.get_var(target_name.as_str());
             insert_drops_in_expr(value, ctx);
-            ctx.set_state(name, VarState::Valid);
+            let should_drop_old = old_info
+                .filter(|info| info.state == VarState::Valid)
+                .filter(|info| {
+                    ctx.get_var(target_name.as_str())
+                        .map(|current| current.state == VarState::Valid)
+                        .unwrap_or(false)
+                        && ctx.types.has_drop(info.ty)
+                });
+            if let Some(info) = should_drop_old {
+                let temp_name = ctx.fresh_assignment_temp();
+                let temp_ty = value.ty;
+                let temp_span = value.span;
+                let unit_ty = ctx.types.unit();
+                let original_value = core::mem::replace(
+                    value,
+                    Box::new(HirExpr {
+                        ty: unit_ty,
+                        kind: HirExprKind::Unit,
+                        span: expr.span,
+                    }),
+                );
+                let drop_expr =
+                    drop_call_expr(ctx.types, ctx.plan, target_name.clone(), info.ty, expr.span);
+                expr.kind = HirExprKind::Block(HirBlock {
+                    lines: vec![
+                        HirLine {
+                            expr: HirExpr {
+                                ty: unit_ty,
+                                kind: HirExprKind::Let {
+                                    name: temp_name.clone(),
+                                    mutable: false,
+                                    value: original_value,
+                                },
+                                span: expr.span,
+                            },
+                            drop_result: false,
+                        },
+                        HirLine {
+                            expr: drop_expr,
+                            drop_result: true,
+                        },
+                        HirLine {
+                            expr: HirExpr {
+                                ty: unit_ty,
+                                kind: HirExprKind::Set {
+                                    name: target_name.clone(),
+                                    value: Box::new(HirExpr {
+                                        ty: temp_ty,
+                                        kind: HirExprKind::Var(temp_name),
+                                        span: temp_span,
+                                    }),
+                                },
+                                span: expr.span,
+                            },
+                            drop_result: false,
+                        },
+                    ],
+                    ty: unit_ty,
+                    span: expr.span,
+                });
+            }
+            ctx.set_state(target_name.as_str(), VarState::Valid);
         }
         HirExprKind::Intrinsic {
             name,

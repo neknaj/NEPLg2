@@ -1,3 +1,32 @@
+# 2026-04-27 メモ (ISS-20260426T181314061Z drop overwrite elaboration)
+
+- 対象:
+  - `ISS-20260426T181314061Z-DROP-INSERTION-SKIPS-DROP-FOR-OVERWR-58E3CE2B`
+  - `nepl-core/src/passes/drop_insertion.rs`
+  - `nepl-core/tests/drop_overwrite.rs`
+  - `tests/compiler/drop_overwrite.n.md`
+- 状況:
+  - `RV-CORE-009` の Resource IR / drop elaboration 調査中に、`set` で Drop 対象の mutable binding を上書きしても旧値の Drop が挿入されないことを確認した。
+  - 既存の drop insertion は RHS を走査した後に対象 binding を `Valid` へ戻すだけで、scope 終端の最終値 Drop しか生成しないため、上書き前の owned resource がリークする構造だった。
+- 対応:
+  - `set` の RHS を一時 local に評価し、旧値がまだ `Valid` かつ Drop capability を持つ場合は旧値 Drop を挿入してから一時 local を代入する HIR block へ展開した。
+  - RHS effect の順序を壊さないよう、単純に Drop を `set` の前へ置くのではなく、`let tmp = rhs; drop old; set old tmp` の順序へ落とした。
+  - Rust integration test では `tick 1`（RHS effect）→ `tick 2`（旧値 Drop）→ `tick 2`（新値 scope Drop）を固定した。
+  - nodesrc compiler test は既存CRLFファイルの改行形式を変えないため、`tests/compiler/drop_overwrite.n.md` として追加した。
+- 検証:
+  - `cargo test -p nepl-core --test drop_overwrite -- --nocapture`: `1 passed`
+  - `cargo test -p nepl-core --test drop -- --nocapture`: `7 passed`
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: `38 passed`
+  - `cargo check --workspace`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --no-tree -o tmp/drop-overwrite-elaboration-after-trunk.json -j 1`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/drop-overwrite-move-regression.json -j 1`: `total=66`, `passed=66`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-drop-overwrite.json`: `13/13 passed`
+  - `node tests/compiler/tree/run.js`: `total=20`, `passed=20`
+- 備考:
+  - plan.md は変更していない。今回の変更は現行 NEPLg2 core の drop elaboration が再代入時にも deterministic release を守るための修正。
+  - RV-CORE-009 の Resource IR 完全導入は引き続き open だが、今回の問題は具体的な上書き時 Drop 漏れとして独立 issue 化して解決した。
+
 # 2026-04-27 メモ (ISS-20260426T175330910Z mutable reference syntax)
 
 - 状況:

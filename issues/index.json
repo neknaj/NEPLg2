@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T18:10:01.526Z",
+  "generated_at": "2026-04-26T21:10:05.375Z",
   "counts": {
-    "total": 137,
+    "total": 138,
     "open": 9,
-    "resolved": 128,
+    "resolved": 129,
     "by_area": {
       "core": {
-        "total": 51,
+        "total": 52,
         "open": 3,
-        "resolved": 48
+        "resolved": 49
       },
       "stdlib": {
         "total": 44,
@@ -898,6 +898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T175330910Z-MUTABLE-REFERENCE-SYNTAX-CANNOT-CREA-D042B4EC.md"
+    },
+    {
+      "id": "ISS-20260426T181314061Z-DROP-INSERTION-SKIPS-DROP-FOR-OVERWR-58E3CE2B",
+      "title": "drop insertion skips Drop for overwritten values",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/passes/drop_insertion.rs, nepl-core/tests/drop_overwrite.rs, tests/compiler/drop_overwrite.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T181314061Z-DROP-INSERTION-SKIPS-DROP-FOR-OVERWR-58E3CE2B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
