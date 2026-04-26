@@ -1187,3 +1187,46 @@ pipe 左辺の候補範囲について、範囲内を副作用なしに試験的
 未解決:
 
 - `tests/stdlib/pipe_collections.n.md` は D3006 ではなく runtime trap 2件へ進みました。残件は collection helper 側の runtime 問題として `RV-STDLIB-013` で継続します。
+
+## RV-CORE-029: pipe 左辺の試験簡約が open call を再構築せず nullary call を分断する
+
+- 解決済: true
+- 状態: verified
+- 優先度: P0
+- 種別: bug
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/tests/pipe_operator.rs`
+
+### 根拠
+
+GitHub Actions run `24943799653` の `stdlib-test` で、`stdlib/alloc/collections/btreemap.nepl::doctest#2-#7` が `D3004 type annotation mismatch (expected BTreeMap<i32,i32>, got unit)` で失敗しました。この調査中に、同じ `unwrap_ok new |> ...` 形から末尾セミコロンだけを除いた場合でも、pipe 左辺の試験簡約に nullary call を扱えない core バグが残っていることを確認しました。
+
+### 問題
+
+`RV-CORE-028` で追加した pipe 左辺の試験簡約は、対象 segment を clone して `reduce_calls` に渡していましたが、segment 内の `open_calls` を再構築せず空配列のままにしていました。そのため `unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>` のように nullary call を含む完結済み式を、試験簡約では単一値へ reduce できませんでした。
+
+結果として pipe 左辺は式全体ではなく最後の `new` 側へ縮退し、後続の `|> insert ...` へ `BTreeMap` ではない値が渡り得る状態でした。
+
+### 影響
+
+`BTreeMap` / `BTreeSet` / `Queue` / `RingBuffer` など、`new<T>` のような0引数generic constructorを `unwrap_ok new |> ...` 形式でpipe初期化する正当なコードが、compiler の pipe source 範囲判定により壊れる可能性がありました。
+
+実際の stdlib doctest の D3004 には、値ブロック末尾セミコロンが戻り値を `unit` にしている fixture 問題も含まれていたため、これは `RV-STDLIB-019` として分離します。
+
+### 修正方針
+
+試験簡約用に clone した segment から callable entry の位置を再収集し、その `open_calls` を使って `reduce_calls` します。これにより本番のstack状態を汚さず、nullary call も通常のprefix式と同じ規則で単一値へ簡約できるか判定します。
+
+### 対応
+
+`pipe_segment_reduces_to_single_value` で segment 内の `auto_call` function entry を走査し、segment-local な `open_calls` を構築するようにしました。Rust integration test には `unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32> |> insert ...` の回帰を追加し、0引数関数を含む完結済みpipe左辺が分断されないことを固定しました。
+
+### 検証
+
+- `cargo fmt --all --check`
+- `cargo test -p nepl-core --test pipe_operator -- --nocapture` (`22 passed`)
+- `cargo build -p nepl-cli`
+- `trunk build`
+
+未解決:
+
+- 実際の `btreemap.nepl::doctest#2-#7` は `let hm <BTreeMap<...>>:` の値ブロック末尾 `;` により引き続き `unit` を返します。これは `RV-STDLIB-019` で修正します。

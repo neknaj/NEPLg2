@@ -3090,7 +3090,18 @@ impl<'a> BlockChecker<'a> {
         let diagnostics_len = self.diagnostics.len();
         let trait_checks_len = self.pending_trait_bound_checks.len();
         let mut segment = stack[segment_base..].to_vec();
-        let mut open_calls = Vec::new();
+        let mut open_calls = segment
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, entry)| {
+                let rty = self.ctx.resolve_id(entry.ty);
+                if entry.auto_call && matches!(self.ctx.get(rty), TypeKind::Function { .. }) {
+                    Some(idx)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
         self.reduce_calls(&mut segment, &mut open_calls, None);
         let reduced = segment.len() == 1;
         self.pending_trait_bound_checks.truncate(trait_checks_len);

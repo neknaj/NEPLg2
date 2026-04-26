@@ -16413,3 +16413,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - pipe 構文の意味を変えず、完結済み prefix call を正しく左辺単位として扱う実装修正である。
+
+# 2026-04-26 メモ (RV-CORE-029 pipe 試験簡約の nullary call 修正)
+
+- [原因]:
+  - GitHub Actions run `24943799653` の `stdlib-test` で `btreemap.nepl::doctest#2-#7` が D3004 になっていた。
+  - `RV-CORE-028` の試験簡約は segment を clone していたが、clone後の segment 内の `open_calls` を再構築していなかった。
+  - そのため `unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>` のような nullary call を含む完結済み式が、pipe 左辺として単一値へ reduce 可能だと判定されず、最後の `new` 側だけが pipe source になっていた。
+- [修正]:
+  - `pipe_segment_reduces_to_single_value` で segment-local な callable index を収集し、その `open_calls` を `reduce_calls` へ渡すようにした。
+  - `nepl-core/tests/pipe_operator.rs` に `unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32> |> insert ...` の回帰テストを追加した。
+  - `doc/review20260425/core.md` / `issues.md` に `RV-CORE-029` を追加し、verified とした。
+- [検証]:
+  - `cargo fmt --all --check`
+  - `cargo test -p nepl-core --test pipe_operator -- --nocapture`: `22 passed`
+  - `cargo build -p nepl-cli`
+  - `trunk build`
+- [分離した残件]:
+  - 実際の `btreemap.nepl::doctest#2-#7` は、値ブロック末尾 `;` が戻り値を `unit` にしている stdlib fixture 問題も含んでいた。
+  - この残件は `RV-STDLIB-019` として追加し、次の1 issue commitで修正する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - pipe 構文仕様は変えず、試験簡約が通常の call reduction と同じ前提で動くように揃えた。

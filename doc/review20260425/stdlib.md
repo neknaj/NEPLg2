@@ -663,3 +663,34 @@ streamio は trait bound 解決と runtime I/O の両方で壊れています。
 - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-rv-stdlib-018.json -j 1`
 - `node nodesrc/tests.js -i tests/stdlib -o tmp/tests-stdlib-streamio-after.json -j 4`
 - `node nodesrc/tests.js -i tests -o tmp/tests-current-streamio-after.json -j 4`
+
+## RV-STDLIB-019: collection doctest の値ブロック末尾セミコロンが戻り値を unit にしている
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: test
+- 対象: `stdlib/alloc/collections/btreemap.nepl`, `stdlib/alloc/collections/btreeset.nepl`, `stdlib/alloc/collections/queue.nepl`, `stdlib/alloc/collections/ringbuffer.nepl`
+
+### 根拠
+
+GitHub Actions run `24943799653` の `stdlib-test` で、`btreemap.nepl::doctest#2-#7` が `D3004 type annotation mismatch (expected BTreeMap<i32,i32>, got unit)` で失敗しました。ローカルでも `nodesrc/run_doctest.js -i stdlib/alloc/collections/btreemap.nepl -n 2` で再現します。
+
+該当 doctest は `let hm <BTreeMap<i32,i32>>:` の値ブロック末尾に `|> ... |> uwok;` のようなセミコロンを置いています。NEPL のブロックでは末尾セミコロン付き式は値を返さないため、ブロック全体の値が `unit` になり、`let` の型注釈と衝突します。
+
+### 問題
+
+collection doctest の一部が「値を返すブロック」と「文として終えるブロック」を混同しています。これは compiler の型検査が正しく検出しているfixture誤りであり、`RV-CORE-029` の pipe 試験簡約バグとは別に修正する必要があります。
+
+### 影響
+
+`BTreeMap` / `BTreeSet` / `Queue` / `RingBuffer` の doctest がまとまって compile failure になり、stdlib-test が赤くなります。collection API の実行時問題と、単純なfixture構文ミスが混ざって見えるため、後続の runtime trap 調査を妨げます。
+
+### 修正方針
+
+値ブロックとして collection を初期化している doctest から、ブロック末尾のセミコロンを削除します。ブロックの途中式や後続で値を捨てる文のセミコロンは維持し、戻り値が必要な箇所だけを修正します。
+
+### 検証
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/collection-semicolon-rv-stdlib-019.json -j 1`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4`

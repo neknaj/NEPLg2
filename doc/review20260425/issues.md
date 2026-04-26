@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 3 | 25 |
+| core | 3 | 26 |
 | cli | 3 | 11 |
-| stdlib | 10 | 8 |
+| stdlib | 11 | 8 |
 | examples | 0 | 13 |
-| 合計 | 16 | 57 |
+| 合計 | 17 | 58 |
 
 ## Core
 
@@ -46,6 +46,7 @@
 | [RV-CORE-026](./core.md#rv-core-026-overloadnmd-に同名arity違いを許可する旧fixtureが残っている) | true | verified | P2 | test | `overload.n.md` の arity 違い overload 5件を D3005 期待へ更新済み |
 | [RV-CORE-027](./core.md#rv-core-027-llvm-top-level-llvmir-entry-が-hir-関数としてしか解決されない) | true | verified | P0 | bug | top-level `#llvmir` の `define @entry` を `#entry` 定義として扱い、LLVM smoke の D3092 を修正済み |
 | [RV-CORE-028](./core.md#rv-core-028-pipe-左辺の完結した-open-call-が途中で分断される) | true | verified | P0 | bug | `unwrap_ok new 32 |> ...` のような完結済み呼び出し全体を pipe 左辺として扱うよう修正済み |
+| [RV-CORE-029](./core.md#rv-core-029-pipe-左辺の試験簡約が-open-call-を再構築せず-nullary-call-を分断する) | true | verified | P0 | bug | `unwrap_ok new |> ...` のような nullary call を含む完結済み pipe 左辺を正しく単一値へ簡約するよう修正済み |
 
 ## CLI
 
@@ -88,6 +89,7 @@
 | [RV-STDLIB-016](./stdlib.md#rv-stdlib-016-stack-push-が所有権を消費し-example-で-panic-helper-回避を妨げる) | true | verified | P1 | architecture | `Stack::push_ref` を追加し、Copy 要素を借用 stack へ追加して失敗時も handle を保持できるよう修正済み |
 | [RV-STDLIB-017](./stdlib.md#rv-stdlib-017-vec-に固定長初期化-api-がなく-example-が-panic-helper-に依存する) | true | verified | P1 | architecture | `Vec::filled` を追加し、固定長 buffer/table を `Result` で作れるよう修正済み |
 | [RV-STDLIB-018](./stdlib.md#rv-stdlib-018-streamio-の-wasi-doctest-が-trait-bound-不一致と出力破損で失敗する) | false | open | P1 | bug | `tests/stdlib/streamio.n.md` が `D3069` / `D3006` と stdout の binary layout 混入で 5 件失敗 |
+| [RV-STDLIB-019](./stdlib.md#rv-stdlib-019-collection-doctest-の値ブロック末尾セミコロンが戻り値を-unit-にしている) | false | open | P0 | test | collection doctest の `let x <T>:` 値ブロック末尾 `;` が `unit` を返し、D3004 を発生させている |
 
 ## Examples
 

@@ -345,3 +345,24 @@ fn main <()*>i32> ():
     let v = run_main_i32(src);
     assert_eq!(v, 32);
 }
+
+#[test]
+fn pipe_complete_nullary_source_call_into_target() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "alloc/collections/btreemap" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let hm <BTreeMap<i32, i32>>:
+        unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+        |> insert 3 30 |> uwok
+        |> insert 7 70 |> uwok
+    len hm
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 2);
+}
