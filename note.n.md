@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (ISS-20260426T060156433Z string numeric parser overflow)
+
+- 状況:
+  - `to_u128_radix` は `res * radix + digit` をそのまま `u128` 演算で行い、表現域外入力を mod 2^128 の値として受理し得た。
+  - `to_i128_radix` は magnitude の符号付き範囲を確認しておらず、正の範囲外を負値へ bitcast し得た。
+  - `to_i64_radix` は i128 から i64 へ縮小する前に符号拡張一致を確認していなかった。
+- 修正:
+  - `u128_max / radix` の商と余りを使う更新前 overflow check を追加し、`to_u128_radix` が範囲外を `Result::Err 1` にするようにした。
+  - i128 の正の最大値、負の最小値、その外側を符号別に判定する helper を追加した。
+  - i64 縮小前に i128 の上位 word が i64 の符号拡張と一致するか確認するようにした。
+  - `tests/stdlib/string_numeric_overflow.n.md` を追加し、u128/i128/i64/i32 の境界値と境界外を固定した。
+- 追加 Issue:
+  - `ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655`: `Result<i64,_>` の `Result::Ok _` wildcard arm が invalid wasm を生成する場合がある。追加時点で Discord report 済み。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-numeric-overflow-after-str-eq.json -j 1`: `total=8`, `passed=8`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/stdlib.n.md -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-numeric-overflow-suite.json -j 2`: `total=57`, `passed=57`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/string-numeric-overflow-stdlib-full.json -j 4`: `total=404`, `passed=404`, `failed=0`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib の数値文字列 parser の範囲外入力処理を `Result` へ統一するもの。
+
 # 2026-04-26 メモ (stdlib full review 追加 issue)
 
 - 状況:

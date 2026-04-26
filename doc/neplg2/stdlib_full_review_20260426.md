@@ -59,6 +59,11 @@ Rust 側は変更していないため、このレビュー追加 commit では 
 
 各 Issue は追加時点で Discord report を送信済み。
 
+## 対応状況
+
+- `ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90` は `stdlib/string-numeric-overflow` branch で修正し、u128/i128/i64/i32 の境界値 doctest を追加して verified にした。
+- numeric parser 修正中に、`Result<i64,_>` の wildcard pattern が invalid wasm を生成する compiler issue `ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655` を追加した。追加時点で Discord report 済み。
+
 ## compiler workaround の確認
 
 `tests/stdlib/streamio.n.md` の `stream_writer_space_and_i64` には、旧 pipe 右辺 bug を避けるための `let two <i64> cast 2` が残っていた。

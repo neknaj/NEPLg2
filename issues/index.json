@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T06:03:58.739Z",
+  "generated_at": "2026-04-26T06:33:15.401Z",
   "counts": {
-    "total": 114,
+    "total": 115,
     "open": 25,
-    "resolved": 89,
+    "resolved": 90,
     "by_area": {
       "core": {
         "total": 36,
@@ -18,10 +18,15 @@
       },
       "stdlib": {
         "total": 39,
-        "open": 16,
-        "resolved": 23
+        "open": 15,
+        "resolved": 24
       },
       "tests": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
+      },
+      "compiler": {
         "total": 1,
         "open": 1,
         "resolved": 0
@@ -210,21 +215,6 @@
       "file": "items/ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B.md"
     },
     {
-      "id": "ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90",
-      "title": "string numeric parsers wrap overflow instead of returning Err",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/string.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90.md"
-    },
-    {
       "id": "ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C",
       "title": "selfhost_req HashKey fixture fails under current Rust harness",
       "area": "tests",
@@ -238,6 +228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
+    },
+    {
+      "id": "ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655",
+      "title": "wildcard Result i64 pattern can generate invalid wasm",
+      "area": "compiler",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1348,6 +1353,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1.md"
+    },
+    {
+      "id": "ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90",
+      "title": "string numeric parsers wrap overflow instead of returning Err",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

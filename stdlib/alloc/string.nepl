@@ -1164,6 +1164,22 @@ struct U128DivRem:
 fn u128_zero <()->u128> ():
     u128 <i64> cast 0 <i64> cast 0
 
+// u128_max: u128 の最大値を返す
+//
+// 目的:
+// - 文字列解析で `res * radix + digit` が表現域を超えないかを調べる上限値として使います。
+//
+// 実装(アルゴリズム):
+// - hi / lo の両方を全ビット 1 にした `u128` を直接構築します。
+//
+// 注意(重要):
+// - `i64` フィールド上では -1 と見えますが、ここでは符号なし 64-bit word として扱います。
+//
+// 計算量:
+// - O(1)
+fn u128_max <()->u128> ():
+    u128 <i64> cast -1 <i64> cast -1
+
 // u128_is_zero: u128 が 0 かを判定する
 //
 // 目的:
@@ -1339,7 +1355,8 @@ fn u128_add_small <(u128,i32)->u128> (v, digit):
 // - factor は 2 / 8 / 10 / 16 のいずれかなので、回数は定数で抑えられます。
 //
 // 注意(重要):
-// - オーバーフローは `u128` の mod 2^128 としてラップします。
+// - この関数自体は `u128` 演算に従ってラップします。
+// - 解析用途では呼び出し前に `u128_can_mul_add_small` で上限確認してください。
 //
 // 計算量:
 // - O(log factor) だが factor は固定小定数なので実質 O(1)
@@ -1392,6 +1409,36 @@ fn u128_divrem_small <(u128,i32)->U128DivRem> (v, radix):
                     ();
             set idx sub idx 1;
     U128DivRem q rem
+
+// u128_can_mul_add_small: `v * radix + digit` が u128 に収まるかを判定する
+//
+// 目的:
+// - 数値文字列の解析で、演算がラップする前に範囲外入力を `Result::Err` へ変換します。
+//
+// 実装(アルゴリズム):
+// - 事前に計算した `u128_max / radix` の商と余りに対して、現在値 v を比較します。
+// - `v < quotient` なら次の桁は必ず安全です。
+// - `v > quotient` なら必ず overflow します。
+// - `v == quotient` の場合だけ、digit が最大余り以下かを確認します。
+//
+// 注意(重要):
+// - radix は `validate_radix` 済みで、digit は radix 未満であることを前提にします。
+// - 実際の乗算と加算はこの判定が true の時だけ行ってください。
+//
+// 計算量:
+// - O(1)
+fn u128_can_mul_add_small <(u128,i32,u128,i32)->bool> (v, digit, max_quotient, max_remainder):
+    if:
+        lt v max_quotient
+        then:
+            true
+        else:
+            if:
+                lt max_quotient v
+                then:
+                    false
+                else:
+                    le digit max_remainder
 
 // from_i32: i32 を文字列へ変換する
 //
@@ -1578,6 +1625,35 @@ fn from_i64_radix <(i64,i32)->Result<str,i32>> (x, radix):
 fn to_i64 <(str)->Result<i64,i32>> (s):
     to_i64_radix s 10
 
+// i128_fits_i64: i128 が i64 の表現域に収まるかを判定する
+//
+// 目的:
+// - `to_i64_radix` が範囲外の i128 を i64 に切り詰めて受理しないようにします。
+//
+// 実装(アルゴリズム):
+// - 非負 i64 は hi が 0 かつ lo の符号 bit が 0 の時だけ許可します。
+// - 負 i64 は hi が -1 かつ lo の符号 bit が 1 の時だけ許可します。
+//
+// 注意(重要):
+// - これは bit pattern の符号拡張検査であり、cast 前に必ず実行します。
+//
+// 計算量:
+// - O(1)
+fn i128_fits_i64 <(i128)->bool> (v):
+    let hi <i64> get v "hi";
+    let lo <i64> get v "lo";
+    if:
+        eq hi <i64> cast 0
+        then:
+            not lt lo <i64> cast 0
+        else:
+            if:
+                eq hi <i64> cast -1
+                then:
+                    lt lo <i64> cast 0
+                else:
+                    false
+
 // to_i64_radix: 指定基数の文字列を i64 に変換する
 //
 // 目的:
@@ -1586,18 +1662,24 @@ fn to_i64 <(str)->Result<i64,i32>> (s):
 //
 // 実装(アルゴリズム):
 // - `to_i128_radix` で共通解析を行い、最後に `i64` へ縮小します。
+// - i128 の上位 word が i64 の符号拡張と一致する時だけ縮小します。
 //
 // 注意(重要):
 // - 接頭辞 `0b` / `0o` / `0x` は解釈しません。
 // - `-ff` のような符号付き文字列は、すべての対応基数で受理します。
-// - 現在はオーバーフロー検査を行っていないため、表現域外入力は未定義です。
+// - 表現域外入力は `Result::Err 1` を返します。
 //
 // 計算量:
 // - O(n)  (n は入力文字列長)
 fn to_i64_radix <(str,i32)->Result<i64,i32>> (s, radix):
     match to_i128_radix s radix:
         Result::Ok v128:
-            Result::Ok<i64,i32> <i64> cast v128
+            if:
+                i128_fits_i64 v128
+                then:
+                    Result::Ok<i64,i32> <i64> cast v128
+                else:
+                    Result::Err<i64,i32> 1
         Result::Err e:
             Result::Err<i64,i32> e
 
@@ -1703,11 +1785,12 @@ fn to_u128 <(str)->Result<u128,i32>> (s):
 //
 // 実装(アルゴリズム):
 // - 各文字を `digit_from_char` で数値化し、`res = res * radix + digit` を `u128_mul_small` と `u128_add_small` で構築します。
+// - 更新前に `u128_max / radix` の商と余りで範囲を確認し、ラップする入力を拒否します。
 //
 // 注意(重要):
 // - 接頭辞 `0b` / `0o` / `0x` は解釈しません。
 // - 負号付き文字列は `Result::Err 1` です。
-// - 現在はオーバーフロー検査を行っていないため、表現域外入力は mod 2^128 でラップします。
+// - 表現域外入力は `Result::Err 1` を返します。
 //
 // 計算量:
 // - O(n)
@@ -1720,6 +1803,9 @@ fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
             let mut i <i32> 0;
             let mut res <u128> u128_zero;
             let mut ok <i32> 1;
+            let max_qr <U128DivRem> u128_divrem_small u128_max radix;
+            let max_quotient <u128> get max_qr "quotient";
+            let max_remainder <i32> get max_qr "remainder";
             if:
                 eq n 0
                 then:
@@ -1745,8 +1831,14 @@ fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
                                                     set ok 0;
                                                     set i n;
                                                 else:
-                                                    set res u128_add_small u128_mul_small res radix digit;
-                                                    set i add i 1;
+                                                    if:
+                                                        u128_can_mul_add_small res digit max_quotient max_remainder
+                                                        then:
+                                                            set res u128_add_small u128_mul_small res radix digit;
+                                                            set i add i 1;
+                                                        else:
+                                                            set ok 0;
+                                                            set i n;
                                         Result::Err _:
                                             set ok 0;
                                             set i n;
@@ -1805,6 +1897,66 @@ fn from_i128_radix <(i128,i32)->Result<str,i32>> (v, radix):
         Result::Err e:
             Result::Err<str,i32> e
 
+// i128_positive_magnitude_allowed: 非負 i128 として許される大きさかを判定する
+//
+// 目的:
+// - `to_i128_radix` が正の範囲外入力を 2 の補数負値として受理しないようにします。
+//
+// 実装(アルゴリズム):
+// - i128 の正の最大値は上位 bit が 0 の範囲なので、u128 の hi word が負でないことを確認します。
+//
+// 注意(重要):
+// - ここでは magnitude を u128 として受け取り、符号付き値への bitcast 前に検査します。
+//
+// 計算量:
+// - O(1)
+fn i128_positive_magnitude_allowed <(u128)->bool> (mag):
+    not lt get mag "hi" <i64> cast 0
+
+// i128_negative_magnitude_allowed: 負 i128 として許される大きさかを判定する
+//
+// 目的:
+// - i128 最小値だけは magnitude が 2^127 でも受理し、それより大きい負入力を拒否します。
+//
+// 実装(アルゴリズム):
+// - 上位 bit が 0 なら通常の負値として安全です。
+// - 上位 bit が 1 の場合は、正確に `0x8000...0000` の時だけ最小値として許可します。
+//
+// 注意(重要):
+// - `-170...728` は許可し、`-170...729` は拒否する境界です。
+//
+// 計算量:
+// - O(1)
+fn i128_negative_magnitude_allowed <(u128)->bool> (mag):
+    if:
+        not lt get mag "hi" <i64> cast 0
+        then:
+            true
+        else:
+            let min_hi <i64> shl <i64> cast 1 <i64> cast 63;
+            and eq get mag "hi" min_hi eq get mag "lo" <i64> cast 0
+
+// i128_magnitude_allowed: 符号に応じて i128 の magnitude 範囲を判定する
+//
+// 目的:
+// - `to_i128_radix` の符号別境界判定を 1 箇所に集約します。
+//
+// 実装(アルゴリズム):
+// - 負号があれば `i128_negative_magnitude_allowed`、なければ `i128_positive_magnitude_allowed` に委譲します。
+//
+// 注意(重要):
+// - この判定が true の時だけ `i128_from_u128_bits` へ進めます。
+//
+// 計算量:
+// - O(1)
+fn i128_magnitude_allowed <(u128,bool)->bool> (mag, neg):
+    if:
+        neg
+        then:
+            i128_negative_magnitude_allowed mag
+        else:
+            i128_positive_magnitude_allowed mag
+
 // to_i128: 10 進文字列を i128 に変換する
 //
 // 目的:
@@ -1828,10 +1980,11 @@ fn to_i128 <(str)->Result<i128,i32>> (s):
 //
 // 実装(アルゴリズム):
 // - 先頭の `-` を切り出した後、残りを `to_u128_radix` で非負の大きさとして解析します。
+// - 符号に応じた i128 の表現域を確認し、範囲外なら `Result::Err` にします。
 // - 符号が負なら `i128_neg` で符号反転します。
 //
 // 注意(重要):
-// - 現在はオーバーフロー検査を行っていないため、表現域外入力は mod 2^128 でラップします。
+// - 表現域外入力は `Result::Err 1` を返します。
 // - 接頭辞 `0x` などは解釈しません。
 //
 // 計算量:
@@ -1850,13 +2003,18 @@ fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
                 else s
             match to_u128_radix body radix:
                 Result::Ok mag:
-                    let base <i128> i128_from_u128_bits mag;
                     if:
-                        neg
+                        i128_magnitude_allowed mag neg
                         then:
-                            Result::Ok<i128,i32> i128_neg base
+                            let base <i128> i128_from_u128_bits mag;
+                            if:
+                                neg
+                                then:
+                                    Result::Ok<i128,i32> i128_neg base
+                                else:
+                                    Result::Ok<i128,i32> base
                         else:
-                            Result::Ok<i128,i32> base
+                            Result::Err<i128,i32> 1
                 Result::Err e:
                     Result::Err<i128,i32> e
 
