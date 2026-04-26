@@ -17295,3 +17295,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Deserialize の実装や trait 仕様は変更せず、doctest の検査結果型と終了値反映を修正した。
+
+# 2026-04-26 メモ (ISS-20260426T053112317Z selfhost_req HashKey fixture 修正)
+
+- [原因]:
+  - `tests/stdlib/selfhost_req.n.md` の fixture は `#target std` だが、Rust 側 `test_req_trait_extensions` は bare wasm runner の `run_main_i32` を使っていた。
+  - runner を WASI に直しても、`store<.K> hashmap_key_ptr<.K,.V> entries size slot key` の型推論で、内側 `hashmap_key_ptr` の引数 `entries: i32` が外側 `store` の value 引数として誤って `.K` と unify されていた。
+  - その結果、`HashMap<Point,...>` の key 保存が `store<Point>` ではなく `store<i32>` になり、bucket には struct 実体ではなく pointer 表現が保存されていた。
+- [修正]:
+  - `nepl-core/src/typecheck.rs` の外側 call 期待型推論を、現在引数より前にある確定済み sibling だけに限定した。
+  - WASM / LLVM backend の generic `load` / `store` intrinsic で、注釈 type arg が未解決 TypeVar の場合は HIR の式型から storage type を補正するようにした。
+  - `nepl-core/tests/selfhost_req.rs` は `#target std` fixture に合わせて `run_main_wasi_i32` を使うようにした。
+  - `nepl-core/tests/neplg2.rs` に aggregate `load` / `store` と `HashMap<Point,...>` roundtrip の回帰テストを追加した。
+  - issue `ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C` を verified に更新し、`todo.md` から完了項目を削除した。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: 46/46 passed
+  - `cargo test -p nepl-core --test selfhost_req -- --nocapture`: 6/6 passed
+  - `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: pass
+  - `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions -- --nocapture`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `trunk build`: pass（既存 Rust warning は残存）
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 6 --dist dist`: pass、`return_value=5`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-selfhost-req-hashkey.json`: 13/13 passed
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md -i tests/stdlib/traits_hash.n.md -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/selfhost-req-hashkey-fix.json -j 1`: 16/17 passed。既存の `tests/stdlib/selfhost_req.n.md::doctest#1` は `std/fs` / web codegen 側の別問題として fail。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 前提の `HashKey` / `HashMap` 動作を Rust compiler 側の型推論と backend lowering で修正した。public stdlib API の仕様変更はない。

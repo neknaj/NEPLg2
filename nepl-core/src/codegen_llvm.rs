@@ -2516,7 +2516,7 @@ fn lower_hir_expr(
                         ctx.function_name, ptr_v.ty
                     );
                 }
-                let ty_id = types.resolve_id(type_args[0]);
+                let ty_id = intrinsic_storage_type(types, type_args[0], expr.ty);
                 let ty_kind = types.get(ty_id);
                 if is_aggregate_storage_type(types, ty_id) {
                     let size = type_storage_size_bytes(types, ty_id);
@@ -2616,7 +2616,7 @@ fn lower_hir_expr(
                         ctx.function_name, ptr_v.ty
                     );
                 }
-                let ty_id = types.resolve_id(type_args[0]);
+                let ty_id = intrinsic_storage_type(types, type_args[0], args[1].ty);
                 let ty_kind = types.get(ty_id);
                 if is_aggregate_storage_type(types, ty_id) {
                     if val_v.ty != LlTy::I32 {
@@ -3372,6 +3372,14 @@ fn is_aggregate_storage_type(types: &TypeCtx, ty: TypeId) -> bool {
             TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. }
         ),
         _ => false,
+    }
+}
+
+fn intrinsic_storage_type(types: &TypeCtx, annotated: TypeId, inferred: TypeId) -> TypeId {
+    let annotated = types.resolve_id(annotated);
+    match types.get(annotated) {
+        TypeKind::Var(_) => types.resolve_id(inferred),
+        _ => annotated,
     }
 }
 
