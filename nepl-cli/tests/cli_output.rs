@@ -169,6 +169,91 @@ fn main <()*>i32> ():
 "#
 }
 
+fn fs_write_create_source() -> &'static str {
+    r#"#target wasi
+#entry main
+#indent 4
+
+#import "core/cast" as *
+#import "core/mem" as *
+#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
+#extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)*>i32>
+#extern "wasi_snapshot_preview1" "fd_close" fn fd_close <(i32)*>i32>
+
+fn main <()*>i32> ():
+    store_u8 1024 111;
+    store_u8 1025 117;
+    store_u8 1026 116;
+    store_u8 1027 46;
+    store_u8 1028 116;
+    store_u8 1029 120;
+    store_u8 1030 116;
+    store_i32 1000 0;
+    let rights <i64> cast 64;
+    let open_errno <i32> path_open 3 0 1024 7 9 rights rights 0 1000;
+    if:
+        cond:
+            ne open_errno 0
+        then:
+            open_errno
+        else:
+            let fd <i32> load_i32 1000;
+            store_u8 1200 109;
+            store_u8 1201 97;
+            store_u8 1202 100;
+            store_u8 1203 101;
+            store_i32 1100 1200;
+            store_i32 1104 4;
+            store_i32 1108 0;
+            let write_errno <i32> fd_write fd 1100 1 1108;
+            let close_errno <i32> fd_close fd;
+            if:
+                cond:
+                    ne write_errno 0
+                then:
+                    write_errno
+                else:
+                    if:
+                        cond:
+                            ne close_errno 0
+                        then:
+                            close_errno
+                        else:
+                            if eq load_i32 1108 4 0 91
+"#
+}
+
+fn fs_write_parent_escape_source() -> &'static str {
+    r#"#target wasi
+#entry main
+#indent 4
+
+#import "core/cast" as *
+#import "core/mem" as *
+#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
+
+fn main <()*>i32> ():
+    store_u8 1024 46;
+    store_u8 1025 46;
+    store_u8 1026 47;
+    store_u8 1027 111;
+    store_u8 1028 117;
+    store_u8 1029 116;
+    store_u8 1030 115;
+    store_u8 1031 105;
+    store_u8 1032 100;
+    store_u8 1033 101;
+    store_u8 1034 46;
+    store_u8 1035 116;
+    store_u8 1036 120;
+    store_u8 1037 116;
+    store_i32 1000 0;
+    let rights <i64> cast 64;
+    let errno <i32> path_open 3 0 1024 14 9 rights rights 0 1000;
+    if eq errno 76 0 95
+"#
+}
+
 fn extra_answer_source() -> &'static str {
     "#indent 4\n\nfn answer <()->i32> ():\n    42\n"
 }
@@ -620,4 +705,60 @@ fn run_wasi_path_open_reports_missing_file_noent() {
         "unexpected stdout:\n{}",
         output_text(&output.stdout)
     );
+}
+
+#[test]
+fn run_wasi_path_open_creates_truncates_and_writes_preopen_file() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    fs::write(temp.path().join("out.txt"), "old-longer").expect("write old output");
+    let source = write_source(&temp, "write_file.nepl", fs_write_create_source());
+
+    let output = cli_command()
+        .current_dir(temp.path())
+        .args(["--run", "-i"])
+        .arg(&source)
+        .args(["--target", "wasi"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(
+        output.stdout.is_empty(),
+        "unexpected stdout:\n{}",
+        output_text(&output.stdout)
+    );
+    let written = fs::read_to_string(temp.path().join("out.txt")).expect("read output");
+    assert_eq!(written, "made");
+}
+
+#[test]
+fn run_wasi_path_open_rejects_write_parent_escape() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let root = temp.path().join("root");
+    fs::create_dir(&root).expect("create preopen root");
+    fs::write(temp.path().join("outside.txt"), "secret").expect("write outside");
+    let source = write_source_at(
+        &root,
+        "write_parent_escape.nepl",
+        fs_write_parent_escape_source(),
+    );
+
+    let output = cli_command()
+        .current_dir(&root)
+        .args(["--run", "-i"])
+        .arg(&source)
+        .args(["--target", "wasi"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(
+        output.stdout.is_empty(),
+        "unexpected stdout:\n{}",
+        output_text(&output.stdout)
+    );
+    let outside = fs::read_to_string(temp.path().join("outside.txt")).expect("read outside");
+    assert_eq!(outside, "secret");
 }

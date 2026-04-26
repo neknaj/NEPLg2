@@ -17638,3 +17638,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol diff --check`: pass.
 - plan.md delta:
   - `plan.md` was not changed. This work improves stdlib nm compatibility and regression coverage without changing the project plan text.
+
+# 2026-04-26 メモ (ISS-20260426T010001Z std/fs write/create 実装)
+
+- [同期]:
+  - 作業開始時に `git fetch origin main` を実行し、`stdlib/fs-write-create` と `origin/main` が `3fd116e` で一致していることを確認した。
+  - commit 前に再度 `git fetch origin main` を実行し、remote main の `39fd5b7` まで fast-forward してから差分を戻し、再検証した。
+- [原因]:
+  - `stdlib/std/fs.nepl` は read API だけを持ち、self-host compiler が `.wasm` / JSON / cache などの artifact を output path へ保存できなかった。
+  - `nepl-cli` の WASI shim も `path_open` を read-only に限定し、`fd_write` は stdout/stderr 専用だったため、stdlib 側だけを増やしても CLI 実行時に file write が成立しなかった。
+- [修正]:
+  - `std/fs` に `fs_open_write`、`fs_write_fd_bytes`、`fs_write_to_bytes`、`fs_write_to_string`、`fs_close` を追加した。
+  - `fs_open_read` と `fs_open_write` は `fs_open_with_flags` で fd_out 確保と errno 変換を共有する形に整理した。
+  - WASI `fd_write` extern と LLVM Linux `openat/read/write/close` 互換経路を追加し、linear memory offset を host pointer に変換して syscall へ渡すようにした。
+  - `nepl-cli` の runtime に `FileState::Read` / `FileState::Write` を導入し、create/truncate/write と write 側 parent escape 拒否を実装した。
+  - 検証中に `tests/fixtures/fs/read_sample.txt` が Windows worktree で CRLF になり `std/fs` doctest が環境依存になる問題を確認したが、remote main 側で `ISS-20260426T104115640Z-FS-DOCTEST-FIXTURE-IS-LINE-ENDING-SE-910C88C4` として先に追加・修正済みだったため、その変更を取り込んだ。
+- [回帰テスト]:
+  - `tests/stdlib/fs.n.md` に `fs_write_to_string` の create/truncate/readback と、NUL を含む `ByteBuf` の write/readback を追加した。
+  - `nepl-cli/tests/cli_output.rs` に raw WASI の create/truncate/write と write parent escape 拒否の integration test を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-write-create-after-main-sync.json -j 1`: `total=11`, `passed=11`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-write-create-post-rebase.json -j 1`: `total=11`, `passed=11`, `failed=0`
+  - `cargo test -p nepl-cli run_wasi -- --nocapture`: 6/6 passed
+  - `trunk build`: pass（既存 warning は残存）
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-fs-write-create-post-rebase.json -j 4`: `total=406`, `passed=406`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-fs-write-create-after-main-sync.json`: 13/13 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+  - LLVM compile-only は `clang --version` を実行できない環境のため未検証。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の artifact 出力前提を満たすため、stdlib API だけでなく `nepl-cli` のローカル WASI runtime も同時に修正した。

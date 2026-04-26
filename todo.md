@@ -1,14 +1,11 @@
 2026-04-26 NEPLg2 Self-host
 
-- `stdlib/match-decision-trees` branch で `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` に沿って match で表現すべき stdlib の nested if 分岐を監査し、自然な match 表現へ戻す
-- `core/str-i32-separation` branch で `ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` に沿って `str` と raw `i32` handle の unify を廃止し、明示変換 API と回帰テストへ分離する
 - `stdlib/sha256-digest` branch で `ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536` に沿って SHA-256 API を本物の digest 実装または非公開 scaffold へ整理する
 - `stdlib/tui-narrow-width` branch で `ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2` に沿って TUI box helper の narrow width 契約を固定する
 - `stdlib/doc-comment-boilerplate` branch で `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` に沿って boilerplate 化した stdlib doc comment を具体的な説明へ置き換える
 - `rust/compiler-warning-debt` branch で `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` に沿って compiler warning debt を削減する
 - `selfhost/s0-infra-span-diag` branch で `infra/span.nepl`、`diag.nepl`、`outcome.nepl` と最小 doctest を作成する
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
-- `stdlib/fs-write-api` branch で `ISS-20260426T010001Z-STDFS-WRITE-B7C4D923` に沿って self-host CLI に必要な `std/fs` write interface を実装する
 - `stdlib/fs-dirlist-api` branch で `ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E` に沿って directory traversal / path normalization を実装する
 - `stdlib/text-utf8-validation` branch で `ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A` に沿って source loading 用 UTF-8 checked API を追加する
 - `selfhost/s5-byte-builder` branch で `ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11` に沿って WASM emitter 用 byte builder を整備する

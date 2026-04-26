@@ -5,6 +5,8 @@
 #if[target=wasi]
 #extern "wasi_snapshot_preview1" "fd_read" fn wasi_fd_read <(i32,i32,i32,i32)*>i32>
 #if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_write" fn wasi_fd_write <(i32,i32,i32,i32)*>i32>
+#if[target=wasi]
 #extern "wasi_snapshot_preview1" "fd_close" fn wasi_fd_close <(i32)*>i32>
 
 #if[target=llvm]
@@ -16,6 +18,10 @@ fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags
 
 #if[target=bare_wasm]
 fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nread_ptr):
+    1
+
+#if[target=bare_wasm]
+fn wasi_fd_write <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nwritten_ptr):
     1
 
 #if[target=bare_wasm]
@@ -37,19 +43,28 @@ fn fs_i32_ptr <(MemPtr<u8>,i32,i32)->Result<MemPtr<i32>,str>> (base, size, off):
 fn fs_right_fd_read <()->i64> ():
     <i64> cast 2
 
-//: fs: ファイル読み込み（WASI / LLVM）
+// WASI rights_base の fd_write bit。
+fn fs_right_fd_write <()->i64> ():
+    <i64> cast 64
+
+// WASI oflags の create + truncate bit。
+fn fs_oflags_create_truncate <()->i32> ():
+    9
+
+//: fs: ファイル読み書き（WASI / LLVM）
 //:
 //: 目的:
-//: - `fs_read_to_bytes` / `fs_read_to_string` など、target 非依存のファイル読み込み API を提供します。
+//: - `fs_read_to_bytes` / `fs_read_to_string` と `fs_write_to_bytes` / `fs_write_to_string` など、target 非依存のファイル I/O API を提供します。
 //:
 //: 実装(アルゴリズム):
-//: - wasm では WASI `path_open/fd_read/fd_close` を呼びます。
-//: - llvm では libc `open/read/close` を使って同名 API を互換実装します。
-//: - 読み込み結果は `ByteBuf` または str に変換します。
+//: - wasm では WASI `path_open/fd_read/fd_write/fd_close` を呼びます。
+//: - llvm では Linux `openat/read/write/close` syscall を使って同名 API を互換実装します。
+//: - 読み込み結果と書き込み入力は `ByteBuf` または str を介して扱います。
 //:
 //: 注意(重要):
 //: - 権限/パス解決はホスト環境に依存します。
 //: - UTF-8 検証は行わず、バイト列をそのまま str に格納します。
+//: - `ByteBuf` を受け取る write API は所有権を消費し、成功時も失敗時も buffer を解放します。
 //:
 //: 計算量:
 //: - 読み込みバイト数に比例 (O(n))
@@ -78,8 +93,33 @@ fn __fs_copy_to_cstr <(i32,i32)*>Result<MemPtr<u8>,i32>> (src_ptr, src_len):
             Result<MemPtr<u8>,i32>::Ok dst
 
 #if[target=llvm]
-fn __linux_syscall_read <(i32,i32,i32)*>i64> (fd,ptr,len):
-    __fs_syscall <i64> cast 0 <i64> cast fd <i64> cast ptr <i64> cast len <i64> cast 0 <i64> cast 0 <i64> cast 0
+fn __linux_syscall_openat_path <(i32,i32,i32)*>i64> (path_ptr, flags, mode):
+    #llvmir:
+        define i64 @__linux_syscall_openat_path(i32 %path_ptr, i32 %flags, i32 %mode) {
+        entry:
+            %idx = zext i32 %path_ptr to i64
+            %path = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %path64 = ptrtoint ptr %path to i64
+            %flags64 = zext i32 %flags to i64
+            %mode64 = zext i32 %mode to i64
+            %ret = call i64 @__fs_syscall(i64 257, i64 -100, i64 %path64, i64 %flags64, i64 %mode64, i64 0, i64 0)
+            ret i64 %ret
+        }
+
+#if[target=llvm]
+fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
+    #llvmir:
+        define i64 @__linux_syscall_rw(i32 %nr, i32 %fd, i32 %ptr, i32 %len) {
+        entry:
+            %nr64 = zext i32 %nr to i64
+            %fd64 = zext i32 %fd to i64
+            %len64 = zext i32 %len to i64
+            %idx = zext i32 %ptr to i64
+            %buf = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %buf64 = ptrtoint ptr %buf to i64
+            %ret = call i64 @__fs_syscall(i64 %nr64, i64 %fd64, i64 %buf64, i64 %len64, i64 0, i64 0, i64 0)
+            ret i64 %ret
+        }
 
 #if[target=llvm]
 fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags,path_ptr,path_len,_oflags,_rights_base,_rights_inheriting,_fdflags,fd_out):
@@ -87,8 +127,20 @@ fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags
         Result::Err e:
             e
         Result::Ok cpath:
-            // Linux x86_64: openat(AT_FDCWD=-100, path, O_RDONLY=0, mode=0)
-            let fd64 <i64> __fs_syscall <i64> cast 257 <i64> cast -100 <i64> cast mem_ptr_addr cpath <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0;
+            let linux_flags <i32> if:
+                eq _oflags 0
+                then:
+                    0
+                else:
+                    577
+            let linux_mode <i32> if:
+                eq _oflags 0
+                then:
+                    0
+                else:
+                    438
+            // Linux x86_64: openat(AT_FDCWD=-100, path, flags, mode)
+            let fd64 <i64> __linux_syscall_openat_path mem_ptr_addr cpath linux_flags linux_mode;
             match dealloc_ptr<u8> cpath add path_len 1:
                 Result::Ok _:
                     ()
@@ -119,7 +171,7 @@ fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nread_ptr):
                     let base <i32> load_i32 iov_ptr;
                     let len <i32> load_i32 add iov_ptr 4;
                     // Linux x86_64: read(fd, buf, count)
-                    let n64 <i64> __linux_syscall_read fd base len;
+                    let n64 <i64> __linux_syscall_rw 0 fd base len;
                     if:
                         cond:
                             lt n64 <i64> cast 0
@@ -143,6 +195,45 @@ fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nread_ptr):
     err
 
 #if[target=llvm]
+fn wasi_fd_write <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nwritten_ptr):
+    let mut total <i32> 0;
+    let mut iov_idx <i32> 0;
+    let mut err <i32> 0;
+    let mut done <i32> 0;
+    while eq done 0:
+        do:
+            if:
+                cond:
+                    lt iov_idx iovs_len
+                then:
+                    let iov_ptr <i32> add iovs mul iov_idx 8;
+                    let base <i32> load_i32 iov_ptr;
+                    let len <i32> load_i32 add iov_ptr 4;
+                    // Linux x86_64: write(fd, buf, count)
+                    let n64 <i64> __linux_syscall_rw 1 fd base len;
+                    if:
+                        cond:
+                            lt n64 <i64> cast 0
+                        then:
+                            set err 1;
+                            set done 1;
+                        else:
+                            let n <i32> cast n64;
+                            set total add total n;
+                            if:
+                                cond:
+                                    lt n len
+                                then:
+                                    set done 1;
+                                else:
+                                    ();
+                    set iov_idx add iov_idx 1;
+                else:
+                    set done 1;
+    store_i32 nwritten_ptr total;
+    err
+
+#if[target=llvm]
 fn wasi_fd_close <(i32)*>i32> (fd):
     // Linux x86_64: close(fd)
     let rc64 <i64> __fs_syscall <i64> cast 3 <i64> cast fd <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0;
@@ -151,6 +242,58 @@ fn wasi_fd_close <(i32)*>i32> (fd):
             lt rc64 <i64> cast 0
         then 1
         else 0
+
+//: fs_open_with_flags: path_open の fd_out 確保と結果変換を共通化する
+//:
+//: 目的:
+//: - read/write で共通する WASI `path_open` 呼び出しを 1 箇所へ集約します。
+//:
+//: 実装(アルゴリズム):
+//: - fd_out 用の 4 byte buffer を確保し、`path_open` 成功時だけ fd を読み出して返します。
+//:
+//: 注意(重要):
+//: - dirfd は 3 (preopen) を仮定します。
+//: - 失敗時は WASI errno または確保失敗相当の 12 を返します。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights):
+    match alloc_ptr<u8> 4:
+        Result::Err _e:
+            Result<i32,i32>::Err 12
+        Result::Ok fd_out_buf:
+            match fs_i32_ptr fd_out_buf 4 0:
+                Result::Err _:
+                    match dealloc_ptr<u8> fd_out_buf 4:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    Result::Err 12
+                Result::Ok fd_out:
+                    match store_i32 fd_out 0:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    let path_ptr <i32> mem_ptr_addr string_data_ptr path;
+                    let path_len <i32> len path;
+                    let errno <i32> wasi_path_open 3 0 path_ptr path_len oflags rights rights 0 mem_ptr_addr fd_out;
+                    let res <Result<i32,i32>> if:
+                        eq errno 0
+                        then:
+                            match load_i32 fd_out:
+                                Option::Some fd:
+                                    Result<i32,i32>::Ok fd
+                                Option::None:
+                                    Result<i32,i32>::Err 12
+                        else Result<i32,i32>::Err errno
+                    match dealloc_ptr<u8> fd_out_buf 4:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    res
 
 //: fs_open_read: ファイルを読み込み専用で開く
 //:
@@ -192,43 +335,52 @@ fn wasi_fd_close <(i32)*>i32> (fd):
 //:             1
 //: ```
 fn fs_open_read <(str)*>Result<i32,i32>> (path):
-    match alloc_ptr<u8> 4:
-        Result::Err _e:
-            Result<i32,i32>::Err 12
-        Result::Ok fd_out_buf:
-            match fs_i32_ptr fd_out_buf 4 0:
-                Result::Err _:
-                    match dealloc_ptr<u8> fd_out_buf 4:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
-                    Result::Err 12
-                Result::Ok fd_out:
-                    match store_i32 fd_out 0:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
-                    let path_ptr <i32> mem_ptr_addr string_data_ptr path;
-                    let path_len <i32> len path;
-                    let rights <i64> fs_right_fd_read;
-                    let errno <i32> wasi_path_open 3 0 path_ptr path_len 0 rights rights 0 mem_ptr_addr fd_out;
-                    let res <Result<i32,i32>> if:
-                        eq errno 0
-                        then:
-                            match load_i32 fd_out:
-                                Option::Some fd:
-                                    Result<i32,i32>::Ok fd
-                                Option::None:
-                                    Result<i32,i32>::Err 12
-                        else Result<i32,i32>::Err errno
-                    match dealloc_ptr<u8> fd_out_buf 4:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
-                    res
+    fs_open_with_flags path 0 fs_right_fd_read
+
+//: fs_open_write: ファイルを書き込み専用で開く
+//:
+//: 目的:
+//: - path を create + truncate + write の権限で開き、fd を返します。
+//:
+//: 実装(アルゴリズム):
+//: - `path_open` に WASI oflags create/truncate と fd_write right を渡します。
+//:
+//: 注意(重要):
+//: - dirfd は 3 (preopen) を仮定します。
+//: - 既存ファイルは truncate されます。
+//: - 失敗時は Err(errno) を返します。
+//:
+//: 計算量:
+//: - O(1)
+//: fs_open_write: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_open_write` が file descriptor を返し、`fs_close` で閉じられることを確認します。
+//:
+//: [注意/ちゅうい]:
+//: - 内容書き込みは `fs_write_to_string` / `fs_write_to_bytes` の回帰テストで確認します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_open_write "tmp/fs_open_write_doctest.txt":
+//:         Result::Ok fd:
+//:             match fs_close fd:
+//:                 Result::Ok _:
+//:                     0
+//:                 Result::Err _e:
+//:                     2
+//:         Result::Err _e:
+//:             1
+//: ```
+fn fs_open_write <(str)*>Result<i32,i32>> (path):
+    fs_open_with_flags path fs_oflags_create_truncate fs_right_fd_write
 
 //: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
 //:
@@ -535,6 +687,241 @@ fn fs_bytes_to_string <(ByteBuf)*>str> (buf):
         Result::Err _e:
             ""
 
+//: fs_close: fd を閉じる
+//:
+//: 目的:
+//: - `fs_open_read` / `fs_open_write` で得た fd を明示的に閉じます。
+//:
+//: 実装(アルゴリズム):
+//: - WASI `fd_close` を呼び、errno 0 を `Ok(())`、それ以外を `Err(errno)` に変換します。
+//:
+//: 注意(重要):
+//: - write fd では close 時に host runtime が残りの出力を確定する場合があります。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_close <(i32)*>Result<(),i32>> (fd):
+    let errno <i32> wasi_fd_close fd
+    if:
+        eq errno 0
+        then:
+            Result<(),i32>::Ok ()
+        else:
+            Result<(),i32>::Err errno
+
+//: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
+//:
+//: 目的:
+//: - 既に開いている fd に所有 byte buffer の内容を最後まで書き込みます。
+//:
+//: 実装(アルゴリズム):
+//: - 1 要素 iovec を使って `fd_write` を呼び、partial write の場合は offset を進めて再試行します。
+//: - `nwritten <= 0` は進捗不能な I/O failure として errno 5 に丸めます。
+//:
+//: 注意(重要):
+//: - 入力 `ByteBuf` は成功時も失敗時もこの関数が解放します。
+//: - fd の妥当性と host 側の権限は WASI runtime に委ねます。
+//:
+//: 計算量:
+//: - 書き込み byte 数 n に対して O(n)
+fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
+    let data <MemPtr<u8>> get bytes "ptr"
+    let data_len <i32> get bytes "len"
+    if:
+        le data_len 0
+        then:
+            io_bytebuf_free bytes
+            Result<(),i32>::Ok ()
+        else:
+            match alloc_ptr<u8> 8:
+                Result::Err _e:
+                    io_bytebuf_free bytes
+                    Result<(),i32>::Err 12
+                Result::Ok iov_buf:
+                    match fs_i32_ptr iov_buf 8 0:
+                        Result::Err _e:
+                            match dealloc_ptr<u8> iov_buf 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            io_bytebuf_free bytes
+                            Result<(),i32>::Err 12
+                        Result::Ok iov_base:
+                            match fs_i32_ptr iov_buf 8 4:
+                                Result::Err _e:
+                                    match dealloc_ptr<u8> iov_buf 8:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _:
+                                            ()
+                                    io_bytebuf_free bytes
+                                    Result<(),i32>::Err 12
+                                Result::Ok iov_len:
+                                    match alloc_ptr<u8> 4:
+                                        Result::Err _e:
+                                            match dealloc_ptr<u8> iov_buf 8:
+                                                Result::Ok _:
+                                                    ()
+                                                Result::Err _:
+                                                    ()
+                                            io_bytebuf_free bytes
+                                            Result<(),i32>::Err 12
+                                        Result::Ok nwritten_buf:
+                                            match fs_i32_ptr nwritten_buf 4 0:
+                                                Result::Err _e:
+                                                    match dealloc_ptr<u8> nwritten_buf 4:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _:
+                                                            ()
+                                                    match dealloc_ptr<u8> iov_buf 8:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _:
+                                                            ()
+                                                    io_bytebuf_free bytes
+                                                    Result<(),i32>::Err 12
+                                                Result::Ok nwritten:
+                                                    let data_ptr <i32> mem_ptr_addr data
+                                                    let mut off <i32> 0
+                                                    let mut done <i32> 0
+                                                    let mut err <i32> 0
+                                                    while eq done 0:
+                                                        do:
+                                                            if:
+                                                                ge off data_len
+                                                                then:
+                                                                    set done 1
+                                                                else:
+                                                                    match store_i32 iov_base add data_ptr off:
+                                                                        Result::Ok _:
+                                                                            ()
+                                                                        Result::Err _:
+                                                                            ()
+                                                                    match store_i32 iov_len sub data_len off:
+                                                                        Result::Ok _:
+                                                                            ()
+                                                                        Result::Err _:
+                                                                            ()
+                                                                    match store_i32 nwritten 0:
+                                                                        Result::Ok _:
+                                                                            ()
+                                                                        Result::Err _:
+                                                                            ()
+                                                                    let errno <i32> wasi_fd_write fd mem_ptr_addr iov_buf 1 mem_ptr_addr nwritten
+                                                                    if:
+                                                                        ne errno 0
+                                                                        then:
+                                                                            set err errno
+                                                                            set done 1
+                                                                        else:
+                                                                            match load_i32 nwritten:
+                                                                                Option::None:
+                                                                                    set err 12
+                                                                                    set done 1
+                                                                                Option::Some n:
+                                                                                    if:
+                                                                                        le n 0
+                                                                                        then:
+                                                                                            set err 5
+                                                                                            set done 1
+                                                                                        else:
+                                                                                            set off add off n
+                                                    match dealloc_ptr<u8> nwritten_buf 4:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _:
+                                                            ()
+                                                    match dealloc_ptr<u8> iov_buf 8:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _:
+                                                            ()
+                                                    io_bytebuf_free bytes
+                                                    if:
+                                                        eq err 0
+                                                        then:
+                                                            Result<(),i32>::Ok ()
+                                                        else:
+                                                            Result<(),i32>::Err err
+
+//: fs_write_to_bytes: path へ `ByteBuf` を create/truncate して書き込む
+//:
+//: 目的:
+//: - path に binary artifact を保存します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_open_write` → `fs_write_fd_bytes` → `fs_close` の順に処理します。
+//:
+//: 注意(重要):
+//: - 入力 `ByteBuf` は open 失敗時も含めてこの関数が解放します。
+//: - write 成功後に close が失敗した場合は close の errno を返します。
+//:
+//: 計算量:
+//: - 書き込み byte 数 n に対して O(n)
+fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
+    match fs_open_write path:
+        Result::Err e:
+            io_bytebuf_free bytes
+            Result<(),i32>::Err e
+        Result::Ok fd:
+            match fs_write_fd_bytes fd bytes:
+                Result::Ok _:
+                    fs_close fd
+                Result::Err e:
+                    match fs_close fd:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    Result<(),i32>::Err e
+
+//: fs_write_to_string: path へ str を create/truncate して書き込む
+//:
+//: 目的:
+//: - text artifact を file として保存します。
+//:
+//: 実装(アルゴリズム):
+//: - `io_bytebuf_from_str_result` で byte buffer へ複製し、`fs_write_to_bytes` に委譲します。
+//:
+//: 注意(重要):
+//: - UTF-8 検証や改行変換は行わず、str の byte 表現をそのまま保存します。
+//:
+//: 計算量:
+//: - 入力長 n に対して O(n)
+//: fs_write_to_string: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_write_to_string` で作ったファイルを `fs_read_to_string` で読み戻せることを確認します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs" as *
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_write_to_string "tmp/fs_write_to_string_doctest.txt" "fs write":
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok _:
+//:             match fs_read_to_string "tmp/fs_write_to_string_doctest.txt":
+//:                 Result::Ok text:
+//:                     if str_eq text "fs write" 0 2
+//:                 Result::Err _e:
+//:                     3
+//: ```
+fn fs_write_to_string <(str,str)*>Result<(),i32>> (path, text):
+    match io_bytebuf_from_str_result text:
+        Result::Ok bytes:
+            fs_write_to_bytes path bytes
+        Result::Err e:
+            Result<(),i32>::Err fs_std_error_to_errno e
+
 //: fs_read_to_bytes: ファイルを読み込んで `ByteBuf` を返す
 //:
 //: 目的:
@@ -582,7 +969,11 @@ fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
     match fs_open_read path:
         Result::Ok fd:
             let res <Result<ByteBuf,i32>> fs_read_fd_bytes fd;
-            let _ <i32> wasi_fd_close fd;
+            match fs_close fd:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
             res
         Result::Err e:
             Result::Err e
