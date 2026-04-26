@@ -1,3 +1,22 @@
+# 2026-04-26 メモ (ISS-20260426T060311796Z SHA-256 digest)
+
+- 状況:
+  - `stdlib/alloc/hash/sha256.nepl` は `new_sha256` / `sha256_update` / `sha256_finalize` を公開していたが、`sha256_finalize` が 32 byte digest ではなく入力 buffer をそのまま返していた。
+  - selfhost の source / artifact fingerprint で `sha256` 名の API が誤用されると、実 digest ではない値が cache key や integrity check に流れる危険があった。
+- 修正:
+  - SHA-256 padding、64 word message schedule、64 round compression、big-endian 32 byte digest 出力を `stdlib/alloc/hash/sha256.nepl` に実装した。
+  - `sha256_update` は入力の lower 8 bit を byte として保持し、`sha256_finalize` は内部 buffer を borrow して計算した後に解放するようにした。
+  - `stdlib/tests/hash.n.md` の scaffold 長さ確認を、empty string / `abc` / multi-block known vector の 32 byte 全要素確認に置き換えた。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/sha256-digest-focused.json -j 1`: `total=1`, `passed=1`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-sha256-digest-full.json -j 4`: `total=411`, `passed=411`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-sha256-digest.json`: `13/13 passed`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は selfhost に必要な stdlib hash 実装を scaffold から実 digest へ進めるもの。
+
 # 2026-04-26 メモ (ISS-20260426T114146569Z nepl-language MatchArm bind)
 
 - 状況:

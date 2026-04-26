@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T15:26:49.833Z",
+  "generated_at": "2026-04-26T15:51:26.248Z",
   "counts": {
     "total": 130,
-    "open": 11,
-    "resolved": 119,
+    "open": 10,
+    "resolved": 120,
     "by_area": {
       "core": {
         "total": 47,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 43,
-        "open": 8,
-        "resolved": 35
+        "open": 7,
+        "resolved": 36
       },
       "cli": {
         "total": 17,
@@ -178,21 +178,6 @@
       "legacy_id": "RV-STDLIB-010",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-010",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB.md"
-    },
-    {
-      "id": "ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536",
-      "title": "sha256 module publishes buffering scaffold instead of SHA-256 digest",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/hash/sha256.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536.md"
     },
     {
       "id": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
@@ -1813,6 +1798,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374.md"
+    },
+    {
+      "id": "ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536",
+      "title": "sha256 module publishes buffering scaffold instead of SHA-256 digest",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/hash/sha256.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536.md"
     },
     {
       "id": "ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2",
