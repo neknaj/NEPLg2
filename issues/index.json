@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T06:40:30.675Z",
+  "generated_at": "2026-04-26T06:52:59.047Z",
   "counts": {
     "total": 115,
-    "open": 24,
-    "resolved": 91,
+    "open": 23,
+    "resolved": 92,
     "by_area": {
       "core": {
         "total": 37,
@@ -21,11 +21,6 @@
         "open": 15,
         "resolved": 24
       },
-      "compiler": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
-      },
       "cli": {
         "total": 17,
         "open": 0,
@@ -35,6 +30,11 @@
         "total": 13,
         "open": 0,
         "resolved": 13
+      },
+      "compiler": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "nodesrc": {
         "total": 1,
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
       "file": "items/ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B.md"
-    },
-    {
-      "id": "ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655",
-      "title": "wildcard Result i64 pattern can generate invalid wasm",
-      "area": "compiler",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1438,6 +1423,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
       "file": "items/ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22.md"
+    },
+    {
+      "id": "ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655",
+      "title": "wildcard Result i64 pattern can generate invalid wasm",
+      "area": "compiler",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_wasm.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-011-1B942835",

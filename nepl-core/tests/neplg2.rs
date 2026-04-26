@@ -922,6 +922,26 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn result_i64_wildcard_match_does_not_reuse_arm_bind_local() {
+    let src = r#"
+#target wasm
+#entry main
+#indent 4
+#import "core/result" as *
+
+fn main <()->i32> ():
+    let r <Result<i64,i32>> Result<i64,i32>::Err 1;
+    let ok <bool> match r:
+        Result::Ok _:
+            false
+        Result::Err _:
+            true
+    if ok 1 0
+"#;
+    assert_eq!(run_main_i32(src), 1);
+}
+
+#[test]
 fn generic_store_after_generic_trait_probe_preserves_struct() {
     let src = r#"
 #entry main

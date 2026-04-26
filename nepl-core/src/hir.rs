@@ -163,6 +163,7 @@ pub enum FuncRef {
 pub struct HirMatchArm {
     pub variant: String,
     pub bind_local: Option<String>,
+    pub bind_ty: Option<TypeId>,
     pub body: HirExpr,
 }
 #[derive(Debug, Clone)]

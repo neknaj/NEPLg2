@@ -146,11 +146,18 @@ ret: 1
 
 #import "alloc/string" as *
 #import "core/math" as *
-#import "core/result" as *
 
 fn main <()*>i32> ():
-    let ok_high <bool> is_err<i64,i32> to_i64 "9223372036854775808";
-    let ok_low <bool> is_err<i64,i32> to_i64 "-9223372036854775809";
+    let ok_high <bool> match to_i64 "9223372036854775808":
+        Result::Ok _:
+            false
+        Result::Err _:
+            true
+    let ok_low <bool> match to_i64 "-9223372036854775809":
+        Result::Ok _:
+            false
+        Result::Err _:
+            true
     if and ok_high ok_low 1 0
 ```
 

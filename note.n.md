@@ -17321,3 +17321,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 前提の `HashKey` / `HashMap` 動作を Rust compiler 側の型推論と backend lowering で修正した。public stdlib API の仕様変更はない。
+
+# 2026-04-26 メモ (ISS-20260426T061837095Z Result<i64> wildcard match 修正)
+
+- [原因]:
+  - wasm backend の match arm lowering は、`Result::Ok _` / `Result::Err _` の bind local を arm ごとの scope に入れず、外側 block の current scope に作っていた。
+  - そのため `Result<i64,i32>` の `Ok _` が先に i64 local を確保すると、後続の `Err _` も同じ `_` local を再利用し、i32 payload を i64 local へ `local.set` する invalid wasm になっていた。
+  - drop insertion も match payload 型を HIR に保持しておらず、arm body の戻り値型から bind 型を推測していたため、payload 型と drop 管理の対応が崩れる余地があった。
+- [修正]:
+  - `nepl-core/src/codegen_wasm.rs` で match arm ごとに local scope を作り、同名 bind が arm 間で別 payload 型を持っても wasm local を共有しないようにした。
+  - `HirMatchArm` に `bind_ty` を追加し、typecheck が payload 型を記録し、drop insertion がその型を使うようにした。
+  - monomorphize で `bind_ty` も型置換するようにした。
+  - `nepl-core/tests/neplg2.rs` に `Result<i64,i32>` の `Result::Ok _` / `Result::Err _` bool match 回帰テストを追加した。
+  - `tests/stdlib/string_numeric_overflow.n.md` は `is_err` workaround をやめ、i64 overflow を match で直接検証するように戻した。
+  - issue `ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655` を verified に更新し、`todo.md` から完了項目を削除した。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 result_i64_wildcard_match_does_not_reuse_arm_bind_local -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: 47/47 passed
+  - `cargo fmt --all --check`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/wildcard-result-i64-pattern-string-overflow.json -j 1`: `total=8`, `passed=8`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-wildcard-result-i64-pattern.json`: 13/13 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - match / enum の言語仕様は変えず、backend の arm-scoped local 管理と HIR payload 型保持を修正した。

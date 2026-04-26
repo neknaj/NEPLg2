@@ -986,6 +986,9 @@ impl<'a> Monomorphizer<'a> {
             HirExprKind::Match { scrutinee, arms } => {
                 self.substitute_expr(scrutinee, mapping, local_names);
                 for arm in arms {
+                    if let Some(bind_ty) = arm.bind_ty.as_mut() {
+                        *bind_ty = self.ctx.substitute(*bind_ty, mapping);
+                    }
                     self.substitute_expr(&mut arm.body, mapping, local_names);
                 }
             }

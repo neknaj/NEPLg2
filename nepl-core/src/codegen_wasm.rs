@@ -2379,6 +2379,7 @@ fn gen_expr(
                     Some(vt) => wasm_encoder::BlockType::Result(vt),
                     None => wasm_encoder::BlockType::Empty,
                 }));
+                locals.begin_scope();
                 if let Some(bind) = &arm.bind_local {
                     if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm.variant)
                     {
@@ -2436,6 +2437,7 @@ fn gen_expr(
                     }
                 }
                 gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts)?;
+                locals.end_scope();
                 if is_last {
                     insts.push(Instruction::Else);
                     insts.push(Instruction::Unreachable);
