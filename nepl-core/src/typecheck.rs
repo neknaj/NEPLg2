@@ -1084,17 +1084,6 @@ pub fn typecheck(
                 }
                 trait_self_ty = traits.get(tn).map(|info| info.self_ty);
             }
-            if !i.type_params.is_empty()
-                && !trait_semantics.has_copy_capability(trait_self_ty)
-                && !trait_semantics.has_clone_capability(trait_self_ty)
-                && !trait_semantics.has_drop_capability(trait_self_ty)
-            {
-                diagnostics.push(
-                    Diagnostic::error("impl type parameters are not supported yet", i.span)
-                        .with_id(DiagnosticId::TypeImplTypeParamsUnsupported),
-                );
-                continue;
-            }
             let mut f_labels = LabelEnv::new();
             let (_tps, _bounds_vec, _impl_bounds_map) = collect_type_params(
                 &mut ctx,
@@ -1796,18 +1785,6 @@ pub fn typecheck(
                     continue;
                 }
             };
-            if !i.type_params.is_empty()
-                && !trait_semantics.has_copy_capability(Some(trait_info.self_ty))
-                && !trait_semantics.has_clone_capability(Some(trait_info.self_ty))
-                && !trait_semantics.has_drop_capability(Some(trait_info.self_ty))
-            {
-                diagnostics.push(
-                    Diagnostic::error("impl type parameters are not supported yet", i.span)
-                        .with_id(DiagnosticId::TypeImplTypeParamsUnsupported),
-                );
-                continue;
-            }
-
             let mut impl_methods = Vec::new();
             let mut f_labels = LabelEnv::new();
             let (tps, _bounds_vec, impl_bounds_map) = collect_type_params(

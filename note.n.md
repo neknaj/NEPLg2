@@ -17986,3 +17986,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` の S6 CLI 方針に沿って、filesystem / stdio に接続する前段として pure argv parser と raw argv provider の回帰テストを先に確定した。
+# 2026-04-26 メモ (generic impl trait argument 制限の修正)
+
+- `Hasher<.K>` から独自 `#capability clone/copy` を外す準備中に、compiler が non-capability trait の `impl<.K> Trait<.K> for Concrete` を target が concrete でも D3082 で拒否することを確認した。
+- これは stdlib の `Hasher<.K> for DefaultHash32` が capability workaround に依存していた根本原因なので、`ISS-20260426T144541459Z-GENERIC-IMPL-TRAIT-ARGUMENTS-ARE-BLO-0C6A53DC` として issue 化し、Discord に追加報告した。
+- `nepl-core/src/typecheck.rs` の impl type parameter 事前拒否を外し、non-capability trait では target 型が unbound type variable を含む場合だけ D3084 で拒否する既存判定へ集約した。
+- `nepl-core/tests/neplg2.rs` と `tests/compiler/generic_impl_trait_args.n.md` に、trait argument 側だけ generic な impl が通るケースと、generic target が引き続き拒否されるケースを追加した。
+- `plan.md` は変更していない。今回の変更は self-host stdlib の hash 基盤を自然な trait 境界へ戻すための compiler 側の前提修正である。

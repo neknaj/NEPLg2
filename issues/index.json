@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T14:35:49.117Z",
+  "generated_at": "2026-04-26T14:49:12.960Z",
   "counts": {
-    "total": 129,
+    "total": 130,
     "open": 13,
-    "resolved": 116,
+    "resolved": 117,
     "by_area": {
       "core": {
-        "total": 46,
+        "total": 47,
         "open": 4,
-        "resolved": 42
+        "resolved": 43
       },
       "stdlib": {
         "total": 43,
@@ -898,6 +898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T134706492Z-MOVE-CHECKER-ALLOWS-LOCAL-BORROW-REF-337A78B2.md"
+    },
+    {
+      "id": "ISS-20260426T144541459Z-GENERIC-IMPL-TRAIT-ARGUMENTS-ARE-BLO-0C6A53DC",
+      "title": "generic impl trait arguments are blocked for non-capability traits",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs; stdlib/core/traits/hash.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T144541459Z-GENERIC-IMPL-TRAIT-ARGUMENTS-ARE-BLO-0C6A53DC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

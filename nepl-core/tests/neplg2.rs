@@ -1209,6 +1209,26 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn impl_type_params_in_trait_args_allowed_for_concrete_target() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait Mapper<.T>:
+    fn map <(Self,.T)->i32> (_self, _value):
+        0
+
+impl<.T> Mapper<.T> for i32:
+    fn map <(i32,.T)->i32> (_self, _value):
+        7
+
+fn main <()->i32> ():
+    Mapper::map 0 123
+"#;
+    compile_ok(src);
+}
+
+#[test]
 fn impl_generic_target_diagnostic_uses_type_expr_span() {
     let src = r#"
 #entry main
