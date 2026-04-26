@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:01:03.052Z",
+  "generated_at": "2026-04-26T04:08:24.160Z",
   "counts": {
     "total": 105,
-    "open": 29,
-    "resolved": 76,
+    "open": 28,
+    "resolved": 77,
     "by_area": {
       "core": {
         "total": 36,
-        "open": 6,
-        "resolved": 30
+        "open": 5,
+        "resolved": 31
       },
       "selfhost": {
         "total": 7,
@@ -318,21 +318,6 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
-    },
-    {
-      "id": "ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77",
-      "title": "nested function regression test remains ignored even though it passes",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/tests/functions.rs",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
-      "file": "items/ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77.md"
     },
     {
       "id": "ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0",
@@ -1488,6 +1473,21 @@
       "legacy_id": "RV-CORE-026",
       "source": "doc/review20260425/core.md#rv-core-026",
       "file": "items/ISS-20260425T000000Z-RV-CORE-026-363EAF27.md"
+    },
+    {
+      "id": "ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77",
+      "title": "nested function regression test remains ignored even though it passes",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/tests/functions.rs, tests/compiler/functions.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (ISS-20260426T020002000Z FUNCTION-NESTED-IGNORED 修正)
+
+- 状況:
+  - `nepl-core/tests/functions.rs` の `function_nested` が `#[ignore]` のまま残り、実装済みの nested function 回帰が通常CIで実行されていなかった。
+  - `tests/compiler/functions.n.md` 側にも同じ内容の `function_nested` が `neplg2:test[skip]` として残っていた。
+- 原因:
+  - 過去の「Nested functions are not yet fully supported in codegen」という制約が解消された後、Rust integration test と n.md doctest の skip 状態が戻されていなかった。
+- 修正:
+  - Rust test の `#[ignore]` と古い未対応コメントを削除した。
+  - `tests/compiler/functions.n.md` の `function_nested` を通常の `neplg2:test` に戻し、説明文を現在の仕様に合わせた。
+  - `issues/items/ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77.md` を verified に更新した。
+- 確認済み:
+  - `cargo fmt --all --check`: 成功
+  - 修正前確認として `cargo test -p nepl-core --test functions function_nested -- --ignored`: 1/1 passed
+  - `cargo test -p nepl-core --test functions function_nested`: 2/2 passed
+  - `cargo test -p nepl-core --test functions`: 13/13 passed
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md --no-tree -o tmp/function-nested-tests.json -j 1`: 22/22 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は実装済み機能の回帰テストを通常実行に戻すテスト台帳の修正であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T020001000Z SELFHOST-REQ-HASHKEY 修正)
 
 - 状況:

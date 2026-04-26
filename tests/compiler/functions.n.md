@@ -61,9 +61,9 @@ fn main <()->i32> ():
 
 ## function_nested
 
-ネストされた関数定義はコードジェンで未サポートのためスキップ
+ネストされた関数定義が通常の回帰テストとして実行されることを確認します。
 
-neplg2:test[skip]
+neplg2:test
 ret: 20
 ```neplg2
 

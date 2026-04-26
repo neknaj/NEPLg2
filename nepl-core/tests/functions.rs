@@ -36,7 +36,6 @@ fn main <()->i32> ():
 }
 
 #[test]
-#[ignore] // Nested functions are not yet fully supported in codegen
 fn function_nested() {
     let src = r#"
 #entry main
