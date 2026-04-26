@@ -45,11 +45,12 @@ S0 の source tree scaffold は今回の性能 Issue を未解決のまま開始
 2. S2 module loader は stdlib 分割と import visibility closure の cost を同時に見る。
 3. S3 typecheck は ordered table に `BTreeMap` を使う箇所を限定し、mutable large table には使わない。
 4. S5 WASM emitter は ByteBuilder と同時に bulk copy API の必要性を判断する。
-5. 長時間実行の CLI parity test を追加する前に、allocator fragmentation の stress fixture を作る。
+5. 長時間実行の CLI parity test を追加する前に、allocator fragmentation の stress fixture を確認する。`ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3` は 2026-04-26 に verified 済み。
 
 ---
 
 ## 検証メモ
 
 今回の性能監査で追加した `HashMap` / `HashSet` 固定容量問題は、2026-04-26 に grow / rehash と `with_capacity` 追加で解消した。
-検証は `issues` tool、Markdown link、既存共通 test に加え、`tests/stdlib/hash_collection_rehash.n.md` の focused doctest で行う。
+Allocator fragmentation 問題も 2026-04-26 に address-order free list と coalescing で解消した。
+検証は `issues` tool、Markdown link、既存共通 test に加え、`tests/stdlib/hash_collection_rehash.n.md` と `tests/stdlib/allocator_coalesce.n.md` の focused doctest で行う。

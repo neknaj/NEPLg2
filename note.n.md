@@ -1,3 +1,25 @@
+# 2026-04-26 メモ (ISS-20260426T021002000Z ALLOCATOR-FRAGMENTATION 修正)
+
+- 状況:
+  - `stdlib/core/mem.nepl` の `dealloc_raw` は free block を free list 先頭へ戻すだけで、隣接 block を結合していなかった。
+  - self-host compiler の token / AST / HIR / diagnostic / temporary buffer の churn では、総空き容量が足りても大きな連続領域が再利用できず page growth と free list scan が増える可能性があった。
+- 原因:
+  - free list が address order ではなく先頭挿入で管理されていたため、隣接判定に必要な前後 block を dealloc 時に特定できなかった。
+  - `dealloc_raw` の計算量を O(1) に寄せた代わりに、断片化を解消する coalescing 経路が存在しなかった。
+- 修正:
+  - `dealloc_raw` を address order insertion に変え、挿入した block が next / prev と隣接していれば total size と next pointer を更新して coalesce するようにした。
+  - `alloc_raw` の first-fit / split は維持し、split 後の remainder を元 block の位置に置くことで free list の address order を保った。
+  - `stdlib/core/mem.nepl` の header comment と `dealloc_raw` comment を、address order + coalescing と O(n) dealloc に合わせて更新した。
+  - `tests/stdlib/allocator_coalesce.n.md` を追加し、next 方向結合、prev 方向結合、page 末尾付近の fragmentation pattern で `mem_size` が増えないことを確認した。
+  - `issues/items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md` を verified にし、`todo.md` から対応項目を削除した。
+- 確認済み:
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i tests/stdlib/allocator_coalesce.n.md --no-tree -o tmp/allocator-coalesce.json -j 1`: 9/9 passed
+  - `trunk build`: pass（既存 Rust warning は残存）
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/alloc/collections/vec.nepl -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/hashmap.nepl -i stdlib/alloc/collections/hashset.nepl -i tests/stdlib/mem_fill.n.md -i tests/stdlib/capacity_stack.n.md -i tests/stdlib/allocator_coalesce.n.md --no-tree -o tmp/allocator-coalesce-suite-final.json -j 1`: 86/86 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-allocator-coalesce.json`: 13/13 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は self-host 前提の stdlib allocator 断片化対策であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T010000Z SELFHOST-SOURCE-TREE 修正)
 
 - 状況:

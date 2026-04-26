@@ -9,13 +9,14 @@
 //: - free list と bump を併用し、8 バイト境界に整列します。
 //: - 0..4 に heap_ptr、4..8 に free_list_head を置きます。
 //: - 最初の割り当てブロックは metadata の後ろ、8 バイト目以降から始めます。
+//: - free list は address order で管理し、解放時に隣接 block を coalesce します。
 //:
 //: 注意(重要):
-//: - 領域の再利用は簡易的で、細かな最適化は行いません。
+//: - 領域の再利用は first-fit です。隣接 block は結合しますが、best-fit などの細かな最適化は行いません。
 //: - 無効なポインタを渡すと未定義動作になります。
 //:
 //: 計算量:
-//: - alloc_raw/free は平均 O(1) ですが、free list の探索で O(n) になり得ます。
+//: - alloc_raw/free は free list の探索で O(n) になり得ます。
 //:
 //: todo memory.copy などを使って効率を上げる
 //:
@@ -255,6 +256,12 @@ fn align8 <(i32)->i32> (n):
     let q <i32> div_s t 8
     mul q 8
 
+//: mem_block_end: allocator block の[終端/しゅうたん] address を[返/かえ]す
+//:
+//: block header の先頭 address と header に保存された total size から、隣接判定に使う半開区間の終端を計算します。
+fn mem_block_end <(i32)->i32> (blk):
+    add blk load_i32 blk
+
 //: alloc_raw: ヒープから領域を確保する（生ポインタAPI）
 //:
 //: 目的:
@@ -368,14 +375,15 @@ fn alloc_raw <(i32)->i32> (size):
 //: - ptr を free list に戻します。
 //:
 //: 実装(アルゴリズム):
-//: - ブロック先頭に size を書き、free list 先頭へ挿入します。
+//: - ブロック先頭に total size を書き、address order の free list へ挿入します。
+//: - 挿入位置の前後 block と隣接していれば、1 つの大きな free block に結合します。
 //:
 //: 注意(重要):
 //: - ptr<=0 は無視します。
 //: - size は alloc_raw 時のサイズと一致させてください。
 //:
 //: 計算量:
-//: - O(1)
+//: - O(n)
 fn dealloc_raw <(i32,i32)->()> (ptr, size):
     if:
         cond:
@@ -386,11 +394,45 @@ fn dealloc_raw <(i32,i32)->()> (ptr, size):
             let header <i32> 8
             let total <i32> align8 add size header
             let blk <i32> sub ptr header
-            let head <i32> load_i32 4
+            let mut prev <i32> 0
+            let mut cur <i32> load_i32 4
+            let mut done <bool> false
+            while and ne cur 0 not done:
+                do:
+                    if:
+                        lt cur blk
+                        then:
+                            set prev cur
+                            set cur load_i32 add cur 4
+                        else:
+                            set done true
             store_i32 blk total
             let blk_next_ptr <i32> add blk 4
-            store_i32 blk_next_ptr head
-            store_i32 4 blk
+            store_i32 blk_next_ptr cur
+            if:
+                cond:
+                    eq prev 0
+                then:
+                    store_i32 4 blk
+                else:
+                    store_i32 add prev 4 blk
+            if:
+                cond:
+                    and ne cur 0 eq mem_block_end blk cur
+                then:
+                    let cur_next <i32> load_i32 add cur 4
+                    store_i32 blk add load_i32 blk load_i32 cur
+                    store_i32 blk_next_ptr cur_next
+                else:
+                    ()
+            if:
+                cond:
+                    and ne prev 0 eq mem_block_end prev blk
+                then:
+                    store_i32 prev add load_i32 prev load_i32 blk
+                    store_i32 add prev 4 load_i32 blk_next_ptr
+                else:
+                    ()
 
 //: realloc_raw: 既存領域を再確保する（生ポインタAPI）
 //:
