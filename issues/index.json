@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T12:38:45.912Z",
+  "generated_at": "2026-04-26T12:50:32.408Z",
   "counts": {
     "total": 125,
-    "open": 16,
-    "resolved": 109,
+    "open": 15,
+    "resolved": 110,
     "by_area": {
       "core": {
         "total": 42,
-        "open": 4,
-        "resolved": 38
+        "open": 3,
+        "resolved": 39
       },
       "selfhost": {
         "total": 7,
@@ -163,21 +163,6 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
-    },
-    {
-      "id": "ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED",
-      "title": "string literals containing // are parsed as comments",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/lexer.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED.md"
     },
     {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
@@ -1633,6 +1618,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T114146569Z-NEPL-LANGUAGE-NAME-TRACE-READS-REMOV-577D2C6C.md"
+    },
+    {
+      "id": "ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED",
+      "title": "string literals containing // are parsed as comments",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/lexer.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

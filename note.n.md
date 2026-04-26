@@ -329,6 +329,33 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-26 メモ (ISS-20260426T121038912Z string literal 内 `//` lexer 修正)
+
+- [同期]:
+  - `ISS-20260426T121027631Z` を main へ merge/push 後、`origin/main` の `92b0a00` と一致している状態から `core/string-literal-comment-scanning` branch を作成した。
+- [原因]:
+  - lexer の comment stripping が `line.find("//")` で最初の `//` を探しており、文字列リテラル内かどうかを判定していなかった。
+  - そのため `"a/./b//c"` や `"https://example.test/a"` の `//` 以降が comment として削られ、unterminated string literal になっていた。
+- [修正]:
+  - `find_comment_start` を追加し、文字列状態と escape を追跡して文字列外の `//` だけを comment delimiter として扱うようにした。
+  - `tests/stdlib/fs.n.md` の path normalization test を自然な `"a/./b//c"` literal に戻した。
+- [回帰テスト]:
+  - `nepl-core/tests/string.rs` に path と URL の `StringLiteral` token が保持されることを確認する test を追加した。
+  - `doc_comments` test で `//:` / `///` の doc comment 挙動が維持されることを確認した。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test string test_string_literal_keeps_double_slash -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test string -- --nocapture`: 23 passed
+  - `cargo test -p nepl-core --test doc_comments -- --nocapture`: 3 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md -i stdlib/std/fs.nepl --no-tree -o tmp/fs-string-comment-focused.json -j 1`: `total=14`, `passed=14`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-string-comment.json`: 13/13 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+  - 途中で `cargo test -p nepl-core test_string_literal_keeps_double_slash -- --nocapture` を実行した際、Cargo が多数の test binary を同時 link して一時的に disk 容量不足になったため、`--test string` で対象を絞って再実行した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-26 メモ (ISS-20260426T121027631Z nepl-cli std/fs stack overflow 修正)
 
 - [同期]:

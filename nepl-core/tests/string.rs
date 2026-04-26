@@ -8,6 +8,9 @@
 
 mod harness;
 use harness::*;
+use nepl_core::diagnostic::Severity;
+use nepl_core::lexer::{self, TokenKind};
+use nepl_core::span::FileId;
 
 #[test]
 fn test_string_literal_single_line_type() {
@@ -18,6 +21,40 @@ fn main <()*>()> ():
     let a <str> "hello\nworld!";
     ()
 "#;
+    compile_src(src);
+}
+
+#[test]
+fn test_string_literal_keeps_double_slash() {
+    let src = r#"
+#entry main
+fn main <()*>()> ():
+    let path <str> "a/./b//c";
+    let url <str> "https://example.test/a"; // line comment outside the string
+    ()
+"#;
+    let lexed = lexer::lex(FileId(0), src);
+    assert!(
+        lexed
+            .diagnostics
+            .iter()
+            .all(|d| !matches!(d.severity, Severity::Error)),
+        "unexpected lexer errors: {:?}",
+        lexed.diagnostics
+    );
+    let strings: Vec<&str> = lexed
+        .tokens
+        .iter()
+        .filter_map(|token| match &token.kind {
+            TokenKind::StringLiteral(value) => Some(value.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(strings.contains(&"a/./b//c"), "strings={strings:?}");
+    assert!(
+        strings.contains(&"https://example.test/a"),
+        "strings={strings:?}"
+    );
     compile_src(src);
 }
 

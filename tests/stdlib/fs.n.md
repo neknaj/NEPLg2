@@ -190,9 +190,9 @@ fn main <()*>i32> ():
             set checks checks_push checks check_str_eq "tests/fixtures/fs/read_sample.txt" path
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "normalizing internal parent failed";
-    match fs_normalize_relative "a/./b/":
+    match fs_normalize_relative "a/./b//c":
         Result::Ok path:
-            set checks checks_push checks check_str_eq "a/b" path
+            set checks checks_push checks check_str_eq "a/b/c" path
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "normalizing dot and empty components failed";
     match fs_normalize_relative "../outside":

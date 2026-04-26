@@ -179,7 +179,7 @@ impl LexState {
         // Handle DocComments before stripping them
         let mut doc_comment: Option<String> = None;
         let mut doc_comment_start: Option<usize> = None;
-        let content_owned = match line.find("//") {
+        let content_owned = match find_comment_start(line) {
             Some(idx) => {
                 let text_after = &line[idx..];
                 if let Some(prefix_len) = doc_comment_prefix_len(text_after) {
@@ -988,6 +988,40 @@ fn doc_comment_prefix_len(text_after: &str) -> Option<usize> {
     } else {
         None
     }
+}
+
+fn find_comment_start(line: &str) -> Option<usize> {
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    let mut in_string = false;
+    while i < bytes.len() {
+        if in_string {
+            match bytes[i] {
+                b'\\' if i + 1 < bytes.len() => {
+                    i += 2;
+                }
+                b'"' => {
+                    in_string = false;
+                    i += 1;
+                }
+                _ => {
+                    i += 1;
+                }
+            }
+            continue;
+        }
+        match bytes[i] {
+            b'"' => {
+                in_string = true;
+                i += 1;
+            }
+            b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'/' => return Some(i),
+            _ => {
+                i += 1;
+            }
+        }
+    }
+    None
 }
 
 fn is_ident_start(b: u8) -> bool {
