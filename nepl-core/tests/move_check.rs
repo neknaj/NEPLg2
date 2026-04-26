@@ -216,6 +216,211 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_return_local_reference_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn leak <()->&Wrapper> ():
+    let x Wrapper::Val 1;
+    &x
+
+fn main <()*>()> ():
+    let r <&Wrapper> leak;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
+fn move_block_local_reference_escape_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()> ():
+    let r <&Wrapper> block:
+        let x Wrapper::Val 1;
+        &x
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
+fn move_set_outer_reference_to_inner_local_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()> ():
+    let outer Wrapper::Val 0;
+    let mut r <&Wrapper> &outer;
+    block:
+        let inner Wrapper::Val 1;
+        set r &inner
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
+fn move_return_local_reference_inside_struct_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct RefBox:
+    inner <&Wrapper>
+
+fn leak <()->RefBox> ():
+    let x Wrapper::Val 1;
+    let b <RefBox> RefBox &x;
+    b
+
+fn main <()*>()> ():
+    let b <RefBox> leak;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
+fn move_block_local_reference_inside_struct_escape_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct RefBox:
+    inner <&Wrapper>
+
+fn main <()*>()> ():
+    let b <RefBox> block:
+        let x Wrapper::Val 1;
+        let local <RefBox> RefBox &x;
+        local
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
+fn move_set_outer_struct_reference_to_inner_local_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct RefBox:
+    inner <&Wrapper>
+
+fn main <()*>()> ():
+    let outer Wrapper::Val 0;
+    let mut b <RefBox> RefBox &outer;
+    block:
+        let inner Wrapper::Val 1;
+        let local <RefBox> RefBox &inner;
+        set b local
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
+fn move_call_return_reference_to_block_local_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn id_ref <(&Wrapper)->&Wrapper> (x):
+    x
+
+fn main <()*>()> ():
+    let r <&Wrapper> block:
+        let x Wrapper::Val 1;
+        id_ref &x
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
+fn move_call_return_struct_reference_to_block_local_err() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct RefBox:
+    inner <&Wrapper>
+
+fn box_ref <(&Wrapper)->RefBox> (x):
+    RefBox x
+
+fn main <()*>()> ():
+    let b <RefBox> block:
+        let x Wrapper::Val 1;
+        box_ref &x
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}
+
+#[test]
 fn move_pass_to_function_err() {
     let source = r#"
 #target wasi

@@ -32,6 +32,17 @@ struct BorrowBinding {
     kind: BorrowKind,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ExprBorrow {
+    binding: BorrowBinding,
+}
+
+impl ExprBorrow {
+    fn needs_retain(binding: BorrowBinding) -> Self {
+        Self { binding }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct BorrowCount {
     shared: usize,
@@ -44,8 +55,10 @@ struct MoveCheckContext {
     /// State of all variables currently in scope.
     /// Stack of variable states (for shadowing support).
     var_stacks: BTreeMap<String, Vec<VarState>>,
-    /// Borrow source held by each reference binding, aligned with `var_stacks`.
-    borrow_stacks: BTreeMap<String, Vec<Option<BorrowBinding>>>,
+    /// Scope depth for each variable binding, aligned with `var_stacks`.
+    var_depth_stacks: BTreeMap<String, Vec<usize>>,
+    /// Borrow sources held by each binding, aligned with `var_stacks`.
+    borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
     /// Active borrow counts per source variable.
     borrow_counts: BTreeMap<String, BorrowCount>,
     /// Remaining variable uses in active blocks for last-use borrow release.
@@ -63,6 +76,7 @@ impl MoveCheckContext {
         Self {
             function_params: BTreeMap::new(),
             var_stacks: BTreeMap::new(),
+            var_depth_stacks: BTreeMap::new(),
             borrow_stacks: BTreeMap::new(),
             borrow_counts: BTreeMap::new(),
             use_counts: Vec::new(),
@@ -86,6 +100,12 @@ impl MoveCheckContext {
                     self.var_stacks.remove(&name);
                 }
             }
+            if let Some(stack) = self.var_depth_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.var_depth_stacks.remove(&name);
+                }
+            }
             if let Some(stack) = self.borrow_stacks.get_mut(&name) {
                 stack.pop();
                 if stack.is_empty() {
@@ -96,18 +116,23 @@ impl MoveCheckContext {
     }
 
     fn declare_var(&mut self, name: String) {
-        self.declare_var_with_borrow(name, None);
+        self.declare_var_with_borrows(name, Vec::new());
     }
 
-    fn declare_var_with_borrow(&mut self, name: String, borrow: Option<BorrowBinding>) {
+    fn declare_var_with_borrows(&mut self, name: String, borrows: Vec<BorrowBinding>) {
+        let depth = self.current_scope_depth();
         self.var_stacks
             .entry(name.clone())
             .or_default()
             .push(VarState::Valid);
+        self.var_depth_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(depth);
         self.borrow_stacks
             .entry(name.clone())
             .or_default()
-            .push(borrow);
+            .push(borrows);
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name);
         }
@@ -120,6 +145,33 @@ impl MoveCheckContext {
 
     fn get_state(&self, name: &str) -> Option<VarState> {
         self.var_stacks.get(name).and_then(|s| s.last().copied())
+    }
+
+    fn current_scope_depth(&self) -> usize {
+        self.scopes.len()
+    }
+
+    fn scope_depth_of(&self, name: &str) -> Option<usize> {
+        self.var_depth_stacks
+            .get(name)
+            .and_then(|stack| stack.last().copied())
+    }
+
+    fn borrow_bindings(&self, name: &str) -> Vec<BorrowBinding> {
+        self.borrow_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn set_borrow_bindings(&mut self, name: &str, bindings: Vec<BorrowBinding>) {
+        self.release_borrow_binding(name);
+        if let Some(stack) = self.borrow_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = bindings;
+            }
+        }
     }
 
     fn set_state(&mut self, name: &str, state: VarState) {
@@ -171,12 +223,13 @@ impl MoveCheckContext {
     }
 
     fn release_borrow_binding(&mut self, name: &str) {
-        let binding = self
+        let bindings = self
             .borrow_stacks
             .get_mut(name)
             .and_then(|stack| stack.last_mut())
-            .and_then(|slot| slot.take());
-        if let Some(binding) = binding {
+            .map(core::mem::take)
+            .unwrap_or_default();
+        for binding in bindings {
             self.release_source_borrow(binding.source.as_str(), binding.kind);
         }
     }
@@ -205,6 +258,72 @@ impl MoveCheckContext {
             }
             (Some(VarState::BorrowedShared | VarState::BorrowedUnique), None) => {
                 self.set_state(source, VarState::Valid);
+            }
+            _ => {}
+        }
+    }
+
+    fn check_borrow_escape(&mut self, source: &str, span: Span, escape_depth: usize) {
+        let Some(source_depth) = self.scope_depth_of(source) else {
+            return;
+        };
+        if source_depth <= escape_depth {
+            return;
+        }
+        self.diagnostics.push(
+            Diagnostic::error(
+                alloc::format!(
+                    "borrowed local value does not live long enough: `{}`",
+                    source
+                ),
+                span,
+            )
+            .with_id(DiagnosticId::TypeBorrowEscapesScope),
+        );
+    }
+
+    fn check_binding_escape(&mut self, binding: &BorrowBinding, span: Span, escape_depth: usize) {
+        self.check_borrow_escape(binding.source.as_str(), span, escape_depth);
+    }
+
+    fn check_expr_borrows_escape(
+        &mut self,
+        borrows: &[ExprBorrow],
+        span: Span,
+        escape_depth: usize,
+    ) {
+        for borrow in borrows {
+            self.check_binding_escape(&borrow.binding, span, escape_depth);
+        }
+    }
+
+    fn check_var_escape(&mut self, name: &str, span: Span, escape_depth: usize) {
+        for binding in self.borrow_bindings(name) {
+            self.check_binding_escape(&binding, span, escape_depth);
+        }
+    }
+
+    fn retain_expr_borrows(&mut self, borrows: Vec<ExprBorrow>) -> Vec<BorrowBinding> {
+        let mut bindings = Vec::with_capacity(borrows.len());
+        for borrow in borrows {
+            self.retain_borrow_binding(&borrow.binding);
+            bindings.push(borrow.binding);
+        }
+        bindings
+    }
+
+    fn retain_borrow_binding(&mut self, binding: &BorrowBinding) {
+        match (self.get_state(binding.source.as_str()), binding.kind) {
+            (Some(VarState::Valid), kind) => {
+                self.increment_borrow_count(binding.source.as_str(), kind);
+                let next = match kind {
+                    BorrowKind::Shared => VarState::BorrowedShared,
+                    BorrowKind::Unique => VarState::BorrowedUnique,
+                };
+                self.set_state(binding.source.as_str(), next);
+            }
+            (Some(VarState::BorrowedShared), BorrowKind::Shared) => {
+                self.increment_borrow_count(binding.source.as_str(), binding.kind);
             }
             _ => {}
         }
@@ -350,70 +469,6 @@ impl MoveCheckContext {
                 );
             }
             None => {}
-        }
-    }
-
-    fn check_borrow(&mut self, name: &str, span: Span, kind: BorrowKind, is_copy: bool) -> bool {
-        if is_copy {
-            return true;
-        }
-        match self.get_state(name) {
-            Some(VarState::Valid) => {
-                let next = match kind {
-                    BorrowKind::Shared => VarState::BorrowedShared,
-                    BorrowKind::Unique => VarState::BorrowedUnique,
-                };
-                self.increment_borrow_count(name, kind);
-                self.set_state(name, next);
-                true
-            }
-            Some(VarState::BorrowedShared) => match kind {
-                BorrowKind::Shared => {
-                    self.increment_borrow_count(name, kind);
-                    true
-                }
-                BorrowKind::Unique => {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            alloc::format!(
-                                "cannot uniquely borrow shared borrowed value: `{}`",
-                                name
-                            ),
-                            span,
-                        )
-                        .with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue),
-                    );
-                    false
-                }
-            },
-            Some(VarState::BorrowedUnique) => {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        alloc::format!("cannot borrow uniquely borrowed value: `{}`", name),
-                        span,
-                    )
-                    .with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue),
-                );
-                false
-            }
-            Some(VarState::Moved) => {
-                self.diagnostics.push(
-                    Diagnostic::error(alloc::format!("borrow of moved value: `{}`", name), span)
-                        .with_id(DiagnosticId::TypeBorrowMovedValue),
-                );
-                false
-            }
-            Some(VarState::PossiblyMoved) => {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        alloc::format!("borrow of potentially moved value: `{}`", name),
-                        span,
-                    )
-                    .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
-                );
-                false
-            }
-            None => true,
         }
     }
 
@@ -575,14 +630,99 @@ fn borrow_source_name(expr: &HirExpr) -> Option<String> {
     }
 }
 
-fn visit_block(block: &HirBlock, ctx: &mut MoveCheckContext, tctx: &crate::types::TypeCtx) {
+fn shared_borrow_binding(expr: &HirExpr) -> Option<BorrowBinding> {
+    borrow_source_name(expr).map(|source| BorrowBinding {
+        source,
+        kind: BorrowKind::Shared,
+    })
+}
+
+fn type_contains_reference(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
+    fn inner(tctx: &crate::types::TypeCtx, ty: TypeId, visiting: &mut BTreeSet<TypeId>) -> bool {
+        let resolved = tctx.resolve_id(ty);
+        if !visiting.insert(resolved) {
+            return false;
+        }
+        let contains = match tctx.get_ref(resolved) {
+            TypeKind::Reference(_, _) => true,
+            TypeKind::Tuple { items } => items.iter().any(|item| inner(tctx, *item, visiting)),
+            TypeKind::Struct { fields, .. } => {
+                fields.iter().any(|field| inner(tctx, *field, visiting))
+            }
+            TypeKind::Enum { variants, .. } => variants
+                .iter()
+                .filter_map(|variant| variant.payload)
+                .any(|payload| inner(tctx, payload, visiting)),
+            TypeKind::Apply { base, args } => {
+                inner(tctx, *base, visiting) || args.iter().any(|arg| inner(tctx, *arg, visiting))
+            }
+            TypeKind::Box(inner_ty) => inner(tctx, *inner_ty, visiting),
+            TypeKind::Var(var) => var
+                .binding
+                .map(|binding| inner(tctx, binding, visiting))
+                .unwrap_or(false),
+            TypeKind::Unit
+            | TypeKind::I32
+            | TypeKind::U8
+            | TypeKind::F32
+            | TypeKind::Bool
+            | TypeKind::Str
+            | TypeKind::Never
+            | TypeKind::Named(_)
+            | TypeKind::Function { .. } => false,
+        };
+        visiting.remove(&resolved);
+        contains
+    }
+
+    inner(tctx, ty, &mut BTreeSet::new())
+}
+
+fn borrow_bindings_from_place(expr: &HirExpr, ctx: &MoveCheckContext) -> Vec<BorrowBinding> {
+    match &expr.kind {
+        HirExprKind::Var(name) => ctx.borrow_bindings(name),
+        HirExprKind::Deref(inner) => borrow_bindings_from_place(inner, ctx),
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
+            borrow_bindings_from_place(&args[0], ctx)
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn borrow_bindings_from_reference_arg(arg: &HirExpr, ctx: &MoveCheckContext) -> Vec<BorrowBinding> {
+    match &arg.kind {
+        HirExprKind::AddrOf(inner) => shared_borrow_binding(inner).into_iter().collect(),
+        _ => borrow_bindings_from_place(arg, ctx),
+    }
+}
+
+fn visit_block_with_escape(
+    block: &HirBlock,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+    escape_depth: Option<usize>,
+) -> Vec<ExprBorrow> {
     ctx.push_scope();
     ctx.push_use_counts(collect_var_uses_block(block));
-    for line in &block.lines {
-        visit_expr(&line.expr, ctx, tctx);
+    let mut result_borrows = Vec::new();
+    let last_index = block.lines.len().saturating_sub(1);
+    for (idx, line) in block.lines.iter().enumerate() {
+        let line_escape = if idx == last_index && !line.drop_result {
+            escape_depth
+        } else {
+            None
+        };
+        let line_borrows = visit_expr_with_escape(&line.expr, ctx, tctx, line_escape);
+        if idx == last_index && !line.drop_result {
+            result_borrows = line_borrows;
+            if let Some(depth) = escape_depth {
+                ctx.check_expr_borrows_escape(&result_borrows, line.expr.span, depth);
+            }
+        }
     }
     ctx.pop_use_counts();
     ctx.pop_scope();
+    result_borrows
 }
 
 fn reference_borrow_kind(tctx: &crate::types::TypeCtx, ty: TypeId) -> Option<BorrowKind> {
@@ -598,11 +738,19 @@ fn visit_reference_call_arg(
     kind: BorrowKind,
     ctx: &mut MoveCheckContext,
     tctx: &crate::types::TypeCtx,
-) {
+) -> Vec<ExprBorrow> {
+    let arg_escape_depth = ctx.current_scope_depth();
+    let result_borrows = borrow_bindings_from_reference_arg(arg, ctx)
+        .into_iter()
+        .map(ExprBorrow::needs_retain)
+        .collect();
     match &arg.kind {
         HirExprKind::AddrOf(inner) => visit_temporary_borrow(inner, ctx, tctx, kind),
-        _ => visit_expr(arg, ctx, tctx),
+        _ => {
+            visit_expr_with_escape(arg, ctx, tctx, Some(arg_escape_depth));
+        }
     }
+    result_borrows
 }
 
 fn visit_call_args_with_params(
@@ -610,15 +758,20 @@ fn visit_call_args_with_params(
     params: Option<&[TypeId]>,
     ctx: &mut MoveCheckContext,
     tctx: &crate::types::TypeCtx,
-) {
+) -> Vec<ExprBorrow> {
+    let mut result_borrows = Vec::new();
     for (i, arg) in args.iter().enumerate() {
+        let arg_escape_depth = ctx.current_scope_depth();
         let param_ty = params.and_then(|p| p.get(i)).copied();
-        if let Some(kind) = param_ty.and_then(|ty| reference_borrow_kind(tctx, ty)) {
-            visit_reference_call_arg(arg, kind, ctx, tctx);
-        } else {
-            visit_expr(arg, ctx, tctx);
-        }
+        let arg_borrows =
+            if let Some(kind) = param_ty.and_then(|ty| reference_borrow_kind(tctx, ty)) {
+                visit_reference_call_arg(arg, kind, ctx, tctx)
+            } else {
+                visit_expr_with_escape(arg, ctx, tctx, Some(arg_escape_depth))
+            };
+        result_borrows.extend(arg_borrows);
     }
+    result_borrows
 }
 
 fn can_visit_expr_iteratively(
@@ -776,10 +929,23 @@ fn visit_expr_iteratively(
     }
 }
 
-fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::TypeCtx) {
-    if can_visit_expr_iteratively(expr, ctx, tctx) {
+fn visit_expr(
+    expr: &HirExpr,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Vec<ExprBorrow> {
+    visit_expr_with_escape(expr, ctx, tctx, None)
+}
+
+fn visit_expr_with_escape(
+    expr: &HirExpr,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+    escape_depth: Option<usize>,
+) -> Vec<ExprBorrow> {
+    if escape_depth.is_none() && can_visit_expr_iteratively(expr, ctx, tctx) {
         visit_expr_iteratively(expr, ctx, tctx);
-        return;
+        return Vec::new();
     }
 
     let is_copy = tctx.is_copy(expr.ty);
@@ -787,12 +953,33 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
 
     match &expr.kind {
         HirExprKind::Var(name) => {
+            let result_borrows = ctx
+                .borrow_bindings(name)
+                .into_iter()
+                .map(ExprBorrow::needs_retain)
+                .collect();
             ctx.check_use(name, expr.span, is_copy);
+            if let Some(depth) = escape_depth {
+                ctx.check_var_escape(name, expr.span, depth);
+            }
             ctx.note_var_use(name);
+            result_borrows
         }
-        HirExprKind::FnValue(_) => {}
+        HirExprKind::FnValue(_) => Vec::new(),
         HirExprKind::Call { callee, args } => match callee {
             FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "get" => {
+                let result_borrows = if type_contains_reference(tctx, expr.ty) {
+                    args.first()
+                        .map(|base| {
+                            borrow_bindings_from_place(base, ctx)
+                                .into_iter()
+                                .map(ExprBorrow::needs_retain)
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
                 if let Some(base) = args.get(0) {
                     if tctx.is_copy(expr.ty) {
                         visit_temporary_borrow(base, ctx, tctx, BorrowKind::Shared);
@@ -803,13 +990,17 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 for arg in args.iter().skip(1) {
                     visit_expr(arg, ctx, tctx);
                 }
+                if let Some(depth) = escape_depth {
+                    ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                }
+                result_borrows
             }
             FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "if" => {
                 if args.len() == 3 {
                     visit_expr(&args[0], ctx, tctx);
 
                     ctx.push_history();
-                    visit_expr(&args[1], ctx, tctx);
+                    let then_borrows = visit_expr_with_escape(&args[1], ctx, tctx, escape_depth);
                     let then_diff = ctx.pop_history();
                     let mut then_final = BTreeMap::new();
                     for name in then_diff.keys() {
@@ -819,7 +1010,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                     ctx.undo_history(&then_diff);
 
                     ctx.push_history();
-                    visit_expr(&args[2], ctx, tctx);
+                    let else_borrows = visit_expr_with_escape(&args[2], ctx, tctx, escape_depth);
                     let else_diff = ctx.pop_history();
                     let mut else_final = BTreeMap::new();
                     for name in else_diff.keys() {
@@ -844,6 +1035,11 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                         let merged = MoveCheckContext::merge_state_pair(then_state, else_state);
                         ctx.set_state(&name, merged);
                     }
+                    let mut result_borrows = then_borrows;
+                    result_borrows.extend(else_borrows);
+                    result_borrows
+                } else {
+                    Vec::new()
                 }
             }
             FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "while" => {
@@ -878,13 +1074,23 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                     }
                     visit_expr(&args[0], ctx, tctx);
                 }
+                Vec::new()
             }
             _ => {
                 let params = match callee {
                     FuncRef::User(name, _) => ctx.function_params.get(name).cloned(),
                     _ => None,
                 };
-                visit_call_args_with_params(args, params.as_deref(), ctx, tctx);
+                let result_borrows =
+                    visit_call_args_with_params(args, params.as_deref(), ctx, tctx);
+                if type_contains_reference(tctx, expr.ty) {
+                    if let Some(depth) = escape_depth {
+                        ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                    }
+                    result_borrows
+                } else {
+                    Vec::new()
+                }
             }
         },
         HirExprKind::CallIndirect {
@@ -894,7 +1100,16 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             ..
         } => {
             visit_expr(callee, ctx, tctx);
-            visit_call_args_with_params(args, Some(params.as_slice()), ctx, tctx);
+            let result_borrows =
+                visit_call_args_with_params(args, Some(params.as_slice()), ctx, tctx);
+            if type_contains_reference(tctx, expr.ty) {
+                if let Some(depth) = escape_depth {
+                    ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                }
+                result_borrows
+            } else {
+                Vec::new()
+            }
         }
         HirExprKind::If {
             cond,
@@ -904,7 +1119,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             visit_expr(cond, ctx, tctx);
 
             ctx.push_history();
-            visit_expr(then_branch, ctx, tctx);
+            let then_borrows = visit_expr_with_escape(then_branch, ctx, tctx, escape_depth);
             let then_diff = ctx.pop_history();
             let mut then_final = BTreeMap::new();
             for name in then_diff.keys() {
@@ -914,7 +1129,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
             ctx.undo_history(&then_diff);
 
             ctx.push_history();
-            visit_expr(else_branch, ctx, tctx);
+            let else_borrows = visit_expr_with_escape(else_branch, ctx, tctx, escape_depth);
             let else_diff = ctx.pop_history();
             let mut else_final = BTreeMap::new();
             for name in else_diff.keys() {
@@ -939,6 +1154,9 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 let merged = MoveCheckContext::merge_state_pair(then_state, else_state);
                 ctx.set_state(&name, merged);
             }
+            let mut result_borrows = then_borrows;
+            result_borrows.extend(else_borrows);
+            result_borrows
         }
         HirExprKind::While { cond, body } => {
             visit_expr(cond, ctx, tctx);
@@ -967,12 +1185,14 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 }
             }
             visit_expr(cond, ctx, tctx);
+            Vec::new()
         }
         HirExprKind::Match { scrutinee, arms } => {
             visit_expr(scrutinee, ctx, tctx);
 
             let mut all_branch_diffs = Vec::new();
             let mut all_branch_finals = Vec::new();
+            let mut result_borrows = Vec::new();
 
             for arm in arms {
                 ctx.push_history();
@@ -980,7 +1200,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 if let Some(bind) = &arm.bind_local {
                     ctx.declare_var(bind.clone());
                 }
-                visit_expr(&arm.body, ctx, tctx);
+                let arm_borrows = visit_expr_with_escape(&arm.body, ctx, tctx, escape_depth);
                 ctx.pop_scope();
                 let diff = ctx.pop_history();
                 let mut final_states = BTreeMap::new();
@@ -991,6 +1211,7 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 ctx.undo_history(&diff);
                 all_branch_diffs.push(diff);
                 all_branch_finals.push(final_states);
+                result_borrows.extend(arm_borrows);
             }
 
             let mut all_modified = BTreeSet::new();
@@ -1012,56 +1233,63 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 let merged = MoveCheckContext::merge_states(&states);
                 ctx.set_state(&name, merged);
             }
+            result_borrows
         }
-        HirExprKind::Block(b) => visit_block(b, ctx, tctx),
+        HirExprKind::Block(b) => visit_block_with_escape(b, ctx, tctx, escape_depth),
         // HirExprKind::Let { name, value, .. } => {
         //     visit_expr(value, ctx, tctx);
         //     ctx.declare_var(name.clone());
         // }
         HirExprKind::Set { value, name } => {
-            visit_expr(value, ctx, tctx);
+            let target_depth = ctx
+                .scope_depth_of(name)
+                .unwrap_or_else(|| ctx.current_scope_depth());
+            let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(target_depth));
             ctx.check_assign(name, expr.span);
+            let retained_borrows = ctx.retain_expr_borrows(value_borrows);
+            ctx.set_borrow_bindings(name, retained_borrows);
+            Vec::new()
         }
         HirExprKind::Let { name, value, .. } => {
-            if let HirExprKind::AddrOf(inner) = &value.kind {
-                let binding = borrow_source_name(inner).and_then(|source| {
-                    let is_copy = tctx.is_copy(inner.ty);
-                    if ctx.check_borrow(source.as_str(), inner.span, BorrowKind::Shared, is_copy) {
-                        Some(BorrowBinding {
-                            source,
-                            kind: BorrowKind::Shared,
-                        })
-                    } else {
-                        None
-                    }
-                });
-                ctx.declare_var_with_borrow(name.clone(), binding);
-                ctx.set_state(name, VarState::Valid);
-                if ctx.remaining_uses(name) == 0 {
-                    ctx.release_borrow_binding(name);
-                }
-            } else {
-                visit_expr(value, ctx, tctx);
-
-                // A new binding starts as Valid.
-                ctx.declare_var(name.clone());
-                ctx.set_state(name, VarState::Valid);
+            let storage_depth = ctx.current_scope_depth();
+            let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(storage_depth));
+            let retained_borrows = ctx.retain_expr_borrows(value_borrows);
+            ctx.declare_var_with_borrows(name.clone(), retained_borrows);
+            ctx.set_state(name, VarState::Valid);
+            if ctx.remaining_uses(name) == 0 {
+                ctx.release_borrow_binding(name);
             }
+            Vec::new()
         }
         HirExprKind::StructConstruct { fields, .. } => {
+            let mut result_borrows = Vec::new();
             for f in fields {
-                visit_expr(f, ctx, tctx);
+                result_borrows.extend(visit_expr_with_escape(f, ctx, tctx, escape_depth));
             }
+            if let Some(depth) = escape_depth {
+                ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+            }
+            result_borrows
         }
         HirExprKind::EnumConstruct { payload, .. } => {
+            let mut result_borrows = Vec::new();
             if let Some(p) = payload {
-                visit_expr(p, ctx, tctx);
+                result_borrows.extend(visit_expr_with_escape(p, ctx, tctx, escape_depth));
             }
+            if let Some(depth) = escape_depth {
+                ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+            }
+            result_borrows
         }
         HirExprKind::TupleConstruct { items } => {
+            let mut result_borrows = Vec::new();
             for item in items {
-                visit_expr(item, ctx, tctx);
+                result_borrows.extend(visit_expr_with_escape(item, ctx, tctx, escape_depth));
             }
+            if let Some(depth) = escape_depth {
+                ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+            }
+            result_borrows
         }
         HirExprKind::Intrinsic {
             name,
@@ -1080,6 +1308,23 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                         visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Unique);
                     }
                 }
+                if is_copy_load && type_contains_reference(tctx, expr.ty) {
+                    let result_borrows = args
+                        .first()
+                        .map(|addr| {
+                            borrow_bindings_from_place(addr, ctx)
+                                .into_iter()
+                                .map(ExprBorrow::needs_retain)
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    if let Some(depth) = escape_depth {
+                        ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                    }
+                    result_borrows
+                } else {
+                    Vec::new()
+                }
             }
             "store" => {
                 if let Some(addr) = args.get(0) {
@@ -1088,51 +1333,51 @@ fn visit_expr(expr: &HirExpr, ctx: &mut MoveCheckContext, tctx: &crate::types::T
                 if let Some(val) = args.get(1) {
                     visit_expr(val, ctx, tctx);
                 }
+                Vec::new()
             }
             _ => {
+                let mut result_borrows = Vec::new();
                 for arg in args {
-                    visit_expr(arg, ctx, tctx);
+                    result_borrows.extend(visit_expr(arg, ctx, tctx));
+                }
+                if type_contains_reference(tctx, expr.ty) {
+                    if let Some(depth) = escape_depth {
+                        ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                    }
+                    result_borrows
+                } else {
+                    Vec::new()
                 }
             }
         },
         HirExprKind::AddrOf(inner) => {
-            visit_borrow(inner, ctx, tctx, BorrowKind::Shared);
+            let binding = shared_borrow_binding(inner);
+            if let (Some(depth), Some(binding)) = (escape_depth, binding.as_ref()) {
+                ctx.check_binding_escape(binding, expr.span, depth);
+            }
+            visit_temporary_borrow(inner, ctx, tctx, BorrowKind::Shared);
+            binding.map(ExprBorrow::needs_retain).into_iter().collect()
         }
         HirExprKind::Deref(inner) => {
-            visit_expr(inner, ctx, tctx);
+            let result_borrows = visit_expr(inner, ctx, tctx);
+            if type_contains_reference(tctx, expr.ty) {
+                if let Some(depth) = escape_depth {
+                    ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                }
+                result_borrows
+            } else {
+                Vec::new()
+            }
         }
         HirExprKind::Drop { name } => {
             ctx.check_drop(name, expr.span);
+            Vec::new()
         }
         HirExprKind::LiteralI32(_)
         | HirExprKind::LiteralF32(_)
         | HirExprKind::LiteralBool(_)
         | HirExprKind::LiteralStr(_)
-        | HirExprKind::Unit => {}
-    }
-}
-
-fn visit_borrow(
-    expr: &HirExpr,
-    ctx: &mut MoveCheckContext,
-    tctx: &crate::types::TypeCtx,
-    kind: BorrowKind,
-) {
-    match &expr.kind {
-        HirExprKind::Var(name) => {
-            let is_copy = tctx.is_copy(expr.ty);
-            ctx.check_borrow(name, expr.span, kind, is_copy);
-        }
-        HirExprKind::Deref(inner) => {
-            // Re-borrowing a dereference. Still a borrow.
-            visit_borrow(inner, ctx, tctx, kind);
-        }
-        HirExprKind::Intrinsic { args, .. } => {
-            for arg in args {
-                visit_borrow(arg, ctx, tctx, kind);
-            }
-        }
-        _ => visit_expr(expr, ctx, tctx),
+        | HirExprKind::Unit => Vec::new(),
     }
 }
 
@@ -1199,7 +1444,9 @@ pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic>
         }
 
         match &func.body {
-            crate::hir::HirBody::Block(b) => visit_block(b, &mut f_ctx, types),
+            crate::hir::HirBody::Block(b) => {
+                visit_block_with_escape(b, &mut f_ctx, types, Some(0));
+            }
             _ => {}
         }
 

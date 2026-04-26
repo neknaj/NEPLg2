@@ -17923,3 +17923,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host wasm backend はまだ Stage 0 marker のため、今回は backend へ raw pointer 実装を広げず、まず public ByteBuilder API と回帰テストを確定した。
+# 2026-04-26 メモ (ISS-20260426T134706492Z move checker lifetime escape 検査)
+
+- [同期]:
+  - user 指示により stdlib 側の修正は行わず、Rust core 実装の borrow/lifetime safety に限定して対応した。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` は Resource IR 導入を含む広い設計 issue として残し、今回はそこから分離した concrete bug `ISS-20260426T134706492Z-MOVE-CHECKER-ALLOWS-LOCAL-BORROW-REF-337A78B2` を解決した。
+- [原因]:
+  - 既存の move checker は変数の borrow 状態を持っていたが、binding の宣言 scope depth と参照値が保持する borrow origin を値として追跡していなかった。
+  - そのため `&local` の関数返却、block 返却、外側変数への `set`、`RefBox &local` のような参照を含む集約値経由、参照引数から参照を含む返り値が返る関数呼び出しで lifetime escape を検出できなかった。
+- [修正]:
+  - `move_check` に scope depth stack と複数 borrow origin stack を追加し、各 binding が保持する borrow source を記録するようにした。
+  - 式走査が `ExprBorrow` を返し、`let` / `set` でのみ保持 borrow として確定する流れに整理した。これにより一時 borrow と変数に保持される borrow を分離した。
+  - block / if / match / struct / tuple / enum / call / call_indirect の返り値へ expected escape depth を伝播し、source depth が destination より深い場合に `D3099 TypeBorrowEscapesScope` を出すようにした。
+  - 参照引数から参照を含む返り値が作られる call では、caller 側で返り値の borrow origin を参照引数へ結びつける保守的な検査を入れた。
+- [回帰テスト]:
+  - 直接 `&local` 返却、block 返却、外側参照への `set` を compile_fail として追加した。
+  - `RefBox { inner: &T }` 相当の参照含有 struct を一度 local に格納してから返す/外側へ代入するケースを追加した。
+  - `id_ref &local` と `box_ref &local` のように、参照引数から参照を含む返り値が返る caller 側 lifetime propagation を追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check -p nepl-core --test move_check`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 22 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-borrow-escape.json -j 1`: `total=23`, `passed=23`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 着手前の安全性検査として、現行 HIR move checker に lifetime escape の concrete guard を追加した。Resource IR による根本整理は引き続き RV-CORE-009 の対象として残る。

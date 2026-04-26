@@ -225,6 +225,8 @@ pub enum DiagnosticId {
     TypeMatchPatternUnsupported = 3097,
     /// wildcard match arm が最後ではない。
     TypeMatchWildcardMustBeLast = 3098,
+    /// ローカル borrow が有効 scope の外へ逃げる。
+    TypeBorrowEscapesScope = 3099,
     /// WASM backend が extern シグネチャを lower できない。
     CodegenWasmUnsupportedExternSignature = 4001,
     /// WASM backend が関数シグネチャを lower できない。
@@ -394,6 +396,7 @@ impl DiagnosticId {
             3096 => Some(DiagnosticId::TypeUnknownTraitCapability),
             3097 => Some(DiagnosticId::TypeMatchPatternUnsupported),
             3098 => Some(DiagnosticId::TypeMatchWildcardMustBeLast),
+            3099 => Some(DiagnosticId::TypeBorrowEscapesScope),
             4001 => Some(DiagnosticId::CodegenWasmUnsupportedExternSignature),
             4002 => Some(DiagnosticId::CodegenWasmUnsupportedFunctionSignature),
             4003 => Some(DiagnosticId::CodegenWasmMissingReturnValue),
@@ -600,6 +603,7 @@ impl DiagnosticId {
                 "match arm pattern is not supported for this scrutinee type"
             }
             DiagnosticId::TypeMatchWildcardMustBeLast => "wildcard match arm must be last",
+            DiagnosticId::TypeBorrowEscapesScope => "borrowed value escapes its scope",
             DiagnosticId::CodegenWasmUnsupportedExternSignature => {
                 "unsupported extern signature for wasm"
             }

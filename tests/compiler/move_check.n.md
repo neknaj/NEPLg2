@@ -366,3 +366,208 @@ fn main <()->()> ():
             ()
     let z <LocalToken> x
 ```
+
+## move_return_local_reference_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn leak <()->&LocalToken> ():
+    let t <LocalToken> LocalToken @token_id
+    &t
+
+fn main <()->i32> ():
+    let r <&LocalToken> leak
+    0
+```
+
+## move_block_local_reference_escape_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let r <&LocalToken> block:
+        let t <LocalToken> LocalToken @token_id
+        &t
+    0
+```
+
+## move_set_outer_reference_to_inner_local_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let outer <LocalToken> LocalToken @token_id
+    let mut r <&LocalToken> &outer
+    block:
+        let inner <LocalToken> LocalToken @token_id
+        set r &inner
+    0
+```
+
+## move_return_local_reference_inside_struct_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct RefBox:
+    inner <&LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn leak <()->RefBox> ():
+    let t <LocalToken> LocalToken @token_id
+    let b <RefBox> RefBox &t
+    b
+
+fn main <()->i32> ():
+    let b <RefBox> leak
+    0
+```
+
+## move_block_local_reference_inside_struct_escape_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct RefBox:
+    inner <&LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let b <RefBox> block:
+        let t <LocalToken> LocalToken @token_id
+        let local <RefBox> RefBox &t
+        local
+    0
+```
+
+## move_set_outer_struct_reference_to_inner_local_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct RefBox:
+    inner <&LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let outer <LocalToken> LocalToken @token_id
+    let mut b <RefBox> RefBox &outer
+    block:
+        let inner <LocalToken> LocalToken @token_id
+        let local <RefBox> RefBox &inner
+        set b local
+    0
+```
+
+## move_call_return_reference_to_block_local_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn id_ref <(&LocalToken)->&LocalToken> (x):
+    x
+
+fn main <()->i32> ():
+    let r <&LocalToken> block:
+        let t <LocalToken> LocalToken @token_id
+        id_ref &t
+    0
+```
+
+## move_call_return_struct_reference_to_block_local_err
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct RefBox:
+    inner <&LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn box_ref <(&LocalToken)->RefBox> (x):
+    RefBox x
+
+fn main <()->i32> ():
+    let b <RefBox> block:
+        let t <LocalToken> LocalToken @token_id
+        box_ref &t
+    0
+```

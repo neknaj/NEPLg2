@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T14:07:58.553Z",
+  "generated_at": "2026-04-26T14:16:55.019Z",
   "counts": {
-    "total": 127,
+    "total": 128,
     "open": 13,
-    "resolved": 114,
+    "resolved": 115,
     "by_area": {
       "core": {
-        "total": 44,
+        "total": 45,
         "open": 3,
-        "resolved": 41
+        "resolved": 42
       },
       "stdlib": {
         "total": 43,
@@ -883,6 +883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF.md"
+    },
+    {
+      "id": "ISS-20260426T134706492Z-MOVE-CHECKER-ALLOWS-LOCAL-BORROW-REF-337A78B2",
+      "title": "move checker allows local borrow references to escape their scope",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/move_check.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T134706492Z-MOVE-CHECKER-ALLOWS-LOCAL-BORROW-REF-337A78B2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
