@@ -1,3 +1,25 @@
+# 2026-04-26 メモ (ISS-20260426T023700894Z traits_text runtime return 修正)
+
+- 状況:
+  - `tests/stdlib/traits_text.n.md::doctest#1` は `Clone::clone &x` 経由の `clone_add` で期待値 `14` に対して `131074` を返していた。
+  - 最小化すると stdlib trait や string helper ではなく、`*(&i32)` 自体が scalar 値ではなく不正なメモリ読み出し結果を返していた。
+- 原因:
+  - `nepl-core/src/codegen_wasm.rs` の `AddrOf` lowering が inner expression の結果をそのまま reference 値として扱っていた。
+  - aggregate は heap storage pointer を値として持つため成立していたが、scalar local は値そのものを pointer として `Deref` に渡していた。
+- 修正:
+  - `AddrOf` で aggregate は従来どおり storage pointer を返し、scalar は値を一時localへ退避してからメモリ確保し、型に合った store 命令で addressable storage を作るようにした。
+  - runtime 表現を持たない unit などへの参照は inner の副作用だけ評価し、`0` pointer を返すようにした。
+  - `tests/compiler/reference_codegen.n.md` を追加し、`*(&i32)` と `Clone::clone &i32` のWASM戻り値を固定した。
+  - `issues/items/ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318.md` を core issue として verified に更新した。
+- 確認済み:
+  - `cargo test -p nepl-core --test move_check`: 14/14 passed
+  - `trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/reference-codegen-tests.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/traits-text-issue.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/traits-text-tests-stdlib.json -j 4`: 202/202 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は既存参照意味論のWASM実装不備を直したもので、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T020000000Z STRING-FIND-STUB 修正)
 
 - 状況:

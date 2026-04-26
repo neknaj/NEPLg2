@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T03:22:15.645Z",
+  "generated_at": "2026-04-26T03:37:45.937Z",
   "counts": {
     "total": 105,
-    "open": 32,
-    "resolved": 73,
+    "open": 31,
+    "resolved": 74,
     "by_area": {
       "core": {
-        "total": 35,
+        "total": 36,
         "open": 8,
-        "resolved": 27
+        "resolved": 28
       },
       "selfhost": {
         "total": 7,
@@ -17,8 +17,8 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 33,
-        "open": 15,
+        "total": 32,
+        "open": 14,
         "resolved": 18
       },
       "cli": {
@@ -303,21 +303,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md"
-    },
-    {
-      "id": "ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318",
-      "title": "traits_text doctest が runtime return mismatch になる",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "tests/stdlib/traits_text.n.md, stdlib/core/traits, stdlib/std/string.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-007-7A548794",
@@ -1068,6 +1053,21 @@
       "legacy_id": "RV-CORE-019",
       "source": "doc/review20260425/core.md#rv-core-019",
       "file": "items/ISS-20260425T000000Z-RV-CORE-019-3D2AEC66.md"
+    },
+    {
+      "id": "ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318",
+      "title": "traits_text doctest が runtime return mismatch になる",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_wasm.rs, tests/compiler/reference_codegen.n.md, tests/stdlib/traits_text.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

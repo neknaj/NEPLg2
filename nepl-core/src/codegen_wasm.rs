@@ -887,6 +887,54 @@ fn emit_alloc_call(locals: &mut LocalMap, insts: &mut Vec<Instruction<'static>>)
     }
 }
 
+fn emit_scalar_store(
+    ty_kind: &TypeKind,
+    vt: ValType,
+    span: Span,
+    insts: &mut Vec<Instruction<'static>>,
+) -> LowerResult<()> {
+    match vt {
+        ValType::I32 => {
+            if matches!(ty_kind, TypeKind::U8) {
+                insts.push(Instruction::I32Store8(MemArg {
+                    offset: 0,
+                    align: 0,
+                    memory_index: 0,
+                }));
+            } else {
+                insts.push(Instruction::I32Store(MemArg {
+                    offset: 0,
+                    align: 2,
+                    memory_index: 0,
+                }));
+            }
+        }
+        ValType::F32 => insts.push(Instruction::F32Store(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        })),
+        ValType::I64 => insts.push(Instruction::I64Store(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        })),
+        ValType::F64 => insts.push(Instruction::F64Store(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        })),
+        _ => {
+            return Err(codegen_error(
+                "unsupported scalar address valtype reached wasm codegen",
+                span,
+                DiagnosticId::CodegenWasmUnsupportedFieldValueType,
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn find_function_value_index(name_map: &BTreeMap<String, u32>, base: &str) -> Option<u32> {
     if let Some(idx) = name_map.get(base) {
         return Some(*idx);
@@ -2423,8 +2471,34 @@ fn gen_expr(
             None
         }
         HirExprKind::AddrOf(inner) => {
-            gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
-            valtype(&ctx.get(expr.ty))
+            let inner_ty = ctx.resolve_id(inner.ty);
+            if is_aggregate_storage_type(ctx, inner_ty) {
+                gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
+                return Ok(Some(ValType::I32));
+            }
+
+            let produced = gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
+            let Some(vt) = valtype(&ctx.get(inner_ty)) else {
+                if produced.is_some() {
+                    insts.push(Instruction::Drop);
+                }
+                insts.push(Instruction::I32Const(0));
+                return Ok(Some(ValType::I32));
+            };
+
+            let value_local = locals.alloc_temp(vt);
+            insts.push(Instruction::LocalSet(value_local));
+            insts.push(Instruction::I32Const(
+                type_storage_size_bytes(ctx, inner_ty) as i32,
+            ));
+            emit_alloc_call(locals, insts);
+            let ptr_local = locals.alloc_temp(ValType::I32);
+            insts.push(Instruction::LocalSet(ptr_local));
+            insts.push(Instruction::LocalGet(ptr_local));
+            insts.push(Instruction::LocalGet(value_local));
+            emit_scalar_store(&ctx.get(inner_ty), vt, expr.span, insts)?;
+            insts.push(Instruction::LocalGet(ptr_local));
+            Some(ValType::I32)
         }
         HirExprKind::Deref(inner) => {
             let ty = ctx.resolve_id(expr.ty);
