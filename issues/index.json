@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:33:48.565Z",
+  "generated_at": "2026-04-26T02:36:26.106Z",
   "counts": {
     "total": 100,
-    "open": 34,
-    "resolved": 66,
+    "open": 33,
+    "resolved": 67,
     "by_area": {
-      "core": {
-        "total": 34,
-        "open": 8,
-        "resolved": 26
-      },
       "cli": {
         "total": 15,
         "open": 3,
         "resolved": 12
+      },
+      "core": {
+        "total": 34,
+        "open": 7,
+        "resolved": 27
       },
       "selfhost": {
         "total": 7,
@@ -34,21 +34,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260425T000000Z-RV-CORE-007-5E3F920D",
-      "title": "codegen が診断ではなく panic で落ちる経路を多数持つ",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
-      "legacy_id": "RV-CORE-007",
-      "source": "doc/review20260425/core.md#rv-core-007",
-      "file": "items/ISS-20260425T000000Z-RV-CORE-007-5E3F920D.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-011-5F45E617",
       "title": "llvm-test の full dual backend verification が CI timeout で cancelled になる",
@@ -603,6 +588,21 @@
       "legacy_id": "RV-CORE-004",
       "source": "doc/review20260425/core.md#rv-core-004",
       "file": "items/ISS-20260425T000000Z-RV-CORE-004-77FA051C.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-CORE-007-5E3F920D",
+      "title": "codegen が診断ではなく panic で落ちる経路を多数持つ",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
+      "legacy_id": "RV-CORE-007",
+      "source": "doc/review20260425/core.md#rv-core-007",
+      "file": "items/ISS-20260425T000000Z-RV-CORE-007-5E3F920D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-013-3602E836",

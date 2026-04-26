@@ -296,8 +296,8 @@ CLI は loader を呼ぶ前に `nepl_core::log::set_verbose(cli.verbose)` を設
 
 ## RV-CORE-007: codegen が診断ではなく panic で落ちる経路を多数持つ
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`

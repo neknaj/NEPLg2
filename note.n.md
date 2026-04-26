@@ -95,6 +95,22 @@
   - `node nodesrc/tests.js -i stdlib/neplg3 --no-tree -o tmp/neplg3-stdlib-placeholder-tests.json -j 2`: 6/6 passed（全件 skip doctest として収集成功）。
 - [plan.mdとの差異]:
   - plan.md は変更していない。plan.md は旧 NEPLg2 起点の設計メモとして保持し、次世代仕様の正は `doc/neplg3/spec/` に移した。
+# 2026-04-26 メモ (RV-CORE-007 Issue 台帳同期)
+
+- [状況]:
+  - `RV-CORE-007` は既に codegen panic 診断化の実装と回帰テストが存在し、旧 review 索引でも verified として扱われていた。
+  - しかし `doc/review20260425/core.md` の issue 本文 metadata と新 `issues/items/ISS-20260425T000000Z-RV-CORE-007-5E3F920D.md` の frontmatter が `open` のまま残っていた。
+- [修正]:
+  - 旧 review 本文と新 Issue 台帳の `RV-CORE-007` を `resolved: true` / `status: verified` に更新した。
+  - 新 Issue 本文に WASM / LLVM backend の diagnostic 化結果と、production codegen 経路に明示 `panic!` / `unwrap()` / `expect()` が残っていないことを追記した。
+  - `node nodesrc/issues.js index` で索引を再生成した。
+- [確認済み]:
+  - `rg -n "panic!|todo!|unimplemented!|expect\\(|unwrap\\(" nepl-core/src/codegen_wasm.rs nepl-core/src/codegen_llvm.rs`: production 経路の明示 panic / unwrap / expect は検出なし。検出された `expect()` は `codegen_llvm.rs` 内部 test のみ。
+  - `cargo test -p nepl-core --test codegen_diagnostics`: 通過。
+  - `node nodesrc/tests.js -i tests/compiler/codegen_diagnostics.n.md --no-tree -o tmp/codegen-diagnostics-rv-core-007-verify.json -j 1`: 3/3 passed。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の変更は実装済み Issue の台帳状態同期であり、仕様や実装挙動は変更していない。
+
 # 2026-04-26 メモ (RV-STDLIB-025 Issue 台帳移行)
 
 - [状況]:
