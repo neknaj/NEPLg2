@@ -1,3 +1,25 @@
+# 2026-04-26 メモ (ISS-20260426T052817994Z compile runner stdlib VFS cache)
+
+- [原因]:
+  - `nodesrc/run_test.js` と `nodesrc/cli.js` は compile invocation ごとに `stdlib/**/*.nepl` を全走査・全読込し、同じ stdlib VFS を process 内で何度も作り直していた。
+  - compiler 本体の monomorphize / typecheck とは別の固定コストだが、compile-heavy doctest run の wall time に混ざり、真の hot path 測定を曇らせていた。
+- [修正]:
+  - `nodesrc/stdlib_vfs_cache.js` を追加し、stdlib root ごとの process-local VFS cache を共有 helper として切り出した。
+  - `nodesrc/run_test.js` と `nodesrc/cli.js` が helper を使うようにし、同一 command invocation 内では stdlib filesystem scan / read を繰り返さないようにした。
+  - missing root の互換性は維持し、test runner は `{}`、CLI は error を返す。
+  - `nodesrc/test_stdlib_vfs_cache.js` を追加し、同一 root cache、別 root 分離、cache clear、missing root 挙動を固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_vfs_cache.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/compile-vfs-cache-focused.json -j 1`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl -i stdlib/std/streamio.nepl -i stdlib/std/io.nepl --no-tree -o tmp/compile-vfs-cache-stdio-suite.json -j 1`: `total=30`, `passed=30`, `failed=0`
+  - `node nodesrc/test_cli_args.js`: pass
+  - focused timing smoke: cold avg 約 `98.87ms`、warm avg 約 `0.0158ms`
+- [残件]:
+  - compiler 本体の遅さは既存 `ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5` と `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` を続けて扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 今回は self-host 前提の compile-heavy test / CLI 起動中の固定 I/O cost を削減した。
+
 # 2026-04-26 メモ (ISS-20260426T021004000Z IMPORT-VISIBILITY-CLONE 修正)
 
 - 状況:

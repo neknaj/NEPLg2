@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T05:28:18.080Z",
+  "generated_at": "2026-04-26T05:35:02.052Z",
   "counts": {
     "total": 106,
-    "open": 20,
-    "resolved": 86,
+    "open": 19,
+    "resolved": 87,
     "by_area": {
       "core": {
         "total": 36,
@@ -21,11 +21,6 @@
         "open": 10,
         "resolved": 22
       },
-      "nodesrc": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
-      },
       "cli": {
         "total": 17,
         "open": 0,
@@ -35,6 +30,11 @@
         "total": 13,
         "open": 0,
         "resolved": 13
+      },
+      "nodesrc": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       }
     }
   },
@@ -233,21 +233,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5.md"
-    },
-    {
-      "id": "ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B",
-      "title": "compile runner rebuilds stdlib VFS for every test case",
-      "area": "nodesrc",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nodesrc/run_test.js, nodesrc/cli.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B.md"
     },
     {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
@@ -1508,6 +1493,21 @@
       "legacy_id": "RV-EXAMPLE-004",
       "source": "doc/review20260425/examples.md#rv-example-004",
       "file": "items/ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A.md"
+    },
+    {
+      "id": "ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B",
+      "title": "compile runner rebuilds stdlib VFS for every test case",
+      "area": "nodesrc",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nodesrc/stdlib_vfs_cache.js, nodesrc/run_test.js, nodesrc/cli.js, nodesrc/test_stdlib_vfs_cache.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B.md"
     },
     {
       "id": "ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91",

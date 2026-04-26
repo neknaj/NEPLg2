@@ -2,13 +2,13 @@
 id: ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B
 title: "compile runner rebuilds stdlib VFS for every test case"
 area: nodesrc
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: performance
 created: 2026-04-26
 updated: 2026-04-26
-target: "nodesrc/run_test.js, nodesrc/cli.js"
+target: "nodesrc/stdlib_vfs_cache.js, nodesrc/run_test.js, nodesrc/cli.js, nodesrc/test_stdlib_vfs_cache.js"
 ---
 
 # ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B: compile runner rebuilds stdlib VFS for every test case
@@ -47,9 +47,23 @@ stdlib root ごとに process-local cache を持ち、同一 command invocation 
 cache は process 内だけに閉じ、新しい `node` / CLI invocation では必ず filesystem を読み直すため、開発中のファイル変更は次の command で観測できる。
 compile API 呼び出し側が VFS を mutate しない前提を守り、念のため caller 側で stdlib VFS と local VFS を merge する fallback では cached object を直接破壊しない。
 
+## 対応結果
+
+`nodesrc/stdlib_vfs_cache.js` を追加し、stdlib root ごとの process-local VFS cache を共有 helper として切り出した。
+`nodesrc/run_test.js` と `nodesrc/cli.js` はこの helper を使うようにし、同一 process 内の複数 compile で stdlib filesystem scan と read を繰り返さないようにした。
+missing root の互換性は維持し、test runner は従来どおり `{}`、CLI は従来どおり `stdlib root not found` error を返す。
+
+`nodesrc/test_stdlib_vfs_cache.js` を追加し、同一 root の cache hit、別 root の分離、cache clear 後の再読込、missing root の `empty` / `throw` 挙動を固定した。
+
 ## 検証
 
 - `nodesrc/run_test.js` / `nodesrc/cli.js` の stdlib VFS cache が同一 root で同じ object を返し、別 root では別 object を返すことを確認する。
 - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/compile-vfs-cache-focused.json -j 1` を通す。
 - `node nodesrc/tests.js -i stdlib/std/stdio.nepl -i stdlib/std/streamio.nepl -i stdlib/std/io.nepl --no-tree -o tmp/compile-vfs-cache-stdio-suite.json -j 1` を通す。
 - 必要に応じて VFS 構築の focused timing を修正前後で比較する。
+
+- `node nodesrc/test_stdlib_vfs_cache.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/compile-vfs-cache-focused.json -j 1`: 3/3 passed
+- `node nodesrc/tests.js -i stdlib/std/stdio.nepl -i stdlib/std/streamio.nepl -i stdlib/std/io.nepl --no-tree -o tmp/compile-vfs-cache-stdio-suite.json -j 1`: 30/30 passed
+- `node nodesrc/test_cli_args.js`: pass
+- focused timing smoke: cold avg 約 98.87ms、warm avg 約 0.0158ms

@@ -17,6 +17,7 @@ const { WASI } = require('node:wasi');
 const { candidateDistDirs } = require('./util_paths');
 const { loadCompilerFromCandidates } = require('./compiler_loader');
 const { wasmerRunMountArgs } = require('./wasmer_args');
+const { loadStdlibVfsFromFs } = require('./stdlib_vfs_cache');
 
 function readStdinAll() {
     return new Promise((resolve) => {
@@ -335,40 +336,8 @@ function collectVfsSources(entrySource, testFile) {
     return vfs;
 }
 
-function toPosixPath(p) {
-    return String(p).replace(/\\/g, '/');
-}
-
-function walkFiles(root) {
-    const out = [];
-    function rec(cur) {
-        const ents = fs.readdirSync(cur, { withFileTypes: true });
-        for (const e of ents) {
-            const p = path.join(cur, e.name);
-            if (e.isDirectory()) rec(p);
-            else if (e.isFile()) out.push(p);
-        }
-    }
-    rec(root);
-    return out;
-}
-
-function loadStdlibVfsFromFs(stdlibRootDir = path.resolve(process.cwd(), 'stdlib')) {
-    const root = path.resolve(stdlibRootDir);
-    if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-        return {};
-    }
-    const out = {};
-    for (const f of walkFiles(root)) {
-        if (!f.endsWith('.nepl')) continue;
-        const rel = toPosixPath(path.relative(root, f));
-        out[`/stdlib/${rel}`] = fs.readFileSync(f, 'utf8');
-    }
-    return out;
-}
-
 function compileWithFsStdlib(api, source, vfs, profile = 'debug') {
-    const stdlibVfs = loadStdlibVfsFromFs();
+    const stdlibVfs = loadStdlibVfsFromFs(path.resolve(process.cwd(), 'stdlib'), { missing: 'empty' });
     if (typeof api.compile_source_with_vfs_stdlib_and_profile === 'function') {
         return withConsoleSuppressed(() =>
             api.compile_source_with_vfs_stdlib_and_profile(

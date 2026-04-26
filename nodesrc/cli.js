@@ -15,6 +15,7 @@ const { candidateDistDirs } = require('./util_paths');
 const { findCompilerDistDir } = require('./compiler_loader');
 const { buildEntriesFromAst } = require('./search');
 const { runCases: runPlaygroundEditorCases } = require('./playground_editor_test_runner');
+const { loadStdlibVfsFromFs: loadCachedStdlibVfsFromFs } = require('./stdlib_vfs_cache');
 const DISCORD_WEBHOOK_USERNAME = 'NEPLg2 dev report';
 
 let parserModuleCache = null;
@@ -357,18 +358,7 @@ function toPosixPath(p) {
 }
 
 function loadStdlibVfsFromFs(stdlibRootDir) {
-    const root = path.resolve(stdlibRootDir);
-    if (!isDir(root)) {
-        throw new Error(`stdlib root not found: ${root}`);
-    }
-    const out = {};
-    const files = walkFiles(root, []);
-    for (const f of files) {
-        if (!f.endsWith('.nepl')) continue;
-        const rel = toPosixPath(path.relative(root, f));
-        out[`/stdlib/${rel}`] = fs.readFileSync(f, 'utf8');
-    }
-    return out;
+    return loadCachedStdlibVfsFromFs(stdlibRootDir, { missing: 'throw' });
 }
 
 function compileWithLocalStdlib(api, {
