@@ -17400,3 +17400,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - JSON issue では array/object の raw handle rejection と string roundtrip/serialize を固定し、string raw handle rejection は core issue 側の回帰テストとして扱う。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-04-26 メモ (ISS-20260426T060250100Z JSON typed values 修正)
+
+- [原因]:
+  - `JsonValue::String` / `Array` / `Object` が raw `i32` payload を保持し、Object の payload 構造も stdlib API 上で定義されていなかった。
+  - そのため diagnostic JSON や self-host artifact metadata を組み立てるとき、無効 pointer や layout mismatch を型で防げない状態だった。
+- [修正]:
+  - `JsonValue::String` は `str`、`Array` は `Vec<JsonValue>`、`Object` は `Vec<JsonMember>` を payload にした。
+  - `json_array_new` / `json_array_push` / `json_object_new` / `json_object_push` / `json_member` などの builder API を追加した。
+  - `json_serialize`、array/object serializer、JSON string escape を追加し、escape の固定分岐は `JsonEscapeKind` enum を `match` する形にした。
+  - `stdlib/tests/json.n.md` を typed builder API に同期し、`tests/stdlib/json_typed_values.n.md` に roundtrip / nested serialize / escape / raw handle compile_fail の回帰テストを追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/json-typed-values-focused.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/encoding/json.nepl -i stdlib/tests/json.n.md -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/json-typed-values-suite.json -j 1`: `total=8`, `passed=8`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/json-typed-values-stdlib-full.json -j 4`: `total=404`, `passed=404`, `failed=0`
+- [残件]:
+  - `json_string 0` の compile-time rejection は `str` と `i32` が core で unify されるためこの branch では固定できない。`ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

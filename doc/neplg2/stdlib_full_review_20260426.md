@@ -65,6 +65,7 @@ Rust 側は変更していないため、このレビュー追加 commit では 
 - `ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90` は `stdlib/string-numeric-overflow` branch で修正し、u128/i128/i64/i32 の境界値 doctest を追加して verified にした。
 - numeric parser 修正中に、`Result<i64,_>` の wildcard pattern が invalid wasm を生成する compiler issue `ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655` を追加した。追加時点で Discord report 済み。
 - `ISS-20260426T060223863Z-BYTEBUF-CONVERSIONS-HIDE-ALLOCATION--3BF03711` は `stdlib/bytebuf-result-conversions` branch で修正し、`alloc/io`、`std/streamio`、`std/io`、`std/fs` の Result-returning 経路が allocation failure を成功値へ潰さないようにした。
+- `ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374` は `stdlib/json-typed-values` branch で修正し、JSON string/array/object payload を typed representation へ移行し、builder / serializer / escape と回帰 doctest を追加して verified にした。
 - JSON typed value 修正中に、`json_escape` の固定文字分岐が `if` の深いネストになっていることを受け、stdlib 全体で match 化すべき有限分岐を監査する issue `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` を追加した。追加時点で Discord report 済み。
 - 同じ JSON typed value 修正中に、`match` の整数 literal arm が parser で受理されない core issue `ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB` と、`str` / `i32` unify により `json_string 0` が compile 成功する core issue `ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` を追加した。どちらも追加時点で Discord report 済み。
 

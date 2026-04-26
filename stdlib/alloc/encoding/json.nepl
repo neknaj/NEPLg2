@@ -19,23 +19,27 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "alloc/collections/vec" as *
+#import "alloc/string" as *
 
-// json: JSON 値の表現（簡易）
+// json: JSON 値の型付き表現
 //
 // 目的:
-// - JSON 値の基本的な型とアクセサを提供します。
+// - JSON 値の基本的な型、builder、serializer、アクセサを提供します。
 //
 // 実装(アルゴリズム):
 // - enum JsonValue で型を区別し、match で判定します。
+// - string / array / object payload は `str` / `Vec<JsonValue>` / `Vec<JsonMember>` として保持します。
 //
 // 注意(重要):
 // - Number は i32 として保持します（実数や大きな整数は未対応）。
-// - Array/Object の実装はポインタを保持するだけです。
+// - Array/Object は Vec を所有する値です。値を渡した後は元の Vec を再利用しないでください。
 //
 // 計算量:
-// - すべて O(1)
+// - 値の構築とアクセサは O(1)、serialize は値全体の byte 数と要素数に比例します。
 
 // JsonValue: JSON の値表現
 //
@@ -46,22 +50,20 @@
 // - enum で表現します。
 //
 // 注意(重要):
-// - String/Array/Object はポインタを保持します。
+// - String は `str`、Array は `Vec<JsonValue>`、Object は `Vec<JsonMember>` を保持します。
 //
 // 計算量:
 // - O(1)
-// JSON value type
-// Tag: 0=null, 1=bool, 2=number, 3=string, 4=array, 5=object
 //: JsonValue: 列挙型の概要
 //:
 //: [目的/もくてき]:
-//: - JsonValue の主な用途と呼び出し方を示します。
+//: - JSON の null / bool / number / string / array / object を型付き payload で表します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `String` は `str`、`Array` は `Vec<JsonValue>`、`Object` は `Vec<JsonMember>` を保持します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - Array/Object は所有する Vec を移動して保持します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
@@ -69,9 +71,49 @@ enum JsonValue:
     Null
     Bool <i32>
     Number <i32>
-    String <i32>
-    Array <i32>
-    Object <i32>
+    String <str>
+    Array <Vec<JsonValue>>
+    Object <Vec<JsonMember>>
+
+//: JsonMember: JSON object の 1 member
+//:
+//: [目的/もくてき]:
+//: - object の key と value を型付きで保持します。
+//:
+//: [実装/じっそう]:
+//: - key は `str`、value は `JsonValue` です。
+//:
+//: [注意/ちゅうい]:
+//: - key の重複検査や並べ替えは行いません。JSON object の出力順は Vec に push した順序です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+struct JsonMember:
+    key <str>
+    value <JsonValue>
+
+//: JsonEscapeKind: JSON string escape の分類
+//:
+//: [目的/もくてき]:
+//: - 入力 byte が JSON string 内でどの escape 表記に対応するかを enum で表します。
+//:
+//: [実装/じっそう]:
+//: - `json_escape_kind` で byte を分類し、`json_escape` はこの enum を `match` して出力を決めます。
+//:
+//: [注意/ちゅうい]:
+//: - Plain は escape せず入力 byte をそのまま 1 byte slice として出力する分類です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum JsonEscapeKind:
+    Backslash
+    Quote
+    Newline
+    CarriageReturn
+    Tab
+    Backspace
+    FormFeed
+    Plain
 
 // json_null: null 値を作る
 //
@@ -168,13 +210,13 @@ fn json_number <(i32)->JsonValue> (n):
 // json_string: 文字列を作る
 //
 // 目的:
-// - 文字列ポインタを JSON の String として返します。
+// - `str` を JSON の String として返します。
 //
 // 実装(アルゴリズム):
 // - String に包むだけです。
 //
 // 注意(重要):
-// - s は [len][bytes] 形式のポインタです。
+// - s は API 契約上 `str` として扱います。文字列の妥当性は作成経路で保ってください。
 //
 // 計算量:
 // - O(1)
@@ -191,19 +233,51 @@ fn json_number <(i32)->JsonValue> (n):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn json_string <(i32)->JsonValue> (s):
+fn json_string <(str)->JsonValue> (s):
     JsonValue::String s
+
+// json_array_new: 空の JSON array builder を作る
+//
+// 目的:
+// - `JsonValue::Array` に渡す `Vec<JsonValue>` を作ります。
+//
+// 実装(アルゴリズム):
+// - `Vec<JsonValue>` の `new` に委譲します。
+//
+// 注意(重要):
+// - 返値は `Result` です。確保失敗は `StdErrorKind::OutOfMemory` になります。
+//
+// 計算量:
+// - O(1)
+fn json_array_new <()->Result<Vec<JsonValue>, StdErrorKind>> ():
+    new<JsonValue>
+
+// json_array_push: JSON array builder へ要素を追加する
+//
+// 目的:
+// - `Vec<JsonValue>` の末尾に value を追加します。
+//
+// 実装(アルゴリズム):
+// - `Vec<JsonValue>` の `push` に委譲します。
+//
+// 注意(重要):
+// - 返った Vec を受け取り直してください。
+//
+// 計算量:
+// - ならし O(1)、再確保時 O(n)
+fn json_array_push <(Vec<JsonValue>,JsonValue)->Result<Vec<JsonValue>, StdErrorKind>> (arr, value):
+    push<JsonValue> arr value
 
 // json_array: 配列を作る
 //
 // 目的:
-// - 配列（Vec<JsonValue>）のポインタを包みます。
+// - 配列（Vec<JsonValue>）を包みます。
 //
 // 実装(アルゴリズム):
 // - Array に包むだけです。
 //
 // 注意(重要):
-// - 実体は Vec のポインタです。
+// - arr の所有権は JsonValue に移ります。
 //
 // 計算量:
 // - O(1)
@@ -220,19 +294,68 @@ fn json_string <(i32)->JsonValue> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn json_array <(i32)->JsonValue> (arr):
+fn json_array <(Vec<JsonValue>)->JsonValue> (arr):
     JsonValue::Array arr
+
+// json_member: object member を作る
+//
+// 目的:
+// - JSON object の key/value pair を型付きで構築します。
+//
+// 実装(アルゴリズム):
+// - `JsonMember` struct に key と value を詰めます。
+//
+// 注意(重要):
+// - key の重複検査は行いません。
+//
+// 計算量:
+// - O(1)
+fn json_member <(str,JsonValue)->JsonMember> (key, value):
+    JsonMember key value
+
+// json_object_new: 空の JSON object builder を作る
+//
+// 目的:
+// - `JsonValue::Object` に渡す `Vec<JsonMember>` を作ります。
+//
+// 実装(アルゴリズム):
+// - `Vec<JsonMember>` の `new` に委譲します。
+//
+// 注意(重要):
+// - 返値は `Result` です。確保失敗は `StdErrorKind::OutOfMemory` になります。
+//
+// 計算量:
+// - O(1)
+fn json_object_new <()->Result<Vec<JsonMember>, StdErrorKind>> ():
+    new<JsonMember>
+
+// json_object_push: JSON object builder へ member を追加する
+//
+// 目的:
+// - key/value を `JsonMember` にして object builder の末尾へ追加します。
+//
+// 実装(アルゴリズム):
+// - `Vec<JsonMember>` の `push` に委譲します。
+//
+// 注意(重要):
+// - 出力時の member 順序は push した順序です。
+// - 返った Vec を受け取り直してください。
+//
+// 計算量:
+// - ならし O(1)、再確保時 O(n)
+fn json_object_push <(Vec<JsonMember>,str,JsonValue)->Result<Vec<JsonMember>, StdErrorKind>> (obj, key, value):
+    push<JsonMember> obj JsonMember key value
 
 // json_object: オブジェクトを作る
 //
 // 目的:
-// - キー値リスト等のポインタを包みます。
+// - `Vec<JsonMember>` を JSON object として包みます。
 //
 // 実装(アルゴリズム):
 // - Object に包むだけです。
 //
 // 注意(重要):
-// - 実体は未定義です（簡易実装）。
+// - obj の所有権は JsonValue に移ります。
 //
 // 計算量:
 // - O(1)
@@ -249,7 +372,7 @@ fn json_array <(i32)->JsonValue> (arr):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn json_object <(i32)->JsonValue> (obj):
+fn json_object <(Vec<JsonMember>)->JsonValue> (obj):
     JsonValue::Object obj
 
 // json_is_null: null 判定
@@ -389,7 +512,7 @@ fn json_as_number <(JsonValue)->Option<i32>> (v):
 // - match で分岐し、String の payload を返します。
 //
 // 注意(重要):
-// - 返り値は文字列ポインタです。
+// - 返り値は `str` です。raw pointer は公開しません。
 //
 // 計算量:
 // - O(1)
@@ -406,17 +529,282 @@ fn json_as_number <(JsonValue)->Option<i32>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn json_as_string <(JsonValue)->Option<i32>> (v):
+fn json_as_string <(JsonValue)->Option<str>> (v):
     match v:
         String s:
-            some<i32> s
+            some<str> s
         Null:
-            none<i32>
+            none<str>
         Bool b:
-            none<i32>
+            none<str>
         Number n:
-            none<i32>
+            none<str>
         Array a:
-            none<i32>
+            none<str>
         Object o:
-            none<i32>
+            none<str>
+
+// json_as_array: Array を取り出す
+//
+// 目的:
+// - Array のときのみ `Vec<JsonValue>` を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐し、Array の payload を返します。
+//
+// 注意(重要):
+// - 返った Vec の所有権は呼び出し側へ移ります。
+//
+// 計算量:
+// - O(1)
+fn json_as_array <(JsonValue)->Option<Vec<JsonValue>>> (v):
+    match v:
+        Array a:
+            some<Vec<JsonValue>> a
+        Null:
+            none<Vec<JsonValue>>
+        Bool b:
+            none<Vec<JsonValue>>
+        Number n:
+            none<Vec<JsonValue>>
+        String s:
+            none<Vec<JsonValue>>
+        Object o:
+            none<Vec<JsonValue>>
+
+// json_as_object: Object を取り出す
+//
+// 目的:
+// - Object のときのみ `Vec<JsonMember>` を返します。
+//
+// 実装(アルゴリズム):
+// - match で分岐し、Object の payload を返します。
+//
+// 注意(重要):
+// - 返った Vec の所有権は呼び出し側へ移ります。
+//
+// 計算量:
+// - O(1)
+fn json_as_object <(JsonValue)->Option<Vec<JsonMember>>> (v):
+    match v:
+        Object o:
+            some<Vec<JsonMember>> o
+        Null:
+            none<Vec<JsonMember>>
+        Bool b:
+            none<Vec<JsonMember>>
+        Number n:
+            none<Vec<JsonMember>>
+        String s:
+            none<Vec<JsonMember>>
+        Array a:
+            none<Vec<JsonMember>>
+
+// json_escape: JSON string body 用に必要な byte escape を行う
+//
+// 目的:
+// - JSON 文字列の内側に置けるよう、quote / backslash / 改行などを escape します。
+//
+// 実装(アルゴリズム):
+// - 入力 byte を先頭から読み、特殊 byte は `\\` 系 escape、それ以外は 1 byte slice として追加します。
+//
+// 注意(重要):
+// - UTF-8 検証は行いません。既存 `str` の byte sequence を保ちます。
+// - 制御文字は代表的な JSON escape（`\n`, `\r`, `\t`, `\b`, `\f`）のみ扱います。
+//
+// 計算量:
+// - O(n)
+fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
+    let mut kind <JsonEscapeKind> JsonEscapeKind::Plain;
+    if:
+        eq ch 92
+        then:
+            set kind JsonEscapeKind::Backslash;
+        else:
+            ()
+    if:
+        eq ch 34
+        then:
+            set kind JsonEscapeKind::Quote;
+        else:
+            ()
+    if:
+        eq ch 10
+        then:
+            set kind JsonEscapeKind::Newline;
+        else:
+            ()
+    if:
+        eq ch 13
+        then:
+            set kind JsonEscapeKind::CarriageReturn;
+        else:
+            ()
+    if:
+        eq ch 9
+        then:
+            set kind JsonEscapeKind::Tab;
+        else:
+            ()
+    if:
+        eq ch 8
+        then:
+            set kind JsonEscapeKind::Backspace;
+        else:
+            ()
+    if:
+        eq ch 12
+        then:
+            set kind JsonEscapeKind::FormFeed;
+        else:
+            ()
+    kind
+
+fn json_escape <(str)->str> (s):
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> len s;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> load_u8 add s add 4 i;
+            match json_escape_kind ch:
+                JsonEscapeKind::Backslash:
+                    set sb sb_append sb "\\\\";
+                JsonEscapeKind::Quote:
+                    set sb sb_append sb "\\\"";
+                JsonEscapeKind::Newline:
+                    set sb sb_append sb "\\n";
+                JsonEscapeKind::CarriageReturn:
+                    set sb sb_append sb "\\r";
+                JsonEscapeKind::Tab:
+                    set sb sb_append sb "\\t";
+                JsonEscapeKind::Backspace:
+                    set sb sb_append sb "\\b";
+                JsonEscapeKind::FormFeed:
+                    set sb sb_append sb "\\f";
+                JsonEscapeKind::Plain:
+                    set sb sb_append sb str_slice s i add i 1;
+            set i add i 1;
+    sb_build sb
+
+// json_quote_string: JSON string literal を作る
+//
+// 目的:
+// - `str` を quote 付き JSON string literal へ変換します。
+//
+// 実装(アルゴリズム):
+// - `json_escape` した本文を `"` で囲みます。
+//
+// 注意(重要):
+// - UTF-8 検証は行いません。
+//
+// 計算量:
+// - O(n)
+fn json_quote_string <(str)->str> (s):
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "\"";
+    set sb sb_append sb json_escape s;
+    set sb sb_append sb "\"";
+    sb_build sb
+
+// json_serialize_array: JSON array を文字列化する
+//
+// 目的:
+// - `Vec<JsonValue>` を `[v0,v1,...]` の JSON 表現へ変換します。
+//
+// 実装(アルゴリズム):
+// - Vec の内部 data を順に読み、各要素を `json_serialize` で文字列化します。
+//
+// 注意(重要):
+// - 要素順は Vec の順序を保ちます。
+//
+// 計算量:
+// - 要素数と出力 byte 数に比例します。
+fn json_serialize_array <(Vec<JsonValue>)->str> (items):
+    let n <i32> get items "len";
+    let data <i32> mem_ptr_addr get items "data";
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "[";
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            if:
+                lt 0 i
+                then:
+                    set sb sb_append sb ",";
+                else:
+                    ();
+            let item <JsonValue> load<JsonValue> add data mul i size_of<JsonValue>;
+            set sb sb_append sb json_serialize item;
+            set i add i 1;
+    set sb sb_append sb "]";
+    sb_build sb
+
+// json_serialize_object: JSON object を文字列化する
+//
+// 目的:
+// - `Vec<JsonMember>` を `{"k":v,...}` の JSON 表現へ変換します。
+//
+// 実装(アルゴリズム):
+// - Vec の内部 data を順に読み、key を quote し、value を `json_serialize` で文字列化します。
+//
+// 注意(重要):
+// - member 順序は Vec の順序を保ちます。key の重複検査は行いません。
+//
+// 計算量:
+// - member 数と出力 byte 数に比例します。
+fn json_serialize_object <(Vec<JsonMember>)->str> (members):
+    let n <i32> get members "len";
+    let data <i32> mem_ptr_addr get members "data";
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "{";
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            if:
+                lt 0 i
+                then:
+                    set sb sb_append sb ",";
+                else:
+                    ();
+            let member <JsonMember> load<JsonMember> add data mul i size_of<JsonMember>;
+            set sb sb_append sb json_quote_string get member "key";
+            set sb sb_append sb ":";
+            set sb sb_append sb json_serialize get member "value";
+            set i add i 1;
+    set sb sb_append sb "}";
+    sb_build sb
+
+// json_serialize: JSON 値を文字列化する
+//
+// 目的:
+// - `JsonValue` を compact JSON string へ変換します。
+//
+// 実装(アルゴリズム):
+// - enum variant ごとに literal / escape / recursive serialize を選びます。
+//
+// 注意(重要):
+// - Number は現行の `i32` 表現を `from_i32` で出力します。
+// - UTF-8 validation はまだ行いません。
+//
+// 計算量:
+// - 値全体の要素数と出力 byte 数に比例します。
+fn json_serialize <(JsonValue)->str> (v):
+    match v:
+        Null:
+            "null"
+        Bool b:
+            if:
+                eq b 0
+                then:
+                    "false"
+                else:
+                    "true"
+        Number n:
+            from_i32 n
+        String s:
+            json_quote_string s
+        Array a:
+            json_serialize_array a
+        Object o:
+            json_serialize_object o

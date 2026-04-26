@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T07:43:17.035Z",
+  "generated_at": "2026-04-26T07:55:21.716Z",
   "counts": {
     "total": 118,
-    "open": 25,
-    "resolved": 93,
+    "open": 24,
+    "resolved": 94,
     "by_area": {
       "core": {
         "total": 39,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 40,
-        "open": 15,
-        "resolved": 25
+        "open": 14,
+        "resolved": 26
       },
       "cli": {
         "total": 17,
@@ -328,21 +328,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2.md"
-    },
-    {
-      "id": "ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374",
-      "title": "JsonValue stores structured JSON payloads as raw i32 handles",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/encoding/json.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374.md"
     },
     {
       "id": "ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536",
@@ -1708,6 +1693,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060223863Z-BYTEBUF-CONVERSIONS-HIDE-ALLOCATION--3BF03711.md"
+    },
+    {
+      "id": "ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374",
+      "title": "JsonValue stores structured JSON payloads as raw i32 handles",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/encoding/json.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

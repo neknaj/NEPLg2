@@ -1,7 +1,6 @@
 2026-04-26 NEPLg2 Self-host
 
 - `stdlib/mem-bulk-copy` branch で `ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2` に沿って bulk memory copy API と backend lowering を整備する
-- `stdlib/json-typed-values` branch で `ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374` に沿って JSON value の raw i32 payload を typed representation へ移行する
 - `stdlib/match-decision-trees` branch で `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` に沿って match で表現すべき stdlib の nested if 分岐を監査し、自然な match 表現へ戻す
 - `core/match-literal-patterns` branch で `ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB` に沿って整数 literal arm と wildcard / default を含む match pattern と網羅性仕様を整備する
 - `core/str-i32-separation` branch で `ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` に沿って `str` と raw `i32` handle の unify を廃止し、明示変換 API と回帰テストへ分離する
