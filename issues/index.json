@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:21:18.820Z",
+  "generated_at": "2026-04-26T02:24:31.214Z",
   "counts": {
-    "total": 94,
+    "total": 95,
     "open": 34,
-    "resolved": 60,
+    "resolved": 61,
     "by_area": {
       "core": {
         "total": 34,
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 25,
+        "total": 26,
         "open": 16,
-        "resolved": 9
+        "resolved": 10
       },
       "examples": {
         "total": 13,
@@ -783,6 +783,21 @@
       "legacy_id": "RV-STDLIB-019",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-019",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-019-563743A1.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-020-AC5D8587",
+      "title": "Fenwick/SegmentTree doctest が D3016 expression left extra values で失敗する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P0",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/vec.nepl, stdlib/alloc/collections/fenwick.nepl, stdlib/alloc/collections/segment_tree.nepl, stdlib/tests/fenwick.n.md, stdlib/tests/segment_tree.n.md",
+      "legacy_id": "RV-STDLIB-020",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-020",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-020-AC5D8587.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-002-D74F45E6",
