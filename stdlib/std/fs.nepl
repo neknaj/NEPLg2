@@ -571,7 +571,10 @@ fn fs_bytes_to_string <(ByteBuf)*>str> (buf):
 //:     match fs_read_to_bytes "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok bytes:
 //:             let text <str> fs_bytes_to_string bytes;
-//:             if str_eq text "fs fixture text\n" 0 1
+//:             if:
+//:                 str_eq text "fs fixture text\n"
+//:                 then 0
+//:                 else if str_eq text "fs fixture text\r\n" 0 1
 //:         Result::Err _e:
 //:             2
 //: ```
@@ -620,7 +623,10 @@ fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 //: fn main <()*>i32> ():
 //:     match fs_read_to_string "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok text:
-//:             if str_eq text "fs fixture text\n" 0 1
+//:             if:
+//:                 str_eq text "fs fixture text\n"
+//:                 then 0
+//:                 else if str_eq text "fs fixture text\r\n" 0 1
 //:         Result::Err _e:
 //:             2
 //: ```

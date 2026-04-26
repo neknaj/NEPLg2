@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T10:36:49.093Z",
+  "generated_at": "2026-04-26T10:48:03.874Z",
   "counts": {
-    "total": 120,
+    "total": 121,
     "open": 19,
-    "resolved": 101,
+    "resolved": 102,
     "by_area": {
       "core": {
         "total": 39,
@@ -17,9 +17,9 @@
         "resolved": 2
       },
       "stdlib": {
-        "total": 41,
+        "total": 42,
         "open": 11,
-        "resolved": 30
+        "resolved": 31
       },
       "cli": {
         "total": 17,
@@ -1738,6 +1738,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T081514183Z-NM-RENDERER-DIVERGES-FROM-GLOSS-HTML-10480257.md"
+    },
+    {
+      "id": "ISS-20260426T104115640Z-FS-DOCTEST-FIXTURE-IS-LINE-ENDING-SE-910C88C4",
+      "title": "fs doctest fixture is line-ending sensitive",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/fs.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T104115640Z-FS-DOCTEST-FIXTURE-IS-LINE-ENDING-SE-910C88C4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

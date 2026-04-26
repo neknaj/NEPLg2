@@ -1,3 +1,20 @@
+# 2026-04-26 メモ (ISS-20260426T104115640Z fs doctest fixture line ending)
+
+- 状況:
+  - remote main の `RV-STDLIB-006` 対応後に `node nodesrc/tests.js -i stdlib/std/fs.nepl -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/main-fs-cliarg-doctests.json -j 1` を再実行したところ、fs doctest 2 件が Windows checkout で失敗した。
+  - `fs_open_read` / stdin fd read は通っていたため、失敗は `tests/fixtures/fs/read_sample.txt` が `core.autocrlf=true` で CRLF になり、期待値が LF 固定だったことに限定できた。
+- 修正:
+  - `fs_read_to_bytes` / `fs_read_to_string` の doctest で、fixture text を LF と CRLF の両方で受け入れるようにした。
+  - 新規 issue `ISS-20260426T104115640Z-FS-DOCTEST-FIXTURE-IS-LINE-ENDING-SE-910C88C4` を追加し、verified にした。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/main-fs-cliarg-doctests.json -j 1`: `total=10`, `passed=10`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/fs-fixture-crlf-stdlib-full.json -j 4`: `total=404`, `passed=404`
+  - `cargo fmt --all --check`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-fs-fixture-crlf.json`: `13/13 passed`
+  - `node nodesrc/issues.js index` / `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は fs runtime doctest を checkout 改行差異に対して安定させるもの。
+
 # 2026-04-26 メモ (ISS-20260425T000000Z-RV-STDLIB-006 fs/cliarg skip)
 
 - 状況:
