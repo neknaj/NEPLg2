@@ -9,7 +9,6 @@
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
 - `stdlib/fs-write-api` branch で `ISS-20260426T010001Z-STDFS-WRITE-B7C4D923` に沿って self-host CLI に必要な `std/fs` write interface を実装する
 - `stdlib/fs-dirlist-api` branch で `ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E` に沿って directory traversal / path normalization を実装する
-- `stdlib/stdio-result-stderr` branch で `ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0` に沿って diagnostic 出力用の Result 付き stdout/stderr interface を設計する
 - `stdlib/text-utf8-validation` branch で `ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A` に沿って source loading 用 UTF-8 checked API を追加する
 - `selfhost/s5-byte-builder` branch で `ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11` に沿って WASM emitter 用 byte builder を整備する
 - `selfhost/s6-args` branch で `ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229` に沿って self-host CLI の argv parser と回帰テストを作る

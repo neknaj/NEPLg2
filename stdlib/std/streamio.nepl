@@ -2,11 +2,11 @@
 //: `alloc/io` の stream [抽象/ちゅうしょう]を `std` の stdin/stdout と buffered sink へ[接続/せつぞく]する facade
 //:
 //: ### [目的/もくてき]
-//: - `std/stdio` が[持/も]つ stdin/stdout の[入口/いりぐち]を、reboot [後/ご]の `alloc/io` trait [群/ぐん]と `read` / `write` / `flush` / `close` の[共通名/きょうつうめい]へ[載/の]せ[替/か]えます。
+//: - `std/stdio` が[持/も]つ stdin/stdout/stderr の[入口/いりぐち]を、reboot [後/ご]の `alloc/io` trait [群/ぐん]と `read` / `write` / `flush` / `close` の[共通名/きょうつうめい]へ[載/の]せ[替/か]えます。
 //: - binary stream を[基準/きじゅん]にしつつ text helper と buffered stdout sink を[併設/へいせつ]し、`kpwrite` / `kpread` や[将来/しょうらい]の file/socket stream の[昇格/しょうかく][先/さき]を[用意/ようい]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [現在/げんざい]の `std/stdio` は error code を[外部/がいぶ]へ[公開/こうかい]していないため、`StdoutStream` / `StdinStream` / `StreamWriter` の impl は[失敗/しっぱい]を[詳細化/しょうさいか]できません。[現状/げんじょう]は成功として[丸/まる]めます。
+//: - `StdoutStream` / `StderrStream` は `std/stdio` の Result API を[通/とお]して write error を `StdErrorKind::IoError` として[返/かえ]します。
 //: - stdin の text read は `std/stdio.read_all` に[従/したが]い、EOF までの[全体/ぜんたい]を `str` として[読/よ]み[込/こ]みます。
 //: - stdin の byte read と `StreamScanner` は、binary [経路/けいろ]として EOF までの[全体/ぜんたい]を `ByteBuf` / scanner buffer に[保持/ほじ]します。
 //:
@@ -86,6 +86,25 @@ impl Clone for StdoutStream:
     fn clone <(&StdoutStream)->StdoutStream> (stream):
         *stream
 
+//: ## StderrStream
+//: [標準エラー/ひょうじゅんえらー]を[表/あらわ]す[軽量/けいりょう] handle
+//:
+//: ### [目的/もくてき]
+//: - diagnostic や progress log を stdout の artifact / JSON と[分離/ぶんり]して[書/か]けるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
+struct StderrStream:
+    marker <()>
+
+impl Copy for StderrStream:
+    fn copy_mark <(StderrStream)->StderrStream> (stream):
+        stream
+
+impl Clone for StderrStream:
+    fn clone <(&StderrStream)->StderrStream> (stream):
+        *stream
+
 //: ## TextInputStream
 //: in-memory text を stream として[扱/あつか]う[軽量/けいりょう] handle
 //:
@@ -144,7 +163,7 @@ enum StreamScannerHeaderField:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ]で[確保/かくほ]した[書/か]き[込/こ]み buffer を[所有/しょゆう]するため `Copy` / `Clone` は[実装/じっそう]しません。
 //: - [使/つか]い[終/お]わったら `close` で[解放/かいほう]してください。`flush` は[出力/しゅつりょく]のみを[行/おこな]い、[所有権/しょゆうけん]は[維持/いじ]します。
-//: - [現在/げんざい]の target kind は stdout だけです。
+//: - target kind は stdout/stderr を[保持/ほじ]し、flush [時/じ]に[対応/たいおう]する fd へ[流/なが]します。
 //: - [各/かく] writer は[独立/どくりつ]した buffer を[持/も]つため、[複数/ふくすう]の reader / writer を[同時/どうじ]に[保持/ほじ]できます。
 struct StreamWriter:
     header <MemPtr<u8>>
@@ -162,11 +181,14 @@ enum StreamWriterHeaderField:
 
 enum StreamWriterTargetKind:
     Stdout
+    Stderr
 
 fn stream_writer_target_kind_code <(StreamWriterTargetKind)->i32> (target):
     match target:
         StreamWriterTargetKind::Stdout:
             0
+        StreamWriterTargetKind::Stderr:
+            1
 
 fn stream_writer_noncopy_marker <(i32)->i32> (x):
     x
@@ -917,7 +939,7 @@ fn scan_f32_impl <(StreamScanner)*>f32> (sc):
 //: - `WriteStream` だけを[受/う]け[付/つ]けることで、`open ReadStream::Stdio` のような[誤用/ごよう]を compile error にします。
 //:
 //: ### [実装/じっそう]
-//: - [現在/げんざい]は `WriteStream::Stdio` だけを[受/う]け[付/つ]け、header に target kind を[記録/きろく]します。
+//: - `WriteStream::Stdio` と `WriteStream::Stderr` を[受/う]け[付/つ]け、header に target kind を[記録/きろく]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [未対応/みたいおう] target は `Result::Err` を[返/かえ]します。
@@ -925,6 +947,13 @@ fn open <(WriteStream)*>Result<StreamWriter,str>> (target):
     match target:
         WriteStream::Stdio:
             let raw_res <Result<MemPtr<u8>,str>> stream_writer_new_header StreamWriterTargetKind::Stdout;
+            match raw_res:
+                Result::Ok raw:
+                    Result<StreamWriter,str>::Ok stream_writer_wrap raw
+                Result::Err e:
+                    Result<StreamWriter,str>::Err e
+        WriteStream::Stderr:
+            let raw_res <Result<MemPtr<u8>,str>> stream_writer_new_header StreamWriterTargetKind::Stderr;
             match raw_res:
                 Result::Ok raw:
                     Result<StreamWriter,str>::Ok stream_writer_wrap raw
@@ -973,10 +1002,10 @@ fn close <(StreamWriter)*>()> (w):
     ()
 
 //: ## drain_impl
-//: buffered sink の[内容/ないよう]を stdout へ[書/か]き[出/だ]す
+//: buffered sink の[内容/ないよう]を target fd へ[書/か]き[出/だ]す
 //:
 //: ### [実装/じっそう]
-//: - `std/stdio.stdio_write_mem` を[使/つか]い、partial write を[吸収/きゅうしゅう]しながら[保留/ほりゅう] byte [列/れつ]を[出力/しゅつりょく]します。
+//: - target kind に[応/おう]じて stdout/stderr を[選/えら]び、partial write を[吸収/きゅうしゅう]しながら[保留/ほりゅう] byte [列/れつ]を[出力/しゅつりょく]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [現在/げんざい]の[書/か]き[込/こ]み[長/なが]さを n として O(n) です。
@@ -1004,7 +1033,12 @@ fn drain_impl <(StreamWriter)*>StreamWriter> (w):
                                         then:
                                             stdio_write_mem buf write_len
                                         else:
-                                            ();
+                                            if:
+                                                eq target_kind 1
+                                                then:
+                                                    stdio_write_stderr_mem buf write_len
+                                                else:
+                                                    ();
                                     match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen 0:
                                         Result::Ok _:
                                             ()
@@ -1544,22 +1578,82 @@ impl Close for StdinStream:
     fn close <(StdinStream)*>Result<(), StdErrorKind>> (_stream):
         Result::Ok ()
 
+//: ## write_bytes_result
+//: `StdoutStream` へ byte [列/れつ]を[書/か]き、失敗を `Result` で[返/かえ]す
+fn write_bytes_result <(StdoutStream, ByteBuf)*>Result<StdoutStream, StdErrorKind>> (stream, bytes):
+    match stdio_write_bytes_result bytes:
+        Result::Ok _:
+            Result<StdoutStream, StdErrorKind>::Ok stream
+        Result::Err e:
+            Result<StdoutStream, StdErrorKind>::Err e
+
+//: ## write_str_result
+//: `StdoutStream` へ text を[書/か]き、失敗を `Result` で[返/かえ]す
+fn write_str_result <(StdoutStream, str)*>Result<StdoutStream, StdErrorKind>> (stream, text):
+    match stdio_write_str_result text:
+        Result::Ok _:
+            Result<StdoutStream, StdErrorKind>::Ok stream
+        Result::Err e:
+            Result<StdoutStream, StdErrorKind>::Err e
+
+//: ## flush_result
+//: `StdoutStream` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する
+fn flush_result <(StdoutStream)*>Result<StdoutStream, StdErrorKind>> (stream):
+    Result::Ok stream
+
+//: ## write_bytes_result
+//: `StderrStream` へ byte [列/れつ]を[書/か]き、失敗を `Result` で[返/かえ]す
+fn write_bytes_result <(StderrStream, ByteBuf)*>Result<StderrStream, StdErrorKind>> (stream, bytes):
+    match stdio_write_stderr_bytes_result bytes:
+        Result::Ok _:
+            Result<StderrStream, StdErrorKind>::Ok stream
+        Result::Err e:
+            Result<StderrStream, StdErrorKind>::Err e
+
+//: ## write_str_result
+//: `StderrStream` へ text を[書/か]き、失敗を `Result` で[返/かえ]す
+fn write_str_result <(StderrStream, str)*>Result<StderrStream, StdErrorKind>> (stream, text):
+    match stdio_write_stderr_str_result text:
+        Result::Ok _:
+            Result<StderrStream, StdErrorKind>::Ok stream
+        Result::Err e:
+            Result<StderrStream, StdErrorKind>::Err e
+
+//: ## flush_result
+//: `StderrStream` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する
+fn flush_result <(StderrStream)*>Result<StderrStream, StdErrorKind>> (stream):
+    Result::Ok stream
+
 impl ByteWriter for StdoutStream:
     fn write_bytes <(StdoutStream, ByteBuf)*>Result<StdoutStream, StdErrorKind>> (stream, bytes):
-        stdio_write_bytes bytes
-        Result::Ok stream
+        write_bytes_result stream bytes
 
 impl TextWriter for StdoutStream:
     fn write_str <(StdoutStream, str)*>Result<StdoutStream, StdErrorKind>> (stream, text):
-        print text
-        Result::Ok stream
+        write_str_result stream text
 
 impl Flush for StdoutStream:
     fn flush <(StdoutStream)*>Result<StdoutStream, StdErrorKind>> (stream):
-        Result::Ok stream
+        flush_result stream
 
 impl Close for StdoutStream:
     fn close <(StdoutStream)*>Result<(), StdErrorKind>> (_stream):
+        Result::Ok ()
+
+impl ByteWriter for StderrStream:
+    fn write_bytes <(StderrStream, ByteBuf)*>Result<StderrStream, StdErrorKind>> (stream, bytes):
+        write_bytes_result stream bytes
+
+impl TextWriter for StderrStream:
+    fn write_str <(StderrStream, str)*>Result<StderrStream, StdErrorKind>> (stream, text):
+        write_str_result stream text
+
+impl Flush for StderrStream:
+    fn flush <(StderrStream)*>Result<StderrStream, StdErrorKind>> (stream):
+        flush_result stream
+
+impl Close for StderrStream:
+    fn close <(StderrStream)*>Result<(), StdErrorKind>> (_stream):
         Result::Ok ()
 
 //: ## StreamReadableResult
@@ -1600,6 +1694,12 @@ trait StdoutWritable:
     fn emit <(StdoutStream,Self)*>Result<StdoutStream, StdErrorKind>> (stream, value):
         Result::Err StdErrorKind::InvalidOperation
 
+//: ## StderrWritable
+//: `StderrStream` へ[書/か]き[込/こ]める[値/あたい]の[能力/のうりょく]
+trait StderrWritable:
+    fn emit <(StderrStream,Self)*>Result<StderrStream, StdErrorKind>> (stream, value):
+        Result::Err StdErrorKind::InvalidOperation
+
 //: ## read
 //: `StdinStream` を[指定/してい]した[型/かた]として[読/よ]む
 fn read <.T: StreamReadableResult> <(StdinStream)*>Result<.T, StdErrorKind>> (stream):
@@ -1621,6 +1721,14 @@ impl StdoutWritable for ByteBuf:
 
 impl StdoutWritable for str:
     fn emit <(StdoutStream,str)*>Result<StdoutStream, StdErrorKind>> (stream, value):
+        io_write_str stream value
+
+impl StderrWritable for ByteBuf:
+    fn emit <(StderrStream,ByteBuf)*>Result<StderrStream, StdErrorKind>> (stream, value):
+        io_write_bytes stream value
+
+impl StderrWritable for str:
+    fn emit <(StderrStream,str)*>Result<StderrStream, StdErrorKind>> (stream, value):
         io_write_str stream value
 
 //: ## write
@@ -1656,6 +1764,39 @@ fn writeln <(str, StdoutStream)*>Result<StdoutStream, StdErrorKind>> (text, stre
 fn flush <(StdoutStream)*>Result<StdoutStream, StdErrorKind>> (stream):
     io_flush stream
 
+//: ## write
+//: `StderrStream` へ byte [列/れつ]や text を[書/か]く
+fn write <.T: StderrWritable> <(StderrStream,.T)*>Result<StderrStream, StdErrorKind>> (stream, value):
+    StderrWritable::emit stream value
+
+//: ## write
+//: pipe [終端/しゅうたん]から `StderrStream` へ byte [列/れつ]や text を[書/か]く overload
+fn write <.T: StderrWritable> <(.T, StderrStream)*>Result<StderrStream, StdErrorKind>> (value, stream):
+    StderrWritable::emit stream value
+
+//: ## writeln
+//: `StderrStream` へ text と `\n` を[続/つづ]けて[書/か]く
+fn writeln <(StderrStream, str)*>Result<StderrStream, StdErrorKind>> (stream, text):
+    match io_write_str stream text:
+        Result::Ok stream1:
+            io_write_str stream1 "\n"
+        Result::Err e:
+            Result<StderrStream, StdErrorKind>::Err e
+
+//: ## writeln
+//: pipe [終端/しゅうたん]から `StderrStream` へ text と `\n` を[続/つづ]けて[書/か]く overload
+fn writeln <(str, StderrStream)*>Result<StderrStream, StdErrorKind>> (text, stream):
+    match io_write_str stream text:
+        Result::Ok stream1:
+            io_write_str stream1 "\n"
+        Result::Err e:
+            Result<StderrStream, StdErrorKind>::Err e
+
+//: ## flush
+//: `StderrStream` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する
+fn flush <(StderrStream)*>Result<StderrStream, StdErrorKind>> (stream):
+    io_flush stream
+
 //: ## close
 //: `StreamScanner` を[閉/と]じて[内部/ないぶ] buffer を[解放/かいほう]する
 fn close <(StreamScanner)*>()> (sc):
@@ -1688,4 +1829,9 @@ fn close <(ByteInputStream)*>Result<(), StdErrorKind>> (stream):
 //: ## close
 //: `StdoutStream` を[閉/と]じる
 fn close <(StdoutStream)*>Result<(), StdErrorKind>> (stream):
+    io_close stream
+
+//: ## close
+//: `StderrStream` を[閉/と]じる
+fn close <(StderrStream)*>Result<(), StdErrorKind>> (stream):
     io_close stream

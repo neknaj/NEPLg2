@@ -2,12 +2,12 @@
 //: `std/io` と `std/streamio` が[共有/きょうゆう]する category target [定義/ていぎ]
 //:
 //: ### [目的/もくてき]
-//: - `stdio` / `fs` / [将来/しょうらい]の `network` / `event` を enum target で[表/あらわ]し、facade [間/かん]で[同/おな]じ target [語彙/ごい]を[共有/きょうゆう]できるようにします。
+//: - `stdio` / `stderr` / `fs` / [将来/しょうらい]の `network` / `event` を enum target で[表/あらわ]し、facade [間/かん]で[同/おな]じ target [語彙/ごい]を[共有/きょうゆう]できるようにします。
 //: - `std/io` はこの target を[直接/ちょくせつ] `read` / `write` し、`std/streamio` は stream [生成/せいせい]の[入口/いりぐち]として[使/つか]います。
 //: - 公開 API は `ReadStream` / `WriteStream` の enum へ[分/わ]け、`read WriteStream::Stdio ...` のような[不正/ふせい]な[組/く]み[合/あ]わせを[静的/せいてき]に[防/ふせ]ぎます。
 //:
 //: ### [注意/ちゅうい]
-//: - [現在/げんざい]の variant は `stdio` と `fs` だけです。
+//: - [現在/げんざい]の write target は stdout 用の `Stdio`、diagnostic 用の `Stderr`、将来 file write 用の `Fs` です。
 //: - target [定義/ていぎ]だけを[持/も]つ[共有/きょうゆう]モジュールであり、I/O [実行/じっこう]そのものは[持/も]ちません。
 
 #indent 4
@@ -26,4 +26,5 @@ enum ReadStream:
 //: [書/か]き[側/がわ]に[使/つか]える stream sink を[表/あらわ]す enum
 enum WriteStream:
     Stdio
+    Stderr
     Fs

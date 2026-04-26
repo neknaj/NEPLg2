@@ -17093,6 +17093,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - `Vec` helper の再帰引数評価を明確にしただけで、public API は変更していない。
 
+# 2026-04-26 メモ (ISS-20260426T010003Z stdio Result stderr interface)
+
+- [原因]:
+  - `std/stdio` の fd write は内部で fd を受け取れる一方、public facade は stdout 中心で、write error を unit に丸めていた。
+  - self-host CLI で diagnostics を stderr、artifact / JSON を stdout に分けても、出力失敗や stream 混線を Result として検出できない状態だった。
+- [修正]:
+  - `stdio_write_fd_mem_result` を追加し、partial write loop、invalid fd、zero-byte write、iov 確保失敗を `Result<(), StdErrorKind>` へ集約した。
+  - stdout/stderr 用の `stdio_write_*_result` API と互換 facade を分け、既存の `print` / `stdio_write_mem` は動作を維持した。
+  - `StderrStream` と `WriteStream::Stderr` を追加し、`std/streamio` / `std/io` から Result 付き stderr write を使えるようにした。
+  - `tests/stdlib/stdio_result_stderr.n.md` で stdout/stderr 分離と invalid fd の `Err(IoError)` を固定した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/stdio-result-stderr.json -j 1`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl -i stdlib/std/streamio.nepl -i stdlib/std/io.nepl -i stdlib/std/iotarget.nepl -i tests/stdlib/stdio_result_stderr.n.md -i tests/stdlib/io.n.md -i tests/stdlib/streamio.n.md -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-result-stderr-suite.json -j 1`: `total=59`, `passed=59`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-stdio-result-stderr.json -j 4`: `total=404`, `passed=404`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host CLI の diagnostic reporter 実装前提として、stdlib 側の stdout/stderr Result interface を先に整備した。
+
 # 2026-04-26 メモ (RV-STDLIB-022 HashMap doctest indent 修正)
 
 - [原因]:
