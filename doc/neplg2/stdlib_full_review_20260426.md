@@ -56,6 +56,7 @@ Rust 側は変更していないため、このレビュー追加 commit では 
 | `ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536` | P2 | `stdlib/alloc/hash/sha256.nepl` | `sha256_finalize` が digest ではなく buffer を返す scaffold |
 | `ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2` | P2 | `stdlib/platforms/wasix/tui.nepl` | box helper が `cols < 2` を呼び出し側回避にしている |
 | `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` | P2 | 複数 stdlib file | doc comment policy に反する boilerplate comment が残る |
+| `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` | P2 | `stdlib/` | match で表現すべき有限分岐が nested if として残る |
 
 各 Issue は追加時点で Discord report を送信済み。
 
@@ -64,6 +65,7 @@ Rust 側は変更していないため、このレビュー追加 commit では 
 - `ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90` は `stdlib/string-numeric-overflow` branch で修正し、u128/i128/i64/i32 の境界値 doctest を追加して verified にした。
 - numeric parser 修正中に、`Result<i64,_>` の wildcard pattern が invalid wasm を生成する compiler issue `ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655` を追加した。追加時点で Discord report 済み。
 - `ISS-20260426T060223863Z-BYTEBUF-CONVERSIONS-HIDE-ALLOCATION--3BF03711` は `stdlib/bytebuf-result-conversions` branch で修正し、`alloc/io`、`std/streamio`、`std/io`、`std/fs` の Result-returning 経路が allocation failure を成功値へ潰さないようにした。
+- JSON typed value 修正中に、`json_escape` の固定文字分岐が `if` の深いネストになっていることを受け、stdlib 全体で match 化すべき有限分岐を監査する issue `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` を追加した。追加時点で Discord report 済み。
 
 ## compiler workaround の確認
 
@@ -71,6 +73,7 @@ Rust 側は変更していないため、このレビュー追加 commit では 
 `ISS-20260426T023624387Z-PIPE-004372E8` は解決済みなので、`ISS-20260426T055122421Z-STREAMIO-DOCTEST-KEEPS-OBSOLETE-PIPE-F37DE397` として登録し、`|> writeln <i64> cast 2` に戻した。
 
 今後も compiler bug 回避の痕跡は stdlib 側へ温存せず、compiler 側の resolved Issue と照合して自然な書き方へ戻す。
+固定値や enum variant の有限分岐は、仕様の対応関係が読めるように `match` を優先し、`if` 連鎖が必要に見える場合は compiler 側の制約や未解決 bug として切り分ける。
 
 ## 修正順の提案
 

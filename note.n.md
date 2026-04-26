@@ -17366,3 +17366,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - match / enum の言語仕様は変えず、backend の arm-scoped local 管理と HIR payload 型保持を修正した。
+
+# 2026-04-26 メモ (stdlib nested if match 化 issue 追加)
+
+- [追加]:
+  - `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` を追加した。
+  - `json_escape` の固定文字集合分岐のように、`match` で表現すべき有限分岐が深い `if` / `else if` 連鎖として残る問題を stdlib 全体の監査対象にした。
+  - issue 追加時点で Discord に報告済み。
+- [方針]:
+  - stdlib 側の workaround として温存せず、`match` 化できない場合は compiler bug を別 issue として切り出し、回帰テストを追加する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

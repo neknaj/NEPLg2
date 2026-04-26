@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T07:06:05.549Z",
+  "generated_at": "2026-04-26T07:30:20.615Z",
   "counts": {
-    "total": 115,
-    "open": 22,
+    "total": 116,
+    "open": 23,
     "resolved": 93,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 2
       },
       "stdlib": {
-        "total": 39,
-        "open": 14,
+        "total": 40,
+        "open": 15,
         "resolved": 25
       },
       "cli": {
@@ -358,6 +358,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
+    },
+    {
+      "id": "ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907",
+      "title": "stdlib has nested if decision trees that should be match expressions",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907.md"
     },
     {
       "id": "ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91",
