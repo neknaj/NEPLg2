@@ -2,13 +2,13 @@
 id: ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1
 title: "features_tui doctest が未定義 helper 参照で失敗する"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: test
 created: 2026-04-26
 updated: 2026-04-26
-target: "tests/stdlib/features_tui.n.md, stdlib/std/features/tui.nepl"
+target: "tests/stdlib/features_tui.n.md, stdlib/features/tui.nepl, nepl-core/src/typecheck.rs"
 ---
 
 # ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1: features_tui doctest が未定義 helper 参照で失敗する
@@ -19,7 +19,7 @@ tests/stdlib/features_tui.n.md が tui::line_pad_to_cols、tui::repeat_text、tu
 
 ## 対象
 
-- `tests/stdlib/features_tui.n.md, stdlib/std/features/tui.nepl`
+- `tests/stdlib/features_tui.n.md, stdlib/features/tui.nepl, nepl-core/src/typecheck.rs`
 
 ## 根拠
 
@@ -37,9 +37,24 @@ tests/stdlib 全体の green 化を阻害し、TUI feature の公開 API と fix
 
 ## 修正方針
 
-stdlib/std/features/tui.nepl の公開 API と doctest の意図を照合し、仕様上必要な helper は実装し、既存 API へ統合済みなら doctest を現行名へ更新する。
+stdlib/features/tui.nepl の公開 API と doctest の意図を照合し、仕様上必要な helper は実装し、既存 API へ統合済みなら doctest を現行名へ更新する。
+
+## 対応結果
+
+`features/tui` の facade は `platforms/wasix/tui` を `@merge` しているが、typecheck の qualified import 解決は alias 先ファイルの直接定義だけを見ていた。
+そのため、`#import "features/tui" as tui` の `tui::line_pad_to_cols` / `tui::repeat_text` / `tui::get_terminal_size` が、facade に merge された定義まで到達できなかった。
+
+`nepl-core/src/typecheck.rs` の qualified import target 構築を、alias 先ファイルから direct `@merge` import 先へ展開するように修正した。
+通常の `as *` import は qualified alias へ漏らさない回帰テストを追加し、facade だけを名前空間として扱えるようにした。
+`stdlib/features/tui.nepl` は facade の意図に合わせて公開 merge import として明記した。
+
+修正後、`features_tui` の undefined identifier は解消し、doctest は compile phase を通過するようになった。
+ただしローカル環境では次に `wasmer run --volume` 非対応による run phase failure が出たため、別 Issue `ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91` として分離した。
 
 ## 検証
 
 - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-issue.json -j 1`
 - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/features-tui-tests-stdlib.json -j 4`
+- `cargo test -p nepl-core --test import_clause` (`8 passed`)
+- `trunk build` 成功
+- `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-issue.json -j 1` は compile phase の D3001 が解消し、run phase で `wasmer --volume` 非対応により失敗。runner 互換性は `ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91` で追跡。

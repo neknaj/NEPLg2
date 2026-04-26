@@ -6,7 +6,7 @@
 //: - 現在の WASIX 実装詳細は `platforms/wasix/tui` に閉じ込め、この file から再公開します。
 //:
 //: ### [実装/じっそう]
-//: - 現段階では `platforms/wasix/tui` をそのまま merge import する薄い facade です。
+//: - 現段階では `platforms/wasix/tui` を公開 merge import する薄い facade です。
 //: - 将来 target ごとの差分実装が増えても、利用者側の import path は `features/tui` に固定できます。
 //:
 //: ### [注意/ちゅうい]
@@ -24,4 +24,4 @@
 
 #indent 4
 
-#import "platforms/wasix/tui" as @merge
+pub #import "platforms/wasix/tui" as @merge

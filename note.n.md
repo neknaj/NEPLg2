@@ -17,6 +17,25 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の修正は self-host 前提の stdlib API 欠落を解消したもので、言語仕様本文への変更はない。
 
+# 2026-04-26 メモ (ISS-20260426T023638576Z FEATURES-TUI-DOCTEST-HELPER 修正)
+
+- 状況:
+  - `tests/stdlib/features_tui.n.md` は `#import "features/tui" as tui` から `tui::line_pad_to_cols` / `tui::repeat_text` / `tui::get_terminal_size` を参照し、D3001 undefined identifier で compile 失敗していた。
+  - `stdlib/features/tui.nepl` は `platforms/wasix/tui` を `@merge` する facade だが、qualified import の解決が merge 先を見ていなかった。
+- 原因:
+  - `nepl-core/src/typecheck.rs` の qualified import target 構築が alias 先ファイルの直接定義だけを候補にしており、facade の direct `@merge` import 先ファイルを target set に含めていなかった。
+- 修正:
+  - qualified import target を direct `@merge` import 先へ展開する処理を追加した。
+  - `as *` の transitive import は qualified alias へ漏らさない回帰テストを `nepl-core/tests/import_clause.rs` に追加した。
+  - `stdlib/features/tui.nepl` の facade comment と import を公開 merge import として明記した。
+  - 修正後に発覚した Wasmer 1.x の `--volume` 非対応は `ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91` として分離した。
+- 確認済み:
+  - `cargo test -p nepl-core --test import_clause`: 8/8 passed
+  - `trunk build`: 成功
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-issue.json -j 1`: D3001 compile failure は解消。run phase は Wasmer `--volume` 非対応で失敗し、新規 Issue で追跡。
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は import facade の名前解決と TUI feature test の復旧であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (RV-STDLIB-018 streamio ByteBuf writer 修正)
 
 - 状況:

@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:58:09.183Z",
+  "generated_at": "2026-04-26T03:12:18.651Z",
   "counts": {
-    "total": 103,
+    "total": 104,
     "open": 33,
-    "resolved": 70,
+    "resolved": 71,
     "by_area": {
+      "cli": {
+        "total": 16,
+        "open": 3,
+        "resolved": 13
+      },
       "core": {
         "total": 35,
         "open": 8,
@@ -18,13 +23,8 @@
       },
       "stdlib": {
         "total": 33,
-        "open": 16,
-        "resolved": 17
-      },
-      "cli": {
-        "total": 15,
-        "open": 2,
-        "resolved": 13
+        "open": 15,
+        "resolved": 18
       },
       "examples": {
         "total": 13,
@@ -34,6 +34,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91",
+      "title": "wasix doctest runner uses wasmer --volume unsupported by Wasmer 1.x",
+      "area": "cli",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nodesrc/run_test.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -303,21 +318,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md"
-    },
-    {
-      "id": "ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1",
-      "title": "features_tui doctest が未定義 helper 参照で失敗する",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "tests/stdlib/features_tui.n.md, stdlib/std/features/tui.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1.md"
     },
     {
       "id": "ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318",
@@ -1293,6 +1293,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
       "file": "items/ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B.md"
+    },
+    {
+      "id": "ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1",
+      "title": "features_tui doctest が未定義 helper 参照で失敗する",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "tests/stdlib/features_tui.n.md, stdlib/features/tui.nepl, nepl-core/src/typecheck.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

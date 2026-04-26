@@ -26,11 +26,19 @@ fn leaked <()->i32> ():
     99
 "#;
 
+const FACADE: &str = r#"
+#indent 4
+#no_prelude
+
+#import "dep" as @merge
+"#;
+
 fn compile_with_dep(main: &str) -> Result<(), CoreError> {
     let mut loader = Loader::new(PathBuf::from("virtual_std"));
     let mut provider = |path: &PathBuf| match path.file_name().and_then(|name| name.to_str()) {
         Some("dep.nepl") => Ok(DEP.to_string()),
         Some("dep2.nepl") => Ok(DEP2.to_string()),
+        Some("facade.nepl") => Ok(FACADE.to_string()),
         _ => Err(LoaderError::Io(format!(
             "missing virtual source: {:?}",
             path
@@ -96,6 +104,34 @@ fn main <()->i32> ():
     dep::allowed
 "#;
     compile_with_dep(qualified).expect("qualified alias import should compile");
+}
+
+#[test]
+fn alias_import_follows_merge_facade_for_qualified_access() {
+    let through_facade = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "facade" as facade
+
+fn main <()->i32> ():
+    facade::allowed
+"#;
+    compile_with_dep(through_facade).expect("qualified facade import should expose merged symbols");
+
+    let non_merge_transitive = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "facade" as facade
+
+fn main <()->i32> ():
+    facade::leaked
+"#;
+    let diags = expect_compile_err(non_merge_transitive);
+    assert_undefined_identifier(&diags);
 }
 
 #[test]

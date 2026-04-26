@@ -9297,6 +9297,7 @@ fn build_qualified_import_targets(
             directives.push(d);
         }
     }
+    let merge_import_targets = build_merge_import_targets(&directives, source_map);
     let mut out: BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>> = BTreeMap::new();
     for directive in directives {
         let Directive::Import {
@@ -9315,7 +9316,10 @@ fn build_qualified_import_targets(
         if aliases.is_empty() {
             continue;
         }
-        let target_files = import_target_files(source_map, path);
+        let target_files = expand_files_through_merge_imports(
+            import_target_files(source_map, path),
+            &merge_import_targets,
+        );
         if target_files.is_empty() {
             continue;
         }
@@ -9328,6 +9332,49 @@ fn build_qualified_import_targets(
         }
     }
     out
+}
+
+fn build_merge_import_targets(
+    directives: &[&Directive],
+    source_map: &SourceMap,
+) -> BTreeMap<u32, BTreeSet<u32>> {
+    let mut out: BTreeMap<u32, BTreeSet<u32>> = BTreeMap::new();
+    for directive in directives {
+        let Directive::Import {
+            path, clause, span, ..
+        } = directive
+        else {
+            continue;
+        };
+        if !matches!(clause, ImportClause::Merge) {
+            continue;
+        }
+        let target_files = import_target_files(source_map, path);
+        if target_files.is_empty() {
+            continue;
+        }
+        out.entry(span.file_id.0).or_default().extend(target_files);
+    }
+    out
+}
+
+fn expand_files_through_merge_imports(
+    target_files: BTreeSet<u32>,
+    merge_import_targets: &BTreeMap<u32, BTreeSet<u32>>,
+) -> BTreeSet<u32> {
+    let mut expanded = target_files;
+    let mut stack = expanded.iter().copied().collect::<Vec<_>>();
+    while let Some(file_id) = stack.pop() {
+        let Some(merged_files) = merge_import_targets.get(&file_id) else {
+            continue;
+        };
+        for merged_file in merged_files {
+            if expanded.insert(*merged_file) {
+                stack.push(*merged_file);
+            }
+        }
+    }
+    expanded
 }
 
 type LabelEnv = BTreeMap<String, TypeId>;
