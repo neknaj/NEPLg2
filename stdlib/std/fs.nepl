@@ -26,6 +26,7 @@ fn wasi_fd_close <(i32)*>i32> (_fd):
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "alloc/diag/error" as *
 #import "alloc/io" as *
 #import "alloc/string" as *
 
@@ -409,16 +410,77 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                                             ();
                                                     res
 
-//: fs_bytes_to_string: `ByteBuf` を str に変換する
+//: fs_std_error_to_errno: stdlib 共通 error kind を fs errno へ写す
 //:
 //: 目的:
-//: - バイト列をそのまま str 形式に詰め直します。
+//: - `alloc/io` の `StdErrorKind` を、`std/fs` の既存 API が使う i32 errno へ変換します。
 //:
 //: 実装(アルゴリズム):
-//: - `io_bytebuf_to_str` を使い、所有 buffer をそのまま str 形式へ詰め替えます。
+//: - OutOfMemory は WASI errno の 12 に対応させ、それ以外は I/O error 相当の 5 に丸めます。
+//:
+//: 注意(重要):
+//: - fs API の error 型が `StdErrorKind` へ移行するまでの境界変換です。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_std_error_to_errno <(StdErrorKind)->i32> (kind):
+    match kind:
+        StdErrorKind::Failure:
+            5
+        StdErrorKind::OutOfMemory:
+            12
+        StdErrorKind::EmptyCollection:
+            5
+        StdErrorKind::IndexOutOfBounds:
+            5
+        StdErrorKind::KeyNotFound:
+            5
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            5
+        StdErrorKind::InvalidUtf8:
+            5
+        StdErrorKind::ParseError:
+            5
+        StdErrorKind::IoError:
+            5
+        StdErrorKind::Other:
+            5
+
+//: fs_bytes_to_string_result: `ByteBuf` を str に変換する
+//:
+//: 目的:
+//: - バイト列をそのまま str 形式に詰め直し、確保失敗を errno として返します。
+//:
+//: 実装(アルゴリズム):
+//: - `io_bytebuf_to_str_result` を使い、所有 buffer をそのまま str 形式へ詰め替えます。
+//: - `StdErrorKind::OutOfMemory` は WASI errno と同じ 12 へ写します。
 //:
 //: 注意(重要):
 //: - UTF-8 の検証は行いません。
+//: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
+//:
+//: 計算量:
+//: - O(n)
+fn fs_bytes_to_string_result <(ByteBuf)*>Result<str,i32>> (buf):
+    match io_bytebuf_to_str_result buf:
+        Result::Ok text:
+            Result<str,i32>::Ok text
+        Result::Err e:
+            Result<str,i32>::Err fs_std_error_to_errno e
+
+//: fs_bytes_to_string: `ByteBuf` を str に変換する互換 facade
+//:
+//: 目的:
+//: - 既存コード向けに `str` を直接返す入口を維持します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_bytes_to_string_result` に委譲し、失敗時だけ空文字列へ丸めます。
+//:
+//: 注意(重要):
+//: - 空 buffer と確保失敗を区別する必要がある場合は `fs_bytes_to_string_result` を使ってください。
+//: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
 //:
 //: 計算量:
 //: - O(n)
@@ -441,7 +503,11 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
 //:     fs_bytes_to_string io_bytebuf_from_str "A";
 //: ```
 fn fs_bytes_to_string <(ByteBuf)*>str> (buf):
-    io_bytebuf_to_str buf
+    match fs_bytes_to_string_result buf:
+        Result::Ok text:
+            text
+        Result::Err _e:
+            ""
 
 //: fs_read_to_bytes: ファイルを読み込んで `ByteBuf` を返す
 //:
@@ -489,7 +555,7 @@ fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 //: - path を読み込み、文字列として返します。
 //:
 //: 実装(アルゴリズム):
-//: - fs_read_to_bytes で読み込み、fs_bytes_to_string で変換します。
+//: - fs_read_to_bytes で読み込み、fs_bytes_to_string_result で変換します。
 //:
 //: 注意(重要):
 //: - UTF-8 検証は行いません。
@@ -518,6 +584,6 @@ fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 fn fs_read_to_string <(str)*>Result<str,i32>> (path):
     match fs_read_to_bytes path:
         Result::Ok bytes:
-            Result::Ok fs_bytes_to_string bytes
+            fs_bytes_to_string_result bytes
         Result::Err e:
             Result::Err e

@@ -83,7 +83,7 @@ impl TargetReadable for ByteBuf:
                     Result::Err _e:
                         Result<ByteBuf, StdErrorKind>::Err StdErrorKind::IoError
             ReadStream::Text text:
-                Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_str text
+                io_bytebuf_from_str_result text
             ReadStream::Bytes bytes:
                 Result<ByteBuf, StdErrorKind>::Ok bytes
 
@@ -101,7 +101,7 @@ impl TargetReadable for str:
             ReadStream::Text text:
                 Result<str, StdErrorKind>::Ok text
             ReadStream::Bytes bytes:
-                Result<str, StdErrorKind>::Ok io_bytebuf_to_str bytes
+                io_bytebuf_to_str_result bytes
 
 //: ## read
 //: category target から byte [列/れつ]や text を[読/よ]む facade

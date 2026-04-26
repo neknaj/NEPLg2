@@ -63,6 +63,7 @@ Rust 側は変更していないため、このレビュー追加 commit では 
 
 - `ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90` は `stdlib/string-numeric-overflow` branch で修正し、u128/i128/i64/i32 の境界値 doctest を追加して verified にした。
 - numeric parser 修正中に、`Result<i64,_>` の wildcard pattern が invalid wasm を生成する compiler issue `ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655` を追加した。追加時点で Discord report 済み。
+- `ISS-20260426T060223863Z-BYTEBUF-CONVERSIONS-HIDE-ALLOCATION--3BF03711` は `stdlib/bytebuf-result-conversions` branch で修正し、`alloc/io`、`std/streamio`、`std/io`、`std/fs` の Result-returning 経路が allocation failure を成功値へ潰さないようにした。
 
 ## compiler workaround の確認
 

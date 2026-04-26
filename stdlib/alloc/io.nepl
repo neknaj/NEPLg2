@@ -73,32 +73,87 @@ fn io_bytebuf_free <(ByteBuf)->()> (buf):
         else:
             ()
 
-fn io_bytebuf_from_str <(str)->ByteBuf> (text):
+//: io_bytebuf_from_str_result: `str` を `ByteBuf` へ複製する
+//:
+//: [目的/もくてき]:
+//: - text を binary I/O 用の所有 byte buffer へ変換し、確保失敗を `StdErrorKind::OutOfMemory` として返します。
+//:
+//: [実装/じっそう]:
+//: - 空文字列は確保せず `io_bytebuf_empty` を返します。
+//: - 非空の場合は `alloc_ptr<u8>` で本文長ぶんの領域を確保し、1 byte ずつコピーします。
+//:
+//: [注意/ちゅうい]:
+//: - 返った `ByteBuf` は呼び出し側が所有し、使い終わったら `io_bytebuf_free` してください。
+//: - UTF-8 検証や変換は行わず、`str` の byte 表現をそのまま複製します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
     let byte_len <i32> load_i32 text
     let data <MemPtr<u8>> string_data_ptr text
-    match alloc_ptr<u8> byte_len:
+    if:
+        eq byte_len 0
+        then:
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+        else:
+            match alloc_ptr<u8> byte_len:
+                Result::Err _e:
+                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                Result::Ok out:
+                    let mut i <i32> 0
+                    while lt i byte_len:
+                        do:
+                            let b <i32> unwrap<i32> load_u8 mem_ptr_add data i
+                            match store_u8 mem_ptr_add out i b:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _e:
+                                    #intrinsic "unreachable" <> ()
+                            set i add i 1
+                    Result<ByteBuf, StdErrorKind>::Ok ByteBuf out byte_len
+
+//: io_bytebuf_from_str: `str` を `ByteBuf` へ複製する互換 facade
+//:
+//: [目的/もくてき]:
+//: - 既存コード向けに `ByteBuf` を直接返す入口を維持します。
+//:
+//: [実装/じっそう]:
+//: - 本体は `io_bytebuf_from_str_result` に委譲し、失敗時だけ空 `ByteBuf` へ丸めます。
+//:
+//: [注意/ちゅうい]:
+//: - 空入力と確保失敗を区別する必要がある場合は `io_bytebuf_from_str_result` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_from_str <(str)->ByteBuf> (text):
+    match io_bytebuf_from_str_result text:
+        Result::Ok buf:
+            buf
         Result::Err _e:
             io_bytebuf_empty
-        Result::Ok out:
-            let mut i <i32> 0
-            while lt i byte_len:
-                do:
-                    let b <i32> unwrap<i32> load_u8 mem_ptr_add data i
-                    match store_u8 mem_ptr_add out i b:
-                        Result::Ok _:
-                            ()
-                        Result::Err _e:
-                            #intrinsic "unreachable" <> ()
-                    set i add i 1
-            ByteBuf out byte_len
 
-fn io_bytebuf_to_str <(ByteBuf)*>str> (buf):
+//: io_bytebuf_to_str_result: `ByteBuf` を `str` へ変換する
+//:
+//: [目的/もくてき]:
+//: - 所有 byte buffer を text helper へ渡せる `str` 表現に詰め直し、確保失敗を `StdErrorKind::OutOfMemory` として返します。
+//:
+//: [実装/じっそう]:
+//: - `string_alloc_region` で文字列領域を確保し、byte をそのままコピーします。
+//: - 成功時も失敗時も入力 `ByteBuf` はこの関数が解放します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 検証は行いません。
+//: - 呼び出し後に入力 `ByteBuf` を再利用しないでください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
     let byte_len <i32> get buf "len"
     let data <MemPtr<u8>> get buf "ptr"
     match string_alloc_region byte_len:
         Result::Err _e:
             io_bytebuf_free buf
-            ""
+            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok region:
             let out <MemPtr<u8>> get region "ptr"
             let mut i <i32> 0
@@ -112,7 +167,28 @@ fn io_bytebuf_to_str <(ByteBuf)*>str> (buf):
                             #intrinsic "unreachable" <> ()
                     set i add i 1
             io_bytebuf_free buf
-            string_finish region byte_len
+            Result<str, StdErrorKind>::Ok string_finish region byte_len
+
+//: io_bytebuf_to_str: `ByteBuf` を `str` へ変換する互換 facade
+//:
+//: [目的/もくてき]:
+//: - 既存コード向けに `str` を直接返す入口を維持します。
+//:
+//: [実装/じっそう]:
+//: - 本体は `io_bytebuf_to_str_result` に委譲し、失敗時だけ空文字列へ丸めます。
+//:
+//: [注意/ちゅうい]:
+//: - 空 buffer と確保失敗を区別する必要がある場合は `io_bytebuf_to_str_result` を使ってください。
+//: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_to_str <(ByteBuf)*>str> (buf):
+    match io_bytebuf_to_str_result buf:
+        Result::Ok text:
+            text
+        Result::Err _e:
+            ""
 
 //: ## ByteReader
 //: [生/なま]の[バイト列/ばいとれつ]を[読/よ]み[出/だ]す[能力/のうりょく]
