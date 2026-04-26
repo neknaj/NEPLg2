@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (RV-STDLIB-018 streamio ByteBuf writer 修正)
+
+- 状況:
+  - `tests/stdlib/streamio.n.md` は `ByteBuf` を `write` へ渡す doctest で `D3069 StreamWritable` 不一致になっていた。
+  - `|> writeln <i64> cast 2` は通常呼び出しの `writeln w <i64> cast 2` では compile できるが、pipe 右辺では `D3006` / `D3013` / `D3016` になるため core の pipeline 問題として分離した。
+- 原因:
+  - `StreamWritable` が `str` / numeric 型だけを対象にし、binary payload の `ByteBuf` を writer へ渡す実装を持っていなかった。
+  - streamio の runtime 出力破損は RV-STDLIB-025 の enum storage / zero-sized field 修正で解消済みだった。
+- 修正:
+  - `append_bytebuf_impl` と `impl StreamWritable for ByteBuf` を追加し、`ByteBuf` の `ptr` / `len` から byte 単位で writer buffer へ追記してから `io_bytebuf_free` で解放するようにした。
+  - numeric write doctest は `let two <i64> cast 2;` としてから `|> writeln two` に渡し、streamio の `i64` 書き込み検証と core pipeline 未解決問題を分離した。
+  - 新 Issue 管理の正である `issues/items` で `RV-STDLIB-018` 移行 issue を verified に更新し、pipe 右辺の明示型引数付きネスト呼び出し問題、`features_tui` の未定義 helper 問題、`traits_text` の runtime return mismatch を新規 issue として追加した。
+- 確認済み:
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/rv-stdlib-018-pass1.json -j 1`: 13/13 passed
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/rv-stdlib-018-io-pass1.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -i tests/stdlib/kp_i64.n.md --no-tree -o tmp/rv-stdlib-018-kp-pass1.json -j 1`: 11/11 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/rv-stdlib-018-tests-stdlib-pass1.json -j 4`: 199/202 passed; 残りは `features_tui` と `traits_text` の別原因。
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は標準 I/O wrapper の binary write capability と core pipeline issue 台帳整理であり、セルフホスト compiler 計画自体への仕様変更はない。
+
 # 2026-04-26 メモ (NEPLg2.0 self-host 性能監査)
 
 - [状況]:
@@ -210,7 +230,6 @@
   - `node nodesrc/issues.js check`: 94 files OK。
 - [plan.mdとの差異]:
   - plan.md は変更していない。今回の変更は remote 取り込み後の Issue 台帳状態の同期であり、仕様や実装挙動は変更していない。
-
 # 2026-04-26 メモ (RV-STDLIB-025 enum storage / zero-sized struct 修正)
 
 - 状況:

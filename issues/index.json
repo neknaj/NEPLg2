@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:36:26.106Z",
+  "generated_at": "2026-04-26T02:41:28.963Z",
   "counts": {
-    "total": 100,
-    "open": 33,
-    "resolved": 67,
+    "total": 103,
+    "open": 35,
+    "resolved": 68,
     "by_area": {
       "cli": {
         "total": 15,
@@ -12,8 +12,8 @@
         "resolved": 12
       },
       "core": {
-        "total": 34,
-        "open": 7,
+        "total": 35,
+        "open": 8,
         "resolved": 27
       },
       "selfhost": {
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 31,
-        "open": 16,
-        "resolved": 15
+        "total": 33,
+        "open": 17,
+        "resolved": 16
       },
       "examples": {
         "total": 13,
@@ -78,6 +78,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
       "file": "items/ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10.md"
+    },
+    {
+      "id": "ISS-20260426T023624387Z-PIPE-004372E8",
+      "title": "pipe 右辺の明示型引数付きネスト呼び出しが過剰に分断される",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/tests/pipe_operator.rs, tests/compiler/pipe_operator.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T023624387Z-PIPE-004372E8.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
@@ -260,21 +275,6 @@
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-013-F256803D.md"
     },
     {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-018-663A986A",
-      "title": "streamio の WASI doctest が trait bound 不一致と出力破損で失敗する",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md, nodesrc/run_test.js",
-      "legacy_id": "RV-STDLIB-018",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-018",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-018-663A986A.md"
-    },
-    {
       "id": "ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B",
       "title": "alloc/string find is a stub and always returns None",
       "area": "stdlib",
@@ -333,6 +333,36 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md"
+    },
+    {
+      "id": "ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1",
+      "title": "features_tui doctest が未定義 helper 参照で失敗する",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "tests/stdlib/features_tui.n.md, stdlib/std/features/tui.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1.md"
+    },
+    {
+      "id": "ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318",
+      "title": "traits_text doctest が runtime return mismatch になる",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "tests/stdlib/traits_text.n.md, stdlib/core/traits, stdlib/std/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-007-7A548794",
@@ -1188,6 +1218,21 @@
       "legacy_id": "RV-STDLIB-017",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-017",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-017-4D1ABDA7.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-018-663A986A",
+      "title": "streamio の WASI doctest が trait bound 不一致と出力破損で失敗する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md",
+      "legacy_id": "RV-STDLIB-018",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-018",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-018-663A986A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-021-F72F1664",
