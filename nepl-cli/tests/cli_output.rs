@@ -381,6 +381,47 @@ fn compile_success_keeps_output_channels_clean_without_verbose() {
 }
 
 #[test]
+fn lib_mode_fails_until_artifact_contract_exists() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let source = write_ok_source(&temp, "lib.nepl");
+    let output_base = temp.path().join("lib_out");
+
+    let output = cli_command()
+        .arg("--lib")
+        .arg("-i")
+        .arg(&source)
+        .args(["--target", "core", "-o"])
+        .arg(&output_base)
+        .output()
+        .expect("run nepl-cli");
+
+    assert!(
+        !output.status.success(),
+        "unexpected success\nstdout:\n{}\nstderr:\n{}",
+        output_text(&output.stdout),
+        output_text(&output.stderr)
+    );
+    assert!(
+        output.stdout.is_empty(),
+        "unexpected stdout:\n{}",
+        output_text(&output.stdout)
+    );
+    let stderr = output_text(&output.stderr);
+    assert!(
+        stderr.contains("--lib is not supported yet: library artifact contract is not implemented"),
+        "missing unsupported diagnostic:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("placeholder pipeline"),
+        "placeholder warning leaked:\n{stderr}"
+    );
+    assert!(
+        !output_base.with_extension("wasm").exists(),
+        "--lib should fail before writing a wasm artifact"
+    );
+}
+
+#[test]
 fn verbose_check_still_exposes_cli_debug_logs() {
     let temp = tempfile::tempdir().expect("tempdir");
     let source = write_ok_source(&temp, "ok.nepl");

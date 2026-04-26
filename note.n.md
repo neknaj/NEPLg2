@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (ISS-20260426T020004000Z CLI-LIB-PLACEHOLDER 修正)
+
+- 状況:
+  - `nepl-cli --lib` は option として受理され、通常の compile/output 後に placeholder warning を stderr へ出すだけで成功していた。
+  - library artifact の entry/export/output naming 契約は未定義なので、成功終了すると利用者や self-host parity runner が artifact 生成済みと誤認する。
+- 原因:
+  - `--lib` が compile pipeline の結果に影響せず、未実装状態を warning のみで表現していた。
+- 修正:
+  - `--lib` を parse 後すぐに unsupported error として返し、compile pipeline や output 書き込みへ進ませないようにした。
+  - CLI help を「currently unsupported; exits with an error」に更新した。
+  - `nepl-cli/tests/cli_output.rs` に non-zero exit、placeholder warning 非出力、wasm artifact 非生成を確認する回帰テストを追加した。
+  - `issues/items/ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22.md` を verified に更新した。
+- 確認済み:
+  - `cargo fmt --all --check`: 成功
+  - `cargo test -p nepl-cli --test cli_output lib_mode_fails_until_artifact_contract_exists`: 1/1 passed
+  - `cargo test -p nepl-cli --test cli_output`: 13/13 passed
+  - `cargo test -p nepl-cli`: unit 9/9 passed、`cli_output` 13/13 passed、`deploy_script` 2 ignored
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は未定義の library artifact 生成を成功扱いしない CLI 契約修正であり、library mode 本実装の仕様追加ではない。
+
 # 2026-04-26 メモ (ISS-20260426T020002000Z FUNCTION-NESTED-IGNORED 修正)
 
 - 状況:

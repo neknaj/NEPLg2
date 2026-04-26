@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:08:24.160Z",
+  "generated_at": "2026-04-26T04:16:09.496Z",
   "counts": {
     "total": 105,
-    "open": 28,
-    "resolved": 77,
+    "open": 27,
+    "resolved": 78,
     "by_area": {
       "core": {
         "total": 36,
@@ -23,8 +23,8 @@
       },
       "cli": {
         "total": 17,
-        "open": 2,
-        "resolved": 15
+        "open": 1,
+        "resolved": 16
       },
       "examples": {
         "total": 13,
@@ -288,21 +288,6 @@
       "legacy_id": "RV-CLI-007",
       "source": "doc/review20260425/cli.md#rv-cli-007",
       "file": "items/ISS-20260425T000000Z-RV-CLI-007-7A548794.md"
-    },
-    {
-      "id": "ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22",
-      "title": "nepl-cli --lib is accepted but only prints a placeholder warning",
-      "area": "cli",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-cli/src/main.rs",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
-      "file": "items/ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1353,6 +1338,21 @@
       "legacy_id": "RV-CLI-013",
       "source": "doc/review20260425/cli.md#rv-cli-013",
       "file": "items/ISS-20260425T000000Z-RV-CLI-013-39C2B626.md"
+    },
+    {
+      "id": "ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22",
+      "title": "nepl-cli --lib is accepted but only prints a placeholder warning",
+      "area": "cli",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-cli/src/main.rs, nepl-cli/tests/cli_output.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-011-1B942835",

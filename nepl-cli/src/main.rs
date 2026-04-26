@@ -321,7 +321,7 @@ struct Cli {
     run_args: Vec<String>,
     #[arg(
         long,
-        help = "Compile as library (do not wrap top-level in an implicit main)"
+        help = "Compile as library (currently unsupported; exits with an error)"
     )]
     lib: bool,
 
@@ -384,6 +384,11 @@ fn execute(cli: Cli) -> Result<()> {
     nepl_core::log::set_verbose(cli.verbose);
     if let Some(Command::Test(args)) = cli.command {
         return run_tests(args, cli.verbose, cli.stdlib_root.as_deref());
+    }
+    if cli.lib {
+        return Err(anyhow::anyhow!(
+            "--lib is not supported yet: library artifact contract is not implemented"
+        ));
     }
     if !cli.run && !cli.check && cli.output.is_none() {
         return Err(anyhow::anyhow!(
@@ -566,11 +571,6 @@ fn execute(cli: Cli) -> Result<()> {
             println!("Program exited with {result}");
         }
     }
-
-    if cli.lib {
-        eprintln!("--lib is acknowledged but not yet implemented in the placeholder pipeline");
-    }
-
     Ok(())
 }
 

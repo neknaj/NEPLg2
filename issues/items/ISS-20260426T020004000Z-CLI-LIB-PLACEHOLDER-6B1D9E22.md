@@ -2,13 +2,13 @@
 id: ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22
 title: "nepl-cli --lib is accepted but only prints a placeholder warning"
 area: cli
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: architecture
 created: 2026-04-26
 updated: 2026-04-26
-target: nepl-cli/src/main.rs
+target: "nepl-cli/src/main.rs, nepl-cli/tests/cli_output.rs"
 source: doc/neplg2/pre_selfhost_audit_20260426.md
 ---
 
@@ -39,7 +39,19 @@ self-host の core / CLI 分離を検証する段階で、Rust 参照 CLI と se
 短期的には unsupported を structured diagnostic と exit failure にする。
 実装する場合は、entry requirement、export set、stdlib prelude、output file naming、test fixture を同じ commit で固定する。
 
+## 対応結果
+
+短期契約として `--lib` は未実装を明示する failure に固定した。
+`nepl-cli/src/main.rs` では `--lib` を parse 後すぐに検出し、compile pipeline や output 書き込みへ進む前に `--lib is not supported yet: library artifact contract is not implemented` で non-zero exit する。
+CLI help も「currently unsupported; exits with an error」として、実装済み library compile と誤認しない表現にした。
+
+`nepl-cli/tests/cli_output.rs` に `lib_mode_fails_until_artifact_contract_exists` を追加し、stderr の unsupported diagnostic、placeholder warning の非出力、wasm artifact を書かないことを固定した。
+実際の library artifact 契約は、entry requirement / export set / output naming を決める別設計で扱う。
+
 ## 検証
 
-- `cargo test -p nepl-cli --test cli`
-- `nepl-cli --lib` の成功 / 失敗契約を JSON または snapshot fixture で確認する。
+- `cargo fmt --all --check`
+- `cargo test -p nepl-cli --test cli_output lib_mode_fails_until_artifact_contract_exists` (`1 passed`)
+- `cargo test -p nepl-cli --test cli_output` (`13 passed`)
+- `cargo test -p nepl-cli` (`9 unit passed`, `13 cli_output passed`, `2 deploy_script ignored`)
+- `node nodesrc/issues.js check`
