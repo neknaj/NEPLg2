@@ -17389,3 +17389,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - issue 本文に、literal arm だけでなく wildcard / default と網羅性仕様の整理を含めた。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-04-26 メモ (str/i32 unify issue 追加)
+
+- [追加]:
+  - `ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` を追加した。
+  - JSON typed value の回帰テストで `json_string 0` が compile_fail にならず、`nepl-core/src/types.rs` の `TypeCtx::unify` が `str` と `i32` を相互受理していることを確認した。
+- [影響]:
+  - `JsonValue::String` を `str` payload にしても、core が raw i32 を str として受理する限り raw handle 混入を完全には防げない。
+  - JSON issue では array/object の raw handle rejection と string roundtrip/serialize を固定し、string raw handle rejection は core issue 側の回帰テストとして扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

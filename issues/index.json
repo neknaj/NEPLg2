@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T07:37:25.230Z",
+  "generated_at": "2026-04-26T07:43:17.035Z",
   "counts": {
-    "total": 117,
-    "open": 24,
+    "total": 118,
+    "open": 25,
     "resolved": 93,
     "by_area": {
       "core": {
-        "total": 38,
-        "open": 4,
+        "total": 39,
+        "open": 5,
         "resolved": 34
       },
       "selfhost": {
@@ -58,6 +58,21 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
+    },
+    {
+      "id": "ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7",
+      "title": "str unifies with i32 and accepts raw handles as text",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/types.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7.md"
     },
     {
       "id": "ISS-20260426T010001Z-STDFS-WRITE-B7C4D923",

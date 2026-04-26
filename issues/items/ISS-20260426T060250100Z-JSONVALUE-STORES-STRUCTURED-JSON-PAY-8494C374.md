@@ -36,7 +36,9 @@ diagnostic JSON や self-host artifact metadata を組み立てるとき、無�
 ## 修正方針
 
 String は str、Array は Vec<JsonValue>、Object は明示的な JsonMember/Vec<JsonMember> など typed representation へ移行し、serialize/escape/build API と ownership 契約を定義する。必要に応じて builder を分ける。
+ただし `str` と raw `i32` handle の型分離は core 側の問題であり、`json_string 0` の compile-time rejection は `ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` で扱う。
 
 ## 検証
 
-string/array/object の roundtrip、escape、nested value、invalid raw handle を排除する compile_fail を追加する。
+string/array/object の roundtrip、escape、nested value、array/object の invalid raw handle を排除する compile_fail を追加する。
+string payload の raw i32 rejection は core の str/i32 分離 issue の回帰テストで固定する。
