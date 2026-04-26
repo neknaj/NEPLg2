@@ -6597,6 +6597,7 @@ impl<'a> BlockChecker<'a> {
                     continue;
                 }
                 let var_info = var_info.unwrap();
+                let bind_ty = arm.bind.as_ref().and_then(|_| var_info.payload);
                 self.env.push_scope();
                 if let Some(bind) = &arm.bind {
                     if let Some(pty) = var_info.payload {
@@ -6647,6 +6648,7 @@ impl<'a> BlockChecker<'a> {
                 arms_hir.push(HirMatchArm {
                     variant: arm.variant.name.clone(),
                     bind_local: arm.bind.as_ref().map(|b| b.name.clone()),
+                    bind_ty,
                     body: HirExpr {
                         ty: body_ty,
                         kind: HirExprKind::Block(blk),

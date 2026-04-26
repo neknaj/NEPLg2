@@ -339,14 +339,7 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
 
 fn process_match_arm(arm: &mut HirMatchArm, ctx: &mut DropInsertionContext<'_>) {
     ctx.push_scope();
-    if let Some(bind) = &arm.bind_local {
-        let ty = match &arm.body.kind {
-            HirExprKind::EnumConstruct {
-                payload: Some(payload),
-                ..
-            } => payload.ty,
-            _ => arm.body.ty,
-        };
+    if let (Some(bind), Some(ty)) = (&arm.bind_local, arm.bind_ty) {
         ctx.declare_var(bind.clone(), ty);
     }
     insert_drops_in_expr(&mut arm.body, ctx);
