@@ -13,7 +13,6 @@ ret: 0
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
 #import "core/field" as *
-#import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
@@ -31,21 +30,22 @@ fn main <()*>i32> ():
         Result::Err _e:
             1
         Result::Ok opts:
-            let opts_mem <i32> alloc_raw size_of<SelfhostCliOptions>;
-            store<SelfhostCliOptions> opts_mem opts;
-            let output_ok <bool> match get load<SelfhostCliOptions> opts_mem "output":
+            let output_ref <&Option<str>> get_ref &opts "output"
+            let input_ref <&Option<str>> get_ref &opts "input"
+            let check_ref <&bool> get_ref &opts "check"
+            let emit_ref <&SelfhostCliEmit> get_ref &opts "emit"
+            let output_ok <bool> match *output_ref:
                 Option::Some output:
                     str_eq output "out.wasm"
                 Option::None:
                     false
-            let input_ok <bool> match get load<SelfhostCliOptions> opts_mem "input":
+            let input_ok <bool> match *input_ref:
                 Option::Some input:
                     str_eq input "main.nepl"
                 Option::None:
                     false
-            let check_ok <bool> get load<SelfhostCliOptions> opts_mem "check";
-            let emit_ok <bool> selfhost_cli_emit_is_wasm get load<SelfhostCliOptions> opts_mem "emit";
-            dealloc_raw opts_mem size_of<SelfhostCliOptions>;
+            let check_ok <bool> *check_ref
+            let emit_ok <bool> selfhost_cli_emit_is_wasm *emit_ref
             let checks <Vec<Result<(),str>>>:
                 checks_new
                 |> checks_push assert check_ok
@@ -141,7 +141,6 @@ ret: 0
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
 #import "core/field" as *
-#import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
@@ -158,19 +157,18 @@ fn main <()*>i32> ():
         Result::Err _e:
             1
         Result::Ok opts:
-            let opts_mem <i32> alloc_raw size_of<SelfhostCliOptions>;
-            store<SelfhostCliOptions> opts_mem opts;
-            let target_ok <bool> match get load<SelfhostCliOptions> opts_mem "target":
+            let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
+            let input_ref <&Option<str>> get_ref &opts "input"
+            let target_ok <bool> match *target_ref:
                 Option::Some target:
                     selfhost_cli_target_is_wasi target
                 Option::None:
                     false
-            let input_ok <bool> match get load<SelfhostCliOptions> opts_mem "input":
+            let input_ok <bool> match *input_ref:
                 Option::Some input:
                     str_eq input "main.nepl"
                 Option::None:
                     false
-            dealloc_raw opts_mem size_of<SelfhostCliOptions>;
             let checks <Vec<Result<(),str>>>:
                 checks_new
                 |> checks_push assert target_ok
@@ -190,7 +188,6 @@ ret: 0
 #import "neplg2/cli/args" as *
 #import "alloc/collections/vec" as v
 #import "core/field" as *
-#import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -205,10 +202,8 @@ fn main <()*>i32> ():
         Result::Err _e:
             1
         Result::Ok opts:
-            let opts_mem <i32> alloc_raw size_of<SelfhostCliOptions>;
-            store<SelfhostCliOptions> opts_mem opts;
-            let start <Option<i32>> get load<SelfhostCliOptions> opts_mem "run_args_start";
-            dealloc_raw opts_mem size_of<SelfhostCliOptions>;
+            let start_ref <&Option<i32>> get_ref &opts "run_args_start"
+            let start <Option<i32>> *start_ref
             match start:
                 Option::Some idx:
                     if eq idx 3 0 1

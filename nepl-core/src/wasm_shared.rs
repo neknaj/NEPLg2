@@ -462,6 +462,7 @@ pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
             | "load"
             | "store"
             | "get_field"
+            | "get_field_ref"
             | "set_field"
             | "callsite_span"
             | "i32_to_f32"

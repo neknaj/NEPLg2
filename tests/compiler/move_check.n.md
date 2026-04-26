@@ -637,3 +637,99 @@ fn main <()->i32> ():
     let out <LocalToken> cur
     0
 ```
+
+## move_borrowed_field_projection_keeps_owner_until_reference_last_use
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    token <LocalToken>
+    count <i32>
+
+fn observe <(&LocalToken)->i32> (_w):
+    1
+
+fn consume <(Pair)->i32> (_p):
+    0
+
+fn main <()->i32> ():
+    let p <Pair> Pair (LocalToken @token_id) 7
+    let token_ref <&LocalToken> field::get_ref &p "token"
+    let count <i32> *field::get_ref &p "count"
+    observe token_ref
+    consume p
+```
+
+## move_borrowed_field_projection_blocks_owner_move_while_live
+
+neplg2:test[compile_fail]
+diag_id: 3051
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    token <LocalToken>
+    count <i32>
+
+fn observe <(&LocalToken)->i32> (_w):
+    1
+
+fn consume <(Pair)->i32> (_p):
+    0
+
+fn main <()->i32> ():
+    let p <Pair> Pair (LocalToken @token_id) 7
+    let token_ref <&LocalToken> field::get_ref &p "token"
+    consume p
+    observe token_ref
+```
+
+## move_borrowed_field_projection_escape_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3099
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    token <LocalToken>
+    count <i32>
+
+fn leak <()->&LocalToken> ():
+    let p <Pair> Pair (LocalToken @token_id) 7
+    field::get_ref &p "token"
+
+fn main <()->i32> ():
+    let r <&LocalToken> leak
+    0
+```

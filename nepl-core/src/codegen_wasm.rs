@@ -1712,6 +1712,33 @@ fn gen_expr(
                     insts.push(Instruction::LocalGet(out_local));
                     Some(ValType::I32)
                 }
+            } else if name == "get_field_ref" {
+                if args.len() != 2 {
+                    return Err(codegen_error(
+                        "intrinsic get_field_ref requires two args",
+                        expr.span,
+                        DiagnosticId::CodegenWasmIntrinsicArityMismatch,
+                    ));
+                }
+                let base_ty = match ctx.get(ctx.resolve_id(args[0].ty)) {
+                    TypeKind::Reference(inner, _) => inner,
+                    _ => args[0].ty,
+                };
+                let Some((_field_ty, offset)) =
+                    aggregate_field_layout(ctx, base_ty, &args[1], strings)
+                else {
+                    return Err(codegen_error(
+                        "unsupported get_field_ref selector reached wasm codegen",
+                        expr.span,
+                        DiagnosticId::CodegenWasmUnsupportedFieldSelector,
+                    ));
+                };
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
+                if offset != 0 {
+                    insts.push(Instruction::I32Const(offset as i32));
+                    insts.push(Instruction::I32Add);
+                }
+                Some(ValType::I32)
             } else if name == "set_field" {
                 if args.len() != 3 {
                     return Err(codegen_error(

@@ -18,6 +18,7 @@ const LLVM_SUPPORTED_INTRINSICS: &[&str] = &[
     "load",
     "store",
     "get_field",
+    "get_field_ref",
     "set_field",
     "unreachable",
     "add",

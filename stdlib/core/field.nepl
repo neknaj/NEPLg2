@@ -35,6 +35,26 @@
 fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
     #intrinsic "get_field" <> (obj,idx)
 
+// get_ref: [参照/さんしょう]からフィールドへの[参照/さんしょう]を[取得/しゅとく]します
+//: get_ref: [所有者/しょゆうしゃ]を[移動/いどう]せずにフィールドを[借用/しゃくよう]する
+//:
+//: [目的/もくてき]:
+//: - `&T` と field selector から、対象 field への `&R` を返します。
+//: - 複数 field を観察するだけの処理で aggregate owner を消費しないために使います。
+//:
+//: [実装/じっそう]:
+//: - compiler intrinsic が aggregate layout を解決し、base address に field offset を加えた参照を返します。
+//: - field の値は load しないため、非 Copy field を暗黙に複製しません。
+//:
+//: [注意/ちゅうい]:
+//: - 返る参照は元の aggregate の寿命を超えて保持できません。
+//: - field の所有値が必要な場合は `get` を使い、その move を明示してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn get_ref <.T,.I,.R> <(&.T,.I)->&.R> (obj,idx):
+    #intrinsic "get_field_ref" <> (obj,idx)
+
 // put: フィールドの値を設定します
 //: put: 主な用途
 //:

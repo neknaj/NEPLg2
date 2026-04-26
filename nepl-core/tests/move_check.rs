@@ -610,3 +610,98 @@ fn main <()*>()> ():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
 }
+
+#[test]
+fn move_borrowed_field_projection_keeps_owner_until_reference_last_use() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    token <Wrapper>
+    count <i32>
+
+fn observe <(&Wrapper)->i32> (_w):
+    1
+
+fn consume <(Pair)->i32> (_p):
+    0
+
+fn main <()*>()> ():
+    let p <Pair> Pair (Wrapper::Val 1) 7;
+    let token_ref <&Wrapper> field::get_ref &p "token";
+    let count <i32> *field::get_ref &p "count";
+    observe token_ref;
+    consume p;
+    ()
+"#;
+    compile_move_test(source).expect("field reference should borrow the owner without moving it");
+}
+
+#[test]
+fn move_borrowed_field_projection_blocks_owner_move_while_live() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    token <Wrapper>
+    count <i32>
+
+fn observe <(&Wrapper)->i32> (_w):
+    1
+
+fn consume <(Pair)->i32> (_p):
+    0
+
+fn main <()*>()> ():
+    let p <Pair> Pair (Wrapper::Val 1) 7;
+    let token_ref <&Wrapper> field::get_ref &p "token";
+    consume p;
+    observe token_ref;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot move out of shared borrowed value")));
+}
+
+#[test]
+fn move_borrowed_field_projection_escape_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    token <Wrapper>
+    count <i32>
+
+fn leak <()->&Wrapper> ():
+    let p <Pair> Pair (Wrapper::Val 1) 7;
+    field::get_ref &p "token"
+
+fn main <()*>()> ():
+    let r <&Wrapper> leak;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("does not live long enough")));
+}

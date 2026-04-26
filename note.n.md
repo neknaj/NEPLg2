@@ -18069,3 +18069,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - custom key の doctest は `HashKey` impl と標準 `Clone` / `Copy` impl を分け、`HashKey` や `Hasher` の bound だけでは copy 扱いされない compile_fail を追加した。
 - `tests/stdlib` 全体は 4 分 timeout で完走しなかったが、変更対象の `traits_hash` / `selfhost_req` と stdlib 本体 411 件は pass した。
 - `plan.md` は変更していない。今回の修正は self-host の symbol table / intern table に使う hash collection の trait 境界を標準 `Copy` / `Clone` と整合させるもの。
+
+# 2026-04-26 メモ (ISS-20260426T142242010Z borrowed field projection)
+
+- [同期]:
+  - 作業開始時点では `9568fcb core: ignore diverging branch move state` から branch を切っていたが、検証前に `origin/main` が `e7db758 stdlib: align hash traits with Copy` まで進んでいたため、stash 退避、`git rebase origin/main`、stash 復帰で取り込んだ。
+  - remote 側の変更は hash trait / collection API の stdlib 整理で、今回の Rust core field projection 実装とは直接競合しなかった。
+  - commit 直前に `origin/main` が `883d199 stdlib: verify collection doctests` まで進んだため、再度 stash 退避、`git rebase origin/main`、stash 復帰で取り込んだ。`issues/index.*` は再生成して SHA256 / collection doctest 側の issue 更新と統合した。
+- [原因]:
+  - `core/field.get` は by-value API であり、非 Copy field を読むと aggregate owner を move する扱いになる。
+  - self-host CLI args parser の `SelfhostCliOptions` のように、1つの aggregate から複数 field を観察する処理では、従来 `alloc_raw` / `store` / `load` の raw memory detour で owner move を避ける必要があった。
+- [修正]:
+  - `#intrinsic "get_field_ref"` と `core/field.get_ref` を追加し、`&T` と field selector から field への `&R` を返す borrowed projection API を用意した。
+  - typecheck の field accessor fast path で `get_field_ref` を検出し、aggregate layout の field offset から base reference または base + offset の address expression を作るようにした。
+  - WASM / LLVM codegen、precheck、wasm shared intrinsic list を更新し、field reference を load ではなく pointer arithmetic として lower するようにした。
+  - self-host CLI args parser の doctest / regression test では raw memory detour をやめ、`get_ref &opts ...` で field reference を得て検査する形へ移行した。
+- [回帰テスト]:
+  - field reference の last-use 後は owner を move できることを追加した。
+  - field reference が live な間の owner move は `D3051` で拒否されることを追加した。
+  - local owner から作った field reference の escape は `D3099` で拒否されることを追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check --workspace`: pass
+  - `cargo test -p nepl-core --test move_check move_borrowed_field_projection -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 27 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-field-ref-after-883d199.json -j 1`: 28/28 passed
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/selfhost-cliarg-field-ref-after-883d199.json -j 1`: 10/10 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-field-ref-after-883d199.json`: 13/13 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 実装前の Rust core safety issue として、aggregate field の借用 projection を compiler intrinsic として追加した。

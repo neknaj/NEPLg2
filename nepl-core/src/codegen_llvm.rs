@@ -2838,6 +2838,47 @@ fn lower_hir_expr(
                     repr: out,
                 }));
             }
+            if name == "get_field_ref" {
+                if args.len() != 2 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: intrinsic get_field_ref requires two args in '{}'",
+                        ctx.function_name
+                    );
+                }
+                let base_ty = match types.get(types.resolve_id(args[0].ty)) {
+                    TypeKind::Reference(inner, _) => inner,
+                    _ => args[0].ty,
+                };
+                let Some((_field_ty, offset)) =
+                    aggregate_field_layout(types, ctx, base_ty, &args[1])
+                else {
+                    llvm_codegen_bail!(
+                        "internal compiler error: unsupported get_field_ref selector reached llvm lowering in '{}'",
+                        ctx.function_name
+                    );
+                };
+                let Some(base_v) = lower_hir_expr(types, ctx, &args[0])? else {
+                    llvm_codegen_bail!(
+                        "internal compiler error: intrinsic get_field_ref base must produce a value in '{}'",
+                        ctx.function_name
+                    );
+                };
+                if base_v.ty != LlTy::I32 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: intrinsic get_field_ref base must be i32 in '{}' (got {:?})",
+                        ctx.function_name, base_v.ty
+                    );
+                }
+                if offset == 0 {
+                    return Ok(Some(base_v));
+                }
+                let out = ctx.next_tmp();
+                ctx.push_line(&format!("  {} = add i32 {}, {}", out, base_v.repr, offset));
+                return Ok(Some(LlValue {
+                    ty: LlTy::I32,
+                    repr: out,
+                }));
+            }
             if name == "set_field" {
                 if args.len() != 3 {
                     llvm_codegen_bail!(
