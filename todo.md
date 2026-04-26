@@ -1,7 +1,7 @@
 2026-04-26 NEPLg2 Self-host
 
 - `stdlib/mem-bulk-copy` branch で `ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2` に沿って bulk memory copy API と backend lowering を整備する
-- `rust/monomorphize-trait-index` branch で `ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5` に沿って trait impl lookup index / cache を設計する
+- `rust/selfhost-req-hashkey-runner` branch で `ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C` に沿って selfhost_req HashKey fixture の target / harness 契約を修正する
 - `stdlib/stdio-executable-tests` branch で `ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B` に沿って stdio doctest skip を実行可能 test へ移す
 - `rust/compiler-warning-debt` branch で `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` に沿って compiler warning debt を削減する
 - `selfhost/s0-infra-span-diag` branch で `infra/span.nepl`、`diag.nepl`、`outcome.nepl` と最小 doctest を作成する

@@ -2,8 +2,8 @@
 id: ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5
 title: "monomorphize trait impl resolution falls back to linear scans"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: performance
 created: 2026-04-26
@@ -42,7 +42,25 @@ self-host compiler の core pass が generic collection と trait helper を多�
 generic impl の pattern match 結果は、正規化済み `trait_args` と `self_ty` の cache key で memoize する。
 cache invalidation が不要な monomorphize phase 内の immutable table として構築する。
 
+## 対応
+
+- `monomorphize_internal` で impl table を作る時点で、exact impl 用の `(trait_name, method)` index と generic trait application 用の `(base_trait_name, method)` index を同時に構築した。
+- `resolve_trait_impl_name` は exact key lookup の後、index 済み候補だけを調べるようにし、`impl_map` / `impl_entries` 全体走査を削除した。
+- `trait_lookup_cache` を追加し、正規化済み `trait_args` と `self_ty` ごとの成功/失敗結果を monomorphize phase 内で再利用するようにした。
+- `nepl-core/tests/neplg2.rs` に `generic_trait_impl_method_resolves_by_trait_args` を追加し、`Hasher<.K>` 型の generic trait impl が trait argument 経由で解決されることを固定した。
+
 ## 検証
 
 - generic trait impl が複数ある fixture で exact / generic / no match の結果が変わらないことを確認する。
 - trait call 数を増やした synthetic fixture で monomorphize lookup 回数または実行時間を測る。
+
+## 確認済み
+
+- `cargo fmt --all --check`: pass
+- `cargo test -p nepl-core --test neplg2 generic_trait_impl_method_resolves_by_trait_args`: pass
+- `cargo test -p nepl-core --test neplg2 trait`: 6/6 passed
+- `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md -i tests/stdlib/traits_order.n.md -i tests/compiler/neplg2.n.md --no-tree -o tmp/monomorphize-trait-index-nodesrc-after-trunk.json -j 1`: 51/51 passed
+- `trunk build`: pass（既存 Rust warning は残存）
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-monomorphize-trait-index.json`: 13/13 passed
+
+補足: `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions` は今回の変更を外した baseline でも `left: 0, right: 5` で失敗したため、`ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C` として別 issue 化した。

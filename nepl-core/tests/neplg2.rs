@@ -712,6 +712,56 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn generic_trait_impl_method_resolves_by_trait_args() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait HashKey:
+    #capability clone
+    #capability copy
+    fn clone <(Self)->Self> (self):
+        self
+
+    fn eq <(Self,Self)->bool> (a, b):
+        eq a b
+
+    fn hash32 <(Self)->i32> (self):
+        0
+
+impl HashKey for i32:
+    fn clone <(i32)->i32> (self):
+        self
+
+    fn eq <(i32,i32)->bool> (a, b):
+        eq a b
+
+    fn hash32 <(i32)->i32> (self):
+        self
+
+trait Hasher<.K: HashKey>:
+    #capability clone
+    #capability copy
+    fn hash32 <(Self,.K)->i32> (self, key):
+        0
+
+struct DefaultHash32:
+    tag <()>
+
+impl<.K: HashKey> Hasher<.K> for DefaultHash32:
+    fn hash32 <(DefaultHash32,.K)->i32> (_self, key):
+        HashKey::hash32 key
+
+fn hash_with <.K: HashKey,.H: Hasher<.K>> <(.H,.K)->i32> (hasher, key):
+    Hasher::hash32 hasher key
+
+fn main <()->i32> ():
+    hash_with DefaultHash32 9
+"#;
+    assert_eq!(run_main_i32(src), 9);
+}
+
+#[test]
 fn trait_bound_missing_impl_is_error() {
     let src = r#"
 #entry main

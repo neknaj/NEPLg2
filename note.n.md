@@ -20,6 +20,30 @@
   - `plan.md` 自体は変更していない。
   - 今回は self-host 前提の compile-heavy test / CLI 起動中の固定 I/O cost を削減した。
 
+# 2026-04-26 メモ (ISS-20260426T021005000Z MONOMORPHIZE-TRAIT-LOOKUP 修正)
+
+- 状況:
+  - `nepl-core/src/monomorphize.rs` の `resolve_trait_impl_name` は exact key lookup 後、`impl_map` と `impl_entries` を毎回線形走査していた。
+  - trait helper と generic collection が増える self-host compiler では、同じ trait / method / self type の検索が繰り返されるため monomorphize の hot path になり得た。
+- 原因:
+  - impl table は exact key の `BTreeMap` しか持たず、generic trait application 用の候補を `(trait_name, method)` で絞る index がなかった。
+  - lookup 結果を memoize していなかったため、同じ正規化済み `trait_args` / `self_ty` に対して pattern match を繰り返していた。
+- 修正:
+  - impl table 構築時に `(trait_name, method)` の exact candidate index と `(base_trait_name, method)` の generic candidate index を追加した。
+  - `resolve_trait_impl_name` を index 参照へ変更し、`impl_map` / `impl_entries` 全体走査を削除した。
+  - 正規化済み `trait_args` と `self_ty` を key にした `trait_lookup_cache` を追加し、成功/失敗結果を monomorphize phase 内で再利用するようにした。
+  - `nepl-core/tests/neplg2.rs` に generic trait argument 経由の impl dispatch 回帰を追加した。
+  - `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions` は今回の差分を外した baseline でも失敗したため、`ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C` を新規 issue として追加した。
+- 確認済み:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test neplg2 generic_trait_impl_method_resolves_by_trait_args`: pass
+  - `cargo test -p nepl-core --test neplg2 trait`: 6/6 passed
+  - `trunk build`: pass（既存 Rust warning は残存）
+  - `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md -i tests/stdlib/traits_order.n.md -i tests/compiler/neplg2.n.md --no-tree -o tmp/monomorphize-trait-index-nodesrc-after-trunk.json -j 1`: 51/51 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-monomorphize-trait-index.json`: 13/13 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は self-host 前提の monomorphize 性能改善であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T021004000Z IMPORT-VISIBILITY-CLONE 修正)
 
 - 状況:

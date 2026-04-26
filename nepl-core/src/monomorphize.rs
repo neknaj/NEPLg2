@@ -35,7 +35,9 @@ fn monomorphize_internal(
     assert_trait_calls: bool,
 ) -> (HirModule, Vec<String>) {
     let mut impl_map: BTreeMap<(String, String, TypeId), String> = BTreeMap::new();
+    let mut impl_method_index: BTreeMap<(String, String), Vec<(TypeId, String)>> = BTreeMap::new();
     let mut impl_entries: Vec<(String, Vec<TypeId>, String, TypeId, String)> = Vec::new();
+    let mut impl_entry_index: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
     for imp in &module.impls {
         let ty = ctx.resolve_id(imp.target_ty);
         for m in &imp.methods {
@@ -43,7 +45,12 @@ fn monomorphize_internal(
                 (imp.trait_name.clone(), m.name.clone(), ty),
                 m.func.name.clone(),
             );
+            impl_method_index
+                .entry((imp.trait_name.clone(), m.name.clone()))
+                .or_default()
+                .push((ty, m.func.name.clone()));
             if let Some(base) = &imp.trait_base_name {
+                let entry_index = impl_entries.len();
                 impl_entries.push((
                     base.clone(),
                     imp.trait_args.clone(),
@@ -51,6 +58,10 @@ fn monomorphize_internal(
                     ty,
                     m.func.name.clone(),
                 ));
+                impl_entry_index
+                    .entry((base.clone(), m.name.clone()))
+                    .or_default()
+                    .push(entry_index);
             }
         }
     }
@@ -61,7 +72,10 @@ fn monomorphize_internal(
         worklist: Vec::new(),
         queued: BTreeSet::new(),
         impl_map,
+        impl_method_index,
         impl_entries,
+        impl_entry_index,
+        trait_lookup_cache: BTreeMap::new(),
     };
 
     for f in module.functions {
@@ -156,7 +170,10 @@ struct Monomorphizer<'a> {
     worklist: Vec<(String, Vec<TypeId>)>,
     queued: BTreeSet<String>,
     impl_map: BTreeMap<(String, String, TypeId), String>,
+    impl_method_index: BTreeMap<(String, String), Vec<(TypeId, String)>>,
     impl_entries: Vec<(String, Vec<TypeId>, String, TypeId, String)>,
+    impl_entry_index: BTreeMap<(String, String), Vec<usize>>,
+    trait_lookup_cache: BTreeMap<(String, String, Vec<TypeId>, TypeId), Option<String>>,
 }
 
 impl<'a> Monomorphizer<'a> {
@@ -455,53 +472,77 @@ impl<'a> Monomorphizer<'a> {
     }
 
     fn resolve_trait_impl_name(
-        &self,
+        &mut self,
         trait_name: &str,
         trait_args: &[TypeId],
         method: &str,
         resolved_self_ty: TypeId,
     ) -> Option<String> {
+        let resolved_trait_args = trait_args
+            .iter()
+            .map(|arg| self.ctx.resolve_id(*arg))
+            .collect::<Vec<_>>();
+        let resolved_self_ty = self.ctx.resolve_id(resolved_self_ty);
+        let cache_key = (
+            String::from(trait_name),
+            String::from(method),
+            resolved_trait_args.clone(),
+            resolved_self_ty,
+        );
+        if let Some(cached) = self.trait_lookup_cache.get(&cache_key) {
+            return cached.clone();
+        }
         let key = (
             String::from(trait_name),
             String::from(method),
             resolved_self_ty,
         );
         if let Some(name) = self.impl_map.get(&key) {
-            return Some(name.clone());
+            let found = Some(name.clone());
+            self.trait_lookup_cache.insert(cache_key, found.clone());
+            return found;
         }
-        for ((tr, meth, target_ty), func_name) in self.impl_map.iter() {
-            if tr != trait_name || meth != method {
-                continue;
-            }
-            if self.ctx.same_type(resolved_self_ty, *target_ty) {
-                return Some(func_name.clone());
-            }
-        }
-        for (base, impl_trait_args, meth, target_ty, func_name) in self.impl_entries.iter() {
-            if base != trait_name || meth != method {
-                continue;
-            }
-            if !self.ctx.same_type(resolved_self_ty, *target_ty) {
-                continue;
-            }
-            if impl_trait_args.len() != trait_args.len() {
-                continue;
-            }
-            let mut matched = true;
-            for (impl_arg, call_arg) in impl_trait_args.iter().zip(trait_args.iter()) {
-                let impl_arg = self.ctx.resolve_id(*impl_arg);
-                let call_arg = self.ctx.resolve_id(*call_arg);
-                if !self.ctx.type_pattern_matches(impl_arg, call_arg)
-                    && !self.ctx.type_pattern_matches(call_arg, impl_arg)
-                {
-                    matched = false;
-                    break;
+        let method_key = (String::from(trait_name), String::from(method));
+        if let Some(candidates) = self.impl_method_index.get(&method_key) {
+            for (target_ty, func_name) in candidates {
+                if self.ctx.same_type(resolved_self_ty, *target_ty) {
+                    let found = Some(func_name.clone());
+                    self.trait_lookup_cache.insert(cache_key, found.clone());
+                    return found;
                 }
             }
-            if matched {
-                return Some(func_name.clone());
+        }
+        if let Some(candidate_indexes) = self.impl_entry_index.get(&method_key) {
+            for entry_index in candidate_indexes {
+                let Some((_, impl_trait_args, _, target_ty, func_name)) =
+                    self.impl_entries.get(*entry_index)
+                else {
+                    continue;
+                };
+                if !self.ctx.same_type(resolved_self_ty, *target_ty) {
+                    continue;
+                }
+                if impl_trait_args.len() != resolved_trait_args.len() {
+                    continue;
+                }
+                let mut matched = true;
+                for (impl_arg, call_arg) in impl_trait_args.iter().zip(resolved_trait_args.iter()) {
+                    let impl_arg = self.ctx.resolve_id(*impl_arg);
+                    if !self.ctx.type_pattern_matches(impl_arg, *call_arg)
+                        && !self.ctx.type_pattern_matches(*call_arg, impl_arg)
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+                if matched {
+                    let found = Some(func_name.clone());
+                    self.trait_lookup_cache.insert(cache_key, found.clone());
+                    return found;
+                }
             }
         }
+        self.trait_lookup_cache.insert(cache_key, None);
         None
     }
 
