@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:28:34.086Z",
+  "generated_at": "2026-04-26T02:30:10.890Z",
   "counts": {
-    "total": 97,
+    "total": 98,
     "open": 34,
-    "resolved": 63,
+    "resolved": 64,
     "by_area": {
       "core": {
         "total": 34,
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 28,
+        "total": 29,
         "open": 16,
-        "resolved": 12
+        "resolved": 13
       },
       "examples": {
         "total": 13,
@@ -798,6 +798,21 @@
       "legacy_id": "RV-STDLIB-020",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-020",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-020-AC5D8587.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-023-881F9E8A",
+      "title": "HashMap/HashSet の文字列 key runtime test が memory OOB と return mismatch で失敗する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/tests/hashmap_str.n.md, stdlib/tests/hashset.n.md, stdlib/tests/hashset_str.n.md, stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl",
+      "legacy_id": "RV-STDLIB-023",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-023",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-023-881F9E8A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-002-D74F45E6",
