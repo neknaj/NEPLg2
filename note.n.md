@@ -18463,3 +18463,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 実装前の core borrow/lifetime safety issue として、関数呼び出し境界での temporary borrow overlap を修正した。
+
+# 2026-04-27 メモ (ISS-20260426T221523543Z aggregate構築temporary borrow overlap修正)
+
+- [追加Issue]:
+  - `ISS-20260426T221523543Z-AGGREGATE-FIELD-TEMPORARY-BORROWS-DO-8E71F5EA` を追加した。
+- [原因]:
+  - `StructConstruct` / `TupleConstruct` は field/item ごとに borrow origin を `result_borrows` へ集めるだけで、次の field/item 検査中に active borrow として保持していなかった。
+  - そのため `RefPair &mut x &x` や `Tuple: &mut x; &x` で、先に作った unique borrow が後続 shared borrow と重なっていることを検出できなかった。
+- [修正]:
+  - `visit_aggregate_items_with_escape` を追加し、aggregate 構築中だけ field/item の borrow origin を temporary retain するようにした。
+  - 全 field/item の検査後に construction temporary は release し、aggregate が外側へ返す borrow origin は従来どおり返すことで、`let` / `set` に保存された aggregate の owner borrow 保持は維持した。
+- [回帰テスト]:
+  - struct field の `&mut LocalToken` と `&LocalToken` が同じ owner を共有するケースを `D3062` で拒否するテストを追加した。
+  - tuple item の `&mut LocalToken` と `&LocalToken` が同じ owner を共有するケースを `D3062` で拒否するテストを追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 45/45 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/aggregate-temporary-borrow-tests.json -j 1`: 73/73 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 実装前の core borrow/lifetime safety issue として、aggregate 構築境界での temporary borrow overlap を修正した。

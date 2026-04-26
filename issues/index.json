@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T22:11:49.639Z",
+  "generated_at": "2026-04-26T22:18:18.101Z",
   "counts": {
-    "total": 151,
+    "total": 152,
     "open": 18,
-    "resolved": 133,
+    "resolved": 134,
     "by_area": {
       "cli": {
         "total": 19,
@@ -12,9 +12,9 @@
         "resolved": 17
       },
       "core": {
-        "total": 61,
+        "total": 62,
         "open": 10,
-        "resolved": 51
+        "resolved": 52
       },
       "stdlib": {
         "total": 46,
@@ -1078,6 +1078,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T220752937Z-CALL-ARGUMENT-TEMPORARY-BORROWS-DO-N-BA9F0773.md"
+    },
+    {
+      "id": "ISS-20260426T221523543Z-AGGREGATE-FIELD-TEMPORARY-BORROWS-DO-8E71F5EA",
+      "title": "Aggregate field temporary borrows do not overlap",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/move_check.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T221523543Z-AGGREGATE-FIELD-TEMPORARY-BORROWS-DO-8E71F5EA.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

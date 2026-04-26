@@ -268,6 +268,54 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_struct_mut_and_shared_reference_fields_overlap_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct RefPair:
+    a <&mut Wrapper>
+    b <&Wrapper>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let p <RefPair> RefPair &mut x &x;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+}
+
+#[test]
+fn move_tuple_mut_and_shared_reference_items_overlap_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let p Tuple:
+        &mut x
+        &x
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+}
+
+#[test]
 fn move_unique_reference_blocks_owner_move_while_live() {
     let source = r#"
 #target wasi

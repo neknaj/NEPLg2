@@ -870,6 +870,27 @@ fn visit_call_args_with_params(
     result_borrows
 }
 
+fn visit_aggregate_items_with_escape(
+    items: &[HirExpr],
+    aggregate: &HirExpr,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+    escape_depth: Option<usize>,
+) -> Vec<ExprBorrow> {
+    let mut result_borrows = Vec::new();
+    let mut construction_borrows = Vec::new();
+    for item in items {
+        let item_borrows = visit_expr_with_escape(item, ctx, tctx, escape_depth);
+        construction_borrows.extend(ctx.retain_expr_borrows(item_borrows.clone()));
+        result_borrows.extend(item_borrows);
+    }
+    if let Some(depth) = escape_depth {
+        ctx.check_expr_borrows_escape(&result_borrows, aggregate.span, depth);
+    }
+    ctx.release_borrow_bindings(&construction_borrows);
+    result_borrows
+}
+
 fn can_visit_expr_iteratively(
     expr: &HirExpr,
     ctx: &MoveCheckContext,
@@ -1466,14 +1487,7 @@ fn visit_expr_with_escape(
             Vec::new()
         }
         HirExprKind::StructConstruct { fields, .. } => {
-            let mut result_borrows = Vec::new();
-            for f in fields {
-                result_borrows.extend(visit_expr_with_escape(f, ctx, tctx, escape_depth));
-            }
-            if let Some(depth) = escape_depth {
-                ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
-            }
-            result_borrows
+            visit_aggregate_items_with_escape(fields, expr, ctx, tctx, escape_depth)
         }
         HirExprKind::EnumConstruct { payload, .. } => {
             let mut result_borrows = Vec::new();
@@ -1486,14 +1500,7 @@ fn visit_expr_with_escape(
             result_borrows
         }
         HirExprKind::TupleConstruct { items } => {
-            let mut result_borrows = Vec::new();
-            for item in items {
-                result_borrows.extend(visit_expr_with_escape(item, ctx, tctx, escape_depth));
-            }
-            if let Some(depth) = escape_depth {
-                ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
-            }
-            result_borrows
+            visit_aggregate_items_with_escape(items, expr, ctx, tctx, escape_depth)
         }
         HirExprKind::Intrinsic {
             name,

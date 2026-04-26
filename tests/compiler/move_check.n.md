@@ -343,6 +343,54 @@ fn main <()->i32> ():
     use_both &x &mut x
 ```
 
+## move_struct_mut_and_shared_reference_fields_overlap_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3062
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct RefPair:
+    a <&mut LocalToken>
+    b <&LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let p <RefPair> RefPair &mut x &x
+    0
+```
+
+## move_tuple_mut_and_shared_reference_items_overlap_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3062
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let p Tuple:
+        &mut x
+        &x
+    0
+```
+
 ## move_unique_reference_blocks_owner_move_while_live
 
 neplg2:test[compile_fail]
