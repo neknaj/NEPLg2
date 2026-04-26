@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:16:09.496Z",
+  "generated_at": "2026-04-26T04:28:51.002Z",
   "counts": {
     "total": 105,
-    "open": 27,
-    "resolved": 78,
+    "open": 26,
+    "resolved": 79,
     "by_area": {
       "core": {
         "total": 36,
@@ -23,8 +23,8 @@
       },
       "cli": {
         "total": 17,
-        "open": 1,
-        "resolved": 16
+        "open": 0,
+        "resolved": 17
       },
       "examples": {
         "total": 13,
@@ -273,21 +273,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-CLI-007-7A548794",
-      "title": "LLVM toolchain 条件が既定で linux + clang 21.1.0 に固定される",
-      "area": "cli",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "nepl-cli/src/codegen_llvm.rs",
-      "legacy_id": "RV-CLI-007",
-      "source": "doc/review20260425/cli.md#rv-cli-007",
-      "file": "items/ISS-20260425T000000Z-RV-CLI-007-7A548794.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1308,6 +1293,21 @@
       "legacy_id": "RV-CLI-006",
       "source": "doc/review20260425/cli.md#rv-cli-006",
       "file": "items/ISS-20260425T000000Z-RV-CLI-006-F45CD50E.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-CLI-007-7A548794",
+      "title": "LLVM toolchain 条件が既定で linux + clang 21.1.0 に固定される",
+      "area": "cli",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "nepl-cli/src/codegen_llvm.rs, nepl-cli/tests/cli_output.rs, .github/workflows/ci.yml",
+      "legacy_id": "RV-CLI-007",
+      "source": "doc/review20260425/cli.md#rv-cli-007",
+      "file": "items/ISS-20260425T000000Z-RV-CLI-007-7A548794.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-012-8E4C09AE",

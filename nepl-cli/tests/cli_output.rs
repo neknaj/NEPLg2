@@ -14,6 +14,10 @@ fn ok_source() -> &'static str {
     "#entry main\n#indent 4\n\nfn main <()->i32> ():\n    0\n"
 }
 
+fn llvm_source() -> &'static str {
+    "#target llvm\n#entry main\n#indent 4\n\nfn main <()->i32> ():\n    0\n"
+}
+
 fn stderr_fd_write_source() -> &'static str {
     r#"#target wasi
 #entry main
@@ -189,6 +193,35 @@ fn write_source(dir: &TempDir, name: &str, source: &str) -> PathBuf {
 
 fn write_ok_source(dir: &TempDir, name: &str) -> PathBuf {
     write_source(dir, name, ok_source())
+}
+
+fn write_fake_clang(dir: &TempDir, version: &str, triple: &str) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let path = dir.path().join("fake-clang.cmd");
+        let script = format!(
+            "@echo off\r\nif \"%1\"==\"--version\" (\r\n  echo clang version {version}\r\n  exit /b 0\r\n)\r\nif \"%1\"==\"-dumpmachine\" (\r\n  echo {triple}\r\n  exit /b 0\r\n)\r\nexit /b 2\r\n"
+        );
+        fs::write(&path, script).expect("write fake clang");
+        path
+    }
+
+    #[cfg(not(windows))]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = dir.path().join("fake-clang");
+        let script = format!(
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  echo 'clang version {version}'\n  exit 0\nfi\nif [ \"$1\" = \"-dumpmachine\" ]; then\n  echo '{triple}'\n  exit 0\nfi\nexit 2\n"
+        );
+        fs::write(&path, script).expect("write fake clang");
+        let mut perms = fs::metadata(&path)
+            .expect("fake clang metadata")
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&path, perms).expect("make fake clang executable");
+        path
+    }
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) {
@@ -378,6 +411,38 @@ fn compile_success_keeps_output_channels_clean_without_verbose() {
         output_text(&output.stdout)
     );
     assert!(output_base.with_extension("wasm").exists());
+}
+
+#[test]
+fn llvm_target_default_accepts_available_clang_without_fixed_linux_version() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let source = write_source(&temp, "llvm.nepl", llvm_source());
+    let output_base = temp.path().join("llvm_out");
+    let fake_clang = write_fake_clang(&temp, "17.0.6", "x86_64-pc-windows-msvc");
+
+    let output = cli_command()
+        .env("NEPL_LLVM_CLANG_BIN", &fake_clang)
+        .env_remove("NEPL_LLVM_STRICT")
+        .env_remove("NEPL_LLVM_CLANG_VERSION")
+        .env_remove("NEPL_LLVM_CLANG_VERSION_PREFIX")
+        .env_remove("NEPL_LLVM_REQUIRED_HOST_OS")
+        .env_remove("NEPL_LLVM_REQUIRE_LINUX")
+        .env_remove("NEPL_LLVM_TRIPLE_CONTAINS")
+        .arg("-i")
+        .arg(&source)
+        .args(["--target", "llvm", "-o"])
+        .arg(&output_base)
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(
+        output.stdout.is_empty(),
+        "unexpected stdout:\n{}",
+        output_text(&output.stdout)
+    );
+    assert!(output_base.with_extension("ll").exists());
 }
 
 #[test]

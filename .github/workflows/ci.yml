@@ -335,9 +335,9 @@ jobs:
             - name: Export LLVM environment
               run: |
                   echo "${LLVM_DIR}/bin" >> "${GITHUB_PATH}"
+                  echo "NEPL_LLVM_STRICT=1" >> "${GITHUB_ENV}"
                   echo "NEPL_LLVM_CLANG_VERSION=${LLVM_VERSION}" >> "${GITHUB_ENV}"
                   echo "NEPL_LLVM_CLANG_BIN=${LLVM_DIR}/bin/clang" >> "${GITHUB_ENV}"
-                  echo "NEPL_LLVM_REQUIRE_LINUX=1" >> "${GITHUB_ENV}"
                   echo "NEPL_LLVM_TRIPLE_CONTAINS=linux" >> "${GITHUB_ENV}"
 
             - name: Verify LLVM toolchain
@@ -422,9 +422,9 @@ jobs:
             - name: Export LLVM environment
               run: |
                   echo "${LLVM_DIR}/bin" >> "${GITHUB_PATH}"
+                  echo "NEPL_LLVM_STRICT=1" >> "${GITHUB_ENV}"
                   echo "NEPL_LLVM_CLANG_VERSION=${LLVM_VERSION}" >> "${GITHUB_ENV}"
                   echo "NEPL_LLVM_CLANG_BIN=${LLVM_DIR}/bin/clang" >> "${GITHUB_ENV}"
-                  echo "NEPL_LLVM_REQUIRE_LINUX=1" >> "${GITHUB_ENV}"
                   echo "NEPL_LLVM_TRIPLE_CONTAINS=linux" >> "${GITHUB_ENV}"
 
             - name: Verify LLVM toolchain

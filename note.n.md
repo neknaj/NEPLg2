@@ -1,3 +1,28 @@
+# 2026-04-26 メモ (ISS-20260425T000000Z-RV-CLI-007 修正)
+
+- 状況:
+  - `--target llvm` の toolchain check は、既定で `clang 21.1.0` exact match と linux host/triple を要求していた。
+  - Windows / macOS / 別 clang minor version でも、LLVM IR を出力するだけの通常利用が環境条件で失敗しやすかった。
+- 原因:
+  - 通常利用向けの可用性確認と、CI向けの厳密な toolchain 固定が同じ既定値に混ざっていた。
+- 修正:
+  - 既定値を `clang --version` と `clang -dumpmachine` が実行できることの確認に限定した。
+  - exact version は `NEPL_LLVM_CLANG_VERSION` または `NEPL_LLVM_STRICT=1` 指定時だけ要求するようにした。
+  - linux host/triple 条件は `NEPL_LLVM_REQUIRED_HOST_OS`、`NEPL_LLVM_TRIPLE_CONTAINS`、または legacy `NEPL_LLVM_REQUIRE_LINUX=1` の明示指定時だけ有効にした。
+  - GitHub Actions のLLVM jobは `NEPL_LLVM_STRICT=1` と `NEPL_LLVM_TRIPLE_CONTAINS=linux` を明示し、CIの固定条件を残した。
+  - fake clang を使うCLI回帰テストを追加し、`clang version 17.0.6` + `x86_64-pc-windows-msvc` triple でも既定のLLVM出力が通ることを固定した。
+  - `issues/items/ISS-20260425T000000Z-RV-CLI-007-7A548794.md` を verified に更新した。
+- 確認済み:
+  - `cargo fmt --all`: 成功
+  - `cargo test -p nepl-cli --bin nepl-cli codegen_llvm::tests`: 4/4 passed
+  - `cargo test -p nepl-cli --test cli_output llvm_target_default_accepts_available_clang_without_fixed_linux_version`: 1/1 passed
+  - `cargo test -p nepl-cli --test cli_output`: 14/14 passed
+  - `cargo test -p nepl-cli`: unit 13/13 passed、`cli_output` 14/14 passed、`deploy_script` 2 ignored
+  - `trunk build`: 成功
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-rv-cli-007.json`: 13/13 passed、JSONの `failedCount=0` を確認
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正はLLVM backend実行条件の運用契約を通常利用とCI strict modeへ分けるもので、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T020004000Z CLI-LIB-PLACEHOLDER 修正)
 
 - 状況:
