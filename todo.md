@@ -1,7 +1,6 @@
 2026-04-26 NEPLg2 Self-host
 
 - `stdlib/doc-comment-boilerplate` branch で `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` に沿って boilerplate 化した stdlib doc comment を具体的な説明へ置き換える
-- `selfhost/s0-infra-diag-outcome` branch で `infra/diag.nepl`、`infra/outcome.nepl` と最小 doctest を作成する
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
 
 2026-04-26 NEPLg3 Migration

@@ -46,6 +46,33 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の変更は NEPLg2 core の borrow/lifetime 検査を、セルフホスト開始前提として branch 境界でも正しく保つための修正。
 
+# 2026-04-27 メモ (ISS-20260426T174140008Z NEPLg2 selfhost diag/outcome)
+
+- 状況:
+  - `doc/neplg2/self_host_plan.md` の S1 / S3 は parser / typecheck / codegen が同じ diagnostic を返す設計を求めている。
+  - `stdlib/neplg2/core/infra` には span / text はあるが、shared diagnostic value と diagnostic-carrying Result がなかった。
+  - borrow checker 本体には触れず、self-host core の stdio / filesystem 非依存な値モデルだけを追加した。
+- 修正:
+  - `stdlib/neplg2/core/infra/diag.nepl` を追加し、severity、primary label、diagnostic、diagnostic collection、push / len / get / has_errors / free helper を実装した。
+  - `SelfhostDiagnostic` は Copy 値だけを保持し、collection から安全に読み出せるようにした。初期段階では primary label と note を 1 件ずつ保持する。
+  - `stdlib/neplg2/core/infra/outcome.nepl` を追加し、`Result<T,E>` と `SelfhostDiagnostics` を同時に運ぶ `SelfhostOutcome<T,E>` を実装した。
+  - `SelfhostOutcome` は result を typed one-cell pointer として所有し、diagnostics と分けて move / free できる形にした。
+  - `tests/stdlib/neplg2_diag_outcome.n.md` に diagnostic construction、label/note storage、diagnostic append、Outcome ok/err、result extraction の回帰テストを追加した。
+- 追加 issue:
+  - 実装中に、非 Copy field を複数持つ owner struct の安全な分解経路が弱く、raw memory detour へ押し戻される問題を確認した。
+  - これは borrow / move checker 側の別作業として `ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE` に分離し、Discord に報告した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/infra/diag.nepl -i stdlib/neplg2/core/infra/outcome.nepl -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/neplg2-diag-outcome-focused-pass2.json -j 1`: `total=4`, `passed=4`
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/neplg2-diag-outcome-after-rebase.json -j 1`: `total=27`, `passed=27`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-neplg2-diag-outcome-after-rebase.json -j 4`: `total=414`, `passed=414`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-neplg2-diag-outcome-after-rebase.json -j 4`: `total=282`, `passed=282`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplg2-diag-outcome-after-rebase.json`: `13/13 passed`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は `doc/neplg2/self_host_plan.md` の S1 / S3 に沿って、diagnostic と Outcome の self-host core 基盤を追加するもの。
+
 # 2026-04-26 メモ (ISS-20260426T165643523Z NEPLg2 selfhost SourceText line map)
 
 - 状況:

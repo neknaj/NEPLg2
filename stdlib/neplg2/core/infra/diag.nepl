@@ -1,0 +1,212 @@
+#indent 4
+
+//: # diag
+//: NEPLg2.0 self-host compiler の[診断/しんだん][値/あたい][基盤/きばん]
+//:
+//: [目的/もくてき]:
+//: - lexer / parser / module loading / typecheck / backend が[共通/きょうつう]して[返/かえ]す diagnostic の[形/かたち]を[定義/ていぎ]します。
+//: - source span、code、message、primary label、note を[値/あたい]として[保持/ほじ]し、表示処理は CLI / reporter [層/そう]へ[分離/ぶんり]します。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostDiagnostic` は Copy [値/あたい]だけを[保持/ほじ]し、collection から安全に[読/よ]み[出/だ]せるようにします。
+//: - `SelfhostDiagnostics` は `Vec<SelfhostDiagnostic>` を[所有/しょゆう]し、push の allocation failure を `Result::Err StdErrorKind::OutOfMemory` で[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - 複数 label / 複数 note は後続 parser recovery の要求に合わせて拡張します。初期段階では primary label と note を 1 [件/けん]ずつ[保持/ほじ]します。
+//: - filesystem / stdio には[依存/いぞん]しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - diagnostic [構築/こうちく]は O(1) です。
+//: - diagnostics push は[償却/しょうきゃく] O(1)、[再確保/さいかくほ]時 O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/diag" as *
+//: fn main <()*>i32> ():
+//:     let d <SelfhostDiagnostic> selfhost_diag_error "demo.error" "message"
+//:     match selfhost_diagnostics_one d:
+//:         Result::Ok ds:
+//:             let n <i32> selfhost_diagnostics_len &ds
+//:             selfhost_diagnostics_free ds
+//:             if eq n 1 0 1
+//:         Result::Err _e:
+//:             1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostDiagSeverity: diagnostic の[重大度/じゅうだいど]
+enum SelfhostDiagSeverity:
+    Info
+    Warning
+    Error
+
+impl Clone for SelfhostDiagSeverity:
+    fn clone <(&SelfhostDiagSeverity)->SelfhostDiagSeverity> (self):
+        *self
+
+impl Copy for SelfhostDiagSeverity:
+    fn copy_mark <(SelfhostDiagSeverity)->SelfhostDiagSeverity> (self):
+        self
+
+//: SelfhostDiagnosticLabel: primary label の span と[説明/せつめい]
+struct SelfhostDiagnosticLabel:
+    span <SelfhostSourceSpan>
+    message <str>
+
+impl Clone for SelfhostDiagnosticLabel:
+    fn clone <(&SelfhostDiagnosticLabel)->SelfhostDiagnosticLabel> (self):
+        *self
+
+impl Copy for SelfhostDiagnosticLabel:
+    fn copy_mark <(SelfhostDiagnosticLabel)->SelfhostDiagnosticLabel> (self):
+        self
+
+//: SelfhostDiagnostic: compiler stage を[横断/おうだん]して[運/はこ]ぶ diagnostic
+struct SelfhostDiagnostic:
+    severity <SelfhostDiagSeverity>
+    code <str>
+    message <str>
+    primary_label <Option<SelfhostDiagnosticLabel>>
+    note <Option<str>>
+
+impl Clone for SelfhostDiagnostic:
+    fn clone <(&SelfhostDiagnostic)->SelfhostDiagnostic> (self):
+        *self
+
+impl Copy for SelfhostDiagnostic:
+    fn copy_mark <(SelfhostDiagnostic)->SelfhostDiagnostic> (self):
+        self
+
+//: SelfhostDiagnostics: diagnostic [列/れつ]の owning collection
+struct SelfhostDiagnostics:
+    items <Vec<SelfhostDiagnostic>>
+
+//: selfhost_diag_severity_name: severity の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
+fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
+    match severity:
+        SelfhostDiagSeverity::Info:
+            "info"
+        SelfhostDiagSeverity::Warning:
+            "warning"
+        SelfhostDiagSeverity::Error:
+            "error"
+
+//: selfhost_diag_label_new: primary label [値/あたい]を[作/つく]る
+fn selfhost_diag_label_new <(SelfhostSourceSpan,str)->SelfhostDiagnosticLabel> (span, message):
+    SelfhostDiagnosticLabel span message
+
+//: selfhost_diag_new: diagnostic [値/あたい]を[作/つく]る
+fn selfhost_diag_new <(SelfhostDiagSeverity,str,str)->SelfhostDiagnostic> (severity, code, message):
+    SelfhostDiagnostic severity code message none<SelfhostDiagnosticLabel> none<str>
+
+//: selfhost_diag_info: info diagnostic を[作/つく]る
+fn selfhost_diag_info <(str,str)->SelfhostDiagnostic> (code, message):
+    selfhost_diag_new SelfhostDiagSeverity::Info code message
+
+//: selfhost_diag_warning: warning diagnostic を[作/つく]る
+fn selfhost_diag_warning <(str,str)->SelfhostDiagnostic> (code, message):
+    selfhost_diag_new SelfhostDiagSeverity::Warning code message
+
+//: selfhost_diag_error: error diagnostic を[作/つく]る
+fn selfhost_diag_error <(str,str)->SelfhostDiagnostic> (code, message):
+    selfhost_diag_new SelfhostDiagSeverity::Error code message
+
+//: selfhost_diag_with_primary_label: diagnostic に primary label を[付/つ]ける
+fn selfhost_diag_with_primary_label <(SelfhostDiagnostic,SelfhostDiagnosticLabel)->SelfhostDiagnostic> (diag, label):
+    SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" some<SelfhostDiagnosticLabel> label field::get diag "note"
+
+//: selfhost_diag_with_note: diagnostic に note を[付/つ]ける
+fn selfhost_diag_with_note <(SelfhostDiagnostic,str)->SelfhostDiagnostic> (diag, note):
+    SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" field::get diag "primary_label" some<str> note
+
+//: selfhost_diag_is_error: error severity か[返/かえ]す
+fn selfhost_diag_is_error <(SelfhostDiagnostic)->bool> (diag):
+    match field::get diag "severity":
+        SelfhostDiagSeverity::Error:
+            true
+        SelfhostDiagSeverity::Info:
+            false
+        SelfhostDiagSeverity::Warning:
+            false
+
+//: selfhost_diagnostics_new: [空/から]の diagnostic collection を[作/つく]る
+fn selfhost_diagnostics_new <()->Result<SelfhostDiagnostics, StdErrorKind>> ():
+    match v::new<SelfhostDiagnostic>:
+        Result::Ok items:
+            Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
+        Result::Err _e:
+            Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: selfhost_diagnostics_one: diagnostic 1 [件/けん]から collection を[作/つく]る
+fn selfhost_diagnostics_one <(SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diag):
+    match selfhost_diagnostics_new:
+        Result::Ok ds:
+            selfhost_diagnostics_push ds diag
+        Result::Err e:
+            Result<SelfhostDiagnostics, StdErrorKind>::Err e
+
+//: selfhost_diagnostics_push: diagnostic を 1 [件/けん][追加/ついか]する
+fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diagnostics, diag):
+    match v::push<SelfhostDiagnostic> field::get diagnostics "items" diag:
+        Result::Ok items:
+            Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
+        Result::Err _e:
+            Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: selfhost_diagnostics_len: diagnostic [件数/けんすう]を[返/かえ]す
+fn selfhost_diagnostics_len <(&SelfhostDiagnostics)->i32> (diagnostics):
+    let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
+    v::len_ref<SelfhostDiagnostic> items
+
+//: selfhost_diagnostics_get: index の diagnostic を[返/かえ]す
+fn selfhost_diagnostics_get <(&SelfhostDiagnostics,i32)->Option<SelfhostDiagnostic>> (diagnostics, idx):
+    let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
+    v::get_ref<SelfhostDiagnostic> items idx
+
+//: selfhost_diagnostics_has_errors_loop: error diagnostic を[探/さが]す
+fn selfhost_diagnostics_has_errors_loop <(&SelfhostDiagnostics,i32,i32)->bool> (diagnostics, n, idx):
+    if:
+        ge idx n
+        then:
+            false
+        else:
+            match selfhost_diagnostics_get diagnostics idx:
+                Option::Some diag:
+                    if:
+                        selfhost_diag_is_error diag
+                        then:
+                            true
+                        else:
+                            selfhost_diagnostics_has_errors_loop diagnostics n add idx 1
+                Option::None:
+                    false
+
+//: selfhost_diagnostics_has_errors: error severity を[含/ふく]むか[返/かえ]す
+fn selfhost_diagnostics_has_errors <(&SelfhostDiagnostics)->bool> (diagnostics):
+    let n <i32> selfhost_diagnostics_len diagnostics
+    selfhost_diagnostics_has_errors_loop diagnostics n 0
+
+//: selfhost_diagnostics_free: diagnostic collection の[内部/ないぶ] buffer を[解放/かいほう]する
+fn selfhost_diagnostics_free <(SelfhostDiagnostics)->()> (diagnostics):
+    v::free<SelfhostDiagnostic> field::get diagnostics "items"
+
+//: selfhost_diag_stage0: diagnostic [基盤/きばん]の smoke API
+fn selfhost_diag_stage0 <()*>i32> ():
+    let diag <SelfhostDiagnostic> selfhost_diag_warning "stage0.warning" "warning"
+    match selfhost_diagnostics_one diag:
+        Result::Ok ds:
+            let has_errors <bool> selfhost_diagnostics_has_errors &ds
+            selfhost_diagnostics_free ds
+            if has_errors 1 0
+        Result::Err _e:
+            1

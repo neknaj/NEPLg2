@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T18:04:28.592Z",
+  "generated_at": "2026-04-26T18:10:01.526Z",
   "counts": {
-    "total": 135,
-    "open": 8,
-    "resolved": 127,
+    "total": 137,
+    "open": 9,
+    "resolved": 128,
     "by_area": {
       "core": {
-        "total": 50,
-        "open": 2,
+        "total": 51,
+        "open": 3,
         "resolved": 48
       },
       "stdlib": {
@@ -27,9 +27,9 @@
         "resolved": 13
       },
       "selfhost": {
-        "total": 8,
+        "total": 9,
         "open": 0,
-        "resolved": 8
+        "resolved": 9
       },
       "compiler": {
         "total": 1,
@@ -103,6 +103,21 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
+    },
+    {
+      "id": "ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE",
+      "title": "owned aggregate decomposition lacks safe multi-field move path",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/diag/error.nepl, stdlib/neplg2/core/infra/outcome.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -1078,6 +1093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T165643523Z-NEPLG2-SELFHOST-LACKS-SOURCETEXT-LIN-815E29E4.md"
+    },
+    {
+      "id": "ISS-20260426T174140008Z-NEPLG2-SELFHOST-LACKS-SHARED-DIAGNOS-CD740CFD",
+      "title": "neplg2 selfhost lacks shared diagnostic outcome infrastructure",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/neplg2/core/infra/diag.nepl, stdlib/neplg2/core/infra/outcome.nepl, tests/stdlib/neplg2_diag_outcome.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T174140008Z-NEPLG2-SELFHOST-LACKS-SHARED-DIAGNOS-CD740CFD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",
