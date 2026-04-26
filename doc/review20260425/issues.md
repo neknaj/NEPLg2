@@ -10,9 +10,9 @@
 |---|---:|---:|
 | core | 3 | 26 |
 | cli | 3 | 11 |
-| stdlib | 11 | 14 |
+| stdlib | 10 | 15 |
 | examples | 0 | 13 |
-| 合計 | 17 | 64 |
+| 合計 | 16 | 65 |
 
 ## Core
 
@@ -95,7 +95,7 @@
 | [RV-STDLIB-022](./stdlib.md#rv-stdlib-022-hashmap-doctest-にインデント不整合が残っている) | true | verified | P1 | test | `hashmap.nepl::doctest#3` の indent と by-value get fixture を修正済み |
 | [RV-STDLIB-023](./stdlib.md#rv-stdlib-023-hashmaphashset-の文字列-key-runtime-test-が-memory-oob-と-return-mismatch-で失敗する) | true | verified | P0 | bug | HashMap / HashSet string key runtime tests を direct return-code fixture と独立 free smoke に分離し、stdlib 382件を green 化済み |
 | [RV-STDLIB-024](./stdlib.md#rv-stdlib-024-deserialize-doctest-の-match-arm-が-result-と-unit-で不一致になる) | true | verified | P1 | test | `deserialize.nepl::doctest#1` の match arms を `Result<(),str>` に統一済み |
-| [RV-STDLIB-025](./stdlib.md#rv-stdlib-025-stdtest-の-vecresultstr-集約が-free-list-再利用後に-stale-payload-を読む) | false | open | P1 | bug | `Vec<Result<(),str>>` 集約が free-list 再利用後に trap / 誤判定し得るため、enum store 初期化か集約実装の修正が必要 |
+| [RV-STDLIB-025](./stdlib.md#rv-stdlib-025-stdtest-の-vecresultstr-集約が-free-list-再利用後に-stale-payload-を読む) | true | verified | P1 | bug | enum storage を full-size / zero-init / inline aggregate copy に統一し、WASM の 0 byte struct field 書き込みによる heap pointer 破壊を修正済み |
 
 ## Examples
 

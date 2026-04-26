@@ -871,27 +871,35 @@ doctest の期待結果を確認し、全 arm が同じ型を返すように揃�
 
 ## RV-STDLIB-025: std/test の Vec<Result<(),str>> 集約が free-list 再利用後に stale payload を読む
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
-- 対象: `stdlib/std/test.nepl`, `stdlib/alloc/collections/vec.nepl`, `stdlib/core/mem.nepl`, enum store / load codegen
+- 対象: `nepl-core/src/codegen_wasm.rs`, `nepl-core/src/codegen_llvm.rs`, `tests/compiler/intrinsic.n.md`, `tests/stdlib/std_test_collect.n.md`
 
 ### 根拠
 
-`RV-STDLIB-023` の調査中、`Vec<Result<(),str>>` に成功結果を積んだ後で `HashSet::free` を呼び、その後 `checks_exit_code` / `checks_print_report` を実行すると、`RuntimeError: unreachable` や破損した `Err` message 表示が発生する最小再現を確認しました。raw pointer を同じ size で手動解放するケースや、HashMap / HashSet の direct return-code 検証は pass するため、collection lookup 本体とは別の集約 / enum storage / free-list 再利用問題です。
+`RV-STDLIB-023` の調査中、`Vec<Result<(),str>>` に成功結果を積んだ後で `HashSet::free` を呼び、その後 `checks_exit_code` / `checks_print_report` を実行すると、`RuntimeError: unreachable` や破損した `Err` message 表示が発生する最小再現を確認しました。raw pointer を同じ size で手動解放するケースや、HashMap / HashSet の direct return-code 検証は pass するため、collection lookup 本体とは別の集約 / enum storage / 0 byte aggregate の問題として切り分けました。
 
 ### 問題
 
-`Result<(),str>::Ok ()` は payload が zero-sized で、`Vec<Result<(),str>>` の backing store が allocator の再利用領域から来た場合に stale payload や古い tag に依存する可能性があります。`std/test` の checks 集約はこの表現を大量に保持し、summary 生成時に `load<Result<(),str>>` と `match` を繰り返すため、未初期化領域や古い free-list 内容を `Err` として読んで trap / 誤判定する危険があります。
+2 つの backend 表現不整合が重なっていました。
+
+- enum constructor は variant payload だけに合わせて allocation / store offset を決めており、`Result<(),i64>` のように payload が 4 byte を超える型で `size_of<Result<...>>` / `store<Result<...>>` と一致しませんでした。
+- WASM の `StructConstruct` は unit field に storage がないにもかかわらず 4 byte store を発行していました。`DefaultHash32` は `tag <()>` だけを持つ 0 byte struct なので、`alloc_raw(0)` の戻り値 0 に書き込んで heap pointer を破壊し、後続の `std/test` stdout / `Vec<Result<(),str>>` 読み出しを壊していました。
 
 ### 修正方針
 
-公式 fixture に入れる前に、`Vec<Result<(),str>>` の小さな再現を stdlib または core regression として固定します。そのうえで、enum `store` が zero-sized variant でも tag / payload 領域を決定的に初期化するべきか、`checks_new` / `checks_push` 側で `Result<(),str>` cell を明示初期化するべきかを切り分けます。修正後は `RV-STDLIB-023` で分離した string key test を `checks_print_report` 形式へ戻せるか確認します。
+enum storage は tag + 最大 payload size の full-size object として確保し、construct 時に 0 初期化してから tag / payload を書くように統一しました。aggregate payload は enum payload 領域へ inline copy し、match binding でも同じ inline storage から copy します。
+
+WASM の unit field は storage slot を持たないため、struct construction では式の副作用だけ評価して store を発行しないようにしました。LLVM 側は既に `Void` field を skip していたため、enum storage 統一のみを合わせています。
 
 ### 検証
 
-- `Vec<Result<(),str>>` に `Ok(())` を複数件 push し、free-list 再利用後に `checks_exit_code` が 0 を返すこと
-- `checks_print_report` が破損 stdout を出さないこと
-- `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-rv-stdlib-025.json -j 1`
-- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-025.json -j 4`
+- `cargo fmt --check`
+- `cargo check -p nepl-core`
+- `trunk build`
+- `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --runner all --no-tree -o tmp/rv-stdlib-025-intrinsic-all-pass4.json -j 1` (`total=8`, `passed=8`)
+- `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --runner all --no-tree -o tmp/rv-stdlib-025-std-test-collect-all-pass4.json -j 1` (`total=3`, `passed=3`)
+- `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --runner all --no-tree -o tmp/rv-stdlib-025-hashset-all-pass4.json -j 1` (`total=2`, `passed=2`)
+- `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/rv-stdlib-025-hash-str-pass4.json -j 1` (`total=4`, `passed=4`)

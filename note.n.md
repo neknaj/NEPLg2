@@ -1,3 +1,28 @@
+# 2026-04-26 メモ (RV-STDLIB-025 enum storage / zero-sized struct 修正)
+
+- 状況:
+  - `Vec<Result<(),str>>` の `std/test` 集約は、free-list 再利用後に `RuntimeError: unreachable`、破損 stdout、`Err` message の stale payload 読みを起こしていた。
+  - HashSet / HashMap の direct return-code 検証は通る一方、`checks_print_report` と組み合わせると heap / aggregate 表現の破壊が露出していた。
+- 原因:
+  - enum constructor が variant payload 側の size / offset に寄せて allocation と payload store を行い、`size_of<Result<...>>` / `store<Result<...>>` が使う full enum storage と一致していなかった。
+  - WASM の `StructConstruct` が unit field に 4 byte store を発行していた。`DefaultHash32` は `tag <()>` だけの 0 byte struct なので、`alloc_raw(0)` の戻り値 0 に書き込み、heap pointer を破壊していた。
+- 修正:
+  - WASM / LLVM の enum construct を full enum storage size で確保し、全体を 0 初期化してから tag / payload を書く形に統一した。
+  - aggregate enum payload は inline storage へ byte copy し、match binding も inline payload から aggregate object へ copy するようにした。
+  - WASM の zero-sized field は副作用評価だけ行い、storage への書き込みを発行しないようにした。
+  - `tests/compiler/intrinsic.n.md` に i64 payload enum store/load と 0 byte struct heap pointer の回帰を追加した。
+  - `tests/stdlib/std_test_collect.n.md` に HashSet / free-list 再利用後も `Vec<Result<(),str>>` の report が壊れない回帰を追加した。
+- 確認済み:
+  - `cargo fmt --check`
+  - `cargo check -p nepl-core`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --runner all --no-tree -o tmp/rv-stdlib-025-intrinsic-all-pass4.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --runner all --no-tree -o tmp/rv-stdlib-025-std-test-collect-all-pass4.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --runner all --no-tree -o tmp/rv-stdlib-025-hashset-all-pass4.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/rv-stdlib-025-hash-str-pass4.json -j 1`: 4/4 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は compiler backend の aggregate / enum ABI と stdlib test 回帰の整備で、セルフホスト compiler 計画自体への仕様変更はない。
+
 # 2026-04-26 メモ (RV-STDLIB-023 HashMap/HashSet runtime test green化)
 
 - [状況]:

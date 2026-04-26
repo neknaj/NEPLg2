@@ -88,6 +88,58 @@ fn main <()->i32> ():
             1
 ```
 
+## intrinsic_store_load_enum_i64_payload_uses_full_storage
+
+neplg2:test
+ret: 0
+```neplg2
+#target core
+#entry main
+#indent 4
+#import "core/cast" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    let high <i64> mul <i64> cast 65536 <i64> cast 65536;
+    let v <i64> add high <i64> cast 7;
+    let r <Result<(),i64>> Result<(),i64>::Err v;
+    let p <i32> alloc_raw size_of<Result<(),i64>>;
+    store<Result<(),i64>> p r;
+    let got <Result<(),i64>> load<Result<(),i64>> p;
+    dealloc_raw p size_of<Result<(),i64>>;
+    match got:
+        Result::Ok _u:
+            1
+        Result::Err e:
+            if eq e v 0 2
+```
+
+## intrinsic_zero_sized_struct_constructor_keeps_heap_pointer
+
+neplg2:test
+ret: 0
+```neplg2
+#target core
+#entry main
+#indent 4
+#import "core/math" as *
+#import "core/mem" as *
+
+struct Z:
+    tag <()>
+
+fn main <()->i32> ():
+    let p0 <i32> alloc_raw 16;
+    store_i32 p0 123;
+    let z <Z> Z;
+    let p1 <i32> alloc_raw 16;
+    let kept <bool> eq load_i32 p0 123;
+    let moved <bool> gt p1 p0;
+    if and kept moved 0 1
+```
+
 ## intrinsic_argument_type_mismatch_reports_diag_id
 
 neplg2:test[compile_fail]

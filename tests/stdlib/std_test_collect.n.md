@@ -33,6 +33,46 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
+## std_test_collect_survives_free_list_reuse
+
+neplg2:test[stdio, normalize_newlines, strip_ansi]
+ret: 0
+stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashset" as *
+#import "alloc/diag/error" as *
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/hash" as *
+#import "std/test" as *
+
+fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn main <()*>i32> ():
+    let mut checks <Vec<Result<(),str>>> checks_new;
+    set checks checks_push checks check true;
+    let hs0 <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
+    let hs1 <HashSet<i32,DefaultHash32>> must_hs insert hs0 42;
+    set checks checks_push checks check contains hs1 42;
+    let hsf0 <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
+    let hsf1 <HashSet<i32,DefaultHash32>> must_hs insert hsf0 42;
+    let hsf2 <HashSet<i32,DefaultHash32>> must_hs remove hsf1 42;
+    free hsf2;
+    set checks checks_push checks check true;
+    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    checks_exit_code shown
+```
+
 ## std_test_collect_failure_summary_and_details
 
 [目的/もくてき]:
