@@ -1,3 +1,21 @@
+# 2026-04-26 メモ (NEPLg2.0 self-host 実行運用の固定)
+
+- [状況]:
+  - NEPLg2.0 self-host は長期作業になるため、仕様計画だけでは branch の肥大化、commit 粒度の曖昧化、Rust 側 compiler 修正との競合が起きやすい。
+  - self-host 実装中に Rust 側の不具合が見つかった場合、self-host 側の workaround で隠すと参照実装との差分が追えなくなる。
+- [修正]:
+  - `doc/neplg2/self_host_execution_plan.md` を追加し、branch 命名、branch 手順、commit 単位、commit message scope、共通検証、stage 別 checkpoint を固定した。
+  - Rust 側 compiler 修正は必ず `main` を経由して self-host branch へ取り込む方針にし、未 commit / commit 済み self-host branch それぞれの取り込み手順を決めた。
+  - self-host 実装中に発覚した Rust 側 Issue の分類、提出に必須の情報、blocker の扱い、Rust 修正 commit の条件、self-host branch への復帰手順を定義した。
+  - `doc/neplg2/self_host_plan.md` と `doc/neplg2/README.md` から execution plan へ接続した。
+- [確認済み]:
+  - `node nodesrc/issues.js check`: 82 files OK。
+  - 関連 Markdown link 確認: missing 0。
+  - `trunk build`: 成功。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplg2-selfhost-workflow.json`: 13/13 passed。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の変更は NEPLg2.0 self-host の実行運用を `doc/neplg2/` に分離して明文化したもの。
+
 # 2026-04-26 メモ (NEPLg2.0 self-host 計画と Issue 管理移行)
 
 - [状況]:

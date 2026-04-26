@@ -12,6 +12,8 @@ NEPLg2.0 の現行 Rust コンパイラを、NEPLg2.0 自身で段階的に再�
 NEPLg3 向けの `doc/neplg3/impl/compiler_structure.md` は、ディレクトリ分割・依存方向・巨大ファイル分割の参考にする。
 ただし、NEPLg2.0 では現行の `#import`、angle bracket 型注釈、`fn` 糖衣構文、現行 HIR / WASM / LLVM backend を正とする。
 
+branch、commit、Rust 側 compiler 修正の取り込み、self-host 実装中に発覚した Rust 側 Issue の提出規則は [self_host_execution_plan.md](./self_host_execution_plan.md) を正とする。
+
 ---
 
 ## 2. 成功条件
@@ -291,3 +293,4 @@ S0-S3 は focused job、S4 以降で smoke job、S7 で bootstrap comparison job
 - 実装状況と planとの差異は `note.n.md` に記録する。
 - 未着手タスクは `todo.md` に残し、完了後は削除する。
 - self-host blocker は `issues/items/*.md` に作成し、`nodesrc/issues.js index` と `check` を通す。
+- branch / commit / Rust 側修正合流の実行規則は [self_host_execution_plan.md](./self_host_execution_plan.md) に従う。
