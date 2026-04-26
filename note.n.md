@@ -18319,3 +18319,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 実装前の core safety issue として、shared reference から non-Copy owned value を作る経路を塞いだ。
+
+# 2026-04-27 メモ (GitHub Actions 失敗の issue 照合)
+
+- [対象]:
+  - GitHub Actions run `24967172989` (`4d761eb83ef930583ca56668703695a3d0f4fa92`) の failed job を gh と artifact JSON で確認した。
+  - `stdlib-test` / `rust-test` / `nmd-doctest` / `compile-test` / `wasi-test` / `llvm-dual-test` の失敗を、個別 doctest ではなく根本原因のまとまりで issue に対応付けた。
+- [既存 issue 更新]:
+  - `ISS-20260426T010001Z-STDFS-WRITE-B7C4D923` を再オープンし、CI 上の `fs_open_write` / `fs_write_to_string` / `fs_write_to_bytes` 系 return mismatch と `tests/stdlib/text_utf8.n.md::doctest#4` の派生失敗を追記した。
+  - `ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C` を再オープンし、HashKey cleanup 後に Rust fixture が旧 `clone` method と不足した `Copy` bound のまま残っている再発として追記した。
+- [新規 issue]:
+  - CI に `wasmer` 実行ファイルが無く `features_tui` が `spawn wasmer ENOENT` で落ちる issue を追加した。
+  - `nepl-cli/tests/cli_output.rs` の unix-only permission fixture が wasm32 compile-test を壊す issue を追加した。
+  - LLVM dual の allocator runtime symbol 不足、AddrOf/Deref 未対応、未束縛 local 到達、generic Hasher trait call 残存、runtime null/SIGSEGV、compile_fail 診断比較、stdlib collection signature drift をそれぞれ core issue として追加した。
+- [方針]:
+  - stdlib 実装修正は別 agent と競合しないよう、今回は issue 管理の更新に留めた。
+  - ローカル検証は issue index/check など変更箇所に限定し、全体の green 化は GitHub Actions で追う。

@@ -2,12 +2,12 @@
 id: ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C
 title: "selfhost_req HashKey fixture loses struct keys in generic HashMap"
 area: core
-status: verified
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-04-27
 target: "nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/selfhost_req.rs, nepl-core/tests/neplg2.rs"
 ---
 
@@ -67,3 +67,22 @@ user-defined struct を `HashKey` として使う self-host 要件が壊れ、Ha
 - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 6 --dist dist`: pass
 - `trunk build`: pass（既存 Rust warning は残存）
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-selfhost-req-hashkey.json`: 13/13 passed
+
+## CI 再発確認 2026-04-27
+
+GitHub Actions run `24967172989` の `rust-test` で、この issue の回帰テスト群が再び失敗している。
+
+- `nepl-core/tests/neplg2.rs::generic_hashkey_eq_after_load_uses_concrete_impl`
+- `nepl-core/tests/neplg2.rs::generic_hashkey_value_survives_hash_before_store`
+- `nepl-core/tests/neplg2.rs::generic_store_after_generic_trait_probe_preserves_struct`
+- `nepl-core/tests/neplg2.rs::hashmap_custom_struct_key_roundtrips_value`
+- `nepl-core/tests/selfhost_req.rs::test_req_trait_extensions`
+
+今回の直接の失敗内容は、前回の runtime key storage 破壊ではなく、`HashKey` から旧 `clone` method / 独自 copy capability を外した後も Rust fixture 側が `impl HashKey for Point` に `fn clone` を残し、さらに `HashMap<Point,...>` に必要な `Copy` bound を満たしていないことによる compile failure。
+
+代表診断:
+
+- `TypeImplMethodNotFoundInTrait`: `method 'clone' not found in trait 'HashKey'`
+- `TypeTraitBoundUnsatisfied`: `type does not satisfy trait bound 'Copy'`
+
+`ISS-20260425T000000Z-RV-STDLIB-012-C31422D8` の HashKey/Hasher cleanup 後に、`nepl-core/tests/neplg2.rs` と `nepl-core/tests/selfhost_req.rs` の fixture 更新が不足した再発として扱う。修正時は fixture を表面だけ消すのではなく、self-host 要件として `HashKey` と `Copy` / `Clone` の責務分離が正しく表現されていることを確認する。

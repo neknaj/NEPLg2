@@ -1,35 +1,35 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T21:23:07.310Z",
+  "generated_at": "2026-04-26T21:34:11.054Z",
   "counts": {
-    "total": 139,
-    "open": 9,
-    "resolved": 130,
+    "total": 148,
+    "open": 20,
+    "resolved": 128,
     "by_area": {
+      "cli": {
+        "total": 19,
+        "open": 2,
+        "resolved": 17
+      },
       "core": {
-        "total": 52,
-        "open": 3,
-        "resolved": 49
+        "total": 59,
+        "open": 11,
+        "resolved": 48
+      },
+      "selfhost": {
+        "total": 9,
+        "open": 1,
+        "resolved": 8
       },
       "stdlib": {
         "total": 45,
         "open": 6,
         "resolved": 39
       },
-      "cli": {
-        "total": 17,
-        "open": 0,
-        "resolved": 17
-      },
       "examples": {
         "total": 13,
         "open": 0,
         "resolved": 13
-      },
-      "selfhost": {
-        "total": 9,
-        "open": 0,
-        "resolved": 9
       },
       "compiler": {
         "total": 1,
@@ -45,6 +45,36 @@
   },
   "issues": [
     {
+      "id": "ISS-20260426T213056969Z-CI-WASIX-DOCTESTS-RUN-WITHOUT-A-WASM-B1BD31BA",
+      "title": "CI wasix doctests run without a wasmer executable",
+      "area": "cli",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": ".github/workflows/ci.yml, nodesrc/run_test.js, tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213056969Z-CI-WASIX-DOCTESTS-RUN-WITHOUT-A-WASM-B1BD31BA.md"
+    },
+    {
+      "id": "ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55",
+      "title": "wasm32 compile-test builds unix-only cli_output fixture",
+      "area": "cli",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-cli/tests/cli_output.rs, .github/workflows/ci.yml",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
       "area": "core",
@@ -58,6 +88,126 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
+    },
+    {
+      "id": "ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C",
+      "title": "selfhost_req HashKey fixture loses struct keys in generic HashMap",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/selfhost_req.rs, nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
+    },
+    {
+      "id": "ISS-20260426T213057295Z-LLVM-DUAL-BACKEND-MISSES-ALLOCATOR-R-EF505BD2",
+      "title": "LLVM dual backend misses allocator runtime symbols",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_llvm.rs, nepl-core/src/runtime_helpers.rs, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057295Z-LLVM-DUAL-BACKEND-MISSES-ALLOCATOR-R-EF505BD2.md"
+    },
+    {
+      "id": "ISS-20260426T213057469Z-LLVM-BACKEND-LACKS-REFERENCE-ADDROF--5F102ECE",
+      "title": "LLVM backend lacks reference AddrOf and Deref lowering",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_llvm.rs, nepl-core/src/passes/codegen_precheck.rs, tests/compiler/drop.n.md, tests/compiler/drop_overwrite.n.md, stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057469Z-LLVM-BACKEND-LACKS-REFERENCE-ADDROF--5F102ECE.md"
+    },
+    {
+      "id": "ISS-20260426T213057658Z-LLVM-CODEGEN-REACHES-UNBOUND-LOCALS--5CA65A55",
+      "title": "LLVM codegen reaches unbound locals after lowering",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs, stdlib/alloc/collections/adjacency_matrix.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057658Z-LLVM-CODEGEN-REACHES-UNBOUND-LOCALS--5CA65A55.md"
+    },
+    {
+      "id": "ISS-20260426T213057843Z-LLVM-MONOMORPHIZE-LEAVES-GENERIC-HAS-8FDB0749",
+      "title": "LLVM monomorphize leaves generic Hasher trait calls unresolved",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/monomorphize.rs, nepl-core/src/codegen_llvm.rs, stdlib/alloc/collections/hashmap.nepl, tests/stdlib/traits_hash.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057843Z-LLVM-MONOMORPHIZE-LEAVES-GENERIC-HAS-8FDB0749.md"
+    },
+    {
+      "id": "ISS-20260426T213058045Z-LLVM-DUAL-RUNNER-RETURNS-NULL-OR-CRA-BC38ABEB",
+      "title": "LLVM dual runner returns null or crashes for broad run cases",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_llvm.rs, nepl-cli/src/codegen_llvm.rs, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213058045Z-LLVM-DUAL-RUNNER-RETURNS-NULL-OR-CRA-BC38ABEB.md"
+    },
+    {
+      "id": "ISS-20260426T213058421Z-LLVM-TARGET-TYPECHECKS-STDLIB-COLLEC-DD7EF927",
+      "title": "LLVM target typechecks stdlib collection modules with signature drift",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_llvm.rs, stdlib/alloc/collections/binary_heap.nepl, stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/deque.nepl, stdlib/alloc/collections/list.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213058421Z-LLVM-TARGET-TYPECHECKS-STDLIB-COLLEC-DD7EF927.md"
+    },
+    {
+      "id": "ISS-20260426T010001Z-STDFS-WRITE-B7C4D923",
+      "title": "std/fs lacks write and create interfaces required for self-host artifacts",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/fs.nepl, nepl-cli/src/main.rs, tests/stdlib/fs.n.md, tests/stdlib/text_utf8.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010001Z-STDFS-WRITE-B7C4D923.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -118,6 +268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE.md"
+    },
+    {
+      "id": "ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7",
+      "title": "LLVM compile_fail diagnostics lose expected ids and spans",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nodesrc/tests.js, nepl-core/src/compiler.rs, nepl-core/src/codegen_llvm.rs, tests/compiler/compile_fail_diag_location.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -780,21 +945,6 @@
       "file": "items/ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318.md"
     },
     {
-      "id": "ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C",
-      "title": "selfhost_req HashKey fixture loses struct keys in generic HashMap",
-      "area": "core",
-      "status": "verified",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/selfhost_req.rs, nepl-core/tests/neplg2.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
-    },
-    {
       "id": "ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7",
       "title": "str unifies with i32 and accepts raw handles as text",
       "area": "core",
@@ -1018,21 +1168,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C.md"
-    },
-    {
-      "id": "ISS-20260426T010001Z-STDFS-WRITE-B7C4D923",
-      "title": "std/fs lacks write and create interfaces required for self-host artifacts",
-      "area": "selfhost",
-      "status": "verified",
-      "resolved": true,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/std/fs.nepl, nepl-cli/src/main.rs",
-      "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010001Z-STDFS-WRITE-B7C4D923.md"
     },
     {
       "id": "ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E",
