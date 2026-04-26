@@ -177,6 +177,253 @@ fn io_bytebuf_to_str <(ByteBuf)*>str> (buf):
         Result::Err _e:
             ""
 
+//: ## ByteBuilder
+//: growable な[所有/しょゆう] byte buffer builder
+//:
+//: ### [目的/もくてき]
+//: - WASM binary emitter のように byte を[順番/じゅんばん]に[追加/ついか]する処理を、raw pointer や `Vec` [内部表現/ないぶひょうげん]へ[直接/ちょくせつ][依存/いそん]せずに[書/か]けるようにします。
+//: - `finish` で `ByteBuf` を[返/かえ]し、`fs_write_to_bytes` や `stdio_write_bytes_result` へそのまま[渡/わた]せます。
+//:
+//: ### [注意/ちゅうい]
+//: - `ByteBuilder` は[所有権/しょゆうけん]を[持/も]つので `Copy` / `Clone` を[実装/じっそう]しません。
+//: - `push_*` / `reserve` / `finish` は builder を[消費/しょうひ]し、成功時は[新/あたら]しい builder または `ByteBuf` を[返/かえ]します。
+//: - 失敗時は builder 内部 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
+struct ByteBuilder:
+    ptr <MemPtr<u8>>
+    len <i32>
+    cap <i32>
+
+fn byte_builder_empty <()->ByteBuilder> ():
+    ByteBuilder mem_ptr_wrap 0 0 0
+
+//: byte_builder_with_capacity: 指定 capacity の builder を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - [見積/みつ]もり[済/ず]みの byte [数/すう]がある emitter で、最初の realloc を[避/さ]けます。
+//:
+//: [注意/ちゅうい]:
+//: - capacity が 0 の[場合/ばあい]は[確保/かくほ]せず空 builder を[返/かえ]します。
+fn byte_builder_with_capacity <(i32)->Result<ByteBuilder, StdErrorKind>> (capacity):
+    if:
+        lt capacity 0
+        then:
+            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq capacity 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_empty
+                else:
+                    match alloc_ptr<u8> capacity:
+                        Result::Ok ptr:
+                            Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr 0 capacity
+                        Result::Err _e:
+                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: byte_builder_new: default capacity の builder を[作/つく]る
+fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
+    byte_builder_with_capacity 64
+
+fn byte_builder_len <(ByteBuilder)->i32> (builder):
+    get builder "len"
+
+fn byte_builder_free <(ByteBuilder)->()> (builder):
+    let cap <i32> get builder "cap"
+    if:
+        gt cap 0
+        then:
+            match dealloc_ptr<u8> get builder "ptr" cap:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+        else:
+            ()
+
+fn byte_builder_next_capacity <(i32,i32)->Result<i32, StdErrorKind>> (cap, needed):
+    let mut next <i32>:
+        if:
+            le cap 0
+            then:
+                8
+            else:
+                cap
+    let mut failed <i32> 0
+    while and lt next needed eq failed 0:
+        do:
+            let doubled <i32> mul next 2
+            if:
+                le doubled next
+                then:
+                    set failed 1
+                else:
+                    set next doubled
+    if:
+        eq failed 1
+        then:
+            Result<i32, StdErrorKind>::Err StdErrorKind::CapacityExceeded
+        else:
+            Result<i32, StdErrorKind>::Ok next
+
+//: byte_builder_reserve: 追加 byte [数/すう]ぶんの capacity を[確保/かくほ]する
+//:
+//: [目的/もくてき]:
+//: - 以後の append が少なくとも additional byte ぶん成功するように、必要なら capacity を 2 [倍/ばい]ずつ[伸/の]ばします。
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時は builder を[解放/かいほう]します。
+fn byte_builder_reserve <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, additional):
+    let len0 <i32> get builder "len"
+    let cap0 <i32> get builder "cap"
+    if:
+        lt additional 0
+        then:
+            byte_builder_free builder
+            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            let needed <i32> add len0 additional
+            if:
+                or lt needed len0 le needed cap0
+                then:
+                    if:
+                        lt needed len0
+                        then:
+                            byte_builder_free builder
+                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::CapacityExceeded
+                        else:
+                            Result<ByteBuilder, StdErrorKind>::Ok builder
+                else:
+                    match byte_builder_next_capacity cap0 needed:
+                        Result::Err e:
+                            byte_builder_free builder
+                            Result<ByteBuilder, StdErrorKind>::Err e
+                        Result::Ok next_cap:
+                            if:
+                                le cap0 0
+                                then:
+                                    match alloc_ptr<u8> next_cap:
+                                        Result::Ok ptr:
+                                            Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr len0 next_cap
+                                        Result::Err _e:
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                else:
+                                    match realloc_ptr<u8> get builder "ptr" cap0 next_cap:
+                                        Result::Ok ptr:
+                                            Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr len0 next_cap
+                                        Result::Err _e:
+                                            byte_builder_free builder
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: byte_builder_push_u8: 1 byte を[末尾/まつび]へ[追加/ついか]する
+fn byte_builder_push_u8 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, byte):
+    match byte_builder_reserve builder 1:
+        Result::Err e:
+            Result<ByteBuilder, StdErrorKind>::Err e
+        Result::Ok reserved:
+            let ptr <MemPtr<u8>> get reserved "ptr"
+            let len0 <i32> get reserved "len"
+            match store_u8 mem_ptr_add ptr len0 byte:
+                Result::Ok _:
+                    Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr add len0 1 get reserved "cap"
+                Result::Err _e:
+                    byte_builder_free reserved
+                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+//: byte_builder_push_bytes_ref: 参照 byte [列/れつ]を[末尾/まつび]へ[複製/ふくせい]する
+//:
+//: [目的/もくてき]:
+//: - 既存 buffer の slice や固定 header を builder に[追加/ついか]します。
+//:
+//: [注意/ちゅうい]:
+//: - source の[所有権/しょゆうけん]は[移動/いどう]しません。
+fn byte_builder_push_bytes_ref <(ByteBuilder,MemPtr<u8>,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, src, data_len):
+    if:
+        lt data_len 0
+        then:
+            byte_builder_free builder
+            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq data_len 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok builder
+                else:
+                    match byte_builder_reserve builder data_len:
+                        Result::Err e:
+                            Result<ByteBuilder, StdErrorKind>::Err e
+                        Result::Ok reserved:
+                            let dst <MemPtr<u8>> mem_ptr_add get reserved "ptr" get reserved "len"
+                            match mem_copy<u8> dst src data_len:
+                                Result::Ok _:
+                                    Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder get reserved "ptr" add get reserved "len" data_len get reserved "cap"
+                                Result::Err _e:
+                                    byte_builder_free reserved
+                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+//: byte_builder_push_bytebuf: `ByteBuf` の[内容/ないよう]を[追加/ついか]して入力 buffer を[解放/かいほう]する
+fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)*>Result<ByteBuilder, StdErrorKind>> (builder, bytes):
+    let src <MemPtr<u8>> get bytes "ptr"
+    let data_len <i32> get bytes "len"
+    let res <Result<ByteBuilder, StdErrorKind>> byte_builder_push_bytes_ref builder src data_len
+    io_bytebuf_free bytes
+    res
+
+//: byte_builder_push_leb_u32: u32 LEB128 を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - WASM binary の section size、index、integer immediate を unsigned LEB128 で[書/か]き[込/こ]みます。
+//:
+//: [実装/じっそう]:
+//: - 下位 7 bit を[出力/しゅつりょく]し、残りを unsigned shift で 7 bit ずつ[進/すす]めます。
+fn byte_builder_push_leb_u32 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, value):
+    let low <i32> and value 127
+    let rest <i32> shr_u value 7
+    let out <i32>:
+        if:
+            eq rest 0
+            then:
+                low
+            else:
+                or low 128
+    match byte_builder_push_u8 builder out:
+        Result::Err e:
+            Result<ByteBuilder, StdErrorKind>::Err e
+        Result::Ok next:
+            if:
+                eq rest 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok next
+                else:
+                    byte_builder_push_leb_u32 next rest
+
+//: byte_builder_finish: builder を exact-size の `ByteBuf` へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - growable builder の capacity を[隠/かく]し、`ByteBuf.ptr` が `ByteBuf.len` byte の[所有領域/しょゆうりょういき]を[指/さ]す invariant に[戻/もど]します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った `ByteBuf` は caller が `io_bytebuf_free` で[解放/かいほう]してください。
+fn byte_builder_finish <(ByteBuilder)*>Result<ByteBuf, StdErrorKind>> (builder):
+    let len0 <i32> get builder "len"
+    let cap0 <i32> get builder "cap"
+    if:
+        le len0 0
+        then:
+            byte_builder_free builder
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+        else:
+            if:
+                eq len0 cap0
+                then:
+                    Result<ByteBuf, StdErrorKind>::Ok ByteBuf get builder "ptr" len0
+                else:
+                    match realloc_ptr<u8> get builder "ptr" cap0 len0:
+                        Result::Ok ptr:
+                            Result<ByteBuf, StdErrorKind>::Ok ByteBuf ptr len0
+                        Result::Err _e:
+                            byte_builder_free builder
+                            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
 //: ## ByteReader
 //: [生/なま]の[バイト列/ばいとれつ]を[読/よ]み[出/だ]す[能力/のうりょく]
 trait ByteReader:

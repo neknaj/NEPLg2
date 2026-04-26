@@ -17882,3 +17882,44 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host source loader はまだ Stage 0 marker で実 filesystem loader を持たないため、source loading が利用する checked stdlib API と回帰テストを先に確定した。
+
+# 2026-04-26 メモ (move checker loop accumulator issue 追加)
+
+- [追加]:
+  - `ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98` を追加した。
+- [原因]:
+  - ByteBuilder 実装中、`byte_builder_push_leb_u32` の loop で `current` を consuming call に渡して `Result::Ok next` で差し替える自然な owned accumulator pattern が、D3065 / D3054 で拒否された。
+  - doctest 側の `ByteBuilder` accumulator helper でも同じ問題を確認した。
+- [影響]:
+  - 現状は recursion や手作業の unroll で回避できるが、self-host codegen や parser が所有 builder を loop で安全に更新しにくくなる。
+- [対応]:
+  - ByteBuilder issue では root cause を隠さないよう、compiler 側の move/borrow checker 問題として独立 issue にした。
+  - issue 追加時点で Discord に報告済み。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-04-26 メモ (ISS-20260426T010005Z ByteBuilder API 実装)
+
+- [同期]:
+  - 作業開始前に `git pull --ff-only origin main` と `node nodesrc/issues.js check` を実行し、`main` と `origin/main` が `d08f748` で一致していることを確認した。
+  - commit 前の検証開始時にも `git fetch origin main` を実行し、remote main が `d08f748` のままであることを確認した。
+- [原因]:
+  - self-host wasm backend は header / section / LEB128 / payload copy を順に組み立てる必要があるが、既存の `ByteBuf` は完成済み buffer の所有 handle であり、incremental append / reserve / finish の public API がなかった。
+  - raw memory や `Vec` 内部表現へ backend が直接依存すると、binary emitter の invariant を stdlib API で検証できない。
+- [修正]:
+  - `stdlib/alloc/io.nepl` に `ByteBuilder` を追加し、`byte_builder_new` / `byte_builder_with_capacity` / `byte_builder_reserve` / `byte_builder_push_u8` / `byte_builder_push_bytes_ref` / `byte_builder_push_bytebuf` / `byte_builder_push_leb_u32` / `byte_builder_finish` / `byte_builder_free` を実装した。
+  - `byte_builder_finish` は余剰 capacity を exact-size に詰め直して `ByteBuf` を返すため、既存の `io_bytebuf_free` が `len` で解放する invariant と衝突しない。
+  - append / reserve / finish の失敗時は builder 内部 buffer を解放し、`StdErrorKind` で原因を返す。
+  - 実装中に owned builder accumulator loop が move checker に D3065/D3054 で拒否されることを確認し、`ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98` を追加した。ByteBuilder 側では現行 compiler で通る recursion / direct copy へ寄せ、根本原因は compiler issue として追跡する。
+- [回帰テスト]:
+  - `tests/stdlib/byte_builder.n.md` を追加し、WASM header byte列、LEB128 known vector `624485 -> E5 8E 26`、capacity growth 後の既存 byte 保持を固定した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/byte-builder-focused-final.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/byte-builder-bytebuf-result-final.json -j 1`: 6/6 passed
+  - `trunk build`: pass, warnings なし
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-byte-builder.json`: 13/13 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/byte-builder-stdlib-full.json -j 4`: 406/406 passed
+  - `cargo fmt --all --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host wasm backend はまだ Stage 0 marker のため、今回は backend へ raw pointer 実装を広げず、まず public ByteBuilder API と回帰テストを確定した。

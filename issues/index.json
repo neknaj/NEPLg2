@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T13:43:57.846Z",
+  "generated_at": "2026-04-26T14:07:58.553Z",
   "counts": {
-    "total": 126,
+    "total": 127,
     "open": 13,
-    "resolved": 113,
+    "resolved": 114,
     "by_area": {
       "core": {
-        "total": 43,
-        "open": 2,
+        "total": 44,
+        "open": 3,
         "resolved": 41
-      },
-      "selfhost": {
-        "total": 7,
-        "open": 2,
-        "resolved": 5
       },
       "stdlib": {
         "total": 43,
         "open": 9,
         "resolved": 34
+      },
+      "selfhost": {
+        "total": 7,
+        "open": 1,
+        "resolved": 6
       },
       "cli": {
         "total": 17,
@@ -58,21 +58,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11",
-      "title": "wasm emitter needs owned byte builder APIs",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/io.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -148,6 +133,21 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
+    },
+    {
+      "id": "ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98",
+      "title": "move checker rejects owned accumulator updated after fallible consuming loop call",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/src/typecheck.rs, stdlib/alloc/io.nepl",
+      "legacy_id": "",
+      "source": "ByteBuilder implementation while handling ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11",
+      "file": "items/ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98.md"
     },
     {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
@@ -1048,6 +1048,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A.md"
+    },
+    {
+      "id": "ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11",
+      "title": "wasm emitter needs owned byte builder APIs",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/io.nepl, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",
