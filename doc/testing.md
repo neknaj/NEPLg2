@@ -45,6 +45,7 @@ node nodesrc/test_stdlib_match_decision_trees.js
 node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js
 node nodesrc/test_run_test_wasi_tmp_dir.js
 node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js
 ```
 
 Run one doctest directly:

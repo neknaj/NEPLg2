@@ -18543,3 +18543,55 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 実装前の core borrow/lifetime safety issue として、aggregate 構築境界での temporary borrow overlap を修正した。
+
+# 2026-04-27 メモ (ISS-20260426T221226565Z BTree insert grow Result 化)
+
+- [同期]:
+  - 作業開始時に `main` / `origin/main` が `5b14a18 stdlib: propagate merge sort allocation errors` で一致していることを確認し、`git pull --ff-only origin main` は `Already up to date` だった。
+  - commit 前に `origin/main` が `590722d core: retain aggregate construction borrows` まで進んだため、`git pull --rebase --autostash origin main` で取り込んだ。`issues/index.*` は再生成し、`note.n.md` は borrow 系 2 件の記録と本作業記録を両方残して conflict を解消した。
+  - main merge 前に `origin/main` が `a5db7f4 core: preserve match payload borrow origins` まで進んだため、作業 branch を `origin/main` へ rebase し、`issues/index.*` を再生成した。
+  - さらに main merge 前に `origin/main` が `c4c25d0 core: lower LLVM reference address operations` まで進んだため、作業 branch を再度 `origin/main` へ rebase し、`issues/index.*` を再生成した。
+  - main merge 前に `origin/main` が `795bede core: emit LLVM allocator helper dependencies` まで進んだため、作業 branch を再度 `origin/main` へ rebase し、`issues/index.*` を再生成した。
+  - 文字列メモリ、borrow checker、drop/resource 系は別 agent の作業対象として避け、self-host の基本データ構造に関わる sorted-array collection の Result 経路だけを対象にした。
+- [追加Issue]:
+  - `ISS-20260426T221226565Z-BTREEMAP-AND-BTREESET-INSERT-TRAP-ON-F1DACB01` を追加し、追加時点で Discord に報告した。
+- [原因]:
+  - `BTreeMap.insert` / `BTreeSet.insert` は public API として `Result<..., Diag>` を返すが、満杯時の `grow` / `btreeset_grow` だけは `unwrap_ok` で受けていた。
+  - grow helper は `Diag::OutOfMemory` を返す設計なので、`insert` が `Err` を trap へ変換していることが API 契約と RV-STDLIB-010 の方針に反していた。
+- [修正]:
+  - capacity が足りている collection への lower_bound / shift / store を `btreemap_insert_ready` / `btreeset_insert_ready` に分離した。
+  - public `insert` は満杯時に grow result を `match` し、`Result::Err d` を `err<..., Diag> d` として呼び出し側へ返すようにした。
+  - 9 件目 insert で初期 capacity を超える境界テストを `stdlib/tests/btreemap.n.md` / `stdlib/tests/btreeset.n.md` に追加した。
+  - `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` を追加し、CI source policy と `doc/testing.md` に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/btree-insert-grow-focused.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i tests/stdlib/btree_array_cost.n.md --no-tree -o tmp/btree-array-cost-after-grow-result.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl --no-tree -o tmp/btree-insert-grow-docs.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-btree-grow-result.json -j 1`: 8/8 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-btree-grow-result.json -j 4`: 282/282 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-btree-grow-result.json -j 4`: 416/416 passed
+  - remote main 取り込み後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/btree-insert-grow-after-remote-build.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl --no-tree -o tmp/btree-insert-grow-docs-after-remote-build.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-btree-grow-after-remote-build.json -j 4`: 282/282 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-btree-grow-after-remote-build.json -j 4`: 416/416 passed
+  - `a5db7f4` rebase 後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/btree-insert-grow-after-a5db-build.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl --no-tree -o tmp/btree-insert-grow-docs-after-a5db-build.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-btree-grow-after-a5db-build.json -j 4`: 282/282 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-btree-grow-after-a5db-build.json -j 4`: 416/416 passed
+  - `c4c25d0` rebase 後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/btree-insert-grow-after-c4c25d0-build.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl --no-tree -o tmp/btree-insert-grow-docs-after-c4c25d0-build.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-btree-grow-after-c4c25d0-build.json -j 4`: 282/282 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-btree-grow-after-c4c25d0-build.json -j 4`: 416/416 passed
+  - `795bede` rebase 後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/btree-insert-grow-after-795bede-build.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl --no-tree -o tmp/btree-insert-grow-docs-after-795bede-build.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-btree-grow-after-795bede-build.json -j 4`: 282/282 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-btree-grow-after-795bede-build.json -j 4`: 416/416 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host plan の「大規模 mutable table には HashMap/HashSet、ordered output には sorted-array を限定利用」という方針を前提に、限定用途の sorted-array collection でも allocation failure を Result として扱えるようにした。

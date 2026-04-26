@@ -160,8 +160,46 @@ fn contains <.T: Ord> <(BTreeSet<.T>,.T)->bool> (set0, key):
     let idx <i32> btreeset_lower_bound<.T> keys key 0 len0
     btreeset_is_at<.T> keys len0 idx key
 
+//: ## btreeset_insert_ready
+//: [容量/ようりょう]が[足/た]りている `BTreeSet` に key を[挿入/そうにゅう]する
+//:
+//: ### [目的/もくてき]
+//: - public `insert` が grow の[成功/せいこう]を[確認/かくにん]したあと、lower_bound / shift / store を[一箇所/いっかしょ]で[行/おこな]います。
+//: - grow [失敗/しっぱい]を `unwrap_ok` で trap にしないため、確保を伴う[準備/じゅんび]と確保後の[挿入/そうにゅう]を[分離/ぶんり]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - lower_bound は O(log n)、新規[挿入/そうにゅう]時の shift は O(n) です。
+fn btreeset_insert_ready <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set1, key):
+    let hdr <i32> field::get set1 "hdr"
+    let len0 <i32> load_i32 hdr
+    let keys <i32> btreeset_keys_ptr hdr
+    let idx <i32> btreeset_lower_bound<.T> keys key 0 len0
+    if:
+        btreeset_is_at<.T> keys len0 idx key
+        then ok<BTreeSet<.T>, Diag> set1
+        else:
+            let mut i <i32> len0
+            while gt i idx:
+                do:
+                    let from <i32> sub i 1
+                    store<.T> add keys mul i size_of<.T> load<.T> add keys mul from size_of<.T>
+                    set i from
+            store<.T> add keys mul idx size_of<.T> key
+            store_i32 hdr add len0 1
+            ok<BTreeSet<.T>, Diag> set1
+
 //: ## insert
 //: key を[集合/しゅうごう]へ[挿入/そうにゅう]する
+//:
+//: ### [実装/じっそう]
+//: - 現在の[容量/ようりょう]が[満杯/まんぱい]なら `btreeset_grow` を[実行/じっこう]し、`Result::Err` はそのまま[返/かえ]します。
+//: - 確保に[成功/せいこう]した set、または元から[余裕/よゆう]のある set だけを `btreeset_insert_ready` に[渡/わた]します。
+//:
+//: ### [失敗/しっぱい]
+//: - grow 用 key buffer の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `Diag::OutOfMemory` を[返/かえ]し、trap しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 通常は O(n)、grow が[起/お]きる[回/かい]は既存要素の copy を含め O(n) です。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -181,28 +219,15 @@ fn insert <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
     let hdr0 <i32> field::get set0 "hdr"
     let len_init <i32> load_i32 hdr0
     let cap_init <i32> load_i32 add hdr0 4
-    let set1 <BTreeSet<.T>>:
-        if:
-            eq len_init cap_init
-            then unwrap_ok<BTreeSet<.T>, Diag> btreeset_grow<.T> set0
-            else set0
-    let hdr <i32> field::get set1 "hdr"
-    let len0 <i32> load_i32 hdr
-    let keys <i32> btreeset_keys_ptr hdr
-    let idx <i32> btreeset_lower_bound<.T> keys key 0 len0
     if:
-        btreeset_is_at<.T> keys len0 idx key
-        then ok<BTreeSet<.T>, Diag> set1
-        else:
-            let mut i <i32> len0
-            while gt i idx:
-                do:
-                    let from <i32> sub i 1
-                    store<.T> add keys mul i size_of<.T> load<.T> add keys mul from size_of<.T>
-                    set i from
-            store<.T> add keys mul idx size_of<.T> key
-            store_i32 hdr add len0 1
-            ok<BTreeSet<.T>, Diag> set1
+        eq len_init cap_init
+        then:
+            match btreeset_grow<.T> set0:
+                Result::Ok set1:
+                    btreeset_insert_ready<.T> set1 key
+                Result::Err d:
+                    err<BTreeSet<.T>, Diag> d
+        else btreeset_insert_ready<.T> set0 key
 
 //: ## remove
 //: key を[集合/しゅうごう]から[削除/さくじょ]する
