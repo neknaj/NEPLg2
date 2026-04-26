@@ -1,3 +1,22 @@
+# 2026-04-26 メモ (stdlib full review 追加 issue)
+
+- 状況:
+  - `stdlib/**/*.nepl` 88 file / 29955 行、stdlib-facing `.n.md` 79 file、`fn` 1169、`trait` 25、`struct` 49、`enum` 10 を inventory で確認した。
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-full-review-current.json -j 4` は `total=404`, `passed=404`, `failed=0`, `errored=0`。
+  - static review では `neplg2:test[skip]` 53 件、`#intrinsic "unreachable"` 26 件、boilerplate comment marker 393 件を確認した。
+- 追加 Issue:
+  - `ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90`: numeric parser overflow が wrap し得る。
+  - `ISS-20260426T060223863Z-BYTEBUF-CONVERSIONS-HIDE-ALLOCATION--3BF03711`: ByteBuf / str 変換が allocation failure を空値へ潰す。
+  - `ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374`: `JsonValue` が structured payload を raw `i32` handle で持つ。
+  - `ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536`: `sha256_finalize` が digest ではなく buffer を返す scaffold。
+  - `ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2`: TUI box helper が narrow width を呼び出し側回避にしている。
+  - `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1`: stdlib doc comment に boilerplate が残る。
+- 記録:
+  - `doc/neplg2/stdlib_full_review_20260426.md` を追加し、レビュー範囲、実行確認、既存 Issue との照合、新規 Issue、修正順を記録した。
+  - 追加した各 Issue は作成時点で Discord report を送信した。
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib review の結果を Issue 台帳と doc に反映するもの。
+
 # 2026-04-26 メモ (ISS-20260426T055122421Z streamio obsolete pipe cast workaround)
 
 - 状況:
