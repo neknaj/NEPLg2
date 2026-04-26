@@ -7,6 +7,7 @@
 #import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 
 //: # args
 //: NEPLg2.0 self-host CLI の argv parser 境界を置くモジュールです。
@@ -51,6 +52,14 @@ pub enum SelfhostCliTarget:
     Wasix
     Llvm
 
+impl Clone for SelfhostCliTarget:
+    fn clone <(&SelfhostCliTarget)->SelfhostCliTarget> (self):
+        *self
+
+impl Copy for SelfhostCliTarget:
+    fn copy_mark <(SelfhostCliTarget)->SelfhostCliTarget> (self):
+        self
+
 //: ## SelfhostCliEmit
 //: self-host compiler の出力形式です。
 //:
@@ -67,11 +76,27 @@ pub enum SelfhostCliEmit:
     LlvmMin
     All
 
+impl Clone for SelfhostCliEmit:
+    fn clone <(&SelfhostCliEmit)->SelfhostCliEmit> (self):
+        *self
+
+impl Copy for SelfhostCliEmit:
+    fn copy_mark <(SelfhostCliEmit)->SelfhostCliEmit> (self):
+        self
+
 //: ## SelfhostCliProfile
 //: compile profile の指定です。
 pub enum SelfhostCliProfile:
     Debug
     Release
+
+impl Clone for SelfhostCliProfile:
+    fn clone <(&SelfhostCliProfile)->SelfhostCliProfile> (self):
+        *self
+
+impl Copy for SelfhostCliProfile:
+    fn copy_mark <(SelfhostCliProfile)->SelfhostCliProfile> (self):
+        self
 
 //: ## SelfhostCliErrorKind
 //: CLI parser が返す usage error の分類です。

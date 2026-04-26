@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T16:39:29.411Z",
+  "generated_at": "2026-04-26T17:16:39.240Z",
   "counts": {
     "total": 132,
-    "open": 9,
-    "resolved": 123,
+    "open": 8,
+    "resolved": 124,
     "by_area": {
       "core": {
         "total": 48,
-        "open": 3,
-        "resolved": 45
+        "open": 2,
+        "resolved": 46
       },
       "stdlib": {
         "total": 44,
@@ -58,21 +58,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T162754192Z-DEREF-OF-NON-COPY-REFERENCE-CAN-SHAL-E939B2BB",
-      "title": "deref of non-Copy reference can shallow-copy owned aggregate values",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/core/field.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T162754192Z-DEREF-OF-NON-COPY-REFERENCE-CAN-SHAL-E939B2BB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -853,6 +838,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T144541459Z-GENERIC-IMPL-TRAIT-ARGUMENTS-ARE-BLO-0C6A53DC.md"
+    },
+    {
+      "id": "ISS-20260426T162754192Z-DEREF-OF-NON-COPY-REFERENCE-CAN-SHAL-E939B2BB",
+      "title": "deref of non-Copy reference can shallow-copy owned aggregate values",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/src/types.rs, nepl-core/tests/move_check.rs, tests/compiler/move_check.n.md, tests/compiler/move_effect.n.md, stdlib/core/option.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/collections/stack.nepl, stdlib/neplg2/cli/args.nepl, stdlib/tests/option.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T162754192Z-DEREF-OF-NON-COPY-REFERENCE-CAN-SHAL-E939B2BB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

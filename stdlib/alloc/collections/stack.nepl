@@ -108,7 +108,7 @@
 #import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/field" as *
+#import "core/field" as field
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
@@ -129,7 +129,7 @@ struct Stack<.T>:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
 fn stack_header_len_ptr <.T> <(Stack<.T>)->MemPtr<i32>> (stk):
-    mem_ptr_wrap mem_ptr_addr get stk "hdr"
+    mem_ptr_wrap mem_ptr_addr field::get stk "hdr"
 
 //: stack_header_cap_ptr: ヘッダの capacity [欄/らん]を[指/さ]す
 //:
@@ -145,7 +145,7 @@ fn stack_header_len_ptr <.T> <(Stack<.T>)->MemPtr<i32>> (stk):
 //: ### [計算量/けいさんりょう]
 //: - O(1)
 fn stack_header_cap_ptr <.T> <(Stack<.T>)->MemPtr<i32>> (stk):
-    mem_ptr_wrap add mem_ptr_addr get stk "hdr" 4
+    mem_ptr_wrap add mem_ptr_addr field::get stk "hdr" 4
 
 //: stack_header_data_ptr_ptr: ヘッダの data pointer [欄/らん]を[指/さ]す
 //:
@@ -161,7 +161,7 @@ fn stack_header_cap_ptr <.T> <(Stack<.T>)->MemPtr<i32>> (stk):
 //: ### [計算量/けいさんりょう]
 //: - O(1)
 fn stack_header_data_ptr_ptr <.T> <(Stack<.T>)->MemPtr<i32>> (stk):
-    mem_ptr_wrap add mem_ptr_addr get stk "hdr" 8
+    mem_ptr_wrap add mem_ptr_addr field::get stk "hdr" 8
 
 //: stack_len_raw: [内部/ないぶ]で length を[読/よ]む
 //:
@@ -294,7 +294,7 @@ fn new <.T> <()*>Result<Stack<.T>, Diag>> ():
 //:     if eq len<i32> st 1 0 1
 //: ```
 fn push <.T> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
-    let hdr <MemPtr<u8>> get stk "hdr"
+    let hdr <MemPtr<u8>> field::get stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 4
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
@@ -369,8 +369,7 @@ fn push <.T> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
 //:             1
 //: ```
 fn push_ref <.T: Copy> <(&Stack<.T>,.T)*>Result<(), Diag>> (stk, item):
-    let stk0 <Stack<.T>> *stk
-    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let hdr <MemPtr<u8>> *field::get_ref stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 4
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
@@ -436,7 +435,7 @@ fn push_ref <.T: Copy> <(&Stack<.T>,.T)*>Result<(), Diag>> (stk, item):
 //:             1
 //: ```
 fn pop <.T> <(Stack<.T>)->Option<.T>> (stk):
-    let hdr <MemPtr<u8>> get stk "hdr"
+    let hdr <MemPtr<u8>> field::get stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let len <i32> load_i32 mem_ptr_addr len_ptr
@@ -489,7 +488,7 @@ fn pop <.T> <(Stack<.T>)->Option<.T>> (stk):
 //:             1
 //: ```
 fn peek <.T> <(Stack<.T>)->Option<.T>> (stk):
-    let hdr <MemPtr<u8>> get stk "hdr"
+    let hdr <MemPtr<u8>> field::get stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let len <i32> load_i32 mem_ptr_addr len_ptr
@@ -510,8 +509,7 @@ fn peek <.T> <(Stack<.T>)->Option<.T>> (stk):
 //: - `&Stack<.T>` を[受/う]け[取/と]り、stack handle の所有権を[移動/いどう]せずに[末尾/まつび][要素/ようそ]を[読/よ]みます。
 //: - memory から[値/あたい]を[読/よ]み[出/だ]して[返/かえ]すため、`.T: Copy` に[限定/げんてい]します。
 fn peek_ref <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
-    let stk0 <Stack<.T>> *stk
-    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let hdr <MemPtr<u8>> *field::get_ref stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let len <i32> load_i32 mem_ptr_addr len_ptr
@@ -566,8 +564,7 @@ fn peek_ref <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
 //:     if and first_ok and eq n 2 eq len_ref<i32> &st 3 0 1
 //: ```
 fn get_ref <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
-    let stk0 <Stack<.T>> *stk
-    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let hdr <MemPtr<u8>> *field::get_ref stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let len <i32> load_i32 mem_ptr_addr len_ptr
@@ -633,8 +630,7 @@ fn get_ref <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
 //:     if and a_ok and b_ok and empty_ok eq len_ref<i32> &st 1 0 1
 //: ```
 fn pop_ref <.T: Copy> <(&Stack<.T>)*>Option<.T>> (stk):
-    let stk0 <Stack<.T>> *stk
-    let hdr <MemPtr<u8>> get stk0 "hdr"
+    let hdr <MemPtr<u8>> *field::get_ref stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let len <i32> load_i32 mem_ptr_addr len_ptr
@@ -686,7 +682,7 @@ fn len <.T> <(Stack<.T>)->i32> (stk):
 //: len_ref: `Stack<.T>` を[消費/しょうひ]せずに[長/なが]さを[返/かえ]す
 //:
 //: ### [実装/じっそう]
-//: - `&Stack<.T>` を dereference して header の length を O(1) で[読/よ]みます。
+//: - `&Stack<.T>` から header pointer の[参照/さんしょう]を[得/え]て、length を O(1) で[読/よ]みます。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -711,8 +707,8 @@ fn len <.T> <(Stack<.T>)->i32> (stk):
 //:     if and top_ok and eq n 1 eq len<i32> st2 2 0 1
 //: ```
 fn len_ref <.T> <(&Stack<.T>)->i32> (stk):
-    let stk0 <Stack<.T>> *stk
-    stack_len_raw<.T> stk0
+    let hdr <MemPtr<u8>> *field::get_ref stk "hdr"
+    load_i32 mem_ptr_addr hdr
 
 //: is_empty: 空か判定する
 //:
@@ -782,7 +778,7 @@ fn is_empty_ref <.T> <(&Stack<.T>)->bool> (stk):
 //:     if is_empty<i32> st 0 1
 //: ```
 fn clear <.T> <(Stack<.T>)->Stack<.T>> (stk):
-    let hdr <MemPtr<u8>> get stk "hdr"
+    let hdr <MemPtr<u8>> field::get stk "hdr"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     store_i32 mem_ptr_addr len_ptr 0
     Stack hdr
@@ -817,7 +813,7 @@ fn clear <.T> <(Stack<.T>)->Stack<.T>> (stk):
 //:     0
 //: ```
 fn free <.T> <(Stack<.T>)*>()> (stk):
-    let hdr <MemPtr<u8>> get stk "hdr"
+    let hdr <MemPtr<u8>> field::get stk "hdr"
     let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 4
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let cap <i32> load_i32 mem_ptr_addr cap_ptr

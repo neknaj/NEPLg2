@@ -700,6 +700,43 @@ fn borrow_bindings_from_reference_arg(arg: &HirExpr, ctx: &MoveCheckContext) -> 
     }
 }
 
+fn reference_source_name(expr: &HirExpr) -> Option<String> {
+    match &expr.kind {
+        HirExprKind::AddrOf(inner) => borrow_source_name(inner),
+        HirExprKind::Deref(inner) => reference_source_name(inner),
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
+            reference_source_name(&args[0])
+        }
+        HirExprKind::Var(name) => Some(name.clone()),
+        _ => None,
+    }
+}
+
+fn check_non_copy_deref(
+    expr: &HirExpr,
+    inner: &HirExpr,
+    result_borrows: &[ExprBorrow],
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) {
+    if tctx.is_copy(expr.ty) {
+        return;
+    }
+    let source = result_borrows
+        .first()
+        .map(|borrow| borrow.binding.source.clone())
+        .or_else(|| reference_source_name(inner));
+    let message = if let Some(source) = source {
+        alloc::format!("cannot move out of shared borrowed value: `{}`", source)
+    } else {
+        "cannot move non-Copy value out of shared reference".to_string()
+    };
+    ctx.diagnostics.push(
+        Diagnostic::error(message, expr.span)
+            .with_id(DiagnosticId::TypeMoveFromSharedBorrowedValue),
+    );
+}
+
 fn visit_block_with_escape(
     block: &HirBlock,
     ctx: &mut MoveCheckContext,
@@ -1389,6 +1426,7 @@ fn visit_expr_with_escape(
         }
         HirExprKind::Deref(inner) => {
             let result_borrows = visit_expr(inner, ctx, tctx);
+            check_non_copy_deref(expr, inner, &result_borrows, ctx, tctx);
             if type_contains_reference(tctx, expr.ty) {
                 if let Some(depth) = escape_depth {
                     ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);

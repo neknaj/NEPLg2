@@ -342,8 +342,7 @@ fn len <.T> <(Vec<.T>)->i32> (v):
 //:     if and first_ok and eq n 1 eq len<i32> v2 2 0 1
 //: ```
 fn len_ref <.T> <(&Vec<.T>)->i32> (v):
-    let vv <Vec<.T>> *v
-    field::get vv "len"
+    *field::get_ref v "len"
 
 //: ## cap
 //: [容量/ようりょう]を[返/かえ]す
@@ -378,10 +377,9 @@ fn cap <.T> <(Vec<.T>)->i32> (v):
 //: `Vec<.T>` を[消費/しょうひ]せずに[容量/ようりょう]を[返/かえ]す
 //:
 //: ### [実装/じっそう]
-//: - `&Vec<.T>` を dereference し、struct field `cap` を O(1) で[読/よ]みます。
+//: - `&Vec<.T>` から `cap` field の[参照/さんしょう]を[得/え]て、Copy 値として O(1) で[読/よ]みます。
 fn cap_ref <.T> <(&Vec<.T>)->i32> (v):
-    let vv <Vec<.T>> *v
-    field::get vv "cap"
+    *field::get_ref v "cap"
 
 //: ## data_ptr
 //: [内部/ないぶ]データ[領域/りょういき]の raw address を[返/かえ]す
@@ -419,8 +417,7 @@ fn data_ptr <.T> <(Vec<.T>)->i32> (v):
 //: ### [注意/ちゅうい]
 //: - [返/かえ]す[値/あたい]は raw address です。realloc 後は[無効/むこう]になり得るため、長期保持しないでください。
 fn data_ptr_ref <.T> <(&Vec<.T>)->i32> (v):
-    let vv <Vec<.T>> *v
-    mem_ptr_addr field::get vv "data"
+    mem_ptr_addr *field::get_ref v "data"
 
 //: ## data_mem_ptr
 //: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
@@ -459,8 +456,7 @@ fn data_mem_ptr <.T> <(Vec<.T>)->MemPtr<.T>> (v):
 //: ### [注意/ちゅうい]
 //: - [返/かえ]す `MemPtr<.T>` は `Vec<.T>` の[内部/ないぶ][領域/りょういき]を[指/さ]します。realloc 後は[無効/むこう]です。
 fn data_mem_ptr_ref <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
-    let vv <Vec<.T>> *v
-    field::get vv "data"
+    *field::get_ref v "data"
 
 //: ## data_len
 //: [内部/ないぶ]バッファ[先頭/せんとう]と[要素数/ようそすう]を[同時/どうじ]に[返/かえ]す
@@ -499,15 +495,13 @@ fn data_len <.T> <(Vec<.T>)->VecDataLen<.T>> (v):
 //: `Vec<.T>` を[消費/しょうひ]せずに data pointer と len を[返/かえ]す
 //:
 //: ### [実装/じっそう]
-//: - `&Vec<.T>` を dereference し、`data` と `len` を[読/よ]んで `VecDataLen<.T>` にまとめます。
+//: - `&Vec<.T>` から `data` と `len` field の[参照/さんしょう]を[得/え]て、Copy 値として[読/よ]んで `VecDataLen<.T>` にまとめます。
 //:
 //: ### [注意/ちゅうい]
 //: - `data` pointer は realloc 後に[無効/むこう]です。読み取った直後の短い処理でだけ[使/つか]います。
 fn data_len_ref <.T> <(&Vec<.T>)->VecDataLen<.T>> (v):
-    let vv_len <Vec<.T>> *v
-    let v_len <i32> field::get vv_len "len"
-    let vv_data <Vec<.T>> *v
-    let v_data <MemPtr<.T>> field::get vv_data "data"
+    let v_len <i32> *field::get_ref v "len"
+    let v_data <MemPtr<.T>> *field::get_ref v "data"
     VecDataLen<.T> v_data v_len
 
 //: ## is_empty
@@ -661,10 +655,8 @@ fn get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
 //: ### [注意/ちゅうい]
 //: - `.T` が所有権を[持/も]つ[型/かた]の場合は、値の[複製/ふくせい]ではなく borrow/pointer based API が必要です。
 fn get_ref <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
-    let vv_len <Vec<.T>> *v
-    let v_len <i32> field::get vv_len "len"
-    let vv_data <Vec<.T>> *v
-    let v_data <MemPtr<.T>> field::get vv_data "data"
+    let v_len <i32> *field::get_ref v "len"
+    let v_data <MemPtr<.T>> *field::get_ref v "data"
     if:
         lt idx 0
         then none<.T>
@@ -756,10 +748,8 @@ fn replace <.T> <(Vec<.T>,i32,.T)->()> (v, idx, item):
 //:             1
 //: ```
 fn replace_ref <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
-    let vv_len <Vec<.T>> *v
-    let v_len <i32> field::get vv_len "len"
-    let vv_data <Vec<.T>> *v
-    let v_data <MemPtr<.T>> field::get vv_data "data"
+    let v_len <i32> *field::get_ref v "len"
+    let v_data <MemPtr<.T>> *field::get_ref v "data"
     if:
         lt idx 0
         then ()

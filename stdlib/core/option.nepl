@@ -1,6 +1,7 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/traits/copy" as *
 
 //: # option
 //: [値/あたい]の[有無/うむ]を[表/あらわ]す[基本型/きほんがた]と helper
@@ -97,6 +98,21 @@
 enum Option<.T>:
     None
     Some <.T>
+
+//: Option<Copy>: payload が Copy なら Option も Copy として扱う
+//:
+//: 目的:
+//: - `Option<i32>` や `Option<str>` のような軽量値を shared reference から安全に読み取れるようにします。
+//:
+//: 注意:
+//: - `.T` が Copy でない場合は shallow copy を避けるため、この impl は使えません。
+impl<.T: Copy> Clone for Option<.T>:
+    fn clone <(&Option<.T>)->Option<.T>> (x):
+        *x
+
+impl<.T: Copy> Copy for Option<.T>:
+    fn copy_mark <(Option<.T>)->Option<.T>> (x):
+        x
 
 //: none: None を作る
 //:

@@ -964,7 +964,7 @@ impl TypeCtx {
                 if let Some(b) = v.binding {
                     self.is_copy_eligible_inner(b, visiting, mapping, allow_opaque_named)
                 } else {
-                    false
+                    v.copy_cap
                 }
             }
             TypeKind::Named(name) => {

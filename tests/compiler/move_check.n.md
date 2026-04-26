@@ -279,6 +279,67 @@ fn main <()->()> ():
     let b <LocalToken> s.f
 ```
 
+## move_deref_copy_reference_ok
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+fn main <()->i32> ():
+    let x <i32> 7
+    let y <i32> *&x
+    let z <i32> x
+    0
+```
+
+## move_deref_non_copy_reference_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3051
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->()> ():
+    let x <LocalToken> LocalToken @token_id
+    let y <LocalToken> *&x
+```
+
+## move_deref_non_copy_field_reference_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3051
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    token <LocalToken>
+    count <i32>
+
+fn main <()->()> ():
+    let p <Pair> Pair (LocalToken @token_id) 7
+    let token <LocalToken> *field::get_ref &p "token"
+```
+
 ## move_branch_reinit_mixed
 
 neplg2:test[compile_fail]

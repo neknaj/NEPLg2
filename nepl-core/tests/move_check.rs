@@ -469,6 +469,69 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_deref_copy_reference_ok() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+fn main <()*>()> ():
+    let x <i32> 7;
+    let y <i32> *&x;
+    let z <i32> x;
+    ()
+"#;
+    compile_move_test(source).expect("copy deref should not move the source");
+}
+
+#[test]
+fn move_deref_non_copy_reference_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()> ():
+    let x <Wrapper> Wrapper::Val 1;
+    let y <Wrapper> *&x;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot move out of shared borrowed value")));
+}
+
+#[test]
+fn move_deref_non_copy_field_reference_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    token <Wrapper>
+    count <i32>
+
+fn main <()*>()> ():
+    let p <Pair> Pair (Wrapper::Val 1) 7;
+    let token <Wrapper> *field::get_ref &p "token";
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot move out of shared borrowed value")));
+}
+
+#[test]
 fn move_branch_reinit_mixed() {
     let source = r#"
 #target wasi

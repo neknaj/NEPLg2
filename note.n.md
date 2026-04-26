@@ -18136,3 +18136,38 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [対応方針]:
   - shared reference の deref は Copy 値に限定し、non-Copy は明示 clone、exclusive place からの move-out、または borrowed match/projection の設計へ分ける。
   - self-host CLI option / enum field の観察は、この issue 解決時に borrowed enum matching か適切な Copy impl と合わせて再確認する。
+
+# 2026-04-26 メモ (ISS-20260426T162754192Z non-Copy deref 修正)
+
+- [同期]:
+  - `main` / `origin/main` が `ae60fa8 issues: track non-copy deref shallow copy` で一致している状態から `issue/non-copy-deref-shallow-copy` branch を作成して対応した。
+  - commit 前に `origin/main` が `09e9533 stdlib: add neplg2 lexer foundation` まで進んだため、stash 退避、`git rebase origin/main`、stash 復帰で取り込んだ。`issues/index.*` は再生成して lexer foundation 側の issue 更新と統合した。
+- [原因]:
+  - `HirExprKind::Deref` は aggregate storage を byte-copy できる lowering を持つ一方、move checker は deref 結果が `Copy` かを検査していなかった。
+  - `Option<.T: Copy>` のような正しい generic Copy impl も、`is_copy_eligible_inner` が unbound type variable の `copy_cap` を見ていないため拒否されていた。
+- [修正]:
+  - move checker の deref 処理で、結果型が `Copy` でない場合は `D3051` を出し、shared reference から non-Copy 値を materialize できないようにした。
+  - `TypeCtx::is_copy_eligible_inner` を修正し、`.T: Copy` bound つき generic Copy impl を受理するようにした。
+  - `Option<.T: Copy>` に `Clone` / `Copy` impl を追加した。
+  - `Vec` / `Stack` の ref helper は owner 全体の deref をやめ、`field::get_ref` で header field の Copy 値だけを読む形へ変更した。
+  - self-host CLI args の単純 enum に `Clone` / `Copy` impl を追加し、`Option<str>` / `Option<enum>` field の検査が新しい deref 制約下でも通るようにした。
+- [回帰テスト]:
+  - `*&i32` は通り、`*&non_copy` と `*field::get_ref &p "token"` は `D3051` で拒否されることを追加した。
+  - `.T: Copy` bound つき generic Copy impl が具体化後に再利用できることを追加した。
+  - `Option<i32>` を shared reference 経由で copy できる stdlib test を追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check --workspace`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 30/30 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/non-copy-deref-compiler-after-09e9533.json -j 1`: 58/58 passed
+  - `node nodesrc/tests.js -i stdlib/core/option.nepl -i stdlib/tests/option.n.md --no-tree -o tmp/non-copy-deref-option-after-09e9533.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -i stdlib/tests/vec.n.md --no-tree -o tmp/non-copy-deref-vec-after-09e9533.json -j 1`: 41/41 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/non-copy-deref-stack-after-09e9533.json -j 1`: 32/32 passed
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/non-copy-deref-selfhost-cliargs-after-09e9533.json -j 1`: 10/10 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2 --no-tree -o tmp/non-copy-deref-neplg2-after-09e9533.json -j 2`: 22/22 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-non-copy-deref-after-09e9533.json`: 13/13 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/non-copy-deref-stdlib-full-after-09e9533.json -j 4`: 411/411 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 実装前の core safety issue として、shared reference から non-Copy owned value を作る経路を塞いだ。

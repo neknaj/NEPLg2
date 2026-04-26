@@ -42,5 +42,10 @@ fn main <()*>i32> ():
     // Test and_then with Some / None result
     set checks checks_push checks assert_eq_i32 12 unwrap<.i32> and_then<i32,i32> some<i32> 6 positive_double;
     set checks checks_push checks assert is_none<.i32> and_then<i32,i32> some<i32> -1 positive_double;
+
+    // Option<T: Copy> can be copied through a shared reference.
+    let original <Option<i32>> some<i32> 77
+    let copied <Option<i32>> *&original
+    set checks checks_push checks assert_eq_i32 77 unwrap<i32> copied;
     checks_exit_code checks
 ```

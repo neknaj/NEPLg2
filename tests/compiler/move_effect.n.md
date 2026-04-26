@@ -161,6 +161,40 @@ fn main <()->i32> ():
     add sum_pair q1 sum_pair q2
 ```
 
+## Copy bound つき generic Copy impl は具体化後に再利用できる
+
+neplg2:test
+ret: 6
+```neplg2
+#entry main
+#indent 4
+#target core
+
+#import "core/math" as *
+#import "core/traits/copy" as *
+#import "core/field" as *
+
+struct Pair<.T>:
+    a <.T>
+    b <.T>
+
+impl<.T: Copy> Clone for Pair<.T>:
+    fn clone <(&Pair<.T>)->Pair<.T>> (x):
+        *x
+
+impl<.T: Copy> Copy for Pair<.T>:
+    fn copy_mark <(Pair<.T>)->Pair<.T>> (x):
+        x
+
+fn sum_pair <(Pair<i32>)->i32> (p):
+    add get p "a" get p "b"
+
+fn main <()->i32> ():
+    let q1 <Pair<i32>> Pair 1 2
+    let q2 <Pair<i32>> q1
+    add sum_pair q1 sum_pair q2
+```
+
 ## Copy impl がある enum は再利用できる
 
 neplg2:test
