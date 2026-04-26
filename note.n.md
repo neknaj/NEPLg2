@@ -1,3 +1,21 @@
+# 2026-04-26 メモ (RV-STDLIB-023 HashMap/HashSet runtime test green化)
+
+- [状況]:
+  - `stdlib/tests/hashmap_str.n.md` と `stdlib/tests/hashset_str.n.md` は memory OOB、`stdlib/tests/hashset.n.md` は return mismatch で落ちていた。
+  - HashMap / HashSet の直接操作を切り分けると、string key の insert / contains / get / update / remove は正常に動いた。
+  - 一方で `Vec<Result<(),str>>` に checks を積んだまま `free` smoke と `checks_print_report` を同じ doctest に混ぜると、free-list 再利用後に stale payload を読んで OOB / 誤判定することが分かった。
+- [修正]:
+  - string hash loop の再帰呼び出しで `idx + 1` と hash accumulator を事前束縛し、引数境界が曖昧にならない形へ変更した。
+  - HashMap / HashSet の `new` cleanup / `free` で解放 byte 数を明示束縛し、`free` には key / hasher 制約を付けた。
+  - string key runtime test は direct return-code 方式へ変更し、collection 本体の検証と `std/test` 集約問題を分離した。
+  - `free` smoke は独立 doctest に分けた。
+  - `doc/review20260425` で `RV-STDLIB-023` を verified にし、集約側の別問題を `RV-STDLIB-025` として追加した。
+- [確認済み]:
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hash-collections-rv-stdlib-023-pass8.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-023-pass2.json -j 4`: 382/382 passed
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の修正は stdlib runtime test と issue 台帳の整備で、セルフホスト compiler 計画自体への仕様変更はない。
+
 # 2026-04-25 メモ (RV-CORE-018 nested aggregate layout 修正)
 
 - [状況]:

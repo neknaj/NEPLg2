@@ -46,7 +46,9 @@ fn trait_hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
             let s_data <i32> add s 4
             let p <i32> add s_data idx
             let b <i32> load_u8 p
-            trait_hash_bytes_loop s n add idx 1 fnv1a32_update h b
+            let next_idx <i32> add idx 1
+            let next_h <Fnv1a32> fnv1a32_update h b
+            trait_hash_bytes_loop s n next_idx next_h
 
 //: Hash: map / set [向/む]け 32-bit ハッシュ[能力/のうりょく]
 //:

@@ -16,7 +16,6 @@ neplg2:test
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "std/test" as *
 
 fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
     match r:
@@ -26,36 +25,64 @@ fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,Def
             #intrinsic "unreachable" <> ()
 
 fn main <()*> i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut code <i32> 0;
     let hm0 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    set checks checks_push checks check_eq_i32 0 len hm0;
+    let hm0_len <i32> len hm0;
+    if:
+        ne hm0_len 0
+        then set code 10
+        else ()
 
     let hm1 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    set checks checks_push checks check not contains hm1 "foo";
+    let hm1_has <bool> contains hm1 "foo";
+    if:
+        and eq code 0 hm1_has
+        then set code 20
+        else ()
 
     let hm2 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    set checks checks_push checks check is_none<i32> get hm2 "foo";
+    let hm2_got <Option<i32>> get hm2 "foo";
+    let hm2_none <bool> is_none<i32> hm2_got;
+    if:
+        and eq code 0 not hm2_none
+        then set code 30
+        else ()
 
     let hm3 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3 <HashMap<str,i32,DefaultHash32>> must_hms insert hm3 "foo" 10;
     let hm3 <HashMap<str,i32,DefaultHash32>> must_hms insert hm3 "bar" 20;
     let hm3_len <i32> len hm3;
-    set checks checks_push checks check_eq_i32 2 hm3_len;
+    if:
+        and eq code 0 ne hm3_len 2
+        then set code 40
+        else ()
 
     let hm3a <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3a <HashMap<str,i32,DefaultHash32>> must_hms insert hm3a "foo" 10;
     let hm3a <HashMap<str,i32,DefaultHash32>> must_hms insert hm3a "bar" 20;
-    set checks checks_push checks check contains hm3a "foo";
+    let hm3a_has <bool> contains hm3a "foo";
+    if:
+        and eq code 0 not hm3a_has
+        then set code 50
+        else ()
 
     let hm3b <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3b <HashMap<str,i32,DefaultHash32>> must_hms insert hm3b "foo" 10;
     let hm3b <HashMap<str,i32,DefaultHash32>> must_hms insert hm3b "bar" 20;
-    set checks checks_push checks check contains hm3b "bar";
+    let hm3b_has <bool> contains hm3b "bar";
+    if:
+        and eq code 0 not hm3b_has
+        then set code 60
+        else ()
 
     let hm3c <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3c <HashMap<str,i32,DefaultHash32>> must_hms insert hm3c "foo" 10;
     let hm3c <HashMap<str,i32,DefaultHash32>> must_hms insert hm3c "bar" 20;
-    set checks checks_push checks check not contains hm3c "baz";
+    let hm3c_has <bool> contains hm3c "baz";
+    if:
+        and eq code 0 hm3c_has
+        then set code 70
+        else ()
 
     let s1 <str> concat "a" "b";
     let s2 <str> concat "a" "b";
@@ -63,32 +90,77 @@ fn main <()*> i32> ():
     let hm4 <HashMap<str,i32,DefaultHash32>> must_hms insert hm4 s1 30;
     match get hm4 s2:
         Option::Some v:
-            set checks checks_push checks check_eq_i32 30 v
+            if:
+                and eq code 0 ne v 30
+                then set code 80
+                else ()
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "get with same content returned None";
+            if:
+                eq code 0
+                then set code 90
+                else ()
 
     let hm5 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm5 <HashMap<str,i32,DefaultHash32>> must_hms insert hm5 "foo" 10;
     let hm5 <HashMap<str,i32,DefaultHash32>> must_hms insert hm5 "foo" 11;
     match get hm5 "foo":
         Option::Some v:
-            set checks checks_push checks check_eq_i32 11 v
+            if:
+                and eq code 0 ne v 11
+                then set code 100
+                else ()
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "get foo after update returned None";
+            if:
+                eq code 0
+                then set code 110
+                else ()
 
     let hm6 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm6 <HashMap<str,i32,DefaultHash32>> must_hms insert hm6 "foo" 10;
     let hm6 <HashMap<str,i32,DefaultHash32>> must_hms insert hm6 "bar" 20;
     let hm6 <HashMap<str,i32,DefaultHash32>> must_hms remove hm6 "bar";
-    set checks checks_push checks check not contains hm6 "bar";
+    let hm6_has <bool> contains hm6 "bar";
+    if:
+        and eq code 0 hm6_has
+        then set code 120
+        else ()
 
     let hm7 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm7 <HashMap<str,i32,DefaultHash32>> must_hms insert hm7 "foo" 10;
-    set checks checks_push checks check is_err<HashMap<str,i32,DefaultHash32>, Diag> remove hm7 "zzz";
+    let hm7_er <Result<HashMap<str,i32,DefaultHash32>, Diag>> remove hm7 "zzz";
+    let hm7_is_err <bool> is_err<HashMap<str,i32,DefaultHash32>, Diag> hm7_er;
+    if:
+        and eq code 0 not hm7_is_err
+        then set code 130
+        else ()
+    code
+```
 
+## hashmap_str_free_smoke
+
+neplg2:test
+ret: 0
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/hashmap" as *
+#import "core/traits/hash" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn main <()*> i32> ():
     let hmf <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hmf <HashMap<str,i32,DefaultHash32>> must_hms insert hmf "x" 1;
     free hmf;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
-    checks_exit_code shown
+    0
 ```

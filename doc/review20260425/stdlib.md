@@ -806,8 +806,8 @@ hashmap の public doctest が、現行 parser の indent 幅ルールに合っ�
 
 ## RV-STDLIB-023: HashMap/HashSet の文字列 key runtime test が memory OOB と return mismatch で失敗する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: bug
 - 対象: `stdlib/tests/hashmap_str.n.md`, `stdlib/tests/hashset.n.md`, `stdlib/tests/hashset_str.n.md`, `stdlib/alloc/collections/hashmap.nepl`, `stdlib/alloc/collections/hashset.nepl`
@@ -824,10 +824,18 @@ HashMap / HashSet の string key 経路または hashing / equality / ownership 
 
 まず int key と string key の差分を最小化し、hash function 入力の `str` layout、bucket / entry array の pointer、key copy / move の扱いを追跡します。runtime trap と return mismatch を同じ原因で説明できない場合は、さらに issue を分割します。
 
+### 対応結果
+
+HashMap / HashSet の直接操作を最小化したところ、string key の insert / contains / get / update / remove は direct return-code fixture では正常に動作しました。一方で、長い `Vec<Result<(),str>>` 集約と `checks_print_report`、さらに同一 doctest 内の `free` smoke を混ぜると、free-list 再利用後に `Result<(),str>` 集約が stale payload を読んで OOB / mismatch を起こすことを確認しました。この集約側の問題は `RV-STDLIB-025` として分離します。
+
+本 issue では、string hash loop の再帰引数を明示束縛に直し、HashMap / HashSet の `free` で entry byte 数と trait 制約を明示しました。runtime test は string key の collection 操作を direct return-code で検証し、`free` smoke は独立 doctest に分離して、collection 本体と `std/test` 集約問題が混ざらない形へ整理しました。
+
 ### 検証
 
-- `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hash-collections-rv-stdlib-023.json -j 1`
-- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-023.json -j 4`
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hash-collections-rv-stdlib-023-pass8.json -j 1` (`total=6`, `passed=6`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-023-pass2.json -j 4` (`total=382`, `passed=382`, `failed=0`, `errored=0`)
 
 ## RV-STDLIB-024: Deserialize doctest の match arm が Result と unit で不一致になる
 
@@ -860,3 +868,30 @@ doctest の期待結果を確認し、全 arm が同じ型を返すように揃�
 - `node nodesrc/run_doctest.js -i stdlib/core/traits/deserialize.nepl -n 1 --dist dist` (`pass`, `return_value=0`)
 - `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/deserialize-rv-stdlib-024.json -j 1` (`total=1`, `passed=1`, `failed=0`)
 - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-024.json -j 4` (`total=379`, `passed=376`, `failed=3`, `errored=0`)
+
+## RV-STDLIB-025: std/test の Vec<Result<(),str>> 集約が free-list 再利用後に stale payload を読む
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: bug
+- 対象: `stdlib/std/test.nepl`, `stdlib/alloc/collections/vec.nepl`, `stdlib/core/mem.nepl`, enum store / load codegen
+
+### 根拠
+
+`RV-STDLIB-023` の調査中、`Vec<Result<(),str>>` に成功結果を積んだ後で `HashSet::free` を呼び、その後 `checks_exit_code` / `checks_print_report` を実行すると、`RuntimeError: unreachable` や破損した `Err` message 表示が発生する最小再現を確認しました。raw pointer を同じ size で手動解放するケースや、HashMap / HashSet の direct return-code 検証は pass するため、collection lookup 本体とは別の集約 / enum storage / free-list 再利用問題です。
+
+### 問題
+
+`Result<(),str>::Ok ()` は payload が zero-sized で、`Vec<Result<(),str>>` の backing store が allocator の再利用領域から来た場合に stale payload や古い tag に依存する可能性があります。`std/test` の checks 集約はこの表現を大量に保持し、summary 生成時に `load<Result<(),str>>` と `match` を繰り返すため、未初期化領域や古い free-list 内容を `Err` として読んで trap / 誤判定する危険があります。
+
+### 修正方針
+
+公式 fixture に入れる前に、`Vec<Result<(),str>>` の小さな再現を stdlib または core regression として固定します。そのうえで、enum `store` が zero-sized variant でも tag / payload 領域を決定的に初期化するべきか、`checks_new` / `checks_push` 側で `Result<(),str>` cell を明示初期化するべきかを切り分けます。修正後は `RV-STDLIB-023` で分離した string key test を `checks_print_report` 形式へ戻せるか確認します。
+
+### 検証
+
+- `Vec<Result<(),str>>` に `Ok(())` を複数件 push し、free-list 再利用後に `checks_exit_code` が 0 を返すこと
+- `checks_print_report` が破損 stdout を出さないこと
+- `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-rv-stdlib-025.json -j 1`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-025.json -j 4`

@@ -10,9 +10,9 @@
 |---|---:|---:|
 | core | 3 | 26 |
 | cli | 3 | 11 |
-| stdlib | 11 | 13 |
+| stdlib | 11 | 14 |
 | examples | 0 | 13 |
-| 合計 | 17 | 63 |
+| 合計 | 17 | 64 |
 
 ## Core
 
@@ -93,8 +93,9 @@
 | [RV-STDLIB-020](./stdlib.md#rv-stdlib-020-fenwicksegmenttree-doctest-が-d3016-expression-left-extra-values-で失敗する) | true | verified | P0 | test | `vec` recursive helper の `idx + 1` 引数境界を修正し、Fenwick / SegmentTree D3016 14件を green 化済み |
 | [RV-STDLIB-021](./stdlib.md#rv-stdlib-021-vec-sort-doctest-が-overload-解決不一致で失敗する) | true | verified | P1 | test | `vec/sort.nepl` doctest を current Vec Result API と `*_ret` sort helper に同期済み |
 | [RV-STDLIB-022](./stdlib.md#rv-stdlib-022-hashmap-doctest-にインデント不整合が残っている) | true | verified | P1 | test | `hashmap.nepl::doctest#3` の indent と by-value get fixture を修正済み |
-| [RV-STDLIB-023](./stdlib.md#rv-stdlib-023-hashmaphashset-の文字列-key-runtime-test-が-memory-oob-と-return-mismatch-で失敗する) | false | open | P0 | bug | HashMap / HashSet の string key runtime tests が OOB / mismatch で失敗している |
+| [RV-STDLIB-023](./stdlib.md#rv-stdlib-023-hashmaphashset-の文字列-key-runtime-test-が-memory-oob-と-return-mismatch-で失敗する) | true | verified | P0 | bug | HashMap / HashSet string key runtime tests を direct return-code fixture と独立 free smoke に分離し、stdlib 382件を green 化済み |
 | [RV-STDLIB-024](./stdlib.md#rv-stdlib-024-deserialize-doctest-の-match-arm-が-result-と-unit-で不一致になる) | true | verified | P1 | test | `deserialize.nepl::doctest#1` の match arms を `Result<(),str>` に統一済み |
+| [RV-STDLIB-025](./stdlib.md#rv-stdlib-025-stdtest-の-vecresultstr-集約が-free-list-再利用後に-stale-payload-を読む) | false | open | P1 | bug | `Vec<Result<(),str>>` 集約が free-list 再利用後に trap / 誤判定し得るため、enum store 初期化か集約実装の修正が必要 |
 
 ## Examples
 

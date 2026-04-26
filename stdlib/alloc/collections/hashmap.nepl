@@ -140,7 +140,8 @@ fn new <.K: HashKey,.V,.H: Hasher<.K>> <(.H)*>Result<HashMap<.K,.V,.H>, Diag>> (
             if:
                 eq hdr 0
                 then:
-                    dealloc_raw entries mul cap size
+                    let entry_bytes <i32> mul cap size
+                    dealloc_raw entries entry_bytes
                     diag_err<HashMap<.K,.V,.H>> diag_out_of_memory "hashmap_new(header)"
                 else:
                     store_i32 hdr 0
@@ -455,9 +456,11 @@ fn len <.K,.V,.H> <(HashMap<.K,.V,.H>)->i32> (hm):
 //:     free hm1;
 //:     0
 //: ```
-fn free <.K,.V,.H> <(HashMap<.K,.V,.H>)*>()> (hm):
+fn free <.K: HashKey,.V,.H: Hasher<.K>> <(HashMap<.K,.V,.H>)*>()> (hm):
     let hdr <i32> field::get hm "hdr"
     let cap <i32> load_i32 add hdr 4
     let entries <i32> load_i32 add hdr 8
-    dealloc_raw entries mul cap hashmap_entry_size<.K,.V>
+    let entry_size <i32> add 4 add size_of<.K> size_of<.V>
+    let entry_bytes <i32> mul cap entry_size
+    dealloc_raw entries entry_bytes
     dealloc_raw hdr 12
