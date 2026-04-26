@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T17:53:31.021Z",
+  "generated_at": "2026-04-26T18:04:28.592Z",
   "counts": {
     "total": 135,
-    "open": 9,
-    "resolved": 126,
+    "open": 8,
+    "resolved": 127,
     "by_area": {
       "core": {
         "total": 50,
-        "open": 3,
-        "resolved": 47
+        "open": 2,
+        "resolved": 48
       },
       "stdlib": {
         "total": 44,
@@ -58,21 +58,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T175330910Z-MUTABLE-REFERENCE-SYNTAX-CANNOT-CREA-D042B4EC",
-      "title": "mutable reference syntax cannot create unique borrow",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/parser.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T175330910Z-MUTABLE-REFERENCE-SYNTAX-CANNOT-CREA-D042B4EC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -883,6 +868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T173407867Z-MOVE-CHECK-BRANCH-BORROW-STATE-IS-NO-90DCE85D.md"
+    },
+    {
+      "id": "ISS-20260426T175330910Z-MUTABLE-REFERENCE-SYNTAX-CANNOT-CREA-D042B4EC",
+      "title": "mutable reference syntax cannot create unique borrow",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/ast.rs, nepl-core/src/parser.rs, nepl-core/src/typecheck.rs, nepl-core/src/types.rs, nepl-core/src/passes/move_check.rs, nepl-language/src/lib.rs, nepl-web/src/lib.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T175330910Z-MUTABLE-REFERENCE-SYNTAX-CANNOT-CREA-D042B4EC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

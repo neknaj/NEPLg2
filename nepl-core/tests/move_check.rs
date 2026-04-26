@@ -195,6 +195,138 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_mut_reference_call_arg_is_temporary_borrow() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn touch_mut <(&mut Wrapper)->i32> (_x):
+    1
+
+fn consume <(Wrapper)->i32> (_x):
+    0
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    touch_mut &mut x;
+    consume x;
+    ()
+"#;
+    compile_move_test(source).expect("temporary mutable borrow should end after the call");
+}
+
+#[test]
+fn move_unique_reference_blocks_owner_move_while_live() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let r <&mut Wrapper> &mut x;
+    let y <Wrapper> x;
+    let keep <&mut Wrapper> r;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("use of uniquely borrowed value")));
+}
+
+#[test]
+fn move_unique_reference_last_use_releases_owner() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let r <&mut Wrapper> &mut x;
+    let rr <&mut Wrapper> r;
+    let y <Wrapper> x;
+"#;
+    compile_move_test(source).expect("last use of mutable reference should release the borrow");
+}
+
+#[test]
+fn move_mut_reference_is_not_copy() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let r <&mut Wrapper> &mut x;
+    let rr <&mut Wrapper> r;
+    let again <&mut Wrapper> r;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("use of moved value")));
+}
+
+#[test]
+fn move_shared_borrow_blocks_unique_borrow() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let r <&Wrapper> &x;
+    let u <&mut Wrapper> &mut x;
+    let keep <&Wrapper> r;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot uniquely borrow shared borrowed value")));
+}
+
+#[test]
+fn move_unique_borrow_blocks_shared_borrow() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let r <&mut Wrapper> &mut x;
+    let s <&Wrapper> &x;
+    let keep <&mut Wrapper> r;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+}
+
+#[test]
 fn move_branch_reference_last_use_releases_at_join() {
     let source = r#"
 #target wasi

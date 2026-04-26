@@ -2,13 +2,13 @@
 id: ISS-20260426T175330910Z-MUTABLE-REFERENCE-SYNTAX-CANNOT-CREA-D042B4EC
 title: "mutable reference syntax cannot create unique borrow"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-26
 updated: 2026-04-26
-target: "nepl-core/src/parser.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs"
+target: "nepl-core/src/ast.rs, nepl-core/src/parser.rs, nepl-core/src/typecheck.rs, nepl-core/src/types.rs, nepl-core/src/passes/move_check.rs, nepl-language/src/lib.rs, nepl-web/src/lib.rs"
 ---
 
 # ISS-20260426T175330910Z-MUTABLE-REFERENCE-SYNTAX-CANNOT-CREA-D042B4EC: mutable reference syntax cannot create unique borrow
@@ -19,7 +19,7 @@ target: "nepl-core/src/parser.rs, nepl-core/src/typecheck.rs, nepl-core/src/pass
 
 ## 対象
 
-- `nepl-core/src/parser.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs`
+- `nepl-core/src/ast.rs, nepl-core/src/parser.rs, nepl-core/src/typecheck.rs, nepl-core/src/types.rs, nepl-core/src/passes/move_check.rs, nepl-language/src/lib.rs, nepl-web/src/lib.rs`
 
 ## 根拠
 
@@ -42,3 +42,11 @@ parser/AST/typecheck で &mut expr を expression syntax として扱い、HIR A
 ## 検証
 
 &mut の一時 borrow 呼び出し、local unique borrow が owner move を阻止するケース、shared/unique borrow の相互排他、last-use release の compiler 回帰テストを追加する。
+
+## 解決
+
+- `Symbol::AddrOf` に mutability を持たせ、expression parser が `&mut expr` を `AddrOf { mutable: true }` として受理するようにした。
+- typecheck の `AddrOf` lowering で `&expr` は `&T`、`&mut expr` は `&mut T` を生成するようにした。
+- move checker は `AddrOf` の reference mutability から `BorrowKind::Shared` / `BorrowKind::Unique` を選び、local borrow と reference 引数の両方で unique borrow を保持・解放・衝突検査するようにした。
+- `&mut T` は Copy ではない型として扱うよう `TypeCtx` を修正し、unique reference の複製を move checker が拒否できるようにした。
+- `nepl-language` と `nepl-web` の AST trace は新しい `AddrOf { .. }` 形状へ追従した。

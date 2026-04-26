@@ -56,3 +56,20 @@ fn str_and_i32_do_not_unify() {
     assert!(ctx.unify(str_ty, i32_ty).is_err());
     assert!(ctx.unify(i32_ty, str_ty).is_err());
 }
+
+#[test]
+fn mutable_references_are_not_copy() {
+    let mut ctx = TypeCtx::new();
+    let i32_ty = ctx.i32();
+    let shared = ctx.reference(i32_ty, false);
+    let unique = ctx.reference(i32_ty, true);
+
+    assert!(ctx.is_copy(shared));
+    assert!(!ctx.is_copy(unique));
+    assert!(ctx.is_copy_eligible(shared));
+    assert!(!ctx.is_copy_eligible(unique));
+
+    ctx.set_copy_trait_enabled(true);
+    assert!(ctx.is_copy(shared));
+    assert!(!ctx.is_copy(unique));
+}

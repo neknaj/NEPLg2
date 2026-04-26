@@ -672,11 +672,8 @@ fn borrow_source_name(expr: &HirExpr) -> Option<String> {
     }
 }
 
-fn shared_borrow_binding(expr: &HirExpr) -> Option<BorrowBinding> {
-    borrow_source_name(expr).map(|source| BorrowBinding {
-        source,
-        kind: BorrowKind::Shared,
-    })
+fn borrow_binding(expr: &HirExpr, kind: BorrowKind) -> Option<BorrowBinding> {
+    borrow_source_name(expr).map(|source| BorrowBinding { source, kind })
 }
 
 fn type_contains_reference(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
@@ -735,9 +732,19 @@ fn borrow_bindings_from_place(expr: &HirExpr, ctx: &MoveCheckContext) -> Vec<Bor
     }
 }
 
-fn borrow_bindings_from_reference_arg(arg: &HirExpr, ctx: &MoveCheckContext) -> Vec<BorrowBinding> {
+fn addr_of_borrow_kind(tctx: &crate::types::TypeCtx, ty: TypeId) -> BorrowKind {
+    reference_borrow_kind(tctx, ty).unwrap_or(BorrowKind::Shared)
+}
+
+fn borrow_bindings_from_reference_arg(
+    arg: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Vec<BorrowBinding> {
     match &arg.kind {
-        HirExprKind::AddrOf(inner) => shared_borrow_binding(inner).into_iter().collect(),
+        HirExprKind::AddrOf(inner) => borrow_binding(inner, addr_of_borrow_kind(tctx, arg.ty))
+            .into_iter()
+            .collect(),
         _ => borrow_bindings_from_place(arg, ctx),
     }
 }
@@ -823,7 +830,7 @@ fn visit_reference_call_arg(
     tctx: &crate::types::TypeCtx,
 ) -> Vec<ExprBorrow> {
     let arg_escape_depth = ctx.current_scope_depth();
-    let result_borrows = borrow_bindings_from_reference_arg(arg, ctx)
+    let result_borrows = borrow_bindings_from_reference_arg(arg, ctx, tctx)
         .into_iter()
         .map(ExprBorrow::needs_retain)
         .collect();
@@ -1542,11 +1549,12 @@ fn visit_expr_with_escape(
             }
         },
         HirExprKind::AddrOf(inner) => {
-            let binding = shared_borrow_binding(inner);
+            let kind = addr_of_borrow_kind(tctx, expr.ty);
+            let binding = borrow_binding(inner, kind);
             if let (Some(depth), Some(binding)) = (escape_depth, binding.as_ref()) {
                 ctx.check_binding_escape(binding, expr.span, depth);
             }
-            visit_temporary_borrow(inner, ctx, tctx, BorrowKind::Shared);
+            visit_temporary_borrow(inner, ctx, tctx, kind);
             binding.map(ExprBorrow::needs_retain).into_iter().collect()
         }
         HirExprKind::Deref(inner) => {

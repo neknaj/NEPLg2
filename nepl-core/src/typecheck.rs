@@ -5174,12 +5174,12 @@ impl<'a> BlockChecker<'a> {
                             );
                         }
                     }
-                    Symbol::AddrOf(span) => {
+                    Symbol::AddrOf { span, mutable } => {
                         if crate::log::is_verbose() {
                             typecheck_log!("check_prefix: pushing AddrOf to stack");
                         }
                         let a = self.ctx.fresh_var(None);
-                        let ref_a = self.ctx.reference(a, false);
+                        let ref_a = self.ctx.reference(a, *mutable);
                         let func_ty = self.ctx.function(Vec::new(), vec![a], ref_a, Effect::Pure);
                         stack.push(StackEntry {
                             ty: func_ty,
@@ -5189,7 +5189,7 @@ impl<'a> BlockChecker<'a> {
                                 span: *span,
                             },
                             type_args: Vec::new(),
-                            assign: Some(AssignKind::AddrOf),
+                            assign: Some(AssignKind::AddrOf(*mutable)),
                             auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -6982,7 +6982,7 @@ impl<'a> BlockChecker<'a> {
                 );
                 return None;
             }
-            if matches!(assign, AssignKind::AddrOf) {
+            if let AssignKind::AddrOf(mutable) = assign {
                 if args.len() != 1 {
                     return None;
                 }
@@ -6993,7 +6993,7 @@ impl<'a> BlockChecker<'a> {
                     );
                 }
                 let inner_ty = args[0].ty;
-                let res_ty = self.ctx.reference(inner_ty, false);
+                let res_ty = self.ctx.reference(inner_ty, mutable);
                 return Some(StackEntry {
                     ty: res_ty,
                     expr: HirExpr {
@@ -10154,11 +10154,11 @@ fn gate_allows(d: &Directive, target: CompileTarget, active_profile: BuildProfil
     crate::target_gate::directive_gate_allows(d, target, active_profile)
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum AssignKind {
     Let,
     Set,
-    AddrOf,
+    AddrOf(bool),
     Deref,
 }
 

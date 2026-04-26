@@ -800,7 +800,7 @@ impl TypeCtx {
         let resolved = self.resolve_id(id);
         match self.get_ref(resolved) {
             TypeKind::Never => true,
-            TypeKind::Reference(_, _) => true,
+            TypeKind::Reference(_, is_mut) => !*is_mut,
             TypeKind::Var(v) => v.binding.map(|b| self.is_copy(b)).unwrap_or(v.copy_cap),
             _ => false,
         }
@@ -810,7 +810,7 @@ impl TypeCtx {
         let resolved = self.resolve_id(id);
         match self.get_ref(resolved) {
             TypeKind::Never => true,
-            TypeKind::Reference(_, _) => true,
+            TypeKind::Reference(_, is_mut) => !*is_mut,
             TypeKind::Unit
             | TypeKind::I32
             | TypeKind::U8
@@ -881,7 +881,7 @@ impl TypeCtx {
             | TypeKind::Bool
             | TypeKind::Str
             | TypeKind::Never => true,
-            TypeKind::Reference(_, _) => true,
+            TypeKind::Reference(_, is_mut) => !*is_mut,
             TypeKind::Box(_) => false,
             TypeKind::Enum { variants, .. } => variants.iter().all(|v| {
                 v.payload

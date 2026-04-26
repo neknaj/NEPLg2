@@ -138,7 +138,10 @@ pub enum Symbol {
     },
     If(Span),
     While(Span),
-    AddrOf(Span),
+    AddrOf {
+        span: Span,
+        mutable: bool,
+    },
     Deref(Span),
 }
 

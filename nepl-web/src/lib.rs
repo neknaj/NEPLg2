@@ -1116,7 +1116,7 @@ fn trace_prefix_expr(trace: &mut NameResolutionTrace, expr: &PrefixExpr) {
             PrefixItem::Literal(_, _) | PrefixItem::TypeAnnotation(_, _) | PrefixItem::Pipe(_) => {}
             PrefixItem::Symbol(Symbol::If(_))
             | PrefixItem::Symbol(Symbol::While(_))
-            | PrefixItem::Symbol(Symbol::AddrOf(_))
+            | PrefixItem::Symbol(Symbol::AddrOf { .. })
             | PrefixItem::Symbol(Symbol::Deref(_)) => {}
         }
     }

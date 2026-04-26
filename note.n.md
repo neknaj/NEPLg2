@@ -1,3 +1,31 @@
+# 2026-04-27 メモ (ISS-20260426T175330910Z mutable reference syntax)
+
+- 状況:
+  - `&mut T` 型、`BorrowKind::Unique`、unique borrow 用診断は存在していたが、式の `&` は常に shared reference を生成していた。
+  - `&mut x` が構文として受理されないため、unique borrow 検査が通常ソースから到達しにくく、borrow 検査が形式だけの実装になっていた。
+- 修正:
+  - `Symbol::AddrOf` に mutability を持たせ、parser が `&mut expr` を受理するようにした。
+  - typecheck の `AddrOf` lowering で `&expr` は `&T`、`&mut expr` は `&mut T` を生成するようにした。
+  - move checker は `AddrOf` の reference mutability から `BorrowKind::Shared` / `BorrowKind::Unique` を選ぶようにし、local borrow と reference 引数の両方で unique borrow を検査するようにした。
+  - `&mut T` は Copy ではない型として扱い、mutable reference 自体の複製を move checker が拒否できるようにした。
+  - AST 形状変更に合わせて `nepl-language` / `nepl-web` の trace を追従した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo check --workspace`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: `38 passed`
+  - `cargo test -p nepl-core --test typectx_checkpoint -- --nocapture`: `4 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/mutable-reference-move-check.json -j 1`: `total=39`, `passed=39`
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/mutable-reference-move-effect.json -j 1`: `total=27`, `passed=27`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-mutable-reference.json`: `13/13 passed`
+  - `cargo test -p nepl-language -- --nocapture`: `3 passed`
+  - `node tests/compiler/tree/run.js`: `total=20`, `passed=20`
+  - `node nodesrc/issues.js check`: pass
+  - `cargo fmt --all --check`: pass
+  - `git diff --check`: pass（改行警告のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は NEPLg2 core の borrow 検査を、`&mut T` を通常ソースから作れる実効的な unique borrow 検査へ進めるもの。
+
 # 2026-04-27 メモ (ISS-20260426T173407867Z branch borrow state snapshot)
 
 - 状況:

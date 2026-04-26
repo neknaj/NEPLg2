@@ -1756,7 +1756,8 @@ impl Parser {
                 }
                 TokenKind::Ampersand => {
                     let span = self.next().unwrap().span;
-                    items.push(PrefixItem::Symbol(Symbol::AddrOf(span)));
+                    let mutable = self.consume_if(&TokenKind::KwMut);
+                    items.push(PrefixItem::Symbol(Symbol::AddrOf { span, mutable }));
                 }
                 TokenKind::Star => {
                     let span = self.next().unwrap().span;
@@ -2177,7 +2178,8 @@ impl Parser {
                 }
                 TokenKind::Ampersand => {
                     let span = self.next().unwrap().span;
-                    items.push(PrefixItem::Symbol(Symbol::AddrOf(span)));
+                    let mutable = self.consume_if(&TokenKind::KwMut);
+                    items.push(PrefixItem::Symbol(Symbol::AddrOf { span, mutable }));
                 }
                 TokenKind::Star => {
                     let span = self.next().unwrap().span;
@@ -2378,7 +2380,8 @@ impl Parser {
                 }
                 TokenKind::Ampersand => {
                     let span = self.next().unwrap().span;
-                    items.push(PrefixItem::Symbol(Symbol::AddrOf(span)));
+                    let mutable = self.consume_if(&TokenKind::KwMut);
+                    items.push(PrefixItem::Symbol(Symbol::AddrOf { span, mutable }));
                 }
                 TokenKind::Star => {
                     let span = self.next().unwrap().span;
@@ -4039,7 +4042,7 @@ impl Parser {
             PrefixItem::Symbol(Symbol::Set { name }) => name.span,
             PrefixItem::Symbol(Symbol::If(sp)) => *sp,
             PrefixItem::Symbol(Symbol::While(sp)) => *sp,
-            PrefixItem::Symbol(Symbol::AddrOf(sp)) => *sp,
+            PrefixItem::Symbol(Symbol::AddrOf { span, .. }) => *span,
             PrefixItem::Symbol(Symbol::Deref(sp)) => *sp,
             PrefixItem::TypeAnnotation(_, sp) => *sp,
             PrefixItem::Block(_, sp) => *sp,

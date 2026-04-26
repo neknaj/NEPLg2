@@ -270,6 +270,148 @@ fn main <()->i32> ():
     consume x
 ```
 
+## move_mut_reference_call_arg_is_temporary_borrow
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn observe_mut <(&mut LocalToken)->i32> (_x):
+    1
+
+fn consume <(LocalToken)->i32> (_x):
+    0
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    observe_mut &mut x
+    consume x
+```
+
+## move_unique_reference_blocks_owner_move_while_live
+
+neplg2:test[compile_fail]
+diag_id: 3052
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&mut LocalToken> &mut x
+    let y <LocalToken> x
+    let keep <&mut LocalToken> r
+    0
+```
+
+## move_unique_reference_last_use_releases_owner
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&mut LocalToken> &mut x
+    let rr <&mut LocalToken> r
+    let y <LocalToken> x
+    0
+```
+
+## move_mut_reference_is_not_copy
+
+neplg2:test[compile_fail]
+diag_id: 3053
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&mut LocalToken> &mut x
+    let rr <&mut LocalToken> r
+    let again <&mut LocalToken> r
+    0
+```
+
+## move_shared_borrow_blocks_unique_borrow
+
+neplg2:test[compile_fail]
+diag_id: 3061
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&LocalToken> &x
+    let u <&mut LocalToken> &mut x
+    let keep <&LocalToken> r
+    0
+```
+
+## move_unique_borrow_blocks_shared_borrow
+
+neplg2:test[compile_fail]
+diag_id: 3062
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&mut LocalToken> &mut x
+    let s <&LocalToken> &x
+    let keep <&mut LocalToken> r
+    0
+```
+
 ## move_borrow_after_move_err
 
 neplg2:test[compile_fail]
