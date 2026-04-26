@@ -1,0 +1,26 @@
+#indent 4
+
+//: # main
+//: NEPLg2.0 self-host compiler の CLI entry を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - file I/O、diagnostic reporter、driver、artifact write を core pipeline から分離します。
+//: - Stage 0 では CLI entry の配置と focused doctest 経路を固定します。
+//:
+//: [注意/ちゅうい]:
+//: - このファイルの marker は CLI の実装完了を意味しません。WASI / std interface が揃うまで core marker のみを返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/cli/main" as *
+//: fn main <()->i32> ():
+//:     selfhost_cli_main_stage0
+//: ```
+fn selfhost_cli_main_stage0 <()->i32> ():
+    0

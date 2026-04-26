@@ -1,0 +1,26 @@
+#indent 4
+
+//: # checker
+//: NEPLg2.0 の typecheck orchestration を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - expression reduction、declaration check、overload、trait、effect、pattern check の依存方向を束ねます。
+//: - Stage 0 では `check/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - 巨大な typecheck を再作成しないよう、個別 pass を後続 issue で分割して追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/checker" as *
+//: fn main <()->i32> ():
+//:     selfhost_checker_stage0
+//: ```
+fn selfhost_checker_stage0 <()->i32> ():
+    0

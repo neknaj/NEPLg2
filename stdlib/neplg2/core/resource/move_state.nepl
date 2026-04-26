@@ -1,0 +1,26 @@
+#indent 4
+
+//: # move_state
+//: NEPLg2.0 の move / borrow / drop 状態機械を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - 現行 `passes/move_check.rs` 相当の状態を self-host core へ移植する入口にします。
+//: - Stage 0 では `resource/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - NEPLg3 Resource IR を先取りせず、NEPLg2.0 の現行 move / borrow / drop 判定の再現を優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/resource/move_state" as *
+//: fn main <()->i32> ():
+//:     selfhost_move_state_stage0
+//: ```
+fn selfhost_move_state_stage0 <()->i32> ():
+    0

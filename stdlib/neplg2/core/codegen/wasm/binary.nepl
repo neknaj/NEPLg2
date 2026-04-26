@@ -1,0 +1,26 @@
+#indent 4
+
+//: # binary
+//: NEPLg2.0 self-host WASM backend の binary emitter 境界を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - WASM section、LEB128、layout、intrinsic、runtime helper が共有する byte emission の入口にします。
+//: - Stage 0 では `codegen/wasm/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - raw pointer 直接操作をbackend全体へ漏らさず、ByteBuilder issue で growable buffer を整備してから実装します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/codegen/wasm/binary" as *
+//: fn main <()->i32> ():
+//:     selfhost_wasm_binary_stage0
+//: ```
+fn selfhost_wasm_binary_stage0 <()->i32> ():
+    0

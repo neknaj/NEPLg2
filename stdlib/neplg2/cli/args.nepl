@@ -1,0 +1,26 @@
+#indent 4
+
+//: # args
+//: NEPLg2.0 self-host CLI の argv parser 境界を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - raw argv provider と pure option parser を分離し、self-host CLI parity test の入口にします。
+//: - Stage 0 では `cli/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - argv の取得や filesystem access は std / WASI interface issue が解決してから実装します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/cli/args" as *
+//: fn main <()->i32> ():
+//:     selfhost_args_stage0
+//: ```
+fn selfhost_args_stage0 <()->i32> ():
+    0

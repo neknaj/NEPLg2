@@ -7,7 +7,6 @@
 - `rust/monomorphize-trait-index` branch で `ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5` に沿って trait impl lookup index / cache を設計する
 - `stdlib/stdio-executable-tests` branch で `ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B` に沿って stdio doctest skip を実行可能 test へ移す
 - `rust/compiler-warning-debt` branch で `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` に沿って compiler warning debt を削減する
-- `selfhost/s0-source-tree` branch で `ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C` に沿って `stdlib/neplg2/` の root、README、top-level module skeleton を作成する
 - `selfhost/s0-infra-span-diag` branch で `infra/span.nepl`、`diag.nepl`、`outcome.nepl` と最小 doctest を作成する
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
 - `stdlib/fs-write-api` branch で `ISS-20260426T010001Z-STDFS-WRITE-B7C4D923` に沿って self-host CLI に必要な `std/fs` write interface を実装する

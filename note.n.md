@@ -1,3 +1,20 @@
+# 2026-04-26 メモ (ISS-20260426T010000Z SELFHOST-SOURCE-TREE 修正)
+
+- 状況:
+  - NEPLg2.0 self-host compiler の正規ソースツリーがなく、NEPLg3 placeholder とNEPLg2.0 self-host作業の責務が混ざる危険があった。
+  - `doc/neplg2/self_host_plan.md` は `stdlib/neplg2/` をS0成功条件にしていたが、実体ディレクトリとfocused testが存在していなかった。
+- 原因:
+  - NEPLg3移行計画とNEPLg2.0 self-host計画の分離はdocs上で決めたが、実装開始点となる tracked source tree がまだ作られていなかった。
+- 修正:
+  - `stdlib/neplg2/` に root `README.md` と `index.n.md` を追加した。
+  - `core/infra`、`syntax/token`、`syntax/ast`、`syntax/parser`、`module`、`resolve`、`ty`、`check`、`hir`、`resource`、`mono`、`codegen/wasm`、`codegen/llvm`、`builtins`、`core/options.nepl`、`core/pipeline.nepl`、`cli/args.nepl`、`cli/main.nepl` に Stage 0 marker API と実行可能 doctest を置いた。
+  - `doc/neplg2/self_host_plan.md` のS0に現在の配置とfocused check commandを追記した。
+  - `issues/items/ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C.md` を verified に更新し、`todo.md` から `selfhost/s0-source-tree` を削除した。
+- 確認済み:
+  - `node nodesrc/tests.js -i stdlib/neplg2 --no-tree -o tmp/neplg2-selfhost-placeholder.json -j 2`: 19/19 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正はNEPLg2.0 self-host用の作業場所とS0 focused testを作るもので、NEPLg3構文や仕様は導入していない。
+
 # 2026-04-26 メモ (ISS-20260425T000000Z-RV-CLI-007 修正)
 
 - 状況:

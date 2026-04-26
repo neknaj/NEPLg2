@@ -193,6 +193,14 @@ stdlib/neplg2/
 - `nodesrc/tests.js -i stdlib/neplg2 --no-tree` を self-host 用 focused check とする。
 - `issues/` の self-host issue を作業単位に紐付ける。
 
+2026-04-26 時点で `stdlib/neplg2/` は Stage 0 の正規ソースツリーとして作成済み。
+`core/infra`、`syntax/ast`、`syntax/parser`、`module`、`resolve`、`ty`、`check`、`hir`、`resource`、`mono`、`codegen/wasm`、`codegen/llvm`、`builtins`、`core/pipeline.nepl`、`core/options.nepl`、`cli/` に marker API と実行可能 doctest を置いている。
+focused check は次のコマンドを基準にする。
+
+```powershell
+node nodesrc/tests.js -i stdlib/neplg2 --no-tree -o tmp/neplg2-selfhost-placeholder.json -j 2
+```
+
 ### S1: SourceMap / lexer / parser
 
 - `infra/text.nepl` で byte offset、line/column、source file id を扱う。

@@ -1,0 +1,26 @@
+#indent 4
+
+//: # module_parser
+//: NEPLg2.0 のファイル単位 parser を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - lexer token stream から `ModuleAst` を作る parser 群の入口にします。
+//: - Stage 0 では `syntax/parser/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - NEPLg2.0 では型式の外側境界を angle bracket で構文的に確定します。NEPLg3 の型適用境界推論はここへ持ち込みません。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/syntax/parser/module_parser" as *
+//: fn main <()->i32> ():
+//:     selfhost_module_parser_stage0
+//: ```
+fn selfhost_module_parser_stage0 <()->i32> ():
+    0

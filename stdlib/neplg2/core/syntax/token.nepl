@@ -1,0 +1,26 @@
+#indent 4
+
+//: # token
+//: NEPLg2.0 lexer / parser が共有する token 表現を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - `#indent` と offside rule を含む tokenizer の出力型をここに集約します。
+//: - Stage 0 では source tree の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - 現行 NEPLg2.0 の angle bracket 型注釈と `fn` 糖衣構文を正とし、NEPLg3 の TypePrefixList 仕様は持ち込みません。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/syntax/token" as *
+//: fn main <()->i32> ():
+//:     selfhost_token_stage0
+//: ```
+fn selfhost_token_stage0 <()->i32> ():
+    0

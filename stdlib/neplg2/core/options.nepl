@@ -1,0 +1,26 @@
+#indent 4
+
+//: # options
+//: NEPLg2.0 self-host compiler の compile option と target/profile 境界を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - Stage 0 では source tree の責務境界を固定するため、実行可能な marker API だけを持ちます。
+//: - 実際の `CompileOptions`、target、profile は後続 issue で現行 Rust 実装と照合しながら追加します。
+//:
+//: [注意/ちゅうい]:
+//: - この marker は placeholder の成功判定であり、compiler option 実装済みを意味しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/options" as *
+//: fn main <()->i32> ():
+//:     selfhost_options_stage0
+//: ```
+fn selfhost_options_stage0 <()->i32> ():
+    0

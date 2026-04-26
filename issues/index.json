@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:30:14.526Z",
+  "generated_at": "2026-04-26T04:38:39.539Z",
   "counts": {
     "total": 105,
-    "open": 25,
-    "resolved": 80,
+    "open": 24,
+    "resolved": 81,
     "by_area": {
       "core": {
         "total": 36,
@@ -13,8 +13,8 @@
       },
       "selfhost": {
         "total": 7,
-        "open": 7,
-        "resolved": 0
+        "open": 6,
+        "resolved": 1
       },
       "stdlib": {
         "total": 32,
@@ -48,21 +48,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
-      "title": "NEPLg2.0 self-host compiler source tree is missing",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/neplg2",
-      "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C.md"
     },
     {
       "id": "ISS-20260426T010001Z-STDFS-WRITE-B7C4D923",
@@ -1098,6 +1083,21 @@
       "legacy_id": "RV-EXAMPLE-011",
       "source": "doc/review20260425/examples.md#rv-example-011",
       "file": "items/ISS-20260425T000000Z-RV-EXAMPLE-011-8A10DEED.md"
+    },
+    {
+      "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
+      "title": "NEPLg2.0 self-host compiler source tree is missing",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/neplg2, doc/neplg2/self_host_plan.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-014-83D059C2",

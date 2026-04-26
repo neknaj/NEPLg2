@@ -1,0 +1,26 @@
+#indent 4
+
+//: # text
+//: NEPLg2.0 self-host LLVM backend の text emitter 境界を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - LLVM IR text、layout、intrinsic の責務を WASM backend と分離します。
+//: - Stage 0 では `codegen/llvm/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - self-host 初期段階の主基準は WASM / WASI とし、LLVM parity は後段で smoke から増やします。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/codegen/llvm/text" as *
+//: fn main <()->i32> ():
+//:     selfhost_llvm_text_stage0
+//: ```
+fn selfhost_llvm_text_stage0 <()->i32> ():
+    0

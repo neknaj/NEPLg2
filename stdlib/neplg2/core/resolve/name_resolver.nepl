@@ -1,0 +1,26 @@
+#indent 4
+
+//: # name_resolver
+//: NEPLg2.0 の名前解決と import visibility を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - DefId、scope、hoist、qualified alias、open import の解決をこの stage に集約します。
+//: - Stage 0 では `resolve/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - 型推論や overload 候補選択は `check/` に委譲し、ここでは名前から定義候補への対応を安定化します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn main <()->i32> ():
+//:     selfhost_name_resolver_stage0
+//: ```
+fn selfhost_name_resolver_stage0 <()->i32> ():
+    0

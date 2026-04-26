@@ -1,0 +1,26 @@
+#indent 4
+
+//: # mono
+//: NEPLg2.0 の monomorphize stage を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - generic instance cache、name mangling、trait impl selection の最終解決をここに集約します。
+//: - Stage 0 では `mono/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - trait impl lookup の index/cache は別issueで、線形scanを増やさない形にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/mono/mono" as *
+//: fn main <()->i32> ():
+//:     selfhost_mono_stage0
+//: ```
+fn selfhost_mono_stage0 <()->i32> ():
+    0

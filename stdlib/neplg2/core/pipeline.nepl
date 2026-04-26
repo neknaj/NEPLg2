@@ -1,0 +1,26 @@
+#indent 4
+
+//: # pipeline
+//: NEPLg2.0 self-host compiler core の compile pipeline 入口を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - `syntax`、`module`、`resolve`、`check`、`hir`、`resource`、`mono`、`codegen` の依存方向を束ねます。
+//: - Stage 0 では source tree と focused doctest の存在を確認する marker API だけを公開します。
+//:
+//: [注意/ちゅうい]:
+//: - filesystem や stdio は扱いません。CLI 層が source map / virtual file system を構築して渡す設計にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/pipeline" as *
+//: fn main <()->i32> ():
+//:     selfhost_pipeline_stage0
+//: ```
+fn selfhost_pipeline_stage0 <()->i32> ():
+    0

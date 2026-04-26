@@ -1,0 +1,26 @@
+#indent 4
+
+//: # span
+//: NEPLg2.0 self-host compiler の source span と source map を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - Stage 0 では `infra/` の所有境界と doctest 経路を固定します。
+//: - 後続 issue で `FileId`、byte offset、line/column map、diagnostic label 用 span を追加します。
+//:
+//: [注意/ちゅうい]:
+//: - span は UTF-8 検証済み source を前提にします。不正 byte sequence の扱いは text/UTF-8 issue で実装します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/infra/span" as *
+//: fn main <()->i32> ():
+//:     selfhost_span_stage0
+//: ```
+fn selfhost_span_stage0 <()->i32> ():
+    0

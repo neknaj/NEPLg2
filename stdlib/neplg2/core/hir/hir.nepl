@@ -1,0 +1,26 @@
+#indent 4
+
+//: # hir
+//: NEPLg2.0 の解決済み中間表現を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - AST と typecheck 結果から backend 前の HIR へ落とす stage の入口にします。
+//: - Stage 0 では `hir/` の責務境界を marker API で固定します。
+//:
+//: [注意/ちゅうい]:
+//: - deep HIR traversal は再帰ではなく explicit stack へ移す方針を維持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/hir/hir" as *
+//: fn main <()->i32> ():
+//:     selfhost_hir_stage0
+//: ```
+fn selfhost_hir_stage0 <()->i32> ():
+    0
