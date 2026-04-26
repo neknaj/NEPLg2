@@ -1,3 +1,22 @@
+# 2026-04-26 メモ (ISS-20260426T114146569Z nepl-language MatchArm bind)
+
+- 状況:
+  - `cargo check --workspace` が `nepl-language/src/lib.rs:1253` の `arm.bind` 参照で `E0609 no field bind on type &MatchArm` となり失敗した。
+  - `nepl-core/src/ast.rs` の現行 AST では match payload binding は `MatchArm` 直下ではなく `MatchPattern::Variant { bind }` にある。
+- 修正:
+  - `nepl-language` の name resolution trace で `MatchPattern::Variant { bind: Some(..) }` だけを `match_bind` として scope に定義するようにした。
+  - 新規 issue `ISS-20260426T114146569Z-NEPL-LANGUAGE-NAME-TRACE-READS-REMOV-577D2C6C` を追加し、verified にした。
+- 検証:
+  - `cargo check -p nepl-language`: pass（既存 `nepl-core` warnings は残存）
+  - `cargo check --workspace`: pass（既存 warnings は残存）
+  - `cargo test -p nepl-language`: `3 passed`
+  - `node nodesrc/issues.js index` / `node nodesrc/issues.js check`: pass
+  - `cargo fmt --all --check`: pass
+  - `trunk build`: pass（既存 warnings は残存）
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-nepl-language-match-bind.json`: `13/13 passed`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は AST 仕様変更に追従して workspace check を回復する Rust 側修正。
+
 # 2026-04-26 メモ (ISS-20260426T060333140Z TUI narrow width)
 
 - 状況:

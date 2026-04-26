@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T11:38:06.513Z",
+  "generated_at": "2026-04-26T11:44:34.818Z",
   "counts": {
-    "total": 122,
+    "total": 123,
     "open": 16,
-    "resolved": 106,
+    "resolved": 107,
     "by_area": {
       "core": {
-        "total": 39,
+        "total": 40,
         "open": 3,
-        "resolved": 36
+        "resolved": 37
       },
       "selfhost": {
         "total": 7,
@@ -1588,6 +1588,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB.md"
+    },
+    {
+      "id": "ISS-20260426T114146569Z-NEPL-LANGUAGE-NAME-TRACE-READS-REMOV-577D2C6C",
+      "title": "nepl-language name trace reads removed MatchArm.bind field",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-language/src/lib.rs, nepl-core/src/ast.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T114146569Z-NEPL-LANGUAGE-NAME-TRACE-READS-REMOV-577D2C6C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use nepl_core::ast::{
-    Block, Directive, FnBody, MatchArm, Module, PrefixExpr, PrefixItem, Stmt, Symbol,
+    Block, Directive, FnBody, MatchArm, MatchPattern, Module, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
 use nepl_core::compiler::BuildProfile;
 use nepl_core::diagnostic::{Diagnostic, Severity};
@@ -1250,7 +1250,10 @@ fn hoist_block_defs(trace: &mut NameResolutionTrace, block: &Block) {
 
 fn trace_match_arm(trace: &mut NameResolutionTrace, arm: &MatchArm) {
     trace.push_scope();
-    if let Some(bind) = &arm.bind {
+    if let MatchPattern::Variant {
+        bind: Some(bind), ..
+    } = &arm.pattern
+    {
         trace.define(bind.name.clone(), "match_bind", bind.span, None);
     }
     trace_block(trace, &arm.body);
