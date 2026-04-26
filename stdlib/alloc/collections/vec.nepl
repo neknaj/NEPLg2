@@ -956,7 +956,8 @@ fn vec_fold_impl <.T,.U> <(MemPtr<.T>, i32, i32, .U, (.U,.T)->.U)->.U> (data, le
         then acc
         else:
             let next_acc <.U> f acc vec_read_at<.T> data idx
-            vec_fold_impl<.T,.U> data len add idx 1 next_acc f
+            let next_idx <i32> add idx 1
+            vec_fold_impl<.T,.U> data len next_idx next_acc f
 
 //: ## vec_reduce_impl
 //: `reduce` の[再帰/さいき][本体/ほんたい]
@@ -998,7 +999,8 @@ fn vec_reduce_impl <.T> <(MemPtr<.T>, i32, i32, .T, (.T,.T)->.T)->.T> (data, len
         then acc
         else:
             let next_acc <.T> f acc vec_read_at<.T> data idx
-            vec_reduce_impl<.T> data len add idx 1 next_acc f
+            let next_idx <i32> add idx 1
+            vec_reduce_impl<.T> data len next_idx next_acc f
 
 //: ## vec_find_impl
 //: `find` の[再帰/さいき][本体/ほんたい]
@@ -1047,7 +1049,9 @@ fn vec_find_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, le
             if:
                 cond p item
                 then some<.T> item
-                else vec_find_impl<.T> data len add idx 1 p
+                else:
+                    let next_idx <i32> add idx 1
+                    vec_find_impl<.T> data len next_idx p
 
 //: ## vec_take_while_len_impl
 //: `take_while` / `drop_while` の[境界/きょうかい][位置/いち]を[求/もと]める[内部/ないぶ] helper
@@ -1093,7 +1097,9 @@ fn vec_take_while_len_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->i32> (data,
         else:
             if:
                 cond p vec_read_at<.T> data idx
-                then vec_take_while_len_impl<.T> data len add idx 1 p
+                then:
+                    let next_idx <i32> add idx 1
+                    vec_take_while_len_impl<.T> data len next_idx p
                 else idx
 
 //: ## vec_write_prefix_impl

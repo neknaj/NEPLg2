@@ -705,28 +705,38 @@ stdlib 全体の残り22件は、値ブロック末尾セミコロンとは別�
 
 ## RV-STDLIB-020: Fenwick/SegmentTree doctest が D3016 expression left extra values で失敗する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P0
 - 種別: test
-- 対象: `stdlib/alloc/collections/fenwick.nepl`, `stdlib/alloc/collections/segment_tree.nepl`, `stdlib/tests/fenwick.n.md`, `stdlib/tests/segment_tree.n.md`
+- 対象: `stdlib/alloc/collections/vec.nepl`, `stdlib/alloc/collections/fenwick.nepl`, `stdlib/alloc/collections/segment_tree.nepl`, `stdlib/tests/fenwick.n.md`, `stdlib/tests/segment_tree.n.md`
 
 ### 根拠
 
-`RV-STDLIB-019` 修正後の `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4` で、Fenwick 7件と SegmentTree 7件が `error[D3016]: expression left extra values on the stack` で失敗しています。
+`RV-STDLIB-019` 修正後の `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4` で、Fenwick 7件と SegmentTree 7件が `error[D3016]: expression left extra values on the stack` で失敗していました。
+
+最小再現の error span は Fenwick / SegmentTree ではなく `stdlib/alloc/collections/vec.nepl` の `vec_find_impl` と `vec_take_while_len_impl` を指していました。該当箇所は `vec_find_impl<.T> data len add idx 1 p` のように、再帰呼び出しの第三引数 `add idx 1` と後続引数 `p` の境界が曖昧な形でした。
 
 ### 問題
 
-collection の計算構造 doctest が、現在の expression stack 規則と合っていません。単に期待エラーへ変えると、Fenwick / SegmentTree の public API が使用可能かを検証できなくなるため、doctest の式構造か stdlib API の戻り値設計を確認して根本から直す必要があります。
+`vec` の再帰 helper は、関数呼び出し引数に `add idx 1` を inline で渡していました。prefix call の境界上、後続の関数値引数が余剰 stack value として残り、`#target std` の compile 時に Fenwick / SegmentTree の doctest まで巻き込んで失敗していました。
 
 ### 修正方針
 
-まず各 doctest の失敗式を抽出し、余剰 stack value が callback / update API / `let` block 末尾のどこで発生しているかを分離します。値を保持する必要がある箇所は明示的な `let` または値ブロックへ、値を捨てる箇所は `let _ <()>` などの意図が分かる形へ揃えます。
+`vec_fold_impl` / `vec_reduce_impl` / `vec_find_impl` / `vec_take_while_len_impl` で、次 index を `let next_idx <i32> add idx 1` として一度束縛し、再帰呼び出しには `next_idx` を渡します。同型の潜在不具合を残さないため、error span に出た2箇所だけでなく同じ書き方の recursive helper をまとめて修正します。
+
+### 対応結果
+
+`stdlib/alloc/collections/vec.nepl` の recursive helper 4箇所を、`idx + 1` を明示束縛してから再帰呼び出しへ渡す形に変更しました。Fenwick / SegmentTree 側の API や doctest の意味は変更していません。
 
 ### 検証
 
-- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/tests/fenwick.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/fenwick-segtree-rv-stdlib-020.json -j 1`
-- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-020.json -j 4`
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/tests/fenwick.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/fenwick-segtree-rv-stdlib-020.json -j 1` (`total=53`, `passed=53`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-020.json -j 4` (`total=379`, `passed=371`, `failed=8`, `errored=0`)
+
+stdlib 全体の残り8件は `RV-STDLIB-021` から `RV-STDLIB-024` の範囲に残しています。
 
 ## RV-STDLIB-021: vec sort doctest が overload 解決不一致で失敗する
 

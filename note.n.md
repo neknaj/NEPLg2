@@ -16461,3 +16461,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib doctest fixture の構文修正であり、collection API の仕様変更はない。
+
+# 2026-04-26 メモ (RV-STDLIB-020 vec recursive helper の引数境界修正)
+
+- [原因]:
+  - Fenwick / SegmentTree doctest の D3016 は、Fenwick / SegmentTree 本体ではなく `stdlib/alloc/collections/vec.nepl` の `vec_find_impl` / `vec_take_while_len_impl` で発生していた。
+  - `vec_find_impl<.T> data len add idx 1 p` のように `idx + 1` を inline で渡しており、第三引数の境界が曖昧になって後続の関数値引数が余剰 stack value として残っていた。
+- [修正]:
+  - `vec_fold_impl` / `vec_reduce_impl` / `vec_find_impl` / `vec_take_while_len_impl` で `let next_idx <i32> add idx 1` を導入し、再帰呼び出しへ `next_idx` を渡す形へ統一した。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-020` を verified に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/tests/fenwick.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/fenwick-segtree-rv-stdlib-020.json -j 1`: `total=53`, `passed=53`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-020.json -j 4`: `total=379`, `passed=371`, `failed=8`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-021`: vec sort overload 不一致。
+  - `RV-STDLIB-022`: HashMap doctest indent 不整合。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Vec` helper の再帰引数評価を明確にしただけで、public API は変更していない。
