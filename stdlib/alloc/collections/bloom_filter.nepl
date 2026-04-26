@@ -28,6 +28,7 @@
 #import "core/field" as field
 #import "core/traits/hash_key" as *
 #import "core/traits/hash" as *
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
 //: ## BloomFilter
@@ -38,7 +39,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - bitset [領域/りょういき]の[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
-//: - hasher 型 `.H` は `Hasher<.T>` と `copy` capability を[持/も]つ[必要/ひつよう]があります。
+//: - key 型 `.T` と hasher 型 `.H` は、複数 probe の[計算/けいさん]で[繰/く]り[返/かえ]し[読/よ]むため標準 `Copy` を impl する[必要/ひつよう]があります。
 struct BloomFilter<.T,.H>:
     nbits <i32>
     nbytes <i32>
@@ -49,10 +50,10 @@ fn bloom_invalid_len_diag <(i32)*>Diag> (nbits):
     let msg0 <str> concat "bloom_filter new invalid bit length " from_i32 nbits
     diag_error StdErrorKind::CapacityExceeded msg0
 
-fn bloom_hash0 <.T: HashKey,.H: Hasher<.T>> <(.H,.T)->i32> (hasher, key):
+fn bloom_hash0 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
     hash_with hasher key
 
-fn bloom_hash1 <.T: HashKey,.H: Hasher<.T>> <(.H,.T)->i32> (hasher, key):
+fn bloom_hash1 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
     let h0 <i32> bloom_hash0<.T,.H> hasher key
     let hk <i32> hashkey_hash32 key
     let mixed <i32> mix xor h0 hk
@@ -99,7 +100,7 @@ fn bloom_test_bit <(MemPtr<u8>,i32)->bool> (bits, bit_idx):
 //:     let bf <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     if eq len bf 64 1 0
 //: ```
-fn new <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<BloomFilter<.T,.H>, Diag>> (hasher, nbits):
+fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<.T,.H>, Diag>> (hasher, nbits):
     if:
         le nbits 0
         then diag_err<BloomFilter<.T,.H>> bloom_invalid_len_diag nbits
@@ -156,7 +157,7 @@ fn len <.T,.H> <(BloomFilter<.T,.H>)->i32> (bf):
 //:     let ok <bool> contains<i32, DefaultHash32> bf1 7;
 //:     if ok 1 0
 //: ```
-fn insert <.T: HashKey,.H: Hasher<.T>> <(BloomFilter<.T,.H>,.T)->BloomFilter<.T,.H>> (bf, key):
+fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->BloomFilter<.T,.H>> (bf, key):
     let bf_mem <i32> alloc_raw size_of<BloomFilter<.T,.H>>
     store<BloomFilter<.T,.H>> bf_mem bf
     let nbits <i32> get load<BloomFilter<.T,.H>> bf_mem "nbits"
@@ -198,7 +199,7 @@ fn insert <.T: HashKey,.H: Hasher<.T>> <(BloomFilter<.T,.H>,.T)->BloomFilter<.T,
 //:     let ok <bool> contains<i32, DefaultHash32> bf2 7;
 //:     if ok 1 0
 //: ```
-fn contains <.T: HashKey,.H: Hasher<.T>> <(BloomFilter<.T,.H>,.T)->bool> (bf, key):
+fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->bool> (bf, key):
     let bf_mem <i32> alloc_raw size_of<BloomFilter<.T,.H>>
     store<BloomFilter<.T,.H>> bf_mem bf
     let nbits <i32> get load<BloomFilter<.T,.H>> bf_mem "nbits"

@@ -28,6 +28,7 @@
 #import "core/field" as field
 #import "core/traits/hash_key" as *
 #import "core/traits/hash" as *
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
 //: ## CountingBloomFilter
@@ -38,7 +39,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - counter [領域/りょういき]の[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
-//: - hasher 型 `.H` は `Hasher<.T>` と `copy` capability を[持/も]つ[必要/ひつよう]があります。
+//: - key 型 `.T` と hasher 型 `.H` は、複数 probe の[計算/けいさん]で[繰/く]り[返/かえ]し[読/よ]むため標準 `Copy` を impl する[必要/ひつよう]があります。
 struct CountingBloomFilter<.T,.H>:
     nslots <i32>
     nbytes <i32>
@@ -49,10 +50,10 @@ fn counting_bloom_invalid_len_diag <(i32)*>Diag> (nslots):
     let msg0 <str> concat "counting_bloom_filter new invalid counter length " from_i32 nslots
     diag_error StdErrorKind::CapacityExceeded msg0
 
-fn counting_bloom_hash0 <.T: HashKey,.H: Hasher<.T>> <(.H,.T)->i32> (hasher, key):
+fn counting_bloom_hash0 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
     hash_with hasher key
 
-fn counting_bloom_hash1 <.T: HashKey,.H: Hasher<.T>> <(.H,.T)->i32> (hasher, key):
+fn counting_bloom_hash1 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
     let h0 <i32> counting_bloom_hash0<.T,.H> hasher key
     let hk <i32> hashkey_hash32 key
     let mixed <i32> mix xor h0 hk
@@ -108,7 +109,7 @@ fn counting_bloom_counter_nonzero <(MemPtr<u8>,i32)->bool> (counters, idx):
 //:     let bf <CountingBloomFilter<i32, DefaultHash32>> unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     if eq len bf 64 1 0
 //: ```
-fn new <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<CountingBloomFilter<.T,.H>, Diag>> (hasher, nslots):
+fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<CountingBloomFilter<.T,.H>, Diag>> (hasher, nslots):
     if:
         le nslots 0
         then diag_err<CountingBloomFilter<.T,.H>> counting_bloom_invalid_len_diag nslots
@@ -146,7 +147,7 @@ fn len <.T,.H> <(CountingBloomFilter<.T,.H>)->i32> (bf):
 //:     let bf1 <CountingBloomFilter<i32, DefaultHash32>> insert bf0 7;
 //:     if contains bf1 7 1 0
 //: ```
-fn insert <.T: HashKey,.H: Hasher<.T>> <(CountingBloomFilter<.T,.H>,.T)->CountingBloomFilter<.T,.H>> (bf, key):
+fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)->CountingBloomFilter<.T,.H>> (bf, key):
     let bf_mem <i32> alloc_raw size_of<CountingBloomFilter<.T,.H>>
     store<CountingBloomFilter<.T,.H>> bf_mem bf
     let nslots <i32> get load<CountingBloomFilter<.T,.H>> bf_mem "nslots"
@@ -182,7 +183,7 @@ fn insert <.T: HashKey,.H: Hasher<.T>> <(CountingBloomFilter<.T,.H>,.T)->Countin
 //:         |> remove 7
 //:     if contains bf0 7 0 1
 //: ```
-fn remove <.T: HashKey,.H: Hasher<.T>> <(CountingBloomFilter<.T,.H>,.T)->CountingBloomFilter<.T,.H>> (bf, key):
+fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)->CountingBloomFilter<.T,.H>> (bf, key):
     let bf_mem <i32> alloc_raw size_of<CountingBloomFilter<.T,.H>>
     store<CountingBloomFilter<.T,.H>> bf_mem bf
     let nslots <i32> get load<CountingBloomFilter<.T,.H>> bf_mem "nslots"
@@ -221,7 +222,7 @@ fn remove <.T: HashKey,.H: Hasher<.T>> <(CountingBloomFilter<.T,.H>,.T)->Countin
 //:         |> insert 12
 //:     if contains bf0 12 1 0
 //: ```
-fn contains <.T: HashKey,.H: Hasher<.T>> <(CountingBloomFilter<.T,.H>,.T)->bool> (bf, key):
+fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)->bool> (bf, key):
     let bf_mem <i32> alloc_raw size_of<CountingBloomFilter<.T,.H>>
     store<CountingBloomFilter<.T,.H>> bf_mem bf
     let nslots <i32> get load<CountingBloomFilter<.T,.H>> bf_mem "nslots"

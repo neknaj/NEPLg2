@@ -1,5 +1,5 @@
 //: # hashset
-//: key capability と hasher [型/がた]に[基/もと]づく generic [集合/しゅうごう]
+//: key trait と hasher [型/がた]に[基/もと]づく generic [集合/しゅうごう]
 //:
 //: ### [目的/もくてき]
 //: - `HashSet<.T, .H>` を[提供/ていきょう]し、`new` / `insert` / `contains` / `remove` / `len` / `free` の bare 名で[操作/そうさ]できるようにします。
@@ -12,7 +12,8 @@
 //:
 //: ### [注意/ちゅうい]
 //: - key 型 `.T` は `HashKey` の impl を[持/も]つ[必要/ひつよう]があります。
-//: - hasher 型 `.H` は `Hasher<.T>` を impl する[必要/ひつよう]があります。
+//: - key 型 `.T` は `HashKey` の impl に加えて標準 `Copy` の impl を[持/も]つ[必要/ひつよう]があります。
+//: - hasher 型 `.H` は `Hasher<.T>` と標準 `Copy` を impl する[必要/ひつよう]があります。
 //: - [確保/かくほ][失敗/しっぱい]では `Diag::OutOfMemory` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
@@ -26,6 +27,7 @@
 #import "core/field" as field
 #import "core/traits/hash_key" as *
 #import "core/traits/hash" as *
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
 //: ## HashSet
@@ -43,7 +45,7 @@ struct HashSet<.T,.H>:
 fn hashset_entry_size <.T> <()->i32> ():
     add 4 size_of<.T>
 
-fn hashset_bucket_index <.T: HashKey,.H: Hasher<.T>> <(i32,.H,.T)->i32> (cap, hasher, key):
+fn hashset_bucket_index <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(i32,.H,.T)->i32> (cap, hasher, key):
     rem_u hash_with hasher key cap
 
 fn hashset_status_ptr <(i32,i32,i32)->i32> (entries, size, idx):
@@ -55,12 +57,12 @@ fn hashset_key_ptr <.T> <(i32,i32,i32)->i32> (entries, size, idx):
 fn hashset_next_slot <(i32,i32)->i32> (idx, cap):
     mod_s add idx 1 cap
 
-fn hashset_slot_matches <.T: HashKey> <(i32,i32,i32,.T)->bool> (entries, size, idx, key):
+fn hashset_slot_matches <.T: HashKey&Copy> <(i32,i32,i32,.T)->bool> (entries, size, idx, key):
     let ptr <i32> hashset_key_ptr<.T> entries size idx
     let saved <.T> load<.T> ptr
     hashkey_eq saved key
 
-fn hashset_find_present <.T: HashKey,.H: Hasher<.T>> <(i32,i32,i32,.H,.T)->i32> (entries, size, cap, hasher, key):
+fn hashset_find_present <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(i32,i32,i32,.H,.T)->i32> (entries, size, cap, hasher, key):
     let start <i32> hashset_bucket_index<.T,.H> cap hasher key
     let mut cur <i32> start
     let mut found <i32> -1
@@ -122,7 +124,7 @@ fn hashset_alloc_entries <.T> <(i32)*>Result<i32, Diag>> (cap):
 //: hashset_insert_rehashed_entry: rehash [中/ちゅう]の新 table へ key を[移/うつ]す
 //:
 //: 新 table は空の entries と十分な容量を[持/も]つ前提なので、重複確認や tombstone 再利用を行わず empty slot に配置します。
-fn hashset_insert_rehashed_entry <.T: HashKey,.H: Hasher<.T>> <(i32,i32,i32,.H,.T)*>()> (entries, size, cap, hasher, key):
+fn hashset_insert_rehashed_entry <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(i32,i32,i32,.H,.T)*>()> (entries, size, cap, hasher, key):
     let start <i32> hashset_bucket_index<.T,.H> cap hasher key
     let mut cur <i32> start
     let mut placed <bool> false
@@ -142,7 +144,7 @@ fn hashset_insert_rehashed_entry <.T: HashKey,.H: Hasher<.T>> <(i32,i32,i32,.H,.
 //: hashset_rehash_to: live key だけを新しい entries [領域/りょういき]へ[再配置/さいはいち]する
 //:
 //: full slot の key を新 table に移し、旧 entries を[解放/かいほう]します。tombstone は再配置しないため header の tombstone 数を 0 に戻します。
-fn hashset_rehash_to <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, Diag>> (hs, requested_cap):
+fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, Diag>> (hs, requested_cap):
     let hdr <i32> field::get hs "hdr"
     let hasher <.H> field::get hs "hasher"
     let old_cap <i32> load_i32 add hdr 4
@@ -175,7 +177,7 @@ fn hashset_rehash_to <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,i32)*>Result<
 //: hashset_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
 //:
 //: 既存 key なら table を変えずに返し、新規 key では count と tombstone の合計から同容量 rehash または 2 倍 grow を選びます。
-fn hashset_prepare_insert <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     let hdr <i32> field::get hs "hdr"
     let hasher <.H> field::get hs "hasher"
     let cap <i32> load_i32 add hdr 4
@@ -203,7 +205,7 @@ fn hashset_prepare_insert <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Res
 //: hashset_new_with_capacity: `new` と `with_capacity` が[共有/きょうゆう]する constructor
 //:
 //: 公開 API 名の overload 解決に依存せず、容量正規化、entries 確保、header 初期化を 1 [箇所/かしょ]に[集約/しゅうやく]します。
-fn hashset_new_with_capacity <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+fn hashset_new_with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
     let cap <i32> hashset_normalize_capacity requested
     match hashset_alloc_entries<.T> cap:
         Result::Err d:
@@ -250,7 +252,7 @@ fn hashset_new_with_capacity <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<Hash
 //:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     if eq len hs 0 1 0
 //: ```
-fn new <.T: HashKey,.H: Hasher<.T>> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
+fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
     hashset_new_with_capacity<.T,.H> hasher 16
 
 //: ## with_capacity
@@ -262,7 +264,7 @@ fn new <.T: HashKey,.H: Hasher<.T>> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher
 //: ### [注意/ちゅうい]
 //: - requested が 4 未満の[場合/ばあい]は 4 に[切/き]り[上/あ]げます。
 //: - 実際の `insert` は load factor が 75% を[超/こ]える[前/まえ]に grow します。
-fn with_capacity <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
     hashset_new_with_capacity<.T,.H> hasher requested
 
 //: ## insert
@@ -293,7 +295,7 @@ fn with_capacity <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<HashSet<.T,.H>, 
 //:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 7;
 //:     if contains hs1 7 1 0
 //: ```
-fn insert <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     match hashset_prepare_insert<.T,.H> hs key:
         Result::Err d:
             err<HashSet<.T,.H>, Diag> d
@@ -366,7 +368,7 @@ fn insert <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.
 //:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 9;
 //:     if contains hs1 9 1 0
 //: ```
-fn contains <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)->bool> (hs, key):
+fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)->bool> (hs, key):
     let hdr <i32> field::get hs "hdr"
     let hasher <.H> field::get hs "hasher"
     let cap <i32> load_i32 add hdr 4
@@ -401,7 +403,7 @@ fn contains <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)->bool> (hs, key):
 //:     let hs2 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> remove hs1 5;
 //:     if contains hs2 5 0 1
 //: ```
-fn remove <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     let hdr <i32> field::get hs "hdr"
     let hasher <.H> field::get hs "hasher"
     let cap <i32> load_i32 add hdr 4
@@ -474,7 +476,7 @@ fn len <.T,.H> <(HashSet<.T,.H>)->i32> (hs):
 //:     free hs1;
 //:     0
 //: ```
-fn free <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>)*>()> (hs):
+fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>)*>()> (hs):
     let hdr <i32> field::get hs "hdr"
     let cap <i32> load_i32 add hdr 4
     let entries <i32> load_i32 add hdr 8

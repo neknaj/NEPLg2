@@ -1,17 +1,19 @@
 //: # hash_key
-//: hash collection が key に[要求/ようきゅう]する[能力/のうりょく]
+//: hash collection が key の[同値性/どうちせい]と hash [計算/けいさん]に[要求/ようきゅう]する trait
 //:
 //: ### [目的/もくてき]
-//: - `HashMap` / `HashSet` が key [比較/ひかく]と default hash [計算/けいさん]を 1 [個/こ]の capability として[受/う]け[取/と]れるようにします。
+//: - `HashMap` / `HashSet` が key [比較/ひかく]と default hash [計算/けいさん]を 1 [個/こ]の trait として[受/う]け[取/と]れるようにします。
 //: - collection は custom hasher を[受/う]け[取/と]れますが、key [側/がわ]にも canonical な hash [実装/じっそう]を[持/も]たせておき、default hasher や[単体/たんたい] helper の[基準/きじゅん]にします。
+//: - key や hasher の[複製/ふくせい]・copy [可能性/かのうせい]は `HashKey` ではなく、標準 `Clone` / `Copy` trait の bound で[表/あらわ]します。
 //:
 //: ### [実装/じっそう]
-//: - trait `HashKey` は `clone` / `eq` / `hash32` を[要求/ようきゅう]します。
-//: - helper `hashkey_clone` / `hashkey_eq` / `hashkey_hash32` が trait call を[集約/しゅうやく]します。
+//: - trait `HashKey` は `eq` / `hash32` だけを[要求/ようきゅう]します。
+//: - helper `hashkey_eq` / `hashkey_hash32` が trait call を[集約/しゅうやく]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `eq` と `hash32` は[整合/せいごう]している[必要/ひつよう]があります。
-//: - custom key は `HashKey` を impl し、さらに custom hasher を[使/つか]いたい[場合/ばあい]は hasher trait も[実装/じっそう]します。
+//: - custom key は `HashKey` を impl し、collection に[載/の]せる[場合/ばあい]は必要に応じて標準 `Copy` / `Clone` も impl します。
+//: - `HashKey` は「copy してよい」ことを[意味/いみ]しません。所有権を[持/も]つ key を扱う collection API は、別途 `Copy` や borrow API の[設計/せっけい]で[表現/ひょうげん]します。
 
 #indent 4
 
@@ -32,23 +34,13 @@ fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
             hashkey_bytes_loop s n next_idx next_h
 
 //: ## HashKey
-//: hash collection が key に[要求/ようきゅう]する[単一/たんいつ] capability
+//: hash collection が key に[要求/ようきゅう]する[同値性/どうちせい]と hash [計算/けいさん]
 trait HashKey:
-    #capability clone
-    #capability copy
-    fn clone <(Self)->Self> (self):
-        self
-
     fn eq <(Self,Self)->bool> (a, b):
         false
 
     fn hash32 <(Self)->i32> (self):
         0
-
-//: ## hashkey_clone
-//: `HashKey` trait [経由/けいゆ]で key を[複製/ふくせい]する
-fn hashkey_clone <.T: HashKey> <(.T)->.T> (x):
-    HashKey::clone x
 
 //: ## hashkey_eq
 //: `HashKey` trait [経由/けいゆ]で key [比較/ひかく]する
@@ -61,9 +53,6 @@ fn hashkey_hash32 <.T: HashKey> <(.T)->i32> (x):
     HashKey::hash32 x
 
 impl HashKey for bool:
-    fn clone <(bool)->bool> (self):
-        self
-
     fn eq <(bool,bool)->bool> (a, b):
         if a then b else not b
 
@@ -72,9 +61,6 @@ impl HashKey for bool:
         mix xor k -1640531527
 
 impl HashKey for i32:
-    fn clone <(i32)->i32> (self):
-        self
-
     fn eq <(i32,i32)->bool> (a, b):
         eq a b
 
@@ -82,9 +68,6 @@ impl HashKey for i32:
         mix xor self -1640531527
 
 impl HashKey for u8:
-    fn clone <(u8)->u8> (self):
-        self
-
     fn eq <(u8,u8)->bool> (a, b):
         eq a b
 
@@ -93,9 +76,6 @@ impl HashKey for u8:
         mix xor k -1640531527
 
 impl HashKey for i64:
-    fn clone <(i64)->i64> (self):
-        self
-
     fn eq <(i64,i64)->bool> (a, b):
         eq a b
 
@@ -107,9 +87,6 @@ impl HashKey for i64:
         mix xor folded -1640531527
 
 impl HashKey for str:
-    fn clone <(str)->str> (self):
-        self
-
     fn eq <(str,str)->bool> (a, b):
         str_eq a b
 

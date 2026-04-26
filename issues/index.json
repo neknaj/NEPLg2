@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T15:06:51.439Z",
+  "generated_at": "2026-04-26T15:26:49.833Z",
   "counts": {
     "total": 130,
-    "open": 12,
-    "resolved": 118,
+    "open": 11,
+    "resolved": 119,
     "by_area": {
       "core": {
         "total": 47,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 43,
-        "open": 9,
-        "resolved": 34
+        "open": 8,
+        "resolved": 35
       },
       "cli": {
         "total": 17,
@@ -88,21 +88,6 @@
       "legacy_id": "RV-STDLIB-007",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-007",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-012-C31422D8",
-      "title": "HashKey/Hasher の clone/copy capability が標準 trait と不整合",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/core/traits/hash_key.nepl, stdlib/core/traits/hash.nepl, tests/stdlib/traits_hash.n.md",
-      "legacy_id": "RV-STDLIB-012",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-012",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-012-C31422D8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-013-F256803D",
@@ -1108,6 +1093,21 @@
       "legacy_id": "RV-STDLIB-006",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-006",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-006-673F4E12.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-012-C31422D8",
+      "title": "HashKey/Hasher の clone/copy capability が標準 trait と不整合",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/core/traits/hash_key.nepl, stdlib/core/traits/hash.nepl, tests/stdlib/traits_hash.n.md",
+      "legacy_id": "RV-STDLIB-012",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-012",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-012-C31422D8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-014-83D059C2",

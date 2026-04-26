@@ -24,11 +24,115 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
+## hashkey_no_longer_declares_clone_method
+
+[目的/もくてき]:
+
+- `HashKey` が独自の by-value `clone` method を[要求/ようきゅう]しないことを[固定/こてい]します。
+- key の[複製/ふくせい]・copy [可能性/かのうせい]は標準 `Clone` / `Copy` trait で[表現/ひょうげん]します。
+
+neplg2:test[compile_fail]
+diag_id: 3089
+```neplg2
+#entry main
+#target core
+#indent 4
+#import "core/traits/hash_key" as *
+
+struct Token:
+    raw <i32>
+
+impl HashKey for Token:
+    fn clone <(Token)->Token> (self):
+        self
+
+    fn eq <(Token,Token)->bool> (_a, _b):
+        true
+
+    fn hash32 <(Token)->i32> (_self):
+        0
+
+fn main <()->i32> ():
+    0
+```
+
+## hashkey_bound_is_not_copy_bound
+
+[目的/もくてき]:
+
+- `.T: HashKey` だけでは `.T` が copy 可能とは[扱/あつか]われないことを[確認/かくにん]します。
+- hash collection が copy を[必要/ひつよう]とする[箇所/かしょ]では、`.T: HashKey&Copy` のように標準 `Copy` を[明示/めいじ]します。
+
+neplg2:test[compile_fail]
+diag_id: 3053
+```neplg2
+#entry main
+#target core
+#indent 4
+#import "core/traits/hash_key" as *
+
+struct Token:
+    raw <(i32)->i32>
+
+impl HashKey for Token:
+    fn eq <(Token,Token)->bool> (_a, _b):
+        true
+
+    fn hash32 <(Token)->i32> (_self):
+        0
+
+fn id <(i32)->i32> (x):
+    x
+
+fn use_twice <.T: HashKey> <(.T)->i32> (x):
+    let a <.T> x
+    let b <.T> x
+    0
+
+fn main <()->i32> ():
+    use_twice Token @id
+```
+
+## hasher_bound_is_not_copy_bound
+
+[目的/もくてき]:
+
+- `.H: Hasher<.K>` だけでは `.H` が copy 可能とは[扱/あつか]われないことを[確認/かくにん]します。
+- stateless hasher を繰り返し使う collection API は、`.H: Hasher<.K>&Copy` を[明示/めいじ]します。
+
+neplg2:test[compile_fail]
+diag_id: 3053
+```neplg2
+#entry main
+#target core
+#indent 4
+#import "core/traits/hash" as *
+#import "core/traits/hash_key" as *
+
+struct StatefulHasher:
+    raw <(i32)->i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+impl Hasher<i32> for StatefulHasher:
+    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+        key
+
+fn use_hasher_twice <.K: HashKey,.H: Hasher<.K>> <(.H)->i32> (h):
+    let a <.H> h
+    let b <.H> h
+    0
+
+fn main <()->i32> ():
+    use_hasher_twice<i32, StatefulHasher> StatefulHasher @id
+```
+
 ## hashmap_accepts_hashkey_impl
 
 [目的/もくてき]:
 
-- `hashmap` が key capability と hasher [値/あたい]を[分離/ぶんり]した API に[移行/いこう]したことを[確/たし]かめます。
+- `hashmap` が key の `HashKey` trait と標準 `Copy` bound を[分離/ぶんり]した API に[移行/いこう]したことを[確/たし]かめます。
 - custom key [型/かた]に `HashKey` と custom hasher [向/む]け `hash32` overload を[定義/ていぎ]すれば、その[意味論/いみろん]で insert/get が[成立/せいりつ]することを[確認/かくにん]します。
 
 neplg2:test
@@ -64,14 +168,19 @@ struct ModKey:
     raw <i32>
 
 impl HashKey for ModKey:
-    fn clone <(ModKey)->ModKey> (self):
-        self
-
     fn eq <(ModKey,ModKey)->bool> (a, b):
         eq field::get a "raw" field::get b "raw"
 
     fn hash32 <(ModKey)->i32> (self):
         rem_s field::get self "raw" 17
+
+impl Clone for ModKey:
+    fn clone <(&ModKey)->ModKey> (self):
+        *self
+
+impl Copy for ModKey:
+    fn copy_mark <(ModKey)->ModKey> (self):
+        self
 
 struct ModHasher:
     tag <()>
@@ -128,7 +237,7 @@ fn main <()*>i32> ():
 
 [目的/もくてき]:
 
-- `hashset` が key capability と hasher [値/あたい]を[分離/ぶんり]した API に[移行/いこう]したことを[確/たし]かめます。
+- `hashset` が key の `HashKey` trait と標準 `Copy` bound を[分離/ぶんり]した API に[移行/いこう]したことを[確/たし]かめます。
 - custom key [型/かた]に `HashKey` と custom hasher [向/む]け `hash32` overload を[定義/ていぎ]すれば、その[意味論/いみろん]で insert/contains が[成立/せいりつ]することを[確認/かくにん]します。
 
 neplg2:test
@@ -156,14 +265,19 @@ struct ModKey:
     raw <i32>
 
 impl HashKey for ModKey:
-    fn clone <(ModKey)->ModKey> (self):
-        self
-
     fn eq <(ModKey,ModKey)->bool> (a, b):
         eq field::get a "raw" field::get b "raw"
 
     fn hash32 <(ModKey)->i32> (self):
         rem_s field::get self "raw" 17
+
+impl Clone for ModKey:
+    fn clone <(&ModKey)->ModKey> (self):
+        *self
+
+impl Copy for ModKey:
+    fn copy_mark <(ModKey)->ModKey> (self):
+        self
 
 struct ModHasher:
     tag <()>

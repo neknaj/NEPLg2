@@ -22,7 +22,7 @@ fn main <()*>i32> ():
     // 要件: ファイル I/O の失敗が Result で扱えること
     let path "__definitely_missing_selfhost_req_file__.txt";
     let res <Result<str,i32>> fs_read_to_string path;
-    
+
     match res:
         Result::Ok _content:
             1
@@ -47,12 +47,12 @@ fn main <()*>i32> ():
     // 要件: u8 型 (現状は i32/bool/f32/str のみで u8 がない)
     let b1 <u8> cast 0xDE;
     let b2 <u8> cast 0xAD;
-    
+
     // 要件: Vec<u8> (バイトバッファ)
     let mut buf <Vec<u8>> unwrap_ok new<u8>;
     set buf unwrap_ok push<u8> buf b1;
     set buf unwrap_ok push<u8> buf b2;
-    
+
     // 要件: バイト単位のアクセス
     match get<u8> buf 0:
         Option::Some val:
@@ -76,10 +76,10 @@ ret: 0
 
 fn main <()*>i32> ():
     let s "  fn main(a: i32)  ";
-    
+
     // 要件: trim (前後の空白除去)
     let trimmed <str> str_trim s;
-    
+
     // 要件: starts_with / ends_with
     let ok_starts_with_fn <bool> str_starts_with trimmed "fn";
     if:
@@ -88,16 +88,16 @@ fn main <()*>i32> ():
             // 要件: split (区切り文字での分割)
             let parts <Vec<str>> str_split trimmed "(";
             let name_part <str> unwrap<str> get<str> parts 0; // "fn main"
-            
+
             // 要件: substring / slice
             let func_name <str> str_slice name_part 3 len name_part; // "main"
-            
+
             if:
                 str_eq func_name "main"
                 then 0
                 else 2
         else 1
-    
+
 ```
 
 ## test_req_string_map
@@ -152,13 +152,13 @@ ret: 20
 fn main <()*>i32> ():
     // 要件: StringBuilder のような可変文字列バッファ
     let mut sb <StringBuilder> string_builder_new;
-    
+
     set sb sb_append sb "Error: ";
     set sb sb_append_i32 sb 404;
     set sb sb_append sb " Not Found";
-    
+
     let res <str> sb_build sb;
-    
+
     // "Error: 404 Not Found"
     len res
 ```
@@ -178,6 +178,7 @@ ret: 5
 #import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "core/traits/hash" as *
 #import "core/traits/hash_key" as *
 
@@ -188,9 +189,6 @@ struct Point:
 
 // 要件: ユーザー定義型をMapのキーにするための HashKey trait 実装
 impl HashKey for Point:
-    fn clone <(Point)->Point> (self):
-        self
-
     fn eq <(Point, Point)->bool> (a, b):
         let ax <i32> field::get a "x"
         let ay <i32> field::get a "y"
@@ -200,6 +198,14 @@ impl HashKey for Point:
 
     fn hash32 <(Point)->i32> (self):
         xor field::get self "x" field::get self "y"
+
+impl Clone for Point:
+    fn clone <(&Point)->Point> (self):
+        *self
+
+impl Copy for Point:
+    fn copy_mark <(Point)->Point> (self):
+        self
 
 fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, Diag>)*>HashMap<Point,str,DefaultHash32>> (r):
     match r:

@@ -1474,7 +1474,7 @@
   - playground editor の core 側は CLI suite で通っていた一方、surface 側に hover/completion 非表示、DPR ずれ、マウス座標ずれの問題が残っていたため、editor-dom-ui / editor-input-handler / editor.ts / styles.css を修正した。
 - [原因]:
   - general-popup と completion-list は初期 DOM で hidden class を持っているのに、表示時に class を外しておらず、display: block を設定しても display: none !important に負けて常時非表示のままだった。
-  - esizeEditor() が ctx.scale(dpr, dpr) を毎回積み上げており、初期化後の resize や pane resize のたびに文字・ハイライト・カーソルの描画位置がずれやすい状態だった。
+  -esizeEditor() が ctx.scale(dpr, dpr) を毎回積み上げており、初期化後の resize や pane resize のたびに文字・ハイライト・カーソルの描画位置がずれやすい状態だった。
   - マウス位置計算が offsetX / offsetY 固定で、canvas の実サイズ・CSS サイズ・イベント起点の差分に弱かった。
   - IME 用 textarea が z-index: -1 のままで、入力位置追従に必要なスタイル情報も不足していた。
 - [修正]:
@@ -1483,16 +1483,16 @@
   - web/src/editor/editor-input-handler.ts
     - clientX / clientY と getBoundingClientRect() から canvas 相対座標を求めるように変更した。
   - web/src/editor/editor.ts
-    - esizeEditor() で setTransform(1, 0, 0, 1, 0, 0) を挟んでから DPR scale をかけるようにし、拡大率の累積を止めた。
+    -esizeEditor() で setTransform(1, 0, 0, 1, 0, 0) を挟んでから DPR scale をかけるようにし、拡大率の累積を止めた。
     - hidden textarea に font / lineHeight / height を追従させ、IME 位置計算と completion anchor のずれを抑えた。
   - web/styles.css
     - popup tooltip / completion popup のスタイルを追加した。
     - hidden textarea を editor surface 上で安全にフォーカスできる設定へ寄せた。
 - [確認]:
-  - 
+  -
 pm --prefix web run build:ts: 通過
   - 	runk build --release --public-url ./: 通過
-  - 
+  -
 ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json: 11/11 passed
 - [plan.mdとの差分]:
   - 新しい editor core への移行は継続中で、今回の修正は旧 CanvasEditor surface の不具合を根本修正したもの。描画・入力 surface の問題を先に潰したので、今後は pointer / completion / problems の UI 状態遷移をさらに pure な境界へ寄せやすくなった。
@@ -18027,3 +18027,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 実装前の Rust core safety issue として、loop-carried ownership state の制御フロー merge を補強した。
+
+# 2026-04-26 メモ (RV-STDLIB-012 HashKey / Hasher capability 整理)
+
+- `HashKey` は key の同値性と hash 計算だけを表す trait に戻し、独自 `#capability clone` / `#capability copy` と by-value `clone` method を削除した。
+- `Hasher<.K>` からも独自 clone/copy capability を削除し、collection が hasher value を複数回読む箇所では `.H: Hasher<.K>&Copy` を明示する形にした。
+- `HashMap` / `HashSet` / `BloomFilter` / `CountingBloomFilter` は key を probe や再配置で複数回使うため、`.K: HashKey&Copy` / `.T: HashKey&Copy` を public/helper API に明示した。
+- custom key の doctest は `HashKey` impl と標準 `Clone` / `Copy` impl を分け、`HashKey` や `Hasher` の bound だけでは copy 扱いされない compile_fail を追加した。
+- `tests/stdlib` 全体は 4 分 timeout で完走しなかったが、変更対象の `traits_hash` / `selfhost_req` と stdlib 本体 411 件は pass した。
+- `plan.md` は変更していない。今回の修正は self-host の symbol table / intern table に使う hash collection の trait 境界を標準 `Copy` / `Clone` と整合させるもの。
