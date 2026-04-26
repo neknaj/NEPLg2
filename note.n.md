@@ -1,3 +1,25 @@
+# 2026-04-26 メモ (ISS-20260426T020003000Z stdio skipped doctests)
+
+- 状況:
+  - `stdlib/std/stdio.nepl` の self-host CLI 重要 API に `neplg2:test[skip]` が残り、stdout / stdin / ANSI / debug output の wrapper が stdlib doctest で実行されていなかった。
+  - debug 系の release profile 実装はコメント上 no-op public API だったが、実際の関数名が `__debug*_release_noop` で、release profile では `debug` / `debugln` などが解決できない状態だった。
+- 修正:
+  - `print` / `println` / `print_i32` / `println_i32` / `read_all` / `read_line` を stdin / stdout metadata 付き doctest にした。
+  - ANSI helper と `print_color` / `println_color` / debug color 系は実際の escape sequence を stdout で固定した。
+  - release profile 側の debug no-op 関数名を public API 名へ揃えた。
+  - `tests/compiler/tree/19_stdio_release_debug_noop.js` を追加し、release profile で debug no-op symbol が stdlib import から解決できることを固定した。
+- 検証:
+  - `rg -n "neplg2:test\\[skip\\]" stdlib/std/stdio.nepl`: no matches
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-executable-doctests.json -j 1`: `total=28`, `passed=28`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --with-tree --no-stdlib -o tmp/stdio-executable-doctests-tree.json -j 1`: `total=48`, `passed=48`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md -i tests/stdlib/stdio_read_all.n.md -i tests/stdlib/stdout.n.md -i tests/stdlib/streamio.n.md -i tests/stdlib/io.n.md --no-tree -o tmp/stdio-related-tests.json -j 2`: `total=30`, `passed=30`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdio-executable-stdlib-full.json -j 4`: `total=404`, `passed=404`
+  - `cargo fmt --all --check`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-stdio-executable.json`: `13/13 passed`
+  - `node nodesrc/issues.js index` / `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host 前提の標準入出力 wrapper の回帰確認を実行可能にするもの。
+
 # 2026-04-26 メモ (ISS-20260426T104115640Z fs doctest fixture line ending)
 
 - 状況:

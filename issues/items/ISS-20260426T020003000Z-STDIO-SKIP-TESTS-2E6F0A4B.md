@@ -2,8 +2,8 @@
 id: ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B
 title: "stdio has many skipped doctests on self-host critical APIs"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: test
 created: 2026-04-26
@@ -44,3 +44,22 @@ Result-returning API の新設 issue と合わせ、互換 facade の `print` / 
 
 - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-tests.json -j 1`
 - stdout / stderr 分離を確認する CLI JSON fixture。
+
+## 対応
+
+- `stdlib/std/stdio.nepl` の skipped doctest をすべて実行可能な stdin / stdout / ret 付き fixture に置き換えた。
+- `print` / `println` / `print_i32` / `println_i32` / `read_all` / `read_line` の標準 I/O 経路を doctest で直接確認するようにした。
+- ANSI helper と color output helper は実際の escape sequence を stdout で比較するようにした。
+- debug 系 API は debug profile の出力を確認し、release profile 側の no-op 実装が public 名 `debug` / `debug_color` / `debugln` / `debugln_color` として解決できるように修正した。
+- `tests/compiler/tree/19_stdio_release_debug_noop.js` を追加し、release profile で debug no-op symbol が stdlib import から解決できることを固定した。
+
+## 検証結果
+
+- `rg -n "neplg2:test\\[skip\\]" stdlib/std/stdio.nepl`: no matches
+- `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-executable-doctests.json -j 1`: total=28, passed=28
+- `node nodesrc/tests.js -i stdlib/std/stdio.nepl --with-tree --no-stdlib -o tmp/stdio-executable-doctests-tree.json -j 1`: total=48, passed=48
+- `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md -i tests/stdlib/stdio_read_all.n.md -i tests/stdlib/stdout.n.md -i tests/stdlib/streamio.n.md -i tests/stdlib/io.n.md --no-tree -o tmp/stdio-related-tests.json -j 2`: total=30, passed=30
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdio-executable-stdlib-full.json -j 4`: total=404, passed=404
+- `cargo fmt --all --check`: pass
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-stdio-executable.json`: 13/13 passed
+- `node nodesrc/issues.js index` / `node nodesrc/issues.js check`: pass

@@ -531,9 +531,11 @@ fn stdio_read_all_bytes <()*>ByteBuf> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "sample"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
@@ -567,13 +569,16 @@ fn noshadow print <(str)*>()> (s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdin: "sample input"
+//: stdout: "sample input"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     read_all ();
+//:     print read_all;
 //: ```
 fn read_all <()*>str> ():
     let mut cap <i32> 4096;
@@ -668,13 +673,16 @@ fn read_all <()*>str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdin: "line1\nline2"
+//: stdout: "line1"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     read_line ();
+//:     print read_line;
 //: ```
 fn noshadow read_line <()*>str> ():
     let cap <i32> 1024;
@@ -756,9 +764,11 @@ fn noshadow read_line <()*>str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "sample\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
@@ -792,13 +802,15 @@ fn noshadow println <(str)*>()> (s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "42"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     print_i32 0;
+//:     print_i32 42;
 //: ```
 fn noshadow print_i32 <(i32)*>()> (v):
     let s <str> :
@@ -890,13 +902,15 @@ fn noshadow print_i32 <(i32)*>()> (v):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "42\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     println_i32 0;
+//:     println_i32 42;
 //: ```
 fn noshadow println_i32 <(i32)*>()> (v):
     print_i32 v;
@@ -925,13 +939,15 @@ fn noshadow println_i32 <(i32)*>()> (v):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[0m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_reset ();
+//:     print ansi_reset;
 //: ```
 fn ansi_reset <()->str> ():
     "\x1b[0m"
@@ -959,13 +975,15 @@ fn ansi_reset <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[1m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_bold ();
+//:     print ansi_bold;
 //: ```
 fn ansi_bold <()->str> ():
     "\x1b[1m"
@@ -993,13 +1011,15 @@ fn ansi_bold <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[4m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_underline ();
+//:     print ansi_underline;
 //: ```
 fn ansi_underline <()->str> ():
     "\x1b[4m"
@@ -1027,13 +1047,15 @@ fn ansi_underline <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[31m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_red ();
+//:     print ansi_red;
 //: ```
 fn ansi_red <()->str> ():
     "\x1b[31m"
@@ -1061,13 +1083,15 @@ fn ansi_red <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[32m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_green ();
+//:     print ansi_green;
 //: ```
 fn ansi_green <()->str> ():
     "\x1b[32m"
@@ -1095,13 +1119,15 @@ fn ansi_green <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[33m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_yellow ();
+//:     print ansi_yellow;
 //: ```
 fn ansi_yellow <()->str> ():
     "\x1b[33m"
@@ -1129,13 +1155,15 @@ fn ansi_yellow <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[34m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_blue ();
+//:     print ansi_blue;
 //: ```
 fn ansi_blue <()->str> ():
     "\x1b[34m"
@@ -1163,13 +1191,15 @@ fn ansi_blue <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[35m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_magenta ();
+//:     print ansi_magenta;
 //: ```
 fn ansi_magenta <()->str> ():
     "\x1b[35m"
@@ -1197,13 +1227,15 @@ fn ansi_magenta <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[36m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_cyan ();
+//:     print ansi_cyan;
 //: ```
 fn ansi_cyan <()->str> ():
     "\x1b[36m"
@@ -1231,13 +1263,15 @@ fn ansi_cyan <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[37m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_white ();
+//:     print ansi_white;
 //: ```
 fn ansi_white <()->str> ():
     "\x1b[37m"
@@ -1265,13 +1299,15 @@ fn ansi_white <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[90m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     ansi_gray ();
+//:     print ansi_gray;
 //: ```
 fn ansi_gray <()->str> ():
     "\x1b[90m"
@@ -1299,13 +1335,15 @@ fn ansi_gray <()->str> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[31msample\u001b[0m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     print_color "sample" "sample";
+//:     print_color ansi_red "sample";
 //: ```
 fn print_color <(str,str)*>()> (color, s):
     print color;
@@ -1336,13 +1374,15 @@ fn print_color <(str,str)*>()> (color, s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[31msample\u001b[0m\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     println_color "sample" "sample";
+//:     println_color ansi_red "sample";
 //: ```
 fn println_color <(str,str)*>()> (color, s):
     print_color color s;
@@ -1372,9 +1412,11 @@ fn println_color <(str,str)*>()> (color, s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "sample"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
@@ -1409,13 +1451,15 @@ fn debug <(str)*>()> (s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[31msample\u001b[0m"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     debug_color "sample" "sample";
+//:     debug_color ansi_red "sample";
 //: ```
 #if[profile=debug]
 fn debug_color <(str,str)*>()> (color, s):
@@ -1446,16 +1490,24 @@ fn debug_color <(str,str)*>()> (color, s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: ""
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: #if[profile=debug]
+//: fn main <()*>i32> ():
+//:     0
+//: #if[profile=release]
+//: fn main <()*>i32> ():
 //:     debug "sample";
+//:     0
 //: ```
 #if[profile=release]
-fn __debug_release_noop <(str)*>()> (_s):
+fn debug <(str)*>()> (_s):
     ()
 
 //: debug_color: 色付きデバッグ出力（release では無効）
@@ -1481,16 +1533,24 @@ fn __debug_release_noop <(str)*>()> (_s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: ""
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     debug_color "sample" "sample";
+//: #if[profile=debug]
+//: fn main <()*>i32> ():
+//:     0
+//: #if[profile=release]
+//: fn main <()*>i32> ():
+//:     debug_color ansi_red "sample";
+//:     0
 //: ```
 #if[profile=release]
-fn __debug_color_release_noop <(str,str)*>()> (_color, _s):
+fn debug_color <(str,str)*>()> (_color, _s):
     ()
 
 #if[profile=debug]
@@ -1517,9 +1577,11 @@ fn __debug_color_release_noop <(str,str)*>()> (_color, _s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "sample\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
@@ -1554,13 +1616,15 @@ fn debugln <(str)*>()> (s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: "\u001b[31msample\u001b[0m\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     debugln_color "sample" "sample";
+//:     debugln_color ansi_red "sample";
 //: ```
 #if[profile=debug]
 fn debugln_color <(str,str)*>()> (color, s):
@@ -1592,16 +1656,24 @@ fn debugln_color <(str,str)*>()> (color, s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: ""
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: #if[profile=debug]
+//: fn main <()*>i32> ():
+//:     0
+//: #if[profile=release]
+//: fn main <()*>i32> ():
 //:     debugln "sample";
+//:     0
 //: ```
 #if[profile=release]
-fn __debugln_release_noop <(str)*>()> (_s):
+fn debugln <(str)*>()> (_s):
     ()
 
 //: debugln_color: 色付きデバッグ出力（release では無効）
@@ -1627,14 +1699,22 @@ fn __debugln_release_noop <(str)*>()> (_s):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdout: ""
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     debugln_color "sample" "sample";
+//: #if[profile=debug]
+//: fn main <()*>i32> ():
+//:     0
+//: #if[profile=release]
+//: fn main <()*>i32> ():
+//:     debugln_color ansi_red "sample";
+//:     0
 //: ```
 #if[profile=release]
-fn __debugln_color_release_noop <(str,str)*>()> (_color, _s):
+fn debugln_color <(str,str)*>()> (_color, _s):
     ()

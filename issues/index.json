@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T10:48:03.874Z",
+  "generated_at": "2026-04-26T11:09:38.346Z",
   "counts": {
     "total": 121,
-    "open": 19,
-    "resolved": 102,
+    "open": 18,
+    "resolved": 103,
     "by_area": {
       "core": {
         "total": 39,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 42,
-        "open": 11,
-        "resolved": 31
+        "open": 10,
+        "resolved": 32
       },
       "cli": {
         "total": 17,
@@ -178,21 +178,6 @@
       "legacy_id": "RV-STDLIB-013",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-013",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-013-F256803D.md"
-    },
-    {
-      "id": "ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B",
-      "title": "stdio has many skipped doctests on self-host critical APIs",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/std/stdio.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
-      "file": "items/ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1258,6 +1243,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
       "file": "items/ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B.md"
+    },
+    {
+      "id": "ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B",
+      "title": "stdio has many skipped doctests on self-host critical APIs",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/stdio.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B.md"
     },
     {
       "id": "ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F",
