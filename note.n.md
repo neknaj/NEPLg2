@@ -16481,3 +16481,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `Vec` helper の再帰引数評価を明確にしただけで、public API は変更していない。
+
+# 2026-04-26 メモ (RV-STDLIB-022 HashMap doctest indent 修正)
+
+- [原因]:
+  - `stdlib/alloc/collections/hashmap.nepl::doctest#3` は `if` の続きに置いた `match` block の indent が1スペース浅く、抽出後に `#indent 4` へ揃わず D1206 になっていた。
+  - indent を直すと、同じ `HashMap` owner に `get` を2回呼ぶ by-value API 上の move error も露出した。
+- [修正]:
+  - `match get hm1 3:` block の indent を `#indent 4` に揃えた。
+  - missing key の確認は空 map、existing value の確認は insert 後 map に分け、同一 owner を二度 consume しない fixture にした。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-022` を verified に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/hashmap.nepl -n 3 --dist dist`: `pass`, `return_value=1`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-indent-rv-stdlib-022.json -j 1`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-022.json -j 4`: `total=379`, `passed=372`, `failed=7`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-021`: vec sort overload 不一致。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - HashMap の実装や API は変更せず、doctest fixture を現行 parser / ownership 規則へ合わせた。

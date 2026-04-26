@@ -10,9 +10,9 @@
 |---|---:|---:|
 | core | 3 | 26 |
 | cli | 3 | 11 |
-| stdlib | 14 | 10 |
+| stdlib | 13 | 11 |
 | examples | 0 | 13 |
-| 合計 | 20 | 60 |
+| 合計 | 19 | 61 |
 
 ## Core
 
@@ -92,7 +92,7 @@
 | [RV-STDLIB-019](./stdlib.md#rv-stdlib-019-collection-doctest-の値ブロック末尾セミコロンが戻り値を-unit-にしている) | true | verified | P0 | test | collection doctest の `let x <T>:` 値ブロック末尾 `;` を削除し、対象4ファイルの doctest 34件を green 化済み |
 | [RV-STDLIB-020](./stdlib.md#rv-stdlib-020-fenwicksegmenttree-doctest-が-d3016-expression-left-extra-values-で失敗する) | true | verified | P0 | test | `vec` recursive helper の `idx + 1` 引数境界を修正し、Fenwick / SegmentTree D3016 14件を green 化済み |
 | [RV-STDLIB-021](./stdlib.md#rv-stdlib-021-vec-sort-doctest-が-overload-解決不一致で失敗する) | false | open | P1 | test | `vec/sort.nepl` doctest が D3021 / D3006 で失敗している |
-| [RV-STDLIB-022](./stdlib.md#rv-stdlib-022-hashmap-doctest-にインデント不整合が残っている) | false | open | P1 | test | `hashmap.nepl::doctest#3` が D1206 indentation error で失敗している |
+| [RV-STDLIB-022](./stdlib.md#rv-stdlib-022-hashmap-doctest-にインデント不整合が残っている) | true | verified | P1 | test | `hashmap.nepl::doctest#3` の indent と by-value get fixture を修正済み |
 | [RV-STDLIB-023](./stdlib.md#rv-stdlib-023-hashmaphashset-の文字列-key-runtime-test-が-memory-oob-と-return-mismatch-で失敗する) | false | open | P0 | bug | HashMap / HashSet の string key runtime tests が OOB / mismatch で失敗している |
 | [RV-STDLIB-024](./stdlib.md#rv-stdlib-024-deserialize-doctest-の-match-arm-が-result-と-unit-で不一致になる) | false | open | P1 | test | `deserialize.nepl::doctest#1` が D3045 match arm type mismatch で失敗している |
 

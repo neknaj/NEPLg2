@@ -299,15 +299,16 @@ fn insert <.K: HashKey,.V,.H: Hasher<.K>> <(HashMap<.K,.V,.H>,.K,.V)*>Result<Has
 //:| #import "core/result" as *
 //:| #import "core/option" as *
 //: fn main <()*>i32> ():
+//:     let hm_empty <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let missing <bool> is_none<i32> get hm_empty 4
 //:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 3 30;
-//:     if is_none<i32> get hm1 4 1
-//:        match get hm1 3:
-//:            Option::Some x:
-//:                if eq x 30 1 0
-//:            Option::None:
-//:                0
-//:        0
+//:     match get hm1 3:
+//:         Option::Some x:
+//:             let value_ok <bool> eq x 30
+//:             if and missing value_ok 1 0
+//:         Option::None:
+//:             0
 //: ```
 fn get <.K: HashKey,.V,.H: Hasher<.K>> <(HashMap<.K,.V,.H>,.K)->Option<.V>> (hm, key):
     let hdr <i32> field::get hm "hdr"

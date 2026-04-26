@@ -765,8 +765,8 @@ stdlib 全体の残り8件は `RV-STDLIB-021` から `RV-STDLIB-024` の範囲�
 
 ## RV-STDLIB-022: HashMap doctest にインデント不整合が残っている
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: test
 - 対象: `stdlib/alloc/collections/hashmap.nepl`
@@ -783,10 +783,17 @@ hashmap の public doctest が、現行 parser の indent 幅ルールに合っ�
 
 該当 doctest の生成ソースを抽出し、`#indent` と本文 indent の不一致だけを直します。API の意味や検証内容は変えず、parser が受理する形に揃えます。
 
+### 対応結果
+
+`get` の doctest で `if` の続きに置いた `match` block の indent を `#indent 4` に合わせました。indent 修正後に同じ `HashMap` owner へ `get` を2回呼んでいる move error が露出したため、missing check 用の空 map と existing value check 用の map を分け、by-value API の所有権規則にも合う fixture にしました。
+
 ### 検証
 
-- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/hashmap.nepl -n 3 --dist dist`
-- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-indent-rv-stdlib-022.json -j 1`
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/hashmap.nepl -n 3 --dist dist` (`pass`, `return_value=1`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-indent-rv-stdlib-022.json -j 1` (`total=7`, `passed=7`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-022.json -j 4` (`total=379`, `passed=372`, `failed=7`, `errored=0`)
 
 ## RV-STDLIB-023: HashMap/HashSet の文字列 key runtime test が memory OOB と return mismatch で失敗する
 
