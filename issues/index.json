@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T13:12:02.544Z",
+  "generated_at": "2026-04-26T13:43:57.846Z",
   "counts": {
     "total": 126,
-    "open": 14,
-    "resolved": 112,
+    "open": 13,
+    "resolved": 113,
     "by_area": {
       "core": {
         "total": 43,
@@ -13,8 +13,8 @@
       },
       "selfhost": {
         "total": 7,
-        "open": 3,
-        "resolved": 4
+        "open": 2,
+        "resolved": 5
       },
       "stdlib": {
         "total": 43,
@@ -58,21 +58,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A",
-      "title": "source loading requires UTF-8 validation before producing str",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/std/fs.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A.md"
     },
     {
       "id": "ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11",
@@ -1048,6 +1033,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0.md"
+    },
+    {
+      "id": "ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A",
+      "title": "source loading requires UTF-8 validation before producing str",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/text.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, stdlib/std/io.nepl, tests/stdlib/text_utf8.n.md, tests/stdlib/stdio_read_all.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

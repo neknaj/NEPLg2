@@ -48,6 +48,7 @@
 #import "std/fs" as *
 #import "std/iotarget" as *
 #import "std/stdio" as *
+#import "std/text" as *
 
 //: ## StdinStream
 //: [標準入力/ひょうじゅんにゅうりょく]を[表/あらわ]す[軽量/けいりょう] handle
@@ -1575,11 +1576,11 @@ fn flush <(StreamWriter)*>StreamWriter> (w):
 
 impl ByteReader for StdinStream:
     fn read_all_bytes <(StdinStream)*>Result<ByteBuf, StdErrorKind>> (_stream):
-        Result::Ok stdio_read_all_bytes
+        stdio_read_all_bytes_result
 
 impl TextReader for StdinStream:
     fn read_all_text <(StdinStream)*>Result<str, StdErrorKind>> (_stream):
-        Result::Ok read_all
+        stdio_read_all_text_result
 
 impl ByteReader for TextInputStream:
     fn read_all_bytes <(TextInputStream)*>Result<ByteBuf, StdErrorKind>> (stream):
@@ -1599,7 +1600,7 @@ impl ByteReader for ByteInputStream:
 
 impl TextReader for ByteInputStream:
     fn read_all_text <(ByteInputStream)*>Result<str, StdErrorKind>> (stream):
-        io_bytebuf_to_str_result get stream "bytes"
+        text_bytebuf_to_utf8_str_result get stream "bytes"
 
 impl Close for ByteInputStream:
     fn close <(ByteInputStream)*>Result<(), StdErrorKind>> (_stream):

@@ -41,6 +41,7 @@
 #import "std/fs" as *
 #import "std/iotarget" as *
 #import "std/streamio" as *
+#import "std/text" as *
 
 //: ## TargetWritable
 //: category target へ[書/か]き[込/こ]める[値/あたい]の[能力/のうりょく]
@@ -93,7 +94,7 @@ impl TargetReadable for str:
             ReadStream::Stdio:
                 io_read_all_text StdinStream ()
             ReadStream::Fs path:
-                match fs_read_to_string path:
+                match fs_read_to_string_checked path:
                     Result::Ok text:
                         Result<str, StdErrorKind>::Ok text
                     Result::Err _e:
@@ -101,7 +102,7 @@ impl TargetReadable for str:
             ReadStream::Text text:
                 Result<str, StdErrorKind>::Ok text
             ReadStream::Bytes bytes:
-                io_bytebuf_to_str_result bytes
+                text_bytebuf_to_utf8_str_result bytes
 
 //: ## read
 //: category target から byte [列/れつ]や text を[読/よ]む facade

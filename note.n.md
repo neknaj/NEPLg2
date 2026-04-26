@@ -17849,3 +17849,36 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib directory API の追加で core test harness 側にも WASI import surface の追従が必要になったため、self-host 前提の検証基盤として harness を更新した。
+
+# 2026-04-26 メモ (ISS-20260426T010004Z text UTF-8 checked API 実装)
+
+- [同期]:
+  - 作業開始時に `git pull --ff-only origin main` を実行し、`main` と `origin/main` が `c8a2765` で一致していることを確認した。
+  - 実装途中に `git fetch origin main` を実行し、remote main が同じ `c8a2765` のままであることを確認した。
+  - commit 前検証中に `origin/main` が `ef239c2` まで進んだため、stash → `git rebase origin/main` → stash pop で warning debt / WASI harness directory stub の変更を取り込んだ。`issues/index.*` は再生成し、`note.n.md` は双方の作業メモを残して解消した。
+- [原因]:
+  - `io_bytebuf_to_str_result` / `fs_bytes_to_string_result` / `fs_read_to_string` は byte 列をそのまま `str` layout に詰め替える互換 API で、UTF-8 の妥当性を検証しなかった。
+  - `std/stdio` と `std/io` の text read 経路も unchecked conversion に到達でき、compiler source text が invalid byte sequence を `str` として保持する余地があった。
+  - `stdlib/neplg2/core/syntax/source_text.nepl` は現行 tree にまだ存在せず、`module/loader.nepl` も Stage 0 marker のため、今回は実 loader ではなく stdlib 境界 API を固定した。
+- [修正]:
+  - `stdlib/std/text.nepl` を追加し、UTF-8 leading byte を `TextUtf8LeadKind` enum に分類して `match` で 1/2/3/4 byte sequence を検証する `text_bytebuf_to_utf8_str_result` を実装した。
+  - overlong encoding、surrogate range、truncated sequence、continuation byte 単体を `StdErrorKind::InvalidUtf8` として返すようにした。
+  - `std/fs` に `fs_bytes_to_utf8_string_result` と `fs_read_to_string_checked` を追加し、invalid UTF-8 は errno 84 (ILSEQ 相当) に変換するようにした。
+  - `std/stdio` に `stdio_read_all_bytes_result` と `stdio_read_all_text_result` を追加し、stdin read の allocation / memory helper / fd_read failure を Result で返せるようにした。
+  - `stdio_read_all_bytes` と `read_all` は互換 facade として失敗時に空値へ丸めるだけにした。
+  - `std/streamio` と `std/io` の text read 経路を checked conversion に接続し、`ReadStream::Fs` / `ReadStream::Bytes` から invalid byte sequence が unchecked `str` へ入らないようにした。
+  - `alloc/string.nepl` は別 agent の memory 関連変更と衝突しないよう編集していない。
+- [回帰テスト]:
+  - `tests/stdlib/text_utf8.n.md` を追加し、有効な日本語 UTF-8、continuation byte 単体、overlong sequence、`fs_read_to_string_checked` の errno 84、`std/io` facade の bytes-to-text rejection を固定した。
+  - `tests/stdlib/stdio_read_all.n.md` に `stdio_read_all_bytes_result` の正常系を追加し、Result API が stdin bytes を直接返すことを固定した。
+- [検証]:
+  - `trunk build`: pass, warnings なし
+  - `node nodesrc/tests.js -i stdlib/std/text.nepl -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text-utf8-focused-final.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md -i tests/stdlib/stdin.n.md --no-tree -o tmp/text-utf8-stdio-final.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md -i tests/stdlib/io.n.md --no-tree -o tmp/text-utf8-streamio-io-final.json -j 1`: 19/19 passed
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md -i stdlib/std/fs.nepl --no-tree -o tmp/text-utf8-fs-final.json -j 1`: 14/14 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/text-utf8-stdlib-full-final.json -j 4`: 406/406 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-text-utf8-final.json`: 13/13 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host source loader はまだ Stage 0 marker で実 filesystem loader を持たないため、source loading が利用する checked stdlib API と回帰テストを先に確定した。

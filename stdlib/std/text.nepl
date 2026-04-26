@@ -1,0 +1,241 @@
+//: # text
+//: UTF-8 text [境界/きょうかい]で[使/つか]う byte [列/れつ]の[検証/けんしょう]と checked [変換/へんかん]を[集/あつ]めるライブラリ
+//:
+//: ### [目的/もくてき]
+//: - filesystem や stdin から[入/はい]る raw `ByteBuf` を、`str` として[扱/あつか]う[前/まえ]に UTF-8 として[妥当/だとう]か[検査/けんさ]します。
+//: - `alloc/io` の unchecked `io_bytebuf_to_str_result` を[直接/ちょくせつ][使/つか]う[経路/けいろ]と、source text [向/む]けの checked [経路/けいろ]を[分/わ]けます。
+//:
+//: ### [注意/ちゅうい]
+//: - `text_bytebuf_to_utf8_str_result` は[入力/にゅうりょく] `ByteBuf` の[所有権/しょゆうけん]を[消費/しょうひ]し、成功時も失敗時も caller は buffer を[再利用/さいりよう]しません。
+//: - UTF-8 の scalar value [制約/せいやく]も[確認/かくにん]するため、overlong sequence や surrogate range は `InvalidUtf8` になります。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [入力/にゅうりょく] byte [数/すう] n に[対/たい]して O(n) です。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: UTF-8 leading byte の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - leading byte の range [判定/はんてい]を enum にし、sequence [長/なが]さごとの[検証/けんしょう]を `match` で[分岐/ぶんき]します。
+enum TextUtf8LeadKind:
+    Ascii
+    Two
+    Three
+    Four
+    Invalid
+
+fn text_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
+    and ge b lo le b hi
+
+fn text_utf8_is_continuation <(i32)->bool> (b):
+    text_utf8_in_range b 128 191
+
+fn text_utf8_lead_kind <(i32)->TextUtf8LeadKind> (b):
+    if:
+        le b 127
+        then:
+            TextUtf8LeadKind::Ascii
+        else:
+            if:
+                text_utf8_in_range b 194 223
+                then:
+                    TextUtf8LeadKind::Two
+                else:
+                    if:
+                        text_utf8_in_range b 224 239
+                        then:
+                            TextUtf8LeadKind::Three
+                        else:
+                            if:
+                                text_utf8_in_range b 240 244
+                                then:
+                                    TextUtf8LeadKind::Four
+                                else:
+                                    TextUtf8LeadKind::Invalid
+
+fn text_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32, StdErrorKind>> (data, idx):
+    match load_u8 mem_ptr_add data idx:
+        Option::Some b:
+            Result<i32, StdErrorKind>::Ok b
+        Option::None:
+            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+fn text_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len):
+    if:
+        gt add i 2 byte_len
+        then:
+            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+        else:
+            match text_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(), StdErrorKind>::Err e
+                Result::Ok b1:
+                    if:
+                        text_utf8_is_continuation b1
+                        then:
+                            Result<(), StdErrorKind>::Ok ()
+                        else:
+                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+
+fn text_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len, b0):
+    if:
+        gt add i 3 byte_len
+        then:
+            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+        else:
+            match text_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(), StdErrorKind>::Err e
+                Result::Ok b1:
+                    match text_utf8_byte_at data add i 2:
+                        Result::Err e:
+                            Result<(), StdErrorKind>::Err e
+                        Result::Ok b2:
+                            let first_ok <bool>:
+                                if:
+                                    eq b0 224
+                                    then:
+                                        text_utf8_in_range b1 160 191
+                                    else:
+                                        if:
+                                            eq b0 237
+                                            then:
+                                                text_utf8_in_range b1 128 159
+                                            else:
+                                                text_utf8_is_continuation b1
+                            if:
+                                and first_ok text_utf8_is_continuation b2
+                                then:
+                                    Result<(), StdErrorKind>::Ok ()
+                                else:
+                                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+
+fn text_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len, b0):
+    if:
+        gt add i 4 byte_len
+        then:
+            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+        else:
+            match text_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(), StdErrorKind>::Err e
+                Result::Ok b1:
+                    match text_utf8_byte_at data add i 2:
+                        Result::Err e:
+                            Result<(), StdErrorKind>::Err e
+                        Result::Ok b2:
+                            match text_utf8_byte_at data add i 3:
+                                Result::Err e:
+                                    Result<(), StdErrorKind>::Err e
+                                Result::Ok b3:
+                                    let first_ok <bool>:
+                                        if:
+                                            eq b0 240
+                                            then:
+                                                text_utf8_in_range b1 144 191
+                                            else:
+                                                if:
+                                                    eq b0 244
+                                                    then:
+                                                        text_utf8_in_range b1 128 143
+                                                    else:
+                                                        text_utf8_is_continuation b1
+                                    if:
+                                        and first_ok and text_utf8_is_continuation b2 text_utf8_is_continuation b3
+                                        then:
+                                            Result<(), StdErrorKind>::Ok ()
+                                        else:
+                                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+
+//: text_utf8_validate_mem: raw byte [列/れつ]が UTF-8 として[妥当/だとう]か[検証/けんしょう]する
+//:
+//: [目的/もくてき]:
+//: - `MemPtr<u8>` と byte [長/なが]さで[表/あらわ]された[領域/りょういき]を、`str` へ[変換/へんかん]する[前/まえ]に[検査/けんさ]します。
+//:
+//: [実装/じっそう]:
+//: - leading byte を `TextUtf8LeadKind` に[分類/ぶんるい]し、sequence [長/なが]さごとに continuation byte と overlong/surrogate [制約/せいやく]を[確認/かくにん]します。
+//:
+//: [注意/ちゅうい]:
+//: - byte_len が[負/ふ]の[場合/ばあい]や pointer [読/よ]み[出/だ]しに[失敗/しっぱい]した[場合/ばあい]は `InvalidOperation` を[返/かえ]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn text_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(), StdErrorKind>> (data, byte_len):
+    if:
+        lt byte_len 0
+        then:
+            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            let mut i <i32> 0
+            let mut done <i32> 0
+            let mut res <Result<(), StdErrorKind>> Result<(), StdErrorKind>::Ok ()
+            while eq done 0:
+                do:
+                    if:
+                        ge i byte_len
+                        then:
+                            set done 1
+                        else:
+                            match text_utf8_byte_at data i:
+                                Result::Err e:
+                                    set res Result<(), StdErrorKind>::Err e
+                                    set done 1
+                                Result::Ok b0:
+                                    match text_utf8_lead_kind b0:
+                                        TextUtf8LeadKind::Ascii:
+                                            set i add i 1
+                                        TextUtf8LeadKind::Two:
+                                            match text_utf8_validate_two data i byte_len:
+                                                Result::Ok _:
+                                                    set i add i 2
+                                                Result::Err e:
+                                                    set res Result<(), StdErrorKind>::Err e
+                                                    set done 1
+                                        TextUtf8LeadKind::Three:
+                                            match text_utf8_validate_three data i byte_len b0:
+                                                Result::Ok _:
+                                                    set i add i 3
+                                                Result::Err e:
+                                                    set res Result<(), StdErrorKind>::Err e
+                                                    set done 1
+                                        TextUtf8LeadKind::Four:
+                                            match text_utf8_validate_four data i byte_len b0:
+                                                Result::Ok _:
+                                                    set i add i 4
+                                                Result::Err e:
+                                                    set res Result<(), StdErrorKind>::Err e
+                                                    set done 1
+                                        TextUtf8LeadKind::Invalid:
+                                            set res Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                            set done 1
+            res
+
+//: text_bytebuf_to_utf8_str_result: `ByteBuf` を UTF-8 [検証/けんしょう]して `str` へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - file / stdin / binary stream から[得/え]た byte [列/れつ]を、source text [向/む]けに checked `str` へ[変換/へんかん]します。
+//:
+//: [実装/じっそう]:
+//: - 先に `text_utf8_validate_mem` で[全体/ぜんたい]を[検査/けんさ]し、成功したときだけ `io_bytebuf_to_str_result` で text layout へ[詰/つ]め[直/なお]します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力 `ByteBuf` は成功時も失敗時も[消費/しょうひ]されます。
+//: - invalid UTF-8 の[場合/ばあい]は buffer を[解放/かいほう]して `StdErrorKind::InvalidUtf8` を[返/かえ]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn text_bytebuf_to_utf8_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
+    let data <MemPtr<u8>> get buf "ptr"
+    let byte_len <i32> get buf "len"
+    match text_utf8_validate_mem data byte_len:
+        Result::Ok _:
+            io_bytebuf_to_str_result buf
+        Result::Err e:
+            io_bytebuf_free buf
+            Result<str, StdErrorKind>::Err e
