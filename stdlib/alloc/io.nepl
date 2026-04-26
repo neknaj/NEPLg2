@@ -80,7 +80,7 @@ fn io_bytebuf_free <(ByteBuf)->()> (buf):
 //:
 //: [実装/じっそう]:
 //: - 空文字列は確保せず `io_bytebuf_empty` を返します。
-//: - 非空の場合は `alloc_ptr<u8>` で本文長ぶんの領域を確保し、1 byte ずつコピーします。
+//: - 非空の場合は `alloc_ptr<u8>` で本文長ぶんの領域を確保し、bulk copy で byte 表現を複製します。
 //:
 //: [注意/ちゅうい]:
 //: - 返った `ByteBuf` は呼び出し側が所有し、使い終わったら `io_bytebuf_free` してください。
@@ -100,16 +100,9 @@ fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
                 Result::Err _e:
                     Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
                 Result::Ok out:
-                    let mut i <i32> 0
-                    while lt i byte_len:
-                        do:
-                            let b <i32> unwrap<i32> load_u8 mem_ptr_add data i
-                            match store_u8 mem_ptr_add out i b:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    #intrinsic "unreachable" <> ()
-                            set i add i 1
+                    let out_raw <i32> mem_ptr_addr out
+                    let data_raw <i32> mem_ptr_addr data
+                    mem_copy out_raw data_raw byte_len
                     Result<ByteBuf, StdErrorKind>::Ok ByteBuf out byte_len
 
 //: io_bytebuf_from_str: `str` を `ByteBuf` へ複製する互換 facade
@@ -138,7 +131,7 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //: - 所有 byte buffer を text helper へ渡せる `str` 表現に詰め直し、確保失敗を `StdErrorKind::OutOfMemory` として返します。
 //:
 //: [実装/じっそう]:
-//: - `string_alloc_region` で文字列領域を確保し、byte をそのままコピーします。
+//: - `string_alloc_region` で文字列領域を確保し、bulk copy で byte 表現をそのまま複製します。
 //: - 成功時も失敗時も入力 `ByteBuf` はこの関数が解放します。
 //:
 //: [注意/ちゅうい]:
@@ -156,16 +149,10 @@ fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
             Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok region:
             let out <MemPtr<u8>> get region "ptr"
-            let mut i <i32> 0
-            while lt i byte_len:
-                do:
-                    let b <i32> unwrap<i32> load_u8 mem_ptr_add data i
-                    match store_u8 mem_ptr_add out add 4 i b:
-                        Result::Ok _:
-                            ()
-                        Result::Err _e:
-                            #intrinsic "unreachable" <> ()
-                    set i add i 1
+            let out_data <MemPtr<u8>> mem_ptr_add out 4
+            let out_raw <i32> mem_ptr_addr out_data
+            let data_raw <i32> mem_ptr_addr data
+            mem_copy out_raw data_raw byte_len
             io_bytebuf_free buf
             Result<str, StdErrorKind>::Ok string_finish region byte_len
 

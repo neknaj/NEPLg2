@@ -265,27 +265,13 @@ fn concat <(str,str)->str> (a,b):
     let out_data <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr out_base 4;
     let a_data <MemPtr<u8>> string_data_ptr a;
     let b_data <MemPtr<u8>> string_data_ptr b;
-    let mut i <i32> 0;
-    while lt i la:
-        do:
-            let ch <i32> unwrap load_u8 mem_ptr_add a_data i;
-            match store_u8 mem_ptr_add out_data i ch:
-                Result::Ok _:
-                    ()
-                Result::Err _e:
-                    #intrinsic "unreachable" <> ()
-            set i <i32> add i 1;
-    let mut j <i32> 0;
-    while lt j lb:
-        do:
-            let ch <i32> unwrap load_u8 mem_ptr_add b_data j;
-            let dst <i32> add la j;
-            match store_u8 mem_ptr_add out_data dst ch:
-                Result::Ok _:
-                    ()
-                Result::Err _e:
-                    #intrinsic "unreachable" <> ()
-            set j <i32> add j 1;
+    let out_raw <i32> mem_ptr_addr out_data;
+    let a_raw <i32> mem_ptr_addr a_data;
+    mem_copy out_raw a_raw la;
+    let b_out <MemPtr<u8>> mem_ptr_add out_data la;
+    let b_out_raw <i32> mem_ptr_addr b_out;
+    let b_raw <i32> mem_ptr_addr b_data;
+    mem_copy b_out_raw b_raw lb;
     string_finish_base out_base total
 
 // concat3: 3つの文字列を連結する
@@ -487,17 +473,10 @@ fn sb_build <(StringBuilder)->str> (sb):
             let part <str> load<str> add parts_data mul idx size_of<str>;
             let plen <i32> load_i32 part;
             let part_data <MemPtr<u8>> string_data_ptr part;
-            let mut i <i32> 0;
-            while lt i plen:
-                do:
-                    let ch <i32> unwrap load_u8 mem_ptr_add part_data i;
-                    let wr_off <i32> add dst i;
-                    match store_u8 mem_ptr_add out_data wr_off ch:
-                        Result::Ok _:
-                            ()
-                        Result::Err _e:
-                            #intrinsic "unreachable" <> ()
-                    set i add i 1;
+            let out_part <MemPtr<u8>> mem_ptr_add out_data dst;
+            let out_part_raw <i32> mem_ptr_addr out_part;
+            let part_raw <i32> mem_ptr_addr part_data;
+            mem_copy out_part_raw part_raw plen;
             set dst add dst plen;
             set idx add idx 1;
     string_finish_base out_base total
@@ -777,17 +756,10 @@ fn str_slice <(str,i32,i32)->str> (s, start, end):
     let out_base <MemPtr<u8>> get out_region "ptr";
     let out_data <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr out_base 4;
     let s_data <MemPtr<u8>> string_data_ptr s;
-    let mut i <i32> 0;
-    while lt i out_len:
-        do:
-            let rd_off <i32> add s0 i;
-            let b <i32> unwrap load_u8 mem_ptr_add s_data rd_off;
-            match store_u8 mem_ptr_add out_data i b:
-                Result::Ok _:
-                    ()
-                Result::Err _e:
-                    #intrinsic "unreachable" <> ()
-            set i <i32> add i 1;
+    let slice_data <MemPtr<u8>> mem_ptr_add s_data s0;
+    let out_raw <i32> mem_ptr_addr out_data;
+    let slice_raw <i32> mem_ptr_addr slice_data;
+    mem_copy out_raw slice_raw out_len;
     string_finish_base out_base out_len
 
 // str_trim: 前後の空白を取り除く

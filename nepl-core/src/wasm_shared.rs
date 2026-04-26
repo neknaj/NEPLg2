@@ -802,6 +802,10 @@ where
         "i64.trunc_sat_f64_u" => insts.push(Instruction::I64TruncSatF64U),
         "memory.grow" => insts.push(Instruction::MemoryGrow(0)),
         "memory.size" => insts.push(Instruction::MemorySize(0)),
+        "memory.copy" => insts.push(Instruction::MemoryCopy {
+            dst_mem: 0,
+            src_mem: 0,
+        }),
         "drop" => insts.push(Instruction::Drop),
         other => return Err(format!("unsupported wasm instruction: {}", other)),
     }

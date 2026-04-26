@@ -1,6 +1,5 @@
 2026-04-26 NEPLg2 Self-host
 
-- `stdlib/mem-bulk-copy` branch で `ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2` に沿って bulk memory copy API と backend lowering を整備する
 - `stdlib/match-decision-trees` branch で `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` に沿って match で表現すべき stdlib の nested if 分岐を監査し、自然な match 表現へ戻す
 - `core/match-literal-patterns` branch で `ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB` に沿って整数 literal arm と wildcard / default を含む match pattern と網羅性仕様を整備する
 - `core/str-i32-separation` branch で `ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` に沿って `str` と raw `i32` handle の unify を廃止し、明示変換 API と回帰テストへ分離する
@@ -9,6 +8,7 @@
 - `stdlib/doc-comment-boilerplate` branch で `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` に沿って boilerplate 化した stdlib doc comment を具体的な説明へ置き換える
 - `stdlib/stdio-executable-tests` branch で `ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B` に沿って stdio doctest skip を実行可能 test へ移す
 - `rust/compiler-warning-debt` branch で `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` に沿って compiler warning debt を削減する
+- `nodesrc/tests-legacy-runner-stack` branch で `ISS-20260426T072648414Z-NODESRC-TESTS-LEGACY-RUNNER-OVERFLOW-B0D364B2` に沿って single-job test runner の stack overflow を修正する
 - `selfhost/s0-infra-span-diag` branch で `infra/span.nepl`、`diag.nepl`、`outcome.nepl` と最小 doctest を作成する
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
 - `stdlib/fs-write-api` branch で `ISS-20260426T010001Z-STDFS-WRITE-B7C4D923` に沿って self-host CLI に必要な `std/fs` write interface を実装する

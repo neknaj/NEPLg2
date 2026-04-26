@@ -1,5 +1,6 @@
 use nepl_core::diagnostic_ids::DiagnosticId;
 use nepl_core::error::CoreError;
+use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
 use nepl_core::{compile_wasm, BuildProfile, CompileOptions, CompileTarget};
 mod harness;
@@ -81,6 +82,46 @@ fn compile_err_profile(src: &str, profile: BuildProfile) {
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
+}
+
+fn load_inline_with_stdlib(src: &str) -> nepl_core::loader::LoadResult {
+    let stdlib_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("stdlib");
+    let mut loader = Loader::new(stdlib_root);
+    loader
+        .load_inline(std::path::PathBuf::from("test.nepl"), src.to_string())
+        .expect("load")
+}
+
+#[test]
+fn llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    mem_copy 16 24 4
+    mem_move 32 16 4
+    0
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+    )
+    .expect("stdlib mem bulk copy should emit LLVM IR without clang");
+    assert!(ll.contains("declare void @llvm.memcpy.p0.p0.i32"));
+    assert!(ll.contains("declare void @llvm.memmove.p0.p0.i32"));
+    assert!(ll.contains("define void @mem_copy(i32 %dst, i32 %src, i32 %len)"));
+    assert!(ll.contains("define void @mem_move(i32 %dst, i32 %src, i32 %len)"));
+    assert!(ll.contains("call void @llvm.memcpy.p0.p0.i32"));
+    assert!(ll.contains("call void @llvm.memmove.p0.p0.i32"));
 }
 
 #[test]

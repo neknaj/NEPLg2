@@ -17,8 +17,7 @@
 //:
 //: 計算量:
 //: - alloc_raw/free は free list の探索で O(n) になり得ます。
-//:
-//: todo memory.copy などを使って効率を上げる
+//: - 連続バイト列のコピーには `mem_copy` / `mem_move` を使い、backend の bulk copy 命令へ下げます。
 //:
 //: ---
 //:
@@ -470,14 +469,7 @@ fn realloc_raw <(i32,i32,i32)->i32> (ptr, old_size, new_size):
                             0
                         else:
                             let copy_bytes <i32> if lt new_size old_size new_size old_size
-                            let mut i <i32> 0
-                            while lt i copy_bytes:
-                                do:
-                                    let src_ptr <i32> add ptr i
-                                    let b <i32> load_u8 src_ptr
-                                    let dst_ptr <i32> add new_ptr i
-                                    store_u8 dst_ptr b
-                                    set i add i 1
+                            mem_copy new_ptr ptr copy_bytes
                             dealloc_raw ptr old_size
                             new_ptr
 
@@ -686,6 +678,110 @@ fn store_u8 <(i32,i32)->()> (p, v):
             ret void
         }
 
+//: mem_copy: 重ならないバイト列をまとめてコピーする
+//:
+//: 目的:
+//: - `src` から `dst` へ `len` バイトをコピーします。
+//:
+//: 実装(アルゴリズム):
+//: - wasm では `memory.copy`、llvm では `llvm.memcpy` を使います。
+//:
+//: 注意(重要):
+//: - 呼び出し側は `dst..dst+len` と `src..src+len` が重ならないことを保証してください。
+//: - `len<=0` は llvm target では何もしません。wasm target では呼び出し側が `len>=0` を守る必要があります。
+//: - raw API のため、範囲外アクセスは未定義動作です。検査付きで使う場合は `MemPtr` オーバーロードを使います。
+//:
+//: 計算量:
+//: - O(len)
+fn mem_copy <(i32,i32,i32)->()> (dst, src, len):
+    #if[target=wasm]
+    #wasm:
+        local.get $dst
+        local.get $src
+        local.get $len
+        memory.copy
+    #if[target=llvm]
+    #llvmir:
+        declare void @llvm.memcpy.p0.p0.i32(ptr, ptr, i32, i1)
+        define void @mem_copy(i32 %dst, i32 %src, i32 %len) {
+        entry:
+            %has_bytes = icmp sgt i32 %len, 0
+            br i1 %has_bytes, label %check_addr, label %done
+        check_addr:
+            %dst_neg = icmp slt i32 %dst, 0
+            %src_neg = icmp slt i32 %src, 0
+            %bad_addr = or i1 %dst_neg, %src_neg
+            br i1 %bad_addr, label %done, label %check_bounds
+        check_bounds:
+            %dst64 = zext i32 %dst to i64
+            %src64 = zext i32 %src to i64
+            %len64 = zext i32 %len to i64
+            %dst_end = add i64 %dst64, %len64
+            %src_end = add i64 %src64, %len64
+            %dst_ok = icmp ule i64 %dst_end, 67108864
+            %src_ok = icmp ule i64 %src_end, 67108864
+            %ok = and i1 %dst_ok, %src_ok
+            br i1 %ok, label %copy, label %done
+        copy:
+            %dst_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %dst64
+            %src_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %src64
+            call void @llvm.memcpy.p0.p0.i32(ptr %dst_ptr, ptr %src_ptr, i32 %len, i1 false)
+            ret void
+        done:
+            ret void
+        }
+
+//: mem_move: 重なり得るバイト列をまとめてコピーする
+//:
+//: 目的:
+//: - `src` から `dst` へ `len` バイトをコピーします。範囲が重なっていても正しい順序で移動します。
+//:
+//: 実装(アルゴリズム):
+//: - wasm では重なりを許す `memory.copy`、llvm では `llvm.memmove` を使います。
+//:
+//: 注意(重要):
+//: - raw API のため、範囲外アクセスは未定義動作です。検査付きで使う場合は `MemPtr` オーバーロードを使います。
+//:
+//: 計算量:
+//: - O(len)
+fn mem_move <(i32,i32,i32)->()> (dst, src, len):
+    #if[target=wasm]
+    #wasm:
+        local.get $dst
+        local.get $src
+        local.get $len
+        memory.copy
+    #if[target=llvm]
+    #llvmir:
+        declare void @llvm.memmove.p0.p0.i32(ptr, ptr, i32, i1)
+        define void @mem_move(i32 %dst, i32 %src, i32 %len) {
+        entry:
+            %has_bytes = icmp sgt i32 %len, 0
+            br i1 %has_bytes, label %check_addr, label %done
+        check_addr:
+            %dst_neg = icmp slt i32 %dst, 0
+            %src_neg = icmp slt i32 %src, 0
+            %bad_addr = or i1 %dst_neg, %src_neg
+            br i1 %bad_addr, label %done, label %check_bounds
+        check_bounds:
+            %dst64 = zext i32 %dst to i64
+            %src64 = zext i32 %src to i64
+            %len64 = zext i32 %len to i64
+            %dst_end = add i64 %dst64, %len64
+            %src_end = add i64 %src64, %len64
+            %dst_ok = icmp ule i64 %dst_end, 67108864
+            %src_ok = icmp ule i64 %src_end, 67108864
+            %ok = and i1 %dst_ok, %src_ok
+            br i1 %ok, label %copy, label %done
+        copy:
+            %dst_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %dst64
+            %src_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %src64
+            call void @llvm.memmove.p0.p0.i32(ptr %dst_ptr, ptr %src_ptr, i32 %len, i1 false)
+            ret void
+        done:
+            ret void
+        }
+
 //: memset_u8: バイト列を同じ値で埋める
 //:
 //: 目的:
@@ -805,6 +901,76 @@ fn fill_i32 <(MemPtr<i32>,i32,i32)->Result<(),str>> (ptr, count, value):
         else:
             fill_i32 raw count value
             Result<(),str>::Ok ()
+
+//: mem_copy: MemPtr の要素列をまとめてコピーする安全オーバーロード
+//:
+//: 目的:
+//: - `src` から `dst` へ `count` 個の `.T` 要素をコピーします。
+//:
+//: 実装(アルゴリズム):
+//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_copy` に委譲します。
+//:
+//: 注意(重要):
+//: - `dst` と `src` の対象範囲が重ならない場合に使います。
+//: - `count==0` はポインタが 0 でも成功として扱います。
+//:
+//: 計算量:
+//: - O(count * size_of<.T>)
+fn mem_copy <.T> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
+    let dst_raw <i32> mem_ptr_addr dst;
+    let src_raw <i32> mem_ptr_addr src;
+    if:
+        lt count 0
+        then:
+            Result<(),str>::Err "mem.mem_copy invalid count"
+        else:
+            if:
+                eq count 0
+                then:
+                    Result<(),str>::Ok ()
+                else:
+                    if:
+                        or lt dst_raw 1 lt src_raw 1
+                        then:
+                            Result<(),str>::Err "mem.mem_copy invalid pointer"
+                        else:
+                            mem_copy dst_raw src_raw mul count size_of<.T>
+                            Result<(),str>::Ok ()
+
+//: mem_move: MemPtr の要素列を重なりを許してまとめてコピーする安全オーバーロード
+//:
+//: 目的:
+//: - `src` から `dst` へ `count` 個の `.T` 要素を移動コピーします。
+//:
+//: 実装(アルゴリズム):
+//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_move` に委譲します。
+//:
+//: 注意(重要):
+//: - `dst` と `src` の対象範囲が重なり得る場合はこちらを使います。
+//: - `count==0` はポインタが 0 でも成功として扱います。
+//:
+//: 計算量:
+//: - O(count * size_of<.T>)
+fn mem_move <.T> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
+    let dst_raw <i32> mem_ptr_addr dst;
+    let src_raw <i32> mem_ptr_addr src;
+    if:
+        lt count 0
+        then:
+            Result<(),str>::Err "mem.mem_move invalid count"
+        else:
+            if:
+                eq count 0
+                then:
+                    Result<(),str>::Ok ()
+                else:
+                    if:
+                        or lt dst_raw 1 lt src_raw 1
+                        then:
+                            Result<(),str>::Err "mem.mem_move invalid pointer"
+                        else:
+                            mem_move dst_raw src_raw mul count size_of<.T>
+                            Result<(),str>::Ok ()
 
 fn alloc_ptr <.T> <(i32)->Result<MemPtr<.T>,str>> (size):
     match alloc size:

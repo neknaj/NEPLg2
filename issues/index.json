@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T07:55:21.716Z",
+  "generated_at": "2026-04-26T08:09:53.748Z",
   "counts": {
-    "total": 118,
+    "total": 119,
     "open": 24,
-    "resolved": 94,
+    "resolved": 95,
     "by_area": {
       "core": {
         "total": 39,
@@ -18,8 +18,13 @@
       },
       "stdlib": {
         "total": 40,
-        "open": 14,
-        "resolved": 26
+        "open": 13,
+        "resolved": 27
+      },
+      "nodesrc": {
+        "total": 2,
+        "open": 1,
+        "resolved": 1
       },
       "cli": {
         "total": 17,
@@ -32,11 +37,6 @@
         "resolved": 13
       },
       "compiler": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
-      },
-      "nodesrc": {
         "total": 1,
         "open": 0,
         "resolved": 1
@@ -255,6 +255,21 @@
       "file": "items/ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB.md"
     },
     {
+      "id": "ISS-20260426T072648414Z-NODESRC-TESTS-LEGACY-RUNNER-OVERFLOW-B0D364B2",
+      "title": "nodesrc tests legacy runner overflows stack on std/io facade",
+      "area": "nodesrc",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nodesrc/tests.js, nodesrc/run_test.js, tests/stdlib/io.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T072648414Z-NODESRC-TESTS-LEGACY-RUNNER-OVERFLOW-B0D364B2.md"
+    },
+    {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
       "title": "self-host CLI needs verified argv and option parsing surface",
       "area": "selfhost",
@@ -313,21 +328,6 @@
       "legacy_id": "RV-STDLIB-010",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-010",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB.md"
-    },
-    {
-      "id": "ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2",
-      "title": "stdlib byte copy paths use byte-by-byte loops instead of bulk memory copy",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/core/mem.nepl, stdlib/alloc/io.nepl, stdlib/alloc/string.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
-      "file": "items/ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2.md"
     },
     {
       "id": "ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536",
@@ -1663,6 +1663,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91.md"
+    },
+    {
+      "id": "ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2",
+      "title": "stdlib byte copy paths use byte-by-byte loops instead of bulk memory copy",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/core/mem.nepl, stdlib/alloc/io.nepl, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2.md"
     },
     {
       "id": "ISS-20260426T055122421Z-STREAMIO-DOCTEST-KEEPS-OBSOLETE-PIPE-F37DE397",

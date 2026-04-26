@@ -1,3 +1,34 @@
+# 2026-04-26 メモ (ISS-20260426T021003000Z bulk memory copy)
+
+- 状況:
+  - `stdlib/core/mem.nepl` の `realloc_raw`、`stdlib/alloc/io.nepl` の ByteBuf / str 変換、`stdlib/alloc/string.nepl` の `concat` / `sb_build` / `str_slice` が byte loop で連続領域をコピーしていた。
+  - raw wasm instruction parser は `memory.copy` を受け付けず、stdlib から bulk memory copy を直接使えなかった。
+  - 作業中に `origin/main` `96a4d19` を取り込み、ByteBuf conversion failure propagation の Result API と統合した。
+- 修正:
+  - raw `#wasm` parser に `memory.copy` を追加した。
+  - `mem_copy` / `mem_move` と `MemPtr` typed overload を追加し、wasm は `memory.copy`、llvm は `llvm.memcpy` / `llvm.memmove` へ下げるようにした。
+  - `realloc_raw`、`io_bytebuf_from_str_result`、`io_bytebuf_to_str_result`、`concat`、`sb_build`、`str_slice` を bulk copy 呼び出しへ置き換えた。
+  - `tests/stdlib/mem_bulk_copy.n.md` を追加し、non-overlap copy、overlap move、zero length typed copy、`realloc_raw` byte preservation、ByteBuf roundtrip、大きめの 4096 byte copy fixture を固定した。
+- 追加 Issue:
+  - `ISS-20260426T072648414Z-NODESRC-TESTS-LEGACY-RUNNER-OVERFLOW-B0D364B2`: `nodesrc/tests.js -j 1` の legacy runner が `tests/stdlib/io.n.md::doctest#1` で stack overflow する。`-j 2` worker path と detached `origin/main` で切り分け済み。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/mem_bulk_copy.n.md --no-tree -o tmp/mem-bulk-copy-targeted.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/mem_fill.n.md --no-tree -o tmp/mem-bulk-copy-mem-fill.json -j 1`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/mem-bulk-copy-string.json -j 1`: `total=17`, `passed=17`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/mem-bulk-copy-streamio.json -j 1`: `total=13`, `passed=13`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/mem-bulk-copy-bytebuf-result.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/mem-bulk-copy-io-j2.json -j 2`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/mem-bulk-copy-final-stdlib-full.json -j 4`: `total=404`, `passed=404`, `failed=0`
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: `48 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/mem_bulk_copy.n.md --no-tree --runner llvm --llvm-all --llvm-compile-only -o tmp/mem-bulk-copy-llvm-compile.json -j 1`: `clang` 不在で既存 LLVM runner と同じ理由により未実行。LLVM IR lowering は Rust test で確認した。
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-mem-bulk-copy.json`: `13/13 passed`
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host 前提の stdlib memory copy performance を改善するもの。
+
 # 2026-04-26 メモ (ISS-20260426T060223863Z ByteBuf conversion failure)
 
 - 状況:
