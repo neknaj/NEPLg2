@@ -18653,3 +18653,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の work queue / priority queue に使う basic collection が、capacity 0 から開始しても通常 cleanup で trap しないようにした。
+
+# 2026-04-27 メモ (ISS-20260426T232840301Z Queue/Deque unsafe unwrap 修正)
+
+- [同期]:
+  - `main` / `origin/main` が `fba6c43 stdlib: handle zero-capacity binary heap free` で一致している状態から `stdlib/queue-deque-unsafe-unwraps` branch で作業した。
+  - borrow checker / drop / string memory 系は別 agent の作業対象として避け、self-host lexer/parser の work queue に使う basic circular-buffer collection の cleanup と header 更新だけを対象にした。
+- [追加Issue]:
+  - `ISS-20260426T232840301Z-QUEUE-AND-DEQUE-RETAIN-UNSAFE-UNWRAP-50465802` を追加し、追加時点で Discord に報告した。
+  - compiler 修正後に消せる古い workaround を確認する過程で、Queue/Deque の観測 API が owner handle を by-value で消費し、doctest が同じ collection を複数回構築せざるを得ないことを確認した。`ISS-20260426T233321666Z-QUEUE-AND-DEQUE-OBSERVATION-APIS-CON-E7627BD3` として追加し、Discord に報告した。
+- [原因]:
+  - `Queue` / `Deque` は allocation-bearing public API で `Result<..., Diag>` を返す設計だが、内部の owned header 更新と owned buffer cleanup に `uwok store_i32` / `uwok dealloc_ptr` が残っていた。
+  - そのため allocator/header invariant が崩れた場合に、public API の `Result` 方針ではなく unreachable trap へ落ちる構造だった。
+- [修正]:
+  - `queue_store_header_i32` / `deque_store_header_i32` を追加し、所有 header field への内部書き込みを raw store に集約した。
+  - `with_capacity` の失敗 cleanup、grow 後の old buffer cleanup、`free` を `dealloc_raw` へ置き換えた。
+  - `push` / `pop` / `clear` 系の header 更新から `uwok store_i32` を削除した。
+  - Queue/Deque が capacity 1 から grow しても順序を保ち、clear/free が trap しない focused regression を追加した。
+  - `nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` を追加し、CI source policy と `doc/testing.md` に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/queue_collections.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/queue-deque-unsafe-focused-2.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/deque.nepl --no-tree -o tmp/queue-deque-unsafe-docs-2.json -j 1`: 16/16 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-queue-deque-unsafe.json -j 4`: 286/286 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-queue-deque-unsafe.json -j 4`: 416/416 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の S1 lexer/parser で使う work queue/deque 基盤が、grow / cleanup で unsafe helper に依存しないようにした。

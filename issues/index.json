@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T23:15:20.466Z",
+  "generated_at": "2026-04-26T23:44:08.812Z",
   "counts": {
-    "total": 155,
-    "open": 15,
-    "resolved": 140,
+    "total": 157,
+    "open": 16,
+    "resolved": 141,
     "by_area": {
       "cli": {
         "total": 19,
@@ -17,9 +17,9 @@
         "resolved": 56
       },
       "stdlib": {
-        "total": 48,
-        "open": 6,
-        "resolved": 42
+        "total": 50,
+        "open": 7,
+        "resolved": 43
       },
       "examples": {
         "total": 13,
@@ -268,6 +268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
+    },
+    {
+      "id": "ISS-20260426T233321666Z-QUEUE-AND-DEQUE-OBSERVATION-APIS-CON-E7627BD3",
+      "title": "Queue and Deque observation APIs consume owner handles",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/queue.nepl, stdlib/alloc/collections/deque.nepl, tests/stdlib/queue_collections.n.md, tests/stdlib/deque_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T233321666Z-QUEUE-AND-DEQUE-OBSERVATION-APIS-CON-E7627BD3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -2248,6 +2263,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T230422845Z-BINARYHEAP-FREE-TRAPS-FOR-ZERO-CAPAC-07CE8EC3.md"
+    },
+    {
+      "id": "ISS-20260426T232840301Z-QUEUE-AND-DEQUE-RETAIN-UNSAFE-UNWRAP-50465802",
+      "title": "Queue and Deque retain unsafe unwraps in circular-buffer internals",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/queue.nepl, stdlib/alloc/collections/deque.nepl, tests/stdlib/queue_collections.n.md, tests/stdlib/deque_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T232840301Z-QUEUE-AND-DEQUE-RETAIN-UNSAFE-UNWRAP-50465802.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",
