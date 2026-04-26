@@ -18,6 +18,27 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の変更は compiler の literal match 対応を stdlib の実装表現へ反映する保守修正。
 
+# 2026-04-26 メモ (ISS-20260425T000000Z-RV-STDLIB-006 fs/cliarg skipped doctests)
+
+- 状況:
+  - `stdlib/std/fs.nepl` と `stdlib/std/env/cliarg.nepl` に `neplg2:test[skip]` が各 5 件残り、runtime 境界の fs / argv wrapper が stdlib doctest で実行されていなかった。
+  - skip を外したところ、`fs_open_read` は成功するが `fs_read_to_bytes` / `fs_read_to_string` が実ファイルを読めず、`path_open` の read rights が 0 のまま fd を作っていることが露出した。
+- 修正:
+  - fs doctest を、fixture file の open/read、stdin fd の byte read、ByteBuf -> str 変換を確認する実行可能テストへ置き換えた。
+  - cliarg doctest を、C string 用一時 buffer と `argv: ["--flag", "value"]` metadata を使う実行可能テストへ置き換えた。
+  - `fs_open_read` で WASI `FD_READ` right を要求し、read 専用 fd が実際に `fd_read` できるようにした。
+  - `tests/stdlib/fixtures/fs_read_sample.txt` を追加した。
+- 検証:
+  - `trunk build`: pass（既存 warning のみ）
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/fs-cliarg-doctests.json -j 1`: `total=10`, `passed=10`
+  - `node nodesrc/tests.js -i stdlib/tests/fs.n.md -i stdlib/tests/cliarg.n.md -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-cliarg-existing-tests.json -j 1`: `total=7`, `passed=7`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/fs-cliarg-stdlib-full.json -j 4`: `total=404`, `passed=404`
+  - `cargo fmt --all --check`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-fs-cliarg.json`: `13/13 passed`
+  - `node nodesrc/issues.js index` / `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host 前提の filesystem / argv runtime 境界の回帰確認を実行可能にするもの。
+
 # 2026-04-26 メモ (ISS-20260426T073513044Z match literal patterns)
 
 - 状況:
