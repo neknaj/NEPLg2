@@ -2,8 +2,8 @@
 id: ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0
 title: "typecheck import visibility expansion clones the whole map each iteration"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: performance
 created: 2026-04-26
@@ -40,7 +40,17 @@ self-host compiler は stdlib と compiler source tree の import graph を扱�
 Floyd-Warshall 風の全体 clone loop ではなく、import graph の adjacency を使った worklist / BFS で source ごとに可視性を伝播する。
 `All` と `Selected` の merge 規則を保ったまま、変更があった edge だけを queue に戻す。
 
+## 対応
+
+`expand_unqualified_import_visibility` を `out.clone()` の固定点 loop から worklist 方式へ変更した。
+初期 worklist には `All` visibility の edge だけを積み、`source -> middle` が `All` の場合だけ `middle` の可視 target を `source` へ伝播する。
+merge により新しく `All` になった edge だけを追加で queue へ戻すため、閉包計算中に visibility map 全体を clone しない。
+`Selected` の alias merge と `All` への昇格規則は既存 semantics を維持した。
+
 ## 検証
 
-- chain import、diamond import、selected + glob import の既存 semantics regression。
-- module 数と edge 数を増やした synthetic import graph fixture で clone 回数または実行時間を測る。
+- `cargo fmt --all --check`: passed
+- `cargo test -p nepl-core --test import_clause`: 10/10 passed
+- `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -i tests/compiler/resolve.n.md --no-tree -o tmp/import-visibility-worklist-nodesrc-after-trunk.json -j 1`: 16/16 passed
+- `trunk build`: passed
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-import-visibility-worklist.json`: 13/13 passed

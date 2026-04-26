@@ -1,3 +1,26 @@
+# 2026-04-26 メモ (ISS-20260426T021004000Z IMPORT-VISIBILITY-CLONE 修正)
+
+- 状況:
+  - `nepl-core/src/typecheck.rs` の `expand_unqualified_import_visibility` は、transitive import visibility を閉包化するたびに `out.clone()` で map 全体を snapshot していた。
+  - stdlib 分割や self-host source tree の増加で module 数と import edge 数が増えると、typecheck 前処理で不要な allocation / copy が増える構造だった。
+- 原因:
+  - `source -> middle` が `All` の edge だけが伝播元になるにもかかわらず、変更検出のために全 source / target map を毎周 clone していた。
+  - `Selected` と `All` の merge 規則が void 関数で、どの edge が実際に変わったかを queue に戻せなかった。
+- 修正:
+  - `merge_unqualified_import_visibility` が変更有無を返すようにした。
+  - `expand_unqualified_import_visibility` を worklist 化し、初期 `All` edge と、merge により新しく `All` になった edge だけを伝播 queue に積むようにした。
+  - middle file の adjacency だけを一時 clone し、`out` 全体の clone を削除した。
+  - `nepl-core/tests/import_clause.rs` の仮想 source helper を汎用化し、長い open import chain と selected alias の transitive propagation を追加した。
+  - `issues/items/ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0.md` を verified にし、`todo.md` から対応項目を削除した。
+- 確認済み:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test import_clause`: 10/10 passed
+  - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -i tests/compiler/resolve.n.md --no-tree -o tmp/import-visibility-worklist-nodesrc-after-trunk.json -j 1`: 16/16 passed
+  - `trunk build`: pass（既存 Rust warning は残存）
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-import-visibility-worklist.json`: 13/13 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は self-host 前提の import visibility closure の性能改善であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260425T000000Z RV-STDLIB-005 修正)
 
 - 状況:
