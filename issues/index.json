@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:24:31.214Z",
+  "generated_at": "2026-04-26T02:26:36.753Z",
   "counts": {
-    "total": 95,
+    "total": 96,
     "open": 34,
-    "resolved": 61,
+    "resolved": 62,
     "by_area": {
       "core": {
         "total": 34,
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 26,
+        "total": 27,
         "open": 16,
-        "resolved": 10
+        "resolved": 11
       },
       "examples": {
         "total": 13,
@@ -1173,6 +1173,21 @@
       "legacy_id": "RV-STDLIB-017",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-017",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-017-4D1ABDA7.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-021-F72F1664",
+      "title": "vec sort doctest が overload 解決不一致で失敗する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/vec/sort.nepl",
+      "legacy_id": "RV-STDLIB-021",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-021",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-021-F72F1664.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
