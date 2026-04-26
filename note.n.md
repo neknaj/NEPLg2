@@ -1,3 +1,29 @@
+# 2026-04-26 メモ (ISS-20260426T073513044Z match literal patterns)
+
+- 状況:
+  - `match ch:` の arm 見出しで `92:` / `34:` のような整数 literal が parser の `expected identifier` で落ちていた。
+  - `_` は enum payload bind としては使えていたが、arm 見出しの wildcard / default pattern として AST 上で分離されていなかった。
+  - bool の `true` / `false` は lexer では bool literal token であり、識別子扱いの pattern 拡張だけでは parser が受理できなかった。
+  - commit 前の fetch で `origin/main` の `a4409cd` を取り込み、stdlib/nm 側の別 agent 変更と issue index を統合した。
+- 修正:
+  - AST / HIR に `Variant` / `IntLiteral` / `BoolLiteral` / `Wildcard` の match pattern を追加し、enum match と scalar match を typecheck で分岐した。
+  - i32 / u8 match は wildcard 必須、bool match は `true` / `false` または wildcard で網羅とし、duplicate / wildcard 非末尾 / 型不一致 pattern を診断するようにした。
+  - wasm / LLVM backend は scalar match を scrutinee 値の分岐として lowering し、enum match の tag dispatch と payload bind は既存仕様を維持した。
+  - `nepl-web` の name resolution trace も新しい `MatchPattern` 構造へ追従した。
+  - `tests/compiler/match_literal_patterns.n.md` と `nepl-core/tests/neplg2.rs` に回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: `54 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md --no-tree -o tmp/match-literal-patterns.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/match-literal-patterns-compiler.json -j 4`: `total=486`, `passed=486`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-match-literal-patterns.json`: `13/13 passed`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/match-literal-patterns-stdlib.json -j 4`: `total=404`, `passed=404`, `failed=0`
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check`: `files=120`
+  - `cargo test -p nepl-core`: 並列実行時に C: の空き容量不足で `ENOSPC` / linker PDB error になったため、`cargo clean` で生成物を削除してから上記 targeted Rust test と stdlib full を再実行した。
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host 前提の compiler pattern coverage を広げるもの。
+
 # 2026-04-26 メモ (ISS-20260426T072648414Z nodesrc tests legacy runner stack)
 
 - 状況:

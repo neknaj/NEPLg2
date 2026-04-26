@@ -2345,10 +2345,12 @@ fn gen_expr(
             Some(ValType::I32)
         }
         HirExprKind::Match { scrutinee, arms } => {
-            // evaluate scrutinee pointer once
+            let is_enum_match = arms
+                .iter()
+                .all(|arm| matches!(arm.pattern, HirMatchPattern::Variant(_)));
             gen_expr(ctx, scrutinee, name_map, sig_map, strings, locals, insts)?;
-            let ptr_local = locals.alloc_temp(ValType::I32);
-            insts.push(Instruction::LocalSet(ptr_local));
+            let scrut_local = locals.alloc_temp(ValType::I32);
+            insts.push(Instruction::LocalSet(scrut_local));
             let result_ty = valtype(&ctx.get(expr.ty));
             insts.push(Instruction::Block(match result_ty {
                 Some(vt) => wasm_encoder::BlockType::Result(vt),
@@ -2360,95 +2362,143 @@ fn gen_expr(
                 return Ok(result_ty);
             }
 
-            let tag_local = locals.alloc_temp(ValType::I32);
-            insts.push(Instruction::LocalGet(ptr_local));
-            insts.push(Instruction::I32Load(MemArg {
-                offset: 0,
-                align: 2,
-                memory_index: 0,
-            }));
-            insts.push(Instruction::LocalSet(tag_local));
-
-            for (idx, arm) in arms.iter().enumerate() {
-                let is_last = idx + 1 == arms.len();
-                let tag = enum_variant_tag(ctx, scrutinee.ty, &arm.variant);
-                insts.push(Instruction::LocalGet(tag_local));
-                insts.push(Instruction::I32Const(tag as i32));
-                insts.push(Instruction::I32Eq);
-                insts.push(Instruction::If(match result_ty {
-                    Some(vt) => wasm_encoder::BlockType::Result(vt),
-                    None => wasm_encoder::BlockType::Empty,
+            if is_enum_match {
+                let tag_local = locals.alloc_temp(ValType::I32);
+                insts.push(Instruction::LocalGet(scrut_local));
+                insts.push(Instruction::I32Load(MemArg {
+                    offset: 0,
+                    align: 2,
+                    memory_index: 0,
                 }));
-                locals.begin_scope();
-                if let Some(bind) = &arm.bind_local {
-                    if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, &arm.variant)
-                    {
-                        let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
-                        let payload_offset = 4i32;
-                        if is_aggregate_storage_type(ctx, payload_ty) {
-                            let payload_size = type_storage_size_bytes(ctx, payload_ty) as i32;
-                            insts.push(Instruction::I32Const(payload_size));
-                            emit_alloc_call(locals, insts);
-                            let dst_local = locals.alloc_temp(ValType::I32);
-                            insts.push(Instruction::LocalSet(dst_local));
-                            emit_copy_linear_bytes(
-                                dst_local,
-                                0,
-                                ptr_local,
-                                payload_offset,
-                                payload_size,
-                                insts,
-                            );
-                            insts.push(Instruction::LocalGet(dst_local));
-                            insts.push(Instruction::LocalSet(lidx));
-                        } else if let Some(vt) = valtype(&ctx.get(payload_ty)) {
-                            emit_linear_addr_from_local(ptr_local, payload_offset, insts);
-                            match vt {
-                                ValType::I32 => insts.push(Instruction::I32Load(MemArg {
-                                    offset: 0,
-                                    align: 2,
-                                    memory_index: 0,
-                                })),
-                                ValType::F32 => insts.push(Instruction::F32Load(MemArg {
-                                    offset: 0,
-                                    align: 2,
-                                    memory_index: 0,
-                                })),
-                                ValType::I64 => insts.push(Instruction::I64Load(MemArg {
-                                    offset: 0,
-                                    align: 3,
-                                    memory_index: 0,
-                                })),
-                                ValType::F64 => insts.push(Instruction::F64Load(MemArg {
-                                    offset: 0,
-                                    align: 3,
-                                    memory_index: 0,
-                                })),
-                                _ => {
-                                    return Err(codegen_error(
-                                        "unsupported enum payload valtype in match reached wasm codegen",
-                                        expr.span,
-                                        DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
-                                    ));
+                insts.push(Instruction::LocalSet(tag_local));
+
+                for (idx, arm) in arms.iter().enumerate() {
+                    let is_last = idx + 1 == arms.len();
+                    let variant = match &arm.pattern {
+                        HirMatchPattern::Variant(v) => v.as_str(),
+                        _ => unreachable!(),
+                    };
+                    let tag = enum_variant_tag(ctx, scrutinee.ty, variant);
+                    insts.push(Instruction::LocalGet(tag_local));
+                    insts.push(Instruction::I32Const(tag as i32));
+                    insts.push(Instruction::I32Eq);
+                    insts.push(Instruction::If(match result_ty {
+                        Some(vt) => wasm_encoder::BlockType::Result(vt),
+                        None => wasm_encoder::BlockType::Empty,
+                    }));
+                    locals.begin_scope();
+                    if let Some(bind) = &arm.bind_local {
+                        if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, variant) {
+                            let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
+                            let payload_offset = 4i32;
+                            if is_aggregate_storage_type(ctx, payload_ty) {
+                                let payload_size = type_storage_size_bytes(ctx, payload_ty) as i32;
+                                insts.push(Instruction::I32Const(payload_size));
+                                emit_alloc_call(locals, insts);
+                                let dst_local = locals.alloc_temp(ValType::I32);
+                                insts.push(Instruction::LocalSet(dst_local));
+                                emit_copy_linear_bytes(
+                                    dst_local,
+                                    0,
+                                    scrut_local,
+                                    payload_offset,
+                                    payload_size,
+                                    insts,
+                                );
+                                insts.push(Instruction::LocalGet(dst_local));
+                                insts.push(Instruction::LocalSet(lidx));
+                            } else if let Some(vt) = valtype(&ctx.get(payload_ty)) {
+                                emit_linear_addr_from_local(scrut_local, payload_offset, insts);
+                                match vt {
+                                    ValType::I32 => insts.push(Instruction::I32Load(MemArg {
+                                        offset: 0,
+                                        align: 2,
+                                        memory_index: 0,
+                                    })),
+                                    ValType::F32 => insts.push(Instruction::F32Load(MemArg {
+                                        offset: 0,
+                                        align: 2,
+                                        memory_index: 0,
+                                    })),
+                                    ValType::I64 => insts.push(Instruction::I64Load(MemArg {
+                                        offset: 0,
+                                        align: 3,
+                                        memory_index: 0,
+                                    })),
+                                    ValType::F64 => insts.push(Instruction::F64Load(MemArg {
+                                        offset: 0,
+                                        align: 3,
+                                        memory_index: 0,
+                                    })),
+                                    _ => {
+                                        return Err(codegen_error(
+                                            "unsupported enum payload valtype in match reached wasm codegen",
+                                            expr.span,
+                                            DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
+                                        ));
+                                    }
                                 }
+                                insts.push(Instruction::LocalSet(lidx));
                             }
-                            insts.push(Instruction::LocalSet(lidx));
                         }
                     }
+                    gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts)?;
+                    locals.end_scope();
+                    if is_last {
+                        insts.push(Instruction::Else);
+                        insts.push(Instruction::Unreachable);
+                        insts.push(Instruction::End);
+                    } else {
+                        insts.push(Instruction::Else);
+                    }
                 }
-                gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts)?;
-                locals.end_scope();
-                if is_last {
-                    insts.push(Instruction::Else);
-                    insts.push(Instruction::Unreachable);
-                    insts.push(Instruction::End);
-                } else {
-                    insts.push(Instruction::Else);
-                }
-            }
 
-            for _ in 0..(arms.len() - 1) {
-                insts.push(Instruction::End);
+                for _ in 0..(arms.len() - 1) {
+                    insts.push(Instruction::End);
+                }
+            } else {
+                let mut pending_ifs = 0usize;
+                let mut saw_wildcard = false;
+                for arm in arms {
+                    match &arm.pattern {
+                        HirMatchPattern::IntLiteral(v) => {
+                            insts.push(Instruction::LocalGet(scrut_local));
+                            insts.push(Instruction::I32Const(*v));
+                            insts.push(Instruction::I32Eq);
+                            insts.push(Instruction::If(match result_ty {
+                                Some(vt) => wasm_encoder::BlockType::Result(vt),
+                                None => wasm_encoder::BlockType::Empty,
+                            }));
+                            pending_ifs += 1;
+                        }
+                        HirMatchPattern::BoolLiteral(v) => {
+                            insts.push(Instruction::LocalGet(scrut_local));
+                            insts.push(Instruction::I32Const(if *v { 1 } else { 0 }));
+                            insts.push(Instruction::I32Eq);
+                            insts.push(Instruction::If(match result_ty {
+                                Some(vt) => wasm_encoder::BlockType::Result(vt),
+                                None => wasm_encoder::BlockType::Empty,
+                            }));
+                            pending_ifs += 1;
+                        }
+                        HirMatchPattern::Wildcard => {
+                            saw_wildcard = true;
+                        }
+                        HirMatchPattern::Variant(_) => unreachable!(),
+                    }
+                    locals.begin_scope();
+                    gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts)?;
+                    locals.end_scope();
+                    if !matches!(&arm.pattern, HirMatchPattern::Wildcard) {
+                        insts.push(Instruction::Else);
+                    }
+                }
+                if !saw_wildcard {
+                    insts.push(Instruction::Unreachable);
+                }
+                for _ in 0..pending_ifs {
+                    insts.push(Instruction::End);
+                }
             }
             insts.push(Instruction::End);
             result_ty

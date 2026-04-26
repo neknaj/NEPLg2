@@ -3161,39 +3161,115 @@ impl Parser {
             if self.consume_if(&TokenKind::Newline) {
                 continue;
             }
-            let (vname_tok, vspan_tok) = self.expect_ident()?;
-            let mut vname = vname_tok;
-            let mut vspan = vspan_tok;
-            while self.consume_if(&TokenKind::PathSep) {
-                let (part, pspan) = self.expect_ident()?;
-                vname.push_str("::");
-                vname.push_str(&part);
-                vspan = vspan.join(pspan).unwrap_or(vspan);
-            }
-
-            let bind = if let Some(TokenKind::Ident(bn)) = self.peek_kind() {
-                let (bnm, bspan) = self.expect_ident()?;
-                Some(Ident {
-                    name: bnm,
-                    span: bspan,
-                })
-            } else {
-                None
-            };
+            let pattern = self.parse_match_pattern()?;
             self.expect(&TokenKind::Colon)?;
             let body = self.parse_block_after_colon()?;
+            let span = match &pattern {
+                MatchPattern::Variant { name, .. } => name.span,
+                MatchPattern::IntLiteral { span, .. }
+                | MatchPattern::BoolLiteral { span, .. }
+                | MatchPattern::Wildcard { span } => *span,
+            };
             arms.push(MatchArm {
-                variant: Ident {
-                    name: vname,
-                    span: vspan,
-                },
-                bind,
+                pattern,
                 body: body.clone(),
-                span: vspan,
+                span,
             });
         }
         self.expect(&TokenKind::Dedent)?;
         Some(arms)
+    }
+
+    fn parse_match_pattern(&mut self) -> Option<MatchPattern> {
+        match self.peek_kind()? {
+            TokenKind::IntLiteral(_) => {
+                let tok = self.next()?;
+                if let TokenKind::IntLiteral(text) = tok.kind {
+                    Some(MatchPattern::IntLiteral {
+                        text,
+                        span: tok.span,
+                    })
+                } else {
+                    None
+                }
+            }
+            TokenKind::BoolLiteral(_) => {
+                let tok = self.next()?;
+                if let TokenKind::BoolLiteral(value) = tok.kind {
+                    Some(MatchPattern::BoolLiteral {
+                        value,
+                        span: tok.span,
+                    })
+                } else {
+                    None
+                }
+            }
+            TokenKind::Minus => {
+                let minus_span = self.next()?.span;
+                match self.peek_kind() {
+                    Some(TokenKind::IntLiteral(_)) => {
+                        let tok = self.next()?;
+                        if let TokenKind::IntLiteral(text) = tok.kind {
+                            Some(MatchPattern::IntLiteral {
+                                text: alloc::format!("-{}", text),
+                                span: minus_span.join(tok.span).unwrap_or(minus_span),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    _ => {
+                        let sp = self.peek_span().unwrap_or(minus_span);
+                        self.diagnostics.push(
+                            Diagnostic::error("expected integer literal after '-'", sp)
+                                .with_id(DiagnosticId::ParserExpectedToken),
+                        );
+                        None
+                    }
+                }
+            }
+            TokenKind::Ident(_) => {
+                let (vname_tok, vspan_tok) = self.expect_ident()?;
+                let mut vname = vname_tok;
+                let mut vspan = vspan_tok;
+                let mut has_path = false;
+                while self.consume_if(&TokenKind::PathSep) {
+                    let (part, pspan) = self.expect_ident()?;
+                    has_path = true;
+                    vname.push_str("::");
+                    vname.push_str(&part);
+                    vspan = vspan.join(pspan).unwrap_or(vspan);
+                }
+                if !has_path && vname == "_" {
+                    return Some(MatchPattern::Wildcard { span: vspan });
+                }
+
+                let bind = if let Some(TokenKind::Ident(_)) = self.peek_kind() {
+                    let (bnm, bspan) = self.expect_ident()?;
+                    Some(Ident {
+                        name: bnm,
+                        span: bspan,
+                    })
+                } else {
+                    None
+                };
+                Some(MatchPattern::Variant {
+                    name: Ident {
+                        name: vname,
+                        span: vspan,
+                    },
+                    bind,
+                })
+            }
+            _ => {
+                let span = self.peek_span().unwrap_or_else(Span::dummy);
+                self.diagnostics.push(
+                    Diagnostic::error("expected match pattern", span)
+                        .with_id(DiagnosticId::ParserExpectedToken),
+                );
+                None
+            }
+        }
     }
 
     fn parse_generic_params(&mut self) -> Vec<TypeParam> {

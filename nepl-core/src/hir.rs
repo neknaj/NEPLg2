@@ -160,8 +160,16 @@ pub enum FuncRef {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum HirMatchPattern {
+    Variant(String),
+    IntLiteral(i32),
+    BoolLiteral(bool),
+    Wildcard,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct HirMatchArm {
-    pub variant: String,
+    pub pattern: HirMatchPattern,
     pub bind_local: Option<String>,
     pub bind_ty: Option<TypeId>,
     pub body: HirExpr,

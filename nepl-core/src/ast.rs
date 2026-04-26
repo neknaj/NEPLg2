@@ -371,9 +371,16 @@ pub struct EnumDef {
 
 /// Match expression arms.
 #[derive(Debug, Clone, PartialEq)]
+pub enum MatchPattern {
+    Variant { name: Ident, bind: Option<Ident> },
+    IntLiteral { text: String, span: Span },
+    BoolLiteral { value: bool, span: Span },
+    Wildcard { span: Span },
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
-    pub variant: Ident,
-    pub bind: Option<Ident>,
+    pub pattern: MatchPattern,
     pub body: Block,
     pub span: Span,
 }

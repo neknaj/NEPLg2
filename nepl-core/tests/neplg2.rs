@@ -125,6 +125,35 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn llvm_match_i32_literal_lowers_to_switch() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+fn main <()->i32> ():
+    let x <i32> 92
+    match x:
+        34:
+            1
+        92:
+            2
+        _:
+            3
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+    )
+    .expect("i32 literal match should emit LLVM IR");
+    assert!(ll.contains("switch i32"));
+    assert!(ll.contains("i32 92, label"));
+}
+
+#[test]
 fn compiles_literal_main() {
     let src = r#"
 #entry main
@@ -980,6 +1009,108 @@ fn main <()->i32> ():
     if ok 1 0
 "#;
     assert_eq!(run_main_i32(src), 1);
+}
+
+#[test]
+fn match_i32_literal_arm_returns_selected_case() {
+    let src = r#"
+#target wasm
+#entry main
+#indent 4
+
+fn classify <(i32)->i32> (x):
+    match x:
+        34:
+            1
+        92:
+            2
+        _:
+            3
+
+fn main <()->i32> ():
+    classify 92
+"#;
+    assert_eq!(run_main_i32(src), 2);
+}
+
+#[test]
+fn match_i32_literal_wildcard_returns_default_case() {
+    let src = r#"
+#target wasm
+#entry main
+#indent 4
+
+fn classify <(i32)->i32> (x):
+    match x:
+        34:
+            1
+        92:
+            2
+        _:
+            3
+
+fn main <()->i32> ():
+    classify 7
+"#;
+    assert_eq!(run_main_i32(src), 3);
+}
+
+#[test]
+fn match_bool_literal_arms_return_selected_case() {
+    let src = r#"
+#target wasm
+#entry main
+#indent 4
+
+fn classify <(bool)->i32> (flag):
+    match flag:
+        true:
+            1
+        false:
+            2
+
+fn main <()->i32> ():
+    classify false
+"#;
+    assert_eq!(run_main_i32(src), 2);
+}
+
+#[test]
+fn match_i32_duplicate_literal_is_error() {
+    let src = r#"
+#target wasm
+#entry main
+#indent 4
+
+fn main <()->i32> ():
+    let x <i32> 1
+    match x:
+        1:
+            10
+        1:
+            20
+        _:
+            0
+"#;
+    compile_err_profile(src, BuildProfile::Debug);
+}
+
+#[test]
+fn match_i32_literal_without_wildcard_is_non_exhaustive() {
+    let src = r#"
+#target wasm
+#entry main
+#indent 4
+
+fn main <()->i32> ():
+    let x <i32> 1
+    match x:
+        1:
+            10
+        2:
+            20
+"#;
+    compile_err_profile(src, BuildProfile::Debug);
 }
 
 #[test]

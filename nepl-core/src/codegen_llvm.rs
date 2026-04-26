@@ -15,7 +15,9 @@ use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, 
 use crate::compiler::{self, BuildProfile, CompileTarget, PreparedLlvmProgram};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
-use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
+use crate::hir::{
+    FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
+};
 use crate::llvm_ir::{
     collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
 };
@@ -2296,9 +2298,17 @@ fn lower_hir_expr(
                 );
             }
 
-            let scr_ptr = ctx.linear_typed_ptr_from_i32(scr_v.repr.as_str(), LlTy::I32);
-            let tag = ctx.next_tmp();
-            ctx.push_line(&format!("  {} = load i32, i32* {}, align 1", tag, scr_ptr));
+            let is_enum_match = arms
+                .iter()
+                .all(|arm| matches!(arm.pattern, HirMatchPattern::Variant(_)));
+            let selector = if is_enum_match {
+                let scr_ptr = ctx.linear_typed_ptr_from_i32(scr_v.repr.as_str(), LlTy::I32);
+                let tag = ctx.next_tmp();
+                ctx.push_line(&format!("  {} = load i32, i32* {}, align 1", tag, scr_ptr));
+                tag
+            } else {
+                scr_v.repr.clone()
+            };
 
             let result_ty = llty_for_type(types, expr.ty);
             let result_slot = if result_ty != LlTy::Void {
@@ -2315,119 +2325,150 @@ fn lower_hir_expr(
                 arm_labels.push(ctx.next_label("match_arm"));
             }
 
-            ctx.push_line(&format!("  switch i32 {}, label %{} [", tag, default_label));
+            let wildcard_idx = if is_enum_match {
+                None
+            } else {
+                arms.iter()
+                    .position(|arm| matches!(arm.pattern, HirMatchPattern::Wildcard))
+            };
+            let switch_default = wildcard_idx
+                .map(|idx| arm_labels[idx].clone())
+                .unwrap_or_else(|| default_label.clone());
+
+            ctx.push_line(&format!(
+                "  switch i32 {}, label %{} [",
+                selector, switch_default
+            ));
             for (idx, arm) in arms.iter().enumerate() {
-                let arm_tag = enum_variant_tag(types, scrutinee.ty, arm.variant.as_str());
-                ctx.push_line(&format!("    i32 {}, label %{}", arm_tag, arm_labels[idx]));
+                match &arm.pattern {
+                    HirMatchPattern::Variant(variant) if is_enum_match => {
+                        let arm_tag = enum_variant_tag(types, scrutinee.ty, variant.as_str());
+                        ctx.push_line(&format!("    i32 {}, label %{}", arm_tag, arm_labels[idx]));
+                    }
+                    HirMatchPattern::IntLiteral(value) => {
+                        ctx.push_line(&format!("    i32 {}, label %{}", value, arm_labels[idx]));
+                    }
+                    HirMatchPattern::BoolLiteral(value) => {
+                        let raw = if *value { 1 } else { 0 };
+                        ctx.push_line(&format!("    i32 {}, label %{}", raw, arm_labels[idx]));
+                    }
+                    HirMatchPattern::Wildcard => {}
+                    HirMatchPattern::Variant(_) => {}
+                }
             }
             ctx.push_line("  ]");
 
             for (idx, arm) in arms.iter().enumerate() {
                 ctx.push_line(&format!("{}:", arm_labels[idx]));
                 ctx.begin_scope();
-                if let Some(bind) = &arm.bind_local {
-                    if let Some(payload_ty) =
-                        enum_variant_payload(types, scrutinee.ty, arm.variant.as_str())
-                    {
-                        let payload_ll = llty_for_type(types, payload_ty);
-                        if payload_ll == LlTy::Void {
-                            // unit payload は実体を持たないため束縛しない
-                            // （_ 以外への束縛利用は後段で拡張する）
-                            // 現時点では match 評価の継続のみ行う。
-                        } else {
-                            let payload_offset = 4i64;
-                            let base_ptr8 = ctx.linear_i8_ptr_from_i32(scr_v.repr.as_str());
-                            if is_aggregate_storage_type(types, payload_ty) {
-                                let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
-                                    return Err(llvm_codegen_error(
-                                        format!(
-                                            "alloc function is required for enum payload binding in '{}'",
-                                            ctx.function_name
-                                        ),
-                                        Span::dummy(),
-                                        DiagnosticId::CodegenLlvmUnknownFunction,
-                                    ));
-                                };
-                                let payload_size = type_storage_size_bytes(types, payload_ty);
-                                let payload_obj = ctx.next_tmp();
-                                ctx.push_line(&format!(
-                                    "  {} = call i32 {}(i32 {})",
-                                    payload_obj,
-                                    ll_symbol(alloc_name.as_str()),
-                                    payload_size
-                                ));
-                                let dst_ptr8 = ctx.linear_i8_ptr_from_i32(payload_obj.as_str());
-                                emit_copy_linear_bytes_llvm(
-                                    ctx,
-                                    dst_ptr8.as_str(),
-                                    0,
-                                    base_ptr8.as_str(),
-                                    payload_offset,
-                                    payload_size,
-                                );
-                                let local_ptr = ctx.next_tmp();
-                                ctx.push_line(&format!("  {} = alloca i32", local_ptr));
-                                ctx.push_line(&format!(
-                                    "  store i32 {}, i32* {}, align 1",
-                                    payload_obj, local_ptr
-                                ));
-                                ctx.bind_local(bind.as_str(), local_ptr, LlTy::I32);
+                if is_enum_match {
+                    let variant = match &arm.pattern {
+                        HirMatchPattern::Variant(variant) => variant.as_str(),
+                        _ => unreachable!(),
+                    };
+                    if let Some(bind) = &arm.bind_local {
+                        if let Some(payload_ty) = enum_variant_payload(types, scrutinee.ty, variant)
+                        {
+                            let payload_ll = llty_for_type(types, payload_ty);
+                            if payload_ll == LlTy::Void {
+                                // unit payload は実体を持たないため束縛しない
+                                // （_ 以外への束縛利用は後段で拡張する）
+                                // 現時点では match 評価の継続のみ行う。
                             } else {
-                                let payload_ptr8 = ctx.next_tmp();
-                                ctx.push_line(&format!(
-                                    "  {} = getelementptr i8, i8* {}, i64 {}",
-                                    payload_ptr8, base_ptr8, payload_offset
-                                ));
-
-                                let local_ptr = ctx.next_tmp();
-                                let local_val = if matches!(
-                                    types.get(types.resolve_id(payload_ty)),
-                                    TypeKind::U8
-                                ) {
-                                    let p = ctx.next_tmp();
-                                    let raw = ctx.next_tmp();
-                                    let z = ctx.next_tmp();
+                                let payload_offset = 4i64;
+                                let base_ptr8 = ctx.linear_i8_ptr_from_i32(scr_v.repr.as_str());
+                                if is_aggregate_storage_type(types, payload_ty) {
+                                    let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                                        return Err(llvm_codegen_error(
+                                            format!(
+                                                "alloc function is required for enum payload binding in '{}'",
+                                                ctx.function_name
+                                            ),
+                                            Span::dummy(),
+                                            DiagnosticId::CodegenLlvmUnknownFunction,
+                                        ));
+                                    };
+                                    let payload_size = type_storage_size_bytes(types, payload_ty);
+                                    let payload_obj = ctx.next_tmp();
                                     ctx.push_line(&format!(
-                                        "  {} = bitcast i8* {} to i8*",
-                                        p, payload_ptr8
+                                        "  {} = call i32 {}(i32 {})",
+                                        payload_obj,
+                                        ll_symbol(alloc_name.as_str()),
+                                        payload_size
                                     ));
+                                    let dst_ptr8 = ctx.linear_i8_ptr_from_i32(payload_obj.as_str());
+                                    emit_copy_linear_bytes_llvm(
+                                        ctx,
+                                        dst_ptr8.as_str(),
+                                        0,
+                                        base_ptr8.as_str(),
+                                        payload_offset,
+                                        payload_size,
+                                    );
+                                    let local_ptr = ctx.next_tmp();
+                                    ctx.push_line(&format!("  {} = alloca i32", local_ptr));
                                     ctx.push_line(&format!(
-                                        "  {} = load i8, i8* {}, align 1",
-                                        raw, p
+                                        "  store i32 {}, i32* {}, align 1",
+                                        payload_obj, local_ptr
                                     ));
-                                    ctx.push_line(&format!("  {} = zext i8 {} to i32", z, raw));
-                                    z
+                                    ctx.bind_local(bind.as_str(), local_ptr, LlTy::I32);
                                 } else {
-                                    let typed_ptr = ctx.next_tmp();
-                                    let loaded = ctx.next_tmp();
+                                    let payload_ptr8 = ctx.next_tmp();
                                     ctx.push_line(&format!(
-                                        "  {} = bitcast i8* {} to {}*",
-                                        typed_ptr,
-                                        payload_ptr8,
+                                        "  {} = getelementptr i8, i8* {}, i64 {}",
+                                        payload_ptr8, base_ptr8, payload_offset
+                                    ));
+
+                                    let local_ptr = ctx.next_tmp();
+                                    let local_val = if matches!(
+                                        types.get(types.resolve_id(payload_ty)),
+                                        TypeKind::U8
+                                    ) {
+                                        let p = ctx.next_tmp();
+                                        let raw = ctx.next_tmp();
+                                        let z = ctx.next_tmp();
+                                        ctx.push_line(&format!(
+                                            "  {} = bitcast i8* {} to i8*",
+                                            p, payload_ptr8
+                                        ));
+                                        ctx.push_line(&format!(
+                                            "  {} = load i8, i8* {}, align 1",
+                                            raw, p
+                                        ));
+                                        ctx.push_line(&format!("  {} = zext i8 {} to i32", z, raw));
+                                        z
+                                    } else {
+                                        let typed_ptr = ctx.next_tmp();
+                                        let loaded = ctx.next_tmp();
+                                        ctx.push_line(&format!(
+                                            "  {} = bitcast i8* {} to {}*",
+                                            typed_ptr,
+                                            payload_ptr8,
+                                            payload_ll.ir()
+                                        ));
+                                        ctx.push_line(&format!(
+                                            "  {} = load {}, {}* {}, align 1",
+                                            loaded,
+                                            payload_ll.ir(),
+                                            payload_ll.ir(),
+                                            typed_ptr
+                                        ));
+                                        loaded
+                                    };
+                                    ctx.push_line(&format!(
+                                        "  {} = alloca {}",
+                                        local_ptr,
                                         payload_ll.ir()
                                     ));
                                     ctx.push_line(&format!(
-                                        "  {} = load {}, {}* {}, align 1",
-                                        loaded,
+                                        "  store {} {}, {}* {}, align 1",
                                         payload_ll.ir(),
+                                        local_val,
                                         payload_ll.ir(),
-                                        typed_ptr
+                                        local_ptr
                                     ));
-                                    loaded
-                                };
-                                ctx.push_line(&format!(
-                                    "  {} = alloca {}",
-                                    local_ptr,
-                                    payload_ll.ir()
-                                ));
-                                ctx.push_line(&format!(
-                                    "  store {} {}, {}* {}, align 1",
-                                    payload_ll.ir(),
-                                    local_val,
-                                    payload_ll.ir(),
-                                    local_ptr
-                                ));
-                                ctx.bind_local(bind.as_str(), local_ptr, payload_ll);
+                                    ctx.bind_local(bind.as_str(), local_ptr, payload_ll);
+                                }
                             }
                         }
                     }
@@ -2457,8 +2498,10 @@ fn lower_hir_expr(
                 ctx.push_line(&format!("  br label %{}", end_label));
             }
 
-            ctx.push_line(&format!("{}:", default_label));
-            ctx.push_line("  unreachable");
+            if wildcard_idx.is_none() {
+                ctx.push_line(&format!("{}:", default_label));
+                ctx.push_line("  unreachable");
+            }
 
             ctx.push_line(&format!("{}:", end_label));
             if let Some(slot) = result_slot {

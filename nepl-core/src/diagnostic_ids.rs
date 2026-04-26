@@ -221,6 +221,10 @@ pub enum DiagnosticId {
     TypeRawBodyTargetMismatch = 3095,
     /// trait capability 名が不正。
     TypeUnknownTraitCapability = 3096,
+    /// match arm pattern が対象型に対応しない。
+    TypeMatchPatternUnsupported = 3097,
+    /// wildcard match arm が最後ではない。
+    TypeMatchWildcardMustBeLast = 3098,
     /// WASM backend が extern シグネチャを lower できない。
     CodegenWasmUnsupportedExternSignature = 4001,
     /// WASM backend が関数シグネチャを lower できない。
@@ -388,6 +392,8 @@ impl DiagnosticId {
             3094 => Some(DiagnosticId::TypeMultipleActiveRawBodies),
             3095 => Some(DiagnosticId::TypeRawBodyTargetMismatch),
             3096 => Some(DiagnosticId::TypeUnknownTraitCapability),
+            3097 => Some(DiagnosticId::TypeMatchPatternUnsupported),
+            3098 => Some(DiagnosticId::TypeMatchWildcardMustBeLast),
             4001 => Some(DiagnosticId::CodegenWasmUnsupportedExternSignature),
             4002 => Some(DiagnosticId::CodegenWasmUnsupportedFunctionSignature),
             4003 => Some(DiagnosticId::CodegenWasmMissingReturnValue),
@@ -590,6 +596,10 @@ impl DiagnosticId {
             }
             DiagnosticId::TypeRawBodyTargetMismatch => "raw body does not match the active target",
             DiagnosticId::TypeUnknownTraitCapability => "unknown trait capability",
+            DiagnosticId::TypeMatchPatternUnsupported => {
+                "match arm pattern is not supported for this scrutinee type"
+            }
+            DiagnosticId::TypeMatchWildcardMustBeLast => "wildcard match arm must be last",
             DiagnosticId::CodegenWasmUnsupportedExternSignature => {
                 "unsupported extern signature for wasm"
             }

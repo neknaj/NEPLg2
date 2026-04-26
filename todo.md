@@ -1,7 +1,6 @@
 2026-04-26 NEPLg2 Self-host
 
 - `stdlib/match-decision-trees` branch で `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` に沿って match で表現すべき stdlib の nested if 分岐を監査し、自然な match 表現へ戻す
-- `core/match-literal-patterns` branch で `ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB` に沿って整数 literal arm と wildcard / default を含む match pattern と網羅性仕様を整備する
 - `core/str-i32-separation` branch で `ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` に沿って `str` と raw `i32` handle の unify を廃止し、明示変換 API と回帰テストへ分離する
 - `stdlib/sha256-digest` branch で `ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536` に沿って SHA-256 API を本物の digest 実装または非公開 scaffold へ整理する
 - `stdlib/tui-narrow-width` branch で `ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2` に沿って TUI box helper の narrow width 契約を固定する

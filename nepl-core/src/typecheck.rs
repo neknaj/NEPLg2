@@ -56,6 +56,13 @@ macro_rules! dump {
     };
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScalarMatchKind {
+    I32,
+    U8,
+    Bool,
+}
+
 #[cfg(not(target_os = "none"))]
 fn print_diagnostics_summary(diags: &alloc::vec::Vec<crate::diagnostic::Diagnostic>) {
     if diags.is_empty() {
@@ -2658,7 +2665,7 @@ impl<'a> BlockChecker<'a> {
                 }
                 PrefixItem::Match(m, _) => {
                     for arm in &m.arms {
-                        if let Some(b) = &arm.bind {
+                        if let MatchPattern::Variant { bind: Some(b), .. } = &arm.pattern {
                             out.insert(b.name.clone());
                         }
                         Self::collect_bound_names_from_block(&arm.body, out);
@@ -6482,26 +6489,31 @@ impl<'a> BlockChecker<'a> {
         &mut self,
         arms: &[crate::ast::MatchArm],
     ) -> Option<TypeId> {
-        let first_arm = arms.first()?;
-        let variant_name = &first_arm.variant.name;
-        // "EnumName::VariantName" → "EnumName"
-        let enum_name = if let Some(idx) = variant_name.rfind("::") {
-            &variant_name[..idx]
-        } else {
-            return None;
-        };
-        let enum_info = self.enums.get(enum_name)?;
-        let enum_ty = enum_info.ty;
-        let type_params = enum_info.type_params.clone();
-        if type_params.is_empty() {
-            Some(enum_ty)
-        } else {
-            let fresh_vars: Vec<TypeId> = type_params
-                .iter()
-                .map(|_| self.ctx.fresh_var(None))
-                .collect();
-            Some(self.ctx.apply(enum_ty, fresh_vars))
+        for arm in arms {
+            let variant_name = match &arm.pattern {
+                MatchPattern::Variant { name, .. } => &name.name,
+                _ => continue,
+            };
+            // "EnumName::VariantName" → "EnumName"
+            let enum_name = if let Some(idx) = variant_name.rfind("::") {
+                &variant_name[..idx]
+            } else {
+                continue;
+            };
+            let enum_info = self.enums.get(enum_name)?;
+            let enum_ty = enum_info.ty;
+            let type_params = enum_info.type_params.clone();
+            return if type_params.is_empty() {
+                Some(enum_ty)
+            } else {
+                let fresh_vars: Vec<TypeId> = type_params
+                    .iter()
+                    .map(|_| self.ctx.fresh_var(None))
+                    .collect();
+                Some(self.ctx.apply(enum_ty, fresh_vars))
+            };
         }
+        None
     }
 
     fn check_match_expr(&mut self, m: &MatchExpr) -> Option<(HirExpr, TypeId)> {
@@ -6517,169 +6529,386 @@ impl<'a> BlockChecker<'a> {
         {
             let scrut_ty = scrut_expr.ty;
             let resolved_ty = self.ctx.resolve(scrut_ty);
-            let variants = match self.ctx.get(resolved_ty) {
-                TypeKind::Enum { variants, .. } => Some(variants.clone()),
-                TypeKind::Bool => Some(alloc::vec![
-                    EnumVariantInfo {
-                        name: "true".to_string(),
-                        payload: None
-                    },
-                    EnumVariantInfo {
-                        name: "false".to_string(),
-                        payload: None
-                    },
-                ]),
-                TypeKind::Apply { base, args } => {
-                    let base_ty = self.ctx.resolve(base);
-                    match self.ctx.get(base_ty) {
-                        TypeKind::Enum {
-                            type_params,
-                            variants,
-                            ..
-                        } => {
-                            if type_params.len() == args.len() {
-                                let mut mapping = alloc::collections::BTreeMap::new();
-                                for (tp, arg) in type_params.iter().zip(args.iter()) {
-                                    mapping.insert(*tp, *arg);
-                                }
-                                let mut new_vars = Vec::new();
-                                for v in variants {
-                                    new_vars.push(EnumVariantInfo {
-                                        name: v.name.clone(),
-                                        payload: v
-                                            .payload
-                                            .map(|p| self.ctx.substitute(p, &mapping)),
-                                    });
-                                }
-                                Some(new_vars)
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    }
-                }
+            if let Some(variants) = self.match_enum_variants_for_type(resolved_ty) {
+                return self.check_enum_match_expr(m, scrut_expr, variants);
+            }
+            let scalar = match self.ctx.get(resolved_ty) {
+                TypeKind::I32 => Some(ScalarMatchKind::I32),
+                TypeKind::U8 => Some(ScalarMatchKind::U8),
+                TypeKind::Bool => Some(ScalarMatchKind::Bool),
                 _ => None,
             };
-            if variants.is_none() {
-                self.diagnostics.push(
-                    Diagnostic::error("match scrutinee must be an enum", m.span)
-                        .with_id(DiagnosticId::TypeMatchScrutineeMustBeEnum),
-                );
-                return None;
+            if let Some(kind) = scalar {
+                return self.check_scalar_match_expr(m, scrut_expr, kind);
             }
-            let variants = variants.unwrap();
-            let mut seen = alloc::collections::BTreeSet::new();
-            let mut arms_hir = Vec::new();
-            let mut result_ty: Option<TypeId> = None;
-            for arm in &m.arms {
-                let arm_var_name = if let Some(pos) = arm.variant.name.find("::") {
-                    &arm.variant.name[pos + 2..]
-                } else {
-                    &arm.variant.name
-                };
-                if !seen.insert(arm_var_name.to_string()) {
-                    self.diagnostics.push(
-                        Diagnostic::error("duplicate match arm", arm.variant.span)
-                            .with_id(DiagnosticId::TypeDuplicateMatchArm),
-                    );
-                    continue;
-                }
-                let var_info = variants.iter().find(|v| v.name == arm_var_name);
-                if var_info.is_none() {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            alloc::format!("unknown enum variant '{}' in match", arm.variant.name),
-                            arm.variant.span,
-                        )
-                        .with_id(DiagnosticId::TypeMatchUnknownVariant),
-                    );
-                    continue;
-                }
-                let var_info = var_info.unwrap();
-                let bind_ty = arm.bind.as_ref().and_then(|_| var_info.payload);
-                self.env.push_scope();
-                if let Some(bind) = &arm.bind {
-                    if let Some(pty) = var_info.payload {
-                        emit_shadow_warning(
-                            &mut self.diagnostics,
-                            self.env,
-                            &bind.name,
-                            bind.span,
-                            "match binding",
-                        );
-                        let _ = self.env.insert_local(Binding {
-                            name: bind.name.clone(),
-                            ty: pty,
-                            mutable: false,
-                            no_shadow: false,
-                            defined: true,
-                            moved: false,
-                            span: bind.span,
-                            kind: BindingKind::Var,
-                        });
-                    } else {
-                        self.diagnostics.push(
-                            Diagnostic::error("variant has no payload to bind", bind.span)
-                                .with_id(DiagnosticId::TypeMatchPayloadBindingInvalid),
-                        );
-                    }
-                }
-                let (blk, val_ty) = self.check_block(&arm.body, 0, false, None)?;
-                self.env.pop_scope();
-                let body_ty = val_ty.unwrap_or(self.ctx.unit());
-                if let Some(t) = result_ty {
-                    if let Err(_) = self.ctx.unify(t, body_ty) {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                alloc::format!(
-                                    "match arms have incompatible types: {} and {}",
-                                    self.ctx.type_to_string(t),
-                                    self.ctx.type_to_string(body_ty)
-                                ),
-                                arm.span,
-                            )
-                            .with_id(DiagnosticId::TypeMatchArmsTypeMismatch),
-                        );
-                    }
-                } else {
-                    result_ty = Some(body_ty);
-                }
-                arms_hir.push(HirMatchArm {
-                    variant: arm.variant.name.clone(),
-                    bind_local: arm.bind.as_ref().map(|b| b.name.clone()),
-                    bind_ty,
-                    body: HirExpr {
-                        ty: body_ty,
-                        kind: HirExprKind::Block(blk),
-                        span: arm.span,
-                    },
-                });
-            }
-            // exhaustiveness
-            for v in variants {
-                if !seen.contains(&v.name) {
-                    self.diagnostics.push(
-                        Diagnostic::error("non-exhaustive match", m.span)
-                            .with_id(DiagnosticId::TypeNonExhaustiveMatch),
-                    );
-                    break;
-                }
-            }
-            let rty = result_ty.unwrap_or(self.ctx.unit());
-            return Some((
-                HirExpr {
-                    ty: rty,
-                    kind: HirExprKind::Match {
-                        scrutinee: Box::new(scrut_expr),
-                        arms: arms_hir,
-                    },
-                    span: m.span,
-                },
-                rty,
-            ));
+            self.diagnostics.push(
+                Diagnostic::error("match scrutinee must be an enum, bool, i32, or u8", m.span)
+                    .with_id(DiagnosticId::TypeMatchScrutineeMustBeEnum),
+            );
         }
         None
+    }
+
+    fn match_enum_variants_for_type(
+        &mut self,
+        resolved_ty: TypeId,
+    ) -> Option<Vec<EnumVariantInfo>> {
+        match self.ctx.get(resolved_ty) {
+            TypeKind::Enum { variants, .. } => Some(variants.clone()),
+            TypeKind::Apply { base, args } => {
+                let base_ty = self.ctx.resolve(base);
+                match self.ctx.get(base_ty) {
+                    TypeKind::Enum {
+                        type_params,
+                        variants,
+                        ..
+                    } => {
+                        if type_params.len() != args.len() {
+                            return None;
+                        }
+                        let type_params = type_params.clone();
+                        let variants = variants.clone();
+                        let args = args.clone();
+                        let mut mapping = alloc::collections::BTreeMap::new();
+                        for (tp, arg) in type_params.iter().zip(args.iter()) {
+                            mapping.insert(*tp, *arg);
+                        }
+                        let mut new_vars = Vec::new();
+                        for v in variants {
+                            new_vars.push(EnumVariantInfo {
+                                name: v.name.clone(),
+                                payload: v.payload.map(|p| self.ctx.substitute(p, &mapping)),
+                            });
+                        }
+                        Some(new_vars)
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn check_enum_match_expr(
+        &mut self,
+        m: &MatchExpr,
+        scrut_expr: HirExpr,
+        variants: Vec<EnumVariantInfo>,
+    ) -> Option<(HirExpr, TypeId)> {
+        let mut seen = alloc::collections::BTreeSet::new();
+        let mut arms_hir = Vec::new();
+        let mut result_ty: Option<TypeId> = None;
+        for arm in &m.arms {
+            let (variant, bind) = match &arm.pattern {
+                MatchPattern::Variant { name, bind } => (name, bind),
+                _ => {
+                    self.diagnostics.push(
+                        Diagnostic::error("unsupported match pattern for enum scrutinee", arm.span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    continue;
+                }
+            };
+            let arm_var_name = if let Some(pos) = variant.name.find("::") {
+                &variant.name[pos + 2..]
+            } else {
+                &variant.name
+            };
+            if !seen.insert(arm_var_name.to_string()) {
+                self.diagnostics.push(
+                    Diagnostic::error("duplicate match arm", variant.span)
+                        .with_id(DiagnosticId::TypeDuplicateMatchArm),
+                );
+                continue;
+            }
+            let var_info = variants.iter().find(|v| v.name == arm_var_name);
+            if var_info.is_none() {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("unknown enum variant '{}' in match", variant.name),
+                        variant.span,
+                    )
+                    .with_id(DiagnosticId::TypeMatchUnknownVariant),
+                );
+                continue;
+            }
+            let var_info = var_info.unwrap();
+            let bind_ty = bind.as_ref().and_then(|_| var_info.payload);
+            self.env.push_scope();
+            if let Some(bind) = bind {
+                if let Some(pty) = var_info.payload {
+                    emit_shadow_warning(
+                        &mut self.diagnostics,
+                        self.env,
+                        &bind.name,
+                        bind.span,
+                        "match binding",
+                    );
+                    let _ = self.env.insert_local(Binding {
+                        name: bind.name.clone(),
+                        ty: pty,
+                        mutable: false,
+                        no_shadow: false,
+                        defined: true,
+                        moved: false,
+                        span: bind.span,
+                        kind: BindingKind::Var,
+                    });
+                } else {
+                    self.diagnostics.push(
+                        Diagnostic::error("variant has no payload to bind", bind.span)
+                            .with_id(DiagnosticId::TypeMatchPayloadBindingInvalid),
+                    );
+                }
+            }
+            let (blk, val_ty) = self.check_block(&arm.body, 0, false, None)?;
+            self.env.pop_scope();
+            let body_ty = val_ty.unwrap_or(self.ctx.unit());
+            self.check_match_arm_result_type(&mut result_ty, body_ty, arm.span);
+            arms_hir.push(HirMatchArm {
+                pattern: HirMatchPattern::Variant(variant.name.clone()),
+                bind_local: bind.as_ref().map(|b| b.name.clone()),
+                bind_ty,
+                body: HirExpr {
+                    ty: body_ty,
+                    kind: HirExprKind::Block(blk),
+                    span: arm.span,
+                },
+            });
+        }
+        for v in variants {
+            if !seen.contains(&v.name) {
+                self.diagnostics.push(
+                    Diagnostic::error("non-exhaustive match", m.span)
+                        .with_id(DiagnosticId::TypeNonExhaustiveMatch),
+                );
+                break;
+            }
+        }
+        let rty = result_ty.unwrap_or(self.ctx.unit());
+        Some((
+            HirExpr {
+                ty: rty,
+                kind: HirExprKind::Match {
+                    scrutinee: Box::new(scrut_expr),
+                    arms: arms_hir,
+                },
+                span: m.span,
+            },
+            rty,
+        ))
+    }
+
+    fn check_scalar_match_expr(
+        &mut self,
+        m: &MatchExpr,
+        scrut_expr: HirExpr,
+        kind: ScalarMatchKind,
+    ) -> Option<(HirExpr, TypeId)> {
+        let mut seen_i32 = alloc::collections::BTreeSet::new();
+        let mut seen_true = false;
+        let mut seen_false = false;
+        let mut saw_wildcard = false;
+        let mut arms_hir = Vec::new();
+        let mut result_ty: Option<TypeId> = None;
+
+        for (idx, arm) in m.arms.iter().enumerate() {
+            let hir_pattern = match self.scalar_match_pattern(kind, arm, idx + 1 == m.arms.len()) {
+                Some(p) => p,
+                None => continue,
+            };
+            match &hir_pattern {
+                HirMatchPattern::IntLiteral(v) => {
+                    if !seen_i32.insert(*v) {
+                        self.diagnostics.push(
+                            Diagnostic::error("duplicate match arm", arm.span)
+                                .with_id(DiagnosticId::TypeDuplicateMatchArm),
+                        );
+                        continue;
+                    }
+                }
+                HirMatchPattern::BoolLiteral(true) => {
+                    if seen_true {
+                        self.diagnostics.push(
+                            Diagnostic::error("duplicate match arm", arm.span)
+                                .with_id(DiagnosticId::TypeDuplicateMatchArm),
+                        );
+                        continue;
+                    }
+                    seen_true = true;
+                }
+                HirMatchPattern::BoolLiteral(false) => {
+                    if seen_false {
+                        self.diagnostics.push(
+                            Diagnostic::error("duplicate match arm", arm.span)
+                                .with_id(DiagnosticId::TypeDuplicateMatchArm),
+                        );
+                        continue;
+                    }
+                    seen_false = true;
+                }
+                HirMatchPattern::Wildcard => {
+                    if saw_wildcard {
+                        self.diagnostics.push(
+                            Diagnostic::error("duplicate match arm", arm.span)
+                                .with_id(DiagnosticId::TypeDuplicateMatchArm),
+                        );
+                        continue;
+                    }
+                    saw_wildcard = true;
+                }
+                HirMatchPattern::Variant(_) => {}
+            }
+
+            let (blk, val_ty) = self.check_block(&arm.body, 0, false, None)?;
+            let body_ty = val_ty.unwrap_or(self.ctx.unit());
+            self.check_match_arm_result_type(&mut result_ty, body_ty, arm.span);
+            arms_hir.push(HirMatchArm {
+                pattern: hir_pattern,
+                bind_local: None,
+                bind_ty: None,
+                body: HirExpr {
+                    ty: body_ty,
+                    kind: HirExprKind::Block(blk),
+                    span: arm.span,
+                },
+            });
+        }
+
+        let exhaustive = match kind {
+            ScalarMatchKind::Bool => saw_wildcard || (seen_true && seen_false),
+            ScalarMatchKind::I32 | ScalarMatchKind::U8 => saw_wildcard,
+        };
+        if !exhaustive {
+            self.diagnostics.push(
+                Diagnostic::error("non-exhaustive match", m.span)
+                    .with_id(DiagnosticId::TypeNonExhaustiveMatch),
+            );
+        }
+        let rty = result_ty.unwrap_or(self.ctx.unit());
+        Some((
+            HirExpr {
+                ty: rty,
+                kind: HirExprKind::Match {
+                    scrutinee: Box::new(scrut_expr),
+                    arms: arms_hir,
+                },
+                span: m.span,
+            },
+            rty,
+        ))
+    }
+
+    fn scalar_match_pattern(
+        &mut self,
+        kind: ScalarMatchKind,
+        arm: &MatchArm,
+        is_last: bool,
+    ) -> Option<HirMatchPattern> {
+        match &arm.pattern {
+            MatchPattern::IntLiteral { text, span } => {
+                if kind == ScalarMatchKind::Bool {
+                    self.diagnostics.push(
+                        Diagnostic::error("integer literal match arm cannot match bool", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                }
+                let Some(value) = parse_i32_literal(text) else {
+                    self.diagnostics.push(
+                        Diagnostic::error("invalid integer literal in match arm", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                };
+                if kind == ScalarMatchKind::U8 && !(0..=255).contains(&value) {
+                    self.diagnostics.push(
+                        Diagnostic::error("u8 match literal must be in 0..=255", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                }
+                Some(HirMatchPattern::IntLiteral(value))
+            }
+            MatchPattern::BoolLiteral { value, span } => {
+                if kind != ScalarMatchKind::Bool {
+                    self.diagnostics.push(
+                        Diagnostic::error("bool literal match arm cannot match integer", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                }
+                Some(HirMatchPattern::BoolLiteral(*value))
+            }
+            MatchPattern::Wildcard { span } => {
+                if !is_last {
+                    self.diagnostics.push(
+                        Diagnostic::error("wildcard match arm must be last", *span)
+                            .with_id(DiagnosticId::TypeMatchWildcardMustBeLast),
+                    );
+                }
+                Some(HirMatchPattern::Wildcard)
+            }
+            MatchPattern::Variant { name, bind } => {
+                if bind.is_some() {
+                    self.diagnostics.push(
+                        Diagnostic::error("literal match arms cannot bind payloads", name.span)
+                            .with_id(DiagnosticId::TypeMatchPayloadBindingInvalid),
+                    );
+                    return None;
+                }
+                if kind == ScalarMatchKind::Bool {
+                    match name.name.as_str() {
+                        "true" => Some(HirMatchPattern::BoolLiteral(true)),
+                        "false" => Some(HirMatchPattern::BoolLiteral(false)),
+                        _ => {
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "bool match arms must be true, false, or _",
+                                    name.span,
+                                )
+                                .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                            );
+                            None
+                        }
+                    }
+                } else {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            "integer match arms must be integer literals or _",
+                            name.span,
+                        )
+                        .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    None
+                }
+            }
+        }
+    }
+
+    fn check_match_arm_result_type(
+        &mut self,
+        result_ty: &mut Option<TypeId>,
+        body_ty: TypeId,
+        span: Span,
+    ) {
+        if let Some(t) = *result_ty {
+            if let Err(_) = self.ctx.unify(t, body_ty) {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!(
+                            "match arms have incompatible types: {} and {}",
+                            self.ctx.type_to_string(t),
+                            self.ctx.type_to_string(body_ty)
+                        ),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeMatchArmsTypeMismatch),
+                );
+            }
+        } else {
+            *result_ty = Some(body_ty);
+        }
     }
 
     fn split_if_then_else_block_ast(b: &Block) -> Option<(Block, Block)> {
