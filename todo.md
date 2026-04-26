@@ -1,5 +1,11 @@
 2026-04-26 NEPLg2 Self-host
 
+- `stdlib/string-find-api` branch で `ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B` に沿って `alloc/string::find` の仕様と実装を確定する
+- `rust/selfhost-req-hashkey` branch で `ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10` に沿って user-defined key の `HashKey` 要件を fixture 化する
+- `rust/function-nested-test` branch で `ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77` に沿って通過済み nested function test の ignore を外す
+- `stdlib/stdio-executable-tests` branch で `ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B` に沿って stdio doctest skip を実行可能 test へ移す
+- `cli/lib-mode-contract` branch で `ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22` に沿って `--lib` の未実装契約または実装範囲を確定する
+- `rust/compiler-warning-debt` branch で `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` に沿って compiler warning debt を削減する
 - `selfhost/s0-source-tree` branch で `ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C` に沿って `stdlib/neplg2/` の root、README、top-level module skeleton を作成する
 - `selfhost/s0-infra-span-diag` branch で `infra/span.nepl`、`diag.nepl`、`outcome.nepl` と最小 doctest を作成する
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する

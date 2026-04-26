@@ -1,24 +1,24 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T01:26:19.813Z",
+  "generated_at": "2026-04-26T02:01:12.712Z",
   "counts": {
-    "total": 82,
-    "open": 23,
+    "total": 88,
+    "open": 29,
     "resolved": 59,
     "by_area": {
       "core": {
-        "total": 29,
-        "open": 3,
+        "total": 32,
+        "open": 6,
         "resolved": 26
       },
       "stdlib": {
-        "total": 19,
-        "open": 11,
+        "total": 21,
+        "open": 13,
         "resolved": 8
       },
       "cli": {
-        "total": 14,
-        "open": 2,
+        "total": 15,
+        "open": 3,
         "resolved": 12
       },
       "selfhost": {
@@ -93,6 +93,21 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
+    },
+    {
+      "id": "ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10",
+      "title": "self-host requirement test for user-defined HashMap keys still fails",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/tests/selfhost_req.rs, nepl-core/src/typecheck.rs, stdlib/core/traits/hash_key.nepl, stdlib/alloc/collections/hashmap.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
@@ -290,6 +305,36 @@
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-018-663A986A.md"
     },
     {
+      "id": "ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B",
+      "title": "alloc/string find is a stub and always returns None",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B.md"
+    },
+    {
+      "id": "ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B",
+      "title": "stdio has many skipped doctests on self-host critical APIs",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/stdio.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-CLI-007-7A548794",
       "title": "LLVM toolchain 条件が既定で linux + clang 21.1.0 に固定される",
       "area": "cli",
@@ -305,6 +350,21 @@
       "file": "items/ISS-20260425T000000Z-RV-CLI-007-7A548794.md"
     },
     {
+      "id": "ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22",
+      "title": "nepl-cli --lib is accepted but only prints a placeholder warning",
+      "area": "cli",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-cli/src/main.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
       "title": "name resolution が二重化し本パイプラインに統合されていない",
       "area": "core",
@@ -318,6 +378,21 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
+    },
+    {
+      "id": "ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77",
+      "title": "nested function regression test remains ignored even though it passes",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/tests/functions.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77.md"
     },
     {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
@@ -378,6 +453,21 @@
       "legacy_id": "RV-STDLIB-010",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-010",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB.md"
+    },
+    {
+      "id": "ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91",
+      "title": "Rust compiler crates emit warning debt that hides audit signal",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P3",
+      "type": "maintenance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src, nepl-cli/src",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",

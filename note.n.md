@@ -1,3 +1,26 @@
+# 2026-04-26 メモ (NEPLg2.0 self-host 開始前監査)
+
+- [状況]:
+  - NEPLg2.0 self-host 実装開始前に、Rust 参照 compiler と stdlib の未解決問題を既存 Issue と照合する必要があった。
+  - 既存 `issues/` には旧 `review20260425` 由来の blocker が移行済みだが、今回の関数単位レビューで未登録の欠落が残っていた。
+- [修正]:
+  - `doc/neplg2/pre_selfhost_audit_20260426.md` を追加し、Rust / stdlib の監査範囲、既存 blocker、stdlib doctest 失敗分類、self-host 開始条件を整理した。
+  - `alloc/string::find` の stub、user-defined `HashMap` key 要件、nested function ignored test、stdio doctest skip、`nepl-cli --lib` placeholder、Rust warning debt を新規 Issue として `issues/items/` に追加した。
+  - `doc/neplg2/README.md`、`todo.md`、`issues/index.*` を監査結果へ接続した。
+- [確認済み]:
+  - `cargo test -p nepl-core -p nepl-cli`: 通過。
+  - `cargo test -p nepl-core --test functions function_nested -- --ignored`: 1/1 passed。ignored が stale であることを確認。
+  - `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions -- --ignored`: 失敗。`TypeInherentImplUnsupported` を主因として Issue 化。
+  - `cargo check -p nepl-core -p nepl-cli`: 通過。ただし `nepl-core` 66 warnings、`nepl-cli` 1 warning。
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/pre-selfhost-stdlib-review.json -j 4`: 379 total / 337 passed / 42 failed。失敗は既存 Issue 範囲に分類済み。
+  - `node nodesrc/issues.js index`: 88 件を index 化（open 29 / resolved 59）。
+  - `node nodesrc/issues.js check`: 88 files OK。
+  - 監査関連 Markdown link 確認: missing 0。
+  - `trunk build`: 成功。既存の warning debt は `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` として記録済み。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/pre-selfhost-audit-playground.json`: 13/13 passed。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の変更は self-host 実装開始前の監査と Issue 台帳の更新であり、仕様本文への変更ではない。
+
 # 2026-04-26 メモ (NEPLg2.0 self-host 実行運用の固定)
 
 - [状況]:
