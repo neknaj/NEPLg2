@@ -3,6 +3,10 @@
 #if[target=wasi]
 #extern "wasi_snapshot_preview1" "path_open" fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
 #if[target=wasi]
+#extern "wasi_snapshot_preview1" "path_filestat_get" fn wasi_path_filestat_get <(i32,i32,i32,i32,i32)*>i32>
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_readdir" fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32>
+#if[target=wasi]
 #extern "wasi_snapshot_preview1" "fd_read" fn wasi_fd_read <(i32,i32,i32,i32)*>i32>
 #if[target=wasi]
 #extern "wasi_snapshot_preview1" "fd_write" fn wasi_fd_write <(i32,i32,i32,i32)*>i32>
@@ -15,6 +19,14 @@
 #if[target=bare_wasm]
 fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags,_path_ptr,_path_len,_oflags,_rights_base,_rights_inheriting,_fdflags,_fd_out):
     1 // EPERM or similar
+
+#if[target=bare_wasm]
+fn wasi_path_filestat_get <(i32,i32,i32,i32,i32)*>i32> (_dirfd,_flags,_path_ptr,_path_len,_buf):
+    1
+
+#if[target=bare_wasm]
+fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32> (_fd,_buf,_buf_len,_cookie,_bufused):
+    1
 
 #if[target=bare_wasm]
 fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nread_ptr):
@@ -33,6 +45,7 @@ fn wasi_fd_close <(i32)*>i32> (_fd):
 #import "core/math" as *
 #import "core/result" as *
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as v
 #import "alloc/io" as *
 #import "alloc/string" as *
 
@@ -47,9 +60,35 @@ fn fs_right_fd_read <()->i64> ():
 fn fs_right_fd_write <()->i64> ():
     <i64> cast 64
 
+// WASI rights_base の fd_readdir bit。
+fn fs_right_fd_readdir <()->i64> ():
+    <i64> cast 16384
+
 // WASI oflags の create + truncate bit。
 fn fs_oflags_create_truncate <()->i32> ():
     9
+
+// WASI oflags の directory bit。
+fn fs_oflags_directory <()->i32> ():
+    2
+
+fn fs_errno_inval <()->i32> ():
+    28
+
+fn fs_errno_notcapable <()->i32> ():
+    76
+
+fn fs_filetype_directory <()->i32> ():
+    3
+
+fn fs_filetype_regular_file <()->i32> ():
+    4
+
+fn fs_dirent_header_size <()->i32> ():
+    24
+
+fn fs_readdir_buf_size <()->i32> ():
+    65536
 
 //: fs: ファイル読み書き（WASI / LLVM）
 //:
@@ -154,6 +193,15 @@ fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags
                 else:
                     store_i32 fd_out <i32> cast fd64;
                     0
+
+#if[target=llvm]
+fn wasi_path_filestat_get <(i32,i32,i32,i32,i32)*>i32> (_dirfd,_flags,_path_ptr,_path_len,_buf):
+    52
+
+#if[target=llvm]
+fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32> (_fd,_buf,_buf_len,_cookie,bufused):
+    store_i32 bufused 0;
+    52
 
 #if[target=llvm]
 fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nread_ptr):
@@ -381,6 +429,493 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
 //: ```
 fn fs_open_write <(str)*>Result<i32,i32>> (path):
     fs_open_with_flags path fs_oflags_create_truncate fs_right_fd_write
+
+//: fs_path_has_forbidden_host_byte: WASI guest path と host path の混同を招く byte を検出する
+//:
+//: 目的:
+//: - `\` や `:` を含む path を、preopen root の外へ出る可能性がある host path 表現として拒否できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - 文字列を byte 単位で走査し、Windows 区切りや drive prefix に使われる byte を探します。
+//:
+//: 注意(重要):
+//: - std/fs の公開 path API は `/` 区切りの WASI guest path だけを受け付けます。
+//:
+//: 計算量:
+//: - path 長 n に対して O(n)
+fn fs_path_has_forbidden_host_byte <(str)->bool> (path):
+    let n <i32> len path
+    let mut i <i32> 0
+    let mut found <bool> false
+    while and not found lt i n:
+        do:
+            let ch <i32> string_byte_at_unchecked path i
+            if:
+                or eq ch 92 eq ch 58
+                then:
+                    set found true
+                else:
+                    set i add i 1
+    found
+
+//: fs_str_lt: directory entry の安定順を決める byte 辞書順比較
+//:
+//: 目的:
+//: - host の `readdir` 順に依存しないよう、`fs_read_dir` の結果を byte 順で並べ替えます。
+//:
+//: 実装(アルゴリズム):
+//: - 2 つの str を先頭から byte 比較し、共通 prefix の場合は短い方を小さいとみなします。
+//:
+//: 注意(重要):
+//: - locale や Unicode 正規化は扱わず、filesystem discovery 用の安定順だけを提供します。
+//:
+//: 計算量:
+//: - 短い方の長さ m に対して O(m)
+fn fs_str_lt <(str,str)->bool> (a, b):
+    let la <i32> len a
+    let lb <i32> len b
+    let n <i32> if lt la lb then la else lb
+    let mut i <i32> 0
+    let mut done <bool> false
+    let mut answer <bool> false
+    while and not done lt i n:
+        do:
+            let ba <i32> string_byte_at_unchecked a i
+            let bb <i32> string_byte_at_unchecked b i
+            if:
+                lt ba bb
+                then:
+                    set answer true
+                    set done true
+                else:
+                    if:
+                        gt ba bb
+                        then:
+                            set done true
+                        else:
+                            set i add i 1
+    if:
+        done
+        then answer
+        else lt la lb
+
+//: fs_sort_strings: Vec<str> を in-place に安定した byte 順へ並べる
+//:
+//: 目的:
+//: - `fs_read_dir` の戻り値を platform 非依存の順序に揃えます。
+//:
+//: 実装(アルゴリズム):
+//: - entry 数は通常小さいため、追加の heap 確保を避けた insertion sort を使います。
+//:
+//: 注意(重要):
+//: - 要素の所有権は Vec 内に保持したまま、str handle だけを並べ替えます。
+//:
+//: 計算量:
+//: - entry 数 n、名前長比較を含めて最悪 O(n^2)
+fn fs_sort_strings <(i32,i32)*>()> (data, n):
+    let mut i <i32> 1
+    while lt i n:
+        do:
+            let key <str> load<str> add data mul i size_of<str>
+            let mut j <i32> i
+            let mut moving <bool> true
+            while and moving gt j 0:
+                do:
+                    let prev_idx <i32> sub j 1
+                    let prev <str> load<str> add data mul prev_idx size_of<str>
+                    if:
+                        fs_str_lt key prev
+                        then:
+                            store<str> add data mul j size_of<str> prev
+                            set j prev_idx
+                        else:
+                            set moving false
+            store<str> add data mul j size_of<str> key
+            set i add i 1
+    ()
+
+//: fs_string_from_bytes: fd_readdir の name byte range を str へ複製する
+//:
+//: 目的:
+//: - WASI dirent buffer 内の一時 byte 列を、戻り値として保持できる str に変換します。
+//:
+//: 実装(アルゴリズム):
+//: - string layout 用の領域を確保し、bulk copy で byte 列を複製します。
+//:
+//: 注意(重要):
+//: - UTF-8 検証は行いません。WASI runtime が返した filename byte をそのまま保持します。
+//:
+//: 計算量:
+//: - 名前長 n に対して O(n)
+fn fs_string_from_bytes <(i32,i32)->Result<str,i32>> (src, byte_len):
+    match string_alloc_region byte_len:
+        Result::Err _e:
+            Result<str,i32>::Err 12
+        Result::Ok region:
+            let out <MemPtr<u8>> get region "ptr"
+            let out_data <MemPtr<u8>> mem_ptr_add out 4
+            mem_copy mem_ptr_addr out_data src byte_len
+            Result<str,i32>::Ok string_finish region byte_len
+
+fn fs_dir_name_is_dot <(str)->bool> (name):
+    or str_eq name "." str_eq name ".."
+
+//: fs_normalize_build: 正規化済み component stack を `/` 区切り path へ戻す
+//:
+//: 目的:
+//: - `fs_normalize_relative` の内部 stack から、WASI runtime へ渡す guest path を作ります。
+//:
+//: 実装(アルゴリズム):
+//: - component を順に StringBuilder へ追加し、component 間にだけ `/` を入れます。
+//:
+//: 注意(重要):
+//: - 空 stack は current preopen root を表す `"."` として返します。
+//:
+//: 計算量:
+//: - component の総 byte 数 n に対して O(n)
+fn fs_normalize_build <(i32,i32)->str> (data, n):
+    if:
+        eq n 0
+        then:
+            "."
+        else:
+            let mut sb <StringBuilder> string_builder_new
+            let mut i <i32> 0
+            while lt i n:
+                do:
+                    if:
+                        gt i 0
+                        then:
+                            set sb sb_append sb "/"
+                        else:
+                            ()
+                    let part <str> load<str> add data mul i size_of<str>
+                    set sb sb_append sb part
+                    set i add i 1
+            sb_build sb
+
+//: fs_normalize_relative: `/` 区切りの相対 path を preopen root 内の正規形へ畳む
+//:
+//: 目的:
+//: - import 解決や directory traversal が、caller ごとの ad hoc な path 処理に依存しないようにします。
+//:
+//: 実装(アルゴリズム):
+//: - `/` で分割し、空 component と `.` を捨て、`..` は stack を 1 つ戻します。
+//: - stack が空の状態で `..` が来た場合は preopen root 外へ出るため拒否します。
+//:
+//: 注意(重要):
+//: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
+//: - 空 path は preopen root 自体を表す `"."` に正規化します。
+//:
+//: 計算量:
+//: - path 長 n に対して O(n)
+fn fs_normalize_relative <(str)->Result<str,i32>> (path):
+    let path_len <i32> len path
+    if:
+        fs_path_has_forbidden_host_byte path
+        then:
+            Result<str,i32>::Err fs_errno_notcapable
+        else:
+            if:
+                and gt path_len 0 eq string_byte_at_unchecked path 0 47
+                then:
+                    Result<str,i32>::Err fs_errno_notcapable
+                else:
+                    let parts <Vec<str>> str_split path "/"
+                    match v::new<str>:
+                        Result::Err _e:
+                            Result<str,i32>::Err 12
+                        Result::Ok stack0:
+                            let mut stack <Vec<str>> stack0
+                            let parts_len <i32> get parts "len"
+                            let parts_data <i32> mem_ptr_addr get parts "data"
+                            let mut i <i32> 0
+                            let mut err <i32> 0
+                            while and eq err 0 lt i parts_len:
+                                do:
+                                    let part <str> load<str> add parts_data mul i size_of<str>
+                                    if:
+                                        or str_eq part "" str_eq part "."
+                                        then:
+                                            ()
+                                        else:
+                                            if:
+                                                str_eq part ".."
+                                                then:
+                                                    let stack_len <i32> get stack "len"
+                                                    if:
+                                                        eq stack_len 0
+                                                        then:
+                                                            set err fs_errno_notcapable
+                                                        else:
+                                                            let popped v::pop<str> stack
+                                                            set stack get popped 0
+                                                else:
+                                                    set stack unwrap_ok v::push<str> stack part
+                                    set i add i 1
+                            let result <Result<str,i32>> if:
+                                eq err 0
+                                then:
+                                    let stack_len <i32> get stack "len"
+                                    let stack_data <i32> mem_ptr_addr get stack "data"
+                                    Result<str,i32>::Ok fs_normalize_build stack_data stack_len
+                                else:
+                                    Result<str,i32>::Err err
+                            v::free<str> parts
+                            v::free<str> stack
+                            result
+
+//: fs_path_filetype: path の WASI filetype を取得する
+//:
+//: 目的:
+//: - existence check と file/dir 判定を、read 失敗の副作用に頼らず取得します。
+//:
+//: 実装(アルゴリズム):
+//: - path を `fs_normalize_relative` で正規化し、WASI `path_filestat_get` の filestat.filetype byte を読みます。
+//:
+//: 注意(重要):
+//: - 戻り値は WASI filetype の整数値です。regular file は 4、directory は 3 です。
+//:
+//: 計算量:
+//: - path 正規化 O(n) と host stat 1 回
+fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
+    match fs_normalize_relative path:
+        Result::Err e:
+            Result<i32,i32>::Err e
+        Result::Ok normalized:
+            match alloc_ptr<u8> 64:
+                Result::Err _e:
+                    Result<i32,i32>::Err 12
+                Result::Ok stat_buf:
+                    let path_ptr <i32> mem_ptr_addr string_data_ptr normalized
+                    let path_len <i32> len normalized
+                    let errno <i32> wasi_path_filestat_get 3 0 path_ptr path_len mem_ptr_addr stat_buf
+                    let res <Result<i32,i32>> if:
+                        eq errno 0
+                        then:
+                            Result<i32,i32>::Ok load_u8 add mem_ptr_addr stat_buf 16
+                        else:
+                            Result<i32,i32>::Err errno
+                    match dealloc_ptr<u8> stat_buf 64:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    res
+
+//: fs_exists: path が preopen root 内に存在するかを返す
+//:
+//: 目的:
+//: - import 解決で候補ファイルの有無を軽量に判定します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_path_filetype` が成功するかどうかだけを bool に変換します。
+//:
+//: 注意(重要):
+//: - 権限違反や root escape も false になります。詳細 errno が必要なら `fs_path_filetype` を使ってください。
+//:
+//: 計算量:
+//: - host stat 1 回
+fn fs_exists <(str)*>bool> (path):
+    match fs_path_filetype path:
+        Result::Ok _kind:
+            true
+        Result::Err _e:
+            false
+
+//: fs_is_file: path が regular file かを返す
+//:
+//: 目的:
+//: - `.nepl` / `.n.md` 候補を directory と区別します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_path_filetype` の WASI filetype を regular file 値と比較します。
+//:
+//: 計算量:
+//: - host stat 1 回
+fn fs_is_file <(str)*>bool> (path):
+    match fs_path_filetype path:
+        Result::Ok kind:
+            eq kind fs_filetype_regular_file
+        Result::Err _e:
+            false
+
+//: fs_is_dir: path が directory かを返す
+//:
+//: 目的:
+//: - stdlib root や module root の探索で directory を検出します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_path_filetype` の WASI filetype を directory 値と比較します。
+//:
+//: 計算量:
+//: - host stat 1 回
+fn fs_is_dir <(str)*>bool> (path):
+    match fs_path_filetype path:
+        Result::Ok kind:
+            eq kind fs_filetype_directory
+        Result::Err _e:
+            false
+
+//: fs_open_dir: directory を fd_readdir 用に開く
+//:
+//: 目的:
+//: - `fs_read_dir` と将来の directory iterator が同じ権限指定で fd を取得できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - path を正規化してから、WASI fd_readdir right だけで `path_open` を呼びます。
+//:
+//: 注意(重要):
+//: - path escape は open 前に `fs_normalize_relative` で拒否します。
+//:
+//: 計算量:
+//: - path 正規化 O(n) と host open 1 回
+fn fs_open_dir <(str)*>Result<i32,i32>> (path):
+    match fs_normalize_relative path:
+        Result::Err e:
+            Result<i32,i32>::Err e
+        Result::Ok normalized:
+            fs_open_with_flags normalized fs_oflags_directory fs_right_fd_readdir
+
+//: fs_read_dir_fd: directory fd から entry 名を読み出す
+//:
+//: 目的:
+//: - `fd_readdir` の raw dirent 配列を `Vec<str>` に変換し、`fs_read_dir` の本体処理を分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 64KiB buffer で `fd_readdir` を繰り返し、dirent header と name byte 列を順に読みます。
+//: - `.` / `..` を除外してから byte 辞書順に sort します。
+//:
+//: 注意(重要):
+//: - WASI cookie は通常の directory 規模を想定し、dirent の `d_next` low 32 bit を次回 cookie として使います。
+//:
+//: 計算量:
+//: - entry 総 byte 数 n と sort の O(k^2)
+fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
+    match v::new<str>:
+        Result::Err _e:
+            Result<Vec<str>,i32>::Err 12
+        Result::Ok entries0:
+            let mut entries <Vec<str>> entries0
+            let buf_len <i32> fs_readdir_buf_size
+            match alloc_ptr<u8> buf_len:
+                Result::Err _e:
+                    v::free<str> entries
+                    Result<Vec<str>,i32>::Err 12
+                Result::Ok buf:
+                    match alloc_ptr<u8> 4:
+                        Result::Err _e:
+                            match dealloc_ptr<u8> buf buf_len:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            v::free<str> entries
+                            Result<Vec<str>,i32>::Err 12
+                        Result::Ok used_buf:
+                            let mut cookie <i64> <i64> cast 0
+                            let mut err <i32> 0
+                            let mut done <bool> false
+                            let buf_raw <i32> mem_ptr_addr buf
+                            let used_raw <i32> mem_ptr_addr used_buf
+                            while and not done eq err 0:
+                                do:
+                                    store_i32 used_raw 0
+                                    let errno <i32> wasi_fd_readdir fd buf_raw buf_len cookie used_raw
+                                    if:
+                                        ne errno 0
+                                        then:
+                                            set err errno
+                                        else:
+                                            let used <i32> load_i32 used_raw
+                                            if:
+                                                eq used 0
+                                                then:
+                                                    set done true
+                                                else:
+                                                    let mut off <i32> 0
+                                                    while and eq err 0 lt off used:
+                                                        do:
+                                                            let header_end <i32> add off fs_dirent_header_size
+                                                            if:
+                                                                gt header_end used
+                                                                then:
+                                                                    set err fs_errno_inval
+                                                                else:
+                                                                    let rec <i32> add buf_raw off
+                                                                    let next_cookie_low <i32> load_i32 rec
+                                                                    let name_len <i32> load_i32 add rec 16
+                                                                    let name_off <i32> add header_end name_len
+                                                                    if:
+                                                                        or lt name_len 0 or lt name_off header_end gt name_off used
+                                                                        then:
+                                                                            set err fs_errno_inval
+                                                                        else:
+                                                                            match fs_string_from_bytes add rec fs_dirent_header_size name_len:
+                                                                                Result::Err e:
+                                                                                    set err e
+                                                                                Result::Ok name:
+                                                                                    if:
+                                                                                        fs_dir_name_is_dot name
+                                                                                        then:
+                                                                                            ()
+                                                                                        else:
+                                                                                            set entries unwrap_ok v::push<str> entries name
+                                                                            set cookie <i64> cast next_cookie_low
+                                                                            set off name_off
+                                                    if:
+                                                        lt used buf_len
+                                                        then:
+                                                            set done true
+                                                        else:
+                                                            ()
+                            match dealloc_ptr<u8> used_buf 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            match dealloc_ptr<u8> buf buf_len:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            if:
+                                eq err 0
+                                then:
+                                    let entries_len <i32> get entries "len"
+                                    let entries_data <i32> mem_ptr_addr get entries "data"
+                                    fs_sort_strings entries_data entries_len
+                                    Result<Vec<str>,i32>::Ok entries
+                                else:
+                                    v::free<str> entries
+                                    Result<Vec<str>,i32>::Err err
+
+//: fs_read_dir: directory entry 名を安定順で返す
+//:
+//: 目的:
+//: - self-host compiler の stdlib discovery と import root scanning に必要な directory traversal を提供します。
+//:
+//: 実装(アルゴリズム):
+//: - path を正規化して directory fd を開き、`fd_readdir` の結果を `Vec<str>` に変換して sort します。
+//:
+//: 注意(重要):
+//: - 戻り値は entry 名だけです。親 path との結合は caller が `/` 区切りで行います。
+//: - `..` による preopen root 外への escape は `Err(76)` です。
+//:
+//: 計算量:
+//: - entry 総 byte 数 n と sort の O(k^2)
+fn fs_read_dir <(str)*>Result<Vec<str>,i32>> (path):
+    match fs_open_dir path:
+        Result::Err e:
+            Result<Vec<str>,i32>::Err e
+        Result::Ok fd:
+            let res <Result<Vec<str>,i32>> fs_read_dir_fd fd
+            match fs_close fd:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            res
 
 //: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
 //:

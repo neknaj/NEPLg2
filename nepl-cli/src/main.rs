@@ -35,8 +35,14 @@ const WASI_ERRNO_NOENT: i32 = 44;
 const WASI_ERRNO_NOTCAPABLE: i32 = 76;
 const WASI_RIGHT_FD_READ: i64 = 1 << 1;
 const WASI_RIGHT_FD_WRITE: i64 = 1 << 6;
+const WASI_RIGHT_FD_READDIR: i64 = 1 << 14;
 const WASI_OFLAGS_CREAT: i32 = 1 << 0;
+const WASI_OFLAGS_DIRECTORY: i32 = 1 << 1;
 const WASI_OFLAGS_TRUNC: i32 = 1 << 3;
+const WASI_FILETYPE_UNKNOWN: u8 = 0;
+const WASI_FILETYPE_DIRECTORY: u8 = 3;
+const WASI_FILETYPE_REGULAR_FILE: u8 = 4;
+const WASI_FILETYPE_SYMBOLIC_LINK: u8 = 7;
 const NEPL_STDLIB_ROOT_ENV: &str = "NEPL_STDLIB_ROOT";
 
 struct AllocState {
@@ -69,11 +75,19 @@ struct AllocState {
 enum FileState {
     Read { data: Vec<u8>, pos: usize },
     Write { file: fs::File },
+    Dir { entries: Vec<DirEntryState> },
+}
+
+#[derive(Clone)]
+struct DirEntryState {
+    name: Vec<u8>,
+    filetype: u8,
 }
 
 enum PathOpenMode {
     Read,
     WriteCreateTruncate,
+    ReadDir,
 }
 
 #[cfg(unix)]
@@ -231,6 +245,41 @@ fn write_wasi_u32(
     0
 }
 
+fn read_wasi_guest_path(
+    memory: wasmi::Memory,
+    caller: &Caller<'_, AllocState>,
+    path_ptr: i32,
+    path_len: i32,
+) -> Result<String, i32> {
+    if path_ptr < 0 || path_len < 0 {
+        return Err(WASI_ERRNO_FAULT);
+    }
+    let mem = memory.data(caller);
+    let start = path_ptr as usize;
+    let end = start
+        .checked_add(path_len as usize)
+        .ok_or(WASI_ERRNO_FAULT)?;
+    if end > mem.len() {
+        return Err(WASI_ERRNO_FAULT);
+    }
+    std::str::from_utf8(&mem[start..end])
+        .map(|path| path.to_string())
+        .map_err(|_| WASI_ERRNO_INVAL)
+}
+
+fn filetype_from_metadata(metadata: &fs::Metadata) -> u8 {
+    let ty = metadata.file_type();
+    if ty.is_dir() {
+        WASI_FILETYPE_DIRECTORY
+    } else if ty.is_file() {
+        WASI_FILETYPE_REGULAR_FILE
+    } else if ty.is_symlink() {
+        WASI_FILETYPE_SYMBOLIC_LINK
+    } else {
+        WASI_FILETYPE_UNKNOWN
+    }
+}
+
 fn write_host_stderr(bytes: &[u8]) -> io::Result<()> {
     let mut err = io::stderr().lock();
     err.write_all(bytes)?;
@@ -258,6 +307,13 @@ fn path_open_mode(oflags: i32, rights_base: i64, rights_inherit: i64) -> Result<
         return Ok(PathOpenMode::Read);
     }
 
+    if (oflags == 0 || oflags == WASI_OFLAGS_DIRECTORY)
+        && (rights_base & WASI_RIGHT_FD_READDIR) != 0
+        && path_open_rights_within(rights_base, rights_inherit, WASI_RIGHT_FD_READDIR)
+    {
+        return Ok(PathOpenMode::ReadDir);
+    }
+
     let write_oflags = WASI_OFLAGS_CREAT | WASI_OFLAGS_TRUNC;
     if oflags == write_oflags
         && (rights_base & WASI_RIGHT_FD_WRITE) != 0
@@ -266,7 +322,7 @@ fn path_open_mode(oflags: i32, rights_base: i64, rights_inherit: i64) -> Result<
         return Ok(PathOpenMode::WriteCreateTruncate);
     }
 
-    if oflags == 0 || oflags == write_oflags {
+    if oflags == 0 || oflags == WASI_OFLAGS_DIRECTORY || oflags == write_oflags {
         Err(WASI_ERRNO_NOTCAPABLE)
     } else {
         Err(WASI_ERRNO_INVAL)
@@ -289,10 +345,26 @@ fn resolve_preopen_guest_path(root: &Path, guest_path: &str) -> Result<PathBuf, 
     Ok(root.join(path))
 }
 
-fn resolve_preopen_read_path(root: &Path, guest_path: &str) -> Result<PathBuf, i32> {
+fn resolve_preopen_stat_path(root: &Path, guest_path: &str) -> Result<PathBuf, i32> {
     let candidate = resolve_preopen_guest_path(root, guest_path)?;
     let canonical = candidate.canonicalize().map_err(|_| WASI_ERRNO_NOENT)?;
-    if !canonical.starts_with(root) || !canonical.is_file() {
+    if !canonical.starts_with(root) {
+        return Err(WASI_ERRNO_NOTCAPABLE);
+    }
+    Ok(canonical)
+}
+
+fn resolve_preopen_read_path(root: &Path, guest_path: &str) -> Result<PathBuf, i32> {
+    let canonical = resolve_preopen_stat_path(root, guest_path)?;
+    if !canonical.is_file() {
+        return Err(WASI_ERRNO_NOTCAPABLE);
+    }
+    Ok(canonical)
+}
+
+fn resolve_preopen_dir_path(root: &Path, guest_path: &str) -> Result<PathBuf, i32> {
+    let canonical = resolve_preopen_stat_path(root, guest_path)?;
+    if !canonical.is_dir() {
         return Err(WASI_ERRNO_NOTCAPABLE);
     }
     Ok(canonical)
@@ -1158,32 +1230,23 @@ fn run_wasm(
                     Ok(mode) => mode,
                     Err(errno) => return errno,
                 };
-                if path_ptr < 0 || path_len < 0 || fd_out < 0 {
+                if fd_out < 0 {
                     return WASI_ERRNO_FAULT;
                 }
                 let root = match caller.data().preopens.get(&dirfd) {
                     Some(root) => root.clone(),
                     None => return WASI_ERRNO_BADF,
                 };
-                let mem = memory.data(&caller);
-                let start = path_ptr as usize;
-                let end = match start.checked_add(path_len as usize) {
-                    Some(end) => end,
-                    None => return WASI_ERRNO_FAULT,
-                };
-                if end > mem.len() {
+                if fd_out as usize > memory.data(&caller).len().saturating_sub(4) {
                     return WASI_ERRNO_FAULT;
                 }
-                if fd_out as usize > mem.len().saturating_sub(4) {
-                    return WASI_ERRNO_FAULT;
-                }
-                let path = match std::str::from_utf8(&mem[start..end]) {
+                let path = match read_wasi_guest_path(memory, &caller, path_ptr, path_len) {
                     Ok(path) => path,
-                    Err(_) => return WASI_ERRNO_INVAL,
+                    Err(errno) => return errno,
                 };
                 let file_state = match open_mode {
                     PathOpenMode::Read => {
-                        let path = match resolve_preopen_read_path(&root, path) {
+                        let path = match resolve_preopen_read_path(&root, &path) {
                             Ok(path) => path,
                             Err(errno) => return errno,
                         };
@@ -1194,7 +1257,7 @@ fn run_wasm(
                         FileState::Read { data, pos: 0 }
                     }
                     PathOpenMode::WriteCreateTruncate => {
-                        let path = match resolve_preopen_write_path(&root, path) {
+                        let path = match resolve_preopen_write_path(&root, &path) {
                             Ok(path) => path,
                             Err(errno) => return errno,
                         };
@@ -1209,6 +1272,38 @@ fn run_wasm(
                         };
                         FileState::Write { file }
                     }
+                    PathOpenMode::ReadDir => {
+                        let path = match resolve_preopen_dir_path(&root, &path) {
+                            Ok(path) => path,
+                            Err(errno) => return errno,
+                        };
+                        let mut entries = Vec::new();
+                        let read_dir = match fs::read_dir(path) {
+                            Ok(read_dir) => read_dir,
+                            Err(_) => return WASI_ERRNO_NOENT,
+                        };
+                        for entry in read_dir {
+                            let entry = match entry {
+                                Ok(entry) => entry,
+                                Err(_) => return WASI_ERRNO_FAULT,
+                            };
+                            let filetype = match entry.file_type() {
+                                Ok(filetype) if filetype.is_dir() => WASI_FILETYPE_DIRECTORY,
+                                Ok(filetype) if filetype.is_file() => WASI_FILETYPE_REGULAR_FILE,
+                                Ok(filetype) if filetype.is_symlink() => {
+                                    WASI_FILETYPE_SYMBOLIC_LINK
+                                }
+                                Ok(_) => WASI_FILETYPE_UNKNOWN,
+                                Err(_) => return WASI_ERRNO_FAULT,
+                            };
+                            entries.push(DirEntryState {
+                                name: entry.file_name().to_string_lossy().as_bytes().to_vec(),
+                                filetype,
+                            });
+                        }
+                        entries.sort_by(|a, b| a.name.cmp(&b.name));
+                        FileState::Dir { entries }
+                    }
                 };
                 let fd = caller.data().next_fd;
                 let fd_u32 = match u32::try_from(fd) {
@@ -1221,6 +1316,125 @@ fn run_wasm(
                     state.files.insert(fd, file_state);
                 }
                 write_wasi_u32(memory, &mut caller, fd_out, fd_u32)
+            },
+        )?;
+        linker.func_wrap(
+            "wasi_snapshot_preview1",
+            "path_filestat_get",
+            |mut caller: Caller<'_, AllocState>,
+             dirfd: i32,
+             flags: i32,
+             path_ptr: i32,
+             path_len: i32,
+             buf: i32|
+             -> i32 {
+                let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return WASI_ERRNO_FAULT,
+                };
+                if flags != 0 || buf < 0 {
+                    return WASI_ERRNO_INVAL;
+                }
+                if (buf as usize)
+                    .checked_add(64)
+                    .is_none_or(|end| end > memory.data(&caller).len())
+                {
+                    return WASI_ERRNO_FAULT;
+                }
+                let root = match caller.data().preopens.get(&dirfd) {
+                    Some(root) => root.clone(),
+                    None => return WASI_ERRNO_BADF,
+                };
+                let path = match read_wasi_guest_path(memory, &caller, path_ptr, path_len) {
+                    Ok(path) => path,
+                    Err(errno) => return errno,
+                };
+                let path = match resolve_preopen_stat_path(&root, &path) {
+                    Ok(path) => path,
+                    Err(errno) => return errno,
+                };
+                let metadata = match fs::symlink_metadata(path) {
+                    Ok(metadata) => metadata,
+                    Err(_) => return WASI_ERRNO_NOENT,
+                };
+                let mut stat = [0u8; 64];
+                stat[16] = filetype_from_metadata(&metadata);
+                stat[32..40].copy_from_slice(&metadata.len().to_le_bytes());
+                if memory.write(&mut caller, buf as usize, &stat).is_err() {
+                    return WASI_ERRNO_FAULT;
+                }
+                0
+            },
+        )?;
+        linker.func_wrap(
+            "wasi_snapshot_preview1",
+            "fd_readdir",
+            |mut caller: Caller<'_, AllocState>,
+             fd: i32,
+             buf: i32,
+             buf_len: i32,
+             cookie: i64,
+             bufused: i32|
+             -> i32 {
+                let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return WASI_ERRNO_FAULT,
+                };
+                if buf < 0 || buf_len < 0 || bufused < 0 || cookie < 0 {
+                    return WASI_ERRNO_FAULT;
+                }
+                let mem_len = memory.data(&caller).len();
+                let start = buf as usize;
+                let capacity = buf_len as usize;
+                if start.checked_add(capacity).is_none_or(|end| end > mem_len)
+                    || (bufused as usize)
+                        .checked_add(4)
+                        .is_none_or(|end| end > mem_len)
+                {
+                    return WASI_ERRNO_FAULT;
+                }
+                let entries = match caller.data().files.get(&fd) {
+                    Some(FileState::Dir { entries }) => entries.clone(),
+                    Some(FileState::Read { .. }) | Some(FileState::Write { .. }) => {
+                        return WASI_ERRNO_BADF;
+                    }
+                    None => return WASI_ERRNO_BADF,
+                };
+                let mut written = 0usize;
+                let start_index = match usize::try_from(cookie) {
+                    Ok(index) => index,
+                    Err(_) => return WASI_ERRNO_INVAL,
+                };
+                for (idx, entry) in entries.iter().enumerate().skip(start_index) {
+                    let record_len = match 24usize.checked_add(entry.name.len()) {
+                        Some(len) => len,
+                        None => return WASI_ERRNO_FAULT,
+                    };
+                    if written
+                        .checked_add(record_len)
+                        .is_none_or(|end| end > capacity)
+                    {
+                        break;
+                    }
+                    let name_len = match u32::try_from(entry.name.len()) {
+                        Ok(len) => len,
+                        Err(_) => return WASI_ERRNO_INVAL,
+                    };
+                    let next_cookie = match u64::try_from(idx + 1) {
+                        Ok(cookie) => cookie,
+                        Err(_) => return WASI_ERRNO_INVAL,
+                    };
+                    let mut record = vec![0u8; record_len];
+                    record[0..8].copy_from_slice(&next_cookie.to_le_bytes());
+                    record[16..20].copy_from_slice(&name_len.to_le_bytes());
+                    record[20] = entry.filetype;
+                    record[24..].copy_from_slice(&entry.name);
+                    if memory.write(&mut caller, start + written, &record).is_err() {
+                        return WASI_ERRNO_FAULT;
+                    }
+                    written += record_len;
+                }
+                write_wasi_u32(memory, &mut caller, bufused, written as u32)
             },
         )?;
         linker.func_wrap(
@@ -1427,7 +1641,9 @@ fn run_wasm(
                                         (take, chunk)
                                     }
                                 }
-                                FileState::Write { .. } => return WASI_ERRNO_BADF,
+                                FileState::Write { .. } | FileState::Dir { .. } => {
+                                    return WASI_ERRNO_BADF;
+                                }
                             }
                         };
                         if take == 0 {
@@ -1509,7 +1725,9 @@ fn run_wasm(
                         let state = caller.data_mut();
                         match state.files.get_mut(&fd) {
                             Some(FileState::Write { file }) => file.write_all(&bytes),
-                            Some(FileState::Read { .. }) => return WASI_ERRNO_BADF,
+                            Some(FileState::Read { .. }) | Some(FileState::Dir { .. }) => {
+                                return WASI_ERRNO_BADF;
+                            }
                             None => return WASI_ERRNO_BADF,
                         }
                     };

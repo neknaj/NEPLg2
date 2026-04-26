@@ -17710,3 +17710,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の artifact 出力前提を満たすため、stdlib API だけでなく `nepl-cli` のローカル WASI runtime も同時に修正した。
+
+# 2026-04-26 メモ (ISS-20260426T010002Z std/fs directory/path API 実装)
+
+- [同期]:
+  - 作業開始時に `origin/main` の `11d7fb4` まで rebase し、TUI box width 修正を取り込んだ。
+  - commit 前に `origin/main` の `4dfd855` まで再同期し、別 agent の match pattern trace 変更を取り込んだ。
+- [原因]:
+  - self-host compiler の import 解決と stdlib discovery には、file read だけでなく file kind 判定、relative path 正規化、directory entry 列挙が必要だった。
+  - `nepl-cli` のローカル WASI runtime も `path_filestat_get` / `fd_readdir` を持っておらず、stdlib facade だけを足しても CLI 実行時に成立しなかった。
+- [修正]:
+  - `std/fs` に `fs_exists`、`fs_is_file`、`fs_is_dir`、`fs_normalize_relative`、`fs_open_dir`、`fs_read_dir` を追加した。
+  - `fs_normalize_relative` は absolute path、Windows host path 風の `\` / `:`、root 外へ出る `..` を拒否し、内部 `.` / empty / `..` は正規化する。
+  - `fs_read_dir` は WASI dirent を `Vec<str>` に変換し、host filesystem の列挙順に依存しないよう byte 辞書順で sort する。
+  - `nepl-cli` の WASI shim に directory fd state、directory `path_open`、`path_filestat_get`、`fd_readdir` を実装した。
+- [回帰テスト]:
+  - `tests/stdlib/fs.n.md` に file kind helper と path normalization のテストを追加した。
+  - `tests/fixtures/fs/dirlist/` に安定順確認用の fixture を追加した。
+  - `nepl-cli/tests/cli_output.rs` に raw WASI の `path_filestat_get` と `fd_readdir` の integration test を追加した。
+- [追加 issue]:
+  - `ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF`: `std/fs` の `fs_read_dir` facade を nepl-cli 経由で直接実行すると stack overflow する。raw WASI shim は通るため compiler/run pipeline 側の問題として分離した。
+  - `ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED`: string literal 内の `//` が comment として扱われる lexer 問題を確認した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md -i stdlib/std/fs.nepl --no-tree -o tmp/fs-dirlist-focused.json -j 1`: `total=14`, `passed=14`, `failed=0`
+  - `cargo test -p nepl-cli run_wasi_ -- --nocapture`: 8 passed, 1 ignored（ignored は上記 stack overflow issue の再現テスト）
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-fs-dirlist-full.json -j 4`: `total=406`, `passed=406`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-fs-dirlist.json`: 13/13 passed
+  - `node nodesrc/issues.js check`: pass
+- [残件]:
+  - default web runner は `fd_readdir` を `ENOTSUP(52)` として返すため、`fs_read_dir` の stdlib doctest は skip とし、raw WASI integration test で directory traversal を固定した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

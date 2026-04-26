@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T11:44:34.818Z",
+  "generated_at": "2026-04-26T12:13:46.553Z",
   "counts": {
-    "total": 123,
-    "open": 16,
-    "resolved": 107,
+    "total": 125,
+    "open": 17,
+    "resolved": 108,
     "by_area": {
       "core": {
-        "total": 40,
-        "open": 3,
+        "total": 42,
+        "open": 5,
         "resolved": 37
       },
       "selfhost": {
         "total": 7,
-        "open": 4,
-        "resolved": 3
+        "open": 3,
+        "resolved": 4
       },
       "stdlib": {
         "total": 43,
@@ -60,19 +60,19 @@
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
     },
     {
-      "id": "ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E",
-      "title": "stdlib discovery needs directory and path interfaces",
-      "area": "selfhost",
+      "id": "ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF",
+      "title": "nepl-cli stack overflows when a std program calls std/fs fs_read_dir",
+      "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "architecture",
+      "type": "bug",
       "created": "2026-04-26",
       "updated": "2026-04-26",
-      "target": "stdlib/std/fs.nepl",
+      "target": "nepl-core/src/compiler.rs, nepl-core/src/codegen_wasm.rs, nepl-cli/src/main.rs",
       "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E.md"
+      "source": "",
+      "file": "items/ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF.md"
     },
     {
       "id": "ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A",
@@ -178,6 +178,21 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
+    },
+    {
+      "id": "ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED",
+      "title": "string literals containing // are parsed as comments",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/lexer.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED.md"
     },
     {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
@@ -1033,6 +1048,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010001Z-STDFS-WRITE-B7C4D923.md"
+    },
+    {
+      "id": "ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E",
+      "title": "stdlib discovery needs directory and path interfaces",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/fs.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E.md"
     },
     {
       "id": "ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0",

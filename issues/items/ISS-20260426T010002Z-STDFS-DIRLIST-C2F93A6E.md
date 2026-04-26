@@ -2,8 +2,8 @@
 id: ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E
 title: "stdlib discovery needs directory and path interfaces"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-26
@@ -48,3 +48,20 @@ self-host core は host fs を直接持たず、`cli/file_io.nepl` が `FileSyst
 - temporary directory に複数 `.nepl` を置き、`fs_read_dir` が安定順で返すことを確認する。
 - `..` を含む path が preopen root 外へ出ないことを確認する。
 - `stdlib` root discovery の fixture を self-host CLI の focused test に追加する。
+
+## 解決内容
+
+- `std/fs` に `fs_exists`、`fs_is_file`、`fs_is_dir`、`fs_normalize_relative`、`fs_read_dir`、`fs_open_dir` を追加した。
+- WASI `path_filestat_get` / `fd_readdir` extern と bare/LLVM fallback を追加し、`fs_read_dir` は entry 名を byte 辞書順へ sort して返す。
+- `nepl-cli` のローカル WASI shim に `path_filestat_get`、directory `path_open`、`fd_readdir`、directory fd state を追加した。
+- `tests/stdlib/fs.n.md` と `nepl-cli/tests/cli_output.rs` に file kind、path normalization、raw `fd_readdir` の回帰テストを追加した。
+
+## 追加で切り出した問題
+
+- `ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF`: nepl-cli が `std/fs` の `fs_read_dir` facade を直接実行すると stack overflow する。
+- `ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED`: string literal 内の `//` が comment として扱われる。
+
+## 検証結果
+
+- `node nodesrc/tests.js -i tests/stdlib/fs.n.md -i stdlib/std/fs.nepl --no-tree -o tmp/fs-dirlist-focused.json -j 1`: `total=14`, `passed=14`, `failed=0`
+- `cargo test -p nepl-cli run_wasi_ -- --nocapture`: 8 passed, 1 ignored（ignored は stack overflow issue の再現テスト）

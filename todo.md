@@ -5,7 +5,6 @@
 - `rust/compiler-warning-debt` branch で `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` に沿って compiler warning debt を削減する
 - `selfhost/s0-infra-span-diag` branch で `infra/span.nepl`、`diag.nepl`、`outcome.nepl` と最小 doctest を作成する
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
-- `stdlib/fs-dirlist-api` branch で `ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E` に沿って directory traversal / path normalization を実装する
 - `stdlib/text-utf8-validation` branch で `ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A` に沿って source loading 用 UTF-8 checked API を追加する
 - `selfhost/s5-byte-builder` branch で `ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11` に沿って WASM emitter 用 byte builder を整備する
 - `selfhost/s6-args` branch で `ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229` に沿って self-host CLI の argv parser と回帰テストを作る

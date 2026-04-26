@@ -254,6 +254,114 @@ fn main <()*>i32> ():
 "#
 }
 
+fn fs_path_filestat_source() -> &'static str {
+    r#"#target wasi
+#entry main
+#indent 4
+
+#import "core/mem" as *
+#extern "wasi_snapshot_preview1" "path_filestat_get" fn path_filestat_get <(i32,i32,i32,i32,i32)*>i32>
+
+fn main <()*>i32> ():
+    store_u8 1024 100;
+    store_u8 1025 105;
+    store_u8 1026 114;
+    let dir_errno <i32> path_filestat_get 3 0 1024 3 2000;
+    store_u8 1040 100;
+    store_u8 1041 105;
+    store_u8 1042 114;
+    store_u8 1043 47;
+    store_u8 1044 97;
+    store_u8 1045 108;
+    store_u8 1046 112;
+    store_u8 1047 104;
+    store_u8 1048 97;
+    store_u8 1049 46;
+    store_u8 1050 110;
+    store_u8 1051 101;
+    store_u8 1052 112;
+    store_u8 1053 108;
+    let file_errno <i32> path_filestat_get 3 0 1040 14 2100;
+    store_u8 1080 46;
+    store_u8 1081 46;
+    store_u8 1082 47;
+    store_u8 1083 111;
+    store_u8 1084 117;
+    store_u8 1085 116;
+    store_u8 1086 115;
+    store_u8 1087 105;
+    store_u8 1088 100;
+    store_u8 1089 101;
+    store_u8 1090 46;
+    store_u8 1091 116;
+    store_u8 1092 120;
+    store_u8 1093 116;
+    let escape_errno <i32> path_filestat_get 3 0 1080 14 2200;
+    let ok_dir <bool> and eq dir_errno 0 eq load_u8 2016 3;
+    let ok_file <bool> and eq file_errno 0 eq load_u8 2116 4;
+    let ok_escape <bool> eq escape_errno 76;
+    if and ok_dir and ok_file ok_escape 0 91
+"#
+}
+
+fn fs_readdir_source() -> &'static str {
+    r#"#target wasi
+#entry main
+#indent 4
+
+#import "core/cast" as *
+#import "core/mem" as *
+#extern "wasi_snapshot_preview1" "path_open" fn path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
+#extern "wasi_snapshot_preview1" "fd_readdir" fn fd_readdir <(i32,i32,i32,i64,i32)*>i32>
+#extern "wasi_snapshot_preview1" "fd_close" fn fd_close <(i32)*>i32>
+
+fn main <()*>i32> ():
+    store_u8 1024 100;
+    store_u8 1025 105;
+    store_u8 1026 114;
+    store_i32 1000 0;
+    let rights <i64> cast 16384;
+    let open_errno <i32> path_open 3 0 1024 3 2 rights rights 0 1000;
+    if:
+        ne open_errno 0
+        then:
+            open_errno
+        else:
+            let fd <i32> load_i32 1000;
+            store_i32 2900 0;
+            let read_errno <i32> fd_readdir fd 3000 512 <i64> cast 0 2900;
+            let _close_errno <i32> fd_close fd;
+            if:
+                ne read_errno 0
+                then:
+                    read_errno
+                else:
+                    let used <i32> load_i32 2900;
+                    let ok0 <bool> eq used 99;
+                    let ok1 <bool> and eq load_i32 3016 10 eq load_u8 3024 97;
+                    let ok2 <bool> and eq load_i32 3050 9 eq load_u8 3058 98;
+                    let ok3 <bool> and eq load_i32 3083 8 eq load_u8 3091 122;
+                    if and ok0 and ok1 and ok2 ok3 0 92
+"#
+}
+
+fn fs_std_read_dir_source() -> &'static str {
+    r#"#target std
+#entry main
+#indent 4
+
+#import "std/fs" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match fs_read_dir "dir":
+        Result::Err e:
+            add 90 e
+        Result::Ok entries:
+            if eq get entries "len" 3 0 93
+"#
+}
+
 fn extra_answer_source() -> &'static str {
     "#indent 4\n\nfn answer <()->i32> ():\n    42\n"
 }
@@ -761,4 +869,86 @@ fn run_wasi_path_open_rejects_write_parent_escape() {
     );
     let outside = fs::read_to_string(temp.path().join("outside.txt")).expect("read outside");
     assert_eq!(outside, "secret");
+}
+
+#[test]
+fn run_wasi_path_filestat_get_reports_file_kinds_and_rejects_escape() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let root = temp.path().join("root");
+    let dir = root.join("dir");
+    fs::create_dir_all(&dir).expect("create fixture dir");
+    fs::write(dir.join("alpha.nepl"), "module").expect("write file");
+    fs::write(temp.path().join("outside.txt"), "secret").expect("write outside");
+    let source = write_source_at(&root, "stat.nepl", fs_path_filestat_source());
+
+    let output = cli_command()
+        .current_dir(&root)
+        .args(["--run", "-i"])
+        .arg(&source)
+        .args(["--target", "wasi"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(
+        output.stdout.is_empty(),
+        "unexpected stdout:\n{}",
+        output_text(&output.stdout)
+    );
+}
+
+#[test]
+fn run_wasi_fd_readdir_returns_stable_directory_entries() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let dir = temp.path().join("dir");
+    fs::create_dir(&dir).expect("create fixture dir");
+    fs::write(dir.join("zeta.txt"), "z").expect("write zeta");
+    fs::write(dir.join("alpha.nepl"), "a").expect("write alpha");
+    fs::write(dir.join("beta.n.md"), "b").expect("write beta");
+    let source = write_source(&temp, "readdir.nepl", fs_readdir_source());
+
+    let output = cli_command()
+        .current_dir(temp.path())
+        .args(["--run", "-i"])
+        .arg(&source)
+        .args(["--target", "wasi"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(
+        output.stdout.is_empty(),
+        "unexpected stdout:\n{}",
+        output_text(&output.stdout)
+    );
+}
+
+#[test]
+#[ignore = "tracked by ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF"]
+fn run_wasi_std_fs_read_dir_returns_stable_directory_entries() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let dir = temp.path().join("dir");
+    fs::create_dir(&dir).expect("create fixture dir");
+    fs::write(dir.join("zeta.txt"), "z").expect("write zeta");
+    fs::write(dir.join("alpha.nepl"), "a").expect("write alpha");
+    fs::write(dir.join("beta.n.md"), "b").expect("write beta");
+    let source = write_source(&temp, "std_readdir.nepl", fs_std_read_dir_source());
+
+    let output = cli_command()
+        .current_dir(temp.path())
+        .args(["--run", "-i"])
+        .arg(&source)
+        .args(["--target", "wasi"])
+        .output()
+        .expect("run nepl-cli");
+
+    assert_success(&output);
+    assert_clean_stderr(&output);
+    assert!(
+        output.stdout.is_empty(),
+        "unexpected stdout:\n{}",
+        output_text(&output.stdout)
+    );
 }
