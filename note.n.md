@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (ISS-20260426T073020449Z stdlib match decision trees)
+
+- 状況:
+  - `json_escape_kind` / `nm_json_escape_kind` / `html_escape_kind` / `html_heading_kind` が、固定リテラル集合を `if` で順に判定して enum classifier の意図を読みにくくしていた。
+  - `main` の scalar literal match 対応後は、この種の分岐を stdlib 側の workaround として残す理由がなくなった。
+- 修正:
+  - 上記 classifier を `match` + `_` wildcard arm へ置き換えた。
+  - `nodesrc/test_stdlib_match_decision_trees.js` を追加し、対象 classifier が `if:` decision tree に戻らないことを静的に固定した。
+  - `tests/stdlib/nm.n.md` に H2 rendering の回帰テストを追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-match-decision-trees.json -j 1`: `total=5`, `passed=5`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/json-match-decision-trees.json -j 1`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md --no-tree -o tmp/match-literal-patterns-stdlib-use.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-match-decision-trees.json -j 4`: `total=404`, `passed=404`, `failed=0`
+  - `trunk build`: pass（既存 warning のみ）
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-match-decision-trees.json`: `13/13 passed`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は compiler の literal match 対応を stdlib の実装表現へ反映する保守修正。
+
 # 2026-04-26 メモ (ISS-20260426T073513044Z match literal patterns)
 
 - 状況:

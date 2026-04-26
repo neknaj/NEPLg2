@@ -49,38 +49,19 @@ enum HtmlEscapeKind:
     Plain
 
 fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
-    let mut kind <HtmlEscapeKind> HtmlEscapeKind::Plain;
-    if:
-        eq ch 38
-        then:
-            set kind HtmlEscapeKind::Amp;
-        else:
-            ()
-    if:
-        eq ch 60
-        then:
-            set kind HtmlEscapeKind::Lt;
-        else:
-            ()
-    if:
-        eq ch 62
-        then:
-            set kind HtmlEscapeKind::Gt;
-        else:
-            ()
-    if:
-        eq ch 34
-        then:
-            set kind HtmlEscapeKind::Quote;
-        else:
-            ()
-    if:
-        eq ch 39
-        then:
-            set kind HtmlEscapeKind::Apostrophe;
-        else:
-            ()
-    kind
+    match ch:
+        38:
+            HtmlEscapeKind::Amp
+        60:
+            HtmlEscapeKind::Lt
+        62:
+            HtmlEscapeKind::Gt
+        34:
+            HtmlEscapeKind::Quote
+        39:
+            HtmlEscapeKind::Apostrophe
+        _:
+            HtmlEscapeKind::Plain
 
 //: HtmlHeadingKind: HTML heading tag の分類
 //:
@@ -104,38 +85,19 @@ enum HtmlHeadingKind:
     H6
 
 fn html_heading_kind <(i32)->HtmlHeadingKind> (level):
-    let mut kind <HtmlHeadingKind> HtmlHeadingKind::H6;
-    if:
-        eq level 1
-        then:
-            set kind HtmlHeadingKind::H1;
-        else:
-            ()
-    if:
-        eq level 2
-        then:
-            set kind HtmlHeadingKind::H2;
-        else:
-            ()
-    if:
-        eq level 3
-        then:
-            set kind HtmlHeadingKind::H3;
-        else:
-            ()
-    if:
-        eq level 4
-        then:
-            set kind HtmlHeadingKind::H4;
-        else:
-            ()
-    if:
-        eq level 5
-        then:
-            set kind HtmlHeadingKind::H5;
-        else:
-            ()
-    kind
+    match level:
+        1:
+            HtmlHeadingKind::H1
+        2:
+            HtmlHeadingKind::H2
+        3:
+            HtmlHeadingKind::H3
+        4:
+            HtmlHeadingKind::H4
+        5:
+            HtmlHeadingKind::H5
+        _:
+            HtmlHeadingKind::H6
 
 //: escape_html: 主な用途
 //:

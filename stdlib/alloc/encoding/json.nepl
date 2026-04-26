@@ -615,50 +615,23 @@ fn json_as_object <(JsonValue)->Option<Vec<JsonMember>>> (v):
 // 計算量:
 // - O(n)
 fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
-    let mut kind <JsonEscapeKind> JsonEscapeKind::Plain;
-    if:
-        eq ch 92
-        then:
-            set kind JsonEscapeKind::Backslash;
-        else:
-            ()
-    if:
-        eq ch 34
-        then:
-            set kind JsonEscapeKind::Quote;
-        else:
-            ()
-    if:
-        eq ch 10
-        then:
-            set kind JsonEscapeKind::Newline;
-        else:
-            ()
-    if:
-        eq ch 13
-        then:
-            set kind JsonEscapeKind::CarriageReturn;
-        else:
-            ()
-    if:
-        eq ch 9
-        then:
-            set kind JsonEscapeKind::Tab;
-        else:
-            ()
-    if:
-        eq ch 8
-        then:
-            set kind JsonEscapeKind::Backspace;
-        else:
-            ()
-    if:
-        eq ch 12
-        then:
-            set kind JsonEscapeKind::FormFeed;
-        else:
-            ()
-    kind
+    match ch:
+        92:
+            JsonEscapeKind::Backslash
+        34:
+            JsonEscapeKind::Quote
+        10:
+            JsonEscapeKind::Newline
+        13:
+            JsonEscapeKind::CarriageReturn
+        9:
+            JsonEscapeKind::Tab
+        8:
+            JsonEscapeKind::Backspace
+        12:
+            JsonEscapeKind::FormFeed
+        _:
+            JsonEscapeKind::Plain
 
 fn json_escape <(str)->str> (s):
     let mut sb <StringBuilder> string_builder_new;

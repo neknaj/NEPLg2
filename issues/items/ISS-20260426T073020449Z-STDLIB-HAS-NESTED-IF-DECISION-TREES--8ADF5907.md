@@ -2,8 +2,8 @@
 id: ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907
 title: "stdlib has nested if decision trees that should be match expressions"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: maintenance
 created: 2026-04-26
@@ -41,3 +41,20 @@ stdlib 全体を監査し、有限集合の分岐・literal dispatch・variant d
 ## 検証
 
 stdlib の対象箇所を match 化した上で、該当 module の doctest と stdlib 全体 doctestを実行する。必要に応じて literal match / wildcard match / enum match の compiler regression test を追加し、不自然な if 連鎖が再発していないことを静的検索で確認する。
+
+## 対応
+
+- `json_escape_kind` / `nm_json_escape_kind` / `html_escape_kind` / `html_heading_kind` を、mut 変数へ順次代入する `if` decision tree から scalar literal `match` へ置き換えた。
+- 対象は enum classifier として読める有限値分岐に絞り、parser の状態遷移、範囲判定、長さ確認などの条件分岐は通常の制御構造として残した。
+- `nodesrc/test_stdlib_match_decision_trees.js` を追加し、対象 classifier が `match` と wildcard arm を持ち、`if:` に戻らないことを静的に固定した。
+- `tests/stdlib/nm.n.md` に H2 rendering の回帰テストを追加し、`html_heading_kind` の literal dispatch 経路を実行時にも確認した。
+
+## 検証結果
+
+- `node nodesrc/test_stdlib_match_decision_trees.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-match-decision-trees.json -j 1`: total=5, passed=5
+- `node nodesrc/tests.js -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/json-match-decision-trees.json -j 1`: total=7, passed=7
+- `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md --no-tree -o tmp/match-literal-patterns-stdlib-use.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-match-decision-trees.json -j 4`: total=404, passed=404
+- `trunk build`: pass（既存 warning のみ）
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-match-decision-trees.json`: 13/13 passed

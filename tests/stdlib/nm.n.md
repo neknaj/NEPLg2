@@ -91,3 +91,25 @@ fn main <()->i32> ():
         then 0
         else 1
 ```
+
+## nm_render_document_heading_level_two
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "alloc/string" as *
+#import "nm/parser" as *
+#import "nm/html_gen" as *
+
+fn main <()->i32> ():
+    let doc <Document> parse_markdown "## B\n";
+    let h <str> render_document doc;
+    let expected <str> "<section class=\"nm-sec level-2\"><h2>B</h2></section>";
+    if:
+        str_eq expected h
+        then 0
+        else 1
+```

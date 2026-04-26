@@ -91,50 +91,23 @@ enum NmJsonEscapeKind:
     Plain
 
 fn nm_json_escape_kind <(i32)->NmJsonEscapeKind> (ch):
-    let mut kind <NmJsonEscapeKind> NmJsonEscapeKind::Plain;
-    if:
-        eq ch 92
-        then:
-            set kind NmJsonEscapeKind::Backslash;
-        else:
-            ()
-    if:
-        eq ch 34
-        then:
-            set kind NmJsonEscapeKind::Quote;
-        else:
-            ()
-    if:
-        eq ch 10
-        then:
-            set kind NmJsonEscapeKind::Newline;
-        else:
-            ()
-    if:
-        eq ch 13
-        then:
-            set kind NmJsonEscapeKind::CarriageReturn;
-        else:
-            ()
-    if:
-        eq ch 9
-        then:
-            set kind NmJsonEscapeKind::Tab;
-        else:
-            ()
-    if:
-        eq ch 8
-        then:
-            set kind NmJsonEscapeKind::Backspace;
-        else:
-            ()
-    if:
-        eq ch 12
-        then:
-            set kind NmJsonEscapeKind::FormFeed;
-        else:
-            ()
-    kind
+    match ch:
+        92:
+            NmJsonEscapeKind::Backslash
+        34:
+            NmJsonEscapeKind::Quote
+        10:
+            NmJsonEscapeKind::Newline
+        13:
+            NmJsonEscapeKind::CarriageReturn
+        9:
+            NmJsonEscapeKind::Tab
+        8:
+            NmJsonEscapeKind::Backspace
+        12:
+            NmJsonEscapeKind::FormFeed
+        _:
+            NmJsonEscapeKind::Plain
 
 // Multi-return helpers (no tuple destructuring)
 //: FenceRes: 構造体の概要

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T09:53:30.887Z",
+  "generated_at": "2026-04-26T10:18:34.556Z",
   "counts": {
     "total": 120,
-    "open": 21,
-    "resolved": 99,
+    "open": 20,
+    "resolved": 100,
     "by_area": {
       "core": {
         "total": 39,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 41,
-        "open": 13,
-        "resolved": 28
+        "open": 12,
+        "resolved": 29
       },
       "cli": {
         "total": 17,
@@ -328,21 +328,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907",
-      "title": "stdlib has nested if decision trees that should be match expressions",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "maintenance",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907.md"
     },
     {
       "id": "ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91",
@@ -1723,6 +1708,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374.md"
+    },
+    {
+      "id": "ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907",
+      "title": "stdlib has nested if decision trees that should be match expressions",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907.md"
     },
     {
       "id": "ISS-20260426T081514183Z-NM-RENDERER-DIVERGES-FROM-GLOSS-HTML-10480257",
