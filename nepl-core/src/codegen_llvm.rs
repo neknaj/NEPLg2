@@ -3218,15 +3218,158 @@ fn lower_hir_expr(
                 DiagnosticId::CodegenLlvmUnknownIntrinsic,
             ))
         }
+        HirExprKind::AddrOf(inner) => {
+            let inner_ty = types.resolve_id(inner.ty);
+            if is_aggregate_storage_type(types, inner_ty) {
+                let Some(v) = lower_hir_expr(types, ctx, inner)? else {
+                    llvm_codegen_bail!(
+                        "internal compiler error: aggregate address-of must produce a value in '{}'",
+                        ctx.function_name
+                    );
+                };
+                if v.ty != LlTy::I32 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: aggregate address-of must lower to i32 handle in '{}' (got {:?})",
+                        ctx.function_name, v.ty
+                    );
+                }
+                return Ok(Some(v));
+            }
+
+            let Some(v) = lower_hir_expr(types, ctx, inner)? else {
+                return Ok(Some(LlValue {
+                    ty: LlTy::I32,
+                    repr: String::from("0"),
+                }));
+            };
+            let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                return Err(llvm_codegen_error(
+                    format!(
+                        "alloc function is required for address-of in '{}'",
+                        ctx.function_name
+                    ),
+                    Span::dummy(),
+                    DiagnosticId::CodegenLlvmUnknownFunction,
+                ));
+            };
+            let ptr = ctx.next_tmp();
+            let size = type_storage_size_bytes(types, inner_ty);
+            ctx.push_line(&format!(
+                "  {} = call i32 {}(i32 {})",
+                ptr,
+                ll_symbol(alloc_name.as_str()),
+                size
+            ));
+            let ty_kind = types.get(inner_ty);
+            if matches!(ty_kind, TypeKind::U8) {
+                if v.ty != LlTy::I32 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: address-of u8 expects i32 value in '{}' (got {:?})",
+                        ctx.function_name, v.ty
+                    );
+                }
+                let p_ptr = ctx.linear_i8_ptr_from_i32(ptr.as_str());
+                let b = ctx.next_tmp();
+                ctx.push_line(&format!("  {} = trunc i32 {} to i8", b, v.repr));
+                ctx.push_line(&format!("  store i8 {}, i8* {}, align 1", b, p_ptr));
+            } else {
+                let store_ty = llty_for_type(types, inner_ty);
+                if v.ty != store_ty {
+                    llvm_codegen_bail!(
+                        "internal compiler error: address-of type mismatch in '{}' ({:?} vs {:?})",
+                        ctx.function_name,
+                        store_ty,
+                        v.ty
+                    );
+                }
+                let p_ptr = ctx.linear_typed_ptr_from_i32(ptr.as_str(), store_ty);
+                ctx.push_line(&format!(
+                    "  store {} {}, {}* {}, align 1",
+                    store_ty.ir(),
+                    v.repr,
+                    store_ty.ir(),
+                    p_ptr
+                ));
+            }
+            Ok(Some(LlValue {
+                ty: LlTy::I32,
+                repr: ptr,
+            }))
+        }
+        HirExprKind::Deref(inner) => {
+            let Some(ptr_v) = lower_hir_expr(types, ctx, inner)? else {
+                llvm_codegen_bail!(
+                    "internal compiler error: deref pointer must produce a value in '{}'",
+                    ctx.function_name
+                );
+            };
+            if ptr_v.ty != LlTy::I32 {
+                llvm_codegen_bail!(
+                    "internal compiler error: deref pointer must be i32 in '{}' (got {:?})",
+                    ctx.function_name,
+                    ptr_v.ty
+                );
+            }
+            let ty = types.resolve_id(expr.ty);
+            if is_aggregate_storage_type(types, ty) {
+                let size = type_storage_size_bytes(types, ty);
+                let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
+                    return Err(llvm_codegen_error(
+                        format!(
+                            "alloc function is required for aggregate deref in '{}'",
+                            ctx.function_name
+                        ),
+                        Span::dummy(),
+                        DiagnosticId::CodegenLlvmUnknownFunction,
+                    ));
+                };
+                let dst = ctx.next_tmp();
+                ctx.push_line(&format!(
+                    "  {} = call i32 {}(i32 {})",
+                    dst,
+                    ll_symbol(alloc_name.as_str()),
+                    size
+                ));
+                let dst_ptr = ctx.linear_i8_ptr_from_i32(dst.as_str());
+                let src_ptr = ctx.linear_i8_ptr_from_i32(ptr_v.repr.as_str());
+                emit_copy_linear_bytes_llvm(ctx, dst_ptr.as_str(), 0, src_ptr.as_str(), 0, size);
+                return Ok(Some(LlValue {
+                    ty: LlTy::I32,
+                    repr: dst,
+                }));
+            }
+
+            let ty_kind = types.get(ty);
+            if matches!(ty_kind, TypeKind::U8) {
+                let p_ptr = ctx.linear_i8_ptr_from_i32(ptr_v.repr.as_str());
+                let raw = ctx.next_tmp();
+                let out = ctx.next_tmp();
+                ctx.push_line(&format!("  {} = load i8, i8* {}, align 1", raw, p_ptr));
+                ctx.push_line(&format!("  {} = zext i8 {} to i32", out, raw));
+                return Ok(Some(LlValue {
+                    ty: LlTy::I32,
+                    repr: out,
+                }));
+            }
+            let out_ty = llty_for_type(types, ty);
+            if out_ty == LlTy::Void {
+                return Ok(None);
+            }
+            let p_ptr = ctx.linear_typed_ptr_from_i32(ptr_v.repr.as_str(), out_ty);
+            let out = ctx.next_tmp();
+            ctx.push_line(&format!(
+                "  {} = load {}, {}* {}, align 1",
+                out,
+                out_ty.ir(),
+                out_ty.ir(),
+                p_ptr
+            ));
+            Ok(Some(LlValue {
+                ty: out_ty,
+                repr: out,
+            }))
+        }
         HirExprKind::Drop { .. } => Ok(None),
-        other => Err(llvm_codegen_error(
-            format!(
-                "unsupported expression kind reached llvm lowering in '{}' ({:?})",
-                ctx.function_name, other
-            ),
-            expr.span,
-            DiagnosticId::CodegenLlvmUnsupportedHir,
-        )),
     }
 }
 

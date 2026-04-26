@@ -154,6 +154,63 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn llvm_reference_scalar_addr_of_and_deref_lowers() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+fn deref_i32 <(&i32)->i32> (x):
+    *x
+
+fn main <()->i32> ():
+    let a <i32> 6
+    deref_i32 &a
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+    )
+    .expect("scalar references should emit LLVM IR without unsupported AddrOf/Deref");
+    assert!(ll.contains("store i32"));
+    assert!(ll.contains("load i32"));
+}
+
+#[test]
+fn llvm_reference_aggregate_addr_of_lowers() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+struct Pair:
+    left <i32>
+    right <i32>
+
+fn observe_pair <(&Pair)->i32> (p):
+    0
+
+fn main <()->i32> ():
+    let p <Pair> Pair 1 2
+    observe_pair &p
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+    )
+    .expect("aggregate address-of should emit LLVM IR without unsupported AddrOf");
+    assert!(ll.contains("define i32 @\"observe_pair\"(i32 %p0)"));
+    assert!(ll.contains("call i32"));
+    assert!(ll.contains("observe_pair"));
+}
+
+#[test]
 fn compiles_literal_main() {
     let src = r#"
 #entry main

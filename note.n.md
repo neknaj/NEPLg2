@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260426T213057469Z LLVM reference AddrOf/Deref lowering)
+
+- 状況:
+  - LLVM codegen precheck は `AddrOf` / `Deref` を子式検査だけで通していたが、`codegen_llvm.rs` の `lower_hir_expr` には lowering arm がなく、precheck 後に D4106 `CodegenLlvmUnsupportedHir` へ落ちる構造だった。
+  - LLVM backend は reference を `i32` linear-memory pointer として扱う設計で、`get_field_ref` / `load` / `store` は既に pointer lowering を持っていた。
+  - WASM backend では scalar `AddrOf` は一時 linear memory slot、aggregate `AddrOf` は既存 handle、`Deref` は scalar load / aggregate byte copy として実装済みだった。
+- 修正:
+  - LLVM lowering に `HirExprKind::AddrOf` を追加し、aggregate は既存 handle を返し、scalar は `alloc` で確保した slot へ store して pointer を返すようにした。
+  - LLVM lowering に `HirExprKind::Deref` を追加し、scalar は typed load、`u8` は zero-extend load、aggregate は byte copy で値 object を返すようにした。
+  - `nepl-core/tests/neplg2.rs` に clang を呼ばず `emit_ll_from_module_for_target` を直接検証する回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_reference -- --nocapture`: `2/2 passed`
+  - `cargo test -p nepl-core --test neplg2 llvm -- --nocapture`: `4/4 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/reference-codegen-after-llvm-ref.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --runner llvm --llvm-all --llvm-compile-only -o tmp/llvm-reference-codegen-before.json -j 1`: clang 未設定により `failed to execute clang --version`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は Rust core LLVM backend が reference 型の基本 HIR を lowering できるようにする修正。
+
 # 2026-04-27 メモ (ISS-20260426T222120121Z match payload borrow origin 修正)
 
 - 状況:
