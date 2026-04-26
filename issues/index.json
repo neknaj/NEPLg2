@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:30:10.890Z",
+  "generated_at": "2026-04-26T02:31:54.441Z",
   "counts": {
-    "total": 98,
+    "total": 99,
     "open": 34,
-    "resolved": 64,
+    "resolved": 65,
     "by_area": {
       "core": {
         "total": 34,
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 29,
+        "total": 30,
         "open": 16,
-        "resolved": 13
+        "resolved": 14
       },
       "examples": {
         "total": 13,
@@ -1218,6 +1218,21 @@
       "legacy_id": "RV-STDLIB-022",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-022",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-022-65715E0B.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-024-CC09E7A6",
+      "title": "Deserialize doctest の match arm が Result と unit で不一致になる",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/core/traits/deserialize.nepl",
+      "legacy_id": "RV-STDLIB-024",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-024",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-024-CC09E7A6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
