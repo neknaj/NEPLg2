@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260426T173407867Z branch borrow state snapshot)
+
+- 状況:
+  - `RV-CORE-009` の調査中に、`move_check` の branch 探索が `var_stacks` だけを履歴復元し、`borrow_stacks` と `borrow_counts` を復元していないことを確認した。
+  - このため、branch 内の last-use release や reference assignment が別 branch / join 後の lifetime 判定を汚染し、borrow/lifetime 検査の false positive / false negative につながる状態だった。
+- 修正:
+  - `MoveCheckContext` に `ResourceStateSnapshot` を追加し、`var_stacks` / `var_depth_stacks` / `borrow_stacks` / `borrow_counts` を branch/body 探索単位で保存・復元するようにした。
+  - `if` / `match` / `while` の merge を snapshot ベースに変更し、継続 branch の borrow binding を union してから `borrow_counts` を再構築するようにした。
+  - branch 内だけで使い切った参照は join 後に解放し、branch 内で保持された参照は join 後の move を引き続き拒否するようにした。
+  - `nepl-core/tests/move_check.rs` と `tests/compiler/move_check.n.md` に release される case と保持される case の回帰テストを追加した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: `32 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/branch-borrow-new-tests-after-trunk.json -j 1`: `total=33`, `passed=33`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-branch-borrow.json`: `13/13 passed`
+  - `cargo fmt --all --check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は NEPLg2 core の borrow/lifetime 検査を、セルフホスト開始前提として branch 境界でも正しく保つための修正。
+
 # 2026-04-26 メモ (ISS-20260426T161201078Z NEPLg2 selfhost lexer foundation)
 
 - 状況:

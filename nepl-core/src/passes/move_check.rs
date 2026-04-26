@@ -67,8 +67,14 @@ struct MoveCheckContext {
     diagnostics: Vec<Diagnostic>,
     /// Scopes for variable cleanup
     scopes: Vec<BTreeSet<String>>,
-    /// History of changes for undoing/merging branches
-    history: Vec<BTreeMap<String, VarState>>,
+}
+
+#[derive(Clone)]
+struct ResourceStateSnapshot {
+    var_stacks: BTreeMap<String, Vec<VarState>>,
+    var_depth_stacks: BTreeMap<String, Vec<usize>>,
+    borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
+    borrow_counts: BTreeMap<String, BorrowCount>,
 }
 
 impl MoveCheckContext {
@@ -82,8 +88,23 @@ impl MoveCheckContext {
             use_counts: Vec::new(),
             diagnostics: Vec::new(),
             scopes: Vec::new(),
-            history: Vec::new(),
         }
+    }
+
+    fn snapshot_resource_state(&self) -> ResourceStateSnapshot {
+        ResourceStateSnapshot {
+            var_stacks: self.var_stacks.clone(),
+            var_depth_stacks: self.var_depth_stacks.clone(),
+            borrow_stacks: self.borrow_stacks.clone(),
+            borrow_counts: self.borrow_counts.clone(),
+        }
+    }
+
+    fn restore_resource_state(&mut self, snapshot: &ResourceStateSnapshot) {
+        self.var_stacks = snapshot.var_stacks.clone();
+        self.var_depth_stacks = snapshot.var_depth_stacks.clone();
+        self.borrow_stacks = snapshot.borrow_stacks.clone();
+        self.borrow_counts = snapshot.borrow_counts.clone();
     }
 
     fn push_scope(&mut self) {
@@ -179,9 +200,6 @@ impl MoveCheckContext {
             if let Some(last) = stack.last_mut() {
                 if *last == state {
                     return;
-                }
-                if let Some(h) = self.history.last_mut() {
-                    h.entry(name.to_string()).or_insert(*last);
                 }
                 *last = state;
             }
@@ -326,25 +344,6 @@ impl MoveCheckContext {
                 self.increment_borrow_count(binding.source.as_str(), binding.kind);
             }
             _ => {}
-        }
-    }
-
-    fn push_history(&mut self) {
-        self.history.push(BTreeMap::new());
-    }
-
-    fn pop_history(&mut self) -> BTreeMap<String, VarState> {
-        self.history.pop().unwrap_or_default()
-    }
-
-    fn undo_history(&mut self, history: &BTreeMap<String, VarState>) {
-        // To undo, we set the state back to the original values recorded in history
-        for (name, old_state) in history {
-            if let Some(stack) = self.var_stacks.get_mut(name) {
-                if let Some(last) = stack.last_mut() {
-                    *last = *old_state;
-                }
-            }
         }
     }
 
@@ -539,6 +538,49 @@ impl MoveCheckContext {
         let mut it = states.iter().copied();
         let first = it.next().unwrap_or(VarState::Valid);
         it.fold(first, Self::merge_state_pair)
+    }
+
+    fn release_dead_borrows(&mut self) {
+        let names: Vec<String> = self.borrow_stacks.keys().cloned().collect();
+        for name in names {
+            if self.remaining_uses(name.as_str()) == 0 {
+                self.release_borrow_binding(name.as_str());
+            }
+        }
+    }
+
+    fn rebuild_borrow_counts_from_bindings(&mut self) {
+        let mut counts: BTreeMap<String, BorrowCount> = BTreeMap::new();
+        for stack in self.borrow_stacks.values() {
+            for bindings in stack {
+                for binding in bindings {
+                    let count = counts.entry(binding.source.clone()).or_default();
+                    match binding.kind {
+                        BorrowKind::Shared => count.shared += 1,
+                        BorrowKind::Unique => count.unique += 1,
+                    }
+                }
+            }
+        }
+        self.borrow_counts = counts;
+        let borrowed_sources: Vec<(String, BorrowCount)> = self
+            .borrow_counts
+            .iter()
+            .map(|(name, count)| (name.clone(), *count))
+            .collect();
+        for (source, count) in borrowed_sources {
+            match self.get_state(source.as_str()) {
+                Some(VarState::Valid | VarState::BorrowedShared | VarState::BorrowedUnique) => {
+                    let state = if count.unique > 0 {
+                        VarState::BorrowedUnique
+                    } else {
+                        VarState::BorrowedShared
+                    };
+                    self.set_state(source.as_str(), state);
+                }
+                _ => {}
+            }
+        }
     }
 }
 
@@ -972,52 +1014,120 @@ fn visit_expr_iteratively(
 
 struct BranchStateSnapshot {
     continues: bool,
-    diff: BTreeMap<String, VarState>,
-    final_states: BTreeMap<String, VarState>,
+    state: ResourceStateSnapshot,
 }
 
-fn branch_final_states(
-    ctx: &MoveCheckContext,
-    diff: &BTreeMap<String, VarState>,
-) -> BTreeMap<String, VarState> {
-    let mut final_states = BTreeMap::new();
-    for name in diff.keys() {
-        let fallback = *diff.get(name).unwrap_or(&VarState::Valid);
-        final_states.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
+fn snapshot_top_state(snapshot: &ResourceStateSnapshot, name: &str) -> Option<VarState> {
+    snapshot
+        .var_stacks
+        .get(name)
+        .and_then(|stack| stack.last().copied())
+}
+
+fn changed_state_names(
+    start: &ResourceStateSnapshot,
+    end: &ResourceStateSnapshot,
+) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for name in start.var_stacks.keys() {
+        if snapshot_top_state(start, name) != snapshot_top_state(end, name) {
+            names.insert(name.clone());
+        }
     }
-    final_states
+    for name in end.var_stacks.keys() {
+        if snapshot_top_state(start, name) != snapshot_top_state(end, name) {
+            names.insert(name.clone());
+        }
+    }
+    names
 }
 
-fn merge_continuing_branch_states(ctx: &mut MoveCheckContext, branches: &[BranchStateSnapshot]) {
-    let mut all_modified = BTreeSet::new();
-    for branch in branches.iter().filter(|branch| branch.continues) {
-        for name in branch.diff.keys() {
-            all_modified.insert(name.clone());
+fn push_unique_binding(out: &mut Vec<BorrowBinding>, binding: &BorrowBinding) {
+    if !out.contains(binding) {
+        out.push(binding.clone());
+    }
+}
+
+fn merged_branch_borrow_stack(
+    name: &str,
+    active_len: usize,
+    saved: &ResourceStateSnapshot,
+    branches: &[&BranchStateSnapshot],
+) -> Vec<Vec<BorrowBinding>> {
+    let saved_stack = saved.borrow_stacks.get(name);
+    let mut merged = Vec::with_capacity(active_len);
+    for index in 0..active_len {
+        let mut bindings = Vec::new();
+        for branch in branches {
+            let branch_bindings = branch
+                .state
+                .borrow_stacks
+                .get(name)
+                .and_then(|stack| stack.get(index))
+                .or_else(|| saved_stack.and_then(|stack| stack.get(index)));
+            if let Some(branch_bindings) = branch_bindings {
+                for binding in branch_bindings {
+                    push_unique_binding(&mut bindings, binding);
+                }
+            }
+        }
+        merged.push(bindings);
+    }
+    merged
+}
+
+fn merge_continuing_branch_states(
+    ctx: &mut MoveCheckContext,
+    saved: &ResourceStateSnapshot,
+    branches: &[BranchStateSnapshot],
+) {
+    let continuing: Vec<&BranchStateSnapshot> =
+        branches.iter().filter(|branch| branch.continues).collect();
+    if continuing.is_empty() {
+        ctx.restore_resource_state(saved);
+        return;
+    }
+
+    ctx.restore_resource_state(saved);
+
+    let mut names = BTreeSet::new();
+    for name in saved.var_stacks.keys() {
+        names.insert(name.clone());
+    }
+    for branch in &continuing {
+        for name in branch.state.var_stacks.keys() {
+            names.insert(name.clone());
         }
     }
 
-    for name in all_modified {
-        let start_state = branches
-            .iter()
-            .filter(|branch| branch.continues)
-            .find_map(|branch| branch.diff.get(&name).copied())
-            .unwrap_or_else(|| ctx.get_state(&name).unwrap_or(VarState::Valid));
+    for name in &names {
         let mut states = Vec::new();
-        for branch in branches.iter().filter(|branch| branch.continues) {
-            states.push(
-                branch
-                    .final_states
-                    .get(&name)
-                    .copied()
-                    .unwrap_or(start_state),
-            );
+        for branch in &continuing {
+            let state = snapshot_top_state(&branch.state, name)
+                .or_else(|| snapshot_top_state(saved, name))
+                .unwrap_or(VarState::Valid);
+            states.push(state);
         }
         if states.is_empty() {
             continue;
         }
         let merged = MoveCheckContext::merge_states(&states);
-        ctx.set_state(&name, merged);
+        ctx.set_state(name.as_str(), merged);
     }
+
+    let active_names: Vec<(String, usize)> = ctx
+        .var_stacks
+        .iter()
+        .map(|(name, stack)| (name.clone(), stack.len()))
+        .collect();
+    ctx.borrow_stacks.clear();
+    for (name, active_len) in active_names {
+        let merged_stack =
+            merged_branch_borrow_stack(name.as_str(), active_len, saved, &continuing);
+        ctx.borrow_stacks.insert(name, merged_stack);
+    }
+    ctx.rebuild_borrow_counts_from_bindings();
+    ctx.release_dead_borrows();
 }
 
 fn visit_expr(
@@ -1090,33 +1200,28 @@ fn visit_expr_with_escape(
                 if args.len() == 3 {
                     visit_expr(&args[0], ctx, tctx);
 
-                    ctx.push_history();
+                    let saved = ctx.snapshot_resource_state();
                     let then_borrows = visit_expr_with_escape(&args[1], ctx, tctx, escape_depth);
-                    let then_diff = ctx.pop_history();
-                    let then_final = branch_final_states(ctx, &then_diff);
-                    ctx.undo_history(&then_diff);
+                    let then_state = ctx.snapshot_resource_state();
+                    ctx.restore_resource_state(&saved);
 
-                    ctx.push_history();
                     let else_borrows = visit_expr_with_escape(&args[2], ctx, tctx, escape_depth);
-                    let else_diff = ctx.pop_history();
-                    let else_final = branch_final_states(ctx, &else_diff);
-                    ctx.undo_history(&else_diff);
+                    let else_state = ctx.snapshot_resource_state();
+                    ctx.restore_resource_state(&saved);
 
                     let then_continues = !is_never_type(tctx, args[1].ty);
                     let else_continues = !is_never_type(tctx, args[2].ty);
                     let branches = [
                         BranchStateSnapshot {
                             continues: then_continues,
-                            diff: then_diff,
-                            final_states: then_final,
+                            state: then_state,
                         },
                         BranchStateSnapshot {
                             continues: else_continues,
-                            diff: else_diff,
-                            final_states: else_final,
+                            state: else_state,
                         },
                     ];
-                    merge_continuing_branch_states(ctx, &branches);
+                    merge_continuing_branch_states(ctx, &saved, &branches);
                     let mut result_borrows = Vec::new();
                     if then_continues {
                         result_borrows.extend(then_borrows);
@@ -1133,14 +1238,16 @@ fn visit_expr_with_escape(
                 if args.len() == 2 {
                     visit_expr(&args[0], ctx, tctx);
 
-                    ctx.push_history();
+                    let saved = ctx.snapshot_resource_state();
                     visit_expr(&args[1], ctx, tctx);
-                    let body_diff = ctx.pop_history();
+                    let body_state = ctx.snapshot_resource_state();
 
-                    for (name, start_state) in body_diff {
-                        let end_state = ctx.get_state(&name).unwrap_or(start_state);
+                    for name in changed_state_names(&saved, &body_state) {
+                        let start_state =
+                            snapshot_top_state(&saved, name.as_str()).unwrap_or(VarState::Valid);
+                        let end_state =
+                            snapshot_top_state(&body_state, name.as_str()).unwrap_or(start_state);
                         let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
-                        ctx.set_state(&name, merged);
                         if matches!(merged, VarState::PossiblyMoved)
                             && matches!(
                                 start_state,
@@ -1159,6 +1266,17 @@ fn visit_expr_with_escape(
                             );
                         }
                     }
+                    let branches = [
+                        BranchStateSnapshot {
+                            continues: true,
+                            state: saved.clone(),
+                        },
+                        BranchStateSnapshot {
+                            continues: true,
+                            state: body_state,
+                        },
+                    ];
+                    merge_continuing_branch_states(ctx, &saved, &branches);
                     visit_expr(&args[0], ctx, tctx);
                 }
                 Vec::new()
@@ -1205,33 +1323,28 @@ fn visit_expr_with_escape(
         } => {
             visit_expr(cond, ctx, tctx);
 
-            ctx.push_history();
+            let saved = ctx.snapshot_resource_state();
             let then_borrows = visit_expr_with_escape(then_branch, ctx, tctx, escape_depth);
-            let then_diff = ctx.pop_history();
-            let then_final = branch_final_states(ctx, &then_diff);
-            ctx.undo_history(&then_diff);
+            let then_state = ctx.snapshot_resource_state();
+            ctx.restore_resource_state(&saved);
 
-            ctx.push_history();
             let else_borrows = visit_expr_with_escape(else_branch, ctx, tctx, escape_depth);
-            let else_diff = ctx.pop_history();
-            let else_final = branch_final_states(ctx, &else_diff);
-            ctx.undo_history(&else_diff);
+            let else_state = ctx.snapshot_resource_state();
+            ctx.restore_resource_state(&saved);
 
             let then_continues = !is_never_type(tctx, then_branch.ty);
             let else_continues = !is_never_type(tctx, else_branch.ty);
             let branches = [
                 BranchStateSnapshot {
                     continues: then_continues,
-                    diff: then_diff,
-                    final_states: then_final,
+                    state: then_state,
                 },
                 BranchStateSnapshot {
                     continues: else_continues,
-                    diff: else_diff,
-                    final_states: else_final,
+                    state: else_state,
                 },
             ];
-            merge_continuing_branch_states(ctx, &branches);
+            merge_continuing_branch_states(ctx, &saved, &branches);
             let mut result_borrows = Vec::new();
             if then_continues {
                 result_borrows.extend(then_borrows);
@@ -1243,14 +1356,16 @@ fn visit_expr_with_escape(
         }
         HirExprKind::While { cond, body } => {
             visit_expr(cond, ctx, tctx);
-            ctx.push_history();
+            let saved = ctx.snapshot_resource_state();
             visit_expr(body, ctx, tctx);
-            let body_diff = ctx.pop_history();
+            let body_state = ctx.snapshot_resource_state();
 
-            for (name, start_state) in body_diff {
-                let end_state = ctx.get_state(&name).unwrap_or(start_state);
+            for name in changed_state_names(&saved, &body_state) {
+                let start_state =
+                    snapshot_top_state(&saved, name.as_str()).unwrap_or(VarState::Valid);
+                let end_state =
+                    snapshot_top_state(&body_state, name.as_str()).unwrap_or(start_state);
                 let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
-                ctx.set_state(&name, merged);
                 if matches!(merged, VarState::PossiblyMoved)
                     && matches!(
                         start_state,
@@ -1267,6 +1382,17 @@ fn visit_expr_with_escape(
                     );
                 }
             }
+            let branches = [
+                BranchStateSnapshot {
+                    continues: true,
+                    state: saved.clone(),
+                },
+                BranchStateSnapshot {
+                    continues: true,
+                    state: body_state,
+                },
+            ];
+            merge_continuing_branch_states(ctx, &saved, &branches);
             visit_expr(cond, ctx, tctx);
             Vec::new()
         }
@@ -1275,30 +1401,29 @@ fn visit_expr_with_escape(
 
             let mut branch_states = Vec::new();
             let mut result_borrows = Vec::new();
+            let saved = ctx.snapshot_resource_state();
 
             for arm in arms {
-                ctx.push_history();
+                ctx.restore_resource_state(&saved);
                 ctx.push_scope();
                 if let Some(bind) = &arm.bind_local {
                     ctx.declare_var(bind.clone());
                 }
                 let arm_borrows = visit_expr_with_escape(&arm.body, ctx, tctx, escape_depth);
                 ctx.pop_scope();
-                let diff = ctx.pop_history();
-                let final_states = branch_final_states(ctx, &diff);
-                ctx.undo_history(&diff);
+                let arm_state = ctx.snapshot_resource_state();
                 let continues = !is_never_type(tctx, arm.body.ty);
                 if continues {
                     result_borrows.extend(arm_borrows);
                 }
                 branch_states.push(BranchStateSnapshot {
                     continues,
-                    diff,
-                    final_states,
+                    state: arm_state,
                 });
             }
+            ctx.restore_resource_state(&saved);
 
-            merge_continuing_branch_states(ctx, &branch_states);
+            merge_continuing_branch_states(ctx, &saved, &branch_states);
             result_borrows
         }
         HirExprKind::Block(b) => visit_block_with_escape(b, ctx, tctx, escape_depth),

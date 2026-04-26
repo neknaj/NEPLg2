@@ -195,6 +195,60 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_branch_reference_last_use_releases_at_join() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let r <&Wrapper> &x;
+    let cnd <bool> true;
+    if cnd:
+        then:
+            let rr <&Wrapper> r;
+            ()
+        else:
+            ()
+    let y <Wrapper> x;
+"#;
+    compile_move_test(source).expect("branch-local last use should release the borrow at join");
+}
+
+#[test]
+fn move_branch_retained_borrow_blocks_later_move() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let y Wrapper::Val 2;
+    let mut r <&Wrapper> &x;
+    let cnd <bool> true;
+    if cnd:
+        then:
+            set r &y;
+        else:
+            ()
+    let moved <Wrapper> y;
+    let still_live <&Wrapper> r;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot move out of shared borrowed value")));
+}
+
+#[test]
 fn move_borrow_after_move_err() {
     let source = r#"
 #target wasi

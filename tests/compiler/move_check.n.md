@@ -183,6 +183,66 @@ fn main <()->i32> ():
     0
 ```
 
+## move_branch_reference_last_use_releases_at_join
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&LocalToken> &x
+    let cnd <bool> true
+    if cnd:
+        then:
+            let rr <&LocalToken> r
+            0
+        else:
+            0
+    let y <LocalToken> x
+    0
+```
+
+## move_branch_retained_borrow_blocks_later_move
+
+neplg2:test[compile_fail]
+diag_id: 3051
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let y <LocalToken> LocalToken @token_id
+    let mut r <&LocalToken> &x
+    let cnd <bool> true
+    if cnd:
+        then:
+            set r &y
+            0
+        else:
+            0
+    let moved <LocalToken> y
+    let still_live <&LocalToken> r
+    0
+```
+
 ## move_reference_call_arg_is_temporary_borrow
 
 neplg2:test

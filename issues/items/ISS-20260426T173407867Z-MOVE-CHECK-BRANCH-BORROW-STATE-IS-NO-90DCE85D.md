@@ -2,8 +2,8 @@
 id: ISS-20260426T173407867Z-MOVE-CHECK-BRANCH-BORROW-STATE-IS-NO-90DCE85D
 title: "move check branch borrow state is not snapshotted"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-26
@@ -42,3 +42,10 @@ branch/loop/match の探索単位で var_stacks, var_depth_stacks, borrow_stacks
 ## 検証
 
 branch 内 last-use release と branch 内 retained borrow の compile/run 回帰テストを追加し、move_check と nodesrc compiler tests を通す。
+
+## 解決
+
+- `MoveCheckContext` に `ResourceStateSnapshot` を追加し、`var_stacks` / `var_depth_stacks` / `borrow_stacks` / `borrow_counts` を branch/body 探索単位で保存・復元するようにした。
+- `if` / `match` / `while` の merge は継続する branch の snapshot を使い、borrow binding を union してから `borrow_counts` を再構築するようにした。
+- branch 内だけで最後に使い切った参照は join 後に `release_dead_borrows` で解放し、branch 内で保持された参照は join 後も move を阻止するようにした。
+- Rust integration test と `.n.md` compiler test に、release されるべき case と保持されるべき case の両方を追加した。
