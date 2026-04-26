@@ -125,6 +125,39 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn llvm_allocator_helper_is_emitted_for_codegen_inserted_alloc() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+#import "core/mem" as *
+
+struct Pair:
+    left <i32>
+    right <i32>
+
+fn main <()->i32> ():
+    let p <Pair> Pair 1 2
+    0
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+    )
+    .expect("codegen-inserted aggregate allocation should emit allocator helpers");
+    assert!(ll.contains("call i32 @\"alloc_raw"));
+    assert!(ll
+        .lines()
+        .any(|line| line.starts_with("define i32 @") && line.contains("alloc_raw")));
+    assert!(ll.contains("load_i32"));
+    assert!(ll.contains("store_i32"));
+}
+
+#[test]
 fn llvm_match_i32_literal_lowers_to_switch() {
     let src = r#"
 #entry main

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T22:35:44.629Z",
+  "generated_at": "2026-04-26T22:44:16.934Z",
   "counts": {
     "total": 153,
-    "open": 17,
-    "resolved": 136,
+    "open": 16,
+    "resolved": 137,
     "by_area": {
       "cli": {
         "total": 19,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 63,
-        "open": 9,
-        "resolved": 54
+        "open": 8,
+        "resolved": 55
       },
       "stdlib": {
         "total": 46,
@@ -88,21 +88,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T213057295Z-LLVM-DUAL-BACKEND-MISSES-ALLOCATOR-R-EF505BD2",
-      "title": "LLVM dual backend misses allocator runtime symbols",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/codegen_llvm.rs, nepl-core/src/runtime_helpers.rs, nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T213057295Z-LLVM-DUAL-BACKEND-MISSES-ALLOCATOR-R-EF505BD2.md"
     },
     {
       "id": "ISS-20260426T213057658Z-LLVM-CODEGEN-REACHES-UNBOUND-LOCALS--5CA65A55",
@@ -1033,6 +1018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T181314061Z-DROP-INSERTION-SKIPS-DROP-FOR-OVERWR-58E3CE2B.md"
+    },
+    {
+      "id": "ISS-20260426T213057295Z-LLVM-DUAL-BACKEND-MISSES-ALLOCATOR-R-EF505BD2",
+      "title": "LLVM dual backend misses allocator runtime symbols",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/codegen_llvm.rs, nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057295Z-LLVM-DUAL-BACKEND-MISSES-ALLOCATOR-R-EF505BD2.md"
     },
     {
       "id": "ISS-20260426T213057469Z-LLVM-BACKEND-LACKS-REFERENCE-ADDROF--5F102ECE",

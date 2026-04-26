@@ -1,3 +1,21 @@
+# 2026-04-27 メモ (ISS-20260426T213057295Z LLVM allocator runtime helper reachability)
+
+- 状況:
+  - LLVM backend は aggregate construction / string materialization / scalar reference `AddrOf` で allocator call を内部挿入する。
+  - `core/mem` が import されている場合、`resolve_alloc_symbol` は fallback allocator ではなく stdlib の `alloc_raw` helper を選ぶが、`PreparedLlvmProgram::reachable_set` はユーザー HIR call graph 由来のため、backend 挿入 helper は出力対象になっていなかった。
+  - その結果、LLVM IR に `alloc_raw` call だけが出て、allocator 本体や `load_i32` / `store_i32` / `mem_grow` などの依存 helper が未定義になる構造だった。
+- 修正:
+  - `try_lower_entry_from_hir` 内で LLVM HIR lowering 用の `backend_reachable_set` を作り、stdlib allocator helper を選んだ場合は、その helper を root とする HIR call graph closure を追加した。
+  - mangled 名と base alias の両方を reachable に入れ、raw LLVM helper の alias emit と依存 helper emit が同じ LLVM IR 出力に含まれるようにした。
+  - `nepl-core/tests/neplg2.rs` に、ユーザーコードが `alloc_raw` を直接呼ばない aggregate construction でも allocator helper 定義が出る回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_allocator -- --nocapture`: `1/1 passed`
+  - `cargo test -p nepl-core --test neplg2 llvm -- --nocapture`: `5/5 passed`
+  - `trunk build`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は Rust core LLVM backend が内部挿入する runtime helper の reachability を正しく扱うための修正。
+
 # 2026-04-27 メモ (ISS-20260426T213057469Z LLVM reference AddrOf/Deref lowering)
 
 - 状況:

@@ -923,14 +923,24 @@ fn try_lower_entry_from_hir(
     };
 
     let mut sigs = collect_hir_signatures(types, hir);
-    let fallback_alloc_symbol = resolve_runtime_helper_symbol(
+    let alloc_helper_symbol = resolve_runtime_helper_symbol(
         &sigs,
         helper_candidates(RuntimeHelperKind::Alloc),
         &[LlTy::I32],
         LlTy::I32,
     )
-    .is_none()
-    .then_some("__nepl_fallback_alloc");
+    .map(String::from);
+    let fallback_alloc_symbol = alloc_helper_symbol
+        .is_none()
+        .then_some("__nepl_fallback_alloc");
+    let mut backend_reachable_set = prepared.reachable_set.clone();
+    if let Some(helper_name) = alloc_helper_symbol.as_ref() {
+        extend_hir_reachable_from(
+            hir,
+            core::iter::once(helper_name.clone()),
+            &mut backend_reachable_set,
+        );
+    }
     let memory_global = if fallback_alloc_symbol.is_some() {
         emit_fallback_linear_memory_runtime(out);
         "@__nepl_fallback_mem"
@@ -944,7 +954,7 @@ fn try_lower_entry_from_hir(
         let base_alias =
             find_mangled_signature_separator(local_name_raw).map(|sep| &local_name_raw[..sep]);
         let needs_base = base_alias
-            .map(|base| prepared.reachable_set.contains(base))
+            .map(|base| backend_reachable_set.contains(base))
             .unwrap_or(false);
 
         let local_name = ll_symbol(ex.local_name.as_str());
@@ -957,7 +967,7 @@ fn try_lower_entry_from_hir(
             .join(", ");
         let ret = llty_for_type(&types, ex.result).ir();
 
-        if !prepared.reachable_set.contains(ex.local_name.as_str()) && !needs_base {
+        if !backend_reachable_set.contains(ex.local_name.as_str()) && !needs_base {
             continue;
         }
 
@@ -1048,7 +1058,7 @@ fn try_lower_entry_from_hir(
         out.push('\n');
     }
 
-    for name in &prepared.reachable_set {
+    for name in &backend_reachable_set {
         if emitted_functions.iter().any(|n| n == name) {
             continue;
         }
@@ -1108,7 +1118,7 @@ fn try_lower_entry_from_hir(
                     &types,
                     &hir,
                     &sigs,
-                    &prepared.reachable_set,
+                    &backend_reachable_set,
                     memory_global,
                     fallback_alloc_symbol,
                     func,
@@ -1355,6 +1365,134 @@ fn collect_hir_signatures(types: &TypeCtx, module: &HirModule) -> BTreeMap<Strin
         out.insert(ex.local_name.clone(), FnSig { params, ret });
     }
     out
+}
+
+fn insert_hir_reachable_name(out: &mut BTreeSet<String>, name: String) {
+    if let Some(sep) = find_mangled_signature_separator(name.as_str()) {
+        out.insert(String::from(&name[..sep]));
+    }
+    out.insert(name);
+}
+
+fn extend_hir_reachable_from<I>(module: &HirModule, roots: I, out: &mut BTreeSet<String>)
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut function_map: BTreeMap<String, &HirFunction> = BTreeMap::new();
+    for f in &module.functions {
+        function_map.insert(f.name.clone(), f);
+    }
+    let mut stack = roots.into_iter().collect::<Vec<_>>();
+    let mut visited = BTreeSet::new();
+    while let Some(name) = stack.pop() {
+        if !visited.insert(name.clone()) {
+            continue;
+        }
+        insert_hir_reachable_name(out, name.clone());
+        let Some(func) = function_map.get(name.as_str()) else {
+            continue;
+        };
+        collect_hir_called_functions_from_body(&func.body, &mut stack);
+    }
+}
+
+fn collect_hir_called_functions_from_body(body: &HirBody, stack: &mut Vec<String>) {
+    match body {
+        HirBody::Block(block) => collect_hir_called_functions_from_block(block, stack),
+        HirBody::Wasm(_) => {}
+        HirBody::LlvmIr(block) => {
+            for line in &block.lines {
+                collect_hir_called_functions_from_llvm_line(line.as_str(), stack);
+            }
+        }
+    }
+}
+
+fn collect_hir_called_functions_from_llvm_line(line: &str, stack: &mut Vec<String>) {
+    let mut rest = line;
+    while let Some(at_idx) = rest.find('@') {
+        let after_at = &rest[at_idx + 1..];
+        let Some(open_idx) = after_at.find('(') else {
+            break;
+        };
+        let mut name = after_at[..open_idx].trim();
+        if name.starts_with('"') && name.ends_with('"') && name.len() >= 2 {
+            name = &name[1..name.len() - 1];
+        }
+        if !name.is_empty() {
+            stack.push(String::from(name));
+        }
+        rest = &after_at[open_idx + 1..];
+    }
+}
+
+fn collect_hir_called_functions_from_block(block: &HirBlock, stack: &mut Vec<String>) {
+    for line in &block.lines {
+        collect_hir_called_functions_from_expr(&line.expr, stack);
+    }
+}
+
+fn collect_hir_called_functions_from_expr(expr: &HirExpr, stack: &mut Vec<String>) {
+    match &expr.kind {
+        HirExprKind::Call { callee, args } => {
+            if let FuncRef::User(name, _) = callee {
+                stack.push(name.clone());
+            }
+            for arg in args {
+                collect_hir_called_functions_from_expr(arg, stack);
+            }
+        }
+        HirExprKind::CallIndirect { callee, args, .. } => {
+            collect_hir_called_functions_from_expr(callee, stack);
+            for arg in args {
+                collect_hir_called_functions_from_expr(arg, stack);
+            }
+        }
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            collect_hir_called_functions_from_expr(cond, stack);
+            collect_hir_called_functions_from_expr(then_branch, stack);
+            collect_hir_called_functions_from_expr(else_branch, stack);
+        }
+        HirExprKind::While { cond, body } => {
+            collect_hir_called_functions_from_expr(cond, stack);
+            collect_hir_called_functions_from_expr(body, stack);
+        }
+        HirExprKind::Match { scrutinee, arms } => {
+            collect_hir_called_functions_from_expr(scrutinee, stack);
+            for arm in arms {
+                collect_hir_called_functions_from_expr(&arm.body, stack);
+            }
+        }
+        HirExprKind::Block(block) => collect_hir_called_functions_from_block(block, stack),
+        HirExprKind::Let { value, .. }
+        | HirExprKind::Set { value, .. }
+        | HirExprKind::AddrOf(value)
+        | HirExprKind::Deref(value) => collect_hir_called_functions_from_expr(value, stack),
+        HirExprKind::EnumConstruct { payload, .. } => {
+            if let Some(payload) = payload {
+                collect_hir_called_functions_from_expr(payload, stack);
+            }
+        }
+        HirExprKind::StructConstruct { fields, .. }
+        | HirExprKind::TupleConstruct { items: fields }
+        | HirExprKind::Intrinsic { args: fields, .. } => {
+            for field in fields {
+                collect_hir_called_functions_from_expr(field, stack);
+            }
+        }
+        HirExprKind::LiteralI32(_)
+        | HirExprKind::LiteralF32(_)
+        | HirExprKind::LiteralBool(_)
+        | HirExprKind::LiteralStr(_)
+        | HirExprKind::Unit
+        | HirExprKind::Var(_)
+        | HirExprKind::FnValue(_)
+        | HirExprKind::Drop { .. } => {}
+    }
 }
 
 fn lower_hir_function(
