@@ -16502,3 +16502,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - HashMap の実装や API は変更せず、doctest fixture を現行 parser / ownership 規則へ合わせた。
+
+# 2026-04-26 メモ (RV-STDLIB-021 vec sort doctest API 同期)
+
+- [原因]:
+  - `stdlib/alloc/collections/vec/sort.nepl` の doctest は、`Vec::new` / `Vec::push` の戻り値が `Result<Vec<T>, StdErrorKind>` になった後も `Diag` を指定していた。
+  - 破壊的 sort の例で `sort_quick<i32> mk` のように owner を返さない API を使っており、sort 後の検証に使う handle が残らない形だった。
+- [修正]:
+  - doctest の `unwrap_ok` 型引数を `StdErrorKind` へ同期した。
+  - sort 結果を検証する例は `sort_quick_ret` / `sort_merge_ret` を使い、`sort_is_sorted` で戻り値を確認する形へ変更した。
+  - `sort_merge` 本体の usage doctest は、現行 pipe style で Vec を構築して `sort_merge` を呼ぶ compile/run smoke として維持した。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-021` を verified に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 1 --dist dist`: `pass`, `return_value=1`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 2 --dist dist`: `pass`, `return_value=1`
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 3 --dist dist`: `pass`, `return_value=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-sort-rv-stdlib-021.json -j 1`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-021.json -j 4`: `total=379`, `passed=375`, `failed=4`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - sort 実装や public API は変更せず、doctest を現行 Vec API に同期した。

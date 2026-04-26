@@ -740,8 +740,8 @@ stdlib 全体の残り8件は `RV-STDLIB-021` から `RV-STDLIB-024` の範囲�
 
 ## RV-STDLIB-021: vec sort doctest が overload 解決不一致で失敗する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: test
 - 対象: `stdlib/alloc/collections/vec/sort.nepl`
@@ -758,10 +758,19 @@ stdlib 全体の残り8件は `RV-STDLIB-021` から `RV-STDLIB-024` の範囲�
 
 `sort.nepl` の public signature と doctest の explicit type arguments を照合し、必要であれば doctest を現行 API に同期します。API 側の型引数順や comparator bound が不自然な場合は、利用側が安全に書ける形へ signature を調整します。
 
+### 対応結果
+
+`Vec::new` / `Vec::push` が `Result<Vec<T>, StdErrorKind>` を返す現行 API に合わせ、doctest の `unwrap_ok` 型引数を `StdErrorKind` に更新しました。破壊的 sort の後に検証する例は、owner を返す `sort_quick_ret` / `sort_merge_ret` を使って `sort_is_sorted` で確認する形へ変更しました。`sort_merge` 自体の usage doctest は、現行 pipe style で Vec を構築してから `sort_merge` を呼ぶ compile/run smoke として維持しています。
+
 ### 検証
 
-- `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-sort-rv-stdlib-021.json -j 1`
-- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-021.json -j 4`
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 1 --dist dist` (`pass`, `return_value=1`)
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 2 --dist dist` (`pass`, `return_value=1`)
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec/sort.nepl -n 3 --dist dist` (`pass`, `return_value=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-sort-rv-stdlib-021.json -j 1` (`total=3`, `passed=3`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-021.json -j 4` (`total=379`, `passed=375`, `failed=4`, `errored=0`)
 
 ## RV-STDLIB-022: HashMap doctest にインデント不整合が残っている
 
