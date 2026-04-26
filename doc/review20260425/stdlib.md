@@ -633,8 +633,8 @@ Brainfuck の tape / jump table のような固定長初期化は stdlib の代�
 
 ## RV-STDLIB-018: streamio の WASI doctest が trait bound 不一致と出力破損で失敗する
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
 - 対象: `stdlib/std/streamio.nepl`, `tests/stdlib/streamio.n.md`, `nodesrc/run_test.js`
@@ -690,7 +690,140 @@ collection doctest の一部が「値を返すブロック」と「文として�
 
 値ブロックとして collection を初期化している doctest から、ブロック末尾のセミコロンを削除します。ブロックの途中式や後続で値を捨てる文のセミコロンは維持し、戻り値が必要な箇所だけを修正します。
 
+### 対応結果
+
+`BTreeMap` / `BTreeSet` / `Queue` / `RingBuffer` の doctest コメントに残っていた、値ブロック末尾の `;` を削除しました。単行 `let x <T> ...;` や、後続で値を使わない通常文のセミコロンは維持しています。
+
 ### 検証
 
-- `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/collection-semicolon-rv-stdlib-019.json -j 1`
-- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4`
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/collection-semicolon-rv-stdlib-019.json -j 1` (`total=34`, `passed=34`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4` (`total=379`, `passed=357`, `failed=22`, `errored=0`)
+
+stdlib 全体の残り22件は、値ブロック末尾セミコロンとは別原因です。`RV-STDLIB-020` から `RV-STDLIB-024` へ分解して追跡します。
+
+## RV-STDLIB-020: Fenwick/SegmentTree doctest が D3016 expression left extra values で失敗する
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: test
+- 対象: `stdlib/alloc/collections/fenwick.nepl`, `stdlib/alloc/collections/segment_tree.nepl`, `stdlib/tests/fenwick.n.md`, `stdlib/tests/segment_tree.n.md`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4` で、Fenwick 7件と SegmentTree 7件が `error[D3016]: expression left extra values on the stack` で失敗しています。
+
+### 問題
+
+collection の計算構造 doctest が、現在の expression stack 規則と合っていません。単に期待エラーへ変えると、Fenwick / SegmentTree の public API が使用可能かを検証できなくなるため、doctest の式構造か stdlib API の戻り値設計を確認して根本から直す必要があります。
+
+### 修正方針
+
+まず各 doctest の失敗式を抽出し、余剰 stack value が callback / update API / `let` block 末尾のどこで発生しているかを分離します。値を保持する必要がある箇所は明示的な `let` または値ブロックへ、値を捨てる箇所は `let _ <()>` などの意図が分かる形へ揃えます。
+
+### 検証
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/tests/fenwick.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/fenwick-segtree-rv-stdlib-020.json -j 1`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-020.json -j 4`
+
+## RV-STDLIB-021: vec sort doctest が overload 解決不一致で失敗する
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/alloc/collections/vec/sort.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/alloc/collections/vec/sort.nepl::doctest#1` と `#2` が `D3021 type arguments do not match any overload`、`#3` が `D3006 no matching overload found` で失敗しています。
+
+### 問題
+
+`Vec` の `Result` 化や sort API の generic signature 変更後に、sort doctest の型引数または comparator の渡し方が現行 API とずれています。fixture 側だけの誤りか、sort API の公開 signature が使いにくい状態になっているかを切り分ける必要があります。
+
+### 修正方針
+
+`sort.nepl` の public signature と doctest の explicit type arguments を照合し、必要であれば doctest を現行 API に同期します。API 側の型引数順や comparator bound が不自然な場合は、利用側が安全に書ける形へ signature を調整します。
+
+### 検証
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-sort-rv-stdlib-021.json -j 1`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-021.json -j 4`
+
+## RV-STDLIB-022: HashMap doctest にインデント不整合が残っている
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/alloc/collections/hashmap.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/alloc/collections/hashmap.nepl::doctest#3` が `error[D1206]: indentation is not aligned to #indent width` で失敗しています。
+
+### 問題
+
+hashmap の public doctest が、現行 parser の indent 幅ルールに合っていません。これは runtime 以前の fixture 品質問題で、HashMap API の実行時問題と混ざると原因調査を誤ります。
+
+### 修正方針
+
+該当 doctest の生成ソースを抽出し、`#indent` と本文 indent の不一致だけを直します。API の意味や検証内容は変えず、parser が受理する形に揃えます。
+
+### 検証
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/hashmap.nepl -n 3 --dist dist`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-indent-rv-stdlib-022.json -j 1`
+
+## RV-STDLIB-023: HashMap/HashSet の文字列 key runtime test が memory OOB と return mismatch で失敗する
+
+- 解決済: false
+- 状態: open
+- 優先度: P0
+- 種別: bug
+- 対象: `stdlib/tests/hashmap_str.n.md`, `stdlib/tests/hashset.n.md`, `stdlib/tests/hashset_str.n.md`, `stdlib/alloc/collections/hashmap.nepl`, `stdlib/alloc/collections/hashset.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/tests/hashmap_str.n.md::doctest#1` と `stdlib/tests/hashset_str.n.md::doctest#1` が `RuntimeError: memory access out of bounds`、`stdlib/tests/hashset.n.md::doctest#1` が return value mismatch で失敗しています。
+
+### 問題
+
+HashMap / HashSet の string key 経路または hashing / equality / ownership 境界で runtime が壊れています。compile fixture ではなく実行時の memory safety 問題なので、`unwrap` で覆うのではなく、key の格納・参照・hash 計算・drop 所有権のどこで invalid address になるかを特定する必要があります。
+
+### 修正方針
+
+まず int key と string key の差分を最小化し、hash function 入力の `str` layout、bucket / entry array の pointer、key copy / move の扱いを追跡します。runtime trap と return mismatch を同じ原因で説明できない場合は、さらに issue を分割します。
+
+### 検証
+
+- `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hash-collections-rv-stdlib-023.json -j 1`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-023.json -j 4`
+
+## RV-STDLIB-024: Deserialize doctest の match arm が Result と unit で不一致になる
+
+- 解決済: false
+- 状態: open
+- 優先度: P1
+- 種別: test
+- 対象: `stdlib/core/traits/deserialize.nepl`
+
+### 根拠
+
+`RV-STDLIB-019` 修正後の stdlib 全体テストで、`stdlib/core/traits/deserialize.nepl::doctest#1` が `error[D3045]: match arms have incompatible types: Result_T_E_unit_str and unit` で失敗しています。
+
+### 問題
+
+deserialize doctest の `match` が、成功/失敗のどちらかの arm で `Result<(), str>` を返し、別 arm で `unit` を返しています。これは error path を検証する意図が型として明確になっていない状態です。
+
+### 修正方針
+
+doctest の期待結果を確認し、全 arm が同じ型を返すように揃えます。エラーを返すテストなら `Result` を明示し、単に失敗時に異常終了したいテストなら `panic` / `unreachable` 相当の既存テスト helper を適切に使います。
+
+### 検証
+
+- `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/deserialize-rv-stdlib-024.json -j 1`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-024.json -j 4`

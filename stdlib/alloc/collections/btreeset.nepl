@@ -127,7 +127,7 @@ fn new <.T> <()*>Result<BTreeSet<.T>, Diag>> ():
 //:     let s <BTreeSet<i32>>:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 3 |> uwok
-//:         |> insert 7 |> uwok;
+//:         |> insert 7 |> uwok
 //:     if eq len s 2 1 0
 //: ```
 fn len <.T> <(BTreeSet<.T>)->i32> (set0):
@@ -146,7 +146,7 @@ fn len <.T> <(BTreeSet<.T>)->i32> (set0):
 //: fn main <()*>i32> ():
 //:     let s <BTreeSet<i32>>:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
-//:         |> insert 7 |> uwok;
+//:         |> insert 7 |> uwok
 //:     if contains s 7 1 0
 //: ```
 fn contains <.T: Ord> <(BTreeSet<.T>,.T)->bool> (set0, key):
@@ -170,7 +170,7 @@ fn contains <.T: Ord> <(BTreeSet<.T>,.T)->bool> (set0, key):
 //:     let s <BTreeSet<i32>>:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
-//:         |> insert 3 |> uwok;
+//:         |> insert 3 |> uwok
 //:     if eq len s 2 1 0
 //: ```
 fn insert <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
@@ -214,7 +214,7 @@ fn insert <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
 //:     let s <BTreeSet<i32>>:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
-//:         |> remove 7;
+//:         |> remove 7
 //:     if eq len s 0 1 0
 //: ```
 fn remove <.T: Ord> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
@@ -249,7 +249,7 @@ fn remove <.T: Ord> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
 //:     let s <BTreeSet<i32>>:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
-//:         |> clear;
+//:         |> clear
 //:     if eq len s 0 1 0
 //: ```
 fn clear <.T> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):

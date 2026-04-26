@@ -16435,3 +16435,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - pipe 構文仕様は変えず、試験簡約が通常の call reduction と同じ前提で動くように揃えた。
+
+# 2026-04-26 メモ (RV-STDLIB-019 collection doctest 値ブロック末尾セミコロン修正)
+
+- [原因]:
+  - `BTreeMap` / `BTreeSet` / `Queue` / `RingBuffer` の doctest で、`let x <Collection>:` の値ブロック末尾に `;` が残っていた。
+  - NEPL の末尾セミコロン付き式は値を返さないため、ブロック全体が `unit` になり、`let` の型注釈と衝突して D3004 を出していた。
+- [修正]:
+  - `stdlib/alloc/collections/btreemap.nepl`
+  - `stdlib/alloc/collections/btreeset.nepl`
+  - `stdlib/alloc/collections/queue.nepl`
+  - `stdlib/alloc/collections/ringbuffer.nepl`
+  - 上記の doctest コメントで、collection を返す値ブロックの最終式からだけ `;` を削除した。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-019` を verified に更新した。
+  - stdlib 全体確認で残った22件を `RV-STDLIB-020` から `RV-STDLIB-024` へ分解した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/collection-semicolon-rv-stdlib-019.json -j 1`: `total=34`, `passed=34`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-019.json -j 4`: `total=379`, `passed=357`, `failed=22`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-020`: Fenwick / SegmentTree D3016。
+  - `RV-STDLIB-021`: vec sort overload 不一致。
+  - `RV-STDLIB-022`: HashMap doctest indent 不整合。
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure。
+  - `RV-STDLIB-024`: Deserialize doctest match arm type mismatch。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib doctest fixture の構文修正であり、collection API の仕様変更はない。

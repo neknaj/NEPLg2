@@ -10,9 +10,9 @@
 |---|---:|---:|
 | core | 3 | 26 |
 | cli | 3 | 11 |
-| stdlib | 11 | 8 |
+| stdlib | 15 | 9 |
 | examples | 0 | 13 |
-| 合計 | 17 | 58 |
+| 合計 | 21 | 59 |
 
 ## Core
 
@@ -89,7 +89,12 @@
 | [RV-STDLIB-016](./stdlib.md#rv-stdlib-016-stack-push-が所有権を消費し-example-で-panic-helper-回避を妨げる) | true | verified | P1 | architecture | `Stack::push_ref` を追加し、Copy 要素を借用 stack へ追加して失敗時も handle を保持できるよう修正済み |
 | [RV-STDLIB-017](./stdlib.md#rv-stdlib-017-vec-に固定長初期化-api-がなく-example-が-panic-helper-に依存する) | true | verified | P1 | architecture | `Vec::filled` を追加し、固定長 buffer/table を `Result` で作れるよう修正済み |
 | [RV-STDLIB-018](./stdlib.md#rv-stdlib-018-streamio-の-wasi-doctest-が-trait-bound-不一致と出力破損で失敗する) | false | open | P1 | bug | `tests/stdlib/streamio.n.md` が `D3069` / `D3006` と stdout の binary layout 混入で 5 件失敗 |
-| [RV-STDLIB-019](./stdlib.md#rv-stdlib-019-collection-doctest-の値ブロック末尾セミコロンが戻り値を-unit-にしている) | false | open | P0 | test | collection doctest の `let x <T>:` 値ブロック末尾 `;` が `unit` を返し、D3004 を発生させている |
+| [RV-STDLIB-019](./stdlib.md#rv-stdlib-019-collection-doctest-の値ブロック末尾セミコロンが戻り値を-unit-にしている) | true | verified | P0 | test | collection doctest の `let x <T>:` 値ブロック末尾 `;` を削除し、対象4ファイルの doctest 34件を green 化済み |
+| [RV-STDLIB-020](./stdlib.md#rv-stdlib-020-fenwicksegmenttree-doctest-が-d3016-expression-left-extra-values-で失敗する) | false | open | P0 | test | Fenwick / SegmentTree doctest が D3016 で 14件失敗している |
+| [RV-STDLIB-021](./stdlib.md#rv-stdlib-021-vec-sort-doctest-が-overload-解決不一致で失敗する) | false | open | P1 | test | `vec/sort.nepl` doctest が D3021 / D3006 で失敗している |
+| [RV-STDLIB-022](./stdlib.md#rv-stdlib-022-hashmap-doctest-にインデント不整合が残っている) | false | open | P1 | test | `hashmap.nepl::doctest#3` が D1206 indentation error で失敗している |
+| [RV-STDLIB-023](./stdlib.md#rv-stdlib-023-hashmaphashset-の文字列-key-runtime-test-が-memory-oob-と-return-mismatch-で失敗する) | false | open | P0 | bug | HashMap / HashSet の string key runtime tests が OOB / mismatch で失敗している |
+| [RV-STDLIB-024](./stdlib.md#rv-stdlib-024-deserialize-doctest-の-match-arm-が-result-と-unit-で不一致になる) | false | open | P1 | test | `deserialize.nepl::doctest#1` が D3045 match arm type mismatch で失敗している |
 
 ## Examples
 
