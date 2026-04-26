@@ -1,4 +1,4 @@
-//: main: neplg2/cli/main.nepl に関する機能を提供するライブラリ
+//: span: neplg3/core/span.nepl に関する機能を提供するライブラリ
 //:
 //: [目的/もくてき]:
 //: - このモジュールの公開 API を提供します。

@@ -1,3 +1,24 @@
+# 2026-04-26 メモ (NEPLg2.1 計画の NEPLg3 改名ドキュメント移行)
+
+- [状況]:
+  - NEPLg2.1 として管理していた次世代仕様・実装計画を NEPLg3 として扱う方針へ変更した。
+  - 現行 NEPLg2.0 実装、`neplg2:test` doctest 名、`neplg2` code fence は現行テスト基盤名として残す必要があるため、無差別な全置換は避けた。
+- [修正]:
+  - `doc/2.1spec/` を `doc/neplg3/spec/`、`doc/2.1impl/` を `doc/neplg3/impl/` へ移動した。
+  - `README.md`、`doc/README.md`、`doc/compare/`、`doc/migration/`、`doc/self_host.md`、開発補助ドキュメントのリンクと説明を NEPLg3 表記へ更新した。
+  - `stdlib/neplg2/` のセルフホスト placeholder を `stdlib/neplg3/` へ移動し、ファイル先頭の対象パス説明を更新した。
+  - `doc/neplg3/README.md` を追加し、NEPLg3 仕様・実装設計の入口を作成した。
+  - `doc/chat/dump/` は履歴本文を保持し、先頭の現行仕様参照だけ `doc/neplg3/spec/` へ更新した。
+  - `trunk build` を阻害していた `web/src/editor-core/language-analysis.ts` の optional array 正規化を共通化し、欠落した解析 payload を空配列として扱うようにした。
+  - `doc/progress_report_template.md` を確認し、以後の各 commit 後に指定 Discord webhook へ同形式で進捗報告する運用を追加した。
+- [確認済み]:
+  - ローカル Markdown リンクの存在確認: missing 0 件。
+  - `trunk build`: 通過。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplg3-migration.json`: 13/13 passed。
+  - `node nodesrc/tests.js -i stdlib/neplg3 --no-tree -o tmp/neplg3-stdlib-placeholder-tests.json -j 2`: 6/6 passed（全件 skip doctest として収集成功）。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。plan.md は旧 NEPLg2 起点の設計メモとして保持し、次世代仕様の正は `doc/neplg3/spec/` に移した。
+
 # 2026-04-25 メモ (RV-CORE-018 nested aggregate layout 修正)
 
 - [状況]:

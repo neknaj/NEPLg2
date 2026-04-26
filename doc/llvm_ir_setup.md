@@ -1,7 +1,7 @@
 # LLVM IR Setup (clang 21.1.0)
 
 > **対象実装**: このドキュメントは現行 Bootstrap 実装の LLVM target 開発環境メモを記述する。
-> NEPLg2.1 の正の仕様や target 設計は `doc/2.1spec/platform.md` を参照。
+> NEPLg3 の正の仕様や target 設計は `doc/neplg3/spec/platform.md` を参照。
 
 This document describes the minimum setup to use LLVM IR with `clang 21.1.0` on Linux/WSL.
 

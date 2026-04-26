@@ -23,7 +23,7 @@ NEPLg2 は、**式指向**・**前置記法**・**オフサイドルール**を�
 
 ## クイックサンプル
 
-以下は Zenn #1 / #2 を正とした NEPLg2.1 コア構文の例です。
+以下は Zenn #1 / #2 を正とした NEPLg3 コア構文の例です。
 
 ```neplg2
 #indent 4
@@ -43,7 +43,7 @@ let main \():
         ()
 ```
 
-現行の Rust 実装とチュートリアルには NEPLg2.0 / 旧 2.1 案の記法が一部残っています。Zenn #1 / #2 を正とした設計文書は [`doc/2.1spec/`](doc/2.1spec/index.md) を参照してください。
+現行の Rust 実装とチュートリアルには NEPLg2.0 / 旧 2.1 案の記法が一部残っています。Zenn #1 / #2 を正とした設計文書は [`doc/neplg3/spec/`](doc/neplg3/spec/index.md) を参照してください。
 
 ## チュートリアル
 
@@ -70,7 +70,7 @@ stdlib/
     std/         # stdio, streamio, fs, io
     alloc/       # コレクション: vec, hashmap, list など
     platforms/   # WASIX, TUI など
-    neplg2/      # セルフホストコンパイラ（開発中）
+    neplg3/      # セルフホストコンパイラ（開発中）
 ```
 
 よく使うモジュール:
@@ -101,22 +101,22 @@ NO_COLOR=false node nodesrc/tests.js -i tests -i stdlib -o /tmp/tests-dual-full.
 
 CLI でのコンパイル・実行方法の詳細は [`doc/cli.md`](doc/cli.md) を参照してください。
 
-## NEPLg2.1 への移行計画
+## NEPLg3 への移行計画
 
-現在 **NEPLg2.1** の設計・実装を並行して進めています。NEPLg2.1 は Zenn #1 / #2 を正とし、カリー化された関数型記法、`%` の式レベル型注釈、`let <name> <expr>`、`if cond a b` / `match pattern expr` / `block:` などのコア構文を含む次世代仕様です。
+現在 **NEPLg3** の設計・実装を並行して進めています。NEPLg3 は Zenn #1 / #2 を正とし、カリー化された関数型記法、`%` の式レベル型注釈、`let <name> <expr>`、`if cond a b` / `match pattern expr` / `block:` などのコア構文を含む次世代仕様です。
 
-| 対象 | 現行 (NEPLg2.0) | 開発中 (NEPLg2.1) |
+| 対象 | 現行 (NEPLg2.0) | 開発中 (NEPLg3) |
 |---|---|---|
-| コンパイラ | `nepl-core/` | `nepl-core-2.1/`（未着手） |
-| 標準ライブラリ | `stdlib/`（凍結） | `stdlib-2.1/`（Stage 2 以降） |
-| テスト | `tests/`（凍結） | `tests-2.1/`（Stage 1 以降） |
-| チュートリアル | `tutorials/`（凍結） | `tutorials-2.1/`（先行作成可） |
+| コンパイラ | `nepl-core/` | `nepl-core-g3/`（未着手） |
+| 標準ライブラリ | `stdlib/`（凍結） | `stdlib-g3/`（Stage 2 以降） |
+| テスト | `tests/`（凍結） | `tests-g3/`（Stage 1 以降） |
+| チュートリアル | `tutorials/`（凍結） | `tutorials-g3/`（先行作成可） |
 
-`nepl-core-2.1` の Stage 6 到達時に一括切り替えを行い、古いディレクトリは archive します。
+`nepl-core-g3` の Stage 6 到達時に一括切り替えを行い、古いディレクトリは archive します。
 
 詳細:
-- 言語仕様: [`doc/2.1spec/`](doc/2.1spec/index.md)
-- コンパイラ実装設計: [`doc/2.1impl/`](doc/2.1impl/index.md)
+- 言語仕様: [`doc/neplg3/spec/`](doc/neplg3/spec/index.md)
+- コンパイラ実装設計: [`doc/neplg3/impl/`](doc/neplg3/impl/index.md)
 - stdlib / tests / tutorials 移行計画: [`doc/migration/index.md`](doc/migration/index.md)
 
 ## 開発ドキュメント

@@ -1,4 +1,4 @@
-# NEPLg2.1 コンパイラ構成設計
+# NEPLg3 コンパイラ構成設計
 
 最終更新: 2026-03-17
 
@@ -14,14 +14,14 @@
 | `compiler.rs` | 933 | パイプライン統合とターゲットゲートパーサが同居 |
 | `resolve.rs` / `name_resolve.rs` | 279 / 55 | 役割重複。両方ともスタブ状態 |
 | `module_graph.rs` / `loader.rs` | 583 / 738 | ファイル解決・パース・依存グラフが混在 |
-| `hir.rs` | 194 | `TupleConstruct` など NEPLg2.1 廃止構文が残る |
+| `hir.rs` | 194 | `TupleConstruct` など NEPLg3 廃止構文が残る |
 | `passes/` | 3ファイル | Resource IR パスが存在しない |
 | `nm.rs` | 548 | NM フォーマットパーサがコアコンパイラに同居 |
 | トップレベル全体 | 20+ ファイル | フラット構造で関係が見えない |
 
-Resource IR（ownership/borrow/region/drop の中間表現）が存在しないことは NEPLg2.1 の中核仕様（`doc/2.1spec/compiler.md`）と直接矛盾する。
+Resource IR（ownership/borrow/region/drop の中間表現）が存在しないことは NEPLg3 の中核仕様（`doc/neplg3/spec/compiler.md`）と直接矛盾する。
 
-### 1.2 NEPLg2.1 での方針
+### 1.2 NEPLg3 での方針
 
 - **パイプラインステージ = ディレクトリ階層**。依存方向がディレクトリ構造から読み取れる。
 - **1 ファイルの目安は 800 行以下**。巨大 `typecheck.rs` は役割ごとに分割する。
@@ -29,13 +29,13 @@ Resource IR（ownership/borrow/region/drop の中間表現）が存在しない�
 - **型表現（`ty/`）と型検査（`check/`）を分離**。型の定義と「その型を検査するロジック」は別。
 - **モジュールシステムの 3 層（物理・構文・論理）を`module/` 内の別ファイルで表現**。
 - **`nm/` はコアコンパイラから切り離す**（ツールチェーン補助）。
-- **セルフホスト（`stdlib/neplg2/`）との命名パリティを保つ**。Rust 側のディレクトリ名が自然に NEPL 側のモジュール名に対応する。
+- **セルフホスト（`stdlib/neplg3/`）との命名パリティを保つ**。Rust 側のディレクトリ名が自然に NEPL 側のモジュール名に対応する。
 
 ---
 
 ### 1.3 括弧なし処理の基本アーキテクチャ
 
-NEPLg2.1 は式・型式・パターンのいずれにも括弧によるグループ化を持たない。これは**通常の LL/LR パーサが前提とする「パーサが構文木を決定する」設計とは根本的に異なる**ため、コンパイラパイプライン全体への影響を明示する。
+NEPLg3 は式・型式・パターンのいずれにも括弧によるグループ化を持たない。これは**通常の LL/LR パーサが前提とする「パーサが構文木を決定する」設計とは根本的に異なる**ため、コンパイラパイプライン全体への影響を明示する。
 
 #### 原則：パーサは flat list を生成し、checker が境界を確定する
 
@@ -71,11 +71,11 @@ AST は flat/未解決。HIR（`hir/hir.rs`）が初めて完全に解決され�
 #### NEPLg2.0（Zenn記事）との差分
 
 > **参考**: NEPLg2.0 における括弧なし式解決の実装詳細は Zenn 記事「[括弧なし言語 NEPLg2 の実装](https://zenn.dev/bem130/articles/10eeb3575cbb44)」を参照。
-> NEPLg2.1 はその仕組みを型式・パターンにも拡張したもの。
+> NEPLg3 はその仕組みを型式・パターンにも拡張したもの。
 
-NEPLg2.0 の `typecheck.rs` は `reduce_calls` アルゴリズムを実装していたが、型式には angle bracket があったためパーサが構造を確定できた。NEPLg2.1 はこの前提を崩す：
+NEPLg2.0 の `typecheck.rs` は `reduce_calls` アルゴリズムを実装していたが、型式には angle bracket があったためパーサが構造を確定できた。NEPLg3 はこの前提を崩す：
 
-| 課題 | NEPLg2.0 | NEPLg2.1 | 担当モジュール |
+| 課題 | NEPLg2.0 | NEPLg3 | 担当モジュール |
 |---|---|---|---|
 | 式の call 境界 | typecheck.rs 内 reduce_calls | check/expr_check.rs | ✓ 同じ仕組み |
 | 型式の境界 | パーサが angle bracket で確定 | reduce_type_apps（新規） | ty/kind.rs |
@@ -86,12 +86,12 @@ NEPLg2.0 の `typecheck.rs` は `reduce_calls` アルゴリズムを実装して
 
 ---
 
-## 2. ブートストラップ Rust コンパイラ (`nepl-core-2.1`)
+## 2. ブートストラップ Rust コンパイラ (`nepl-core-g3`)
 
 ### 2.1 ファイル構成
 
 ```
-nepl-core-2.1/
+nepl-core-g3/
     src/
         lib.rs                  # crate root、公開 API の re-export
 
@@ -208,7 +208,7 @@ nepl-core-2.1/
             lower.rs            # AST + 型検査結果 → HIR lowering
             pretty.rs           # デバッグ表示
 
-        // ── Resource IR（NEPLg2.1 新規）────────────────
+        // ── Resource IR（NEPLg3 新規）────────────────
         resource/
             mod.rs
             ir.rs               # ResourceIr ノード
@@ -330,16 +330,16 @@ nepl-cli/
         repl.rs             # 将来の REPL サポート（Phase 後半）
 ```
 
-`nepl-cli` は `nepl-core-2.1` に依存する。WASI / OS 依存の操作はすべてここに集中させ、`nepl-core-2.1` は `no_std` ＋ `extern crate alloc` を維持する。
+`nepl-cli` は `nepl-core-g3` に依存する。WASI / OS 依存の操作はすべてここに集中させ、`nepl-core-g3` は `no_std` ＋ `extern crate alloc` を維持する。
 
 ---
 
-## 4. セルフホストコンパイラ (`stdlib/neplg2/`)
+## 4. セルフホストコンパイラ (`stdlib/neplg3/`)
 
-セルフホストは NEPLg2.1 自身で書かれたコンパイラ。Rust 側のクレート構造と**ディレクトリ名を一致させる**ことで、移植の対応関係を明確にする。
+セルフホストは NEPLg3 自身で書かれたコンパイラ。Rust 側のクレート構造と**ディレクトリ名を一致させる**ことで、移植の対応関係を明確にする。
 
 ```
-stdlib/neplg2/
+stdlib/neplg3/
     core/                   # 純粋コンパイラコア（Wasm、WASI 不使用）
         #module             # anchor ファイル
         infra/
@@ -425,20 +425,20 @@ stdlib/neplg2/
 
 ## 4.5 その他のワークスペースクレート
 
-NEPLg2.1 ワークスペースには `nepl-core-2.1` / `nepl-cli` 以外にも次のクレートが存在する。
+NEPLg3 ワークスペースには `nepl-core-g3` / `nepl-cli` 以外にも次のクレートが存在する。
 
 | クレート | 責務 | 状態 |
 |---|---|---|
-| `nepl-lsp` | Language Server Protocol 実装。補完・診断・ホバーを提供。`nepl-core-2.1` の型検査結果をインクリメンタルに利用 | 開発中（NEPLg2.1 対応は Stage 3 以降） |
-| `web` | WebAssembly バインディング。ブラウザ上のプレイグラウンド向け。`nepl-core-2.1` を wasm-bindgen でラップ | NEPLg2.1 対応は Stage 5 以降 |
+| `nepl-lsp` | Language Server Protocol 実装。補完・診断・ホバーを提供。`nepl-core-g3` の型検査結果をインクリメンタルに利用 | 開発中（NEPLg3 対応は Stage 3 以降） |
+| `web` | WebAssembly バインディング。ブラウザ上のプレイグラウンド向け。`nepl-core-g3` を wasm-bindgen でラップ | NEPLg3 対応は Stage 5 以降 |
 
-どちらも `nepl-core-2.1` に依存し、OS/ブラウザ固有の I/O は各クレート内に閉じ込める。`nepl-core-2.1` 本体は `no_std` ＋ `extern crate alloc` を維持する。
+どちらも `nepl-core-g3` に依存し、OS/ブラウザ固有の I/O は各クレート内に閉じ込める。`nepl-core-g3` 本体は `no_std` ＋ `extern crate alloc` を維持する。
 
 ---
 
-## 5. 現行ファイルと NEPLg2.1 ファイルの対応表
+## 5. 現行ファイルと NEPLg3 ファイルの対応表
 
-| 現行（nepl-core/src/） | NEPLg2.1（nepl-core-2.1/src/） | 変更内容 |
+| 現行（nepl-core/src/） | NEPLg3（nepl-core-g3/src/） | 変更内容 |
 |---|---|---|
 | `span.rs` | `infra/span.rs` | 移動のみ |
 | `diagnostic.rs` + `diagnostic_ids.rs` | `infra/diag/diag.rs` + `ids.rs` | 統合・Outcome 追加 |
@@ -465,7 +465,7 @@ NEPLg2.1 ワークスペースには `nepl-core-2.1` / `nepl-cli` 以外にも�
 | `passes/codegen_precheck.rs` | `passes/codegen_pre.rs` | 移動 |
 | `target_precheck.rs` | `passes/target_gate.rs` に統合 | |
 | `nm.rs` | `nm/parser.rs` + `nm/extractor.rs` | コアから分離 |
-| ―（存在しない） | `resource/ir.rs` / `borrow.rs` / `region.rs` / `linear.rs` | NEPLg2.1 新規 |
+| ―（存在しない） | `resource/ir.rs` / `borrow.rs` / `region.rs` / `linear.rs` | NEPLg3 新規 |
 
 ---
 
@@ -505,7 +505,7 @@ pub fn compile(opts: CompileOptions, source_map: &SourceMap)
 
 ## 7. 移行戦略
 
-NEPLg2.1 コンパイラは現行 `nepl-core` を置き換えるのではなく、**並行して新規クレート `nepl-core-2.1` として開発する**。
+NEPLg3 コンパイラは現行 `nepl-core` を置き換えるのではなく、**並行して新規クレート `nepl-core-g3` として開発する**。
 
 | フェーズ | 内容 |
 |---|---|
@@ -514,6 +514,6 @@ NEPLg2.1 コンパイラは現行 `nepl-core` を置き換えるのではなく�
 | Stage 3 | `check/` を `typecheck.rs` から分割移植。巨大ファイルを解消 |
 | Stage 4 | `hir/` + `resource/` を新規実装。Resource IR を導入 |
 | Stage 5 | `mono/` + `codegen/` を移植。既存テストが通ることを確認 |
-| Stage 6 | `nepl-core` を `nepl-core-2.1` に切り替え。テスト全通過を確認してから旧クレートを廃止 |
+| Stage 6 | `nepl-core` を `nepl-core-g3` に切り替え。テスト全通過を確認してから旧クレートを廃止 |
 
-セルフホスト (`stdlib/neplg2/`) はブートストラップコンパイラが Stage 4 以降（Resource IR 利用可能）になってから本格着手する。
+セルフホスト (`stdlib/neplg3/`) はブートストラップコンパイラが Stage 4 以降（Resource IR 利用可能）になってから本格着手する。

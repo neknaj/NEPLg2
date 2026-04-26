@@ -17,7 +17,7 @@
 | codegen | `codegen_wasm.rs`, `codegen_llvm.rs`, `wasm_shared.rs`, `runtime_helpers.rs`, `monomorphize.rs` |
 | 診断 | `diagnostic.rs`, `diagnostic_ids.rs`, `error.rs`, `span.rs`, `log.rs` |
 
-行数上の最大リスクは `typecheck.rs` 8759 行、`parser.rs` 3891 行、`codegen_llvm.rs` 3528 行、`codegen_wasm.rs` 2339 行です。設計書 `doc/2.1impl/compiler_structure.md` が指摘している巨大ファイル問題は、現行コードにもそのまま残っています。
+行数上の最大リスクは `typecheck.rs` 8759 行、`parser.rs` 3891 行、`codegen_llvm.rs` 3528 行、`codegen_wasm.rs` 2339 行です。設計書 `doc/neplg3/impl/compiler_structure.md` が指摘している巨大ファイル問題は、現行コードにもそのまま残っています。
 
 ## 総評
 
@@ -47,7 +47,7 @@ NEPLg2.0 の core は、動く経路を増やすために型検査・名前解�
 
 ### 影響
 
-core をブラウザ / WASM / self-host bootstrap で再利用する際に、host I/O や path 処理が混入します。将来の `stdlib/neplg2/core` へ移植するときも、どこまでが pure compiler core なのか判別しにくくなります。
+core をブラウザ / WASM / self-host bootstrap で再利用する際に、host I/O や path 処理が混入します。将来の `stdlib/neplg3/core` へ移植するときも、どこまでが pure compiler core なのか判別しにくくなります。
 
 ### 修正方針
 
@@ -90,7 +90,7 @@ debug logging は host target でのみ `std::eprintln!` を使い、`target_os 
 
 ### 影響
 
-既知バグの根本原因を追いにくく、修正のたびに回帰範囲が広がります。`doc/2.1impl/compiler_structure.md` で示されている `check/`, `ty/`, `resolve/`, `hir/` 分割方針との乖離も大きいです。
+既知バグの根本原因を追いにくく、修正のたびに回帰範囲が広がります。`doc/neplg3/impl/compiler_structure.md` で示されている `check/`, `ty/`, `resolve/`, `hir/` 分割方針との乖離も大きいです。
 
 ### 修正方針
 
@@ -406,7 +406,7 @@ false positive / false negative の両方が起きやすく、stdlib の owning 
 
 ### 修正方針
 
-`doc/2.1impl/compiler_structure.md` の方針どおり HIR 後に Resource IR を導入し、move、borrow、region、drop elaboration を別 pass に分けます。drop 挿入前に ownership を確定し、auto drop は Resource IR 上で挿入します。
+`doc/neplg3/impl/compiler_structure.md` の方針どおり HIR 後に Resource IR を導入し、move、borrow、region、drop elaboration を別 pass に分けます。drop 挿入前に ownership を確定し、auto drop は Resource IR 上で挿入します。
 
 ### 検証
 

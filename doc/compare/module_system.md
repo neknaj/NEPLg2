@@ -1,4 +1,4 @@
-# NEPLg2.0 → NEPLg2.1 モジュールシステム変更
+# NEPLg2.0 → NEPLg3 モジュールシステム変更
 
 ---
 
@@ -89,7 +89,7 @@ module lexer:
 - `#use` はパースされていたが名前解決で使われていなかった。
 - `name_resolve.rs` はスタブで、型検査が字句的 Env 上でフラット化後に解決していた。
 
-### NEPLg2.1 の解決策
+### NEPLg3 の解決策
 
 - **物理層・構文層・論理層の 3 層分離**: ファイル（物理）とモジュール（論理）を直交させる。
 - **`use` はモジュール依存の宣言**: overload なし。パスベースで一意解決。
@@ -104,7 +104,7 @@ module lexer:
 // NEPLg2.0
 #import "stdlib/std/streamio"
 
-// NEPLg2.1 — モジュール依存として宣言
+// NEPLg3 — モジュール依存として宣言
 use std::streamio
 ```
 
@@ -112,7 +112,7 @@ use std::streamio
 // NEPLg2.0 — ファイル分割（インライン結合）
 #include "./editor_ops"
 
-// NEPLg2.1 — 同一モジュール内のソース結合
+// NEPLg3 — 同一モジュール内のソース結合
 #module
 
 merge "./editor_ops"    // editor_ops.nepl は #part ヘッダを持つ
@@ -124,5 +124,5 @@ merge "./editor_ops"    // editor_ops.nepl は #part ヘッダを持つ
 
 | 変更カテゴリ | 詳細仕様 |
 |---|---|
-| モジュールシステム（3 層モデル・`use`・`merge`・`module` ブロック） | [2.1spec/modules.md](../2.1spec/modules.md) |
-| 宣言構文（`#module`・`#part`・`#entry` ヘッダ） | [2.1spec/declarations.md](../2.1spec/declarations.md) |
+| モジュールシステム（3 層モデル・`use`・`merge`・`module` ブロック） | [neplg3/spec/modules.md](../neplg3/spec/modules.md) |
+| 宣言構文（`#module`・`#part`・`#entry` ヘッダ） | [neplg3/spec/declarations.md](../neplg3/spec/declarations.md) |

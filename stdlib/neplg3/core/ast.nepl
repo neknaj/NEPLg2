@@ -1,4 +1,4 @@
-//: diagnostic: neplg2/core/diagnostic.nepl に関する機能を提供するライブラリ
+//: ast: neplg3/core/ast.nepl に関する機能を提供するライブラリ
 //:
 //: [目的/もくてき]:
 //: - このモジュールの公開 API を提供します。

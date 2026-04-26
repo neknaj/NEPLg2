@@ -1,6 +1,6 @@
 # Web playground
 
-> **対象実装**: このドキュメントは現行 Web Playground（Bootstrap 実装）について記述する。NEPLg2.1 の正の仕様は `doc/2.1spec/` を参照。
+> **対象実装**: このドキュメントは現行 Web Playground（Bootstrap 実装）について記述する。NEPLg3 の正の仕様は `doc/neplg3/spec/` を参照。
 
 The web playground lives under `web/` and is built by Trunk (`Trunk.toml` targets
 `web/index.html`).

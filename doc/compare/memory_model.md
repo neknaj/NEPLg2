@@ -1,4 +1,4 @@
-# NEPLg2.0 → NEPLg2.1 メモリモデル移行
+# NEPLg2.0 → NEPLg3 メモリモデル移行
 
 ---
 
@@ -91,9 +91,9 @@
 
 ---
 
-## 3. 目標状態（NEPLg2.1）
+## 3. 目標状態（NEPLg3）
 
-| 項目 | NEPLg2.0 | NEPLg2.1 |
+| 項目 | NEPLg2.0 | NEPLg3 |
 |------|----------|----------|
 | `alloc/dealloc` | 公開 API | compiler/runtime 境界に隔離 |
 | raw pointer | safe user code から見える | 完全に隠蔽 |
@@ -108,7 +108,7 @@
 
 | 変更カテゴリ | 詳細仕様 |
 |---|---|
-| メモリ管理（値の三分類・Region Inference・Drop Elaboration） | [2.1spec/memory.md](../2.1spec/memory.md) |
-| 副作用システム（InternalAlloc・ExternalIO 分類） | [2.1spec/effects.md](../2.1spec/effects.md) |
-| コンパイラ実装（Resource IR・M1–M6 マイルストーン） | [2.1spec/compiler.md](../2.1spec/compiler.md) |
-| stdlib 設計（安全 API への統一） | [2.1spec/stdlib.md](../2.1spec/stdlib.md) |
+| メモリ管理（値の三分類・Region Inference・Drop Elaboration） | [neplg3/spec/memory.md](../neplg3/spec/memory.md) |
+| 副作用システム（InternalAlloc・ExternalIO 分類） | [neplg3/spec/effects.md](../neplg3/spec/effects.md) |
+| コンパイラ実装（Resource IR・M1–M6 マイルストーン） | [neplg3/spec/compiler.md](../neplg3/spec/compiler.md) |
+| stdlib 設計（安全 API への統一） | [neplg3/spec/stdlib.md](../neplg3/spec/stdlib.md) |

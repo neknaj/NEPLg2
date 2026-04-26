@@ -1,4 +1,4 @@
-//: span: neplg2/core/span.nepl に関する機能を提供するライブラリ
+//: diagnostic: neplg3/core/diagnostic.nepl に関する機能を提供するライブラリ
 //:
 //: [目的/もくてき]:
 //: - このモジュールの公開 API を提供します。

@@ -1,4 +1,4 @@
-//: typecheck: neplg2/core/typecheck.nepl に関する機能を提供するライブラリ
+//: parser: neplg3/core/parser.nepl に関する機能を提供するライブラリ
 //:
 //: [目的/もくてき]:
 //: - このモジュールの公開 API を提供します。

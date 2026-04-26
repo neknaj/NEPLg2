@@ -1,4 +1,4 @@
-# NEPLg2.1 標準ライブラリ設計
+# NEPLg3 標準ライブラリ設計
 
 最終更新: 2026-03-16
 
@@ -86,10 +86,10 @@
 - 競技プログラミング向けの先行ライブラリを置く暫定層。
 - 成熟し責務が一般化できた機能は `std` / `alloc/collections` / `alloc/text` 等へ昇格させる。
 
-### 2.7 `nm`・`neplg2`（独立ライブラリ層）
+### 2.7 `nm`・`neplg3`（独立ライブラリ層）
 
 - `nm`: 拡張 markdown・doc comment・HTML 変換など周辺ツールチェーン用。
-- `neplg2`: セルフホスト compiler 用ライブラリ。
+- `neplg3`: セルフホスト compiler 用ライブラリ。
 
 ---
 
@@ -122,7 +122,7 @@ stdlib/
 
     kp/                  # 競技プログラミング向け暫定ライブラリ
     nm/                  # 拡張 markdown・doc comment・HTML 変換
-    neplg2/              # セルフホスト compiler 用ライブラリ
+    neplg3/              # セルフホスト compiler 用ライブラリ
         core/
         cli/
 

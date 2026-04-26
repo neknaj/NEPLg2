@@ -12,13 +12,13 @@
 | alloc | `stdlib/alloc/string.nepl`, `stdlib/alloc/io.nepl`, `stdlib/alloc/collections/**`, `stdlib/alloc/diag/**`, `stdlib/alloc/encoding/json.nepl` |
 | std | `stdlib/std/stdio.nepl`, `stdlib/std/streamio.nepl`, `stdlib/std/fs.nepl`, `stdlib/std/env/cliarg.nepl`, `stdlib/std/test.nepl` |
 | platform / tools | `stdlib/platforms/wasix/tui.nepl`, `stdlib/nm/**`, `stdlib/kp/**` |
-| self-host | `stdlib/neplg2/**` |
+| self-host | `stdlib/neplg3/**` |
 
 ## 総評
 
 stdlib は API 数が多く、コメントと doctest はかなり整備されています。一方で、低レベルメモリ管理と owning collection の所有権設計が現行 compiler の Resource IR 不足を補えていません。特に allocator と `Vec` / `Stack` の `Copy` 実装は、実行時のメモリ破壊に直結する可能性があります。
 
-また、I/O と filesystem 周辺は skip test が多く、CLI runtime の WASI 実装不足と合わせて未検証領域が残っています。`stdlib/neplg2` は現時点では placeholder で、セルフホスト compiler と呼べる実装にはなっていません。
+また、I/O と filesystem 周辺は skip test が多く、CLI runtime の WASI 実装不足と合わせて未検証領域が残っています。`stdlib/neplg3` は現時点では placeholder で、セルフホスト compiler と呼べる実装にはなっていません。
 
 ## RV-STDLIB-001: allocator がアドレス 0 のメタデータと最初のブロックを衝突させる
 
@@ -279,15 +279,15 @@ test runner に fixture file と argv/stdin 指定を持たせ、fs/cliarg の�
 - 状態: open
 - 優先度: P2
 - 種別: architecture
-- 対象: `stdlib/neplg2/**`
+- 対象: `stdlib/neplg3/**`
 
 ### 根拠
 
-- `stdlib/neplg2/core/parser.nepl`: 17 行の skip doctest だけ。
-- `stdlib/neplg2/core/typecheck.nepl`: 17 行の skip doctest だけ。
-- `stdlib/neplg2/core/ast.nepl`: 17 行の skip doctest だけ。
-- `stdlib/neplg2/cli/main.nepl`: 17 行の skip doctest だけ。
-- `doc/self_host.md`: `stdlib/neplg2` を self-host compiler 本体として位置づけている。
+- `stdlib/neplg3/core/parser.nepl`: 17 行の skip doctest だけ。
+- `stdlib/neplg3/core/typecheck.nepl`: 17 行の skip doctest だけ。
+- `stdlib/neplg3/core/ast.nepl`: 17 行の skip doctest だけ。
+- `stdlib/neplg3/cli/main.nepl`: 17 行の skip doctest だけ。
+- `doc/self_host.md`: `stdlib/neplg3` を self-host compiler 本体として位置づけている。
 
 ### 問題
 
@@ -303,7 +303,7 @@ self-host compiler のディレクトリは存在しますが、実装はあり�
 
 ### 検証
 
-`stdlib/neplg2/core/span.nepl` など最小 module ごとに doctest を実行可能にし、skip を外します。
+`stdlib/neplg3/core/span.nepl` など最小 module ごとに doctest を実行可能にし、skip を外します。
 
 ## RV-STDLIB-009: 巨大 stdlib ファイルが分割されていない
 

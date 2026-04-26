@@ -196,7 +196,7 @@ helper 関数の説明:
   - `RegionToken` や `MemPtr` に寿命・所有権上の制約があるのか
   - バッファ再確保により参照やポインタが無効化されるのか
   - 失敗時に確保済み領域がどう扱われるのか
-  - その値が pure persistent value / unique mutable work state / linear capability のどれに分類されるか（[`doc/2.1spec/memory.md`](../2.1spec/memory.md) §2 の 3 分類を参照）
+  - その値が pure persistent value / unique mutable work state / linear capability のどれに分類されるか（[`doc/neplg3/spec/memory.md`](neplg3/spec/memory.md) §2 の 3 分類を参照）
 - 計算量は一律に `O(n)` のような短い記法だけを書くのではなく、その関数の性質に応じて適切な観点を選ぶ。
   - 配列走査なら時間計算量を中心に書く
   - バッファ確保やコピーを伴うなら空間計算量も書く

@@ -1,4 +1,4 @@
-# NEPLg2.1 パターン・Match・Let 仕様
+# NEPLg3 パターン・Match・Let 仕様
 
 最終更新: 2026-03-27
 

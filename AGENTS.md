@@ -86,9 +86,9 @@ fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
             e
 ```
 
-## NEPLg2 Compiler
+## NEPLg3 Compiler
 
-/stdlib/neplg2/につくるセルフホストのコンパイラです
+/stdlib/neplg3/につくるセルフホストのコンパイラです
 CLIはWASIです
 CoreはWASI無しのただのWASMにします
 
@@ -96,4 +96,4 @@ CoreはWASI無しのただのWASMにします
 
 ### コメントの付け方
 
-NEPLg2 Compiler には日本語でコメントを付けます
+NEPLg3 Compiler には日本語でコメントを付けます

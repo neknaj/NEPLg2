@@ -78,7 +78,7 @@
 | [RV-STDLIB-005](./stdlib.md#rv-stdlib-005-stdio-read_all-が-4096-byte-で切り捨てる) | false | open | P1 | bug | text stdin が固定長で途切れる |
 | [RV-STDLIB-006](./stdlib.md#rv-stdlib-006-fscliarg-の主要テストが-skip-されている) | false | open | P1 | test | I/O 系 stdlib の回帰が実行されない |
 | [RV-STDLIB-007](./stdlib.md#rv-stdlib-007-str-の-utf-8-保証が実装で守られていない) | false | open | P1 | bug | bytes を検証せず `str` に変換する経路がある |
-| [RV-STDLIB-008](./stdlib.md#rv-stdlib-008-self-host-compiler-がプレースホルダのまま) | false | open | P2 | architecture | `stdlib/neplg2` は 17 行の stub 群のみ |
+| [RV-STDLIB-008](./stdlib.md#rv-stdlib-008-self-host-compiler-がプレースホルダのまま) | false | open | P2 | architecture | `stdlib/neplg3` は 17 行の stub 群のみ |
 | [RV-STDLIB-009](./stdlib.md#rv-stdlib-009-巨大-stdlib-ファイルが分割されていない) | false | open | P2 | architecture | `math.nepl` / `string.nepl` / `stdio.nepl` が巨大化 |
 | [RV-STDLIB-010](./stdlib.md#rv-stdlib-010-resultoption-の-unsafe-helper-が通常コードに広く残っている) | false | open | P2 | bug | `unwrap` / `unwrap_ok` が stdlib 内部で panic 経路を広げている |
 | [RV-STDLIB-011](./stdlib.md#rv-stdlib-011-clone-と-collection-read-api-が-by-value-で非-copy-所有型を扱えない) | true | verified | P0 | architecture | `Clone` と `Vec` / `Stack` の read API を borrow-based に移行する前提を追加済み |

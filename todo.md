@@ -1,3 +1,9 @@
+2026-04-26 NEPLg3 Migration
+
+- `nepl-core-g3/` の Stage 1 着手内容を `doc/neplg3/impl/compiler_structure.md` に沿って実作業へ分解する
+- `stdlib-g3/`、`tests-g3/`、`tutorials-g3/` の作成タイミングと CI job B の導入手順を具体化する
+- `stdlib/neplg3/` の placeholder を実装単位へ分割し、最初の実行可能 doctest を追加する
+
 2026-04-09 Playground
 
 - terminal panel の shared terminal session / shared shell backend を設計する

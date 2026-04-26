@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**NEPLg2** (Neknaj Expression Prefix Language General-purpose 2) is a prefix-notation, expression-oriented programming language that compiles to WebAssembly (WASM) and LLVM IR. The compiler is written in Rust. A self-hosting compiler (`/stdlib/neplg2/`) is under development.
+**NEPLg2** (Neknaj Expression Prefix Language General-purpose 2) is the current prefix-notation, expression-oriented language implementation that compiles to WebAssembly (WASM) and LLVM IR. The compiler is written in Rust. The renamed next-generation plan is **NEPLg3**, with self-hosting compiler placeholders under `/stdlib/neplg3/`.
 
-### NEPLg2 と NEPLg2.1 の区別
+### NEPLg2 と NEPLg3 の区別
 
 | 名称 | 説明 |
 |------|------|
 | **NEPLg2** | 現行実装（`nepl-core/`、`stdlib/`、`tests/`）の言語仕様。`plan.md` が設計の起点。 |
-| **NEPLg2.1** | 新仕様。型記法（`%fn ...`、juxtaposition、`unit`）・`fn` 宣言キーワード廃止・括弧完全廃止を含む大幅な変更。`doc/` 配下の新仕様ドキュメント群（`type_notation_spec.md`、`pattern_spec.md`、`module_system_spec.md`、`language_platform_spec.md`）が対象。 |
+| **NEPLg3** | 新仕様。型記法（`%TypeExpr`、juxtaposition、`()` unit）・`fn` 宣言キーワード廃止・括弧完全廃止を含む大幅な変更。`doc/neplg3/spec/` と `doc/neplg3/impl/` が対象。 |
 
-NEPLg2.1 の変更は NEPLg2 とは非互換であり、実装は別途移行計画に従って進める。
-現行の `nepl-core/` は NEPLg2 の実装であり、NEPLg2.1 の実装は今後の作業になる。
+NEPLg3 の変更は NEPLg2 とは非互換であり、実装は別途移行計画に従って進める。
+現行の `nepl-core/` は NEPLg2 の実装であり、NEPLg3 の実装は今後の作業になる。
 
 ## Build Commands
 
@@ -118,7 +118,7 @@ Stdlib doctests use `//: ` comment markers within `.nepl` files.
 | `std/` | stdio, streamio, fs, io |
 | `alloc/` | Collections: vec, hashmap |
 | `platforms/` | Platform-specific (WASIX, TUI) |
-| `neplg2/` | Self-hosting compiler (WASI CLI + pure WASM core) |
+| `neplg3/` | Self-hosting compiler (WASI CLI + pure WASM core) |
 
 ## Development Guidelines (from AGENTS.md)
 
@@ -137,11 +137,11 @@ Stdlib doctests use `//: ` comment markers within `.nepl` files.
 
 ### Stdlib and Compiler Comments
 
-Both `stdlib/` and the self-hosting compiler (`stdlib/neplg2/`) use **Japanese comments** written in the extended Markdown format supported by `stdlib/nm`. Each function should document: purpose, algorithm, constraints, complexity, and include inline doctests (`//: neplg2:test`).
+Both `stdlib/` and the self-hosting compiler (`stdlib/neplg3/`) use **Japanese comments** written in the extended Markdown format supported by `stdlib/nm`. Each function should document: purpose, algorithm, constraints, complexity, and include inline doctests (`//: neplg2:test`).
 
 ### Self-Hosting Compiler Structure
 
-Mirrors the Rust compiler's separation: the CLI (`/stdlib/neplg2/cli/`) uses WASI; the core (`/stdlib/neplg2/core/`) is pure WASM (no WASI), analogous to how `nepl-cli/` uses std while `nepl-core/` is `no_std`.
+Mirrors the Rust compiler's separation: the CLI (`/stdlib/neplg3/cli/`) uses WASI; the core (`/stdlib/neplg3/core/`) is pure WASM (no WASI), analogous to how `nepl-cli/` uses std while `nepl-core/` is `no_std`.
 
 ## Key Documentation Files
 

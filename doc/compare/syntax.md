@@ -1,16 +1,16 @@
-# NEPLg2.0 → NEPLg2.1 構文変更対照表
+# NEPLg2.0 → NEPLg3 構文変更対照表
 
 ---
 
 ## 1. 前提
 
-この文書では、NEPLg2.1 のうち Zenn #1「カリー化」と Zenn #2「型と制御構文」で明示された内容を正として、NEPLg2.0 との差分を整理する。
+この文書では、NEPLg3 のうち Zenn #1「カリー化」と Zenn #2「型と制御構文」で明示された内容を正として、NEPLg2.0 との差分を整理する。
 
 ---
 
 ## 2. 宣言構文
 
-| 構文 | NEPLg2.0（旧） | NEPLg2.1（新） |
+| 構文 | NEPLg2.0（旧） | NEPLg3（新） |
 |---|---|---|
 | 関数定義 | `fn name <TypeParams> <Sig> (params):` | `let name <expr>` |
 | lambda | `(a, b): body` | `\a \b body` |
@@ -29,7 +29,7 @@ fn id <.T> <(.T)->.T> (x):
 ```
 
 ```nepl
-// NEPLg2.1
+// NEPLg3
 let id \x x
 ```
 
@@ -37,7 +37,7 @@ let id \x x
 
 ## 3. 型記法
 
-| 箇所 | NEPLg2.0（旧） | NEPLg2.1（新） |
+| 箇所 | NEPLg2.0（旧） | NEPLg3（新） |
 |---|---|---|
 | 型適用 | `Name<A, B>` | `Name A B` |
 | 型パラメータ宣言 | `<.T, .U>` | `.T .U` |
@@ -49,7 +49,7 @@ let id \x x
 
 ### 例
 
-| NEPLg2.0 | NEPLg2.1 |
+| NEPLg2.0 | NEPLg3 |
 |---|---|
 | `Vec<i32>` | `Vec i32` |
 | `Result<i32, str>` | `Result i32 str` |
@@ -63,7 +63,7 @@ let id \x x
 
 これは旧 2.1 案からも変わった点である。
 
-| 旧案 | Zenn #1 / #2 を正とした 2.1 |
+| 旧案 | Zenn #1 / #2 を正とした NEPLg3 |
 |---|---|
 | 宣言で型注釈を始める記号 | 続く 1 個の式に作用する前置演算子 |
 
@@ -76,7 +76,7 @@ add %i32 1 2
 
 ## 5. 関数と部分適用
 
-| 項目 | NEPLg2.0 | NEPLg2.1 |
+| 項目 | NEPLg2.0 | NEPLg3 |
 |---|---|---|
 | 関数の内部モデル | 通常の多引数関数 | カリー化 |
 | 部分適用 | 実質的に使える場面がある | 不採用 |
@@ -85,13 +85,13 @@ add %i32 1 2
 add 1
 ```
 
-NEPLg2.1 ではこれは値ではなくエラーとして扱う。
+NEPLg3 ではこれは値ではなくエラーとして扱う。
 
 ---
 
 ## 6. 制御構文
 
-| 構文 | NEPLg2.0（旧） | NEPLg2.1（新） |
+| 構文 | NEPLg2.0（旧） | NEPLg3（新） |
 |---|---|---|
 | if | `if cond then a else b` | `if cond a b` または `if cond then a else b` |
 | match arm | `pattern: suite` | `pattern expr` |
@@ -139,7 +139,7 @@ let Point x: a y: b p
 
 参照先:
 
-- 現在のコア構文: [syntax.md](../2.1spec/syntax.md)
-- 現在の型記法: [types.md](../2.1spec/types.md)
-- 現在の宣言構文: [declarations.md](../2.1spec/declarations.md)
-- 現在の pattern: [patterns.md](../2.1spec/patterns.md)
+- 現在のコア構文: [syntax.md](../neplg3/spec/syntax.md)
+- 現在の型記法: [types.md](../neplg3/spec/types.md)
+- 現在の宣言構文: [declarations.md](../neplg3/spec/declarations.md)
+- 現在の pattern: [patterns.md](../neplg3/spec/patterns.md)

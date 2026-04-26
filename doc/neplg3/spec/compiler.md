@@ -1,4 +1,4 @@
-# NEPLg2.1 コンパイラ実装設計
+# NEPLg3 コンパイラ実装設計
 
 最終更新: 2026-03-16
 
@@ -132,7 +132,7 @@ io_close h
 
 ## 8. 仕様達成マイルストーン
 
-以下は NEPLg2.1 仕様の達成目標をマイルストーン（M1–M6）で区切ったもの。言語バージョンの Phase 番号（Phase 0–8）とは区別する。また、`doc/2.1impl/compiler_structure.md §7` に示す実装ステージ（Stage 1–6、nepl-core-2.1 の構築段階）とも別物である。
+以下は NEPLg3 仕様の達成目標をマイルストーン（M1–M6）で区切ったもの。言語バージョンの Phase 番号（Phase 0–8）とは区別する。また、`doc/neplg3/impl/compiler_structure.md §7` に示す実装ステージ（Stage 1–6、nepl-core-g3 の構築段階）とも別物である。
 
 | マイルストーン | 内容 |
 |---|---|
@@ -143,7 +143,7 @@ io_close h
 | M5 | stdlib（`mem` / `std/streamio`）を安全 API へ統一 |
 | M6 | tests に memory / effect 回帰を追加 |
 
-> **実装詳細**: 具体的なファイル構成・パイプライン設計・移行戦略は [doc/2.1impl/compiler_structure.md](../2.1impl/compiler_structure.md) を参照。
+> **実装詳細**: 具体的なファイル構成・パイプライン設計・移行戦略は [doc/neplg3/impl/compiler_structure.md](../impl/compiler_structure.md) を参照。
 
 ---
 

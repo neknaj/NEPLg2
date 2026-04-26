@@ -1,6 +1,6 @@
 # Editor Extensions
 
-> **対象実装**: このドキュメントは現行 Bootstrap 実装（`nepl-core` / `nepl-web` / `nepl-language`）のエディタ連携方針を記述する。NEPLg2.1 の正の仕様は `doc/2.1spec/` を参照。
+> **対象実装**: このドキュメントは現行 Bootstrap 実装（`nepl-core` / `nepl-web` / `nepl-language`）のエディタ連携方針を記述する。NEPLg3 の正の仕様は `doc/neplg3/spec/` を参照。
 
 ## 方針
 

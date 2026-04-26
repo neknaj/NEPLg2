@@ -190,6 +190,10 @@ type PreparedLanguageAnalysis = {
     definitionById: Map<number, AnalysisDefinition>;
 };
 
+function analysisArray<T>(value: T[] | null | undefined): T[] {
+    return Array.isArray(value) ? value : [];
+}
+
 function buildOffsetMaps(text: string): OffsetMaps {
     const lineStarts = [0];
     const byteOffsets = new Array<number>(text.length + 1);
@@ -472,7 +476,7 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
 
 function prepareAnalysis(text: string, snapshot?: LanguageAnalysisSnapshot | null): PreparedLanguageAnalysis {
     const safeSnapshot = snapshot ?? {};
-    const definitions = Array.isArray(safeSnapshot.resolve?.definitions) ? safeSnapshot.resolve?.definitions : [];
+    const definitions = analysisArray(safeSnapshot.resolve?.definitions);
     const definitionById = new Map<number, AnalysisDefinition>();
     for (const definition of definitions) {
         if (Number.isFinite(definition?.id)) {
@@ -488,21 +492,17 @@ function prepareAnalysis(text: string, snapshot?: LanguageAnalysisSnapshot | nul
 }
 
 function tokenResolutionAt(prepared: PreparedLanguageAnalysis, tokenIndex: number): AnalysisTokenResolution | null {
-    const resolutions = Array.isArray(prepared.snapshot.semantics?.token_resolution)
-        ? prepared.snapshot.semantics?.token_resolution
-        : [];
+    const resolutions = analysisArray(prepared.snapshot.semantics?.token_resolution);
     return resolutions.find((item) => Number(item?.token_index) === tokenIndex) ?? null;
 }
 
 function tokenSemanticAt(prepared: PreparedLanguageAnalysis, tokenIndex: number): AnalysisTokenSemantic | null {
-    const semantics = Array.isArray(prepared.snapshot.semantics?.token_semantics)
-        ? prepared.snapshot.semantics?.token_semantics
-        : [];
+    const semantics = analysisArray(prepared.snapshot.semantics?.token_semantics);
     return semantics.find((item) => Number(item?.token_index) === tokenIndex) ?? null;
 }
 
 function tokenAt(prepared: PreparedLanguageAnalysis, index: number): { token: AnalysisToken; tokenIndex: number; span: NonNullable<ReturnType<typeof spanFromPrepared>> } | null {
-    const tokens = Array.isArray(prepared.snapshot.lex?.tokens) ? prepared.snapshot.lex?.tokens : [];
+    const tokens = analysisArray(prepared.snapshot.lex?.tokens);
     for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
         const token = tokens[tokenIndex];
         const span = spanFromPrepared(prepared, token);
@@ -514,7 +514,7 @@ function tokenAt(prepared: PreparedLanguageAnalysis, index: number): { token: An
 }
 
 function referenceAt(prepared: PreparedLanguageAnalysis, index: number): AnalysisReference | null {
-    const references = Array.isArray(prepared.snapshot.resolve?.references) ? prepared.snapshot.resolve?.references : [];
+    const references = analysisArray(prepared.snapshot.resolve?.references);
     let best: AnalysisReference | null = null;
     let bestWidth = Number.MAX_SAFE_INTEGER;
     for (const reference of references) {
@@ -627,7 +627,7 @@ function collectDiagnostics(prepared: PreparedLanguageAnalysis): EditorDiagnosti
 }
 
 function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
-    const tokens = Array.isArray(prepared.snapshot.lex?.tokens) ? prepared.snapshot.lex?.tokens : [];
+    const tokens = analysisArray(prepared.snapshot.lex?.tokens);
     const output: EditorToken[] = [];
     const skipKinds = new Set(['Indent', 'Dedent', 'Eof', 'Newline']);
 
@@ -668,9 +668,7 @@ function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
 }
 
 function buildSemanticTokens(prepared: PreparedLanguageAnalysis): EditorSemanticToken[] {
-    const semantics = Array.isArray(prepared.snapshot.semantics?.token_semantics)
-        ? prepared.snapshot.semantics?.token_semantics
-        : [];
+    const semantics = analysisArray(prepared.snapshot.semantics?.token_semantics);
     const output: EditorSemanticToken[] = [];
     for (const item of semantics) {
         if (!item?.expr_span) {
@@ -696,9 +694,7 @@ function buildSemanticTokens(prepared: PreparedLanguageAnalysis): EditorSemantic
 }
 
 function buildInlayHints(prepared: PreparedLanguageAnalysis): EditorInlayHint[] {
-    const semantics = Array.isArray(prepared.snapshot.semantics?.token_semantics)
-        ? prepared.snapshot.semantics?.token_semantics
-        : [];
+    const semantics = analysisArray(prepared.snapshot.semantics?.token_semantics);
     const output: EditorInlayHint[] = [];
     for (const item of semantics) {
         if (!item?.expr_span || !item?.inferred_type) {
@@ -890,7 +886,7 @@ export function getTokenInsightFromAnalysis(text: string, snapshot: LanguageAnal
         argIndex: Number.isInteger(semantic?.arg_index) ? Number(semantic?.arg_index) : null,
         argSpan: semantic?.arg_span ?? null,
         resolvedDefId: resolution?.resolved_def_id != null ? Number(resolution.resolved_def_id) : null,
-        candidateDefIds: Array.isArray(resolution?.candidate_def_ids) ? resolution.candidate_def_ids.map((value) => Number(value)) : [],
+        candidateDefIds: analysisArray(resolution?.candidate_def_ids).map((value) => Number(value)),
         definitionCandidates: candidates,
         resolvedDefinition: definition
             ? {
@@ -1004,7 +1000,7 @@ export function getOccurrencesFromAnalysis(text: string, snapshot: LanguageAnaly
         return [];
     }
 
-    const references = Array.isArray(prepared.snapshot.resolve?.references) ? prepared.snapshot.resolve?.references : [];
+    const references = analysisArray(prepared.snapshot.resolve?.references);
     const output: Occurrence[] = [];
     for (const reference of references) {
         if (insight.resolvedDefId != null && reference?.resolved_def_id === insight.resolvedDefId) {
