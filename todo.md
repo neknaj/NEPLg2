@@ -3,6 +3,7 @@
 - `stdlib/mem-bulk-copy` branch で `ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2` に沿って bulk memory copy API と backend lowering を整備する
 - `stdlib/json-typed-values` branch で `ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374` に沿って JSON value の raw i32 payload を typed representation へ移行する
 - `stdlib/match-decision-trees` branch で `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` に沿って match で表現すべき stdlib の nested if 分岐を監査し、自然な match 表現へ戻す
+- `core/match-literal-patterns` branch で `ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB` に沿って整数 literal arm と wildcard / default を含む match pattern と網羅性仕様を整備する
 - `stdlib/sha256-digest` branch で `ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536` に沿って SHA-256 API を本物の digest 実装または非公開 scaffold へ整理する
 - `stdlib/tui-narrow-width` branch で `ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2` に沿って TUI box helper の narrow width 契約を固定する
 - `stdlib/doc-comment-boilerplate` branch で `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` に沿って boilerplate 化した stdlib doc comment を具体的な説明へ置き換える

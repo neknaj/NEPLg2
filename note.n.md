@@ -17377,3 +17377,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - stdlib 側の workaround として温存せず、`match` 化できない場合は compiler bug を別 issue として切り出し、回帰テストを追加する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-04-26 メモ (match literal pattern / 網羅性 issue 追加)
+
+- [追加]:
+  - `ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB` を追加した。
+  - `match ch:` に `92:` のような整数 literal arm を書くと parser が `expected identifier` で落ちることを、JSON escape の match 化中に確認した。
+- [確認]:
+  - 現行 compiler には enum variant match の duplicate / unknown / non-exhaustive 検査はある。
+  - 一方で arm 見出しの wildcard / default pattern と literal pattern は未整備で、`_` は payload bind 名として使われる経路と混同しやすい。
+  - issue 本文に、literal arm だけでなく wildcard / default と網羅性仕様の整理を含めた。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

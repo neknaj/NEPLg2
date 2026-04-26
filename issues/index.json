@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T07:30:20.615Z",
+  "generated_at": "2026-04-26T07:37:25.230Z",
   "counts": {
-    "total": 116,
-    "open": 23,
+    "total": 117,
+    "open": 24,
     "resolved": 93,
     "by_area": {
       "core": {
-        "total": 37,
-        "open": 3,
+        "total": 38,
+        "open": 4,
         "resolved": 34
       },
       "selfhost": {
@@ -223,6 +223,21 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
+    },
+    {
+      "id": "ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB",
+      "title": "match cannot use integer literal arms for finite value dispatch",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/parser.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T073513044Z-MATCH-CANNOT-USE-INTEGER-LITERAL-ARM-C0298FAB.md"
     },
     {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
