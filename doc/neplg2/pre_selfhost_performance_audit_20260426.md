@@ -41,7 +41,7 @@
 S0 の source tree scaffold は今回の性能 Issue を未解決のまま開始できる。
 ただし、次の stage では先に方針を固定する。
 
-1. S1 lexer / parser は token table と interning の構造を決める前に、`HashMap` 固定容量問題を閉じるか、別構造を使う理由を記録する。
+1. S1 lexer / parser は token table と interning の構造を決める前に、`HashMap` / `HashSet` の grow / rehash 実装を確認する。`ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F` は 2026-04-26 に verified 済み。
 2. S2 module loader は stdlib 分割と import visibility closure の cost を同時に見る。
 3. S3 typecheck は ordered table に `BTreeMap` を使う箇所を限定し、mutable large table には使わない。
 4. S5 WASM emitter は ByteBuilder と同時に bulk copy API の必要性を判断する。
@@ -51,5 +51,5 @@ S0 の source tree scaffold は今回の性能 Issue を未解決のまま開始
 
 ## 検証メモ
 
-今回の変更は issue / doc の追加であり、実装挙動は変更していない。
-検証は `issues` tool、Markdown link、既存共通 test で行う。
+今回の性能監査で追加した `HashMap` / `HashSet` 固定容量問題は、2026-04-26 に grow / rehash と `with_capacity` 追加で解消した。
+検証は `issues` tool、Markdown link、既存共通 test に加え、`tests/stdlib/hash_collection_rehash.n.md` の focused doctest で行う。

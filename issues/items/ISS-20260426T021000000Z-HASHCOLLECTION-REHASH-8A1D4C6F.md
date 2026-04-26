@@ -2,8 +2,8 @@
 id: ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F
 title: "HashMap and HashSet have fixed capacity and no rehash path"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: performance
 created: 2026-04-26
@@ -43,8 +43,16 @@ load factor 閾値を決め、`insert` 前に grow + rehash を行う。
 初期容量指定 API も追加し、self-host compiler の用途では table size 見積もりから `with_capacity` を使えるようにする。
 tombstone が多い場合は同容量 rehash で probe chain を短縮する。
 
+## 対応
+
+`HashMap` / `HashSet` の header に tombstone 数を追加し、`insert` 前に既存 key を確認した上で `count + tombstones + 1` が 75% load limit を超える場合に rehash するようにした。
+実要素数だけなら余裕がある場合は同容量 rehash、実要素数も閾値を超える場合は容量を 2 倍に grow する。
+`new` は内部 constructor を通じて初期容量 16 を使い、公開 API として `with_capacity` を追加した。
+
 ## 検証
 
-- 17 件以上の insert が成功する doctest。
-- tombstone を含む remove / insert 後も `get` / `contains` が正しく動く regression。
-- 大量 key の probe 回数または実行時間を観測する focused benchmark fixture。
+- `node nodesrc/tests.js -i tests/stdlib/hash_collection_rehash.n.md --no-tree -o tmp/hash-collection-rehash.json -j 1`: 6/6 passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/alloc/collections/hashset.nepl --no-tree -o tmp/hash-collection-stdlib-doctests-after-comments.json -j 1`: 14/14 passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md -i tests/stdlib/collections_diag.n.md -i tests/stdlib/traits_hash.n.md -i tests/stdlib/pipe_collections.n.md -i tests/stdlib/hash_collection_rehash.n.md --no-tree -o tmp/hash-collection-rehash-suite-final.json -j 1`: 28/28 passed
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-hash-collection-rehash.json`: 13/13 passed

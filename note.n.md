@@ -1,3 +1,28 @@
+# 2026-04-26 メモ (ISS-20260426T021000000Z HASHCOLLECTION-REHASH 修正)
+
+- 状況:
+  - `HashMap` / `HashSet` は初期容量 16 固定で、17 件目以降の insert は `CapacityExceeded` に落ちていた。
+  - remove 後の tombstone 数を header に保持しておらず、実要素数が少なくても probe chain が伸び続ける構造だった。
+  - self-host compiler の symbol table / module table / visited set は 16 件を容易に超えるため、このままだと `Vec` 線形探索などの迂回実装を誘発する。
+- 原因:
+  - open addressing の load factor と tombstone 数を insert 前に評価する経路がなく、entries の再配置も実装されていなかった。
+  - `new` が固定容量の raw allocation を直接行っており、容量指定 constructor を共有できる形になっていなかった。
+- 修正:
+  - `HashMap` / `HashSet` の header を count / cap / entries / tombstones の 16 byte に拡張した。
+  - insert 前に既存 key を確認し、`count + tombstones + 1` が 75% load limit を超える場合に rehash するようにした。
+  - 実要素数が閾値以下なら同容量 rehash、実要素数も閾値を超えるなら 2 倍 grow とした。
+  - `with_capacity` を追加し、`new` は内部 constructor 経由で初期容量 16 を作るようにした。
+  - 固定容量時代の `CapacityExceeded` doctest を削除し、grow / tombstone rehash / 多件数 insert の focused doctest を `tests/stdlib/hash_collection_rehash.n.md` に追加した。
+  - `issues/items/ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F.md` を verified にし、`todo.md` から対応項目を削除した。
+- 確認済み:
+  - `node nodesrc/tests.js -i tests/stdlib/hash_collection_rehash.n.md --no-tree -o tmp/hash-collection-rehash.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/alloc/collections/hashset.nepl --no-tree -o tmp/hash-collection-stdlib-doctests-after-comments.json -j 1`: 14/14 passed
+  - `trunk build`: pass（既存 Rust warning は残存）
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md -i tests/stdlib/collections_diag.n.md -i tests/stdlib/traits_hash.n.md -i tests/stdlib/pipe_collections.n.md -i tests/stdlib/hash_collection_rehash.n.md --no-tree -o tmp/hash-collection-rehash-suite-final.json -j 1`: 28/28 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-hash-collection-rehash.json`: 13/13 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は self-host 前提の stdlib collection 性能・容量制限を解消するもので、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T020004000Z CLI-LIB-PLACEHOLDER 修正)
 
 - 状況:
