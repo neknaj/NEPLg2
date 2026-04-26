@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T17:34:07.968Z",
+  "generated_at": "2026-04-26T17:36:48.219Z",
   "counts": {
-    "total": 133,
+    "total": 134,
     "open": 9,
-    "resolved": 124,
+    "resolved": 125,
     "by_area": {
       "core": {
         "total": 49,
@@ -27,9 +27,9 @@
         "resolved": 13
       },
       "selfhost": {
-        "total": 7,
+        "total": 8,
         "open": 0,
-        "resolved": 7
+        "resolved": 8
       },
       "compiler": {
         "total": 1,
@@ -1048,6 +1048,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11.md"
+    },
+    {
+      "id": "ISS-20260426T165643523Z-NEPLG2-SELFHOST-LACKS-SOURCETEXT-LIN-815E29E4",
+      "title": "neplg2 selfhost lacks SourceText line map infrastructure",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/neplg2/core/infra/text.nepl, tests/stdlib/neplg2_text.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T165643523Z-NEPLG2-SELFHOST-LACKS-SOURCETEXT-LIN-815E29E4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

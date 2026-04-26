@@ -13,11 +13,12 @@
 
 Stage 0 では各 pipeline stage の所有境界だけを固定し、各ファイルに実行可能な最小 doctest を置きます。実処理の移植は `selfhost/s0-infra-span-diag` 以降の issue で、依存順を崩さず追加します。
 
-S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベースの `SelfhostSourceSpan` を持ち、`core/syntax/token.nepl` は `TokenKind` / `SelfhostToken` を定義します。`core/syntax/lexer.nepl` は whitespace、comment、identifier、integer literal、string literal、主要 punctuation、EOF、lexical diagnostic を扱う byte lexer です。indent / dedent と Rust lexer JSON parity は後続 issue で追加します。
+S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベースの `SelfhostSourceSpan` を持ち、`core/infra/text.nepl` は `SelfhostSourceText`、line start table、byte offset から line / column への変換を提供します。`core/syntax/token.nepl` は `TokenKind` / `SelfhostToken` を定義します。`core/syntax/lexer.nepl` は whitespace、comment、identifier、integer literal、string literal、主要 punctuation、EOF、lexical diagnostic を扱う byte lexer です。indent / dedent と Rust lexer JSON parity は後続 issue で追加します。
 
 ## 検証
 
 ```powershell
 node nodesrc/tests.js -i stdlib/neplg2 --no-tree -o tmp/neplg2-selfhost-placeholder.json -j 2
 node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-foundation-focused.json -j 1
+node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/neplg2-source-text-focused.json -j 1
 ```

@@ -1,3 +1,25 @@
+# 2026-04-26 メモ (ISS-20260426T165643523Z NEPLg2 selfhost SourceText line map)
+
+- 状況:
+  - `doc/neplg2/self_host_plan.md` の S1 は `infra/text.nepl` で byte offset、line/column、source file id を扱う計画になっている。
+  - 直前の lexer foundation で `SelfhostSourceSpan` と token stream はできたが、diagnostic / parser / module loader が span を表示位置へ変換する共通 line map がなかった。
+  - borrow checker 周辺と `stdlib/alloc/string.nepl` のメモリ関連変更は別 agent の作業範囲として避けた。
+- 修正:
+  - `stdlib/neplg2/core/infra/text.nepl` を追加し、`SelfhostSourceText`、`SelfhostSourceLocation`、line start table、offset から line/column への変換、line span lookup を実装した。
+  - LF / CRLF / CR を newline として扱い、diagnostic 用 line span では newline byte を除外する契約にした。
+  - `source_text_new` は line start table 構築中の allocation failure を `Result::Err StdErrorKind::OutOfMemory` として返し、input-dependent code で `unwrap_ok` を増やさない形にした。
+  - `tests/stdlib/neplg2_text.n.md` に LF / EOF boundary、CRLF span trimming、out-of-range offset / line の回帰テストを追加した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/neplg2-source-text-after-rebase.json -j 1`: `total=26`, `passed=26`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-neplg2-source-text-after-rebase.json -j 4`: `total=412`, `passed=412`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-neplg2-source-text-after-rebase.json -j 4`: `total=280`, `passed=280`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplg2-source-text-after-rebase.json`: `13/13 passed`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は `doc/neplg2/self_host_plan.md` の S1 に沿って、lexer span を diagnostic / parser で使うための text 基盤を追加するもの。
+
 # 2026-04-26 メモ (ISS-20260426T161201078Z NEPLg2 selfhost lexer foundation)
 
 - 状況:
