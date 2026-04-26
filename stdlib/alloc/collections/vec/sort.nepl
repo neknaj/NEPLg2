@@ -44,7 +44,7 @@
 //:         |> push 3 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 1 |> uwok
-//:     let sorted <Vec<i32>> sort_merge_ret<i32> unsorted
+//:     let sorted <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> unsorted
 //:     if sort_is_sorted<i32> sorted 1 0
 //: ```
 
@@ -53,6 +53,7 @@
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/cast" as *
+#import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/diag/error" as *
@@ -944,30 +945,39 @@ fn sort_merge_range_data <.T: Ord> <(i32,MemPtr<.T>,i32,i32)->()> (data_ptr, buf
 //:         |> push 3 |> uwok
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     sort_merge<i32> v;
-//:     0
+//:     match sort_merge<i32> v:
+//:         Result::Ok _:
+//:             0
+//:         Result::Err _:
+//:             1
 //: ```
 //:
 //: ### [実装/じっそう]
 //: - `Vec` の `data` を raw address へ[下/お]ろし、`.T` [配列/はいれつ] 1 [本分/ほんぶん]の[作業/さぎょう] buffer を `alloc_ptr<.T>` で[確保/かくほ]して `sort_merge_range_data` を[呼/よ]びます。
 //:
 //: ### [注意/ちゅうい]
-//: - [作業/さぎょう] buffer [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `unwrap_ok` により[到達不能/とうたつふのう]になります。現状は `sort_merge` が `Result` を[返/かえ]さないためです。
+//: - [作業/さぎょう] buffer [確保/かくほ]や[解放/かいほう]に[失敗/しっぱい]した[場合/ばあい]は `Err(StdErrorKind)` を[返/かえ]します。
 //: - ソートは in-place なので `v` の[並/なら]び[順/じゅん]は[関数/かんすう][呼/よ]び[出/だ]し[後/ご]に[変更/へんこう]されます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(n log n)、[追加/ついか][空間/くうかん][計算量/けいさんりょう]は O(n) です。
-fn sort_merge <.T: Ord> <(Vec<.T>)->()> (v):
+fn sort_merge <.T: Ord> <(Vec<.T>)*>Result<(), StdErrorKind>> (v):
     let n <i32> get v "len"
     let data_ptr <i32> mem_ptr_addr get v "data"
     if:
         le n 1
-        then ()
+        then Result<(), StdErrorKind>::Ok ()
         else:
-            let buf <MemPtr<.T>> unwrap_ok alloc_ptr<.T> mul n size_of<.T>
-            sort_merge_range_data<.T> data_ptr buf 0 n;
-            unwrap_ok dealloc_ptr<.T> buf mul n size_of<.T>;
-            ()
+            match alloc_ptr<.T> mul n size_of<.T>:
+                Result::Err _e:
+                    Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
+                Result::Ok buf:
+                    sort_merge_range_data<.T> data_ptr buf 0 n;
+                    match dealloc_ptr<.T> buf mul n size_of<.T>:
+                        Result::Err _e:
+                            Result<(), StdErrorKind>::Err StdErrorKind::Failure
+                        Result::Ok _:
+                            Result<(), StdErrorKind>::Ok ()
 
 //: sort_slice_quick: 生ポインタ配列を quick sort で並べ替える
 //:
@@ -1069,32 +1079,38 @@ fn sort_heap_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
             ()
     Vec<.T> n cap data_ptr
 
-//: sort_merge_ret: merge sort 後の Vec を返す
+//: sort_merge_ret: merge sort 後の Vec を Result で返す
 //:
 //: [目的/もくてき]:
-//: - 破壊的ソートを行った同じ `Vec` を返し、後続処理で検証や連結処理をしやすくします。
+//: - 破壊的ソートを行った同じ `Vec` を `Ok` で返し、後続処理で検証や連結処理をしやすくします。
 //:
 //: [実装/じっそう]:
-//: - `sort_merge` を呼んだあと `v` をそのまま返します。
+//: - `sort_merge` と同じ作業 buffer 確保と `sort_merge_range_data` を使い、確保/解放失敗を `Err(StdErrorKind)` として伝播します。
 //:
 //: [注意/ちゅうい]:
 //: - ソート自体は in-place です。
+//: - `Err` の場合、入力 `Vec` は関数へ移動済みで呼び出し側へ戻りません。
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_merge` と同じです。
-fn sort_merge_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
+fn sort_merge_ret <.T: Ord> <(Vec<.T>)*>Result<Vec<.T>, StdErrorKind>> (v):
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let data_ptr <MemPtr<.T>> get v "data"
     if:
         le n 1
-        then ()
+        then Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap data_ptr
         else:
-            let buf <MemPtr<.T>> unwrap_ok alloc_ptr<.T> mul n size_of<.T>
-            sort_merge_range_data<.T> mem_ptr_addr data_ptr buf 0 n;
-            unwrap_ok dealloc_ptr<.T> buf mul n size_of<.T>;
-            ()
-    Vec<.T> n cap data_ptr
+            match alloc_ptr<.T> mul n size_of<.T>:
+                Result::Err _e:
+                    Result<Vec<.T>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                Result::Ok buf:
+                    sort_merge_range_data<.T> mem_ptr_addr data_ptr buf 0 n;
+                    match dealloc_ptr<.T> buf mul n size_of<.T>:
+                        Result::Err _e:
+                            Result<Vec<.T>, StdErrorKind>::Err StdErrorKind::Failure
+                        Result::Ok _:
+                            Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap data_ptr
 
 
 // sort: デフォルトは quick sort

@@ -18197,6 +18197,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nepl-core/tests/neplg2.rs` と `tests/compiler/generic_impl_trait_args.n.md` に、trait argument 側だけ generic な impl が通るケースと、generic target が引き続き拒否されるケースを追加した。
 - `plan.md` は変更していない。今回の変更は self-host stdlib の hash 基盤を自然な trait 境界へ戻すための compiler 側の前提修正である。
 
+# 2026-04-27 メモ (ISS-20260426T215315821Z vec merge sort Result API)
+
+- [追加]:
+  - `RV-STDLIB-010` の具体的な派生として、`ISS-20260426T215315821Z-VEC-MERGE-SORT-TRAPS-ON-TEMPORARY-BU-345D5147` を追加し、Discord に報告した。
+- [原因]:
+  - `sort_merge` / `sort_merge_ret` は O(n) 作業 buffer を `alloc_ptr` で確保するにもかかわらず、public API が `Result` を返さないため `unwrap_ok` で allocation failure を trap にしていた。
+  - self-host の基本 data structure utility として、OutOfMemory を値として伝播できないのは stdlib 方針と矛盾していた。
+- [修正]:
+  - `sort_merge` を `Result<(), StdErrorKind>`、`sort_merge_ret` を `Result<Vec<.T>, StdErrorKind>` へ変更した。
+  - `alloc_ptr` の `Err(str)` は `StdErrorKind::OutOfMemory`、`dealloc_ptr` の `Err(str)` は `StdErrorKind::Failure` へ正規化して返すようにした。
+  - sort doctest / regression test は新しい Result API を明示的に扱う形へ更新した。
+  - `nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js` を追加し、CI source policy regression と `doc/testing.md` に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/sort-merge-result-focused-2.json -j 1`: 22/22 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/sort-merge-doc-focused-2.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-sort-merge-result.json -j 4`: 282/282 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-sort-merge-result.json -j 4`: 414/414 passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js; node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js; node nodesrc/test_run_test_wasi_tmp_dir.js; node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+  - commit 後、push 前に remote main の `252f1d4 core: enforce borrow exclusivity for Copy values` を取り込み、issue index conflict は再生成で解消した。
+  - rebase 後 `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/sort-merge-result-after-borrow-rebase.json -j 1`: 22/22 passed
+  - rebase 後 `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/sort-merge-doc-after-borrow-rebase.json -j 1`: 3/3 passed
+  - rebase 後 source policy regressions / `node nodesrc/issues.js check` / `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の基本 data structure utility として、merge sort の allocation failure を trap ではなく Result で扱うようにした。
+
 # 2026-04-27 メモ (ISS-20260426T053112317Z HashKey fixture 再発修正)
 
 - [同期]:

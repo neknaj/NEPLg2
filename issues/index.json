@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T22:02:16.586Z",
+  "generated_at": "2026-04-26T22:08:37.108Z",
   "counts": {
-    "total": 149,
+    "total": 150,
     "open": 18,
-    "resolved": 131,
+    "resolved": 132,
     "by_area": {
       "cli": {
         "total": 19,
@@ -17,9 +17,9 @@
         "resolved": 50
       },
       "stdlib": {
-        "total": 45,
+        "total": 46,
         "open": 6,
-        "resolved": 39
+        "resolved": 40
       },
       "examples": {
         "total": 13,
@@ -2158,6 +2158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T182345763Z-SHA256-PUBLIC-API-TRAPS-ON-ALLOCATIO-57C4D357.md"
+    },
+    {
+      "id": "ISS-20260426T215315821Z-VEC-MERGE-SORT-TRAPS-ON-TEMPORARY-BU-345D5147",
+      "title": "vec merge sort traps on temporary buffer allocation failure",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/vec/sort.nepl, tests/stdlib/sort.n.md, nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T215315821Z-VEC-MERGE-SORT-TRAPS-ON-TEMPORARY-BU-345D5147.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",
