@@ -1,7 +1,6 @@
 2026-04-26 NEPLg2 Self-host
 
 - `stdlib/btree-array-cost` branch で `ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91` に沿って ordered collection の用途制限または実装置換を決める
-- `stdlib/allocator-coalesce` branch で `ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3` に沿って free block coalescing と fragmentation test を追加する
 - `stdlib/mem-bulk-copy` branch で `ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2` に沿って bulk memory copy API と backend lowering を整備する
 - `rust/import-visibility-worklist` branch で `ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0` に沿って import visibility closure を worklist 化する
 - `rust/monomorphize-trait-index` branch で `ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5` に沿って trait impl lookup index / cache を設計する

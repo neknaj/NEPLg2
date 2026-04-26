@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:49:19.935Z",
+  "generated_at": "2026-04-26T04:50:50.917Z",
   "counts": {
     "total": 105,
-    "open": 23,
-    "resolved": 82,
+    "open": 22,
+    "resolved": 83,
     "by_area": {
       "core": {
         "total": 36,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 32,
-        "open": 12,
-        "resolved": 20
+        "open": 11,
+        "resolved": 21
       },
       "cli": {
         "total": 17,
@@ -213,21 +213,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
       "file": "items/ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B.md"
-    },
-    {
-      "id": "ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3",
-      "title": "stdlib allocator does not coalesce free blocks",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/core/mem.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
-      "file": "items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1263,6 +1248,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
       "file": "items/ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F.md"
+    },
+    {
+      "id": "ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3",
+      "title": "stdlib allocator does not coalesce free blocks",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md"
     },
     {
       "id": "ISS-20260426T023638576Z-FEATURES-TUI-DOCTEST-HELPER-988788D1",
