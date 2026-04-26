@@ -6,13 +6,14 @@
 //: - key [比較/ひかく]は `HashKey` trait に、hash [計算/けいさん]は hasher value へ[対/たい]する `hash32` overload に[委譲/いじょう]します。
 //:
 //: ### [実装/じっそう]
-//: - open addressing + linear probing を[用/もち]いる[固定長/こていちょう] hash table です。
+//: - open addressing + linear probing を[用/もち]いる hash table です。
 //: - bucket [状態/じょうたい]は `0 = empty`, `1 = full`, `2 = tombstone` で[管理/かんり]します。
+//: - `insert` は load factor と tombstone 数を[見/み]て grow / rehash を[行/おこな]います。
 //:
 //: ### [注意/ちゅうい]
 //: - key 型 `.T` は `HashKey` の impl を[持/も]つ[必要/ひつよう]があります。
 //: - hasher 型 `.H` は `Hasher<.T>` を impl する[必要/ひつよう]があります。
-//: - [容量/ようりょう]は[固定/こてい]で、自動 rehash はまだ[行/おこな]いません。
+//: - [確保/かくほ][失敗/しっぱい]では `Diag::OutOfMemory` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] `insert` / `contains` / `remove` は O(1)、[最悪/さいあく]は O(n) です。
@@ -34,7 +35,7 @@
 //: - header と hasher [値/あたい]を[保持/ほじ]し、set [操作/そうさ]を 1 [値/あたい]で[完結/かんけつ]させます。
 //:
 //: ### [注意/ちゅうい]
-//: - `hdr` の[中/なか]には [要素数/ようそすう]・[容量/ようりょう]・entries [領域/りょういき]が[格納/かくのう]されています。
+//: - `hdr` の[中/なか]には [要素数/ようそすう]・[容量/ようりょう]・entries [領域/りょういき]・tombstone 数が[格納/かくのう]されています。
 struct HashSet<.T,.H>:
     hdr <i32>
     hasher <.H>
@@ -87,6 +88,141 @@ fn hashset_find_present <.T: HashKey,.H: Hasher<.T>> <(i32,i32,i32,.H,.T)->i32> 
                                 else set cur nxt
     found
 
+//: hashset_normalize_capacity: hash set の[実容量/じつようりょう]を[下限/かげん]つきで[決/き]める
+//:
+//: requested が[小/ちい]さすぎる場合でも、probe と load limit が[極端/きょくたん]にならないよう最低 4 bucket を[確保/かくほ]します。
+fn hashset_normalize_capacity <(i32)->i32> (requested):
+    if lt requested 4 then 4 else requested
+
+//: hashset_load_limit: grow / rehash の[閾値/しきいち]を[計算/けいさん]する
+//:
+//: full slot と tombstone の合計が容量の 75% を[超/こ]える前に再配置し、linear probing の探索距離を[抑/おさ]えます。
+fn hashset_load_limit <(i32)->i32> (cap):
+    div_s mul cap 3 4
+
+//: hashset_alloc_entries: entries [領域/りょういき]を[確保/かくほ]して status を empty に[初期化/しょきか]する
+//:
+//: key 領域は status が full になるまで未初期化として[扱/あつか]い、remove 済み bucket は tombstone で区別します。
+fn hashset_alloc_entries <.T> <(i32)*>Result<i32, Diag>> (cap):
+    let size <i32> hashset_entry_size<.T>
+    let entries <i32> alloc_raw mul cap size
+    if:
+        eq entries 0
+        then:
+            diag_err<i32> diag_out_of_memory "hashset_alloc_entries"
+        else:
+            let mut i <i32> 0
+            while lt i cap:
+                do:
+                    let st_ptr <i32> hashset_status_ptr entries size i
+                    store_i32 st_ptr 0
+                    set i add i 1
+            ok<i32, Diag> entries
+
+//: hashset_insert_rehashed_entry: rehash [中/ちゅう]の新 table へ key を[移/うつ]す
+//:
+//: 新 table は空の entries と十分な容量を[持/も]つ前提なので、重複確認や tombstone 再利用を行わず empty slot に配置します。
+fn hashset_insert_rehashed_entry <.T: HashKey,.H: Hasher<.T>> <(i32,i32,i32,.H,.T)*>()> (entries, size, cap, hasher, key):
+    let start <i32> hashset_bucket_index<.T,.H> cap hasher key
+    let mut cur <i32> start
+    let mut placed <bool> false
+    while not placed:
+        do:
+            let st_ptr <i32> hashset_status_ptr entries size cur
+            let st <i32> load_i32 st_ptr
+            if:
+                eq st 0
+                then:
+                    store_i32 st_ptr 1
+                    store<.T> hashset_key_ptr<.T> entries size cur key
+                    set placed true
+                else:
+                    set cur hashset_next_slot cur cap
+
+//: hashset_rehash_to: live key だけを新しい entries [領域/りょういき]へ[再配置/さいはいち]する
+//:
+//: full slot の key を新 table に移し、旧 entries を[解放/かいほう]します。tombstone は再配置しないため header の tombstone 数を 0 に戻します。
+fn hashset_rehash_to <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, Diag>> (hs, requested_cap):
+    let hdr <i32> field::get hs "hdr"
+    let hasher <.H> field::get hs "hasher"
+    let old_cap <i32> load_i32 add hdr 4
+    let old_entries <i32> load_i32 add hdr 8
+    let new_cap <i32> hashset_normalize_capacity requested_cap
+    let old_size <i32> hashset_entry_size<.T>
+    match hashset_alloc_entries<.T> new_cap:
+        Result::Err d:
+            err<HashSet<.T,.H>, Diag> d
+        Result::Ok new_entries:
+            let new_size <i32> hashset_entry_size<.T>
+            let mut i <i32> 0
+            while lt i old_cap:
+                do:
+                    let st <i32> load_i32 hashset_status_ptr old_entries old_size i
+                    if:
+                        eq st 1
+                        then:
+                            let key <.T> load<.T> hashset_key_ptr<.T> old_entries old_size i
+                            hashset_insert_rehashed_entry<.T,.H> new_entries new_size new_cap hasher key
+                        else:
+                            ()
+                    set i add i 1
+            dealloc_raw old_entries mul old_cap old_size
+            store_i32 add hdr 4 new_cap
+            store_i32 add hdr 8 new_entries
+            store_i32 add hdr 12 0
+            ok<HashSet<.T,.H>, Diag> hs
+
+//: hashset_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
+//:
+//: 既存 key なら table を変えずに返し、新規 key では count と tombstone の合計から同容量 rehash または 2 倍 grow を選びます。
+fn hashset_prepare_insert <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+    let hdr <i32> field::get hs "hdr"
+    let hasher <.H> field::get hs "hasher"
+    let cap <i32> load_i32 add hdr 4
+    let entries <i32> load_i32 add hdr 8
+    let size <i32> hashset_entry_size<.T>
+    let idx <i32> hashset_find_present<.T,.H> entries size cap hasher key
+    if:
+        not lt idx 0
+        then:
+            ok<HashSet<.T,.H>, Diag> hs
+        else:
+            let count <i32> load_i32 hdr
+            let tombstones <i32> load_i32 add hdr 12
+            let limit <i32> hashset_load_limit cap
+            let occupied_after_insert <i32> add add count tombstones 1
+            if:
+                gt occupied_after_insert limit
+                then:
+                    let count_after_insert <i32> add count 1
+                    let target_cap <i32> if gt count_after_insert limit then mul cap 2 else cap
+                    hashset_rehash_to<.T,.H> hs target_cap
+                else:
+                    ok<HashSet<.T,.H>, Diag> hs
+
+//: hashset_new_with_capacity: `new` と `with_capacity` が[共有/きょうゆう]する constructor
+//:
+//: 公開 API 名の overload 解決に依存せず、容量正規化、entries 確保、header 初期化を 1 [箇所/かしょ]に[集約/しゅうやく]します。
+fn hashset_new_with_capacity <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+    let cap <i32> hashset_normalize_capacity requested
+    match hashset_alloc_entries<.T> cap:
+        Result::Err d:
+            err<HashSet<.T,.H>, Diag> d
+        Result::Ok entries:
+            let hdr <i32> alloc_raw 16
+            if:
+                eq hdr 0
+                then:
+                    let entry_bytes <i32> mul cap hashset_entry_size<.T>
+                    dealloc_raw entries entry_bytes
+                    diag_err<HashSet<.T,.H>> diag_out_of_memory "hashset_with_capacity(header)"
+                else:
+                    store_i32 hdr 0
+                    store_i32 add hdr 4 cap
+                    store_i32 add hdr 8 entries
+                    store_i32 add hdr 12 0
+                    ok<HashSet<.T,.H>, Diag> HashSet hdr hasher
+
 //: ## new
 //: [空/から]の `HashSet<.T, .H>` を[作/つく]る
 //:
@@ -115,31 +251,19 @@ fn hashset_find_present <.T: HashKey,.H: Hasher<.T>> <(i32,i32,i32,.H,.T)->i32> 
 //:     if eq len hs 0 1 0
 //: ```
 fn new <.T: HashKey,.H: Hasher<.T>> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
-    let cap <i32> 16
-    let size <i32> hashset_entry_size<.T>
-    let entries <i32> alloc_raw mul cap size
-    if:
-        eq entries 0
-        then diag_err<HashSet<.T,.H>> diag_out_of_memory "hashset_new(entries)"
-        else:
-            let mut i <i32> 0
-            while lt i cap:
-                do:
-                    let st_ptr <i32> hashset_status_ptr entries size i
-                    store_i32 st_ptr 0
-                    set i add i 1
-            let hdr <i32> alloc_raw 12
-            if:
-                eq hdr 0
-                then:
-                    let entry_bytes <i32> mul cap size
-                    dealloc_raw entries entry_bytes
-                    diag_err<HashSet<.T,.H>> diag_out_of_memory "hashset_new(header)"
-                else:
-                    store_i32 hdr 0
-                    store_i32 add hdr 4 cap
-                    store_i32 add hdr 8 entries
-                    ok<HashSet<.T,.H>, Diag> HashSet hdr hasher
+    hashset_new_with_capacity<.T,.H> hasher 16
+
+//: ## with_capacity
+//: [指定/してい]した[初期容量/しょきようりょう]で `HashSet<.T, .H>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - self-host compiler の visited set など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。
+//:
+//: ### [注意/ちゅうい]
+//: - requested が 4 未満の[場合/ばあい]は 4 に[切/き]り[上/あ]げます。
+//: - 実際の `insert` は load factor が 75% を[超/こ]える[前/まえ]に grow します。
+fn with_capacity <.T: HashKey,.H: Hasher<.T>> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+    hashset_new_with_capacity<.T,.H> hasher requested
 
 //: ## insert
 //: [要素/ようそ]を[追加/ついか]する
@@ -148,10 +272,10 @@ fn new <.T: HashKey,.H: Hasher<.T>> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher
 //: - key を[集合/しゅうごう]へ[追加/ついか]し、[既存/きそん]なら[状態/じょうたい]を[保/たも]ったまま[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - linear probing で slot を[探索/たんさく]し、empty または tombstone を[利用/りよう]します。
+//: - 必要なら grow / rehash し、linear probing で slot を[探索/たんさく]し、empty または tombstone を[利用/りよう]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [満杯/まんぱい]では `Diag::CapacityExceeded` を[返/かえ]します。
+//: - grow / rehash の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `Diag::OutOfMemory` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
@@ -170,88 +294,55 @@ fn new <.T: HashKey,.H: Hasher<.T>> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher
 //:     if contains hs1 7 1 0
 //: ```
 fn insert <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
-    let hdr <i32> field::get hs "hdr"
-    let hasher <.H> field::get hs "hasher"
-    let cap <i32> load_i32 add hdr 4
-    let entries <i32> load_i32 add hdr 8
-    let size <i32> hashset_entry_size<.T>
-    let start <i32> hashset_bucket_index<.T,.H> cap hasher key
-    let mut cur <i32> start
-    let mut first_tomb <i32> -1
-    let mut placed <bool> false
-    let mut success <bool> false
-    while not placed:
-        do:
-            let st_ptr <i32> hashset_status_ptr entries size cur
-            let st <i32> load_i32 st_ptr
-            if:
-                eq st 0
-                then:
-                    let slot <i32> if lt first_tomb 0 then cur else first_tomb
-                    let slot_status <i32> hashset_status_ptr entries size slot
-                    let old_status <i32> load_i32 slot_status
-                    let was_new <bool> not eq old_status 1
-                    store_i32 slot_status 1
-                    let kp <i32> hashset_key_ptr<.T> entries size slot
-                    store<.T> kp key
+    match hashset_prepare_insert<.T,.H> hs key:
+        Result::Err d:
+            err<HashSet<.T,.H>, Diag> d
+        Result::Ok ready:
+            let hdr <i32> field::get ready "hdr"
+            let hasher <.H> field::get ready "hasher"
+            let cap <i32> load_i32 add hdr 4
+            let entries <i32> load_i32 add hdr 8
+            let size <i32> hashset_entry_size<.T>
+            let start <i32> hashset_bucket_index<.T,.H> cap hasher key
+            let mut cur <i32> start
+            let mut first_tomb <i32> -1
+            let mut placed <bool> false
+            while not placed:
+                do:
+                    let st_ptr <i32> hashset_status_ptr entries size cur
+                    let st <i32> load_i32 st_ptr
                     if:
-                        was_new
-                        then store_i32 hdr add load_i32 hdr 1
-                        else ()
-                    set placed true
-                    set success true
-                else:
-                    if:
-                        eq st 2
+                        eq st 0
                         then:
+                            let slot <i32> if lt first_tomb 0 then cur else first_tomb
+                            let slot_status <i32> hashset_status_ptr entries size slot
+                            let old_status <i32> load_i32 slot_status
+                            store_i32 slot_status 1
+                            store<.T> hashset_key_ptr<.T> entries size slot key
+                            store_i32 hdr add load_i32 hdr 1
                             if:
-                                lt first_tomb 0
-                                then set first_tomb cur
+                                eq old_status 2
+                                then store_i32 add hdr 12 sub load_i32 add hdr 12 1
                                 else ()
-                            let nxt <i32> hashset_next_slot cur cap
+                            set placed true
+                        else:
                             if:
-                                eq nxt start
+                                eq st 2
                                 then:
                                     if:
                                         lt first_tomb 0
-                                        then set placed true
-                                        else:
-                                            let slot_status <i32> hashset_status_ptr entries size first_tomb
-                                            let kp <i32> hashset_key_ptr<.T> entries size first_tomb
-                                            store_i32 slot_status 1
-                                            store<.T> kp key
-                                            store_i32 hdr add load_i32 hdr 1
-                                            set placed true
-                                            set success true
-                                else set cur nxt
-                        else:
-                            let same <bool> hashset_slot_matches<.T> entries size cur key
-                            if:
-                                same
-                                then:
-                                    set placed true
-                                    set success true
+                                        then set first_tomb cur
+                                        else ()
+                                    set cur hashset_next_slot cur cap
                                 else:
-                                    let nxt <i32> hashset_next_slot cur cap
+                                    let same <bool> hashset_slot_matches<.T> entries size cur key
                                     if:
-                                        eq nxt start
+                                        same
                                         then:
-                                            if:
-                                                lt first_tomb 0
-                                                then set placed true
-                                                else:
-                                                    let slot_status <i32> hashset_status_ptr entries size first_tomb
-                                                    let kp <i32> hashset_key_ptr<.T> entries size first_tomb
-                                                    store_i32 slot_status 1
-                                                    store<.T> kp key
-                                                    store_i32 hdr add load_i32 hdr 1
-                                                    set placed true
-                                                    set success true
-                                        else set cur nxt
-    if:
-        success
-        then ok<HashSet<.T,.H>, Diag> hs
-        else diag_err<HashSet<.T,.H>> diag_capacity_exceeded "hashset_insert"
+                                            set placed true
+                                        else:
+                                            set cur hashset_next_slot cur cap
+            ok<HashSet<.T,.H>, Diag> ready
 
 //: ## contains
 //: [要素/ようそ]の[存在/そんざい]を[確/たし]かめる
@@ -324,6 +415,7 @@ fn remove <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.
             let st_ptr <i32> hashset_status_ptr entries size idx
             store_i32 st_ptr 2
             store_i32 hdr sub load_i32 hdr 1
+            store_i32 add hdr 12 add load_i32 add hdr 12 1
             ok<HashSet<.T,.H>, Diag> hs
 
 //: ## len
@@ -389,4 +481,4 @@ fn free <.T: HashKey,.H: Hasher<.T>> <(HashSet<.T,.H>)*>()> (hs):
     let entry_size <i32> add 4 size_of<.T>
     let entry_bytes <i32> mul cap entry_size
     dealloc_raw entries entry_bytes
-    dealloc_raw hdr 12
+    dealloc_raw hdr 16
