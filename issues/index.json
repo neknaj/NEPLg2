@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T16:08:32.352Z",
+  "generated_at": "2026-04-26T16:30:35.072Z",
   "counts": {
-    "total": 130,
-    "open": 8,
+    "total": 131,
+    "open": 9,
     "resolved": 122,
     "by_area": {
       "core": {
-        "total": 47,
-        "open": 2,
+        "total": 48,
+        "open": 3,
         "resolved": 45
       },
       "stdlib": {
@@ -58,6 +58,21 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
+    },
+    {
+      "id": "ISS-20260426T162754192Z-DEREF-OF-NON-COPY-REFERENCE-CAN-SHAL-E939B2BB",
+      "title": "deref of non-Copy reference can shallow-copy owned aggregate values",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/core/field.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T162754192Z-DEREF-OF-NON-COPY-REFERENCE-CAN-SHAL-E939B2BB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

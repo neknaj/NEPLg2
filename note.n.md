@@ -18100,3 +18100,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 実装前の Rust core safety issue として、aggregate field の借用 projection を compiler intrinsic として追加した。
+
+# 2026-04-26 メモ (non-Copy deref shallow copy issue 追加)
+
+- [追加]:
+  - `ISS-20260426T162754192Z-DEREF-OF-NON-COPY-REFERENCE-CAN-SHAL-E939B2BB` を追加した。
+- [原因]:
+  - `get_field_ref` は field value を load/copy しないため borrowed projection 自体は owner move を起こさない。
+  - ただし既存の `*ref` deref は aggregate storage を新規領域へ byte-copy する lowering を持っており、move checker 側で non-Copy value-producing deref を拒否していない。
+- [影響]:
+  - `*field::get_ref &owner "owned"` のような呼び出しで、shared reference から owned non-Copy aggregate の shallow copy を作れる可能性がある。
+  - borrow/lifetime 検査を形だけにしないため、次の優先 core safety issue として分離した。
+- [対応方針]:
+  - shared reference の deref は Copy 値に限定し、non-Copy は明示 clone、exclusive place からの move-out、または borrowed match/projection の設計へ分ける。
+  - self-host CLI option / enum field の観察は、この issue 解決時に borrowed enum matching か適切な Copy impl と合わせて再確認する。
