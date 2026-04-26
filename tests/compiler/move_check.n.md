@@ -775,6 +775,68 @@ fn main <()->()> ():
     let z <LocalToken> x
 ```
 
+## move_match_reference_payload_blocks_owner_move_while_live
+
+neplg2:test[compile_fail]
+diag_id: 3051
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+enum RefOpt:
+    Some <&LocalToken>
+    None
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let e <RefOpt> RefOpt::Some &x
+    match e:
+        RefOpt::Some r:
+            let y <LocalToken> x
+            let keep <&LocalToken> r
+            0
+        RefOpt::None:
+            0
+```
+
+## move_match_reference_payload_last_use_releases_owner
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+enum RefOpt:
+    Some <&LocalToken>
+    None
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let e <RefOpt> RefOpt::Some &x
+    match e:
+        RefOpt::Some r:
+            let keep <&LocalToken> r
+            let y <LocalToken> x
+            0
+        RefOpt::None:
+            0
+```
+
 ## move_return_local_reference_err
 
 neplg2:test[compile_fail]

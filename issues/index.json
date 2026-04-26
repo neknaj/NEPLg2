@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T22:18:18.101Z",
+  "generated_at": "2026-04-26T22:27:07.477Z",
   "counts": {
-    "total": 152,
+    "total": 153,
     "open": 18,
-    "resolved": 134,
+    "resolved": 135,
     "by_area": {
       "cli": {
         "total": 19,
@@ -12,9 +12,9 @@
         "resolved": 17
       },
       "core": {
-        "total": 62,
+        "total": 63,
         "open": 10,
-        "resolved": 52
+        "resolved": 53
       },
       "stdlib": {
         "total": 46,
@@ -1093,6 +1093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T221523543Z-AGGREGATE-FIELD-TEMPORARY-BORROWS-DO-8E71F5EA.md"
+    },
+    {
+      "id": "ISS-20260426T222120121Z-MATCH-PAYLOAD-BINDING-LOSES-BORROW-O-14A71629",
+      "title": "Match payload binding loses borrow origin",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/move_check.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T222120121Z-MATCH-PAYLOAD-BINDING-LOSES-BORROW-O-14A71629.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

@@ -1178,7 +1178,10 @@ fn visit_expr_with_escape(
     tctx: &crate::types::TypeCtx,
     escape_depth: Option<usize>,
 ) -> Vec<ExprBorrow> {
-    if escape_depth.is_none() && can_visit_expr_iteratively(expr, ctx, tctx) {
+    if escape_depth.is_none()
+        && !type_contains_reference(tctx, expr.ty)
+        && can_visit_expr_iteratively(expr, ctx, tctx)
+    {
         visit_expr_iteratively(expr, ctx, tctx);
         return Vec::new();
     }
@@ -1431,7 +1434,7 @@ fn visit_expr_with_escape(
             Vec::new()
         }
         HirExprKind::Match { scrutinee, arms } => {
-            visit_expr(scrutinee, ctx, tctx);
+            let scrutinee_borrows = visit_expr(scrutinee, ctx, tctx);
 
             let mut branch_states = Vec::new();
             let mut result_borrows = Vec::new();
@@ -1441,7 +1444,8 @@ fn visit_expr_with_escape(
                 ctx.restore_resource_state(&saved);
                 ctx.push_scope();
                 if let Some(bind) = &arm.bind_local {
-                    ctx.declare_var(bind.clone());
+                    let retained_borrows = ctx.retain_expr_borrows(scrutinee_borrows.clone());
+                    ctx.declare_var_with_borrows(bind.clone(), retained_borrows);
                 }
                 let arm_borrows = visit_expr_with_escape(&arm.body, ctx, tctx, escape_depth);
                 ctx.pop_scope();

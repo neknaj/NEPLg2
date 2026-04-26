@@ -1,3 +1,21 @@
+# 2026-04-27 メモ (ISS-20260426T222120121Z match payload borrow origin 修正)
+
+- 状況:
+  - `RefOpt::Some &x` を `match` して payload binding `r` を取り出すと、`r` が `x` 由来の borrow origin を保持していなかった。
+  - そのため `Some r` arm 内で `let y <LocalToken> x` の後に `let keep <&LocalToken> r` としても、owner move と live reference の重なりが検出されなかった。
+  - 追加調査で、`match` の bind 宣言だけでなく、`visit_expr` の iterative fast path が reference を含む型の式でも空の borrow origin を返していることを確認した。
+- 修正:
+  - `visit_expr` の iterative fast path を、式の型が reference を含まない場合だけ使うようにした。
+  - `HirExprKind::Match` は scrutinee から得た borrow origin を payload bind local に retain して宣言するようにした。
+  - match payload reference が生きている間の owner move は D3051 で拒否し、payload binding の最後の使用後は owner move を許可する回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: `47/47 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/match-payload-borrow-origin-tests.json -j 1`: `total=75`, `passed=75`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host 実装前提として、NEPLg2 core の match payload 経由 borrow/lifetime 検査を実効化するもの。
+
 # 2026-04-27 メモ (ISS-20260426T181314061Z drop overwrite elaboration)
 
 - 対象:

@@ -948,6 +948,66 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_match_reference_payload_blocks_owner_move_while_live() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+enum RefOpt:
+    Some <&Wrapper>
+    None
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let e <RefOpt> RefOpt::Some &x;
+    match e:
+        Some r:
+            let y <Wrapper> x;
+            let keep <&Wrapper> r;
+            ()
+        None:
+            ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot move out of shared borrowed value")));
+}
+
+#[test]
+fn move_match_reference_payload_last_use_releases_owner() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+enum RefOpt:
+    Some <&Wrapper>
+    None
+
+fn main <()*>()>():
+    let x Wrapper::Val 1;
+    let e <RefOpt> RefOpt::Some &x;
+    match e:
+        Some r:
+            let keep <&Wrapper> r;
+            let y <Wrapper> x;
+            ()
+        None:
+            ()
+"#;
+    compile_move_test(source)
+        .expect("reference payload borrow should release after the binding's last use");
+}
+
+#[test]
 fn move_loop_owned_accumulator_reassigned_after_result_ok() {
     let source = r#"
 #target wasi
