@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:50:50.917Z",
+  "generated_at": "2026-04-26T05:08:30.646Z",
   "counts": {
     "total": 105,
-    "open": 22,
-    "resolved": 83,
+    "open": 21,
+    "resolved": 84,
     "by_area": {
       "core": {
         "total": 36,
@@ -13,8 +13,8 @@
       },
       "selfhost": {
         "total": 7,
-        "open": 6,
-        "resolved": 1
+        "open": 5,
+        "resolved": 2
       },
       "stdlib": {
         "total": 32,
@@ -78,21 +78,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E.md"
-    },
-    {
-      "id": "ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0",
-      "title": "diagnostic emitter needs Result-returning stdout and stderr interfaces",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/std/stdio.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0.md"
     },
     {
       "id": "ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A",
@@ -1068,6 +1053,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C.md"
+    },
+    {
+      "id": "ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0",
+      "title": "diagnostic emitter needs Result-returning stdout and stderr interfaces",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, stdlib/std/io.nepl, stdlib/std/iotarget.nepl, tests/stdlib/stdio_result_stderr.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010003Z-STDIO-RESULT-STDERR-E48B51D0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

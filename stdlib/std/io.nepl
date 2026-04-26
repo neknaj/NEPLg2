@@ -7,7 +7,7 @@
 //: - `ReadStream` / `WriteStream` を[分/わ]け、[読/よ]めない target や[書/か]けない target を compile error で[弾/はじ]けるようにします。
 //:
 //: ### [注意/ちゅうい]
-//: - [現在/げんざい]は `stdio` と `fs` と in-memory text の[最小/さいしょう]構成だけを[実装/じっそう]しています。`network` / `event` は[将来/しょうらい]の variant [追加/ついか]を[想定/そうてい]した[設計/せっけい]です。
+//: - [現在/げんざい]は stdin/stdout/stderr と `fs` と in-memory text の[最小/さいしょう]構成だけを[実装/じっそう]しています。`network` / `event` は[将来/しょうらい]の variant [追加/ついか]を[想定/そうてい]した[設計/せっけい]です。
 //: - file read [失敗/しっぱい]の[詳細/しょうさい] errno は[現状/げんじょう] `StdErrorKind::IoError` へ[丸/まる]めます。
 //: - `ReadStream::Text "..."` を[使/つか]うと、文字列リテラルや in-memory text を stdin / fs と[同/おな]じ read target [面/めん]で[扱/あつか]えます。
 //: - raw binary は `ReadStream::Bytes bytes` で[渡/わた]します。[型付/かたづ]き binary（`u8` / `u32` など）は[暗黙/あんもく]再解釈せず、[明示的/めいじてき]に byte buffer へ[符号化/ふごうか]してから[渡/わた]す[方針/ほうしん]です。
@@ -61,7 +61,7 @@ trait TargetReadable:
 //: - `read ReadStream::Stdio` や `read ReadStream::Fs "a.txt"` のように、[媒体/ばいたい]の[種類/しゅるい]ではなく target enum [中心/ちゅうしん]で[読/よ]めるようにします。
 //:
 //: ### [実装/じっそう]
-//: - `stdio` は[内部/ないぶ]で `StdinStream` / `StdoutStream` を[直接/ちょくせつ][使/つか]い、category facade [側/がわ]へ low-level handle を[漏/も]らしません。
+//: - `stdio` は[内部/ないぶ]で `StdinStream` / `StdoutStream` / `StderrStream` を[直接/ちょくせつ][使/つか]い、category facade [側/がわ]へ low-level handle を[漏/も]らしません。
 //: - `fs` は `fs_read_to_bytes` を[呼/よ]び、error は `StdErrorKind::IoError` へ[正規化/せいきか]します。
 //: - `ReadStream::Text` は `str` を `ByteBuf` へ[複製/ふくせい]して[返/かえ]します。
 //:
@@ -117,6 +117,12 @@ impl TargetWritable for ByteBuf:
                         Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
                     Result::Err e:
                         Result<WriteStream, StdErrorKind>::Err e
+            WriteStream::Stderr:
+                match io_write_bytes StderrStream () value:
+                    Result::Ok _err:
+                        Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
+                    Result::Err e:
+                        Result<WriteStream, StdErrorKind>::Err e
             WriteStream::Fs:
                 Result<WriteStream, StdErrorKind>::Err StdErrorKind::IoError
 impl TargetWritable for str:
@@ -126,6 +132,12 @@ impl TargetWritable for str:
                 match io_write_str StdoutStream () value:
                     Result::Ok _out:
                         Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
+                    Result::Err e:
+                        Result<WriteStream, StdErrorKind>::Err e
+            WriteStream::Stderr:
+                match io_write_str StderrStream () value:
+                    Result::Ok _err:
+                        Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
                     Result::Err e:
                         Result<WriteStream, StdErrorKind>::Err e
             WriteStream::Fs:
@@ -164,13 +176,19 @@ fn writeln <(str, WriteStream)*>Result<WriteStream, StdErrorKind>> (text, target
 //: - `flush WriteStream::Stdio` / `WriteStream::Stdio |> flush` で category target [単位/たんい]の flush を[扱/あつか]います。
 //:
 //: ### [実装/じっそう]
-//: - [現在/げんざい]の `WriteStream::Stdio` は `StdoutStream` の flush に[委譲/いじょう]します。
+//: - `WriteStream::Stdio` は `StdoutStream`、`WriteStream::Stderr` は `StderrStream` の flush に[委譲/いじょう]します。
 fn flush <(WriteStream)*>Result<WriteStream, StdErrorKind>> (target):
     match target:
         WriteStream::Stdio:
             match io_flush StdoutStream ():
                 Result::Ok _out:
                     Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
+                Result::Err e:
+                    Result<WriteStream, StdErrorKind>::Err e
+        WriteStream::Stderr:
+            match io_flush StderrStream ():
+                Result::Ok _err:
+                    Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
                 Result::Err e:
                     Result<WriteStream, StdErrorKind>::Err e
         WriteStream::Fs:
@@ -182,10 +200,12 @@ fn flush <(WriteStream)*>Result<WriteStream, StdErrorKind>> (target):
 //: - `close WriteStream::Stdio` のように facade [側/がわ]から[終了/しゅうりょう]を[揃/そろ]えます。
 //:
 //: ### [注意/ちゅうい]
-//: - [現在/げんざい]の `stdout` close は no-op です。
+//: - [現在/げんざい]の `stdout` / `stderr` close は no-op です。
 fn close <(WriteStream)*>Result<(), StdErrorKind>> (target):
     match target:
         WriteStream::Stdio:
             io_close StdoutStream ()
+        WriteStream::Stderr:
+            io_close StderrStream ()
         WriteStream::Fs:
             Result<(), StdErrorKind>::Err StdErrorKind::IoError
