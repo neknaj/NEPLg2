@@ -1,0 +1,281 @@
+#indent 4
+
+//: # text
+//: NEPLg2.0 self-host compiler の source text / line map [基盤/きばん]
+//:
+//: [目的/もくてき]:
+//: - lexer が[返/かえ]す byte span を、diagnostic と parser recovery が[使/つか]う line / column へ[変換/へんかん]します。
+//: - `SourceText` が source [文字列/もじれつ]と line start table を[保持/ほじ]し、各 stage が source を[個別/こべつ]に[再走査/さいそうさ]しないようにします。
+//:
+//: [実装/じっそう]:
+//: - line start table は 0-origin の byte offset を[昇順/しょうじゅん]に[保持/ほじ]する `Vec<i32>` です。
+//: - LF / CRLF / CR を newline として[扱/あつか]い、line span は newline byte を[除/のぞ]いた `[start, end)` を[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - offset / column は UTF-8 byte index です。Unicode scalar 数ではありません。
+//: - filesystem と stdio には[依存/いぞん]しません。CLI 層は UTF-8 [検証済/けんしょうず]みの `str` をここへ[渡/わた]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `source_text_new` は source byte 数 n に対して O(n) 時間、line 数 l に対して O(l) 領域です。
+//: - offset から location への[変換/へんかん]は line 数 l に対して O(log l) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/text" as *
+//: fn main <()*>i32> ():
+//:     match source_text_new 0 "smoke.nepl" "a\nb":
+//:         Result::Ok text:
+//:             let count <i32> source_text_line_count &text
+//:             source_text_free text
+//:             if eq count 2 0 1
+//:         Result::Err _e:
+//:             1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as string
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostSourceText: 1 [入力/にゅうりょく] source と line start table
+//:
+//: [目的/もくてき]:
+//: - `file_id`、[表示用/ひょうじよう] path、source [本文/ほんぶん]、line start table を 1 [値/あたい]として[扱/あつか]います。
+//:
+//: [注意/ちゅうい]:
+//: - `line_starts` の[所有権/しょゆうけん]を[持/も]つため、[使/つか]い[終/お]わったら `source_text_free` を[呼/よ]びます。
+struct SelfhostSourceText:
+    file_id <i32>
+    path <str>
+    source <str>
+    line_starts <Vec<i32>>
+
+//: SelfhostSourceLocation: source byte offset に[対応/たいおう]する line / column
+//:
+//: [目的/もくてき]:
+//: - diagnostic renderer が span の[開始/かいし]位置を[表示/ひょうじ]できるよう、0-origin line / column を[保持/ほじ]します。
+struct SelfhostSourceLocation:
+    file_id <i32>
+    offset <i32>
+    line <i32>
+    column <i32>
+
+impl Clone for SelfhostSourceLocation:
+    fn clone <(&SelfhostSourceLocation)->SelfhostSourceLocation> (self):
+        *self
+
+impl Copy for SelfhostSourceLocation:
+    fn copy_mark <(SelfhostSourceLocation)->SelfhostSourceLocation> (self):
+        self
+
+//: source_text_collect_line_starts: source を 1 [回/かい][走査/そうさ]して line start table を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - allocation failure は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
+fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, StdErrorKind>> (source, n, idx, starts):
+    if:
+        ge idx n
+        then:
+            Result<Vec<i32>, StdErrorKind>::Ok starts
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            match ch:
+                10:
+                    match v::push<i32> starts add idx 1:
+                        Result::Ok next_starts:
+                            source_text_collect_line_starts source n add idx 1 next_starts
+                        Result::Err _e:
+                            Result<Vec<i32>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                13:
+                    let next_idx <i32>:
+                        if:
+                            lt add idx 1 n
+                            then:
+                                let next_ch <i32> string::string_byte_at_unchecked source add idx 1
+                                match next_ch:
+                                    10:
+                                        add idx 2
+                                    _:
+                                        add idx 1
+                            else:
+                                add idx 1
+                    match v::push<i32> starts next_idx:
+                        Result::Ok next_starts:
+                            source_text_collect_line_starts source n next_idx next_starts
+                        Result::Err _e:
+                            Result<Vec<i32>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                _:
+                    source_text_collect_line_starts source n add idx 1 starts
+
+//: source_text_new: source text と line map を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - CLI / test harness が[読/よ]み[込/こ]んだ 1 [入力/にゅうりょく] source を compiler core の[共通/きょうつう] text [表現/ひょうげん]へ[変換/へんかん]します。
+//:
+//: [注意/ちゅうい]:
+//: - `path` は diagnostic [表示用/ひょうじよう]の[名前/なまえ]です。filesystem へは[接続/せつぞく]しません。
+fn source_text_new <(i32,str,str)->Result<SelfhostSourceText, StdErrorKind>> (file_id, path, source):
+    match v::new<i32>:
+        Result::Ok starts0:
+            match v::push<i32> starts0 0:
+                Result::Ok starts1:
+                    let n <i32> string::len source
+                    match source_text_collect_line_starts source n 0 starts1:
+                        Result::Ok line_starts:
+                            Result<SelfhostSourceText, StdErrorKind>::Ok SelfhostSourceText file_id path source line_starts
+                        Result::Err e:
+                            Result<SelfhostSourceText, StdErrorKind>::Err e
+                Result::Err _e:
+                    Result<SelfhostSourceText, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Result::Err _e:
+            Result<SelfhostSourceText, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: source_text_free: line start table を[解放/かいほう]する
+fn source_text_free <(SelfhostSourceText)->()> (text):
+    v::free<i32> field::get text "line_starts"
+
+//: source_text_len: source [本文/ほんぶん]の byte [長/ちょう]を[返/かえ]す
+fn source_text_len <(&SelfhostSourceText)->i32> (text):
+    string::len *field::get_ref text "source"
+
+//: source_text_line_count: line start table の[要素数/ようそすう]を[返/かえ]す
+fn source_text_line_count <(&SelfhostSourceText)->i32> (text):
+    let starts <&Vec<i32>> field::get_ref text "line_starts"
+    v::len_ref<i32> starts
+
+//: source_text_line_start: line index の[開始/かいし] byte offset を[返/かえ]す
+fn source_text_line_start <(&SelfhostSourceText,i32)->Option<i32>> (text, line):
+    let starts <&Vec<i32>> field::get_ref text "line_starts"
+    if:
+        lt line 0
+        then:
+            none<i32>
+        else:
+            v::get_ref<i32> starts line
+
+//: source_text_line_index_search: offset を[含/ふく]む line index を binary search で[探/さが]す
+//:
+//: [注意/ちゅうい]:
+//: - `offset` が source [長/ちょう]以内であることは[呼/よ]び[出/だ]し[側/がわ]で[確認/かくにん]します。
+fn source_text_line_index_search <(&Vec<i32>,i32,i32,i32,i32)->i32> (starts, offset, low, high, best):
+    if:
+        ge low high
+        then:
+            best
+        else:
+            let mid <i32> div_s add low high 2
+            match v::get_ref<i32> starts mid:
+                Option::Some start:
+                    if:
+                        le start offset
+                        then:
+                            source_text_line_index_search starts offset add mid 1 high mid
+                        else:
+                            source_text_line_index_search starts offset low mid best
+                Option::None:
+                    best
+
+//: source_text_line_index_for_offset: byte offset の line index を[返/かえ]す
+fn source_text_line_index_for_offset <(&SelfhostSourceText,i32)->Option<i32>> (text, offset):
+    let n <i32> source_text_len text
+    if:
+        or lt offset 0 gt offset n
+        then:
+            none<i32>
+        else:
+            let starts <&Vec<i32>> field::get_ref text "line_starts"
+            let count <i32> v::len_ref<i32> starts
+            some<i32> source_text_line_index_search starts offset 0 count 0
+
+//: source_text_trim_line_end: newline byte を[除/のぞ]いた line end を[返/かえ]す
+fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
+    if:
+        le raw_end start
+        then:
+            raw_end
+        else:
+            let last_idx <i32> sub raw_end 1
+            let last <i32> string::string_byte_at_unchecked source last_idx
+            match last:
+                10:
+                    if:
+                        le last_idx start
+                        then:
+                            last_idx
+                        else:
+                            let prev_idx <i32> sub last_idx 1
+                            let prev <i32> string::string_byte_at_unchecked source prev_idx
+                            match prev:
+                                13:
+                                    prev_idx
+                                _:
+                                    last_idx
+                13:
+                    last_idx
+                _:
+                    raw_end
+
+//: source_text_next_line_start_or_len: [次/つぎ]の line start、なければ source [長/ちょう]を[返/かえ]す
+fn source_text_next_line_start_or_len <(&Vec<i32>,i32,i32)->i32> (starts, next_line, n):
+    match v::get_ref<i32> starts next_line:
+        Option::Some start:
+            start
+        Option::None:
+            n
+
+//: source_text_line_span: line index の source span を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - 返す span の end は newline byte を[含/ふく]みません。
+fn source_text_line_span <(&SelfhostSourceText,i32)->Option<SelfhostSourceSpan>> (text, line):
+    let starts <&Vec<i32>> field::get_ref text "line_starts"
+    let count <i32> v::len_ref<i32> starts
+    if:
+        or lt line 0 ge line count
+        then:
+            none<SelfhostSourceSpan>
+        else:
+            match v::get_ref<i32> starts line:
+                Option::Some start:
+                    let source <str> *field::get_ref text "source"
+                    let file_id <i32> *field::get_ref text "file_id"
+                    let n <i32> string::len source
+                    let raw_end <i32> source_text_next_line_start_or_len starts add line 1 n
+                    let end <i32> source_text_trim_line_end source start raw_end
+                    some<SelfhostSourceSpan> source_span_new file_id start end
+                Option::None:
+                    none<SelfhostSourceSpan>
+
+//: source_text_location_for_offset: byte offset を line / column へ[変換/へんかん]する
+//:
+//: [注意/ちゅうい]:
+//: - `offset == len(source)` は EOF [位置/いち]として[有効/ゆうこう]です。
+fn source_text_location_for_offset <(&SelfhostSourceText,i32)->Option<SelfhostSourceLocation>> (text, offset):
+    match source_text_line_index_for_offset text offset:
+        Option::Some line:
+            match source_text_line_start text line:
+                Option::Some start:
+                    let file_id <i32> *field::get_ref text "file_id"
+                    some<SelfhostSourceLocation> SelfhostSourceLocation file_id offset line sub offset start
+                Option::None:
+                    none<SelfhostSourceLocation>
+        Option::None:
+            none<SelfhostSourceLocation>
+
+//: selfhost_text_stage0: source text [基盤/きばん]の smoke API
+fn selfhost_text_stage0 <()*>i32> ():
+    match source_text_new 0 "stage0.nepl" "a\nb":
+        Result::Ok text:
+            let count <i32> source_text_line_count &text
+            source_text_free text
+            if eq count 2 0 1
+        Result::Err _e:
+            1
