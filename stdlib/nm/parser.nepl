@@ -67,6 +67,75 @@ pub enum Node:
     Hr
     CodeBlock <CodeBlockInfo>
 
+//: NmJsonEscapeKind: NM JSON 出力用の escape 分類
+//:
+//: [目的/もくてき]:
+//: - JSON 文字列に入れる byte のうち、escape が必要なものを分類します。
+//:
+//: [実装/じっそう]:
+//: - `nm_json_escape_kind` で byte を分類し、`json_escape` は match で出力文字列を選びます。
+//:
+//: [注意/ちゅうい]:
+//: - parser の AST JSON 出力で必要な代表的 JSON escape を扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum NmJsonEscapeKind:
+    Backslash
+    Quote
+    Newline
+    CarriageReturn
+    Tab
+    Backspace
+    FormFeed
+    Plain
+
+fn nm_json_escape_kind <(i32)->NmJsonEscapeKind> (ch):
+    let mut kind <NmJsonEscapeKind> NmJsonEscapeKind::Plain;
+    if:
+        eq ch 92
+        then:
+            set kind NmJsonEscapeKind::Backslash;
+        else:
+            ()
+    if:
+        eq ch 34
+        then:
+            set kind NmJsonEscapeKind::Quote;
+        else:
+            ()
+    if:
+        eq ch 10
+        then:
+            set kind NmJsonEscapeKind::Newline;
+        else:
+            ()
+    if:
+        eq ch 13
+        then:
+            set kind NmJsonEscapeKind::CarriageReturn;
+        else:
+            ()
+    if:
+        eq ch 9
+        then:
+            set kind NmJsonEscapeKind::Tab;
+        else:
+            ()
+    if:
+        eq ch 8
+        then:
+            set kind NmJsonEscapeKind::Backspace;
+        else:
+            ()
+    if:
+        eq ch 12
+        then:
+            set kind NmJsonEscapeKind::FormFeed;
+        else:
+            ()
+    kind
+
 // Multi-return helpers (no tuple destructuring)
 //: FenceRes: 構造体の概要
 //:
@@ -510,6 +579,7 @@ fn parse_fence <(i32, i32, i32)->FenceRes> (lines_mem, nlines, i0):
 fn parse_paragraph <(i32, i32, i32)->ParaRes> (lines_mem, nlines, i0):
     let mut sb <StringBuilder> string_builder_new;
     let mut i <i32> i0;
+    let mut first <bool> true;
 
     let mut done <bool> false;
     while not done:
@@ -535,8 +605,14 @@ fn parse_paragraph <(i32, i32, i32)->ParaRes> (lines_mem, nlines, i0):
                                     set done true;
                                     ()
                                 else:
+                                    if:
+                                        first
+                                        then:
+                                            set first false;
+                                            ()
+                                        else:
+                                            set sb sb_append sb "\n";
                                     set sb sb_append sb raw;
-                                    set sb sb_append sb "\n";
                                     set i add i 1;
                                     ()
     let text <str> sb_build sb;
@@ -924,26 +1000,29 @@ pub fn parse_markdown <(str)->Document> (input):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn json_escape <(str)->str> (s):
-    // Minimal escape: backslash and double-quote and newline
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len s;
     let mut i <i32> 0;
     while lt i n:
         do:
             let ch <i32> load_u8 add s add 4 i;
-            if:
-                eq ch 92
-                then set sb sb_append sb "\\\\"
-                else:
-                    if:
-                        eq ch 34
-                        then set sb sb_append sb "\\\""
-                        else:
-                            if:
-                                eq ch 10
-                                then set sb sb_append sb "\\n"
-                                else:
-                                    set sb sb_append sb str_slice s i add i 1;
+            match nm_json_escape_kind ch:
+                NmJsonEscapeKind::Backslash:
+                    set sb sb_append sb "\\\\"
+                NmJsonEscapeKind::Quote:
+                    set sb sb_append sb "\\\""
+                NmJsonEscapeKind::Newline:
+                    set sb sb_append sb "\\n"
+                NmJsonEscapeKind::CarriageReturn:
+                    set sb sb_append sb "\\r"
+                NmJsonEscapeKind::Tab:
+                    set sb sb_append sb "\\t"
+                NmJsonEscapeKind::Backspace:
+                    set sb sb_append sb "\\b"
+                NmJsonEscapeKind::FormFeed:
+                    set sb sb_append sb "\\f"
+                NmJsonEscapeKind::Plain:
+                    set sb sb_append sb str_slice s i add i 1;
             set i add i 1;
     sb_build sb
 
@@ -1108,7 +1187,7 @@ fn nodes_to_json <(Vec<Node>)->str> (nodes):
 //:
 //: [実装/じっそう]:
 //: - ノード種別を `t` フィールドで表現し、子要素は再帰的にシリアライズします。
-//: - 文字列は `json_escape` で最小限のエスケープを適用します。
+//: - 文字列は `json_escape` で JSON 文字列用の代表的なエスケープを適用します。
 //:
 //: [注意/ちゅうい]:
 //: - JSON スキーマは開発中であり、将来変更される可能性があります。

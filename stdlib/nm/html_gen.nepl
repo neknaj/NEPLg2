@@ -27,6 +27,116 @@
 
 #import "./parser" as *
 
+//: HtmlEscapeKind: HTML text escape の分類
+//:
+//: [目的/もくてき]:
+//: - HTML text 内で escape が必要な byte を分類します。
+//:
+//: [実装/じっそう]:
+//: - `html_escape_kind` で byte を分類し、`escape_html` は match で出力文字列を選びます。
+//:
+//: [注意/ちゅうい]:
+//: - `&` / `<` / `>` / `"` / `'` を変換します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum HtmlEscapeKind:
+    Amp
+    Lt
+    Gt
+    Quote
+    Apostrophe
+    Plain
+
+fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
+    let mut kind <HtmlEscapeKind> HtmlEscapeKind::Plain;
+    if:
+        eq ch 38
+        then:
+            set kind HtmlEscapeKind::Amp;
+        else:
+            ()
+    if:
+        eq ch 60
+        then:
+            set kind HtmlEscapeKind::Lt;
+        else:
+            ()
+    if:
+        eq ch 62
+        then:
+            set kind HtmlEscapeKind::Gt;
+        else:
+            ()
+    if:
+        eq ch 34
+        then:
+            set kind HtmlEscapeKind::Quote;
+        else:
+            ()
+    if:
+        eq ch 39
+        then:
+            set kind HtmlEscapeKind::Apostrophe;
+        else:
+            ()
+    kind
+
+//: HtmlHeadingKind: HTML heading tag の分類
+//:
+//: [目的/もくてき]:
+//: - NM heading level を HTML の h1 から h6 に対応させます。
+//:
+//: [実装/じっそう]:
+//: - 1 から 5 は個別 variant、その他は H6 として分類します。
+//:
+//: [注意/ちゅうい]:
+//: - parser 側が通常 1 から 6 を作りますが、範囲外は従来どおり h6 として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum HtmlHeadingKind:
+    H1
+    H2
+    H3
+    H4
+    H5
+    H6
+
+fn html_heading_kind <(i32)->HtmlHeadingKind> (level):
+    let mut kind <HtmlHeadingKind> HtmlHeadingKind::H6;
+    if:
+        eq level 1
+        then:
+            set kind HtmlHeadingKind::H1;
+        else:
+            ()
+    if:
+        eq level 2
+        then:
+            set kind HtmlHeadingKind::H2;
+        else:
+            ()
+    if:
+        eq level 3
+        then:
+            set kind HtmlHeadingKind::H3;
+        else:
+            ()
+    if:
+        eq level 4
+        then:
+            set kind HtmlHeadingKind::H4;
+        else:
+            ()
+    if:
+        eq level 5
+        then:
+            set kind HtmlHeadingKind::H5;
+        else:
+            ()
+    kind
+
 //: escape_html: 主な用途
 //:
 //: [目的/もくてき]:
@@ -41,30 +151,25 @@
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn escape_html <(str)->str> (s):
-    // English comments required by user preference.
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len s;
     let mut i <i32> 0;
     while lt i n:
         do:
             let ch <i32> load_u8 add s add 4 i;
-            if:
-                eq ch 38
-                then set sb sb_append sb "&amp;"
-                else:
-                    if:
-                        eq ch 60
-                        then set sb sb_append sb "&lt;"
-                        else:
-                            if:
-                                eq ch 62
-                                then set sb sb_append sb "&gt;"
-                                else:
-                                    if:
-                                        eq ch 34
-                                        then set sb sb_append sb "&quot;"
-                                        else:
-                                            set sb sb_append sb str_slice s i add i 1;
+            match html_escape_kind ch:
+                HtmlEscapeKind::Amp:
+                    set sb sb_append sb "&amp;"
+                HtmlEscapeKind::Lt:
+                    set sb sb_append sb "&lt;"
+                HtmlEscapeKind::Gt:
+                    set sb sb_append sb "&gt;"
+                HtmlEscapeKind::Quote:
+                    set sb sb_append sb "&quot;"
+                HtmlEscapeKind::Apostrophe:
+                    set sb sb_append sb "&#39;"
+                HtmlEscapeKind::Plain:
+                    set sb sb_append sb str_slice s i add i 1;
             set i add i 1;
     sb_build sb
 
@@ -96,17 +201,16 @@ fn render_inlines <(Vec<Inline>)->str> (v):
                     // Keep delimiters as-is for KaTeX/MathJax.
                     set sb sb_append sb m;
                 Inline::Ruby r:
-                    set sb sb_append sb "<ruby>";
+                    set sb sb_append sb "<ruby class=\"nm-ruby\"><rb>";
                     set sb sb_append sb escape_html (get r "base");
-                    set sb sb_append sb "<rt>";
+                    set sb sb_append sb "</rb><rt>";
                     set sb sb_append sb escape_html (get r "ruby");
                     set sb sb_append sb "</rt></ruby>";
                 Inline::Gloss g:
                     // Re-parse to allow ruby inside gloss segments.
-                    set sb sb_append sb "<span class=\"gloss\">";
-                    set sb sb_append sb "<span class=\"gloss-main\">";
+                    set sb sb_append sb "<ruby class=\"nm-anno\"><rb>";
                     set sb sb_append sb render_inlines parse_inlines get g "main";
-                    set sb sb_append sb "</span>";
+                    set sb sb_append sb "</rb><rt>";
                     let subs <Vec<str>> get g "subs";
                     let m <i32> get subs "len";
                     let subs_data <i32> mem_ptr_addr get subs "data";
@@ -114,11 +218,11 @@ fn render_inlines <(Vec<Inline>)->str> (v):
                     while lt j m:
                         do:
                             let ss <str> load<str> add subs_data mul j size_of<str>;
-                            set sb sb_append sb "<span class=\"gloss-sub\">";
+                            set sb sb_append sb "<span class=\"nm-anno-note\">";
                             set sb sb_append sb render_inlines parse_inlines ss;
                             set sb sb_append sb "</span>";
                             set j add j 1;
-                    set sb sb_append sb "</span>";
+                    set sb sb_append sb "</rt></ruby>";
             set i add i 1;
     sb_build sb
 
@@ -173,56 +277,42 @@ fn render_nodes <(Vec<Node>)->str> (nodes):
                     store<Heading> heading_mem sec_heading;
                     let heading_level <i32> get load<Heading> heading_mem "level";
                     let heading_inlines <Vec<Inline>> get load<Heading> heading_mem "inlines";
-                    set sb sb_append sb "<section class=\"nest level-";
+                    set sb sb_append sb "<section class=\"nm-sec level-";
                     set sb sb_append_i32 sb sec_level;
                     set sb sb_append sb "\">";
- 
-                    // Heading tag
-                    if:
-                        eq heading_level 1
-                        then:
+
+                    match html_heading_kind heading_level:
+                        HtmlHeadingKind::H1:
                             set sb sb_append sb "<h1>";
                             set sb sb_append sb render_inlines heading_inlines;
                             set sb sb_append sb "</h1>";
                             ()
-                        else:
-                            if:
-                                eq heading_level 2
-                                then:
-                                    set sb sb_append sb "<h2>";
-                                    set sb sb_append sb render_inlines heading_inlines;
-                                    set sb sb_append sb "</h2>";
-                                    ()
-                                else:
-                                    if:
-                                        eq heading_level 3
-                                        then:
-                                            set sb sb_append sb "<h3>";
-                                            set sb sb_append sb render_inlines heading_inlines;
-                                            set sb sb_append sb "</h3>";
-                                            ()
-                                        else:
-                                            if:
-                                                eq heading_level 4
-                                                then:
-                                                    set sb sb_append sb "<h4>";
-                                                    set sb sb_append sb render_inlines heading_inlines;
-                                                    set sb sb_append sb "</h4>";
-                                                    ()
-                                                else:
-                                                    if:
-                                                        eq heading_level 5
-                                                        then:
-                                                            set sb sb_append sb "<h5>";
-                                                            set sb sb_append sb render_inlines heading_inlines;
-                                                            set sb sb_append sb "</h5>";
-                                                            ()
-                                                        else:
-                                                            set sb sb_append sb "<h6>";
-                                                            set sb sb_append sb render_inlines heading_inlines;
-                                                            set sb sb_append sb "</h6>";
-                                                            ();
- 
+                        HtmlHeadingKind::H2:
+                            set sb sb_append sb "<h2>";
+                            set sb sb_append sb render_inlines heading_inlines;
+                            set sb sb_append sb "</h2>";
+                            ()
+                        HtmlHeadingKind::H3:
+                            set sb sb_append sb "<h3>";
+                            set sb sb_append sb render_inlines heading_inlines;
+                            set sb sb_append sb "</h3>";
+                            ()
+                        HtmlHeadingKind::H4:
+                            set sb sb_append sb "<h4>";
+                            set sb sb_append sb render_inlines heading_inlines;
+                            set sb sb_append sb "</h4>";
+                            ()
+                        HtmlHeadingKind::H5:
+                            set sb sb_append sb "<h5>";
+                            set sb sb_append sb render_inlines heading_inlines;
+                            set sb sb_append sb "</h5>";
+                            ()
+                        HtmlHeadingKind::H6:
+                            set sb sb_append sb "<h6>";
+                            set sb sb_append sb render_inlines heading_inlines;
+                            set sb sb_append sb "</h6>";
+                            ()
+
                     set sb sb_append sb render_nodes sec_children;
                     set sb sb_append sb "</section>";
             set i add i 1;

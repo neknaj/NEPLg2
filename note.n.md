@@ -17471,3 +17471,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `json_string 0` の compile-time rejection は `str` と `i32` が core で unify されるためこの branch では固定できない。`ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7` で扱う。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+# 2026-04-26 Memo (ISS-20260426T081514183Z nm Gloss HTML contract)
+
+- Status:
+  - Synced with `origin/main` at `4cf09c3`.
+  - The remote update included bulk memory copy changes in `stdlib/core/mem.nepl`, `stdlib/alloc/string.nepl`, and `stdlib/alloc/io.nepl`; this work intentionally kept the write scope to `stdlib/nm/parser.nepl`, `stdlib/nm/html_gen.nepl`, and `tests/stdlib/nm.n.md` to avoid conflicting with memory-related work.
+  - `nodesrc/tests.js` now uses the worker runner for `-j 1`; after `trunk build`, the nm focused tests no longer fail with the older single-job stack issue.
+- Changes:
+  - Aligned `stdlib/nm/html_gen.nepl` Ruby, Anno, and section HTML with `https://github.com/neknaj/gloss`.
+  - Added enum + match based classification for HTML escaping and heading tag rendering.
+  - Fixed `parse_paragraph` so paragraph text does not keep an extra trailing newline.
+  - Added enum + match based JSON string escaping for the nm AST serializer.
+  - Strengthened `tests/stdlib/nm.n.md` from prefix/suffix checks to exact regression fixtures.
+- Verification:
+  - `git fetch origin main`: `origin/main` is `4cf09c3`.
+  - `trunk build`: pass.
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-gloss-focused-after-trunk.json -j 1`: `total=4`, `passed=4`, `failed=0`.
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-gloss-suite-after-main-sync.json -j 1`: `total=9`, `passed=9`, `failed=0`.
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-gloss-suite-final-crlf.json -j 1`: `total=9`, `passed=9`, `failed=0`.
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/nm-gloss-stdlib-full.json -j 4`: `total=404`, `passed=404`, `failed=0`.
+  - `node nodesrc/issues.js check`: pass.
+  - `git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol diff --check`: pass.
+- plan.md delta:
+  - `plan.md` was not changed. This work improves stdlib nm compatibility and regression coverage without changing the project plan text.
