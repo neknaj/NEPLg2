@@ -1,3 +1,25 @@
+# 2026-04-26 メモ (ISS-20260426T161201078Z NEPLg2 selfhost lexer foundation)
+
+- 状況:
+  - `doc/neplg2/self_host_plan.md` は NEPLg2.0 self-host の作業場所を `stdlib/neplg2/` と定め、`stdlib/neplg3/` を使わないと明記している。
+  - `stdlib/neplg2/core/infra/span.nepl` と `core/syntax/token.nepl` は Stage 0 marker のままで、S1 の SourceMap / lexer / parser parity に必要な byte offset / token stream の基盤がなかった。
+  - 先に作りかけた `stdlib/neplg3` 側の未commit変更と issue は取り下げ、Discord に訂正報告した。
+- 修正:
+  - `SelfhostSourceSpan` と span helper を `stdlib/neplg2/core/infra/span.nepl` に実装した。
+  - `TokenKind` / `SelfhostToken` と EOF / error / expression-start 判定を `stdlib/neplg2/core/syntax/token.nepl` に実装した。
+  - `stdlib/neplg2/core/syntax/lexer.nepl` を追加し、horizontal whitespace、`//` comment、newline、identifier、integer literal、string literal、主要 punctuation、EOF、lexical diagnostic を扱う byte lexer を実装した。
+  - `tests/stdlib/neplg2_lexer.n.md` に focused regression を追加し、`stdlib/neplg2/README.md` と `todo.md` を現状に合わせた。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-foundation-focused.json -j 1`: `total=25`, `passed=25`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-neplg2-lexer-foundation-full.json -j 4`: `total=411`, `passed=411`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-neplg2-lexer-foundation-full.json -j 4`: `total=277`, `passed=277`
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplg2-lexer-foundation.json`: `13/13 passed`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は `doc/neplg2/self_host_plan.md` の S1 に沿って、NEPLg2.0 self-host の lexer 前提を作るもの。
+
 # 2026-04-26 メモ (ISS-20260425T000000Z-RV-STDLIB-013 collection doctest verify)
 
 - 状況:

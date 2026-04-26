@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T16:30:35.072Z",
+  "generated_at": "2026-04-26T16:39:29.411Z",
   "counts": {
-    "total": 131,
+    "total": 132,
     "open": 9,
-    "resolved": 122,
+    "resolved": 123,
     "by_area": {
       "core": {
         "total": 48,
@@ -12,9 +12,9 @@
         "resolved": 45
       },
       "stdlib": {
-        "total": 43,
+        "total": 44,
         "open": 6,
-        "resolved": 37
+        "resolved": 38
       },
       "cli": {
         "total": 17,
@@ -1888,6 +1888,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T104115640Z-FS-DOCTEST-FIXTURE-IS-LINE-ENDING-SE-910C88C4.md"
+    },
+    {
+      "id": "ISS-20260426T161201078Z-NEPLG2-SELFHOST-LACKS-EXECUTABLE-SPA-52B20497",
+      "title": "neplg2 selfhost lacks executable span token lexer foundation",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/neplg2/core/infra/span.nepl, stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T161201078Z-NEPLG2-SELFHOST-LACKS-EXECUTABLE-SPA-52B20497.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

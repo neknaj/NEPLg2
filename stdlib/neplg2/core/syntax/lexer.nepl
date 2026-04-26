@@ -1,0 +1,359 @@
+#indent 4
+
+//: # lexer
+//: NEPLg2.0 self-host compiler の byte lexer [基盤/きばん]
+//:
+//: [目的/もくてき]:
+//: - UTF-8 検証済み source text を、parser が[扱/あつか]う `SelfhostToken` の[列/れつ]へ[変換/へんかん]します。
+//: - S1 の Rust lexer parity に[向/む]け、まず byte offset / token kind / lexical diagnostic の[共通/きょうつう]基盤を[固定/こてい]します。
+//:
+//: [実装/じっそう]:
+//: - horizontal whitespace と `//` comment は[読/よ]み[飛/と]ばします。
+//: - newline は token として[保持/ほじ]し、後続の offside rule tokenization に[渡/わた]します。
+//: - punctuation は `match`、identifier と integer は byte range loop で[伸/の]ばします。
+//:
+//: [注意/ちゅうい]:
+//: - indent / dedent 生成は後続 issue で追加します。
+//: - string literal の escape 解釈は parser / literal lowering の責務とし、lexer は閉じ quote までの raw lexeme を[保持/ほじ]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力 byte 数を n として O(n) 時間、token 数に比例する O(n) 領域です。
+
+#import "alloc/collections/vec" as *
+#import "alloc/string" as string
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/token" as *
+
+//: LexErrorCode: lexer が[返/かえ]す error [分類/ぶんるい]
+enum LexErrorCode:
+    UnexpectedChar
+    UnterminatedString
+    OutOfMemory
+
+impl Clone for LexErrorCode:
+    fn clone <(&LexErrorCode)->LexErrorCode> (self):
+        *self
+
+impl Copy for LexErrorCode:
+    fn copy_mark <(LexErrorCode)->LexErrorCode> (self):
+        self
+
+//: LexDiagnostic: lexer error を[構造化/こうぞうか]して[返/かえ]す値
+struct LexDiagnostic:
+    code <LexErrorCode>
+    span <SelfhostSourceSpan>
+    message <str>
+
+impl Clone for LexDiagnostic:
+    fn clone <(&LexDiagnostic)->LexDiagnostic> (self):
+        *self
+
+impl Copy for LexDiagnostic:
+    fn copy_mark <(LexDiagnostic)->LexDiagnostic> (self):
+        self
+
+//: lex_diag_new: lexer diagnostic を[構築/こうちく]する
+fn lex_diag_new <(LexErrorCode,SelfhostSourceSpan,str)->LexDiagnostic> (code, span, message):
+    LexDiagnostic code span message
+
+//: lex_error_code_name: error code の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
+fn lex_error_code_name <(LexErrorCode)->str> (code):
+    match code:
+        LexErrorCode::UnexpectedChar:
+            "lex.unexpected_char"
+        LexErrorCode::UnterminatedString:
+            "lex.unterminated_string"
+        LexErrorCode::OutOfMemory:
+            "lex.out_of_memory"
+
+//: lex_is_digit: ASCII digit か[返/かえ]す
+fn lex_is_digit <(i32)->bool> (ch):
+    and ge ch 48 le ch 57
+
+//: lex_is_alpha: ASCII alphabet か[返/かえ]す
+fn lex_is_alpha <(i32)->bool> (ch):
+    let upper <bool> and ge ch 65 le ch 90
+    let lower <bool> and ge ch 97 le ch 122
+    or upper lower
+
+//: lex_is_ident_start: identifier [先頭/せんとう] byte か[返/かえ]す
+fn lex_is_ident_start <(i32)->bool> (ch):
+    or lex_is_alpha ch eq ch 95
+
+//: lex_is_ident_continue: identifier [継続/けいぞく] byte か[返/かえ]す
+fn lex_is_ident_continue <(i32)->bool> (ch):
+    or lex_is_ident_start ch lex_is_digit ch
+
+//: lex_skip_line_comment: comment の[終/お]わり、または EOF offset を[返/かえ]す
+fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            match ch:
+                10:
+                    idx
+                _:
+                    lex_skip_line_comment source n add idx 1
+
+//: lex_skip_trivia: horizontal whitespace と line comment を[読/よ]み[飛/と]ばす
+//:
+//: [注意/ちゅうい]:
+//: - newline は token として[残/のこ]すため、ここでは[飛/と]ばしません。
+fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            match ch:
+                9:
+                    lex_skip_trivia source n add idx 1
+                13:
+                    lex_skip_trivia source n add idx 1
+                32:
+                    lex_skip_trivia source n add idx 1
+                47:
+                    if:
+                        lt add idx 1 n
+                        then:
+                            let next <i32> string::string_byte_at_unchecked source add idx 1
+                            if:
+                                eq next 47
+                                then:
+                                    lex_skip_trivia source n lex_skip_line_comment source n add idx 2
+                                else:
+                                    idx
+                        else:
+                            idx
+                _:
+                    idx
+
+//: lex_ident_end: identifier の end offset を[返/かえ]す
+fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            if:
+                lex_is_ident_continue ch
+                then:
+                    lex_ident_end source n add idx 1
+                else:
+                    idx
+
+//: lex_int_end: integer literal の end offset を[返/かえ]す
+fn lex_int_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            if:
+                lex_is_digit ch
+                then:
+                    lex_int_end source n add idx 1
+                else:
+                    idx
+
+//: lex_string_end: closing quote の offset を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - 見つからない場合は -1 を[返/かえ]します。
+//: - `\"` は string 内の escaped quote として[扱/あつか]います。
+fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            -1
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            match ch:
+                34:
+                    idx
+                92:
+                    if:
+                        ge add idx 1 n
+                        then:
+                            -1
+                        else:
+                            lex_string_end source n add idx 2
+                _:
+                    lex_string_end source n add idx 1
+
+//: lex_token_slice: source slice を lexeme とする token を[作/つく]る
+fn lex_token_slice <(TokenKind,str,i32,i32)->SelfhostToken> (kind, source, start, end):
+    selfhost_token_new kind source_span_new 0 start end string::str_slice source start end
+
+//: lex_next: 指定 offset 以降の 1 token を[返/かえ]す
+fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
+    let start <i32> lex_skip_trivia source n idx
+    if:
+        ge start n
+        then:
+            selfhost_token_new TokenKind::EndOfFile source_span_empty 0 start ""
+        else:
+            let ch <i32> string::string_byte_at_unchecked source start
+            match ch:
+                10:
+                    lex_token_slice TokenKind::Newline source start add start 1
+                35:
+                    lex_token_slice TokenKind::Hash source start add start 1
+                40:
+                    lex_token_slice TokenKind::LParen source start add start 1
+                41:
+                    lex_token_slice TokenKind::RParen source start add start 1
+                44:
+                    lex_token_slice TokenKind::Comma source start add start 1
+                46:
+                    lex_token_slice TokenKind::Dot source start add start 1
+                58:
+                    lex_token_slice TokenKind::Colon source start add start 1
+                59:
+                    lex_token_slice TokenKind::Semicolon source start add start 1
+                60:
+                    lex_token_slice TokenKind::LAngle source start add start 1
+                62:
+                    lex_token_slice TokenKind::RAngle source start add start 1
+                42:
+                    if:
+                        lt add start 1 n
+                        then:
+                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            if:
+                                eq next 62
+                                then:
+                                    lex_token_slice TokenKind::EffectArrow source start add start 2
+                                else:
+                                    lex_token_slice TokenKind::Asterisk source start add start 1
+                        else:
+                            lex_token_slice TokenKind::Asterisk source start add start 1
+                45:
+                    if:
+                        lt add start 1 n
+                        then:
+                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            if:
+                                eq next 62
+                                then:
+                                    lex_token_slice TokenKind::Arrow source start add start 2
+                                else:
+                                    lex_token_slice TokenKind::Unknown source start add start 1
+                        else:
+                            lex_token_slice TokenKind::Unknown source start add start 1
+                34:
+                    let close <i32> lex_string_end source n add start 1
+                    if:
+                        lt close 0
+                        then:
+                            lex_token_slice TokenKind::UnterminatedString source start n
+                        else:
+                            lex_token_slice TokenKind::StringLiteral source start add close 1
+                _:
+                    if:
+                        lex_is_ident_start ch
+                        then:
+                            let end <i32> lex_ident_end source n add start 1
+                            lex_token_slice TokenKind::Identifier source start end
+                        else:
+                            if:
+                                lex_is_digit ch
+                                then:
+                                    let end <i32> lex_int_end source n add start 1
+                                    lex_token_slice TokenKind::IntLiteral source start end
+                                else:
+                                    lex_token_slice TokenKind::Unknown source start add start 1
+
+//: lex_error_for_token: error token を diagnostic へ[変換/へんかん]する
+fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
+    let span <SelfhostSourceSpan> field::get token "span"
+    match field::get token "kind":
+        TokenKind::Hash:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Identifier:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::IntLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::StringLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::LParen:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::RParen:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::LAngle:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::RAngle:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Comma:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Colon:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Semicolon:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Dot:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Asterisk:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Arrow:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::EffectArrow:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Newline:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::EndOfFile:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::UnterminatedString:
+            lex_diag_new LexErrorCode::UnterminatedString span "unterminated string literal"
+        TokenKind::Unknown:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+
+//: lex_push: token を token buffer へ[追加/ついか]する
+fn lex_push <(Vec<SelfhostToken>,SelfhostToken)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, token):
+    match push<SelfhostToken> tokens token:
+        Result::Ok out:
+            Result<Vec<SelfhostToken>,LexDiagnostic>::Ok out
+        Result::Err _e:
+            let span <SelfhostSourceSpan> field::get token "span"
+            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory span "lexer token buffer allocation failed"
+
+//: lex_all_loop: EOF まで token を[集/あつ]める
+fn lex_all_loop <(str,i32,i32,Vec<SelfhostToken>)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, idx, tokens):
+    let token <SelfhostToken> lex_next source n idx
+    if:
+        selfhost_token_is_error token
+        then:
+            free<SelfhostToken> tokens
+            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_error_for_token token
+        else:
+            match lex_push tokens token:
+                Result::Ok out:
+                    if:
+                        selfhost_token_is_eof token
+                        then:
+                            Result<Vec<SelfhostToken>,LexDiagnostic>::Ok out
+                        else:
+                            lex_all_loop source n selfhost_token_end token out
+                Result::Err diag:
+                    Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
+
+//: lex_all: source text 全体を token stream へ[変換/へんかん]する
+//:
+//: [注意/ちゅうい]:
+//: - 成功時の `Vec<SelfhostToken>` は caller が `free<SelfhostToken>` してください。
+fn lex_all <(str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source):
+    match new<SelfhostToken>:
+        Result::Ok tokens:
+            lex_all_loop source string::len source 0 tokens
+        Result::Err _e:
+            let span <SelfhostSourceSpan> source_span_empty 0 0
+            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory span "lexer token buffer allocation failed"

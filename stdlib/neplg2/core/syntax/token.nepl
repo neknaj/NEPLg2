@@ -1,26 +1,260 @@
 #indent 4
 
 //: # token
-//: NEPLg2.0 lexer / parser が共有する token 表現を置くモジュールです。
+//: NEPLg2.0 lexer / parser が[共有/きょうゆう]する token [表現/ひょうげん]
 //:
 //: [目的/もくてき]:
-//: - `#indent` と offside rule を含む tokenizer の出力型をここに集約します。
-//: - Stage 0 では source tree の責務境界を marker API で固定します。
+//: - lexer output を `TokenKind` / `SelfhostToken` として[固定/こてい]し、parser が byte offset と lexeme を[失/うしな]わずに[扱/あつか]えるようにします。
+//: - NEPLg2.0 の `#` directive、angle bracket 型注釈、`->` / `*>` 関数型を[表/あらわ]せる最小 token kind を[定義/ていぎ]します。
 //:
 //: [注意/ちゅうい]:
-//: - 現行 NEPLg2.0 の angle bracket 型注釈と `fn` 糖衣構文を正とし、NEPLg3 の TypePrefixList 仕様は持ち込みません。
+//: - offside rule 用の indent/dedent token は後続 issue で追加します。ここでは byte lexer の基本 token だけを[扱/あつか]います。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - token の[構築/こうちく]と kind [判定/はんてい]は O(1) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target core
+//:| #import "core/field" as field
+//:| #import "alloc/string" as string
+//:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/token" as *
 //: fn main <()->i32> ():
-//:     selfhost_token_stage0
+//:     let token <SelfhostToken> selfhost_token_new TokenKind::Identifier source_span_new 0 0 2 "fn"
+//:     if and selfhost_token_is_expr_start token string::str_eq "identifier" token_kind_name field::get token "kind" 0 1
 //: ```
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: TokenKind: NEPLg2.0 lexer が[生成/せいせい]する token [種類/しゅるい]
+enum TokenKind:
+    Hash
+    Identifier
+    IntLiteral
+    StringLiteral
+    LParen
+    RParen
+    LAngle
+    RAngle
+    Comma
+    Colon
+    Semicolon
+    Dot
+    Asterisk
+    Arrow
+    EffectArrow
+    Newline
+    EndOfFile
+    UnterminatedString
+    Unknown
+
+impl Clone for TokenKind:
+    fn clone <(&TokenKind)->TokenKind> (self):
+        *self
+
+impl Copy for TokenKind:
+    fn copy_mark <(TokenKind)->TokenKind> (self):
+        self
+
+//: SelfhostToken: kind / span / lexeme を[持/も]つ token
+//:
+//: [注意/ちゅうい]:
+//: - `lexeme` は source text の byte slice です。string literal でも quote を[含/ふく]む raw token text を[保持/ほじ]します。
+struct SelfhostToken:
+    kind <TokenKind>
+    span <SelfhostSourceSpan>
+    lexeme <str>
+
+impl Clone for SelfhostToken:
+    fn clone <(&SelfhostToken)->SelfhostToken> (self):
+        *self
+
+impl Copy for SelfhostToken:
+    fn copy_mark <(SelfhostToken)->SelfhostToken> (self):
+        self
+
+//: selfhost_token_new: token を[構築/こうちく]する
+fn selfhost_token_new <(TokenKind,SelfhostSourceSpan,str)->SelfhostToken> (kind, span, lexeme):
+    SelfhostToken kind span lexeme
+
+//: token_kind_name: token kind の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
+fn token_kind_name <(TokenKind)->str> (kind):
+    match kind:
+        TokenKind::Hash:
+            "hash"
+        TokenKind::Identifier:
+            "identifier"
+        TokenKind::IntLiteral:
+            "int_literal"
+        TokenKind::StringLiteral:
+            "string_literal"
+        TokenKind::LParen:
+            "l_paren"
+        TokenKind::RParen:
+            "r_paren"
+        TokenKind::LAngle:
+            "l_angle"
+        TokenKind::RAngle:
+            "r_angle"
+        TokenKind::Comma:
+            "comma"
+        TokenKind::Colon:
+            "colon"
+        TokenKind::Semicolon:
+            "semicolon"
+        TokenKind::Dot:
+            "dot"
+        TokenKind::Asterisk:
+            "asterisk"
+        TokenKind::Arrow:
+            "arrow"
+        TokenKind::EffectArrow:
+            "effect_arrow"
+        TokenKind::Newline:
+            "newline"
+        TokenKind::EndOfFile:
+            "eof"
+        TokenKind::UnterminatedString:
+            "unterminated_string"
+        TokenKind::Unknown:
+            "unknown"
+
+//: selfhost_token_is_eof: EOF token か[返/かえ]す
+fn selfhost_token_is_eof <(SelfhostToken)->bool> (token):
+    match field::get token "kind":
+        TokenKind::Hash:
+            false
+        TokenKind::Identifier:
+            false
+        TokenKind::IntLiteral:
+            false
+        TokenKind::StringLiteral:
+            false
+        TokenKind::LParen:
+            false
+        TokenKind::RParen:
+            false
+        TokenKind::LAngle:
+            false
+        TokenKind::RAngle:
+            false
+        TokenKind::Comma:
+            false
+        TokenKind::Colon:
+            false
+        TokenKind::Semicolon:
+            false
+        TokenKind::Dot:
+            false
+        TokenKind::Asterisk:
+            false
+        TokenKind::Arrow:
+            false
+        TokenKind::EffectArrow:
+            false
+        TokenKind::Newline:
+            false
+        TokenKind::EndOfFile:
+            true
+        TokenKind::UnterminatedString:
+            false
+        TokenKind::Unknown:
+            false
+
+//: selfhost_token_is_error: lexical error token か[返/かえ]す
+fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
+    match field::get token "kind":
+        TokenKind::Hash:
+            false
+        TokenKind::Identifier:
+            false
+        TokenKind::IntLiteral:
+            false
+        TokenKind::StringLiteral:
+            false
+        TokenKind::LParen:
+            false
+        TokenKind::RParen:
+            false
+        TokenKind::LAngle:
+            false
+        TokenKind::RAngle:
+            false
+        TokenKind::Comma:
+            false
+        TokenKind::Colon:
+            false
+        TokenKind::Semicolon:
+            false
+        TokenKind::Dot:
+            false
+        TokenKind::Asterisk:
+            false
+        TokenKind::Arrow:
+            false
+        TokenKind::EffectArrow:
+            false
+        TokenKind::Newline:
+            false
+        TokenKind::EndOfFile:
+            false
+        TokenKind::UnterminatedString:
+            true
+        TokenKind::Unknown:
+            true
+
+//: selfhost_token_is_expr_start: prefix expression の[先頭/せんとう]候補か[返/かえ]す
+fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
+    match field::get token "kind":
+        TokenKind::Hash:
+            false
+        TokenKind::Identifier:
+            true
+        TokenKind::IntLiteral:
+            true
+        TokenKind::StringLiteral:
+            true
+        TokenKind::LParen:
+            true
+        TokenKind::RParen:
+            false
+        TokenKind::LAngle:
+            false
+        TokenKind::RAngle:
+            false
+        TokenKind::Comma:
+            false
+        TokenKind::Colon:
+            false
+        TokenKind::Semicolon:
+            false
+        TokenKind::Dot:
+            false
+        TokenKind::Asterisk:
+            false
+        TokenKind::Arrow:
+            false
+        TokenKind::EffectArrow:
+            false
+        TokenKind::Newline:
+            false
+        TokenKind::EndOfFile:
+            false
+        TokenKind::UnterminatedString:
+            false
+        TokenKind::Unknown:
+            false
+
+//: selfhost_token_end: token span の end offset を[返/かえ]す
+fn selfhost_token_end <(SelfhostToken)->i32> (token):
+    let span <SelfhostSourceSpan> field::get token "span"
+    field::get span "end"
+
+//: selfhost_token_stage0: Stage 0 marker 互換の smoke API
 fn selfhost_token_stage0 <()->i32> ():
-    0
+    let token <SelfhostToken> selfhost_token_new TokenKind::Identifier source_span_new 0 0 2 "fn"
+    if selfhost_token_is_expr_start token 0 1
