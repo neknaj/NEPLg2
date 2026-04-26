@@ -3,14 +3,18 @@
 //:
 //: ### [目的/もくてき]
 //: - `BTreeSet<.T>` を[提供/ていきょう]し、`new` / `insert` / `contains` / `remove` / `len` / `clear` / `free` の bare 名で[扱/あつか]えるようにします。
+//: - 互換名 `BTreeSet` に[加/くわ]えて、sorted-array としての[性質/せいしつ]を[明示/めいじ]する `sorted_array_set_*` alias を[提供/ていきょう]します。
 //: - [要素/ようそ]の[比較/ひかく]は `Ord` trait に[委譲/いじょう]し、`i32` 固定の collection から[脱却/だっきゃく]します。
 //:
 //: ### [実装/じっそう]
 //: - [名前/なまえ]は `BTreeSet` ですが、[実体/じったい]は[整列済/せいれつず]み key [配列/はいれつ]です。
 //: - [検索/けんさく]は lower_bound、[挿入/そうにゅう] / [削除/さくじょ]は shift で[実装/じっそう]します。
+//: - `sorted_array_set_*` alias は[同/おな]じ[実装/じっそう]を[指/さ]し、B-tree [相当/そうとう]の[更新/こうしん][性能/せいのう]を[期待/きたい]しない[用途/ようと]であることを[呼/よ]び[出/だ]し[名/めい]に[残/のこ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [本物/ほんもの]の B-tree ではありません。
+//: - 大きな mutable set、visited set、module traversal set には[使/つか]わないでください。更新が[多/おお]い[集合/しゅうごう]は `HashSet` を[使/つか]い、安定順の[出力/しゅつりょく]が[必要/ひつよう]な[段階/だんかい]だけ key を[整列/せいれつ]する[構造/こうぞう]を[選/えら]びます。
+//: - 小さな[集合/しゅうごう]、構築後に[検索/けんさく]中心になる[順序付き/じゅんじょつき] set、または最終出力の安定順を[保/たも]つ[用途/ようと]に[限定/げんてい]してください。
 //: - `Ord` impl が[全順序/ぜんじゅんじょ]を[満/み]たすことを[前提/ぜんてい]にします。
 //:
 //: ### [計算量/けいさんりょう]
@@ -277,3 +281,55 @@ fn free <.T> <(BTreeSet<.T>)*>()> (set0):
     let cap <i32> load_i32 add hdr 4
     dealloc_raw btreeset_keys_ptr hdr mul cap size_of<.T>
     dealloc_raw hdr 12
+
+//: ## sorted_array_set_new
+//: sorted-array set として `new` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [目的/もくてき]
+//: - `BTreeSet` 互換[実装/じっそう]を、B-tree ではなく sorted-array set として[意図/いと]して[選/えら]んだことを API [名/めい]に[残/のこ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `new` と[同/おな]じです。
+fn sorted_array_set_new new;
+
+//: ## sorted_array_set_insert
+//: sorted-array set として `insert` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [注意/ちゅうい]
+//: - 挿入位置以降を shift するため O(n) です。大量の逐次 insert には[使/つか]わないでください。
+fn sorted_array_set_insert insert;
+
+//: ## sorted_array_set_contains
+//: sorted-array set として `contains` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [計算量/けいさんりょう]
+//: - lower_bound により O(log n) です。
+fn sorted_array_set_contains contains;
+
+//: ## sorted_array_set_remove
+//: sorted-array set として `remove` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [注意/ちゅうい]
+//: - 削除位置以降を shift するため O(n) です。
+fn sorted_array_set_remove remove;
+
+//: ## sorted_array_set_len
+//: sorted-array set として `len` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [計算量/けいさんりょう]
+//: - `len` と[同/おな]じ O(1) です。
+fn sorted_array_set_len len;
+
+//: ## sorted_array_set_clear
+//: sorted-array set として `clear` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [計算量/けいさんりょう]
+//: - `clear` と[同/おな]じ O(1) です。
+fn sorted_array_set_clear clear;
+
+//: ## sorted_array_set_free
+//: sorted-array set として `free` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [注意/ちゅうい]
+//: - `free` と[同/おな]じく、内部 key [配列/はいれつ]を[解放/かいほう]します。
+fn sorted_array_set_free free;

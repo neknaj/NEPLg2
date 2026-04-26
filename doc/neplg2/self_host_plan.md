@@ -220,6 +220,8 @@ node nodesrc/tests.js -i stdlib/neplg2 --no-tree -o tmp/neplg2-selfhost-placehol
 - `check/expr_reduce.nepl` に現行 `reduce_calls` を移植する。
 - overload は `TypeCtx` checkpoint / rollback 相当を NEPLg2.0 で表現する。
 - trait capability と Copy / Clone / Drop 判定を現行 stdlib と合わせる。
+- scope、symbol、module、diagnostic のような大規模 mutable table には `BTreeMap` / `BTreeSet` 互換実装を使わない。これらは sorted-array 実装で、更新が O(n) になる。
+- 安定順序が必要な出力では、構築中は `HashMap` / `HashSet` を主構造にし、最終出力段階だけ key list を整列する。小さな ordered table に限って `sorted_array_map_*` / `sorted_array_set_*` alias を使い、O(n) 更新を意図として明示する。
 
 ### S4: HIR / resource / mono
 

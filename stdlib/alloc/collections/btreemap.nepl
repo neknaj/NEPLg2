@@ -3,14 +3,18 @@
 //:
 //: ### [目的/もくてき]
 //: - `BTreeMap<.K, .V>` を[提供/ていきょう]し、`new` / `insert` / `get` / `contains` / `remove` / `len` / `clear` / `free` の bare 名で[扱/あつか]えるようにします。
+//: - 互換名 `BTreeMap` に[加/くわ]えて、sorted-array としての[性質/せいしつ]を[明示/めいじ]する `sorted_array_map_*` alias を[提供/ていきょう]します。
 //: - key の[比較/ひかく]は `Ord` trait に[委譲/いじょう]し、`i32` 固定から[脱却/だっきゃく]します。
 //:
 //: ### [実装/じっそう]
 //: - [名前/なまえ]は `BTreeMap` ですが、[現実/げんじつ]の[内部表現/ないぶひょうげん]は[整列済/せいれつず]み key/value [配列/はいれつ]です。
 //: - [検索/けんさく]は lower_bound、[挿入/そうにゅう] / [削除/さくじょ]は shift で[実装/じっそう]します。
+//: - `sorted_array_map_*` alias は[同/おな]じ[実装/じっそう]を[指/さ]し、B-tree [相当/そうとう]の[更新/こうしん][性能/せいのう]を[期待/きたい]しない[用途/ようと]であることを[呼/よ]び[出/だ]し[名/めい]に[残/のこ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [本物/ほんもの]の B-tree ではありません。
+//: - 大きな mutable table、symbol table、module table、diagnostic table には[使/つか]わないでください。更新が[多/おお]い[表/ひょう]は `HashMap` / `HashSet` を[使/つか]い、安定順の[出力/しゅつりょく]が[必要/ひつよう]な[段階/だんかい]だけ key を[整列/せいれつ]する[構造/こうぞう]を[選/えら]びます。
+//: - 小さな[集合/しゅうごう]、構築後に[検索/けんさく]中心になる[順序付き/じゅんじょつき] table、または最終出力の安定順を[保/たも]つ[用途/ようと]に[限定/げんてい]してください。
 //: - `Ord` impl が[全順序/ぜんじゅんじょ]を[満/み]たすことを[前提/ぜんてい]にします。
 //:
 //: ### [計算量/けいさんりょう]
@@ -342,3 +346,62 @@ fn free <.K,.V> <(BTreeMap<.K,.V>)*>()> (hm):
     dealloc_raw keys_ptr hdr mul cap size_of<.K>
     dealloc_raw values_ptr hdr mul cap size_of<.V>
     dealloc_raw hdr 16
+
+//: ## sorted_array_map_new
+//: sorted-array map として `new` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [目的/もくてき]
+//: - `BTreeMap` 互換[実装/じっそう]を、B-tree ではなく sorted-array map として[意図/いと]して[選/えら]んだことを API [名/めい]に[残/のこ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `new` と[同/おな]じです。
+fn sorted_array_map_new new;
+
+//: ## sorted_array_map_insert
+//: sorted-array map として `insert` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [注意/ちゅうい]
+//: - 挿入位置以降を shift するため O(n) です。大量の逐次 insert には[使/つか]わないでください。
+fn sorted_array_map_insert insert;
+
+//: ## sorted_array_map_get
+//: sorted-array map として `get` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [計算量/けいさんりょう]
+//: - lower_bound により O(log n) です。
+fn sorted_array_map_get get;
+
+//: ## sorted_array_map_contains
+//: sorted-array map として `contains` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [計算量/けいさんりょう]
+//: - lower_bound により O(log n) です。
+fn sorted_array_map_contains contains;
+
+//: ## sorted_array_map_remove
+//: sorted-array map として `remove` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [注意/ちゅうい]
+//: - 削除位置以降を shift するため O(n) です。
+fn sorted_array_map_remove remove;
+
+//: ## sorted_array_map_len
+//: sorted-array map として `len` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [計算量/けいさんりょう]
+//: - `len` と[同/おな]じ O(1) です。
+fn sorted_array_map_len len;
+
+//: ## sorted_array_map_clear
+//: sorted-array map として `clear` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [計算量/けいさんりょう]
+//: - `clear` と[同/おな]じ O(1) です。
+fn sorted_array_map_clear clear;
+
+//: ## sorted_array_map_free
+//: sorted-array map として `free` を[呼/よ]ぶ[別名/べつめい]
+//:
+//: ### [注意/ちゅうい]
+//: - `free` と[同/おな]じく、内部 key/value [配列/はいれつ]を[解放/かいほう]します。
+fn sorted_array_map_free free;

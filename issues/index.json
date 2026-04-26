@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:50:50.917Z",
+  "generated_at": "2026-04-26T04:56:52.583Z",
   "counts": {
     "total": 105,
-    "open": 22,
-    "resolved": 83,
+    "open": 21,
+    "resolved": 84,
     "by_area": {
       "core": {
         "total": 36,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 32,
-        "open": 11,
-        "resolved": 21
+        "open": 10,
+        "resolved": 22
       },
       "cli": {
         "total": 17,
@@ -318,21 +318,6 @@
       "legacy_id": "RV-STDLIB-010",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-010",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB.md"
-    },
-    {
-      "id": "ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91",
-      "title": "BTreeMap and BTreeSet are sorted arrays with O(n) updates",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/btreeset.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
-      "file": "items/ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91.md"
     },
     {
       "id": "ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2",
@@ -1503,6 +1488,21 @@
       "legacy_id": "RV-EXAMPLE-004",
       "source": "doc/review20260425/examples.md#rv-example-004",
       "file": "items/ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A.md"
+    },
+    {
+      "id": "ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91",
+      "title": "BTreeMap and BTreeSet are sorted arrays with O(n) updates",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/btreeset.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

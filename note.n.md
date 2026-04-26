@@ -18,6 +18,30 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の修正はstdlib text stdinの切り捨てをなくす既存APIのバグ修正であり、self-host CLI向けのResult付きstderr/stdout API追加とは別issueで扱う。
 
+# 2026-04-26 メモ (ISS-20260426T021001000Z BTREE-ARRAY-COST 修正)
+
+- 状況:
+  - `BTreeMap` / `BTreeSet` は名前に BTree を含むが、内部表現は sorted key/value array と sorted key array である。
+  - 検索は lower_bound で O(log n) だが、insert / remove は配列 shift により O(n) になる。
+  - self-host compiler の scope / symbol / module / diagnostic table で B-tree 相当の更新性能を期待して使うと、構築コストが O(n^2) になり得る。
+- 原因:
+  - 実装コメントには「本物の B-tree ではない」とあったが、大規模 mutable table で使わない規則が self-host 計画に固定されていなかった。
+  - 呼び出し側で sorted-array collection を意図して選んだことを残す API 名がなく、互換名 `BTreeMap` / `BTreeSet` だけだと用途判断が曖昧だった。
+- 修正:
+  - `stdlib/alloc/collections/btreemap.nepl` に `sorted_array_map_new` / `sorted_array_map_insert` / `sorted_array_map_get` / `sorted_array_map_contains` / `sorted_array_map_remove` / `sorted_array_map_len` / `sorted_array_map_clear` / `sorted_array_map_free` alias を追加した。
+  - `stdlib/alloc/collections/btreeset.nepl` に `sorted_array_set_new` / `sorted_array_set_insert` / `sorted_array_set_contains` / `sorted_array_set_remove` / `sorted_array_set_len` / `sorted_array_set_clear` / `sorted_array_set_free` alias を追加した。
+  - module comment に、大きな mutable table では `HashMap` / `HashSet` を使い、安定順序が必要な大きい出力は最終段階だけ key を整列する方針を明記した。
+  - `doc/neplg2/self_host_plan.md` の S3 に、scope / symbol / module / diagnostic の大規模 mutable table で `BTreeMap` / `BTreeSet` 互換実装を使わない規則を追加した。
+  - `tests/stdlib/btree_array_cost.n.md` を追加し、32 / 128 件の構築 fixture と構築後検索 fixture を sorted_array alias 経由で実行するようにした。
+  - `issues/items/ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91.md` を verified にし、`todo.md` から対応項目を削除した。
+- 確認済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i tests/stdlib/btree_array_cost.n.md -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/btree-array-cost-suite.json -j 1`: 35/35 passed
+  - `tmp/btree-array-cost-suite.json`: `tests/stdlib/btree_array_cost.n.md` の 6 fixture がすべて pass、return value 0
+  - `trunk build`: pass（既存 Rust warning は残存）
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-btree-array-cost.json`: 13/13 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は self-host 前提の stdlib ordered collection 利用契約を固定するもので、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T021002000Z ALLOCATOR-FRAGMENTATION 修正)
 
 - 状況:
