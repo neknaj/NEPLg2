@@ -9,6 +9,8 @@
 NEPLg2.0 self-host 実装を開始する前に、Rust 参照 compiler と stdlib の既知問題を Issue 管理へ集約する。
 この文書は実装変更ではなく、開始条件と未解決リスクを固定するための監査記録である。
 
+計算量・メモリ・断片化に関する追加監査は [pre_selfhost_performance_audit_20260426.md](./pre_selfhost_performance_audit_20260426.md) に分ける。
+
 ---
 
 ## 監査範囲

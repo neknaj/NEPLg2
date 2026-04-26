@@ -1,3 +1,21 @@
+# 2026-04-26 メモ (NEPLg2.0 self-host 性能監査)
+
+- [状況]:
+  - self-host 開始前監査に加えて、計算量、memory 使用量、断片化、copy cost の観点で未登録の問題を確認する必要があった。
+  - 既存 issue には `reduce_calls`、overload `TypeCtx` clone、深い HIR traversal など解決済み性能問題があるが、stdlib collection / allocator と import / monomorphize の未解決性能リスクが残っていた。
+- [修正]:
+  - `doc/neplg2/pre_selfhost_performance_audit_20260426.md` を追加し、性能観点の追加 Issue と self-host stage への反映条件を整理した。
+  - `HashMap` / `HashSet` 固定容量、`BTreeMap` / `BTreeSet` sorted array 更新コスト、allocator coalescing 不足、bulk memory copy 不足、import visibility clone、monomorphize trait impl lookup 線形走査を新規 Issue として追加した。
+  - `doc/neplg2/README.md` と `doc/neplg2/pre_selfhost_audit_20260426.md` から性能監査へ接続し、`todo.md` に対応 branch を追加した。
+- [確認済み]:
+  - `node nodesrc/issues.js index`: 94 件を index 化（open 35 / resolved 59）。
+  - `node nodesrc/issues.js check`: 94 files OK。
+  - 性能監査関連 Markdown link 確認: missing 0。
+  - `trunk build`: 成功。既存 warning は `ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91` で追跡。
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/pre-selfhost-performance-audit-playground.json`: 13/13 passed。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の変更は self-host 実装前の性能・メモリリスクを Issue として明確化したもの。
+
 # 2026-04-26 メモ (NEPLg2.0 self-host 開始前監査)
 
 - [状況]:

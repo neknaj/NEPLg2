@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:01:12.712Z",
+  "generated_at": "2026-04-26T02:10:43.575Z",
   "counts": {
-    "total": 88,
-    "open": 29,
+    "total": 94,
+    "open": 35,
     "resolved": 59,
     "by_area": {
       "core": {
-        "total": 32,
-        "open": 6,
+        "total": 34,
+        "open": 8,
         "resolved": 26
       },
       "stdlib": {
-        "total": 21,
-        "open": 13,
+        "total": 25,
+        "open": 17,
         "resolved": 8
       },
       "cli": {
@@ -335,6 +335,36 @@
       "file": "items/ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B.md"
     },
     {
+      "id": "ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F",
+      "title": "HashMap and HashSet have fixed capacity and no rehash path",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F.md"
+    },
+    {
+      "id": "ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3",
+      "title": "stdlib allocator does not coalesce free blocks",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-CLI-007-7A548794",
       "title": "LLVM toolchain 条件が既定で linux + clang 21.1.0 に固定される",
       "area": "cli",
@@ -395,6 +425,36 @@
       "file": "items/ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77.md"
     },
     {
+      "id": "ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0",
+      "title": "typecheck import visibility expansion clones the whole map each iteration",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0.md"
+    },
+    {
+      "id": "ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5",
+      "title": "monomorphize trait impl resolution falls back to linear scans",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/monomorphize.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5.md"
+    },
+    {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
       "title": "self-host CLI needs verified argv and option parsing surface",
       "area": "selfhost",
@@ -453,6 +513,36 @@
       "legacy_id": "RV-STDLIB-010",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-010",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB.md"
+    },
+    {
+      "id": "ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91",
+      "title": "BTreeMap and BTreeSet are sorted arrays with O(n) updates",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/btreeset.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91.md"
+    },
+    {
+      "id": "ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2",
+      "title": "stdlib byte copy paths use byte-by-byte loops instead of bulk memory copy",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/core/mem.nepl, stdlib/alloc/io.nepl, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_performance_audit_20260426.md",
+      "file": "items/ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2.md"
     },
     {
       "id": "ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91",

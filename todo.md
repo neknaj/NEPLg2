@@ -1,5 +1,11 @@
 2026-04-26 NEPLg2 Self-host
 
+- `stdlib/hash-collection-rehash` branch で `ISS-20260426T021000000Z-HASHCOLLECTION-REHASH-8A1D4C6F` に沿って `HashMap` / `HashSet` の grow / rehash を設計する
+- `stdlib/btree-array-cost` branch で `ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91` に沿って ordered collection の用途制限または実装置換を決める
+- `stdlib/allocator-coalesce` branch で `ISS-20260426T021002000Z-ALLOCATOR-FRAGMENTATION-D0E7A4C3` に沿って free block coalescing と fragmentation test を追加する
+- `stdlib/mem-bulk-copy` branch で `ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2` に沿って bulk memory copy API と backend lowering を整備する
+- `rust/import-visibility-worklist` branch で `ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0` に沿って import visibility closure を worklist 化する
+- `rust/monomorphize-trait-index` branch で `ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5` に沿って trait impl lookup index / cache を設計する
 - `stdlib/string-find-api` branch で `ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B` に沿って `alloc/string::find` の仕様と実装を確定する
 - `rust/selfhost-req-hashkey` branch で `ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10` に沿って user-defined key の `HashKey` 要件を fixture 化する
 - `rust/function-nested-test` branch で `ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77` に沿って通過済み nested function test の ignore を外す
