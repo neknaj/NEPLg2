@@ -76,6 +76,10 @@ function decodeExpectedReturn(expectedRet, rawValue, memory) {
 }
 
 function runWasiBytes(wasmBytes, stdinText, argv = []) {
+    return runWasiBytesWithImports(wasmBytes, stdinText, argv);
+}
+
+function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports = {}) {
     const wasmPath = mkTmpPath('nepl-doctest') + '.wasm';
     const stdinPath = mkTmpPath('wasi-stdin');
     const stdoutPath = mkTmpPath('wasi-stdout');
@@ -111,6 +115,7 @@ function runWasiBytes(wasmBytes, stdinText, argv = []) {
         const module = new WebAssembly.Module(Buffer.from(wasmBytes));
         const instance = new WebAssembly.Instance(module, {
             wasi_snapshot_preview1: wasi.wasiImport,
+            ...extraImports,
         });
         memory = instance.exports.memory || null;
         if (typeof instance.exports.main === 'function') {
@@ -152,12 +157,26 @@ function runWasiBytes(wasmBytes, stdinText, argv = []) {
     };
 }
 
+function runWasixBytesWithTtyFallback(wasmBytes, stdinText, argv = []) {
+    return runWasiBytesWithImports(wasmBytes, stdinText, argv, {
+        wasix_32v1: {
+            tty_get: () => 1,
+            tty_set: () => 1,
+        },
+    });
+}
+
+function isWasixTtyUnknownImport(result) {
+    const detail = `${result && result.trapError ? result.trapError : ''}\n${result && result.stderr ? result.stderr : ''}`;
+    return /wasix_32v1/.test(detail) && /tty_(get|set)/.test(detail) && /unknown import/i.test(detail);
+}
+
 function detectTarget(source) {
     const m = String(source || '').match(/^\s*#target\s+([^\s]+)/m);
     return m ? String(m[1]).trim() : '';
 }
 
-function runWasixBytes(wasmBytes, stdinText, argv = []) {
+function runWasmerWasixBytes(wasmBytes, stdinText, argv = []) {
     const wasmPath = mkTmpPath('nepl-doctest') + '.wasm';
     const vfsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-doctest-wasix-'));
     fs.writeFileSync(wasmPath, Buffer.from(wasmBytes));
@@ -238,6 +257,14 @@ function runWasixBytes(wasmBytes, stdinText, argv = []) {
             });
         }, timeoutMs);
     });
+}
+
+async function runWasixBytes(wasmBytes, stdinText, argv = []) {
+    const wasmerResult = await runWasmerWasixBytes(wasmBytes, stdinText, argv);
+    if (isWasixTtyUnknownImport(wasmerResult)) {
+        return runWasixBytesWithTtyFallback(wasmBytes, stdinText, argv);
+    }
+    return wasmerResult;
 }
 
 async function runTargetBytes(source, wasmBytes, stdinText, argv = []) {

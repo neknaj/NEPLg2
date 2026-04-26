@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T03:18:56.140Z",
+  "generated_at": "2026-04-26T03:22:15.645Z",
   "counts": {
     "total": 105,
-    "open": 33,
-    "resolved": 72,
+    "open": 32,
+    "resolved": 73,
     "by_area": {
-      "cli": {
-        "total": 17,
-        "open": 3,
-        "resolved": 14
-      },
       "core": {
         "total": 35,
         "open": 8,
@@ -26,6 +21,11 @@
         "open": 15,
         "resolved": 18
       },
+      "cli": {
+        "total": 17,
+        "open": 2,
+        "resolved": 15
+      },
       "examples": {
         "total": 13,
         "open": 0,
@@ -34,21 +34,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094",
-      "title": "wasix doctest runner lacks host support for tty_get and tty_set imports",
-      "area": "cli",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nodesrc/run_test.js, stdlib/platforms/wasix/tui.nepl, tests/stdlib/features_tui.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -933,6 +918,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91.md"
+    },
+    {
+      "id": "ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094",
+      "title": "wasix doctest runner lacks host support for tty_get and tty_set imports",
+      "area": "cli",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nodesrc/run_test.js, tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

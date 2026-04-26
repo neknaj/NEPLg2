@@ -56,6 +56,25 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の修正は test runner の Wasmer CLI 互換性改善であり、言語仕様本文への変更はない。
 
+# 2026-04-26 メモ (ISS-20260426T031747615Z WASIX tty host fallback 修正)
+
+- 状況:
+  - Wasmer mount option 互換を直した後、`tests/stdlib/features_tui.n.md` は `wasix_32v1.tty_get` unknown import で run phase に失敗していた。
+  - `features_tui` の pure helper case でも、`platforms/wasix/tui` の module-level `#extern` が wasm import として必要になるため、実行前 link で落ちていた。
+- 原因:
+  - doctest runner が WASIX TTY import を提供しない環境での fallback を持っていなかった。
+  - `get_terminal_size` は TTY 取得失敗時に `TerminalSize 0 0` を返す仕様なので、host fallback は成功を偽装せず失敗 errno を返すのが適切だった。
+- 修正:
+  - `nodesrc/run_test.js` で、まず Wasmer 実行を試し、`wasix_32v1.tty_get` / `tty_set` unknown import のときだけ Node WASI + `wasix_32v1` stub で再実行するようにした。
+  - fallback の `tty_get` / `tty_set` は失敗 errno を返し、stdlib 側の既存分岐で `0,0` に落とす。
+- 確認済み:
+  - `node --check nodesrc/run_test.js`: 成功
+  - WASIX smoke を `nodesrc/run_test.js` へ直接渡した実行が `ok=true` で完了。
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-issue.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/wasix-tty-tests-stdlib.json -j 4`: 202 total / 201 passed / 1 failed。残りは既存 `ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318`。
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は WASIX doctest runner の host import fallback であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (RV-STDLIB-018 streamio ByteBuf writer 修正)
 
 - 状況:
