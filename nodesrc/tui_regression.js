@@ -9,6 +9,7 @@ const { spawn, spawnSync } = require('node:child_process');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
+const { wasmerRunMountArgs } = require('./wasmer_args');
 
 function parseArgs(argv) {
     const opts = {
@@ -110,7 +111,8 @@ function runCompile(opts) {
 
 function runScenario(opts, wasmPath, scenario, vfsRoot) {
     return new Promise((resolve, reject) => {
-        const child = spawn(opts.wasmer, ['run', `--volume=${vfsRoot}:${vfsRoot}`, wasmPath], {
+        const mountArgs = wasmerRunMountArgs(opts.wasmer, vfsRoot, '/');
+        const child = spawn(opts.wasmer, ['run', ...mountArgs, wasmPath], {
             stdio: ['pipe', 'pipe', 'pipe'],
         });
         let stdout = '';

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T03:12:18.651Z",
+  "generated_at": "2026-04-26T03:18:56.140Z",
   "counts": {
-    "total": 104,
+    "total": 105,
     "open": 33,
-    "resolved": 71,
+    "resolved": 72,
     "by_area": {
       "cli": {
-        "total": 16,
+        "total": 17,
         "open": 3,
-        "resolved": 13
+        "resolved": 14
       },
       "core": {
         "total": 35,
@@ -35,8 +35,8 @@
   },
   "issues": [
     {
-      "id": "ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91",
-      "title": "wasix doctest runner uses wasmer --volume unsupported by Wasmer 1.x",
+      "id": "ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094",
+      "title": "wasix doctest runner lacks host support for tty_get and tty_set imports",
       "area": "cli",
       "status": "open",
       "resolved": false,
@@ -44,10 +44,10 @@
       "type": "bug",
       "created": "2026-04-26",
       "updated": "2026-04-26",
-      "target": "nodesrc/run_test.js",
+      "target": "nodesrc/run_test.js, stdlib/platforms/wasix/tui.nepl, tests/stdlib/features_tui.n.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91.md"
+      "file": "items/ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
@@ -918,6 +918,21 @@
       "legacy_id": "RV-CLI-011",
       "source": "doc/review20260425/cli.md#rv-cli-011",
       "file": "items/ISS-20260425T000000Z-RV-CLI-011-5F45E617.md"
+    },
+    {
+      "id": "ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91",
+      "title": "wasix doctest runner uses wasmer --volume unsupported by Wasmer 1.x",
+      "area": "cli",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nodesrc/run_test.js, nodesrc/tui_regression.js, nodesrc/wasmer_args.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T030615554Z-WASIX-DOCTEST-RUNNER-USES-WASMER-VOL-8527FD91.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

@@ -16,6 +16,7 @@ const { spawn } = require('node:child_process');
 const { WASI } = require('node:wasi');
 const { candidateDistDirs } = require('./util_paths');
 const { loadCompilerFromCandidates } = require('./compiler_loader');
+const { wasmerRunMountArgs } = require('./wasmer_args');
 
 function readStdinAll() {
     return new Promise((resolve) => {
@@ -168,9 +169,10 @@ function runWasixBytes(wasmBytes, stdinText, argv = []) {
     })();
 
     return new Promise((resolve) => {
+        const mountArgs = wasmerRunMountArgs(wasmerBin, vfsRoot, '/');
         const child = spawn(
             wasmerBin,
-            ['run', `--volume=${vfsRoot}:${vfsRoot}`, wasmPath, ...(Array.isArray(argv) ? argv.map((v) => String(v)) : [])],
+            ['run', ...mountArgs, wasmPath, ...(Array.isArray(argv) ? argv.map((v) => String(v)) : [])],
             { stdio: ['pipe', 'pipe', 'pipe'] },
         );
         let stdout = '';

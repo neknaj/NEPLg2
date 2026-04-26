@@ -36,6 +36,26 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の修正は import facade の名前解決と TUI feature test の復旧であり、言語仕様本文への変更はない。
 
+# 2026-04-26 メモ (ISS-20260426T030615554Z WASIX doctest runner Wasmer 互換修正)
+
+- 状況:
+  - `features_tui` の compile failure を直した後、ローカル Wasmer 1.0.0 では `nodesrc/run_test.js` が渡す `wasmer run --volume=...` を認識できず run phase に進めなかった。
+  - `nodesrc/tui_regression.js` にも同じ `--volume` 固定が残っていた。
+- 原因:
+  - Wasmer の mount option は version により `--volume` / `--mapdir` / `--dir` が分かれ、Wasmer 1.x では `--volume` が存在しない。
+  - Windows host path の drive colon は `--mapdir guest:host` の区切りと衝突するため、`::` 区切りも必要だった。
+- 修正:
+  - `nodesrc/wasmer_args.js` を追加し、`wasmer run --help` から対応 mount option を検出するようにした。
+  - `run_test.js` と `tui_regression.js` は共通 helper を使い、host temp dir を guest `/` として preopen する。
+  - 修正後に発覚した `wasix_32v1.tty_get` host import 不足は `ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094` として分離した。
+- 確認済み:
+  - `node --check nodesrc/run_test.js; node --check nodesrc/tui_regression.js; node --check nodesrc/wasmer_args.js`: 成功
+  - `wasmerRunMountArgs` はローカル Wasmer 1.0.0 で `--mapdir=/::C:/tmp/host` を返す。
+  - WASIX smoke を `nodesrc/run_test.js` へ直接渡した実行が `ok=true` で完了。
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-issue.json -j 1`: `--volume` error は解消。次の `tty_get` unknown import は新規 Issue で追跡。
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は test runner の Wasmer CLI 互換性改善であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (RV-STDLIB-018 streamio ByteBuf writer 修正)
 
 - 状況:
