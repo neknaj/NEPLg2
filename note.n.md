@@ -97,6 +97,27 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の修正は WASIX doctest runner の host import fallback であり、言語仕様本文への変更はない。
 
+# 2026-04-26 メモ (ISS-20260426T023624387Z-PIPE-004372E8 pipe 右辺 inline ascription 修正)
+
+- 状況:
+  - `unwrap_ok open WriteStream::Stdio |> writeln <i64> cast 2` が `D3006` / `D3013` / `D3016` で失敗していた。
+  - 同じ `writeln w <i64> cast 2` は通常呼び出しでは compile でき、`let two <i64> cast 2; |> writeln two` へ分けると通るため、streamio の overload ではなく pipe 右辺の nested argument boundary が原因だった。
+- 原因:
+  - `check_prefix` が pipe 直前の `pending_ascription` を一律に次の pipe 注入後まで遅延していた。
+  - そのため `writeln <i64> cast 2` の `<i64>` が `cast 2` の expected type として使われず、`cast` の overload 解決が失敗し、pipe 左辺 stack の未 reduction と余剰値診断へ連鎖していた。
+- 修正:
+  - `base_depth` より深く、直前が assign marker ではない ascription を「現在の引数式に閉じた局所 ascription」として扱い、pipe 直前でも先に適用するようにした。
+  - `let s <S> 10 |> S` のような代入側注釈は assign marker を持つため、従来通り pipe target reduction 後に適用される。
+  - `nepl-core/tests/pipe_operator.rs` と `tests/compiler/pipe_operator.n.md` に core-only の `take_i64` 回帰と stdlib stream writer 回帰を追加した。
+- 確認済み:
+  - `cargo fmt --all --check`
+  - `cargo test -p nepl-core --test pipe_operator`: 24/24 passed
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/compiler/pipe_operator.n.md --no-tree -o tmp/rv-core-pipe-right-nested.json -j 1`: 22/22 passed
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/rv-core-pipe-right-streamio.json -j 1`: 13/13 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は現行 compiler の pipe/typechecker bug 修正であり、言語仕様や self-host 計画本文への変更ではない。
+
 # 2026-04-26 メモ (RV-STDLIB-018 streamio ByteBuf writer 修正)
 
 - 状況:

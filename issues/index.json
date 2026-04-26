@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T03:37:45.937Z",
+  "generated_at": "2026-04-26T03:40:14.782Z",
   "counts": {
     "total": 105,
-    "open": 31,
-    "resolved": 74,
+    "open": 30,
+    "resolved": 75,
     "by_area": {
       "core": {
         "total": 36,
-        "open": 8,
-        "resolved": 28
+        "open": 7,
+        "resolved": 29
       },
       "selfhost": {
         "total": 7,
@@ -63,21 +63,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
       "file": "items/ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10.md"
-    },
-    {
-      "id": "ISS-20260426T023624387Z-PIPE-004372E8",
-      "title": "pipe 右辺の明示型引数付きネスト呼び出しが過剰に分断される",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/tests/pipe_operator.rs, tests/compiler/pipe_operator.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T023624387Z-PIPE-004372E8.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
@@ -1053,6 +1038,21 @@
       "legacy_id": "RV-CORE-019",
       "source": "doc/review20260425/core.md#rv-core-019",
       "file": "items/ISS-20260425T000000Z-RV-CORE-019-3D2AEC66.md"
+    },
+    {
+      "id": "ISS-20260426T023624387Z-PIPE-004372E8",
+      "title": "pipe 右辺の明示型引数付きネスト呼び出しが過剰に分断される",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/tests/pipe_operator.rs, tests/compiler/pipe_operator.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T023624387Z-PIPE-004372E8.md"
     },
     {
       "id": "ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318",

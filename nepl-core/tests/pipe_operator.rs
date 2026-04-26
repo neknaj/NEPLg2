@@ -1,5 +1,5 @@
 mod harness;
-use harness::run_main_i32;
+use harness::{run_main_i32, run_main_wasi_i32};
 
 #[test]
 fn pipe_basic_call() {
@@ -324,6 +324,47 @@ fn main <()->i32> ():
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 0);
+}
+
+#[test]
+fn pipe_target_nested_ascribed_call_argument() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/cast" as *
+#import "core/math" as *
+
+fn take_i64 <(i32, i64)->i32> (x, y):
+    add x <i32> cast y
+
+fn main <()->i32> ():
+    1 |> take_i64 <i64> cast 2
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 3);
+}
+
+#[test]
+fn pipe_stream_writer_nested_ascribed_call_argument() {
+    let src = r#"
+#entry main
+#indent 4
+#target std
+#import "core/cast" as *
+#import "core/result" as *
+#import "std/iotarget" as *
+#import "std/streamio" as *
+
+fn main <()*>i32> ():
+    unwrap_ok open WriteStream::Stdio
+    |> writeln <i64> cast 2
+    |> flush
+    |> close;
+    0
+"#;
+    let code = run_main_wasi_i32(src);
+    assert_eq!(code, 0);
 }
 
 #[test]
