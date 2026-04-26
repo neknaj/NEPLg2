@@ -331,3 +331,44 @@ fn main <()->i32> ():
     let b true |> not
     if b 1 0
 ```
+
+## pipe_target_nested_ascribed_call_argument
+
+neplg2:test
+ret: 3
+```neplg2
+
+#entry main
+#indent 4
+#target core
+#import "core/cast" as *
+#import "core/math" as *
+
+fn take_i64 <(i32, i64)->i32> (x, y):
+    add x <i32> cast y
+
+fn main <()->i32> ():
+    1 |> take_i64 <i64> cast 2
+```
+
+## pipe_stream_writer_nested_ascribed_call_argument
+
+neplg2:test
+stdout: "2\n"
+```neplg2
+
+#entry main
+#indent 4
+#target std
+#import "core/cast" as *
+#import "core/result" as *
+#import "std/iotarget" as *
+#import "std/streamio" as *
+
+fn main <()*>i32> ():
+    unwrap_ok open WriteStream::Stdio
+    |> writeln <i64> cast 2
+    |> flush
+    |> close;
+    0
+```

@@ -4335,6 +4335,24 @@ impl<'a> BlockChecker<'a> {
                 }
             }
         }
+
+        // pipe 直前でも、現在の引数式だけに付いた型注釈は次の pipe へ持ち越さない。
+        fn is_local_pending_ascription(
+            stack: &[StackEntry],
+            pending: Option<(TypeId, usize)>,
+            base_depth: usize,
+        ) -> bool {
+            pending
+                .map(|(_, base)| {
+                    base > base_depth
+                        && stack
+                            .get(base.saturating_sub(1))
+                            .map(|entry| entry.assign.is_none())
+                            .unwrap_or(true)
+                })
+                .unwrap_or(false)
+        }
+
         for (idx, item) in expr.items.iter().enumerate() {
             // std::eprintln!("  Item: {:?}", item);
             let next_is_pipe = matches!(expr.items.get(idx + 1), Some(PrefixItem::Pipe(_)));
@@ -5821,7 +5839,9 @@ impl<'a> BlockChecker<'a> {
             // Try applying pending ascription before call reduction.
             // If the next token is `|>`, defer ascription until pipe injection
             // and subsequent call reduction are completed.
-            if !next_is_pipe {
+            if !next_is_pipe
+                || is_local_pending_ascription(stack.as_slice(), pending_ascription, base_depth)
+            {
                 try_apply_pending_ascription(self, stack, &mut pending_ascription);
             }
 
@@ -5855,7 +5875,9 @@ impl<'a> BlockChecker<'a> {
                 let mut pending_base = pending_ascription.map(|(_, base)| base);
                 let mut pipe_guard = false;
                 let reduction_expected = if next_is_pipe && seen_pipe {
-                    None
+                    pending_ascription.filter(|pending| {
+                        is_local_pending_ascription(stack.as_slice(), Some(*pending), base_depth)
+                    })
                 } else {
                     pending_ascription
                 };
@@ -5875,7 +5897,9 @@ impl<'a> BlockChecker<'a> {
                 // std::eprintln!("  Stack after reduce: {:?}", stack.iter().map(|e| self.ctx.type_to_string(e.ty)).collect::<Vec<_>>());
 
                 // Try applying pending ascription after call reduction.
-                if !next_is_pipe {
+                if !next_is_pipe
+                    || is_local_pending_ascription(stack.as_slice(), pending_ascription, base_depth)
+                {
                     try_apply_pending_ascription(self, stack, &mut pending_ascription);
                 }
 
