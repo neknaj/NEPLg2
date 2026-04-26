@@ -95,6 +95,21 @@
   - `node nodesrc/tests.js -i stdlib/neplg3 --no-tree -o tmp/neplg3-stdlib-placeholder-tests.json -j 2`: 6/6 passed（全件 skip doctest として収集成功）。
 - [plan.mdとの差異]:
   - plan.md は変更していない。plan.md は旧 NEPLg2 起点の設計メモとして保持し、次世代仕様の正は `doc/neplg3/spec/` に移した。
+# 2026-04-26 メモ (RV-STDLIB-019 Issue 台帳同期)
+
+- [状況]:
+  - origin/main から取り込んだ `RV-STDLIB-019` 修正は、旧 `doc/review20260425/issues.md` と実装上は解決済みだった。
+  - 新しい `issues/items/ISS-20260425T000000Z-RV-STDLIB-019-563743A1.md` の frontmatter だけが `open` のまま残り、open issue 一覧に解決済み問題が残っていた。
+- [修正]:
+  - 旧 review 本文の `RV-STDLIB-019` metadata を `解決済: true` / `状態: verified` に揃えた。
+  - 新 Issue 台帳の `RV-STDLIB-019` を `status: verified` / `resolved: true` に更新し、対応結果を追記した。
+  - `node nodesrc/issues.js index` で索引を再生成した。
+- [確認済み]:
+  - `node nodesrc/issues.js index`: 94 件を index 化（open 34 / resolved 60）。
+  - `node nodesrc/issues.js check`: 94 files OK。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の変更は remote 取り込み後の Issue 台帳状態の同期であり、仕様や実装挙動は変更していない。
+
 # 2026-04-26 メモ (RV-STDLIB-025 enum storage / zero-sized struct 修正)
 
 - 状況:

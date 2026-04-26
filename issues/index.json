@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:10:43.575Z",
+  "generated_at": "2026-04-26T02:21:18.820Z",
   "counts": {
     "total": 94,
-    "open": 35,
-    "resolved": 59,
+    "open": 34,
+    "resolved": 60,
     "by_area": {
       "core": {
         "total": 34,
         "open": 8,
         "resolved": 26
-      },
-      "stdlib": {
-        "total": 25,
-        "open": 17,
-        "resolved": 8
       },
       "cli": {
         "total": 15,
@@ -25,6 +20,11 @@
         "total": 7,
         "open": 7,
         "resolved": 0
+      },
+      "stdlib": {
+        "total": 25,
+        "open": 16,
+        "resolved": 9
       },
       "examples": {
         "total": 13,
@@ -48,21 +48,6 @@
       "legacy_id": "RV-CORE-007",
       "source": "doc/review20260425/core.md#rv-core-007",
       "file": "items/ISS-20260425T000000Z-RV-CORE-007-5E3F920D.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-019-563743A1",
-      "title": "collection doctest の値ブロック末尾セミコロンが戻り値を unit にしている",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "test",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/btreeset.nepl, stdlib/alloc/collections/queue.nepl, stdlib/alloc/collections/ringbuffer.nepl",
-      "legacy_id": "RV-STDLIB-019",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-019",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-019-563743A1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-011-5F45E617",
@@ -783,6 +768,21 @@
       "legacy_id": "RV-STDLIB-011",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-011",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-011-9BFBE6EC.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-019-563743A1",
+      "title": "collection doctest の値ブロック末尾セミコロンが戻り値を unit にしている",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P0",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/btreeset.nepl, stdlib/alloc/collections/queue.nepl, stdlib/alloc/collections/ringbuffer.nepl",
+      "legacy_id": "RV-STDLIB-019",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-019",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-019-563743A1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-002-D74F45E6",

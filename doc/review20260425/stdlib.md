@@ -152,8 +152,8 @@ compiler の move checker が `Copy` と判断すると、所有権移動を検�
 
 ## RV-STDLIB-004: collection free が要素の Drop を呼ばない
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: bug
 - 対象: `stdlib/alloc/collections/**`
