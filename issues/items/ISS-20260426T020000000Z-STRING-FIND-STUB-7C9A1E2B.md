@@ -2,13 +2,13 @@
 id: ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B
 title: "alloc/string find is a stub and always returns None"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-26
 updated: 2026-04-26
-target: stdlib/alloc/string.nepl
+target: "stdlib/alloc/string.nepl, stdlib/tests/string.n.md"
 source: doc/neplg2/pre_selfhost_audit_20260426.md
 ---
 
@@ -39,7 +39,14 @@ source text の token 分割、diagnostic 表示、module path 正規化、CLI o
 `find` の仕様を byte index 返却として明文化し、空 pattern、pattern が source より長い場合、先頭一致、末尾一致、未検出を doctest 化する。
 最初は naive search でよいが、`str` の UTF-8 保証 issue と矛盾しないよう、返す位置が byte offset であることを明記する。
 
+## 対応結果
+
+`stdlib/alloc/string.nepl` の `find` を `Option::None` 固定の stub から、byte index を返す naive search に置き換えた。
+空 pattern は `Some(0)`、pattern が source より長い場合と未検出は `None` とし、返却位置が UTF-8 文字数ではなく byte offset であることをコメントと doctest に明記した。
+`stdlib/tests/string.n.md` に self-host lexer の delimiter 探索を想定した改行を含む fixture を追加し、境界条件を通常 test として固定した。
+
 ## 検証
 
-- `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-find-tests.json -j 1`
-- self-host lexer の delimiter 探索 fixture で `find` を使ったケースを追加する。
+- `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-find-tests.json -j 1` (`total=6`, `passed=6`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/string-find-fixture-tests.json -j 1` (`total=5`, `passed=5`, `failed=0`)
+- `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/string-find-tests-stdlib-string.json -j 1` (`total=17`, `passed=17`, `failed=0`)

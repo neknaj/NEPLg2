@@ -1,3 +1,22 @@
+# 2026-04-26 メモ (ISS-20260426T020000000Z STRING-FIND-STUB 修正)
+
+- 状況:
+  - `stdlib/alloc/string.nepl` の `find` は public API だが、引数を使わず常に `Option::None<i32>` を返していた。
+  - self-host compiler の lexer / parser では delimiter や prefix の探索に byte index が必要になるため、stub のままだと未検出と誤判定される。
+- 原因:
+  - `find` の仕様が byte offset 返却として固定されておらず、未実装コメントのまま API だけが公開されていた。
+- 修正:
+  - `find` を byte index 返却の naive search として実装し、空 pattern は `Some(0)`、pattern が source より長い場合と未検出は `None` にした。
+  - コメントと doctest に UTF-8 文字数ではなく byte index を返す仕様、境界条件、計算量を記述した。
+  - `stdlib/tests/string.n.md` に、NEPLg3 self-host lexer の delimiter 探索を想定した改行込み fixture を追加した。
+  - `issues/items/ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B.md` を verified に更新した。
+- 確認済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-find-tests.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/string-find-fixture-tests.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/string-find-tests-stdlib-string.json -j 1`: 17/17 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は self-host 前提の stdlib API 欠落を解消したもので、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (RV-STDLIB-018 streamio ByteBuf writer 修正)
 
 - 状況:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:46:14.946Z",
+  "generated_at": "2026-04-26T02:58:09.183Z",
   "counts": {
     "total": 103,
-    "open": 34,
-    "resolved": 69,
+    "open": 33,
+    "resolved": 70,
     "by_area": {
       "core": {
         "total": 35,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 33,
-        "open": 17,
-        "resolved": 16
+        "open": 16,
+        "resolved": 17
       },
       "cli": {
         "total": 15,
@@ -258,21 +258,6 @@
       "legacy_id": "RV-STDLIB-013",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-013",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-013-F256803D.md"
-    },
-    {
-      "id": "ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B",
-      "title": "alloc/string find is a stub and always returns None",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/string.nepl",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
-      "file": "items/ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B.md"
     },
     {
       "id": "ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B",
@@ -1293,6 +1278,21 @@
       "legacy_id": "RV-STDLIB-025",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-025",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-025-F55B7943.md"
+    },
+    {
+      "id": "ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B",
+      "title": "alloc/string find is a stub and always returns None",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/string.nepl, stdlib/tests/string.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
