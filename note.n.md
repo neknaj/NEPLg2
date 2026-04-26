@@ -95,6 +95,20 @@
   - `node nodesrc/tests.js -i stdlib/neplg3 --no-tree -o tmp/neplg3-stdlib-placeholder-tests.json -j 2`: 6/6 passed（全件 skip doctest として収集成功）。
 - [plan.mdとの差異]:
   - plan.md は変更していない。plan.md は旧 NEPLg2 起点の設計メモとして保持し、次世代仕様の正は `doc/neplg3/spec/` に移した。
+# 2026-04-26 メモ (RV-STDLIB-022 Issue 台帳移行)
+
+- [状況]:
+  - origin/main の `RV-STDLIB-022` 修正は旧 `doc/review20260425/stdlib.md` に verified として存在するが、新しい `issues/items/` にはまだ移行されていなかった。
+- [修正]:
+  - `RV-STDLIB-022` を `ISS-20260425T000000Z-RV-STDLIB-022-65715E0B` として追加した。
+  - frontmatter は `status: verified` / `resolved: true` とし、HashMap doctest indent と by-value fixture 修正の対応結果を上部にも記録した。
+  - `node nodesrc/issues.js index` で索引を再生成した。
+- [確認済み]:
+  - `node nodesrc/issues.js index`: 97 件を index 化（open 34 / resolved 63）。
+  - `node nodesrc/issues.js check`: 97 files OK。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の変更は remote で解決済みの旧review issueを新Issue台帳へ反映するもの。
+
 # 2026-04-26 メモ (RV-STDLIB-021 Issue 台帳移行)
 
 - [状況]:

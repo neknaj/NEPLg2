@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:26:36.753Z",
+  "generated_at": "2026-04-26T02:28:34.086Z",
   "counts": {
-    "total": 96,
+    "total": 97,
     "open": 34,
-    "resolved": 62,
+    "resolved": 63,
     "by_area": {
       "core": {
         "total": 34,
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 27,
+        "total": 28,
         "open": 16,
-        "resolved": 11
+        "resolved": 12
       },
       "examples": {
         "total": 13,
@@ -1188,6 +1188,21 @@
       "legacy_id": "RV-STDLIB-021",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-021",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-021-F72F1664.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-022-65715E0B",
+      "title": "HashMap doctest にインデント不整合が残っている",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/hashmap.nepl",
+      "legacy_id": "RV-STDLIB-022",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-022",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-022-65715E0B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
