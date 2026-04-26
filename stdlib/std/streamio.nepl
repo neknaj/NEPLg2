@@ -1122,6 +1122,28 @@ fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
                                             ();
                                     w1
 
+//: ## append_bytebuf_impl
+//: `ByteBuf` を buffered sink へ[追記/ついき]する
+//:
+//: ### [目的/もくてき]
+//: - binary payload を `str` へ[変換/へんかん]せず、`StreamWriter` の byte buffer へそのまま[積/つ]みます。
+//:
+//: ### [注意/ちゅうい]
+//: - `ByteBuf` の[所有権/しょゆうけん]を[受/う]け[取/と]り、copy [後/ご]に[解放/かいほう]します。
+//: - writer の[内部/ないぶ] capacity を[超/こ]える入力でも、1 byte [単位/たんい]で必要に応じて flush するため overflow しません。
+fn append_bytebuf_impl <(StreamWriter,ByteBuf)*>StreamWriter> (w, bytes):
+    let n <i32> get bytes "len";
+    let src <MemPtr<u8>> get bytes "ptr";
+    let mut ww <StreamWriter> w;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> unwrap<i32> load_u8 mem_ptr_add src i;
+            set ww push_u8_impl ww ch;
+            set i add i 1;
+    io_bytebuf_free bytes;
+    ww
+
 //: ## append_i32_impl
 //: `i32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
 //:
@@ -1382,6 +1404,10 @@ trait StreamWritable:
 impl StreamWritable for str:
     fn append <(StreamWriter,str)*>StreamWriter> (w, value):
         append_str_impl w value
+
+impl StreamWritable for ByteBuf:
+    fn append <(StreamWriter,ByteBuf)*>StreamWriter> (w, value):
+        append_bytebuf_impl w value
 
 impl StreamWritable for i32:
     fn append <(StreamWriter,i32)*>StreamWriter> (w, value):
