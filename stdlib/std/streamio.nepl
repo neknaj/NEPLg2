@@ -7,7 +7,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]の `std/stdio` は error code を[外部/がいぶ]へ[公開/こうかい]していないため、`StdoutStream` / `StdinStream` / `StreamWriter` の impl は[失敗/しっぱい]を[詳細化/しょうさいか]できません。[現状/げんじょう]は成功として[丸/まる]めます。
-//: - stdin の text read は `std/stdio.read_all` に[従/したが]い、[現状/げんじょう]では 4096 byte までの[固定長/こていちょう][読/よ]み[込/こ]みです。
+//: - stdin の text read は `std/stdio.read_all` に[従/したが]い、EOF までの[全体/ぜんたい]を `str` として[読/よ]み[込/こ]みます。
 //: - stdin の byte read と `StreamScanner` は、binary [経路/けいろ]として EOF までの[全体/ぜんたい]を `ByteBuf` / scanner buffer に[保持/ほじ]します。
 //:
 //: ### [計算量/けいさんりょう]

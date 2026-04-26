@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T04:38:39.539Z",
+  "generated_at": "2026-04-26T04:49:19.935Z",
   "counts": {
     "total": 105,
-    "open": 24,
-    "resolved": 81,
+    "open": 23,
+    "resolved": 82,
     "by_area": {
       "core": {
         "total": 36,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 32,
-        "open": 13,
-        "resolved": 19
+        "open": 12,
+        "resolved": 20
       },
       "cli": {
         "total": 17,
@@ -138,21 +138,6 @@
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",
-      "title": "stdio read_all が 4096 byte で切り捨てる",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/std/stdio.nepl, stdlib/std/streamio.nepl",
-      "legacy_id": "RV-STDLIB-005",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-005",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-006-673F4E12",
@@ -1098,6 +1083,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",
+      "title": "stdio read_all が 4096 byte で切り捨てる",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, tests/stdlib/stdio_read_all.n.md",
+      "legacy_id": "RV-STDLIB-005",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-005",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-014-83D059C2",

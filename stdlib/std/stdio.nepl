@@ -434,17 +434,18 @@ fn stdio_read_all_bytes <()*>ByteBuf> ():
 fn noshadow print <(str)*>()> (s):
     stdio_write_mem string_data_ptr s load_i32 s
 
-//: read_all: 標準入力を読み込む（固定長）
+//: read_all: 標準入力を EOF まで読み込む
 //:
 //: 目的:
-//: - stdin から最大 4096 バイト読み込み、文字列として返します。
+//: - stdin から EOF まで読み込み、文字列として返します。
 //:
 //: 実装(アルゴリズム):
-//: - 1 回の fd_read で読み込みます。
+//: - 4096 byte から開始し、buffer が埋まるたびに 2 倍へ `realloc` します。
+//: - `fd_read` が 0 byte を返すまで反復し、最後に先頭 4 byte へ読み込み長を書いて `str` として返します。
 //:
 //: 注意(重要):
-//: - 失敗時は長さ 0 を返します。
-//: - 入力が 4096 バイトを超える場合は切り捨てます。
+//: - 失敗時は空文字列を返します。
+//: - UTF-8 validation はまだ行わず、読み込んだ byte sequence を現行 `str` 表現へ詰め替えます。
 //:
 //: 計算量:
 //: - O(n)
@@ -467,38 +468,73 @@ fn noshadow print <(str)*>()> (s):
 //:     read_all ();
 //: ```
 fn read_all <()*>str> ():
-    let cap <i32> 4096;
+    let mut cap <i32> 4096;
     match std_alloc add 4 cap:
         Result::Err _:
             ""
-        Result::Ok out:
+        Result::Ok out0:
             match std_alloc 8:
                 Result::Err _:
-                    std_free out add 4 cap;
+                    std_free out0 add 4 cap;
                     ""
                 Result::Ok iov:
                     match std_alloc 4:
                         Result::Err _:
                             std_free iov 8;
-                            std_free out add 4 cap;
+                            std_free out0 add 4 cap;
                             ""
                         Result::Ok nread:
-                            store_i32 iov add out 4;
-                            store_i32 add iov 4 cap;
-                            store_i32 nread 0;
-                            let errno <i32> fd_read 0 iov 1 nread;
-                            let res <str> if:
-                                eq errno 0
-                                then:
-                                    let n <i32> load_i32 nread;
-                                    store_i32 out n;
-                                    out
-                                else:
-                                    store_i32 out 0;
-                                    out
+                            let mut out <i32> out0;
+                            let mut len <i32> 0;
+                            let mut done <i32> 0;
+                            let mut failed <i32> 0;
+                            while eq done 0:
+                                do:
+                                    if:
+                                        eq len cap
+                                        then:
+                                            let new_cap <i32> mul cap 2;
+                                            match realloc out add 4 cap add 4 new_cap:
+                                                Result::Ok new_out:
+                                                    set out new_out;
+                                                    set cap new_cap;
+                                                Result::Err _e:
+                                                    set failed 1;
+                                                    set done 1;
+                                        else:
+                                            ();
+                                    if:
+                                        eq done 0
+                                        then:
+                                            store_i32 iov add add out 4 len;
+                                            store_i32 add iov 4 sub cap len;
+                                            store_i32 nread 0;
+                                            let errno <i32> fd_read 0 iov 1 nread;
+                                            if:
+                                                ne errno 0
+                                                then:
+                                                    set failed 1;
+                                                    set done 1;
+                                                else:
+                                                    let n <i32> load_i32 nread;
+                                                    if:
+                                                        eq n 0
+                                                        then:
+                                                            set done 1;
+                                                        else:
+                                                            set len add len n;
+                                        else:
+                                            ();
                             std_free nread 4;
                             std_free iov 8;
-                            res
+                            if:
+                                eq failed 1
+                                then:
+                                    std_free out add 4 cap;
+                                    ""
+                                else:
+                                    store_i32 out len;
+                                    out
 
 //: read_line: 1 行読み込む
 //:

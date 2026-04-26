@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (ISS-20260425T000000Z RV-STDLIB-005 修正)
+
+- 状況:
+  - `std/stdio.read_all` は名前に反して 4096 byte の固定 buffer を1回読むだけで、長いstdinを正常系として切り捨てていた。
+  - `std/streamio` のtext read注意書きにも、4096 byte固定読み込みの古い制約が残っていた。
+- 原因:
+  - `read_all` が初期実装の単発 `fd_read` のまま残り、既に存在するEOFまでのbinary read経路と同じgrowable方針へ移行されていなかった。
+- 修正:
+  - `read_all` を 4096 byte から開始して、bufferが埋まるたびに2倍へ `realloc` し、`fd_read` が0 byteを返すまで反復する実装へ変更した。
+  - 失敗時は確保済みbufferを解放して空文字列を返し、成功時は先頭4 byteへ実読み込み長を書いて `str` として返す。
+  - `std/streamio.nepl` のtext stdin説明をEOFまで読む内容へ更新した。
+  - `tests/stdlib/stdio_read_all.n.md` に 4128 byte stdin の回帰テストを追加し、`read_all` の長さが入力全体と一致することを確認した。
+  - `issues/items/ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85.md` を verified に更新した。
+- 確認済み:
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-read-all.json -j 1`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md -i tests/stdlib/io.n.md -i tests/stdlib/streamio.n.md --no-tree -o tmp/stdio-read-all-suite.json -j 1`: 20/20 passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl -i tests/stdlib/stdio_read_all.n.md -i tests/stdlib/io.n.md -i tests/stdlib/streamio.n.md --no-tree -o tmp/stdio-read-all-suite.json -j 1`: 48/48 passed
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正はstdlib text stdinの切り捨てをなくす既存APIのバグ修正であり、self-host CLI向けのResult付きstderr/stdout API追加とは別issueで扱う。
+
 # 2026-04-26 メモ (ISS-20260426T010000Z SELFHOST-SOURCE-TREE 修正)
 
 - 状況:
