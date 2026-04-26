@@ -44,6 +44,7 @@ discord sent: chunks=1, url=/api/webhooks/...
 本機能の報告は `doc/progress_report_template.md` の形式に従うこと。
 - タイトルは `# 進捗報告: YYYY-MM-DD — <1行要約>` 形式
 - `## 直近の改良` 内で、通常改良と `Issue対応`（Issue番号/原因/対応内容）を分けて記載する
+- 新しい Issue を追加したときは、commit 前でも Discord report を送る。追加した Issue ID、原因、影響、次の対応を必ず含める。
 
 ## 最低記載ルール
 - タイトルは `# 進捗報告: YYYY-MM-DD — <1行要約>`

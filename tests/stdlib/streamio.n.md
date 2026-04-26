@@ -98,11 +98,10 @@ stdout: "1 2\n"
 #import "core/cast" as *
 
 fn main <()*>i32> ():
-    let two <i64> cast 2;
     unwrap_ok open WriteStream::Stdio
     |> write 1
     |> write " "
-    |> writeln two
+    |> writeln <i64> cast 2
     |> flush
     |> close;
     0

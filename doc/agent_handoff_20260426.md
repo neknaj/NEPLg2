@@ -16,7 +16,7 @@
 - commit 後は Discord report を送る。
 - commit 後は push し、その後 `git pull --rebase origin main` で他 agent の変更を取り込む。
 - commit 前には必要なテストを通し、`node nodesrc/issues.js index` と `node nodesrc/issues.js check` を実行する。
-- 新たな問題を発見したら `issues/items/*.md` に Issue を追加し、`issues/index.*` を再生成する。
+- 新たな問題を発見したら `issues/items/*.md` に Issue を追加し、`issues/index.*` を再生成する。Issue を追加した時点でも、その Issue ID・原因・影響・次の対応を Discord report として送る。
 - 旧 `doc/review20260425/` は履歴スナップショットであり、通常は更新しない。
 - 問題は workaround で隠さず、原因を特定して根本修正する。
 - `note.n.md` には実装状況、原因、修正、検証、`plan.md` との差異を書く。
@@ -46,6 +46,7 @@ node nodesrc/cli.js --discord-webhook-url "https://discord.com/api/webhooks/1484
 ```
 
 report 形式は `doc/progress_report_template.md` と `doc/nodesrc_discord_webhook.md` を確認する。
+Issue 追加のみの報告でも同じ webhook を使い、タイトルは進捗報告として、本文に「追加 Issue」「根拠」「次の対応」を含める。
 
 ## 検証方針
 

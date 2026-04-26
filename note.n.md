@@ -1,3 +1,17 @@
+# 2026-04-26 メモ (ISS-20260426T055122421Z streamio obsolete pipe cast workaround)
+
+- 状況:
+  - stdlib 全体レビュー中、`tests/stdlib/streamio.n.md` の `stream_writer_space_and_i64` に旧 compiler bug 回避の `let two <i64> cast 2` が残っていることを確認した。
+  - `ISS-20260426T023624387Z-PIPE-004372E8` は verified 済みで、pipe 右辺の `|> writeln <i64> cast 2` は現行 compiler の自然な書き方として通る。
+- 修正:
+  - `ISS-20260426T055122421Z-STREAMIO-DOCTEST-KEEPS-OBSOLETE-PIPE-F37DE397` を追加し、追加時点で Discord に報告した。
+  - `stream_writer_space_and_i64` の不要な中間変数を削除し、`|> writeln <i64> cast 2` に戻した。
+  - Issue 追加時にも Discord report を送る運用を `doc/agent_handoff_20260426.md` と `doc/nodesrc_discord_webhook.md` に明記した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/stdlib-streamio-pipe-cast-workaround.json -j 1`: `total=13`, `passed=13`, `failed=0`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib doctest と運用 doc の整理であり、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T052817994Z compile runner stdlib VFS cache)
 
 - [原因]:
