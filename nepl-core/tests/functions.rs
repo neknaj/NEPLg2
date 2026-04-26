@@ -2,7 +2,7 @@ mod harness;
 use harness::{run_main_i32, run_main_wasi_i32};
 
 use nepl_core::span::FileId;
-use nepl_core::{compile_wasm, CompileOptions, CompileTarget};
+use nepl_core::{compile_wasm, CompileOptions};
 
 fn compile_err(src: &str) {
     let result = compile_wasm(

@@ -1,6 +1,5 @@
 //! Parser for NEPLG2 surface syntax (prefix + indentation blocks).
 //! Parser for NEPLG2 surface syntax (prefix + indentation blocks).
-#![no_std]
 extern crate alloc;
 
 use alloc::boxed::Box;
@@ -36,9 +35,8 @@ pub struct ParseResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-pub fn parse_tokens(file_id: FileId, lex: LexResult) -> ParseResult {
+pub fn parse_tokens(_file_id: FileId, lex: LexResult) -> ParseResult {
     let mut parser = Parser {
-        file_id,
         tokens: lex.tokens,
         pos: 0,
         diagnostics: lex.diagnostics,
@@ -56,7 +54,6 @@ pub fn parse_tokens(file_id: FileId, lex: LexResult) -> ParseResult {
 }
 
 struct Parser {
-    file_id: FileId,
     tokens: Vec<Token>,
     pos: usize,
     diagnostics: Vec<Diagnostic>,
@@ -283,7 +280,7 @@ impl Parser {
 
     fn parse_block_until_internal(&mut self, end: TokenEnd) -> Option<Block> {
         let mut items = Vec::new();
-        let mut start_span = self.peek_span().unwrap_or_else(Span::dummy);
+        let start_span = self.peek_span().unwrap_or_else(Span::dummy);
         // O(1) flag: tracks if the previous statement contains an 'if' expression
         let mut prev_has_if = false;
         let mut last_pos = usize::MAX;
@@ -369,7 +366,7 @@ impl Parser {
                             {
                                 // Remove the 'else' marker and get remaining items
                                 Self::take_role_from_expr(curr_e);
-                                let mut curr_items = core::mem::take(&mut curr_e.items);
+                                let curr_items = core::mem::take(&mut curr_e.items);
                                 pe.items.extend(curr_items);
                                 pe.span = pe.span.join(curr_e.span).unwrap_or(pe.span);
                                 merged = true;
@@ -485,7 +482,7 @@ impl Parser {
         let clause = if rest.is_empty() {
             ImportClause::DefaultAlias
         } else if let Some(r) = rest.strip_prefix("as") {
-            let mut c = r.trim();
+            let c = r.trim();
             if c.starts_with('*') {
                 ImportClause::Open
             } else if c.starts_with("@merge") {
@@ -560,7 +557,7 @@ impl Parser {
             doc = Some(buf);
         }
 
-        let mut out = (|| match self.peek_kind()? {
+        let out = (|| match self.peek_kind()? {
             TokenKind::DirEntry(_) => {
                 let (name, span) = match self.next() {
                     Some(tok) => {
@@ -890,7 +887,7 @@ impl Parser {
 
     fn parse_struct(&mut self) -> Option<Stmt> {
         let vis = self.parse_visibility();
-        let kw_span = self.expect_with_span(&TokenKind::KwStruct)?;
+        let _ = self.expect_with_span(&TokenKind::KwStruct)?;
         let (name, nspan) = self.expect_ident()?;
         let type_params = self.parse_generic_params();
         self.expect(&TokenKind::Colon)?;
@@ -944,7 +941,7 @@ impl Parser {
 
     fn parse_enum(&mut self) -> Option<Stmt> {
         let vis = self.parse_visibility();
-        let kw_span = self.expect_with_span(&TokenKind::KwEnum)?;
+        let _ = self.expect_with_span(&TokenKind::KwEnum)?;
         let (name, nspan) = self.expect_ident()?;
         let type_params = self.parse_generic_params();
         self.expect(&TokenKind::Colon)?;
@@ -3423,10 +3420,11 @@ impl Parser {
                 Some(ty)
             }
             TokenKind::Dot => {
-                let dot_span = self.next().unwrap().span;
+                let _ = self.next();
                 if let Some(TokenKind::Ident(name)) = self.peek_kind() {
-                    let tok = self.next().unwrap();
-                    Some(TypeExpr::Label(Some(name.clone())))
+                    let name = name.clone();
+                    let _ = self.next();
+                    Some(TypeExpr::Label(Some(name)))
                 } else {
                     Some(TypeExpr::Label(None))
                 }
@@ -3435,7 +3433,7 @@ impl Parser {
                 let lp_span = self.next().unwrap().span;
                 // Empty parens: could be unit type or zero-arg function params.
                 if self.check(&TokenKind::RParen) {
-                    let rp_span = self.next().unwrap().span;
+                    let _ = self.next();
                     if let Some(TokenKind::Arrow(eff)) = self.peek_kind() {
                         // zero-arg function type
                         let eff_copy = eff;
@@ -3704,7 +3702,7 @@ impl Parser {
 
     fn expect_ident(&mut self) -> Option<(String, Span)> {
         match self.peek_kind() {
-            Some(TokenKind::Ident(name)) => {
+            Some(TokenKind::Ident(_)) => {
                 let tok = self.next().unwrap();
                 if let TokenKind::Ident(n) = tok.kind {
                     if Self::is_reserved_layout_word(&n) {

@@ -16,7 +16,7 @@ use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
 use crate::span::FileId;
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;

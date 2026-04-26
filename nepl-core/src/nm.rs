@@ -4,7 +4,6 @@
 //! pipeline so hover and documentation tooling can consume the same parsed
 //! representation instead of re-parsing in JavaScript.
 
-#![no_std]
 extern crate alloc;
 
 use alloc::string::{String, ToString};
@@ -186,10 +185,8 @@ pub fn parse_document(source: &str) -> Document {
         i = j;
     }
 
-    match root {
-        Container::Document(doc) => doc,
-        Container::Section(_) => unreachable!(),
-    }
+    let Container::Document(doc) = root;
+    doc
 }
 
 pub fn parse_inlines(text: &str) -> Vec<InlineNode> {
@@ -306,13 +303,11 @@ pub fn render_document_markdown(document: &Document) -> String {
 
 enum Container {
     Document(Document),
-    Section(SectionNode),
 }
 
 fn current_children_mut<'a>(root: &'a mut Container, path: &[usize]) -> &'a mut Vec<BlockNode> {
     match root {
         Container::Document(doc) => descend_children_mut(&mut doc.children, path),
-        Container::Section(section) => descend_children_mut(&mut section.children, path),
     }
 }
 

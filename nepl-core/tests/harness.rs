@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use nepl_core::loader::Loader;
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
 use std::collections::BTreeMap;
@@ -60,26 +62,22 @@ pub fn run_main_i32(src: &str) -> i32 {
         })
         .unwrap();
     linker
-        .func_wrap(
-            "env",
-            "print_str",
-            |mut caller: Caller<'_, ()>, ptr: i32| {
-                if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
-                    let data = mem.data(&caller);
-                    let offset = ptr as usize;
-                    if offset + 4 <= data.len() {
-                        let len = u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap())
-                            as usize;
-                        let start = offset + 4;
-                        if start + len <= data.len() {
-                            let s = std::str::from_utf8(&data[start..start + len])
-                                .unwrap_or("<utf8-error>");
-                            println!("{s}");
-                        }
+        .func_wrap("env", "print_str", |caller: Caller<'_, ()>, ptr: i32| {
+            if let Some(Extern::Memory(mem)) = caller.get_export("memory") {
+                let data = mem.data(&caller);
+                let offset = ptr as usize;
+                if offset + 4 <= data.len() {
+                    let len =
+                        u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
+                    let start = offset + 4;
+                    if start + len <= data.len() {
+                        let s = std::str::from_utf8(&data[start..start + len])
+                            .unwrap_or("<utf8-error>");
+                        println!("{s}");
                     }
                 }
-            },
-        )
+            }
+        })
         .unwrap();
     // Provide simple host allocator (nepl_alloc) for tests: uses linear memory at 0: heap_ptr, 4: free_head
     linker

@@ -3220,7 +3220,6 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
     const BOLD: &str = "\x1b[1m";
     const RED: &str = "\x1b[31m";
     const YELLOW: &str = "\x1b[33m";
-    const CYAN: &str = "\x1b[36m";
     const BLUE: &str = "\x1b[34m";
 
     for d in diags {

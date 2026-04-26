@@ -3257,14 +3257,6 @@ fn llty_for_type(types: &TypeCtx, ty: TypeId) -> LlTy {
     }
 }
 
-fn ll_storage_size(ty: LlTy) -> i64 {
-    match ty {
-        LlTy::I64 | LlTy::F64 => 8,
-        LlTy::Void => 0,
-        LlTy::I32 | LlTy::F32 => 4,
-    }
-}
-
 fn mapped_type_id(types: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
     let ty = types.resolve_id(ty);
     types.resolve_named_type_id(mapping.get(&ty).copied().unwrap_or(ty))

@@ -1,12 +1,11 @@
 //! WASM backend for NEPLG2.
 
-#![no_std]
 extern crate alloc;
 #[cfg(not(target_os = "none"))]
 extern crate std;
 
 use alloc::borrow::Cow;
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec;
@@ -63,10 +62,6 @@ struct StringLower {
 impl StringLower {
     fn offset(&self, idx: u32) -> Option<u32> {
         self.offsets.get(idx as usize).copied()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.offsets.is_empty()
     }
 }
 
@@ -605,134 +600,6 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
     })
 }
 
-pub(crate) fn should_skip_wasm_codegen_for_generic(ctx: &TypeCtx, f: &HirFunction) -> bool {
-    crate::wasm_shared::should_skip_wasm_codegen_for_generic(ctx, f)
-}
-
-fn has_unbound_type_var(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = ctx.resolve_id(ty);
-    match ctx.get(resolved) {
-        TypeKind::Var(tv) => match tv.binding {
-            Some(next) => has_unbound_type_var(ctx, next),
-            None => true,
-        },
-        TypeKind::Enum { type_params, .. } => {
-            type_params.iter().any(|t| has_unbound_type_var(ctx, *t))
-        }
-        TypeKind::Struct {
-            type_params,
-            fields,
-            ..
-        } => {
-            type_params.iter().any(|t| has_unbound_type_var(ctx, *t))
-                || fields.iter().any(|t| has_unbound_type_var(ctx, *t))
-        }
-        TypeKind::Tuple { items } => items.iter().any(|t| has_unbound_type_var(ctx, *t)),
-        TypeKind::Function {
-            type_params,
-            params,
-            result,
-            ..
-        } => {
-            type_params.iter().any(|t| has_unbound_type_var(ctx, *t))
-                || params.iter().any(|t| has_unbound_type_var(ctx, *t))
-                || has_unbound_type_var(ctx, result)
-        }
-        TypeKind::Apply { base, args } => {
-            has_unbound_type_var(ctx, base) || args.iter().any(|t| has_unbound_type_var(ctx, *t))
-        }
-        TypeKind::Box(inner) | TypeKind::Reference(inner, _) => has_unbound_type_var(ctx, inner),
-        _ => false,
-    }
-}
-
-fn collect_called_functions_from_expr(
-    expr: &HirExpr,
-    out: &mut BTreeSet<String>,
-    has_indirect: &mut bool,
-) {
-    match &expr.kind {
-        HirExprKind::Call { callee, args } => {
-            if let FuncRef::User(name, _) = callee {
-                out.insert(name.clone());
-            }
-            for a in args {
-                collect_called_functions_from_expr(a, out, has_indirect);
-            }
-        }
-        HirExprKind::CallIndirect { callee, args, .. } => {
-            *has_indirect = true;
-            collect_called_functions_from_expr(callee, out, has_indirect);
-            for a in args {
-                collect_called_functions_from_expr(a, out, has_indirect);
-            }
-        }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            collect_called_functions_from_expr(cond, out, has_indirect);
-            collect_called_functions_from_expr(then_branch, out, has_indirect);
-            collect_called_functions_from_expr(else_branch, out, has_indirect);
-        }
-        HirExprKind::While { cond, body } => {
-            collect_called_functions_from_expr(cond, out, has_indirect);
-            collect_called_functions_from_expr(body, out, has_indirect);
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            collect_called_functions_from_expr(scrutinee, out, has_indirect);
-            for arm in arms {
-                collect_called_functions_from_expr(&arm.body, out, has_indirect);
-            }
-        }
-        HirExprKind::EnumConstruct { payload, .. } => {
-            if let Some(p) = payload {
-                collect_called_functions_from_expr(p, out, has_indirect);
-            }
-        }
-        HirExprKind::StructConstruct { fields, .. } => {
-            for f in fields {
-                collect_called_functions_from_expr(f, out, has_indirect);
-            }
-        }
-        HirExprKind::TupleConstruct { items } => {
-            for i in items {
-                collect_called_functions_from_expr(i, out, has_indirect);
-            }
-        }
-        HirExprKind::Block(b) => {
-            for line in &b.lines {
-                collect_called_functions_from_expr(&line.expr, out, has_indirect);
-            }
-        }
-        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
-            collect_called_functions_from_expr(value, out, has_indirect);
-        }
-        HirExprKind::Intrinsic { args, .. } => {
-            for a in args {
-                collect_called_functions_from_expr(a, out, has_indirect);
-            }
-        }
-        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
-            collect_called_functions_from_expr(inner, out, has_indirect);
-        }
-        HirExprKind::Var(name) | HirExprKind::FnValue(name) => {
-            out.insert(name.clone());
-        }
-        HirExprKind::Unit
-        | HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Drop { .. } => {}
-    }
-}
-
-pub(crate) fn collect_reachable_wasm_functions(module: &HirModule) -> BTreeSet<String> {
-    crate::wasm_shared::collect_reachable_wasm_functions(module)
-}
-
 // ---------------------------------------------------------------------
 // Function lowering
 // ---------------------------------------------------------------------
@@ -824,10 +691,7 @@ fn valtype(kind: &TypeKind) -> Option<ValType> {
             // std::eprintln!("valtype: Apply is Some(I32)");
             Some(ValType::I32)
         }
-        other => {
-            // std::eprintln!("valtype: other {:?} is None", other);
-            None
-        }
+        _ => None,
     }
 }
 
@@ -837,13 +701,6 @@ fn find_alloc_index(name_map: &BTreeMap<String, u32>, current_func: &str) -> Opt
         RuntimeHelperKind::Alloc,
         Some(current_func),
     )
-}
-
-pub(crate) fn collect_wasm_signature_set(
-    ctx: &TypeCtx,
-    module: &HirModule,
-) -> BTreeSet<(Vec<ValType>, Vec<ValType>)> {
-    crate::wasm_shared::collect_wasm_signature_set(ctx, module)
 }
 
 fn emit_inline_alloc(locals: &mut LocalMap, insts: &mut Vec<Instruction<'static>>) {
@@ -2660,16 +2517,7 @@ fn gen_expr(
 // ---------------------------------------------------------------------
 
 #[derive(Debug)]
-struct LocalInfo {
-    name: String,
-    idx: u32,
-    ty: Option<TypeId>,
-    is_param: bool,
-}
-
-#[derive(Debug)]
 struct LocalMap {
-    locals: Vec<LocalInfo>,
     map: BTreeMap<String, Vec<u32>>,
     scopes: Vec<Vec<String>>,
     next_idx: u32,
@@ -2680,7 +2528,6 @@ struct LocalMap {
 impl LocalMap {
     fn new() -> Self {
         Self {
-            locals: Vec::new(),
             map: BTreeMap::new(),
             scopes: vec![Vec::new()],
             next_idx: 0,
@@ -2697,12 +2544,6 @@ impl LocalMap {
         } else {
             0
         };
-        self.locals.push(LocalInfo {
-            name: name.clone(),
-            idx,
-            ty: Some(ty),
-            is_param: true,
-        });
         self.bind_name(name, idx);
     }
 
@@ -2720,12 +2561,6 @@ impl LocalMap {
                 // Zero-sized/unit locals do not need a wasm local slot.
                 0
             };
-            self.locals.push(LocalInfo {
-                name: name.clone(),
-                idx,
-                ty: Some(ty),
-                is_param: false,
-            });
             self.bind_name(name, idx);
             idx
         }
@@ -2734,12 +2569,6 @@ impl LocalMap {
     fn alloc_temp(&mut self, vt: ValType) -> u32 {
         let idx = self.next_idx;
         self.next_idx += 1;
-        self.locals.push(LocalInfo {
-            name: format!("$t{}", idx),
-            idx,
-            ty: None,
-            is_param: false,
-        });
         self.decls.push(vt);
         idx
     }
@@ -2750,13 +2579,6 @@ impl LocalMap {
 
     fn local_decls(&self) -> Vec<(u32, ValType)> {
         self.decls.iter().map(|v| (1u32, *v)).collect()
-    }
-
-    fn valtype_of(&self, idx: u32, ctx: &TypeCtx) -> Option<ValType> {
-        self.locals
-            .iter()
-            .find(|l| l.idx == idx)
-            .and_then(|l| l.ty.and_then(|t| valtype(&ctx.get(t))))
     }
 
     fn begin_scope(&mut self) {
@@ -2802,10 +2624,6 @@ impl LocalMap {
 
 fn parse_wasm_line(line: &str, locals: &LocalMap) -> Result<Vec<Instruction<'static>>, String> {
     crate::wasm_shared::parse_wasm_line_with_lookup(line, |name| locals.lookup(name))
-}
-
-pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
-    crate::wasm_shared::is_supported_wasm_intrinsic(name)
 }
 
 fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> u32 {

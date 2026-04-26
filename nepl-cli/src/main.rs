@@ -47,8 +47,6 @@ const NEPL_STDLIB_ROOT_ENV: &str = "NEPL_STDLIB_ROOT";
 const CLI_COMPILER_STACK_SIZE: usize = 32 * 1024 * 1024;
 
 struct AllocState {
-    // head of free list (address in linear memory), 0 == null
-    free_head: u32,
     stdin: Vec<u8>,
     stdin_pos: usize,
     stdin_eof: bool,
@@ -1782,7 +1780,6 @@ fn run_wasm(
     let mut store = Store::new(
         &engine,
         AllocState {
-            free_head: 0,
             stdin: Vec::new(),
             stdin_pos: 0,
             stdin_eof: false,

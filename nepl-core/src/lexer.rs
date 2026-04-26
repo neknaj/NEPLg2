@@ -1,6 +1,5 @@
 //! Indentation-aware lexer for NEPLG2.
 
-#![no_std]
 extern crate alloc;
 
 use alloc::format;

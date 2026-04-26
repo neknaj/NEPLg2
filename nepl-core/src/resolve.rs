@@ -12,7 +12,7 @@ use crate::ast::{EnumDef, FnAlias, FnDef, StructDef, Visibility};
 use crate::ast::{ImportClause, ImportItem};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
-use crate::module_graph::{ExportEntry, ExportKind, ExportTable, ModuleGraph, ModuleId};
+use crate::module_graph::{ExportTable, ModuleGraph, ModuleId};
 use alloc::collections::BTreeSet;
 use alloc::string::ToString;
 use alloc::vec::Vec;
@@ -247,7 +247,7 @@ pub fn build_visible_map(
         for dep in &rm.imports.open_modules {
             if let Some(src) = resolved.modules.get(dep) {
                 for (n, info) in &src.exports {
-                    if let Some(prev) = seen_open.get(n) {
+                    if seen_open.get(n).is_some() {
                         ambiguous.insert(n.clone());
                         // 既に map に入っていても診断のみ。優先順位は最初のもの。
                     } else {

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T12:50:32.408Z",
+  "generated_at": "2026-04-26T13:11:19.191Z",
   "counts": {
     "total": 125,
-    "open": 15,
-    "resolved": 110,
+    "open": 14,
+    "resolved": 111,
     "by_area": {
       "core": {
         "total": 42,
-        "open": 3,
-        "resolved": 39
+        "open": 2,
+        "resolved": 40
       },
       "selfhost": {
         "total": 7,
@@ -253,21 +253,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91",
-      "title": "Rust compiler crates emit warning debt that hides audit signal",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P3",
-      "type": "maintenance",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src, nepl-cli/src",
-      "legacy_id": "",
-      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
-      "file": "items/ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -1828,6 +1813,21 @@
       "legacy_id": "RV-CLI-008",
       "source": "doc/review20260425/cli.md#rv-cli-008",
       "file": "items/ISS-20260425T000000Z-RV-CLI-008-75A1322E.md"
+    },
+    {
+      "id": "ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91",
+      "title": "Rust compiler crates emit warning debt that hides audit signal",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P3",
+      "type": "maintenance",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src, nepl-core/tests, nepl-cli/src, nepl-web/src, nepl-lsp/src",
+      "legacy_id": "",
+      "source": "doc/neplg2/pre_selfhost_audit_20260426.md",
+      "file": "items/ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-005-F6DB70BA",

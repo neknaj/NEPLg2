@@ -1,4 +1,3 @@
-#![no_std]
 extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -217,12 +216,6 @@ impl MoveCheckContext {
 
     fn pop_history(&mut self) -> BTreeMap<String, VarState> {
         self.history.pop().unwrap_or_default()
-    }
-
-    fn apply_history(&mut self, history: BTreeMap<String, VarState>) {
-        for (name, old_state) in history {
-            self.set_state(&name, old_state);
-        }
     }
 
     fn undo_history(&mut self, history: &BTreeMap<String, VarState>) {
@@ -1184,10 +1177,6 @@ fn visit_field_move_source(
         }
         _ => false,
     }
-}
-
-fn get_top(map: &BTreeMap<String, Vec<VarState>>, name: &str) -> Option<VarState> {
-    map.get(name).and_then(|s| s.last().copied())
 }
 
 pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic> {

@@ -1,5 +1,3 @@
-#![no_std]
-
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::String;
@@ -278,7 +276,7 @@ pub fn prepare_module_for_codegen_with_source_map(
     let mut tc = run_typecheck(module, target, profile, source_map)?;
     passes::insert_drops(&mut tc.module, &mut tc.types);
     let mut types = tc.types;
-    let mut hir_module = monomorphize::monomorphize(&mut types, tc.module);
+    let hir_module = monomorphize::monomorphize(&mut types, tc.module);
     let mut diagnostics = tc.diagnostics;
     run_move_check(&hir_module, &types, &mut diagnostics)?;
     Ok(PreparedProgram {

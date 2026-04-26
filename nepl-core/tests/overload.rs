@@ -3,29 +3,13 @@ use harness::run_main_i32;
 use nepl_core::loader::Loader;
 use nepl_core::typecheck;
 use nepl_core::BuildProfile;
-use nepl_core::{compile_module, CompileOptions, CompileTarget};
+use nepl_core::CompileTarget;
 use std::path::PathBuf;
 
 fn stdlib_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("stdlib")
-}
-
-fn compile_src_with_target(src: &str, target: CompileTarget) {
-    let mut loader = Loader::new(stdlib_root());
-    let loaded = loader
-        .load_inline(PathBuf::from("overload_regression.nepl"), src.to_string())
-        .expect("load");
-    compile_module(
-        loaded.module,
-        CompileOptions {
-            target: Some(target),
-            verbose: false,
-            profile: None,
-        },
-    )
-    .expect("compile failure");
 }
 
 fn typecheck_src_with_target(src: &str, target: CompileTarget) {

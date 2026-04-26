@@ -1,4 +1,3 @@
-#![no_std]
 extern crate alloc;
 #[cfg(not(target_os = "none"))]
 extern crate std;
@@ -116,7 +115,6 @@ struct CheckedFunction {
 
 #[derive(Debug, Clone)]
 struct EnumInfo {
-    doc: Option<String>,
     ty: TypeId,
     type_params: Vec<TypeId>,
     variants: Vec<EnumVariantInfo>,
@@ -124,7 +122,6 @@ struct EnumInfo {
 
 #[derive(Debug, Clone)]
 struct StructInfo {
-    doc: Option<String>,
     ty: TypeId,
     type_params: Vec<TypeId>,
     fields: Vec<TypeId>,
@@ -134,7 +131,6 @@ struct StructInfo {
 #[derive(Debug, Clone)]
 struct TraitInfo {
     doc: Option<String>,
-    name: String,
     type_params: Vec<TypeId>,
     capabilities: Vec<TraitCapability>,
     methods: BTreeMap<String, TypeId>,
@@ -212,13 +208,11 @@ impl TraitSemantics {
 
 #[derive(Debug, Clone)]
 struct ImplInfo {
-    doc: Option<String>,
     trait_name: Option<String>,
     trait_base_name: Option<String>,
     trait_args: Vec<TypeId>,
     trait_self_ty: Option<TypeId>,
     target_ty: TypeId,
-    methods: BTreeMap<String, (String, TypeId)>, // name -> (mangled_name, type)
 }
 
 #[derive(Debug, Clone)]
@@ -650,7 +644,6 @@ pub fn typecheck(
                     mutable: false,
                     no_shadow: false,
                     defined: true,
-                    moved: false,
                     span: *span,
                     kind: BindingKind::Func {
                         symbol: func.name.clone(),
@@ -781,7 +774,6 @@ pub fn typecheck(
                 enums.insert(
                     e.name.name.clone(),
                     EnumInfo {
-                        doc: e.doc.clone(),
                         ty,
                         type_params: tps.clone(),
                         variants: vars.clone(),
@@ -789,7 +781,7 @@ pub fn typecheck(
                 );
 
                 // Register variants as global functions
-                for (i, v) in vars.iter().enumerate() {
+                for v in vars.iter() {
                     let mut params = Vec::new();
                     if let Some(pty) = v.payload {
                         params.push(pty);
@@ -808,7 +800,6 @@ pub fn typecheck(
                         mutable: false,
                         no_shadow: false,
                         defined: true,
-                        moved: false,
                         span: e.name.span,
                         kind: BindingKind::Func {
                             symbol: v.name.clone(),
@@ -828,7 +819,6 @@ pub fn typecheck(
                         mutable: false,
                         no_shadow: false,
                         defined: true,
-                        moved: false,
                         span: e.name.span,
                         kind: BindingKind::Func {
                             symbol: format!("{}::{}", e.name.name, v.name),
@@ -914,7 +904,6 @@ pub fn typecheck(
                     mutable: false,
                     no_shadow: false,
                     defined: true,
-                    moved: false,
                     span: s.name.span,
                     kind: BindingKind::Func {
                         symbol: s.name.name.clone(),
@@ -931,7 +920,6 @@ pub fn typecheck(
                 structs.insert(
                     s.name.name.clone(),
                     StructInfo {
-                        doc: s.doc.clone(),
                         ty,
                         type_params: tps,
                         fields: fs,
@@ -941,7 +929,7 @@ pub fn typecheck(
             }
             Stmt::Trait(t) => {
                 let mut f_labels = LabelEnv::new();
-                let (tps, _bounds_vec, _bounds_map) = collect_type_params(
+                let (_tps, _bounds_vec, _bounds_map) = collect_type_params(
                     &mut ctx,
                     &mut f_labels,
                     &t.type_params,
@@ -1011,7 +999,6 @@ pub fn typecheck(
                     t.name.name.clone(),
                     TraitInfo {
                         doc: t.doc.clone(),
-                        name: t.name.name.clone(),
                         type_params: tps,
                         capabilities,
                         methods,
@@ -1044,7 +1031,6 @@ pub fn typecheck(
                     mutable: false,
                     no_shadow: false,
                     defined: true,
-                    moved: false,
                     span: Span::dummy(),
                     kind: BindingKind::Func {
                         symbol: vname.clone(),
@@ -1110,7 +1096,7 @@ pub fn typecheck(
                 continue;
             }
             let mut f_labels = LabelEnv::new();
-            let (tps, _bounds_vec, impl_bounds_map) = collect_type_params(
+            let (_tps, _bounds_vec, _impl_bounds_map) = collect_type_params(
                 &mut ctx,
                 &mut f_labels,
                 &i.type_params,
@@ -1185,13 +1171,7 @@ pub fn typecheck(
                 continue;
             }
 
-            let mut methods = BTreeMap::new();
-            for m in &i.methods {
-                let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
-                methods.insert(m.name.name.clone(), (m.name.name.clone(), sig));
-            }
             impls.push(ImplInfo {
-                doc: i.doc.clone(),
                 trait_name: Some(applied_trait_name),
                 trait_base_name: trait_name,
                 trait_args: if let Some(trait_ref) = &i.trait_ref {
@@ -1205,7 +1185,6 @@ pub fn typecheck(
                 },
                 trait_self_ty,
                 target_ty,
-                methods,
             });
         }
     }
@@ -1254,7 +1233,6 @@ pub fn typecheck(
                 mutable: false,
                 no_shadow: false,
                 defined: true,
-                moved: false,
                 span: Span::dummy(),
                 kind: BindingKind::Func {
                     symbol: name.clone(),
@@ -1288,7 +1266,7 @@ pub fn typecheck(
         }
         if let Stmt::FnDef(f) = item {
             let mut f_labels = LabelEnv::new();
-            let (mut tps, _bounds_vec, bounds_map) = collect_type_params(
+            let (tps, _bounds_vec, bounds_map) = collect_type_params(
                 &mut ctx,
                 &mut f_labels,
                 &f.type_params,
@@ -1312,7 +1290,7 @@ pub fn typecheck(
 
             if let TypeKind::Function {
                 type_params: _,
-                params,
+                params: _,
                 result: _,
                 effect,
             } = ctx.get(ty)
@@ -1437,7 +1415,6 @@ pub fn typecheck(
                     mutable: false,
                     no_shadow: f.no_shadow,
                     defined: true,
-                    moved: false,
                     span: f.name.span,
                     kind: BindingKind::Func {
                         symbol,
@@ -1599,7 +1576,6 @@ pub fn typecheck(
                 mutable: false,
                 no_shadow: alias.no_shadow,
                 defined: true,
-                moved: false,
                 span: alias.name.span,
                 kind: BindingKind::Func {
                     symbol,
@@ -2173,7 +2149,6 @@ fn check_function(
             mutable: false,
             no_shadow: false,
             defined: true,
-            moved: false,
             span: f.name.span,
             kind: BindingKind::Var,
         });
@@ -2190,7 +2165,6 @@ fn check_function(
             mutable: false,
             no_shadow: false,
             defined: true,
-            moved: false,
             span: param.span,
             kind: BindingKind::Var,
         });
@@ -3326,13 +3300,6 @@ impl<'a> BlockChecker<'a> {
         })
     }
 
-    fn type_param_has_bound(&self, ty: TypeId, trait_name: &str) -> bool {
-        if let Some((base, args)) = parse_trait_ref_name(trait_name, self.ctx) {
-            return self.type_param_has_bound_ref(ty, &base, &args);
-        }
-        self.type_param_has_bound_ref(ty, trait_name, &[])
-    }
-
     fn trait_bound_satisfied_by_ref(&self, bound: &TraitBoundRef, ty: TypeId) -> bool {
         if !self.is_concrete_type(ty) {
             return self.type_param_has_bound_ref(ty, &bound.trait_base_name, &bound.trait_args);
@@ -3782,7 +3749,7 @@ impl<'a> BlockChecker<'a> {
         }
 
         // Hoist let (non-mut) and nested fn signatures
-        for (i, stmt) in block.items.iter().enumerate() {
+        for stmt in block.items.iter() {
             if let Stmt::Expr(PrefixExpr { items, .. })
             | Stmt::ExprSemi(PrefixExpr { items, .. }, _) = stmt
             {
@@ -3834,7 +3801,6 @@ impl<'a> BlockChecker<'a> {
                         mutable: false,
                         no_shadow: *no_shadow,
                         defined: false,
-                        moved: false,
                         span: name.span,
                         kind: BindingKind::Var,
                     });
@@ -3963,7 +3929,6 @@ impl<'a> BlockChecker<'a> {
                         mutable: false,
                         no_shadow: f.no_shadow,
                         defined: true,
-                        moved: false,
                         span: f.name.span,
                         kind: BindingKind::Func {
                             symbol: f.name.name.clone(),
@@ -5167,7 +5132,6 @@ impl<'a> BlockChecker<'a> {
                                 mutable: *mutable,
                                 no_shadow: *no_shadow,
                                 defined: false,
-                                moved: false,
                                 span: name.span,
                                 kind: BindingKind::Var,
                             });
@@ -6680,7 +6644,6 @@ impl<'a> BlockChecker<'a> {
                         mutable: false,
                         no_shadow: false,
                         defined: true,
-                        moved: false,
                         span: bind.span,
                         kind: BindingKind::Var,
                     });
@@ -6941,125 +6904,6 @@ impl<'a> BlockChecker<'a> {
         }
     }
 
-    fn split_if_then_else_block_ast(b: &Block) -> Option<(Block, Block)> {
-        // Find top-level `else` marker line inside the block
-        let mut else_idx: Option<usize> = None;
-        for (i, stmt) in b.items.iter().enumerate() {
-            if let Stmt::Expr(e) = stmt {
-                if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = e.items.first() {
-                    if id.name == "else" {
-                        else_idx = Some(i);
-                        break;
-                    }
-                }
-            }
-        }
-        let else_idx = else_idx?;
-
-        if else_idx + 1 != b.items.len() {
-            return None;
-        }
-
-        let mut then_items = b.items[..else_idx].to_vec();
-        let else_stmt = b.items[else_idx].clone();
-
-        let then_block = if then_items.len() == 1 {
-            if let Stmt::Expr(e) = then_items.remove(0) {
-                if let Some(PrefixItem::Symbol(Symbol::Ident(id, _, _))) = e.items.first() {
-                    if id.name == "then" {
-                        // drop leading marker and convert remaining items into block
-                        let mut items = e.items;
-                        if !items.is_empty() {
-                            items.remove(0);
-                        }
-                        if items.len() == 1 {
-                            if let PrefixItem::Block(bb, _) = items.remove(0) {
-                                bb
-                            } else {
-                                Block {
-                                    items: alloc::vec![Stmt::Expr(PrefixExpr {
-                                        items,
-                                        trailing_semis: 0,
-                                        trailing_semi_span: None,
-                                        span: e.span
-                                    })],
-                                    span: e.span,
-                                }
-                            }
-                        } else {
-                            Block {
-                                items: alloc::vec![Stmt::Expr(PrefixExpr {
-                                    items,
-                                    trailing_semis: 0,
-                                    trailing_semi_span: None,
-                                    span: e.span
-                                })],
-                                span: e.span,
-                            }
-                        }
-                    } else {
-                        Block {
-                            items: alloc::vec![Stmt::Expr(e)],
-                            span: b.span,
-                        }
-                    }
-                } else {
-                    Block {
-                        items: alloc::vec![Stmt::Expr(e)],
-                        span: b.span,
-                    }
-                }
-            } else {
-                Block {
-                    items: then_items,
-                    span: b.span,
-                }
-            }
-        } else {
-            Block {
-                items: then_items,
-                span: b.span,
-            }
-        };
-
-        let else_block = match else_stmt {
-            Stmt::Expr(e) => {
-                let mut items = e.items;
-                if !items.is_empty() {
-                    items.remove(0);
-                }
-                if items.len() == 1 {
-                    if let PrefixItem::Block(bb, _) = items.remove(0) {
-                        bb
-                    } else {
-                        Block {
-                            items: alloc::vec![Stmt::Expr(PrefixExpr {
-                                items,
-                                trailing_semis: 0,
-                                trailing_semi_span: None,
-                                span: e.span
-                            })],
-                            span: e.span,
-                        }
-                    }
-                } else {
-                    Block {
-                        items: alloc::vec![Stmt::Expr(PrefixExpr {
-                            items,
-                            trailing_semis: 0,
-                            trailing_semi_span: None,
-                            span: e.span
-                        })],
-                        span: e.span,
-                    }
-                }
-            }
-            _ => return None,
-        };
-
-        Some((then_block, else_block))
-    }
-
     fn apply_function(
         &mut self,
         func: StackEntry,
@@ -7091,32 +6935,7 @@ impl<'a> BlockChecker<'a> {
                 );
                 return None;
             }
-            // Handle field store first since it doesn't need variable lookup
-            if let AssignKind::Store(addr) = assign {
-                if !params.is_empty() {
-                    if let Err(_) = self.ctx.unify(params[0], args[0].ty) {
-                        self.diagnostics.push(
-                            Diagnostic::error("type mismatch in field assignment", func.expr.span)
-                                .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
-                        );
-                    }
-                }
-                return Some(StackEntry {
-                    ty: self.ctx.unit(),
-                    expr: HirExpr {
-                        ty: self.ctx.unit(),
-                        kind: HirExprKind::Intrinsic {
-                            name: "store".to_string(),
-                            type_args: vec![args[0].ty],
-                            args: vec![addr, args[0].expr.clone()],
-                        },
-                        span: func.expr.span,
-                    },
-                    type_args: Vec::new(),
-                    assign: None,
-                    auto_call: true,
-                });
-            } else if matches!(assign, AssignKind::AddrOf) {
+            if matches!(assign, AssignKind::AddrOf) {
                 if args.len() != 1 {
                     return None;
                 }
@@ -8160,13 +7979,6 @@ impl<'a> BlockChecker<'a> {
                     if let Some((trait_name, method_name)) = parse_variant_name(name) {
                         if let Some(trait_info) = self.traits.get(trait_name) {
                             if let Some(sig) = trait_info.methods.get(method_name) {
-                                let applied_trait_name = self.infer_trait_application_name(
-                                    trait_name,
-                                    trait_info,
-                                    *sig,
-                                    &args,
-                                    expected_ret,
-                                );
                                 let applied_trait_args = self.infer_trait_application_args(
                                     trait_info,
                                     *sig,
@@ -8593,7 +8405,6 @@ struct Binding {
     mutable: bool,
     no_shadow: bool,
     defined: bool,
-    moved: bool,
     span: Span,
     kind: BindingKind,
 }
@@ -8805,7 +8616,6 @@ impl Env {
     fn insert_local(&mut self, binding: Binding) -> Result<(), ()> {
         if let Some(scope) = self.scopes.last_mut() {
             let has_value = scope.values.iter().any(|b| b.name == binding.name);
-            let has_callable = scope.callables.iter().any(|b| b.name == binding.name);
             if binding.kind.is_var() {
                 if has_value {
                     return Err(());
@@ -8821,27 +8631,10 @@ impl Env {
         Ok(())
     }
 
-    fn lookup_current(&self, name: &str) -> Option<&Binding> {
-        self.scopes.last().and_then(|scope| {
-            scope
-                .values
-                .iter()
-                .rev()
-                .find(|b| b.name == name)
-                .or_else(|| scope.callables.iter().rev().find(|b| b.name == name))
-        })
-    }
-
     fn lookup_current_value(&self, name: &str) -> Option<&Binding> {
         self.scopes
             .last()
             .and_then(|scope| scope.values.iter().rev().find(|b| b.name == name))
-    }
-
-    fn lookup_current_mut(&mut self, name: &str) -> Option<&mut Binding> {
-        self.scopes
-            .last_mut()
-            .and_then(|scope| scope.values.iter_mut().rev().find(|b| b.name == name))
     }
 
     fn lookup_any_defined(&self, name: &str) -> Option<&Binding> {
@@ -8939,13 +8732,9 @@ impl Env {
         items
     }
 
-    fn lookup_callable(&self, name: &str) -> Option<&Binding> {
-        self.lookup_all_callables(name).into_iter().next()
-    }
-
     fn update_local_function_binding(
         &mut self,
-        ctx: &TypeCtx,
+        _ctx: &TypeCtx,
         name: &str,
         span: Span,
         ty: TypeId,
@@ -9246,13 +9035,6 @@ fn find_invalid_same_file_overload<'a>(
         };
         existing_arity != arity
     })
-}
-
-fn function_type_param_count(ctx: &TypeCtx, ty: TypeId) -> usize {
-    match ctx.get(ty) {
-        TypeKind::Function { type_params, .. } => type_params.len(),
-        _ => 0,
-    }
 }
 
 fn type_shape_specificity(ctx: &TypeCtx, ty: TypeId) -> usize {
@@ -9787,13 +9569,6 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
     }
 }
 
-fn func_arity(ctx: &TypeCtx, ty: TypeId) -> usize {
-    match ctx.get(ty) {
-        TypeKind::Function { params, .. } => params.len(),
-        _ => 0,
-    }
-}
-
 fn parse_variant_name(name: &str) -> Option<(&str, &str)> {
     let mut parts = name.splitn(2, "::");
     let a = parts.next()?;
@@ -10277,7 +10052,6 @@ fn gate_allows(d: &Directive, target: CompileTarget, active_profile: BuildProfil
 enum AssignKind {
     Let,
     Set,
-    Store(HirExpr),
     AddrOf,
     Deref,
 }

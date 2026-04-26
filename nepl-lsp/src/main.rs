@@ -20,8 +20,6 @@ struct ServerState {
 
 #[derive(Clone)]
 struct DocumentState {
-    uri: String,
-    path: PathBuf,
     text: String,
     analysis: SemanticsAnalysis,
 }
@@ -289,15 +287,9 @@ fn update_document(
         .iter()
         .map(editor_diagnostic_to_lsp)
         .collect::<Vec<_>>();
-    state.open_documents.insert(
-        uri.clone(),
-        DocumentState {
-            uri: uri.clone(),
-            path,
-            text,
-            analysis,
-        },
-    );
+    state
+        .open_documents
+        .insert(uri.clone(), DocumentState { text, analysis });
     write_notification(
         writer,
         "textDocument/publishDiagnostics",

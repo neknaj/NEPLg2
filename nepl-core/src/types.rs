@@ -1,4 +1,3 @@
-#![no_std]
 extern crate alloc;
 #[cfg(not(target_os = "none"))]
 extern crate std;
@@ -1364,15 +1363,6 @@ impl TypeCtx {
                     return Err(UnifyError::Mismatch);
                 }
                 self.unify(inner_a, inner_b)?;
-                Ok(a)
-            }
-            (TypeKind::Tuple { items: ta }, TypeKind::Tuple { items: tb }) => {
-                if ta.len() != tb.len() {
-                    return Err(UnifyError::Mismatch);
-                }
-                for (xa, xb) in ta.iter().zip(tb.iter()) {
-                    self.unify(*xa, *xb)?;
-                }
                 Ok(a)
             }
             (TypeKind::Apply { base: ba, args: aa }, TypeKind::Apply { base: bb, args: ab }) => {

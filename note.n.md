@@ -17794,3 +17794,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - default web runner は `fd_readdir` を `ENOTSUP(52)` として返すため、`fs_read_dir` の stdlib doctest は skip とし、raw WASI integration test で directory traversal を固定した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-04-26 メモ (ISS-20260426T020005000Z Rust warning debt 解消)
+
+- [同期]:
+  - `rust/compiler-warning-debt` branch で作業し、開始前に `origin/main` と同期済みであることを確認した。
+  - 作業中の臨時状況は Discord に別途送信した。
+- [原因]:
+  - `nepl-core` / `nepl-cli` に unused import、unused variable、dead code、module 内の誤った `#![no_std]`、unreachable pattern が残り、新しい警告を見落としやすい状態だった。
+  - `cargo test` では integration test harness の共有 helper が test crate ごとに別コンパイルされるため、実際には別テストで使う helper が dead code warning として出ていた。
+  - `trunk build` と workspace check では `nepl-web` / `nepl-lsp` にも小さな warning が残っていた。
+- [修正]:
+  - module file 内の `#![no_std]` を削除し、crate-level attribute を `nepl-core/src/lib.rs` に集約した。
+  - `codegen_wasm` の `wasm_shared` 移行済み wrapper / 重複 helper、読まれていない `LocalInfo`、未使用 `StringLower::is_empty` を削除した。
+  - `typecheck` の未使用 struct field / helper / assign variant を削除し、HIR に残すべき doc や impl method 情報は既存の最終 HIR 組み立て経路へ集約した。
+  - `types` の重複 tuple unify arm、`codegen_llvm` の未使用 storage helper、`nm` / `move_check` / `parser` / `resolve` の stale code を整理した。
+  - `nepl-core/tests` の不要 import/helper を削除し、共有 harness の test support helper は局所的に `dead_code` 許可へ切り分けた。
+  - `nepl-web` の未使用 ANSI color 定数と `nepl-lsp` の未使用 document field を削除した。
+- [検証]:
+  - `cargo check -p nepl-core -p nepl-cli`: pass, warnings なし
+  - `cargo test -p nepl-core -p nepl-cli`: pass, warnings なし
+  - `cargo check --workspace`: pass, warnings なし
+  - `cargo fmt --all --check`: pass
+  - `trunk build`: pass, warnings なし
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-warning-debt.json`: `13/13 passed`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換警告のみ）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 着手前の監査性を上げるため、当初 issue の `nepl-core` / `nepl-cli` に加えて、同じ検証経路で露出した `nepl-web` / `nepl-lsp` warning も同時に解消した。

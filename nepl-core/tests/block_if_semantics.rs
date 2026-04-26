@@ -17,19 +17,6 @@ fn compile_err(src: &str) {
     assert!(result.is_err(), "expected error, got {:?}", result);
 }
 
-fn compile_ok(src: &str) {
-    let result = compile_wasm(
-        FileId(0),
-        src,
-        CompileOptions {
-            target: Some(CompileTarget::Wasm),
-            verbose: false,
-            profile: None,
-        },
-    );
-    assert!(result.is_ok(), "expected success, got {:?}", result);
-}
-
 #[test]
 fn epilogue_drop_preserves_return_value() {
     let src = r#"
