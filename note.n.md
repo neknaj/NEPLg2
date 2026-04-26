@@ -18197,6 +18197,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nepl-core/tests/neplg2.rs` と `tests/compiler/generic_impl_trait_args.n.md` に、trait argument 側だけ generic な impl が通るケースと、generic target が引き続き拒否されるケースを追加した。
 - `plan.md` は変更していない。今回の変更は self-host stdlib の hash 基盤を自然な trait 境界へ戻すための compiler 側の前提修正である。
 
+# 2026-04-27 メモ (ISS-20260426T053112317Z HashKey fixture 再発修正)
+
+- [同期]:
+  - `42878fb test: prepare wasi scratch directory` を `origin/main` に反映した後、`git pull --ff-only origin main` で最新 main と一致していることを確認してから branch を作成した。
+- [原因]:
+  - `HashKey` / `Hasher` cleanup 後、Rust 側 self-host requirement fixture の `impl HashKey for Point` に旧 `fn clone <(Point)->Point>` が残っていた。
+  - さらに `HashKey` が copy capability を含むかのように、generic helper が key を hash / eq で消費した後に同じ値を再利用していた。
+- [修正]:
+  - `nepl-core/tests/neplg2.rs` と `nepl-core/tests/selfhost_req.rs` の `Point` fixture で、`HashKey` は `eq` / `hash32` のみに戻した。
+  - `Point` には標準 `Clone` / `Copy` を別 impl として追加し、HashMap key として必要な capability を明示した。
+  - `hash_then_store` / `probe` / `write_after_probe` は `.T: HashKey&Copy` にし、generic key の複数回利用が Copy bound によって表現されるようにした。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 hashkey -- --nocapture`: 2/2 passed
+  - `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 generic_store_after_generic_trait_probe_preserves_struct -- --nocapture`: pass
+  - `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions -- --nocapture`: pass
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test selfhost_req -- --nocapture`: 6/6 passed
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: 55/55 passed
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/selfhost-req-hashkey-copy-fixture.json -j 1`: 6/6 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/selfhost-req-hashkey-copy-fixture-after-trunk.json -j 1`: 6/6 passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-hashkey-copy-fixture.json`: 13/13 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host symbol table / hash collection の前提として、HashKey と標準 Copy/Clone の責務分離を fixture 側でも固定した。
+
 # 2026-04-27 メモ (ISS-20260426T010001Z fs write clean checkout 再発修正)
 
 - [同期]:

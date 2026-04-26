@@ -2,8 +2,8 @@
 id: ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C
 title: "selfhost_req HashKey fixture loses struct keys in generic HashMap"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-26
@@ -86,3 +86,25 @@ GitHub Actions run `24967172989` の `rust-test` で、この issue の回帰テ
 - `TypeTraitBoundUnsatisfied`: `type does not satisfy trait bound 'Copy'`
 
 `ISS-20260425T000000Z-RV-STDLIB-012-C31422D8` の HashKey/Hasher cleanup 後に、`nepl-core/tests/neplg2.rs` と `nepl-core/tests/selfhost_req.rs` の fixture 更新が不足した再発として扱う。修正時は fixture を表面だけ消すのではなく、self-host 要件として `HashKey` と `Copy` / `Clone` の責務分離が正しく表現されていることを確認する。
+
+## 再発修正 2026-04-27
+
+Rust 側 fixture の `impl HashKey for Point` から旧 `fn clone <(Point)->Point>` を削除し、`HashKey` は `eq` / `hash32` のみを持つ現在の trait 仕様へ合わせた。
+`Point` は `HashMap` / generic probe の key として値を複数回使う fixture なので、`core/traits/copy` を import し、標準 `Clone` / `Copy` を別 impl として明示した。
+また、`hash_then_store` と `write_after_probe` のように `hashkey_hash32` / `hashkey_eq` の後で同じ key を保存する generic helper には `.T: HashKey&Copy` bound を明記し、HashKey が copy capability を含むかのような旧前提を残さない形にした。
+
+検証:
+
+- `cargo test -p nepl-core --test neplg2 hashkey -- --nocapture`: 2/2 passed
+- `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 generic_store_after_generic_trait_probe_preserves_struct -- --nocapture`: pass
+- `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions -- --nocapture`: pass
+- `cargo fmt --all --check`: pass
+- `cargo test -p nepl-core --test selfhost_req -- --nocapture`: 6/6 passed
+- `cargo test -p nepl-core --test neplg2 -- --nocapture`: 55/55 passed
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/selfhost-req-hashkey-copy-fixture.json -j 1`: 6/6 passed
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/selfhost-req-hashkey-copy-fixture-after-trunk.json -j 1`: 6/6 passed
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-hashkey-copy-fixture.json`: 13/13 passed
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

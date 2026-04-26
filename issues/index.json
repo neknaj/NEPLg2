@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T21:45:15.632Z",
+  "generated_at": "2026-04-26T21:51:03.482Z",
   "counts": {
     "total": 148,
-    "open": 19,
-    "resolved": 129,
+    "open": 18,
+    "resolved": 130,
     "by_area": {
       "cli": {
         "total": 19,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 59,
-        "open": 11,
-        "resolved": 48
+        "open": 10,
+        "resolved": 49
       },
       "stdlib": {
         "total": 45,
@@ -88,21 +88,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C",
-      "title": "selfhost_req HashKey fixture loses struct keys in generic HashMap",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-27",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/selfhost_req.rs, nepl-core/tests/neplg2.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
     },
     {
       "id": "ISS-20260426T213057295Z-LLVM-DUAL-BACKEND-MISSES-ALLOCATOR-R-EF505BD2",
@@ -928,6 +913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318.md"
+    },
+    {
+      "id": "ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C",
+      "title": "selfhost_req HashKey fixture loses struct keys in generic HashMap",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/selfhost_req.rs, nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
     },
     {
       "id": "ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7",

@@ -201,6 +201,7 @@ fn test_req_trait_extensions() {
 #import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "core/traits/hash" as *
 #import "core/traits/hash_key" as *
 
@@ -211,9 +212,6 @@ struct Point:
 
 // 要件: ユーザー定義型をMapのキーにするための HashKey trait 実装
 impl HashKey for Point:
-    fn clone <(Point)->Point> (self):
-        self
-
     fn eq <(Point, Point)->bool> (a, b):
         let ax <i32> field::get a "x"
         let ay <i32> field::get a "y"
@@ -223,6 +221,14 @@ impl HashKey for Point:
 
     fn hash32 <(Point)->i32> (self):
         xor field::get self "x" field::get self "y"
+
+impl Clone for Point:
+    fn clone <(&Point)->Point> (self):
+        *self
+
+impl Copy for Point:
+    fn copy_mark <(Point)->Point> (self):
+        self
 
 fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, Diag>)*>HashMap<Point,str,DefaultHash32>> (r):
     match r:

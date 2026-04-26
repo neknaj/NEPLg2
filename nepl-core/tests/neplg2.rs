@@ -866,6 +866,7 @@ fn generic_hashkey_eq_after_load_uses_concrete_impl() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/traits/copy" as *
 #import "core/traits/hash_key" as *
 
 struct Point:
@@ -873,9 +874,6 @@ struct Point:
     y <i32>
 
 impl HashKey for Point:
-    fn clone <(Point)->Point> (self):
-        self
-
     fn eq <(Point,Point)->bool> (a, b):
         let ax <i32> field::get a "x"
         let ay <i32> field::get a "y"
@@ -885,6 +883,14 @@ impl HashKey for Point:
 
     fn hash32 <(Point)->i32> (self):
         xor field::get self "x" field::get self "y"
+
+impl Clone for Point:
+    fn clone <(&Point)->Point> (self):
+        *self
+
+impl Copy for Point:
+    fn copy_mark <(Point)->Point> (self):
+        self
 
 fn same_after_store <.T: HashKey> <(.T,.T)->bool> (a, b):
     let p <i32> alloc_raw size_of<.T>;
@@ -907,6 +913,7 @@ fn generic_hashkey_value_survives_hash_before_store() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/traits/copy" as *
 #import "core/traits/hash_key" as *
 
 struct Point:
@@ -914,9 +921,6 @@ struct Point:
     y <i32>
 
 impl HashKey for Point:
-    fn clone <(Point)->Point> (self):
-        self
-
     fn eq <(Point,Point)->bool> (a, b):
         let ax <i32> field::get a "x"
         let ay <i32> field::get a "y"
@@ -927,7 +931,15 @@ impl HashKey for Point:
     fn hash32 <(Point)->i32> (self):
         xor field::get self "x" field::get self "y"
 
-fn hash_then_store <.T: HashKey> <(.T)->.T> (x):
+impl Clone for Point:
+    fn clone <(&Point)->Point> (self):
+        *self
+
+impl Copy for Point:
+    fn copy_mark <(Point)->Point> (self):
+        self
+
+fn hash_then_store <.T: HashKey&Copy> <(.T)->.T> (x):
     let _h <i32> hashkey_hash32 x;
     let p <i32> alloc_raw size_of<.T>;
     store<.T> p x;
@@ -951,6 +963,7 @@ fn hashmap_custom_struct_key_roundtrips_value() {
 #import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "core/traits/hash" as *
 #import "core/traits/hash_key" as *
 
@@ -959,9 +972,6 @@ struct Point:
     y <i32>
 
 impl HashKey for Point:
-    fn clone <(Point)->Point> (self):
-        self
-
     fn eq <(Point,Point)->bool> (a, b):
         let ax <i32> field::get a "x"
         let ay <i32> field::get a "y"
@@ -971,6 +981,14 @@ impl HashKey for Point:
 
     fn hash32 <(Point)->i32> (self):
         xor field::get self "x" field::get self "y"
+
+impl Clone for Point:
+    fn clone <(&Point)->Point> (self):
+        *self
+
+impl Copy for Point:
+    fn copy_mark <(Point)->Point> (self):
+        self
 
 fn must_hmp <(Result<HashMap<Point,i32,DefaultHash32>, Diag>)*>HashMap<Point,i32,DefaultHash32>> (r):
     match r:
@@ -1122,6 +1140,7 @@ fn generic_store_after_generic_trait_probe_preserves_struct() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/traits/copy" as *
 #import "core/traits/hash_key" as *
 
 struct Point:
@@ -1129,9 +1148,6 @@ struct Point:
     y <i32>
 
 impl HashKey for Point:
-    fn clone <(Point)->Point> (self):
-        self
-
     fn eq <(Point,Point)->bool> (a, b):
         let ax <i32> field::get a "x"
         let ay <i32> field::get a "y"
@@ -1142,10 +1158,18 @@ impl HashKey for Point:
     fn hash32 <(Point)->i32> (self):
         xor field::get self "x" field::get self "y"
 
-fn probe <.T: HashKey> <(.T)->bool> (key):
+impl Clone for Point:
+    fn clone <(&Point)->Point> (self):
+        *self
+
+impl Copy for Point:
+    fn copy_mark <(Point)->Point> (self):
+        self
+
+fn probe <.T: HashKey&Copy> <(.T)->bool> (key):
     hashkey_eq key key
 
-fn write_after_probe <.T: HashKey,.V> <(.T,.V)->.T> (key, value):
+fn write_after_probe <.T: HashKey&Copy,.V> <(.T,.V)->.T> (key, value):
     let _ok <bool> probe<.T> key;
     let p <i32> alloc_raw add size_of<.T> size_of<.V>;
     store<.T> p key;
