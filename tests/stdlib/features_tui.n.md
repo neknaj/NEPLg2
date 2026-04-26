@@ -55,3 +55,25 @@ fn main <()*>i32> ():
         else:
             0
 ```
+
+## features_tui_buffer_new_initializes_string_lines
+
+[目的/もくてき]:
+- 行バッファが `str` 行スロットを型付き store で初期化し、facade 経由の import だけで compile fail しないことを固定します。
+- `buffer_new` / `buffer_set_line` / `buffer_free` の最小経路を通し、空行初期化と後続の `str` 書き込みが同じ型で扱われることを確かめます。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target wasix
+
+#import "features/tui" as tui
+
+fn main <()*>i32> ():
+    let b <i32> tui::buffer_new 8 2;
+    tui::buffer_set_line b 1 "ready";
+    tui::buffer_free b;
+    0
+```

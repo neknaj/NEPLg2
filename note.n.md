@@ -1,3 +1,19 @@
+# 2026-04-26 メモ (ISS-20260426T111438071Z TUI buffer_new str store)
+
+- 状況:
+  - `ISS-20260426T060333140Z` の narrow width 対応前に `tests/stdlib/features_tui.n.md` を実行したところ、`buffer_new` の `store_i32 add curr off ""` / `store_i32 add prev off ""` が `D3006 no matching overload found` で compile fail した。
+  - `curr` / `prev` は `str` 行スロットとして `buffer_set_line` でも `store<str>` されるため、初期化だけ raw i32 store になっていることが根本原因だった。
+- 修正:
+  - `buffer_new` の空文字列初期化を `store<str>` に変更した。
+  - `tests/stdlib/features_tui.n.md` に `buffer_new` / `buffer_set_line` / `buffer_free` の facade 経由回帰テストを追加した。
+  - 新規 issue `ISS-20260426T111438071Z-TUI-BUFFER-NEW-STORES-STR-VALUES-THR-4B4350FE` を追加し、verified にした。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/tui-buffer-str-store.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib/features/tui.nepl -i tests/stdlib/features_tui.n.md --no-tree -o tmp/tui-buffer-focused-files.json -j 1`: `total=4`, `passed=4`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/tui-buffer-stdlib-full.json -j 4`: 304 秒で timeout。partial JSON は `completed_results=0` で、別 agent の stdlib full test と重なっていたため、この issue の判定には focused tests を採用した。
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は TUI facade import の compile blocker を取り除く stdlib 側の型修正。
+
 # 2026-04-26 メモ (ISS-20260426T020003000Z stdio skipped doctests)
 
 - 状況:

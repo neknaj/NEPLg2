@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T11:09:38.346Z",
+  "generated_at": "2026-04-26T11:23:30.311Z",
   "counts": {
-    "total": 121,
+    "total": 122,
     "open": 18,
-    "resolved": 103,
+    "resolved": 104,
     "by_area": {
       "core": {
         "total": 39,
@@ -17,9 +17,9 @@
         "resolved": 2
       },
       "stdlib": {
-        "total": 42,
+        "total": 43,
         "open": 10,
-        "resolved": 32
+        "resolved": 33
       },
       "cli": {
         "total": 17,
@@ -1318,6 +1318,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90.md"
+    },
+    {
+      "id": "ISS-20260426T111438071Z-TUI-BUFFER-NEW-STORES-STR-VALUES-THR-4B4350FE",
+      "title": "TUI buffer_new stores str values through i32 store",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/platforms/wasix/tui.nepl, tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T111438071Z-TUI-BUFFER-NEW-STORES-STR-VALUES-THR-4B4350FE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
