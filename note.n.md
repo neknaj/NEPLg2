@@ -26,6 +26,28 @@
 - 備考:
   - plan.md は変更していない。今回の変更は現行 NEPLg2 core の drop elaboration が再代入時にも deterministic release を守るための修正。
   - RV-CORE-009 の Resource IR 完全導入は引き続き open だが、今回の問題は具体的な上書き時 Drop 漏れとして独立 issue 化して解決した。
+# 2026-04-27 メモ (ISS-20260426T182345763Z SHA-256 Result API)
+
+- 状況:
+  - `RV-STDLIB-010` の unsafe helper 棚卸し中に、self-host の source / artifact fingerprint で使う `stdlib/alloc/hash/sha256.nepl` が通常経路で `unwrap_ok` / `unwrap` に依存していることを確認した。
+  - `alloc/string.nepl` などメモリ/文字列系は別 agent の作業と衝突しやすいため触らず、hash 基盤の具体問題として `ISS-20260426T182345763Z-SHA256-PUBLIC-API-TRAPS-ON-ALLOCATIO-57C4D357` を追加して Discord に報告した。
+- 修正:
+  - `new_sha256` / `sha256_update` / `sha256_finalize` を `Result<..., StdErrorKind>` に変更し、確保失敗を `StdErrorKind::OutOfMemory` として返すようにした。
+  - schedule / round / digest builder の `Vec` allocation と `get_ref` をすべて `match` で扱い、内部前提崩れは `InvalidOperation` または `IndexOutOfBounds` として返すようにした。
+  - `stdlib/tests/hash.n.md` を Result API に更新し、digest byte の検査も `Option` match に変更した。
+  - `nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js` を追加し、CI build job と `doc/testing.md` に source policy regression として登録した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/hash-sha256-result-api-after-rebase.json -j 1`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-sha256-result-api-after-rebase.json -j 4`: `total=414`, `passed=414`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-sha256-result-api-after-rebase.json -j 4`: `total=282`, `passed=282`
+  - `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: pass
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-sha256-result-api-after-rebase.json`: `13/13 passed`
+  - `node nodesrc/issues.js check`: pass (`files=139`)
+  - `git diff --check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib hash 基盤のエラー伝播を self-host compiler で使える形に整えるもの。
 
 # 2026-04-27 メモ (ISS-20260426T175330910Z mutable reference syntax)
 

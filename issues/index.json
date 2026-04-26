@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T21:10:05.375Z",
+  "generated_at": "2026-04-26T21:23:07.310Z",
   "counts": {
-    "total": 138,
+    "total": 139,
     "open": 9,
-    "resolved": 129,
+    "resolved": 130,
     "by_area": {
       "core": {
         "total": 52,
@@ -12,9 +12,9 @@
         "resolved": 49
       },
       "stdlib": {
-        "total": 44,
+        "total": 45,
         "open": 6,
-        "resolved": 38
+        "resolved": 39
       },
       "cli": {
         "total": 17,
@@ -1993,6 +1993,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T161201078Z-NEPLG2-SELFHOST-LACKS-EXECUTABLE-SPA-52B20497.md"
+    },
+    {
+      "id": "ISS-20260426T182345763Z-SHA256-PUBLIC-API-TRAPS-ON-ALLOCATIO-57C4D357",
+      "title": "sha256 public API traps on allocation failure through unsafe unwraps",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/hash/sha256.nepl, stdlib/tests/hash.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T182345763Z-SHA256-PUBLIC-API-TRAPS-ON-ALLOCATIO-57C4D357.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

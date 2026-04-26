@@ -38,6 +38,13 @@ node nodesrc/check_utf8.js
 node nodesrc/check_utf8.js tutorials/getting_started
 ```
 
+Run source policy regressions for stdlib implementation style:
+
+```bash
+node nodesrc/test_stdlib_match_decision_trees.js
+node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js
+```
+
 Run one doctest directly:
 
 ```bash

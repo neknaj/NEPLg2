@@ -19,18 +19,32 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 
-fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Sha256> (ctx, text, idx, n):
+fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (ctx, text, idx, n):
     if:
         ge idx n
         then:
-            ctx
+            Result<Sha256, StdErrorKind>::Ok ctx
         else:
             let b <i32> string::string_byte_at_unchecked text idx
-            let next_ctx <Sha256> sha256_update ctx b
-            sha256_update_str_loop next_ctx text add idx 1 n
+            match sha256_update ctx b:
+                Result::Err e:
+                    Result<Sha256, StdErrorKind>::Err e
+                Result::Ok next_ctx:
+                    sha256_update_str_loop next_ctx text add idx 1 n
 
-fn sha256_update_str <(Sha256,str)*>Sha256> (ctx, text):
+fn sha256_update_str <(Sha256,str)*>Result<Sha256, StdErrorKind>> (ctx, text):
     sha256_update_str_loop ctx text 0 string::len text
+
+fn sha256_digest_for_text <(str)*>Result<Vec<i32>, StdErrorKind>> (text):
+    match new_sha256:
+        Result::Err e:
+            Result<Vec<i32>, StdErrorKind>::Err e
+        Result::Ok ctx0:
+            match sha256_update_str ctx0 text:
+                Result::Err e:
+                    Result<Vec<i32>, StdErrorKind>::Err e
+                Result::Ok ctx1:
+                    sha256_finalize ctx1
 
 fn sha256_expected_empty <(i32)->i32> (idx):
     match idx:
@@ -256,43 +270,42 @@ fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,Vec<Result<(),str>>)*>Vec<Result
         then:
             checks
         else:
-            let actual <i32> unwrap<i32> get_ref<i32> digest idx
-            let next_checks <Vec<Result<(),str>>> checks_push checks check_eq_i32 sha256_expected_byte kind idx actual
-            sha256_check_digest_loop digest kind add idx 1 next_checks
+            match get_ref<i32> digest idx:
+                Option::None:
+                    let next_checks <Vec<Result<(),str>>> checks_push checks Result<(),str>::Err "sha256 digest missing byte"
+                    sha256_check_digest_loop digest kind add idx 1 next_checks
+                Option::Some actual:
+                    let next_checks <Vec<Result<(),str>>> checks_push checks check_eq_i32 sha256_expected_byte kind idx actual
+                    sha256_check_digest_loop digest kind add idx 1 next_checks
+
+fn sha256_check_result <(Result<Vec<i32>, StdErrorKind>,i32,Vec<Result<(),str>>)*>Vec<Result<(),str>>> (digest_result, kind, checks):
+    match digest_result:
+        Result::Err _e:
+            checks_push checks Result<(),str>::Err "sha256 digest returned error"
+        Result::Ok digest:
+            let digest_len <i32> len_ref<i32> &digest
+            let checks1 <Vec<Result<(),str>>> checks_push checks check_eq_i32 32 digest_len
+            let checks2 <Vec<Result<(),str>>> sha256_check_digest_loop &digest kind 0 checks1
+            free<i32> digest
+            checks2
 
 fn main <()*>i32> ():
     let h0 new_fnv1a32
     let h1 fnv1a32_update h0 97
     let result fnv1a32_finalize h1
 
-    let empty0 <Sha256> new_sha256
-    let empty_digest <Vec<i32>> sha256_finalize empty0
-
-    let abc0 <Sha256> new_sha256
-    let abc1 <Sha256> sha256_update_str abc0 "abc"
-    let abc_digest <Vec<i32>> sha256_finalize abc1
-
-    let multi0 <Sha256> new_sha256
-    let multi1 <Sha256> sha256_update_str multi0 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
-    let multi_digest <Vec<i32>> sha256_finalize multi1
-    let empty_len <i32> len_ref<i32> &empty_digest
-    let abc_len <i32> len_ref<i32> &abc_digest
-    let multi_len <i32> len_ref<i32> &multi_digest
+    let empty_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text ""
+    let abc_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abc"
+    let multi_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
 
     let checks0 <Vec<Result<(),str>>>:
         checks_new
         |> checks_push check_eq_i32 -468965076 result
         |> checks_push check_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456
         |> checks_push check ne hash32_by_trait 123456 hash32_by_trait 123457
-        |> checks_push check_eq_i32 32 empty_len
-        |> checks_push check_eq_i32 32 abc_len
-        |> checks_push check_eq_i32 32 multi_len
-    let checks1 <Vec<Result<(),str>>> sha256_check_digest_loop &empty_digest 0 0 checks0
-    let checks2 <Vec<Result<(),str>>> sha256_check_digest_loop &abc_digest 1 0 checks1
-    let checks3 <Vec<Result<(),str>>> sha256_check_digest_loop &multi_digest 2 0 checks2
-    free<i32> empty_digest
-    free<i32> abc_digest
-    free<i32> multi_digest
+    let checks1 <Vec<Result<(),str>>> sha256_check_result empty_digest 0 checks0
+    let checks2 <Vec<Result<(),str>>> sha256_check_result abc_digest 1 checks1
+    let checks3 <Vec<Result<(),str>>> sha256_check_result multi_digest 2 checks2
     let shown <Vec<Result<(),str>>> checks_print_report checks3;
     checks_exit_code shown
 ```

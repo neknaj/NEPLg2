@@ -37,6 +37,11 @@ jobs:
             - name: Shared bootstrap build
               uses: ./.github/actions/bootstrap-build
 
+            - name: Source policy regressions
+              run: |
+                  node nodesrc/test_stdlib_match_decision_trees.js
+                  node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js
+
             - name: Build tutorials HTML into dist
               run: |
                   rm -rf dist/tutorials
