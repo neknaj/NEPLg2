@@ -4,6 +4,7 @@ extern crate alloc;
 extern crate std;
 
 use alloc::boxed::Box;
+use alloc::collections::btree_map::Entry;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -9161,27 +9162,26 @@ fn default_import_alias(path: &str) -> Option<String> {
 fn merge_unqualified_import_visibility(
     current: &mut UnqualifiedImportVisibility,
     next: UnqualifiedImportVisibility,
-) {
-    match (current, next) {
-        (current @ UnqualifiedImportVisibility::Hidden, UnqualifiedImportVisibility::All)
-        | (current @ UnqualifiedImportVisibility::Selected(_), UnqualifiedImportVisibility::All) => {
-            *current = UnqualifiedImportVisibility::All;
+) -> bool {
+    let before = current.clone();
+    match next {
+        UnqualifiedImportVisibility::Hidden => {}
+        UnqualifiedImportVisibility::All => {
+            if !matches!(&*current, UnqualifiedImportVisibility::All) {
+                *current = UnqualifiedImportVisibility::All;
+            }
         }
-        (
-            UnqualifiedImportVisibility::Selected(current),
-            UnqualifiedImportVisibility::Selected(next),
-        ) => {
-            current.extend(next);
-        }
-        (
-            current @ UnqualifiedImportVisibility::Hidden,
-            UnqualifiedImportVisibility::Selected(next),
-        ) => {
-            *current = UnqualifiedImportVisibility::Selected(next);
-        }
-        (UnqualifiedImportVisibility::All, _) => {}
-        (_, UnqualifiedImportVisibility::Hidden) => {}
+        UnqualifiedImportVisibility::Selected(next) => match current {
+            UnqualifiedImportVisibility::Hidden => {
+                *current = UnqualifiedImportVisibility::Selected(next);
+            }
+            UnqualifiedImportVisibility::Selected(current) => {
+                current.extend(next);
+            }
+            UnqualifiedImportVisibility::All => {}
+        },
     }
+    *current != before
 }
 
 fn insert_unqualified_import_visibility(
@@ -9197,40 +9197,50 @@ fn insert_unqualified_import_visibility(
     for target_file in target_files {
         source_visibility
             .entry(target_file)
-            .and_modify(|current| merge_unqualified_import_visibility(current, visibility.clone()))
+            .and_modify(|current| {
+                let _ = merge_unqualified_import_visibility(current, visibility.clone());
+            })
             .or_insert_with(|| visibility.clone());
     }
 }
 
 fn expand_unqualified_import_visibility(out: &mut UnqualifiedImportVisibilityMap) {
-    loop {
-        let snapshot = out.clone();
-        let mut changed = false;
-        for (source_file, targets) in &snapshot {
-            for (middle_file, visibility) in targets {
-                if *visibility != UnqualifiedImportVisibility::All {
-                    continue;
-                }
-                let Some(middle_targets) = snapshot.get(middle_file) else {
-                    continue;
-                };
-                for (target_file, next_visibility) in middle_targets {
-                    let source_visibility = out.entry(*source_file).or_insert_with(BTreeMap::new);
-                    let before = source_visibility.get(target_file).cloned();
-                    source_visibility
-                        .entry(*target_file)
-                        .and_modify(|current| {
-                            merge_unqualified_import_visibility(current, next_visibility.clone())
-                        })
-                        .or_insert_with(|| next_visibility.clone());
-                    if source_visibility.get(target_file).cloned() != before {
-                        changed = true;
-                    }
-                }
+    let mut worklist = Vec::new();
+    for (source_file, targets) in out.iter() {
+        for (target_file, visibility) in targets {
+            if *visibility == UnqualifiedImportVisibility::All {
+                worklist.push((*source_file, *target_file));
             }
         }
-        if !changed {
-            break;
+    }
+    while let Some((source_file, middle_file)) = worklist.pop() {
+        let middle_targets = out
+            .get(&middle_file)
+            .map(|targets| {
+                targets
+                    .iter()
+                    .map(|(target_file, visibility)| (*target_file, visibility.clone()))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        for (target_file, next_visibility) in middle_targets {
+            let source_visibility = out.entry(source_file).or_insert_with(BTreeMap::new);
+            let changed = match source_visibility.entry(target_file) {
+                Entry::Occupied(mut entry) => {
+                    merge_unqualified_import_visibility(entry.get_mut(), next_visibility)
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(next_visibility);
+                    true
+                }
+            };
+            if changed
+                && source_visibility
+                    .get(&target_file)
+                    .is_some_and(|visibility| *visibility == UnqualifiedImportVisibility::All)
+            {
+                worklist.push((source_file, target_file));
+            }
         }
     }
 }
