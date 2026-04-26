@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T13:11:19.191Z",
+  "generated_at": "2026-04-26T13:12:02.544Z",
   "counts": {
-    "total": 125,
+    "total": 126,
     "open": 14,
-    "resolved": 111,
+    "resolved": 112,
     "by_area": {
       "core": {
-        "total": 42,
+        "total": 43,
         "open": 2,
-        "resolved": 40
+        "resolved": 41
       },
       "selfhost": {
         "total": 7,
@@ -1618,6 +1618,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T121038912Z-STRING-LITERALS-CONTAINING-ARE-PARSE-F8AD3CED.md"
+    },
+    {
+      "id": "ISS-20260426T124322498Z-NEPL-CORE-WASI-TEST-HARNESS-LACKS-ST-E7AC7DC9",
+      "title": "nepl-core WASI test harness lacks std/fs directory imports after fs dir API",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/tests/harness.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T124322498Z-NEPL-CORE-WASI-TEST-HARNESS-LACKS-ST-E7AC7DC9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

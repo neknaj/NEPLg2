@@ -17823,3 +17823,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 着手前の監査性を上げるため、当初 issue の `nepl-core` / `nepl-cli` に加えて、同じ検証経路で露出した `nepl-web` / `nepl-lsp` warning も同時に解消した。
+
+# 2026-04-26 メモ (ISS-20260426T124322498Z nepl-core WASI test harness directory import 対応)
+
+- [同期]:
+  - `rust/compiler-warning-debt` branch を `origin/main` の `b801a12` に rebase した後、`cargo test -p nepl-core -p nepl-cli` で新しく露出した問題として issue を追加した。
+- [原因]:
+  - `std/fs` directory API の追加により、directory API を直接使わない core integration test でも `wasi_snapshot_preview1::path_filestat_get` / `fd_readdir` が module import に含まれるようになった。
+  - `nepl-core/tests/harness.rs` の共有 WASI harness は file read/write 系 import だけを持っており、module instantiate 時点で不足 import により失敗していた。
+- [修正]:
+  - `nepl-core/tests/harness.rs` に WASI directory import stub の登録 helper を追加した。
+  - `run_main_wasi_i32`、`run_main_capture_stdout`、`run_main_capture_stdout_with_stdin` の各 harness で同じ stub を登録するようにした。
+  - `path_filestat_get` は harness の仮想入力 `test.nepl` だけ file stat として扱い、それ以外は `NOENT` を返す。`fd_readdir` は core harness では directory traversal を実行しないため、instantiate 用の最小 stub として `BADF` を返す。
+- [回帰テスト]:
+  - `nepl-core/tests/kp.rs` の stdlib import を含む WASI 実行系テストが再び instantiate できることを確認した。
+  - directory traversal 自体の runtime 挙動は `nepl-cli/tests/cli_output.rs` の raw WASI integration test に委ね、core harness では import surface の整合性を固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test kp`: pass
+  - `cargo test -p nepl-core -p nepl-cli`: pass
+  - `cargo check --workspace`: pass
+  - `cargo fmt --all --check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-warning-debt-after-rebase.json`: `13/13 passed`
+  - `git diff --check`: pass（CRLF 変換警告のみ）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib directory API の追加で core test harness 側にも WASI import surface の追従が必要になったため、self-host 前提の検証基盤として harness を更新した。

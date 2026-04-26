@@ -49,6 +49,81 @@ struct WasiState {
     next_fd: i32,
 }
 
+fn register_wasi_directory_import_stubs<T: 'static>(linker: &mut Linker<T>) {
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
+            "path_filestat_get",
+            |mut caller: Caller<'_, T>,
+             _dirfd: i32,
+             flags: i32,
+             path_ptr: i32,
+             path_len: i32,
+             buf: i32|
+             -> i32 {
+                let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return 21,
+                };
+                if flags != 0 || path_ptr < 0 || path_len < 0 || buf < 0 {
+                    return 21;
+                }
+                let mem = memory.data(&caller);
+                let start = path_ptr as usize;
+                let len = path_len as usize;
+                let stat_offset = buf as usize;
+                if start.checked_add(len).is_none_or(|end| end > mem.len())
+                    || stat_offset
+                        .checked_add(64)
+                        .is_none_or(|end| end > mem.len())
+                {
+                    return 21;
+                }
+                let is_test_file = std::str::from_utf8(&mem[start..start + len])
+                    .map(|path| path == "test.nepl")
+                    .unwrap_or(false);
+                if !is_test_file {
+                    return 44;
+                }
+                let mut stat = [0u8; 64];
+                stat[16] = 4;
+                stat[32..40].copy_from_slice(&(8u64).to_le_bytes());
+                if memory.write(&mut caller, stat_offset, &stat).is_err() {
+                    return 21;
+                }
+                0
+            },
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
+            "fd_readdir",
+            |mut caller: Caller<'_, T>,
+             _fd: i32,
+             _buf: i32,
+             _buf_len: i32,
+             _cookie: i64,
+             bufused: i32|
+             -> i32 {
+                let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return 21,
+                };
+                if bufused < 0
+                    || (bufused as usize)
+                        .checked_add(4)
+                        .is_none_or(|end| end > memory.data(&caller).len())
+                {
+                    return 21;
+                }
+                let _ = memory.write(&mut caller, bufused as usize, &0u32.to_le_bytes());
+                8
+            },
+        )
+        .unwrap();
+}
+
 /// Compile and run `main` returning i32 (or 0 if main is ())->()).
 pub fn run_main_i32(src: &str) -> i32 {
     let wasm = compile_src(src);
@@ -275,6 +350,7 @@ pub fn run_main_wasi_i32(src: &str) -> i32 {
     let engine = Engine::default();
     let module = Module::new(&engine, &*wasm).expect("module");
     let mut linker: Linker<WasiState> = Linker::new(&engine);
+    register_wasi_directory_import_stubs(&mut linker);
     linker
         .func_wrap(
             "wasi_snapshot_preview1",
@@ -733,6 +809,7 @@ pub fn run_main_capture_stdout(src: &str) -> String {
     let module = Module::new(&engine, &*wasm).expect("module");
     let output = Arc::new(Mutex::new(String::new()));
     let mut linker = Linker::new(&engine);
+    register_wasi_directory_import_stubs(&mut linker);
     let output_buf = output.clone();
     linker
         .func_wrap(
@@ -997,6 +1074,7 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
     let output = Arc::new(Mutex::new(String::new()));
     let stdin_state = Arc::new(Mutex::new((stdin.to_vec(), 0usize)));
     let mut linker = Linker::new(&engine);
+    register_wasi_directory_import_stubs(&mut linker);
     let output_buf = output.clone();
     linker
         .func_wrap(
