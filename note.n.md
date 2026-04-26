@@ -17949,3 +17949,40 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 着手前の安全性検査として、現行 HIR move checker に lifetime escape の concrete guard を追加した。Resource IR による根本整理は引き続き RV-CORE-009 の対象として残る。
+
+# 2026-04-26 メモ (ISS-20260426T010006Z self-host CLI argv parser 実装)
+
+- [同期]:
+  - 作業開始前に `git pull --ff-only origin main` と `node nodesrc/issues.js check` を実行し、`main` と `origin/main` が `9b8684a` で一致していることを確認した。
+  - 実装中に user から remote main の borrow 修正更新の連絡を受け、作業差分を stash して `origin/main` の `0775d49 core: reject local borrow escapes` へ rebase した。
+  - rebase 後、`issues/index.*` は `node nodesrc/issues.js index` で再生成して conflict を解消した。
+- [原因]:
+  - `std/env/cliarg` は raw argv を取得できるが、self-host CLI が必要とする `--target` / `--emit` / `--stdlib-root` / `-o` / `-i` / positional input / `--` boundary の pure parser がなかった。
+  - CLI option layer が未検証だと、self-host compiler の core/parser/module loader の失敗と argv interpretation の失敗を切り分けられない。
+- [修正]:
+  - `stdlib/neplg2/cli/args.nepl` に `SelfhostCliOptions`、`SelfhostCliTarget`、`SelfhostCliEmit`、`SelfhostCliProfile`、`SelfhostCliErrorKind` を追加した。
+  - argv[0] を含まない `selfhost_cli_parse_args` と、raw argv から argv[0] を飛ばす `selfhost_cli_parse_argv` を分離した。
+  - option token を `SelfhostCliArgKind` enum に分類し、parser 本体は `match` で分岐するようにした。
+  - `--target` の `core` / `std` alias は内部 enum で `Wasm` / `Wasi` に正規化するようにした。
+  - `std/env/cliarg` 側は raw argv provider として扱い、`stdlib/tests/cliarg.n.md` に injected argv の値読み取りと out-of-range rejection を追加した。
+- [追加 issue]:
+  - `ISS-20260426T142242010Z-BORROWED-FIELD-PROJECTION-API-MISSIN-3010781E` を追加した。
+  - `SelfhostCliOptions` の複数 field を自然に読むコードが by-value `get` で `D3053` になり、現状は raw memory slot 経由で読む必要があるため、borrowed field projection API の不足として分離した。
+  - issue 追加時点で Discord に報告済み。
+- [回帰テスト]:
+  - `tests/stdlib/selfhost_cliarg_parser.n.md` を追加し、`--check --emit wasm -o out.wasm main.nepl`、unknown option、missing value、multiple input、argv[0] skip、`--` run args boundary を固定した。
+  - `stdlib/tests/cliarg.n.md` に `cliarg_get 1/2` の injected argv value と、negative / end index が `None` になることを固定した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args.nepl -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/selfhost-cliarg-parser-after-borrow-sync.json -j 1`: 10/10 passed
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/cliarg-provider-after-borrow-sync.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2 --no-tree -o tmp/selfhost-neplg2-after-cliargs.json -j 2`: 22/22 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-after-cliargs.json -j 4`: 411/411 passed
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-cliargs.json`: 13/13 passed
+  - `cargo fmt --all --check`: pass
+  - `cargo run -p nepl-cli -- --check -i examples/counter.nepl --target std`: pass
+  - `cargo run -p nepl-cli -- -i examples/counter.nepl --target std --emit wasm -o tmp/selfhost-cliargs-smoke-out.wasm`: pass, wasm output created
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の S6 CLI 方針に沿って、filesystem / stdio に接続する前段として pure argv parser と raw argv provider の回帰テストを先に確定した。

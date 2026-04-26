@@ -1,25 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T14:16:55.019Z",
+  "generated_at": "2026-04-26T14:35:49.117Z",
   "counts": {
-    "total": 128,
+    "total": 129,
     "open": 13,
-    "resolved": 115,
+    "resolved": 116,
     "by_area": {
       "core": {
-        "total": 45,
-        "open": 3,
+        "total": 46,
+        "open": 4,
         "resolved": 42
       },
       "stdlib": {
         "total": 43,
         "open": 9,
         "resolved": 34
-      },
-      "selfhost": {
-        "total": 7,
-        "open": 1,
-        "resolved": 6
       },
       "cli": {
         "total": 17,
@@ -30,6 +25,11 @@
         "total": 13,
         "open": 0,
         "resolved": 13
+      },
+      "selfhost": {
+        "total": 7,
+        "open": 0,
+        "resolved": 7
       },
       "compiler": {
         "total": 1,
@@ -150,19 +150,19 @@
       "file": "items/ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98.md"
     },
     {
-      "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
-      "title": "self-host CLI needs verified argv and option parsing surface",
-      "area": "selfhost",
+      "id": "ISS-20260426T142242010Z-BORROWED-FIELD-PROJECTION-API-MISSIN-3010781E",
+      "title": "borrowed field projection API missing for repeated aggregate reads",
+      "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P2",
-      "type": "test",
+      "type": "architecture",
       "created": "2026-04-26",
       "updated": "2026-04-26",
-      "target": "stdlib/std/env/cliarg.nepl",
+      "target": "stdlib/core/field.nepl; nepl-core move/borrow checker",
       "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229.md"
+      "source": "",
+      "file": "items/ISS-20260426T142242010Z-BORROWED-FIELD-PROJECTION-API-MISSIN-3010781E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -1708,6 +1708,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T072648414Z-NODESRC-TESTS-LEGACY-RUNNER-OVERFLOW-B0D364B2.md"
+    },
+    {
+      "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",
+      "title": "self-host CLI needs verified argv and option parsing surface",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/env/cliarg.nepl",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229.md"
     },
     {
       "id": "ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91",

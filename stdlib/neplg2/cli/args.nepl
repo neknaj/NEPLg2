@@ -1,26 +1,671 @@
 #indent 4
 
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
+#import "core/field" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
 //: # args
 //: NEPLg2.0 self-host CLI の argv parser 境界を置くモジュールです。
 //:
 //: [目的/もくてき]:
 //: - raw argv provider と pure option parser を分離し、self-host CLI parity test の入口にします。
-//: - Stage 0 では `cli/` の責務境界を marker API で固定します。
+//: - `--target` / `--emit` / `--stdlib-root` / `-o` / `-i` / input path を、filesystem や stdio に依存せず解釈します。
+//: - `std/env/cliarg` は argv の取得だけを担い、このモジュールは渡された `Vec<str>` を読むだけにします。
 //:
 //: [注意/ちゅうい]:
-//: - argv の取得や filesystem access は std / WASI interface issue が解決してから実装します。
+//: - `selfhost_cli_parse_args` は argv[0] を含まない引数列を、`selfhost_cli_parse_argv` は argv[0] を含む raw argv を受け取ります。
+//: - `--` 以降の実行時引数はこの段階では内容をコピーせず、開始 index だけを `run_args_start` に保存します。
+//: - 返る `str` は入力 argv の文字列値を参照する軽量値です。文字列本体は呼び出し側の argv と同じ寿命を前提にします。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
+//: - [時間/じかん]: O(n)
 //: - [空間/くうかん]: O(1)
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
 //:| #import "neplg2/cli/args" as *
 //: fn main <()->i32> ():
 //:     selfhost_args_stage0
 //: ```
 fn selfhost_args_stage0 <()->i32> ():
     0
+
+//: ## SelfhostCliTarget
+//: self-host compiler が受け付ける compile target です。
+//:
+//: [目的/もくてき]:
+//: - Rust CLI の `--target` 表面と同じ語彙を enum に閉じ込めます。
+//: - `core` / `std` は互換 alias として parser で正規化します。
+//:
+//: [注意/ちゅうい]:
+//: - `Core` と `Std` は enum variant にはせず、それぞれ `Wasm` / `Wasi` に正規化します。
+pub enum SelfhostCliTarget:
+    Wasm
+    Wasi
+    Wasix
+    Llvm
+
+//: ## SelfhostCliEmit
+//: self-host compiler の出力形式です。
+//:
+//: [目的/もくてき]:
+//: - `--emit` の値を enum として扱い、後続 driver が文字列比較を繰り返さずに分岐できるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - Rust CLI の comma 区切り複数指定は、後続の artifact writer issue で `Vec<SelfhostCliEmit>` へ拡張します。
+pub enum SelfhostCliEmit:
+    Wasm
+    Wat
+    WatMin
+    Llvm
+    LlvmMin
+    All
+
+//: ## SelfhostCliProfile
+//: compile profile の指定です。
+pub enum SelfhostCliProfile:
+    Debug
+    Release
+
+//: ## SelfhostCliErrorKind
+//: CLI parser が返す usage error の分類です。
+//:
+//: [目的/もくてき]:
+//: - compiler diagnostic と CLI usage error を混ぜず、exit code と message を driver 側で決められるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - どの option が原因かを含む詳細 diagnostic は `cli/reporter.nepl` の段階で追加します。
+pub enum SelfhostCliErrorKind:
+    UnknownOption
+    MissingValue
+    MultipleInput
+    InvalidTarget
+    InvalidEmit
+    InvalidProfile
+
+//: ## SelfhostCliArgKind
+//: argv token の分類です。
+//:
+//: [目的/もくてき]:
+//: - string token を一度 enum に分類し、parser 本体を `match` で読める形にします。
+enum SelfhostCliArgKind:
+    Check
+    Run
+    AttachSource
+    Lib
+    Verbose
+    Target
+    Emit
+    StdlibRoot
+    Output
+    Input
+    Profile
+    Separator
+    Positional
+    UnknownOption
+
+//: ## SelfhostCliOptions
+//: pure parser が返す CLI option set です。
+//:
+//: [目的/もくてき]:
+//: - self-host CLI driver が必要とする compile/run option をまとめます。
+//: - raw argv 取得、filesystem 読み込み、artifact 書き出しとは独立した純粋値にします。
+//:
+//: [注意/ちゅうい]:
+//: - `run_args_start` は parser に渡した引数列の index です。`selfhost_cli_parse_argv` の場合は argv[0] を含む index になります。
+//: - `input` は `-i/--input` と positional input のどちらから来ても同じ field に格納します。
+pub struct SelfhostCliOptions:
+    check <bool>
+    run <bool>
+    attach_source <bool>
+    lib <bool>
+    verbose <bool>
+    emit <SelfhostCliEmit>
+    target <Option<SelfhostCliTarget>>
+    profile <Option<SelfhostCliProfile>>
+    stdlib_root <Option<str>>
+    output <Option<str>>
+    input <Option<str>>
+    run_args_start <Option<i32>>
+
+//: selfhost_cli_options_new: parser state から options を組み立てる
+//:
+//: [目的/もくてき]:
+//: - 走査中の値を `SelfhostCliOptions` へ変換します。
+//:
+//: [実装/じっそう]:
+//: - struct constructor にそのまま渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_cli_options_new <(bool,bool,bool,bool,bool,SelfhostCliEmit,Option<SelfhostCliTarget>,Option<SelfhostCliProfile>,Option<str>,Option<str>,Option<str>,Option<i32>)->SelfhostCliOptions> (check, run, attach_source, lib, verbose, emit, target, profile, stdlib_root, output, input, run_args_start):
+    SelfhostCliOptions check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
+
+//: selfhost_cli_default_options: 既定の option set を返す
+//:
+//: [目的/もくてき]:
+//: - 引数なしの状態を明示し、parser と doctest が同じ初期値を共有できるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - Rust CLI と同じく、`emit` の既定値は `wasm` です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/args" as *
+//:| #import "core/field" as *
+//: fn main <()*>i32> ():
+//:     let opts <SelfhostCliOptions> selfhost_cli_default_options;
+//:     if selfhost_cli_emit_is_wasm get opts "emit" 0 1
+//: ```
+pub fn selfhost_cli_default_options <()->SelfhostCliOptions> ():
+    selfhost_cli_options_new false false false false false SelfhostCliEmit::Wasm none<SelfhostCliTarget> none<SelfhostCliProfile> none<str> none<str> none<str> none<i32>
+
+//: selfhost_cli_arg_at: argv data/len から index 指定で文字列を読む
+//:
+//: [目的/もくてき]:
+//: - `Vec<str>` を消費せず、parser 内部で index access します。
+//:
+//: [実装/じっそう]:
+//: - `VecDataLen<str>` から取り出した data address と len を使って境界検査後に `load<str>` します。
+//:
+//: [注意/ちゅうい]:
+//: - `data` は呼び出し元の Vec の内部 pointer なので、parser 中に Vec を変更してはいけません。
+fn selfhost_cli_arg_at <(i32,i32,i32)->Option<str>> (data, count, idx):
+    if:
+        lt idx 0
+        then:
+            none<str>
+        else:
+            if:
+                le count idx
+                then:
+                    none<str>
+                else:
+                    some<str> load<str> add data mul idx size_of<str>
+
+//: selfhost_cli_arg_kind: argv token を分類する
+//:
+//: [目的/もくてき]:
+//: - option token の文字列比較をこの関数へ閉じ込め、parser 本体は enum `match` で分岐します。
+//:
+//: [実装/じっそう]:
+//: - Rust CLI が受け付ける短縮形と long option を順に比較します。
+//: - `-` で始まる未定義 token は `UnknownOption`、それ以外は positional input として扱います。
+fn selfhost_cli_arg_kind <(str)->SelfhostCliArgKind> (arg):
+    if:
+        str_eq arg "--check"
+        then:
+            SelfhostCliArgKind::Check
+        else:
+            if:
+                str_eq arg "--run"
+                then:
+                    SelfhostCliArgKind::Run
+                else:
+                    if:
+                        str_eq arg "--attach-source"
+                        then:
+                            SelfhostCliArgKind::AttachSource
+                        else:
+                            if:
+                                str_eq arg "--lib"
+                                then:
+                                    SelfhostCliArgKind::Lib
+                                else:
+                                    if:
+                                        or str_eq arg "--verbose" str_eq arg "-v"
+                                        then:
+                                            SelfhostCliArgKind::Verbose
+                                        else:
+                                            if:
+                                                str_eq arg "--target"
+                                                then:
+                                                    SelfhostCliArgKind::Target
+                                                else:
+                                                    if:
+                                                        str_eq arg "--emit"
+                                                        then:
+                                                            SelfhostCliArgKind::Emit
+                                                        else:
+                                                            if:
+                                                                str_eq arg "--stdlib-root"
+                                                                then:
+                                                                    SelfhostCliArgKind::StdlibRoot
+                                                                else:
+                                                                    if:
+                                                                        or str_eq arg "--output" str_eq arg "-o"
+                                                                        then:
+                                                                            SelfhostCliArgKind::Output
+                                                                        else:
+                                                                            if:
+                                                                                or str_eq arg "--input" str_eq arg "-i"
+                                                                                then:
+                                                                                    SelfhostCliArgKind::Input
+                                                                                else:
+                                                                                    if:
+                                                                                        str_eq arg "--profile"
+                                                                                        then:
+                                                                                            SelfhostCliArgKind::Profile
+                                                                                        else:
+                                                                                            if:
+                                                                                                str_eq arg "--"
+                                                                                                then:
+                                                                                                    SelfhostCliArgKind::Separator
+                                                                                                else:
+                                                                                                    if:
+                                                                                                        str_starts_with arg "-"
+                                                                                                        then:
+                                                                                                            SelfhostCliArgKind::UnknownOption
+                                                                                                        else:
+                                                                                                            SelfhostCliArgKind::Positional
+
+//: selfhost_cli_parse_target_value: `--target` の値を enum へ変換する
+//:
+//: [目的/もくてき]:
+//: - CLI 表面の alias を内部 target enum へ正規化します。
+//:
+//: [注意/ちゅうい]:
+//: - `core` は `wasm`、`std` は `wasi` として扱います。
+pub fn selfhost_cli_parse_target_value <(str)->Result<SelfhostCliTarget,SelfhostCliErrorKind>> (value):
+    if:
+        or str_eq value "wasm" str_eq value "core"
+        then:
+            ok<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliTarget::Wasm
+        else:
+            if:
+                or str_eq value "wasi" str_eq value "std"
+                then:
+                    ok<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliTarget::Wasi
+                else:
+                    if:
+                        str_eq value "wasix"
+                        then:
+                            ok<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliTarget::Wasix
+                        else:
+                            if:
+                                str_eq value "llvm"
+                                then:
+                                    ok<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliTarget::Llvm
+                                else:
+                                    err<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidTarget
+
+//: selfhost_cli_parse_emit_value: `--emit` の値を enum へ変換する
+//:
+//: [目的/もくてき]:
+//: - artifact writer が扱う出力種別を enum へ閉じ込めます。
+//:
+//: [注意/ちゅうい]:
+//: - comma 区切り複数 emit は後続 issue で `Vec<SelfhostCliEmit>` 化します。
+pub fn selfhost_cli_parse_emit_value <(str)->Result<SelfhostCliEmit,SelfhostCliErrorKind>> (value):
+    if:
+        str_eq value "wasm"
+        then:
+            ok<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliEmit::Wasm
+        else:
+            if:
+                str_eq value "wat"
+                then:
+                    ok<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliEmit::Wat
+                else:
+                    if:
+                        str_eq value "wat-min"
+                        then:
+                            ok<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliEmit::WatMin
+                        else:
+                            if:
+                                str_eq value "llvm"
+                                then:
+                                    ok<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliEmit::Llvm
+                                else:
+                                    if:
+                                        str_eq value "llvm-min"
+                                        then:
+                                            ok<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliEmit::LlvmMin
+                                        else:
+                                            if:
+                                                str_eq value "all"
+                                                then:
+                                                    ok<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliEmit::All
+                                                else:
+                                                    err<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+
+//: selfhost_cli_parse_profile_value: `--profile` の値を enum へ変換する
+pub fn selfhost_cli_parse_profile_value <(str)->Result<SelfhostCliProfile,SelfhostCliErrorKind>> (value):
+    if:
+        str_eq value "debug"
+        then:
+            ok<SelfhostCliProfile,SelfhostCliErrorKind> SelfhostCliProfile::Debug
+        else:
+            if:
+                str_eq value "release"
+                then:
+                    ok<SelfhostCliProfile,SelfhostCliErrorKind> SelfhostCliProfile::Release
+                else:
+                    err<SelfhostCliProfile,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidProfile
+
+//: selfhost_cli_next_value: 値を必要とする option の次 token を読む
+//:
+//: [目的/もくてき]:
+//: - `--target` や `-o` の値欠落を `MissingValue` として返します。
+//:
+//: [注意/ちゅうい]:
+//: - 値が `-` で始まるかどうかはここでは判定しません。path や値として許可する余地を残します。
+fn selfhost_cli_next_value <(i32,i32,i32)->Result<str,SelfhostCliErrorKind>> (data, count, i):
+    match selfhost_cli_arg_at data count add i 1:
+        Option::Some value:
+            ok<str,SelfhostCliErrorKind> value
+        Option::None:
+            err<str,SelfhostCliErrorKind> SelfhostCliErrorKind::MissingValue
+
+//: selfhost_cli_set_input: input path を重複検査つきで設定する
+//:
+//: [目的/もくてき]:
+//: - positional input と `-i/--input` を同じ重複規則で処理します。
+fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCliErrorKind>> (current, value):
+    match current:
+        Option::Some _old:
+            err<Option<str>,SelfhostCliErrorKind> SelfhostCliErrorKind::MultipleInput
+        Option::None:
+            ok<Option<str>,SelfhostCliErrorKind> some<str> value
+
+//: selfhost_cli_finish: 走査済み state を success result にする
+fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmit,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool,Option<i32>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose, run_args_start):
+    ok<SelfhostCliOptions,SelfhostCliErrorKind> selfhost_cli_options_new check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
+
+//: selfhost_cli_parse_loop: argv parser の本体
+//:
+//: [目的/もくてき]:
+//: - index を進めながら option state を更新し、usage error を `Result::Err` にします。
+//:
+//: [実装/じっそう]:
+//: - 各 token を `SelfhostCliArgKind` に分類し、enum `match` で処理を選びます。
+//: - 値付き option は `selfhost_cli_next_value` で次 token を取り、成功時だけ index を 2 進めます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmit,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (data, count, i, input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose):
+    if:
+        le count i
+        then:
+            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none<i32>
+        else:
+            match selfhost_cli_arg_at data count i:
+                Option::None:
+                    selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none<i32>
+                Option::Some arg:
+                    match selfhost_cli_arg_kind arg:
+                        SelfhostCliArgKind::Check:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile true run attach_source lib verbose
+                        SelfhostCliArgKind::Run:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check true attach_source lib verbose
+                        SelfhostCliArgKind::AttachSource:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check run true lib verbose
+                        SelfhostCliArgKind::Lib:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check run attach_source true verbose
+                        SelfhostCliArgKind::Verbose:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check run attach_source lib true
+                        SelfhostCliArgKind::Target:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_parse_target_value value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok parsed:
+                                            selfhost_cli_parse_loop data count add i 2 input output stdlib_root some<SelfhostCliTarget> parsed emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Emit:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_parse_emit_value value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok parsed:
+                                            selfhost_cli_parse_loop data count add i 2 input output stdlib_root target parsed profile check run attach_source lib verbose
+                        SelfhostCliArgKind::StdlibRoot:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    selfhost_cli_parse_loop data count add i 2 input output some<str> value target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Output:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    selfhost_cli_parse_loop data count add i 2 input some<str> value stdlib_root target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Input:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_set_input input value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok next_input:
+                                            selfhost_cli_parse_loop data count add i 2 next_input output stdlib_root target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Profile:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_parse_profile_value value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok parsed:
+                                            selfhost_cli_parse_loop data count add i 2 input output stdlib_root target emit some<SelfhostCliProfile> parsed check run attach_source lib verbose
+                        SelfhostCliArgKind::Separator:
+                            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose some<i32> add i 1
+                        SelfhostCliArgKind::Positional:
+                            match selfhost_cli_set_input input arg:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok next_input:
+                                    selfhost_cli_parse_loop data count add i 1 next_input output stdlib_root target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::UnknownOption:
+                            err<SelfhostCliOptions,SelfhostCliErrorKind> SelfhostCliErrorKind::UnknownOption
+
+//: selfhost_cli_parse_args: argv[0] を含まない引数列を解析する
+//:
+//: [目的/もくてき]:
+//: - test fixture や driver 内部から、program name を除いた CLI args を pure に解析します。
+//:
+//: [実装/じっそう]:
+//: - `Vec<str>` を borrow して `VecDataLen` にし、index 0 から `selfhost_cli_parse_loop` へ渡します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/args" as *
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//:| #import "core/field" as *
+//:| #import "core/option" as *
+//:| #import "core/mem" as *
+//: fn main <()*>i32> ():
+//:     let args <Vec<str>>:
+//:         unwrap_ok v::new<str>
+//:         |> v::push<str> "--check" |> uwok
+//:         |> v::push<str> "--emit" |> uwok
+//:         |> v::push<str> "wasm" |> uwok
+//:         |> v::push<str> "-o" |> uwok
+//:         |> v::push<str> "out.wasm" |> uwok
+//:         |> v::push<str> "main.nepl" |> uwok
+//:     match selfhost_cli_parse_args &args:
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok opts:
+//:             let opts_mem <i32> alloc_raw size_of<SelfhostCliOptions>;
+//:             store<SelfhostCliOptions> opts_mem opts;
+//:             let output_ok <bool> match get load<SelfhostCliOptions> opts_mem "output":
+//:                 Option::Some out:
+//:                     str_eq out "out.wasm"
+//:                 Option::None:
+//:                     false
+//:             let input_ok <bool> match get load<SelfhostCliOptions> opts_mem "input":
+//:                 Option::Some input:
+//:                     str_eq input "main.nepl"
+//:                 Option::None:
+//:                     false
+//:             let check_ok <bool> get load<SelfhostCliOptions> opts_mem "check";
+//:             let emit_ok <bool> selfhost_cli_emit_is_wasm get load<SelfhostCliOptions> opts_mem "emit";
+//:             dealloc_raw opts_mem size_of<SelfhostCliOptions>;
+//:             if and check_ok and emit_ok and output_ok input_ok 0 1
+//: ```
+pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args):
+    let span <VecDataLen<str>> v::data_len_ref<str> args;
+    let data <i32> mem_ptr_addr get span "data";
+    let count <i32> get span "len";
+    selfhost_cli_parse_loop data count 0 none<str> none<str> none<str> none<SelfhostCliTarget> SelfhostCliEmit::Wasm none<SelfhostCliProfile> false false false false false
+
+//: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
+//:
+//: [目的/もくてき]:
+//: - `std/env/cliarg` から集めた raw argv をそのまま渡せる入口です。
+//:
+//: [実装/じっそう]:
+//: - argv[0] は program name として扱い、index 1 から option parsing を始めます。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/args" as *
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//:| #import "core/field" as *
+//:| #import "core/option" as *
+//:| #import "core/mem" as *
+//: fn main <()*>i32> ():
+//:     let argv <Vec<str>>:
+//:         unwrap_ok v::new<str>
+//:         |> v::push<str> "neplg2" |> uwok
+//:         |> v::push<str> "--target" |> uwok
+//:         |> v::push<str> "std" |> uwok
+//:         |> v::push<str> "-i" |> uwok
+//:         |> v::push<str> "main.nepl" |> uwok
+//:     match selfhost_cli_parse_argv &argv:
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok opts:
+//:             let opts_mem <i32> alloc_raw size_of<SelfhostCliOptions>;
+//:             store<SelfhostCliOptions> opts_mem opts;
+//:             let target_ok <bool> match get load<SelfhostCliOptions> opts_mem "target":
+//:                 Option::Some target:
+//:                     selfhost_cli_target_is_wasi target
+//:                 Option::None:
+//:                     false
+//:             let input_ok <bool> match get load<SelfhostCliOptions> opts_mem "input":
+//:                 Option::Some input:
+//:                     str_eq input "main.nepl"
+//:                 Option::None:
+//:                     false
+//:             dealloc_raw opts_mem size_of<SelfhostCliOptions>;
+//:             if and target_ok input_ok 0 1
+//: ```
+pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (argv):
+    let span <VecDataLen<str>> v::data_len_ref<str> argv;
+    let data <i32> mem_ptr_addr get span "data";
+    let count <i32> get span "len";
+    selfhost_cli_parse_loop data count 1 none<str> none<str> none<str> none<SelfhostCliTarget> SelfhostCliEmit::Wasm none<SelfhostCliProfile> false false false false false
+
+//: selfhost_cli_target_is_wasm: target が Wasm か判定する
+pub fn selfhost_cli_target_is_wasm <(SelfhostCliTarget)->bool> (target):
+    match target:
+        SelfhostCliTarget::Wasm:
+            true
+        SelfhostCliTarget::Wasi:
+            false
+        SelfhostCliTarget::Wasix:
+            false
+        SelfhostCliTarget::Llvm:
+            false
+
+//: selfhost_cli_target_is_wasi: target が Wasi か判定する
+pub fn selfhost_cli_target_is_wasi <(SelfhostCliTarget)->bool> (target):
+    match target:
+        SelfhostCliTarget::Wasm:
+            false
+        SelfhostCliTarget::Wasi:
+            true
+        SelfhostCliTarget::Wasix:
+            false
+        SelfhostCliTarget::Llvm:
+            false
+
+//: selfhost_cli_emit_is_wasm: emit が Wasm か判定する
+pub fn selfhost_cli_emit_is_wasm <(SelfhostCliEmit)->bool> (emit):
+    match emit:
+        SelfhostCliEmit::Wasm:
+            true
+        SelfhostCliEmit::Wat:
+            false
+        SelfhostCliEmit::WatMin:
+            false
+        SelfhostCliEmit::Llvm:
+            false
+        SelfhostCliEmit::LlvmMin:
+            false
+        SelfhostCliEmit::All:
+            false
+
+//: selfhost_cli_error_is_unknown_option: error kind が unknown option か判定する
+pub fn selfhost_cli_error_is_unknown_option <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            true
+        SelfhostCliErrorKind::MissingValue:
+            false
+        SelfhostCliErrorKind::MultipleInput:
+            false
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            false
+        SelfhostCliErrorKind::InvalidProfile:
+            false
+
+//: selfhost_cli_error_is_missing_value: error kind が missing value か判定する
+pub fn selfhost_cli_error_is_missing_value <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            false
+        SelfhostCliErrorKind::MissingValue:
+            true
+        SelfhostCliErrorKind::MultipleInput:
+            false
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            false
+        SelfhostCliErrorKind::InvalidProfile:
+            false
+
+//: selfhost_cli_error_is_multiple_input: error kind が multiple input か判定する
+pub fn selfhost_cli_error_is_multiple_input <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            false
+        SelfhostCliErrorKind::MissingValue:
+            false
+        SelfhostCliErrorKind::MultipleInput:
+            true
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            false
+        SelfhostCliErrorKind::InvalidProfile:
+            false
