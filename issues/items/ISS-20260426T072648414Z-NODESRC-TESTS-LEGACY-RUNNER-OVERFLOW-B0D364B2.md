@@ -2,8 +2,8 @@
 id: ISS-20260426T072648414Z-NODESRC-TESTS-LEGACY-RUNNER-OVERFLOW-B0D364B2
 title: "nodesrc tests legacy runner overflows stack on std/io facade"
 area: nodesrc
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: bug
 created: 2026-04-26
@@ -43,7 +43,20 @@ issue ごとの検証で `-j 1` と `-j 2` の結果が食い違うため、comm
 single-job path も worker-based execution model へ揃えるか、legacy runner 側の stack 条件を worker と同等にする。
 あわせて、`tests/stdlib/io.n.md::doctest#1` を single-job entry で実行して worker mode と同じ結果になる回帰テストを追加する。
 
+## 対応
+
+- `nodesrc/tests.js` の wasm runner が `jobs <= 1` または `cases.length <= 1` のときに in-process legacy runner へ戻る分岐をなくした。
+- default の `NEPL_WASM_THREAD_POOL=1` では、`-j 1` でも worker thread based runner を使い、compiler wasm の JS stack 条件を `-j 2` 以上と揃えるようにした。
+- `nodesrc/test_tests_runner_jobs.js` を追加し、`tests/stdlib/io.n.md` が `-j 1` と `-j 2` の両方で 6/6 pass することを固定した。
+
 ## 検証
 
-- `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-legacy-runner.json -j 1` が 6/6 pass。
-- `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-worker-runner.json -j 2` が 6/6 pass。
+- `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-legacy-runner-fixed-j1.json -j 1`: `total=6`, `passed=6`, `failed=0`
+- `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-legacy-runner-fixed-j2-alone.json -j 2`: `total=6`, `passed=6`, `failed=0`
+- `node nodesrc/test_tests_runner_jobs.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib/mem_bulk_copy.n.md --no-tree -o tmp/nodesrc-runner-mem-bulk-copy-j1.json -j 1`: `total=6`, `passed=6`, `failed=0`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/nodesrc-runner-postfix-stdlib-full.json -j 4`: `total=404`, `passed=404`, `failed=0`
+- `node nodesrc/test_cli_args.js`: pass
+- `node nodesrc/issues.js check`: pass
+- `trunk build`: pass
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-nodesrc-runner.json`: `13/13 passed`

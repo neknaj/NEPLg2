@@ -1,3 +1,24 @@
+# 2026-04-26 メモ (ISS-20260426T072648414Z nodesrc tests legacy runner stack)
+
+- 状況:
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -j 1` は `tests/stdlib/io.n.md::doctest#1` の compile で `RangeError: Maximum call stack size exceeded` になった。
+  - 同じ suite は worker runner を使う `-j 2` では通っており、jobs 数で検証結果が変わっていた。
+- 修正:
+  - `nodesrc/tests.js` の wasm runner で、default thread pool が有効な場合は `-j 1` や 1 case でも worker thread based runner を使うようにした。
+  - `nodesrc/test_tests_runner_jobs.js` を追加し、`tests/stdlib/io.n.md` が `-j 1` と `-j 2` の両方で 6/6 pass することを回帰固定した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-legacy-runner-fixed-j1.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-legacy-runner-fixed-j2-alone.json -j 2`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/test_tests_runner_jobs.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/mem_bulk_copy.n.md --no-tree -o tmp/nodesrc-runner-mem-bulk-copy-j1.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/nodesrc-runner-postfix-stdlib-full.json -j 4`: `total=404`, `passed=404`, `failed=0`
+  - `node nodesrc/test_cli_args.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-nodesrc-runner.json`: `13/13 passed`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host 前提の検証 runner の再現性を改善するもの。
+
 # 2026-04-26 メモ (ISS-20260426T021003000Z bulk memory copy)
 
 - 状況:

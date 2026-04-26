@@ -498,7 +498,8 @@ async function runAllThreadPool(cases, jobs, distHint) {
 
 async function runAll(cases, jobs, distHint) {
     const useThreadPool = (process.env.NEPL_WASM_THREAD_POOL || '1') !== '0';
-    if (!useThreadPool || jobs <= 1 || cases.length <= 1) {
+    // compiler wasm の JS stack 条件を jobs 数に依存させないため、既定では 1 job でも worker runner を使う。
+    if (!useThreadPool) {
         return runAllLegacy(cases, jobs, distHint);
     }
     try {
