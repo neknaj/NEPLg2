@@ -2,8 +2,8 @@
 id: ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10
 title: "self-host requirement test for user-defined HashMap keys still fails"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-26
@@ -41,7 +41,13 @@ self-host compiler の symbol table / type table / diagnostic table は、最初
 self-host で必要な最小要件は `HashKey` trait impl を user-defined struct に実装し、`HashMap<Point, V, DefaultHash32>` で `new` / `insert` / `get` が通ることとして fixture を作り直す。
 inherent impl を言語機能として残す場合は、別 issue / 別 fixture で診断と実装範囲を固定する。
 
+## 対応
+
+`test_req_trait_extensions` から unsupported inherent impl と旧 `hashmap_new` / `hashmap_insert` API を除き、`impl HashKey for Point` と `DefaultHash32` の組み合わせで `HashMap<Point, str, DefaultHash32>` の `new` / `insert` / `get` が実行できる fixture に変更した。
+同じ user-defined key + default hasher ケースを `stdlib/alloc/collections/hashmap.nepl` の doctest と `tests/stdlib/selfhost_req.n.md` の実行 doctest にも追加し、self-host 要件が Rust 側と Node doctest 側で同じ意味になるようにした。
+
 ## 検証
 
-- `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions -- --ignored`
-- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-user-key-tests.json -j 1`
+- `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-user-key-tests.json -j 1`: 8/8 passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 6`: passed, return_value=5

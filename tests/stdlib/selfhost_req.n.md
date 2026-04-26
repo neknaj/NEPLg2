@@ -165,33 +165,55 @@ fn main <()*>i32> ():
 
 ## test_req_trait_extensions
 
-neplg2:test[compile_fail]
-diag_id: 3081
+neplg2:test
+ret: 5
 ```neplg2
 
 #entry main
 #indent 4
+#target std
 #import "alloc/collections/hashmap" as *
+#import "alloc/diag/error" as *
+#import "alloc/string" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
 #import "core/traits/hash" as *
+#import "core/traits/hash_key" as *
 
 // ユーザー定義型
 struct Point:
     x <i32>
     y <i32>
 
-// 要件: ユーザー定義型をMapのキーにするための Hash/Eq トレイト実装
-// コンパイラが trait 実装を認識し、HashMap で利用できるようにする
-impl Point:
-    fn hash <(Point)->i32> (self):
-        xor self.x self.y
+// 要件: ユーザー定義型をMapのキーにするための HashKey trait 実装
+impl HashKey for Point:
+    fn clone <(Point)->Point> (self):
+        self
 
     fn eq <(Point, Point)->bool> (a, b):
-        and (eq a.x b.x) (eq a.y b.y)
+        let ax <i32> field::get a "x"
+        let ay <i32> field::get a "y"
+        let bx <i32> field::get b "x"
+        let by <i32> field::get b "y"
+        and (eq ax bx) (eq ay by)
+
+    fn hash32 <(Point)->i32> (self):
+        xor field::get self "x" field::get self "y"
+
+fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, Diag>)*>HashMap<Point,str,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _d:
+            #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let p1 <Point> Point 10 20;
-    let mut map <HashMap<Point, str, DefaultHash32>> new DefaultHash32;
-    
-    insert map p1 "Start";
-    0
+    let map0 <HashMap<Point,str,DefaultHash32>> must_hmp new DefaultHash32;
+    let map1 <HashMap<Point,str,DefaultHash32>> must_hmp insert map0 (Point 10 20) "Start";
+    match get map1 (Point 10 20):
+        Option::Some name:
+            len name
+        Option::None:
+            0
 ```

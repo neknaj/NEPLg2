@@ -1,3 +1,27 @@
+# 2026-04-26 メモ (ISS-20260426T020001000Z SELFHOST-REQ-HASHKEY 修正)
+
+- 状況:
+  - `nepl-core/tests/selfhost_req.rs` の `test_req_trait_extensions` は ignored のままで、実行すると unsupported inherent impl (`impl Point:`) と旧 HashMap API により失敗していた。
+  - self-host compiler の symbol / type / diagnostic table では user-defined key を `HashMap` に載せる要件があるため、`str` key だけで通る状態では要件が固定できていなかった。
+- 原因:
+  - fixture が「inherent impl の実装可否」と「`HashKey` trait impl を HashMap key として使えること」を混ぜていた。
+  - 現行 stdlib は `HashMap<.K,.V,.H>` + `new DefaultHash32` / `insert` / `get` API だが、selfhost_req fixture は旧 `hashmap_new` / `hashmap_insert` 形式を残していた。
+- 修正:
+  - `test_req_trait_extensions` の ignore を外し、`impl HashKey for Point` + `HashMap<Point,str,DefaultHash32>` で `new` / `insert` / `get` が実行できる fixture に更新した。
+  - `stdlib/alloc/collections/hashmap.nepl` に user-defined key + `DefaultHash32` の doctest を追加した。
+  - `tests/stdlib/selfhost_req.n.md` の該当 doctestを compile_fail から実行 test に変え、Rust fixture と同じ return value 5 を確認する内容に更新した。
+  - `issues/items/ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10.md` を verified にし、`todo.md` から対応項目を削除した。
+- 確認済み:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test selfhost_req test_req_trait_extensions`: pass
+  - `cargo test -p nepl-core --test selfhost_req`: 6/6 passed
+  - `trunk build`: pass。初回は ignored 生成物 `web/dist_ts` と `nodesrc/parser.js` が無かったため、`npm --prefix web ci`、`.\web\node_modules\.bin\tsc -p nodesrc\tsconfig.json`、`npm --prefix web run build:ts` でローカル bootstrap 後に再実行した。
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/hashmap-user-key-tests.json -j 1`: 8/8 passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 6`: pass、`return_value=5`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/selfhost-req-hashkey.json -j 1`: 6 件中、今回更新した doctest#6 は pass。既存 doctest#1 は別原因で fail。
+- plan.md との差異:
+  - plan.md は変更していない。今回の修正は self-host 前提の core/stdlib fixture を現行 HashKey / HashMap API に揃えたもので、言語仕様本文への変更はない。
+
 # 2026-04-26 メモ (ISS-20260426T023700894Z traits_text runtime return 修正)
 
 - 状況:

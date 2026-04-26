@@ -7,7 +7,6 @@
 - `rust/import-visibility-worklist` branch で `ISS-20260426T021004000Z-IMPORT-VISIBILITY-CLONE-6F92C1A0` に沿って import visibility closure を worklist 化する
 - `rust/monomorphize-trait-index` branch で `ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5` に沿って trait impl lookup index / cache を設計する
 - `stdlib/string-find-api` branch で `ISS-20260426T020000000Z-STRING-FIND-STUB-7C9A1E2B` に沿って `alloc/string::find` の仕様と実装を確定する
-- `rust/selfhost-req-hashkey` branch で `ISS-20260426T020001000Z-SELFHOST-REQ-HASHKEY-4B6D8F10` に沿って user-defined key の `HashKey` 要件を fixture 化する
 - `rust/function-nested-test` branch で `ISS-20260426T020002000Z-FUNCTION-NESTED-IGNORED-9D3C5A77` に沿って通過済み nested function test の ignore を外す
 - `stdlib/stdio-executable-tests` branch で `ISS-20260426T020003000Z-STDIO-SKIP-TESTS-2E6F0A4B` に沿って stdio doctest skip を実行可能 test へ移す
 - `cli/lib-mode-contract` branch で `ISS-20260426T020004000Z-CLI-LIB-PLACEHOLDER-6B1D9E22` に沿って `--lib` の未実装契約または実装範囲を確定する

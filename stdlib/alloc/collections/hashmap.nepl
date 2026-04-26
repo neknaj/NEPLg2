@@ -29,6 +29,58 @@
 #import "core/traits/hash" as *
 #import "alloc/diag/error" as *
 
+//: ## user-defined key と DefaultHash32
+//: `HashKey` を[実装/じっそう]したユーザー[定義/ていぎ] struct が、標準 hasher の `DefaultHash32` で `HashMap` の key として[使/つか]えることを[確認/かくにん]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/hashmap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "core/field" as field
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/hash" as *
+//:| #import "core/traits/hash_key" as *
+//: struct Point:
+//:     x <i32>
+//:     y <i32>
+//:
+//: impl HashKey for Point:
+//:     fn clone <(Point)->Point> (self):
+//:         self
+//:
+//:     fn eq <(Point,Point)->bool> (a, b):
+//:         let ax <i32> field::get a "x"
+//:         let ay <i32> field::get a "y"
+//:         let bx <i32> field::get b "x"
+//:         let by <i32> field::get b "y"
+//:         and (eq ax bx) (eq ay by)
+//:
+//:     fn hash32 <(Point)->i32> (self):
+//:         xor field::get self "x" field::get self "y"
+//:
+//: fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, Diag>)*>HashMap<Point,str,DefaultHash32>> (r):
+//:     match r:
+//:         Result::Ok hm:
+//:             hm
+//:         Result::Err _d:
+//:             #intrinsic "unreachable" <> ()
+//:
+//: fn main <()*>i32> ():
+//:     let map0 <HashMap<Point,str,DefaultHash32>> must_hmp new DefaultHash32;
+//:     let map1 <HashMap<Point,str,DefaultHash32>> must_hmp insert map0 (Point 10 20) "Start";
+//:     match get map1 (Point 10 20):
+//:         Option::Some name:
+//:             assert_eq_i32 5 len name;
+//:             0
+//:         Option::None:
+//:             1
+//: ```
+
 //: ## HashMap
 //: key/value を[保持/ほじ]する hash table の[本体/ほんたい]
 //:
