@@ -15,6 +15,7 @@
 //: ### [注意/ちゅうい]
 //: - `push_front` / `push_back` は[更新後/こうしんご]の `Deque<.T>` を `Result` で[返/かえ]します。
 //: - `pop_front` / `pop_back` / `peek_front` / `peek_back` は[空/から] deque を `Option::None` として[返/かえ]します。
+//: - `len_ref` / `cap_ref` / `is_empty_ref` / `peek_front_ref` / `peek_back_ref` は `&Deque<.T>` を[受/う]け、owner を[移動/いどう]せずに[観測/かんそく]します。
 //: - `free` [後/ご]の[再利用/さいりよう]は[禁止/きんし]です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -26,6 +27,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
 //: ## Deque
@@ -78,6 +80,9 @@ fn deque_data_from_hdr <.T> <(MemPtr<u8>)->MemPtr<.T>> (hdr):
             mem_ptr_wrap raw
         Option::None:
             mem_ptr_wrap 0
+
+fn deque_hdr_from_ref <.T> <(&Deque<.T>)->MemPtr<u8>> (dq):
+    *get_ref dq "hdr"
 
 //: deque_store_header_i32: deque が[所有/しょゆう]する header field へ i32 を[書/か]き[込/こ]む
 //:
@@ -140,15 +145,30 @@ fn with_capacity <.T> <(i32)*>Result<Deque<.T>, Diag>> (cap):
 fn len <.T> <(Deque<.T>)->i32> (dq):
     deque_len_from_hdr get dq "hdr"
 
+//: ## len_ref
+//: `Deque` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+fn len_ref <.T> <(&Deque<.T>)->i32> (dq):
+    deque_len_from_hdr deque_hdr_from_ref<.T> dq
+
 //: ## cap
 //: [容量/ようりょう]を[返/かえ]す
 fn cap <.T> <(Deque<.T>)->i32> (dq):
     deque_cap_from_hdr get dq "hdr"
 
+//: ## cap_ref
+//: `Deque` を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
+fn cap_ref <.T> <(&Deque<.T>)->i32> (dq):
+    deque_cap_from_hdr deque_hdr_from_ref<.T> dq
+
 //: ## is_empty
 //: [空/から]かどうかを[返/かえ]す
 fn is_empty <.T> <(Deque<.T>)->bool> (dq):
     eq len<.T> dq 0
+
+//: ## is_empty_ref
+//: `Deque` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
+fn is_empty_ref <.T> <(&Deque<.T>)->bool> (dq):
+    eq len_ref<.T> dq 0
 
 fn deque_grow_front <.T> <(Deque<.T>, .T)*>Result<Deque<.T>, Diag>> (dq, item):
     let hdr <MemPtr<u8>> get dq "hdr"
@@ -361,10 +381,46 @@ fn peek_front <.T> <(Deque<.T>)->Option<.T>> (dq):
             let data0 <MemPtr<.T>> deque_data_from_hdr<.T> hdr
             some<.T> load<.T> add mem_ptr_addr data0 mul head0 size_of<.T>
 
+//: ## peek_front_ref
+//: `Deque` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
+//:
+//: ### [注意/ちゅうい]
+//: - 値を owner から複製して返すため `.T: Copy` に[限定/げんてい]します。
+fn peek_front_ref <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
+    let hdr <MemPtr<u8>> deque_hdr_from_ref<.T> dq
+    let len0 <i32> deque_len_from_hdr hdr
+    if:
+        eq len0 0
+        then:
+            none<.T>
+        else:
+            let head0 <i32> deque_head_from_hdr hdr
+            let data0 <MemPtr<.T>> deque_data_from_hdr<.T> hdr
+            some<.T> load<.T> add mem_ptr_addr data0 mul head0 size_of<.T>
+
 //: ## peek_back
 //: [末尾/まつび]を[参照/さんしょう]する
 fn peek_back <.T> <(Deque<.T>)->Option<.T>> (dq):
     let hdr <MemPtr<u8>> get dq "hdr"
+    let len0 <i32> deque_len_from_hdr hdr
+    if:
+        eq len0 0
+        then:
+            none<.T>
+        else:
+            let cap0 <i32> deque_cap_from_hdr hdr
+            let head0 <i32> deque_head_from_hdr hdr
+            let data0 <MemPtr<.T>> deque_data_from_hdr<.T> hdr
+            let tail_idx <i32> mod_s add head0 sub len0 1 cap0
+            some<.T> load<.T> add mem_ptr_addr data0 mul tail_idx size_of<.T>
+
+//: ## peek_back_ref
+//: `Deque` を[移動/いどう]せずに[末尾/まつび]を[読/よ]む
+//:
+//: ### [注意/ちゅうい]
+//: - 値を owner から複製して返すため `.T: Copy` に[限定/げんてい]します。
+fn peek_back_ref <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
+    let hdr <MemPtr<u8>> deque_hdr_from_ref<.T> dq
     let len0 <i32> deque_len_from_hdr hdr
     if:
         eq len0 0

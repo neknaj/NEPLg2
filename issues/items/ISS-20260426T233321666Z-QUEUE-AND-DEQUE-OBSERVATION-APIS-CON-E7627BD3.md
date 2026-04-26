@@ -2,8 +2,8 @@
 id: ISS-20260426T233321666Z-QUEUE-AND-DEQUE-OBSERVATION-APIS-CON-E7627BD3
 title: "Queue and Deque observation APIs consume owner handles"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: architecture
 created: 2026-04-26
@@ -39,6 +39,17 @@ Self-host lexer/parser work queues need frequent observation plus later cleanup.
 
 Add borrowed observation APIs or change read-only APIs to take &Queue/&Deque where compatible, keep mutating pop/push ownership semantics explicit, and refactor doctests to reuse one owner handle once the borrowed API is available.
 
+## 解決内容
+
+- `Queue` に `len_ref` / `is_empty_ref` / `peek_ref` を追加し、owner handle を移動せずに length / empty / front value を観測できるようにした。
+- `Deque` に `len_ref` / `cap_ref` / `is_empty_ref` / `peek_front_ref` / `peek_back_ref` を追加した。
+- borrowed peek 系は owner 内の値を複製して返すため `.T: Copy` bound を付け、mutating `pop` / `push` の owner-consuming semantics は維持した。
+- `tests/stdlib/queue_collections.n.md` / `tests/stdlib/deque_collections.n.md` の重複 setup を削除し、同じ owner を `len_ref` / `peek_ref` 後に `clear` / `free` する regression に更新した。
+
 ## 検証
 
-Add compile/runtime doctests that call len/peek/is_empty through borrowed observation APIs and then clear/free the same Queue/Deque owner. Keep move-check tests ensuring mutating operations still cannot be used after owner-consuming calls without rebinding.
+- `node nodesrc/tests.js -i tests/stdlib/queue_collections.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/queue-deque-borrowed-observation-focused.json -j 1`: 4/4 passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/deque.nepl --no-tree -o tmp/queue-deque-borrowed-observation-docs.json -j 1`: 16/16 passed
+- `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: pass
+- `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-queue-deque-borrowed-observation.json -j 4`: 286/286 passed
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-queue-deque-borrowed-observation.json -j 4`: 416/416 passed

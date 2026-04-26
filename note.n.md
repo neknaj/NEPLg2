@@ -18682,3 +18682,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の S1 lexer/parser で使う work queue/deque 基盤が、grow / cleanup で unsafe helper に依存しないようにした。
+
+# 2026-04-27 メモ (ISS-20260426T233321666Z Queue/Deque borrowed observation API)
+
+- [同期]:
+  - `main` / `origin/main` が `a6264ed stdlib: remove queue deque unsafe unwraps` で一致している状態から `stdlib/queue-deque-borrowed-observation` branch を作成した。
+- [原因]:
+  - `Queue` / `Deque` の `len` / `peek` 系 API は read-only に見えるが owner handle を by-value で受けていた。
+  - compiler の move/borrow 修正後でも、API signature が owner-consuming のままなので、doctest では同じ collection を観測ごとに再構築する不自然な workaround が残っていた。
+- [修正]:
+  - `Queue` に `len_ref` / `is_empty_ref` / `peek_ref` を追加した。
+  - `Deque` に `len_ref` / `cap_ref` / `is_empty_ref` / `peek_front_ref` / `peek_back_ref` を追加した。
+  - borrowed peek 系は `.T: Copy` に限定し、owner 内の値を複製して返すことを明示した。
+  - `tests/stdlib/queue_collections.n.md` / `tests/stdlib/deque_collections.n.md` の重複 setup を削除し、同じ owner を borrowed observation 後に `clear` / `free` する regression に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/queue_collections.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/queue-deque-borrowed-observation-focused.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/deque.nepl --no-tree -o tmp/queue-deque-borrowed-observation-docs.json -j 1`: 16/16 passed
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-queue-deque-borrowed-observation.json -j 4`: 286/286 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-queue-deque-borrowed-observation.json -j 4`: 416/416 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host lexer/parser の work queue/deque が、観測のためだけに owner を消費しない API を持つようになった。

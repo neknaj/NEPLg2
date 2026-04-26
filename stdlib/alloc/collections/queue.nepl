@@ -11,6 +11,7 @@
 //: ### [注意/ちゅうい]
 //: - `push` は[更新後/こうしんご]の `Queue<.T>` を `Result` で[返/かえ]すため、pipe [記法/きほう]では `|> push ... |> uwok` の[形/かたち]で[受/う]け[直/なお]します。
 //: - `pop` / `peek` は[空/から] queue を[失敗/しっぱい]ではなく `Option::None` として[返/かえ]します。
+//: - `len_ref` / `is_empty_ref` / `peek_ref` は `&Queue<.T>` を[受/う]け、owner を[移動/いどう]せずに[観測/かんそく]します。
 //: - `free` [後/ご]の[再利用/さいりよう]は[禁止/きんし]です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -24,6 +25,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
 //: ## Queue
@@ -77,6 +79,9 @@ fn queue_data_from_hdr <.T> <(MemPtr<u8>)->MemPtr<.T>> (hdr):
             mem_ptr_wrap raw
         Option::None:
             mem_ptr_wrap 0
+
+fn queue_hdr_from_ref <.T> <(&Queue<.T>)->MemPtr<u8>> (q):
+    *get_ref q "hdr"
 
 //: queue_store_header_i32: queue が[所有/しょゆう]する header field へ i32 を[書/か]き[込/こ]む
 //:
@@ -185,6 +190,17 @@ fn with_capacity <.T> <(i32)*>Result<Queue<.T>, Diag>> (cap):
 fn len <.T> <(Queue<.T>)->i32> (q):
     queue_len_from_hdr get q "hdr"
 
+//: ## len_ref
+//: `Queue` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `&Queue<.T>` から length を[読/よ]み、呼び出し後も同じ owner を `peek_ref` / `clear` / `free` に[使/つか]えるようにします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn len_ref <.T> <(&Queue<.T>)->i32> (q):
+    queue_len_from_hdr queue_hdr_from_ref<.T> q
+
 //: ## is_empty
 //: [空/から]かどうかを[調/しら]べる
 //:
@@ -207,6 +223,11 @@ fn len <.T> <(Queue<.T>)->i32> (q):
 //: ```
 fn is_empty <.T> <(Queue<.T>)->bool> (q):
     eq len<.T> q 0
+
+//: ## is_empty_ref
+//: `Queue` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
+fn is_empty_ref <.T> <(&Queue<.T>)->bool> (q):
+    eq len_ref<.T> q 0
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
@@ -354,6 +375,31 @@ fn pop <.T> <(Queue<.T>)*>Option<.T>> (q):
 //: ```
 fn peek <.T> <(Queue<.T>)->Option<.T>> (q):
     let hdr <MemPtr<u8>> get q "hdr"
+    let len0 <i32> queue_len_from_hdr hdr
+    if:
+        eq len0 0
+        then:
+            none<.T>
+        else:
+            let head0 <i32> queue_head_from_hdr hdr
+            let data0 <MemPtr<.T>> queue_data_from_hdr<.T> hdr
+            let off <i32> mul head0 size_of<.T>
+            some<.T> load<.T> add mem_ptr_addr data0 off
+
+//: ## peek_ref
+//: `Queue` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - `&Queue<.T>` から[先頭/せんとう][要素/ようそ]を `Option` で[返/かえ]します。
+//: - owner を[消費/しょうひ]しないため、観測後に同じ queue を `clear` / `free` できます。
+//:
+//: ### [注意/ちゅうい]
+//: - 値を owner から複製して返すため `.T: Copy` に[限定/げんてい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn peek_ref <.T: Copy> <(&Queue<.T>)->Option<.T>> (q):
+    let hdr <MemPtr<u8>> queue_hdr_from_ref<.T> q
     let len0 <i32> queue_len_from_hdr hdr
     if:
         eq len0 0
