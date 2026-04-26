@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (ISS-20260426T060223863Z ByteBuf conversion failure)
+
+- 状況:
+  - `io_bytebuf_from_str` は `alloc_ptr<u8>` 失敗時に `io_bytebuf_empty` を返し、空入力と allocation failure を区別できなかった。
+  - `io_bytebuf_to_str` は `string_alloc_region` 失敗時に入力 `ByteBuf` を解放して空文字列を返し、空 buffer と allocation failure を区別できなかった。
+  - `std/streamio`、`std/io`、`std/fs` の Result-returning 経路も非 Result helper を使っていたため、上位 API でも失敗を成功値へ潰し得た。
+- 修正:
+  - `io_bytebuf_from_str_result` / `io_bytebuf_to_str_result` を追加し、allocation failure を `StdErrorKind::OutOfMemory` として返すようにした。
+  - 既存の `io_bytebuf_from_str` / `io_bytebuf_to_str` は互換 facade として残し、失敗時 fallback をコメントで明示した。
+  - `stream_bytes_from_str_result` / `stream_bytes_to_str_result` と `fs_bytes_to_string_result` を追加した。
+  - `std/streamio`、`std/io`、`std/fs` の Result-returning read / conversion 経路を Result variant へ繋ぎ、allocation failure を成功値へ潰さないようにした。
+- 回帰テスト:
+  - `tests/stdlib/bytebuf_result.n.md` を追加し、roundtrip、空 buffer、巨大 `ByteBuf` による allocation failure、`std/io` / `std/streamio` / `std/fs` facade 伝播を固定した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-result-focused-4.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl -i stdlib/std/streamio.nepl -i stdlib/std/io.nepl -i stdlib/std/fs.nepl -i tests/stdlib/bytebuf_result.n.md -i tests/stdlib/streamio.n.md -i tests/stdlib/io.n.md -i tests/stdlib/fs.n.md --no-tree -o tmp/bytebuf-result-suite-2.json -j 2`: `total=35`, `passed=35`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/bytebuf-result-stdlib-full-2.json -j 4`: `total=404`, `passed=404`, `failed=0`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は binary/text helper の失敗伝播を stdlib の Result 方針へ合わせるもの。
+
 # 2026-04-26 メモ (ISS-20260426T060156433Z string numeric parser overflow)
 
 - 状況:

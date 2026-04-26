@@ -339,22 +339,48 @@ fn stream_scanner_store_header <(MemPtr<u8>,StreamScannerHeaderField,i32)->()> (
                 Result::Err _e:
                     #intrinsic "unreachable" <> ()
 
-//: ## stream_bytes_from_str
-//: `str` を byte [列/れつ]へ[変換/へんかん]する
+//: ## stream_bytes_from_str_result
+//: `str` を byte [列/れつ]へ[変換/へんかん]する Result API
 //:
 //: ### [目的/もくてき]
 //: - text helper と binary helper の[橋渡/はしわた]しとして、`str` を[連続/れんぞく] byte buffer へ[複製/ふくせい]します。
+//: - buffer 確保失敗を `StdErrorKind::OutOfMemory` として呼び出し側へ返します。
+fn stream_bytes_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
+    io_bytebuf_from_str_result text
+
+//: ## stream_bytes_from_str
+//: `str` を byte [列/れつ]へ[変換/へんかん]する互換 facade
+//:
+//: ### [目的/もくてき]
+//: - 既存の streamio helper として `ByteBuf` を直接返します。
+//:
+//: ### [注意/ちゅうい]
+//: - 空入力と確保失敗を区別する場合は `stream_bytes_from_str_result` を使ってください。
 fn stream_bytes_from_str <(str)->ByteBuf> (text):
     io_bytebuf_from_str text
 
-//: ## stream_bytes_to_str
-//: byte [列/れつ]を `str` として[包/つつ]み[直/なお]す
+//: ## stream_bytes_to_str_result
+//: byte [列/れつ]を `str` として[包/つつ]み[直/なお]す Result API
 //:
 //: ### [目的/もくてき]
 //: - binary stream の[内容/ないよう]を text helper へ[渡/わた]したい[場合/ばあい]の[最小/さいしょう][変換/へんかん]を[提供/ていきょう]します。
+//: - 文字列領域の確保失敗を `StdErrorKind::OutOfMemory` として呼び出し側へ返します。
 //:
 //: ### [実装/じっそう]
 //: - UTF-8 [検証/けんしょう]は[行/おこな]わず、byte [列/れつ]をそのまま `str` [表現/ひょうげん]へ[移/うつ]します。
+//: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
+fn stream_bytes_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (bytes):
+    io_bytebuf_to_str_result bytes
+
+//: ## stream_bytes_to_str
+//: byte [列/れつ]を `str` として[包/つつ]み[直/なお]す互換 facade
+//:
+//: ### [目的/もくてき]
+//: - 既存の streamio helper として `str` を直接返します。
+//:
+//: ### [注意/ちゅうい]
+//: - 空 buffer と確保失敗を区別する場合は `stream_bytes_to_str_result` を使ってください。
+//: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
 fn stream_bytes_to_str <(ByteBuf)*>str> (bytes):
     io_bytebuf_to_str bytes
 
@@ -398,7 +424,11 @@ fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
         ReadStream::Stdio:
             scanner_from_bytes stdio_read_all_bytes
         ReadStream::Text text:
-            scanner_from_bytes io_bytebuf_from_str text
+            match io_bytebuf_from_str_result text:
+                Result::Ok bytes:
+                    scanner_from_bytes bytes
+                Result::Err _e:
+                    Result<StreamScanner,str>::Err "streamio.scanner text alloc failed"
         ReadStream::Bytes bytes:
             scanner_from_bytes bytes
         ReadStream::Fs path:
@@ -1552,7 +1582,7 @@ impl TextReader for StdinStream:
 
 impl ByteReader for TextInputStream:
     fn read_all_bytes <(TextInputStream)*>Result<ByteBuf, StdErrorKind>> (stream):
-        Result::Ok io_bytebuf_from_str get stream "text"
+        io_bytebuf_from_str_result get stream "text"
 
 impl TextReader for TextInputStream:
     fn read_all_text <(TextInputStream)*>Result<str, StdErrorKind>> (stream):
@@ -1568,7 +1598,7 @@ impl ByteReader for ByteInputStream:
 
 impl TextReader for ByteInputStream:
     fn read_all_text <(ByteInputStream)*>Result<str, StdErrorKind>> (stream):
-        Result::Ok io_bytebuf_to_str get stream "bytes"
+        io_bytebuf_to_str_result get stream "bytes"
 
 impl Close for ByteInputStream:
     fn close <(ByteInputStream)*>Result<(), StdErrorKind>> (_stream):

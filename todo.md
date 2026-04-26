@@ -1,7 +1,6 @@
 2026-04-26 NEPLg2 Self-host
 
 - `stdlib/mem-bulk-copy` branch で `ISS-20260426T021003000Z-MEM-BULK-COPY-41F6B8D2` に沿って bulk memory copy API と backend lowering を整備する
-- `stdlib/bytebuf-result-conversions` branch で `ISS-20260426T060223863Z-BYTEBUF-CONVERSIONS-HIDE-ALLOCATION--3BF03711` に沿って ByteBuf / str 変換の allocation failure を値として返す
 - `stdlib/json-typed-values` branch で `ISS-20260426T060250100Z-JSONVALUE-STORES-STRUCTURED-JSON-PAY-8494C374` に沿って JSON value の raw i32 payload を typed representation へ移行する
 - `stdlib/sha256-digest` branch で `ISS-20260426T060311796Z-SHA256-MODULE-PUBLISHES-BUFFERING-SC-F4601536` に沿って SHA-256 API を本物の digest 実装または非公開 scaffold へ整理する
 - `stdlib/tui-narrow-width` branch で `ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2` に沿って TUI box helper の narrow width 契約を固定する
