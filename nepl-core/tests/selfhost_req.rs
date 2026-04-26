@@ -240,6 +240,6 @@ fn main <()*>i32> ():
         Option::None:
             0
 "#;
-    let v = run_main_i32(src);
+    let v = run_main_wasi_i32(src);
     assert_eq!(v, 5);
 }

@@ -762,6 +762,242 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn generic_intrinsic_store_load_struct_preserves_fields() {
+    let src = r#"
+#entry main
+#indent 4
+#target std
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+
+struct Point:
+    x <i32>
+    y <i32>
+
+fn roundtrip <.T> <(.T)->.T> (x):
+    let p <i32> alloc_raw size_of<.T>;
+    store<.T> p x;
+    load<.T> p
+
+fn main <()*>i32> ():
+    let p <Point> roundtrip<Point> Point 10 20;
+    add mul field::get p "x" 100 field::get p "y"
+"#;
+    assert_eq!(run_main_wasi_i32(src), 1020);
+}
+
+#[test]
+fn generic_hashkey_eq_after_load_uses_concrete_impl() {
+    let src = r#"
+#entry main
+#indent 4
+#target std
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/traits/hash_key" as *
+
+struct Point:
+    x <i32>
+    y <i32>
+
+impl HashKey for Point:
+    fn clone <(Point)->Point> (self):
+        self
+
+    fn eq <(Point,Point)->bool> (a, b):
+        let ax <i32> field::get a "x"
+        let ay <i32> field::get a "y"
+        let bx <i32> field::get b "x"
+        let by <i32> field::get b "y"
+        and (eq ax bx) (eq ay by)
+
+    fn hash32 <(Point)->i32> (self):
+        xor field::get self "x" field::get self "y"
+
+fn same_after_store <.T: HashKey> <(.T,.T)->bool> (a, b):
+    let p <i32> alloc_raw size_of<.T>;
+    store<.T> p a;
+    let saved <.T> load<.T> p;
+    hashkey_eq saved b
+
+fn main <()*>i32> ():
+    if same_after_store<Point> (Point 10 20) (Point 10 20) 1 0
+"#;
+    assert_eq!(run_main_wasi_i32(src), 1);
+}
+
+#[test]
+fn generic_hashkey_value_survives_hash_before_store() {
+    let src = r#"
+#entry main
+#indent 4
+#target std
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/traits/hash_key" as *
+
+struct Point:
+    x <i32>
+    y <i32>
+
+impl HashKey for Point:
+    fn clone <(Point)->Point> (self):
+        self
+
+    fn eq <(Point,Point)->bool> (a, b):
+        let ax <i32> field::get a "x"
+        let ay <i32> field::get a "y"
+        let bx <i32> field::get b "x"
+        let by <i32> field::get b "y"
+        and (eq ax bx) (eq ay by)
+
+    fn hash32 <(Point)->i32> (self):
+        xor field::get self "x" field::get self "y"
+
+fn hash_then_store <.T: HashKey> <(.T)->.T> (x):
+    let _h <i32> hashkey_hash32 x;
+    let p <i32> alloc_raw size_of<.T>;
+    store<.T> p x;
+    load<.T> p
+
+fn main <()*>i32> ():
+    let p <Point> hash_then_store<Point> Point 10 20;
+    add mul field::get p "x" 100 field::get p "y"
+"#;
+    assert_eq!(run_main_wasi_i32(src), 1020);
+}
+
+#[test]
+fn hashmap_custom_struct_key_roundtrips_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/hashmap" as *
+#import "alloc/diag/error" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/hash" as *
+#import "core/traits/hash_key" as *
+
+struct Point:
+    x <i32>
+    y <i32>
+
+impl HashKey for Point:
+    fn clone <(Point)->Point> (self):
+        self
+
+    fn eq <(Point,Point)->bool> (a, b):
+        let ax <i32> field::get a "x"
+        let ay <i32> field::get a "y"
+        let bx <i32> field::get b "x"
+        let by <i32> field::get b "y"
+        and (eq ax bx) (eq ay by)
+
+    fn hash32 <(Point)->i32> (self):
+        xor field::get self "x" field::get self "y"
+
+fn must_hmp <(Result<HashMap<Point,i32,DefaultHash32>, Diag>)*>HashMap<Point,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn main <()*>i32> ():
+    let map0 <HashMap<Point,i32,DefaultHash32>> must_hmp new DefaultHash32;
+    let map1 <HashMap<Point,i32,DefaultHash32>> must_hmp insert map0 (Point 10 20) 99;
+    match get map1 (Point 10 20):
+        Option::Some n:
+            n
+        Option::None:
+            0
+"#;
+    assert_eq!(run_main_wasi_i32(src), 99);
+}
+
+#[test]
+fn generic_store_after_generic_trait_probe_preserves_struct() {
+    let src = r#"
+#entry main
+#indent 4
+#target std
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/traits/hash_key" as *
+
+struct Point:
+    x <i32>
+    y <i32>
+
+impl HashKey for Point:
+    fn clone <(Point)->Point> (self):
+        self
+
+    fn eq <(Point,Point)->bool> (a, b):
+        let ax <i32> field::get a "x"
+        let ay <i32> field::get a "y"
+        let bx <i32> field::get b "x"
+        let by <i32> field::get b "y"
+        and (eq ax bx) (eq ay by)
+
+    fn hash32 <(Point)->i32> (self):
+        xor field::get self "x" field::get self "y"
+
+fn probe <.T: HashKey> <(.T)->bool> (key):
+    hashkey_eq key key
+
+fn write_after_probe <.T: HashKey,.V> <(.T,.V)->.T> (key, value):
+    let _ok <bool> probe<.T> key;
+    let p <i32> alloc_raw add size_of<.T> size_of<.V>;
+    store<.T> p key;
+    store<.V> add p size_of<.T> value;
+    load<.T> p
+
+fn main <()*>i32> ():
+    let p <Point> write_after_probe<Point,i32> (Point 10 20) 99;
+    add mul field::get p "x" 100 field::get p "y"
+"#;
+    assert_eq!(run_main_wasi_i32(src), 1020);
+}
+
+#[test]
+fn generic_store_uses_nested_address_call_without_stealing_value_arg() {
+    let src = r#"
+#entry main
+#indent 4
+#target std
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+
+struct Point:
+    x <i32>
+    y <i32>
+
+fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
+    add base mul idx add size_of<.T> size_of<.V>
+
+fn write_nested <.T,.V> <(.T,.V)->.T> (key, value):
+    let p <i32> alloc_raw add size_of<.T> size_of<.V>;
+    store<.T> slot_ptr<.T,.V> p 0 key;
+    store<.V> add p size_of<.T> value;
+    load<.T> p
+
+fn main <()*>i32> ():
+    let p <Point> write_nested<Point,i32> (Point 10 20) 99;
+    add mul field::get p "x" 100 field::get p "y"
+"#;
+    assert_eq!(run_main_wasi_i32(src), 1020);
+}
+
+#[test]
 fn trait_bound_missing_impl_is_error() {
     let src = r#"
 #entry main

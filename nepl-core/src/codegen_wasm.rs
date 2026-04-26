@@ -278,6 +278,14 @@ fn is_aggregate_storage_type(ctx: &TypeCtx, ty: TypeId) -> bool {
     }
 }
 
+fn intrinsic_storage_type(ctx: &TypeCtx, annotated: TypeId, inferred: TypeId) -> TypeId {
+    let annotated = ctx.resolve_id(annotated);
+    match ctx.get(annotated) {
+        TypeKind::Var(_) => ctx.resolve_id(inferred),
+        _ => annotated,
+    }
+}
+
 fn tuple_field_layout(ctx: &TypeCtx, ty: TypeId, index: usize) -> Option<(TypeId, u32)> {
     let ty = ctx.resolve_named_type_id(ty);
     match ctx.get(ty) {
@@ -1482,7 +1490,7 @@ fn gen_expr(
                 insts.push(Instruction::I32Const(align));
                 Some(ValType::I32)
             } else if name == "load" {
-                let ty = type_args[0];
+                let ty = intrinsic_storage_type(ctx, type_args[0], expr.ty);
                 let ty_kind = ctx.get(ty);
                 if is_aggregate_storage_type(ctx, ty) {
                     let size = type_storage_size_bytes(ctx, ty) as i32;
@@ -1569,7 +1577,7 @@ fn gen_expr(
                     _ => None,
                 }
             } else if name == "store" {
-                let ty = type_args[0];
+                let ty = intrinsic_storage_type(ctx, type_args[0], args[1].ty);
                 let ty_kind = ctx.get(ty);
                 if is_aggregate_storage_type(ctx, ty) {
                     gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;

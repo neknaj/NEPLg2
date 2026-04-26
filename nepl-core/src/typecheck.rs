@@ -2827,10 +2827,10 @@ impl<'a> BlockChecker<'a> {
             if arg_idx >= total_arity {
                 continue;
             }
-            for k in 0..arity {
-                if k == user_arg_idx {
-                    continue;
-                }
+            // Slots after the current argument may still be arguments to the
+            // nested callable being reduced, not siblings of the outer call.
+            // Only earlier outer arguments are known to be complete here.
+            for k in 0..user_arg_idx {
                 let outer_arg_pos = j + 1 + k;
                 if outer_arg_pos >= stack.len() {
                     continue;

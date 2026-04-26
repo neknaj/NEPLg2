@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T06:03:58.739Z",
+  "generated_at": "2026-04-26T06:38:20.653Z",
   "counts": {
     "total": 114,
-    "open": 25,
-    "resolved": 89,
+    "open": 24,
+    "resolved": 90,
     "by_area": {
       "core": {
-        "total": 36,
+        "total": 37,
         "open": 3,
-        "resolved": 33
+        "resolved": 34
       },
       "selfhost": {
         "total": 7,
@@ -20,11 +20,6 @@
         "total": 39,
         "open": 16,
         "resolved": 23
-      },
-      "tests": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
       },
       "cli": {
         "total": 17,
@@ -223,21 +218,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060156433Z-STRING-NUMERIC-PARSERS-WRAP-OVERFLOW-E952EC90.md"
-    },
-    {
-      "id": "ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C",
-      "title": "selfhost_req HashKey fixture fails under current Rust harness",
-      "area": "tests",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/tests/selfhost_req.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1018,6 +998,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T023700894Z-TRAITS-TEXT-DOCTEST-RUNTIME-RETURN-M-D1631318.md"
+    },
+    {
+      "id": "ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C",
+      "title": "selfhost_req HashKey fixture loses struct keys in generic HashMap",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/selfhost_req.rs, nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
