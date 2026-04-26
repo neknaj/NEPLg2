@@ -471,10 +471,7 @@ impl MoveCheckContext {
         }
     }
 
-    fn check_temporary_borrow(&mut self, name: &str, span: Span, kind: BorrowKind, is_copy: bool) {
-        if is_copy {
-            return;
-        }
+    fn check_temporary_borrow(&mut self, name: &str, span: Span, kind: BorrowKind) {
         match self.get_state(name) {
             Some(VarState::Valid) => {}
             Some(VarState::BorrowedShared) => {
@@ -835,7 +832,7 @@ fn visit_reference_call_arg(
         .map(ExprBorrow::needs_retain)
         .collect();
     match &arg.kind {
-        HirExprKind::AddrOf(inner) => visit_temporary_borrow(inner, ctx, tctx, kind),
+        HirExprKind::AddrOf(inner) => visit_temporary_borrow(inner, ctx, kind),
         _ => {
             visit_expr_with_escape(arg, ctx, tctx, Some(arg_escape_depth));
         }
@@ -1190,7 +1187,7 @@ fn visit_expr_with_escape(
                 };
                 if let Some(base) = args.get(0) {
                     if tctx.is_copy(expr.ty) {
-                        visit_temporary_borrow(base, ctx, tctx, BorrowKind::Shared);
+                        visit_temporary_borrow(base, ctx, BorrowKind::Shared);
                     } else if !visit_field_move_source(base, ctx, tctx) {
                         visit_expr(base, ctx, tctx);
                     }
@@ -1501,9 +1498,9 @@ fn visit_expr_with_escape(
                     .unwrap_or(false);
                 if let Some(addr) = args.get(0) {
                     if is_copy_load {
-                        visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Shared);
+                        visit_temporary_borrow(addr, ctx, BorrowKind::Shared);
                     } else if !visit_field_move_source(addr, ctx, tctx) {
-                        visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Unique);
+                        visit_temporary_borrow(addr, ctx, BorrowKind::Unique);
                     }
                 }
                 if is_copy_load && type_contains_reference(tctx, expr.ty) {
@@ -1526,7 +1523,7 @@ fn visit_expr_with_escape(
             }
             "store" => {
                 if let Some(addr) = args.get(0) {
-                    visit_temporary_borrow(addr, ctx, tctx, BorrowKind::Unique);
+                    visit_temporary_borrow(addr, ctx, BorrowKind::Unique);
                 }
                 if let Some(val) = args.get(1) {
                     visit_expr(val, ctx, tctx);
@@ -1554,7 +1551,7 @@ fn visit_expr_with_escape(
             if let (Some(depth), Some(binding)) = (escape_depth, binding.as_ref()) {
                 ctx.check_binding_escape(binding, expr.span, depth);
             }
-            visit_temporary_borrow(inner, ctx, tctx, kind);
+            visit_temporary_borrow(inner, ctx, kind);
             binding.map(ExprBorrow::needs_retain).into_iter().collect()
         }
         HirExprKind::Deref(inner) => {
@@ -1581,23 +1578,17 @@ fn visit_expr_with_escape(
     }
 }
 
-fn visit_temporary_borrow(
-    expr: &HirExpr,
-    ctx: &mut MoveCheckContext,
-    tctx: &crate::types::TypeCtx,
-    kind: BorrowKind,
-) {
+fn visit_temporary_borrow(expr: &HirExpr, ctx: &mut MoveCheckContext, kind: BorrowKind) {
     match &expr.kind {
         HirExprKind::Var(name) => {
-            let is_copy = tctx.is_copy(expr.ty);
-            ctx.check_temporary_borrow(name, expr.span, kind, is_copy);
+            ctx.check_temporary_borrow(name, expr.span, kind);
         }
         HirExprKind::Deref(inner) => {
-            visit_temporary_borrow(inner, ctx, tctx, kind);
+            visit_temporary_borrow(inner, ctx, kind);
         }
         HirExprKind::Intrinsic { args, .. } => {
             for arg in args {
-                visit_temporary_borrow(arg, ctx, tctx, kind);
+                visit_temporary_borrow(arg, ctx, kind);
             }
         }
         _ => {}

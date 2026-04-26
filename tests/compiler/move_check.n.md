@@ -412,6 +412,57 @@ fn main <()->i32> ():
     0
 ```
 
+## move_copy_unique_borrow_blocks_shared_borrow
+
+neplg2:test[compile_fail]
+diag_id: 3062
+```neplg2
+#entry main
+#indent 4
+#target core
+
+fn main <()->i32> ():
+    let x <i32> 1
+    let u <&mut i32> &mut x
+    let s <&i32> &x
+    let keep <&mut i32> u
+    0
+```
+
+## move_copy_shared_borrow_blocks_unique_borrow
+
+neplg2:test[compile_fail]
+diag_id: 3061
+```neplg2
+#entry main
+#indent 4
+#target core
+
+fn main <()->i32> ():
+    let x <i32> 1
+    let s <&i32> &x
+    let u <&mut i32> &mut x
+    let keep <&i32> s
+    0
+```
+
+## move_copy_shared_borrow_allows_owner_copy_while_reference_live
+
+neplg2:test
+ret: 2
+```neplg2
+#entry main
+#indent 4
+#target core
+
+fn main <()->i32> ():
+    let x <i32> 1
+    let s <&i32> &x
+    let y <i32> x
+    let keep <&i32> s
+    add x y
+```
+
 ## move_borrow_after_move_err
 
 neplg2:test[compile_fail]

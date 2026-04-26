@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T21:51:03.482Z",
+  "generated_at": "2026-04-26T22:02:16.586Z",
   "counts": {
-    "total": 148,
+    "total": 149,
     "open": 18,
-    "resolved": 130,
+    "resolved": 131,
     "by_area": {
       "cli": {
         "total": 19,
@@ -12,9 +12,9 @@
         "resolved": 17
       },
       "core": {
-        "total": 59,
+        "total": 60,
         "open": 10,
-        "resolved": 49
+        "resolved": 50
       },
       "stdlib": {
         "total": 45,
@@ -1048,6 +1048,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T181314061Z-DROP-INSERTION-SKIPS-DROP-FOR-OVERWR-58E3CE2B.md"
+    },
+    {
+      "id": "ISS-20260426T215554373Z-COPY-VALUE-RETAINED-BORROWS-SKIP-SHA-8309070D",
+      "title": "Copy value retained borrows skip shared/unique exclusivity checks",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/move_check.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T215554373Z-COPY-VALUE-RETAINED-BORROWS-SKIP-SHA-8309070D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

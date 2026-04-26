@@ -18385,3 +18385,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [方針]:
   - stdlib 実装修正は別 agent と競合しないよう、今回は issue 管理の更新に留めた。
   - ローカル検証は issue index/check など変更箇所に限定し、全体の green 化は GitHub Actions で追う。
+
+# 2026-04-27 メモ (ISS-20260426T215554373Z Copy値 retained borrow 排他修正)
+
+- [追加Issue]:
+  - `ISS-20260426T215554373Z-COPY-VALUE-RETAINED-BORROWS-SKIP-SHA-8309070D` を追加した。
+- [原因]:
+  - `check_temporary_borrow` が `Copy` 型では即 return していたため、`&mut i32` を保持した後の `&i32`、または `&i32` を保持した後の `&mut i32` の作成時に shared/unique 排他診断が出なかった。
+  - `Copy` 値の「通常値としてのコピー利用」と「参照作成時の排他検査」を同じ条件で扱っていたのが根本原因。
+- [修正]:
+  - `check_temporary_borrow` から `Copy` 型の早期 return を削除し、borrow creation の排他検査を必ず実行するようにした。
+  - `check_use` は変更せず、shared borrow 中の `Copy` 値を通常コピーとして読むことは引き続き許可した。
+- [回帰テスト]:
+  - `&mut i32` 生存中の `&i32` 作成を `D3062` で拒否するテストを追加した。
+  - `&i32` 生存中の `&mut i32` 作成を `D3061` で拒否するテストを追加した。
+  - shared borrow が生きている間でも `Copy` 値の通常コピーは許可されることを追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 41/41 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/copy-borrow-exclusivity-tests.json -j 1`: 69/69 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 実装前の core safety issue として、Copy 値の参照排他検査を修正した。

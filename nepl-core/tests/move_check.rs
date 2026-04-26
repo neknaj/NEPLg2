@@ -327,6 +327,58 @@ fn main <()*>()>():
 }
 
 #[test]
+fn move_copy_unique_borrow_blocks_shared_borrow() {
+    let source = r#"
+#target wasi
+#indent 4
+
+fn main <()*>()>():
+    let x <i32> 1;
+    let u <&mut i32> &mut x;
+    let s <&i32> &x;
+    let keep <&mut i32> u;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+}
+
+#[test]
+fn move_copy_shared_borrow_blocks_unique_borrow() {
+    let source = r#"
+#target wasi
+#indent 4
+
+fn main <()*>()>():
+    let x <i32> 1;
+    let s <&i32> &x;
+    let u <&mut i32> &mut x;
+    let keep <&i32> s;
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot uniquely borrow shared borrowed value")));
+}
+
+#[test]
+fn move_copy_shared_borrow_allows_owner_copy_while_reference_live() {
+    let source = r#"
+#target wasi
+#indent 4
+
+fn main <()*>()>():
+    let x <i32> 1;
+    let s <&i32> &x;
+    let y <i32> x;
+    let keep <&i32> s;
+"#;
+    compile_move_test(source)
+        .expect("shared borrow of a Copy value should not block copying the owner value");
+}
+
+#[test]
 fn move_branch_reference_last_use_releases_at_join() {
     let source = r#"
 #target wasi
