@@ -1042,6 +1042,7 @@ async function runAllLlvm(cases, jobs, options = {}) {
     const cliPath = ensureNeplCliBuilt();
     const results = [];
     let idx = 0;
+    const onResult = typeof options.onResult === 'function' ? options.onResult : null;
 
     async function worker(workerId) {
         while (true) {
@@ -1050,7 +1051,9 @@ async function runAllLlvm(cases, jobs, options = {}) {
             if (i >= cases.length) break;
             const c = cases[i];
             const r = await runSingleLlvmCli(c, workerId, cliPath, options);
-            results.push(applyDoctestExpectations(r, c, options));
+            const checked = applyDoctestExpectations(r, c, options);
+            results.push(checked);
+            if (onResult) onResult(checked);
         }
     }
 
@@ -1198,6 +1201,11 @@ function collectResolvedDistDirs(results) {
         if (typeof d === 'string' && d.length > 0) dirs.add(d);
     }
     return Array.from(dirs).sort();
+}
+
+function progressFlushEvery() {
+    const raw = parseInt(process.env.NEPL_TEST_PROGRESS_FLUSH_EVERY || '10', 10);
+    return Number.isFinite(raw) && raw > 0 ? raw : 10;
 }
 
 function printStdlibBuildMessage() {
@@ -1354,6 +1362,58 @@ async function main() {
         return;
     }
 
+    const outAbs = path.resolve(outPath);
+    const partialResults = [];
+    const expectedProgressResults = runner === 'wasm'
+        ? wasmCases.length
+        : runner === 'llvm'
+            ? llvmCases.length
+            : wasmCases.length + llvmCases.length;
+    const flushEvery = progressFlushEvery();
+    const scanSummary = {
+        changed: changedOnly,
+        changed_base: changedBase,
+        inputs: scanInputs.map((p) => path.relative(process.cwd(), path.resolve(p))),
+        include_stdlib: effectiveIncludeStdlib,
+        include_tree: effectiveIncludeTree,
+    };
+    const writePartialOutput = (reason) => {
+        ensureDir(path.dirname(outAbs));
+        const last = partialResults.length > 0 ? partialResults[partialResults.length - 1] : null;
+        const out = {
+            schema: 'neplg2-doctest/v1',
+            generated_at: new Date().toISOString(),
+            partial: true,
+            partial_reason: reason,
+            jobs,
+            runner,
+            llvm_all: llvmAll,
+            assert_io: assertIo,
+            strict_dual: strictDual,
+            llvm_compile_only: llvmCompileOnly,
+            dist_hint: distHint || null,
+            resolved_dist_dirs: collectResolvedDistDirs(partialResults),
+            scan: scanSummary,
+            progress: {
+                completed_results: partialResults.length,
+                expected_results: expectedProgressResults,
+                last_result_id: last?.id || null,
+                last_result_status: last?.status || null,
+                last_result_phase: last?.phase || null,
+            },
+            summary: summarize(partialResults),
+            results: partialResults,
+        };
+        fs.writeFileSync(outAbs, JSON.stringify(out, null, 2));
+    };
+    const recordProgress = (result) => {
+        partialResults.push(result);
+        if (partialResults.length % flushEvery === 0) {
+            writePartialOutput('progress');
+        }
+    };
+    writePartialOutput('started');
+
     let results = [];
     if (runner === 'wasm') {
         results = await runAll(wasmCases, jobs, distHint);
@@ -1363,11 +1423,11 @@ async function main() {
             return c ? applyDoctestExpectations(r, c, { assertIo }) : r;
         });
     } else if (runner === 'llvm') {
-        results = await runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly });
+        results = await runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly, onResult: recordProgress });
     } else {
         const [wasmResults, llvmResults] = await Promise.all([
             runAll(wasmCases, jobs, distHint),
-            runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly }),
+            runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly, onResult: recordProgress }),
         ]);
         const wasmCaseMap = buildCaseMap(wasmCases);
         const checkedWasm = wasmResults.map((r) => {
@@ -1417,6 +1477,7 @@ async function main() {
     const out = {
         schema: 'neplg2-doctest/v1',
         generated_at: new Date().toISOString(),
+        partial: false,
         jobs,
         runner,
         llvm_all: llvmAll,
@@ -1425,18 +1486,11 @@ async function main() {
         llvm_compile_only: llvmCompileOnly,
         dist_hint: distHint || null,
         resolved_dist_dirs: resolvedDistDirs,
-        scan: {
-            changed: changedOnly,
-            changed_base: changedBase,
-            inputs: scanInputs.map((p) => path.relative(process.cwd(), path.resolve(p))),
-            include_stdlib: effectiveIncludeStdlib,
-            include_tree: effectiveIncludeTree,
-        },
+        scan: scanSummary,
         summary,
         results,
     };
 
-    const outAbs = path.resolve(outPath);
     ensureDir(path.dirname(outAbs));
     fs.writeFileSync(outAbs, JSON.stringify(out, null, 2));
 

@@ -65,7 +65,7 @@
 | [RV-CLI-008](./cli.md#rv-cli-008-nodesrc-cli-が未知引数をエラーにしない) | true | verified | P3 | test | unknown argument / value missing を usage error exit code 2 に修正済み |
 | [RV-CLI-009](./cli.md#rv-cli-009-wasm-bindgen-cli-cache-が-rust-cache-の後処理で壊れ-ci-bootstrap-が落ちる) | true | verified | P1 | test | workspace 専用 root と cache 検証を追加し、run `24932659255` の `build` job で bootstrap 成功を確認済み |
 | [RV-CLI-010](./cli.md#rv-cli-010-pages-fastfinal-deploy-が同じ-github-pages-artifact-名を使い-final-deploy-が落ちる) | true | verified | P1 | test | fast/final Pages artifact 名を分離し、run `24932659255` で final deploy 成功を確認済み |
-| [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | false | open | P1 | test | `llvm-test` の full dual backend verification が 10 分 timeout で cancelled になる |
+| [RV-CLI-011](./cli.md#rv-cli-011-llvm-test-の-full-dual-backend-verification-が-ci-timeout-で-cancelled-になる) | true | fixed | P1 | test | LLVM smoke と full dual backend verification を分離し、full dual を `tests` / `stdlib` shard job と partial JSON flush 付き artifact に変更済み |
 | [RV-CLI-012](./cli.md#rv-cli-012-trunk-build-が-clean-checkout-で-webexamples-不在により失敗する) | true | verified | P2 | test | `web/examples` を npm prebuild で同期し、ローカル `trunk build` を clean checkout でも通るように修正済み |
 | [RV-CLI-013](./cli.md#rv-cli-013-playground-editor-cli-fixture-が-windows-crlf-checkout-で失敗する) | true | verified | P2 | test | fixture source を LF 正規化し、Windows checkout の CRLF で `nodesrc/cli.js` JSON テストが崩れないよう修正済み |
 | [RV-CLI-014](./cli.md#rv-cli-014-llvm-smoke-test-が存在しない-fixture-path-を指して-0件成功扱いになる) | true | fixed | P0 | test | LLVM smoke の input path を `tests/compiler/llvm_target.n.md` に修正し、明示input 0件収集を error 扱いに修正済み |

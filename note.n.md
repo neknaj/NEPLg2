@@ -95,6 +95,26 @@
   - `node nodesrc/tests.js -i stdlib/neplg3 --no-tree -o tmp/neplg3-stdlib-placeholder-tests.json -j 2`: 6/6 passed（全件 skip doctest として収集成功）。
 - [plan.mdとの差異]:
   - plan.md は変更していない。plan.md は旧 NEPLg2 起点の設計メモとして保持し、次世代仕様の正は `doc/neplg3/spec/` に移した。
+# 2026-04-26 メモ (RV-CLI-011 LLVM CI timeout 対策)
+
+- [状況]:
+  - `llvm-test` job は LLVM toolchain install / smoke / full dual backend verification を1つの10分jobに詰め込み、full dual verificationでcancelledになっていた。
+  - cancelled時に `tests-dual-full.json` が残らず、CI failure がLLVM backend regressionなのか検証設計のtimeoutなのか判断しづらかった。
+- [修正]:
+  - `.github/workflows/ci.yml` で `llvm-test` を compile-only smoke 専用にし、full dual backend verification を `llvm-dual-test` matrix jobへ分離した。
+  - `llvm-dual-test` は `tests` shard と `stdlib` shard に分け、それぞれ `tests-dual-tests.json` / `tests-dual-stdlib.json` をuploadする。
+  - Pages final bundle は `llvm-tests` と `llvm-dual-*` artifacts を取り込み、status summary に `llvm_dual_test` を追加した。
+  - `nodesrc/tests.js` は実行開始時に partial JSON を書き、LLVM case 完了ごとに progress をflushできるようにした。CIでは `NEPL_TEST_PROGRESS_FLUSH_EVERY=1` を指定する。
+  - `RV-CLI-011` はpush CIでのverified待ちなので `status: fixed` / `resolved: true` とした。
+- [確認済み]:
+  - `node --check nodesrc/tests.js`: 成功。
+  - `node nodesrc/tests.js -i tests/compiler/codegen_diagnostics.n.md --no-tree -o tmp/rv-cli-011-tests-progress-smoke.json -j 1`: 3/3 passed、最終 JSON は `partial: false`。
+  - `git diff --check`: 成功。
+- [未確認]:
+  - GitHub Actions 上で `llvm-test` / `llvm-dual-test` が cancelled にならず、各 artifact が残ること。push後のCIで確認し、必要なら `verified` へ進める。
+- [plan.mdとの差異]:
+  - plan.md は変更していない。今回の変更はCI検証設計とtest runnerの途中結果保存であり、言語仕様やcompiler挙動は変更していない。
+
 # 2026-04-26 メモ (RV-CORE-007 Issue 台帳同期)
 
 - [状況]:

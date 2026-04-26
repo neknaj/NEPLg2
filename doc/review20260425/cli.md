@@ -274,8 +274,8 @@ temp dir に stdlib をコピーし、default stdlib には存在しない `extr
 
 ## RV-CLI-007: LLVM toolchain 条件が既定で linux + clang 21.1.0 に固定される
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: fixed
 - 優先度: P2
 - 種別: bug
 - 対象: `nepl-cli/src/codegen_llvm.rs`
@@ -476,6 +476,22 @@ push CI で `llvm-test` または分割後の LLVM jobs が cancelled になら�
 `gh run view 24940960078 --repo neknaj/NEPLg2 --job 73034680000 --log` で再確認しました。`LLVM doctests via nodesrc runner` は成功扱いですが、`tests-llvm.json` の summary は `total=0`, `passed=0`, `failed=0`, `errored=0` でした。その直後の `Full dual backend verification` は `21:27:48Z` に開始し、`21:34:59Z` に `The operation was canceled.` で止まっています。artifact upload は `tests-llvm.json` だけを 435 bytes で保存しており、`tests-dual-full.json` は残っていません。job cleanup では `node` と `nepl-cli` の orphan process も kill されています。
 
 この結果から、timeout 対策だけでなく「途中結果を残せない」「smoke が0件で成功している」という検証設計の問題も同時に扱う必要があります。0件 smoke は `RV-CLI-014` として分離します。
+
+### 対応結果
+
+`llvm-test` job は LLVM toolchain 検証と compile-only smoke に限定し、full dual backend verification は `llvm-dual-test` matrix job へ分離しました。
+full dual backend verification は `tests` shard と `stdlib` shard に分け、それぞれ独立した JSON artifact (`tests-dual-tests.json`, `tests-dual-stdlib.json`) を upload します。
+Pages final bundle は `llvm-tests` と `llvm-dual-*` artifacts を別々に取り込み、status summary に `llvm_dual_test` を追加しました。
+
+`nodesrc/tests.js` は実行開始時に partial JSON を作成し、LLVM case 完了ごとに出力JSONへ progress を flush できるようにしました。
+CI では `NEPL_TEST_PROGRESS_FLUSH_EVERY=1` を指定し、timeout や kill が起きても最後に完了した LLVM case id と部分結果が artifact に残るようにしました。
+
+### 追加検証
+
+- `node --check nodesrc/tests.js`
+- `node nodesrc/tests.js -i tests/compiler/codegen_diagnostics.n.md --no-tree -o tmp/rv-cli-011-tests-progress-smoke.json -j 1` (`total=3`, `passed=3`, `partial=false` の最終 JSON を確認)
+- `git diff --check`
+- push CI で `llvm-test` と `llvm-dual-test` が cancelled にならず artifact を残すことは未確認。push 後のCI結果で verified へ進める。
 
 ## RV-CLI-012: trunk build が clean checkout で web/examples 不在により失敗する
 

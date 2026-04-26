@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:36:26.106Z",
+  "generated_at": "2026-04-26T02:43:50.298Z",
   "counts": {
     "total": 100,
-    "open": 33,
-    "resolved": 67,
+    "open": 32,
+    "resolved": 68,
     "by_area": {
-      "cli": {
-        "total": 15,
-        "open": 3,
-        "resolved": 12
-      },
       "core": {
         "total": 34,
         "open": 7,
@@ -26,6 +21,11 @@
         "open": 16,
         "resolved": 15
       },
+      "cli": {
+        "total": 15,
+        "open": 2,
+        "resolved": 13
+      },
       "examples": {
         "total": 13,
         "open": 0,
@@ -34,21 +34,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260425T000000Z-RV-CLI-011-5F45E617",
-      "title": "llvm-test の full dual backend verification が CI timeout で cancelled になる",
-      "area": "cli",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": ".github/workflows/ci.yml, nodesrc/tests.js",
-      "legacy_id": "RV-CLI-011",
-      "source": "doc/review20260425/cli.md#rv-cli-011",
-      "file": "items/ISS-20260425T000000Z-RV-CLI-011-5F45E617.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -903,6 +888,21 @@
       "legacy_id": "RV-CLI-010",
       "source": "doc/review20260425/cli.md#rv-cli-010",
       "file": "items/ISS-20260425T000000Z-RV-CLI-010-FA193524.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-CLI-011-5F45E617",
+      "title": "llvm-test の full dual backend verification が CI timeout で cancelled になる",
+      "area": "cli",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": ".github/workflows/ci.yml, nodesrc/tests.js",
+      "legacy_id": "RV-CLI-011",
+      "source": "doc/review20260425/cli.md#rv-cli-011",
+      "file": "items/ISS-20260425T000000Z-RV-CLI-011-5F45E617.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",
