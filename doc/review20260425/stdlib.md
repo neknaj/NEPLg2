@@ -831,8 +831,8 @@ HashMap / HashSet の string key 経路または hashing / equality / ownership 
 
 ## RV-STDLIB-024: Deserialize doctest の match arm が Result と unit で不一致になる
 
-- 解決済: false
-- 状態: open
+- 解決済: true
+- 状態: verified
 - 優先度: P1
 - 種別: test
 - 対象: `stdlib/core/traits/deserialize.nepl`
@@ -849,7 +849,14 @@ deserialize doctest の `match` が、成功/失敗のどちらかの arm で `R
 
 doctest の期待結果を確認し、全 arm が同じ型を返すように揃えます。エラーを返すテストなら `Result` を明示し、単に失敗時に異常終了したいテストなら `panic` / `unreachable` 相当の既存テスト helper を適切に使います。
 
+### 対応結果
+
+`match deserialize<i32> "42"` の結果を `let check <Result<(),str>>:` に束縛し、`Result::Ok` / `Result::Err` の両 arm が `Result<(),str>` を返すように揃えました。`main` は `result_exit_code check` を返すため、assert 失敗や予期しない Err が runner の終了値へ反映されます。
+
 ### 検証
 
-- `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/deserialize-rv-stdlib-024.json -j 1`
-- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-024.json -j 4`
+確認済み:
+
+- `node nodesrc/run_doctest.js -i stdlib/core/traits/deserialize.nepl -n 1 --dist dist` (`pass`, `return_value=0`)
+- `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/deserialize-rv-stdlib-024.json -j 1` (`total=1`, `passed=1`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-024.json -j 4` (`total=379`, `passed=376`, `failed=3`, `errored=0`)

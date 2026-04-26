@@ -16525,3 +16525,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - sort 実装や public API は変更せず、doctest を現行 Vec API に同期した。
+
+# 2026-04-26 メモ (RV-STDLIB-024 Deserialize doctest match arm 型統一)
+
+- [原因]:
+  - `stdlib/core/traits/deserialize.nepl::doctest#1` は `Result::Ok` arm で `assert_eq_i32` の `Result<(),str>` を返す一方、`Result::Err` arm では `test_fail ...;` により unit を返していた。
+  - さらに match 結果を main の終了値へ反映せず、末尾 `0` で成功扱いにしていた。
+- [修正]:
+  - `let check <Result<(),str>>:` で match 結果を束縛し、すべての arm が `Result<(),str>` を返すようにした。
+  - main は `result_exit_code check` を返し、assert 失敗や予期しない Err が runner の終了値へ反映されるようにした。
+  - `doc/review20260425/stdlib.md` / `issues.md` で `RV-STDLIB-024` を verified に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/core/traits/deserialize.nepl -n 1 --dist dist`: `pass`, `return_value=0`
+  - `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/deserialize-rv-stdlib-024.json -j 1`: `total=1`, `passed=1`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-rv-stdlib-024.json -j 4`: `total=379`, `passed=376`, `failed=3`, `errored=0`
+- [残件]:
+  - `RV-STDLIB-023`: HashMap / HashSet string key runtime failure の3件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Deserialize の実装や trait 仕様は変更せず、doctest の検査結果型と終了値反映を修正した。

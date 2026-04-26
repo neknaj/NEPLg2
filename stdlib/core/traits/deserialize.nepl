@@ -46,34 +46,35 @@ trait Deserialize:
 //:| #import "core/traits/deserialize" as *
 //:| #import "alloc/diag/error" as *
 //:| fn main <()*>i32> ():
-//:     match deserialize<i32> "42":
-//:         Result::Ok v:
-//:             assert_eq_i32 42 v
-//:         Result::Err e:
-//:             match e:
-//:                 StdErrorKind::ParseError:
-//:                     test_fail "deserialize<i32> failed unexpectedly";
-//:                 StdErrorKind::Failure:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::OutOfMemory:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::EmptyCollection:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::IndexOutOfBounds:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::KeyNotFound:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::CapacityExceeded:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::InvalidOperation:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::InvalidUtf8:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::IoError:
-//:                     test_fail "wrong error kind";
-//:                 StdErrorKind::Other:
-//:                     test_fail "wrong error kind";
-//:     0
+//:     let check <Result<(),str>>:
+//:         match deserialize<i32> "42":
+//:             Result::Ok v:
+//:                 assert_eq_i32 42 v
+//:             Result::Err e:
+//:                 match e:
+//:                     StdErrorKind::ParseError:
+//:                         test_fail "deserialize<i32> failed unexpectedly"
+//:                     StdErrorKind::Failure:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::OutOfMemory:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::EmptyCollection:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::IndexOutOfBounds:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::KeyNotFound:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::CapacityExceeded:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::InvalidOperation:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::InvalidUtf8:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::IoError:
+//:                         test_fail "wrong error kind"
+//:                     StdErrorKind::Other:
+//:                         test_fail "wrong error kind"
+//:     result_exit_code check
 //: ```
 //:
 //: ### [実装/じっそう]
