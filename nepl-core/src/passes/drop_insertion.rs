@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -18,10 +18,18 @@ enum VarState {
     PossiblyMoved,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct VarInfo {
     ty: TypeId,
     state: VarState,
+    moved_fields: BTreeMap<usize, TypeId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FieldMovePath {
+    owner: String,
+    offset: usize,
+    field_ty: TypeId,
 }
 
 struct DropPlan {
@@ -72,6 +80,7 @@ impl<'a> DropInsertionContext<'a> {
             .push(VarInfo {
                 ty,
                 state: VarState::Valid,
+                moved_fields: BTreeMap::new(),
             });
         if let Some(scope) = self.scopes.last_mut() {
             scope.push(name);
@@ -81,13 +90,30 @@ impl<'a> DropInsertionContext<'a> {
     fn get_var(&self, name: &str) -> Option<VarInfo> {
         self.var_stacks
             .get(name)
-            .and_then(|stack| stack.last().copied())
+            .and_then(|stack| stack.last().cloned())
     }
 
     fn set_state(&mut self, name: &str, state: VarState) {
         if let Some(stack) = self.var_stacks.get_mut(name) {
             if let Some(last) = stack.last_mut() {
                 last.state = state;
+            }
+        }
+    }
+
+    fn reset_var_to_valid(&mut self, name: &str) {
+        if let Some(stack) = self.var_stacks.get_mut(name) {
+            if let Some(last) = stack.last_mut() {
+                last.state = VarState::Valid;
+                last.moved_fields.clear();
+            }
+        }
+    }
+
+    fn mark_field_moved(&mut self, path: &FieldMovePath) {
+        if let Some(stack) = self.var_stacks.get_mut(path.owner.as_str()) {
+            if let Some(last) = stack.last_mut() {
+                last.moved_fields.insert(path.offset, path.field_ty);
             }
         }
     }
@@ -103,21 +129,51 @@ impl<'a> DropInsertionContext<'a> {
 
     fn scope_drop_lines(&mut self, span: crate::span::Span) -> Vec<HirLine> {
         let mut out = Vec::new();
-        let Some(scope) = self.scopes.last() else {
-            return out;
-        };
+        let scope = self.scopes.last().cloned().unwrap_or_default();
         for name in scope.iter().rev() {
             let Some(info) = self.get_var(name) else {
                 continue;
             };
-            if info.state != VarState::Valid {
-                continue;
-            }
+            out.extend(self.drop_lines_for_info(name, &info, span));
+        }
+        out
+    }
+
+    fn drop_lines_for_info(
+        &mut self,
+        name: &str,
+        info: &VarInfo,
+        span: crate::span::Span,
+    ) -> Vec<HirLine> {
+        if info.state != VarState::Valid {
+            return Vec::new();
+        }
+        if info.moved_fields.is_empty() {
             if !self.types.has_drop(info.ty) {
+                return Vec::new();
+            }
+            return vec![HirLine {
+                expr: drop_call_expr(self.types, self.plan, name.to_string(), info.ty, span),
+                drop_result: true,
+            }];
+        }
+
+        let fields = aggregate_fields_with_offsets(self.types, info.ty);
+        let mut out = Vec::new();
+        for (offset, field_ty) in fields {
+            if info.moved_fields.contains_key(&offset) || !self.types.has_drop(field_ty) {
                 continue;
             }
             out.push(HirLine {
-                expr: drop_call_expr(self.types, self.plan, name.clone(), info.ty, span),
+                expr: drop_field_call_expr(
+                    self.types,
+                    self.plan,
+                    name.to_string(),
+                    info.ty,
+                    field_ty,
+                    offset,
+                    span,
+                ),
                 drop_result: true,
             });
         }
@@ -200,6 +256,59 @@ fn drop_call_expr(
                 })),
                 span,
             }],
+        },
+        span,
+    }
+}
+
+fn drop_field_call_expr(
+    types: &mut TypeCtx,
+    plan: &DropPlan,
+    owner_name: String,
+    owner_ty: TypeId,
+    field_ty: TypeId,
+    offset: usize,
+    span: crate::span::Span,
+) -> HirExpr {
+    let ref_ty = types.reference(field_ty, false);
+    let arg = if offset == 0 {
+        HirExpr {
+            ty: ref_ty,
+            kind: HirExprKind::Var(owner_name),
+            span,
+        }
+    } else {
+        HirExpr {
+            ty: ref_ty,
+            kind: HirExprKind::Intrinsic {
+                name: "add".to_string(),
+                type_args: vec![types.i32()],
+                args: vec![
+                    HirExpr {
+                        ty: owner_ty,
+                        kind: HirExprKind::Var(owner_name),
+                        span,
+                    },
+                    HirExpr {
+                        ty: types.i32(),
+                        kind: HirExprKind::LiteralI32(offset as i32),
+                        span,
+                    },
+                ],
+            },
+            span,
+        }
+    };
+    HirExpr {
+        ty: plan.unit_ty,
+        kind: HirExprKind::Call {
+            callee: FuncRef::Trait {
+                trait_name: plan.trait_name.clone(),
+                trait_args: Vec::new(),
+                method: plan.method_name.clone(),
+                self_ty: field_ty,
+            },
+            args: vec![arg],
         },
         span,
     }
@@ -314,13 +423,17 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
             insert_drops_in_expr(value, ctx);
             let should_drop_old = old_info
                 .filter(|info| info.state == VarState::Valid)
-                .filter(|info| {
+                .filter(|_info| {
                     ctx.get_var(target_name.as_str())
                         .map(|current| current.state == VarState::Valid)
                         .unwrap_or(false)
-                        && ctx.types.has_drop(info.ty)
                 });
             if let Some(info) = should_drop_old {
+                let drop_lines = ctx.drop_lines_for_info(target_name.as_str(), &info, expr.span);
+                if drop_lines.is_empty() {
+                    ctx.reset_var_to_valid(target_name.as_str());
+                    return;
+                }
                 let temp_name = ctx.fresh_assignment_temp();
                 let temp_ty = value.ty;
                 let temp_span = value.span;
@@ -333,11 +446,9 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
                         span: expr.span,
                     }),
                 );
-                let drop_expr =
-                    drop_call_expr(ctx.types, ctx.plan, target_name.clone(), info.ty, expr.span);
                 expr.kind = HirExprKind::Block(HirBlock {
-                    lines: vec![
-                        HirLine {
+                    lines: {
+                        let mut lines = vec![HirLine {
                             expr: HirExpr {
                                 ty: unit_ty,
                                 kind: HirExprKind::Let {
@@ -348,12 +459,9 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
                                 span: expr.span,
                             },
                             drop_result: false,
-                        },
-                        HirLine {
-                            expr: drop_expr,
-                            drop_result: true,
-                        },
-                        HirLine {
+                        }];
+                        lines.extend(drop_lines);
+                        lines.push(HirLine {
                             expr: HirExpr {
                                 ty: unit_ty,
                                 kind: HirExprKind::Set {
@@ -367,13 +475,14 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
                                 span: expr.span,
                             },
                             drop_result: false,
-                        },
-                    ],
+                        });
+                        lines
+                    },
                     ty: unit_ty,
                     span: expr.span,
                 });
             }
-            ctx.set_state(target_name.as_str(), VarState::Valid);
+            ctx.reset_var_to_valid(target_name.as_str());
         }
         HirExprKind::Intrinsic {
             name,
@@ -386,8 +495,14 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
                     .map(|ty| ctx.types.is_copy(*ty))
                     .unwrap_or(false);
                 if !is_copy_load {
-                    if let Some(addr) = args.get_mut(0) {
-                        insert_drops_in_expr(addr, ctx);
+                    if let (Some(field_ty), Some(addr)) =
+                        (type_args.first().copied(), args.get_mut(0))
+                    {
+                        if let Some(path) = field_move_path_from_addr(addr, field_ty, ctx.types) {
+                            ctx.mark_field_moved(&path);
+                        } else {
+                            insert_drops_in_expr(addr, ctx);
+                        }
                     }
                 }
             }
@@ -450,6 +565,180 @@ fn append_drop_lines_to_expr(expr: &mut HirExpr, drops: Vec<HirLine>) {
     }
 }
 
+fn type_storage_size_bytes_mapped(
+    types: &TypeCtx,
+    ty: TypeId,
+    mapping: &BTreeMap<TypeId, TypeId>,
+) -> usize {
+    let resolved = types.resolve_id(ty);
+    if let Some(mapped) = mapping.get(&resolved) {
+        return type_storage_size_bytes_mapped(types, *mapped, mapping);
+    }
+    match types.get_ref(resolved) {
+        crate::types::TypeKind::Unit | crate::types::TypeKind::Never => 0,
+        crate::types::TypeKind::U8 | crate::types::TypeKind::Bool => 1,
+        crate::types::TypeKind::I32
+        | crate::types::TypeKind::F32
+        | crate::types::TypeKind::Str
+        | crate::types::TypeKind::Named(_)
+        | crate::types::TypeKind::Box(_)
+        | crate::types::TypeKind::Reference(_, _)
+        | crate::types::TypeKind::Function { .. } => 4,
+        crate::types::TypeKind::Tuple { items } => items
+            .iter()
+            .map(|item| type_storage_size_bytes_mapped(types, *item, mapping))
+            .sum(),
+        crate::types::TypeKind::Struct { fields, .. } => fields
+            .iter()
+            .map(|field| type_storage_size_bytes_mapped(types, *field, mapping))
+            .sum(),
+        crate::types::TypeKind::Enum { variants, .. } => {
+            4 + variants
+                .iter()
+                .filter_map(|variant| variant.payload)
+                .map(|payload| type_storage_size_bytes_mapped(types, payload, mapping))
+                .max()
+                .unwrap_or(0)
+        }
+        crate::types::TypeKind::Apply { base, args } => {
+            let mut nested = mapping.clone();
+            match types.get_ref(types.resolve_id(*base)) {
+                crate::types::TypeKind::Struct { type_params, .. }
+                | crate::types::TypeKind::Enum { type_params, .. }
+                | crate::types::TypeKind::Function { type_params, .. } => {
+                    for (param, arg) in type_params.iter().zip(args.iter()) {
+                        nested.insert(types.resolve_id(*param), types.resolve_id(*arg));
+                    }
+                }
+                _ => {}
+            }
+            type_storage_size_bytes_mapped(types, *base, &nested)
+        }
+        crate::types::TypeKind::Var(var) => var
+            .binding
+            .map(|binding| type_storage_size_bytes_mapped(types, binding, mapping))
+            .unwrap_or(4),
+    }
+}
+
+fn mapped_type_id(types: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
+    let resolved = types.resolve_id(ty);
+    mapping.get(&resolved).copied().unwrap_or(resolved)
+}
+
+fn aggregate_fields_with_offsets(types: &TypeCtx, ty: TypeId) -> Vec<(usize, TypeId)> {
+    fn inner(
+        types: &TypeCtx,
+        ty: TypeId,
+        mapping: &BTreeMap<TypeId, TypeId>,
+    ) -> Vec<(usize, TypeId)> {
+        let resolved = types.resolve_id(ty);
+        if let Some(mapped) = mapping.get(&resolved) {
+            return inner(types, *mapped, mapping);
+        }
+        match types.get_ref(resolved) {
+            crate::types::TypeKind::Struct { fields, .. } => {
+                let mut offset = 0;
+                let mut out = Vec::with_capacity(fields.len());
+                for field in fields {
+                    let field_ty = mapped_type_id(types, *field, mapping);
+                    out.push((offset, field_ty));
+                    offset += type_storage_size_bytes_mapped(types, *field, mapping);
+                }
+                out
+            }
+            crate::types::TypeKind::Tuple { items } => {
+                let mut offset = 0;
+                let mut out = Vec::with_capacity(items.len());
+                for item in items {
+                    let item_ty = mapped_type_id(types, *item, mapping);
+                    out.push((offset, item_ty));
+                    offset += type_storage_size_bytes_mapped(types, *item, mapping);
+                }
+                out
+            }
+            crate::types::TypeKind::Apply { base, args } => {
+                let mut nested = mapping.clone();
+                if let crate::types::TypeKind::Struct { type_params, .. } =
+                    types.get_ref(types.resolve_id(*base))
+                {
+                    for (param, arg) in type_params.iter().zip(args.iter()) {
+                        nested.insert(types.resolve_id(*param), types.resolve_id(*arg));
+                    }
+                }
+                inner(types, *base, &nested)
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    inner(types, ty, &BTreeMap::new())
+}
+
+fn field_move_path_from_addr(
+    addr: &HirExpr,
+    field_ty: TypeId,
+    types: &TypeCtx,
+) -> Option<FieldMovePath> {
+    fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
+        match &expr.kind {
+            HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
+            HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
+                let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
+                let offset = match &args[1].kind {
+                    HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
+                    _ => return None,
+                };
+                Some((owner, owner_ty, base_offset + offset))
+            }
+            _ => None,
+        }
+    }
+
+    let (owner, owner_ty, offset) = base_owner(addr)?;
+    let field_ty = types.resolve_id(field_ty);
+    let is_declared_field = aggregate_fields_with_offsets(types, owner_ty)
+        .into_iter()
+        .any(|(field_offset, declared_ty)| {
+            field_offset == offset && types.resolve_id(declared_ty) == field_ty
+        });
+    if is_declared_field {
+        Some(FieldMovePath {
+            owner: owner.to_string(),
+            offset,
+            field_ty,
+        })
+    } else {
+        None
+    }
+}
+
+fn merge_info(saved: &VarInfo, branch_infos: &[VarInfo]) -> VarInfo {
+    let mut state = branch_infos
+        .iter()
+        .map(|info| info.state)
+        .reduce(DropInsertionContext::merge_state)
+        .unwrap_or(saved.state);
+    let first_fields = branch_infos
+        .first()
+        .map(|info| info.moved_fields.clone())
+        .unwrap_or_else(|| saved.moved_fields.clone());
+    let fields_match = branch_infos
+        .iter()
+        .all(|info| info.moved_fields == first_fields);
+    let moved_fields = if fields_match {
+        first_fields
+    } else {
+        state = VarState::PossiblyMoved;
+        BTreeMap::new()
+    };
+    VarInfo {
+        ty: saved.ty,
+        state,
+        moved_fields,
+    }
+}
+
 fn merge_outer_states(
     ctx: &mut DropInsertionContext<'_>,
     saved: &BTreeMap<String, Vec<VarInfo>>,
@@ -457,21 +746,21 @@ fn merge_outer_states(
     else_state: &BTreeMap<String, Vec<VarInfo>>,
 ) {
     for (name, saved_stack) in saved {
-        let Some(saved_top) = saved_stack.last().copied() else {
+        let Some(saved_top) = saved_stack.last().cloned() else {
             continue;
         };
         let then_top = then_state
             .get(name)
-            .and_then(|stack| stack.last().copied())
-            .unwrap_or(saved_top);
+            .and_then(|stack| stack.last().cloned())
+            .unwrap_or_else(|| saved_top.clone());
         let else_top = else_state
             .get(name)
-            .and_then(|stack| stack.last().copied())
-            .unwrap_or(saved_top);
-        let merged = DropInsertionContext::merge_state(then_top.state, else_top.state);
+            .and_then(|stack| stack.last().cloned())
+            .unwrap_or_else(|| saved_top.clone());
+        let merged = merge_info(&saved_top, &[then_top, else_top]);
         if let Some(stack) = ctx.var_stacks.get_mut(name) {
             if let Some(last) = stack.last_mut() {
-                last.state = merged;
+                *last = merged;
             }
         }
     }
@@ -483,21 +772,21 @@ fn merge_many_outer_states(
     arm_states: &[BTreeMap<String, Vec<VarInfo>>],
 ) {
     for (name, saved_stack) in saved {
-        let Some(saved_top) = saved_stack.last().copied() else {
+        let Some(saved_top) = saved_stack.last().cloned() else {
             continue;
         };
-        let mut merged = saved_top.state;
+        let mut infos = Vec::new();
         for arm_state in arm_states {
-            let state = arm_state
+            let info = arm_state
                 .get(name)
-                .and_then(|stack| stack.last().copied())
-                .unwrap_or(saved_top)
-                .state;
-            merged = DropInsertionContext::merge_state(merged, state);
+                .and_then(|stack| stack.last().cloned())
+                .unwrap_or_else(|| saved_top.clone());
+            infos.push(info);
         }
+        let merged = merge_info(&saved_top, &infos);
         if let Some(stack) = ctx.var_stacks.get_mut(name) {
             if let Some(last) = stack.last_mut() {
-                last.state = merged;
+                *last = merged;
             }
         }
     }

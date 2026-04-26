@@ -18595,3 +18595,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host plan の「大規模 mutable table には HashMap/HashSet、ordered output には sorted-array を限定利用」という方針を前提に、限定用途の sorted-array collection でも allocation failure を Result として扱えるようにした。
+# 2026-04-27 メモ (ISS-20260426T175008731Z owned aggregate decomposition)
+
+- [原因]:
+  - `field::get` は型検査後に `Intrinsic "load"` へ下がり、move/drop 側からは「どの field を取り出したか」の情報が owner 全体の address 走査に潰れていた。
+  - move checker は非 Copy field load の base owner をそのまま moved にしていたため、別 field の正当な一度きり move まで拒否していた。
+  - drop insertion も同じく base owner 全体を moved にするため、部分 move 後に残った field の drop と、移動済み field の二重 drop を区別できなかった。
+- [修正]:
+  - load address から owner / offset / field type を復元し、field 単位の move state を move checker に追加した。
+  - 同一 field の二重 move、部分 move 後の owner 全体 use、borrow live 中の field move は拒否し、異なる非 Copy field をそれぞれ一度だけ取り出す経路は許可した。
+  - drop insertion は部分 move 済み owner の全体 Drop を避け、未 move で Drop を持つ field だけを field address 経由で drop するようにした。
+- [回帰テスト]:
+  - Rust move_check test に multi-field decomposition 正常系と、二重 field move / owner use-after-partial-move / borrow-live field move の拒否を追加した。
+  - Rust drop test に、部分 move 済み struct の未 move field drop と owner custom Drop 抑止の確認を追加した。
+  - `tests/compiler/move_check.n.md` に同等の doctest を追加した。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 8/8 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/owned-aggregate-decomposition-tests.json -j 1`: 52/52 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 実装前の core ownership safety issue として、owned aggregate の field 単位 move/drop を実装した。

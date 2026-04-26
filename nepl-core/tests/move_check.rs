@@ -799,7 +799,124 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("use of moved value")));
+        .any(|d| d.message.contains("use of moved field")));
+}
+
+#[test]
+fn move_distinct_owned_struct_fields_once_ok() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    left <Wrapper>
+    right <Wrapper>
+
+fn consume <(Wrapper)->()> (_w):
+    ()
+
+fn main <()*>()> ():
+    let p <Pair> Pair (Wrapper::Val 1) (Wrapper::Val 2);
+    let left <Wrapper> field::get p "left";
+    let right <Wrapper> field::get p "right";
+    consume left;
+    consume right;
+    ()
+"#;
+    compile_move_test(source).expect("distinct non-Copy fields should move exactly once");
+}
+
+#[test]
+fn move_same_owned_struct_field_twice_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    left <Wrapper>
+    right <Wrapper>
+
+fn main <()*>()> ():
+    let p <Pair> Pair (Wrapper::Val 1) (Wrapper::Val 2);
+    let left <Wrapper> field::get p "left";
+    let again <Wrapper> field::get p "left";
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("use of moved field")));
+}
+
+#[test]
+fn move_owner_after_partial_field_move_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    left <Wrapper>
+    right <Wrapper>
+
+fn consume_pair <(Pair)->()> (_p):
+    ()
+
+fn main <()*>()> ():
+    let p <Pair> Pair (Wrapper::Val 1) (Wrapper::Val 2);
+    let left <Wrapper> field::get p "left";
+    consume_pair p;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("partially moved value")));
+}
+
+#[test]
+fn move_field_from_borrowed_owner_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Pair:
+    left <Wrapper>
+    right <Wrapper>
+
+fn observe <(&Pair)->i32> (_p):
+    1
+
+fn main <()*>()> ():
+    let p <Pair> Pair (Wrapper::Val 1) (Wrapper::Val 2);
+    let borrowed <&Pair> &p;
+    let left <Wrapper> field::get p "left";
+    observe borrowed;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d
+        .message
+        .contains("cannot move out of shared borrowed value")));
 }
 
 #[test]

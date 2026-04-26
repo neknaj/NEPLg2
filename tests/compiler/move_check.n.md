@@ -626,6 +626,122 @@ fn main <()->()> ():
     let b <LocalToken> s.f
 ```
 
+## move_distinct_owned_struct_fields_once_ok
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    left <LocalToken>
+    right <LocalToken>
+
+fn consume <(LocalToken)->i32> (_w):
+    0
+
+fn main <()->i32> ():
+    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
+    let left <LocalToken> field::get p "left"
+    let right <LocalToken> field::get p "right"
+    consume left
+    consume right
+```
+
+## move_same_owned_struct_field_twice_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3053
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    left <LocalToken>
+    right <LocalToken>
+
+fn main <()->()> ():
+    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
+    let left <LocalToken> field::get p "left"
+    let again <LocalToken> field::get p "left"
+```
+
+## move_owner_after_partial_field_move_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3053
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    left <LocalToken>
+    right <LocalToken>
+
+fn consume_pair <(Pair)->()> (_p):
+    ()
+
+fn main <()->()> ():
+    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
+    let left <LocalToken> field::get p "left"
+    consume_pair p
+```
+
+## move_field_from_borrowed_owner_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3051
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    left <LocalToken>
+    right <LocalToken>
+
+fn observe <(&Pair)->()> (_p):
+    ()
+
+fn main <()->()> ():
+    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
+    let borrowed <&Pair> &p
+    let left <LocalToken> field::get p "left"
+    observe borrowed
+```
+
 ## move_deref_copy_reference_ok
 
 neplg2:test

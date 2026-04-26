@@ -163,6 +163,48 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn auto_drop_partially_moved_struct_drops_remaining_fields() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/field" as field
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct GuardA:
+    dummy <i32>
+struct GuardB:
+    dummy <i32>
+struct Pair:
+    left <GuardA>
+    right <GuardB>
+
+impl Drop for GuardA:
+    fn drop <(&GuardA)*>()> (self):
+        tick 1;
+        ()
+
+impl Drop for GuardB:
+    fn drop <(&GuardB)*>()> (self):
+        tick 2;
+        ()
+
+impl Drop for Pair:
+    fn drop <(&Pair)*>()> (self):
+        tick 9;
+        ()
+
+fn main <()->i32> ():
+    let p <Pair> Pair (GuardA 0) (GuardB 0);
+    let left <GuardA> field::get p "left";
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![1, 2]);
+}
+
+#[test]
 fn auto_drop_only_runs_taken_branch_locals() {
     let source = r#"
 #target wasm

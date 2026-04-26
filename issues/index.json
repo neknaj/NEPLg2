@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T22:53:25.538Z",
+  "generated_at": "2026-04-26T23:08:27.450Z",
   "counts": {
     "total": 154,
-    "open": 16,
-    "resolved": 138,
+    "open": 15,
+    "resolved": 139,
     "by_area": {
       "cli": {
         "total": 19,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 63,
-        "open": 8,
-        "resolved": 55
+        "open": 7,
+        "resolved": 56
       },
       "stdlib": {
         "total": 47,
@@ -193,21 +193,6 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
-    },
-    {
-      "id": "ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE",
-      "title": "owned aggregate decomposition lacks safe multi-field move path",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/diag/error.nepl, stdlib/neplg2/core/infra/outcome.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE.md"
     },
     {
       "id": "ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7",
@@ -1963,6 +1948,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T142242010Z-BORROWED-FIELD-PROJECTION-API-MISSIN-3010781E.md"
+    },
+    {
+      "id": "ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE",
+      "title": "owned aggregate decomposition lacks safe multi-field move path",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/tests/move_check.rs, nepl-core/tests/drop.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

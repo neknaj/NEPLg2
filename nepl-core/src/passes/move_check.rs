@@ -37,6 +37,19 @@ struct ExprBorrow {
     binding: BorrowBinding,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct FieldMove {
+    offset: usize,
+    ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FieldMovePath {
+    owner: String,
+    offset: usize,
+    field_ty: TypeId,
+}
+
 impl ExprBorrow {
     fn needs_retain(binding: BorrowBinding) -> Self {
         Self { binding }
@@ -59,6 +72,8 @@ struct MoveCheckContext {
     var_depth_stacks: BTreeMap<String, Vec<usize>>,
     /// Borrow sources held by each binding, aligned with `var_stacks`.
     borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
+    /// Non-Copy aggregate fields moved out of each binding, aligned with `var_stacks`.
+    field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     /// Active borrow counts per source variable.
     borrow_counts: BTreeMap<String, BorrowCount>,
     /// Remaining variable uses in active blocks for last-use borrow release.
@@ -74,6 +89,7 @@ struct ResourceStateSnapshot {
     var_stacks: BTreeMap<String, Vec<VarState>>,
     var_depth_stacks: BTreeMap<String, Vec<usize>>,
     borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
+    field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
 
@@ -84,6 +100,7 @@ impl MoveCheckContext {
             var_stacks: BTreeMap::new(),
             var_depth_stacks: BTreeMap::new(),
             borrow_stacks: BTreeMap::new(),
+            field_move_stacks: BTreeMap::new(),
             borrow_counts: BTreeMap::new(),
             use_counts: Vec::new(),
             diagnostics: Vec::new(),
@@ -96,6 +113,7 @@ impl MoveCheckContext {
             var_stacks: self.var_stacks.clone(),
             var_depth_stacks: self.var_depth_stacks.clone(),
             borrow_stacks: self.borrow_stacks.clone(),
+            field_move_stacks: self.field_move_stacks.clone(),
             borrow_counts: self.borrow_counts.clone(),
         }
     }
@@ -104,6 +122,7 @@ impl MoveCheckContext {
         self.var_stacks = snapshot.var_stacks.clone();
         self.var_depth_stacks = snapshot.var_depth_stacks.clone();
         self.borrow_stacks = snapshot.borrow_stacks.clone();
+        self.field_move_stacks = snapshot.field_move_stacks.clone();
         self.borrow_counts = snapshot.borrow_counts.clone();
     }
 
@@ -133,6 +152,12 @@ impl MoveCheckContext {
                     self.borrow_stacks.remove(&name);
                 }
             }
+            if let Some(stack) = self.field_move_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.field_move_stacks.remove(&name);
+                }
+            }
         }
     }
 
@@ -154,6 +179,10 @@ impl MoveCheckContext {
             .entry(name.clone())
             .or_default()
             .push(borrows);
+        self.field_move_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(BTreeSet::new());
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name);
         }
@@ -193,6 +222,54 @@ impl MoveCheckContext {
                 *slot = bindings;
             }
         }
+    }
+
+    fn set_field_moves(&mut self, name: &str, moves: BTreeSet<FieldMove>) {
+        if let Some(stack) = self.field_move_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = moves;
+            }
+        }
+    }
+
+    fn clear_field_moves(&mut self, name: &str) {
+        if let Some(stack) = self.field_move_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                slot.clear();
+            }
+        }
+    }
+
+    fn has_field_moves(&self, name: &str) -> bool {
+        self.field_move_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+            .map(|moves| !moves.is_empty())
+            .unwrap_or(false)
+    }
+
+    fn mark_field_moved(&mut self, path: &FieldMovePath) {
+        if let Some(stack) = self.field_move_stacks.get_mut(path.owner.as_str()) {
+            if let Some(slot) = stack.last_mut() {
+                slot.insert(FieldMove {
+                    offset: path.offset,
+                    ty: path.field_ty,
+                });
+            }
+        }
+    }
+
+    fn field_is_moved(&self, path: &FieldMovePath) -> bool {
+        self.field_move_stacks
+            .get(path.owner.as_str())
+            .and_then(|stack| stack.last())
+            .map(|moves| {
+                moves.contains(&FieldMove {
+                    offset: path.offset,
+                    ty: path.field_ty,
+                })
+            })
+            .unwrap_or(false)
     }
 
     fn set_state(&mut self, name: &str, state: VarState) {
@@ -362,8 +439,17 @@ impl MoveCheckContext {
         match self.get_state(name) {
             Some(VarState::Valid) => {
                 if !is_copy {
-                    // Moving a non-Copy value is OK: just mark it as moved.
-                    self.set_state(name, VarState::Moved);
+                    if self.has_field_moves(name) {
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                alloc::format!("use of partially moved value: `{}`", name),
+                                span,
+                            )
+                            .with_id(DiagnosticId::TypeUseMovedValue),
+                        );
+                    } else {
+                        self.set_state(name, VarState::Moved);
+                    }
                 }
             }
             Some(VarState::BorrowedShared) => {
@@ -433,13 +519,26 @@ impl MoveCheckContext {
             }
             _ => {
                 self.set_state(name, VarState::Valid);
+                self.clear_field_moves(name);
             }
         }
     }
 
     fn check_drop(&mut self, name: &str, span: Span) {
         match self.get_state(name) {
-            Some(VarState::Valid) => self.set_state(name, VarState::Moved),
+            Some(VarState::Valid) => {
+                if self.has_field_moves(name) {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!("drop of partially moved value: `{}`", name),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeDropMovedValue),
+                    );
+                } else {
+                    self.set_state(name, VarState::Moved);
+                }
+            }
             Some(VarState::BorrowedShared) => {
                 self.diagnostics.push(
                     Diagnostic::error(
@@ -479,7 +578,17 @@ impl MoveCheckContext {
 
     fn check_temporary_borrow(&mut self, name: &str, span: Span, kind: BorrowKind) {
         match self.get_state(name) {
-            Some(VarState::Valid) => {}
+            Some(VarState::Valid) => {
+                if self.has_field_moves(name) {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!("borrow of partially moved value: `{}`", name),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeBorrowMovedValue),
+                    );
+                }
+            }
             Some(VarState::BorrowedShared) => {
                 if matches!(kind, BorrowKind::Unique) {
                     self.diagnostics.push(
@@ -513,6 +622,127 @@ impl MoveCheckContext {
                 self.diagnostics.push(
                     Diagnostic::error(
                         alloc::format!("borrow of potentially moved value: `{}`", name),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
+                );
+            }
+            None => {}
+        }
+    }
+
+    fn check_field_move(&mut self, path: &FieldMovePath, span: Span) {
+        match self.get_state(path.owner.as_str()) {
+            Some(VarState::Valid) => {
+                if self.field_is_moved(path) {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!(
+                                "use of moved field at offset {} in `{}`",
+                                path.offset,
+                                path.owner
+                            ),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeUseMovedValue),
+                    );
+                } else {
+                    self.mark_field_moved(path);
+                }
+            }
+            Some(VarState::BorrowedShared) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!(
+                            "cannot move out of shared borrowed value: `{}`",
+                            path.owner
+                        ),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeMoveFromSharedBorrowedValue),
+                );
+            }
+            Some(VarState::BorrowedUnique) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("use of uniquely borrowed value: `{}`", path.owner),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeUseUniquelyBorrowedValue),
+                );
+            }
+            Some(VarState::Moved) => {
+                self.diagnostics.push(
+                    Diagnostic::error(alloc::format!("use of moved value: `{}`", path.owner), span)
+                        .with_id(DiagnosticId::TypeUseMovedValue),
+                );
+            }
+            Some(VarState::PossiblyMoved) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("use of potentially moved value: `{}`", path.owner),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeUsePossiblyMovedValue),
+                );
+            }
+            None => {}
+        }
+    }
+
+    fn check_field_temporary_borrow(&mut self, path: &FieldMovePath, span: Span, kind: BorrowKind) {
+        match self.get_state(path.owner.as_str()) {
+            Some(VarState::Valid) => {
+                if self.field_is_moved(path) {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!(
+                                "borrow of moved field at offset {} in `{}`",
+                                path.offset,
+                                path.owner
+                            ),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeBorrowMovedValue),
+                    );
+                }
+            }
+            Some(VarState::BorrowedShared) => {
+                if matches!(kind, BorrowKind::Unique) {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            alloc::format!(
+                                "cannot uniquely borrow shared borrowed value: `{}`",
+                                path.owner
+                            ),
+                            span,
+                        )
+                        .with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue),
+                    );
+                }
+            }
+            Some(VarState::BorrowedUnique) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("cannot borrow uniquely borrowed value: `{}`", path.owner),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue),
+                );
+            }
+            Some(VarState::Moved) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("borrow of moved value: `{}`", path.owner),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeBorrowMovedValue),
+                );
+            }
+            Some(VarState::PossiblyMoved) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("borrow of potentially moved value: `{}`", path.owner),
                         span,
                     )
                     .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
@@ -585,6 +815,167 @@ impl MoveCheckContext {
             }
         }
     }
+}
+
+fn type_storage_size_bytes_mapped(
+    tctx: &crate::types::TypeCtx,
+    ty: TypeId,
+    mapping: &BTreeMap<TypeId, TypeId>,
+) -> usize {
+    let resolved = tctx.resolve_id(ty);
+    if let Some(mapped) = mapping.get(&resolved) {
+        return type_storage_size_bytes_mapped(tctx, *mapped, mapping);
+    }
+    match tctx.get_ref(resolved) {
+        TypeKind::Unit | TypeKind::Never => 0,
+        TypeKind::U8 | TypeKind::Bool => 1,
+        TypeKind::I32
+        | TypeKind::F32
+        | TypeKind::Str
+        | TypeKind::Named(_)
+        | TypeKind::Box(_)
+        | TypeKind::Reference(_, _)
+        | TypeKind::Function { .. } => 4,
+        TypeKind::Tuple { items } => items
+            .iter()
+            .map(|item| type_storage_size_bytes_mapped(tctx, *item, mapping))
+            .sum(),
+        TypeKind::Struct { fields, .. } => fields
+            .iter()
+            .map(|field| type_storage_size_bytes_mapped(tctx, *field, mapping))
+            .sum(),
+        TypeKind::Enum { variants, .. } => {
+            4 + variants
+                .iter()
+                .filter_map(|variant| variant.payload)
+                .map(|payload| type_storage_size_bytes_mapped(tctx, payload, mapping))
+                .max()
+                .unwrap_or(0)
+        }
+        TypeKind::Apply { base, args } => {
+            let mut nested = mapping.clone();
+            match tctx.get_ref(tctx.resolve_id(*base)) {
+                TypeKind::Struct { type_params, .. }
+                | TypeKind::Enum { type_params, .. }
+                | TypeKind::Function { type_params, .. } => {
+                    for (param, arg) in type_params.iter().zip(args.iter()) {
+                        nested.insert(tctx.resolve_id(*param), tctx.resolve_id(*arg));
+                    }
+                }
+                _ => {}
+            }
+            type_storage_size_bytes_mapped(tctx, *base, &nested)
+        }
+        TypeKind::Var(var) => var
+            .binding
+            .map(|binding| type_storage_size_bytes_mapped(tctx, binding, mapping))
+            .unwrap_or(4),
+    }
+}
+
+fn mapped_type_id(
+    tctx: &crate::types::TypeCtx,
+    ty: TypeId,
+    mapping: &BTreeMap<TypeId, TypeId>,
+) -> TypeId {
+    let resolved = tctx.resolve_id(ty);
+    mapping.get(&resolved).copied().unwrap_or(resolved)
+}
+
+fn aggregate_fields_with_offsets(tctx: &crate::types::TypeCtx, ty: TypeId) -> Vec<(usize, TypeId)> {
+    fn inner(
+        tctx: &crate::types::TypeCtx,
+        ty: TypeId,
+        mapping: &BTreeMap<TypeId, TypeId>,
+    ) -> Vec<(usize, TypeId)> {
+        let resolved = tctx.resolve_id(ty);
+        if let Some(mapped) = mapping.get(&resolved) {
+            return inner(tctx, *mapped, mapping);
+        }
+        match tctx.get_ref(resolved) {
+            TypeKind::Struct { fields, .. } => {
+                let mut offset = 0;
+                let mut out = Vec::with_capacity(fields.len());
+                for field in fields {
+                    let field_ty = mapped_type_id(tctx, *field, mapping);
+                    out.push((offset, field_ty));
+                    offset += type_storage_size_bytes_mapped(tctx, *field, mapping);
+                }
+                out
+            }
+            TypeKind::Tuple { items } => {
+                let mut offset = 0;
+                let mut out = Vec::with_capacity(items.len());
+                for item in items {
+                    let item_ty = mapped_type_id(tctx, *item, mapping);
+                    out.push((offset, item_ty));
+                    offset += type_storage_size_bytes_mapped(tctx, *item, mapping);
+                }
+                out
+            }
+            TypeKind::Apply { base, args } => {
+                let mut nested = mapping.clone();
+                if let TypeKind::Struct { type_params, .. } = tctx.get_ref(tctx.resolve_id(*base)) {
+                    for (param, arg) in type_params.iter().zip(args.iter()) {
+                        nested.insert(tctx.resolve_id(*param), tctx.resolve_id(*arg));
+                    }
+                }
+                inner(tctx, *base, &nested)
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    inner(tctx, ty, &BTreeMap::new())
+}
+
+fn field_move_path_from_addr(
+    addr: &HirExpr,
+    field_ty: TypeId,
+    tctx: &crate::types::TypeCtx,
+) -> Option<FieldMovePath> {
+    fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
+        match &expr.kind {
+            HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
+            HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
+                let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
+                let offset = match &args[1].kind {
+                    HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
+                    _ => return None,
+                };
+                Some((owner, owner_ty, base_offset + offset))
+            }
+            _ => None,
+        }
+    }
+
+    let (owner, owner_ty, offset) = base_owner(addr)?;
+    let field_ty = tctx.resolve_id(field_ty);
+    let is_declared_field = aggregate_fields_with_offsets(tctx, owner_ty)
+        .into_iter()
+        .any(|(field_offset, declared_ty)| {
+            field_offset == offset && tctx.resolve_id(declared_ty) == field_ty
+        });
+    if is_declared_field {
+        Some(FieldMovePath {
+            owner: owner.to_string(),
+            offset,
+            field_ty,
+        })
+    } else {
+        None
+    }
+}
+
+fn field_reference_path_from_addr(
+    addr: &HirExpr,
+    tctx: &crate::types::TypeCtx,
+) -> Option<FieldMovePath> {
+    let field_ty = match tctx.get_ref(tctx.resolve_id(addr.ty)) {
+        TypeKind::Reference(inner, _) => *inner,
+        _ => return None,
+    };
+    field_move_path_from_addr(addr, field_ty, tctx)
 }
 
 // Logic to traverse HIR
@@ -839,6 +1230,11 @@ fn visit_reference_call_arg(
         .collect();
     match &arg.kind {
         HirExprKind::AddrOf(inner) => visit_temporary_borrow(inner, ctx, kind),
+        _ if field_reference_path_from_addr(arg, tctx).is_some() => {
+            if let Some(path) = field_reference_path_from_addr(arg, tctx) {
+                ctx.check_field_temporary_borrow(&path, arg.span, kind);
+            }
+        }
         _ => {
             visit_expr_with_escape(arg, ctx, tctx, Some(arg_escape_depth));
         }
@@ -1073,6 +1469,16 @@ fn changed_state_names(
             names.insert(name.clone());
         }
     }
+    for name in start.field_move_stacks.keys() {
+        if start.field_move_stacks.get(name) != end.field_move_stacks.get(name) {
+            names.insert(name.clone());
+        }
+    }
+    for name in end.field_move_stacks.keys() {
+        if start.field_move_stacks.get(name) != end.field_move_stacks.get(name) {
+            names.insert(name.clone());
+        }
+    }
     names
 }
 
@@ -1108,6 +1514,15 @@ fn merged_branch_borrow_stack(
         merged.push(bindings);
     }
     merged
+}
+
+fn snapshot_top_field_moves(snapshot: &ResourceStateSnapshot, name: &str) -> BTreeSet<FieldMove> {
+    snapshot
+        .field_move_stacks
+        .get(name)
+        .and_then(|stack| stack.last())
+        .cloned()
+        .unwrap_or_default()
 }
 
 fn merge_continuing_branch_states(
@@ -1147,6 +1562,26 @@ fn merge_continuing_branch_states(
         }
         let merged = MoveCheckContext::merge_states(&states);
         ctx.set_state(name.as_str(), merged);
+
+        let mut field_moves: Option<BTreeSet<FieldMove>> = None;
+        let mut field_moves_match = true;
+        for branch in &continuing {
+            let branch_moves = snapshot_top_field_moves(&branch.state, name.as_str());
+            match &field_moves {
+                Some(existing) if *existing != branch_moves => {
+                    field_moves_match = false;
+                    break;
+                }
+                Some(_) => {}
+                None => field_moves = Some(branch_moves),
+            }
+        }
+        if field_moves_match {
+            ctx.set_field_moves(name.as_str(), field_moves.unwrap_or_default());
+        } else {
+            ctx.clear_field_moves(name.as_str());
+            ctx.set_state(name.as_str(), VarState::PossiblyMoved);
+        }
     }
 
     let active_names: Vec<(String, usize)> = ctx
@@ -1221,7 +1656,7 @@ fn visit_expr_with_escape(
                 if let Some(base) = args.get(0) {
                     if tctx.is_copy(expr.ty) {
                         visit_temporary_borrow(base, ctx, BorrowKind::Shared);
-                    } else if !visit_field_move_source(base, ctx, tctx) {
+                    } else if !visit_field_move_source(base, expr.ty, ctx, tctx) {
                         visit_expr(base, ctx, tctx);
                     }
                 }
@@ -1519,7 +1954,7 @@ fn visit_expr_with_escape(
                 if let Some(addr) = args.get(0) {
                     if is_copy_load {
                         visit_temporary_borrow(addr, ctx, BorrowKind::Shared);
-                    } else if !visit_field_move_source(addr, ctx, tctx) {
+                    } else if !visit_field_move_source(addr, expr.ty, ctx, tctx) {
                         visit_temporary_borrow(addr, ctx, BorrowKind::Unique);
                     }
                 }
@@ -1617,9 +2052,14 @@ fn visit_temporary_borrow(expr: &HirExpr, ctx: &mut MoveCheckContext, kind: Borr
 
 fn visit_field_move_source(
     expr: &HirExpr,
+    field_ty: TypeId,
     ctx: &mut MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> bool {
+    if let Some(path) = field_move_path_from_addr(expr, field_ty, tctx) {
+        ctx.check_field_move(&path, expr.span);
+        return true;
+    }
     match &expr.kind {
         HirExprKind::Var(name) => {
             if !tctx.is_copy(expr.ty) {
@@ -1629,7 +2069,7 @@ fn visit_field_move_source(
             false
         }
         HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
-            visit_field_move_source(&args[0], ctx, tctx)
+            visit_field_move_source(&args[0], field_ty, ctx, tctx)
         }
         _ => false,
     }
