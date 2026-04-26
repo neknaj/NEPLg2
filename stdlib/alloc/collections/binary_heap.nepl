@@ -70,6 +70,14 @@ fn heap_right <(i32)->i32> (idx):
 fn heap_elem_ptr <.T> <(MemPtr<.T>,i32)->MemPtr<.T>> (data, idx):
     mem_ptr_wrap add mem_ptr_addr data mul idx size_of<.T>
 
+//: heap_store_header_i32: heap が[所有/しょゆう]する header field へ i32 を[書/か]き[込/こ]む
+//:
+//: [目的/もくてき]:
+//: - `BinaryHeap` の header は `alloc_ptr` で[確保/かくほ]した 12 byte [領域/りょういき]なので、内部[不変条件/ふへんじょうけん]が[成/な]り[立/た]つ[箇所/かしょ]では raw store を[使/つか]います。
+//: - public API の[失敗/しっぱい]は allocation failure として `Result` で[返/かえ]し、内部 header store の `Result` を `uwok` で trap にしません。
+fn heap_store_header_i32 <(MemPtr<i32>,i32)->()> (p, v):
+    store_i32 mem_ptr_addr p v
+
 fn heap_swap_ptrs <.T> <(MemPtr<.T>,MemPtr<.T>)->()> (pa, pb):
     let a <.T> load<.T> mem_ptr_addr pa
     let b <.T> load<.T> mem_ptr_addr pb
@@ -178,19 +186,19 @@ fn with_capacity <.T> <(i32)->Result<BinaryHeap<.T>, StdErrorKind>> (cap):
             if:
                 eq cap0 0
                 then:
-                    let _ <()> uwok store_i32 heap_header_len_ptr<.T> BinaryHeap<.T> hdr 0
-                    let _ <()> uwok store_i32 heap_header_cap_ptr<.T> BinaryHeap<.T> hdr 0
-                    let _ <()> uwok store_i32 heap_header_data_ptr_ptr<.T> BinaryHeap<.T> hdr 0
+                    heap_store_header_i32 heap_header_len_ptr<.T> BinaryHeap<.T> hdr 0
+                    heap_store_header_i32 heap_header_cap_ptr<.T> BinaryHeap<.T> hdr 0
+                    heap_store_header_i32 heap_header_data_ptr_ptr<.T> BinaryHeap<.T> hdr 0
                     ok<BinaryHeap<.T>, StdErrorKind> BinaryHeap<.T> hdr
                 else:
                     match alloc_ptr<.T> mul cap0 size_of<.T>:
                         Result::Err _e:
-                            let _ <()> uwok dealloc_ptr<u8> hdr 12
+                            dealloc_raw mem_ptr_addr hdr 12
                             err<BinaryHeap<.T>, StdErrorKind> StdErrorKind::OutOfMemory
                         Result::Ok data:
-                            let _ <()> uwok store_i32 heap_header_len_ptr<.T> BinaryHeap<.T> hdr 0
-                            let _ <()> uwok store_i32 heap_header_cap_ptr<.T> BinaryHeap<.T> hdr cap0
-                            let _ <()> uwok store_i32 heap_header_data_ptr_ptr<.T> BinaryHeap<.T> hdr mem_ptr_addr data
+                            heap_store_header_i32 heap_header_len_ptr<.T> BinaryHeap<.T> hdr 0
+                            heap_store_header_i32 heap_header_cap_ptr<.T> BinaryHeap<.T> hdr cap0
+                            heap_store_header_i32 heap_header_data_ptr_ptr<.T> BinaryHeap<.T> hdr mem_ptr_addr data
                             ok<BinaryHeap<.T>, StdErrorKind> BinaryHeap<.T> hdr
 
 //: ## len
@@ -272,17 +280,17 @@ fn push <.T: Ord> <(BinaryHeap<.T>,.T)->Result<BinaryHeap<.T>, StdErrorKind>> (h
                 Result::Err e:
                     err<BinaryHeap<.T>, StdErrorKind> e
                 Result::Ok data1:
-                    let _ <()> uwok store_i32 cap_ptr grown_cap
-                    let _ <()> uwok store_i32 data_ptr_ptr mem_ptr_addr data1
+                    heap_store_header_i32 cap_ptr grown_cap
+                    heap_store_header_i32 data_ptr_ptr mem_ptr_addr data1
                     store<.T> mem_ptr_addr heap_elem_ptr<.T> data1 len0 item
                     let next_len <i32> add len0 1
-                    let _ <()> uwok store_i32 len_ptr next_len
+                    heap_store_header_i32 len_ptr next_len
                     heap_sift_up_ptr<.T> data1 sub next_len 1
                     ok<BinaryHeap<.T>, StdErrorKind> BinaryHeap<.T> hdr
         else:
             store<.T> mem_ptr_addr heap_elem_ptr<.T> data0 len0 item
             let next_len <i32> add len0 1
-            let _ <()> uwok store_i32 len_ptr next_len
+            heap_store_header_i32 len_ptr next_len
             heap_sift_up_ptr<.T> data0 sub next_len 1
             ok<BinaryHeap<.T>, StdErrorKind> BinaryHeap<.T> hdr
 
@@ -370,13 +378,13 @@ fn pop <.T: Ord> <(BinaryHeap<.T>)->Option<.T>> (hp):
             if:
                 eq n0 1
                 then:
-                    let _ <()> uwok store_i32 len_ptr 0
+                    heap_store_header_i32 len_ptr 0
                     some<.T> root
                 else:
                     let last <.T> load<.T> mem_ptr_addr heap_elem_ptr<.T> data0 sub n0 1
                     let n1 <i32> sub n0 1
                     store<.T> mem_ptr_addr data0 last
-                    let _ <()> uwok store_i32 len_ptr n1
+                    heap_store_header_i32 len_ptr n1
                     heap_sift_down_ptr<.T> data0 n1 0
                     some<.T> root
 
@@ -385,6 +393,7 @@ fn pop <.T: Ord> <(BinaryHeap<.T>)->Option<.T>> (hp):
 //:
 //: ### [目的/もくてき]
 //: - heap が[所有/しょゆう]する data [領域/りょういき]と header を[終端/しゅうたん][操作/そうさ]として[解放/かいほう]します。
+//: - capacity 0 の heap は data [領域/りょういき]を[持/も]たないため、data [解放/かいほう]は no-op にします。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -406,5 +415,8 @@ fn free <.T> <(BinaryHeap<.T>)->()> (hp):
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let cap0 <i32> load_i32 mem_ptr_addr cap_ptr
     let data0 <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
-    let _ <()> uwok dealloc_ptr<.T> data0 mul cap0 size_of<.T>
-    let _ <()> uwok dealloc_ptr<u8> hdr 12
+    if:
+        gt cap0 0
+        then dealloc_raw mem_ptr_addr data0 mul cap0 size_of<.T>
+        else ()
+    dealloc_raw mem_ptr_addr hdr 12

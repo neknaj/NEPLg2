@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T23:08:27.450Z",
+  "generated_at": "2026-04-26T23:15:20.466Z",
   "counts": {
-    "total": 154,
+    "total": 155,
     "open": 15,
-    "resolved": 139,
+    "resolved": 140,
     "by_area": {
       "cli": {
         "total": 19,
@@ -17,9 +17,9 @@
         "resolved": 56
       },
       "stdlib": {
-        "total": 47,
+        "total": 48,
         "open": 6,
-        "resolved": 41
+        "resolved": 42
       },
       "examples": {
         "total": 13,
@@ -2233,6 +2233,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T221226565Z-BTREEMAP-AND-BTREESET-INSERT-TRAP-ON-F1DACB01.md"
+    },
+    {
+      "id": "ISS-20260426T230422845Z-BINARYHEAP-FREE-TRAPS-FOR-ZERO-CAPAC-07CE8EC3",
+      "title": "BinaryHeap free traps for zero-capacity heap",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/binary_heap.nepl, tests/stdlib/binary_heap_collections.n.md, nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T230422845Z-BINARYHEAP-FREE-TRAPS-FOR-ZERO-CAPAC-07CE8EC3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

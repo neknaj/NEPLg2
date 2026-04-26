@@ -47,3 +47,50 @@ fn main <()*>i32> ():
             false
     if and ok0 ok1 1 0
 ```
+
+## binary_heap_zero_capacity_free
+
+[目的/もくてき]:
+- `with_capacity 0` で[作/つく]った heap の `free` が data pointer 0 を[解放/かいほう]しようとして trap しないことを[確認/かくにん]します。
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/binary_heap" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, StdErrorKind> with_capacity<i32> 0;
+    free<i32> hp;
+    1
+```
+
+## binary_heap_push_from_zero_capacity
+
+[目的/もくてき]:
+- capacity 0 の heap が[初回/しょかい] `push` で data [領域/りょういき]を[確保/かくほ]し、通常の heap [不変条件/ふへんじょうけん]を[満/み]たすことを[確認/かくにん]します。
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/binary_heap" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, StdErrorKind> with_capacity<i32> 0;
+    let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, StdErrorKind> push<i32> hp0 42;
+    match peek<i32> hp1:
+        Option::Some v:
+            if eq v 42 1 0
+        Option::None:
+            0
+```

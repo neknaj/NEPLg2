@@ -18619,3 +18619,37 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 実装前の core ownership safety issue として、owned aggregate の field 単位 move/drop を実装した。
+
+# 2026-04-27 メモ (ISS-20260426T230422845Z BinaryHeap zero-capacity free 修正)
+
+- [同期]:
+  - `main` / `origin/main` が `241be95 stdlib: propagate btree insert grow errors` で一致している状態から `stdlib/binary-heap-zero-capacity-free` branch を作成した。
+  - commit 前に `origin/main` が `b2b037e core: support owned aggregate field decomposition` まで進んだため、`git pull --rebase --autostash origin main` で取り込んだ。`issues/index.*` は再生成し、`note.n.md` は owned aggregate decomposition の記録と本作業記録を両方残して conflict を解消した。
+  - borrow checker / drop / string memory 系は別 agent の作業対象として避け、basic collection の通常 cleanup と unsafe helper の除去だけを対象にした。
+- [追加Issue]:
+  - `ISS-20260426T230422845Z-BINARYHEAP-FREE-TRAPS-FOR-ZERO-CAPAC-07CE8EC3` を追加し、追加時点で Discord に報告した。
+- [原因]:
+  - `BinaryHeap.with_capacity 0` は data pointer に 0 を保存するが、`free` は capacity を見ずに `dealloc_ptr` を呼び、その `Result` を `uwok` していた。
+  - そのため zero-capacity heap という妥当な値の cleanup が unreachable trap になり得た。
+  - `with_capacity` / `push` / `pop` も BinaryHeap が所有する header への内部 store を checked MemPtr API で呼び、`uwok` で潰していた。
+- [修正]:
+  - `heap_store_header_i32` を追加し、BinaryHeap 所有 header field への内部書き込みを raw store に集約した。
+  - `with_capacity` / `push` / `pop` から `uwok store_i32` を削除した。
+  - `free` は `cap0 > 0` のときだけ data buffer を解放し、capacity 0 の null data pointer を no-op にした。
+  - `with_capacity 0` の `free` と、capacity 0 からの初回 `push` の regression を追加した。
+  - `nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js` を追加し、CI source policy と `doc/testing.md` に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-zero-capacity-focused.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl --no-tree -o tmp/binary-heap-zero-capacity-docs.json -j 1`: 6/6 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-binary-heap-zero-capacity.json -j 4`: 284/284 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-binary-heap-zero-capacity.json -j 4`: 416/416 passed
+  - remote main 取り込み後の `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-zero-capacity-after-b2b037e-build.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl --no-tree -o tmp/binary-heap-zero-capacity-docs-after-b2b037e-build.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-binary-heap-zero-capacity-after-b2b037e-build.json -j 4`: 284/284 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-binary-heap-zero-capacity-after-b2b037e-build.json -j 4`: 416/416 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の work queue / priority queue に使う basic collection が、capacity 0 から開始しても通常 cleanup で trap しないようにした。
