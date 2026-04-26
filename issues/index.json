@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T21:34:11.054Z",
+  "generated_at": "2026-04-26T21:45:15.632Z",
   "counts": {
     "total": 148,
-    "open": 20,
-    "resolved": 128,
+    "open": 19,
+    "resolved": 129,
     "by_area": {
       "cli": {
         "total": 19,
@@ -16,11 +16,6 @@
         "open": 11,
         "resolved": 48
       },
-      "selfhost": {
-        "total": 9,
-        "open": 1,
-        "resolved": 8
-      },
       "stdlib": {
         "total": 45,
         "open": 6,
@@ -30,6 +25,11 @@
         "total": 13,
         "open": 0,
         "resolved": 13
+      },
+      "selfhost": {
+        "total": 9,
+        "open": 0,
+        "resolved": 9
       },
       "compiler": {
         "total": 1,
@@ -193,21 +193,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T213058421Z-LLVM-TARGET-TYPECHECKS-STDLIB-COLLEC-DD7EF927.md"
-    },
-    {
-      "id": "ISS-20260426T010001Z-STDFS-WRITE-B7C4D923",
-      "title": "std/fs lacks write and create interfaces required for self-host artifacts",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-26",
-      "updated": "2026-04-27",
-      "target": "stdlib/std/fs.nepl, nepl-cli/src/main.rs, tests/stdlib/fs.n.md, tests/stdlib/text_utf8.n.md",
-      "legacy_id": "",
-      "source": "doc/neplg2/self_host_plan.md",
-      "file": "items/ISS-20260426T010001Z-STDFS-WRITE-B7C4D923.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1168,6 +1153,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C.md"
+    },
+    {
+      "id": "ISS-20260426T010001Z-STDFS-WRITE-B7C4D923",
+      "title": "std/fs lacks write and create interfaces required for self-host artifacts",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/fs.nepl, nepl-cli/src/main.rs, nodesrc/run_test.js, nodesrc/test_run_test_wasi_tmp_dir.js, tests/stdlib/fs.n.md, tests/stdlib/text_utf8.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/self_host_plan.md",
+      "file": "items/ISS-20260426T010001Z-STDFS-WRITE-B7C4D923.md"
     },
     {
       "id": "ISS-20260426T010002Z-STDFS-DIRLIST-C2F93A6E",

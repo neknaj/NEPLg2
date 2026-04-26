@@ -43,6 +43,12 @@ function safeUnlink(p) {
     try { fs.unlinkSync(p); } catch {}
 }
 
+function ensureWasiScratchDir(preopenRoot) {
+    const scratchDir = path.join(preopenRoot, 'tmp');
+    fs.mkdirSync(scratchDir, { recursive: true });
+    return scratchDir;
+}
+
 function formatError(e) {
     if (!e) return 'unknown error';
     const name = typeof e.name === 'string' && e.name.length > 0 ? e.name : null;
@@ -86,6 +92,7 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
     const stdoutPath = mkTmpPath('wasi-stdout');
     const stderrPath = mkTmpPath('wasi-stderr');
     const preopenRoot = process.cwd();
+    ensureWasiScratchDir(preopenRoot);
 
     fs.writeFileSync(wasmPath, Buffer.from(wasmBytes));
     fs.writeFileSync(stdinPath, Buffer.from(stdinText || '', 'utf-8'));
@@ -180,6 +187,7 @@ function detectTarget(source) {
 function runWasmerWasixBytes(wasmBytes, stdinText, argv = []) {
     const wasmPath = mkTmpPath('nepl-doctest') + '.wasm';
     const vfsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-doctest-wasix-'));
+    ensureWasiScratchDir(vfsRoot);
     fs.writeFileSync(wasmPath, Buffer.from(wasmBytes));
 
     const wasmerBin = process.env.WASMER_BIN || 'wasmer';
@@ -535,5 +543,6 @@ if (require.main === module) {
 
 module.exports = {
     createRunner,
+    ensureWasiScratchDir,
     runSingle,
 };

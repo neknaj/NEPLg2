@@ -43,6 +43,7 @@ Run source policy regressions for stdlib implementation style:
 ```bash
 node nodesrc/test_stdlib_match_decision_trees.js
 node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js
+node nodesrc/test_run_test_wasi_tmp_dir.js
 ```
 
 Run one doctest directly:
@@ -137,6 +138,9 @@ playground.
 
 This matters for features such as TUI, which require WASIX imports and cannot be
 executed by the preview1-only Node WASI runtime.
+The runner prepares a `tmp/` scratch directory inside each preopen root before
+execution. File-write doctests can use `tmp/...` paths without depending on an
+untracked repository directory being present in a clean checkout.
 
 You can override the `wasmer` binary with:
 

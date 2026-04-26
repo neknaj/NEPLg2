@@ -18197,6 +18197,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nepl-core/tests/neplg2.rs` と `tests/compiler/generic_impl_trait_args.n.md` に、trait argument 側だけ generic な impl が通るケースと、generic target が引き続き拒否されるケースを追加した。
 - `plan.md` は変更していない。今回の変更は self-host stdlib の hash 基盤を自然な trait 境界へ戻すための compiler 側の前提修正である。
 
+# 2026-04-27 メモ (ISS-20260426T010001Z fs write clean checkout 再発修正)
+
+- [同期]:
+  - 作業開始時に `origin/main` が `75e3c17 issues: track current CI failures` まで進んでいたため、`git pull --ff-only origin main` で取り込んだ。
+  - `node nodesrc/issues.js check` は `files=148` で pass した。
+- [原因]:
+  - CI の `fs_write_to_string` / `fs_write_to_bytes` 失敗は stdlib write API 本体ではなく、doctest runner の preopen root に未追跡 `tmp/` が無い clean checkout 差分だった。
+  - WASI `path_open(CREAT|TRUNC)` は親ディレクトリを作成しないため、`tmp/...` の write doctest は runner が scratch directory を準備しない限り `NOENT` になる。
+- [修正]:
+  - `nodesrc/run_test.js` に `ensureWasiScratchDir` を追加し、Node WASI と Wasmer WASIX の両方で実行前に preopen root の `tmp/` を作成するようにした。
+  - helper の idempotency と既存 scratch 内容を壊さないことを `nodesrc/test_run_test_wasi_tmp_dir.js` で確認する回帰テストを追加した。
+  - CI source policy regression と `doc/testing.md` に runner scratch directory の前提を追記した。
+- [検証]:
+  - `node nodesrc/test_run_test_wasi_tmp_dir.js`: pass
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i tests/stdlib/fs.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/fs-write-tmp-preopen-focused.json -j 1`: 19/19 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-fs-write-tmp-preopen.json -j 4`: 282/282 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-fs-write-tmp-preopen.json -j 4`: 414/414 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host artifact 出力に必要な `std/fs` write API の CI 実行前提を test runner 側で固定した。
+
 # 2026-04-26 メモ (ISS-20260426T135905659Z owned accumulator branch merge)
 
 - [同期]:
