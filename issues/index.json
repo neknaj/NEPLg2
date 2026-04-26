@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T15:51:26.248Z",
+  "generated_at": "2026-04-26T16:00:12.000Z",
   "counts": {
     "total": 130,
-    "open": 10,
-    "resolved": 120,
+    "open": 9,
+    "resolved": 121,
     "by_area": {
       "core": {
         "total": 47,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 43,
-        "open": 7,
-        "resolved": 36
+        "open": 6,
+        "resolved": 37
       },
       "cli": {
         "total": 17,
@@ -88,21 +88,6 @@
       "legacy_id": "RV-STDLIB-007",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-007",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-013-F256803D",
-      "title": "stdlib collection doctest 群が所有型 API 移行後の実装とずれている",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/collections/**, stdlib/tests/**, tests/stdlib/**",
-      "legacy_id": "RV-STDLIB-013",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-013",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-013-F256803D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
@@ -1093,6 +1078,21 @@
       "legacy_id": "RV-STDLIB-012",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-012",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-012-C31422D8.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-013-F256803D",
+      "title": "stdlib collection doctest 群が所有型 API 移行後の実装とずれている",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/alloc/collections/**, stdlib/tests/**, tests/stdlib/**",
+      "legacy_id": "RV-STDLIB-013",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-013",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-013-F256803D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-014-83D059C2",

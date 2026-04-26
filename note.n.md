@@ -1,3 +1,17 @@
+# 2026-04-26 メモ (ISS-20260425T000000Z-RV-STDLIB-013 collection doctest verify)
+
+- 状況:
+  - `RV-STDLIB-013` は collection doctest 群が所有型 API 移行後の実装とずれている P1 issue として open のままだった。
+  - 直近の `stdlib` full は通っていたため、collection module 群と `tests/stdlib` を個別に再実行し、過去 artifact の failure set が残っているか確認した。
+- 修正:
+  - 実装変更は不要だった。既存の collection / core / stdlib 個別修正で failure set は解消済みだったため、issue を `verified/resolved` に更新した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections --no-tree -o tmp/collections-rv-stdlib-013-verify.json -j 4`: `total=181`, `passed=181`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-rv-stdlib-013-verify.json -j 4`: `total=274`, `passed=274`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-sha256-digest-full.json -j 4`: `total=411`, `passed=411`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stale open issue を現行テスト結果で閉じるもの。
+
 # 2026-04-26 メモ (ISS-20260426T060311796Z SHA-256 digest)
 
 - 状況:
