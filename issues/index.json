@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T08:37:16.708Z",
+  "generated_at": "2026-04-26T08:43:45.830Z",
   "counts": {
-    "total": 119,
-    "open": 23,
+    "total": 120,
+    "open": 24,
     "resolved": 96,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 2
       },
       "stdlib": {
-        "total": 40,
-        "open": 13,
+        "total": 41,
+        "open": 14,
         "resolved": 27
       },
       "cli": {
@@ -373,6 +373,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907.md"
+    },
+    {
+      "id": "ISS-20260426T081514183Z-NM-RENDERER-DIVERGES-FROM-GLOSS-HTML-10480257",
+      "title": "nm renderer diverges from Gloss HTML and escape contract",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, tests/stdlib/nm.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T081514183Z-NM-RENDERER-DIVERGES-FROM-GLOSS-HTML-10480257.md"
     },
     {
       "id": "ISS-20260426T020005000Z-RUST-WARNING-DEBT-5F8E2C91",
