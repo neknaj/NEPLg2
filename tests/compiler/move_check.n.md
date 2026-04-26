@@ -571,3 +571,69 @@ fn main <()->i32> ():
         box_ref &t
     0
 ```
+
+## move_loop_owned_accumulator_reassigned_after_result_ok
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn step <(LocalToken)->Result<LocalToken, i32>> (token):
+    Result<LocalToken, i32>::Ok token
+
+fn main <()->i32> ():
+    let mut cur <LocalToken> LocalToken @token_id
+    let mut i <i32> 0
+    while lt i 3:
+        match step cur:
+            Result::Ok next:
+                set cur next
+                set i add i 1
+            Result::Err _e:
+                #intrinsic "unreachable" <> ()
+    let out <LocalToken> cur
+    0
+```
+
+## move_loop_owned_accumulator_err_continue_without_reinit_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3065
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn step <(LocalToken)->Result<LocalToken, i32>> (token):
+    Result<LocalToken, i32>::Ok token
+
+fn main <()->i32> ():
+    let mut cur <LocalToken> LocalToken @token_id
+    let mut i <i32> 0
+    while lt i 3:
+        match step cur:
+            Result::Ok next:
+                set cur next
+                set i add i 1
+            Result::Err _e:
+                set i 3
+    let out <LocalToken> cur
+    0
+```

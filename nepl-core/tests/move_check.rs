@@ -549,3 +549,64 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
 }
+
+#[test]
+fn move_loop_owned_accumulator_reassigned_after_result_ok() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+#import "core/result" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn step <(Wrapper)->Result<Wrapper, i32>> (w):
+    Result<Wrapper, i32>::Ok w
+
+fn main <()*>()> ():
+    let mut cur Wrapper::Val 0;
+    let mut i <i32> 0;
+    while lt i 3:
+        match step cur:
+            Result::Ok next:
+                set cur next
+                set i add i 1
+            Result::Err _e:
+                #intrinsic "unreachable" <> ()
+    let out <Wrapper> cur;
+    ()
+"#;
+    compile_move_test(source).expect("diverging Err arm should not merge moved accumulator state");
+}
+
+#[test]
+fn move_loop_owned_accumulator_err_continue_without_reinit_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+#import "core/result" as *
+
+enum Wrapper:
+    Val <i32>
+
+fn step <(Wrapper)->Result<Wrapper, i32>> (w):
+    Result<Wrapper, i32>::Ok w
+
+fn main <()*>()> ():
+    let mut cur Wrapper::Val 0;
+    let mut i <i32> 0;
+    while lt i 3:
+        match step cur:
+            Result::Ok next:
+                set cur next
+                set i add i 1
+            Result::Err _e:
+                set i 3
+    let out <Wrapper> cur;
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
+}

@@ -678,6 +678,10 @@ fn type_contains_reference(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
     inner(tctx, ty, &mut BTreeSet::new())
 }
 
+fn is_never_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
+    matches!(tctx.get_ref(tctx.resolve_id(ty)), TypeKind::Never)
+}
+
 fn borrow_bindings_from_place(expr: &HirExpr, ctx: &MoveCheckContext) -> Vec<BorrowBinding> {
     match &expr.kind {
         HirExprKind::Var(name) => ctx.borrow_bindings(name),
@@ -929,6 +933,56 @@ fn visit_expr_iteratively(
     }
 }
 
+struct BranchStateSnapshot {
+    continues: bool,
+    diff: BTreeMap<String, VarState>,
+    final_states: BTreeMap<String, VarState>,
+}
+
+fn branch_final_states(
+    ctx: &MoveCheckContext,
+    diff: &BTreeMap<String, VarState>,
+) -> BTreeMap<String, VarState> {
+    let mut final_states = BTreeMap::new();
+    for name in diff.keys() {
+        let fallback = *diff.get(name).unwrap_or(&VarState::Valid);
+        final_states.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
+    }
+    final_states
+}
+
+fn merge_continuing_branch_states(ctx: &mut MoveCheckContext, branches: &[BranchStateSnapshot]) {
+    let mut all_modified = BTreeSet::new();
+    for branch in branches.iter().filter(|branch| branch.continues) {
+        for name in branch.diff.keys() {
+            all_modified.insert(name.clone());
+        }
+    }
+
+    for name in all_modified {
+        let start_state = branches
+            .iter()
+            .filter(|branch| branch.continues)
+            .find_map(|branch| branch.diff.get(&name).copied())
+            .unwrap_or_else(|| ctx.get_state(&name).unwrap_or(VarState::Valid));
+        let mut states = Vec::new();
+        for branch in branches.iter().filter(|branch| branch.continues) {
+            states.push(
+                branch
+                    .final_states
+                    .get(&name)
+                    .copied()
+                    .unwrap_or(start_state),
+            );
+        }
+        if states.is_empty() {
+            continue;
+        }
+        let merged = MoveCheckContext::merge_states(&states);
+        ctx.set_state(&name, merged);
+    }
+}
+
 fn visit_expr(
     expr: &HirExpr,
     ctx: &mut MoveCheckContext,
@@ -1002,41 +1056,37 @@ fn visit_expr_with_escape(
                     ctx.push_history();
                     let then_borrows = visit_expr_with_escape(&args[1], ctx, tctx, escape_depth);
                     let then_diff = ctx.pop_history();
-                    let mut then_final = BTreeMap::new();
-                    for name in then_diff.keys() {
-                        let fallback = *then_diff.get(name).unwrap_or(&VarState::Valid);
-                        then_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
-                    }
+                    let then_final = branch_final_states(ctx, &then_diff);
                     ctx.undo_history(&then_diff);
 
                     ctx.push_history();
                     let else_borrows = visit_expr_with_escape(&args[2], ctx, tctx, escape_depth);
                     let else_diff = ctx.pop_history();
-                    let mut else_final = BTreeMap::new();
-                    for name in else_diff.keys() {
-                        let fallback = *else_diff.get(name).unwrap_or(&VarState::Valid);
-                        else_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
-                    }
+                    let else_final = branch_final_states(ctx, &else_diff);
                     ctx.undo_history(&else_diff);
 
-                    let mut all_modified: BTreeSet<String> = then_diff.keys().cloned().collect();
-                    all_modified.extend(else_diff.keys().cloned());
-
-                    for name in all_modified {
-                        let start_state = then_diff
-                            .get(&name)
-                            .or_else(|| else_diff.get(&name))
-                            .copied()
-                            .unwrap_or_else(|| ctx.get_state(&name).unwrap_or(VarState::Valid));
-
-                        let then_state = then_final.get(&name).copied().unwrap_or(start_state);
-                        let else_state = else_final.get(&name).copied().unwrap_or(start_state);
-
-                        let merged = MoveCheckContext::merge_state_pair(then_state, else_state);
-                        ctx.set_state(&name, merged);
+                    let then_continues = !is_never_type(tctx, args[1].ty);
+                    let else_continues = !is_never_type(tctx, args[2].ty);
+                    let branches = [
+                        BranchStateSnapshot {
+                            continues: then_continues,
+                            diff: then_diff,
+                            final_states: then_final,
+                        },
+                        BranchStateSnapshot {
+                            continues: else_continues,
+                            diff: else_diff,
+                            final_states: else_final,
+                        },
+                    ];
+                    merge_continuing_branch_states(ctx, &branches);
+                    let mut result_borrows = Vec::new();
+                    if then_continues {
+                        result_borrows.extend(then_borrows);
                     }
-                    let mut result_borrows = then_borrows;
-                    result_borrows.extend(else_borrows);
+                    if else_continues {
+                        result_borrows.extend(else_borrows);
+                    }
                     result_borrows
                 } else {
                     Vec::new()
@@ -1121,41 +1171,37 @@ fn visit_expr_with_escape(
             ctx.push_history();
             let then_borrows = visit_expr_with_escape(then_branch, ctx, tctx, escape_depth);
             let then_diff = ctx.pop_history();
-            let mut then_final = BTreeMap::new();
-            for name in then_diff.keys() {
-                let fallback = *then_diff.get(name).unwrap_or(&VarState::Valid);
-                then_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
-            }
+            let then_final = branch_final_states(ctx, &then_diff);
             ctx.undo_history(&then_diff);
 
             ctx.push_history();
             let else_borrows = visit_expr_with_escape(else_branch, ctx, tctx, escape_depth);
             let else_diff = ctx.pop_history();
-            let mut else_final = BTreeMap::new();
-            for name in else_diff.keys() {
-                let fallback = *else_diff.get(name).unwrap_or(&VarState::Valid);
-                else_final.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
-            }
+            let else_final = branch_final_states(ctx, &else_diff);
             ctx.undo_history(&else_diff);
 
-            let mut all_modified: BTreeSet<String> = then_diff.keys().cloned().collect();
-            all_modified.extend(else_diff.keys().cloned());
-
-            for name in all_modified {
-                let start_state = then_diff
-                    .get(&name)
-                    .or_else(|| else_diff.get(&name))
-                    .copied()
-                    .unwrap_or_else(|| ctx.get_state(&name).unwrap_or(VarState::Valid));
-
-                let then_state = then_final.get(&name).copied().unwrap_or(start_state);
-                let else_state = else_final.get(&name).copied().unwrap_or(start_state);
-
-                let merged = MoveCheckContext::merge_state_pair(then_state, else_state);
-                ctx.set_state(&name, merged);
+            let then_continues = !is_never_type(tctx, then_branch.ty);
+            let else_continues = !is_never_type(tctx, else_branch.ty);
+            let branches = [
+                BranchStateSnapshot {
+                    continues: then_continues,
+                    diff: then_diff,
+                    final_states: then_final,
+                },
+                BranchStateSnapshot {
+                    continues: else_continues,
+                    diff: else_diff,
+                    final_states: else_final,
+                },
+            ];
+            merge_continuing_branch_states(ctx, &branches);
+            let mut result_borrows = Vec::new();
+            if then_continues {
+                result_borrows.extend(then_borrows);
             }
-            let mut result_borrows = then_borrows;
-            result_borrows.extend(else_borrows);
+            if else_continues {
+                result_borrows.extend(else_borrows);
+            }
             result_borrows
         }
         HirExprKind::While { cond, body } => {
@@ -1190,8 +1236,7 @@ fn visit_expr_with_escape(
         HirExprKind::Match { scrutinee, arms } => {
             visit_expr(scrutinee, ctx, tctx);
 
-            let mut all_branch_diffs = Vec::new();
-            let mut all_branch_finals = Vec::new();
+            let mut branch_states = Vec::new();
             let mut result_borrows = Vec::new();
 
             for arm in arms {
@@ -1203,36 +1248,20 @@ fn visit_expr_with_escape(
                 let arm_borrows = visit_expr_with_escape(&arm.body, ctx, tctx, escape_depth);
                 ctx.pop_scope();
                 let diff = ctx.pop_history();
-                let mut final_states = BTreeMap::new();
-                for name in diff.keys() {
-                    let fallback = *diff.get(name).unwrap_or(&VarState::Valid);
-                    final_states.insert(name.clone(), ctx.get_state(name).unwrap_or(fallback));
-                }
+                let final_states = branch_final_states(ctx, &diff);
                 ctx.undo_history(&diff);
-                all_branch_diffs.push(diff);
-                all_branch_finals.push(final_states);
-                result_borrows.extend(arm_borrows);
+                let continues = !is_never_type(tctx, arm.body.ty);
+                if continues {
+                    result_borrows.extend(arm_borrows);
+                }
+                branch_states.push(BranchStateSnapshot {
+                    continues,
+                    diff,
+                    final_states,
+                });
             }
 
-            let mut all_modified = BTreeSet::new();
-            for diff in &all_branch_diffs {
-                for name in diff.keys() {
-                    all_modified.insert(name.clone());
-                }
-            }
-
-            for name in all_modified {
-                let start_state = all_branch_diffs
-                    .iter()
-                    .find_map(|diff| diff.get(&name).copied())
-                    .unwrap_or(VarState::Valid);
-                let mut states = Vec::with_capacity(all_branch_finals.len());
-                for branch_final in &all_branch_finals {
-                    states.push(branch_final.get(&name).copied().unwrap_or(start_state));
-                }
-                let merged = MoveCheckContext::merge_states(&states);
-                ctx.set_state(&name, merged);
-            }
+            merge_continuing_branch_states(ctx, &branch_states);
             result_borrows
         }
         HirExprKind::Block(b) => visit_block_with_escape(b, ctx, tctx, escape_depth),

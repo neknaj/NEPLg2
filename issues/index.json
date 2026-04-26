@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T14:49:12.960Z",
+  "generated_at": "2026-04-26T15:06:51.439Z",
   "counts": {
     "total": 130,
-    "open": 13,
-    "resolved": 117,
+    "open": 12,
+    "resolved": 118,
     "by_area": {
       "core": {
         "total": 47,
-        "open": 4,
-        "resolved": 43
+        "open": 3,
+        "resolved": 44
       },
       "stdlib": {
         "total": 43,
@@ -133,21 +133,6 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
-    },
-    {
-      "id": "ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98",
-      "title": "move checker rejects owned accumulator updated after fallible consuming loop call",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/passes/move_check.rs, nepl-core/src/typecheck.rs, stdlib/alloc/io.nepl",
-      "legacy_id": "",
-      "source": "ByteBuilder implementation while handling ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11",
-      "file": "items/ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98.md"
     },
     {
       "id": "ISS-20260426T142242010Z-BORROWED-FIELD-PROJECTION-API-MISSIN-3010781E",
@@ -1678,6 +1663,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T124322498Z-NEPL-CORE-WASI-TEST-HARNESS-LACKS-ST-E7AC7DC9.md"
+    },
+    {
+      "id": "ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98",
+      "title": "move checker rejects owned accumulator updated after fallible consuming loop call",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/move_check.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "ByteBuilder implementation while handling ISS-20260426T010005Z-BYTEBUF-BUILDER-WASM-D63A7C11",
+      "file": "items/ISS-20260426T135905659Z-MOVE-CHECKER-REJECTS-OWNED-ACCUMULAT-2EB9BB98.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

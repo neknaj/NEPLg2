@@ -17993,3 +17993,37 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nepl-core/src/typecheck.rs` の impl type parameter 事前拒否を外し、non-capability trait では target 型が unbound type variable を含む場合だけ D3084 で拒否する既存判定へ集約した。
 - `nepl-core/tests/neplg2.rs` と `tests/compiler/generic_impl_trait_args.n.md` に、trait argument 側だけ generic な impl が通るケースと、generic target が引き続き拒否されるケースを追加した。
 - `plan.md` は変更していない。今回の変更は self-host stdlib の hash 基盤を自然な trait 境界へ戻すための compiler 側の前提修正である。
+
+# 2026-04-26 メモ (ISS-20260426T135905659Z owned accumulator branch merge)
+
+- [同期]:
+  - 作業開始前と記録更新前に remote main を確認し、`main` / `origin/main` が `0775d491a97a93108184de2a8de8f845e47ec64c` で一致していることを確認した。
+  - commit 前に `origin/main` が `ced6b17 selfhost: add CLI args parser` まで進んだため、stash → `git rebase origin/main` → stash pop で取り込んだ。
+  - rebase 後、`issues/index.*` は `node nodesrc/issues.js index` で再生成し、`note.n.md` は self-host CLI argv parser の作業メモと本作業メモの両方を残して conflict を解消した。
+  - Discord 報告後の push 前に `origin/main` が `970a69d core: allow generic trait argument impls` まで進んだため、再度 rebase して generic impl trait argument の作業メモと本作業メモの両方を残した。
+  - user 指示により stdlib 側は触らず、Rust core の move checker と compiler 回帰テストだけを変更した。
+- [原因]:
+  - `match step cur` のように owned accumulator を consuming call へ渡すと、`cur` は一度 moved になる。
+  - 既存の branch merge は、`Result::Err` 側が `#intrinsic "unreachable"` で `never` 型になり post-match へ到達しない場合でも、その branch の moved state を continuing state に混ぜていた。
+  - その結果、実際には `Result::Ok next` 側だけが loop 継続経路で `cur` を再初期化している安全な accumulator pattern まで `potentially moved` として拒否していた。
+- [修正]:
+  - `move_check` に `BranchStateSnapshot` を追加し、branch ごとの `continues`、変更差分、最終 state を一体で扱うようにした。
+  - builtin `if`、HIR `if`、`match` の post-branch state merge で、`TypeKind::Never` の branch を継続しない経路として除外した。
+  - branch が返す borrow origin も continuing branch だけから集めるようにし、diverging branch の一時的な状態が外側へ漏れないようにした。
+- [回帰テスト]:
+  - owned non-Copy accumulator を `Result::Ok next` で差し替え、`Result::Err` が `unreachable` で diverge する loop を compile 成功として追加した。
+  - `Result::Err` が通常に継続して accumulator を再初期化しない loop は、引き続き `potentially moved` で拒否する negative test を追加した。
+- [検証]:
+  - `node nodesrc/issues.js check`: pass (`files=130`)
+  - `cargo fmt --all --check`: pass
+  - `git diff --check`: pass
+  - `cargo check -p nepl-core --test move_check`: pass
+  - `cargo test -p nepl-core --test move_check move_loop_owned_accumulator -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 24 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --no-tree -o tmp/move-check-loop-accumulator-after-generic-rebase.json -j 1`: `total=25`, `passed=25`, `failed=0`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-loop-accumulator-after-generic-rebase.json`: 13/13 passed
+  - `cargo check --workspace`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 実装前の Rust core safety issue として、loop-carried ownership state の制御フロー merge を補強した。
