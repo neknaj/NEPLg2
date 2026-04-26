@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T22:08:37.108Z",
+  "generated_at": "2026-04-26T22:11:49.639Z",
   "counts": {
-    "total": 150,
+    "total": 151,
     "open": 18,
-    "resolved": 132,
+    "resolved": 133,
     "by_area": {
       "cli": {
         "total": 19,
@@ -12,9 +12,9 @@
         "resolved": 17
       },
       "core": {
-        "total": 60,
+        "total": 61,
         "open": 10,
-        "resolved": 50
+        "resolved": 51
       },
       "stdlib": {
         "total": 46,
@@ -1063,6 +1063,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T215554373Z-COPY-VALUE-RETAINED-BORROWS-SKIP-SHA-8309070D.md"
+    },
+    {
+      "id": "ISS-20260426T220752937Z-CALL-ARGUMENT-TEMPORARY-BORROWS-DO-N-BA9F0773",
+      "title": "Call argument temporary borrows do not overlap",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/move_check.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T220752937Z-CALL-ARGUMENT-TEMPORARY-BORROWS-DO-N-BA9F0773.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

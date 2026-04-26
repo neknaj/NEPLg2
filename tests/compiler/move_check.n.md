@@ -297,6 +297,52 @@ fn main <()->i32> ():
     consume x
 ```
 
+## move_call_mut_and_shared_reference_args_overlap_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3062
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn use_both <(&mut LocalToken,&LocalToken)->i32> (_a, _b):
+    0
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    use_both &mut x &x
+```
+
+## move_call_shared_and_mut_reference_args_overlap_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3061
+```neplg2
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn use_both <(&LocalToken,&mut LocalToken)->i32> (_a, _b):
+    0
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    use_both &x &mut x
+```
+
 ## move_unique_reference_blocks_owner_move_while_live
 
 neplg2:test[compile_fail]

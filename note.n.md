@@ -18438,3 +18438,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 実装前の core safety issue として、Copy 値の参照排他検査を修正した。
+
+# 2026-04-27 メモ (ISS-20260426T220752937Z call引数temporary borrow overlap修正)
+
+- [追加Issue]:
+  - `ISS-20260426T220752937Z-CALL-ARGUMENT-TEMPORARY-BORROWS-DO-N-BA9F0773` を追加した。
+- [原因]:
+  - `visit_call_args_with_params` は各引数の `ExprBorrow` を集めるだけで、呼び出し完了まで temporary borrow を active state に保持していなかった。
+  - そのため `f &mut x &x` や `f &x &mut x` で、先に作った参照が次の引数検査時に見えず、同一 call 内の shared/unique 排他が抜けていた。
+- [修正]:
+  - 各引数から得た borrow origin を call-duration temporary として retain し、全引数の検査後にまとめて release するようにした。
+  - 戻り値が reference を含む場合の origin 返却は `result_borrows` として残し、call-duration temporary とは分けた。
+- [回帰テスト]:
+  - `&mut LocalToken` 引数と `&LocalToken` 引数が同じ owner を共有する call を `D3062` で拒否するテストを追加した。
+  - `&LocalToken` 引数と `&mut LocalToken` 引数が同じ owner を共有する call を `D3061` で拒否するテストを追加した。
+  - 既存の単一 temporary borrow が call 後に解放される正常系も維持している。
+- [検証]:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 43/43 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/call-argument-temporary-borrow-tests.json -j 1`: 71/71 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 実装前の core borrow/lifetime safety issue として、関数呼び出し境界での temporary borrow overlap を修正した。

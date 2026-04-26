@@ -252,6 +252,12 @@ impl MoveCheckContext {
         }
     }
 
+    fn release_borrow_bindings(&mut self, bindings: &[BorrowBinding]) {
+        for binding in bindings {
+            self.release_source_borrow(binding.source.as_str(), binding.kind);
+        }
+    }
+
     fn release_source_borrow(&mut self, source: &str, kind: BorrowKind) {
         let Some(count) = self.borrow_counts.get_mut(source) else {
             return;
@@ -847,6 +853,7 @@ fn visit_call_args_with_params(
     tctx: &crate::types::TypeCtx,
 ) -> Vec<ExprBorrow> {
     let mut result_borrows = Vec::new();
+    let mut call_borrows = Vec::new();
     for (i, arg) in args.iter().enumerate() {
         let arg_escape_depth = ctx.current_scope_depth();
         let param_ty = params.and_then(|p| p.get(i)).copied();
@@ -856,8 +863,10 @@ fn visit_call_args_with_params(
             } else {
                 visit_expr_with_escape(arg, ctx, tctx, Some(arg_escape_depth))
             };
+        call_borrows.extend(ctx.retain_expr_borrows(arg_borrows.clone()));
         result_borrows.extend(arg_borrows);
     }
+    ctx.release_borrow_bindings(&call_borrows);
     result_borrows
 }
 
