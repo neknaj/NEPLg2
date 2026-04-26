@@ -24,6 +24,29 @@
 - plan.md との差異:
   - plan.md は変更していない。今回の変更は self-host 前提の compiler pattern coverage を広げるもの。
 
+# 2026-04-26 メモ (ISS-20260426T074114888Z str/i32 型境界)
+
+- 状況:
+  - `TypeCtx::unify` が `str` と `i32` を相互に成功扱いにしていたため、`let s <str> 0` や `json_string 0` のような raw handle を文字列として受理できていた。
+  - JSON typed value の compile_fail 追加中に `json_string 0` が成功し、core の型統合が stdlib 側の型境界を無効化していることを確認した。
+- 修正:
+  - `nepl-core/src/types.rs` から `str` / `i32` の暗黙 unify を削除した。
+  - 文字列内部表現が必要な低レベル境界は `str_addr` / `str_from_addr_unchecked` intrinsic と stdlib helper に限定し、stdlib 側の raw pointer 依存を明示 API へ移した。
+  - 文字列比較 doctest は `str_eq` を使う形に寄せ、保存済み `str` は `load<str>` / `store<str>` として扱うようにした。
+  - `tests/compiler/str_i32_boundaries.n.md` と `tests/stdlib/json_typed_values.n.md` に回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test typectx_checkpoint`: `3 passed`
+  - `trunk build`: pass（既存 warning のみ）
+  - `node nodesrc/tests.js -i tests/compiler/str_i32_boundaries.n.md --no-tree -o tmp/str-i32-boundaries.json -j 1`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/json-typed-values-str-i32.json -j 1`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-after-str-i32.json -j 1`: `total=4`, `passed=4`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md -i tests/stdlib/stdio_read_all.n.md -i tests/stdlib/streamio.n.md --no-tree -o tmp/stdio-streamio-str-i32-3.json -j 1`: `total=17`, `passed=17`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-full-str-i32-2.json -j 4`: `total=404`, `passed=404`, `failed=0`
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-full-str-i32.json -j 4`: `total=483`, `passed=483`, `failed=0`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host/stdlib の前提になる core 型境界の修正。
+
 # 2026-04-26 メモ (ISS-20260426T072648414Z nodesrc tests legacy runner stack)
 
 - 状況:

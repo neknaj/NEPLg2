@@ -95,6 +95,22 @@ fn string_region_len_ptr <(RegionToken<u8>)->MemPtr<i32>> (region):
 fn string_region_data_ptr <(RegionToken<u8>)->MemPtr<u8>> (region):
     unwrap_ok region_ptr_at<u8,u8> region 4
 
+//: string_addr: `str` の内部アドレスを低レベル処理用に取り出す
+//:
+//: [目的/もくてき]:
+//: - `str` と `i32` を型として混同せず、文字列レイアウトを扱う内部処理だけが明示的に生アドレスを使えるようにします。
+//:
+//: [実装/じっそう]:
+//: - compiler intrinsic により、WASM 上の `str` 表現である線形メモリアドレスを `i32` として返します。
+//:
+//: [注意/ちゅうい]:
+//: - 文字列実装と OS 境界用の低レベル API です。通常の文字列処理では `len` / `string_data_ptr` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
 //: string_data_ptr: 既存文字列の本文先頭を型付きポインタとして扱う
 //:
 //: [目的/もくてき]:
@@ -109,7 +125,7 @@ fn string_region_data_ptr <(RegionToken<u8>)->MemPtr<u8>> (region):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_data_ptr <(str)->MemPtr<u8>> (s):
-    mem_ptr_wrap add s 4
+    mem_ptr_wrap add string_addr s 4
 
 //: string_finish: 文字列領域を `str` として確定する
 //:
@@ -129,6 +145,22 @@ fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
     let base <MemPtr<u8>> get region "ptr"
     string_finish_base base byte_len
 
+//: string_from_addr_unchecked: 文字列レイアウト済み領域を `str` として扱う
+//:
+//: [目的/もくてき]:
+//: - 先頭 4 バイトに長さを持つ文字列領域の基底アドレスを、公開型 `str` へ変換します。
+//:
+//: [実装/じっそう]:
+//: - compiler intrinsic により、`i32` の生アドレスを `str` 表現へ明示的に境界変換します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 検証済みで、文字列レイアウトを満たす領域にだけ使ってください。任意の整数を渡すと未定義動作になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_from_addr_unchecked <(i32)->str> (addr):
+    #intrinsic "str_from_addr_unchecked" <> (addr)
+
 //: string_finish_base: 文字列先頭ポインタを `str` として確定する
 //:
 //: [目的/もくてき]:
@@ -147,7 +179,7 @@ fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr base
     match store_i32 len_ptr byte_len:
         Result::Ok _:
-            mem_ptr_addr base
+            string_from_addr_unchecked mem_ptr_addr base
         Result::Err _e:
             #intrinsic "unreachable" <> ()
 
@@ -178,7 +210,7 @@ fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn len <(str)->i32> (s):
-    load_i32 s
+    load_i32 string_addr s
 
 //: byte_at: 文字列の指定 byte を読む
 //:
@@ -230,6 +262,22 @@ fn byte_at <(str,i32)->Option<i32>> (s, idx):
                 else:
                     load_u8 mem_ptr_add string_data_ptr s idx
 
+//: string_byte_at_unchecked: 範囲確認なしで `str` の本文 1 バイトを読む
+//:
+//: [目的/もくてき]:
+//: - ループ内部で範囲確認済みの byte index から高速に 1 バイトを読みます。
+//:
+//: [実装/じっそう]:
+//: - `string_addr` で文字列ヘッダの生アドレスを明示的に取り出し、4 バイトの長さヘッダを飛ばして `load_u8` します。
+//:
+//: [注意/ちゅうい]:
+//: - idx が範囲外の場合は未定義動作です。公開 API では `byte_at` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_byte_at_unchecked <(str,i32)->i32> (s, idx):
+    load_u8 <i32> add string_addr s <i32> add 4 idx
+
 // concat: 2つの文字列を連結する
 //
 // 目的:
@@ -257,8 +305,8 @@ fn byte_at <(str,i32)->Option<i32>> (s, idx):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn concat <(str,str)->str> (a,b):
-    let la <i32> load_i32 a;
-    let lb <i32> load_i32 b;
+    let la <i32> len a;
+    let lb <i32> len b;
     let total <i32> add la lb;
     let out_region <RegionToken<u8>> unwrap_ok string_alloc_region total;
     let out_base <MemPtr<u8>> get out_region "ptr";
@@ -461,7 +509,7 @@ fn sb_build <(StringBuilder)->str> (sb):
     while lt idx0 n:
         do:
             let part <str> load<str> add parts_data mul idx0 size_of<str>;
-            set total add total load_i32 part;
+            set total add total len part;
             set idx0 add idx0 1;
     let out_region <RegionToken<u8>> unwrap_ok string_alloc_region total;
     let out_base <MemPtr<u8>> get out_region "ptr";
@@ -471,7 +519,7 @@ fn sb_build <(StringBuilder)->str> (sb):
     while lt idx n:
         do:
             let part <str> load<str> add parts_data mul idx size_of<str>;
-            let plen <i32> load_i32 part;
+            let plen <i32> len part;
             let part_data <MemPtr<u8>> string_data_ptr part;
             let out_part <MemPtr<u8>> mem_ptr_add out_data dst;
             let out_part_raw <i32> mem_ptr_addr out_part;
@@ -508,8 +556,8 @@ fn sb_build <(StringBuilder)->str> (sb):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn str_eq <(str,str)->bool> (a,b):
-    let la <i32> load_i32 a;
-    let lb <i32> load_i32 b;
+    let la <i32> len a;
+    let lb <i32> len b;
     if:
         eq la lb
         then str_eq_loop a b la 0
@@ -547,8 +595,8 @@ fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
         then:
             true
         else:
-            let ba <i32> load_u8 <i32> add a <i32> add 4 i;
-            let bb <i32> load_u8 <i32> add b <i32> add 4 i;
+            let ba <i32> string_byte_at_unchecked a i;
+            let bb <i32> string_byte_at_unchecked b i;
             if:
                 eq ba bb
                 then str_eq_loop a b n <i32> add i 1
@@ -625,8 +673,8 @@ fn str_is_space <(i32)->bool> (b):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn str_starts_with <(str,str)->bool> (s, prefix):
-    let ls <i32> load_i32 s;
-    let lp <i32> load_i32 prefix;
+    let ls <i32> len s;
+    let lp <i32> len prefix;
     if:
         lt ls lp
         then false
@@ -663,10 +711,9 @@ fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
         eq i n
         then true
         else:
-            let s_ptr <i32> add s 4;
             let s_off <i32> add start i;
-            let bs <i32> load_u8 <i32> add s_ptr s_off;
-            let bp <i32> load_u8 <i32> add pat <i32> add 4 i;
+            let bs <i32> string_byte_at_unchecked s s_off;
+            let bp <i32> string_byte_at_unchecked pat i;
             if:
                 eq bs bp
                 then str_eq_at s pat start n <i32> add i 1
@@ -699,8 +746,8 @@ fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn str_ends_with <(str,str)->bool> (s, suffix):
-    let ls <i32> load_i32 s;
-    let lp <i32> load_i32 suffix;
+    let ls <i32> len s;
+    let lp <i32> len suffix;
     if:
         lt ls lp
         then false
@@ -736,7 +783,7 @@ fn str_ends_with <(str,str)->bool> (s, suffix):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn str_slice <(str,i32,i32)->str> (s, start, end):
-    let len <i32> load_i32 s;
+    let n <i32> len s;
     let mut s0 <i32> start;
     let mut e0 <i32> end;
     if:
@@ -748,8 +795,8 @@ fn str_slice <(str,i32,i32)->str> (s, start, end):
         then set e0 s0
         else ()
     if:
-        lt len e0
-        then set e0 len
+        lt n e0
+        then set e0 n
         else ()
     let out_len <i32> sub e0 s0;
     let out_region <RegionToken<u8>> unwrap_ok string_alloc_region out_len;
@@ -791,16 +838,16 @@ fn str_slice <(str,i32,i32)->str> (s, start, end):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn str_trim <(str)->str> (s):
-    let len <i32> load_i32 s;
+    let n <i32> len s;
     let mut start <i32> 0;
-    let mut end <i32> len;
+    let mut end <i32> n;
     let mut done <i32> 0;
     while eq done 0:
         do:
             if:
                 lt start end
                 then:
-                    let b <i32> load_u8 <i32> add s <i32> add 4 start;
+                    let b <i32> string_byte_at_unchecked s start;
                     if:
                         str_is_space b
                         then set start <i32> add start 1
@@ -814,7 +861,7 @@ fn str_trim <(str)->str> (s):
                 lt start end
                 then:
                     let idx <i32> sub end 1;
-                    let b <i32> load_u8 <i32> add s <i32> add 4 idx;
+                    let b <i32> string_byte_at_unchecked s idx;
                     if:
                         str_is_space b
                         then set end <i32> sub end 1
@@ -854,10 +901,9 @@ fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
     let mut ok <i32> 1;
     while lt i sep_len:
         do:
-            let s_ptr <i32> add s 4;
             let rd_off <i32> add pos i;
-            let bs <i32> load_u8 <i32> add s_ptr rd_off;
-            let bp <i32> load_u8 <i32> add sep <i32> add 4 i;
+            let bs <i32> string_byte_at_unchecked s rd_off;
+            let bp <i32> string_byte_at_unchecked sep i;
             if:
                 eq bs bp
                 then set i <i32> add i 1
@@ -894,7 +940,7 @@ fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn str_split <(str,str)->Vec<str>> (s, sep):
-    let sep_len <i32> load_i32 sep;
+    let sep_len <i32> len sep;
     let mut out <Vec<str>> unwrap_ok v::new<str>;
     if:
         eq sep_len 0
@@ -902,7 +948,7 @@ fn str_split <(str,str)->Vec<str>> (s, sep):
             set out unwrap_ok v::push<str> out s
             out
         else:
-            let s_len <i32> load_i32 s;
+            let s_len <i32> len s;
             let mut i <i32> 0;
             let mut start <i32> 0;
             let mut scan_end <i32> add i sep_len;
@@ -959,8 +1005,8 @@ fn str_split <(str,str)->Vec<str>> (s, sep):
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let ok0 <bool> eq from_bool true "true";
-//:     let ok1 <bool> eq from_bool false "false";
+//:     let ok0 <bool> str_eq from_bool true "true";
+//:     let ok1 <bool> str_eq from_bool false "false";
 //:     let ok <bool> and ok0 ok1;
 //:     if ok 1 0
 //: ```
@@ -1449,8 +1495,8 @@ fn u128_can_mul_add_small <(u128,i32,u128,i32)->bool> (v, digit, max_quotient, m
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //: fn main <()*>i32> ():
-//:     let ok0 <bool> eq from_i32 42 "42";
-//:     let ok1 <bool> eq from_i32 -42 "-42";
+//:     let ok0 <bool> str_eq from_i32 42 "42";
+//:     let ok1 <bool> str_eq from_i32 -42 "-42";
 //:     let ok <bool> and ok0 ok1;
 //:     if ok 1 0
 //: ```
@@ -1771,7 +1817,7 @@ fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
         Result::Err e:
             Result::Err<u128,i32> e
         Result::Ok _:
-            let n <i32> load_i32 s;
+            let n <i32> len s;
             let mut i <i32> 0;
             let mut res <u128> u128_zero;
             let mut ok <i32> 1;
@@ -1783,8 +1829,7 @@ fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
                 then:
                     set ok 0;
                 else:
-                    let first_ptr <i32> add s 4;
-                    let first <i32> load_u8 first_ptr;
+                    let first <i32> string_byte_at_unchecked s 0;
                     if:
                         eq first 45
                         then:
@@ -1792,9 +1837,7 @@ fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
                         else:
                             while lt i n:
                                 do:
-                                    let digit_off <i32> add 4 i;
-                                    let digit_ptr <i32> add s digit_off;
-                                    let digit_chr <i32> load_u8 digit_ptr;
+                                    let digit_chr <i32> string_byte_at_unchecked s i;
                                     match digit_from_char digit_chr:
                                         Result::Ok digit:
                                             if:
@@ -1962,13 +2005,13 @@ fn to_i128 <(str)->Result<i128,i32>> (s):
 // 計算量:
 // - O(n)
 fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
-    let n <i32> load_i32 s;
+    let n <i32> len s;
     if:
         eq n 0
         then:
             Result::Err<i128,i32> 1
         else:
-            let first <i32> load_u8 add s 4;
+            let first <i32> string_byte_at_unchecked s 0;
             let neg <bool> eq first 45;
             let body <str> if neg:
                 then str_slice s 1 n
@@ -2127,7 +2170,7 @@ fn from_f64 <(f64)->str> (x):
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
 fn to_f64 <(str)->Result<f64,i32>> (s):
-    let n <i32> load_i32 s;
+    let n <i32> len s;
     let mut i <i32> 0;
     let mut ok <i32> 1;
     let mut neg <i32> 0;
@@ -2143,7 +2186,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
         then:
             set ok 0;
         else:
-            let first <i32> load_u8 add s 4;
+            let first <i32> string_byte_at_unchecked s 0;
             if:
                 eq first 45
                 then:
@@ -2159,7 +2202,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
 
             while and eq ok 1 lt i n:
                 do:
-                    let b <i32> load_u8 <i32> add s <i32> add 4 i;
+                    let b <i32> string_byte_at_unchecked s i;
                     let d <i32> sub b 48;
                     if:
                         and ge d 0 le d 9
@@ -2176,7 +2219,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
             if:
                 and eq ok 2 lt i n
                 then:
-                    let dot <i32> load_u8 <i32> add s <i32> add 4 i;
+                    let dot <i32> string_byte_at_unchecked s i;
                     if:
                         eq dot 46
                         then:
@@ -2184,7 +2227,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
                             set i add i 1;
                             while and eq ok 1 lt i n:
                                 do:
-                                    let b <i32> load_u8 <i32> add s <i32> add 4 i;
+                                    let b <i32> string_byte_at_unchecked s i;
                                     let d <i32> sub b 48;
                                     if:
                                         and ge d 0 le d 9
@@ -2209,7 +2252,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
             if:
                 and eq ok 2 lt i n
                 then:
-                    let eb <i32> load_u8 <i32> add s <i32> add 4 i;
+                    let eb <i32> string_byte_at_unchecked s i;
                     if:
                         or eq eb 101 eq eb 69
                         then:
@@ -2217,7 +2260,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
                             if:
                                 lt i n
                                 then:
-                                    let sb <i32> load_u8 <i32> add s <i32> add 4 i;
+                                    let sb <i32> string_byte_at_unchecked s i;
                                     if:
                                         eq sb 45
                                         then:
@@ -2236,7 +2279,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
                             let mut exp_digits <i32> 0;
                             while and eq ok 2 lt i n:
                                 do:
-                                    let b <i32> load_u8 <i32> add s <i32> add 4 i;
+                                    let b <i32> string_byte_at_unchecked s i;
                                     let d <i32> sub b 48;
                                     if:
                                         and ge d 0 le d 9

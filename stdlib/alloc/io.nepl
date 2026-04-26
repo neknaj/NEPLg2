@@ -89,7 +89,7 @@ fn io_bytebuf_free <(ByteBuf)->()> (buf):
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
 fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
-    let byte_len <i32> load_i32 text
+    let byte_len <i32> len text
     let data <MemPtr<u8>> string_data_ptr text
     if:
         eq byte_len 0

@@ -182,8 +182,8 @@ fn wasi_fd_close <(i32)*>i32> (fd):
 //: ```
 fn fs_open_read <(str)*>Result<i32,i32>> (path):
     match alloc_ptr<u8> 4:
-        Result::Err e:
-            Result::Err e
+        Result::Err _e:
+            Result<i32,i32>::Err 12
         Result::Ok fd_out_buf:
             match fs_i32_ptr fd_out_buf 4 0:
                 Result::Err _:
@@ -199,8 +199,8 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
                             ()
                         Result::Err _:
                             ()
-                    let path_ptr <i32> add path 4;
-                    let path_len <i32> load_i32 path;
+                    let path_ptr <i32> mem_ptr_addr string_data_ptr path;
+                    let path_len <i32> len path;
                     let rights <i64> cast 0;
                     let errno <i32> wasi_path_open 3 0 path_ptr path_len 0 rights rights 0 mem_ptr_addr fd_out;
                     let res <Result<i32,i32>> if:
@@ -253,21 +253,21 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
 fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
     let mut cap <i32> 65536;
     match alloc_ptr<u8> cap:
-        Result::Err e:
-            Result::Err e
+        Result::Err _e:
+            Result<ByteBuf,i32>::Err 12
         Result::Ok buf0:
             let mut buf <MemPtr<u8>> buf0;
             match alloc_ptr<u8> 8:
-                Result::Err e:
+                Result::Err _e:
                     match dealloc_ptr<u8> buf cap:
                         Result::Ok _:
                             ()
                         Result::Err _e:
                             ();
-                    Result::Err e
+                    Result<ByteBuf,i32>::Err 12
                 Result::Ok iov_buf:
                     match fs_i32_ptr iov_buf 8 0:
-                        Result::Err e:
+                        Result::Err _e:
                             match dealloc_ptr<u8> iov_buf 8:
                                 Result::Ok _:
                                     ()
@@ -278,10 +278,10 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                     ()
                                 Result::Err _e:
                                     ();
-                            Result::Err e
+                            Result<ByteBuf,i32>::Err 12
                         Result::Ok iov_base:
                             match fs_i32_ptr iov_buf 8 4:
-                                Result::Err e:
+                                Result::Err _e:
                                     match dealloc_ptr<u8> iov_buf 8:
                                         Result::Ok _:
                                             ()
@@ -292,10 +292,10 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                             ()
                                         Result::Err _e:
                                             ();
-                                    Result::Err e
+                                    Result<ByteBuf,i32>::Err 12
                                 Result::Ok iov_len:
                                     match alloc_ptr<u8> 4:
-                                        Result::Err e:
+                                        Result::Err _e:
                                             match dealloc_ptr<u8> iov_buf 8:
                                                 Result::Ok _:
                                                     ()
@@ -306,10 +306,10 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                                     ()
                                                 Result::Err _e:
                                                     ();
-                                            Result::Err e
+                                            Result<ByteBuf,i32>::Err 12
                                         Result::Ok nread_buf:
                                             match fs_i32_ptr nread_buf 4 0:
-                                                Result::Err e:
+                                                Result::Err _e:
                                                     match dealloc_ptr<u8> nread_buf 4:
                                                         Result::Ok _:
                                                             ()
@@ -325,7 +325,7 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                                             ()
                                                         Result::Err _e:
                                                             ();
-                                                    Result::Err e
+                                                    Result<ByteBuf,i32>::Err 12
                                                 Result::Ok nread:
                                                     let mut read_len <i32> 0;
                                                     let mut done <i32> 0;

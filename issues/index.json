@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T09:26:10.381Z",
+  "generated_at": "2026-04-26T09:53:30.887Z",
   "counts": {
     "total": 120,
-    "open": 22,
-    "resolved": 98,
+    "open": 21,
+    "resolved": 99,
     "by_area": {
       "core": {
         "total": 39,
-        "open": 4,
-        "resolved": 35
+        "open": 3,
+        "resolved": 36
       },
       "selfhost": {
         "total": 7,
@@ -58,21 +58,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7",
-      "title": "str unifies with i32 and accepts raw handles as text",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/types.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7.md"
     },
     {
       "id": "ISS-20260426T010001Z-STDFS-WRITE-B7C4D923",
@@ -988,6 +973,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T053112317Z-SELFHOST-REQ-HASHKEY-FIXTURE-FAILS-U-34A22E8C.md"
+    },
+    {
+      "id": "ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7",
+      "title": "str unifies with i32 and accepts raw handles as text",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/types.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

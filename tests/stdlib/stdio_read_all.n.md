@@ -44,9 +44,10 @@ stdin: mlstr:
 #target std
 
 #import "std/stdio" as *
+#import "alloc/string" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():
     let text <str> read_all
-    if eq load_i32 text 4128 0 1
+    if eq len text 4128 0 1
 ```

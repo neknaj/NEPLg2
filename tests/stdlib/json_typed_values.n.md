@@ -88,6 +88,21 @@ fn main <()*>i32> ():
     if str_eq out "\"a\\\"b\\\\c\\n\"" 1 0
 ```
 
+## json_string_rejects_raw_handle_at_compile_time
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/encoding/json" as *
+
+fn main <()*>i32> ():
+    let _v <JsonValue> json_string 0;
+    0
+```
+
 ## json_object_rejects_raw_handle_at_compile_time
 
 neplg2:test[compile_fail]

@@ -284,12 +284,12 @@ fn stdio_write_stderr_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
 //: ## stdio_write_str_result
 //: `str` を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
 fn stdio_write_str_result <(str)*>Result<(), StdErrorKind>> (s):
-    stdio_write_mem_result string_data_ptr s load_i32 s
+    stdio_write_mem_result string_data_ptr s len s
 
 //: ## stdio_write_stderr_str_result
 //: `str` を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
 fn stdio_write_stderr_str_result <(str)*>Result<(), StdErrorKind>> (s):
-    stdio_write_stderr_mem_result string_data_ptr s load_i32 s
+    stdio_write_stderr_mem_result string_data_ptr s len s
 
 //: ## stdio_write_bytes_result
 //: `ByteBuf` を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
@@ -540,7 +540,7 @@ fn stdio_read_all_bytes <()*>ByteBuf> ():
 //:     print "sample";
 //: ```
 fn noshadow print <(str)*>()> (s):
-    stdio_write_mem string_data_ptr s load_i32 s
+    stdio_write_mem string_data_ptr s len s
 
 //: read_all: 標準入力を EOF まで読み込む
 //:
@@ -642,7 +642,7 @@ fn read_all <()*>str> ():
                                     ""
                                 else:
                                     store_i32 out len;
-                                    out
+                                    string_from_addr_unchecked out
 
 //: read_line: 1 行読み込む
 //:
@@ -731,7 +731,7 @@ fn noshadow read_line <()*>str> ():
                             store_i32 out len;
                             std_free nread 4;
                             std_free iov 8;
-                            out
+                            string_from_addr_unchecked out
 
 //: println: 改行付き出力
 //:
@@ -801,7 +801,7 @@ fn noshadow println <(str)*>()> (s):
 //:     print_i32 0;
 //: ```
 fn noshadow print_i32 <(i32)*>()> (v):
-    let s <i32> :
+    let s <str> :
         if:
             eq v 0
             then:
@@ -811,7 +811,7 @@ fn noshadow print_i32 <(i32)*>()> (v):
                     Result::Ok out0:
                         store_i32 out0 1;
                         store_u8 add out0 4 48;
-                        out0
+                        string_from_addr_unchecked out0
             else:
                 let is_neg <bool> lt v 0;
                 let mut n <i32>:
@@ -863,7 +863,7 @@ fn noshadow print_i32 <(i32)*>()> (v):
                                         set i add i 1;
 
                                 std_free scratch 16;
-                                out
+                                string_from_addr_unchecked out
     print s;
     ()
 

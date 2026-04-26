@@ -46,8 +46,8 @@
 //: - [時間/じかん]: O(n)
 //: - [空間/くうかん]: O(n)（再帰呼び出しぶん）
 fn test_str_eq <(str,str)->bool> (a,b):
-    let la <i32> load_i32 a;
-    let lb <i32> load_i32 b;
+    let la <i32> len a;
+    let lb <i32> len b;
     if:
         eq la lb
         then:
@@ -76,9 +76,8 @@ fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
         then:
             true
         else:
-            let off <i32> add 4 i;
-            let ba <i32> load_u8 add a off;
-            let bb <i32> load_u8 add b off;
+            let ba <i32> string_byte_at_unchecked a i;
+            let bb <i32> string_byte_at_unchecked b i;
             if:
                 eq ba bb
                 then test_str_eq_loop a b len add i 1

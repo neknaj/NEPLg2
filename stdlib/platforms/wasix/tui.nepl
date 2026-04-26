@@ -239,8 +239,7 @@ fn repeat_text <(str,i32)*>str> (s, n):
             out
 
 fn str_byte_at <(str,i32)*>i32> (s, i):
-    let p <i32> add s 4;
-    load_u8 add p i
+    string_byte_at_unchecked s i
 
 //: str_display_width: 文字列の表示幅を概算する
 //:
@@ -744,7 +743,7 @@ fn buffer_set_line <(i32,i32,str)*>()> (b, row, line):
             let curr <i32> load_i32 add b 8;
             let row0 <i32> sub row 1;
             let off <i32> mul row0 4;
-            store_i32 add curr off line;
+            store<str> add curr off line;
         else:
             ();
     ()
@@ -792,8 +791,8 @@ fn buffer_present_diff <(i32)*>()> (b):
     while lt i rows:
         do:
             let off <i32> mul i 4;
-            let c <str> load_i32 add curr off;
-            let p <str> load_i32 add prev off;
+            let c <str> load<str> add curr off;
+            let p <str> load<str> add prev off;
             if:
                 not str_eq c p
                 then:
@@ -825,7 +824,7 @@ fn buffer_present_diff <(i32)*>()> (b):
                             let tail_padded <str> line_pad_to_cols tail remain_cols;
                             move_cursor col0 add i 1;
                             print tail_padded;
-                    store_i32 add prev off c;
+                    store<str> add prev off c;
                 else:
                     ();
             set i add i 1;

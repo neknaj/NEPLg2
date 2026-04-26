@@ -46,3 +46,13 @@ fn checkpoint_rolls_back_named_and_trait_model_state() {
     assert!(!ctx.is_copy(i32_ty));
     assert!(!ctx.has_drop_impl_target(i32_ty));
 }
+
+#[test]
+fn str_and_i32_do_not_unify() {
+    let mut ctx = TypeCtx::new();
+    let str_ty = ctx.str();
+    let i32_ty = ctx.i32();
+
+    assert!(ctx.unify(str_ty, i32_ty).is_err());
+    assert!(ctx.unify(i32_ty, str_ty).is_err());
+}

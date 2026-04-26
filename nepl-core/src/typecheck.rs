@@ -5401,6 +5401,10 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.f32()
                     } else if intrin.name == "reinterpret_f32_i32" {
                         self.ctx.i32()
+                    } else if intrin.name == "str_addr" {
+                        self.ctx.i32()
+                    } else if intrin.name == "str_from_addr_unchecked" {
+                        self.ctx.str()
                     } else if intrin.name == "get_field" {
                         self.ctx.fresh_var(None)
                     } else if intrin.name == "set_field" {
@@ -5631,6 +5635,32 @@ impl<'a> BlockChecker<'a> {
                                         TypeKind::Named("u64".to_string()),
                                     )
                                 })
+                            };
+                            if let Err(_) = self.ctx.unify(args[0].ty, expected) {
+                                self.diagnostics.push(
+                                    Diagnostic::error(
+                                        format!(
+                                            "intrinsic argument type mismatch (expected {})",
+                                            self.ctx.type_to_string(expected)
+                                        ),
+                                        *sp,
+                                    )
+                                    .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                );
+                            }
+                        }
+                    } else if intrin.name == "str_addr" || intrin.name == "str_from_addr_unchecked"
+                    {
+                        if args.len() != 1 {
+                            self.diagnostics.push(
+                                Diagnostic::error("intrinsic expects 1 argument", *sp)
+                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                            );
+                        } else {
+                            let expected = if intrin.name == "str_addr" {
+                                self.ctx.str()
+                            } else {
+                                self.ctx.i32()
                             };
                             if let Err(_) = self.ctx.unify(args[0].ty, expected) {
                                 self.diagnostics.push(

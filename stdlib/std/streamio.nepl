@@ -38,6 +38,7 @@
 
 #import "alloc/diag/error" as *
 #import "alloc/io" as *
+#import "alloc/string" as *
 #import "core/cast" as *
 #import "core/math" as *
 #import "core/mem" as *
@@ -594,7 +595,7 @@ fn scan_token_impl <(StreamScanner)*>str> (sc):
                             store_u8 add s add 4 i load_u8 add buf add start i;
                             set i add i 1;
                     stream_scanner_store_header header StreamScannerHeaderField::Pos p;
-                    s
+                    string_from_addr_unchecked s
 
 //: ## scan_i32_impl
 //: [次/つぎ]の token を `i32` として[読/よ]む
@@ -1148,7 +1149,7 @@ fn push_newline_impl <(StreamWriter)*>StreamWriter> (w):
 //: - `str` は `[len][bytes]` [形式/けいしき]なので、bytes [先頭/せんとう]は `string_data_ptr` で[得/え]ます。
 fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
     let w_mem <MemPtr<u8>> get w "header";
-    let n <i32> load_i32 s;
+    let n <i32> len s;
     let src <MemPtr<u8>> string_data_ptr s;
     match stream_writer_load_header w_mem StreamWriterHeaderField::Cap:
         Result::Err _e:

@@ -31,6 +31,7 @@
 //:| #import "core/result" as *
 //:| #import "core/traits/eq" as *
 //:| #import "core/option" as *
+//:| #import "alloc/string" as *
 //: fn main <()*>i32> ():
 //:     let base0 <List<i32>>:
 //:         unwrap_ok<List<i32>, Diag> new<i32>
@@ -93,7 +94,7 @@
 //:     let ra <List<str>> uwok reverse<str> src0;
 //:     let ok0 match head<str> ra:
 //:         Option::Some x:
-//:             if eq x "c" 1 0
+//:             if str_eq x "c" 1 0
 //:         Option::None:
 //:             0
 //:     let src1 <List<str>>:
@@ -104,7 +105,7 @@
 //:     let rb <List<str>> uwok reverse<str> src1;
 //:     let ok1 match get<str> rb 2:
 //:         Option::Some x:
-//:             if eq x "a" 1 0
+//:             if str_eq x "a" 1 0
 //:         Option::None:
 //:             0
 //:     let src2 <List<str>>:

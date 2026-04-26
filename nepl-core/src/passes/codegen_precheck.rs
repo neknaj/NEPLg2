@@ -28,6 +28,8 @@ const LLVM_SUPPORTED_INTRINSICS: &[&str] = &[
     "u32_to_i32",
     "i64_to_u64",
     "u64_to_i64",
+    "str_addr",
+    "str_from_addr_unchecked",
 ];
 
 pub fn precheck_wasm_codegen(ctx: &TypeCtx, module: &HirModule) -> Vec<Diagnostic> {

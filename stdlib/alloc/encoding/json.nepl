@@ -666,7 +666,7 @@ fn json_escape <(str)->str> (s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> load_u8 add s add 4 i;
+            let ch <i32> string_byte_at_unchecked s i;
             match json_escape_kind ch:
                 JsonEscapeKind::Backslash:
                     set sb sb_append sb "\\\\";

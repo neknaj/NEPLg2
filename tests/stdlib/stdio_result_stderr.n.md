@@ -75,14 +75,15 @@ neplg2:test
 #target std
 
 #import "std/stdio" as *
+#import "alloc/string" as *
 #import "core/mem" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let text <str> "x"
-    match stdio_write_fd_mem_result 9999 string_data_ptr text load_i32 text:
+    match stdio_write_fd_mem_result 9999 string_data_ptr text len text:
         Result::Ok _:
             1
         Result::Err kind:
-            if eq std_error_kind_str kind "IoError" 0 2
+            if str_eq std_error_kind_str kind "IoError" 0 2
 ```

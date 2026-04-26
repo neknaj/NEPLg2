@@ -338,7 +338,7 @@ fn trim_cr <(str)->str> (s):
         le n 0
         then s
         else:
-            let last <i32> load_u8 add s add 4 sub n 1;
+            let last <i32> string_byte_at_unchecked s sub n 1;
             if:
                 eq last 13
                 then str_slice s 0 sub n 1
@@ -644,7 +644,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
 
     while lt i n:
         do:
-            let ch <i32> load_u8 add s add 4 i;
+            let ch <i32> string_byte_at_unchecked s i;
 
             // Math ($ or $$): keep delimiters, do not parse inside
             if:
@@ -661,7 +661,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                     if:
                         lt add i 1 n
                         then:
-                            let ch2 <i32> load_u8 add s add 4 add i 1;
+                            let ch2 <i32> string_byte_at_unchecked s add i 1;
                             if:
                                 eq ch2 36
                                 then set delim 2
@@ -673,7 +673,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
 
                     while and lt j n not found:
                         do:
-                            let c0 <i32> load_u8 add s add 4 j;
+                            let c0 <i32> string_byte_at_unchecked s j;
                             if:
                                 eq delim 1
                                 then:
@@ -685,7 +685,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                     if:
                                         and eq c0 36 lt add j 1 n
                                         then:
-                                            let c1 <i32> load_u8 add s add 4 add j 1;
+                                            let c1 <i32> string_byte_at_unchecked s add j 1;
                                             if:
                                                 eq c1 36
                                                 then set found true
@@ -718,7 +718,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
 
                             while and lt j n not closed:
                                 do:
-                                    let cj <i32> load_u8 add s add 4 j;
+                                    let cj <i32> string_byte_at_unchecked s j;
                                     if:
                                         eq cj 93
                                         then set closed true
@@ -736,7 +736,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                     if:
                                         lt add j 1 n
                                         then:
-                                            let nx <i32> load_u8 add s add 4 add j 1;
+                                            let nx <i32> string_byte_at_unchecked s add j 1;
                                             set next_is_paren eq nx 40;
                                             ()
                                         else ()
@@ -773,7 +773,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                     let mut closed <bool> false;
                                     while and lt j n not closed:
                                         do:
-                                            let cj <i32> load_u8 add s add 4 j;
+                                            let cj <i32> string_byte_at_unchecked s j;
                                             if:
                                                 eq cj 125
                                                 then set closed true
@@ -796,7 +796,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
 
                                             while lt k j:
                                                 do:
-                                                    let ck <i32> load_u8 add s add 4 k;
+                                                    let ck <i32> string_byte_at_unchecked s k;
                                                     if:
                                                         eq ck 91
                                                         then set depth add depth 1
@@ -1005,7 +1005,7 @@ fn json_escape <(str)->str> (s):
     let mut i <i32> 0;
     while lt i n:
         do:
-            let ch <i32> load_u8 add s add 4 i;
+            let ch <i32> string_byte_at_unchecked s i;
             match nm_json_escape_kind ch:
                 NmJsonEscapeKind::Backslash:
                     set sb sb_append sb "\\\\"

@@ -11,6 +11,7 @@
 #import "core/math" as *
 #import "core/cast" as *
 #import "core/option" as *
+#import "alloc/string" as *
 
 fn cli_i32_ptr <(MemPtr<u8>,i32,i32)->Result<MemPtr<i32>,str>> (base, size, off):
     region_ptr_at<u8,i32> region_new base size off
@@ -36,15 +37,15 @@ fn cli_i32_ptr <(MemPtr<u8>,i32,i32)->Result<MemPtr<i32>,str>> (base, size, off)
 
 #if[target=llvm]
 fn __cli_copy_to_cstr <(str)*>Result<MemPtr<u8>,i32>> (s):
-    let len <i32> load_i32 s;
-    let src <i32> add s 4;
-    let size <i32> add len 1;
+    let byte_len <i32> len s;
+    let src <i32> mem_ptr_addr string_data_ptr s;
+    let size <i32> add byte_len 1;
     match alloc_ptr<u8> size:
         Result::Err e:
             Result<MemPtr<u8>,i32>::Err e
         Result::Ok dst:
             let mut i <i32> 0;
-            while lt i len:
+            while lt i byte_len:
                 do:
                     match store_u8 mem_ptr_add dst i load_u8 add src i:
                         Result::Ok _:
@@ -52,7 +53,7 @@ fn __cli_copy_to_cstr <(str)*>Result<MemPtr<u8>,i32>> (s):
                         Result::Err _:
                             ()
                     set i add i 1;
-            match store_u8 mem_ptr_add dst len 0:
+            match store_u8 mem_ptr_add dst byte_len 0:
                 Result::Ok _:
                     ()
                 Result::Err _:
@@ -67,7 +68,7 @@ fn __cli_open_cmdline <()*>i32> ():
             -1
         Result::Ok cpath:
             let fd64 <i64> __cli_syscall <i64> cast 257 <i64> cast -100 <i64> cast mem_ptr_addr cpath <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0;
-            match dealloc_ptr<u8> cpath add load_i32 path 1:
+            match dealloc_ptr<u8> cpath add len path 1:
                 Result::Ok _:
                     ()
                 Result::Err _:
@@ -303,7 +304,7 @@ fn cstr_to_str <(MemPtr<u8>)*>str> (p):
                         Result::Err _:
                             ()
                     set i add i 1;
-            mem_ptr_addr out
+            string_from_addr_unchecked mem_ptr_addr out
 
 //: cliarg_count: 引数の個数を返す
 //:

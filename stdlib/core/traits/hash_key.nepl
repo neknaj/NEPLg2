@@ -26,9 +26,7 @@ fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
         ge idx n
         then h
         else:
-            let s_data <i32> add s 4
-            let p <i32> add s_data idx
-            let b <i32> load_u8 p
+            let b <i32> string_byte_at_unchecked s idx
             let next_idx <i32> add idx 1
             let next_h <Fnv1a32> fnv1a32_update h b
             hashkey_bytes_loop s n next_idx next_h

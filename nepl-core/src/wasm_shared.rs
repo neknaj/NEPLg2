@@ -474,6 +474,8 @@ pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
             | "u64_to_i64"
             | "reinterpret_i32_f32"
             | "reinterpret_f32_i32"
+            | "str_addr"
+            | "str_from_addr_unchecked"
             | "add"
             | "unreachable"
     )

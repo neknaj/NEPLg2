@@ -3143,6 +3143,31 @@ fn lower_hir_expr(
                 }
                 return Ok(Some(v));
             }
+            if name == "str_addr" || name == "str_from_addr_unchecked" {
+                if args.len() != 1 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: intrinsic {} expects one argument in '{}'",
+                        name,
+                        ctx.function_name
+                    );
+                }
+                let Some(v) = lower_hir_expr(types, ctx, &args[0])? else {
+                    llvm_codegen_bail!(
+                        "internal compiler error: intrinsic {} value must produce a value in '{}'",
+                        name,
+                        ctx.function_name
+                    );
+                };
+                if v.ty != LlTy::I32 {
+                    llvm_codegen_bail!(
+                        "internal compiler error: intrinsic {} expects i32 representation in '{}' (got {:?})",
+                        name,
+                        ctx.function_name,
+                        v.ty
+                    );
+                }
+                return Ok(Some(v));
+            }
             Err(llvm_codegen_error(
                 format!(
                     "unsupported intrinsic '{}' reached llvm lowering in '{}'",
