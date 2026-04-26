@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T02:31:54.441Z",
+  "generated_at": "2026-04-26T02:33:48.565Z",
   "counts": {
-    "total": 99,
+    "total": 100,
     "open": 34,
-    "resolved": 65,
+    "resolved": 66,
     "by_area": {
       "core": {
         "total": 34,
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 30,
+        "total": 31,
         "open": 16,
-        "resolved": 14
+        "resolved": 15
       },
       "examples": {
         "total": 13,
@@ -1233,6 +1233,21 @@
       "legacy_id": "RV-STDLIB-024",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-024",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-024-CC09E7A6.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-025-F55B7943",
+      "title": "std/test の Vec<Result<(),str>> 集約が free-list 再利用後に stale payload を読む",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, tests/compiler/intrinsic.n.md, tests/stdlib/std_test_collect.n.md",
+      "legacy_id": "RV-STDLIB-025",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-025",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-025-F55B7943.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
