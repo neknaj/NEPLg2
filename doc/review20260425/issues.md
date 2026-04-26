@@ -8,11 +8,11 @@
 
 | 領域 | Open | 解決済 |
 |---|---:|---:|
-| core | 3 | 24 |
+| core | 3 | 25 |
 | cli | 3 | 11 |
 | stdlib | 10 | 8 |
 | examples | 0 | 13 |
-| 合計 | 16 | 56 |
+| 合計 | 16 | 57 |
 
 ## Core
 
@@ -45,6 +45,7 @@
 | [RV-CORE-025](./core.md#rv-core-025-move_effect-の-copy-fixture-が標準-clone-signature-変更後の仕様とずれている) | true | verified | P2 | test | `move_effect.n.md` の標準 `Clone` impl を `(&Self)->Self` へ更新し、26件green化済み |
 | [RV-CORE-026](./core.md#rv-core-026-overloadnmd-に同名arity違いを許可する旧fixtureが残っている) | true | verified | P2 | test | `overload.n.md` の arity 違い overload 5件を D3005 期待へ更新済み |
 | [RV-CORE-027](./core.md#rv-core-027-llvm-top-level-llvmir-entry-が-hir-関数としてしか解決されない) | true | verified | P0 | bug | top-level `#llvmir` の `define @entry` を `#entry` 定義として扱い、LLVM smoke の D3092 を修正済み |
+| [RV-CORE-028](./core.md#rv-core-028-pipe-左辺の完結した-open-call-が途中で分断される) | true | verified | P0 | bug | `unwrap_ok new 32 |> ...` のような完結済み呼び出し全体を pipe 左辺として扱うよう修正済み |
 
 ## CLI
 

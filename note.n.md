@@ -16393,3 +16393,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - LLVM backend の raw entry 受理は現行実装の検証範囲として追加したもので、言語仕様の大枠は変更していない。
+# 2026-04-26 メモ (RV-CORE-028 pipe 左辺 open call 範囲の修正)
+
+- [原因]:
+  - `bitset.nepl` / `adjacency_matrix.nepl` の collection doctest は、`unwrap_ok new 32 |> ...` のような pipe 初期化で D3006 を返していた。
+  - pipe 左辺の切り出しが、open call を見つけると常に最後の値だけを左辺にする実装だったため、`unwrap_ok (new 32)` のように全体が単一値へ reduce できる式も途中で分断されていた。
+  - その結果、`insert` / `contains` の pipe 先へ `Result<BitSet, Diag>` や `i32` が渡り、stdlib API ではなく core の pipe source 判定として壊れていた。
+- [修正]:
+  - `pipe_pending_base` を、候補 segment が単一値へ reduce できるかを checkpoint/rollback 下で試験する実装へ変更した。
+  - 完結した outer call は全体を pipe 左辺にし、未完結の `add 1 |> add 2 3` は従来通り最後の値だけを pipe 左辺にする。
+  - `nepl-core/tests/pipe_operator.rs` に `new 32 |> unwrap_ok<BitSet, Diag>` の回帰テストを追加した。
+  - `doc/review20260425/core.md` / `issues.md` に `RV-CORE-028` を追加し、verified とした。
+- [検証]:
+  - `cargo test -p nepl-core --test pipe_operator -- --nocapture`: `21 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-rv-core-028.json -j 1`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/adjacency-rv-core-028.json -j 1`: `total=6`, `passed=6`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-rv-core-028.json -j 1`: `total=8`, `passed=6`, `failed=2`。D3006 は解消し、残りは runtime trap として `RV-STDLIB-013` に残す。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - pipe 構文の意味を変えず、完結済み prefix call を正しく左辺単位として扱う実装修正である。

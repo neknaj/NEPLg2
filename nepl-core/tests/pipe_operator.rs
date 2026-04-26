@@ -325,3 +325,23 @@ fn main <()->i32> ():
     let v = run_main_i32(src);
     assert_eq!(v, 0);
 }
+
+#[test]
+fn pipe_complete_overloaded_source_call_into_target() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "alloc/collections/bitset" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let bs <BitSet>:
+        new 32
+        |> unwrap_ok<BitSet, Diag>
+    len bs
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 32);
+}

@@ -3047,7 +3047,7 @@ impl<'a> BlockChecker<'a> {
     }
 
     fn pipe_pending_base(
-        &self,
+        &mut self,
         stack: &[StackEntry],
         open_calls: &[usize],
         default_base: usize,
@@ -3056,14 +3056,47 @@ impl<'a> BlockChecker<'a> {
             return default_base;
         }
         let top_idx = stack.len() - 1;
-        if open_calls
+        let Some(_) = open_calls
             .iter()
-            .any(|&idx| idx >= default_base && idx < top_idx)
-        {
-            top_idx
-        } else {
-            default_base
+            .rev()
+            .copied()
+            .find(|&idx| idx >= default_base && idx < top_idx)
+        else {
+            return default_base;
+        };
+        if self.pipe_segment_reduces_to_single_value(stack, default_base) {
+            return default_base;
         }
+        for idx in open_calls.iter().copied() {
+            if idx < default_base || idx >= top_idx {
+                continue;
+            }
+            if self.pipe_segment_reduces_to_single_value(stack, idx) {
+                return idx;
+            }
+        }
+        top_idx
+    }
+
+    fn pipe_segment_reduces_to_single_value(
+        &mut self,
+        stack: &[StackEntry],
+        segment_base: usize,
+    ) -> bool {
+        if segment_base >= stack.len() {
+            return false;
+        }
+        let checkpoint = self.ctx.checkpoint();
+        let diagnostics_len = self.diagnostics.len();
+        let trait_checks_len = self.pending_trait_bound_checks.len();
+        let mut segment = stack[segment_base..].to_vec();
+        let mut open_calls = Vec::new();
+        self.reduce_calls(&mut segment, &mut open_calls, None);
+        let reduced = segment.len() == 1;
+        self.pending_trait_bound_checks.truncate(trait_checks_len);
+        self.diagnostics.truncate(diagnostics_len);
+        self.ctx.rollback(checkpoint);
+        reduced
     }
 
     fn has_unresolved_callable_between(

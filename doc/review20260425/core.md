@@ -1148,3 +1148,42 @@ LLVM codegen は top-level `#llvmir` を最終IRへ連結できますが、typec
 未確認:
 
 - Windows 環境では既存の LLVM Linux host gate により `node nodesrc/tests.js -i tests/compiler/llvm_target.n.md --runner llvm` は実行不能です。push CI の Linux `llvm-test` で `D3092` が消えることを確認します。
+
+## RV-CORE-028: pipe 左辺の完結した open call が途中で分断される
+
+- 解決済: true
+- 状態: verified
+- 優先度: P0
+- 種別: bug
+- 対象: `nepl-core/src/typecheck.rs`, `nepl-core/tests/pipe_operator.rs`
+
+### 根拠
+
+GitHub Actions run `24943435970` の `stdlib-test` / `wasi-test` / `nmd-doctest` で、collection doctest 群が `D3006 no matching overload found` を返していました。ローカルでは `stdlib/alloc/collections/bitset.nepl::doctest#2/#4/#5` と `stdlib/alloc/collections/adjacency_matrix.nepl::doctest#2/#4/#5` が同じ D3006 で失敗しました。
+
+### 問題
+
+pipe の左辺切り出しは、左辺スタック内に未解決の open call がある場合、常に最後の値だけを左辺として扱っていました。そのため `unwrap_ok<BitSet, Diag> new 32 |> insert 5` のように、`unwrap_ok (new 32)` 全体が既に単一値へ reduce できる式でも、`new 32` または `32` だけが pipe 左辺として分断されました。結果として `insert` へ `Result<BitSet, Diag>` や `i32` が渡り、overload 解決が D3006 で失敗していました。
+
+### 影響
+
+fixed-size collection の初期化を pipe でつなぐ doctest が広範囲に赤くなり、stdlib API の問題に見えていました。実際には compiler の pipe source 範囲判定が、完結した nested call と未完結の outer call を区別できていない core バグでした。
+
+### 修正方針
+
+pipe 左辺の候補範囲について、範囲内を副作用なしに試験的に call reduction し、単一値へ reduce できる最も外側の範囲を左辺として採用します。これにより `unwrap_ok new 32` のような完結済み call は全体を pipe に渡しつつ、既存の `add 1 |> add 2 3` のような未完結 call では最後の値だけを pipe 左辺にする挙動を維持します。
+
+### 対応
+
+`pipe_pending_base` を、open call の有無だけではなく「その stack segment が単一値に reduce できるか」で判定する実装へ変更しました。判定時は `TypeCtx` checkpoint/rollback と diagnostics の巻き戻しを使い、試験的な reduction が本番の型状態や診断へ残らないようにしました。Rust integration test には、`new 32 |> unwrap_ok<BitSet, Diag>` が `BitSet` へ解決される回帰テストを追加しました。
+
+### 検証
+
+- `cargo test -p nepl-core --test pipe_operator -- --nocapture` (`21 passed`)
+- `trunk build`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-rv-core-028.json -j 1` (`total=7`, `passed=7`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/adjacency-rv-core-028.json -j 1` (`total=6`, `passed=6`, `failed=0`)
+
+未解決:
+
+- `tests/stdlib/pipe_collections.n.md` は D3006 ではなく runtime trap 2件へ進みました。残件は collection helper 側の runtime 問題として `RV-STDLIB-013` で継続します。
