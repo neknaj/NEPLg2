@@ -1,3 +1,23 @@
+# 2026-04-26 メモ (ISS-20260425T000000Z-RV-STDLIB-006 fs/cliarg skip)
+
+- 状況:
+  - `stdlib/std/fs.nepl` と `stdlib/std/env/cliarg.nepl` の主要 doctest が `skip` のままで、WASI runtime 境界の回帰を検出できなかった。
+  - `nodesrc/tests.js` は既に `stdin` / `argv` メタデータと repo root preopen を持っていたため、runner 新設ではなく fixture と期待値付き doctest へ置き換える方針で進めた。
+- 修正:
+  - `tests/fixtures/fs/read_sample.txt` を追加し、fs doctest 5 件を実行可能にした。
+  - cliarg doctest 5 件を `argv: ["alpha", "beta"]` や有効な NUL 終端 buffer を使う形へ直し、`skip` を外した。
+  - skip 解除により `fs_read_to_bytes` / `fs_read_to_string` が失敗し、`fs_open_read` が WASI `path_open` の read rights を 0 で開いていたことを特定したため、`fs_right_fd_read` を追加して fd read 権限を明示した。
+- 検証:
+  - `rg -n "neplg2:test\\[skip\\]" stdlib/std/fs.nepl stdlib/std/env/cliarg.nepl`: no matches
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-doctest-unskip-final.json -j 1`: `total=5`, `passed=5`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/cliarg-doctest-unskip-final.json -j 1`: `total=5`, `passed=5`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-existing-after-unskip.json -j 1`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-fs-cliarg-unskip.json -j 4`: `total=404`, `passed=404`, `failed=0`
+  - `trunk build`: pass（既存 warning のみ）
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-fs-cliarg-unskip.json`: `13/13 passed`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host 前提の filesystem / argv runtime 境界のテスト化と権限修正。
+
 # 2026-04-26 メモ (ISS-20260426T073020449Z stdlib match decision trees)
 
 - 状況:

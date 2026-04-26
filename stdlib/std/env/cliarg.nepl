@@ -225,14 +225,28 @@ fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg" as *
 //:| #import "core/mem" as *
-//: fn main <()*>()> ():
-//:     cstr_len mem_ptr_wrap 0;
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
+//:     unwrap_ok store_u8 mem_ptr_add p 0 110;
+//:     unwrap_ok store_u8 mem_ptr_add p 1 101;
+//:     unwrap_ok store_u8 mem_ptr_add p 2 112;
+//:     unwrap_ok store_u8 mem_ptr_add p 3 0;
+//:     let n <i32> cstr_len p;
+//:     match dealloc_ptr<u8> p 4:
+//:         Result::Ok _:
+//:             ()
+//:         Result::Err _:
+//:             ()
+//:     if eq n 3 0 1
 //: ```
 fn cstr_len <(MemPtr<u8>)*>i32> (p):
     let mut i <i32> 0
@@ -273,14 +287,29 @@ fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg" as *
 //:| #import "core/mem" as *
-//: fn main <()*>()> ():
-//:     cstr_to_str mem_ptr_wrap 0;
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
+//:     unwrap_ok store_u8 mem_ptr_add p 0 110;
+//:     unwrap_ok store_u8 mem_ptr_add p 1 101;
+//:     unwrap_ok store_u8 mem_ptr_add p 2 112;
+//:     unwrap_ok store_u8 mem_ptr_add p 3 0;
+//:     let s <str> cstr_to_str p;
+//:     match dealloc_ptr<u8> p 4:
+//:         Result::Ok _:
+//:             ()
+//:         Result::Err _:
+//:             ()
+//:     if str_eq s "nep" 0 1
 //: ```
 fn cstr_to_str <(MemPtr<u8>)*>str> (p):
     let len <i32> cstr_len p
@@ -329,13 +358,16 @@ fn cstr_to_str <(MemPtr<u8>)*>str> (p):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: argv: ["alpha", "beta"]
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg" as *
-//: fn main <()*>()> ():
-//:     cliarg_count ();
+//: fn main <()*>i32> ():
+//:     if eq cliarg_count () 3 0 1
 //: ```
 fn cliarg_count <()*>i32> ():
     match alloc_ptr<u8> 8:
@@ -399,13 +431,22 @@ fn cliarg_count <()*>i32> ():
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: argv: ["alpha", "beta"]
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg" as *
-//: fn main <()*>()> ():
-//:     cliarg_get 0;
+//:| #import "alloc/string" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     match cliarg_get 1:
+//:         Option::Some arg:
+//:             if str_eq arg "alpha" 0 1
+//:         Option::None:
+//:             1
 //: ```
 fn cliarg_get <(i32)*>Option<str>> (idx):
     if:
@@ -519,13 +560,22 @@ fn cliarg_get <(i32)*>Option<str>> (idx):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: argv: ["alpha", "beta"]
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/env/cliarg" as *
-//: fn main <()*>()> ():
-//:     cliarg_program ();
+//:| #import "alloc/string" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     match cliarg_program ():
+//:         Option::Some arg:
+//:             if gt len arg 0 0 1
+//:         Option::None:
+//:             1
 //: ```
 fn cliarg_program <()*>Option<str>> ():
     cliarg_get 0

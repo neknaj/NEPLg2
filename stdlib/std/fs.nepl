@@ -33,6 +33,10 @@ fn wasi_fd_close <(i32)*>i32> (_fd):
 fn fs_i32_ptr <(MemPtr<u8>,i32,i32)->Result<MemPtr<i32>,str>> (base, size, off):
     region_ptr_at<u8,i32> region_new base size off
 
+// WASI rights_base の fd_read bit。
+fn fs_right_fd_read <()->i64> ():
+    <i64> cast 2
+
 //: fs: ファイル読み込み（WASI / LLVM）
 //:
 //: 目的:
@@ -172,13 +176,20 @@ fn wasi_fd_close <(i32)*>i32> (fd):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/fs" as *
-//: fn main <()*>()> ():
-//:     fs_open_read "sample";
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_open_read "tests/fixtures/fs/read_sample.txt":
+//:         Result::Ok _fd:
+//:             0
+//:         Result::Err _e:
+//:             1
 //: ```
 fn fs_open_read <(str)*>Result<i32,i32>> (path):
     match alloc_ptr<u8> 4:
@@ -201,7 +212,7 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
                             ()
                     let path_ptr <i32> mem_ptr_addr string_data_ptr path;
                     let path_len <i32> len path;
-                    let rights <i64> cast 0;
+                    let rights <i64> fs_right_fd_read;
                     let errno <i32> wasi_path_open 3 0 path_ptr path_len 0 rights rights 0 mem_ptr_addr fd_out;
                     let res <Result<i32,i32>> if:
                         eq errno 0
@@ -242,13 +253,23 @@ fn fs_open_read <(str)*>Result<i32,i32>> (path):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: stdin: "fd bytes"
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/fs" as *
-//: fn main <()*>()> ():
-//:     fs_read_fd_bytes 0;
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_read_fd_bytes 0:
+//:         Result::Ok bytes:
+//:             let text <str> fs_bytes_to_string bytes;
+//:             if str_eq text "fd bytes" 0 1
+//:         Result::Err _e:
+//:             1
 //: ```
 fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
     let mut cap <i32> 65536;
@@ -494,13 +515,18 @@ fn fs_bytes_to_string_result <(ByteBuf)*>Result<str,i32>> (buf):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/fs" as *
-//: fn main <()*>()> ():
-//:     fs_bytes_to_string io_bytebuf_from_str "A";
+//:| #import "alloc/io" as *
+//:| #import "alloc/string" as *
+//: fn main <()*>i32> ():
+//:     let text <str> fs_bytes_to_string io_bytebuf_from_str "A";
+//:     if str_eq text "A" 0 1
 //: ```
 fn fs_bytes_to_string <(ByteBuf)*>str> (buf):
     match fs_bytes_to_string_result buf:
@@ -532,13 +558,22 @@ fn fs_bytes_to_string <(ByteBuf)*>str> (buf):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/fs" as *
-//: fn main <()*>()> ():
-//:     fs_read_to_bytes "sample";
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_read_to_bytes "tests/fixtures/fs/read_sample.txt":
+//:         Result::Ok bytes:
+//:             let text <str> fs_bytes_to_string bytes;
+//:             if str_eq text "fs fixture text\n" 0 1
+//:         Result::Err _e:
+//:             2
 //: ```
 fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
     match fs_open_read path:
@@ -573,13 +608,21 @@ fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 //: - 例は用途が伝わる最短の呼び出しに絞っています。
 //: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: ret: 0
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/fs" as *
-//: fn main <()*>()> ():
-//:     fs_read_to_string "sample";
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_read_to_string "tests/fixtures/fs/read_sample.txt":
+//:         Result::Ok text:
+//:             if str_eq text "fs fixture text\n" 0 1
+//:         Result::Err _e:
+//:             2
 //: ```
 fn fs_read_to_string <(str)*>Result<str,i32>> (path):
     match fs_read_to_bytes path:

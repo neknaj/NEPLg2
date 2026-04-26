@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T10:18:34.556Z",
+  "generated_at": "2026-04-26T10:36:49.093Z",
   "counts": {
     "total": 120,
-    "open": 20,
-    "resolved": 100,
+    "open": 19,
+    "resolved": 101,
     "by_area": {
       "core": {
         "total": 39,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 41,
-        "open": 12,
-        "resolved": 29
+        "open": 11,
+        "resolved": 30
       },
       "cli": {
         "total": 17,
@@ -133,21 +133,6 @@
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-006-673F4E12",
-      "title": "fs/cliarg の主要テストが skip されている",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/std/fs.nepl, stdlib/std/env/cliarg.nepl",
-      "legacy_id": "RV-STDLIB-006",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-006",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-006-673F4E12.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520",
@@ -1108,6 +1093,21 @@
       "legacy_id": "RV-STDLIB-005",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-005",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-006-673F4E12",
+      "title": "fs/cliarg の主要テストが skip されている",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-25",
+      "updated": "2026-04-26",
+      "target": "stdlib/std/fs.nepl, stdlib/std/env/cliarg.nepl",
+      "legacy_id": "RV-STDLIB-006",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-006",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-006-673F4E12.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-014-83D059C2",
