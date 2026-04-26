@@ -926,7 +926,6 @@ fn run_wasi_fd_readdir_returns_stable_directory_entries() {
 }
 
 #[test]
-#[ignore = "tracked by ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF"]
 fn run_wasi_std_fs_read_dir_returns_stable_directory_entries() {
     let temp = tempfile::tempdir().expect("tempdir");
     let dir = temp.path().join("dir");

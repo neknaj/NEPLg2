@@ -328,6 +328,32 @@
   - compiler 本体の遅さは既存 `ISS-20260426T021005000Z-MONOMORPHIZE-TRAIT-LOOKUP-93E4A8B5` と `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` を続けて扱う。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-04-26 メモ (ISS-20260426T121027631Z nepl-cli std/fs stack overflow 修正)
+
+- [同期]:
+  - `ISS-20260426T010002Z` を main へ merge/push 後、`origin/main` の `b801a12` と一致している状態から `core/std-fs-read-dir-stack-overflow` branch を作成した。
+- [原因]:
+  - `std/fs` を import する正当な入力で、typecheck などの compiler pipeline が Windows の main thread 既定 stack を使い切っていた。
+  - raw WASI `fd_readdir` test は通っており、`--check` でも再現したため、WASI runtime ではなく `nepl-cli` の compiler 実行 stack が原因だった。
+- [修正]:
+  - `nepl-cli` の `execute` を `32 MiB` stack の worker thread で実行する形へ分離した。
+  - worker thread の panic は panic payload を message 化して `anyhow` error に変換する。
+  - `std/fs` の `fs_read_dir` facade を nepl-cli 経由で実行する integration test の ignored を外した。
+- [回帰テスト]:
+  - `run_wasi_std_fs_read_dir_returns_stable_directory_entries` が `std/fs` import、directory fixture、`fs_read_dir` の end-to-end 実行を固定する。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-cli run_wasi_std_fs_read_dir_returns_stable_directory_entries -- --nocapture`: 1 passed
+  - `target/debug/nepl-cli.exe --check -i import.nepl --target wasi`: exit 0
+  - `target/debug/nepl-cli.exe --run -i std_readdir.nepl --target wasi`: exit 0
+  - `cargo test -p nepl-cli run_wasi_ -- --nocapture`: 9 passed
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-stack-worker.json`: 13/13 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
   - 今回は self-host 前提の compile-heavy test / CLI 起動中の固定 I/O cost を削減した。
 
 # 2026-04-26 メモ (ISS-20260426T021005000Z MONOMORPHIZE-TRAIT-LOOKUP 修正)

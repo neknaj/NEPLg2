@@ -44,6 +44,7 @@ const WASI_FILETYPE_DIRECTORY: u8 = 3;
 const WASI_FILETYPE_REGULAR_FILE: u8 = 4;
 const WASI_FILETYPE_SYMBOLIC_LINK: u8 = 7;
 const NEPL_STDLIB_ROOT_ENV: &str = "NEPL_STDLIB_ROOT";
+const CLI_COMPILER_STACK_SIZE: usize = 32 * 1024 * 1024;
 
 struct AllocState {
     // head of free list (address in linear memory), 0 == null
@@ -501,6 +502,31 @@ fn main() -> Result<()> {
 }
 
 fn execute(cli: Cli) -> Result<()> {
+    let worker = std::thread::Builder::new()
+        .name("nepl-cli-compiler".to_string())
+        .stack_size(CLI_COMPILER_STACK_SIZE)
+        .spawn(move || execute_inner(cli))
+        .context("failed to start nepl-cli compiler worker thread")?;
+    match worker.join() {
+        Ok(result) => result,
+        Err(payload) => Err(anyhow::anyhow!(
+            "nepl-cli compiler worker thread panicked: {}",
+            panic_payload_message(payload.as_ref())
+        )),
+    }
+}
+
+fn panic_payload_message(payload: &(dyn std::any::Any + Send + 'static)) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_string()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "unknown panic payload".to_string()
+    }
+}
+
+fn execute_inner(cli: Cli) -> Result<()> {
     nepl_core::log::set_verbose(cli.verbose);
     if let Some(Command::Test(args)) = cli.command {
         return run_tests(args, cli.verbose, cli.stdlib_root.as_deref());

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-26T12:13:46.553Z",
+  "generated_at": "2026-04-26T12:38:45.912Z",
   "counts": {
     "total": 125,
-    "open": 17,
-    "resolved": 108,
+    "open": 16,
+    "resolved": 109,
     "by_area": {
       "core": {
         "total": 42,
-        "open": 5,
-        "resolved": 37
+        "open": 4,
+        "resolved": 38
       },
       "selfhost": {
         "total": 7,
@@ -58,21 +58,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF",
-      "title": "nepl-cli stack overflows when a std program calls std/fs fs_read_dir",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/compiler.rs, nepl-core/src/codegen_wasm.rs, nepl-cli/src/main.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF.md"
     },
     {
       "id": "ISS-20260426T010004Z-TEXT-UTF8-VALIDATION-F1950B8A",
@@ -928,6 +913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T074114888Z-STR-UNIFIES-WITH-I32-AND-ACCEPTS-RAW-A824A1D7.md"
+    },
+    {
+      "id": "ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF",
+      "title": "nepl-cli stack overflows when a std program calls std/fs fs_read_dir",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-26",
+      "target": "nepl-core/src/compiler.rs, nepl-core/src/codegen_wasm.rs, nepl-cli/src/main.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T121027631Z-NEPL-CLI-STACK-OVERFLOWS-WHEN-A-STD--D73CA3DF.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
