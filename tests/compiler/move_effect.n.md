@@ -508,6 +508,139 @@ fn main <()->i32> ():
     load_i32 dst
 ```
 
+## raw store_i32 は initialized non-Copy place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    store_i32 p 0
+    0
+```
+
+## generic raw store の Copy 値でも initialized non-Copy place は上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    store<i32> p 0
+    0
+```
+
+## raw memset_u8 は initialized non-Copy place を byte overwrite できない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    memset_u8 p size_of<LocalToken> 0
+    0
+```
+
+## raw fill_i32 は initialized non-Copy place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    fill_i32 p 1 0
+    0
+```
+
+## raw byte write は load で non-Copy place を消費した後なら通る
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> p
+    store_i32 p 0
+    0
+```
+
+## raw byte write は Copy storage なら通る
+
+neplg2:test
+ret: 456
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store_i32 p 123
+    store_i32 p 456
+    load_i32 p
+```
+
 ## raw aggregate load 直後の Copy field read は raw place 全体を move しない
 
 neplg2:test

@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260427T190852368Z raw byte write live non-Copy check)
+
+- 状況:
+  - `move_check` は non-Copy `store<T>` を raw place initialization として扱っていたが、copy-valued raw byte write の destination range を検査していなかった。
+  - `store<LocalToken> p ...` の直後に `store_i32 p 0` を呼ぶ修正前再現では、compiler が exit 0 で受理し、initialized non-Copy payload を byte overwrite できた。
+- 修正:
+  - raw store call を copy 値でも write event として扱い、destination range が live non-Copy raw place と重なる場合は D3100 にするようにした。
+  - `store_i32` / `store_u8` は helper 名から byte size を決め、generic `store<T>` は `T` の storage size を使うようにした。
+  - `memset_u8` / `fill_u8` / `fill_i32` / `mem_fill` を raw byte write helper として分類し、range 上書き検査へ通すようにした。
+  - direct intrinsic `#intrinsic "store"` の Copy value でも live non-Copy raw place の上書きを拒否するようにした。
+  - `tests/compiler/move_effect.n.md` に `store_i32`、generic Copy `store<T>`、`memset_u8`、`fill_i32` の compile_fail と、payload consume 後 / Copy storage の正常系を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-byte-write-live-noncopy-node.json -j 1`: `total=63`, `passed=63`
+  - 修正前再現ファイル `tmp/raw-byte-store-overwrites-noncopy.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の raw memory ownership 検査を copy-valued raw byte write まで拡張した。
+
 # 2026-04-28 メモ (ISS-20260427T190303188Z raw bulk copy live non-Copy check)
 
 - 状況:

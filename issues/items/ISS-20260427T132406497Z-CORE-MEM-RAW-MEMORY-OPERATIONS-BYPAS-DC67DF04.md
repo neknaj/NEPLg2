@@ -117,6 +117,12 @@ raw `mem_copy` / `mem_move` が `move_check` の raw place state を見ず、liv
 
 今回の対応で、source range に initialized / possibly moved non-Copy raw place が残る bulk copy/move は D3100 になる。destination range が live non-Copy raw place を上書きする場合も D3100 になる。Copy bytes と payload consume 後の storage-only range は許可している。raw API の public safe surface と effect 境界は引き続きこの親 issue の残件である。
 
+## 2026-04-28 raw byte write live payload 部分対応
+
+`store_i32` / `store_u8` / generic Copy `store<T>` / `memset_u8` / `fill_i32` が live non-Copy raw place を byte overwrite できる問題を `ISS-20260427T190852368Z-MOVE-CHECK-ALLOWS-RAW-BYTE-WRITES-TO-B56A7B43` として分離し、修正した。
+
+今回の対応で、copy-valued raw write でも destination range が initialized / possibly moved non-Copy raw place と重なる場合は D3100 になる。non-Copy `store<T>` は initialized state を作る経路のまま維持し、Copy storage への byte write と payload consume 後の storage-only write は許可している。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

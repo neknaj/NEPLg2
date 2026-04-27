@@ -71,6 +71,7 @@ enum RawMemoryCallKind {
     Dealloc,
     Realloc,
     BulkCopy,
+    ByteWrite,
 }
 
 impl ExprBorrow {
@@ -996,6 +997,30 @@ impl MoveCheckContext {
         }
     }
 
+    fn check_raw_non_copy_byte_write(&mut self, place: &str, size: Option<usize>, span: Span) {
+        if let Some((live_place, _)) = self
+            .raw_places_overlapping_dealloc(place, size)
+            .into_iter()
+            .find(|(_, info)| {
+                matches!(
+                    info.state,
+                    RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
+                )
+            })
+        {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    alloc::format!(
+                        "overwriting raw memory place containing non-Copy value: `{}`",
+                        live_place
+                    ),
+                    span,
+                )
+                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            );
+        }
+    }
+
     fn check_raw_non_copy_bulk_copy(
         &mut self,
         dst: &str,
@@ -1342,6 +1367,17 @@ fn is_raw_memory_store_name(name: &str) -> bool {
     name == "store" || name.starts_with("store_")
 }
 
+fn is_raw_memory_byte_fill_name(name: &str) -> bool {
+    name == "memset_u8"
+        || name == "fill_u8"
+        || name == "fill_i32"
+        || name == "mem_fill"
+        || name.starts_with("memset_u8_")
+        || name.starts_with("fill_u8_")
+        || name.starts_with("fill_i32_")
+        || name.starts_with("mem_fill_")
+}
+
 fn is_raw_memory_dealloc_name(name: &str) -> bool {
     name == "dealloc"
         || name == "dealloc_raw"
@@ -1387,11 +1423,7 @@ fn raw_memory_call_kind(
     {
         return Some(RawMemoryCallKind::Load);
     }
-    if is_raw_memory_store_name(name)
-        && args.len() >= 2
-        && tctx.same_type(args[0].ty, tctx.i32())
-        && !tctx.is_copy(args[1].ty)
-    {
+    if is_raw_memory_store_name(name) && args.len() >= 2 && tctx.same_type(args[0].ty, tctx.i32()) {
         return Some(RawMemoryCallKind::Store);
     }
     if is_raw_memory_dealloc_name(name)
@@ -1416,6 +1448,12 @@ fn raw_memory_call_kind(
         && tctx.same_type(args[1].ty, tctx.i32())
     {
         return Some(RawMemoryCallKind::BulkCopy);
+    }
+    if is_raw_memory_byte_fill_name(name)
+        && args.len() >= 2
+        && tctx.same_type(args[0].ty, tctx.i32())
+    {
+        return Some(RawMemoryCallKind::ByteWrite);
     }
     None
 }
@@ -1448,6 +1486,35 @@ fn raw_dealloc_size_arg_bytes(
             Some(storage_size_bytes(tctx, type_args[0]))
         }
         _ => None,
+    }
+}
+
+fn raw_store_write_size_bytes(
+    callee: &FuncRef,
+    value: Option<&HirExpr>,
+    tctx: &crate::types::TypeCtx,
+) -> Option<usize> {
+    match func_ref_name(callee) {
+        Some(name) if name == "store_u8" || name.starts_with("store_u8_") => Some(1),
+        Some(name) if name == "store_i32" || name.starts_with("store_i32_") => Some(4),
+        _ => value.map(|value| storage_size_bytes(tctx, value.ty)),
+    }
+}
+
+fn raw_byte_write_size_arg_bytes(
+    callee: &FuncRef,
+    args: &[HirExpr],
+    tctx: &crate::types::TypeCtx,
+) -> Option<usize> {
+    match func_ref_name(callee) {
+        Some(name) if name == "fill_i32" || name.starts_with("fill_i32_") => {
+            match args.get(1).map(|arg| &arg.kind) {
+                Some(HirExprKind::LiteralI32(count)) if *count > 0 => Some((*count as usize) * 4),
+                Some(HirExprKind::LiteralI32(_)) => Some(0),
+                _ => None,
+            }
+        }
+        _ => raw_dealloc_size_arg_bytes(args.get(1), tctx),
     }
 }
 
@@ -2182,6 +2249,7 @@ fn visit_expr(
 
 fn visit_raw_memory_call(
     kind: RawMemoryCallKind,
+    callee: &FuncRef,
     expr: &HirExpr,
     args: &[HirExpr],
     ctx: &mut MoveCheckContext,
@@ -2209,11 +2277,19 @@ fn visit_raw_memory_call(
                     visit_expr(value, ctx, tctx);
                 }
                 if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
-                    let size = args
-                        .get(1)
-                        .map(|value| storage_size_bytes(tctx, value.ty))
-                        .unwrap_or(0);
-                    ctx.check_raw_non_copy_store(place.as_str(), size, expr.span);
+                    if args.get(1).is_some_and(|value| !tctx.is_copy(value.ty)) {
+                        let size = args
+                            .get(1)
+                            .map(|value| storage_size_bytes(tctx, value.ty))
+                            .unwrap_or(0);
+                        ctx.check_raw_non_copy_store(place.as_str(), size, expr.span);
+                    } else {
+                        ctx.check_raw_non_copy_byte_write(
+                            place.as_str(),
+                            raw_store_write_size_bytes(callee, args.get(1), tctx),
+                            expr.span,
+                        );
+                    }
                 }
             }
         }
@@ -2263,6 +2339,20 @@ fn visit_raw_memory_call(
                 }
             }
         }
+        RawMemoryCallKind::ByteWrite => {
+            for arg in args {
+                visit_expr(arg, ctx, tctx);
+            }
+            if let Some(addr) = args.get(0) {
+                if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
+                    ctx.check_raw_non_copy_byte_write(
+                        place.as_str(),
+                        raw_byte_write_size_arg_bytes(callee, args, tctx),
+                        expr.span,
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -2297,7 +2387,7 @@ fn visit_expr_with_escape(
         HirExprKind::FnValue(_) => Vec::new(),
         HirExprKind::Call { callee, args } => {
             if let Some(kind) = raw_memory_call_kind(callee, args, expr.ty, tctx) {
-                visit_raw_memory_call(kind, expr, args, ctx, tctx);
+                visit_raw_memory_call(kind, callee, expr, args, ctx, tctx);
                 return Vec::new();
             }
             match callee {
@@ -2659,11 +2749,17 @@ fn visit_expr_with_escape(
                     visit_expr(val, ctx, tctx);
                 }
                 if let (Some(addr), Some(val)) = (args.get(0), args.get(1)) {
-                    if !tctx.is_copy(val.ty) {
-                        if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
+                    if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
+                        if !tctx.is_copy(val.ty) {
                             ctx.check_raw_non_copy_store(
                                 place.as_str(),
                                 storage_size_bytes(tctx, val.ty),
+                                expr.span,
+                            );
+                        } else {
+                            ctx.check_raw_non_copy_byte_write(
+                                place.as_str(),
+                                Some(storage_size_bytes(tctx, val.ty)),
                                 expr.span,
                             );
                         }

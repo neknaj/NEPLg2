@@ -50,6 +50,12 @@ raw `mem_copy` / `mem_move` が public raw address を受け取り live non-Copy
 
 この対応は exposed raw address API を閉じるものではなく、現行の公開面に残る危険な操作を `move_check` で安全側に拒否する暫定措置である。raw address escape hatch の unsafe/internal API 化はこの issue の残件として維持する。
 
+## 2026-04-28 raw byte write 部分対応
+
+`store_i32` / `store_u8` / `memset_u8` / `fill_i32` などの raw byte write helper が public raw address を受け取り live non-Copy payload を byte overwrite できる問題を `ISS-20260427T190852368Z-MOVE-CHECK-ALLOWS-RAW-BYTE-WRITES-TO-B56A7B43` として compiler 側で塞いだ。
+
+この対応も exposed raw address API を閉じるものではなく、現行公開面に対する安全側の防壁である。safe public API と unsafe/internal raw API の分離はこの issue の残件である。
+
 ## 修正方針
 
 public `core/mem` は checked allocation、typed pointer arithmetic、copy-only load/store、owned move in/out のような safe operation に限定する。raw `i32` address 変換と generic raw load/store は non-public または明示 unsafe module へ分離し、compiler 側の Resource IR / effect model と同期して移行する。`MemPtr<T>` は non-owning pointer と明示し、owner token / storage handle は別型へ分ける。
