@@ -50,6 +50,19 @@ struct FieldMovePath {
     field_ty: TypeId,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RawPlaceState {
+    Initialized,
+    Moved,
+    PossiblyMoved,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RawMemoryCallKind {
+    Load,
+    Store,
+}
+
 impl ExprBorrow {
     fn needs_retain(binding: BorrowBinding) -> Self {
         Self { binding }
@@ -74,6 +87,10 @@ struct MoveCheckContext {
     borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
     /// Non-Copy aggregate fields moved out of each binding, aligned with `var_stacks`.
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
+    /// Canonical raw-address aliases for i32 bindings, aligned with `var_stacks`.
+    raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
+    /// Ownership state for trackable raw memory places that carry non-Copy values.
+    raw_place_states: BTreeMap<String, RawPlaceState>,
     /// Active borrow counts per source variable.
     borrow_counts: BTreeMap<String, BorrowCount>,
     /// Remaining variable uses in active blocks for last-use borrow release.
@@ -90,6 +107,8 @@ struct ResourceStateSnapshot {
     var_depth_stacks: BTreeMap<String, Vec<usize>>,
     borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
+    raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
+    raw_place_states: BTreeMap<String, RawPlaceState>,
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
 
@@ -101,6 +120,8 @@ impl MoveCheckContext {
             var_depth_stacks: BTreeMap::new(),
             borrow_stacks: BTreeMap::new(),
             field_move_stacks: BTreeMap::new(),
+            raw_addr_alias_stacks: BTreeMap::new(),
+            raw_place_states: BTreeMap::new(),
             borrow_counts: BTreeMap::new(),
             use_counts: Vec::new(),
             diagnostics: Vec::new(),
@@ -114,6 +135,8 @@ impl MoveCheckContext {
             var_depth_stacks: self.var_depth_stacks.clone(),
             borrow_stacks: self.borrow_stacks.clone(),
             field_move_stacks: self.field_move_stacks.clone(),
+            raw_addr_alias_stacks: self.raw_addr_alias_stacks.clone(),
+            raw_place_states: self.raw_place_states.clone(),
             borrow_counts: self.borrow_counts.clone(),
         }
     }
@@ -123,6 +146,8 @@ impl MoveCheckContext {
         self.var_depth_stacks = snapshot.var_depth_stacks.clone();
         self.borrow_stacks = snapshot.borrow_stacks.clone();
         self.field_move_stacks = snapshot.field_move_stacks.clone();
+        self.raw_addr_alias_stacks = snapshot.raw_addr_alias_stacks.clone();
+        self.raw_place_states = snapshot.raw_place_states.clone();
         self.borrow_counts = snapshot.borrow_counts.clone();
     }
 
@@ -158,6 +183,12 @@ impl MoveCheckContext {
                     self.field_move_stacks.remove(&name);
                 }
             }
+            if let Some(stack) = self.raw_addr_alias_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.raw_addr_alias_stacks.remove(&name);
+                }
+            }
         }
     }
 
@@ -183,6 +214,10 @@ impl MoveCheckContext {
             .entry(name.clone())
             .or_default()
             .push(BTreeSet::new());
+        self.raw_addr_alias_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(None);
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name);
         }
@@ -236,6 +271,21 @@ impl MoveCheckContext {
         if let Some(stack) = self.field_move_stacks.get_mut(name) {
             if let Some(slot) = stack.last_mut() {
                 slot.clear();
+            }
+        }
+    }
+
+    fn raw_addr_alias(&self, name: &str) -> Option<&str> {
+        self.raw_addr_alias_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+            .and_then(|slot| slot.as_deref())
+    }
+
+    fn set_raw_addr_alias(&mut self, name: &str, alias: Option<String>) {
+        if let Some(stack) = self.raw_addr_alias_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = alias;
             }
         }
     }
@@ -815,6 +865,45 @@ impl MoveCheckContext {
             }
         }
     }
+
+    fn check_raw_non_copy_load(&mut self, place: &str, span: Span) {
+        match self.raw_place_states.get(place).copied() {
+            Some(RawPlaceState::Moved) | Some(RawPlaceState::PossiblyMoved) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!("use of moved raw memory place: `{}`", place),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                );
+            }
+            Some(RawPlaceState::Initialized) | None => {
+                self.raw_place_states
+                    .insert(place.to_string(), RawPlaceState::Moved);
+            }
+        }
+    }
+
+    fn check_raw_non_copy_store(&mut self, place: &str, span: Span) {
+        match self.raw_place_states.get(place).copied() {
+            Some(RawPlaceState::Initialized) | Some(RawPlaceState::PossiblyMoved) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        alloc::format!(
+                            "overwrite of raw memory place containing non-Copy value: `{}`",
+                            place
+                        ),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                );
+            }
+            Some(RawPlaceState::Moved) | None => {
+                self.raw_place_states
+                    .insert(place.to_string(), RawPlaceState::Initialized);
+            }
+        }
+    }
 }
 
 fn type_storage_size_bytes_mapped(
@@ -976,6 +1065,94 @@ fn field_reference_path_from_addr(
         _ => return None,
     };
     field_move_path_from_addr(addr, field_ty, tctx)
+}
+
+fn format_raw_memory_place_key(base: &str, offset: i64) -> String {
+    if offset == 0 {
+        base.to_string()
+    } else {
+        alloc::format!("{}+{}", base, offset)
+    }
+}
+
+fn parse_raw_memory_place_key(key: &str) -> (String, i64) {
+    let Some((base, offset)) = key.rsplit_once('+') else {
+        return (key.to_string(), 0);
+    };
+    match offset.parse::<i64>() {
+        Ok(offset) => (base.to_string(), offset),
+        Err(_) => (key.to_string(), 0),
+    }
+}
+
+fn raw_memory_place_key(addr: &HirExpr, ctx: &MoveCheckContext) -> Option<String> {
+    fn inner(expr: &HirExpr, ctx: &MoveCheckContext) -> Option<(String, i64)> {
+        match &expr.kind {
+            HirExprKind::Var(name) => ctx
+                .raw_addr_alias(name)
+                .map(parse_raw_memory_place_key)
+                .or_else(|| Some((name.clone(), 0))),
+            HirExprKind::LiteralI32(value) => Some((String::from("$abs"), i64::from(*value))),
+            HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
+                let (base, base_offset) = inner(&args[0], ctx)?;
+                let offset = match &args[1].kind {
+                    HirExprKind::LiteralI32(value) if *value >= 0 => i64::from(*value),
+                    _ => return None,
+                };
+                Some((base, base_offset + offset))
+            }
+            _ => None,
+        }
+    }
+
+    let (base, offset) = inner(addr, ctx)?;
+    Some(format_raw_memory_place_key(base.as_str(), offset))
+}
+
+fn raw_addr_alias_from_value(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    if tctx.same_type(value.ty, tctx.i32()) {
+        raw_memory_place_key(value, ctx)
+    } else {
+        None
+    }
+}
+
+fn is_raw_memory_load_name(name: &str) -> bool {
+    name == "load" || name.starts_with("load_")
+}
+
+fn is_raw_memory_store_name(name: &str) -> bool {
+    name == "store" || name.starts_with("store_")
+}
+
+fn raw_memory_call_kind(
+    callee: &FuncRef,
+    args: &[HirExpr],
+    result_ty: TypeId,
+    tctx: &crate::types::TypeCtx,
+) -> Option<RawMemoryCallKind> {
+    let FuncRef::User(name, _, _) = callee else {
+        return None;
+    };
+    if is_raw_memory_load_name(name)
+        && args.len() == 1
+        && tctx.same_type(args[0].ty, tctx.i32())
+        && !tctx.is_copy(result_ty)
+    {
+        return Some(RawMemoryCallKind::Load);
+    }
+    if is_raw_memory_store_name(name)
+        && args.len() >= 2
+        && tctx.same_type(args[0].ty, tctx.i32())
+        && !tctx.is_copy(args[1].ty)
+    {
+        return Some(RawMemoryCallKind::Store);
+    }
+    None
 }
 
 // Logic to traverse HIR
@@ -1305,6 +1482,9 @@ fn can_visit_expr_iteratively(
             | HirExprKind::Unit
             | HirExprKind::Drop { .. } => {}
             HirExprKind::Call { callee, args } => {
+                if raw_memory_call_kind(callee, args, expr.ty, tctx).is_some() {
+                    return false;
+                }
                 match callee {
                     FuncRef::Builtin(name) | FuncRef::User(name, _, _)
                         if name == "get" || name == "if" || name == "while" =>
@@ -1488,6 +1668,86 @@ fn push_unique_binding(out: &mut Vec<BorrowBinding>, binding: &BorrowBinding) {
     }
 }
 
+fn merge_raw_place_state_pair(
+    a: Option<RawPlaceState>,
+    b: Option<RawPlaceState>,
+) -> Option<RawPlaceState> {
+    use RawPlaceState::*;
+    match (a, b) {
+        (None, None) => None,
+        (Some(left), Some(right)) if left == right => Some(left),
+        (Some(_), Some(_)) => Some(PossiblyMoved),
+        (Some(Initialized), None) | (None, Some(Initialized)) => Some(PossiblyMoved),
+        (Some(Moved), None) | (None, Some(Moved)) => Some(PossiblyMoved),
+        (Some(PossiblyMoved), None) | (None, Some(PossiblyMoved)) => Some(PossiblyMoved),
+    }
+}
+
+fn merge_raw_place_states(branches: &[&BranchStateSnapshot]) -> BTreeMap<String, RawPlaceState> {
+    let mut names = BTreeSet::new();
+    for branch in branches {
+        for name in branch.state.raw_place_states.keys() {
+            names.insert(name.clone());
+        }
+    }
+
+    let mut merged = BTreeMap::new();
+    for name in names {
+        let mut state = None;
+        for branch in branches {
+            let branch_state = branch.state.raw_place_states.get(name.as_str()).copied();
+            state = merge_raw_place_state_pair(state, branch_state);
+        }
+        if let Some(state) = state {
+            merged.insert(name, state);
+        }
+    }
+    merged
+}
+
+fn merge_raw_addr_alias_stacks(
+    branches: &[&BranchStateSnapshot],
+) -> BTreeMap<String, Vec<Option<String>>> {
+    let mut names = BTreeSet::new();
+    for branch in branches {
+        for name in branch.state.raw_addr_alias_stacks.keys() {
+            names.insert(name.clone());
+        }
+    }
+
+    let mut merged = BTreeMap::new();
+    for name in names {
+        let max_len = branches
+            .iter()
+            .filter_map(|branch| branch.state.raw_addr_alias_stacks.get(name.as_str()))
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
+        let mut stack = Vec::with_capacity(max_len);
+        for index in 0..max_len {
+            let mut branch_values = branches.iter().map(|branch| {
+                branch
+                    .state
+                    .raw_addr_alias_stacks
+                    .get(name.as_str())
+                    .and_then(|stack| stack.get(index))
+                    .cloned()
+                    .unwrap_or(None)
+            });
+            let first = branch_values.next().unwrap_or(None);
+            if branch_values.all(|alias| alias == first) {
+                stack.push(first);
+            } else {
+                stack.push(None);
+            }
+        }
+        if !stack.is_empty() {
+            merged.insert(name, stack);
+        }
+    }
+    merged
+}
+
 fn merged_branch_borrow_stack(
     name: &str,
     active_len: usize,
@@ -1536,6 +1796,8 @@ fn merge_continuing_branch_states(
         ctx.restore_resource_state(saved);
         return;
     }
+    let merged_raw_place_states = merge_raw_place_states(&continuing);
+    let merged_raw_addr_alias_stacks = merge_raw_addr_alias_stacks(&continuing);
 
     ctx.restore_resource_state(saved);
 
@@ -1595,6 +1857,8 @@ fn merge_continuing_branch_states(
             merged_branch_borrow_stack(name.as_str(), active_len, saved, &continuing);
         ctx.borrow_stacks.insert(name, merged_stack);
     }
+    ctx.raw_addr_alias_stacks = merged_raw_addr_alias_stacks;
+    ctx.raw_place_states = merged_raw_place_states;
     ctx.rebuild_borrow_counts_from_bindings();
     ctx.release_dead_borrows();
 }
@@ -1605,6 +1869,38 @@ fn visit_expr(
     tctx: &crate::types::TypeCtx,
 ) -> Vec<ExprBorrow> {
     visit_expr_with_escape(expr, ctx, tctx, None)
+}
+
+fn visit_raw_memory_call(
+    kind: RawMemoryCallKind,
+    expr: &HirExpr,
+    args: &[HirExpr],
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) {
+    match kind {
+        RawMemoryCallKind::Load => {
+            if let Some(addr) = args.get(0) {
+                visit_expr(addr, ctx, tctx);
+                if let Some(path) = field_move_path_from_addr(addr, expr.ty, tctx) {
+                    ctx.check_field_move(&path, expr.span);
+                } else if let Some(place) = raw_memory_place_key(addr, ctx) {
+                    ctx.check_raw_non_copy_load(place.as_str(), expr.span);
+                }
+            }
+        }
+        RawMemoryCallKind::Store => {
+            if let Some(addr) = args.get(0) {
+                visit_expr(addr, ctx, tctx);
+                if let Some(value) = args.get(1) {
+                    visit_expr(value, ctx, tctx);
+                }
+                if let Some(place) = raw_memory_place_key(addr, ctx) {
+                    ctx.check_raw_non_copy_store(place.as_str(), expr.span);
+                }
+            }
+        }
+    }
 }
 
 fn visit_expr_with_escape(
@@ -1639,137 +1935,145 @@ fn visit_expr_with_escape(
             result_borrows
         }
         HirExprKind::FnValue(_) => Vec::new(),
-        HirExprKind::Call { callee, args } => match callee {
-            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "get" => {
-                let result_borrows = if type_contains_reference(tctx, expr.ty) {
-                    args.first()
-                        .map(|base| {
-                            borrow_bindings_from_place(base, ctx)
-                                .into_iter()
-                                .map(ExprBorrow::needs_retain)
-                                .collect()
-                        })
-                        .unwrap_or_default()
-                } else {
-                    Vec::new()
-                };
-                if let Some(base) = args.get(0) {
-                    if tctx.is_copy(expr.ty) {
-                        visit_temporary_borrow(base, ctx, BorrowKind::Shared);
-                    } else if !visit_field_move_source(base, expr.ty, ctx, tctx) {
-                        visit_expr(base, ctx, tctx);
-                    }
-                }
-                for arg in args.iter().skip(1) {
-                    visit_expr(arg, ctx, tctx);
-                }
-                if let Some(depth) = escape_depth {
-                    ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
-                }
-                result_borrows
+        HirExprKind::Call { callee, args } => {
+            if let Some(kind) = raw_memory_call_kind(callee, args, expr.ty, tctx) {
+                visit_raw_memory_call(kind, expr, args, ctx, tctx);
+                return Vec::new();
             }
-            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "if" => {
-                if args.len() == 3 {
-                    visit_expr(&args[0], ctx, tctx);
-
-                    let saved = ctx.snapshot_resource_state();
-                    let then_borrows = visit_expr_with_escape(&args[1], ctx, tctx, escape_depth);
-                    let then_state = ctx.snapshot_resource_state();
-                    ctx.restore_resource_state(&saved);
-
-                    let else_borrows = visit_expr_with_escape(&args[2], ctx, tctx, escape_depth);
-                    let else_state = ctx.snapshot_resource_state();
-                    ctx.restore_resource_state(&saved);
-
-                    let then_continues = !is_never_type(tctx, args[1].ty);
-                    let else_continues = !is_never_type(tctx, args[2].ty);
-                    let branches = [
-                        BranchStateSnapshot {
-                            continues: then_continues,
-                            state: then_state,
-                        },
-                        BranchStateSnapshot {
-                            continues: else_continues,
-                            state: else_state,
-                        },
-                    ];
-                    merge_continuing_branch_states(ctx, &saved, &branches);
-                    let mut result_borrows = Vec::new();
-                    if then_continues {
-                        result_borrows.extend(then_borrows);
-                    }
-                    if else_continues {
-                        result_borrows.extend(else_borrows);
-                    }
-                    result_borrows
-                } else {
-                    Vec::new()
-                }
-            }
-            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "while" => {
-                if args.len() == 2 {
-                    visit_expr(&args[0], ctx, tctx);
-
-                    let saved = ctx.snapshot_resource_state();
-                    visit_expr(&args[1], ctx, tctx);
-                    let body_state = ctx.snapshot_resource_state();
-
-                    for name in changed_state_names(&saved, &body_state) {
-                        let start_state =
-                            snapshot_top_state(&saved, name.as_str()).unwrap_or(VarState::Valid);
-                        let end_state =
-                            snapshot_top_state(&body_state, name.as_str()).unwrap_or(start_state);
-                        let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
-                        if matches!(merged, VarState::PossiblyMoved)
-                            && matches!(
-                                start_state,
-                                VarState::Valid
-                                    | VarState::BorrowedShared
-                                    | VarState::BorrowedUnique
-                            )
-                            && matches!(end_state, VarState::Moved | VarState::PossiblyMoved)
-                        {
-                            ctx.diagnostics.push(
-                                Diagnostic::error(
-                                    alloc::format!("potentially moved value: `{}`", name),
-                                    args[1].span,
-                                )
-                                .with_id(DiagnosticId::TypeLoopPotentiallyMovedValue),
-                            );
+            match callee {
+                FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "get" => {
+                    let result_borrows = if type_contains_reference(tctx, expr.ty) {
+                        args.first()
+                            .map(|base| {
+                                borrow_bindings_from_place(base, ctx)
+                                    .into_iter()
+                                    .map(ExprBorrow::needs_retain)
+                                    .collect()
+                            })
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+                    if let Some(base) = args.get(0) {
+                        if tctx.is_copy(expr.ty) {
+                            visit_temporary_borrow(base, ctx, BorrowKind::Shared);
+                        } else if !visit_field_move_source(base, expr.ty, ctx, tctx) {
+                            visit_expr(base, ctx, tctx);
                         }
                     }
-                    let branches = [
-                        BranchStateSnapshot {
-                            continues: true,
-                            state: saved.clone(),
-                        },
-                        BranchStateSnapshot {
-                            continues: true,
-                            state: body_state,
-                        },
-                    ];
-                    merge_continuing_branch_states(ctx, &saved, &branches);
-                    visit_expr(&args[0], ctx, tctx);
-                }
-                Vec::new()
-            }
-            _ => {
-                let params = match callee {
-                    FuncRef::User(name, _, _) => ctx.function_params.get(name).cloned(),
-                    _ => None,
-                };
-                let result_borrows =
-                    visit_call_args_with_params(args, params.as_deref(), ctx, tctx);
-                if type_contains_reference(tctx, expr.ty) {
+                    for arg in args.iter().skip(1) {
+                        visit_expr(arg, ctx, tctx);
+                    }
                     if let Some(depth) = escape_depth {
                         ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
                     }
                     result_borrows
-                } else {
+                }
+                FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "if" => {
+                    if args.len() == 3 {
+                        visit_expr(&args[0], ctx, tctx);
+
+                        let saved = ctx.snapshot_resource_state();
+                        let then_borrows =
+                            visit_expr_with_escape(&args[1], ctx, tctx, escape_depth);
+                        let then_state = ctx.snapshot_resource_state();
+                        ctx.restore_resource_state(&saved);
+
+                        let else_borrows =
+                            visit_expr_with_escape(&args[2], ctx, tctx, escape_depth);
+                        let else_state = ctx.snapshot_resource_state();
+                        ctx.restore_resource_state(&saved);
+
+                        let then_continues = !is_never_type(tctx, args[1].ty);
+                        let else_continues = !is_never_type(tctx, args[2].ty);
+                        let branches = [
+                            BranchStateSnapshot {
+                                continues: then_continues,
+                                state: then_state,
+                            },
+                            BranchStateSnapshot {
+                                continues: else_continues,
+                                state: else_state,
+                            },
+                        ];
+                        merge_continuing_branch_states(ctx, &saved, &branches);
+                        let mut result_borrows = Vec::new();
+                        if then_continues {
+                            result_borrows.extend(then_borrows);
+                        }
+                        if else_continues {
+                            result_borrows.extend(else_borrows);
+                        }
+                        result_borrows
+                    } else {
+                        Vec::new()
+                    }
+                }
+                FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "while" => {
+                    if args.len() == 2 {
+                        visit_expr(&args[0], ctx, tctx);
+
+                        let saved = ctx.snapshot_resource_state();
+                        visit_expr(&args[1], ctx, tctx);
+                        let body_state = ctx.snapshot_resource_state();
+
+                        for name in changed_state_names(&saved, &body_state) {
+                            let start_state = snapshot_top_state(&saved, name.as_str())
+                                .unwrap_or(VarState::Valid);
+                            let end_state = snapshot_top_state(&body_state, name.as_str())
+                                .unwrap_or(start_state);
+                            let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
+                            if matches!(merged, VarState::PossiblyMoved)
+                                && matches!(
+                                    start_state,
+                                    VarState::Valid
+                                        | VarState::BorrowedShared
+                                        | VarState::BorrowedUnique
+                                )
+                                && matches!(end_state, VarState::Moved | VarState::PossiblyMoved)
+                            {
+                                ctx.diagnostics.push(
+                                    Diagnostic::error(
+                                        alloc::format!("potentially moved value: `{}`", name),
+                                        args[1].span,
+                                    )
+                                    .with_id(DiagnosticId::TypeLoopPotentiallyMovedValue),
+                                );
+                            }
+                        }
+                        let branches = [
+                            BranchStateSnapshot {
+                                continues: true,
+                                state: saved.clone(),
+                            },
+                            BranchStateSnapshot {
+                                continues: true,
+                                state: body_state,
+                            },
+                        ];
+                        merge_continuing_branch_states(ctx, &saved, &branches);
+                        visit_expr(&args[0], ctx, tctx);
+                    }
                     Vec::new()
                 }
+                _ => {
+                    let params = match callee {
+                        FuncRef::User(name, _, _) => ctx.function_params.get(name).cloned(),
+                        _ => None,
+                    };
+                    let result_borrows =
+                        visit_call_args_with_params(args, params.as_deref(), ctx, tctx);
+                    if type_contains_reference(tctx, expr.ty) {
+                        if let Some(depth) = escape_depth {
+                            ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                        }
+                        result_borrows
+                    } else {
+                        Vec::new()
+                    }
+                }
             }
-        },
+        }
         HirExprKind::CallIndirect {
             callee,
             params,
@@ -1908,17 +2212,21 @@ fn visit_expr_with_escape(
             let target_depth = ctx
                 .scope_depth_of(name)
                 .unwrap_or_else(|| ctx.current_scope_depth());
+            let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(target_depth));
             ctx.check_assign(name, expr.span);
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.set_borrow_bindings(name, retained_borrows);
+            ctx.set_raw_addr_alias(name, raw_addr_alias);
             Vec::new()
         }
         HirExprKind::Let { name, value, .. } => {
             let storage_depth = ctx.current_scope_depth();
+            let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(storage_depth));
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.declare_var_with_borrows(name.clone(), retained_borrows);
+            ctx.set_raw_addr_alias(name, raw_addr_alias);
             ctx.set_state(name, VarState::Valid);
             if ctx.remaining_uses(name) == 0 {
                 ctx.release_borrow_binding(name);
@@ -1955,7 +2263,10 @@ fn visit_expr_with_escape(
                     if is_copy_load {
                         visit_temporary_borrow(addr, ctx, BorrowKind::Shared);
                     } else if !visit_field_move_source(addr, expr.ty, ctx, tctx) {
-                        visit_temporary_borrow(addr, ctx, BorrowKind::Unique);
+                        visit_expr(addr, ctx, tctx);
+                        if let Some(place) = raw_memory_place_key(addr, ctx) {
+                            ctx.check_raw_non_copy_load(place.as_str(), expr.span);
+                        }
                     }
                 }
                 if is_copy_load && type_contains_reference(tctx, expr.ty) {
@@ -1978,10 +2289,17 @@ fn visit_expr_with_escape(
             }
             "store" => {
                 if let Some(addr) = args.get(0) {
-                    visit_temporary_borrow(addr, ctx, BorrowKind::Unique);
+                    visit_expr(addr, ctx, tctx);
                 }
                 if let Some(val) = args.get(1) {
                     visit_expr(val, ctx, tctx);
+                }
+                if let (Some(addr), Some(val)) = (args.get(0), args.get(1)) {
+                    if !tctx.is_copy(val.ty) {
+                        if let Some(place) = raw_memory_place_key(addr, ctx) {
+                            ctx.check_raw_non_copy_store(place.as_str(), expr.span);
+                        }
+                    }
                 }
                 Vec::new()
             }

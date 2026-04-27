@@ -37,6 +37,17 @@ target: "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/pas
 
 pure source code が observable raw address を allocate / free / load / store でき、non-Copy 値を owned place 外の raw memory から浅く複製できる。self-host compiler の AST / diagnostic / buffer が owning value を増やすほど、effect、borrow、type safety の前提が崩れる。
 
+## 2026-04-27 部分対応
+
+`move_check` に raw memory place の所有権状態を追加し、`load<T>` / `store<T>` および lowered intrinsic `load` / `store` が non-Copy 値を扱う場合は、raw address を owning place として検査するようにした。
+
+- non-Copy `load<T>` は raw place からの move として扱い、同じ place からの二重 load を `D3100` で拒否する。
+- non-Copy `store<T>` は raw place の初期化として扱い、未 move の non-Copy 値を含む place への上書きを `D3100` で拒否する。
+- `let q p` や `let q add p 4` のような i32 raw address alias を scope / branch snapshot に追従して正規化し、alias 経由の二重 load を拒否する。
+- branch 間で raw place 状態が分岐する場合は `PossiblyMoved` として合流し、後続の non-Copy load / store を安全側で拒否する。
+
+この対応は ownership 検査の穴を塞ぐもので、effect model の不足はまだ残る。`alloc_raw` / `dealloc_raw` / `realloc_raw` / `load` / `store` の pure API、`InternalAlloc` / `UnsafeMemory` 相当の effect 導入、stdlib API 移行が必要になる場合の stdlib 側修正は、この issue の残件または別 issue として扱う。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。
@@ -44,3 +55,5 @@ pure source code が observable raw address を allocate / free / load / store �
 ## 検証
 
 raw identity が観測可能な public raw memory operation を pure function から呼ぶ compile_fail を追加する。同じ raw place から non-Copy 値を繰り返し `load` する case も、将来の明示 unsafe escape がない限り拒否する ownership test を追加する。`MemPtr` safe overload の正常系は別途維持する。
+
+2026-04-27 の部分対応では、`tests/compiler/move_effect.n.md` に non-Copy raw load の二重 move、raw address alias 経由の二重 move、未 move raw place への store overwrite、load 後の再初期化の回帰テストを追加した。

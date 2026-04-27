@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260427T132406497Z raw memory ownership)
+
+- 状況:
+  - `stdlib/core/mem.nepl` の `load<T>` / `store<T>` と lowered intrinsic `load` / `store` は、non-Copy 値でも raw address から shallow に所有値を作れる経路になっていた。
+  - 既存の `move_check` は aggregate field move だけを局所的に扱い、任意 raw place の所有権状態や i32 address alias を追跡していなかった。
+- 修正:
+  - `nepl-core/src/passes/move_check.rs` に raw memory place state を追加し、non-Copy `load` を raw place からの move、non-Copy `store` を raw place の初期化として検査するようにした。
+  - `let q p` や `let q add p 4` のような i32 raw address alias を scope / branch snapshot に含め、alias 経由の二重 load も同じ place への所有権違反として拒否するようにした。
+  - `D3100 TypeRawMemoryOwnershipViolation` を追加し、`tests/compiler/move_effect.n.md` に二重 load、alias 二重 load、store overwrite、load 後の再初期化の回帰テストを追加した。
+- 残件:
+  - `alloc_raw` / `dealloc_raw` / `realloc_raw` / `load` / `store` の pure API と effect model 不足は未解決。stdlib API 変更が必要になった場合は、compiler 修正とは別 issue で扱う。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-raw-memory-ownership.json -j 1`: `total=31`, `passed=31`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更はセルフホスト実装の前提になる core 側 memory safety 検査を強化するもの。
+
 # 2026-04-27 メモ (ISS-20260427T070602957Z json doc boilerplate)
 
 - 状況:

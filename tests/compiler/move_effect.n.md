@@ -23,6 +23,100 @@ fn main <()->i32> ():
     compute
 ```
 
+## non-Copy raw load は同じ place から二重に所有値を作れない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    let a <LocalToken> load<LocalToken> p
+    let b <LocalToken> load<LocalToken> p
+    0
+```
+
+## non-Copy raw load は alias した place から二重に所有値を作れない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    let q <i32> p
+    let a <LocalToken> load<LocalToken> p
+    let b <LocalToken> load<LocalToken> q
+    0
+```
+
+## non-Copy raw store は未moveの place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    store<LocalToken> p LocalToken @token_id
+    0
+```
+
+## non-Copy raw store は load で所有値を取り出した後なら再初期化できる
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> p
+    store<LocalToken> p LocalToken @token_id
+    0
+```
+
 ## pure から impure 関数を呼ぶと拒否
 
 neplg2:test[compile_fail]

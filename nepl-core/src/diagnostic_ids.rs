@@ -227,6 +227,8 @@ pub enum DiagnosticId {
     TypeMatchWildcardMustBeLast = 3098,
     /// ローカル borrow が有効 scope の外へ逃げる。
     TypeBorrowEscapesScope = 3099,
+    /// raw memory place の non-Copy 所有権に違反した。
+    TypeRawMemoryOwnershipViolation = 3100,
     /// WASM backend が extern シグネチャを lower できない。
     CodegenWasmUnsupportedExternSignature = 4001,
     /// WASM backend が関数シグネチャを lower できない。
@@ -399,6 +401,7 @@ impl DiagnosticId {
             3097 => Some(DiagnosticId::TypeMatchPatternUnsupported),
             3098 => Some(DiagnosticId::TypeMatchWildcardMustBeLast),
             3099 => Some(DiagnosticId::TypeBorrowEscapesScope),
+            3100 => Some(DiagnosticId::TypeRawMemoryOwnershipViolation),
             4001 => Some(DiagnosticId::CodegenWasmUnsupportedExternSignature),
             4002 => Some(DiagnosticId::CodegenWasmUnsupportedFunctionSignature),
             4003 => Some(DiagnosticId::CodegenWasmMissingReturnValue),
@@ -607,6 +610,7 @@ impl DiagnosticId {
             }
             DiagnosticId::TypeMatchWildcardMustBeLast => "wildcard match arm must be last",
             DiagnosticId::TypeBorrowEscapesScope => "borrowed value escapes its scope",
+            DiagnosticId::TypeRawMemoryOwnershipViolation => "raw memory place ownership violation",
             DiagnosticId::CodegenWasmUnsupportedExternSignature => {
                 "unsupported extern signature for wasm"
             }
