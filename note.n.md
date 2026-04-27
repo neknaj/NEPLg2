@@ -20450,3 +20450,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - pure raw body からの raw memory helper 呼び出し検査を、compiler generated symbol 名でも同じ境界で扱うようにした。
+
+# 2026-04-28 メモ (ISS-20260427T212724800Z MemPtr byte write raw ownership)
+
+- [同期]:
+  - `663a47e` を push/pull 済みの `main` から `fix/memptr-byte-write-owner-check` branch を作成した。
+- [再現]:
+  - `MemPtr<i32>` overload の `store_i32` で live `LocalToken` raw place を上書きする compile_fail regression を追加した。
+  - 修正前の `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/memptr-byte-write-regression-before.json -j 1` は 86 件中 1 件が `expected compile_fail, but compiled successfully` で失敗した。
+- [原因]:
+  - `raw_memory_call_kind` は raw byte write / bulk copy helper の destination/source を i32 raw address に限定していた。
+  - `store_i32(MemPtr<i32>, i32)` や typed `mem_copy<T>(MemPtr<T>, MemPtr<T>, i32)` は caller 側の raw place state と接続されず、function body 内だけでは caller の live non-Copy payload と重ねて検査できなかった。
+- [修正]:
+  - raw memory call classification で i32 raw address と `MemPtr<T>` の両方を raw place 引数として扱うようにした。
+  - `Store` / `ByteWrite` / `BulkCopy` の place key 取得を `raw_dealloc_place_key` に揃え、typed bulk copy の element count を byte size に換算するようにした。
+  - `MemPtr<i32>` の `store_i32` と `mem_copy<i32>` が live non-Copy raw place を上書きできない regression を追加した。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test move_check`: 51/51 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/memptr-byte-write-regression-after.json -j 1`: 87/87 passed
+  - `cargo check -p nepl-core --tests`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `MemPtr` overload も compiler の raw ownership state に接続し、typed pointer 経由の byte overwrite が検査を迂回しないようにした。

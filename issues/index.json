@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T21:23:22.014Z",
+  "generated_at": "2026-04-27T21:33:15.855Z",
   "counts": {
-    "total": 225,
+    "total": 226,
     "open": 10,
-    "resolved": 215,
+    "resolved": 216,
     "by_area": {
       "core": {
-        "total": 92,
+        "total": 93,
         "open": 3,
-        "resolved": 89
+        "resolved": 90
       },
       "stdlib": {
         "total": 89,
@@ -1498,6 +1498,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T212039819Z-RAW-BODY-HELPER-EFFECT-DETECTION-MIS-8D69E368.md"
+    },
+    {
+      "id": "ISS-20260427T212724800Z-MOVE-CHECK-ALLOWS-MEMPTR-BYTE-WRITES-9D19BC9D",
+      "title": "move_check allows MemPtr byte writes to overwrite live non-Copy payloads",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T212724800Z-MOVE-CHECK-ALLOWS-MEMPTR-BYTE-WRITES-9D19BC9D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

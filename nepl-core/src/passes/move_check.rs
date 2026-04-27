@@ -1522,6 +1522,16 @@ fn is_mem_ptr_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
     }
 }
 
+fn mem_ptr_element_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> Option<TypeId> {
+    match tctx.get_ref(tctx.resolve_id(ty)) {
+        TypeKind::Apply { base, args } => match tctx.get_ref(tctx.resolve_id(*base)) {
+            TypeKind::Struct { name, .. } if name == "MemPtr" => args.first().copied(),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 fn is_region_token_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
     match tctx.get_ref(tctx.resolve_id(ty)) {
         TypeKind::Struct { name, .. } if name == "RegionToken" => true,
@@ -2296,7 +2306,10 @@ fn raw_memory_call_kind(
     {
         return Some(RawMemoryCallKind::Load);
     }
-    if is_raw_memory_store_name(name) && args.len() >= 2 && tctx.same_type(args[0].ty, tctx.i32()) {
+    if is_raw_memory_store_name(name)
+        && args.len() >= 2
+        && raw_place_arg_is_address_or_memptr(&args[0], tctx)
+    {
         return Some(RawMemoryCallKind::Store);
     }
     if is_raw_memory_dealloc_name(name)
@@ -2317,18 +2330,22 @@ fn raw_memory_call_kind(
     }
     if is_raw_memory_bulk_copy_name(name)
         && args.len() >= 3
-        && tctx.same_type(args[0].ty, tctx.i32())
-        && tctx.same_type(args[1].ty, tctx.i32())
+        && raw_place_arg_is_address_or_memptr(&args[0], tctx)
+        && raw_place_arg_is_address_or_memptr(&args[1], tctx)
     {
         return Some(RawMemoryCallKind::BulkCopy);
     }
     if is_raw_memory_byte_fill_name(name)
         && args.len() >= 2
-        && tctx.same_type(args[0].ty, tctx.i32())
+        && raw_place_arg_is_address_or_memptr(&args[0], tctx)
     {
         return Some(RawMemoryCallKind::ByteWrite);
     }
     None
+}
+
+fn raw_place_arg_is_address_or_memptr(arg: &HirExpr, tctx: &crate::types::TypeCtx) -> bool {
+    tctx.same_type(arg.ty, tctx.i32()) || is_mem_ptr_type(tctx, arg.ty)
 }
 
 fn raw_dealloc_place_key(
@@ -2389,6 +2406,25 @@ fn raw_byte_write_size_arg_bytes(
         }
         _ => raw_dealloc_size_arg_bytes(args.get(1), tctx),
     }
+}
+
+fn raw_bulk_copy_size_arg_bytes(args: &[HirExpr], tctx: &crate::types::TypeCtx) -> Option<usize> {
+    let element_ty = args
+        .get(0)
+        .and_then(|arg| mem_ptr_element_type(tctx, arg.ty))
+        .or_else(|| {
+            args.get(1)
+                .and_then(|arg| mem_ptr_element_type(tctx, arg.ty))
+        });
+    if let Some(element_ty) = element_ty {
+        let count = match args.get(2).map(|arg| &arg.kind) {
+            Some(HirExprKind::LiteralI32(value)) if *value > 0 => *value as usize,
+            Some(HirExprKind::LiteralI32(_)) => return Some(0),
+            _ => return None,
+        };
+        return Some(count.saturating_mul(storage_size_bytes(tctx, element_ty)));
+    }
+    raw_dealloc_size_arg_bytes(args.get(2), tctx)
 }
 
 // Logic to traverse HIR
@@ -3306,7 +3342,7 @@ fn visit_raw_memory_call(
                 if let Some(value) = args.get(1) {
                     visit_expr(value, ctx, tctx);
                 }
-                if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
+                if let Some(place) = raw_dealloc_place_key(addr, ctx, tctx) {
                     if args.get(1).is_some_and(|value| !tctx.is_copy(value.ty)) {
                         let size = args
                             .get(1)
@@ -3357,13 +3393,13 @@ fn visit_raw_memory_call(
             }
             if let (Some(dst), Some(src)) = (args.get(0), args.get(1)) {
                 if let (Some(dst_place), Some(src_place)) = (
-                    raw_memory_place_key(dst, ctx, tctx),
-                    raw_memory_place_key(src, ctx, tctx),
+                    raw_dealloc_place_key(dst, ctx, tctx),
+                    raw_dealloc_place_key(src, ctx, tctx),
                 ) {
                     ctx.check_raw_non_copy_bulk_copy(
                         dst_place.as_str(),
                         src_place.as_str(),
-                        raw_dealloc_size_arg_bytes(args.get(2), tctx),
+                        raw_bulk_copy_size_arg_bytes(args, tctx),
                         expr.span,
                     );
                 }
@@ -3374,7 +3410,7 @@ fn visit_raw_memory_call(
                 visit_expr(arg, ctx, tctx);
             }
             if let Some(addr) = args.get(0) {
-                if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
+                if let Some(place) = raw_dealloc_place_key(addr, ctx, tctx) {
                     ctx.check_raw_non_copy_byte_write(
                         place.as_str(),
                         raw_byte_write_size_arg_bytes(callee, args, tctx),

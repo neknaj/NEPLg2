@@ -1153,6 +1153,33 @@ fn main <()->i32> ():
     0
 ```
 
+## MemPtr mem_copy は initialized non-Copy destination を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let raw_dst <i32> 16
+    let raw_src <i32> 64
+    let dst <MemPtr<i32>> mem_ptr_wrap<i32> raw_dst
+    let src <MemPtr<i32>> mem_ptr_wrap<i32> raw_src
+    store<LocalToken> raw_dst LocalToken @token_id
+    store_i32 raw_src 123
+    let r <Result<(),str>> mem_copy<i32> dst src 1
+    0
+```
+
 ## raw mem_copy は load で non-Copy source を消費した後なら通る
 
 neplg2:test
@@ -1216,6 +1243,30 @@ fn main <()->i32> ():
     let p <i32> 16
     store<LocalToken> p LocalToken @token_id
     store_i32 p 0
+    0
+```
+
+## MemPtr store_i32 は initialized non-Copy place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    store_i32 pi 0
     0
 ```
 

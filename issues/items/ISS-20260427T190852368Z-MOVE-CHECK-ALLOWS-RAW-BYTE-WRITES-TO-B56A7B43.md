@@ -57,3 +57,7 @@ Add compile_fail regressions for store_i32 and bulk fill/memset over live non-Co
 - `trunk build`: pass
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-byte-write-live-noncopy-node.json -j 1`: `total=63`, `passed=63`
 - 修正前再現ファイル `tmp/raw-byte-store-overwrites-noncopy.nepl` は修正後 `D3100` で拒否されることを確認した。
+
+## 2026-04-28 MemPtr overload 追加対応
+
+raw address 版の byte write は拒否済みだったが、`store_i32(MemPtr<i32>, i32)` などの typed `MemPtr` overload が raw write/copy 分類から漏れていた問題を `ISS-20260427T212724800Z-MOVE-CHECK-ALLOWS-MEMPTR-BYTE-WRITES-9D19BC9D` として分離し、修正した。`MemPtr` 経由の byte write / bulk copy も raw place provenance に接続され、live non-Copy payload と重なる場合は `D3100` になる。

@@ -87,6 +87,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 この対応で dynamic pointer arithmetic 経由の same-base non-Copy 二重 load / live payload overwrite / dealloc は D3100 になる。ただし、これは既存 stdlib `MemPtr` を raw place tracking に接続する安全側の補強であり、owner token と non-owning pointer を型・Resource IR で分離する根本設計はまだ未解決である。
 
+## 2026-04-28 MemPtr byte write / bulk copy 部分対応
+
+raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の `store_i32` や typed `mem_copy<T>` / `mem_move<T>` が caller 側の raw place state に接続されない問題を `ISS-20260427T212724800Z-MOVE-CHECK-ALLOWS-MEMPTR-BYTE-WRITES-9D19BC9D` として修正した。`MemPtr<T>` の destination/source も raw place key に正規化し、live non-Copy payload との重なりを D3100 で拒否する。
+
+この対応も現行 `MemPtr<T>` を raw place tracking へ接続する補強であり、`MemPtr` の owner/non-owner 型分離と compiler-owned resource token 化は引き続きこの親 issue の残件である。
+
 ## 2026-04-28 region_ptr_at Ok binding 部分対応
 
 `region_ptr_at<T,U> token off` の `Result::Ok` payload を match bind した `MemPtr<U>` が `RegionToken` の raw place provenance に接続されない問題を `ISS-20260427T194024586Z-MOVE-CHECK-LOSES-REGIONTOKEN-PROVENA-711BD515` として修正した。Ok payload bind は token raw place + offset に正規化し、non-literal offset は `base+?` として扱う。

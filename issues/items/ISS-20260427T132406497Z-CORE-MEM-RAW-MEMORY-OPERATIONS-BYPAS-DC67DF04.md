@@ -133,6 +133,10 @@ raw `mem_copy` / `mem_move` が `move_check` の raw place state を見ず、liv
 
 今回の対応で、copy-valued raw write でも destination range が initialized / possibly moved non-Copy raw place と重なる場合は D3100 になる。non-Copy `store<T>` は initialized state を作る経路のまま維持し、Copy storage への byte write と payload consume 後の storage-only write は許可している。
 
+## 2026-04-28 MemPtr byte write / bulk copy 部分対応
+
+raw address 版の byte write / bulk copy は拒否済みだったが、typed `MemPtr` overload の `store_i32` / `memset_u8` / `fill_i32` / `mem_copy` / `mem_move` が call-site raw place 分類から漏れていた問題を `ISS-20260427T212724800Z-MOVE-CHECK-ALLOWS-MEMPTR-BYTE-WRITES-9D19BC9D` として分離し、修正した。`MemPtr<T>` 由来の destination/source も raw place state に接続し、typed bulk copy の element count は byte size に換算して重なりを検査する。
+
 ## 2026-04-28 mem_ptr_add raw alias 部分対応
 
 `mem_ptr_add<T>` が raw place 正規化に入っておらず、`mem_ptr_add p 0` で同じ storage を別 place として扱える問題を `ISS-20260427T191722304Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-FEAEF49B` として分離し、修正した。
