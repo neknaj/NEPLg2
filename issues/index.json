@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T04:22:53.020Z",
+  "generated_at": "2026-04-27T04:30:44.557Z",
   "counts": {
     "total": 176,
-    "open": 7,
-    "resolved": 169,
+    "open": 6,
+    "resolved": 170,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 68,
-        "open": 6,
-        "resolved": 62
+        "open": 5,
+        "resolved": 63
       },
       "cli": {
         "total": 19,
@@ -133,21 +133,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T041147635Z-FS-VEC-PUSH-UNWRAP-TRAPS-4A80E8C1",
-      "title": "std/fs の Vec push 失敗が unwrap_ok で trap する",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/std/fs.nepl, tests/stdlib/fs.n.md, nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
-      "file": "items/ISS-20260427T041147635Z-FS-VEC-PUSH-UNWRAP-TRAPS-4A80E8C1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -2548,6 +2533,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T031251079Z-LIST-MAP-AND-FILTER-LEAK-PARTIAL-RES-9B715B6A.md"
+    },
+    {
+      "id": "ISS-20260427T041147635Z-FS-VEC-PUSH-UNWRAP-TRAPS-4A80E8C1",
+      "title": "std/fs の Vec push 失敗が unwrap_ok で trap する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/fs.nepl, tests/stdlib/fs.n.md, nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
+      "file": "items/ISS-20260427T041147635Z-FS-VEC-PUSH-UNWRAP-TRAPS-4A80E8C1.md"
     },
     {
       "id": "ISS-20260427T041629340Z-VEC-PUSH-ERR-LOSES-OWNER-7D2E9F43",

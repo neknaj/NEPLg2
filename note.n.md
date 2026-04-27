@@ -1,3 +1,24 @@
+# 2026-04-27 メモ (ISS-20260427T041147635Z std/fs unsafe unwrap)
+
+- 状況:
+  - `fs_normalize_relative` は path component stack への `v::push<str>` を `unwrap_ok` で処理しており、allocation failure が errno `12` ではなく trap になっていた。
+  - `fs_read_dir_fd` も directory entry name の蓄積で `unwrap_ok v::push<str>` を使い、大きい directory で allocation failure が trap になり得た。
+  - `fs_normalize_relative` は `str_split` facade を使っていたため、split allocation failure が空 `Vec` に丸められる経路もあった。
+- 修正:
+  - `fs_normalize_relative` を `str_split_result` に切り替え、split 失敗を `Err(12)` として返すようにした。
+  - component stack / directory entry accumulation の `v::push` を `match` にし、失敗時は Vec 側で consumed owner が処理済みであるため local owner を空 `Vec` に置き換え、既存 cleanup 経路へ `err = 12` で流すようにした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` を追加し、`std/fs.nepl` の実装コードに unsafe unwrap helper が戻らないことと、errno 伝播構造を source policy で固定した。
+  - `.github/workflows/ci.yml` と `doc/testing.md` の source policy 一覧へ新しい guard を登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-push-error-docs.json -j 1`: `total=7`, `passed=7`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-push-error-focused.json -j 1`: `total=7`, `passed=7`
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-fs-push-error.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-fs-push-error.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は、self-host loader / CLI が filesystem 入力の allocation failure を trap ではなく errno として扱えるようにする stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260427T041629340Z Vec push owner 喪失)
 
 - 状況:

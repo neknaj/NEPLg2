@@ -48,6 +48,7 @@ node nodesrc/test_run_test_wasix_missing_wasmer_fallback.js
 node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js
 node nodesrc/test_stdlib_bytebuf_utf8_boundary.js
+node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js

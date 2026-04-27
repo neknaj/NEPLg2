@@ -613,6 +613,7 @@ fn fs_normalize_build <(i32,i32)->str> (data, n):
 //: 注意(重要):
 //: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
 //: - 空 path は preopen root 自体を表す `"."` に正規化します。
+//: - component 分割や stack 確保に失敗した場合は `Err(12)` を返します。
 //:
 //: 計算量:
 //: - path 長 n に対して O(n)
@@ -628,49 +629,58 @@ fn fs_normalize_relative <(str)->Result<str,i32>> (path):
                 then:
                     Result<str,i32>::Err fs_errno_notcapable
                 else:
-                    let parts <Vec<str>> str_split path "/"
-                    match v::new<str>:
+                    match str_split_result path "/":
                         Result::Err _e:
                             Result<str,i32>::Err 12
-                        Result::Ok stack0:
-                            let mut stack <Vec<str>> stack0
+                        Result::Ok parts:
                             let parts_len <i32> get parts "len"
-                            let parts_data <i32> mem_ptr_addr get parts "data"
-                            let mut i <i32> 0
-                            let mut err <i32> 0
-                            while and eq err 0 lt i parts_len:
-                                do:
-                                    let part <str> load<str> add parts_data mul i size_of<str>
-                                    if:
-                                        or str_eq part "" str_eq part "."
-                                        then:
-                                            ()
-                                        else:
+                            match v::with_capacity<str> parts_len:
+                                Result::Err _e:
+                                    v::free<str> parts
+                                    Result<str,i32>::Err 12
+                                Result::Ok stack0:
+                                    let mut stack <Vec<str>> stack0
+                                    let parts_data <i32> mem_ptr_addr get parts "data"
+                                    let mut i <i32> 0
+                                    let mut err <i32> 0
+                                    while and eq err 0 lt i parts_len:
+                                        do:
+                                            let part <str> load<str> add parts_data mul i size_of<str>
                                             if:
-                                                str_eq part ".."
+                                                or str_eq part "" str_eq part "."
                                                 then:
-                                                    let stack_len <i32> get stack "len"
-                                                    if:
-                                                        eq stack_len 0
-                                                        then:
-                                                            set err fs_errno_notcapable
-                                                        else:
-                                                            let popped v::pop<str> stack
-                                                            set stack get popped 0
+                                                    ()
                                                 else:
-                                                    set stack unwrap_ok v::push<str> stack part
-                                    set i add i 1
-                            let result <Result<str,i32>> if:
-                                eq err 0
-                                then:
-                                    let stack_len <i32> get stack "len"
-                                    let stack_data <i32> mem_ptr_addr get stack "data"
-                                    Result<str,i32>::Ok fs_normalize_build stack_data stack_len
-                                else:
-                                    Result<str,i32>::Err err
-                            v::free<str> parts
-                            v::free<str> stack
-                            result
+                                                    if:
+                                                        str_eq part ".."
+                                                        then:
+                                                            let stack_len <i32> get stack "len"
+                                                            if:
+                                                                eq stack_len 0
+                                                                then:
+                                                                    set err fs_errno_notcapable
+                                                                else:
+                                                                    let popped v::pop<str> stack
+                                                                    set stack get popped 0
+                                                        else:
+                                                            match v::push<str> stack part:
+                                                                Result::Ok next_stack:
+                                                                    set stack next_stack
+                                                                Result::Err _e:
+                                                                    set stack v::Vec<str> 0 0 mem_ptr_wrap 0
+                                                                    set err 12
+                                            set i add i 1
+                                    let result <Result<str,i32>> if:
+                                        eq err 0
+                                        then:
+                                            let stack_len <i32> get stack "len"
+                                            let stack_data <i32> mem_ptr_addr get stack "data"
+                                            Result<str,i32>::Ok fs_normalize_build stack_data stack_len
+                                        else:
+                                            Result<str,i32>::Err err
+                                    v::free<str> parts
+                                    v::free<str> stack
+                                    result
 
 //: fs_path_filetype: path の WASI filetype を取得する
 //:
@@ -792,6 +802,7 @@ fn fs_open_dir <(str)*>Result<i32,i32>> (path):
 //: 実装(アルゴリズム):
 //: - 64KiB buffer で `fd_readdir` を繰り返し、dirent header と name byte 列を順に読みます。
 //: - `.` / `..` を除外してから byte 辞書順に sort します。
+//: - directory entry name の蓄積で確保に失敗した場合は `Err(12)` を返します。
 //:
 //: 注意(重要):
 //: - WASI cookie は通常の directory 規模を想定し、dirent の `d_next` low 32 bit を次回 cookie として使います。
@@ -867,7 +878,12 @@ fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                                                                                         then:
                                                                                             ()
                                                                                         else:
-                                                                                            set entries unwrap_ok v::push<str> entries name
+                                                                                            match v::push<str> entries name:
+                                                                                                Result::Ok next_entries:
+                                                                                                    set entries next_entries
+                                                                                                Result::Err _e:
+                                                                                                    set entries v::Vec<str> 0 0 mem_ptr_wrap 0
+                                                                                                    set err 12
                                                                             set cookie <i64> cast next_cookie_low
                                                                             set off name_off
                                                     if:
