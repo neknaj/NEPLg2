@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260427T050328482Z nm inline parser allocation)
+
+- 状況:
+  - `stdlib/nm/parser.nepl` の `parse_inlines` は `Vec<Inline>` / Gloss 用 `Vec<str>` の生成と push を `unwrap_ok` で処理していた。
+  - nm parser は docs/self-host 周辺の Markdown/Gloss 処理基盤なので、allocation failure が AST の失敗値へ戻らず trap するのは `RV-STDLIB-010` の残件だった。
+- 修正:
+  - `InlinePushRes` / `StrPushRes` と空 Vec sentinel helper を追加し、push failure 時に consumed owner を再利用しない形を明示した。
+  - `nm_push_inline` / `nm_push_str` で `v::push` の `Err` を `ok=false` へ変換し、`parse_inlines` は `failed=true` で scan を止めるようにした。
+  - `parse_inlines` の `v::new` / `v::push` から unsafe `unwrap_ok` を除去した。
+  - `nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-inline-allocation-docs.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-inline-allocation-focused.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-inline-allocation-suite.json -j 1`: `total=10`, `passed=10`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-nm-parser-inline-allocation.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-nm-parser-inline-allocation.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host/docs tooling に近い nm inline parser の allocation failure を trap から空 AST sentinel に戻す stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260427T044701965Z streamio checked memory trap)
 
 - 状況:

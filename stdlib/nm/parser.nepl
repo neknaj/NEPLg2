@@ -144,6 +144,22 @@ struct ParaRes:
     inlines <Vec<Inline>>
     next_i <i32>
 
+//: InlinePushRes: `Inline` push の結果
+//:
+//: [目的/もくてき]:
+//: - push 後の Vec owner と、push が成功したかを同時に返します。
+struct InlinePushRes:
+    items <Vec<Inline>>
+    ok <bool>
+
+//: StrPushRes: `str` push の結果
+//:
+//: [目的/もくてき]:
+//: - Gloss parts/subs の push 後 Vec owner と、push が成功したかを同時に返します。
+struct StrPushRes:
+    items <Vec<str>>
+    ok <bool>
+
 // -----------------------------
 // Small helpers
 // -----------------------------
@@ -596,26 +612,69 @@ fn parse_paragraph <(i32, i32, i32)->ParaRes> (lines_mem, nlines, i0):
 // Inline parser: Ruby / Gloss / Math
 // -----------------------------
 
-//: parse_inlines: 主な用途
+//: nm_inline_empty_vec: 空の `Inline` Vec sentinel を作る
 //:
 //: [目的/もくてき]:
-//: - parse_inlines の主な用途と呼び出し方を示します。
+//: - inline parser の allocation failure 時に、consumed owner を再利用せず空の失敗値へ切り替えます。
+fn nm_inline_empty_vec <()->Vec<Inline>> ():
+    v::Vec<Inline> 0 0 mem_ptr_wrap 0
+
+//: nm_str_empty_vec: 空の `str` Vec sentinel を作る
+//:
+//: [目的/もくてき]:
+//: - Gloss parts / subs の allocation failure 時に、consumed owner を再利用せず空の失敗値へ切り替えます。
+fn nm_str_empty_vec <()->Vec<str>> ():
+    v::Vec<str> 0 0 mem_ptr_wrap 0
+
+//: nm_push_inline: `Inline` Vec への push を trap せず結果化する
+//:
+//: [目的/もくてき]:
+//: - `v::push` の grow failure を `unwrap_ok` で trap させず、`ok=false` と空 Vec sentinel へ変換します。
+fn nm_push_inline <(Vec<Inline>, Inline)->InlinePushRes> (items, item):
+    match v::push<Inline> items item:
+        Result::Ok next:
+            InlinePushRes next true
+        Result::Err _e:
+            InlinePushRes nm_inline_empty_vec false
+
+//: nm_push_str: `str` Vec への push を trap せず結果化する
+//:
+//: [目的/もくてき]:
+//: - Gloss 分割中の `v::push` grow failure を `unwrap_ok` で trap させず、`ok=false` と空 Vec sentinel へ変換します。
+fn nm_push_str <(Vec<str>, str)->StrPushRes> (items, item):
+    match v::push<str> items item:
+        Result::Ok next:
+            StrPushRes next true
+        Result::Err _e:
+            StrPushRes nm_str_empty_vec false
+
+//: parse_inlines: 1 行分の NM inline markup を AST に変換する
+//:
+//: [目的/もくてき]:
+//: - 通常 text、Ruby `[base/ruby]`、Gloss `{main/sub...}`、Math `$...$` / `$$...$$` を `Inline` の列へ変換します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 入力を byte index で 1 度だけ走査し、special marker を見つけた時点で直前の text を flush します。
+//: - `Vec` の確保・push 失敗は trap させず、空 Vec sentinel に切り替えて解析を中断します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 既存 API 互換のため `Result` ではなく `Vec<Inline>` を返します。失敗を区別する API は今後の `parse_markdown_result` 側で扱います。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は入力 byte 数）。
 fn parse_inlines <(str)->Vec<Inline>> (s):
-    let mut out <Vec<Inline>> unwrap_ok v::new<Inline>;
+    let mut out <Vec<Inline>> nm_inline_empty_vec;
+    let mut failed <bool> false;
+    match v::new<Inline>:
+        Result::Ok out0:
+            set out out0
+        Result::Err _e:
+            set failed true;
     let n <i32> len s;
     let mut i <i32> 0;
     let mut text_start <i32> 0;
 
-    while lt i n:
+    while and lt i n not failed:
         do:
             let ch <i32> string_byte_at_unchecked s i;
 
@@ -627,7 +686,14 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                     let seg <str> str_slice s text_start i;
                     if:
                         gt len seg 0
-                        then set out unwrap_ok v::push<Inline> out Inline::Text seg
+                        then:
+                            let pushed_text <InlinePushRes> nm_push_inline out Inline::Text seg;
+                            let pushed_text_ok <bool> get pushed_text "ok";
+                            set out get pushed_text "items";
+                            if:
+                                pushed_text_ok
+                                then ()
+                                else set failed true
                         else ()
 
                     let mut delim <i32> 1;
@@ -671,10 +737,22 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                         then:
                             let endpos <i32> add j delim;
                             let m <str> str_slice s i endpos;
-                            set out unwrap_ok v::push<Inline> out Inline::Math m;
-                            set i endpos;
-                            set text_start endpos;
-                            ()
+                            if:
+                                not failed
+                                then:
+                                    let pushed_math <InlinePushRes> nm_push_inline out Inline::Math m;
+                                    let pushed_math_ok <bool> get pushed_math "ok";
+                                    set out get pushed_math "items";
+                                    if:
+                                        pushed_math_ok
+                                        then:
+                                            set i endpos;
+                                            set text_start endpos;
+                                            ()
+                                        else:
+                                            set failed true;
+                                            ()
+                                else ()
                         else:
                             // No closing delimiter -> treat '$' as normal text
                             set i add i 1;
@@ -723,17 +801,35 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             let seg <str> str_slice s text_start i;
                                             if:
                                                 gt len seg 0
-                                                then set out unwrap_ok v::push<Inline> out Inline::Text seg
+                                                then:
+                                                    let pushed_text <InlinePushRes> nm_push_inline out Inline::Text seg;
+                                                    let pushed_text_ok <bool> get pushed_text "ok";
+                                                    set out get pushed_text "items";
+                                                    if:
+                                                        pushed_text_ok
+                                                        then ()
+                                                        else set failed true
                                                 else ()
 
-                                            let base <str> str_slice s add i 1 slash;
-                                            let rub <str> str_slice s add slash 1 j;
-                                            let r <RubyInfo> RubyInfo base rub;
-                                            set out unwrap_ok v::push<Inline> out Inline::Ruby r;
-
-                                            set i add j 1;
-                                            set text_start i;
-                                            ()
+                                            if:
+                                                not failed
+                                                then:
+                                                    let base <str> str_slice s add i 1 slash;
+                                                    let rub <str> str_slice s add slash 1 j;
+                                                    let r <RubyInfo> RubyInfo base rub;
+                                                    let pushed_ruby <InlinePushRes> nm_push_inline out Inline::Ruby r;
+                                                    let pushed_ruby_ok <bool> get pushed_ruby "ok";
+                                                    set out get pushed_ruby "items";
+                                                    if:
+                                                        pushed_ruby_ok
+                                                        then:
+                                                            set i add j 1;
+                                                            set text_start i;
+                                                            ()
+                                                        else:
+                                                            set failed true;
+                                                            ()
+                                                else ()
                                 else:
                                     set i add i 1;
                                     ()
@@ -758,16 +854,28 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                             let seg <str> str_slice s text_start i;
                                             if:
                                                 gt len seg 0
-                                                then set out unwrap_ok v::push<Inline> out Inline::Text seg
+                                                then:
+                                                    let pushed_text <InlinePushRes> nm_push_inline out Inline::Text seg;
+                                                    let pushed_text_ok <bool> get pushed_text "ok";
+                                                    set out get pushed_text "items";
+                                                    if:
+                                                        pushed_text_ok
+                                                        then ()
+                                                        else set failed true
                                                 else ()
 
                                             // Collect parts
-                                            let mut parts <Vec<str>> unwrap_ok v::new<str>;
+                                            let mut parts <Vec<str>> nm_str_empty_vec;
+                                            match v::new<str>:
+                                                Result::Ok parts0:
+                                                    set parts parts0
+                                                Result::Err _e:
+                                                    set failed true;
                                             let mut k <i32> add i 1;
                                             let mut start <i32> k;
                                             let mut depth <i32> 0;
 
-                                            while lt k j:
+                                            while and lt k j not failed:
                                                 do:
                                                     let ck <i32> string_byte_at_unchecked s k;
                                                     if:
@@ -782,35 +890,75 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                                         and eq ck 47 eq depth 0
                                                         then:
                                                             let p <str> str_slice s start k;
-                                                            set parts unwrap_ok v::push<str> parts p;
-                                                            set start add k 1;
-                                                            set k add k 1;
-                                                            ()
+                                                            let pushed_part <StrPushRes> nm_push_str parts p;
+                                                            let pushed_part_ok <bool> get pushed_part "ok";
+                                                            set parts get pushed_part "items";
+                                                            if:
+                                                                pushed_part_ok
+                                                                then:
+                                                                    set start add k 1;
+                                                                    set k add k 1;
+                                                                    ()
+                                                                else:
+                                                                    set failed true;
+                                                                    ()
                                                         else:
                                                             set k add k 1;
                                                             ()
-                                            let plast <str> str_slice s start j;
-                                            set parts unwrap_ok v::push<str> parts plast;
+                                            if:
+                                                not failed
+                                                then:
+                                                    let plast <str> str_slice s start j;
+                                                    let pushed_last_part <StrPushRes> nm_push_str parts plast;
+                                                    let pushed_last_part_ok <bool> get pushed_last_part "ok";
+                                                    set parts get pushed_last_part "items";
+                                                    if:
+                                                        pushed_last_part_ok
+                                                        then ()
+                                                        else set failed true
+                                                else ()
 
                                             let parts_span <VecDataLen<str>> v::data_len<str> parts;
                                             let parts_len <i32> get parts_span "len";
                                             if:
-                                                ge parts_len 2
+                                                and not failed ge parts_len 2
                                                 then:
                                                     let parts_data <i32> mem_ptr_addr get parts_span "data";
                                                     let main <str> load<str> parts_data;
-                                                    let mut subs <Vec<str>> unwrap_ok v::new<str>;
+                                                    let mut subs <Vec<str>> nm_str_empty_vec;
+                                                    match v::new<str>:
+                                                        Result::Ok subs0:
+                                                            set subs subs0
+                                                        Result::Err _e:
+                                                            set failed true;
                                                     let mut idx <i32> 1;
-                                                    while lt idx parts_len:
+                                                    while and lt idx parts_len not failed:
                                                         do:
                                                             let p <str> load<str> add parts_data mul idx size_of<str>;
-                                                            set subs unwrap_ok v::push<str> subs p;
-                                                            set idx add idx 1;
-                                                    let g <GlossInfo> GlossInfo main subs;
-                                                    set out unwrap_ok v::push<Inline> out Inline::Gloss g;
-                                                    set i add j 1;
-                                                    set text_start i;
-                                                    ()
+                                                            let pushed_sub <StrPushRes> nm_push_str subs p;
+                                                            let pushed_sub_ok <bool> get pushed_sub "ok";
+                                                            set subs get pushed_sub "items";
+                                                            if:
+                                                                pushed_sub_ok
+                                                                then set idx add idx 1
+                                                                else set failed true
+                                                    if:
+                                                        not failed
+                                                        then:
+                                                            let g <GlossInfo> GlossInfo main subs;
+                                                            let pushed_gloss <InlinePushRes> nm_push_inline out Inline::Gloss g;
+                                                            let pushed_gloss_ok <bool> get pushed_gloss "ok";
+                                                            set out get pushed_gloss "items";
+                                                            if:
+                                                                pushed_gloss_ok
+                                                                then:
+                                                                    set i add j 1;
+                                                                    set text_start i;
+                                                                    ()
+                                                                else:
+                                                                    set failed true;
+                                                                    ()
+                                                        else ()
                                                 else:
                                                     // Not actually gloss -> keep as text
                                                     set i add i 1;
@@ -825,8 +973,10 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
     // Flush tail text
     let tail <str> str_slice s text_start n;
     if:
-        gt len tail 0
-        then unwrap_ok v::push<Inline> out Inline::Text tail
+        and not failed gt len tail 0
+        then:
+            let pushed_tail <InlinePushRes> nm_push_inline out Inline::Text tail;
+            get pushed_tail "items"
         else out
 
 // -----------------------------
