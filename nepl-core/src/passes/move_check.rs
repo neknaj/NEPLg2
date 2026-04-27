@@ -66,6 +66,14 @@ struct RawPlaceInfo {
     size: usize,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct FunctionRawAliasSummary {
+    raw_addr_alias: Option<String>,
+    aggregate_field_raw_aliases: BTreeMap<usize, String>,
+    enum_payload_raw_aliases: BTreeMap<String, String>,
+    enum_payload_aggregate_field_raw_aliases: BTreeMap<String, BTreeMap<usize, String>>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RawMemoryCallKind {
     Load,
@@ -93,6 +101,8 @@ struct MoveCheckContext {
     string_literals: Vec<String>,
     /// Function parameter types after monomorphization.
     function_params: BTreeMap<String, Vec<TypeId>>,
+    /// Function return provenance summaries after monomorphization.
+    function_raw_alias_summaries: BTreeMap<String, FunctionRawAliasSummary>,
     /// State of all variables currently in scope.
     /// Stack of variable states (for shadowing support).
     var_stacks: BTreeMap<String, Vec<VarState>>,
@@ -143,6 +153,7 @@ impl MoveCheckContext {
         Self {
             string_literals: module.string_literals.clone(),
             function_params: BTreeMap::new(),
+            function_raw_alias_summaries: BTreeMap::new(),
             var_stacks: BTreeMap::new(),
             var_depth_stacks: BTreeMap::new(),
             borrow_stacks: BTreeMap::new(),
@@ -711,9 +722,11 @@ impl MoveCheckContext {
     fn with_function_params(
         module: &HirModule,
         function_params: BTreeMap<String, Vec<TypeId>>,
+        function_raw_alias_summaries: BTreeMap<String, FunctionRawAliasSummary>,
     ) -> Self {
         let mut ctx = Self::new(module);
         ctx.function_params = function_params;
+        ctx.function_raw_alias_summaries = function_raw_alias_summaries;
         ctx
     }
 
@@ -1447,6 +1460,11 @@ fn raw_addr_alias_from_value(
     if let Some(key) = raw_alias_from_aggregate_field_load(value, ctx, tctx) {
         return Some(key);
     }
+    if let Some(summary) = function_call_raw_alias_summary(value, ctx, tctx) {
+        if let Some(alias) = summary.raw_addr_alias {
+            return Some(alias);
+        }
+    }
     if tctx.same_type(value.ty, tctx.i32()) {
         raw_memory_place_key(value, ctx, tctx)
     } else {
@@ -1513,6 +1531,284 @@ fn is_region_token_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
         },
         _ => false,
     }
+}
+
+fn function_param_raw_alias_key(index: usize) -> String {
+    alloc::format!("$param:{}", index)
+}
+
+fn function_param_field_raw_alias_key(index: usize, offset: usize) -> String {
+    alloc::format!("$param_field:{}:{}", index, offset)
+}
+
+fn function_param_enum_payload_raw_alias_key(index: usize, variant: &str) -> String {
+    alloc::format!("$param_enum_payload:{}:{}", index, variant)
+}
+
+fn function_param_enum_payload_field_raw_alias_key(
+    index: usize,
+    variant: &str,
+    offset: usize,
+) -> String {
+    alloc::format!("$param_enum_payload_field:{}:{}:{}", index, offset, variant)
+}
+
+fn aggregate_field_placeholder_aliases(
+    tctx: &crate::types::TypeCtx,
+    ty: TypeId,
+    mut make_key: impl FnMut(usize) -> String,
+) -> BTreeMap<usize, String> {
+    fn collect(
+        tctx: &crate::types::TypeCtx,
+        ty: TypeId,
+        base_offset: usize,
+        out: &mut BTreeMap<usize, String>,
+        visiting: &mut BTreeSet<TypeId>,
+        make_key: &mut dyn FnMut(usize) -> String,
+    ) {
+        let resolved = tctx.resolve_named_type_id(ty);
+        if !visiting.insert(resolved) {
+            return;
+        }
+        for field in aggregate_fields_with_offsets(tctx, ty) {
+            let offset = base_offset.saturating_add(field.offset);
+            out.insert(offset, make_key(offset));
+            collect(tctx, field.ty, offset, out, visiting, make_key);
+        }
+        visiting.remove(&resolved);
+    }
+
+    let mut out = BTreeMap::new();
+    collect(tctx, ty, 0, &mut out, &mut BTreeSet::new(), &mut make_key);
+    out
+}
+
+fn enum_variants_for_type(
+    tctx: &crate::types::TypeCtx,
+    ty: TypeId,
+) -> Vec<(String, Option<TypeId>)> {
+    match tctx.get_ref(tctx.resolve_named_type_id(ty)) {
+        TypeKind::Enum { variants, .. } => variants
+            .iter()
+            .map(|variant| (variant.name.clone(), variant.payload))
+            .collect(),
+        TypeKind::Apply { base, args } => {
+            let base = tctx.resolve_named_type_id(*base);
+            match tctx.get_ref(base) {
+                TypeKind::Enum {
+                    type_params,
+                    variants,
+                    ..
+                } => {
+                    let mapping = crate::layout::extend_type_mapping(
+                        tctx,
+                        &BTreeMap::new(),
+                        type_params,
+                        args,
+                    );
+                    variants
+                        .iter()
+                        .map(|variant| {
+                            (
+                                variant.name.clone(),
+                                variant.payload.map(|payload| {
+                                    crate::layout::mapped_type_id(tctx, payload, &mapping)
+                                }),
+                            )
+                        })
+                        .collect()
+                }
+                _ => Vec::new(),
+            }
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn enum_payload_raw_alias_from_value(
+    value: &HirExpr,
+    variant: &str,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    match &value.kind {
+        HirExprKind::Var(name) => ctx
+            .enum_payload_raw_alias(name, variant)
+            .or_else(|| {
+                if is_result_ok_variant_name(variant) {
+                    ctx.enum_payload_raw_alias(name, "Ok")
+                } else {
+                    None
+                }
+            })
+            .map(ToString::to_string),
+        _ => {
+            let aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
+            aliases
+                .get(variant)
+                .or_else(|| {
+                    if is_result_ok_variant_name(variant) {
+                        aliases.get("Ok")
+                    } else {
+                        None
+                    }
+                })
+                .cloned()
+        }
+    }
+}
+
+fn enum_payload_aggregate_field_raw_aliases_from_expr(
+    value: &HirExpr,
+    variant: &str,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<usize, String> {
+    match &value.kind {
+        HirExprKind::Var(name) => {
+            let aliases = ctx.enum_payload_aggregate_field_raw_aliases(name, variant);
+            if aliases.is_empty() && is_result_ok_variant_name(variant) {
+                ctx.enum_payload_aggregate_field_raw_aliases(name, "Ok")
+            } else {
+                aliases
+            }
+        }
+        _ => {
+            let aliases = enum_payload_aggregate_field_raw_aliases_from_value(value, ctx, tctx);
+            aliases
+                .get(variant)
+                .or_else(|| {
+                    if is_result_ok_variant_name(variant) {
+                        aliases.get("Ok")
+                    } else {
+                        None
+                    }
+                })
+                .cloned()
+                .unwrap_or_default()
+        }
+    }
+}
+
+fn instantiate_raw_alias_base(
+    base: &str,
+    args: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    if let Some(index_text) = base.strip_prefix("$param:") {
+        let index = index_text.parse::<usize>().ok()?;
+        return args
+            .get(index)
+            .and_then(|arg| raw_addr_alias_from_value(arg, ctx, tctx));
+    }
+    if let Some(rest) = base.strip_prefix("$param_field:") {
+        let (index_text, offset_text) = rest.split_once(':')?;
+        let index = index_text.parse::<usize>().ok()?;
+        let offset = offset_text.parse::<usize>().ok()?;
+        return args
+            .get(index)
+            .and_then(|arg| aggregate_field_raw_alias_at(arg, offset, ctx, tctx));
+    }
+    if let Some(rest) = base.strip_prefix("$param_enum_payload:") {
+        let (index_text, variant) = rest.split_once(':')?;
+        let index = index_text.parse::<usize>().ok()?;
+        return args
+            .get(index)
+            .and_then(|arg| enum_payload_raw_alias_from_value(arg, variant, ctx, tctx));
+    }
+    if let Some(rest) = base.strip_prefix("$param_enum_payload_field:") {
+        let (index_text, rest) = rest.split_once(':')?;
+        let (offset_text, variant) = rest.split_once(':')?;
+        let index = index_text.parse::<usize>().ok()?;
+        let offset = offset_text.parse::<usize>().ok()?;
+        return args.get(index).and_then(|arg| {
+            enum_payload_aggregate_field_raw_aliases_from_expr(arg, variant, ctx, tctx)
+                .get(&offset)
+                .cloned()
+        });
+    }
+    Some(base.to_string())
+}
+
+fn instantiate_raw_alias_key(
+    key: &str,
+    args: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    let (base, offset) = parse_raw_memory_place_key(key);
+    let instantiated = instantiate_raw_alias_base(base.as_str(), args, ctx, tctx)?;
+    let (instantiated_base, instantiated_offset) =
+        parse_raw_memory_place_key(instantiated.as_str());
+    Some(format_raw_memory_place_key_parts(
+        instantiated_base.as_str(),
+        combine_raw_memory_offsets(instantiated_offset, offset),
+    ))
+}
+
+fn instantiate_function_raw_alias_summary(
+    summary: &FunctionRawAliasSummary,
+    args: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> FunctionRawAliasSummary {
+    FunctionRawAliasSummary {
+        raw_addr_alias: summary
+            .raw_addr_alias
+            .as_ref()
+            .and_then(|alias| instantiate_raw_alias_key(alias, args, ctx, tctx)),
+        aggregate_field_raw_aliases: summary
+            .aggregate_field_raw_aliases
+            .iter()
+            .filter_map(|(offset, alias)| {
+                instantiate_raw_alias_key(alias, args, ctx, tctx).map(|alias| (*offset, alias))
+            })
+            .collect(),
+        enum_payload_raw_aliases: summary
+            .enum_payload_raw_aliases
+            .iter()
+            .filter_map(|(variant, alias)| {
+                instantiate_raw_alias_key(alias, args, ctx, tctx)
+                    .map(|alias| (variant.clone(), alias))
+            })
+            .collect(),
+        enum_payload_aggregate_field_raw_aliases: summary
+            .enum_payload_aggregate_field_raw_aliases
+            .iter()
+            .filter_map(|(variant, aliases)| {
+                let instantiated = aliases
+                    .iter()
+                    .filter_map(|(offset, alias)| {
+                        instantiate_raw_alias_key(alias, args, ctx, tctx)
+                            .map(|alias| (*offset, alias))
+                    })
+                    .collect::<BTreeMap<_, _>>();
+                if instantiated.is_empty() {
+                    None
+                } else {
+                    Some((variant.clone(), instantiated))
+                }
+            })
+            .collect(),
+    }
+}
+
+fn function_call_raw_alias_summary(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<FunctionRawAliasSummary> {
+    let HirExprKind::Call { callee, args } = &expr.kind else {
+        return None;
+    };
+    let FuncRef::User(name, _, _) = callee else {
+        return None;
+    };
+    let summary = ctx.function_raw_alias_summaries.get(name)?;
+    Some(instantiate_function_raw_alias_summary(
+        summary, args, ctx, tctx,
+    ))
 }
 
 fn aggregate_field_index_by_name(
@@ -1633,7 +1929,8 @@ fn raw_memory_place_key_from_mem_ptr(
             } else if is_region_ptr_name(name) {
                 raw_memory_place_key_from_region_token(&args[0], ctx, tctx)
             } else {
-                None
+                function_call_raw_alias_summary(expr, ctx, tctx)
+                    .and_then(|summary| summary.raw_addr_alias)
             }
         }
         HirExprKind::Call { callee, args } if args.len() >= 2 && is_mem_ptr_type(tctx, expr.ty) => {
@@ -1661,7 +1958,8 @@ fn raw_memory_place_key_from_mem_ptr(
                     None
                 }
             } else {
-                None
+                function_call_raw_alias_summary(expr, ctx, tctx)
+                    .and_then(|summary| summary.raw_addr_alias)
             }
         }
         HirExprKind::StructConstruct { name, fields, .. }
@@ -1674,6 +1972,8 @@ fn raw_memory_place_key_from_mem_ptr(
         {
             raw_alias_from_aggregate_field_load(expr, ctx, tctx)
         }
+        HirExprKind::Call { .. } => function_call_raw_alias_summary(expr, ctx, tctx)
+            .and_then(|summary| summary.raw_addr_alias),
         _ => None,
     }
 }
@@ -1697,7 +1997,8 @@ fn raw_memory_place_key_from_region_token(
                 let (owner, offset, _) = field_get_projection(expr, ctx, tctx)?;
                 return aggregate_field_raw_alias_at(owner, offset, ctx, tctx);
             }
-            None
+            function_call_raw_alias_summary(expr, ctx, tctx)
+                .and_then(|summary| summary.raw_addr_alias)
         }
         HirExprKind::StructConstruct { name, fields, .. }
             if name == "RegionToken" && !fields.is_empty() =>
@@ -1709,6 +2010,8 @@ fn raw_memory_place_key_from_region_token(
         {
             raw_alias_from_aggregate_field_load(expr, ctx, tctx)
         }
+        HirExprKind::Call { .. } => function_call_raw_alias_summary(expr, ctx, tctx)
+            .and_then(|summary| summary.raw_addr_alias),
         _ => None,
     }
 }
@@ -1755,19 +2058,13 @@ fn match_bind_raw_addr_alias(
     tctx: &crate::types::TypeCtx,
 ) -> Option<String> {
     let variant_name = pattern_variant_name(arm)?;
-    match &scrutinee.kind {
-        HirExprKind::Var(name) => ctx
-            .enum_payload_raw_alias(name, variant_name)
-            .map(ToString::to_string),
-        HirExprKind::EnumConstruct {
-            variant,
-            payload: Some(payload),
-            ..
-        } if variant == variant_name => raw_addr_alias_from_value(payload, ctx, tctx),
-        _ if is_result_ok_variant_name(variant_name) => {
-            region_ptr_at_result_ok_raw_alias(scrutinee, ctx, tctx)
-        }
-        _ => None,
+    if let Some(alias) = enum_payload_raw_alias_from_value(scrutinee, variant_name, ctx, tctx) {
+        return Some(alias);
+    }
+    if is_result_ok_variant_name(variant_name) {
+        region_ptr_at_result_ok_raw_alias(scrutinee, ctx, tctx)
+    } else {
+        None
     }
 }
 
@@ -1780,15 +2077,7 @@ fn match_bind_aggregate_field_raw_aliases(
     let Some(variant_name) = pattern_variant_name(arm) else {
         return BTreeMap::new();
     };
-    match &scrutinee.kind {
-        HirExprKind::Var(name) => ctx.enum_payload_aggregate_field_raw_aliases(name, variant_name),
-        HirExprKind::EnumConstruct {
-            variant,
-            payload: Some(payload),
-            ..
-        } if variant == variant_name => aggregate_field_raw_aliases_from_value(payload, ctx, tctx),
-        _ => BTreeMap::new(),
-    }
+    enum_payload_aggregate_field_raw_aliases_from_expr(scrutinee, variant_name, ctx, tctx)
 }
 
 fn enum_payload_raw_aliases_from_value(
@@ -1810,6 +2099,8 @@ fn enum_payload_raw_aliases_from_value(
         _ => {
             if let Some(alias) = region_ptr_at_result_ok_raw_alias(value, ctx, tctx) {
                 aliases.insert(String::from("Ok"), alias);
+            } else if let Some(summary) = function_call_raw_alias_summary(value, ctx, tctx) {
+                aliases = summary.enum_payload_raw_aliases;
             }
         }
     }
@@ -1832,6 +2123,8 @@ fn enum_payload_aggregate_field_raw_aliases_from_value(
         if !aggregate_aliases.is_empty() {
             aliases.insert(variant.clone(), aggregate_aliases);
         }
+    } else if let Some(summary) = function_call_raw_alias_summary(value, ctx, tctx) {
+        aliases = summary.enum_payload_aggregate_field_raw_aliases;
     }
     aliases
 }
@@ -1926,6 +2219,8 @@ fn aggregate_field_raw_aliases_from_value(
         HirExprKind::Call { .. } => {
             if let Some((owner, offset, field_ty)) = field_get_projection(value, ctx, tctx) {
                 aggregate_field_raw_aliases_from_projection(owner, offset, field_ty, ctx, tctx)
+            } else if let Some(summary) = function_call_raw_alias_summary(value, ctx, tctx) {
+                summary.aggregate_field_raw_aliases
             } else {
                 BTreeMap::new()
             }
@@ -3619,6 +3914,264 @@ fn visit_field_move_source(
     }
 }
 
+fn seed_summary_param_aliases(
+    ctx: &mut MoveCheckContext,
+    param: &crate::hir::HirParam,
+    index: usize,
+    tctx: &crate::types::TypeCtx,
+) {
+    ctx.declare_param(param.name.clone());
+    ctx.set_raw_addr_alias(&param.name, Some(function_param_raw_alias_key(index)));
+    let aggregate_aliases = aggregate_field_placeholder_aliases(tctx, param.ty, |offset| {
+        function_param_field_raw_alias_key(index, offset)
+    });
+    ctx.set_aggregate_field_raw_aliases(&param.name, aggregate_aliases);
+
+    let mut enum_payload_aliases = BTreeMap::new();
+    let mut enum_payload_aggregate_aliases = BTreeMap::new();
+    for (variant, payload_ty) in enum_variants_for_type(tctx, param.ty) {
+        if let Some(payload_ty) = payload_ty {
+            enum_payload_aliases.insert(
+                variant.clone(),
+                function_param_enum_payload_raw_alias_key(index, variant.as_str()),
+            );
+            let aggregate_aliases =
+                aggregate_field_placeholder_aliases(tctx, payload_ty, |offset| {
+                    function_param_enum_payload_field_raw_alias_key(index, variant.as_str(), offset)
+                });
+            if !aggregate_aliases.is_empty() {
+                enum_payload_aggregate_aliases.insert(variant, aggregate_aliases);
+            }
+        }
+    }
+    ctx.set_enum_payload_raw_aliases(&param.name, enum_payload_aliases);
+    ctx.set_enum_payload_aggregate_field_raw_aliases(&param.name, enum_payload_aggregate_aliases);
+}
+
+fn retain_matching_aliases<K: Ord + Clone>(
+    left: &BTreeMap<K, String>,
+    right: &BTreeMap<K, String>,
+) -> BTreeMap<K, String> {
+    left.iter()
+        .filter_map(|(key, alias)| {
+            if right.get(key) == Some(alias) {
+                Some((key.clone(), alias.clone()))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn retain_matching_nested_aliases<K: Ord + Clone>(
+    left: &BTreeMap<String, BTreeMap<K, String>>,
+    right: &BTreeMap<String, BTreeMap<K, String>>,
+) -> BTreeMap<String, BTreeMap<K, String>> {
+    left.iter()
+        .filter_map(|(variant, aliases)| {
+            let merged = retain_matching_aliases(aliases, right.get(variant)?);
+            if merged.is_empty() {
+                None
+            } else {
+                Some((variant.clone(), merged))
+            }
+        })
+        .collect()
+}
+
+fn merge_matching_raw_alias_summaries(
+    summaries: impl IntoIterator<Item = FunctionRawAliasSummary>,
+) -> FunctionRawAliasSummary {
+    let mut iter = summaries.into_iter();
+    let Some(mut merged) = iter.next() else {
+        return FunctionRawAliasSummary::default();
+    };
+    for summary in iter {
+        if merged.raw_addr_alias != summary.raw_addr_alias {
+            merged.raw_addr_alias = None;
+        }
+        merged.aggregate_field_raw_aliases = retain_matching_aliases(
+            &merged.aggregate_field_raw_aliases,
+            &summary.aggregate_field_raw_aliases,
+        );
+        merged.enum_payload_raw_aliases = retain_matching_aliases(
+            &merged.enum_payload_raw_aliases,
+            &summary.enum_payload_raw_aliases,
+        );
+        merged.enum_payload_aggregate_field_raw_aliases = retain_matching_nested_aliases(
+            &merged.enum_payload_aggregate_field_raw_aliases,
+            &summary.enum_payload_aggregate_field_raw_aliases,
+        );
+    }
+    merged
+}
+
+fn expression_raw_alias_summary(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> FunctionRawAliasSummary {
+    match &expr.kind {
+        HirExprKind::Block(block) => block_raw_alias_summary(block, ctx, tctx),
+        HirExprKind::If {
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            let mut branch_summaries = Vec::new();
+            if !is_never_type(tctx, then_branch.ty) {
+                branch_summaries.push(expression_raw_alias_summary(then_branch, ctx, tctx));
+            }
+            if !is_never_type(tctx, else_branch.ty) {
+                branch_summaries.push(expression_raw_alias_summary(else_branch, ctx, tctx));
+            }
+            merge_matching_raw_alias_summaries(branch_summaries)
+        }
+        HirExprKind::Match { scrutinee, arms } => {
+            let mut branch_summaries = Vec::new();
+            for arm in arms {
+                if is_never_type(tctx, arm.body.ty) {
+                    continue;
+                }
+                let mut arm_ctx = ctx.clone_for_alias_summary();
+                if let Some(bind) = &arm.bind_local {
+                    let raw_addr_alias = match_bind_raw_addr_alias(scrutinee, arm, &arm_ctx, tctx);
+                    let aggregate_field_raw_aliases =
+                        match_bind_aggregate_field_raw_aliases(scrutinee, arm, &arm_ctx, tctx);
+                    arm_ctx.declare_var(bind.clone());
+                    arm_ctx.set_raw_addr_alias(bind, raw_addr_alias);
+                    arm_ctx.set_aggregate_field_raw_aliases(bind, aggregate_field_raw_aliases);
+                }
+                branch_summaries.push(expression_raw_alias_summary(&arm.body, &arm_ctx, tctx));
+            }
+            merge_matching_raw_alias_summaries(branch_summaries)
+        }
+        _ => FunctionRawAliasSummary {
+            raw_addr_alias: raw_addr_alias_from_value(expr, ctx, tctx),
+            aggregate_field_raw_aliases: aggregate_field_raw_aliases_from_value(expr, ctx, tctx),
+            enum_payload_raw_aliases: enum_payload_raw_aliases_from_value(expr, ctx, tctx),
+            enum_payload_aggregate_field_raw_aliases:
+                enum_payload_aggregate_field_raw_aliases_from_value(expr, ctx, tctx),
+        },
+    }
+}
+
+fn block_raw_alias_summary(
+    block: &HirBlock,
+    base_ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> FunctionRawAliasSummary {
+    let mut ctx = base_ctx.clone_for_alias_summary();
+    let mut last_summary = FunctionRawAliasSummary::default();
+    for line in &block.lines {
+        match &line.expr.kind {
+            HirExprKind::Let { name, value, .. } => {
+                let raw_addr_alias = raw_addr_alias_from_value(value, &ctx, tctx);
+                let enum_payload_raw_aliases =
+                    enum_payload_raw_aliases_from_value(value, &ctx, tctx);
+                let aggregate_field_raw_aliases =
+                    aggregate_field_raw_aliases_from_value(value, &ctx, tctx);
+                let enum_payload_aggregate_field_raw_aliases =
+                    enum_payload_aggregate_field_raw_aliases_from_value(value, &ctx, tctx);
+                ctx.declare_var(name.clone());
+                ctx.set_raw_addr_alias(name, raw_addr_alias);
+                ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
+                ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
+                ctx.set_enum_payload_aggregate_field_raw_aliases(
+                    name,
+                    enum_payload_aggregate_field_raw_aliases,
+                );
+                last_summary = FunctionRawAliasSummary::default();
+            }
+            HirExprKind::Set { name, value } => {
+                let raw_addr_alias = raw_addr_alias_from_value(value, &ctx, tctx);
+                let enum_payload_raw_aliases =
+                    enum_payload_raw_aliases_from_value(value, &ctx, tctx);
+                let aggregate_field_raw_aliases =
+                    aggregate_field_raw_aliases_from_value(value, &ctx, tctx);
+                let enum_payload_aggregate_field_raw_aliases =
+                    enum_payload_aggregate_field_raw_aliases_from_value(value, &ctx, tctx);
+                ctx.set_raw_addr_alias(name, raw_addr_alias);
+                ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
+                ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
+                ctx.set_enum_payload_aggregate_field_raw_aliases(
+                    name,
+                    enum_payload_aggregate_field_raw_aliases,
+                );
+                last_summary = FunctionRawAliasSummary::default();
+            }
+            _ => {
+                last_summary = expression_raw_alias_summary(&line.expr, &ctx, tctx);
+            }
+        }
+    }
+    last_summary
+}
+
+impl MoveCheckContext {
+    fn clone_for_alias_summary(&self) -> Self {
+        Self {
+            string_literals: self.string_literals.clone(),
+            function_params: self.function_params.clone(),
+            function_raw_alias_summaries: self.function_raw_alias_summaries.clone(),
+            var_stacks: self.var_stacks.clone(),
+            var_depth_stacks: self.var_depth_stacks.clone(),
+            borrow_stacks: self.borrow_stacks.clone(),
+            field_move_stacks: self.field_move_stacks.clone(),
+            raw_addr_alias_stacks: self.raw_addr_alias_stacks.clone(),
+            enum_payload_raw_alias_stacks: self.enum_payload_raw_alias_stacks.clone(),
+            aggregate_field_raw_alias_stacks: self.aggregate_field_raw_alias_stacks.clone(),
+            enum_payload_aggregate_field_raw_alias_stacks: self
+                .enum_payload_aggregate_field_raw_alias_stacks
+                .clone(),
+            raw_place_states: self.raw_place_states.clone(),
+            borrow_counts: self.borrow_counts.clone(),
+            use_counts: Vec::new(),
+            diagnostics: Vec::new(),
+            scopes: self.scopes.clone(),
+        }
+    }
+}
+
+fn summarize_function_raw_aliases(
+    module: &HirModule,
+    func: &crate::hir::HirFunction,
+    tctx: &crate::types::TypeCtx,
+    function_raw_alias_summaries: &BTreeMap<String, FunctionRawAliasSummary>,
+) -> FunctionRawAliasSummary {
+    let mut ctx = MoveCheckContext::new(module);
+    ctx.function_raw_alias_summaries = function_raw_alias_summaries.clone();
+    ctx.push_scope();
+    for (index, param) in func.params.iter().enumerate() {
+        seed_summary_param_aliases(&mut ctx, param, index, tctx);
+    }
+    match &func.body {
+        crate::hir::HirBody::Block(block) => block_raw_alias_summary(block, &ctx, tctx),
+        _ => FunctionRawAliasSummary::default(),
+    }
+}
+
+fn build_function_raw_alias_summaries(
+    module: &HirModule,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<String, FunctionRawAliasSummary> {
+    let mut summaries = BTreeMap::new();
+    for _ in 0..=module.functions.len() {
+        let mut changed = false;
+        for func in &module.functions {
+            let summary = summarize_function_raw_aliases(module, func, tctx, &summaries);
+            if summaries.get(func.name.as_str()) != Some(&summary) {
+                summaries.insert(func.name.clone(), summary);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    summaries
+}
+
 pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic> {
     let function_params: BTreeMap<String, Vec<TypeId>> = module
         .functions
@@ -3630,10 +4183,15 @@ pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic>
             )
         })
         .collect();
+    let function_raw_alias_summaries = build_function_raw_alias_summaries(module, types);
     let mut diagnostics = Vec::new();
 
     for func in &module.functions {
-        let mut f_ctx = MoveCheckContext::with_function_params(module, function_params.clone());
+        let mut f_ctx = MoveCheckContext::with_function_params(
+            module,
+            function_params.clone(),
+            function_raw_alias_summaries.clone(),
+        );
         for param in &func.params {
             f_ctx.declare_param(param.name.clone());
         }

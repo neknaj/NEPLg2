@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T20:16:47.743Z",
+  "generated_at": "2026-04-27T20:33:26.992Z",
   "counts": {
-    "total": 222,
+    "total": 223,
     "open": 9,
-    "resolved": 213,
+    "resolved": 214,
     "by_area": {
       "core": {
-        "total": 90,
+        "total": 91,
         "open": 3,
-        "resolved": 87
+        "resolved": 88
       },
       "stdlib": {
         "total": 88,
@@ -1453,6 +1453,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T201239483Z-MOVE-CHECK-LOSES-AGGREGATE-RAW-ALIAS-4C18ECA0.md"
+    },
+    {
+      "id": "ISS-20260427T201910047Z-MOVE-CHECK-LOSES-RAW-ALIASES-RETURNE-85E61EC1",
+      "title": "move_check loses raw aliases returned from functions",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T201910047Z-MOVE-CHECK-LOSES-RAW-ALIASES-RETURNE-85E61EC1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260427T201910047Z function return raw alias tracking)
+
+- 状況:
+  - `move_check` は `MemPtr` / `RegionToken` / aggregate / enum payload の raw alias を local 変数には保持するようになったが、通常の user function がそれらを戻り値として返す場合、caller 側で provenance を復元していなかった。
+  - `id_ptr p` で得た `q` と元の `p` から同じ `LocalToken` を二重 `load` する修正前再現では、compiler が exit 0 で受理した。
+- 修正:
+  - monomorphized function ごとに conservative な raw alias summary を作り、戻り値の raw address alias / aggregate field alias / enum payload alias / enum payload 内 aggregate field alias を仮引数 placeholder で記録するようにした。
+  - user function call で summary を実引数の現在の raw alias state にインスタンス化し、`raw_addr_alias_from_value`、`raw_memory_place_key_from_mem_ptr`、`raw_memory_place_key_from_region_token`、aggregate/enum payload alias 復元へ接続した。
+  - summary は関数間で固定点反復して構築し、関数が別関数の戻り値をそのまま返す場合にも alias を伝搬できるようにした。
+  - `if` / `match` で戻す値も、継続する分岐すべてで同じ alias になる場合だけ conservative に保持するようにした。
+  - `tests/compiler/move_effect.n.md` に MemPtr 直接戻り値、aggregate field、Result payload、Result payload 内 aggregate field、if 経由戻り値、direct match payload の compile_fail 回帰テストを追加した。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/function-return-raw-alias-node.json -j 1`: `total=85`, `passed=85`
+  - 修正前再現 `tmp/function-return-memptr-alias-double-load.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の関数境界を越えた raw alias 検査を強化した。
+
 # 2026-04-28 メモ (ISS-20260427T201239483Z enum payload aggregate field raw alias tracking)
 
 - 状況:

@@ -812,6 +812,203 @@ fn main <()->i32> ():
             0
 ```
 
+## 関数が返した MemPtr alias は raw place の同一性を保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn id_ptr <(MemPtr<LocalToken>)->MemPtr<LocalToken>> (p):
+    p
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let q <MemPtr<LocalToken>> id_ptr p
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
+## 関数が返した aggregate field の MemPtr alias は保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/field" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct PtrHolder:
+    ptr <MemPtr<LocalToken>>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn make_holder <(MemPtr<LocalToken>)->PtrHolder> (p):
+    PtrHolder p
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let holder <PtrHolder> make_holder p
+    let q <MemPtr<LocalToken>> field::get holder "ptr"
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
+## 関数が返した Result payload の MemPtr alias は match bind 後も保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn ok_ptr <(MemPtr<LocalToken>)->Result<MemPtr<LocalToken>,str>> (p):
+    Result<MemPtr<LocalToken>,str>::Ok p
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let res <Result<MemPtr<LocalToken>,str>> ok_ptr p
+    match res:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            0
+        Result::Err _e:
+            0
+```
+
+## 関数が返した Result payload 内 aggregate field alias は保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/field" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct PtrHolder:
+    ptr <MemPtr<LocalToken>>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn ok_holder <(PtrHolder)->Result<PtrHolder,str>> (holder):
+    Result<PtrHolder,str>::Ok holder
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let holder <PtrHolder> PtrHolder p
+    let res <Result<PtrHolder,str>> ok_holder holder
+    match res:
+        Result::Ok h:
+            let q <MemPtr<LocalToken>> field::get h "ptr"
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            0
+        Result::Err _e:
+            0
+```
+
+## if で返した関数戻り値の MemPtr alias は両分岐一致時に保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_ptr <(bool,MemPtr<LocalToken>)->MemPtr<LocalToken>> (flag, p):
+    if flag:
+        then:
+            p
+        else:
+            p
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let q <MemPtr<LocalToken>> choose_ptr true p
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
+## 関数が返した Result を直接 match しても payload alias は保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn ok_ptr <(MemPtr<LocalToken>)->Result<MemPtr<LocalToken>,str>> (p):
+    Result<MemPtr<LocalToken>,str>::Ok p
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    match ok_ptr p:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            0
+        Result::Err _e:
+            0
+```
+
 ## raw realloc は initialized non-Copy place を byte move できない
 
 neplg2:test[compile_fail]
