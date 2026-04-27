@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T00:07:14.774Z",
+  "generated_at": "2026-04-27T00:18:31.321Z",
   "counts": {
     "total": 170,
-    "open": 27,
-    "resolved": 143,
+    "open": 26,
+    "resolved": 144,
     "by_area": {
       "cli": {
         "total": 19,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 63,
-        "open": 6,
-        "resolved": 57
+        "open": 5,
+        "resolved": 58
       },
       "stdlib": {
         "total": 63,
@@ -88,21 +88,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T213057658Z-LLVM-CODEGEN-REACHES-UNBOUND-LOCALS--5CA65A55",
-      "title": "LLVM codegen reaches unbound locals after lowering",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs, stdlib/alloc/collections/adjacency_matrix.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T213057658Z-LLVM-CODEGEN-REACHES-UNBOUND-LOCALS--5CA65A55.md"
     },
     {
       "id": "ISS-20260426T213058045Z-LLVM-DUAL-RUNNER-RETURNS-NULL-OR-CRA-BC38ABEB",
@@ -1213,6 +1198,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T213057469Z-LLVM-BACKEND-LACKS-REFERENCE-ADDROF--5F102ECE.md"
+    },
+    {
+      "id": "ISS-20260426T213057658Z-LLVM-CODEGEN-REACHES-UNBOUND-LOCALS--5CA65A55",
+      "title": "LLVM codegen reaches unbound locals after lowering",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/codegen_llvm.rs, nepl-core/tests/neplg2.rs, tests/compiler/move_effect.n.md, stdlib/alloc/collections/adjacency_matrix.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057658Z-LLVM-CODEGEN-REACHES-UNBOUND-LOCALS--5CA65A55.md"
     },
     {
       "id": "ISS-20260426T213057843Z-LLVM-MONOMORPHIZE-LEAVES-GENERIC-HAS-8FDB0749",

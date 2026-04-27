@@ -831,6 +831,10 @@ impl<'a> LowerCtx<'a> {
         }
     }
 
+    fn bind_zero_sized_local(&mut self, name: &str) {
+        self.bind_local(name, String::new(), LlTy::Void);
+    }
+
     fn lookup_local_current(&self, name: &str) -> Option<&LocalBinding> {
         self.scopes.last().and_then(|scope| scope.get(name))
     }
@@ -1625,6 +1629,7 @@ fn predeclare_block_locals(types: &TypeCtx, ctx: &mut LowerCtx<'_>, block: &HirB
             }
             let llty = llty_for_type(types, value.ty);
             if llty == LlTy::Void {
+                ctx.bind_zero_sized_local(name.as_str());
                 continue;
             }
             let ptr = ctx.next_tmp();
@@ -1673,6 +1678,9 @@ fn lower_hir_expr(
                 ));
             };
             let bty = binding.ty;
+            if bty == LlTy::Void {
+                return Ok(None);
+            }
             let bptr = binding.ptr.clone();
             let tmp = ctx.next_tmp();
             ctx.push_line(&format!(
@@ -1686,6 +1694,11 @@ fn lower_hir_expr(
         }
         HirExprKind::Let { name, value, .. } => {
             let Some(v) = lower_hir_expr(types, ctx, value)? else {
+                if llty_for_type(types, value.ty) == LlTy::Void
+                    && ctx.lookup_local_fuzzy(name.as_str()).is_none()
+                {
+                    ctx.bind_zero_sized_local(name.as_str());
+                }
                 return Ok(None);
             };
             let (ptr, pty) = if let Some(binding) = ctx.lookup_local_fuzzy(name.as_str()).cloned() {
@@ -1721,6 +1734,12 @@ fn lower_hir_expr(
                 ));
             };
             let Some(v) = lower_hir_expr(types, ctx, value)? else {
+                if binding.ty != LlTy::Void {
+                    llvm_codegen_bail!(
+                        "internal compiler error: set value did not produce a value in llvm codegen for '{}'",
+                        name
+                    );
+                }
                 return Ok(None);
             };
             if v.ty != binding.ty {
@@ -2526,9 +2545,7 @@ fn lower_hir_expr(
                         {
                             let payload_ll = llty_for_type(types, payload_ty);
                             if payload_ll == LlTy::Void {
-                                // unit payload は実体を持たないため束縛しない
-                                // （_ 以外への束縛利用は後段で拡張する）
-                                // 現時点では match 評価の継続のみ行う。
+                                ctx.bind_zero_sized_local(bind.as_str());
                             } else {
                                 let payload_offset = 4i64;
                                 let base_ptr8 = ctx.linear_i8_ptr_from_i32(scr_v.repr.as_str());
