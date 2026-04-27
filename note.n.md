@@ -1,3 +1,24 @@
+# 2026-04-27 メモ (ISS-20260427T052030799Z nm block parser allocation)
+
+- 状況:
+  - `stdlib/nm/parser.nepl` の `parse_markdown` は root / section children 用 `Vec<Node>` の生成と push を `unwrap_ok` で処理していた。
+  - `close_one_section` と `nest_stack_push_from_hdr` も section close / stack grow で `unwrap_ok` を使っていたため、block parser 側に `RV-STDLIB-010` の trap 経路が残っていた。
+- 修正:
+  - `NodePushRes`、`nm_node_empty_vec`、`nm_push_node` を追加し、`Vec<Node>` push failure を `ok=false` と空 Vec sentinel へ変換するようにした。
+  - `nest_stack_push_from_hdr_result` を追加し、`realloc_ptr<NestSection>` failure を `Result` として扱うようにした。
+  - `close_one_section` と `parse_markdown` の root/kids `v::new` / `v::push` から unsafe `unwrap_ok` を除去した。
+  - `nodesrc/test_stdlib_nm_parser_no_block_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-block-allocation-docs.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-block-allocation-focused.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-block-allocation-suite.json -j 1`: `total=10`, `passed=10`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-nm-parser-block-allocation.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-nm-parser-block-allocation.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host/docs tooling に近い nm block parser の allocation failure を trap から空 Document sentinel に戻す stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260427T050328482Z nm inline parser allocation)
 
 - 状況:

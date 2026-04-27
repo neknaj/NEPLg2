@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T05:16:50.412Z",
+  "generated_at": "2026-04-27T05:30:06.433Z",
   "counts": {
-    "total": 179,
+    "total": 180,
     "open": 6,
-    "resolved": 173,
+    "resolved": 174,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 71,
+        "total": 72,
         "open": 5,
-        "resolved": 66
+        "resolved": 67
       },
       "cli": {
         "total": 19,
@@ -2608,6 +2608,21 @@
       "legacy_id": "",
       "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
       "file": "items/ISS-20260427T050328482Z-NM-INLINE-PARSER-VEC-ALLOCATION-FAIL-817BA561.md"
+    },
+    {
+      "id": "ISS-20260427T052030799Z-NM-BLOCK-PARSER-VEC-NODE-ALLOCATION--10EE8F1D",
+      "title": "nm block parser が Vec<Node> allocation failure を unwrap_ok で trap する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/nm/parser.nepl, tests/stdlib/nm.n.md, nodesrc/test_stdlib_nm_parser_no_block_unwraps.js",
+      "legacy_id": "",
+      "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
+      "file": "items/ISS-20260427T052030799Z-NM-BLOCK-PARSER-VEC-NODE-ALLOCATION--10EE8F1D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

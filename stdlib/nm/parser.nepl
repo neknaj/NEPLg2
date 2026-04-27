@@ -160,6 +160,14 @@ struct StrPushRes:
     items <Vec<str>>
     ok <bool>
 
+//: NodePushRes: `Node` push の結果
+//:
+//: [目的/もくてき]:
+//: - block parser の root/children push 後 Vec owner と、push が成功したかを同時に返します。
+struct NodePushRes:
+    items <Vec<Node>>
+    ok <bool>
+
 // -----------------------------
 // Small helpers
 // -----------------------------
@@ -175,6 +183,24 @@ fn nest_stack_data_ptr_ptr_from_hdr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
 
 fn nest_stack_data_from_hdr <(MemPtr<u8>)->MemPtr<NestSection>> (hdr):
     mem_ptr_wrap load_i32 mem_ptr_addr nest_stack_data_ptr_ptr_from_hdr hdr
+
+//: nm_node_empty_vec: 空の `Node` Vec sentinel を作る
+//:
+//: [目的/もくてき]:
+//: - block parser の allocation failure 時に、consumed owner を再利用せず空の失敗値へ切り替えます。
+fn nm_node_empty_vec <()->Vec<Node>> ():
+    v::Vec<Node> 0 0 mem_ptr_wrap 0
+
+//: nm_push_node: `Node` Vec への push を trap せず結果化する
+//:
+//: [目的/もくてき]:
+//: - `v::push` の grow failure を `unwrap_ok` で trap させず、`ok=false` と空 Vec sentinel へ変換します。
+fn nm_push_node <(Vec<Node>, Node)->NodePushRes> (items, item):
+    match v::push<Node> items item:
+        Result::Ok next:
+            NodePushRes next true
+        Result::Err _e:
+            NodePushRes nm_node_empty_vec false
 
 fn nest_stack_peek_from_hdr <(MemPtr<u8>)->Option<NestSection>> (hdr):
     let len <i32> nest_stack_len_from_hdr hdr;
@@ -199,7 +225,7 @@ fn nest_stack_pop_from_hdr <(MemPtr<u8>)->Option<NestSection>> (hdr):
             store_i32 mem_ptr_addr hdr new_len;
             some<NestSection> item
 
-fn nest_stack_push_from_hdr <(MemPtr<u8>,NestSection)->()> (hdr, item):
+fn nest_stack_push_from_hdr_result <(MemPtr<u8>,NestSection)->Result<(),str>> (hdr, item):
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr;
     let cap_ptr <MemPtr<i32>> nest_stack_cap_ptr_from_hdr hdr;
     let data_ptr_ptr <MemPtr<i32>> nest_stack_data_ptr_ptr_from_hdr hdr;
@@ -210,18 +236,21 @@ fn nest_stack_push_from_hdr <(MemPtr<u8>,NestSection)->()> (hdr, item):
         eq len cap
         then:
             let new_cap <i32> if eq cap 0 1 mul cap 2;
-            let new_data <MemPtr<NestSection>> unwrap_ok realloc_ptr<NestSection> data mul cap size_of<NestSection> mul new_cap size_of<NestSection>;
-            let off <i32> mul len size_of<NestSection>;
-            store<NestSection> add mem_ptr_addr new_data off item;
-            store_i32 mem_ptr_addr cap_ptr new_cap;
-            store_i32 mem_ptr_addr data_ptr_ptr mem_ptr_addr new_data;
-            store_i32 mem_ptr_addr len_ptr add len 1;
-            ()
+            match realloc_ptr<NestSection> data mul cap size_of<NestSection> mul new_cap size_of<NestSection>:
+                Result::Ok new_data:
+                    let off <i32> mul len size_of<NestSection>;
+                    store<NestSection> add mem_ptr_addr new_data off item;
+                    store_i32 mem_ptr_addr cap_ptr new_cap;
+                    store_i32 mem_ptr_addr data_ptr_ptr mem_ptr_addr new_data;
+                    store_i32 mem_ptr_addr len_ptr add len 1;
+                    Result<(),str>::Ok ()
+                Result::Err _e:
+                    Result<(),str>::Err "nm.parser nest stack grow failed"
         else:
             let off <i32> mul len size_of<NestSection>;
             store<NestSection> add mem_ptr_addr data off item;
             store_i32 mem_ptr_addr len_ptr add len 1;
-            ()
+            Result<(),str>::Ok ()
 
 //: is_empty_line: 主な用途
 //:
@@ -378,14 +407,26 @@ fn close_one_section <(Stack<NestSection>, Vec<Node>)*>Vec<Node>> (stk, root):
                     let parent_heading <Heading> get top "heading";
                     match nest_stack_pop_from_hdr hdr:
                         Option::Some parent:
-                            let kids <Vec<Node>> unwrap_ok v::push<Node> get parent "children" node;
-                            let parent2 <NestSection> NestSection parent_level parent_heading kids;
-                            nest_stack_push_from_hdr hdr parent2;
-                            root
+                            let pushed_kids <NodePushRes> nm_push_node get parent "children" node;
+                            let pushed_kids_ok <bool> get pushed_kids "ok";
+                            let kids <Vec<Node>> get pushed_kids "items";
+                            if:
+                                pushed_kids_ok
+                                then:
+                                    let parent2 <NestSection> NestSection parent_level parent_heading kids;
+                                    match nest_stack_push_from_hdr_result hdr parent2:
+                                        Result::Ok _:
+                                            root
+                                        Result::Err _e:
+                                            root
+                                else:
+                                    root
                         Option::None:
-                            unwrap_ok v::push<Node> root node
+                            let pushed_root <NodePushRes> nm_push_node root node;
+                            get pushed_root "items"
                 Option::None:
-                    unwrap_ok v::push<Node> root node
+                    let pushed_root <NodePushRes> nm_push_node root node;
+                    get pushed_root "items"
         Option::None:
             root
 
@@ -1016,10 +1057,16 @@ pub fn parse_markdown <(str)->Document> (input):
     store<Vec<str>> lines_mem lines;
     let nlines <i32> get load<Vec<str>> lines_mem "len";
 
-    let mut root <Vec<Node>> unwrap_ok v::new<Node>;
+    let mut root <Vec<Node>> nm_node_empty_vec;
+    let mut failed <bool> false;
+    match v::new<Node>:
+        Result::Ok root0:
+            set root root0
+        Result::Err _e:
+            set failed true;
     let mut i <i32> 0;
 
-    while lt i nlines:
+    while and lt i nlines not failed:
         do:
             let line <str> safe_line lines_mem i;
             let t <str> str_trim line;
@@ -1037,9 +1084,17 @@ pub fn parse_markdown <(str)->Document> (input):
                             if:
                                 is_hr_line t
                                 then:
-                                    set root unwrap_ok v::push<Node> root Node::Hr;
-                                    set i add i 1;
-                                    ()
+                                    let pushed_root <NodePushRes> nm_push_node root Node::Hr;
+                                    let pushed_root_ok <bool> get pushed_root "ok";
+                                    set root get pushed_root "items";
+                                    if:
+                                        pushed_root_ok
+                                        then:
+                                            set i add i 1;
+                                            ()
+                                        else:
+                                            set failed true;
+                                            ()
                                 else:
                                     if:
                                         is_fence_start t
@@ -1048,16 +1103,29 @@ pub fn parse_markdown <(str)->Document> (input):
                                             let fr_next_i <i32> get fr "next_i";
                                             let fr_cb <CodeBlockInfo> get fr "cb";
                                             let node <Node> Node::CodeBlock fr_cb;
-                                            set root unwrap_ok v::push<Node> root node;
-                                            set i fr_next_i;
-                                            ()
+                                            let pushed_root <NodePushRes> nm_push_node root node;
+                                            let pushed_root_ok <bool> get pushed_root "ok";
+                                            set root get pushed_root "items";
+                                            if:
+                                                pushed_root_ok
+                                                then:
+                                                    set i fr_next_i;
+                                                    ()
+                                                else:
+                                                    set failed true;
+                                                    ()
                                         else:
                                             match parse_heading t:
                                                 Option::Some h:
-                                                    let mut kids <Vec<Node>> unwrap_ok v::new<Node>;
+                                                    let mut kids <Vec<Node>> nm_node_empty_vec;
+                                                    match v::new<Node>:
+                                                        Result::Ok kids0:
+                                                            set kids kids0
+                                                        Result::Err _e:
+                                                            set failed true;
                                                     let mut j <i32> add i 1;
                                                     let mut done <bool> false;
-                                                    while not done:
+                                                    while and not done not failed:
                                                         do:
                                                             if:
                                                                 ge j nlines
@@ -1084,13 +1152,33 @@ pub fn parse_markdown <(str)->Document> (input):
                                                                                     store<ParaRes> pr_mem pr;
                                                                                     let pr_inlines <Vec<Inline>> get load<ParaRes> pr_mem "inlines";
                                                                                     let pr_next_i <i32> get load<ParaRes> pr_mem "next_i";
-                                                                                    set kids unwrap_ok v::push<Node> kids Node::Paragraph pr_inlines;
-                                                                                    set j pr_next_i;
-                                                                                    ()
+                                                                                    let pushed_kids <NodePushRes> nm_push_node kids Node::Paragraph pr_inlines;
+                                                                                    let pushed_kids_ok <bool> get pushed_kids "ok";
+                                                                                    set kids get pushed_kids "items";
+                                                                                    if:
+                                                                                        pushed_kids_ok
+                                                                                        then:
+                                                                                            set j pr_next_i;
+                                                                                            ()
+                                                                                        else:
+                                                                                            set failed true;
+                                                                                            ()
                                                     let sec <NestSection> NestSection get h "level" h kids;
-                                                    set root unwrap_ok v::push<Node> root Node::Section sec;
-                                                    set i j;
-                                                    ()
+                                                    if:
+                                                        not failed
+                                                        then:
+                                                            let pushed_root <NodePushRes> nm_push_node root Node::Section sec;
+                                                            let pushed_root_ok <bool> get pushed_root "ok";
+                                                            set root get pushed_root "items";
+                                                            if:
+                                                                pushed_root_ok
+                                                                then:
+                                                                    set i j;
+                                                                    ()
+                                                                else:
+                                                                    set failed true;
+                                                                    ()
+                                                        else ()
                                                 Option::None:
                                                     // Paragraph
                                                     let pr <ParaRes> parse_paragraph lines_mem nlines i;
@@ -1099,9 +1187,17 @@ pub fn parse_markdown <(str)->Document> (input):
                                                     let pr_inlines <Vec<Inline>> get load<ParaRes> pr_mem "inlines";
                                                     let pr_next_i <i32> get load<ParaRes> pr_mem "next_i";
                                                     let pnode <Node> Node::Paragraph pr_inlines;
-                                                    set root unwrap_ok v::push<Node> root pnode;
-                                                    set i pr_next_i;
-                                                    ()
+                                                    let pushed_root <NodePushRes> nm_push_node root pnode;
+                                                    let pushed_root_ok <bool> get pushed_root "ok";
+                                                    set root get pushed_root "items";
+                                                    if:
+                                                        pushed_root_ok
+                                                        then:
+                                                            set i pr_next_i;
+                                                            ()
+                                                        else:
+                                                            set failed true;
+                                                            ()
 
     Document root
 
