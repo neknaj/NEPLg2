@@ -1323,9 +1323,7 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
                 Result::Err e:
                     let left0_cap <i32> field::get left0 "cap"
                     let left0_data <MemPtr<.T>> field::get left0 "data"
-                    match dealloc_ptr<.T> left0_data mul left0_cap size_of<.T>:
-                        Result::Ok _: ()
-                        Result::Err _: ()
+                    dealloc_raw mem_ptr_addr left0_data mul left0_cap size_of<.T>
                     Result::Err<.Pair, StdErrorKind> e
                 Result::Ok right0:
                     let left_cap <i32> field::get left0 "cap"
@@ -1719,7 +1717,7 @@ fn all <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
 //: - `Vec<.T>` が[所有/しょゆう]する `data` [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - `cap * size_of<.T>` byte を `dealloc_ptr<.T>` へ[渡/わた]します。
+//: - `cap * size_of<.T>` byte を、owner invariant に[基/もと]づいて `dealloc_raw` へ[渡/わた]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
@@ -1743,8 +1741,4 @@ fn all <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
 fn free <.T> <(Vec<.T>)->()> (v):
     let v_cap <i32> field::get v "cap"
     let v_data <MemPtr<.T>> field::get v "data"
-    match dealloc_ptr<.T> v_data mul v_cap size_of<.T>:
-        Result::Ok _:
-            ()
-        Result::Err _e:
-            #intrinsic "unreachable" <> ()
+    dealloc_raw mem_ptr_addr v_data mul v_cap size_of<.T>

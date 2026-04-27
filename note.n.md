@@ -19168,3 +19168,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の parser/evaluator stack が cleanup 時に unsafe helper に依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000313237Z Vec owned cleanup)
+
+- [同期]:
+  - `origin/main` が `a4a8b06 stdlib: remove stack unsafe cleanup unwraps` で一致している状態から `stdlib/vec-owned-cleanup` branch を作成した。
+- [原因]:
+  - `Vec` の `data` buffer は `new` / `with_capacity` / helper allocation が確保し、返された `Vec` owner が単独所有する。
+  - `Vec.free`、`partition` の途中確保失敗 cleanup、merge sort の scratch buffer cleanup は所有済み buffer の内部 cleanup だが、`dealloc_ptr` の checked result を unreachable / Failure / 握りつぶしで扱っていた。
+  - `Vec` は self-host の中心 container なので、通常 cleanup が impossible branch や checked deallocation path に依存しない必要がある。
+- [修正]:
+  - `Vec.free` を `dealloc_raw mem_ptr_addr v_data ...` に変更した。
+  - `partition` の右側 allocation failure cleanup を `dealloc_raw` に変更した。
+  - `sort_merge` / `sort_merge_ret` の scratch buffer cleanup を `dealloc_raw` に変更し、allocation failure だけを `Result::Err` として残した。
+  - capacity 0 / grow 後 `free` / 再確保 regression と、merge sort scratch cleanup regression、Vec 実装に unsafe unwrap / checked deallocation が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-owned-cleanup-docs.json -j 1`: 39/39 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-sort-owned-cleanup-docs.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-owned-cleanup-focused.json -j 1`: 4/4 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-vec-owned-cleanup.json -j 4`: 298/298 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-vec-owned-cleanup.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の中心 container である Vec が cleanup 時に unsafe helper / impossible dealloc branch に依存しないようになった。
