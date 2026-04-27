@@ -1,3 +1,21 @@
+# 2026-04-27 メモ (ISS-20260427T064556270Z core/cast doc boilerplate)
+
+- 状況:
+  - `stdlib/core/cast.nepl` に、`主な用途`、`定義済み処理`、`薄いラッパ`、汎用的な move/rebind 注意などの生成テンプレート文言が残っていた。
+  - 既存の具体的な変換説明と重複し、cast / bitcast の意味を確認するうえでノイズになっていた。
+- 修正:
+  - `i32 <-> f32`、`bool <-> i32`、`i32 <-> u8`、`bitcast_i32_to_f32`、`bitcast_f32_to_i32` のコメントを実際の変換仕様に沿った nm コメントへ整理した。
+  - `nodesrc/test_stdlib_cast_doc_no_boilerplate.js` を追加し、生成テンプレート文言の再混入と重要な仕様説明の欠落を検出するようにした。
+  - CI と `doc/testing.md` の source policy regressions に同テストを登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_cast_doc_no_boilerplate.js`: pass
+  - `node nodesrc/tests.js -i stdlib/core/cast.nepl --no-tree -o tmp/cast-doc-boilerplate.json -j 1`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-cast-doc-boilerplate.json -j 4`: `total=418`, `passed=418`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib core conversion API の doc debt を局所的に解消し、再発防止を追加するもの。
+
 # 2026-04-27 メモ (ISS-20260427T062158099Z ScannerReadable overloads)
 
 - 状況:
