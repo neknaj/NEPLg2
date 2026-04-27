@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T03:52:38.883Z",
+  "generated_at": "2026-04-27T04:07:33.549Z",
   "counts": {
     "total": 174,
-    "open": 7,
-    "resolved": 167,
+    "open": 6,
+    "resolved": 168,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 66,
-        "open": 6,
-        "resolved": 60
+        "open": 5,
+        "resolved": 61
       },
       "cli": {
         "total": 19,
@@ -73,21 +73,6 @@
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520",
-      "title": "str の UTF-8 保証が実装で守られていない",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/string.nepl, stdlib/std/fs.nepl, stdlib/alloc/io.nepl",
-      "legacy_id": "RV-STDLIB-007",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-007",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -1303,6 +1288,21 @@
       "legacy_id": "RV-STDLIB-006",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-006",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-006-673F4E12.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520",
+      "title": "str の UTF-8 保証が実装で守られていない",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/text.nepl, tests/stdlib/text_utf8.n.md, nodesrc/test_stdlib_bytebuf_utf8_boundary.js",
+      "legacy_id": "RV-STDLIB-007",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-007",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-012-C31422D8",

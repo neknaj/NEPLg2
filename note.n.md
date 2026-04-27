@@ -1,3 +1,27 @@
+# 2026-04-27 メモ (ISS-20260425T000000Z-RV-STDLIB-007 UTF-8 境界)
+
+- 状況:
+  - `str` は UTF-8 保証を持つ値として扱う仕様だが、`alloc/io` の `io_bytebuf_to_str_result` が `ByteBuf` を unchecked に `str` へ複製していた。
+  - `std/fs` の `fs_read_to_string` / `fs_bytes_to_string_result` はこの境界に委譲していたため、invalid UTF-8 の file content が `str` として流入し得た。
+  - `fs_string_from_bytes` も WASI `fd_readdir` の name byte range を検証せず directory entry name の `str` として複製していた。
+- 修正:
+  - `io_bytebuf_to_str_result` は `string_utf8_validate_mem` 成功後だけ `string_from_mem_unchecked_result` を呼ぶようにし、invalid UTF-8 は `StdErrorKind::InvalidUtf8` にした。
+  - `fs_bytes_to_string_result` / `fs_read_to_string` の仕様コメントを checked UTF-8 境界に合わせて更新した。
+  - `fs_string_from_bytes` は directory entry name を UTF-8 検証し、invalid entry を errno 84 (ILSEQ 相当) として返すようにした。
+  - `std/text` の説明を更新し、source text 向け checked path と全体の `ByteBuf -> str` checked 境界の責務を整理した。
+  - `tests/stdlib/text_utf8.n.md` と `nodesrc/test_stdlib_bytebuf_utf8_boundary.js` に、invalid UTF-8 が `str` として通らないことを監視する回帰テストを追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/bytebuf-utf8-text-tests.json -j 1`: `total=7`, `passed=7`
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-utf8-bytebuf-tests.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/bytebuf-utf8-io-docs.json -j 1`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/bytebuf-utf8-fs-docs.json -j 1`: `total=7`, `passed=7`
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-bytebuf-utf8.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-bytebuf-utf8.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は、現行 stdlib の `ByteBuf -> str` 境界と filesystem 入口で `str` の UTF-8 保証を実装上も守るための修正。
+
 # 2026-04-27 メモ (ISS-20260425T000000Z-RV-CORE-010 name resolution 統合)
 
 - 状況:

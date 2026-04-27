@@ -63,6 +63,40 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
+## io_bytebuf_to_str_result_rejects_invalid_utf8
+
+このケースは、`alloc/io` の `ByteBuf -> str` 境界そのものが invalid UTF-8 を拒否することを確認します。
+raw bytes が必要な場合は `ByteBuf` のまま扱い、`str` に変換する経路では UTF-8 保証を破らないための回帰テストです。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/test" as *
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let mut checks <Vec<Result<(),str>>> checks_new;
+    match alloc_ptr<u8> 1:
+        Result::Err _e:
+            set checks checks_push checks Result<(),str>::Err "alloc failed"
+        Result::Ok data:
+            let raw <i32> mem_ptr_addr data
+            store_u8 raw 128;
+            match io_bytebuf_to_str_result ByteBuf data 1:
+                Result::Ok _text:
+                    set checks checks_push checks Result<(),str>::Err "invalid ByteBuf was accepted as str"
+                Result::Err e:
+                    set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
+    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    checks_exit_code shown
+```
+
 ## bytebuf_to_utf8_str_rejects_overlong_sequence
 
 このケースは、overlong encoding を continuation byte の個数だけで受け入れないことを確認します。
@@ -132,6 +166,46 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "write failed"
                 Result::Ok _:
                     match fs_read_to_string_checked path:
+                        Result::Ok _text:
+                            set checks checks_push checks Result<(),str>::Err "invalid UTF-8 file was accepted"
+                        Result::Err e:
+                            set checks checks_push checks check_eq_i32 84 e;
+    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    checks_exit_code shown
+```
+
+## fs_read_to_string_rejects_invalid_utf8
+
+このケースは、通常の `fs_read_to_string` も invalid UTF-8 を errno 84 として拒否することを確認します。
+`str` 型の UTF-8 保証をファイル読み込みの標準入口でも守るための回帰テストです。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/fs" as *
+#import "std/test" as *
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let mut checks <Vec<Result<(),str>>> checks_new;
+    let path <str> "tmp/fs_invalid_utf8_default_case.bin"
+    match alloc_ptr<u8> 1:
+        Result::Err _e:
+            set checks checks_push checks Result<(),str>::Err "alloc failed"
+        Result::Ok data:
+            let raw <i32> mem_ptr_addr data
+            store_u8 raw 128;
+            match fs_write_to_bytes path ByteBuf data 1:
+                Result::Err _e:
+                    set checks checks_push checks Result<(),str>::Err "write failed"
+                Result::Ok _:
+                    match fs_read_to_string path:
                         Result::Ok _text:
                             set checks checks_push checks Result<(),str>::Err "invalid UTF-8 file was accepted"
                         Result::Err e:

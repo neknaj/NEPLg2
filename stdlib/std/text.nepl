@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - filesystem や stdin から[入/はい]る raw `ByteBuf` を、`str` として[扱/あつか]う[前/まえ]に UTF-8 として[妥当/だとう]か[検査/けんさ]します。
-//: - `alloc/io` の unchecked `io_bytebuf_to_str_result` を[直接/ちょくせつ][使/つか]う[経路/けいろ]と、source text [向/む]けの checked [経路/けいろ]を[分/わ]けます。
+//: - `alloc/io` の `ByteBuf -> str` 境界も checked ですが、source text [向/む]けには invalid UTF-8 を明示的に `InvalidUtf8` として返すこの入口を使います。
 //:
 //: ### [注意/ちゅうい]
 //: - `text_bytebuf_to_utf8_str_result` は[入力/にゅうりょく] `ByteBuf` の[所有権/しょゆうけん]を[消費/しょうひ]し、成功時も失敗時も caller は buffer を[再利用/さいりよう]しません。

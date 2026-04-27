@@ -125,17 +125,17 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
         Result::Err _e:
             io_bytebuf_empty
 
-//: io_bytebuf_to_str_result: `ByteBuf` を `str` へ変換する
+//: io_bytebuf_to_str_result: `ByteBuf` を UTF-8 検証して `str` へ変換する
 //:
 //: [目的/もくてき]:
-//: - 所有 byte buffer を text helper へ渡せる `str` 表現に詰め直し、確保失敗を `StdErrorKind::OutOfMemory` として返します。
+//: - 所有 byte buffer を text helper へ渡せる `str` 表現に詰め直し、invalid UTF-8 と確保失敗を `StdErrorKind` として返します。
 //:
 //: [実装/じっそう]:
-//: - `string_from_mem_unchecked_result` で文字列領域を確保し、bulk copy で byte 表現をそのまま複製します。
+//: - `string_utf8_validate_mem` で UTF-8 として妥当か確認し、成功時だけ `string_from_mem_unchecked_result` で文字列領域を確保して複製します。
 //: - 成功時も失敗時も入力 `ByteBuf` はこの関数が解放します。
 //:
 //: [注意/ちゅうい]:
-//: - UTF-8 検証は行いません。
+//: - raw bytes を保持したい場合は `ByteBuf` のまま扱い、`str` へ変換しないでください。
 //: - 呼び出し後に入力 `ByteBuf` を再利用しないでください。
 //:
 //: [計算量/けいさんりょう]:
@@ -143,13 +143,24 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
     let byte_len <i32> get buf "len"
     let data <MemPtr<u8>> get buf "ptr"
-    match string_from_mem_unchecked_result data byte_len:
-        Result::Err _e:
+    if:
+        and gt byte_len 0 le mem_ptr_addr data 0
+        then:
             io_bytebuf_free buf
             Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-        Result::Ok text:
-            io_bytebuf_free buf
-            Result<str, StdErrorKind>::Ok text
+        else:
+            match string_utf8_validate_mem data byte_len:
+                Result::Err _e:
+                    io_bytebuf_free buf
+                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                Result::Ok _:
+                    match string_from_mem_unchecked_result data byte_len:
+                        Result::Err _e:
+                            io_bytebuf_free buf
+                            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                        Result::Ok text:
+                            io_bytebuf_free buf
+                            Result<str, StdErrorKind>::Ok text
 
 //: io_bytebuf_to_str: `ByteBuf` を `str` へ変換する互換 facade
 //:
@@ -161,6 +172,7 @@ fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
 //:
 //: [注意/ちゅうい]:
 //: - 空 buffer と確保失敗を区別する必要がある場合は `io_bytebuf_to_str_result` を使ってください。
+//: - invalid UTF-8 の場合も空文字列へ丸めるため、入力 validation が必要な箇所では result API を使ってください。
 //: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
 //:
 //: [計算量/けいさんりょう]:

@@ -103,11 +103,11 @@ fn fs_readdir_buf_size <()->i32> ():
 //: - wasm では WASI `path_open/fd_read/fd_write/fd_close` を呼びます。
 //: - llvm では Linux `openat/read/write/close` syscall を使って同名 API を互換実装します。
 //: - 読み込み結果と書き込み入力は `ByteBuf` または str を介して扱います。
-//: - source text など UTF-8 を要求する入力は `fs_read_to_string_checked` で検証します。
+//: - `str` として返す API は `ByteBuf -> str` 境界で UTF-8 を検証します。
 //:
 //: 注意(重要):
 //: - 権限/パス解決はホスト環境に依存します。
-//: - 互換 API の `fs_read_to_string` / `fs_bytes_to_string` は UTF-8 検証を行わず、バイト列をそのまま str に格納します。
+//: - raw bytes が必要な場合は `fs_read_to_bytes` / `fs_write_to_bytes` を使い、`str` へ変換しないでください。
 //: - `ByteBuf` を受け取る write API は所有権を消費し、成功時も失敗時も buffer を解放します。
 //:
 //: 計算量:
@@ -539,28 +539,30 @@ fn fs_sort_strings <(i32,i32)*>()> (data, n):
             set i add i 1
     ()
 
-//: fs_string_from_bytes: fd_readdir の name byte range を str へ複製する
+//: fs_string_from_bytes: fd_readdir の name byte range を UTF-8 検証して str へ複製する
 //:
 //: 目的:
-//: - WASI dirent buffer 内の一時 byte 列を、戻り値として保持できる str に変換します。
+//: - WASI dirent buffer 内の一時 byte 列を、UTF-8 として妥当な場合だけ戻り値として保持できる str に変換します。
 //:
 //: 実装(アルゴリズム):
-//: - string layout 用の領域を確保し、bulk copy で byte 列を複製します。
+//: - `string_utf8_validate_mem` で byte 列を検証し、成功時だけ `string_from_mem_unchecked_result` で複製します。
 //:
 //: 注意(重要):
-//: - UTF-8 検証は行いません。WASI runtime が返した filename byte をそのまま保持します。
+//: - invalid UTF-8 の directory entry は errno 84 (ILSEQ 相当) として返します。
 //:
 //: 計算量:
 //: - 名前長 n に対して O(n)
 fn fs_string_from_bytes <(i32,i32)->Result<str,i32>> (src, byte_len):
-    match string_alloc_region byte_len:
+    let src_ptr <MemPtr<u8>> mem_ptr_wrap src
+    match string_utf8_validate_mem src_ptr byte_len:
         Result::Err _e:
-            Result<str,i32>::Err 12
-        Result::Ok region:
-            let out <MemPtr<u8>> get region "ptr"
-            let out_data <MemPtr<u8>> mem_ptr_add out 4
-            mem_copy mem_ptr_addr out_data src byte_len
-            Result<str,i32>::Ok string_finish region byte_len
+            Result<str,i32>::Err fs_errno_ilseq
+        Result::Ok _:
+            match string_from_mem_unchecked_result src_ptr byte_len:
+                Result::Err _e:
+                    Result<str,i32>::Err 12
+                Result::Ok text:
+                    Result<str,i32>::Ok text
 
 fn fs_dir_name_is_dot <(str)->bool> (name):
     or str_eq name "." str_eq name ".."
@@ -1161,18 +1163,18 @@ fn fs_std_error_to_errno <(StdErrorKind)->i32> (kind):
         StdErrorKind::Other:
             5
 
-//: fs_bytes_to_string_result: `ByteBuf` を str に変換する
+//: fs_bytes_to_string_result: `ByteBuf` を UTF-8 検証して str に変換する
 //:
 //: 目的:
-//: - バイト列をそのまま str 形式に詰め直し、確保失敗を errno として返します。
+//: - バイト列が UTF-8 として妥当な場合だけ str 形式に詰め直し、invalid UTF-8 と確保失敗を errno として返します。
 //:
 //: 実装(アルゴリズム):
-//: - `io_bytebuf_to_str_result` を使い、所有 buffer をそのまま str 形式へ詰め替えます。
-//: - `StdErrorKind::OutOfMemory` は WASI errno と同じ 12 へ写します。
+//: - `io_bytebuf_to_str_result` を使い、所有 buffer を UTF-8 検証つきで str 形式へ詰め替えます。
+//: - `StdErrorKind` は fs API の errno へ写します。
 //:
 //: 注意(重要):
-//: - UTF-8 の検証は行いません。
 //: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
+//: - invalid UTF-8 は errno 84 (ILSEQ 相当) として返します。
 //:
 //: 計算量:
 //: - O(n)
@@ -1192,7 +1194,7 @@ fn fs_bytes_to_string_result <(ByteBuf)*>Result<str,i32>> (buf):
 //: - `fs_bytes_to_string_result` に委譲し、失敗時だけ空文字列へ丸めます。
 //:
 //: 注意(重要):
-//: - 空 buffer と確保失敗を区別する必要がある場合は `fs_bytes_to_string_result` を使ってください。
+//: - 空 buffer と確保失敗や invalid UTF-8 を区別する必要がある場合は `fs_bytes_to_string_result` を使ってください。
 //: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
 //:
 //: 計算量:
@@ -1545,10 +1547,10 @@ fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 //: - path を読み込み、文字列として返します。
 //:
 //: 実装(アルゴリズム):
-//: - fs_read_to_bytes で読み込み、fs_bytes_to_string_result で変換します。
+//: - fs_read_to_bytes で読み込み、fs_bytes_to_string_result で UTF-8 検証つき変換を行います。
 //:
 //: 注意(重要):
-//: - UTF-8 検証は行いません。
+//: - invalid UTF-8 は errno 84 (ILSEQ 相当) として返します。
 //: - 失敗時は Err(errno) を返します。
 //:
 //: 計算量:
