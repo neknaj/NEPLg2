@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T17:29:26.617Z",
+  "generated_at": "2026-04-27T17:47:38.665Z",
   "counts": {
-    "total": 207,
+    "total": 208,
     "open": 10,
-    "resolved": 197,
+    "resolved": 198,
     "by_area": {
       "core": {
-        "total": 75,
-        "open": 3,
+        "total": 76,
+        "open": 4,
         "resolved": 72
       },
       "stdlib": {
         "total": 88,
-        "open": 7,
-        "resolved": 81
+        "open": 6,
+        "resolved": 82
       },
       "cli": {
         "total": 19,
@@ -90,6 +90,21 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
+      "id": "ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5",
+      "title": "function parameters with Drop are not auto dropped at scope exit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/drop_insertion.rs, tests/compiler/drop.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -103,21 +118,6 @@
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
-    },
-    {
-      "id": "ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86",
-      "title": "SelfhostOutcome free drops only storage, not generic Result payload",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/infra/outcome.nepl, stdlib/core/result.nepl, nepl-core/src/passes/drop_insertion.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86.md"
     },
     {
       "id": "ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D",
@@ -1768,6 +1768,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T111438071Z-TUI-BUFFER-NEW-STORES-STR-VALUES-THR-4B4350FE.md"
+    },
+    {
+      "id": "ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86",
+      "title": "SelfhostOutcome free drops only storage, not generic Result payload",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/infra/outcome.nepl, stdlib/core/result.nepl, nepl-core/src/passes/drop_insertion.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86.md"
     },
     {
       "id": "ISS-20260427T132911011Z-ALLOC-STRING-BYTE-SLICING-CAN-CONSTR-FA25D390",

@@ -13,6 +13,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `selfhost_outcome_result` は outcome を[消費/しょうひ]し、diagnostics buffer を[解放/かいほう]してから result を[返/かえ]します。
+//: - `selfhost_outcome_free` と diagnostics [追加/ついか][失敗/しっぱい][経路/けいろ]は、payload cleanup callback を[受/う]け[取/と]って storage 解放前に[実行/じっこう]します。
 //: - diagnostics を[読/よ]みたい場合は、result を[取/と]り[出/だ]す[前/まえ]に `selfhost_outcome_diagnostics_len` / `selfhost_outcome_has_errors` を[呼/よ]びます。
 //:
 //: [計算量/けいさんりょう]:
@@ -55,6 +56,33 @@ fn selfhost_outcome_dealloc_result_ptr <.T, .E> <(MemPtr<Result<.T, .E>>)*>()> (
         Result::Err _e:
             ()
 
+//: selfhost_outcome_drop_result_payload: result cell の payload cleanup callback を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - outcome を result として[取/と]り[出/だ]さずに[捨/す]てる[経路/けいろ]で、Ok / Err payload を caller 指定の cleanup に[渡/わた]します。
+//:
+//: [実装/じっそう]:
+//: - heap cell から `Result<T,E>` を 1 [回/かい]だけ load し、match arm の payload binding として[所有権/しょゆうけん]を[受/う]けます。
+//: - Ok payload には `drop_ok`、Err payload には `drop_err` を[呼/よ]びます。callback は payload を[消費/しょうひ]します。
+//:
+//: [注意/ちゅうい]:
+//: - この関数の[後/あと]に同じ result cell から value を[読/よ]んではいけません。呼び[出/だ]し[側/がわ]は storage 解放だけを[続/つづ]けます。
+fn selfhost_outcome_drop_result_payload <.T, .E> <(MemPtr<Result<.T, .E>>, (.T)*>(), (.E)*>())*>()> (result_ptr, drop_ok, drop_err):
+    let result <Result<.T, .E>> load<Result<.T, .E>> mem_ptr_addr result_ptr
+    match result:
+        Result::Ok value:
+            drop_ok value
+        Result::Err err_value:
+            drop_err err_value
+
+//: selfhost_outcome_ignore_i32: i32 payload を no-op で[消費/しょうひ]する cleanup callback
+fn selfhost_outcome_ignore_i32 <(i32)*>()> (value):
+    ()
+
+//: selfhost_outcome_ignore_str: str payload を no-op で[消費/しょうひ]する cleanup callback
+fn selfhost_outcome_ignore_str <(str)*>()> (value):
+    ()
+
 //: selfhost_outcome_new: result と diagnostics から outcome を[作/つく]る
 fn selfhost_outcome_new <.T, .E> <(Result<.T, .E>,SelfhostDiagnostics)->Result<SelfhostOutcome<.T, .E>, StdErrorKind>> (result, diagnostics):
     match alloc_ptr<Result<.T, .E>> size_of<Result<.T, .E>>:
@@ -92,13 +120,14 @@ fn selfhost_outcome_with_diagnostics <.T, .E> <(SelfhostOutcome<.T, .E>,Selfhost
     SelfhostOutcome<.T, .E> result_ptr diagnostics
 
 //: selfhost_outcome_push_diagnostic: outcome の diagnostics に 1 [件/けん][追加/ついか]する
-fn selfhost_outcome_push_diagnostic <.T, .E> <(SelfhostOutcome<.T, .E>,SelfhostDiagnostic)*>Result<SelfhostOutcome<.T, .E>, StdErrorKind>> (outcome, diag):
+fn selfhost_outcome_push_diagnostic <.T, .E> <(SelfhostOutcome<.T, .E>,SelfhostDiagnostic, (.T)*>(), (.E)*>())*>Result<SelfhostOutcome<.T, .E>, StdErrorKind>> (outcome, diag, drop_ok, drop_err):
     let result_ptr <MemPtr<Result<.T, .E>>> field::get outcome "result"
     let diagnostics <SelfhostDiagnostics> field::get outcome "diagnostics"
     match selfhost_diagnostics_push diagnostics diag:
         Result::Ok next_diagnostics:
             Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Ok SelfhostOutcome<.T, .E> result_ptr next_diagnostics
         Result::Err e:
+            selfhost_outcome_drop_result_payload<.T, .E> result_ptr drop_ok drop_err
             selfhost_outcome_dealloc_result_ptr<.T, .E> result_ptr
             Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Err e
 
@@ -121,9 +150,11 @@ fn selfhost_outcome_result <.T, .E> <(SelfhostOutcome<.T, .E>)*>Result<.T, .E>> 
     selfhost_diagnostics_free diagnostics
     result
 
-//: selfhost_outcome_free: result を[読/よ]まず diagnostics だけを[解放/かいほう]する
-fn selfhost_outcome_free <.T, .E> <(SelfhostOutcome<.T, .E>)*>()> (outcome):
-    selfhost_outcome_dealloc_result_ptr<.T, .E> field::get outcome "result"
+//: selfhost_outcome_free: result payload と diagnostics を[解放/かいほう]する
+fn selfhost_outcome_free <.T, .E> <(SelfhostOutcome<.T, .E>, (.T)*>(), (.E)*>())*>()> (outcome, drop_ok, drop_err):
+    let result_ptr <MemPtr<Result<.T, .E>>> field::get outcome "result"
+    selfhost_outcome_drop_result_payload<.T, .E> result_ptr drop_ok drop_err
+    selfhost_outcome_dealloc_result_ptr<.T, .E> result_ptr
     selfhost_diagnostics_free field::get outcome "diagnostics"
 
 //: selfhost_outcome_stage0: outcome [基盤/きばん]の smoke API
