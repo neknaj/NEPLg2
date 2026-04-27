@@ -69,6 +69,7 @@ enum RawMemoryCallKind {
     Load,
     Store,
     Dealloc,
+    Realloc,
 }
 
 impl ExprBorrow {
@@ -970,6 +971,30 @@ impl MoveCheckContext {
         }
     }
 
+    fn check_raw_non_copy_realloc(&mut self, place: &str, size: Option<usize>, span: Span) {
+        if let Some((live_place, _)) = self
+            .raw_places_overlapping_dealloc(place, size)
+            .into_iter()
+            .find(|(_, info)| {
+                matches!(
+                    info.state,
+                    RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
+                )
+            })
+        {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    alloc::format!(
+                        "reallocating raw memory place containing non-Copy value: `{}`",
+                        live_place
+                    ),
+                    span,
+                )
+                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            );
+        }
+    }
+
     fn overlapping_raw_places(&self, place: &str, size: usize) -> Vec<(String, RawPlaceInfo)> {
         self.raw_place_states
             .iter()
@@ -1275,6 +1300,16 @@ fn is_raw_memory_dealloc_name(name: &str) -> bool {
         || name.starts_with("__nepl_rt_dealloc_")
 }
 
+fn is_raw_memory_realloc_name(name: &str) -> bool {
+    name == "realloc"
+        || name == "realloc_raw"
+        || name == "realloc_ptr"
+        || name == "__nepl_rt_realloc"
+        || name.starts_with("realloc_raw_")
+        || name.starts_with("realloc_ptr_")
+        || name.starts_with("__nepl_rt_realloc_")
+}
+
 fn raw_memory_call_kind(
     callee: &FuncRef,
     args: &[HirExpr],
@@ -1307,6 +1342,12 @@ fn raw_memory_call_kind(
     if is_raw_memory_dealloc_name(name) && args.len() == 1 && is_region_token_type(tctx, args[0].ty)
     {
         return Some(RawMemoryCallKind::Dealloc);
+    }
+    if is_raw_memory_realloc_name(name)
+        && args.len() >= 3
+        && (tctx.same_type(args[0].ty, tctx.i32()) || is_mem_ptr_type(tctx, args[0].ty))
+    {
+        return Some(RawMemoryCallKind::Realloc);
     }
     None
 }
@@ -2115,6 +2156,20 @@ fn visit_raw_memory_call(
             if let Some(addr) = args.get(0) {
                 if let Some(place) = raw_dealloc_place_key(addr, ctx, tctx) {
                     ctx.check_raw_non_copy_dealloc(
+                        place.as_str(),
+                        raw_dealloc_size_arg_bytes(args.get(1), tctx),
+                        expr.span,
+                    );
+                }
+            }
+        }
+        RawMemoryCallKind::Realloc => {
+            for arg in args {
+                visit_expr(arg, ctx, tctx);
+            }
+            if let Some(addr) = args.get(0) {
+                if let Some(place) = raw_dealloc_place_key(addr, ctx, tctx) {
+                    ctx.check_raw_non_copy_realloc(
                         place.as_str(),
                         raw_dealloc_size_arg_bytes(args.get(1), tctx),
                         expr.span,

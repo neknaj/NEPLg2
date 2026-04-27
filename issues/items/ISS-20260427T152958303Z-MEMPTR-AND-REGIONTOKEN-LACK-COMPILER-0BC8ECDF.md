@@ -69,6 +69,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 この対応は既存 stdlib token を compiler 検査へ接続する暫定的な安全側強化であり、`RegionToken` を compiler-issued owner capability にする設計変更は未解決である。
 
+## 2026-04-28 MemPtr realloc 部分対応
+
+`realloc_ptr<T>` が `MemPtr<T>` の old range に live non-Copy payload が残るか確認しない問題を `ISS-20260427T185656579Z-MOVE-CHECK-ALLOWS-REALLOCATING-RAW-S-45B12E2B` として修正した。これにより、payload ownership を consume しないまま `MemPtr<T>` storage を byte-level realloc する経路は D3100 になる。
+
+この対応も局所的な raw place alias 検査であり、`MemPtr<T>` の owner/non-owner 分離は未解決である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

@@ -1,3 +1,21 @@
+# 2026-04-28 メモ (ISS-20260427T185656579Z raw realloc live non-Copy check)
+
+- 状況:
+  - `move_check` は raw `load` / `store` / `dealloc` を ownership event として扱っていたが、`realloc_raw` / `realloc_ptr` の old range を検査していなかった。
+  - `store<LocalToken> p ...` の直後に `realloc_raw p size_of<LocalToken> 32` を呼ぶ修正前再現では、compiler が exit 0 で受理し、initialized non-Copy payload を byte move できた。
+- 修正:
+  - `RawMemoryCallKind::Realloc` を追加し、`realloc_raw` / `realloc` / `realloc_ptr` / `__nepl_rt_realloc` 系 call を分類するようにした。
+  - realloc の第 1 引数を old range の raw place として正規化し、old range に `Initialized` / `PossiblyMoved` の non-Copy raw place が残っていれば D3100 にするようにした。
+  - `tests/compiler/move_effect.n.md` に `realloc_raw` / `realloc_ptr` の compile_fail と、`load<T>` 後の storage-only realloc 正常系を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-realloc-live-noncopy-node.json -j 1`: `total=52`, `passed=52`
+  - 修正前再現ファイル `tmp/realloc-raw-duplicates-noncopy.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の raw memory ownership 検査を realloc まで拡張した。
+
 # 2026-04-28 メモ (ISS-20260427T185057228Z RegionToken raw dealloc check)
 
 - 状況:

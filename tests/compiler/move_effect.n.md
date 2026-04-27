@@ -321,6 +321,78 @@ fn main <()->i32> ():
     0
 ```
 
+## raw realloc は initialized non-Copy place を byte move できない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    let q <i32> realloc_raw p size_of<LocalToken> 32
+    q
+```
+
+## raw realloc は load で non-Copy place を消費した後なら通る
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> alloc_raw size_of<LocalToken>
+    store<LocalToken> p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> p
+    let q <i32> realloc_raw p size_of<LocalToken> 32
+    dealloc_raw q 32
+    0
+```
+
+## realloc_ptr は initialized non-Copy MemPtr place を byte move できない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let r <Result<MemPtr<LocalToken>,str>> realloc_ptr<LocalToken> p size_of<LocalToken> 32
+    0
+```
+
 ## raw aggregate load 直後の Copy field read は raw place 全体を move しない
 
 neplg2:test

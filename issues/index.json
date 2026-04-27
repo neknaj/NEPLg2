@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T18:55:14.488Z",
+  "generated_at": "2026-04-27T19:00:22.884Z",
   "counts": {
-    "total": 213,
+    "total": 214,
     "open": 9,
-    "resolved": 204,
+    "resolved": 205,
     "by_area": {
       "core": {
-        "total": 81,
+        "total": 82,
         "open": 3,
-        "resolved": 78
+        "resolved": 79
       },
       "stdlib": {
         "total": 88,
@@ -1318,6 +1318,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T185057228Z-MOVE-CHECK-DOES-NOT-CONNECT-REGIONTO-665927E2.md"
+    },
+    {
+      "id": "ISS-20260427T185656579Z-MOVE-CHECK-ALLOWS-REALLOCATING-RAW-S-45B12E2B",
+      "title": "move_check allows reallocating raw storage with live non-Copy payload",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T185656579Z-MOVE-CHECK-ALLOWS-REALLOCATING-RAW-S-45B12E2B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

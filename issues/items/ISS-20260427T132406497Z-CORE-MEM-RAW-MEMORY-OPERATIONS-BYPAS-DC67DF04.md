@@ -105,6 +105,12 @@ raw place tracking は non-Copy `load<T>` / `store<T>` を扱っていたが、`
 
 この対応で RegionToken 経由の live non-Copy payload dealloc も D3100 になるが、raw API の effect 境界と compiler-owned Resource IR は未解決である。
 
+## 2026-04-28 raw realloc live payload 部分対応
+
+`realloc_raw` / `realloc_ptr` が old range の live non-Copy payload を検査せず、bytes として移動できる問題を `ISS-20260427T185656579Z-MOVE-CHECK-ALLOWS-REALLOCATING-RAW-S-45B12E2B` として分離し、修正した。
+
+今回の対応で、old range に initialized または possibly moved の non-Copy raw place が残る realloc は D3100 になる。`load<T>` で payload ownership を消費してから storage を realloc する経路は維持している。realloc の public effect/API 境界と Resource IR での owner token 表現は引き続きこの親 issue の残件である。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。
