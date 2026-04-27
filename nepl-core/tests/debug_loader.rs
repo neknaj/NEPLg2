@@ -29,8 +29,9 @@ fn main <()* >()> ():
     }
 
     // Try to compile module and print diagnostics with source mapping
-    match nepl_core::compile_module(
+    match nepl_core::compile_module_with_source_map(
         loaded.module.clone(),
+        Some(&loaded.source_map),
         nepl_core::CompileOptions {
             target: None,
             verbose: false,

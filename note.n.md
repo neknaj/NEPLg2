@@ -19974,3 +19974,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - compiler が memory layout の単一責任者になり、`mem.nepl` は compiler intrinsic を呼ぶ側に留める方針へ寄せた。
+
+# 2026-04-28 メモ (ISS-20260427T172347729Z Rust harness SourceMap)
+
+- [同期]:
+  - shared compiler layout 修正を `main` へ merge / push / pull 済みの状態から `fix/move-check-source-map-harness` branch を作成した。
+- [原因]:
+  - `nepl-core/tests/move_check.rs` などの Loader-based Rust test harness が `loaded.module` だけを `compile_module` に渡し、`loaded.source_map` を捨てていた。
+  - `core/mem` raw memory boundary は `SourceCapabilities` で管理されるため、SourceMap がないと stdlib の audited raw body が user raw body と同じ扱いで拒否される。
+- [修正]:
+  - `move_check.rs`、`drop.rs`、`recursive_type.rs`、`repro_recursive.rs`、`debug_loader.rs` の compile call を `compile_module_with_source_map(..., Some(&loaded.source_map), ...)` に変更した。
+  - Loader が付与した stdlib `core/mem` capability を typecheck / effect check へ保持するようにした。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test move_check`: 51 passed
+  - `cargo test -p nepl-core --test drop`: 9 passed
+  - `cargo test -p nepl-core --test recursive_type`: 1 passed
+  - `cargo test -p nepl-core --test repro_recursive`: 1 passed
+  - `cargo test -p nepl-core --test debug_loader`: 1 passed
+  - `cargo check -p nepl-core --tests`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Rust integration tests も loader/module capability を compiler の安全境界として扱う方針に揃えた。

@@ -1,6 +1,6 @@
 use nepl_core::diagnostic::Diagnostic;
 use nepl_core::loader::Loader;
-use nepl_core::{compile_module, CompileOptions, CompileTarget};
+use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use wasmi::{Engine, Linker, Module, Store};
@@ -18,8 +18,9 @@ fn compile_drop_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let loaded = loader
         .load_inline(PathBuf::from("drop_test.nepl"), source.to_string())
         .expect("load");
-    match compile_module(
+    match compile_module_with_source_map(
         loaded.module,
+        Some(&loaded.source_map),
         CompileOptions {
             target: Some(CompileTarget::Wasm),
             verbose: false,

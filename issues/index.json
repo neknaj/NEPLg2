@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T17:26:00.335Z",
+  "generated_at": "2026-04-27T17:29:26.617Z",
   "counts": {
     "total": 207,
-    "open": 11,
-    "resolved": 196,
+    "open": 10,
+    "resolved": 197,
     "by_area": {
       "core": {
         "total": 75,
-        "open": 4,
-        "resolved": 71
+        "open": 3,
+        "resolved": 72
       },
       "stdlib": {
         "total": 88,
@@ -88,21 +88,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB",
-      "title": "move_check Rust harness drops loader source capabilities",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "nepl-core/tests/move_check.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1243,6 +1228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95.md"
+    },
+    {
+      "id": "ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB",
+      "title": "Loader-based Rust harnesses drop source capabilities",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "nepl-core/tests/move_check.rs, nepl-core/tests/drop.rs, nepl-core/tests/recursive_type.rs, nepl-core/tests/repro_recursive.rs, nepl-core/tests/debug_loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
