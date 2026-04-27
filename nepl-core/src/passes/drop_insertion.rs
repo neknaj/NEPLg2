@@ -225,6 +225,8 @@ pub fn insert_drops(module: &mut HirModule, types: &mut TypeCtx) {
                 ctx.declare_var(param.name.clone(), param.ty);
             }
             insert_drops_in_block(block, &mut ctx);
+            let param_drops = ctx.scope_drop_lines(block.span);
+            block.lines.extend(param_drops);
             ctx.pop_scope();
         }
     }

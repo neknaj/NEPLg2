@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T17:47:38.665Z",
+  "generated_at": "2026-04-27T17:51:50.067Z",
   "counts": {
     "total": 208,
-    "open": 10,
-    "resolved": 198,
+    "open": 9,
+    "resolved": 199,
     "by_area": {
       "core": {
         "total": 76,
-        "open": 4,
-        "resolved": 72
+        "open": 3,
+        "resolved": 73
       },
       "stdlib": {
         "total": 88,
@@ -88,21 +88,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5",
-      "title": "function parameters with Drop are not auto dropped at scope exit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/passes/drop_insertion.rs, tests/compiler/drop.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1243,6 +1228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB.md"
+    },
+    {
+      "id": "ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5",
+      "title": "function parameters with Drop are not auto dropped at scope exit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/drop_insertion.rs, tests/compiler/drop.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
