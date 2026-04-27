@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T20:33:26.992Z",
+  "generated_at": "2026-04-27T20:49:22.591Z",
   "counts": {
-    "total": 223,
-    "open": 9,
+    "total": 224,
+    "open": 10,
     "resolved": 214,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 88
       },
       "stdlib": {
-        "total": 88,
-        "open": 6,
+        "total": 89,
+        "open": 7,
         "resolved": 82
       },
       "cli": {
@@ -133,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47.md"
+    },
+    {
+      "id": "ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84",
+      "title": "stdlib raw-memory-backed APIs require staged effect migration",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

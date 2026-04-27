@@ -75,6 +75,12 @@ pure source code が observable raw address を allocate / free / load / store �
 
 `#intrinsic "load"` / `#intrinsic "store"` が `intrinsic_effect` で pure 扱いになっていたため、user source が `core/mem` の wrapper を通さず raw memory を直接読み書きできる穴を `ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6` として分離し、修正した。これにより direct raw memory intrinsic は pure context で `D3025` になる。移行中の `stdlib/core/mem.nepl` は SourceMap path による compiler-owned memory boundary として限定許可している。
 
+## 2026-04-28 stdlib effect migration blocker 追記
+
+compiler 側で `core/mem.nepl` の raw primitive を外部向け `Effect::Impure` として登録する試作を行ったところ、現行 stdlib の多くの pure API が raw memory backed helper に依存しているため、`Vec`、`string`、`io`、`fs`、`diag`、`stdio`、`streamio` で大量の D3025 が発生した。これは compiler の局所修正だけでは閉じられず、stdlib/API の段階的な effect migration または `InternalAlloc` / `UnsafeMemory` 相当の effect 導入が必要である。
+
+この残件は `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` として分離した。この親 issue は、raw primitives の最終的な external impure 化と Resource IR 化が完了するまで open のまま維持する。
+
 ## 2026-04-28 pure raw body helper call 部分対応
 
 raw body の direct memory instruction は拒否済みだったが、`call $store_i32` / `call @mem_grow` のように Pure signature の raw helper wrapper を直接呼ぶ経路が残っていたため、`ISS-20260427T182409751Z-PURE-RAW-BODIES-CAN-CALL-RAW-MEMORY--7C283F24` として分離して修正した。compiler-owned raw memory boundary 以外の pure raw body では、既知 raw memory helper symbol への direct call も `D3025` で拒否する。

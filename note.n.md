@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (raw memory effect migration 調査)
+
+- 状況:
+  - `ISS-20260427T132406497Z` の残件として、`core/mem.nepl` の raw memory wrapper が pure API として見えている問題を調査した。
+  - compiler 側で raw primitive を単純に `Effect::Impure` として登録する試作では、`Vec` / `string` / `io` / `fs` / `diag` / `stdio` / `streamio` の pure API が一斉に D3025 になり、stdlib migration なしには main に入れられないことを確認した。
+- 対応:
+  - 試作コードは破棄し、現行動作を壊さない状態に戻した。
+  - stdlib/API 移行の作業単位として `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` を追加した。
+  - 親 issue `ISS-20260427T132406497Z` に、compiler 単独では閉じられない blocker と分離先を追記した。
+- 検証:
+  - `node nodesrc/issues.js index && node nodesrc/issues.js check`: `total=224`, `open=10`, `resolved=214` / check ok。
+- plan.md との差異:
+  - plan.md は変更していない。effect model の設計差分は issues 側へ記録した。
+
 # 2026-04-28 メモ (ISS-20260427T201910047Z function return raw alias tracking)
 
 - 状況:
