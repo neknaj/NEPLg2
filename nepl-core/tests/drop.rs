@@ -174,6 +174,157 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn enum_payload_auto_drop_runs_for_active_variant() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+enum MaybeGuard:
+    Some <Guard>
+    None
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 21;
+        ()
+
+fn main <()->i32> ():
+    let v <MaybeGuard> MaybeGuard::Some (Guard 0);
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![21]);
+}
+
+#[test]
+fn enum_payload_auto_drop_skips_inactive_variant() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+enum MaybeGuard:
+    Some <Guard>
+    None
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 22;
+        ()
+
+fn main <()->i32> ():
+    let v <MaybeGuard> MaybeGuard::None;
+    0
+"#;
+    assert_eq!(run_drop_trace(source), Vec::<i32>::new());
+}
+
+#[test]
+fn struct_field_enum_payload_auto_drop_runs() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+enum MaybeGuard:
+    Some <Guard>
+    None
+
+struct Holder:
+    item <MaybeGuard>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 25;
+        ()
+
+fn main <()->i32> ():
+    let h <Holder> Holder (MaybeGuard::Some (Guard 0));
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![25]);
+}
+
+#[test]
+fn generic_result_enum_payload_auto_drop_uses_applied_type() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/copy" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 23;
+        ()
+
+fn main <()->i32> ():
+    let r <Result<Guard, str>> Result::Ok (Guard 0);
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![23]);
+}
+
+#[test]
+fn moved_enum_payload_is_not_auto_dropped_twice() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+enum MaybeGuard:
+    Some <Guard>
+    None
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 24;
+        ()
+
+fn main <()->i32> ():
+    let v <MaybeGuard> MaybeGuard::Some (Guard 0);
+    let kept <Guard> match v:
+        MaybeGuard::Some g:
+            g
+        MaybeGuard::None:
+            Guard 1
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![24]);
+}
+
+#[test]
 fn auto_drop_uses_lifo_order_in_nested_scope() {
     let source = r#"
 #target wasm

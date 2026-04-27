@@ -8,9 +8,11 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::ast::TraitCapability;
-use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirMatchArm, HirModule};
-use crate::layout::aggregate_fields_with_offsets;
-use crate::types::{TypeCtx, TypeId};
+use crate::hir::{
+    FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirMatchArm, HirMatchPattern, HirModule,
+};
+use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum VarState {
@@ -31,6 +33,12 @@ struct FieldMovePath {
     owner: String,
     offset: usize,
     field_ty: TypeId,
+}
+
+#[derive(Debug, Clone)]
+struct EnumDropVariant {
+    name: String,
+    payload: Option<TypeId>,
 }
 
 struct DropPlan {
@@ -146,6 +154,16 @@ impl<'a> DropInsertionContext<'a> {
         info: &VarInfo,
         span: crate::span::Span,
     ) -> Vec<HirLine> {
+        self.drop_lines_for_info_inner(name, info, span, &mut BTreeSet::new())
+    }
+
+    fn drop_lines_for_info_inner(
+        &mut self,
+        name: &str,
+        info: &VarInfo,
+        span: crate::span::Span,
+        visiting: &mut BTreeSet<TypeId>,
+    ) -> Vec<HirLine> {
         if info.state != VarState::Valid {
             return Vec::new();
         }
@@ -155,6 +173,10 @@ impl<'a> DropInsertionContext<'a> {
                     expr: drop_call_expr(self.types, self.plan, name.to_string(), info.ty, span),
                     drop_result: true,
                 }];
+            }
+            let enum_payload_drops = self.enum_payload_drop_lines(name, info.ty, span, visiting);
+            if !enum_payload_drops.is_empty() {
+                return enum_payload_drops;
             }
             return self.structural_field_drop_lines(name, info.ty, info.ty, 0, span);
         }
@@ -176,6 +198,138 @@ impl<'a> DropInsertionContext<'a> {
         out
     }
 
+    fn enum_payload_drop_lines(
+        &mut self,
+        name: &str,
+        ty: TypeId,
+        span: crate::span::Span,
+        visiting: &mut BTreeSet<TypeId>,
+    ) -> Vec<HirLine> {
+        let resolved = self.types.resolve_named_type_id(ty);
+        if !visiting.insert(resolved) {
+            return Vec::new();
+        }
+
+        let Some(variants) = self.enum_drop_variants(ty) else {
+            visiting.remove(&resolved);
+            return Vec::new();
+        };
+
+        let unit_ty = self.plan.unit_ty;
+        let mut arms = Vec::with_capacity(variants.len());
+        let mut has_payload_drop = false;
+
+        for variant in variants {
+            let mut bind_local = None;
+            let mut bind_ty = None;
+            let body = if let Some(payload_ty) = variant.payload {
+                let payload_name = self.fresh_enum_payload_temp();
+                let payload_info = VarInfo {
+                    ty: payload_ty,
+                    state: VarState::Valid,
+                    moved_fields: BTreeMap::new(),
+                };
+                let payload_drops =
+                    self.drop_lines_for_info_inner(&payload_name, &payload_info, span, visiting);
+                if payload_drops.is_empty() {
+                    HirExpr {
+                        ty: unit_ty,
+                        kind: HirExprKind::Unit,
+                        span,
+                    }
+                } else {
+                    has_payload_drop = true;
+                    bind_local = Some(payload_name);
+                    bind_ty = Some(payload_ty);
+                    HirExpr {
+                        ty: unit_ty,
+                        kind: HirExprKind::Block(HirBlock {
+                            lines: payload_drops,
+                            ty: unit_ty,
+                            span,
+                        }),
+                        span,
+                    }
+                }
+            } else {
+                HirExpr {
+                    ty: unit_ty,
+                    kind: HirExprKind::Unit,
+                    span,
+                }
+            };
+
+            arms.push(HirMatchArm {
+                pattern: HirMatchPattern::Variant(variant.name),
+                bind_local,
+                bind_ty,
+                body,
+            });
+        }
+
+        visiting.remove(&resolved);
+        if !has_payload_drop {
+            return Vec::new();
+        }
+
+        vec![HirLine {
+            expr: HirExpr {
+                ty: unit_ty,
+                kind: HirExprKind::Match {
+                    scrutinee: Box::new(HirExpr {
+                        ty,
+                        kind: HirExprKind::Var(name.to_string()),
+                        span,
+                    }),
+                    arms,
+                },
+                span,
+            },
+            drop_result: true,
+        }]
+    }
+
+    fn enum_drop_variants(&self, ty: TypeId) -> Option<Vec<EnumDropVariant>> {
+        let resolved = self.types.resolve_named_type_id(ty);
+        match self.types.get_ref(resolved).clone() {
+            TypeKind::Enum { variants, .. } => Some(
+                variants
+                    .into_iter()
+                    .map(|variant| EnumDropVariant {
+                        name: variant.name,
+                        payload: variant.payload,
+                    })
+                    .collect(),
+            ),
+            TypeKind::Apply { base, args } => {
+                let base = self.types.resolve_named_type_id(base);
+                match self.types.get_ref(base).clone() {
+                    TypeKind::Enum {
+                        type_params,
+                        variants,
+                        ..
+                    } => {
+                        let mapping =
+                            extend_type_mapping(self.types, &BTreeMap::new(), &type_params, &args);
+                        Some(
+                            variants
+                                .into_iter()
+                                .map(|variant| EnumDropVariant {
+                                    name: variant.name,
+                                    payload: variant.payload.map(|payload| {
+                                        mapped_type_id(self.types, payload, &mapping)
+                                    }),
+                                })
+                                .collect(),
+                        )
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
     fn structural_field_drop_lines(
         &mut self,
         name: &str,
@@ -185,7 +339,7 @@ impl<'a> DropInsertionContext<'a> {
         span: crate::span::Span,
     ) -> Vec<HirLine> {
         let drop_fields = structural_drop_fields(self.types, ty, base_offset);
-        drop_fields
+        let mut out: Vec<HirLine> = drop_fields
             .into_iter()
             .map(|(offset, field_ty)| HirLine {
                 expr: drop_field_call_expr(
@@ -199,12 +353,181 @@ impl<'a> DropInsertionContext<'a> {
                 ),
                 drop_result: true,
             })
-            .collect()
+            .collect();
+        out.extend(self.structural_enum_field_drop_lines(
+            name,
+            owner_ty,
+            ty,
+            base_offset,
+            span,
+            &mut BTreeSet::new(),
+        ));
+        out
+    }
+
+    fn structural_enum_field_drop_lines(
+        &mut self,
+        name: &str,
+        owner_ty: TypeId,
+        ty: TypeId,
+        base_offset: usize,
+        span: crate::span::Span,
+        visiting: &mut BTreeSet<TypeId>,
+    ) -> Vec<HirLine> {
+        let resolved = self.types.resolve_named_type_id(ty);
+        if !visiting.insert(resolved) {
+            return Vec::new();
+        }
+
+        let mut out = Vec::new();
+        for field in aggregate_fields_with_offsets(self.types, ty) {
+            if self.types.has_drop_impl_target(field.ty) {
+                continue;
+            }
+            let field_offset = base_offset + field.offset;
+            if self.enum_drop_variants(field.ty).is_some() {
+                if self.type_needs_structural_drop(field.ty, &mut BTreeSet::new()) {
+                    out.extend(self.load_place_and_drop_lines(
+                        name,
+                        owner_ty,
+                        field.ty,
+                        field_offset,
+                        span,
+                    ));
+                }
+                continue;
+            }
+            out.extend(self.structural_enum_field_drop_lines(
+                name,
+                owner_ty,
+                field.ty,
+                field_offset,
+                span,
+                visiting,
+            ));
+        }
+
+        visiting.remove(&resolved);
+        out
+    }
+
+    fn type_needs_structural_drop(&self, ty: TypeId, visiting: &mut BTreeSet<TypeId>) -> bool {
+        if self.types.has_drop_impl_target(ty) {
+            return true;
+        }
+        let resolved = self.types.resolve_named_type_id(ty);
+        if !visiting.insert(resolved) {
+            return false;
+        }
+
+        let needs_drop = if let Some(variants) = self.enum_drop_variants(ty) {
+            variants
+                .into_iter()
+                .filter_map(|variant| variant.payload)
+                .any(|payload| self.type_needs_structural_drop(payload, visiting))
+        } else {
+            aggregate_fields_with_offsets(self.types, ty)
+                .into_iter()
+                .any(|field| self.type_needs_structural_drop(field.ty, visiting))
+        };
+
+        visiting.remove(&resolved);
+        needs_drop
+    }
+
+    fn load_place_and_drop_lines(
+        &mut self,
+        owner_name: &str,
+        owner_ty: TypeId,
+        ty: TypeId,
+        offset: usize,
+        span: crate::span::Span,
+    ) -> Vec<HirLine> {
+        let temp_name = self.fresh_enum_payload_temp();
+        let temp_info = VarInfo {
+            ty,
+            state: VarState::Valid,
+            moved_fields: BTreeMap::new(),
+        };
+        let mut lines = vec![HirLine {
+            expr: HirExpr {
+                ty: self.plan.unit_ty,
+                kind: HirExprKind::Let {
+                    name: temp_name.clone(),
+                    mutable: false,
+                    value: Box::new(HirExpr {
+                        ty,
+                        kind: HirExprKind::Intrinsic {
+                            name: "load".to_string(),
+                            type_args: vec![ty],
+                            args: vec![self.place_addr_expr(
+                                owner_name.to_string(),
+                                owner_ty,
+                                offset,
+                                span,
+                            )],
+                        },
+                        span,
+                    }),
+                },
+                span,
+            },
+            drop_result: true,
+        }];
+        lines.extend(self.drop_lines_for_info(&temp_name, &temp_info, span));
+        lines
+    }
+
+    fn place_addr_expr(
+        &self,
+        owner_name: String,
+        owner_ty: TypeId,
+        offset: usize,
+        span: crate::span::Span,
+    ) -> HirExpr {
+        if offset == 0 {
+            return HirExpr {
+                ty: owner_ty,
+                kind: HirExprKind::Var(owner_name),
+                span,
+            };
+        }
+
+        HirExpr {
+            ty: self.types.i32(),
+            kind: HirExprKind::Intrinsic {
+                name: "add".to_string(),
+                type_args: vec![self.types.i32()],
+                args: vec![
+                    HirExpr {
+                        ty: owner_ty,
+                        kind: HirExprKind::Var(owner_name),
+                        span,
+                    },
+                    HirExpr {
+                        ty: self.types.i32(),
+                        kind: HirExprKind::LiteralI32(offset as i32),
+                        span,
+                    },
+                ],
+            },
+            span,
+        }
     }
 
     fn fresh_assignment_temp(&mut self) -> String {
         loop {
             let name = format!("__nepl_drop_assign_tmp_{}", self.next_temp_id);
+            self.next_temp_id += 1;
+            if !self.var_stacks.contains_key(name.as_str()) {
+                return name;
+            }
+        }
+    }
+
+    fn fresh_enum_payload_temp(&mut self) -> String {
+        loop {
+            let name = format!("__nepl_drop_enum_payload_{}", self.next_temp_id);
             self.next_temp_id += 1;
             if !self.var_stacks.contains_key(name.as_str()) {
                 return name;
