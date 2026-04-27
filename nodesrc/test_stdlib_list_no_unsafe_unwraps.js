@@ -36,5 +36,7 @@ assert.match(reverseCode, /Result::Err\s+e:[\s\S]*free<\.T>\s+List\s+new_head[\s
 assert.match(reverseCode, /if\s+done\s+result\s+ok<List<\.T>,\s*Diag>\s+List\s+new_head/, 'reverse must return the accumulated Result without unsafe unwraps');
 
 assert.match(code, /fn\s+cons\s+<\.T>[\s\S]*match\s+list_alloc_node<\.T>\s+head\s+tail_ptr\s+"list_cons\(node\)"/, 'cons must share the checked node allocator');
+assert.match(code, /fn\s+list_map_impl\s+<\.T,\.U>[\s\S]*match\s+list_alloc_node<\.U>\s+mapped_head\s+mapped_tail_ptr\s+"list_map\(node\)"[\s\S]*Result::Err\s+e:[\s\S]*free<\.U>\s+mapped_tail[\s\S]*err<List<\.U>,\s*Diag>\s+e/, 'list_map_impl must free the partial mapped tail if final node allocation fails');
+assert.match(code, /fn\s+list_filter_impl\s+<\.T>[\s\S]*match\s+list_alloc_node<\.T>\s+load<\.T>\s+lst_ptr\s+filtered_tail_ptr\s+"list_filter\(node\)"[\s\S]*Result::Err\s+e:[\s\S]*free<\.T>\s+filtered_tail[\s\S]*err<List<\.T>,\s*Diag>\s+e/, 'list_filter_impl must free the partial filtered tail if final node allocation fails');
 
 console.log('list unsafe unwrap regression passed');

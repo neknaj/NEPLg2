@@ -581,7 +581,13 @@ fn list_map_impl <.T,.U> <(i32, (.T)->.U)*>Result<List<.U>, Diag>> (lst_ptr, f):
             match list_map_impl<.T,.U> next_ptr f:
                 Result::Ok mapped_tail:
                     let mapped_head <.U> f load<.T> lst_ptr
-                    cons<.U> mapped_head mapped_tail
+                    let mapped_tail_ptr <i32> field::get mapped_tail "ptr"
+                    match list_alloc_node<.U> mapped_head mapped_tail_ptr "list_map(node)":
+                        Result::Ok node:
+                            ok<List<.U>, Diag> List node
+                        Result::Err e:
+                            free<.U> mapped_tail
+                            err<List<.U>, Diag> e
                 Result::Err e:
                     err<List<.U>, Diag> e
 
@@ -599,7 +605,13 @@ fn list_filter_impl <.T> <(i32, (.T)->bool)*>Result<List<.T>, Diag>> (lst_ptr, p
                         cond:
                             p load<.T> lst_ptr
                         then:
-                            cons<.T> load<.T> lst_ptr filtered_tail
+                            let filtered_tail_ptr <i32> field::get filtered_tail "ptr"
+                            match list_alloc_node<.T> load<.T> lst_ptr filtered_tail_ptr "list_filter(node)":
+                                Result::Ok node:
+                                    ok<List<.T>, Diag> List node
+                                Result::Err e:
+                                    free<.T> filtered_tail
+                                    err<List<.T>, Diag> e
                         else:
                             ok<List<.T>, Diag> filtered_tail
                 Result::Err e:
@@ -683,7 +695,8 @@ fn list_all_impl <.T> <(i32, (.T)->bool)->bool> (lst_ptr, p):
 //: - [元/もと]の[順序/じゅんじょ]を[保/たも]ったまま、[新/あたら]しい `List<.U>` を[作成/さくせい]します。
 //:
 //: ### [実装/じっそう]
-//: - [末尾/まつび]まで[再帰的/さいきてき]に `map` してから `cons` で[先頭側/せんとうがわ]へ[積/つ]み[戻/もど]し、[元/もと]の[順序/じゅんじょ]を[維持/いじ]します。
+//: - [末尾/まつび]まで[再帰的/さいきてき]に `map` してから `list_alloc_node` で[先頭側/せんとうがわ]へ[積/つ]み[戻/もど]し、[元/もと]の[順序/じゅんじょ]を[維持/いじ]します。
+//: - 先に[作/つく]った tail に head を[追加/ついか]できなかった[場合/ばあい]は、tail を `free` してから `Err` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [各要素/かくようそ]ごとに[新/あら]しいノードを[確保/かくほ]するため `Result<List<.U>, Diag>` を[返/かえ]します。
@@ -730,6 +743,7 @@ fn map <.T,.U> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
 //:
 //: ### [実装/じっそう]
 //: - [末尾側/まつびがわ]を[先/さき]に[再帰/さいき]して[絞/しぼ]り[込/こ]み、その[結果/けっか]に[対/たい]して[現在/げんざい]ノードを[残/のこ]すかどうかを[判定/はんてい]します。
+//: - 先に[作/つく]った tail に head を[追加/ついか]できなかった[場合/ばあい]は、tail を `free` してから `Err` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [残/のこ]す[要素/ようそ]だけを[新規/しんき][確保/かくほ]するため `Result<List<.T>, Diag>` を[返/かえ]します。

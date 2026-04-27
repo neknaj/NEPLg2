@@ -19220,3 +19220,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の list reverse helper が allocation failure を trap ではなく Result と cleanup で扱うようになった。
+
+# 2026-04-27 メモ (ISS-20260427T031251079Z List map/filter partial cleanup)
+
+- [同期]:
+  - `origin/main` が `d03af2b stdlib: propagate list reverse allocation failures` で一致している状態から `stdlib/list-map-filter-partial-cleanup` branch を作成した。
+- [原因]:
+  - `list_map_impl` / `list_filter_impl` は、tail 側を先に再帰構築し、その後で現在ノードを追加して元の順序を保つ。
+  - tail 構築後の最後の `cons` は allocation failure になり得るが、失敗時に構築済み tail の owner を返せず、cleanup もしないまま `Err` だけを返していた。
+  - self-host の parser/helper list transform が allocation pressure 下で部分 list を leak し得る。
+- [修正]:
+  - map/filter の現在ノード追加を `cons` ではなく `list_alloc_node` に変更し、tail owner を移動せずに tail pointer だけを使うようにした。
+  - 最後のノード確保に失敗した場合は `mapped_tail` / `filtered_tail` を `free` してから `Err(Diag)` を返すようにした。
+  - source policy guard を拡張し、map/filter の partial tail cleanup が戻らないようにした。
+  - map/filter を `Result` match で確認する focused regression を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/list.nepl --no-tree -o tmp/list-map-filter-docs.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib/list_collections.n.md -i stdlib/tests/list.n.md --no-tree -o tmp/list-map-filter-focused.json -j 1`: 5/5 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-list-map-filter.json -j 4`: 301/301 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-list-map-filter.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の list map/filter helper が allocation failure 時の partial result cleanup を行うようになった。
