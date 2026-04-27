@@ -18704,3 +18704,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host lexer/parser の work queue/deque が、観測のためだけに owner を消費しない API を持つようになった。
+
+# 2026-04-27 メモ (collection unsafe helper 監査と string 再実装 issue 追加)
+
+- [同期]:
+  - `main` / `origin/main` が `56592bb stdlib: add queue deque borrowed observation APIs` で一致している状態から `issues/stdlib-collection-string-refactors` branch を作成した。
+  - borrow checker の修正が安定してきたため、borrow checker 本体には触れず、stdlib collection と alloc/string の再実装・リファクタリング対象を issue 化した。
+- [追加Issue]:
+  - Queue/Deque と同じ根の unsafe helper 問題を、collection ごとに分離して追跡できるようにした。
+  - `BitSet` / `AdjacencyMatrix` / `BloomFilter` / `CountingBloomFilter` / `Fenwick` / `RingBuffer` / `DisjointSet` / `SparseSet` / `SegmentTree` / `Stack` / `Vec` / `List` の各 issue を追加した。
+  - `alloc/string` の所有権安全な UTF-8 再実装 issue `ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496` を追加した。
+  - 追加した issue は、追加時点で Discord に報告した。
+- [根拠]:
+  - `stdlib/alloc/collections` には、所有済み header/array/buffer への内部 store や cleanup に `uwok` / `unreachable` を使う実装が残っている。
+  - `alloc/string` は raw layout 操作、unsafe helper、UTF-8 不変条件、古い compiler workaround が混在しており、self-host の lexer/parser/diagnostic/path 処理の基盤として再整理が必要である。
+- [検証]:
+  - `node nodesrc/issues.js index`: total=170, open=28, resolved=142
+  - `node nodesrc/issues.js check`: files=170
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の S1-S4 で必要になる collection と string 基盤の残課題を、実装単位の issue として分割した。
