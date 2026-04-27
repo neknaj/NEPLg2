@@ -2,8 +2,8 @@
 id: ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787
 title: "memory layout rules are duplicated across compiler passes"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-27
@@ -45,3 +45,23 @@ layout が 1 箇所でもずれると、move checker がある byte range を mo
 ## 検証
 
 struct、tuple、enum payload、generic `Apply`、nested aggregate、raw aggregate field access の layout snapshot を追加する。WASM/LLVM の codegen 出力と Resource IR/move_check の byte range が一致することを確認し、`type_storage_size_bytes` 系 helper が pass ごとに再導入されない source policy も追加する。
+
+## 対応結果
+
+- `nepl-core/src/layout.rs` を追加し、storage size、storage align、generic `Apply` substitution、aggregate field offset、tuple / struct selector layout、enum payload offset を同じ query に集約した。
+- `typecheck`、`move_check`、`drop_insertion`、WASM backend、LLVM backend から pass-local の `type_storage_size_bytes` / `type_storage_align_bytes` / mapping / aggregate field offset helper を削除した。
+- `move_check` / `drop_insertion` の旧実装では `bool` field を 1 byte として扱っていた一方、backend は 4 byte scalar slot として扱っていたため、共有 layout では backend と同じ 4 byte slot に統一した。
+- enum tag / payload offset の 4 byte 規則も `layout` module の `ENUM_TAG_SIZE_BYTES` / `enum_payload_offset_bytes` から参照するようにした。
+- `nepl-core/tests/layout.rs` を追加し、`bool` field offset、generic struct substitution、pass-local layout helper 再導入禁止を固定した。
+- 検証中に `nepl-core/tests/move_check.rs` が Loader の `SourceMap` を `compile_module` に渡さず、`core/mem` raw boundary capability を失う問題を確認したため、`ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB` として分離した。
+
+## 実施した検証
+
+- `cargo fmt --check`: pass
+- `cargo test -p nepl-core --test layout`: 3 passed
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test drop`: 9 passed
+- `cargo test -p nepl-core --test intrinsic`: 4 passed
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/sizeof.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/intrinsic.n.md --no-tree -o tmp/core-layout-shared-node-after-trunk.json -j 1`: total=59, passed=59
+- `cargo test -p nepl-core --test move_check`: 既存 harness が `loaded.source_map` を渡さず `core/mem` の raw memory capability を落とすため失敗。別 issue `ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB` に分離済み。

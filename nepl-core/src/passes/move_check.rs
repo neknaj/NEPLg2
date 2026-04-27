@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirModule};
+use crate::layout::{aggregate_fields_with_offsets, storage_size_bytes};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -953,122 +954,6 @@ impl MoveCheckContext {
     }
 }
 
-fn type_storage_size_bytes_mapped(
-    tctx: &crate::types::TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> usize {
-    let resolved = tctx.resolve_id(ty);
-    if let Some(mapped) = mapping.get(&resolved) {
-        return type_storage_size_bytes_mapped(tctx, *mapped, mapping);
-    }
-    match tctx.get_ref(resolved) {
-        TypeKind::Unit | TypeKind::Never => 0,
-        TypeKind::U8 | TypeKind::Bool => 1,
-        TypeKind::I32
-        | TypeKind::F32
-        | TypeKind::Str
-        | TypeKind::Named(_)
-        | TypeKind::Box(_)
-        | TypeKind::Reference(_, _)
-        | TypeKind::Function { .. } => 4,
-        TypeKind::Tuple { items } => items
-            .iter()
-            .map(|item| type_storage_size_bytes_mapped(tctx, *item, mapping))
-            .sum(),
-        TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .map(|field| type_storage_size_bytes_mapped(tctx, *field, mapping))
-            .sum(),
-        TypeKind::Enum { variants, .. } => {
-            4 + variants
-                .iter()
-                .filter_map(|variant| variant.payload)
-                .map(|payload| type_storage_size_bytes_mapped(tctx, payload, mapping))
-                .max()
-                .unwrap_or(0)
-        }
-        TypeKind::Apply { base, args } => {
-            let mut nested = mapping.clone();
-            match tctx.get_ref(tctx.resolve_id(*base)) {
-                TypeKind::Struct { type_params, .. }
-                | TypeKind::Enum { type_params, .. }
-                | TypeKind::Function { type_params, .. } => {
-                    for (param, arg) in type_params.iter().zip(args.iter()) {
-                        nested.insert(tctx.resolve_id(*param), tctx.resolve_id(*arg));
-                    }
-                }
-                _ => {}
-            }
-            type_storage_size_bytes_mapped(tctx, *base, &nested)
-        }
-        TypeKind::Var(var) => var
-            .binding
-            .map(|binding| type_storage_size_bytes_mapped(tctx, binding, mapping))
-            .unwrap_or(4),
-    }
-}
-
-fn type_storage_size_bytes(tctx: &crate::types::TypeCtx, ty: TypeId) -> usize {
-    type_storage_size_bytes_mapped(tctx, ty, &BTreeMap::new())
-}
-
-fn mapped_type_id(
-    tctx: &crate::types::TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> TypeId {
-    let resolved = tctx.resolve_id(ty);
-    mapping.get(&resolved).copied().unwrap_or(resolved)
-}
-
-fn aggregate_fields_with_offsets(tctx: &crate::types::TypeCtx, ty: TypeId) -> Vec<(usize, TypeId)> {
-    fn inner(
-        tctx: &crate::types::TypeCtx,
-        ty: TypeId,
-        mapping: &BTreeMap<TypeId, TypeId>,
-    ) -> Vec<(usize, TypeId)> {
-        let resolved = tctx.resolve_id(ty);
-        if let Some(mapped) = mapping.get(&resolved) {
-            return inner(tctx, *mapped, mapping);
-        }
-        match tctx.get_ref(resolved) {
-            TypeKind::Struct { fields, .. } => {
-                let mut offset = 0;
-                let mut out = Vec::with_capacity(fields.len());
-                for field in fields {
-                    let field_ty = mapped_type_id(tctx, *field, mapping);
-                    out.push((offset, field_ty));
-                    offset += type_storage_size_bytes_mapped(tctx, *field, mapping);
-                }
-                out
-            }
-            TypeKind::Tuple { items } => {
-                let mut offset = 0;
-                let mut out = Vec::with_capacity(items.len());
-                for item in items {
-                    let item_ty = mapped_type_id(tctx, *item, mapping);
-                    out.push((offset, item_ty));
-                    offset += type_storage_size_bytes_mapped(tctx, *item, mapping);
-                }
-                out
-            }
-            TypeKind::Apply { base, args } => {
-                let mut nested = mapping.clone();
-                if let TypeKind::Struct { type_params, .. } = tctx.get_ref(tctx.resolve_id(*base)) {
-                    for (param, arg) in type_params.iter().zip(args.iter()) {
-                        nested.insert(tctx.resolve_id(*param), tctx.resolve_id(*arg));
-                    }
-                }
-                inner(tctx, *base, &nested)
-            }
-            _ => Vec::new(),
-        }
-    }
-
-    inner(tctx, ty, &BTreeMap::new())
-}
-
 fn field_move_path_from_addr(
     addr: &HirExpr,
     field_ty: TypeId,
@@ -1093,9 +978,7 @@ fn field_move_path_from_addr(
     let field_ty = tctx.resolve_id(field_ty);
     let is_declared_field = aggregate_fields_with_offsets(tctx, owner_ty)
         .into_iter()
-        .any(|(field_offset, declared_ty)| {
-            field_offset == offset && tctx.resolve_id(declared_ty) == field_ty
-        });
+        .any(|field| field.offset == offset && tctx.resolve_id(field.ty) == field_ty);
     if is_declared_field {
         Some(FieldMovePath {
             owner: owner.to_string(),
@@ -1970,7 +1853,7 @@ fn visit_raw_memory_call(
                 } else if let Some(place) = raw_memory_place_key(addr, ctx) {
                     ctx.check_raw_non_copy_load(
                         place.as_str(),
-                        type_storage_size_bytes(tctx, expr.ty),
+                        storage_size_bytes(tctx, expr.ty),
                         expr.span,
                     );
                 }
@@ -1985,7 +1868,7 @@ fn visit_raw_memory_call(
                 if let Some(place) = raw_memory_place_key(addr, ctx) {
                     let size = args
                         .get(1)
-                        .map(|value| type_storage_size_bytes(tctx, value.ty))
+                        .map(|value| storage_size_bytes(tctx, value.ty))
                         .unwrap_or(0);
                     ctx.check_raw_non_copy_store(place.as_str(), size, expr.span);
                 }
@@ -2358,7 +2241,7 @@ fn visit_expr_with_escape(
                         if let Some(place) = raw_memory_place_key(addr, ctx) {
                             ctx.check_raw_non_copy_load(
                                 place.as_str(),
-                                type_storage_size_bytes(tctx, expr.ty),
+                                storage_size_bytes(tctx, expr.ty),
                                 expr.span,
                             );
                         }
@@ -2394,7 +2277,7 @@ fn visit_expr_with_escape(
                         if let Some(place) = raw_memory_place_key(addr, ctx) {
                             ctx.check_raw_non_copy_store(
                                 place.as_str(),
-                                type_storage_size_bytes(tctx, val.ty),
+                                storage_size_bytes(tctx, val.ty),
                                 expr.span,
                             );
                         }

@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 
 use crate::ast::TraitCapability;
 use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirMatchArm, HirModule};
+use crate::layout::aggregate_fields_with_offsets;
 use crate::types::{TypeCtx, TypeId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -160,11 +161,17 @@ impl<'a> DropInsertionContext<'a> {
 
         let fields = aggregate_fields_with_offsets(self.types, info.ty);
         let mut out = Vec::new();
-        for (offset, field_ty) in fields {
-            if info.moved_fields.contains_key(&offset) {
+        for field in fields {
+            if info.moved_fields.contains_key(&field.offset) {
                 continue;
             }
-            out.extend(self.structural_field_drop_lines(name, info.ty, field_ty, offset, span));
+            out.extend(self.structural_field_drop_lines(
+                name,
+                info.ty,
+                field.ty,
+                field.offset,
+                span,
+            ));
         }
         out
     }
@@ -580,116 +587,6 @@ fn append_drop_lines_to_expr(expr: &mut HirExpr, drops: Vec<HirLine>) {
     }
 }
 
-fn type_storage_size_bytes_mapped(
-    types: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> usize {
-    let resolved = types.resolve_id(ty);
-    if let Some(mapped) = mapping.get(&resolved) {
-        return type_storage_size_bytes_mapped(types, *mapped, mapping);
-    }
-    match types.get_ref(resolved) {
-        crate::types::TypeKind::Unit | crate::types::TypeKind::Never => 0,
-        crate::types::TypeKind::U8 | crate::types::TypeKind::Bool => 1,
-        crate::types::TypeKind::I32
-        | crate::types::TypeKind::F32
-        | crate::types::TypeKind::Str
-        | crate::types::TypeKind::Named(_)
-        | crate::types::TypeKind::Box(_)
-        | crate::types::TypeKind::Reference(_, _)
-        | crate::types::TypeKind::Function { .. } => 4,
-        crate::types::TypeKind::Tuple { items } => items
-            .iter()
-            .map(|item| type_storage_size_bytes_mapped(types, *item, mapping))
-            .sum(),
-        crate::types::TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .map(|field| type_storage_size_bytes_mapped(types, *field, mapping))
-            .sum(),
-        crate::types::TypeKind::Enum { variants, .. } => {
-            4 + variants
-                .iter()
-                .filter_map(|variant| variant.payload)
-                .map(|payload| type_storage_size_bytes_mapped(types, payload, mapping))
-                .max()
-                .unwrap_or(0)
-        }
-        crate::types::TypeKind::Apply { base, args } => {
-            let mut nested = mapping.clone();
-            match types.get_ref(types.resolve_id(*base)) {
-                crate::types::TypeKind::Struct { type_params, .. }
-                | crate::types::TypeKind::Enum { type_params, .. }
-                | crate::types::TypeKind::Function { type_params, .. } => {
-                    for (param, arg) in type_params.iter().zip(args.iter()) {
-                        nested.insert(types.resolve_id(*param), types.resolve_id(*arg));
-                    }
-                }
-                _ => {}
-            }
-            type_storage_size_bytes_mapped(types, *base, &nested)
-        }
-        crate::types::TypeKind::Var(var) => var
-            .binding
-            .map(|binding| type_storage_size_bytes_mapped(types, binding, mapping))
-            .unwrap_or(4),
-    }
-}
-
-fn mapped_type_id(types: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
-    let resolved = types.resolve_id(ty);
-    mapping.get(&resolved).copied().unwrap_or(resolved)
-}
-
-fn aggregate_fields_with_offsets(types: &TypeCtx, ty: TypeId) -> Vec<(usize, TypeId)> {
-    fn inner(
-        types: &TypeCtx,
-        ty: TypeId,
-        mapping: &BTreeMap<TypeId, TypeId>,
-    ) -> Vec<(usize, TypeId)> {
-        let resolved = types.resolve_id(ty);
-        if let Some(mapped) = mapping.get(&resolved) {
-            return inner(types, *mapped, mapping);
-        }
-        match types.get_ref(resolved) {
-            crate::types::TypeKind::Struct { fields, .. } => {
-                let mut offset = 0;
-                let mut out = Vec::with_capacity(fields.len());
-                for field in fields {
-                    let field_ty = mapped_type_id(types, *field, mapping);
-                    out.push((offset, field_ty));
-                    offset += type_storage_size_bytes_mapped(types, *field, mapping);
-                }
-                out
-            }
-            crate::types::TypeKind::Tuple { items } => {
-                let mut offset = 0;
-                let mut out = Vec::with_capacity(items.len());
-                for item in items {
-                    let item_ty = mapped_type_id(types, *item, mapping);
-                    out.push((offset, item_ty));
-                    offset += type_storage_size_bytes_mapped(types, *item, mapping);
-                }
-                out
-            }
-            crate::types::TypeKind::Apply { base, args } => {
-                let mut nested = mapping.clone();
-                if let crate::types::TypeKind::Struct { type_params, .. } =
-                    types.get_ref(types.resolve_id(*base))
-                {
-                    for (param, arg) in type_params.iter().zip(args.iter()) {
-                        nested.insert(types.resolve_id(*param), types.resolve_id(*arg));
-                    }
-                }
-                inner(types, *base, &nested)
-            }
-            _ => Vec::new(),
-        }
-    }
-
-    inner(types, ty, &BTreeMap::new())
-}
-
 fn structural_drop_fields(types: &TypeCtx, ty: TypeId, base_offset: usize) -> Vec<(usize, TypeId)> {
     fn inner(
         types: &TypeCtx,
@@ -705,8 +602,8 @@ fn structural_drop_fields(types: &TypeCtx, ty: TypeId, base_offset: usize) -> Ve
             return Vec::new();
         }
         let mut out = Vec::new();
-        for (offset, field_ty) in aggregate_fields_with_offsets(types, resolved) {
-            out.extend(inner(types, field_ty, base_offset + offset, visiting));
+        for field in aggregate_fields_with_offsets(types, resolved) {
+            out.extend(inner(types, field.ty, base_offset + field.offset, visiting));
         }
         visiting.remove(&resolved);
         out
@@ -739,9 +636,7 @@ fn field_move_path_from_addr(
     let field_ty = types.resolve_id(field_ty);
     let is_declared_field = aggregate_fields_with_offsets(types, owner_ty)
         .into_iter()
-        .any(|(field_offset, declared_ty)| {
-            field_offset == offset && types.resolve_id(declared_ty) == field_ty
-        });
+        .any(|field| field.offset == offset && types.resolve_id(field.ty) == field_ty);
     if is_declared_field {
         Some(FieldMovePath {
             owner: owner.to_string(),

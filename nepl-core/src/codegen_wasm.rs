@@ -21,6 +21,11 @@ use wasm_encoder::{
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::*;
+use crate::layout::{
+    enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
+    storage_align_bytes, storage_size_bytes, struct_field_layout_by_name, tuple_field_layout,
+    tuple_field_layouts_by_result,
+};
 use crate::runtime_helpers::{self, RuntimeHelperKind};
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -98,274 +103,6 @@ fn align_to(x: u32, align: u32) -> u32 {
     (x + mask) & !mask
 }
 
-fn mapped_type_id(ctx: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
-    let ty = ctx.resolve_id(ty);
-    ctx.resolve_named_type_id(mapping.get(&ty).copied().unwrap_or(ty))
-}
-
-fn extend_type_mapping(
-    ctx: &TypeCtx,
-    parent: &BTreeMap<TypeId, TypeId>,
-    type_params: &[TypeId],
-    args: &[TypeId],
-) -> BTreeMap<TypeId, TypeId> {
-    let mut mapping = parent.clone();
-    for (param, arg) in type_params.iter().copied().zip(args.iter().copied()) {
-        mapping.insert(ctx.resolve_id(param), mapped_type_id(ctx, arg, parent));
-    }
-    mapping
-}
-
-fn type_storage_align_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
-    type_storage_align_bytes_mapped(ctx, ty, &BTreeMap::new())
-}
-
-fn type_storage_align_bytes_mapped(
-    ctx: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> u32 {
-    let ty = mapped_type_id(ctx, ty, mapping);
-    match ctx.get(ty) {
-        TypeKind::U8 => 1,
-        TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
-        TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .map(|field| type_storage_align_bytes_mapped(ctx, *field, mapping))
-            .max()
-            .unwrap_or(1),
-        TypeKind::Tuple { items } => items
-            .iter()
-            .map(|item| type_storage_align_bytes_mapped(ctx, *item, mapping))
-            .max()
-            .unwrap_or(1),
-        TypeKind::Enum { variants, .. } => variants
-            .iter()
-            .filter_map(|variant| variant.payload)
-            .map(|payload| type_storage_align_bytes_mapped(ctx, payload, mapping))
-            .max()
-            .unwrap_or(4)
-            .max(4),
-        TypeKind::Apply { base, args } => {
-            let base = ctx.resolve_named_type_id(base);
-            match ctx.get(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
-                    fields
-                        .iter()
-                        .map(|field| type_storage_align_bytes_mapped(ctx, *field, &nested_mapping))
-                        .max()
-                        .unwrap_or(1)
-                }
-                TypeKind::Enum {
-                    type_params,
-                    variants,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
-                    variants
-                        .iter()
-                        .filter_map(|variant| variant.payload)
-                        .map(|payload| {
-                            type_storage_align_bytes_mapped(ctx, payload, &nested_mapping)
-                        })
-                        .max()
-                        .unwrap_or(4)
-                        .max(4)
-                }
-                TypeKind::Tuple { items } => items
-                    .iter()
-                    .map(|item| type_storage_align_bytes_mapped(ctx, *item, mapping))
-                    .max()
-                    .unwrap_or(1),
-                _ => 4,
-            }
-        }
-        _ => 4,
-    }
-}
-
-fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> u32 {
-    type_storage_size_bytes_mapped(ctx, ty, &BTreeMap::new())
-}
-
-fn type_storage_size_bytes_mapped(
-    ctx: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> u32 {
-    let ty = mapped_type_id(ctx, ty, mapping);
-    match ctx.get(ty) {
-        TypeKind::Unit | TypeKind::Never => 0,
-        TypeKind::U8 => 1,
-        TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
-        TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .map(|field| type_storage_size_bytes_mapped(ctx, *field, mapping))
-            .sum(),
-        TypeKind::Tuple { items } => items
-            .iter()
-            .map(|item| type_storage_size_bytes_mapped(ctx, *item, mapping))
-            .sum(),
-        TypeKind::Enum { variants, .. } => {
-            let payload = variants
-                .iter()
-                .filter_map(|variant| variant.payload)
-                .map(|payload| type_storage_size_bytes_mapped(ctx, payload, mapping))
-                .max()
-                .unwrap_or(0);
-            4 + payload
-        }
-        TypeKind::Apply { base, args } => {
-            let base = ctx.resolve_named_type_id(base);
-            match ctx.get(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
-                    fields
-                        .iter()
-                        .map(|field| type_storage_size_bytes_mapped(ctx, *field, &nested_mapping))
-                        .sum()
-                }
-                TypeKind::Enum {
-                    type_params,
-                    variants,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(ctx, mapping, &type_params, &args);
-                    let payload = variants
-                        .iter()
-                        .filter_map(|variant| variant.payload)
-                        .map(|payload| {
-                            type_storage_size_bytes_mapped(ctx, payload, &nested_mapping)
-                        })
-                        .max()
-                        .unwrap_or(0);
-                    4 + payload
-                }
-                TypeKind::Tuple { items } => items
-                    .iter()
-                    .map(|item| type_storage_size_bytes_mapped(ctx, *item, mapping))
-                    .sum(),
-                _ => 4,
-            }
-        }
-        _ => 4,
-    }
-}
-
-fn is_aggregate_storage_type(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let ty = ctx.resolve_named_type_id(ty);
-    match ctx.get(ty) {
-        TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. } => true,
-        TypeKind::Apply { base, .. } => matches!(
-            ctx.get(ctx.resolve_named_type_id(base)),
-            TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. }
-        ),
-        _ => false,
-    }
-}
-
-fn intrinsic_storage_type(ctx: &TypeCtx, annotated: TypeId, inferred: TypeId) -> TypeId {
-    let annotated = ctx.resolve_id(annotated);
-    match ctx.get(annotated) {
-        TypeKind::Var(_) => ctx.resolve_id(inferred),
-        _ => annotated,
-    }
-}
-
-fn tuple_field_layout(ctx: &TypeCtx, ty: TypeId, index: usize) -> Option<(TypeId, u32)> {
-    let ty = ctx.resolve_named_type_id(ty);
-    match ctx.get(ty) {
-        TypeKind::Tuple { items } => {
-            let item_ty = *items.get(index)?;
-            let offset = items[..index]
-                .iter()
-                .map(|item| type_storage_size_bytes(ctx, *item))
-                .sum();
-            Some((item_ty, offset))
-        }
-        TypeKind::Apply { base, .. } => tuple_field_layout(ctx, base, index),
-        _ => None,
-    }
-}
-
-fn tuple_field_layouts_by_result(
-    ctx: &TypeCtx,
-    ty: TypeId,
-    result_ty: TypeId,
-) -> Vec<(u32, TypeId, u32)> {
-    let ty = ctx.resolve_named_type_id(ty);
-    match ctx.get(ty) {
-        TypeKind::Tuple { items } => {
-            let mut out = Vec::new();
-            let mut offset = 0u32;
-            let want = ctx.resolve_named_type_id(result_ty);
-            for (index, item_ty) in items.iter().copied().enumerate() {
-                if ctx.resolve_named_type_id(item_ty) == want {
-                    out.push((index as u32, item_ty, offset));
-                }
-                offset += type_storage_size_bytes(ctx, item_ty);
-            }
-            out
-        }
-        TypeKind::Apply { base, .. } => tuple_field_layouts_by_result(ctx, base, result_ty),
-        _ => Vec::new(),
-    }
-}
-
-fn struct_field_layout_by_name(
-    ctx: &TypeCtx,
-    ty: TypeId,
-    field_name: &str,
-) -> Option<(TypeId, u32)> {
-    let ty = ctx.resolve_named_type_id(ty);
-    match ctx.get(ty) {
-        TypeKind::Struct {
-            fields,
-            field_names,
-            ..
-        } => {
-            let index = field_names.iter().position(|name| name == field_name)?;
-            let field_ty = *fields.get(index)?;
-            let offset = fields[..index]
-                .iter()
-                .map(|field| type_storage_size_bytes(ctx, *field))
-                .sum();
-            Some((field_ty, offset))
-        }
-        TypeKind::Apply { base, args } => {
-            let base = ctx.resolve_named_type_id(base);
-            match ctx.get(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    field_names,
-                    ..
-                } => {
-                    let index = field_names.iter().position(|name| name == field_name)?;
-                    let mapping = extend_type_mapping(ctx, &BTreeMap::new(), &type_params, &args);
-                    let field_ty = mapped_type_id(ctx, *fields.get(index)?, &mapping);
-                    let offset = fields[..index]
-                        .iter()
-                        .map(|field| type_storage_size_bytes_mapped(ctx, *field, &mapping))
-                        .sum();
-                    Some((field_ty, offset))
-                }
-                _ => None,
-            }
-        }
-        _ => None,
-    }
-}
-
 fn aggregate_field_layout(
     ctx: &TypeCtx,
     base_ty: TypeId,
@@ -375,10 +112,12 @@ fn aggregate_field_layout(
     match &field_expr.kind {
         HirExprKind::LiteralI32(index) if *index >= 0 => {
             tuple_field_layout(ctx, base_ty, *index as usize)
+                .map(|field| (field.ty, field.offset as u32))
         }
         HirExprKind::LiteralStr(id) => {
             let field_name = strings.values.get(*id as usize)?;
             struct_field_layout_by_name(ctx, base_ty, field_name.as_str())
+                .map(|field| (field.ty, field.offset as u32))
         }
         _ => None,
     }
@@ -1338,19 +1077,19 @@ fn gen_expr(
         } => {
             if name == "size_of" {
                 let ty = type_args[0];
-                let size = type_storage_size_bytes(ctx, ty) as i32;
+                let size = storage_size_bytes(ctx, ty) as i32;
                 insts.push(Instruction::I32Const(size));
                 Some(ValType::I32)
             } else if name == "align_of" {
                 let ty = type_args[0];
-                let align = type_storage_align_bytes(ctx, ty) as i32;
+                let align = storage_align_bytes(ctx, ty) as i32;
                 insts.push(Instruction::I32Const(align));
                 Some(ValType::I32)
             } else if name == "load" {
                 let ty = intrinsic_storage_type(ctx, type_args[0], expr.ty);
                 let ty_kind = ctx.get(ty);
                 if is_aggregate_storage_type(ctx, ty) {
-                    let size = type_storage_size_bytes(ctx, ty) as i32;
+                    let size = storage_size_bytes(ctx, ty) as i32;
                     gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
@@ -1443,7 +1182,7 @@ fn gen_expr(
                     gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
-                    let size = type_storage_size_bytes(ctx, ty) as i32;
+                    let size = storage_size_bytes(ctx, ty) as i32;
                     for off in 0..size {
                         insts.push(Instruction::LocalGet(dst_local));
                         if off != 0 {
@@ -1539,7 +1278,7 @@ fn gen_expr(
                 {
                     let field_ty = expr.ty;
                     if is_aggregate_storage_type(ctx, field_ty) {
-                        let size = type_storage_size_bytes(ctx, field_ty) as i32;
+                        let size = storage_size_bytes(ctx, field_ty) as i32;
                         insts.push(Instruction::I32Const(size));
                         emit_alloc_call(locals, insts);
                         let dst_local = locals.alloc_temp(ValType::I32);
@@ -1633,12 +1372,14 @@ fn gen_expr(
                 let idx_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalSet(idx_local));
                 if is_aggregate_storage_type(ctx, expr.ty) {
-                    let size = type_storage_size_bytes(ctx, expr.ty) as i32;
+                    let size = storage_size_bytes(ctx, expr.ty) as i32;
                     insts.push(Instruction::I32Const(size));
                     emit_alloc_call(locals, insts);
                     let dst_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(dst_local));
-                    for (position, _field_ty, offset) in candidate_layouts {
+                    for layout in candidate_layouts {
+                        let position = layout.index;
+                        let offset = layout.field.offset;
                         insts.push(Instruction::LocalGet(idx_local));
                         insts.push(Instruction::I32Const(position as i32));
                         insts.push(Instruction::I32Eq);
@@ -1671,7 +1412,10 @@ fn gen_expr(
                     let out_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::I32Const(0));
                     insts.push(Instruction::LocalSet(out_local));
-                    for (position, field_ty, offset) in candidate_layouts {
+                    for layout in candidate_layouts {
+                        let position = layout.index;
+                        let field_ty = layout.field.ty;
+                        let offset = layout.field.offset;
                         let field_kind = ctx.get(field_ty);
                         insts.push(Instruction::LocalGet(idx_local));
                         insts.push(Instruction::I32Const(position as i32));
@@ -1764,7 +1508,7 @@ fn gen_expr(
                     gen_expr(ctx, &args[2], name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
-                    let size = type_storage_size_bytes(ctx, field_ty) as i32;
+                    let size = storage_size_bytes(ctx, field_ty) as i32;
                     for off in 0..size {
                         insts.push(Instruction::LocalGet(base_local));
                         insts.push(Instruction::I32Const(offset as i32 + off));
@@ -1946,13 +1690,12 @@ fn gen_expr(
             payload,
             type_args: _,
         } => {
-            let payload_offset = 4i32;
+            let payload_offset = enum_payload_offset_bytes() as i32;
             let payload_storage_size = payload
                 .as_ref()
-                .map(|p| payload_offset + type_storage_size_bytes(ctx, p.ty) as i32)
+                .map(|p| payload_offset + storage_size_bytes(ctx, p.ty) as i32)
                 .unwrap_or(payload_offset);
-            let total_size =
-                (type_storage_size_bytes(ctx, expr.ty) as i32).max(payload_storage_size);
+            let total_size = (storage_size_bytes(ctx, expr.ty) as i32).max(payload_storage_size);
             insts.push(Instruction::I32Const(total_size));
             emit_alloc_call(locals, insts);
             let ptr_local = locals.alloc_temp(ValType::I32);
@@ -1972,7 +1715,7 @@ fn gen_expr(
                     gen_expr(ctx, p, name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
-                    let payload_size = type_storage_size_bytes(ctx, p.ty) as i32;
+                    let payload_size = storage_size_bytes(ctx, p.ty) as i32;
                     emit_copy_linear_bytes(
                         ptr_local,
                         payload_offset,
@@ -2036,7 +1779,7 @@ fn gen_expr(
             let mut size: u32 = 0;
             for f in fields.iter() {
                 offsets.push(size);
-                size += type_storage_size_bytes(ctx, f.ty);
+                size += storage_size_bytes(ctx, f.ty) as u32;
             }
             insts.push(Instruction::I32Const(size as i32));
             emit_alloc_call(locals, insts);
@@ -2050,7 +1793,7 @@ fn gen_expr(
                     gen_expr(ctx, f, name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
-                    let field_size = type_storage_size_bytes(ctx, field_ty) as i32;
+                    let field_size = storage_size_bytes(ctx, field_ty) as i32;
                     for off in 0..field_size {
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(offset as i32 + off));
@@ -2136,7 +1879,7 @@ fn gen_expr(
             let mut size: u32 = 0;
             for item in items.iter() {
                 offsets.push(size);
-                size += type_storage_size_bytes(ctx, item.ty);
+                size += storage_size_bytes(ctx, item.ty) as u32;
             }
             insts.push(Instruction::I32Const(size as i32));
             emit_alloc_call(locals, insts);
@@ -2150,7 +1893,7 @@ fn gen_expr(
                     gen_expr(ctx, item, name_map, sig_map, strings, locals, insts)?;
                     let src_local = locals.alloc_temp(ValType::I32);
                     insts.push(Instruction::LocalSet(src_local));
-                    let item_size = type_storage_size_bytes(ctx, item_ty) as i32;
+                    let item_size = storage_size_bytes(ctx, item_ty) as i32;
                     for off in 0..item_size {
                         insts.push(Instruction::LocalGet(ptr_local));
                         insts.push(Instruction::I32Const(offset as i32 + off));
@@ -2277,9 +2020,9 @@ fn gen_expr(
                     if let Some(bind) = &arm.bind_local {
                         if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, variant) {
                             let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
-                            let payload_offset = 4i32;
+                            let payload_offset = enum_payload_offset_bytes() as i32;
                             if is_aggregate_storage_type(ctx, payload_ty) {
-                                let payload_size = type_storage_size_bytes(ctx, payload_ty) as i32;
+                                let payload_size = storage_size_bytes(ctx, payload_ty) as i32;
                                 insts.push(Instruction::I32Const(payload_size));
                                 emit_alloc_call(locals, insts);
                                 let dst_local = locals.alloc_temp(ValType::I32);
@@ -2436,7 +2179,7 @@ fn gen_expr(
             let value_local = locals.alloc_temp(vt);
             insts.push(Instruction::LocalSet(value_local));
             insts.push(Instruction::I32Const(
-                type_storage_size_bytes(ctx, inner_ty) as i32,
+                storage_size_bytes(ctx, inner_ty) as i32
             ));
             emit_alloc_call(locals, insts);
             let ptr_local = locals.alloc_temp(ValType::I32);
@@ -2450,7 +2193,7 @@ fn gen_expr(
         HirExprKind::Deref(inner) => {
             let ty = ctx.resolve_id(expr.ty);
             if is_aggregate_storage_type(ctx, ty) {
-                let size = type_storage_size_bytes(ctx, ty) as i32;
+                let size = storage_size_bytes(ctx, ty) as i32;
                 gen_expr(ctx, inner, name_map, sig_map, strings, locals, insts)?;
                 let src_local = locals.alloc_temp(ValType::I32);
                 insts.push(Instruction::LocalSet(src_local));

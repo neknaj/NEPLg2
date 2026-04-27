@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T17:07:20.986Z",
+  "generated_at": "2026-04-27T17:26:00.335Z",
   "counts": {
-    "total": 206,
+    "total": 207,
     "open": 11,
-    "resolved": 195,
+    "resolved": 196,
     "by_area": {
       "core": {
-        "total": 74,
+        "total": 75,
         "open": 4,
-        "resolved": 70
+        "resolved": 71
       },
       "stdlib": {
         "total": 88,
@@ -90,19 +90,19 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
-      "id": "ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787",
-      "title": "memory layout rules are duplicated across compiler passes",
+      "id": "ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB",
+      "title": "move_check Rust harness drops loader source capabilities",
       "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "architecture",
+      "type": "test",
       "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
+      "updated": "2026-04-27",
+      "target": "nepl-core/tests/move_check.rs",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787.md"
+      "file": "items/ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1213,6 +1213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T161537286Z-CORE-MEM-RAW-BOUNDARY-REJECTS-CUSTOM-52920E69.md"
+    },
+    {
+      "id": "ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787",
+      "title": "memory layout rules are duplicated across compiler passes",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787.md"
     },
     {
       "id": "ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95",

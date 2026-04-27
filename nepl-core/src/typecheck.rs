@@ -19,6 +19,7 @@ use crate::effects::{
     raw_body_memory_operations,
 };
 use crate::hir::*;
+use crate::layout::{composite_field_offset_bytes, is_aggregate_storage_type};
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
 use crate::span::Span;
@@ -8990,113 +8991,6 @@ impl Env {
     }
 }
 
-fn mapped_storage_type_id(ctx: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
-    let ty = ctx.resolve_id(ty);
-    ctx.resolve_named_type_id(mapping.get(&ty).copied().unwrap_or(ty))
-}
-
-fn extend_storage_type_mapping(
-    ctx: &TypeCtx,
-    parent: &BTreeMap<TypeId, TypeId>,
-    type_params: &[TypeId],
-    args: &[TypeId],
-) -> BTreeMap<TypeId, TypeId> {
-    let mut mapping = parent.clone();
-    for (param, arg) in type_params.iter().copied().zip(args.iter().copied()) {
-        mapping.insert(
-            ctx.resolve_id(param),
-            mapped_storage_type_id(ctx, arg, parent),
-        );
-    }
-    mapping
-}
-
-fn type_storage_size_bytes(ctx: &TypeCtx, ty: TypeId) -> usize {
-    type_storage_size_bytes_mapped(ctx, ty, &BTreeMap::new())
-}
-
-fn type_storage_size_bytes_mapped(
-    ctx: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> usize {
-    let ty = mapped_storage_type_id(ctx, ty, mapping);
-    match ctx.get(ty) {
-        TypeKind::Unit | TypeKind::Never => 0,
-        TypeKind::U8 => 1,
-        TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
-        TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .map(|f| type_storage_size_bytes_mapped(ctx, *f, mapping))
-            .sum(),
-        TypeKind::Tuple { items } => items
-            .iter()
-            .map(|t| type_storage_size_bytes_mapped(ctx, *t, mapping))
-            .sum(),
-        TypeKind::Enum { variants, .. } => {
-            let payload = variants
-                .iter()
-                .filter_map(|variant| variant.payload)
-                .map(|payload| type_storage_size_bytes_mapped(ctx, payload, mapping))
-                .max()
-                .unwrap_or(0);
-            4 + payload
-        }
-        TypeKind::Apply { base, args } => {
-            let base = ctx.resolve_named_type_id(base);
-            match ctx.get(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    ..
-                } => {
-                    let nested_mapping =
-                        extend_storage_type_mapping(ctx, mapping, &type_params, &args);
-                    fields
-                        .iter()
-                        .map(|field| type_storage_size_bytes_mapped(ctx, *field, &nested_mapping))
-                        .sum()
-                }
-                TypeKind::Tuple { items } => items
-                    .iter()
-                    .map(|item| type_storage_size_bytes_mapped(ctx, *item, mapping))
-                    .sum(),
-                TypeKind::Enum {
-                    type_params,
-                    variants,
-                    ..
-                } => {
-                    let nested_mapping =
-                        extend_storage_type_mapping(ctx, mapping, &type_params, &args);
-                    let payload = variants
-                        .iter()
-                        .filter_map(|variant| variant.payload)
-                        .map(|payload| {
-                            type_storage_size_bytes_mapped(ctx, payload, &nested_mapping)
-                        })
-                        .max()
-                        .unwrap_or(0);
-                    4 + payload
-                }
-                _ => 4,
-            }
-        }
-        _ => 4,
-    }
-}
-
-fn is_aggregate_storage_type(ctx: &TypeCtx, ty: TypeId) -> bool {
-    let ty = ctx.resolve_named_type_id(ty);
-    match ctx.get(ty) {
-        TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. } => true,
-        TypeKind::Apply { base, .. } => matches!(
-            ctx.get(ctx.resolve_named_type_id(base)),
-            TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. }
-        ),
-        _ => false,
-    }
-}
-
 fn is_raw_memory_load_name(name: &str) -> bool {
     name == "load" || name.starts_with("load_")
 }
@@ -9145,14 +9039,6 @@ fn add_i32_offset_expr(
         },
         span,
     }
-}
-
-fn composite_field_offset_bytes(ctx: &TypeCtx, field_tys: &[TypeId], index: usize) -> usize {
-    field_tys
-        .iter()
-        .take(index)
-        .map(|t| type_storage_size_bytes(ctx, *t))
-        .sum()
 }
 
 // ---------------------------------------------------------------------

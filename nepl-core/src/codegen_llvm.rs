@@ -18,6 +18,10 @@ use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
 };
+use crate::layout::{
+    enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
+    storage_align_bytes, storage_size_bytes, struct_field_layout_by_name, tuple_field_layout,
+};
 use crate::llvm_ir::{
     collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
 };
@@ -2110,13 +2114,13 @@ fn lower_hir_expr(
             payload,
             type_args: _,
         } => {
-            let payload_offset = 4i64;
+            let payload_offset = enum_payload_offset_bytes() as i64;
             let payload_storage_size = payload
                 .as_ref()
-                .map(|p| payload_offset + type_storage_size_bytes(types, p.ty))
+                .map(|p| payload_offset + storage_size_bytes(types, p.ty) as i64)
                 .unwrap_or(payload_offset);
             let total_size =
-                (type_storage_size_bytes(types, expr.ty).max(payload_storage_size)) as i32;
+                ((storage_size_bytes(types, expr.ty) as i64).max(payload_storage_size)) as i32;
 
             let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
                 return Err(llvm_codegen_error(
@@ -2164,7 +2168,7 @@ fn lower_hir_expr(
                         );
                     }
                     let src_ptr8 = ctx.linear_i8_ptr_from_i32(pv.repr.as_str());
-                    let payload_size = type_storage_size_bytes(types, p.ty);
+                    let payload_size = storage_size_bytes(types, p.ty) as i64;
                     emit_copy_linear_bytes_llvm(
                         ctx,
                         base_ptr8.as_str(),
@@ -2229,7 +2233,7 @@ fn lower_hir_expr(
             let mut total_size: i32 = 0;
             for f in fields.iter() {
                 offsets.push(total_size as i64);
-                total_size += type_storage_size_bytes(types, f.ty) as i32;
+                total_size += storage_size_bytes(types, f.ty) as i32;
             }
             let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
                 return Err(llvm_codegen_error(
@@ -2272,7 +2276,7 @@ fn lower_hir_expr(
                         field_ptr8, base_ptr8, offsets[idx]
                     ));
                     let src_ptr8 = ctx.linear_i8_ptr_from_i32(fv.repr.as_str());
-                    let size = type_storage_size_bytes(types, field_ty);
+                    let size = storage_size_bytes(types, field_ty) as i64;
                     for off in 0..size {
                         let dst_byte_ptr = ctx.next_tmp();
                         let src_byte_ptr = ctx.next_tmp();
@@ -2342,7 +2346,7 @@ fn lower_hir_expr(
             let mut total_size: i32 = 0;
             for item in items.iter() {
                 offsets.push(total_size as i64);
-                total_size += type_storage_size_bytes(types, item.ty) as i32;
+                total_size += storage_size_bytes(types, item.ty) as i32;
             }
             let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
                 return Err(llvm_codegen_error(
@@ -2385,7 +2389,7 @@ fn lower_hir_expr(
                         item_ptr8, base_ptr8, offsets[idx]
                     ));
                     let src_ptr8 = ctx.linear_i8_ptr_from_i32(iv.repr.as_str());
-                    let size = type_storage_size_bytes(types, item_ty);
+                    let size = storage_size_bytes(types, item_ty) as i64;
                     for off in 0..size {
                         let dst_byte_ptr = ctx.next_tmp();
                         let src_byte_ptr = ctx.next_tmp();
@@ -2547,7 +2551,7 @@ fn lower_hir_expr(
                             if payload_ll == LlTy::Void {
                                 ctx.bind_zero_sized_local(bind.as_str());
                             } else {
-                                let payload_offset = 4i64;
+                                let payload_offset = enum_payload_offset_bytes() as i64;
                                 let base_ptr8 = ctx.linear_i8_ptr_from_i32(scr_v.repr.as_str());
                                 if is_aggregate_storage_type(types, payload_ty) {
                                     let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
@@ -2560,7 +2564,7 @@ fn lower_hir_expr(
                                             DiagnosticId::CodegenLlvmUnknownFunction,
                                         ));
                                     };
-                                    let payload_size = type_storage_size_bytes(types, payload_ty);
+                                    let payload_size = storage_size_bytes(types, payload_ty) as i64;
                                     let payload_obj = ctx.next_tmp();
                                     ctx.push_line(&format!(
                                         "  {} = call i32 {}(i32 {})",
@@ -2702,9 +2706,9 @@ fn lower_hir_expr(
             if name == "size_of" || name == "align_of" {
                 if let Some(ty) = type_args.first() {
                     let size = if name == "size_of" {
-                        type_storage_size_bytes(types, *ty)
+                        storage_size_bytes(types, *ty) as i64
                     } else {
-                        type_storage_align_bytes(types, *ty)
+                        storage_align_bytes(types, *ty) as i64
                     };
                     return Ok(Some(LlValue {
                         ty: LlTy::I32,
@@ -2734,7 +2738,7 @@ fn lower_hir_expr(
                 let ty_id = intrinsic_storage_type(types, type_args[0], expr.ty);
                 let ty_kind = types.get(ty_id);
                 if is_aggregate_storage_type(types, ty_id) {
-                    let size = type_storage_size_bytes(types, ty_id);
+                    let size = storage_size_bytes(types, ty_id) as i64;
                     let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
                         return Err(llvm_codegen_error(
                             format!(
@@ -2842,7 +2846,7 @@ fn lower_hir_expr(
                     }
                     let dst_ptr = ctx.linear_i8_ptr_from_i32(ptr_v.repr.as_str());
                     let src_ptr = ctx.linear_i8_ptr_from_i32(val_v.repr.as_str());
-                    let size = type_storage_size_bytes(types, ty_id);
+                    let size = storage_size_bytes(types, ty_id) as i64;
                     for off in 0..size {
                         let src_byte_ptr = ctx.next_tmp();
                         let byte = ctx.next_tmp();
@@ -2929,7 +2933,7 @@ fn lower_hir_expr(
                     );
                 }
                 if is_aggregate_storage_type(types, field_ty) {
-                    let size = type_storage_size_bytes(types, field_ty);
+                    let size = storage_size_bytes(types, field_ty) as i64;
                     let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
                         return Err(llvm_codegen_error(
                             format!(
@@ -3099,7 +3103,7 @@ fn lower_hir_expr(
                         dst_ptr8, dst_base8, offset
                     ));
                     let src_ptr8 = ctx.linear_i8_ptr_from_i32(src_v.repr.as_str());
-                    let size = type_storage_size_bytes(types, field_ty);
+                    let size = storage_size_bytes(types, field_ty) as i64;
                     for off in 0..size {
                         let dst_byte_ptr = ctx.next_tmp();
                         let src_byte_ptr = ctx.next_tmp();
@@ -3425,7 +3429,7 @@ fn lower_hir_expr(
                 ));
             };
             let ptr = ctx.next_tmp();
-            let size = type_storage_size_bytes(types, inner_ty);
+            let size = storage_size_bytes(types, inner_ty) as i64;
             ctx.push_line(&format!(
                 "  {} = call i32 {}(i32 {})",
                 ptr,
@@ -3484,7 +3488,7 @@ fn lower_hir_expr(
             }
             let ty = types.resolve_id(expr.ty);
             if is_aggregate_storage_type(types, ty) {
-                let size = type_storage_size_bytes(types, ty);
+                let size = storage_size_bytes(types, ty) as i64;
                 let Some(alloc_name) = resolve_alloc_symbol(ctx) else {
                     return Err(llvm_codegen_error(
                         format!(
@@ -3613,253 +3617,6 @@ fn llty_for_type(types: &TypeCtx, ty: TypeId) -> LlTy {
     }
 }
 
-fn mapped_type_id(types: &TypeCtx, ty: TypeId, mapping: &BTreeMap<TypeId, TypeId>) -> TypeId {
-    let ty = types.resolve_id(ty);
-    types.resolve_named_type_id(mapping.get(&ty).copied().unwrap_or(ty))
-}
-
-fn extend_type_mapping(
-    types: &TypeCtx,
-    parent: &BTreeMap<TypeId, TypeId>,
-    type_params: &[TypeId],
-    args: &[TypeId],
-) -> BTreeMap<TypeId, TypeId> {
-    let mut mapping = parent.clone();
-    for (param, arg) in type_params.iter().copied().zip(args.iter().copied()) {
-        mapping.insert(types.resolve_id(param), mapped_type_id(types, arg, parent));
-    }
-    mapping
-}
-
-fn type_storage_align_bytes(types: &TypeCtx, ty: TypeId) -> i64 {
-    type_storage_align_bytes_mapped(types, ty, &BTreeMap::new())
-}
-
-fn type_storage_align_bytes_mapped(
-    types: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> i64 {
-    let ty = mapped_type_id(types, ty, mapping);
-    match types.get(ty) {
-        TypeKind::Unit | TypeKind::Never => 0,
-        TypeKind::U8 => 1,
-        TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
-        TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .map(|field| type_storage_align_bytes_mapped(types, *field, mapping))
-            .max()
-            .unwrap_or(1),
-        TypeKind::Tuple { items } => items
-            .iter()
-            .map(|item| type_storage_align_bytes_mapped(types, *item, mapping))
-            .max()
-            .unwrap_or(1),
-        TypeKind::Enum { variants, .. } => variants
-            .iter()
-            .filter_map(|variant| variant.payload)
-            .map(|payload| type_storage_align_bytes_mapped(types, payload, mapping))
-            .max()
-            .unwrap_or(4)
-            .max(4),
-        TypeKind::Apply { base, args } => {
-            let base = types.resolve_named_type_id(base);
-            match types.get(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(types, mapping, &type_params, &args);
-                    fields
-                        .iter()
-                        .map(|field| {
-                            type_storage_align_bytes_mapped(types, *field, &nested_mapping)
-                        })
-                        .max()
-                        .unwrap_or(1)
-                }
-                TypeKind::Enum {
-                    type_params,
-                    variants,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(types, mapping, &type_params, &args);
-                    variants
-                        .iter()
-                        .filter_map(|variant| variant.payload)
-                        .map(|payload| {
-                            type_storage_align_bytes_mapped(types, payload, &nested_mapping)
-                        })
-                        .max()
-                        .unwrap_or(4)
-                        .max(4)
-                }
-                TypeKind::Tuple { items } => items
-                    .iter()
-                    .map(|item| type_storage_align_bytes_mapped(types, *item, mapping))
-                    .max()
-                    .unwrap_or(1),
-                _ => 4,
-            }
-        }
-        _ => 4,
-    }
-}
-
-fn type_storage_size_bytes(types: &TypeCtx, ty: TypeId) -> i64 {
-    type_storage_size_bytes_mapped(types, ty, &BTreeMap::new())
-}
-
-fn type_storage_size_bytes_mapped(
-    types: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> i64 {
-    let ty = mapped_type_id(types, ty, mapping);
-    match types.get(ty) {
-        TypeKind::Unit | TypeKind::Never => 0,
-        TypeKind::U8 => 1,
-        TypeKind::Named(name) if name == "i64" || name == "u64" || name == "f64" => 8,
-        TypeKind::Struct { fields, .. } => fields
-            .iter()
-            .map(|field| type_storage_size_bytes_mapped(types, *field, mapping))
-            .sum(),
-        TypeKind::Tuple { items } => items
-            .iter()
-            .map(|item| type_storage_size_bytes_mapped(types, *item, mapping))
-            .sum(),
-        TypeKind::Enum { variants, .. } => {
-            let payload = variants
-                .iter()
-                .filter_map(|variant| variant.payload)
-                .map(|payload| type_storage_size_bytes_mapped(types, payload, mapping))
-                .max()
-                .unwrap_or(0);
-            4 + payload
-        }
-        TypeKind::Apply { base, args } => {
-            let base = types.resolve_named_type_id(base);
-            match types.get(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(types, mapping, &type_params, &args);
-                    fields
-                        .iter()
-                        .map(|field| type_storage_size_bytes_mapped(types, *field, &nested_mapping))
-                        .sum()
-                }
-                TypeKind::Enum {
-                    type_params,
-                    variants,
-                    ..
-                } => {
-                    let nested_mapping = extend_type_mapping(types, mapping, &type_params, &args);
-                    let payload = variants
-                        .iter()
-                        .filter_map(|variant| variant.payload)
-                        .map(|payload| {
-                            type_storage_size_bytes_mapped(types, payload, &nested_mapping)
-                        })
-                        .max()
-                        .unwrap_or(0);
-                    4 + payload
-                }
-                TypeKind::Tuple { items } => items
-                    .iter()
-                    .map(|item| type_storage_size_bytes_mapped(types, *item, mapping))
-                    .sum(),
-                _ => 4,
-            }
-        }
-        _ => 4,
-    }
-}
-
-fn is_aggregate_storage_type(types: &TypeCtx, ty: TypeId) -> bool {
-    let ty = types.resolve_named_type_id(ty);
-    match types.get(ty) {
-        TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. } => true,
-        TypeKind::Apply { base, .. } => matches!(
-            types.get(types.resolve_named_type_id(base)),
-            TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. }
-        ),
-        _ => false,
-    }
-}
-
-fn intrinsic_storage_type(types: &TypeCtx, annotated: TypeId, inferred: TypeId) -> TypeId {
-    let annotated = types.resolve_id(annotated);
-    match types.get(annotated) {
-        TypeKind::Var(_) => types.resolve_id(inferred),
-        _ => annotated,
-    }
-}
-
-fn tuple_field_layout(types: &TypeCtx, ty: TypeId, index: usize) -> Option<(TypeId, i64)> {
-    let ty = types.resolve_named_type_id(ty);
-    match types.get(ty) {
-        TypeKind::Tuple { items } => {
-            let item_ty = *items.get(index)?;
-            let offset = items[..index]
-                .iter()
-                .map(|item| type_storage_size_bytes(types, *item))
-                .sum();
-            Some((item_ty, offset))
-        }
-        TypeKind::Apply { base, .. } => tuple_field_layout(types, base, index),
-        _ => None,
-    }
-}
-
-fn struct_field_layout_by_name(
-    types: &TypeCtx,
-    ty: TypeId,
-    field_name: &str,
-) -> Option<(TypeId, i64)> {
-    let ty = types.resolve_named_type_id(ty);
-    match types.get(ty) {
-        TypeKind::Struct {
-            fields,
-            field_names,
-            ..
-        } => {
-            let index = field_names.iter().position(|name| name == field_name)?;
-            let field_ty = *fields.get(index)?;
-            let offset = fields[..index]
-                .iter()
-                .map(|field| type_storage_size_bytes(types, *field))
-                .sum();
-            Some((field_ty, offset))
-        }
-        TypeKind::Apply { base, args } => {
-            let base = types.resolve_named_type_id(base);
-            match types.get(base) {
-                TypeKind::Struct {
-                    type_params,
-                    fields,
-                    field_names,
-                    ..
-                } => {
-                    let index = field_names.iter().position(|name| name == field_name)?;
-                    let mapping = extend_type_mapping(types, &BTreeMap::new(), &type_params, &args);
-                    let field_ty = mapped_type_id(types, *fields.get(index)?, &mapping);
-                    let offset = fields[..index]
-                        .iter()
-                        .map(|field| type_storage_size_bytes_mapped(types, *field, &mapping))
-                        .sum();
-                    Some((field_ty, offset))
-                }
-                _ => None,
-            }
-        }
-        _ => None,
-    }
-}
-
 fn aggregate_field_layout(
     types: &TypeCtx,
     ctx: &LowerCtx<'_>,
@@ -3869,10 +3626,12 @@ fn aggregate_field_layout(
     match &field_expr.kind {
         HirExprKind::LiteralI32(index) if *index >= 0 => {
             tuple_field_layout(types, base_ty, *index as usize)
+                .map(|field| (field.ty, field.offset as i64))
         }
         HirExprKind::LiteralStr(id) => {
             let field_name = ctx.strings.get(*id as usize)?;
             struct_field_layout_by_name(types, base_ty, field_name.as_str())
+                .map(|field| (field.ty, field.offset as i64))
         }
         _ => None,
     }

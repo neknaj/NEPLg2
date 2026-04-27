@@ -19948,3 +19948,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - std/test の観察 helper は owner 複製ではなく raw parts / Copy status の観察として扱う方針に寄せた。
+
+# 2026-04-28 メモ (ISS-20260427T164419173Z shared compiler layout)
+
+- [同期]:
+  - `main` が `origin/main` と一致していることを確認し、`fix/core-layout-shared` branch を作成した。
+- [原因]:
+  - storage size / field offset / aggregate layout が `typecheck`、`move_check`、`drop_insertion`、WASM backend、LLVM backend に重複していた。
+  - 特に `move_check` / `drop_insertion` は `bool` field を 1 byte 扱いしており、backend の 4 byte scalar slot とずれる可能性があった。
+- [修正]:
+  - `nepl-core/src/layout.rs` を追加し、storage size、align、generic `Apply` substitution、field offset、enum payload offset を共有 query に集約した。
+  - 各 pass/backend の local layout helper を削除し、`layout` module の query だけを参照するようにした。
+  - `nepl-core/tests/layout.rs` に bool field offset、generic struct layout、local helper 再導入禁止の regression を追加した。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test layout`: 3 passed
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test drop`: 9 passed
+  - `cargo test -p nepl-core --test intrinsic`: 4 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/sizeof.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/intrinsic.n.md --no-tree -o tmp/core-layout-shared-node-after-trunk.json -j 1`: 59/59 passed
+- [追加 issue]:
+  - `cargo test -p nepl-core --test move_check` は `nepl-core/tests/move_check.rs` が Loader の `SourceMap` を `compile_module` に渡さず、`core/mem` raw boundary capability を失うため失敗した。
+  - この問題は `ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB` として分離した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - compiler が memory layout の単一責任者になり、`mem.nepl` は compiler intrinsic を呼ぶ側に留める方針へ寄せた。
