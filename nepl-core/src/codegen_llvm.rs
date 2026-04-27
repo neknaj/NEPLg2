@@ -1456,7 +1456,7 @@ fn collect_hir_called_functions_from_block(block: &HirBlock, stack: &mut Vec<Str
 fn collect_hir_called_functions_from_expr(expr: &HirExpr, stack: &mut Vec<String>) {
     match &expr.kind {
         HirExprKind::Call { callee, args } => {
-            if let FuncRef::User(name, _) = callee {
+            if let FuncRef::User(name, _, _) = callee {
                 stack.push(name.clone());
             }
             for arg in args {
@@ -1774,7 +1774,7 @@ fn lower_hir_expr(
         }
         HirExprKind::Call { callee, args } => {
             let callee_name = match callee {
-                FuncRef::Builtin(name) | FuncRef::User(name, _) => name.as_str(),
+                FuncRef::Builtin(name) | FuncRef::User(name, _, _) => name.as_str(),
                 FuncRef::Trait {
                     trait_name, method, ..
                 } => {

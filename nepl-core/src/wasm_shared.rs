@@ -168,7 +168,7 @@ fn collect_called_functions_from_expr(
     while let Some(expr) = stack.pop() {
         match &expr.kind {
             HirExprKind::Call { callee, args } => {
-                if let FuncRef::User(name, _) = callee {
+                if let FuncRef::User(name, _, _) = callee {
                     out.insert(name.clone());
                 }
                 for arg in args.iter().rev() {

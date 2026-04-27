@@ -2,13 +2,13 @@
 id: ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12
 title: "HIR function references still lack stable DefId snapshots after import resolution integration"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: architecture
 created: 2026-04-27
 updated: 2026-04-27
-target: "nepl-core/src/resolve.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck.rs"
+target: "nepl-core/src/resolve.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck.rs, nepl-core/tests/resolve.rs"
 ---
 
 # ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12: HIR function references still lack stable DefId snapshots after import resolution integration
@@ -42,3 +42,19 @@ SourceMap-backed declaration 用の target-independent DefId を導入し、back
 ## 検証
 
 cross-file import、qualified alias、shadowing、ambiguous open import の DefId snapshot test を追加し、`nepl-core` の `resolve` / `import_clause` test が引き続き通ることを確認する。
+
+## 解決
+
+2026-04-27 に HIR の user function call が backend symbol とは別に source declaration identity を保持するようにした。
+
+- `DefId` を host-local 連番ではなく `file_id/start/end` の source-span based id に変更した。
+- typecheck の `BindingKind::Func` に `def_id` を追加し、top-level / imported / nested / alias / constructor binding で declaration span から設定するようにした。
+- `FuncRef::User` を `User(symbol, type_args, def_id)` に拡張し、overload 解決で選ばれた binding の DefId を HIR に保存するようにした。
+- monomorphize / codegen / move_check / drop_insertion など、HIR user call を読む後段 pass は symbol と type args の既存動作を維持したまま新しい field を扱うようにした。
+- `nepl-core/tests/resolve.rs` に qualified import の DefId、open import shadowing 時の local DefId、ambiguous open import 内の同名定義が別 DefId になることを固定する回帰テストを追加した。
+
+検証:
+
+- `cargo test -p nepl-core --test resolve -- --nocapture`: 16 passed
+- `cargo test -p nepl-core --test import_clause -- --nocapture`: 10 passed
+- `cargo test -p nepl-core --target wasm32-unknown-unknown --no-run --all-features`: pass

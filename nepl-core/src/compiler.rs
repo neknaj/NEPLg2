@@ -487,7 +487,7 @@ fn collect_called_functions_from_block(block: &crate::hir::HirBlock, stack: &mut
 fn collect_called_functions_from_expr(expr: &crate::hir::HirExpr, stack: &mut Vec<String>) {
     match &expr.kind {
         crate::hir::HirExprKind::Call { callee, args } => {
-            if let crate::hir::FuncRef::User(name, _) = callee {
+            if let crate::hir::FuncRef::User(name, _, _) = callee {
                 stack.push(name.clone());
             }
             for arg in args {

@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 
 use crate::ast::TraitCapability;
 use crate::ast::{Effect, LlvmIrBlock, WasmBlock};
+use crate::resolve::DefId;
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -148,7 +149,7 @@ pub enum HirExprKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FuncRef {
     Builtin(String),
-    User(String, Vec<TypeId>), // new: added type_args
+    User(String, Vec<TypeId>, Option<DefId>),
     Trait {
         trait_name: String,
         trait_args: Vec<TypeId>,

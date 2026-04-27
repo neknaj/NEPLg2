@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T01:30:59.034Z",
+  "generated_at": "2026-04-27T01:36:08.306Z",
   "counts": {
     "total": 171,
-    "open": 17,
-    "resolved": 154,
+    "open": 16,
+    "resolved": 155,
     "by_area": {
       "core": {
         "total": 64,
-        "open": 2,
-        "resolved": 62
+        "open": 1,
+        "resolved": 63
       },
       "stdlib": {
         "total": 63,
@@ -88,21 +88,6 @@
       "legacy_id": "RV-STDLIB-007",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-007",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520.md"
-    },
-    {
-      "id": "ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12",
-      "title": "HIR function references still lack stable DefId snapshots after import resolution integration",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "nepl-core/src/resolve.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -2113,6 +2098,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7.md"
+    },
+    {
+      "id": "ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12",
+      "title": "HIR function references still lack stable DefId snapshots after import resolution integration",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/resolve.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck.rs, nepl-core/tests/resolve.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

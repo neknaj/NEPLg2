@@ -12,7 +12,7 @@
 |---|---:|---|
 | `typecheck.rs` | 8,871 | 型推論・trait 検査・effect 判定・HIR 生成が全部混在 |
 | `compiler.rs` | 933 | パイプライン統合とターゲットゲートパーサが同居 |
-| `resolve.rs` / 旧 `name_resolve.rs` | 400+ / 削除済み | NEPLg2.0 main pipeline の import 可視性は `resolve.rs` に統合済み。HIR への stable DefId 付与は後続課題 |
+| `resolve.rs` / 旧 `name_resolve.rs` | 400+ / 削除済み | NEPLg2.0 main pipeline の import 可視性は `resolve.rs` に統合済み。HIR の user function call は source span based DefId を保持するが、NEPLg3 では module graph native な DefId へ拡張する |
 | `module_graph.rs` / `loader.rs` | 583 / 738 | ファイル解決・パース・依存グラフが混在 |
 | `hir.rs` | 194 | `TupleConstruct` など NEPLg3 廃止構文が残る |
 | `passes/` | 3ファイル | Resource IR パスが存在しない |
@@ -448,7 +448,7 @@ NEPLg3 ワークスペースには `nepl-core-g3` / `nepl-cli` 以外にも次�
 | `ast.rs` | `syntax/ast/` (分割) | TypeExpr → `typexpr.rs`、Expr → `expr.rs`、Pattern → `pattern.rs` |
 | `parser.rs` | `syntax/parser/` (分割) | 役割別に 4 ファイルへ |
 | `module_graph.rs` + `loader.rs` | `module/` (分割) | 3 層モデルに再設計 |
-| `resolve.rs`（旧 `name_resolve.rs` は削除済み） | `resolve/` (統合・拡張) | stable DefId と variant 解決追加 |
+| `resolve.rs`（旧 `name_resolve.rs` は削除済み） | `resolve/` (統合・拡張) | source span based DefId を module graph native な DefId へ拡張し、variant 解決を追加 |
 | `types.rs` | `ty/ty.rs` + `ty/arena.rs` | Tuple 廃止、ResourceUsage 追加 |
 | `effects.rs` | `ty/effect.rs` | InternalAlloc/ExternalIO 分類を充実 |
 | `typecheck.rs` (8,871 行) | `check/` (7 ファイルに分割) | 役割別分割が最大の変更 |
