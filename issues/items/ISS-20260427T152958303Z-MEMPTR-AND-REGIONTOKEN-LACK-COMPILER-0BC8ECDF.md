@@ -51,6 +51,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 したがって修正は「`MemPtr` を少し厳しくする」だけでは足りない。non-owning pointer、storage owner、initialized cell、borrow projection、drop obligation を compiler-owned Resource IR で分け、stdlib 側はその wrapper として設計する必要がある。
 
+## 2026-04-28 MemPtr raw alias 部分対応
+
+`move_check` の raw place tracking が i32 address alias に偏っており、`mem_ptr_addr` で同じ `MemPtr<T>` から raw address を複数回取り出すと別 place として扱われる問題を `ISS-20260427T183234007Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-CE6E5F55` として分離し、修正した。
+
+この対応で `mem_ptr_wrap` / `mem_ptr_addr` / `MemPtr` 変数コピーは同じ raw place key に畳み込まれる。これにより、同じ `MemPtr` 由来 address から non-Copy value を二重に `load<T>` する経路は D3100 で拒否される。ただし、`RegionToken` の forging、owner/free 責務、initialized cell tracking はまだこの親 issue の残件である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。
