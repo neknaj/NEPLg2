@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T03:08:20.358Z",
+  "generated_at": "2026-04-27T03:12:56.224Z",
   "counts": {
-    "total": 173,
-    "open": 10,
+    "total": 174,
+    "open": 11,
     "resolved": 163,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 65,
-        "open": 9,
+        "total": 66,
+        "open": 10,
         "resolved": 56
       },
       "cli": {
@@ -193,6 +193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T022527514Z-SPARSESET-NEW-REJECTS-ZERO-UNIVERSE--0DB75A65.md"
+    },
+    {
+      "id": "ISS-20260427T031251079Z-LIST-MAP-AND-FILTER-LEAK-PARTIAL-RES-9B715B6A",
+      "title": "List map and filter leak partial results when final cons allocation fails",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/list.nepl, tests/stdlib/list_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T031251079Z-LIST-MAP-AND-FILTER-LEAK-PARTIAL-RES-9B715B6A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
