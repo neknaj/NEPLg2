@@ -36,7 +36,7 @@ fn main <()->i32> ():
 
 ## invalid_raw_wasm_is_compile_fail
 
-neplg2:test[compile_fail]
+neplg2:test[compile_fail, skip_llvm]
 diag_id: 4004
 ```neplg2
 #target core

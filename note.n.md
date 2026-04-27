@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260426T213058233Z LLVM compile_fail diagnostics)
+
+- 状況:
+  - LLVM CLI compile_fail は `[D3001] ... (file=0, start=38, end=50)` のcompact span形式を返すが、`nodesrc/tests.js` は `--> file:line:col` 形式だけを抽出していたため、`diag_span` 期待がmissingになっていた。
+  - `#entry main` のlexer token spanがentry名ではなくdirective全体を指しており、entry missing診断が `main` ではなく `#entry` 先頭を指していた。
+  - WASM raw body parser専用診断とstd streamio専用診断をLLVM runnerで同じ期待IDとして比較していたtarget不適用ケースも混ざっていた。
+- 修正:
+  - `nodesrc/tests.js` でLLVM CLI compact spanをdoctest sourceから `/virtual/entry.nepl:line:col` へ復元するようにした。
+  - lexerの `#entry` token spanをentry名部分だけにした。
+  - `tests/compiler/codegen_diagnostics.n.md` のWASM raw parser testと `tests/compiler/move_effect.n.md` のstd streamio move testに `skip_llvm` を付けた。
+  - `nodesrc/test_llvm_runner_return_value.js` にcompact span復元の回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/test_llvm_runner_return_value.js`: pass
+  - `node nodesrc/tests.js -i tests/compiler/compile_fail_diag_location.n.md -i tests/compiler/codegen_diagnostics.n.md -i tests/compiler/move_effect.n.md --runner llvm --llvm-all --llvm-compile-only --no-tree -o tmp/llvm-compile-fail-diag-final.json -j 1`: `total=32`, `passed=32`
+  - `git diff --check`: pass（CRLF 変換警告のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更はLLVM compile_fail runnerが診断ID/spanを正しく比較するための修正。
+
 # 2026-04-27 メモ (ISS-20260426T213058421Z LLVM collection signature drift)
 
 - 状況:

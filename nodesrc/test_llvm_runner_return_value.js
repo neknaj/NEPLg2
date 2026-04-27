@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
     applyDoctestExpectations,
     buildLlvmRunResult,
+    extractDiagSpansFromCompileError,
     llvmReturnValueFromProcessResult,
 } = require('./tests');
 
@@ -52,5 +53,13 @@ const signaled = buildLlvmRunResult(
 );
 assert.equal(signaled.return_value, null);
 assert.equal(signaled.ok, false);
+
+const diagSpans = extractDiagSpansFromCompileError(
+    'Error: failed to typecheck module for llvm lowering: [D3001] undefined identifier (file=0, start=38, end=50)',
+    {
+        source: '#entry main\nfn main <()->i32> ():\n    missing_name\n',
+    },
+);
+assert.deepEqual(diagSpans, [{ file: '/virtual/entry.nepl', line: 3, col: 5 }]);
 
 console.log('llvm runner return value regression passed');

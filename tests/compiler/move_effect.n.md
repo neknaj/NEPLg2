@@ -624,7 +624,7 @@ fn main <()->i32> ():
 
 ## Writer は非Copyとして move 後再利用不可
 
-neplg2:test[compile_fail]
+neplg2:test[compile_fail, skip_llvm]
 diag_id: 3053
 ```neplg2
 #entry main
