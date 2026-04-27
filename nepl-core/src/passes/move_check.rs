@@ -143,13 +143,13 @@ struct BorrowCount {
     unique: usize,
 }
 
-struct MoveCheckContext {
+struct MoveCheckContext<'m> {
     /// String literals referenced by HIR field selector expressions.
     string_literals: Vec<String>,
     /// Function parameter types after monomorphization.
     function_params: BTreeMap<String, Vec<TypeId>>,
     /// Function definitions used to specialize raw alias summaries at call sites.
-    function_defs: Rc<BTreeMap<String, HirFunction>>,
+    function_defs: Rc<BTreeMap<String, &'m HirFunction>>,
     /// Function return provenance summaries after monomorphization.
     function_raw_alias_summaries: BTreeMap<String, FunctionRawAliasSummary>,
     /// State of all variables currently in scope.
@@ -208,12 +208,12 @@ struct ResourceStateSnapshot {
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
 
-impl MoveCheckContext {
-    fn new(module: &HirModule) -> Self {
+impl<'m> MoveCheckContext<'m> {
+    fn new(module: &'m HirModule) -> Self {
         let function_defs = module
             .functions
             .iter()
-            .map(|func| (func.name.clone(), func.clone()))
+            .map(|func| (func.name.clone(), func))
             .collect();
         Self {
             string_literals: module.string_literals.clone(),
@@ -854,7 +854,7 @@ impl MoveCheckContext {
     }
 
     fn with_function_params(
-        module: &HirModule,
+        module: &'m HirModule,
         function_params: BTreeMap<String, Vec<TypeId>>,
         function_raw_alias_summaries: BTreeMap<String, FunctionRawAliasSummary>,
     ) -> Self {
@@ -5389,10 +5389,6 @@ fn simple_call_tree_raw_alias_summary_iteratively(
                             } else {
                                 instantiated
                             }
-                        } else if let Some(specialized) =
-                            specialized_function_raw_alias_summary(name, args, ctx, tctx)
-                        {
-                            specialized
                         } else {
                             FunctionRawAliasSummary::default()
                         }
@@ -5656,7 +5652,7 @@ fn block_raw_alias_summary(
     last_summary
 }
 
-impl MoveCheckContext {
+impl<'m> MoveCheckContext<'m> {
     fn clone_for_alias_summary(&self) -> Self {
         Self {
             string_literals: self.string_literals.clone(),

@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260427T231941023Z raw helper specialization deep HIR clone)
+
+- 状況:
+  - `49ca052` 後の回帰確認で、`cargo test -p nepl-core --test check_pipeline -- --nocapture` が `prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow` で native stack overflow した。
+  - 追加で `move_check_accepts_deep_prefix_chain_without_stack_overflow` も単体で stack overflow することを確認した。
+  - 当初は raw helper の call-site specialization が通常の i32 call chain を再帰解決している可能性を疑ったが、詳細確認では `build_function_raw_alias_summaries` 中に `MoveCheckContext::new` が全 `HirFunction` を deep clone していたことが主因だった。
+- 修正:
+  - `MoveCheckContext` に lifetime を持たせ、`function_defs` を `Rc<BTreeMap<String, &HirFunction>>` に変更した。これにより alias summary context の複製は shallow になり、深い HIR body を context 作成のたびに clone しない。
+  - simple call tree summary の固定点構築中、まだ callee summary が無い関数をその場で特殊化しないようにした。未確定 summary は default とし、次の固定点反復で収束させる。
+  - raw helper constant offset specialization 自体は維持したため、`slot_ptr p 0` の disjoint store 精度は保持している。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test check_pipeline -- --nocapture`: 7/7 passed
+  - `cargo test -p nepl-core --test neplg2 generic_store_uses_nested_address_call_without_stealing_value_arg -- --nocapture`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-helper-specialization-deep-prefix.json -j 1`: 94/94 passed
+- plan.md との差異:
+  - plan.md は変更していない。compiler core 側の raw alias summary 構築を、深い式木に対して stack-safe になるよう修正した。
+
 # 2026-04-28 メモ (raw memory effect migration 調査)
 
 - 状況:

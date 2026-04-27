@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T23:16:07.575Z",
+  "generated_at": "2026-04-27T23:33:14.217Z",
   "counts": {
-    "total": 230,
+    "total": 231,
     "open": 10,
-    "resolved": 220,
+    "resolved": 221,
     "by_area": {
       "core": {
-        "total": 97,
+        "total": 98,
         "open": 3,
-        "resolved": 94
+        "resolved": 95
       },
       "stdlib": {
         "total": 89,
@@ -1573,6 +1573,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T225104799Z-MOVE-CHECK-KEEPS-RAW-HELPER-OFFSETS--89FF7C37.md"
+    },
+    {
+      "id": "ISS-20260427T231941023Z-RAW-HELPER-CALL-SITE-SPECIALIZATION--B8CC824B",
+      "title": "raw helper call-site specialization clones deep HIR during summary build",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/check_pipeline.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T231941023Z-RAW-HELPER-CALL-SITE-SPECIALIZATION--B8CC824B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
