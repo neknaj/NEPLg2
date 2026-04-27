@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T01:16:52.913Z",
+  "generated_at": "2026-04-27T01:30:59.034Z",
   "counts": {
     "total": 171,
-    "open": 18,
-    "resolved": 153,
+    "open": 17,
+    "resolved": 154,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 63,
-        "open": 16,
-        "resolved": 47
+        "open": 15,
+        "resolved": 48
       },
       "cli": {
         "total": 19,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230",
-      "title": "BloomFilter retains unsafe unwrap in owned bit storage cleanup",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/collections/bloom_filter.nepl, tests/stdlib/bloom_filter_collections.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230.md"
     },
     {
       "id": "ISS-20260427T000311941Z-COUNTINGBLOOMFILTER-RETAINS-UNSAFE-U-D4E48E30",
@@ -2473,6 +2458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T000311579Z-ADJACENCYMATRIX-RETAINS-UNSAFE-UNWRA-1D406374.md"
+    },
+    {
+      "id": "ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230",
+      "title": "BloomFilter retains unsafe unwrap in owned bit storage cleanup",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/bloom_filter.nepl, tests/stdlib/bloom_filter_collections.n.md, nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230.md"
     },
     {
       "id": "ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496",

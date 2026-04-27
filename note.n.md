@@ -18951,3 +18951,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の dependency graph / reachability helper に使える AdjacencyMatrix が、cleanup 時に unsafe helper へ依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000311744Z BloomFilter owned cleanup)
+
+- [同期]:
+  - `origin/main` が `8024f84 stdlib: remove adjacency matrix unsafe cleanup unwrap` で一致している状態から `stdlib/bloom-filter-owned-cleanup` branch を作成した。
+  - commit 前に `origin/main` の `b99686a` まで再同期し、core name resolution 統合を取り込んで `trunk build` 後に検証した。
+- [原因]:
+  - `BloomFilter.new` は `nbits > 0` のときに `nbytes > 0` の bit array を確保し、`BloomFilter` がその pointer を所有する。
+  - `BloomFilter.free` は generic struct field を読むための一時領域を使った後、owned bit array の cleanup だけ `dealloc_ptr<u8>` の `Result` を `uwok` していた。
+- [修正]:
+  - `BloomFilter.free` の owned bit array cleanup を `dealloc_raw mem_ptr_addr bits nbytes` に変更した。
+  - 一時 struct 領域と所有 bit array の解放責務を分け、どちらも owner-internal raw cleanup として扱うようにした。
+  - `free` の doc comment に owner invariant と free 後の再利用禁止を明記した。
+  - free 後の再確保 regression と、BloomFilter 実装に unsafe unwrap / unreachable が戻らない source policy guard を追加した。
+- [検証]:
+  - `trunk build`: pass
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl --no-tree -o tmp/bloom-filter-owned-cleanup-docs-after-b99686a.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/bloom_filter_collections.n.md -i stdlib/tests/bloom_filter.n.md --no-tree -o tmp/bloom-filter-owned-cleanup-focused-after-b99686a.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-bloom-filter-owned-cleanup-after-b99686a.json -j 4`: 289/289 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-bloom-filter-owned-cleanup-after-b99686a.json -j 4`: 418/418 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host cache / membership helper に使える BloomFilter が、cleanup 時に unsafe helper へ依存しないようになった。

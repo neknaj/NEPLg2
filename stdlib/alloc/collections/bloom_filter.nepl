@@ -256,6 +256,11 @@ fn clear <.T,.H> <(BloomFilter<.T,.H>)->BloomFilter<.T,.H>> (bf):
 //: ## free
 //: bitset [領域/りょういき]を[解放/かいほう]する
 //:
+//: ### [仕様/しよう]
+//: - `BloomFilter` は `new` が[確保/かくほ]した `nbytes > 0` の bit array を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、bit array を `dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - caller は `free` [後/ご]の `BloomFilter` を[再利用/さいりよう]してはいけません。
+//:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
@@ -274,5 +279,5 @@ fn free <.T,.H> <(BloomFilter<.T,.H>)->()> (bf):
     store<BloomFilter<.T,.H>> bf_mem bf
     let nbytes <i32> get load<BloomFilter<.T,.H>> bf_mem "nbytes"
     let bits <MemPtr<u8>> get load<BloomFilter<.T,.H>> bf_mem "bits"
-    let _ <()> uwok dealloc_ptr<u8> bits nbytes
+    dealloc_raw mem_ptr_addr bits nbytes
     dealloc_raw bf_mem size_of<BloomFilter<.T,.H>>
