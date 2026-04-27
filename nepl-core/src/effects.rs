@@ -57,6 +57,26 @@ pub const IMPURE_IO_EFFECT_MARKERS: &[&str] = &[
 
 pub const RAW_MEMORY_INTRINSIC_EFFECT_MARKERS: &[&str] = &["load", "store"];
 
+pub const RAW_MEMORY_HELPER_EFFECT_MARKERS: &[&str] = &[
+    "__nepl_rt_alloc",
+    "__nepl_rt_dealloc",
+    "__nepl_rt_realloc",
+    "alloc_raw",
+    "dealloc_raw",
+    "realloc_raw",
+    "mem_size",
+    "mem_grow",
+    "load",
+    "store",
+    "load_i32",
+    "store_i32",
+    "load_u8",
+    "store_u8",
+    "mem_copy",
+    "mem_move",
+    "mem_fill",
+];
+
 pub fn intrinsic_effect(name: &str) -> Effect {
     if IMPURE_IO_EFFECT_MARKERS.iter().any(|m| *m == name)
         || RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
@@ -71,6 +91,12 @@ pub fn intrinsic_effect(name: &str) -> Effect {
 
 pub fn intrinsic_is_raw_memory_effect(name: &str) -> bool {
     RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
+        .iter()
+        .any(|marker| *marker == name)
+}
+
+pub fn raw_callee_is_raw_memory_effect(name: &str) -> bool {
+    RAW_MEMORY_HELPER_EFFECT_MARKERS
         .iter()
         .any(|marker| *marker == name)
 }
