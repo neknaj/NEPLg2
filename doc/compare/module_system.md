@@ -87,7 +87,7 @@ module lexer:
 - `#import` は物理的なファイル結合（AST 平坦化）を行っていた。
 - パスはファイルシステム位置に直接解決していた。
 - `#use` はパースされていたが名前解決で使われていなかった。
-- `name_resolve.rs` はスタブで、型検査が字句的 Env 上でフラット化後に解決していた。
+- 旧 `name_resolve.rs` は未使用スタブだったため削除済み。現行 NEPLg2.0 は flat merge AST を維持しつつ、`resolve.rs` の `ImportResolution` が SourceMap ベースで import 可視性を型検査へ渡している。
 
 ### NEPLg3 の解決策
 

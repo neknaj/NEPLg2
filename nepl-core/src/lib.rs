@@ -36,7 +36,6 @@ pub mod monomorphize;
 pub mod nm;
 pub mod parser;
 pub mod passes;
-#[cfg(not(target_os = "none"))]
 pub mod resolve;
 pub mod runtime_helpers;
 pub mod source_map;

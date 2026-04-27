@@ -3,7 +3,6 @@ extern crate alloc;
 extern crate std;
 
 use alloc::boxed::Box;
-use alloc::collections::btree_map::Entry;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -17,6 +16,7 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::effects::{intrinsic_effect, raw_body_direct_callees};
 use crate::hir::*;
+use crate::resolve::ImportResolution;
 use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
@@ -597,8 +597,7 @@ pub fn typecheck(
     let mut rejected_copy_targets: Vec<TypeId> = Vec::new();
     let mut pending_copy_clone_checks: Vec<(TypeId, Span)> = Vec::new();
     let mut duplicate_impl_spans: BTreeSet<(u32, u32, u32)> = BTreeSet::new();
-    let qualified_import_targets = build_qualified_import_targets(module, source_map);
-    let unqualified_import_visibility = build_unqualified_import_visibility(module, source_map);
+    let import_resolution = ImportResolution::from_module(module, source_map);
 
     let mut entry: Option<(String, Span)> = None;
     let mut externs: Vec<HirExtern> = Vec::new();
@@ -1726,8 +1725,7 @@ pub fn typecheck(
                 &traits,
                 &impls,
                 &mut nested_functions,
-                &qualified_import_targets,
-                &unqualified_import_visibility,
+                &import_resolution,
             ) {
                 Ok(checked) => {
                     diagnostics.extend(checked.diagnostics);
@@ -1932,8 +1930,7 @@ pub fn typecheck(
                     &traits,
                     &impls,
                     &mut nested_functions,
-                    &qualified_import_targets,
-                    &unqualified_import_visibility,
+                    &import_resolution,
                 ) {
                     Ok(checked) => checked,
                     Err(mut diags) => {
@@ -2093,8 +2090,7 @@ fn check_function(
     traits: &BTreeMap<String, TraitInfo>,
     impls: &Vec<ImplInfo>,
     generated_functions: &mut Vec<HirFunction>,
-    qualified_import_targets: &BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>>,
-    unqualified_import_visibility: &UnqualifiedImportVisibilityMap,
+    import_resolution: &ImportResolution,
 ) -> Result<CheckedFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let func_ty_snapshot = ctx.snapshot_type_var_bindings(func_ty);
@@ -2174,8 +2170,7 @@ fn check_function(
             structs,
             instantiations,
             type_param_bounds: type_param_bounds.clone(),
-            qualified_import_targets,
-            unqualified_import_visibility,
+            import_resolution,
             traits,
             impls,
             generated_functions,
@@ -2359,8 +2354,7 @@ struct BlockChecker<'a> {
     structs: &'a BTreeMap<String, StructInfo>,
     instantiations: &'a mut BTreeMap<String, Vec<Vec<TypeId>>>, // new
     type_param_bounds: BTreeMap<TypeId, Vec<TraitBoundRef>>,
-    qualified_import_targets: &'a BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>>,
-    unqualified_import_visibility: &'a UnqualifiedImportVisibilityMap,
+    import_resolution: &'a ImportResolution,
     traits: &'a BTreeMap<String, TraitInfo>,
     impls: &'a Vec<ImplInfo>,
     generated_functions: &'a mut Vec<HirFunction>,
@@ -2374,8 +2368,9 @@ impl<'a> BlockChecker<'a> {
         if self.enums.contains_key(ns) || self.traits.contains_key(ns) {
             return None;
         }
-        let file_aliases = self.qualified_import_targets.get(&id.span.file_id.0)?;
-        let target_files = file_aliases.get(ns)?;
+        let target_files = self
+            .import_resolution
+            .qualified_targets_for_alias(id.span.file_id.0, ns)?;
         let bindings = self
             .env
             .lookup_all_any_defined(member)
@@ -2387,39 +2382,17 @@ impl<'a> BlockChecker<'a> {
     }
 
     fn unqualified_lookup_names(&self, id: &Ident) -> Vec<String> {
-        let mut names = vec![id.name.clone()];
-        if let Some(imports) = self.unqualified_import_visibility.get(&id.span.file_id.0) {
-            for visibility in imports.values() {
-                if let UnqualifiedImportVisibility::Selected(selected) = visibility {
-                    if let Some(source_name) = selected.get(&id.name) {
-                        if !names.iter().any(|name| name == source_name) {
-                            names.push(source_name.clone());
-                        }
-                    }
-                }
-            }
-        }
-        names
+        self.import_resolution
+            .unqualified_lookup_names(id.span.file_id.0, &id.name)
     }
 
     fn binding_is_visible_unqualified(&self, id: &Ident, binding: &Binding) -> bool {
-        if binding.span.file_id == id.span.file_id {
-            return binding.name == id.name;
-        }
-        let Some(imports) = self.unqualified_import_visibility.get(&id.span.file_id.0) else {
-            return true;
-        };
-        let Some(visibility) = imports.get(&binding.span.file_id.0) else {
-            return false;
-        };
-        match visibility {
-            UnqualifiedImportVisibility::Hidden => false,
-            UnqualifiedImportVisibility::All => binding.name == id.name,
-            UnqualifiedImportVisibility::Selected(selected) => selected
-                .get(&id.name)
-                .map(|source_name| source_name == &binding.name)
-                .unwrap_or(false),
-        }
+        self.import_resolution.binding_is_visible_unqualified(
+            id.span.file_id.0,
+            &id.name,
+            binding.span.file_id.0,
+            &binding.name,
+        )
     }
 
     fn lookup_all_unqualified_any_defined(&self, id: &Ident) -> Vec<&Binding> {
@@ -4144,8 +4117,7 @@ impl<'a> BlockChecker<'a> {
                         self.traits,
                         self.impls,
                         self.generated_functions,
-                        self.qualified_import_targets,
-                        self.unqualified_import_visibility,
+                        self.import_resolution,
                     ) {
                         Ok(checked) => {
                             self.diagnostics.extend(checked.diagnostics);
@@ -4592,7 +4564,7 @@ impl<'a> BlockChecker<'a> {
                                     };
                                 if bindings.is_empty()
                                     && qualified_bindings.is_none()
-                                    && self.qualified_import_targets.is_empty()
+                                    && !self.import_resolution.has_qualified_targets()
                                 {
                                     if let Some((ns, member)) = parse_variant_name(&id.name) {
                                         if !self.enums.contains_key(ns)
@@ -9257,348 +9229,6 @@ fn detect_field_accessor_fn(def: &FnDef) -> Option<FieldAccessorKind> {
         }
         _ => None,
     }
-}
-
-fn normalized_import_suffix(module: &str, ext: &str) -> String {
-    let normalized = module.replace('\\', "/");
-    let mut parts = Vec::new();
-    for part in normalized.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                parts.pop();
-            }
-            other => parts.push(other),
-        }
-    }
-    let mut s = parts.join("/");
-    if !s.starts_with('/') {
-        s.insert(0, '/');
-    }
-    s.push_str(ext);
-    s
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum UnqualifiedImportVisibility {
-    Hidden,
-    All,
-    Selected(BTreeMap<String, String>),
-}
-
-type UnqualifiedImportVisibilityMap = BTreeMap<u32, BTreeMap<u32, UnqualifiedImportVisibility>>;
-
-fn import_target_files(source_map: &SourceMap, path: &str) -> BTreeSet<u32> {
-    let suffixes = [
-        normalized_import_suffix(path, ".nepl"),
-        normalized_import_suffix(path, ".n.md"),
-    ];
-    source_map
-        .iter_paths()
-        .filter_map(|(file_id, path)| {
-            let mut normalized = path.to_string_lossy().replace('\\', "/");
-            if !normalized.starts_with('/') {
-                normalized.insert(0, '/');
-            }
-            if suffixes.iter().any(|suffix| normalized.ends_with(suffix)) {
-                Some(file_id.0)
-            } else {
-                None
-            }
-        })
-        .collect::<BTreeSet<_>>()
-}
-
-fn import_clause_unqualified_visibility(clause: &ImportClause) -> UnqualifiedImportVisibility {
-    match clause {
-        ImportClause::DefaultAlias | ImportClause::Alias(_) => UnqualifiedImportVisibility::Hidden,
-        ImportClause::Open | ImportClause::Merge => UnqualifiedImportVisibility::All,
-        ImportClause::Selective(items) => {
-            if items.iter().any(|item| item.glob) {
-                return UnqualifiedImportVisibility::All;
-            }
-            let mut selected = BTreeMap::new();
-            for item in items {
-                selected.insert(
-                    item.alias.clone().unwrap_or_else(|| item.name.clone()),
-                    item.name.clone(),
-                );
-            }
-            UnqualifiedImportVisibility::Selected(selected)
-        }
-    }
-}
-
-fn default_import_alias(path: &str) -> Option<String> {
-    let file_name = path
-        .rsplit(|ch| ch == '/' || ch == '\\')
-        .next()
-        .unwrap_or(path)
-        .trim();
-    if file_name.is_empty() {
-        return None;
-    }
-    let stem = file_name
-        .strip_suffix(".nepl")
-        .or_else(|| file_name.strip_suffix(".n.md"))
-        .unwrap_or(file_name);
-    if stem.is_empty() {
-        None
-    } else {
-        Some(stem.to_string())
-    }
-}
-
-fn merge_unqualified_import_visibility(
-    current: &mut UnqualifiedImportVisibility,
-    next: UnqualifiedImportVisibility,
-) -> bool {
-    let before = current.clone();
-    match next {
-        UnqualifiedImportVisibility::Hidden => {}
-        UnqualifiedImportVisibility::All => {
-            if !matches!(&*current, UnqualifiedImportVisibility::All) {
-                *current = UnqualifiedImportVisibility::All;
-            }
-        }
-        UnqualifiedImportVisibility::Selected(next) => match current {
-            UnqualifiedImportVisibility::Hidden => {
-                *current = UnqualifiedImportVisibility::Selected(next);
-            }
-            UnqualifiedImportVisibility::Selected(current) => {
-                current.extend(next);
-            }
-            UnqualifiedImportVisibility::All => {}
-        },
-    }
-    *current != before
-}
-
-fn insert_unqualified_import_visibility(
-    out: &mut UnqualifiedImportVisibilityMap,
-    source_file: u32,
-    target_files: BTreeSet<u32>,
-    visibility: UnqualifiedImportVisibility,
-) {
-    if target_files.is_empty() {
-        return;
-    }
-    let source_visibility = out.entry(source_file).or_insert_with(BTreeMap::new);
-    for target_file in target_files {
-        source_visibility
-            .entry(target_file)
-            .and_modify(|current| {
-                let _ = merge_unqualified_import_visibility(current, visibility.clone());
-            })
-            .or_insert_with(|| visibility.clone());
-    }
-}
-
-fn expand_unqualified_import_visibility(out: &mut UnqualifiedImportVisibilityMap) {
-    let mut worklist = Vec::new();
-    for (source_file, targets) in out.iter() {
-        for (target_file, visibility) in targets {
-            if *visibility == UnqualifiedImportVisibility::All {
-                worklist.push((*source_file, *target_file));
-            }
-        }
-    }
-    while let Some((source_file, middle_file)) = worklist.pop() {
-        let middle_targets = out
-            .get(&middle_file)
-            .map(|targets| {
-                targets
-                    .iter()
-                    .map(|(target_file, visibility)| (*target_file, visibility.clone()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        for (target_file, next_visibility) in middle_targets {
-            let source_visibility = out.entry(source_file).or_insert_with(BTreeMap::new);
-            let changed = match source_visibility.entry(target_file) {
-                Entry::Occupied(mut entry) => {
-                    merge_unqualified_import_visibility(entry.get_mut(), next_visibility)
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(next_visibility);
-                    true
-                }
-            };
-            if changed
-                && source_visibility
-                    .get(&target_file)
-                    .is_some_and(|visibility| *visibility == UnqualifiedImportVisibility::All)
-            {
-                worklist.push((source_file, target_file));
-            }
-        }
-    }
-}
-
-fn build_unqualified_import_visibility(
-    module: &crate::ast::Module,
-    source_map: Option<&SourceMap>,
-) -> UnqualifiedImportVisibilityMap {
-    let Some(source_map) = source_map else {
-        return BTreeMap::new();
-    };
-    let mut directives: Vec<&Directive> = module.directives.iter().collect();
-    for item in &module.root.items {
-        if let Stmt::Directive(d) = item {
-            directives.push(d);
-        }
-    }
-    let mut out = BTreeMap::new();
-    for (file_id, _) in source_map.iter_paths() {
-        out.entry(file_id.0).or_insert_with(BTreeMap::new);
-    }
-    let root_file = source_map.iter_paths().next().map(|(file_id, _)| file_id.0);
-    let mut root_has_no_prelude = false;
-    let mut root_has_explicit_prelude = false;
-    for directive in directives {
-        match directive {
-            Directive::Import {
-                path, clause, span, ..
-            } => {
-                insert_unqualified_import_visibility(
-                    &mut out,
-                    span.file_id.0,
-                    import_target_files(source_map, path),
-                    import_clause_unqualified_visibility(clause),
-                );
-            }
-            Directive::Include { path, span } => {
-                insert_unqualified_import_visibility(
-                    &mut out,
-                    span.file_id.0,
-                    import_target_files(source_map, path),
-                    UnqualifiedImportVisibility::All,
-                );
-            }
-            Directive::Prelude { path, span } => {
-                if Some(span.file_id.0) == root_file {
-                    root_has_explicit_prelude = true;
-                }
-                insert_unqualified_import_visibility(
-                    &mut out,
-                    span.file_id.0,
-                    import_target_files(source_map, path),
-                    UnqualifiedImportVisibility::All,
-                );
-            }
-            Directive::NoPrelude { span } => {
-                if Some(span.file_id.0) == root_file {
-                    root_has_no_prelude = true;
-                }
-            }
-            _ => {}
-        }
-    }
-    if let Some(root_file) = root_file {
-        if !root_has_no_prelude && !root_has_explicit_prelude {
-            insert_unqualified_import_visibility(
-                &mut out,
-                root_file,
-                import_target_files(source_map, "std/prelude_base"),
-                UnqualifiedImportVisibility::All,
-            );
-        }
-    }
-    expand_unqualified_import_visibility(&mut out);
-    out
-}
-
-fn build_qualified_import_targets(
-    module: &crate::ast::Module,
-    source_map: Option<&SourceMap>,
-) -> BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>> {
-    let Some(source_map) = source_map else {
-        return BTreeMap::new();
-    };
-    let mut directives: Vec<&Directive> = module.directives.iter().collect();
-    for item in &module.root.items {
-        if let Stmt::Directive(d) = item {
-            directives.push(d);
-        }
-    }
-    let merge_import_targets = build_merge_import_targets(&directives, source_map);
-    let mut out: BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>> = BTreeMap::new();
-    for directive in directives {
-        let Directive::Import {
-            path, clause, span, ..
-        } = directive
-        else {
-            continue;
-        };
-        let aliases: Vec<String> = match clause {
-            ImportClause::DefaultAlias => default_import_alias(path)
-                .map(|alias| vec![alias])
-                .unwrap_or_default(),
-            ImportClause::Alias(alias) => vec![alias.clone()],
-            _ => Vec::new(),
-        };
-        if aliases.is_empty() {
-            continue;
-        }
-        let target_files = expand_files_through_merge_imports(
-            import_target_files(source_map, path),
-            &merge_import_targets,
-        );
-        if target_files.is_empty() {
-            continue;
-        }
-        let file_aliases = out.entry(span.file_id.0).or_default();
-        for alias in aliases {
-            file_aliases
-                .entry(alias)
-                .or_default()
-                .extend(target_files.iter().copied());
-        }
-    }
-    out
-}
-
-fn build_merge_import_targets(
-    directives: &[&Directive],
-    source_map: &SourceMap,
-) -> BTreeMap<u32, BTreeSet<u32>> {
-    let mut out: BTreeMap<u32, BTreeSet<u32>> = BTreeMap::new();
-    for directive in directives {
-        let Directive::Import {
-            path, clause, span, ..
-        } = directive
-        else {
-            continue;
-        };
-        if !matches!(clause, ImportClause::Merge) {
-            continue;
-        }
-        let target_files = import_target_files(source_map, path);
-        if target_files.is_empty() {
-            continue;
-        }
-        out.entry(span.file_id.0).or_default().extend(target_files);
-    }
-    out
-}
-
-fn expand_files_through_merge_imports(
-    target_files: BTreeSet<u32>,
-    merge_import_targets: &BTreeMap<u32, BTreeSet<u32>>,
-) -> BTreeSet<u32> {
-    let mut expanded = target_files;
-    let mut stack = expanded.iter().copied().collect::<Vec<_>>();
-    while let Some(file_id) = stack.pop() {
-        let Some(merged_files) = merge_import_targets.get(&file_id) else {
-            continue;
-        };
-        for merged_file in merged_files {
-            if expanded.insert(*merged_file) {
-                stack.push(*merged_file);
-            }
-        }
-    }
-    expanded
 }
 
 type LabelEnv = BTreeMap<String, TypeId>;

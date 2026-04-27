@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T01:15:07.523Z",
+  "generated_at": "2026-04-27T01:16:52.913Z",
   "counts": {
-    "total": 170,
+    "total": 171,
     "open": 18,
-    "resolved": 152,
+    "resolved": 153,
     "by_area": {
       "core": {
-        "total": 63,
+        "total": 64,
         "open": 2,
-        "resolved": 61
+        "resolved": 62
       },
       "stdlib": {
         "total": 63,
@@ -90,19 +90,19 @@
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-007-9CDFD520.md"
     },
     {
-      "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
-      "title": "name resolution が二重化し本パイプラインに統合されていない",
+      "id": "ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12",
+      "title": "HIR function references still lack stable DefId snapshots after import resolution integration",
       "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P2",
       "type": "architecture",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/resolve.rs, nepl-core/src/name_resolve.rs, nepl-core/src/typecheck.rs",
-      "legacy_id": "RV-CORE-010",
-      "source": "doc/review20260425/core.md#rv-core-010",
-      "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/resolve.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -1828,6 +1828,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
+      "title": "name resolution が二重化し本パイプラインに統合されていない",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-25",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/resolve.rs, nepl-core/src/typecheck.rs, nepl-core/tests/resolve.rs",
+      "legacy_id": "RV-CORE-010",
+      "source": "doc/review20260425/core.md#rv-core-010",
+      "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-011-1B942835",
