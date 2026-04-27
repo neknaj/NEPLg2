@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T23:33:14.217Z",
+  "generated_at": "2026-04-27T23:42:52.969Z",
   "counts": {
-    "total": 231,
+    "total": 232,
     "open": 10,
-    "resolved": 221,
+    "resolved": 222,
     "by_area": {
       "core": {
-        "total": 98,
+        "total": 99,
         "open": 3,
-        "resolved": 95
+        "resolved": 96
       },
       "stdlib": {
         "total": 89,
@@ -1588,6 +1588,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T231941023Z-RAW-HELPER-CALL-SITE-SPECIALIZATION--B8CC824B.md"
+    },
+    {
+      "id": "ISS-20260427T233905940Z-MOVE-CHECK-LOSES-RAW-PROVENANCE-FOR--98EEA2E1",
+      "title": "move_check loses raw provenance for signed pointer offsets",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T233905940Z-MOVE-CHECK-LOSES-RAW-PROVENANCE-FOR--98EEA2E1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

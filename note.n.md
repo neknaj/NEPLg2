@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260427T233905940Z signed raw offset provenance)
+
+- 状況:
+  - `raw_memory_place_key` は raw address `add` の offset を non-negative に限定し、`sub base offset` を pointer arithmetic として扱っていなかった。
+  - `let q sub base size_of<LocalToken>` と direct expression `sub base size_of<LocalToken>` が同じ raw cell を指していても、direct expression 側の provenance が復元されず、non-Copy raw load の二重所有が D3100 にならない再現を確認した。
+- 修正:
+  - raw place offset を signed `i64` として扱い、`add base offset` は負の定数 offset も含めて base provenance に合成するようにした。
+  - `sub base offset` を `base - offset` として正規化する経路を追加した。
+  - offset が不明な場合は従来どおり `base+?` にし、same-base overlap を保守的に維持した。
+  - `tests/compiler/move_effect.n.md` に signed raw address sub の compile_fail 回帰テストを追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-negative-offset-provenance.json -j 1`: 95/95 passed
+  - `cargo test -p nepl-core --test neplg2 generic_store_uses_nested_address_call_without_stealing_value_arg -- --nocapture`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+- plan.md との差異:
+  - plan.md は変更していない。compiler core 側の raw memory ownership 検査で signed pointer arithmetic の provenance を保持するようにした。
+
 # 2026-04-28 メモ (ISS-20260427T231941023Z raw helper specialization deep HIR clone)
 
 - 状況:

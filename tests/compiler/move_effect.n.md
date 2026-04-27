@@ -373,6 +373,32 @@ fn main <()->i32> ():
     0
 ```
 
+## signed raw address sub は base provenance を保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let base <i32> 24
+    let q <i32> sub base size_of<LocalToken>
+    store<LocalToken> q LocalToken @token_id
+    let a <LocalToken> load<LocalToken> q
+    let b <LocalToken> load<LocalToken> sub base size_of<LocalToken>
+    0
+```
+
 ## literal 引数で確定する raw address helper は disjoint store を誤検出しない
 
 neplg2:test

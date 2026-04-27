@@ -1567,12 +1567,12 @@ fn i32_const_from_size_of_call(
     }
 }
 
-fn non_negative_i32_const_from_value(
+fn negated_i32_const_from_value(
     expr: &HirExpr,
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> Option<i64> {
-    i32_const_from_value(expr, ctx, tctx).filter(|value| *value >= 0)
+    i32_const_from_value(expr, ctx, tctx).map(|value| -value)
 }
 
 fn parse_raw_memory_place_key(key: &str) -> (String, Option<i64>) {
@@ -1626,9 +1626,15 @@ fn raw_memory_place_key(
                 .map(parse_raw_memory_place_key)
                 .or_else(|| Some((name.clone(), Some(0)))),
             HirExprKind::LiteralI32(value) => Some((String::from("$abs"), Some(i64::from(*value)))),
-            HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
+            HirExprKind::Intrinsic { name, args, .. }
+                if (name == "add" || name == "sub") && args.len() >= 2 =>
+            {
                 let (base, base_offset) = inner(&args[0], ctx, tctx)?;
-                let offset = non_negative_i32_const_from_value(&args[1], ctx, tctx);
+                let offset = if name == "add" {
+                    i32_const_from_value(&args[1], ctx, tctx)
+                } else {
+                    negated_i32_const_from_value(&args[1], ctx, tctx)
+                };
                 Some((base, combine_raw_memory_offsets(base_offset, offset)))
             }
             HirExprKind::Call { callee, args }
@@ -1637,7 +1643,11 @@ fn raw_memory_place_key(
                 let name = func_ref_name(callee)?;
                 if is_raw_address_add_name(name) {
                     let (base, base_offset) = inner(&args[0], ctx, tctx)?;
-                    let offset = non_negative_i32_const_from_value(&args[1], ctx, tctx);
+                    let offset = i32_const_from_value(&args[1], ctx, tctx);
+                    Some((base, combine_raw_memory_offsets(base_offset, offset)))
+                } else if is_i32_sub_name(name) {
+                    let (base, base_offset) = inner(&args[0], ctx, tctx)?;
+                    let offset = negated_i32_const_from_value(&args[1], ctx, tctx);
                     Some((base, combine_raw_memory_offsets(base_offset, offset)))
                 } else {
                     function_call_raw_alias_summary(expr, ctx, tctx)
