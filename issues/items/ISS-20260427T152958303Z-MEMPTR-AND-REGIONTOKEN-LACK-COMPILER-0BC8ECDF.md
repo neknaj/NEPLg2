@@ -40,6 +40,17 @@ target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passe
 
 collection / self-host outcome / temporary buffer が増えるほど、所有者と raw address alias の対応を compiler が追跡できず、move check と drop insertion の special-case が増える。これは memory safety の false negative だけでなく、正しい code を誤って拒否する false positive と compile-time complexity の増加にもつながる。
 
+## 2026-04-28 追加レビュー追記
+
+責務分割レビューでは、`MemPtr<T>` / `RegionToken<T>` の設計問題が 3 種類に分かれることを確認した。
+
+- `MemPtr<T>` は `stdlib/core/traits/copy.nepl` で non-owning Copy address と説明されるが、collection storage や `SelfhostOutcome` の cell owner としても使われている。
+- `RegionToken<T>` は `stdlib/core/mem.nepl:116` の `region_new` で stdlib code から再構成できるため、compiler-issued owner/provenance capability ではない。
+- typed `mem_copy<T>` / `mem_move<T>` は `MemPtr<T>` を受け取るが `T: Copy` 制約も source invalidation もないため、`ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7` として分離した。
+- `dealloc_raw` / `dealloc_ptr` / `dealloc_region` は initialized non-Copy payload の drop obligation を表現しないため、`ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` として分離した。
+
+したがって修正は「`MemPtr` を少し厳しくする」だけでは足りない。non-owning pointer、storage owner、initialized cell、borrow projection、drop obligation を compiler-owned Resource IR で分け、stdlib 側はその wrapper として設計する必要がある。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

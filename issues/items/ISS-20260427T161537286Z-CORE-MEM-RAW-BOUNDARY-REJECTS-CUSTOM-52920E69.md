@@ -48,6 +48,10 @@ normalized path の suffix を `/core/mem.nepl` として判定し、stdlib root
 - `raw_body_memory_operations_allowed` を `/stdlib/core/mem.nepl` 固定から `/core/mem.nepl` suffix 判定へ変更した。
 - `nepl-core/tests/effects.rs` に `/tmp/custom_stdlib/core/mem.nepl` でも raw memory body が許可される regression を追加した。
 
+## 後続課題
+
+この修正は custom stdlib root を動かすための transitional fix であり、unsafe boundary の最終設計ではない。SourceMap path suffix だけで compiler-owned `core/mem` 特権を与える設計問題は `ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95` に分離した。次の修正では loader/module identity に raw memory capability を持たせ、configured stdlib の `core/mem` だけを許可する。
+
 ## 実施した検証
 
 - `cargo fmt --check`: pass

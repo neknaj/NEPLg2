@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T16:38:28.681Z",
+  "generated_at": "2026-04-27T16:47:55.254Z",
   "counts": {
-    "total": 202,
-    "open": 10,
+    "total": 206,
+    "open": 14,
     "resolved": 192,
     "by_area": {
       "core": {
-        "total": 72,
-        "open": 3,
+        "total": 74,
+        "open": 5,
         "resolved": 69
       },
       "stdlib": {
-        "total": 86,
-        "open": 7,
+        "total": 88,
+        "open": 9,
         "resolved": 79
       },
       "cli": {
@@ -90,6 +90,36 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
+      "id": "ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787",
+      "title": "memory layout rules are duplicated across compiler passes",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787.md"
+    },
+    {
+      "id": "ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95",
+      "title": "core mem raw body privilege is granted by source path suffix",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/source_map.rs, nepl-core/tests/effects.rs, nepl-cli/tests/cli_output.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -148,6 +178,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
+    },
+    {
+      "id": "ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7",
+      "title": "core mem typed mem_copy and mem_move can duplicate non-Copy owners",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/move_check.rs, tests/stdlib/mem_bulk_copy.n.md, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7.md"
+    },
+    {
+      "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
+      "title": "core mem dealloc APIs do not encode drop obligations for initialized storage",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

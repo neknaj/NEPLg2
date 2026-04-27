@@ -38,6 +38,12 @@ target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, tests/stdlib/memory
 
 型安全上は `MemPtr<T>` から別 `U` の pointer を作る、所有値を raw memory から浅く複製する、dealloc 済み address を再利用する、といった経路を compiler が根本的に遮断できない。メモリ安全上は double free / use-after-free / uninitialized read を safe API から構成できる。self-host stdlib の collection と diagnostic storage が増えるほど被害範囲が広がる。
 
+## 2026-04-28 追加レビュー追記
+
+今回の責務分割レビューでは、raw address escape は `mem_ptr_wrap` / `mem_ptr_addr` だけでなく、typed に見える `MemPtr` overload へも残っていると判断した。`mem_copy<T>` / `mem_move<T>` は `MemPtr<T>` を受け取るため利用者からは typed API に見えるが、実体は raw byte copy で、`T` の ownership 制約を持たない。この点は `ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7` に分離した。
+
+また、`dealloc_region<T>` は `RegionToken<T>` を受け取るが、token 自体が forgeable であり、region 内の initialized value を drop 済みにする契約もない。この点は `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` として追跡する。
+
 ## 修正方針
 
 public `core/mem` は checked allocation、typed pointer arithmetic、copy-only load/store、owned move in/out のような safe operation に限定する。raw `i32` address 変換と generic raw load/store は non-public または明示 unsafe module へ分離し、compiler 側の Resource IR / effect model と同期して移行する。`MemPtr<T>` は non-owning pointer と明示し、owner token / storage handle は別型へ分ける。

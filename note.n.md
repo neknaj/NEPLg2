@@ -19866,3 +19866,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の lexer/parser/diagnostics が `str` は常に valid UTF-8 であるという前提を内部 slice 後も保てるようになった。
+
+# 2026-04-28 メモ (compiler / core/mem 責務分割レビュー)
+
+- [同期]:
+  - `main` に直前の raw aggregate field read 修正を merge / push 済みの状態から `audit/compiler-mem-boundary-20260428` branch を作成した。
+  - `plan.md` は確認のみ行い、変更していない。
+- [調査]:
+  - `stdlib/core/mem.nepl` の `MemPtr<T>` / `RegionToken<T>` / raw allocator / raw load-store / typed bulk copy / dealloc API を確認した。
+  - `nepl-core` 側の raw body effect 判定、raw intrinsic 許可、move_check raw place state、drop_insertion、WASM/LLVM/typecheck layout 計算の責務境界を確認した。
+  - 既存 issue では raw address escape、MemPtr provenance、Resource IR、collection cleanup が追跡済みだったが、typed bulk copy、layout 重複、path suffix privilege、dealloc obligation が未分離だった。
+- [追加 issue]:
+  - `ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7`: `mem_copy<T>` / `mem_move<T>` が `T: Copy` なしに non-Copy owner を byte copy できる。
+  - `ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787`: storage size / field offset / aggregate layout が複数 pass/backend に重複している。
+  - `ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95`: raw body / raw intrinsic の特権付与が SourceMap path suffix に依存している。
+  - `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`: raw dealloc API が initialized storage の drop obligation を表現しない。
+- [更新 issue]:
+  - raw memory 親 issue、MemPtr/RegionToken issue、raw address escape issue、Resource IR issue、collection free issue、custom stdlib root raw boundary issueへ、今回の責務分割レビュー結果と新規 issue の位置づけを追記した。
+- [判断]:
+  - `core/mem.nepl` は byte allocator / raw memory primitive を持つ実装境界として必要だが、owner/provenance/initialized/drop/layout/effect の正しさは compiler が Resource IR と module capability で所有するべきである。
+  - `mem.nepl` 側だけで drop 呼び出しや bounds check を増やす修正は、将来の compiler auto-drop と衝突するため根本対応にならない。
+- [検証]:
+  - issue index / validation を実行する予定。

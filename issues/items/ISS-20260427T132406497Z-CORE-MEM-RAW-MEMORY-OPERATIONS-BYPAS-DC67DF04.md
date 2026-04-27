@@ -64,6 +64,13 @@ pure source code が observable raw address を allocate / free / load / store �
 - `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`: `core/mem` が safe API として raw address escape hatch を公開している。
 - `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`: `MemPtr` / `RegionToken` に compiler-owned provenance model がない。
 
+追加レビューでは、raw API の公開面だけでなく、typed に見える `MemPtr` API と compiler 内部許可境界にも問題が残っていることを確認した。
+
+- `ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7`: typed `mem_copy<T>` / `mem_move<T>` が `T: Copy` なしに non-Copy owner を byte copy できる。
+- `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`: `dealloc_*` API が initialized storage の drop obligation を表現しない。
+- `ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95`: raw body / raw intrinsic の特権付与が SourceMap path suffix に依存している。
+- `ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787`: memory layout 規則が複数 pass/backend に重複し、raw byte range の検査と codegen がずれるリスクがある。
+
 ## 2026-04-28 raw memory intrinsic effect 部分対応
 
 `#intrinsic "load"` / `#intrinsic "store"` が `intrinsic_effect` で pure 扱いになっていたため、user source が `core/mem` の wrapper を通さず raw memory を直接読み書きできる穴を `ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6` として分離し、修正した。これにより direct raw memory intrinsic は pure context で `D3025` になる。移行中の `stdlib/core/mem.nepl` は SourceMap path による compiler-owned memory boundary として限定許可している。
