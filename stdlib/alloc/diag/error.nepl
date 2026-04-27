@@ -124,6 +124,52 @@ struct Outcome<.T, .E>:
     result <Result<.T, .E>>
     diags <Option<Diags>>
 
+//: StrVecPushRes: `Vec<str>` push の[結果/けっか]
+//:
+//: [目的/もくてき]:
+//: - `Diag.notes` / `Diag.help` の push [後/ご]の owner と[成否/せいひ]を[同時/どうじ]に[返/かえ]します。
+struct StrVecPushRes:
+    items <Vec<str>>
+    ok <bool>
+
+//: DiagVecPushRes: `Vec<Diag>` push の[結果/けっか]
+//:
+//: [目的/もくてき]:
+//: - `Diags.items` の push [後/ご]の owner と[成否/せいひ]を[同時/どうじ]に[返/かえ]します。
+struct DiagVecPushRes:
+    items <Vec<Diag>>
+    ok <bool>
+
+//: diag_empty_str_vec: [空/から]の `Vec<str>` sentinel を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - allocation failure [時/じ]に consumed owner を[再利用/さいりよう]せず、[空/から]の[失敗/しっぱい][値/あたい]へ[切/き]り[替/か]えます。
+fn diag_empty_str_vec <()->Vec<str>> ():
+    v::Vec<str> 0 0 mem_ptr_wrap 0
+
+//: diag_empty_diag_vec: [空/から]の `Vec<Diag>` sentinel を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
+fn diag_empty_diag_vec <()->Vec<Diag>> ():
+    v::Vec<Diag> 0 0 mem_ptr_wrap 0
+
+//: diag_push_str_vec: `Vec<str>` push を trap せず[結果/けっか]へ[変換/へんかん]する
+fn diag_push_str_vec <(Vec<str>,str)->StrVecPushRes> (items, item):
+    match v::push<str> items item:
+        Result::Ok next:
+            StrVecPushRes next true
+        Result::Err _e:
+            StrVecPushRes diag_empty_str_vec false
+
+//: diag_push_diag_vec: `Vec<Diag>` push を trap せず[結果/けっか]へ[変換/へんかん]する
+fn diag_push_diag_vec <(Vec<Diag>,Diag)->DiagVecPushRes> (items, item):
+    match v::push<Diag> items item:
+        Result::Ok next:
+            DiagVecPushRes next true
+        Result::Err _e:
+            DiagVecPushRes diag_empty_diag_vec false
+
 //: diag_kind_new: `DiagKind` を[構築/こうちく]する
 fn diag_kind_new <(DiagLevel,Option<StdErrorKind>,Option<str>)->DiagKind> (level, std_error, local_kind):
     DiagKind level std_error local_kind
@@ -146,8 +192,18 @@ fn warn_diag_kind <(str)->DiagKind> (local_kind):
 
 //: diag_new: [診断/しんだん] 1 [件/けん]を[構築/こうちく]する
 fn diag_new <(DiagKind,str)*>Diag> (kind, message):
-    let notes <Vec<str>> unwrap_ok v::new<str>;
-    let help <Vec<str>> unwrap_ok v::new<str>;
+    let mut notes <Vec<str>> diag_empty_str_vec;
+    let mut help <Vec<str>> diag_empty_str_vec;
+    match v::new<str>:
+        Result::Ok notes0:
+            set notes notes0
+        Result::Err _e:
+            ()
+    match v::new<str>:
+        Result::Ok help0:
+            set help help0
+        Result::Err _e:
+            ()
     Diag kind message none<Span> notes help none<str>
 
 //: diag_log: log [診断/しんだん]を[作/つく]る
@@ -190,7 +246,8 @@ fn diag_with_source <(Diag,str)->Diag> (d, src):
 fn diag_add_note <(Diag,str)*>Diag> (d, note):
     let d_mem <i32> alloc_raw size_of<Diag>;
     store<Diag> d_mem d;
-    let notes1 <Vec<str>> unwrap_ok v::push<str> get load<Diag> d_mem "notes" note;
+    let pushed_notes <StrVecPushRes> diag_push_str_vec get load<Diag> d_mem "notes" note;
+    let notes1 <Vec<str>> get pushed_notes "items";
     let out <Diag> Diag get load<Diag> d_mem "kind" get load<Diag> d_mem "message" get load<Diag> d_mem "span" notes1 get load<Diag> d_mem "help" get load<Diag> d_mem "source";
     dealloc_raw d_mem size_of<Diag>;
     out
@@ -199,7 +256,8 @@ fn diag_add_note <(Diag,str)*>Diag> (d, note):
 fn diag_add_help <(Diag,str)*>Diag> (d, help_item):
     let d_mem <i32> alloc_raw size_of<Diag>;
     store<Diag> d_mem d;
-    let help1 <Vec<str>> unwrap_ok v::push<str> get load<Diag> d_mem "help" help_item;
+    let pushed_help <StrVecPushRes> diag_push_str_vec get load<Diag> d_mem "help" help_item;
+    let help1 <Vec<str>> get pushed_help "items";
     let out <Diag> Diag get load<Diag> d_mem "kind" get load<Diag> d_mem "message" get load<Diag> d_mem "span" get load<Diag> d_mem "notes" help1 get load<Diag> d_mem "source";
     dealloc_raw d_mem size_of<Diag>;
     out
@@ -246,18 +304,27 @@ fn diag_key_not_found <(str)*>Diag> (op):
 
 //: diags_new: [空/から]の `Diags` を[作/つく]る
 fn diags_new <()*>Diags> ():
-    let items <Vec<Diag>> unwrap_ok v::new<Diag>;
+    let mut items <Vec<Diag>> diag_empty_diag_vec;
+    match v::new<Diag>:
+        Result::Ok items0:
+            set items items0
+        Result::Err _e:
+            ()
     Diags items
 
 //: diags_one: `Diag` 1 [件/けん]から `Diags` を[作/つく]る
 fn diags_one <(Diag)*>Diags> (d):
-    let items0 <Vec<Diag>> unwrap_ok v::new<Diag>;
-    let items1 <Vec<Diag>> unwrap_ok v::push<Diag> items0 d;
-    Diags items1
+    match v::new<Diag>:
+        Result::Ok items0:
+            let pushed_items <DiagVecPushRes> diag_push_diag_vec items0 d;
+            Diags get pushed_items "items"
+        Result::Err _e:
+            Diags diag_empty_diag_vec
 
 //: diags_push: `Diags` に `Diag` を 1 [件/けん][追加/ついか]する
 fn diags_push <(Diags,Diag)*>Diags> (ds, d):
-    Diags unwrap_ok v::push<Diag> get ds "items" d
+    let pushed_items <DiagVecPushRes> diag_push_diag_vec get ds "items" d;
+    Diags get pushed_items "items"
 
 //: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す
 fn diags_len <(Diags)->i32> (ds):

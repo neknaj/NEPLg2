@@ -1,3 +1,22 @@
+# 2026-04-27 メモ (ISS-20260427T053811590Z alloc/diag/error allocation)
+
+- 状況:
+  - `stdlib/alloc/diag/error.nepl` の `Diag` / `Diags` constructor と note/help push は `Vec` allocation/grow failure を `unwrap_ok` で trap していた。
+  - self-host compiler の lexer/parser/typecheck は診断経路に依存するため、memory pressure 時に本来の失敗が診断化されず trap で隠れる構造だった。
+- 修正:
+  - `StrVecPushRes` / `DiagVecPushRes` と空 Vec sentinel helper を追加し、push failure 時に consumed owner を再利用しない形にした。
+  - `diag_new` / `diags_new` の `v::new` と、`diag_add_note` / `diag_add_help` / `diags_one` / `diags_push` の `v::push` から unsafe `unwrap_ok` を除去した。
+  - `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/diag/error.nepl --no-tree -o tmp/diag-error-allocation-docs.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i stdlib/tests/error.n.md --no-tree -o tmp/diag-error-allocation-focused.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/issues.js check`: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-diag-error-allocation.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-diag-error-allocation.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host の diagnostic 基盤である `alloc/diag/error` の allocation failure を trap から sentinel/fallback へ戻す stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260427T052030799Z nm block parser allocation)
 
 - 状況:
