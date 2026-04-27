@@ -1,3 +1,17 @@
+# 2026-04-27 メモ (ISS-20260426T213058421Z LLVM collection signature drift)
+
+- 状況:
+  - IssueはLLVM lowering modeだけでcollection doctestの D3003 / D3005 / D3016 が出るという内容だった。
+  - 現行mainで `binary_heap`, `btreemap`, `deque`, `list`, `queue`, `ringbuffer` をLLVM compile-only focused runしたところ、55件すべてpassし、Issue記載のsignature driftは再現しなかった。
+  - 直近のLLVM source_map / qualified lookup / explicit type arg / zero-sized local修正と、別agentのstdlib collection更新を取り込んだ状態で解消済みと判断した。
+- 修正:
+  - このissue単体での追加コード修正はなし。
+  - issueを `verified` / `resolved: true` に更新し、再現しなくなった検証結果を記録した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/deque.nepl -i stdlib/alloc/collections/list.nepl -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/ringbuffer.nepl --runner llvm --llvm-all --llvm-compile-only --no-tree -o tmp/llvm-collection-signature-drift-repro.json -j 1`: `total=55`, `passed=55`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は既存issueの検証済み状態への更新。
+
 # 2026-04-27 メモ (ISS-20260426T213058045Z LLVM runner return_value)
 
 - 状況:

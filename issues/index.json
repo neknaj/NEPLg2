@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T00:26:23.461Z",
+  "generated_at": "2026-04-27T00:31:48.618Z",
   "counts": {
     "total": 170,
-    "open": 25,
-    "resolved": 145,
+    "open": 24,
+    "resolved": 146,
     "by_area": {
       "cli": {
         "total": 19,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 63,
-        "open": 4,
-        "resolved": 59
+        "open": 3,
+        "resolved": 60
       },
       "stdlib": {
         "total": 63,
@@ -88,21 +88,6 @@
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
-      "id": "ISS-20260426T213058421Z-LLVM-TARGET-TYPECHECKS-STDLIB-COLLEC-DD7EF927",
-      "title": "LLVM target typechecks stdlib collection modules with signature drift",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_llvm.rs, stdlib/alloc/collections/binary_heap.nepl, stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/deque.nepl, stdlib/alloc/collections/list.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T213058421Z-LLVM-TARGET-TYPECHECKS-STDLIB-COLLEC-DD7EF927.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1228,6 +1213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T213058045Z-LLVM-DUAL-RUNNER-RETURNS-NULL-OR-CRA-BC38ABEB.md"
+    },
+    {
+      "id": "ISS-20260426T213058421Z-LLVM-TARGET-TYPECHECKS-STDLIB-COLLEC-DD7EF927",
+      "title": "LLVM target typechecks stdlib collection modules with signature drift",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/codegen_llvm.rs, stdlib/alloc/collections/binary_heap.nepl, stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/deque.nepl, stdlib/alloc/collections/list.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213058421Z-LLVM-TARGET-TYPECHECKS-STDLIB-COLLEC-DD7EF927.md"
     },
     {
       "id": "ISS-20260426T215554373Z-COPY-VALUE-RETAINED-BORROWS-SKIP-SHA-8309070D",
