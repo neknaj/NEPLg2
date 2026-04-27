@@ -228,6 +228,151 @@ fn main <()->i32> ():
     0
 ```
 
+## non-literal mem_ptr_add offset は same-base raw place として保守的に扱う
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 8
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let off <i32> choose_offset true
+    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
+## non-literal mem_ptr_add offset は既知の nonzero offset とも overlap する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_payload_offset <(bool)->i32> (flag):
+    if flag 8 16
+
+fn main <()->i32> ():
+    let base <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let exact <MemPtr<LocalToken>> mem_ptr_add<LocalToken> base 8
+    let off <i32> choose_payload_offset true
+    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> base off
+    store<LocalToken> mem_ptr_addr exact LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr q
+    let b <LocalToken> load<LocalToken> mem_ptr_addr exact
+    0
+```
+
+## non-literal mem_ptr_add store は same-base live non-Copy payload を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 8
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let off <i32> choose_offset true
+    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    store<LocalToken> mem_ptr_addr q LocalToken @token_id
+    0
+```
+
+## non-literal mem_ptr_add dealloc_ptr は same-base live non-Copy payload を捨てられない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 8
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let off <i32> choose_offset true
+    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+    0
+```
+
+## non-literal raw address add は same-base raw place として保守的に扱う
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 8
+
+fn main <()->i32> ():
+    let p <i32> 16
+    let off <i32> choose_offset true
+    let q <i32> add p off
+    store<LocalToken> p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> p
+    let b <LocalToken> load<LocalToken> q
+    0
+```
+
 ## non-Copy raw store は未moveの place を上書きできない
 
 neplg2:test[compile_fail]

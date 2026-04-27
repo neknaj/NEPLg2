@@ -1102,6 +1102,9 @@ impl MoveCheckContext {
                 if tracked_base != base {
                     return false;
                 }
+                let (Some(offset), Some(tracked_offset)) = (offset, tracked_offset) else {
+                    return true;
+                };
                 let tracked_end = tracked_offset.saturating_add(info.size as i64);
                 tracked_end > offset || tracked_offset >= offset
             })
@@ -1165,13 +1168,34 @@ fn format_raw_memory_place_key(base: &str, offset: i64) -> String {
     }
 }
 
-fn parse_raw_memory_place_key(key: &str) -> (String, i64) {
+fn format_raw_memory_unknown_offset_key(base: &str) -> String {
+    alloc::format!("{}+?", base)
+}
+
+fn format_raw_memory_place_key_parts(base: &str, offset: Option<i64>) -> String {
+    match offset {
+        Some(offset) => format_raw_memory_place_key(base, offset),
+        None => format_raw_memory_unknown_offset_key(base),
+    }
+}
+
+fn combine_raw_memory_offsets(base_offset: Option<i64>, offset: Option<i64>) -> Option<i64> {
+    match (base_offset, offset) {
+        (Some(base_offset), Some(offset)) => Some(base_offset.saturating_add(offset)),
+        _ => None,
+    }
+}
+
+fn parse_raw_memory_place_key(key: &str) -> (String, Option<i64>) {
     let Some((base, offset)) = key.rsplit_once('+') else {
-        return (key.to_string(), 0);
+        return (key.to_string(), Some(0));
     };
+    if offset == "?" {
+        return (base.to_string(), None);
+    }
     match offset.parse::<i64>() {
-        Ok(offset) => (base.to_string(), offset),
-        Err(_) => (key.to_string(), 0),
+        Ok(offset) => (base.to_string(), Some(offset)),
+        Err(_) => (key.to_string(), Some(0)),
     }
 }
 
@@ -1189,6 +1213,9 @@ fn raw_place_ranges_overlap(
     if left_base != right_base {
         return false;
     }
+    let (Some(left_offset), Some(right_offset)) = (left_offset, right_offset) else {
+        return true;
+    };
     let left_end = left_offset.saturating_add(left_size as i64);
     let right_end = right_offset.saturating_add(right_size as i64);
     left_offset < right_end && right_offset < left_end
@@ -1203,20 +1230,34 @@ fn raw_memory_place_key(
         expr: &HirExpr,
         ctx: &MoveCheckContext,
         tctx: &crate::types::TypeCtx,
-    ) -> Option<(String, i64)> {
+    ) -> Option<(String, Option<i64>)> {
         match &expr.kind {
             HirExprKind::Var(name) => ctx
                 .raw_addr_alias(name)
                 .map(parse_raw_memory_place_key)
-                .or_else(|| Some((name.clone(), 0))),
-            HirExprKind::LiteralI32(value) => Some((String::from("$abs"), i64::from(*value))),
+                .or_else(|| Some((name.clone(), Some(0)))),
+            HirExprKind::LiteralI32(value) => Some((String::from("$abs"), Some(i64::from(*value)))),
             HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
                 let (base, base_offset) = inner(&args[0], ctx, tctx)?;
                 let offset = match &args[1].kind {
-                    HirExprKind::LiteralI32(value) if *value >= 0 => i64::from(*value),
-                    _ => return None,
+                    HirExprKind::LiteralI32(value) if *value >= 0 => Some(i64::from(*value)),
+                    _ => None,
                 };
-                Some((base, base_offset + offset))
+                Some((base, combine_raw_memory_offsets(base_offset, offset)))
+            }
+            HirExprKind::Call { callee, args }
+                if args.len() >= 2 && tctx.same_type(expr.ty, tctx.i32()) =>
+            {
+                let name = func_ref_name(callee)?;
+                if !is_raw_address_add_name(name) {
+                    return None;
+                }
+                let (base, base_offset) = inner(&args[0], ctx, tctx)?;
+                let offset = match &args[1].kind {
+                    HirExprKind::LiteralI32(value) if *value >= 0 => Some(i64::from(*value)),
+                    _ => None,
+                };
+                Some((base, combine_raw_memory_offsets(base_offset, offset)))
             }
             HirExprKind::Call { callee, args } if args.len() == 1 => {
                 let name = func_ref_name(callee)?;
@@ -1231,7 +1272,7 @@ fn raw_memory_place_key(
     }
 
     let (base, offset) = inner(addr, ctx, tctx)?;
-    Some(format_raw_memory_place_key(base.as_str(), offset))
+    Some(format_raw_memory_place_key_parts(base.as_str(), offset))
 }
 
 fn raw_addr_alias_from_value(
@@ -1269,6 +1310,10 @@ fn is_mem_ptr_wrap_name(name: &str) -> bool {
 
 fn is_mem_ptr_add_name(name: &str) -> bool {
     name == "mem_ptr_add" || name.starts_with("mem_ptr_add_")
+}
+
+fn is_raw_address_add_name(name: &str) -> bool {
+    name == "add" || name.starts_with("add__i32_i32__i32__")
 }
 
 fn is_region_ptr_name(name: &str) -> bool {
@@ -1326,13 +1371,13 @@ fn raw_memory_place_key_from_mem_ptr(
             if is_mem_ptr_add_name(name) {
                 let key = raw_memory_place_key_from_mem_ptr(&args[0], ctx, tctx)?;
                 let offset = match &args[1].kind {
-                    HirExprKind::LiteralI32(value) => i64::from(*value),
-                    _ => return None,
+                    HirExprKind::LiteralI32(value) => Some(i64::from(*value)),
+                    _ => None,
                 };
                 let (base, base_offset) = parse_raw_memory_place_key(key.as_str());
-                Some(format_raw_memory_place_key(
+                Some(format_raw_memory_place_key_parts(
                     base.as_str(),
-                    base_offset.saturating_add(offset),
+                    combine_raw_memory_offsets(base_offset, offset),
                 ))
             } else if name == "get" && is_region_token_type(tctx, args[0].ty) {
                 raw_memory_place_key_from_region_token(&args[0], ctx, tctx)

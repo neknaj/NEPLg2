@@ -129,6 +129,12 @@ raw `mem_copy` / `mem_move` が `move_check` の raw place state を見ず、liv
 
 今回の対応で、literal offset の `mem_ptr_add` は base raw place + offset に正規化され、same-place alias 経由の non-Copy 二重 load や live-payload cleanup 検査回避は D3100 になる。未知 offset の aliasing と Resource IR による provenance model は引き続きこの親 issue の残件である。
 
+## 2026-04-28 mem_ptr_add unknown offset 部分対応
+
+`mem_ptr_add<T>` と raw `i32` address `add base off` の offset が literal でない場合に base provenance まで失われ、実行時に same-place / existing-offset alias になれる pointer が untracked になる問題を `ISS-20260427T192528620Z-MOVE-CHECK-LOSES-PROVENANCE-FOR-MEM--A1AE98CC` として分離し、修正した。
+
+今回の対応で、non-literal offset の pointer add は `base+?` の unknown-offset raw place として保持され、同じ base の known raw place と保守的に overlap する。これにより、dynamic pointer arithmetic 経由の non-Copy 二重 load、live-payload store/dealloc、既知 nonzero offset payload との alias は D3100 になる。Resource IR と public raw API / effect 境界は引き続きこの親 issue の残件である。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

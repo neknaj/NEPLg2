@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T19:20:47.552Z",
+  "generated_at": "2026-04-27T19:36:59.062Z",
   "counts": {
-    "total": 217,
+    "total": 218,
     "open": 9,
-    "resolved": 208,
+    "resolved": 209,
     "by_area": {
       "core": {
-        "total": 85,
+        "total": 86,
         "open": 3,
-        "resolved": 82
+        "resolved": 83
       },
       "stdlib": {
         "total": 88,
@@ -1378,6 +1378,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T191722304Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-FEAEF49B.md"
+    },
+    {
+      "id": "ISS-20260427T192528620Z-MOVE-CHECK-LOSES-PROVENANCE-FOR-MEM--A1AE98CC",
+      "title": "move_check loses provenance for pointer add with non-literal offset",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T192528620Z-MOVE-CHECK-LOSES-PROVENANCE-FOR-MEM--A1AE98CC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

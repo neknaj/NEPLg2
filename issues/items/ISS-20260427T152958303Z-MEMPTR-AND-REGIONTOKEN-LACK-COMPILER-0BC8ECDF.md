@@ -81,6 +81,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 この対応は pointer arithmetic の literal offset に対する局所検査であり、未知 offset や owner/non-owner 分離は compiler-owned Resource IR の残件である。
 
+## 2026-04-28 mem_ptr_add unknown offset 部分対応
+
+`mem_ptr_add<T>` の offset が non-literal の場合に raw place key が `None` になり、base `MemPtr` の provenance を失う問題を `ISS-20260427T192528620Z-MOVE-CHECK-LOSES-PROVENANCE-FOR-MEM--A1AE98CC` として修正した。あわせて raw `i32` address `add base off` も同じ root cause で provenance を失っていたため、non-literal offset は `base+?` の unknown-offset raw place として扱い、同じ base の known raw place と保守的に overlap させる。
+
+この対応で dynamic pointer arithmetic 経由の same-base non-Copy 二重 load / live payload overwrite / dealloc は D3100 になる。ただし、これは既存 stdlib `MemPtr` を raw place tracking に接続する安全側の補強であり、owner token と non-owning pointer を型・Resource IR で分離する根本設計はまだ未解決である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

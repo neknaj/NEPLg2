@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260427T192528620Z mem_ptr_add unknown offset raw alias)
+
+- 状況:
+  - `move_check` は `mem_ptr_add p 0` や raw `add p 8` のような literal offset を raw place に正規化していたが、offset が non-literal の場合は `None` を返して base pointer provenance まで失っていた。
+  - `let off choose_offset true; let q mem_ptr_add p off` の後に `p` と `q` から同じ `LocalToken` を二重 `load` する修正前再現では、compiler が exit 0 で受理した。
+- 修正:
+  - raw place key を known offset / unknown offset に分け、unknown offset を `base+?` として保持するようにした。
+  - `raw_place_ranges_overlap` は同じ base で片側が unknown offset の場合に保守的に overlap とみなすようにした。
+  - `mem_ptr_add` と raw address `add` の offset が non-literal の場合も base provenance を保持し、dynamic pointer arithmetic 経由の non-Copy load/store/dealloc を同じ base の live raw place と衝突させるようにした。
+  - `tests/compiler/move_effect.n.md` に non-literal offset の二重 load、known nonzero offset overlap、store overwrite、dealloc、raw address add の compile_fail を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/memptr-add-unknown-offset-node.json -j 1`: `total=71`, `passed=71`
+  - 修正前再現ファイル `tmp/memptr-add-unknown-offset-double-load.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の pointer arithmetic alias 検査を non-literal offset まで拡張した。
+
 # 2026-04-28 メモ (ISS-20260427T191722304Z mem_ptr_add raw alias check)
 
 - 状況:
