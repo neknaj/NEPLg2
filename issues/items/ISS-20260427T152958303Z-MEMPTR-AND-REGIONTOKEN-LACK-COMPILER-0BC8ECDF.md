@@ -87,6 +87,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 この対応で dynamic pointer arithmetic 経由の same-base non-Copy 二重 load / live payload overwrite / dealloc は D3100 になる。ただし、これは既存 stdlib `MemPtr` を raw place tracking に接続する安全側の補強であり、owner token と non-owning pointer を型・Resource IR で分離する根本設計はまだ未解決である。
 
+## 2026-04-28 region_ptr_at Ok binding 部分対応
+
+`region_ptr_at<T,U> token off` の `Result::Ok` payload を match bind した `MemPtr<U>` が `RegionToken` の raw place provenance に接続されない問題を `ISS-20260427T194024586Z-MOVE-CHECK-LOSES-REGIONTOKEN-PROVENA-711BD515` として修正した。Ok payload bind は token raw place + offset に正規化し、non-literal offset は `base+?` として扱う。
+
+この対応で bounds-checked projection API から取り出した `MemPtr` も、元 region と同じ raw ownership state に接続される。ただし、`Result<MemPtr<T>,E>` payload の provenance を compiler-owned Resource IR として一般化する設計変更はまだ未解決である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

@@ -135,6 +135,12 @@ raw `mem_copy` / `mem_move` が `move_check` の raw place state を見ず、liv
 
 今回の対応で、non-literal offset の pointer add は `base+?` の unknown-offset raw place として保持され、同じ base の known raw place と保守的に overlap する。これにより、dynamic pointer arithmetic 経由の non-Copy 二重 load、live-payload store/dealloc、既知 nonzero offset payload との alias は D3100 になる。Resource IR と public raw API / effect 境界は引き続きこの親 issue の残件である。
 
+## 2026-04-28 region_ptr_at Ok binding 部分対応
+
+`region_ptr_at<T,U> token off` の `Result::Ok` payload を match bind した `MemPtr<U>` が元 `RegionToken` の raw place provenance を失い、bounds-checked projection 経由で raw ownership state を迂回できる問題を `ISS-20260427T194024586Z-MOVE-CHECK-LOSES-REGIONTOKEN-PROVENA-711BD515` として分離し、修正した。
+
+今回の対応で、`region_ptr_at` の Ok payload bind は token raw place + offset に正規化される。literal offset は known place、non-literal offset は `base+?` として扱い、dynamic projection 経由の non-Copy 二重 load / live payload dealloc は D3100 になる。Result payload 全般の Resource IR 化と owner/non-owner 分離は引き続きこの親 issue の残件である。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

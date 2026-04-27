@@ -6,7 +6,9 @@ use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
-use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirModule};
+use crate::hir::{
+    FuncRef, HirBlock, HirExpr, HirExprKind, HirMatchArm, HirMatchPattern, HirModule,
+};
 use crate::layout::{aggregate_fields_with_offsets, storage_size_bytes};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
@@ -1324,6 +1326,10 @@ fn is_region_new_name(name: &str) -> bool {
     name == "region_new" || name.starts_with("region_new_")
 }
 
+fn is_region_ptr_at_name(name: &str) -> bool {
+    name == "region_ptr_at" || name.starts_with("region_ptr_at_")
+}
+
 fn is_mem_ptr_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
     match tctx.get_ref(tctx.resolve_id(ty)) {
         TypeKind::Struct { name, .. } if name == "MemPtr" => true,
@@ -1415,6 +1421,61 @@ fn raw_memory_place_key_from_region_token(
             if name == "RegionToken" && !fields.is_empty() =>
         {
             raw_memory_place_key_from_mem_ptr(&fields[0], ctx, tctx)
+        }
+        _ => None,
+    }
+}
+
+fn is_result_ok_variant_name(name: &str) -> bool {
+    name == "Ok" || name.ends_with("::Ok")
+}
+
+fn pattern_variant_name(arm: &HirMatchArm) -> Option<&str> {
+    match &arm.pattern {
+        HirMatchPattern::Variant(name) => Some(name.as_str()),
+        _ => None,
+    }
+}
+
+fn region_ptr_at_result_ok_raw_alias(
+    scrutinee: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    let HirExprKind::Call { callee, args } = &scrutinee.kind else {
+        return None;
+    };
+    let name = func_ref_name(callee)?;
+    if !is_region_ptr_at_name(name) || args.len() < 2 {
+        return None;
+    }
+    let key = raw_memory_place_key_from_region_token(&args[0], ctx, tctx)?;
+    let offset = match &args[1].kind {
+        HirExprKind::LiteralI32(value) => Some(i64::from(*value)),
+        _ => None,
+    };
+    let (base, base_offset) = parse_raw_memory_place_key(key.as_str());
+    Some(format_raw_memory_place_key_parts(
+        base.as_str(),
+        combine_raw_memory_offsets(base_offset, offset),
+    ))
+}
+
+fn match_bind_raw_addr_alias(
+    scrutinee: &HirExpr,
+    arm: &HirMatchArm,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    let variant_name = pattern_variant_name(arm)?;
+    match &scrutinee.kind {
+        HirExprKind::EnumConstruct {
+            variant,
+            payload: Some(payload),
+            ..
+        } if variant == variant_name => raw_addr_alias_from_value(payload, ctx, tctx),
+        _ if is_result_ok_variant_name(variant_name) => {
+            region_ptr_at_result_ok_raw_alias(scrutinee, ctx, tctx)
         }
         _ => None,
     }
@@ -2695,7 +2756,9 @@ fn visit_expr_with_escape(
                 ctx.push_scope();
                 if let Some(bind) = &arm.bind_local {
                     let retained_borrows = ctx.retain_expr_borrows(scrutinee_borrows.clone());
+                    let raw_addr_alias = match_bind_raw_addr_alias(scrutinee, arm, ctx, tctx);
                     ctx.declare_var_with_borrows(bind.clone(), retained_borrows);
+                    ctx.set_raw_addr_alias(bind, raw_addr_alias);
                 }
                 let arm_borrows = visit_expr_with_escape(&arm.body, ctx, tctx, escape_depth);
                 ctx.pop_scope();

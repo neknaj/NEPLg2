@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260427T194024586Z region_ptr_at Ok binding raw alias)
+
+- 状況:
+  - `move_check` の match arm binding は borrow binding だけを保持し、raw address alias を bind local に設定していなかった。
+  - `region_ptr_at token 0` の `Result::Ok q` と base `p` から同じ `LocalToken` を二重 `load` する修正前再現では、compiler が exit 0 で受理した。
+- 修正:
+  - match binding 時に raw alias を設定できるようにした。
+  - `region_ptr_at` の `Result::Ok` payload は、元 `RegionToken` の raw place + offset として正規化するようにした。
+  - literal offset は known place、non-literal offset は `base+?` の unknown-offset raw place として扱う。
+  - 直接 `EnumConstruct` を match する場合も、payload が raw alias を持つ値なら bind local に引き継ぐようにした。
+  - `tests/compiler/move_effect.n.md` に region_ptr_at Ok bind の二重 load と non-literal offset dealloc の compile_fail を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/region-ptr-at-alias-node.json -j 1`: `total=73`, `passed=73`
+  - 修正前再現ファイル `tmp/region-ptr-at-result-alias-double-load.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の RegionToken / Result payload binding による raw alias 検査を強化した。
+
 # 2026-04-28 メモ (ISS-20260427T192528620Z mem_ptr_add unknown offset raw alias)
 
 - 状況:

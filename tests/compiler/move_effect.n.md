@@ -542,6 +542,69 @@ fn main <()->i32> ():
     0
 ```
 
+## region_ptr_at の Ok bind は RegionToken raw place として扱う
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    match region_ptr_at<LocalToken,LocalToken> token 0:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            0
+        Result::Err _e:
+            0
+```
+
+## region_ptr_at の non-literal Ok bind は unknown-offset raw place として扱う
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 4
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let off <i32> choose_offset true
+    match region_ptr_at<LocalToken,LocalToken> token off:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+            0
+        Result::Err _e:
+            0
+```
+
 ## raw realloc は initialized non-Copy place を byte move できない
 
 neplg2:test[compile_fail]

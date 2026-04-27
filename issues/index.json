@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T19:36:59.062Z",
+  "generated_at": "2026-04-27T19:44:45.807Z",
   "counts": {
-    "total": 218,
+    "total": 219,
     "open": 9,
-    "resolved": 209,
+    "resolved": 210,
     "by_area": {
       "core": {
-        "total": 86,
+        "total": 87,
         "open": 3,
-        "resolved": 83
+        "resolved": 84
       },
       "stdlib": {
         "total": 88,
@@ -1393,6 +1393,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T192528620Z-MOVE-CHECK-LOSES-PROVENANCE-FOR-MEM--A1AE98CC.md"
+    },
+    {
+      "id": "ISS-20260427T194024586Z-MOVE-CHECK-LOSES-REGIONTOKEN-PROVENA-711BD515",
+      "title": "move_check loses RegionToken provenance through region_ptr_at Ok binding",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T194024586Z-MOVE-CHECK-LOSES-REGIONTOKEN-PROVENA-711BD515.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
