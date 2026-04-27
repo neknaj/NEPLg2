@@ -1,11 +1,12 @@
 #![allow(dead_code)]
-//! Module graph construction (no name resolution yet).
+//! Module graph construction and export table support.
 //!
 //! - ModuleSpec: package + module path (string form)
 //! - ModuleGraph: DAG of modules with parsed AST
 //! - Resolves imports to filesystem paths (stdlib/deps/relative)
 //!
-//! Phase 2: cycle検出と依存グラフ構築のみ。名前解決や再エクスポートは未実装。
+//! Module-level import resolution itself lives in `resolve.rs`; this module
+//! owns filesystem-backed dependency graph construction and re-export tables.
 
 extern crate alloc;
 extern crate std;

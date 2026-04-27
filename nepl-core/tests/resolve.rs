@@ -1,9 +1,12 @@
 use nepl_core::ast::{Directive, ImportClause};
 use nepl_core::diagnostic::Severity;
 use nepl_core::lexer;
+use nepl_core::loader::{Loader, LoaderError, SourceMap};
 use nepl_core::module_graph::ModuleGraphBuilder;
 use nepl_core::parser;
-use nepl_core::resolve::{build_visible_map, collect_defs, compose_exports, resolve_imports};
+use nepl_core::resolve::{
+    build_visible_map, collect_defs, compose_exports, resolve_imports, ImportResolution,
+};
 use nepl_core::span::FileId;
 use std::fs;
 use std::path::PathBuf;
@@ -11,6 +14,47 @@ use tempfile::tempdir;
 
 fn canonicalize_path(path: &PathBuf) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path.clone())
+}
+
+fn load_virtual_sources(
+    main: &str,
+    sources: &[(&str, &str)],
+) -> (nepl_core::ast::Module, SourceMap) {
+    let mut loader = Loader::new(PathBuf::from("virtual_std"));
+    let mut provider = |path: &PathBuf| match path.file_name().and_then(|name| name.to_str()) {
+        Some(file_name) => sources
+            .iter()
+            .find_map(|(name, source)| {
+                if *name == file_name {
+                    Some((*source).to_string())
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| LoaderError::Io(format!("missing virtual source: {:?}", path))),
+        _ => Err(LoaderError::Io(format!(
+            "missing virtual source: {:?}",
+            path
+        ))),
+    };
+    let loaded = loader
+        .load_inline_with_provider(PathBuf::from("main.nepl"), main.to_string(), &mut provider)
+        .expect("load virtual sources");
+    (loaded.module, loaded.source_map)
+}
+
+fn source_file_id(source_map: &SourceMap, suffix: &str) -> u32 {
+    source_map
+        .iter_paths()
+        .find_map(|(file_id, path)| {
+            let normalized = path.to_string_lossy().replace('\\', "/");
+            if normalized.ends_with(suffix) {
+                Some(file_id.0)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| panic!("source file not found: {}", suffix))
 }
 
 #[test]
@@ -77,6 +121,86 @@ fn import_clause_merge_is_preserved() {
     let node = g.nodes.iter().find(|n| n.id == root_id).unwrap();
     assert_eq!(node.imports.len(), 1);
     assert!(matches!(node.imports[0].clause, ImportClause::Merge));
+}
+
+#[test]
+fn import_resolution_filters_alias_selective_and_open_visibility() {
+    const DEP: &str = r#"
+#indent 4
+#no_prelude
+
+fn allowed <()->i32> ():
+    41
+
+fn hidden <()->i32> ():
+    7
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as dep
+#import "dep" as { allowed as renamed }
+
+fn main <()->i32> ():
+    renamed
+"#;
+    let (module, source_map) = load_virtual_sources(main, &[("dep.nepl", DEP)]);
+    let resolution = ImportResolution::from_module(&module, Some(&source_map));
+    let main_file = source_file_id(&source_map, "main.nepl");
+    let dep_file = source_file_id(&source_map, "dep.nepl");
+
+    let alias_targets = resolution
+        .qualified_targets_for_alias(main_file, "dep")
+        .expect("default alias target");
+    assert!(alias_targets.contains(&dep_file));
+    assert_eq!(
+        resolution.unqualified_lookup_names(main_file, "renamed"),
+        vec![String::from("renamed"), String::from("allowed")]
+    );
+    assert!(resolution.binding_is_visible_unqualified(main_file, "renamed", dep_file, "allowed"));
+    assert!(!resolution.binding_is_visible_unqualified(main_file, "allowed", dep_file, "allowed"));
+    assert!(!resolution.binding_is_visible_unqualified(main_file, "hidden", dep_file, "hidden"));
+}
+
+#[test]
+fn import_resolution_expands_qualified_merge_facade() {
+    const DEP: &str = r#"
+#indent 4
+#no_prelude
+
+fn allowed <()->i32> ():
+    41
+"#;
+    const FACADE: &str = r#"
+#indent 4
+#no_prelude
+
+#import "dep" as @merge
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "facade" as facade
+
+fn main <()->i32> ():
+    facade::allowed
+"#;
+    let (module, source_map) =
+        load_virtual_sources(main, &[("dep.nepl", DEP), ("facade.nepl", FACADE)]);
+    let resolution = ImportResolution::from_module(&module, Some(&source_map));
+    let main_file = source_file_id(&source_map, "main.nepl");
+    let dep_file = source_file_id(&source_map, "dep.nepl");
+    let facade_file = source_file_id(&source_map, "facade.nepl");
+
+    let facade_targets = resolution
+        .qualified_targets_for_alias(main_file, "facade")
+        .expect("facade alias target");
+    assert!(facade_targets.contains(&facade_file));
+    assert!(facade_targets.contains(&dep_file));
 }
 
 #[test]

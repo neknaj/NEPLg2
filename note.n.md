@@ -1,3 +1,28 @@
+# 2026-04-27 メモ (ISS-20260425T000000Z-RV-CORE-010 name resolution 統合)
+
+- 状況:
+  - `nepl-core/src/name_resolve.rs` は公開されておらず、`resolve_names` も空 diagnostics を返すだけの未使用 skeleton だった。
+  - 一方で実際の main pipeline は `typecheck.rs` 内の private helper が SourceMap と directive span から qualified / unqualified import visibility を作り、`Env` lookup の候補を絞っていた。
+  - そのため、名前解決の責務が `resolve.rs` / `name_resolve.rs` / `typecheck.rs` に分散し、RV-CORE-010 の通り canonical resolver が pipeline に統合されていない状態だった。
+- 修正:
+  - `nepl-core/src/name_resolve.rs` を削除し、名前解決の実装入口を `resolve.rs` に統合した。
+  - `typecheck.rs` にあった SourceMap import visibility helper を `resolve.rs` の `ImportResolution` public API へ移動した。
+  - `typecheck.rs` は `ImportResolution` へ qualified alias target、selective alias lookup name、未修飾 binding visibility を問い合わせるだけにし、`Env` は local binding / overload / 型検査候補管理に限定した。
+  - `resolve.rs` を no_std core からも参照できるよう常時公開し、ModuleGraph / DefId / ExportTable 系 API は host-only cfg に分離した。
+  - `nepl-core/tests/resolve.rs` に SourceMap-backed `ImportResolution` の alias/selective/merge facade snapshot test を追加した。
+  - HIR が stable DefId をまだ保持しない残課題は `ISS-20260427T011048496Z-HIR-FUNCTION-REFERENCES-STILL-LACK-S-5EF51F12` として分離した。
+- 検証:
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: `14/14 passed`
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: `10/10 passed`
+  - `cargo test -p nepl-core --target wasm32-unknown-unknown --no-run --all-features`: pass
+  - `cargo fmt --all --check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/resolve.n.md -i tests/compiler/shadowing.n.md --no-tree -o tmp/core-resolve-integration.json -j 1`: `total=39`, `passed=39`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換警告のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は NEPLg2.0 の現行 flat-loader pipeline 内で import 名前解決を `resolve.rs` に統合する修正であり、NEPLg3 の stable DefId / non-flat module graph 完全移行は後続 issue として残す。
+
 # 2026-04-27 メモ (ISS-20260426T213056969Z CI WASIX missing Wasmer)
 
 - 状況:
