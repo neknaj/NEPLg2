@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260426T213058045Z LLVM runner return_value)
+
+- 状況:
+  - LLVM runner の `run_llvm_cli` result は native executable の終了コードを `runtime.code` に持っていたが、doctest expectation が参照する `return_value` を設定していなかった。
+  - そのため `expected_ret` 付きLLVM doctestは、実行が正常終了しても `actual null` として失敗する構造だった。
+  - `--llvm-compile-only` でもruntime expectationを評価しており、実行していないcompile-only結果にも `actual null` が出ていた。
+- 修正:
+  - `buildLlvmRunResult` を追加してLLVM実行結果の構築を集約し、正常終了時のプロセス終了コードを `return_value` として設定するようにした。
+  - signal終了、exit code欠落、spawn error相当の負のcodeは abnormal として扱い、`return_value` は `null` のまま失敗にするようにした。
+  - `--llvm-compile-only` ではnormal doctestのreturn/stdout/stderr expectationを評価しないようにした。
+  - `nodesrc/test_llvm_runner_return_value.js` を追加し、CI source policy regression と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_llvm_runner_return_value.js`: pass
+  - `node -e "... buildLlvmRunResult ... applyDoctestExpectations ..."`: `return_value=42` の期待値照合 pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --runner llvm --llvm-all --llvm-compile-only --no-tree -o tmp/llvm-runner-compile-only-after.json -j 1`: `total=27`, `passed=26`, `failed=1`。`actual null` は解消。残りは compile_fail diagnostic mismatch の別issue。
+  - `git diff --check`: pass
+  - ローカル実行リンクは `clang` がPATHにないため `link_llvm_cli: Error: spawn clang ENOENT` で未実施。
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は nodesrc のLLVM doctest runnerがnative process終了コードをNEPL戻り値として検証できるようにする修正。
+
 # 2026-04-27 メモ (ISS-20260426T213057658Z LLVM zero-sized local lowering)
 
 - 状況:
