@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T15:21:15.632Z",
+  "generated_at": "2026-04-27T15:32:41.070Z",
   "counts": {
-    "total": 195,
-    "open": 7,
+    "total": 199,
+    "open": 11,
     "resolved": 188,
     "by_area": {
       "core": {
-        "total": 67,
-        "open": 2,
+        "total": 70,
+        "open": 5,
         "resolved": 65
       },
       "stdlib": {
-        "total": 84,
-        "open": 5,
+        "total": 85,
+        "open": 6,
         "resolved": 79
       },
       "cli": {
@@ -45,6 +45,21 @@
   },
   "issues": [
     {
+      "id": "ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00",
+      "title": "raw body memory instructions bypass pure effect validation",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, tests/compiler/raw_body_precheck.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
       "area": "core",
@@ -53,7 +68,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-27",
+      "updated": "2026-04-28",
       "target": "nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
@@ -68,11 +83,41 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-04-27",
+      "updated": "2026-04-28",
       "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md"
+    },
+    {
+      "id": "ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E",
+      "title": "runtime allocator helper lookup depends on public core mem names",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/runtime_helpers.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E.md"
+    },
+    {
+      "id": "ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF",
+      "title": "MemPtr and RegionToken lack compiler owned provenance model",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -83,7 +128,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-25",
-      "updated": "2026-04-27",
+      "updated": "2026-04-28",
       "target": "stdlib/alloc/collections/**",
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
@@ -98,11 +143,26 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-04-27",
+      "updated": "2026-04-28",
       "target": "stdlib/neplg2/core/infra/outcome.nepl, stdlib/core/result.nepl, nepl-core/src/passes/drop_insertion.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86.md"
+    },
+    {
+      "id": "ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D",
+      "title": "core mem exposes raw address escape hatches as safe API",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

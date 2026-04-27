@@ -1,3 +1,18 @@
+# 2026-04-28 メモ (compiler / core mem 責務分割レビュー)
+
+- 状況:
+  - `compiler` と `stdlib/core/mem.nepl` の境界を、memory safety / type safety / effect / owner provenance の観点でレビューした。
+  - 現状は `core/mem.nepl` が safe public API として raw `i32` address 変換、raw allocator、generic raw load/store を公開しており、compiler 側も Resource IR と内部 effect を持たないため責務分割が曖昧になっている。
+- issue 更新:
+  - 既存の raw memory bypass issue と Resource IR issue を更新した。
+  - raw body memory instruction effect、runtime allocator helper ABI、safe API の raw address escape、`MemPtr` / `RegionToken` provenance model の不足を新規 issue として分離した。
+  - collection / SelfhostOutcome の cleanup issue には、`MemPtr` を non-owning pointer と owner storage に兼用している設計問題を追記した。
+- 検証:
+  - この作業は調査と issue 更新のみで、compiler / stdlib の実装変更は行っていない。
+  - `node nodesrc/issues.js check` と index 再生成を実施予定。
+- plan.md との差異:
+  - plan.md は変更していない。今回の記録はセルフホスト実装前提の memory model / responsibility boundary の調査結果。
+
 # 2026-04-28 メモ (ISS-20260427T151835595Z structural field drop)
 
 - 状況:

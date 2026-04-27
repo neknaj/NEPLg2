@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-27
+updated: 2026-04-28
 target: "stdlib/neplg2/core/infra/outcome.nepl, stdlib/core/result.nepl, nepl-core/src/passes/drop_insertion.rs"
 ---
 
@@ -40,6 +40,12 @@ target: "stdlib/neplg2/core/infra/outcome.nepl, stdlib/core/result.nepl, nepl-co
 ## 修正方針
 
 `SelfhostOutcome` に payload cleanup を明示する。`T` / `E` に Drop capability を要求して cell 解放前に stored `Result` を drop するか、result を必ず一度だけ consume する構造へ変更し、cancel/error path には typed cleanup callback または Resource IR の drop elaboration を通す。
+
+## 2026-04-28 compiler / mem 責務分割レビュー追記
+
+`SelfhostOutcome` は collection ではないが、`MemPtr` を storage owner として使う設計上の同じ問題を持っている。`stdlib/neplg2/core/infra/outcome.nepl:47` の `result <MemPtr<Result<T,E>>>` は raw cell owner だが、`MemPtr<T>` 自体は `stdlib/core/traits/copy.nepl:151` 以降で non-owning Copy address として扱われる。このため、compiler は cell が initialized か、payload が caller へ move 済みか、free 時に payload drop obligation が残っているかを型から判断できない。
+
+修正時は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` の owner token / initialized cell 設計に合わせる。stdlib 側で先に対応する場合でも、`SelfhostOutcome` の cell を「必ず一度だけ consume する owner」として表現し、payload drop と storage dealloc を分けて検証する。
 
 ## 検証
 

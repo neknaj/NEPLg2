@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-27
+updated: 2026-04-28
 target: "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md"
 ---
 
@@ -47,6 +47,22 @@ pure source code が observable raw address を allocate / free / load / store �
 - branch 間で raw place 状態が分岐する場合は `PossiblyMoved` として合流し、後続の non-Copy load / store を安全側で拒否する。
 
 この対応は ownership 検査の穴を塞ぐもので、effect model の不足はまだ残る。`alloc_raw` / `dealloc_raw` / `realloc_raw` / `load` / `store` の pure API、`InternalAlloc` / `UnsafeMemory` 相当の effect 導入、stdlib API 移行が必要になる場合の stdlib 側修正は、この issue の残件または別 issue として扱う。
+
+## 2026-04-28 compiler / mem 責務分割レビュー追記
+
+今回の責務分割レビューでは、この issue はまだ閉じられないと判断した。`move_check` の raw place state は non-Copy raw load/store の二重 move をかなり塞いだが、根本の境界はまだ `core/mem.nepl` の public raw API と compiler の effect / provenance model に残っている。
+
+- `stdlib/core/mem.nepl:104` / `107` の `mem_ptr_wrap` / `mem_ptr_addr` により safe source code が raw `i32` address と `MemPtr<T>` を相互変換できる。
+- `stdlib/core/mem.nepl:278` / `386` / `450` の allocator primitive と、`1101` / `1117` の generic raw `load<T>` / `store<T>` は pure signature のまま公開されている。
+- `nepl-core/src/typecheck.rs:2491` の raw body effect validation は direct callee だけを確認し、memory instruction 自体を分類しない。
+- `nepl-core/src/runtime_helpers.rs:8` 以降は compiler 内部 allocator helper discovery を public `alloc_raw` / `dealloc_raw` / `realloc_raw` 名に依存している。
+
+この issue は raw memory operation 全体の親 issue とし、今回のレビューで不足していた追跡単位を次の issue に分割した。
+
+- `ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00`: raw body memory instruction が pure effect validation を通らない。
+- `ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E`: compiler runtime helper lookup が public `core/mem` 名に依存している。
+- `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`: `core/mem` が safe API として raw address escape hatch を公開している。
+- `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`: `MemPtr` / `RegionToken` に compiler-owned provenance model がない。
 
 ## 修正方針
 
