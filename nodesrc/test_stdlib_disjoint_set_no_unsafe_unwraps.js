@@ -28,6 +28,7 @@ for (const pattern of forbidden) {
 
 assert.match(code, /fn\s+dsu_store_owned\s+/, 'DisjointSet must centralize owned array raw stores');
 assert.match(code, /fn\s+dsu_load_owned\s+/, 'DisjointSet must centralize owned array loads');
+assert.match(code, /eq\s+n\s+0[\s\S]*ok<DisjointSet,\s*Diag>\s+DisjointSet\s+0\s+mem_ptr_wrap\s+0\s+mem_ptr_wrap\s+0/, 'DisjointSet.new must treat zero length as an empty owned set without allocating zero bytes');
 assert.match(code, /fn\s+free\s+<\(DisjointSet\)->\(\)>\s+\(dsu\):[\s\S]*dealloc_raw\s+mem_ptr_addr\s+parent[\s\S]*dealloc_raw\s+mem_ptr_addr\s+sizes/, 'DisjointSet.free must use raw owner cleanup for parent and size storage');
 assert.doesNotMatch(code, /dealloc_ptr/, 'DisjointSet must not use checked deallocation for owned internals');
 

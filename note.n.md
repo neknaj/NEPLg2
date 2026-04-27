@@ -19245,3 +19245,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の list map/filter helper が allocation failure 時の partial result cleanup を行うようになった。
+
+# 2026-04-27 メモ (ISS-20260427T021419221Z DisjointSet zero length)
+
+- [同期]:
+  - `origin/main` が `f932124 stdlib: clean up list transform partial tails` で一致している状態から `stdlib/disjoint-set-zero-length` branch を作成した。
+- [原因]:
+  - `DisjointSet.new` は `n < 0` だけを不正値として扱う仕様なのに、`n = 0` で `alloc_ptr<i32> 0` を呼んでいた。
+  - `alloc_raw` は `size <= 0` で raw pointer 0 を返し、`alloc_ptr` はそれを allocation failure として `Err` に変換する。
+  - そのため、有効な空 union-find が out-of-memory と同じ失敗に落ちていた。
+- [修正]:
+  - `new 0` は配列を確保せず、`parent` / `sizes` を `mem_ptr_wrap 0` にした `DisjointSet 0` を `Ok` で返すようにした。
+  - `n > 0` の場合だけ既存の配列確保と初期化を行うようにした。
+  - `new 0` / `len` / empty `find` error / `free` / 再確保 regression と、zero-length branch が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-zero-docs.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md -i stdlib/tests/disjoint_set.n.md --no-tree -o tmp/disjoint-set-zero-focused.json -j 1`: 5/5 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-disjoint-zero.json -j 4`: 302/302 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-disjoint-zero.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の空 graph / 空 union-find 状態を stdlib collection として自然に作れるようになった。

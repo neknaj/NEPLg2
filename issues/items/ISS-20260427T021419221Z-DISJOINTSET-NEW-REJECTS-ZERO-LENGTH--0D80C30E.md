@@ -2,13 +2,13 @@
 id: ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E
 title: "DisjointSet new rejects zero length despite documented non-negative length"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: bug
 created: 2026-04-27
 updated: 2026-04-27
-target: "stdlib/alloc/collections/disjoint_set.nepl, tests/stdlib/disjoint_set_collections.n.md"
+target: "stdlib/alloc/collections/disjoint_set.nepl, tests/stdlib/disjoint_set_collections.n.md, nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js"
 ---
 
 # ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E: DisjointSet new rejects zero length despite documented non-negative length
@@ -39,6 +39,19 @@ Self-host graph algorithms and generic collection code cannot uniformly create e
 
 Handle n = 0 as a valid empty DisjointSet with null owned array pointers, skip initialization loops, make free a no-op for zero-byte arrays, and add empty new/free regression coverage.
 
+## 解決内容
+
+- `new 0` を有効な空 `DisjointSet` として扱い、`parent` / `sizes` は `mem_ptr_wrap 0` の null owner pointer にした。
+- `n > 0` のときだけ `parent` / `sizes` 配列を確保して初期化するようにし、zero-byte allocation failure と通常の out-of-memory を分離した。
+- `free` は既存の `dealloc_raw` no-op semantics により、null pointer / 0 byte を安全に解放できることを前提に維持した。
+- `new 0` / `len` / empty `find` error / `free` / 再確保 regression と、zero-length branch が戻らない source guard を追加した。
+
 ## 検証
 
-Run DisjointSet doctests, focused collection tests including new 0/free, stdlib suite, and nodesrc/issues.js check.
+- `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: pass
+- `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-zero-docs.json -j 1`: 6/6 passed
+- `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md -i stdlib/tests/disjoint_set.n.md --no-tree -o tmp/disjoint-set-zero-focused.json -j 1`: 5/5 passed
+- source policy regressions: pass
+- `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-disjoint-zero.json -j 4`: 302/302 passed
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-disjoint-zero.json -j 4`: 418/418 passed
+- `node nodesrc/issues.js check`: pass

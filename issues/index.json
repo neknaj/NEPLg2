@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T03:36:10.340Z",
+  "generated_at": "2026-04-27T03:44:18.099Z",
   "counts": {
     "total": 174,
-    "open": 9,
-    "resolved": 165,
+    "open": 8,
+    "resolved": 166,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 66,
-        "open": 8,
-        "resolved": 58
+        "open": 7,
+        "resolved": 59
       },
       "cli": {
         "total": 19,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E",
-      "title": "DisjointSet new rejects zero length despite documented non-negative length",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/collections/disjoint_set.nepl, tests/stdlib/disjoint_set_collections.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E.md"
     },
     {
       "id": "ISS-20260427T022527514Z-SPARSESET-NEW-REJECTS-ZERO-UNIVERSE--0DB75A65",
@@ -2518,6 +2503,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496.md"
+    },
+    {
+      "id": "ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E",
+      "title": "DisjointSet new rejects zero length despite documented non-negative length",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/disjoint_set.nepl, tests/stdlib/disjoint_set_collections.n.md, nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E.md"
     },
     {
       "id": "ISS-20260427T031251079Z-LIST-MAP-AND-FILTER-LEAK-PARTIAL-RES-9B715B6A",

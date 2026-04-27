@@ -74,3 +74,57 @@ fn main <()*>i32> ():
     let ok0 <bool> unwrap_ok<bool, Diag> same dsu0 0 3;
     if ok0 1 0
 ```
+
+## disjoint_set_new_zero_is_empty
+
+[目的/もくてき]:
+- `new 0` が[空/から]の union-find として[成功/せいこう]し、`free` と[後続/こうぞく]の[再確保/さいかくほ]が[正常/せいじょう]に[動作/どうさ]することを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `new 0`
+- `len`
+- empty `find` の範囲外 error
+- `free`
+- [再確保/さいかくほ]
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/disjoint_set" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let len_ok <bool> match new 0:
+        Result::Err _e:
+            false
+        Result::Ok dsu:
+            eq len dsu 0
+    let find_err_ok <bool> match new 0:
+        Result::Err _e:
+            false
+        Result::Ok dsu:
+            match find dsu 0:
+                Result::Ok _root:
+                    false
+                Result::Err _e:
+                    true
+    let free_ok <bool> block:
+        let empty <DisjointSet> unwrap_ok<DisjointSet, Diag> new 0
+        free empty
+        true
+    let realloc_ok <bool> match new 1:
+        Result::Err _e:
+            false
+        Result::Ok dsu:
+            match find dsu 0:
+                Result::Ok root:
+                    eq root 0
+                Result::Err _e:
+                    false
+    if and and len_ok find_err_ok and free_ok realloc_ok 1 0
+```

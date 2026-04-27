@@ -14,6 +14,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `new` は `n < 0` を `Result::Err Diag` として[返/かえ]します。
+//: - `n = 0` は[空/から]の union-find として[有効/ゆうこう]で、内部配列を[確保/かくほ]しません。
 //: - `find` / `union` / `same` / `size` は[範囲外/はんいがい] index を `Result::Err Diag` として[返/かえ]します。
 //: - path compression を[使/つか]わないので、`find` / `same` / `size` の[最悪計算量/さいあくけいさんりょう]は O(log n) です。
 //:
@@ -104,22 +105,27 @@ fn new <(i32)*>Result<DisjointSet, Diag>> (n):
         lt n 0
         then diag_err<DisjointSet> dsu_diag_len n
         else:
-            match alloc_ptr<i32> mul n 4:
-                Result::Err _e:
-                    diag_err<DisjointSet> diag_out_of_memory "disjoint_set_new(parent)"
-                Result::Ok parent:
+            if:
+                eq n 0
+                then:
+                    ok<DisjointSet, Diag> DisjointSet 0 mem_ptr_wrap 0 mem_ptr_wrap 0
+                else:
                     match alloc_ptr<i32> mul n 4:
                         Result::Err _e:
-                            dealloc_raw mem_ptr_addr parent mul n 4
-                            diag_err<DisjointSet> diag_out_of_memory "disjoint_set_new(sizes)"
-                        Result::Ok sizes:
-                            let mut i <i32> 0
-                            while lt i n:
-                                do:
-                                    dsu_store_owned parent i i
-                                    dsu_store_owned sizes i 1
-                                    set i add i 1
-                            ok<DisjointSet, Diag> DisjointSet n parent sizes
+                            diag_err<DisjointSet> diag_out_of_memory "disjoint_set_new(parent)"
+                        Result::Ok parent:
+                            match alloc_ptr<i32> mul n 4:
+                                Result::Err _e:
+                                    dealloc_raw mem_ptr_addr parent mul n 4
+                                    diag_err<DisjointSet> diag_out_of_memory "disjoint_set_new(sizes)"
+                                Result::Ok sizes:
+                                    let mut i <i32> 0
+                                    while lt i n:
+                                        do:
+                                            dsu_store_owned parent i i
+                                            dsu_store_owned sizes i 1
+                                            set i add i 1
+                                    ok<DisjointSet, Diag> DisjointSet n parent sizes
 
 //: ## len
 //: [保持/ほじ]している[要素数/ようそすう]を[返/かえ]す
