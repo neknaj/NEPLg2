@@ -18905,3 +18905,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の set membership helper に使える BitSet が、cleanup 時に unsafe helper へ依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000311579Z AdjacencyMatrix owned cleanup)
+
+- [同期]:
+  - `origin/main` が `d3f1784 stdlib: remove bitset unsafe cleanup unwrap` で一致している状態から `stdlib/adjacency-matrix-owned-cleanup` branch を作成した。
+- [原因]:
+  - `AdjacencyMatrix.new` は `nverts > 0` のときに matrix 用の `nbytes > 0` byte 配列を確保し、`AdjacencyMatrix` がその pointer を所有する。
+  - `AdjacencyMatrix.free` はこの owner invariant があるにもかかわらず、`dealloc_ptr<u8>` の `Result` を `uwok` して通常 cleanup を unsafe helper に依存させていた。
+- [修正]:
+  - `AdjacencyMatrix.free` を `dealloc_raw mem_ptr_addr bits nbytes` に変更し、所有済み matrix storage の解放を raw owner cleanup に統一した。
+  - `free` の doc comment に owner invariant と free 後の再利用禁止を明記した。
+  - free 後の再確保 regression と、AdjacencyMatrix 実装に unsafe unwrap / unreachable が戻らない source policy guard を追加した。
+- [検証]:
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/adjacency-matrix-owned-cleanup-docs.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/adjacency-matrix-owned-cleanup-focused.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-adjacency-matrix-owned-cleanup.json -j 4`: 288/288 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-adjacency-matrix-owned-cleanup.json -j 4`: 418/418 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の dependency graph / reachability helper に使える AdjacencyMatrix が、cleanup 時に unsafe helper へ依存しないようになった。

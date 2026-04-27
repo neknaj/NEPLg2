@@ -50,6 +50,7 @@ node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js
 node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js
 node nodesrc/test_llvm_runner_return_value.js
 node nodesrc/test_stdlib_string_no_unsafe_unwraps.js
 ```
