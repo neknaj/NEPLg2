@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T07:12:43.095Z",
+  "generated_at": "2026-04-27T13:26:34.052Z",
   "counts": {
-    "total": 188,
-    "open": 5,
+    "total": 190,
+    "open": 7,
     "resolved": 183,
     "by_area": {
       "core": {
-        "total": 64,
-        "open": 1,
+        "total": 65,
+        "open": 2,
         "resolved": 63
       },
       "stdlib": {
-        "total": 80,
-        "open": 4,
+        "total": 81,
+        "open": 5,
         "resolved": 76
       },
       "cli": {
@@ -53,11 +53,26 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-26",
+      "updated": "2026-04-27",
       "target": "nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
+    },
+    {
+      "id": "ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04",
+      "title": "core/mem raw memory operations bypass effect and ownership checks",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -68,11 +83,26 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-25",
-      "updated": "2026-04-26",
+      "updated": "2026-04-27",
       "target": "stdlib/alloc/collections/**",
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
+    },
+    {
+      "id": "ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86",
+      "title": "SelfhostOutcome free drops only storage, not generic Result payload",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/neplg2/core/infra/outcome.nepl, stdlib/core/result.nepl, nepl-core/src/passes/drop_insertion.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

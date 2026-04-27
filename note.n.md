@@ -19613,3 +19613,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の空 symbol/id set 状態を stdlib collection として自然に作れるようになった。
+
+# 2026-04-27 メモ (src Rust / stdlib safety audit)
+
+- [同期]:
+  - `origin/main` を `b381625` まで fast-forward し、`review/core-stdlib-safety-audit-20260427` branch で監査した。
+  - 対象は `nepl-core/src`, `nepl-cli/src`, `nepl-language/src`, `nepl-lsp/src`, `nepl-web/src`, `nepl-web-playground/src`, `editors/zed/src` の Rust 39 files と、`stdlib/` の `.nepl` / `.n.md` 129 files。
+- [確認内容]:
+  - Rust core は move/borrow/drop/effect/type safety の実装境界を重点確認した。
+  - stdlib は `core/mem`, owning collection, self-host `neplg2` infra/syntax/cli, unsafe unwrap policy, raw load/store/dealloc を重点確認した。
+  - self-host diagnostic/token 系の `Copy` 実装は `str` / enum / span / `Option` など Copy 値だけを保持する範囲で妥当と判断した。
+- [追加 issue]:
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`: `core/mem` raw memory operations が effect / ownership 検査を迂回する問題。
+  - `ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86`: `SelfhostOutcome` の free/error path が generic Result payload を Drop せず storage だけ解放する問題。
+- [更新 issue]:
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR なしの move/borrow/drop 後付け実装に、raw memory place/effect を今回の監査入力として追記した。
+  - `ISS-20260425T000000Z-RV-STDLIB-004-91534828`: collection free / by-value observation API が owning element の Drop 契約を表現できていない点を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - NEPLg2 self-host 実装前に解くべき安全性 issue として、memory effect / raw memory ownership / outcome cleanup を issue 管理へ追加した。
