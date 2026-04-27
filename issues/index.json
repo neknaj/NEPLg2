@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T16:18:10.886Z",
+  "generated_at": "2026-04-27T16:38:28.681Z",
   "counts": {
-    "total": 201,
-    "open": 9,
+    "total": 202,
+    "open": 10,
     "resolved": 192,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 69
       },
       "stdlib": {
-        "total": 85,
-        "open": 6,
+        "total": 86,
+        "open": 7,
         "resolved": 79
       },
       "cli": {
@@ -133,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
+    },
+    {
+      "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",
+      "title": "std/test loads Vec<Result> from raw temp multiple times",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/test.nepl, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

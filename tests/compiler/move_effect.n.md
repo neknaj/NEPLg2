@@ -150,6 +150,220 @@ fn main <()->i32> ():
     0
 ```
 
+## raw aggregate load 直後の Copy field read は raw place 全体を move しない
+
+neplg2:test
+ret: 14
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/field" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 LocalToken @token_id
+    let a <i32> field::get load<Holder> p "count"
+    let b <i32> field::get load<Holder> p "count"
+    let h <Holder> load<Holder> p
+    add a b
+```
+
+## re-export された get でも raw aggregate の Copy field read は全体を move しない
+
+neplg2:test
+ret: 14
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 LocalToken @token_id
+    let a <i32> get load<Holder> p "count"
+    let b <i32> get load<Holder> p "count"
+    let h <Holder> load<Holder> p
+    add a b
+```
+
+## generic Copy impl を持つ raw aggregate field は全体を move しない
+
+neplg2:test
+ret: 14
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    ptr <MemPtr<u8>>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
+    let ptr <MemPtr<u8>> get load<Holder> p "ptr"
+    let raw <i32> mem_ptr_addr ptr
+    let h <Holder> load<Holder> p
+    add raw sub 14 64
+```
+
+## generic aggregate の Copy field read は他の non-Copy field を move しない
+
+neplg2:test
+ret: 14
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder<.H>:
+    count <i32>
+    ptr <MemPtr<u8>>
+    token <.H>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn touch <.H> <(Holder<.H>)->i32> (h):
+    let p <i32> 16
+    store<Holder<.H>> p h
+    let ptr <MemPtr<u8>> get load<Holder<.H>> p "ptr"
+    let raw <i32> mem_ptr_addr ptr
+    let out <Holder<.H>> load<Holder<.H>> p
+    add raw sub 14 64
+
+fn main <()->i32> ():
+    touch<LocalToken> Holder<LocalToken> 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
+```
+
+## branch merge は変更されていない raw place を possibly moved にしない
+
+neplg2:test
+ret: 2
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    let mut i <i32> 0
+    while lt i 2:
+        do:
+            set i add i 1
+    let out <LocalToken> load<LocalToken> p
+    i
+```
+
+## raw aggregate field から move した non-Copy field は二重に取り出せない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/field" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 LocalToken @token_id
+    let a <LocalToken> field::get load<Holder> p "token"
+    let b <LocalToken> field::get load<Holder> p "token"
+    0
+```
+
+## raw aggregate field から non-Copy field を move した後は aggregate 全体を取り出せない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/field" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 LocalToken @token_id
+    let a <LocalToken> field::get load<Holder> p "token"
+    let h <Holder> load<Holder> p
+    0
+```
+
 ## pure から impure 関数を呼ぶと拒否
 
 neplg2:test[compile_fail]

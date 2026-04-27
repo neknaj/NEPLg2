@@ -58,6 +58,12 @@ enum RawPlaceState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RawPlaceInfo {
+    state: RawPlaceState,
+    size: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RawMemoryCallKind {
     Load,
     Store,
@@ -90,7 +96,7 @@ struct MoveCheckContext {
     /// Canonical raw-address aliases for i32 bindings, aligned with `var_stacks`.
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
     /// Ownership state for trackable raw memory places that carry non-Copy values.
-    raw_place_states: BTreeMap<String, RawPlaceState>,
+    raw_place_states: BTreeMap<String, RawPlaceInfo>,
     /// Active borrow counts per source variable.
     borrow_counts: BTreeMap<String, BorrowCount>,
     /// Remaining variable uses in active blocks for last-use borrow release.
@@ -108,7 +114,7 @@ struct ResourceStateSnapshot {
     borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
-    raw_place_states: BTreeMap<String, RawPlaceState>,
+    raw_place_states: BTreeMap<String, RawPlaceInfo>,
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
 
@@ -866,43 +872,84 @@ impl MoveCheckContext {
         }
     }
 
-    fn check_raw_non_copy_load(&mut self, place: &str, span: Span) {
-        match self.raw_place_states.get(place).copied() {
-            Some(RawPlaceState::Moved) | Some(RawPlaceState::PossiblyMoved) => {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        alloc::format!("use of moved raw memory place: `{}`", place),
-                        span,
-                    )
-                    .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
-                );
-            }
-            Some(RawPlaceState::Initialized) | None => {
-                self.raw_place_states
-                    .insert(place.to_string(), RawPlaceState::Moved);
+    fn check_raw_non_copy_load(&mut self, place: &str, size: usize, span: Span) {
+        let overlapping = self.overlapping_raw_places(place, size);
+        if overlapping.iter().any(|(_, info)| {
+            matches!(
+                info.state,
+                RawPlaceState::Moved | RawPlaceState::PossiblyMoved
+            )
+        }) {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    alloc::format!("use of moved raw memory place: `{}`", place),
+                    span,
+                )
+                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            );
+            return;
+        }
+        let partial_load = overlapping
+            .iter()
+            .any(|(key, info)| key != place && info.state == RawPlaceState::Initialized);
+        if partial_load {
+            for (key, _) in overlapping {
+                if key != place {
+                    if let Some(info) = self.raw_place_states.get_mut(key.as_str()) {
+                        if info.state == RawPlaceState::Initialized {
+                            info.state = RawPlaceState::PossiblyMoved;
+                        }
+                    }
+                }
             }
         }
+        self.raw_place_states.insert(
+            place.to_string(),
+            RawPlaceInfo {
+                state: RawPlaceState::Moved,
+                size,
+            },
+        );
     }
 
-    fn check_raw_non_copy_store(&mut self, place: &str, span: Span) {
-        match self.raw_place_states.get(place).copied() {
-            Some(RawPlaceState::Initialized) | Some(RawPlaceState::PossiblyMoved) => {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        alloc::format!(
-                            "overwrite of raw memory place containing non-Copy value: `{}`",
-                            place
-                        ),
-                        span,
-                    )
-                    .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
-                );
-            }
-            Some(RawPlaceState::Moved) | None => {
-                self.raw_place_states
-                    .insert(place.to_string(), RawPlaceState::Initialized);
-            }
+    fn check_raw_non_copy_store(&mut self, place: &str, size: usize, span: Span) {
+        if self
+            .overlapping_raw_places(place, size)
+            .iter()
+            .any(|(_, info)| {
+                matches!(
+                    info.state,
+                    RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
+                )
+            })
+        {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    alloc::format!(
+                        "overwrite of raw memory place containing non-Copy value: `{}`",
+                        place
+                    ),
+                    span,
+                )
+                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            );
+            return;
         }
+        self.raw_place_states.insert(
+            place.to_string(),
+            RawPlaceInfo {
+                state: RawPlaceState::Initialized,
+                size,
+            },
+        );
+    }
+
+    fn overlapping_raw_places(&self, place: &str, size: usize) -> Vec<(String, RawPlaceInfo)> {
+        self.raw_place_states
+            .iter()
+            .filter(|(key, info)| raw_place_ranges_overlap(place, size, key.as_str(), info.size))
+            .map(|(key, info)| (key.clone(), *info))
+            .collect()
     }
 }
 
@@ -960,6 +1007,10 @@ fn type_storage_size_bytes_mapped(
             .map(|binding| type_storage_size_bytes_mapped(tctx, binding, mapping))
             .unwrap_or(4),
     }
+}
+
+fn type_storage_size_bytes(tctx: &crate::types::TypeCtx, ty: TypeId) -> usize {
+    type_storage_size_bytes_mapped(tctx, ty, &BTreeMap::new())
 }
 
 fn mapped_type_id(
@@ -1083,6 +1134,25 @@ fn parse_raw_memory_place_key(key: &str) -> (String, i64) {
         Ok(offset) => (base.to_string(), offset),
         Err(_) => (key.to_string(), 0),
     }
+}
+
+fn raw_place_ranges_overlap(
+    left_key: &str,
+    left_size: usize,
+    right_key: &str,
+    right_size: usize,
+) -> bool {
+    if left_size == 0 || right_size == 0 {
+        return false;
+    }
+    let (left_base, left_offset) = parse_raw_memory_place_key(left_key);
+    let (right_base, right_offset) = parse_raw_memory_place_key(right_key);
+    if left_base != right_base {
+        return false;
+    }
+    let left_end = left_offset.saturating_add(left_size as i64);
+    let right_end = right_offset.saturating_add(right_size as i64);
+    left_offset < right_end && right_offset < left_end
 }
 
 fn raw_memory_place_key(addr: &HirExpr, ctx: &MoveCheckContext) -> Option<String> {
@@ -1669,21 +1739,26 @@ fn push_unique_binding(out: &mut Vec<BorrowBinding>, binding: &BorrowBinding) {
 }
 
 fn merge_raw_place_state_pair(
-    a: Option<RawPlaceState>,
-    b: Option<RawPlaceState>,
-) -> Option<RawPlaceState> {
+    a: Option<RawPlaceInfo>,
+    b: Option<RawPlaceInfo>,
+) -> Option<RawPlaceInfo> {
     use RawPlaceState::*;
-    match (a, b) {
-        (None, None) => None,
-        (Some(left), Some(right)) if left == right => Some(left),
-        (Some(_), Some(_)) => Some(PossiblyMoved),
-        (Some(Initialized), None) | (None, Some(Initialized)) => Some(PossiblyMoved),
-        (Some(Moved), None) | (None, Some(Moved)) => Some(PossiblyMoved),
-        (Some(PossiblyMoved), None) | (None, Some(PossiblyMoved)) => Some(PossiblyMoved),
-    }
+    let size = a
+        .map(|info| info.size)
+        .unwrap_or(0)
+        .max(b.map(|info| info.size).unwrap_or(0));
+    let state = match (a.map(|info| info.state), b.map(|info| info.state)) {
+        (None, None) => return None,
+        (Some(left), Some(right)) if left == right => left,
+        (Some(_), Some(_)) => PossiblyMoved,
+        (Some(Initialized), None) | (None, Some(Initialized)) => PossiblyMoved,
+        (Some(Moved), None) | (None, Some(Moved)) => PossiblyMoved,
+        (Some(PossiblyMoved), None) | (None, Some(PossiblyMoved)) => PossiblyMoved,
+    };
+    Some(RawPlaceInfo { state, size })
 }
 
-fn merge_raw_place_states(branches: &[&BranchStateSnapshot]) -> BTreeMap<String, RawPlaceState> {
+fn merge_raw_place_states(branches: &[&BranchStateSnapshot]) -> BTreeMap<String, RawPlaceInfo> {
     let mut names = BTreeSet::new();
     for branch in branches {
         for name in branch.state.raw_place_states.keys() {
@@ -1693,8 +1768,16 @@ fn merge_raw_place_states(branches: &[&BranchStateSnapshot]) -> BTreeMap<String,
 
     let mut merged = BTreeMap::new();
     for name in names {
-        let mut state = None;
-        for branch in branches {
+        let mut branch_iter = branches.iter();
+        let Some(first_branch) = branch_iter.next() else {
+            continue;
+        };
+        let mut state = first_branch
+            .state
+            .raw_place_states
+            .get(name.as_str())
+            .copied();
+        for branch in branch_iter {
             let branch_state = branch.state.raw_place_states.get(name.as_str()).copied();
             state = merge_raw_place_state_pair(state, branch_state);
         }
@@ -1885,7 +1968,11 @@ fn visit_raw_memory_call(
                 if let Some(path) = field_move_path_from_addr(addr, expr.ty, tctx) {
                     ctx.check_field_move(&path, expr.span);
                 } else if let Some(place) = raw_memory_place_key(addr, ctx) {
-                    ctx.check_raw_non_copy_load(place.as_str(), expr.span);
+                    ctx.check_raw_non_copy_load(
+                        place.as_str(),
+                        type_storage_size_bytes(tctx, expr.ty),
+                        expr.span,
+                    );
                 }
             }
         }
@@ -1896,7 +1983,11 @@ fn visit_raw_memory_call(
                     visit_expr(value, ctx, tctx);
                 }
                 if let Some(place) = raw_memory_place_key(addr, ctx) {
-                    ctx.check_raw_non_copy_store(place.as_str(), expr.span);
+                    let size = args
+                        .get(1)
+                        .map(|value| type_storage_size_bytes(tctx, value.ty))
+                        .unwrap_or(0);
+                    ctx.check_raw_non_copy_store(place.as_str(), size, expr.span);
                 }
             }
         }
@@ -2265,7 +2356,11 @@ fn visit_expr_with_escape(
                     } else if !visit_field_move_source(addr, expr.ty, ctx, tctx) {
                         visit_expr(addr, ctx, tctx);
                         if let Some(place) = raw_memory_place_key(addr, ctx) {
-                            ctx.check_raw_non_copy_load(place.as_str(), expr.span);
+                            ctx.check_raw_non_copy_load(
+                                place.as_str(),
+                                type_storage_size_bytes(tctx, expr.ty),
+                                expr.span,
+                            );
                         }
                     }
                 }
@@ -2297,7 +2392,11 @@ fn visit_expr_with_escape(
                 if let (Some(addr), Some(val)) = (args.get(0), args.get(1)) {
                     if !tctx.is_copy(val.ty) {
                         if let Some(place) = raw_memory_place_key(addr, ctx) {
-                            ctx.check_raw_non_copy_store(place.as_str(), expr.span);
+                            ctx.check_raw_non_copy_store(
+                                place.as_str(),
+                                type_storage_size_bytes(tctx, val.ty),
+                                expr.span,
+                            );
                         }
                     }
                 }

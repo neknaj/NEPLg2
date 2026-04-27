@@ -7899,27 +7899,24 @@ impl<'a> BlockChecker<'a> {
                                     false,
                                 ) {
                                     if field_accessor == FieldAccessorKind::Get && args.len() == 2 {
-                                        let addr_expr = if offset == 0 {
-                                            obj
+                                        let addr_expr = if let Some(raw_addr) =
+                                            raw_aggregate_load_addr_expr(&obj, &self.ctx)
+                                        {
+                                            add_i32_offset_expr(
+                                                raw_addr,
+                                                offset,
+                                                idx.span,
+                                                func.expr.span,
+                                                self.ctx.i32(),
+                                            )
                                         } else {
-                                            HirExpr {
-                                                ty: self.ctx.i32(),
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "add".to_string(),
-                                                    type_args: vec![self.ctx.i32()],
-                                                    args: vec![
-                                                        obj,
-                                                        HirExpr {
-                                                            ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(
-                                                                offset as i32,
-                                                            ),
-                                                            span: idx.span,
-                                                        },
-                                                    ],
-                                                },
-                                                span: func.expr.span,
-                                            }
+                                            add_i32_offset_expr(
+                                                obj,
+                                                offset,
+                                                idx.span,
+                                                func.expr.span,
+                                                self.ctx.i32(),
+                                            )
                                         };
                                         return Some(StackEntry {
                                             ty: f_ty,
@@ -9089,6 +9086,68 @@ fn type_storage_size_bytes_mapped(
             }
         }
         _ => 4,
+    }
+}
+
+fn is_aggregate_storage_type(ctx: &TypeCtx, ty: TypeId) -> bool {
+    let ty = ctx.resolve_named_type_id(ty);
+    match ctx.get(ty) {
+        TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. } => true,
+        TypeKind::Apply { base, .. } => matches!(
+            ctx.get(ctx.resolve_named_type_id(base)),
+            TypeKind::Struct { .. } | TypeKind::Tuple { .. } | TypeKind::Enum { .. }
+        ),
+        _ => false,
+    }
+}
+
+fn is_raw_memory_load_name(name: &str) -> bool {
+    name == "load" || name.starts_with("load_")
+}
+
+fn raw_aggregate_load_addr_expr(expr: &HirExpr, ctx: &TypeCtx) -> Option<HirExpr> {
+    if !is_aggregate_storage_type(ctx, expr.ty) {
+        return None;
+    }
+    match &expr.kind {
+        HirExprKind::Call { callee, args } if args.len() == 1 => match callee {
+            FuncRef::User(name, _, _) | FuncRef::Builtin(name) if is_raw_memory_load_name(name) => {
+                Some(args[0].clone())
+            }
+            _ => None,
+        },
+        HirExprKind::Intrinsic { name, args, .. } if name == "load" && args.len() == 1 => {
+            Some(args[0].clone())
+        }
+        _ => None,
+    }
+}
+
+fn add_i32_offset_expr(
+    base: HirExpr,
+    offset: usize,
+    offset_span: Span,
+    span: Span,
+    i32_ty: TypeId,
+) -> HirExpr {
+    if offset == 0 {
+        return base;
+    }
+    HirExpr {
+        ty: i32_ty,
+        kind: HirExprKind::Intrinsic {
+            name: "add".to_string(),
+            type_args: vec![i32_ty],
+            args: vec![
+                base,
+                HirExpr {
+                    ty: i32_ty,
+                    kind: HirExprKind::LiteralI32(offset as i32),
+                    span: offset_span,
+                },
+            ],
+        },
+        span,
     }
 }
 

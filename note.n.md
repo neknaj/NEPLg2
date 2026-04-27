@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (raw aggregate field read / raw place merge)
+
+- 状況:
+  - `field::get load<T> p "field"` が raw address の field offset から直接読む HIR ではなく、`load<T> p` で non-Copy aggregate 全体を shallow load してから field を読む形になっていた。
+  - raw place state の branch merge が accumulator 初期値 `None` を最初の branch と混ぜ、全 branch で同じ `Initialized` でも `PossiblyMoved` に悪化させていた。
+- 修正:
+  - typecheck の field accessor lowering で raw aggregate load を検出し、`load<Field>(raw_addr + offset)` へ直接下げるようにした。
+  - move_check の raw place state に byte size を持たせ、aggregate と field の重なりを検査するようにした。
+  - branch / loop の raw place merge を先頭 branch から初期化する形に変更した。
+  - `tests/compiler/move_effect.n.md` に raw aggregate field read、generic Copy field、loop merge、non-Copy field move の回帰テストを追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-aggregate-field-load-final.json -j 1`: `total=42`, `passed=42`
+  - `node nodesrc/tests.js -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/d3100-bloom-filter-final.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/d3100-byte-builder-final.json -j 1`: `D3100 checks_mem` remains; stdlib/std/test owner misuse として `ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069` に分離。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の memory safety / ownership 検査の誤検出と branch merge を修正した。
+
 # 2026-04-28 メモ (ISS-20260427T161537286Z custom stdlib core/mem boundary)
 
 - 状況:

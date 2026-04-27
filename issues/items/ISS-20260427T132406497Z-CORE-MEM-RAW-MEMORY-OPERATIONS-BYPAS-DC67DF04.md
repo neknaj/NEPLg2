@@ -68,6 +68,16 @@ pure source code が observable raw address を allocate / free / load / store �
 
 `#intrinsic "load"` / `#intrinsic "store"` が `intrinsic_effect` で pure 扱いになっていたため、user source が `core/mem` の wrapper を通さず raw memory を直接読み書きできる穴を `ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6` として分離し、修正した。これにより direct raw memory intrinsic は pure context で `D3025` になる。移行中の `stdlib/core/mem.nepl` は SourceMap path による compiler-owned memory boundary として限定許可している。
 
+## 2026-04-28 raw aggregate field read / branch merge 部分対応
+
+`field::get load<T> p "field"` のような raw aggregate load 直後の field access が、raw address `p + offset` から field だけを読む HIR ではなく、`load<T> p` で non-Copy aggregate 全体を shallow load してから field を読む HIR になっていた。このため Copy field を読むだけでも raw place 全体が moved になり、collection helper の temporary raw storage が D3100 で誤検出されていた。
+
+今回の対応では、field accessor lowering が raw aggregate load を検出した場合に `load<Field>(raw_addr + field_offset)` へ直接下げるようにし、不要な aggregate copy と所有権誤検出を避けた。あわせて raw place state に byte size を保持し、raw aggregate と raw field の重なりを検査するようにした。non-Copy field を raw aggregate から move した後に aggregate 全体を取り出す経路は D3100 のまま拒否する。
+
+また、branch / loop の raw place state merge が、最初の branch と accumulator 初期値 `None` を merge していたため、全 branch で同じ `Initialized` の raw place でも `PossiblyMoved` に悪化する問題を修正した。
+
+この修正で `tests/stdlib/bloom_filter_collections.n.md` の D3100 は解消した。一方、`tests/stdlib/byte_builder.n.md` の D3100 は `stdlib/std/test.nepl` が `Vec<Result<(),str>>` を同じ raw temp から複数回 by-value load している実際の所有権問題であり、`ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069` として分離した。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。
