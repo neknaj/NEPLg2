@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260427T175508838Z enum payload structural drop)
+
+- 状況:
+  - Drop を持つ payload を enum variant に入れた場合、enum 自体に Drop impl がないと scope end の auto drop が payload を破棄していなかった。
+  - 既存の structural drop は struct/tuple の field offset だけを列挙しており、active variant tag を見て payload だけを drop する enum 用 drop glue がなかった。
+  - struct field に enum を保持する場合も同じ漏れになるため、aggregate field 内の enum も検出対象に含めた。
+- 修正:
+  - `drop_insertion` が Drop impl のない enum / generic Apply enum の全 variant を match し、Drop が必要な active payload だけを arm 内で drop する HIR を生成するようにした。
+  - payload が Drop を必要としない variant は payload binding を作らず、不要な copy / drop を発生させないようにした。
+  - struct/tuple の structural drop 走査で enum field を検出し、field を一度 temp に move してから enum payload drop glue を適用するようにした。
+  - `nepl-core/tests/drop.rs` に、active/inactive variant、struct field enum、generic `Result<Guard,str>`、payload move 後の二重 drop 防止の回帰テストを追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test drop enum_payload -- --nocapture`: `5 passed`
+  - `cargo test -p nepl-core --test drop -- --nocapture`: `16 passed`
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md --no-tree -o tmp/enum-payload-autodrop-node.json -j 1`: `total=4`, `passed=4`
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の Drop/resource cleanup 検査を enum payload まで拡張した。
+
 # 2026-04-28 メモ (ISS-20260427T174539616Z Drop parameter auto drop)
 
 - 状況:
