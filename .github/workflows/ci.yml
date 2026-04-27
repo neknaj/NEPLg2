@@ -50,6 +50,7 @@ jobs:
                   node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js
                   node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js
                   node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js
+                  node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js
                   node nodesrc/test_llvm_runner_return_value.js
                   node nodesrc/test_stdlib_string_no_unsafe_unwraps.js
 

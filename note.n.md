@@ -18996,3 +18996,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - NEPLg3 で想定している `resolve/def_id` と `hir/lower` 分離に向け、現行 NEPLg2.0 HIR が source declaration identity を保持できるようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000311941Z CountingBloomFilter owned cleanup)
+
+- [同期]:
+  - `origin/main` が `9af630a stdlib: remove bloom filter unsafe cleanup unwrap` で一致している状態から `stdlib/counting-bloom-filter-owned-cleanup` branch を作成した。
+  - commit 前に `origin/main` の `32f5c78` まで再同期し、HIR user call DefId snapshot 修正を取り込んで `trunk build` 後に検証した。
+- [原因]:
+  - `CountingBloomFilter.new` は `nslots > 0` のときに `nbytes > 0` の counter 配列を確保し、`CountingBloomFilter` がその pointer を所有する。
+  - `CountingBloomFilter.free` は generic struct field を読むための一時領域を使った後、owned counter 配列の cleanup だけ `dealloc_ptr<u8>` の `Result` を `uwok` していた。
+- [修正]:
+  - `CountingBloomFilter.free` の owned counter cleanup を `dealloc_raw mem_ptr_addr counters nbytes` に変更した。
+  - 一時 struct 領域と所有 counter 配列の解放責務を分け、どちらも owner-internal raw cleanup として扱うようにした。
+  - `free` の doc comment に owner invariant と free 後の再利用禁止を明記した。
+  - free 後の再確保 regression と、CountingBloomFilter 実装に unsafe unwrap / unreachable が戻らない source policy guard を追加した。
+- [検証]:
+  - `trunk build`: pass
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl --no-tree -o tmp/counting-bloom-filter-owned-cleanup-docs-after-32f5c78.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/counting_bloom_filter_collections.n.md -i stdlib/tests/counting_bloom_filter.n.md --no-tree -o tmp/counting-bloom-filter-owned-cleanup-focused-after-32f5c78.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-counting-bloom-filter-owned-cleanup-after-32f5c78.json -j 4`: 290/290 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-counting-bloom-filter-owned-cleanup-after-32f5c78.json -j 4`: 418/418 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host cache / membership helper に使える CountingBloomFilter が、cleanup 時に unsafe helper へ依存しないようになった。

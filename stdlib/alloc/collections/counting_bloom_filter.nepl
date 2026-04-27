@@ -275,6 +275,11 @@ fn clear <.T,.H> <(CountingBloomFilter<.T,.H>)->CountingBloomFilter<.T,.H>> (bf)
 //: ## free
 //: counter [配列/はいれつ]を[解放/かいほう]する
 //:
+//: ### [仕様/しよう]
+//: - `CountingBloomFilter` は `new` が[確保/かくほ]した `nbytes > 0` の counter [配列/はいれつ]を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、counter [配列/はいれつ]を `dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - caller は `free` [後/ご]の `CountingBloomFilter` を[再利用/さいりよう]してはいけません。
+//:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
@@ -293,5 +298,5 @@ fn free <.T,.H> <(CountingBloomFilter<.T,.H>)->()> (bf):
     store<CountingBloomFilter<.T,.H>> bf_mem bf
     let nbytes <i32> get load<CountingBloomFilter<.T,.H>> bf_mem "nbytes"
     let counters <MemPtr<u8>> get load<CountingBloomFilter<.T,.H>> bf_mem "counters"
-    let _ <()> uwok dealloc_ptr<u8> counters nbytes
+    dealloc_raw mem_ptr_addr counters nbytes
     dealloc_raw bf_mem size_of<CountingBloomFilter<.T,.H>>
