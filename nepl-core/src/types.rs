@@ -1574,6 +1574,9 @@ impl TypeCtx {
         mapping: &alloc::collections::BTreeMap<TypeId, TypeId>,
         seen: &mut BTreeSet<TypeId>,
     ) -> TypeId {
+        if let Some(target) = mapping.get(&ty) {
+            return *target;
+        }
         let ty = self.resolve_id(ty);
         if let Some(target) = mapping.get(&ty) {
             return *target;

@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 
 use crate::hir::*;
 use crate::runtime_helpers::{find_runtime_helper_key, RuntimeHelperKind};
+use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 macro_rules! mono_log {
@@ -28,11 +29,24 @@ pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
     monomorphize_internal(ctx, module, true).0
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnresolvedTraitCall {
+    pub description: String,
+    pub span: Span,
+}
+
+pub fn monomorphize_with_unresolved_trait_calls(
+    ctx: &mut TypeCtx,
+    module: HirModule,
+) -> (HirModule, Vec<UnresolvedTraitCall>) {
+    monomorphize_internal(ctx, module, false)
+}
+
 fn monomorphize_internal(
     ctx: &mut TypeCtx,
     module: HirModule,
     assert_trait_calls: bool,
-) -> (HirModule, Vec<String>) {
+) -> (HirModule, Vec<UnresolvedTraitCall>) {
     let mut impl_map: BTreeMap<(String, String, TypeId), String> = BTreeMap::new();
     let mut impl_method_index: BTreeMap<(String, String), Vec<(TypeId, String)>> = BTreeMap::new();
     let mut impl_entries: Vec<(String, Vec<TypeId>, String, TypeId, String)> = Vec::new();
@@ -242,7 +256,7 @@ impl<'a> Monomorphizer<'a> {
         matched
     }
 
-    fn collect_unresolved_trait_calls(&self, func: &HirFunction) -> Vec<String> {
+    fn collect_unresolved_trait_calls(&self, func: &HirFunction) -> Vec<UnresolvedTraitCall> {
         let mut out = Vec::new();
         let mut stack = Vec::new();
         if let HirBody::Block(block) = &func.body {
@@ -268,14 +282,17 @@ impl<'a> Monomorphizer<'a> {
                             .map(|ty| self.ctx.type_to_string(*ty))
                             .collect::<Vec<_>>()
                             .join(", ");
-                        out.push(format!(
-                            "{} :: {}<{}>::{} [self={}]",
-                            func.name,
-                            trait_name,
-                            rendered_args,
-                            method,
-                            self.ctx.type_to_string(*self_ty),
-                        ));
+                        out.push(UnresolvedTraitCall {
+                            description: format!(
+                                "{} :: {}<{}>::{} [self={}]",
+                                func.name,
+                                trait_name,
+                                rendered_args,
+                                method,
+                                self.ctx.type_to_string(*self_ty),
+                            ),
+                            span: expr.span,
+                        });
                     }
                 }
                 HirExprKind::CallIndirect { callee, args, .. } => {
@@ -346,7 +363,7 @@ impl<'a> Monomorphizer<'a> {
         if let Some(first) = unresolved.first() {
             panic!(
                 "internal compiler error: unresolved trait call remained after monomorphize: {}",
-                first,
+                first.description,
             );
         }
     }
@@ -805,7 +822,12 @@ impl<'a> Monomorphizer<'a> {
         let mut mapping = BTreeMap::new();
         if let TypeKind::Function { type_params, .. } = self.ctx.get(f.func_ty) {
             for (tp, arg) in type_params.iter().zip(args.iter()) {
-                mapping.insert(self.ctx.resolve_id(*tp), self.ctx.resolve_id(*arg));
+                let resolved_tp = self.ctx.resolve_id(*tp);
+                let resolved_arg = self.ctx.resolve_id(*arg);
+                mapping.insert(*tp, resolved_arg);
+                if resolved_tp != *tp {
+                    mapping.insert(resolved_tp, resolved_arg);
+                }
             }
         }
 

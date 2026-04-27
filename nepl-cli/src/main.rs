@@ -642,21 +642,23 @@ fn execute_inner(cli: Cli) -> Result<()> {
         let base = output_base_from_arg(output);
 
         if emits.contains(&Emit::Llvm) {
-            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
                 &module,
                 run_target,
                 active_profile,
                 false,
+                Some(&source_map),
             )
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             write_bytes(&base.with_extension("ll"), ir.as_bytes())?;
         }
         if emits.contains(&Emit::LlvmMin) {
-            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
                 &module,
                 run_target,
                 active_profile,
                 true,
+                Some(&source_map),
             )
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             write_bytes(&output_path(&base, Emit::LlvmMin), ir.as_bytes())?;

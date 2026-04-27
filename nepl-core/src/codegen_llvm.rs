@@ -22,6 +22,7 @@ use crate::llvm_ir::{
     collect_defined_functions_from_llvmir_block, parse_declared_or_defined_function_name,
 };
 use crate::runtime_helpers::{helper_base_name, helper_candidates, RuntimeHelperKind};
+use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::target_precheck::{self, ActiveRawBody};
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -99,10 +100,26 @@ pub fn emit_ll_from_module_for_target(
     profile: BuildProfile,
     minify: bool,
 ) -> Result<String, LlvmCodegenError> {
+    emit_ll_from_module_for_target_with_source_map(module, target, profile, minify, None)
+}
+
+pub fn emit_ll_from_module_for_target_with_source_map(
+    module: &Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    minify: bool,
+    source_map: Option<&SourceMap>,
+) -> Result<String, LlvmCodegenError> {
     let mut out = String::new();
     let entry_names = collect_active_entry_names(module, target, profile);
-    let prepared = compiler::prepare_module_for_llvm_codegen(module, target, profile, &entry_names)
-        .map_err(map_core_error_to_llvm_codegen_error)?;
+    let prepared = compiler::prepare_module_for_llvm_codegen_with_source_map(
+        module,
+        target,
+        profile,
+        &entry_names,
+        source_map,
+    )
+    .map_err(map_core_error_to_llvm_codegen_error)?;
     let reachable_hint = (!prepared.reachable_set.is_empty()).then_some(&prepared.reachable_set);
     let raw_call_requirements = collect_required_raw_calls_fixed_point(module, target, profile);
     let raw_name_counts = collect_active_ast_raw_name_counts(module, target, profile);
