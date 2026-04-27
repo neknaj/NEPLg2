@@ -44,6 +44,12 @@ target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, tests/stdlib/memory
 
 また、`dealloc_region<T>` は `RegionToken<T>` を受け取るが、token 自体が forgeable であり、region 内の initialized value を drop 済みにする契約もない。この点は `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` として追跡する。
 
+## 2026-04-28 raw bulk copy 部分対応
+
+raw `mem_copy` / `mem_move` が public raw address を受け取り live non-Copy payload を byte copy/overwrite できる問題を `ISS-20260427T190303188Z-MOVE-CHECK-ALLOWS-RAW-MEM-COPY-AND-M-AA0F96F9` として compiler 側で塞いだ。
+
+この対応は exposed raw address API を閉じるものではなく、現行の公開面に残る危険な操作を `move_check` で安全側に拒否する暫定措置である。raw address escape hatch の unsafe/internal API 化はこの issue の残件として維持する。
+
 ## 修正方針
 
 public `core/mem` は checked allocation、typed pointer arithmetic、copy-only load/store、owned move in/out のような safe operation に限定する。raw `i32` address 変換と generic raw load/store は non-public または明示 unsafe module へ分離し、compiler 側の Resource IR / effect model と同期して移行する。`MemPtr<T>` は non-owning pointer と明示し、owner token / storage handle は別型へ分ける。

@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260427T190303188Z raw bulk copy live non-Copy check)
+
+- 状況:
+  - `move_check` は raw `load` / `store` / `dealloc` / `realloc` を ownership event として扱っていたが、raw `mem_copy` / `mem_move` の source/destination range を検査していなかった。
+  - `store<LocalToken> src ...` の直後に `mem_copy dst src size_of<LocalToken>` を呼ぶ修正前再現では、compiler が exit 0 で受理し、initialized non-Copy payload を shallow duplicate できた。
+- 修正:
+  - `RawMemoryCallKind::BulkCopy` を追加し、raw `mem_copy` / `mem_move` の i32 destination/source/size を canonical raw place range として扱うようにした。
+  - source range に `Initialized` / `PossiblyMoved` の non-Copy raw place が残っていれば D3100 にするようにした。
+  - destination range に `Initialized` / `PossiblyMoved` の non-Copy raw place が残っていて上書きされる場合も D3100 にするようにした。
+  - `tests/compiler/move_effect.n.md` に `mem_copy` / `mem_move` の compile_fail、payload consume 後の正常系、Copy bytes の正常系を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-bulk-copy-live-noncopy-node.json -j 1`: `total=57`, `passed=57`
+  - 修正前再現ファイル `tmp/raw-mem-copy-duplicates-noncopy.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の raw memory ownership 検査を bulk copy/move まで拡張した。
+
 # 2026-04-28 メモ (ISS-20260427T185656579Z raw realloc live non-Copy check)
 
 - 状況:

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T19:00:22.884Z",
+  "generated_at": "2026-04-27T19:06:56.652Z",
   "counts": {
-    "total": 214,
+    "total": 215,
     "open": 9,
-    "resolved": 205,
+    "resolved": 206,
     "by_area": {
       "core": {
-        "total": 82,
+        "total": 83,
         "open": 3,
-        "resolved": 79
+        "resolved": 80
       },
       "stdlib": {
         "total": 88,
@@ -1333,6 +1333,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T185656579Z-MOVE-CHECK-ALLOWS-REALLOCATING-RAW-S-45B12E2B.md"
+    },
+    {
+      "id": "ISS-20260427T190303188Z-MOVE-CHECK-ALLOWS-RAW-MEM-COPY-AND-M-AA0F96F9",
+      "title": "move_check allows raw mem_copy and mem_move to duplicate non-Copy payloads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T190303188Z-MOVE-CHECK-ALLOWS-RAW-MEM-COPY-AND-M-AA0F96F9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

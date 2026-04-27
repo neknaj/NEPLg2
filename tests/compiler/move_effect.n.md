@@ -393,6 +393,121 @@ fn main <()->i32> ():
     0
 ```
 
+## raw mem_copy は initialized non-Copy source を複製できない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let src <i32> 16
+    let dst <i32> 64
+    store<LocalToken> src LocalToken @token_id
+    mem_copy dst src size_of<LocalToken>
+    0
+```
+
+## raw mem_move は initialized non-Copy source を byte move できない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let src <i32> 16
+    let dst <i32> 64
+    store<LocalToken> src LocalToken @token_id
+    mem_move dst src size_of<LocalToken>
+    0
+```
+
+## raw mem_copy は initialized non-Copy destination を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let src <i32> 16
+    let dst <i32> 64
+    store<LocalToken> dst LocalToken @token_id
+    mem_copy dst src size_of<LocalToken>
+    0
+```
+
+## raw mem_copy は load で non-Copy source を消費した後なら通る
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let src <i32> 16
+    let dst <i32> 64
+    store<LocalToken> src LocalToken @token_id
+    let a <LocalToken> load<LocalToken> src
+    mem_copy dst src size_of<LocalToken>
+    0
+```
+
+## raw mem_copy は Copy bytes なら通る
+
+neplg2:test
+ret: 123
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    let src <i32> 16
+    let dst <i32> 64
+    store_i32 src 123
+    mem_copy dst src 4
+    load_i32 dst
+```
+
 ## raw aggregate load 直後の Copy field read は raw place 全体を move しない
 
 neplg2:test

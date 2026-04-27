@@ -70,6 +70,7 @@ enum RawMemoryCallKind {
     Store,
     Dealloc,
     Realloc,
+    BulkCopy,
 }
 
 impl ExprBorrow {
@@ -995,6 +996,59 @@ impl MoveCheckContext {
         }
     }
 
+    fn check_raw_non_copy_bulk_copy(
+        &mut self,
+        dst: &str,
+        src: &str,
+        size: Option<usize>,
+        span: Span,
+    ) {
+        if let Some((live_place, _)) = self
+            .raw_places_overlapping_dealloc(src, size)
+            .into_iter()
+            .find(|(_, info)| {
+                matches!(
+                    info.state,
+                    RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
+                )
+            })
+        {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    alloc::format!(
+                        "copying raw memory place containing non-Copy value: `{}`",
+                        live_place
+                    ),
+                    span,
+                )
+                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            );
+            return;
+        }
+
+        if let Some((live_place, _)) = self
+            .raw_places_overlapping_dealloc(dst, size)
+            .into_iter()
+            .find(|(_, info)| {
+                matches!(
+                    info.state,
+                    RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
+                )
+            })
+        {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    alloc::format!(
+                        "overwriting raw memory place containing non-Copy value: `{}`",
+                        live_place
+                    ),
+                    span,
+                )
+                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            );
+        }
+    }
+
     fn overlapping_raw_places(&self, place: &str, size: usize) -> Vec<(String, RawPlaceInfo)> {
         self.raw_place_states
             .iter()
@@ -1310,6 +1364,13 @@ fn is_raw_memory_realloc_name(name: &str) -> bool {
         || name.starts_with("__nepl_rt_realloc_")
 }
 
+fn is_raw_memory_bulk_copy_name(name: &str) -> bool {
+    name == "mem_copy"
+        || name == "mem_move"
+        || name.starts_with("mem_copy_")
+        || name.starts_with("mem_move_")
+}
+
 fn raw_memory_call_kind(
     callee: &FuncRef,
     args: &[HirExpr],
@@ -1348,6 +1409,13 @@ fn raw_memory_call_kind(
         && (tctx.same_type(args[0].ty, tctx.i32()) || is_mem_ptr_type(tctx, args[0].ty))
     {
         return Some(RawMemoryCallKind::Realloc);
+    }
+    if is_raw_memory_bulk_copy_name(name)
+        && args.len() >= 3
+        && tctx.same_type(args[0].ty, tctx.i32())
+        && tctx.same_type(args[1].ty, tctx.i32())
+    {
+        return Some(RawMemoryCallKind::BulkCopy);
     }
     None
 }
@@ -2172,6 +2240,24 @@ fn visit_raw_memory_call(
                     ctx.check_raw_non_copy_realloc(
                         place.as_str(),
                         raw_dealloc_size_arg_bytes(args.get(1), tctx),
+                        expr.span,
+                    );
+                }
+            }
+        }
+        RawMemoryCallKind::BulkCopy => {
+            for arg in args {
+                visit_expr(arg, ctx, tctx);
+            }
+            if let (Some(dst), Some(src)) = (args.get(0), args.get(1)) {
+                if let (Some(dst_place), Some(src_place)) = (
+                    raw_memory_place_key(dst, ctx, tctx),
+                    raw_memory_place_key(src, ctx, tctx),
+                ) {
+                    ctx.check_raw_non_copy_bulk_copy(
+                        dst_place.as_str(),
+                        src_place.as_str(),
+                        raw_dealloc_size_arg_bytes(args.get(2), tctx),
                         expr.span,
                     );
                 }
