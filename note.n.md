@@ -1,3 +1,19 @@
+# 2026-04-28 メモ (ISS-20260427T161537286Z custom stdlib core/mem boundary)
+
+- 状況:
+  - GH Actions の `nepl-cli` stdlib root tests が、temporary `custom_stdlib/core/mem.nepl` を `D3025` で拒否していた。
+  - raw memory body allowlist が `/stdlib/core/mem.nepl` という directory 名を固定しており、stdlib root override に対応できていなかった。
+- 修正:
+  - `raw_body_memory_operations_allowed` を `/core/mem.nepl` suffix 判定へ変更した。
+  - `nepl-core/tests/effects.rs` に `/tmp/custom_stdlib/core/mem.nepl` regression を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test effects`: `13 passed`
+  - `cargo test -p nepl-cli --test cli_output stdlib_root`: `4 passed`
+  - `trunk build`: pass
+- plan.md との差異:
+  - plan.md は変更していない。compiler-owned core/mem boundary の path 判定を stdlib root 非依存にする修正。
+
 # 2026-04-28 メモ (ISS-20260427T160936494Z raw memory intrinsic effect)
 
 - 状況:

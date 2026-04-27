@@ -2537,7 +2537,7 @@ impl<'a> BlockChecker<'a> {
             return false;
         };
         let normalized = path.as_str().replace('\\', "/");
-        normalized.ends_with("/stdlib/core/mem.nepl") || normalized == "stdlib/core/mem.nepl"
+        normalized.ends_with("/core/mem.nepl") || normalized == "core/mem.nepl"
     }
 
     fn raw_memory_intrinsic_allowed(&self, name: &str, span: Span) -> bool {

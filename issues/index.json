@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T16:13:16.193Z",
+  "generated_at": "2026-04-27T16:18:10.886Z",
   "counts": {
-    "total": 200,
+    "total": 201,
     "open": 9,
-    "resolved": 191,
+    "resolved": 192,
     "by_area": {
       "core": {
-        "total": 71,
+        "total": 72,
         "open": 3,
-        "resolved": 68
+        "resolved": 69
       },
       "stdlib": {
         "total": 85,
@@ -1168,6 +1168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6.md"
+    },
+    {
+      "id": "ISS-20260427T161537286Z-CORE-MEM-RAW-BOUNDARY-REJECTS-CUSTOM-52920E69",
+      "title": "core mem raw boundary rejects custom stdlib roots",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/tests/effects.rs, nepl-cli/tests/cli_output.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T161537286Z-CORE-MEM-RAW-BOUNDARY-REJECTS-CUSTOM-52920E69.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

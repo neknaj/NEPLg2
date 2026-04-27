@@ -313,3 +313,21 @@ fn raw_store <(i32,i32)->()> (p, v):
     check_source_with_path(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
         .expect("core/mem raw memory helper remains allowed during migration");
 }
+
+#[test]
+fn pure_raw_memory_in_custom_stdlib_core_mem_source_is_allowed() {
+    let src = r#"
+#entry raw_store
+#indent 4
+#target wasm
+
+fn raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#;
+
+    check_source_with_path(src, "/tmp/custom_stdlib/core/mem.nepl", CompileTarget::Wasm)
+        .expect("custom stdlib roots still provide the core/mem raw memory boundary");
+}
