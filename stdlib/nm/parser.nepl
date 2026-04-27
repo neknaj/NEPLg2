@@ -110,16 +110,16 @@ fn nm_json_escape_kind <(i32)->NmJsonEscapeKind> (ch):
             NmJsonEscapeKind::Plain
 
 // Multi-return helpers (no tuple destructuring)
-//: FenceRes: 構造体の概要
+//: FenceRes: fenced code block parser の戻り値
 //:
 //: [目的/もくてき]:
-//: - FenceRes の主な用途と呼び出し方を示します。
+//: - `parse_fence` が読み取った code block 情報と、次に読むべき行 index をまとめて返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - tuple destructuring を使わず、`cb` と `next_i` を名前付き field として保持します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `next_i` は閉じ fence の次の行、または入力末尾を指します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
@@ -127,16 +127,16 @@ struct FenceRes:
     cb <CodeBlockInfo>
     next_i <i32>
 
-//: ParaRes: 構造体の概要
+//: ParaRes: paragraph parser の戻り値
 //:
 //: [目的/もくてき]:
-//: - ParaRes の主な用途と呼び出し方を示します。
+//: - `parse_paragraph` が生成した inline 列と、paragraph の直後に続く行 index をまとめて返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - block parser が paragraph 本文と走査位置を同時に受け取れるよう、`inlines` と `next_i` を保持します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `inlines` は `parse_inlines` の結果なので、inline parser の allocation failure 時は空 Vec sentinel になる可能性があります。
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
@@ -252,104 +252,104 @@ fn nest_stack_push_from_hdr_result <(MemPtr<u8>,NestSection)->Result<(),str>> (h
             store_i32 mem_ptr_addr len_ptr add len 1;
             Result<(),str>::Ok ()
 
-//: is_empty_line: 主な用途
+//: is_empty_line: 空行を判定する
 //:
 //: [目的/もくてき]:
-//: - is_empty_line の主な用途と呼び出し方を示します。
+//: - trim 後の行が空かどうかを返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `str_trim` 後の byte length が 0 かを調べます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 空白だけの行も空行として扱います。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は行の byte 数）。
 fn is_empty_line <(str)->bool> (s):
     let t <str> str_trim s;
     eq len t 0
 
-//: is_hr_line: 主な用途
+//: is_hr_line: 水平線行を判定する
 //:
 //: [目的/もくてき]:
-//: - is_hr_line の主な用途と呼び出し方を示します。
+//: - trim 後の行が NM の水平線 `---` かどうかを返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `str_trim` 後に `---` と完全一致するかを調べます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - markdown の他の水平線記法はここでは扱いません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は行の byte 数）。
 fn is_hr_line <(str)->bool> (s):
     let t <str> str_trim s;
     str_eq t "---"
 
-//: is_nest_break_line: 主な用途
+//: is_nest_break_line: section nest break 行を判定する
 //:
 //: [目的/もくてき]:
-//: - is_nest_break_line の主な用途と呼び出し方を示します。
+//: - trim 後の行が section nest を明示的に区切る `;;;` かどうかを返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `str_trim` 後に `;;;` と完全一致するかを調べます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 現在の block parser では `;;;` 自体を出力ノードにせず、区切りとして読み飛ばします。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は行の byte 数）。
 fn is_nest_break_line <(str)->bool> (s):
     let t <str> str_trim s;
     str_eq t ";;;"
 
-//: is_fence_start: 主な用途
+//: is_fence_start: fenced code block の開始行を判定する
 //:
 //: [目的/もくてき]:
-//: - is_fence_start の主な用途と呼び出し方を示します。
+//: - trim 後の行が triple-backtick fence で始まるかどうかを返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `str_trim` 後に `str_starts_with t "```"` を調べます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - fence info string は `parse_fence` が先頭 3 byte より後ろを trim して取り出します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は行の byte 数）。
 fn is_fence_start <(str)->bool> (s):
     let t <str> str_trim s;
     str_starts_with t "```"
 
-//: is_heading_start: 主な用途
+//: is_heading_start: ATX heading 行を判定する
 //:
 //: [目的/もくてき]:
-//: - is_heading_start の主な用途と呼び出し方を示します。
+//: - trim 後の行が `# ` から `###### ` までの heading marker で始まるかどうかを返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - level 1 から 6 の prefix を順に `str_starts_with` で調べます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - marker 後の space を必須にします。`#title` は heading として扱いません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は行の byte 数）。
 fn is_heading_start <(str)->bool> (s):
     let t <str> str_trim s;
     or str_starts_with t "# " or str_starts_with t "## " or str_starts_with t "### " or str_starts_with t "#### " or str_starts_with t "##### " str_starts_with t "###### "
 
-//: trim_cr: 主な用途
+//: trim_cr: 行末 CR を 1 byte だけ落とす
 //:
 //: [目的/もくてき]:
-//: - trim_cr の主な用途と呼び出し方を示します。
+//: - `str_split input "\n"` 後に残る Windows 改行の `\r` を取り除きます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 最終 byte が 13 なら末尾 1 byte を除いた slice を返し、それ以外は元の文字列を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 先頭や途中の CR は変更しません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（slice 生成を含む）。
 fn trim_cr <(str)->str> (s):
     let n <i32> len s;
     if:
@@ -362,19 +362,19 @@ fn trim_cr <(str)->str> (s):
                 then str_slice s 0 sub n 1
                 else s
 
-//: safe_line: 主な用途
+//: safe_line: 行 Vec から範囲外に強い形で 1 行読む
 //:
 //: [目的/もくてき]:
-//: - safe_line の主な用途と呼び出し方を示します。
+//: - `lines_mem` に置いた `Vec<str>` から index `i` の行を読み、存在しなければ空文字列を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `v::get` の `Option` を match し、取得できた行には `trim_cr` を適用します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - parser の lookahead で範囲外 access を通常の空行扱いに寄せるための helper です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は返す行の byte 数）。
 fn safe_line <(i32, i32)->str> (lines_mem, i):
     let lines <Vec<str>> load<Vec<str>> lines_mem;
     match v::get<str> lines i:
@@ -383,19 +383,20 @@ fn safe_line <(i32, i32)->str> (lines_mem, i):
         Option::None:
             ""
 
-//: close_one_section: 主な用途
+//: close_one_section: 開いている section を 1 つ閉じる
 //:
 //: [目的/もくてき]:
-//: - close_one_section の主な用途と呼び出し方を示します。
+//: - nest stack の最上位 section を `Node::Section` に変換し、親 section または root node 列へ追加します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - stack から子 section を pop し、親があれば親の children に push して戻し、親がなければ root に push します。
+//: - push / stack grow が失敗した場合は trap せず、現在の root を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 失敗状態を戻り値で表せない既存 API のため、allocation failure 時は追加を諦める conservative fallback です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 通常 O(1)。Vec grow が発生すると要素数に応じた再確保コストがかかります。
 fn close_one_section <(Stack<NestSection>, Vec<Node>)*>Vec<Node>> (stk, root):
     let hdr <MemPtr<u8>> get stk "hdr";
     match nest_stack_pop_from_hdr hdr:
@@ -430,19 +431,19 @@ fn close_one_section <(Stack<NestSection>, Vec<Node>)*>Vec<Node>> (stk, root):
         Option::None:
             root
 
-//: close_to_level: 主な用途
+//: close_to_level: 指定 level 以上の section を閉じる
 //:
 //: [目的/もくてき]:
-//: - close_to_level の主な用途と呼び出し方を示します。
+//: - 新しい heading を読む前に、stack 上の `level >= new_level` な section をすべて閉じます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - stack top を peek し、条件を満たす間 `close_one_section` を繰り返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 現在の block parser では section を即時 root に入れる経路が残っており、この helper は nest-stack 経路用の互換部品です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(k)（k は閉じる section 数）。各 close は通常 O(1) です。
 fn close_to_level <(Stack<NestSection>, Vec<Node>, i32)*>Vec<Node>> (stk, root, new_level):
     // Close while top.level >= new_level
     let hdr <MemPtr<u8>> get stk "hdr";
@@ -465,19 +466,19 @@ fn close_to_level <(Stack<NestSection>, Vec<Node>, i32)*>Vec<Node>> (stk, root, 
                     ()
     r
 
-//: close_all_sections: 主な用途
+//: close_all_sections: 開いている section をすべて閉じる
 //:
 //: [目的/もくてき]:
-//: - close_all_sections の主な用途と呼び出し方を示します。
+//: - 入力末尾などで stack に残った section を root へ畳み込みます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - stack が空になるまで `close_one_section` を繰り返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `close_one_section` と同じく、allocation failure は trap させず現在の root を保ちます。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(k)（k は stack に残っている section 数）。
 fn close_all_sections <(Stack<NestSection>, Vec<Node>)*>Vec<Node>> (stk, root):
     let hdr <MemPtr<u8>> get stk "hdr";
     let mut r <Vec<Node>> root;
@@ -493,19 +494,19 @@ fn close_all_sections <(Stack<NestSection>, Vec<Node>)*>Vec<Node>> (stk, root):
                     ()
     r
 
-//: parse_heading: 主な用途
+//: parse_heading: heading 行を `Heading` AST に変換する
 //:
 //: [目的/もくてき]:
-//: - parse_heading の主な用途と呼び出し方を示します。
+//: - `# ` から `###### ` までの heading 行を level と inline 列へ分解します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 長い marker から順に prefix を調べ、marker より後ろの text を `parse_inlines` に渡します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - heading でない行は `Option::None` を返します。inline parser の失敗は空 inline Vec として伝播します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は heading text の byte 数）。
 fn parse_heading <(str)->Option<Heading>> (line):
     let t <str> str_trim line;
 
@@ -547,19 +548,19 @@ fn parse_heading <(str)->Option<Heading>> (line):
                                                 else:
                                                     Option::None
 
-//: parse_fence: 主な用途
+//: parse_fence: fenced code block を読み取る
 //:
 //: [目的/もくてき]:
-//: - parse_fence の主な用途と呼び出し方を示します。
+//: - `i0` の fence 開始行から code block info と本文を読み、次に処理する行 index を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 開始行の backtick 3 byte より後ろを info string とし、閉じ fence または入力末尾まで本文を StringBuilder に追加します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 本文行は trim せず、元の行内容と `\n` を保存します。閉じ fence 自体は code へ含めません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は code block 本文の byte 数）。
 fn parse_fence <(i32, i32, i32)->FenceRes> (lines_mem, nlines, i0):
     let t0 <str> str_trim safe_line lines_mem i0;
     let info0 <str> str_slice t0 3 len t0;
@@ -593,19 +594,19 @@ fn parse_fence <(i32, i32, i32)->FenceRes> (lines_mem, nlines, i0):
     let cb <CodeBlockInfo> CodeBlockInfo info code;
     FenceRes cb i
 
-//: parse_paragraph: 主な用途
+//: parse_paragraph: paragraph block を読み取る
 //:
 //: [目的/もくてき]:
-//: - parse_paragraph の主な用途と呼び出し方を示します。
+//: - 現在行から続く paragraph 行をまとめ、inline AST と次の block 開始行 index を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 空行、heading、horizontal rule、nest break、fence 開始に当たるまで行を連結し、行間に `\n` を挟んでから `parse_inlines` します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - paragraph 内の元の行は trim せず保持します。終端 block marker は消費しません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は paragraph 本文の byte 数）。
 fn parse_paragraph <(i32, i32, i32)->ParaRes> (lines_mem, nlines, i0):
     let mut sb <StringBuilder> string_builder_new;
     let mut i <i32> i0;
@@ -1205,19 +1206,19 @@ pub fn parse_markdown <(str)->Document> (input):
 // AST -> JSON (simple)
 // -----------------------------
 
-//: json_escape: 主な用途
+//: json_escape: JSON 文字列用に byte を escape する
 //:
 //: [目的/もくてき]:
-//: - json_escape の主な用途と呼び出し方を示します。
+//: - AST 内の `str` を JSON string literal の中へ安全に埋め込める形へ変換します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 入力 byte を 1 byte ずつ走査し、`NmJsonEscapeKind` の match で escape sequence か元の 1 byte slice を追加します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - この parser の JSON 出力に必要な代表的 escape を扱います。Unicode escape への正規化は行いません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)（n は入力 byte 数）。
 fn json_escape <(str)->str> (s):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len s;
@@ -1245,19 +1246,20 @@ fn json_escape <(str)->str> (s):
             set i add i 1;
     sb_build sb
 
-//: inlines_to_json: 主な用途
+//: inlines_to_json: inline AST 列を JSON 配列に変換する
 //:
 //: [目的/もくてき]:
-//: - inlines_to_json の主な用途と呼び出し方を示します。
+//: - `Inline::Text` / `Math` / `Ruby` / `Gloss` を、`t` field を持つ JSON object の配列へ変換します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `VecDataLen` で raw data と length を取り、各 inline を match して object 文字列を StringBuilder に追加します。
+//: - Gloss の subs は内部の `Vec<str>` をさらに配列として出力します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 文字列 field は必ず `json_escape` を通します。JSON schema は `document_to_json` と揃えます。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n + m)（n は inline 数、m は出力文字列の byte 数）。
 fn inlines_to_json <(Vec<Inline>)->str> (v):
     let mut sb <StringBuilder> string_builder_new;
     set sb sb_append sb "[";
@@ -1312,19 +1314,19 @@ fn inlines_to_json <(Vec<Inline>)->str> (v):
     set sb sb_append sb "]";
     sb_build sb
 
-//: node_to_json: 主な用途
+//: node_to_json: block AST node を JSON object に変換する
 //:
 //: [目的/もくてき]:
-//: - node_to_json の主な用途と呼び出し方を示します。
+//: - `Node` の各 variant を JSON object へ変換し、document 出力の構成要素にします。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - variant を match し、paragraph / section の inline や children は helper で再帰的にシリアライズします。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `Section` では heading と children を両方出力します。文字列 field は `json_escape` を通します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(m)（m は出力 JSON byte 数）。
 fn node_to_json <(Node)->str> (node):
     let mut sb <StringBuilder> string_builder_new;
     match node:
@@ -1367,19 +1369,19 @@ fn node_to_json <(Node)->str> (node):
             set sb sb_append sb "}";
             sb_build sb
 
-//: nodes_to_json: 主な用途
+//: nodes_to_json: block AST node 列を JSON 配列に変換する
 //:
 //: [目的/もくてき]:
-//: - nodes_to_json の主な用途と呼び出し方を示します。
+//: - root や section children の `Vec<Node>` を JSON 配列へ変換します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `VecDataLen` で raw data と length を取り、各 node を `node_to_json` に渡して comma 区切りで追加します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 空 Vec は `[]` を返します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n + m)（n は node 数、m は出力 JSON byte 数）。
 fn nodes_to_json <(Vec<Node>)->str> (nodes):
     let mut sb <StringBuilder> string_builder_new;
     set sb sb_append sb "[";

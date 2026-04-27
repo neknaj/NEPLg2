@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T06:53:13.167Z",
+  "generated_at": "2026-04-27T07:03:19.416Z",
   "counts": {
-    "total": 186,
+    "total": 187,
     "open": 5,
-    "resolved": 181,
+    "resolved": 182,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 78,
+        "total": 79,
         "open": 4,
-        "resolved": 74
+        "resolved": 75
       },
       "cli": {
         "total": 19,
@@ -2713,6 +2713,21 @@
       "legacy_id": "",
       "source": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
       "file": "items/ISS-20260427T064556270Z-CORE-CAST-DOC-COMMENTS-STILL-CONTAIN-91F72FD1.md"
+    },
+    {
+      "id": "ISS-20260427T065555199Z-NM-PARSER-DOC-COMMENTS-STILL-CONTAIN-97F57AD2",
+      "title": "nm parser doc comments still contain generated boilerplate",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "doc",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/nm/parser.nepl; nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js",
+      "legacy_id": "",
+      "source": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
+      "file": "items/ISS-20260427T065555199Z-NM-PARSER-DOC-COMMENTS-STILL-CONTAIN-97F57AD2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

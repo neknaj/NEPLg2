@@ -1,3 +1,21 @@
+# 2026-04-27 メモ (ISS-20260427T065555199Z nm/parser doc boilerplate)
+
+- 状況:
+  - `stdlib/nm/parser.nepl` に、`主な用途`、`定義済み処理`、`薄いラッパ`、汎用的な move/rebind 注意などの生成テンプレート文言が残っていた。
+  - nm parser は extended markdown の block parsing / section close / inline escaping / JSON emission の仕様を説明するべき箇所だが、テンプレートコメントが実装契約を隠していた。
+- 修正:
+  - `FenceRes` / `ParaRes`、block predicate、section close helper、`parse_heading` / `parse_fence` / `parse_paragraph`、JSON emitter のコメントを実装契約に合わせた nm コメントへ整理した。
+  - `nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js` を追加し、生成テンプレート文言の再混入と parser 仕様説明の欠落を検出するようにした。
+  - CI と `doc/testing.md` の source policy regressions に同テストを登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: pass
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-doc-boilerplate.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-nm-parser-doc-boilerplate.json -j 4`: `total=418`, `passed=418`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib/nm parser の doc debt を局所的に解消し、再発防止を追加するもの。
+
 # 2026-04-27 メモ (ISS-20260427T064556270Z core/cast doc boilerplate)
 
 - 状況:
