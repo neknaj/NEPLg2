@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260427T054706120Z std/test allocation)
+
+- 状況:
+  - `stdlib/std/test.nepl` の `checks_new` / `checks_push` は `Vec<Result<(),str>>` の生成と push を `unwrap_ok` で処理していた。
+  - `std/test` は stdlib/self-host regression の集約基盤なので、memory pressure 時に本来の検査失敗ではなく unsafe helper trap で落ちる構造だった。
+- 修正:
+  - `checks_empty_vec` と `checks_single_error` を追加し、allocation/grow failure を trap ではなく空 sentinel または `Result::Err "std/test checks_push allocation failed"` へ丸めるようにした。
+  - `checks_new` / `checks_push` の implementation `unwrap_ok` を除去した。
+  - `std/test` 内部の Vec 操作を `v::new` / `v::push` / `v::Vec` に限定し、caller 側 collection import との `new` / `push` ambiguous overload を防いだ。
+  - `nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-allocation-docs-fixed.json -j 1`: `total=12`, `passed=12`
+  - `node nodesrc/tests.js -i stdlib/tests/btreeset.n.md --no-tree -o tmp/std-test-btreeset-repro-fixed.json -j 1`: `total=4`, `passed=4`
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-allocation-focused-fixed.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-std-test-allocation-fixed.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-std-test-allocation-fixed.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host/stdlib regression 基盤である `std/test` の allocation failure を trap から test failure/sentinel へ戻す stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260427T053811590Z alloc/diag/error allocation)
 
 - 状況:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T05:44:26.330Z",
+  "generated_at": "2026-04-27T05:58:26.554Z",
   "counts": {
-    "total": 181,
+    "total": 182,
     "open": 6,
-    "resolved": 175,
+    "resolved": 176,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 73,
+        "total": 74,
         "open": 5,
-        "resolved": 68
+        "resolved": 69
       },
       "cli": {
         "total": 19,
@@ -2638,6 +2638,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3.md"
+    },
+    {
+      "id": "ISS-20260427T054706120Z-STD-TEST-CHECKS-NEW-CHECKS-PUSH-VEC--DA0F691F",
+      "title": "std/test の checks_new/checks_push が Vec allocation failure を unwrap_ok で trap する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/test.nepl, tests/stdlib/std_test_collect.n.md, nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T054706120Z-STD-TEST-CHECKS-NEW-CHECKS-PUSH-VEC--DA0F691F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

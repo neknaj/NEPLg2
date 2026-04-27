@@ -5,8 +5,35 @@
 #import "core/result" as *
 #import "alloc/string" as *
 #import "alloc/collections/vec" as *
+#import "alloc/collections/vec" as v
 #if[target=std]
 #import "std/stdio" as *
+
+//: ## checks_empty_vec
+//: [集約/しゅうやく][検査/けんさ][列/れつ]の[空/から] sentinel を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - allocation failure [時/じ]に consumed owner を[再利用/さいりよう]せず、空の `Vec<Result<(),str>>` に[切/き]り[替/か]えます。
+fn checks_empty_vec <()->Vec<Result<(),str>>> ():
+    v::Vec<Result<(),str>> 0 0 mem_ptr_wrap 0
+
+//: ## checks_single_error
+//: [単一/たんいつ]の[失敗/しっぱい]だけを[持/も]つ[検査/けんさ][列/れつ]を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - `checks_push` の grow failure を test failure として[観測/かんそく]できるよう、可能なら `Err msg` だけを[持/も]つ Vec を[返/かえ]します。
+//: - その[確保/かくほ]も[失敗/しっぱい]した[場合/ばあい]は空 sentinel を[返/かえ]し、trap は[起/お]こしません。
+fn checks_single_error <(str)*>Vec<Result<(),str>>> (msg):
+    match v::new<Result<(),str>>:
+        Result::Ok items0:
+            let marker <Result<(),str>> Result<(),str>::Err msg;
+            match v::push<Result<(),str>> items0 marker:
+                Result::Ok items1:
+                    items1
+                Result::Err _e:
+                    checks_empty_vec
+        Result::Err _e:
+            checks_empty_vec
 
 //: # test
 //: [標準/ひょうじゅん]ライブラリ[用/よう]の[簡易/かんい]テスト[支援/しえん]
@@ -156,7 +183,7 @@ fn noshadow test_fail <(str)*>Result<(),str>> (msg):
 //: - `push` の型引数を毎回書かずに collectable な検査列を組み立てる入口として使います。
 //:
 //: ### [実装/じっそう]
-//: - `unwrap_ok<Vec<Result<(),str>>, StdErrorKind> new<Result<(),str>>` を呼び、検査結果専用の空ベクタを返します。
+//: - `new<Result<(),str>>` を `match` し、確保に失敗した場合は空 sentinel を返します。
 //:
 //: ### [注意/ちゅうい]
 //: - 返り値は `Result<(),str>` 専用です。
@@ -178,7 +205,11 @@ fn noshadow test_fail <(str)*>Result<(),str>> (msg):
 //:     checks_exit_code checks
 //: ```
 fn checks_new <()*>Vec<Result<(),str>>> ():
-    unwrap_ok<Vec<Result<(),str>>, StdErrorKind> new<Result<(),str>>
+    match v::new<Result<(),str>>:
+        Result::Ok checks:
+            checks
+        Result::Err _e:
+            checks_empty_vec
 
 //: ## checks_push
 //: [集約/しゅうやく][検査/けんさ][列/れつ]に 1 [件/けん][追加/ついか]する
@@ -188,6 +219,7 @@ fn checks_new <()*>Vec<Result<(),str>>> ():
 //:
 //: ### [実装/じっそう]
 //: - `push<Result<(),str>>` を固定して呼び、`push` の型推論詳細を利用者へ露出させません。
+//: - grow failure は `Err` marker だけを持つ Vec に丸め、test [失敗/しっぱい]として[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - 検査そのものは `check_*` 側で評価済みであり、この関数は格納しかしません。
@@ -213,7 +245,11 @@ fn checks_new <()*>Vec<Result<(),str>>> ():
 //:     checks_exit_code checks
 //: ```
 fn checks_push <(Vec<Result<(),str>>,Result<(),str>)*>Vec<Result<(),str>>> (checks, r):
-    unwrap_ok push<Result<(),str>> checks r
+    match v::push<Result<(),str>> checks r:
+        Result::Ok next:
+            next
+        Result::Err _e:
+            checks_single_error "std/test checks_push allocation failed"
 
 //: ## check
 //: [条件/じょうけん]を `Result<(),str>` として[返/かえ]す
