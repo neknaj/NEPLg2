@@ -458,10 +458,19 @@ impl LexState {
         let body = text.trim_start_matches('#').trim();
         if body.starts_with("entry") {
             let name = body.strip_prefix("entry").unwrap().trim();
+            let name_rel = text
+                .find("entry")
+                .and_then(|entry_rel| {
+                    let after_entry = entry_rel + "entry".len();
+                    text[after_entry..]
+                        .find(|c: char| !c.is_whitespace())
+                        .map(|name_offset| after_entry + name_offset)
+                })
+                .unwrap_or(0);
             let span = Span::new(
                 self.file_id,
-                line_offset as u32,
-                (line_offset + body.len()) as u32,
+                (line_offset + name_rel) as u32,
+                (line_offset + name_rel + name.len()) as u32,
             );
             self.tokens.push(Token {
                 kind: TokenKind::DirEntry(name.to_string()),

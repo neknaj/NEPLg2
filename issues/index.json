@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T00:34:36.148Z",
+  "generated_at": "2026-04-27T00:42:27.023Z",
   "counts": {
     "total": 170,
-    "open": 23,
-    "resolved": 147,
+    "open": 22,
+    "resolved": 148,
     "by_area": {
       "cli": {
         "total": 19,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 63,
-        "open": 3,
-        "resolved": 60
+        "open": 2,
+        "resolved": 61
       },
       "stdlib": {
         "total": 63,
@@ -133,21 +133,6 @@
       "legacy_id": "RV-CORE-010",
       "source": "doc/review20260425/core.md#rv-core-010",
       "file": "items/ISS-20260425T000000Z-RV-CORE-010-05C6281D.md"
-    },
-    {
-      "id": "ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7",
-      "title": "LLVM compile_fail diagnostics lose expected ids and spans",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nodesrc/tests.js, nepl-core/src/compiler.rs, nepl-core/src/codegen_llvm.rs, tests/compiler/compile_fail_diag_location.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -2143,6 +2128,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T175008731Z-OWNED-AGGREGATE-DECOMPOSITION-LACKS--48C352EE.md"
+    },
+    {
+      "id": "ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7",
+      "title": "LLVM compile_fail diagnostics lose expected ids and spans",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nodesrc/tests.js, nodesrc/test_llvm_runner_return_value.js, nepl-core/src/lexer.rs, tests/compiler/compile_fail_diag_location.n.md, tests/compiler/codegen_diagnostics.n.md, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213058233Z-LLVM-COMPILE-FAIL-DIAGNOSTICS-LOSE-E-E7DD80E7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

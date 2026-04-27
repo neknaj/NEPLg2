@@ -534,7 +534,36 @@ function normalizePathLike(p) {
     return String(p || '').replace(/\\/g, '/');
 }
 
-function extractDiagSpansFromCompileError(text) {
+function lineColFromUtf8Offset(text, offset) {
+    const limit = Math.max(0, Number(offset) || 0);
+    let pos = 0;
+    let line = 1;
+    let col = 1;
+    const src = String(text || '');
+    let prevWasCr = false;
+    for (const ch of src) {
+        if (pos >= limit) break;
+        const width = Buffer.byteLength(ch, 'utf8');
+        if (ch === '\n') {
+            if (!prevWasCr) {
+                line += 1;
+                col = 1;
+            }
+            prevWasCr = false;
+        } else if (ch === '\r') {
+            line += 1;
+            col = 1;
+            prevWasCr = true;
+        } else {
+            col += 1;
+            prevWasCr = false;
+        }
+        pos += width;
+    }
+    return { line, col };
+}
+
+function extractDiagSpansFromCompileError(text, testCase = null) {
     const src = stripAnsi(String(text || '')).replace(/\r\n/g, '\n');
     const out = [];
     const lines = src.split('\n');
@@ -549,6 +578,23 @@ function extractDiagSpansFromCompileError(text) {
             line: Number(lm[2]),
             col: Number(lm[3]),
         });
+    }
+    const source = typeof testCase?.source === 'string' ? testCase.source : '';
+    if (source) {
+        const compact = src.replace(/\n/g, ' ');
+        const re = /\(file=(\d+),\s*start=(\d+),\s*end=(\d+)\)/g;
+        let m;
+        while ((m = re.exec(compact)) !== null) {
+            const fileId = Number(m[1]);
+            const start = Number(m[2]);
+            if (fileId !== 0 || !Number.isFinite(start)) continue;
+            const loc = lineColFromUtf8Offset(source, start);
+            out.push({
+                file: '/virtual/entry.nepl',
+                line: loc.line,
+                col: loc.col,
+            });
+        }
     }
     return out;
 }
@@ -601,7 +647,7 @@ function applyDoctestExpectations(result, testCase, options = {}) {
             }
         }
         if (expectedDiagSpans.length > 0) {
-            const actualSpans = extractDiagSpansFromCompileError(compileError);
+            const actualSpans = extractDiagSpansFromCompileError(compileError, testCase);
             const missingSpans = expectedDiagSpans.filter(
                 (exp) => !actualSpans.some((act) => diagSpanMatches(exp, act))
             );
@@ -1533,5 +1579,6 @@ if (require.main === module) {
 module.exports = {
     applyDoctestExpectations,
     buildLlvmRunResult,
+    extractDiagSpansFromCompileError,
     llvmReturnValueFromProcessResult,
 };
