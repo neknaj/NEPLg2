@@ -44,6 +44,7 @@ Run source policy regressions for stdlib implementation style:
 node nodesrc/test_stdlib_match_decision_trees.js
 node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js
 node nodesrc/test_run_test_wasi_tmp_dir.js
+node nodesrc/test_run_test_wasix_missing_wasmer_fallback.js
 node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js
 node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js
@@ -140,10 +141,10 @@ playground.
 `nodesrc/run_test.js` chooses the execution path from `#target`:
 
 - `#target wasi` / `wasip1`-style cases run through Node's WASI support
-- `#target wasix` cases run through `wasmer run`
+- `#target wasix` cases first try `wasmer run`; when `wasmer` is not installed, or when Wasmer lacks the `wasix_32v1.tty_get` / `tty_set` imports, the runner falls back to Node's WASI support with minimal WASIX TTY host imports
 
 This matters for features such as TUI, which require WASIX imports and cannot be
-executed by the preview1-only Node WASI runtime.
+executed by the preview1-only Node WASI runtime without those fallback imports.
 The runner prepares a `tmp/` scratch directory inside each preopen root before
 execution. File-write doctests can use `tmp/...` paths without depending on an
 untracked repository directory being present in a clean checkout.

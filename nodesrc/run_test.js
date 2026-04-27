@@ -83,7 +83,10 @@ function decodeExpectedReturn(expectedRet, rawValue, memory) {
 }
 
 function runWasiBytes(wasmBytes, stdinText, argv = []) {
-    return runWasiBytesWithImports(wasmBytes, stdinText, argv);
+    return {
+        ...runWasiBytesWithImports(wasmBytes, stdinText, argv),
+        runner: 'node-wasi',
+    };
 }
 
 function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports = {}) {
@@ -165,18 +168,35 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
     };
 }
 
-function runWasixBytesWithTtyFallback(wasmBytes, stdinText, argv = []) {
-    return runWasiBytesWithImports(wasmBytes, stdinText, argv, {
+function runWasixBytesWithTtyFallback(wasmBytes, stdinText, argv = [], fallbackReason = null) {
+    const result = runWasiBytesWithImports(wasmBytes, stdinText, argv, {
         wasix_32v1: {
             tty_get: () => 1,
             tty_set: () => 1,
         },
     });
+    const out = {
+        ...result,
+        runner: 'node-wasi-wasix-tty-fallback',
+        fallbackReason,
+    };
+    if (out.trapped && fallbackReason) {
+        const detail = out.trapError || 'program trapped';
+        out.trapError = `${fallbackReason}; Node WASI fallback failed: ${detail}`;
+    }
+    return out;
 }
 
 function isWasixTtyUnknownImport(result) {
     const detail = `${result && result.trapError ? result.trapError : ''}\n${result && result.stderr ? result.stderr : ''}`;
     return /wasix_32v1/.test(detail) && /tty_(get|set)/.test(detail) && /unknown import/i.test(detail);
+}
+
+function isWasmerExecutableMissing(result) {
+    if (!result) return false;
+    if (result.spawnErrorCode === 'ENOENT') return true;
+    const detail = `${result.trapError || ''}\n${result.stderr || ''}`;
+    return /\bENOENT\b/.test(detail) && /\bspawn\b/.test(detail) && /\bwasmer\b/i.test(detail);
 }
 
 function detectTarget(source) {
@@ -230,22 +250,26 @@ function runWasmerWasixBytes(wasmBytes, stdinText, argv = []) {
             finish({
                 trapped: true,
                 trapError: formatError(e),
+                spawnErrorCode: e && e.code ? String(e.code) : null,
                 stdout,
                 stderr,
                 exitCode: null,
                 returnValue: null,
                 memory: null,
+                runner: 'wasmer',
             });
         });
         child.on('close', (code) => {
             finish({
                 trapped: code !== 0,
                 trapError: code === 0 ? null : `wasmer exit code=${code}\n${stderr.trim()}`.trim(),
+                spawnErrorCode: null,
                 stdout,
                 stderr,
                 exitCode: typeof code === 'number' ? code : null,
                 returnValue: null,
                 memory: null,
+                runner: 'wasmer',
             });
         });
 
@@ -258,11 +282,13 @@ function runWasmerWasixBytes(wasmBytes, stdinText, argv = []) {
             finish({
                 trapped: true,
                 trapError: `wasmer timeout after ${timeoutMs}ms`,
+                spawnErrorCode: null,
                 stdout,
                 stderr,
                 exitCode: null,
                 returnValue: null,
                 memory: null,
+                runner: 'wasmer',
             });
         }, timeoutMs);
     });
@@ -270,8 +296,13 @@ function runWasmerWasixBytes(wasmBytes, stdinText, argv = []) {
 
 async function runWasixBytes(wasmBytes, stdinText, argv = []) {
     const wasmerResult = await runWasmerWasixBytes(wasmBytes, stdinText, argv);
+    if (isWasmerExecutableMissing(wasmerResult)) {
+        const reason = `wasmer executable not found (${process.env.WASMER_BIN || 'wasmer'}); using Node WASI WASIX TTY fallback`;
+        return runWasixBytesWithTtyFallback(wasmBytes, stdinText, argv, reason);
+    }
     if (isWasixTtyUnknownImport(wasmerResult)) {
-        return runWasixBytesWithTtyFallback(wasmBytes, stdinText, argv);
+        const reason = 'wasmer lacks wasix_32v1 tty_get/tty_set imports; using Node WASI WASIX TTY fallback';
+        return runWasixBytesWithTtyFallback(wasmBytes, stdinText, argv, reason);
     }
     return wasmerResult;
 }
@@ -490,7 +521,12 @@ async function runSingle(req, preloaded) {
                 stderr: runRes.stderr,
                 return_value: decodedReturn,
                 error: ok ? null : 'expected should_panic, but program finished without trap',
-                runtime: { trapped: runRes.trapped, trapError: runRes.trapError },
+                runtime: {
+                    trapped: runRes.trapped,
+                    trapError: runRes.trapError,
+                    runner: runRes.runner || null,
+                    fallbackReason: runRes.fallbackReason || null,
+                },
                 compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
                 duration_ms: Date.now() - t0,
             };
@@ -506,7 +542,12 @@ async function runSingle(req, preloaded) {
             stderr: runRes.stderr,
             return_value: decodedReturn,
             error: ok ? null : (runRes.trapError || 'program trapped'),
-            runtime: { trapped: runRes.trapped, trapError: runRes.trapError },
+            runtime: {
+                trapped: runRes.trapped,
+                trapError: runRes.trapError,
+                runner: runRes.runner || null,
+                fallbackReason: runRes.fallbackReason || null,
+            },
             compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
             duration_ms: Date.now() - t0,
         };
@@ -544,5 +585,7 @@ if (require.main === module) {
 module.exports = {
     createRunner,
     ensureWasiScratchDir,
+    isWasmerExecutableMissing,
+    runWasixBytes,
     runSingle,
 };

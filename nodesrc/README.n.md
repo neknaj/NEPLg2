@@ -56,7 +56,7 @@ node nodesrc/run_doctest.js -i tests/stdlib/sort.n.md -n 3
 
 ### [注意/ちゅうい]
 
-- `#target wasix` の case は Node.js [内蔵/ないぞう] WASI ではなく `wasmer run` で[実行/じっこう]します。
+- `#target wasix` の case はまず `wasmer run` で[実行/じっこう]します。`wasmer` が[無/な]い[環境/かんきょう]や、`wasix_32v1.tty_get` / `tty_set` が[未対応/みたいおう]の Wasmer では、Node.js [内蔵/ないぞう] WASI に WASIX TTY host import を[足/た]した fallback で[実行/じっこう]します。
 - `WASMER_BIN` を[設定/せってい]すると、`wasmer` [以外/いがい]の[実行/じっこう][バイナリ/ばいなり]を[指定/してい]できます。
 
 ## `cli.js`

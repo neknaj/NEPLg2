@@ -1,3 +1,22 @@
+# 2026-04-27 メモ (ISS-20260426T213056969Z CI WASIX missing Wasmer)
+
+- 状況:
+  - CI の nmd-doctest / wasi-test / llvm-dual-test が Wasmer を用意しないまま `tests/stdlib/features_tui.n.md` の `#target wasix` doctest を実行し、`spawn wasmer ENOENT` で失敗していた。
+  - runner は `#target wasix` を常に `wasmer run` へ送っており、Wasmer 欠落を環境診断として扱わず、既存の Node WASI + WASIX TTY fallback へも進んでいなかった。
+- 修正:
+  - `nodesrc/run_test.js` で Wasmer spawn error の `ENOENT` を検出し、Node WASI + `wasix_32v1.tty_get` / `tty_set` fallback へ流すようにした。
+  - fallback result に `runner` と `fallbackReason` を持たせ、fallback 側が失敗した場合も「Wasmer 欠落または TTY import 未対応から fallback した」ことが診断に残るようにした。
+  - `nodesrc/test_run_test_wasix_missing_wasmer_fallback.js` を追加し、CI source policy regression と `doc/testing.md` / `nodesrc/README.n.md` に登録した。
+  - issue を `verified` / `resolved: true` に更新し、issue index を再生成した。
+- 検証:
+  - `node --check nodesrc/run_test.js`: pass
+  - `node nodesrc/test_run_test_wasi_tmp_dir.js`: pass
+  - `node nodesrc/test_run_test_wasix_missing_wasmer_fallback.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-wasmer-fallback.json -j 1`: `total=4`, `passed=4`
+  - `WASMER_BIN=<missing> node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-missing-wasmer.json -j 1`: `total=4`, `passed=4`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は Node doctest runner の WASIX 実行環境依存を緩和し、CI が TUI doctest の compiler/runtime 回帰へ到達できるようにするもの。
+
 # 2026-04-27 メモ (ISS-20260426T213057127Z wasm32 cli_output fixture)
 
 - 状況:
