@@ -143,6 +143,12 @@ direct call site の raw memory 検査は進んだが、helper 関数の内部�
 
 今回の対応で、関数サマリは戻り値 raw alias だけでなく raw memory load/store/dealloc/realloc/bulk copy/byte write effect も保持する。user function call では callee summary を caller 引数へ instantiate し、direct raw call と同じ D3100 ownership 検査を caller context で実行する。これにより、stdlib/self-host helper に raw memory operation を分割しても compiler の raw ownership state を迂回できなくなった。
 
+## 2026-04-28 indirect function raw memory effect 部分対応
+
+direct user call の raw memory effect は伝播するようになったが、`apply_clobber(p, f): f p` のような higher-order helper が function value 引数に raw memory operation を隠す問題を `ISS-20260427T215657067Z-MOVE-CHECK-LOSES-RAW-MEMORY-EFFECTS--BDFF8DD5` として分離し、修正した。
+
+今回の対応で、`move_check` は `@fn` と function-typed parameter の function value alias を追跡し、`CallIndirect` で既知 callee の raw memory effect summary を indirect call 引数へ instantiate する。function-typed parameter が多段 helper に渡される場合も placeholder を保持し、outer call で concrete function value が渡された時点で D3100 raw ownership 検査を実行する。
+
 ## 2026-04-28 mem_ptr_add raw alias 部分対応
 
 `mem_ptr_add<T>` が raw place 正規化に入っておらず、`mem_ptr_add p 0` で同じ storage を別 place として扱える問題を `ISS-20260427T191722304Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-FEAEF49B` として分離し、修正した。

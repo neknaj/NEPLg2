@@ -99,6 +99,12 @@ raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の
 
 今回の対応で、関数サマリに raw memory 副作用を持たせ、`MemPtr<T>` 引数由来の byte write / bulk copy / dealloc / realloc も caller 引数の raw place に instantiate して検査する。これは現行 HIR 上の補強であり、`MemPtr` の owner/non-owner 分離と Resource IR 化は引き続き必要である。
 
+## 2026-04-28 higher-order raw effect propagation 部分対応
+
+`MemPtr<T>` を受け取る callback を higher-order helper へ渡すと、`CallIndirect` で raw memory effect が途切れる問題を `ISS-20260427T215657067Z-MOVE-CHECK-LOSES-RAW-MEMORY-EFFECTS--BDFF8DD5` として修正した。`@fn` と function-typed parameter の function value alias を追跡し、known callback の raw memory effect を caller の `MemPtr` raw place に instantiate する。
+
+この対応も現行 HIR 上で `MemPtr<T>` provenance を補強するものであり、`MemPtr` の owner/non-owner 型分離と compiler-owned resource token 化は引き続きこの親 issue の残件である。
+
 ## 2026-04-28 region_ptr_at Ok binding 部分対応
 
 `region_ptr_at<T,U> token off` の `Result::Ok` payload を match bind した `MemPtr<U>` が `RegionToken` の raw place provenance に接続されない問題を `ISS-20260427T194024586Z-MOVE-CHECK-LOSES-REGIONTOKEN-PROVENA-711BD515` として修正した。Ok payload bind は token raw place + offset に正規化し、non-literal offset は `base+?` として扱う。

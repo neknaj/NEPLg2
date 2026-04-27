@@ -66,6 +66,15 @@ struct RawPlaceInfo {
     size: usize,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct ValueAliasSummary {
+    raw_addr_alias: Option<String>,
+    aggregate_field_raw_aliases: BTreeMap<usize, String>,
+    enum_payload_raw_aliases: BTreeMap<String, String>,
+    enum_payload_aggregate_field_raw_aliases: BTreeMap<String, BTreeMap<usize, String>>,
+    function_value_alias: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum RawMemoryEffectSummary {
     Load {
@@ -93,6 +102,10 @@ enum RawMemoryEffectSummary {
         place: String,
         size: Option<usize>,
     },
+    IndirectCall {
+        callee: String,
+        args: Vec<ValueAliasSummary>,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -101,6 +114,7 @@ struct FunctionRawAliasSummary {
     aggregate_field_raw_aliases: BTreeMap<usize, String>,
     enum_payload_raw_aliases: BTreeMap<String, String>,
     enum_payload_aggregate_field_raw_aliases: BTreeMap<String, BTreeMap<usize, String>>,
+    function_value_alias: Option<String>,
     raw_memory_effects: Vec<RawMemoryEffectSummary>,
 }
 
@@ -151,6 +165,8 @@ struct MoveCheckContext {
     /// Aggregate-field raw aliases held by enum payloads, aligned with `var_stacks`.
     enum_payload_aggregate_field_raw_alias_stacks:
         BTreeMap<String, Vec<BTreeMap<String, BTreeMap<usize, String>>>>,
+    /// Known function-value aliases for function-typed bindings, aligned with `var_stacks`.
+    function_value_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
     /// Ownership state for trackable raw memory places that carry non-Copy values.
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     /// Active borrow counts per source variable.
@@ -174,6 +190,7 @@ struct ResourceStateSnapshot {
     aggregate_field_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, String>>>,
     enum_payload_aggregate_field_raw_alias_stacks:
         BTreeMap<String, Vec<BTreeMap<String, BTreeMap<usize, String>>>>,
+    function_value_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
@@ -192,6 +209,7 @@ impl MoveCheckContext {
             enum_payload_raw_alias_stacks: BTreeMap::new(),
             aggregate_field_raw_alias_stacks: BTreeMap::new(),
             enum_payload_aggregate_field_raw_alias_stacks: BTreeMap::new(),
+            function_value_alias_stacks: BTreeMap::new(),
             raw_place_states: BTreeMap::new(),
             borrow_counts: BTreeMap::new(),
             use_counts: Vec::new(),
@@ -212,6 +230,7 @@ impl MoveCheckContext {
             enum_payload_aggregate_field_raw_alias_stacks: self
                 .enum_payload_aggregate_field_raw_alias_stacks
                 .clone(),
+            function_value_alias_stacks: self.function_value_alias_stacks.clone(),
             raw_place_states: self.raw_place_states.clone(),
             borrow_counts: self.borrow_counts.clone(),
         }
@@ -228,6 +247,7 @@ impl MoveCheckContext {
         self.enum_payload_aggregate_field_raw_alias_stacks = snapshot
             .enum_payload_aggregate_field_raw_alias_stacks
             .clone();
+        self.function_value_alias_stacks = snapshot.function_value_alias_stacks.clone();
         self.raw_place_states = snapshot.raw_place_states.clone();
         self.borrow_counts = snapshot.borrow_counts.clone();
     }
@@ -292,6 +312,12 @@ impl MoveCheckContext {
                         .remove(&name);
                 }
             }
+            if let Some(stack) = self.function_value_alias_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.function_value_alias_stacks.remove(&name);
+                }
+            }
         }
     }
 
@@ -333,6 +359,10 @@ impl MoveCheckContext {
             .entry(name.clone())
             .or_default()
             .push(BTreeMap::new());
+        self.function_value_alias_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(None);
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name);
         }
@@ -399,6 +429,21 @@ impl MoveCheckContext {
 
     fn set_raw_addr_alias(&mut self, name: &str, alias: Option<String>) {
         if let Some(stack) = self.raw_addr_alias_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = alias;
+            }
+        }
+    }
+
+    fn function_value_alias(&self, name: &str) -> Option<&str> {
+        self.function_value_alias_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+            .and_then(|slot| slot.as_deref())
+    }
+
+    fn set_function_value_alias(&mut self, name: &str, alias: Option<String>) {
+        if let Some(stack) = self.function_value_alias_stacks.get_mut(name) {
             if let Some(slot) = stack.last_mut() {
                 *slot = alias;
             }
@@ -1502,6 +1547,44 @@ fn raw_addr_alias_from_value(
     }
 }
 
+fn function_value_alias_from_value(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    match &value.kind {
+        HirExprKind::FnValue(name) => Some(name.clone()),
+        HirExprKind::Var(name) => ctx.function_value_alias(name).map(ToString::to_string),
+        HirExprKind::Call { .. } => function_call_raw_alias_summary(value, ctx, tctx)
+            .and_then(|summary| summary.function_value_alias),
+        _ => None,
+    }
+}
+
+fn value_alias_summary_from_value(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> ValueAliasSummary {
+    ValueAliasSummary {
+        raw_addr_alias: raw_addr_alias_from_value(value, ctx, tctx),
+        aggregate_field_raw_aliases: aggregate_field_raw_aliases_from_value(value, ctx, tctx),
+        enum_payload_raw_aliases: enum_payload_raw_aliases_from_value(value, ctx, tctx),
+        enum_payload_aggregate_field_raw_aliases:
+            enum_payload_aggregate_field_raw_aliases_from_value(value, ctx, tctx),
+        function_value_alias: function_value_alias_from_value(value, ctx, tctx),
+    }
+}
+
+fn expression_function_value_alias(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    function_value_alias_from_value(value, ctx, tctx)
+        .or_else(|| expression_raw_alias_summary(value, ctx, tctx).function_value_alias)
+}
+
 fn func_ref_name(callee: &FuncRef) -> Option<&str> {
     match callee {
         FuncRef::User(name, _, _) | FuncRef::Builtin(name) => Some(name.as_str()),
@@ -1591,6 +1674,21 @@ fn function_param_enum_payload_field_raw_alias_key(
     offset: usize,
 ) -> String {
     alloc::format!("$param_enum_payload_field:{}:{}:{}", index, offset, variant)
+}
+
+fn function_param_function_alias_key(index: usize) -> String {
+    alloc::format!("$fnparam:{}", index)
+}
+
+fn is_function_param_function_alias_key(alias: &str) -> bool {
+    alias
+        .strip_prefix("$fnparam:")
+        .and_then(|index_text| index_text.parse::<usize>().ok())
+        .is_some()
+}
+
+fn is_function_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
+    matches!(tctx.get_ref(tctx.resolve_id(ty)), TypeKind::Function { .. })
 }
 
 fn aggregate_field_placeholder_aliases(
@@ -1787,13 +1885,107 @@ fn instantiate_raw_alias_key(
     ))
 }
 
-fn instantiate_function_raw_alias_summary(
-    summary: &FunctionRawAliasSummary,
+fn instantiate_raw_alias_base_from_value_summaries(
+    base: &str,
+    args: &[ValueAliasSummary],
+) -> Option<String> {
+    if let Some(index_text) = base.strip_prefix("$param:") {
+        let index = index_text.parse::<usize>().ok()?;
+        return args.get(index)?.raw_addr_alias.clone();
+    }
+    if let Some(rest) = base.strip_prefix("$param_field:") {
+        let (index_text, offset_text) = rest.split_once(':')?;
+        let index = index_text.parse::<usize>().ok()?;
+        let offset = offset_text.parse::<usize>().ok()?;
+        return args
+            .get(index)?
+            .aggregate_field_raw_aliases
+            .get(&offset)
+            .cloned();
+    }
+    if let Some(rest) = base.strip_prefix("$param_enum_payload:") {
+        let (index_text, variant) = rest.split_once(':')?;
+        let index = index_text.parse::<usize>().ok()?;
+        let aliases = &args.get(index)?.enum_payload_raw_aliases;
+        return aliases
+            .get(variant)
+            .or_else(|| {
+                if is_result_ok_variant_name(variant) {
+                    aliases.get("Ok")
+                } else {
+                    None
+                }
+            })
+            .cloned();
+    }
+    if let Some(rest) = base.strip_prefix("$param_enum_payload_field:") {
+        let (index_text, rest) = rest.split_once(':')?;
+        let (offset_text, variant) = rest.split_once(':')?;
+        let index = index_text.parse::<usize>().ok()?;
+        let offset = offset_text.parse::<usize>().ok()?;
+        let aliases = &args.get(index)?.enum_payload_aggregate_field_raw_aliases;
+        return aliases
+            .get(variant)
+            .or_else(|| {
+                if is_result_ok_variant_name(variant) {
+                    aliases.get("Ok")
+                } else {
+                    None
+                }
+            })
+            .and_then(|field_aliases| field_aliases.get(&offset))
+            .cloned();
+    }
+    Some(base.to_string())
+}
+
+fn instantiate_raw_alias_key_from_value_summaries(
+    key: &str,
+    args: &[ValueAliasSummary],
+) -> Option<String> {
+    let (base, offset) = parse_raw_memory_place_key(key);
+    let instantiated = instantiate_raw_alias_base_from_value_summaries(base.as_str(), args)?;
+    let (instantiated_base, instantiated_offset) =
+        parse_raw_memory_place_key(instantiated.as_str());
+    Some(format_raw_memory_place_key_parts(
+        instantiated_base.as_str(),
+        combine_raw_memory_offsets(instantiated_offset, offset),
+    ))
+}
+
+fn instantiate_function_value_alias_key(
+    alias: &str,
     args: &[HirExpr],
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
-) -> FunctionRawAliasSummary {
-    FunctionRawAliasSummary {
+) -> Option<String> {
+    if let Some(index_text) = alias.strip_prefix("$fnparam:") {
+        let index = index_text.parse::<usize>().ok()?;
+        return args
+            .get(index)
+            .and_then(|arg| function_value_alias_from_value(arg, ctx, tctx));
+    }
+    Some(alias.to_string())
+}
+
+fn instantiate_function_value_alias_key_from_value_summaries(
+    alias: &str,
+    args: &[ValueAliasSummary],
+) -> Option<String> {
+    if let Some(index_text) = alias.strip_prefix("$fnparam:") {
+        let index = index_text.parse::<usize>().ok()?;
+        return args.get(index)?.function_value_alias.clone();
+    }
+    Some(alias.to_string())
+}
+
+fn instantiate_value_alias_summary(
+    summary: &ValueAliasSummary,
+    args: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> ValueAliasSummary {
+    ValueAliasSummary {
         raw_addr_alias: summary
             .raw_addr_alias
             .as_ref()
@@ -1831,11 +2023,93 @@ fn instantiate_function_raw_alias_summary(
                 }
             })
             .collect(),
-        raw_memory_effects: summary
-            .raw_memory_effects
+        function_value_alias: summary
+            .function_value_alias
+            .as_ref()
+            .and_then(|alias| instantiate_function_value_alias_key(alias, args, ctx, tctx)),
+    }
+}
+
+fn instantiate_value_alias_summary_from_value_summaries(
+    summary: &ValueAliasSummary,
+    args: &[ValueAliasSummary],
+) -> ValueAliasSummary {
+    ValueAliasSummary {
+        raw_addr_alias: summary
+            .raw_addr_alias
+            .as_ref()
+            .and_then(|alias| instantiate_raw_alias_key_from_value_summaries(alias, args)),
+        aggregate_field_raw_aliases: summary
+            .aggregate_field_raw_aliases
             .iter()
-            .filter_map(|effect| instantiate_raw_memory_effect_summary(effect, args, ctx, tctx))
+            .filter_map(|(offset, alias)| {
+                instantiate_raw_alias_key_from_value_summaries(alias, args)
+                    .map(|alias| (*offset, alias))
+            })
             .collect(),
+        enum_payload_raw_aliases: summary
+            .enum_payload_raw_aliases
+            .iter()
+            .filter_map(|(variant, alias)| {
+                instantiate_raw_alias_key_from_value_summaries(alias, args)
+                    .map(|alias| (variant.clone(), alias))
+            })
+            .collect(),
+        enum_payload_aggregate_field_raw_aliases: summary
+            .enum_payload_aggregate_field_raw_aliases
+            .iter()
+            .filter_map(|(variant, aliases)| {
+                let instantiated = aliases
+                    .iter()
+                    .filter_map(|(offset, alias)| {
+                        instantiate_raw_alias_key_from_value_summaries(alias, args)
+                            .map(|alias| (*offset, alias))
+                    })
+                    .collect::<BTreeMap<_, _>>();
+                if instantiated.is_empty() {
+                    None
+                } else {
+                    Some((variant.clone(), instantiated))
+                }
+            })
+            .collect(),
+        function_value_alias: summary.function_value_alias.as_ref().and_then(|alias| {
+            instantiate_function_value_alias_key_from_value_summaries(alias, args)
+        }),
+    }
+}
+
+fn instantiate_function_raw_alias_summary(
+    summary: &FunctionRawAliasSummary,
+    args: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> FunctionRawAliasSummary {
+    let value = ValueAliasSummary {
+        raw_addr_alias: summary.raw_addr_alias.clone(),
+        aggregate_field_raw_aliases: summary.aggregate_field_raw_aliases.clone(),
+        enum_payload_raw_aliases: summary.enum_payload_raw_aliases.clone(),
+        enum_payload_aggregate_field_raw_aliases: summary
+            .enum_payload_aggregate_field_raw_aliases
+            .clone(),
+        function_value_alias: summary.function_value_alias.clone(),
+    };
+    let value = instantiate_value_alias_summary(&value, args, ctx, tctx);
+    let mut raw_memory_effects = Vec::new();
+    let max_depth = ctx.function_raw_alias_summaries.len().saturating_add(1);
+    for effect in &summary.raw_memory_effects {
+        extend_unique_raw_memory_effects(
+            &mut raw_memory_effects,
+            instantiate_raw_memory_effect_summary(effect, args, ctx, tctx, max_depth),
+        );
+    }
+    FunctionRawAliasSummary {
+        raw_addr_alias: value.raw_addr_alias,
+        aggregate_field_raw_aliases: value.aggregate_field_raw_aliases,
+        enum_payload_raw_aliases: value.enum_payload_raw_aliases,
+        enum_payload_aggregate_field_raw_aliases: value.enum_payload_aggregate_field_raw_aliases,
+        function_value_alias: value.function_value_alias,
+        raw_memory_effects,
     }
 }
 
@@ -1844,38 +2118,226 @@ fn instantiate_raw_memory_effect_summary(
     args: &[HirExpr],
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
-) -> Option<RawMemoryEffectSummary> {
+    remaining_depth: usize,
+) -> Vec<RawMemoryEffectSummary> {
     match effect {
-        RawMemoryEffectSummary::Load { place, size } => Some(RawMemoryEffectSummary::Load {
-            place: instantiate_raw_alias_key(place, args, ctx, tctx)?,
-            size: *size,
-        }),
-        RawMemoryEffectSummary::Store { place, size } => Some(RawMemoryEffectSummary::Store {
-            place: instantiate_raw_alias_key(place, args, ctx, tctx)?,
-            size: *size,
-        }),
-        RawMemoryEffectSummary::Dealloc { place, size } => Some(RawMemoryEffectSummary::Dealloc {
-            place: instantiate_raw_alias_key(place, args, ctx, tctx)?,
-            size: *size,
-        }),
-        RawMemoryEffectSummary::Realloc { place, size } => Some(RawMemoryEffectSummary::Realloc {
-            place: instantiate_raw_alias_key(place, args, ctx, tctx)?,
-            size: *size,
-        }),
+        RawMemoryEffectSummary::Load { place, size } => {
+            instantiate_raw_alias_key(place, args, ctx, tctx)
+                .map(|place| RawMemoryEffectSummary::Load { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::Store { place, size } => {
+            instantiate_raw_alias_key(place, args, ctx, tctx)
+                .map(|place| RawMemoryEffectSummary::Store { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::Dealloc { place, size } => {
+            instantiate_raw_alias_key(place, args, ctx, tctx)
+                .map(|place| RawMemoryEffectSummary::Dealloc { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::Realloc { place, size } => {
+            instantiate_raw_alias_key(place, args, ctx, tctx)
+                .map(|place| RawMemoryEffectSummary::Realloc { place, size: *size })
+                .into_iter()
+                .collect()
+        }
         RawMemoryEffectSummary::BulkCopy { dst, src, size } => {
-            Some(RawMemoryEffectSummary::BulkCopy {
-                dst: instantiate_raw_alias_key(dst, args, ctx, tctx)?,
-                src: instantiate_raw_alias_key(src, args, ctx, tctx)?,
-                size: *size,
-            })
+            match (
+                instantiate_raw_alias_key(dst, args, ctx, tctx),
+                instantiate_raw_alias_key(src, args, ctx, tctx),
+            ) {
+                (Some(dst), Some(src)) => alloc::vec![RawMemoryEffectSummary::BulkCopy {
+                    dst,
+                    src,
+                    size: *size,
+                }],
+                _ => Vec::new(),
+            }
         }
         RawMemoryEffectSummary::ByteWrite { place, size } => {
-            Some(RawMemoryEffectSummary::ByteWrite {
-                place: instantiate_raw_alias_key(place, args, ctx, tctx)?,
-                size: *size,
-            })
+            instantiate_raw_alias_key(place, args, ctx, tctx)
+                .map(|place| RawMemoryEffectSummary::ByteWrite { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::IndirectCall {
+            callee,
+            args: call_args,
+        } => {
+            let Some(callee) = instantiate_function_value_alias_key(callee, args, ctx, tctx) else {
+                return Vec::new();
+            };
+            let instantiated_args = call_args
+                .iter()
+                .map(|arg| instantiate_value_alias_summary(arg, args, ctx, tctx))
+                .collect::<Vec<_>>();
+            let effects = instantiate_known_function_raw_memory_effects(
+                callee.as_str(),
+                &instantiated_args,
+                ctx,
+                tctx,
+                remaining_depth.saturating_sub(1),
+            );
+            if effects.is_empty() && is_function_param_function_alias_key(callee.as_str()) {
+                alloc::vec![RawMemoryEffectSummary::IndirectCall {
+                    callee,
+                    args: instantiated_args,
+                }]
+            } else {
+                effects
+            }
         }
     }
+}
+
+fn instantiate_function_raw_alias_summary_from_value_summaries(
+    summary: &FunctionRawAliasSummary,
+    args: &[ValueAliasSummary],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+    remaining_depth: usize,
+) -> FunctionRawAliasSummary {
+    let value = ValueAliasSummary {
+        raw_addr_alias: summary.raw_addr_alias.clone(),
+        aggregate_field_raw_aliases: summary.aggregate_field_raw_aliases.clone(),
+        enum_payload_raw_aliases: summary.enum_payload_raw_aliases.clone(),
+        enum_payload_aggregate_field_raw_aliases: summary
+            .enum_payload_aggregate_field_raw_aliases
+            .clone(),
+        function_value_alias: summary.function_value_alias.clone(),
+    };
+    let value = instantiate_value_alias_summary_from_value_summaries(&value, args);
+    let mut raw_memory_effects = Vec::new();
+    for effect in &summary.raw_memory_effects {
+        extend_unique_raw_memory_effects(
+            &mut raw_memory_effects,
+            instantiate_raw_memory_effect_summary_from_value_summaries(
+                effect,
+                args,
+                ctx,
+                tctx,
+                remaining_depth,
+            ),
+        );
+    }
+    FunctionRawAliasSummary {
+        raw_addr_alias: value.raw_addr_alias,
+        aggregate_field_raw_aliases: value.aggregate_field_raw_aliases,
+        enum_payload_raw_aliases: value.enum_payload_raw_aliases,
+        enum_payload_aggregate_field_raw_aliases: value.enum_payload_aggregate_field_raw_aliases,
+        function_value_alias: value.function_value_alias,
+        raw_memory_effects,
+    }
+}
+
+fn instantiate_raw_memory_effect_summary_from_value_summaries(
+    effect: &RawMemoryEffectSummary,
+    args: &[ValueAliasSummary],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+    remaining_depth: usize,
+) -> Vec<RawMemoryEffectSummary> {
+    match effect {
+        RawMemoryEffectSummary::Load { place, size } => {
+            instantiate_raw_alias_key_from_value_summaries(place, args)
+                .map(|place| RawMemoryEffectSummary::Load { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::Store { place, size } => {
+            instantiate_raw_alias_key_from_value_summaries(place, args)
+                .map(|place| RawMemoryEffectSummary::Store { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::Dealloc { place, size } => {
+            instantiate_raw_alias_key_from_value_summaries(place, args)
+                .map(|place| RawMemoryEffectSummary::Dealloc { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::Realloc { place, size } => {
+            instantiate_raw_alias_key_from_value_summaries(place, args)
+                .map(|place| RawMemoryEffectSummary::Realloc { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::BulkCopy { dst, src, size } => {
+            match (
+                instantiate_raw_alias_key_from_value_summaries(dst, args),
+                instantiate_raw_alias_key_from_value_summaries(src, args),
+            ) {
+                (Some(dst), Some(src)) => alloc::vec![RawMemoryEffectSummary::BulkCopy {
+                    dst,
+                    src,
+                    size: *size,
+                }],
+                _ => Vec::new(),
+            }
+        }
+        RawMemoryEffectSummary::ByteWrite { place, size } => {
+            instantiate_raw_alias_key_from_value_summaries(place, args)
+                .map(|place| RawMemoryEffectSummary::ByteWrite { place, size: *size })
+                .into_iter()
+                .collect()
+        }
+        RawMemoryEffectSummary::IndirectCall {
+            callee,
+            args: call_args,
+        } => {
+            let Some(callee) =
+                instantiate_function_value_alias_key_from_value_summaries(callee, args)
+            else {
+                return Vec::new();
+            };
+            let instantiated_args = call_args
+                .iter()
+                .map(|arg| instantiate_value_alias_summary_from_value_summaries(arg, args))
+                .collect::<Vec<_>>();
+            let effects = instantiate_known_function_raw_memory_effects(
+                callee.as_str(),
+                &instantiated_args,
+                ctx,
+                tctx,
+                remaining_depth.saturating_sub(1),
+            );
+            if effects.is_empty() && is_function_param_function_alias_key(callee.as_str()) {
+                alloc::vec![RawMemoryEffectSummary::IndirectCall {
+                    callee,
+                    args: instantiated_args,
+                }]
+            } else {
+                effects
+            }
+        }
+    }
+}
+
+fn instantiate_known_function_raw_memory_effects(
+    callee: &str,
+    args: &[ValueAliasSummary],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+    remaining_depth: usize,
+) -> Vec<RawMemoryEffectSummary> {
+    if remaining_depth == 0 {
+        return Vec::new();
+    }
+    let Some(summary) = ctx.function_raw_alias_summaries.get(callee) else {
+        return Vec::new();
+    };
+    instantiate_function_raw_alias_summary_from_value_summaries(
+        summary,
+        args,
+        ctx,
+        tctx,
+        remaining_depth,
+    )
+    .raw_memory_effects
 }
 
 fn function_call_raw_alias_summary(
@@ -2969,6 +3431,14 @@ fn can_visit_expr_iteratively(
                 args,
                 ..
             } => {
+                if expression_function_value_alias(callee, ctx, tctx)
+                    .and_then(|callee_alias| {
+                        ctx.function_raw_alias_summaries.get(callee_alias.as_str())
+                    })
+                    .is_some_and(|summary| !summary.raw_memory_effects.is_empty())
+                {
+                    return false;
+                }
                 for (i, arg) in args.iter().enumerate().rev() {
                     if params
                         .get(i)
@@ -3216,6 +3686,49 @@ fn merge_raw_addr_alias_stacks(
     merged
 }
 
+fn merge_function_value_alias_stacks(
+    branches: &[&BranchStateSnapshot],
+) -> BTreeMap<String, Vec<Option<String>>> {
+    let mut names = BTreeSet::new();
+    for branch in branches {
+        for name in branch.state.function_value_alias_stacks.keys() {
+            names.insert(name.clone());
+        }
+    }
+
+    let mut merged = BTreeMap::new();
+    for name in names {
+        let max_len = branches
+            .iter()
+            .filter_map(|branch| branch.state.function_value_alias_stacks.get(name.as_str()))
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
+        let mut stack = Vec::with_capacity(max_len);
+        for index in 0..max_len {
+            let mut branch_values = branches.iter().map(|branch| {
+                branch
+                    .state
+                    .function_value_alias_stacks
+                    .get(name.as_str())
+                    .and_then(|stack| stack.get(index))
+                    .cloned()
+                    .unwrap_or(None)
+            });
+            let first = branch_values.next().unwrap_or(None);
+            if branch_values.all(|alias| alias == first) {
+                stack.push(first);
+            } else {
+                stack.push(None);
+            }
+        }
+        if !stack.is_empty() {
+            merged.insert(name, stack);
+        }
+    }
+    merged
+}
+
 fn merge_enum_payload_raw_alias_stacks(
     branches: &[&BranchStateSnapshot],
 ) -> BTreeMap<String, Vec<BTreeMap<String, String>>> {
@@ -3414,6 +3927,7 @@ fn merge_continuing_branch_states(
     }
     let merged_raw_place_states = merge_raw_place_states(&continuing);
     let merged_raw_addr_alias_stacks = merge_raw_addr_alias_stacks(&continuing);
+    let merged_function_value_alias_stacks = merge_function_value_alias_stacks(&continuing);
     let merged_enum_payload_raw_alias_stacks = merge_enum_payload_raw_alias_stacks(&continuing);
     let merged_aggregate_field_raw_alias_stacks =
         merge_aggregate_field_raw_alias_stacks(&continuing);
@@ -3479,6 +3993,7 @@ fn merge_continuing_branch_states(
         ctx.borrow_stacks.insert(name, merged_stack);
     }
     ctx.raw_addr_alias_stacks = merged_raw_addr_alias_stacks;
+    ctx.function_value_alias_stacks = merged_function_value_alias_stacks;
     ctx.enum_payload_raw_alias_stacks = merged_enum_payload_raw_alias_stacks;
     ctx.aggregate_field_raw_alias_stacks = merged_aggregate_field_raw_alias_stacks;
     ctx.enum_payload_aggregate_field_raw_alias_stacks =
@@ -3629,6 +4144,7 @@ fn apply_raw_memory_effect_summary(
         RawMemoryEffectSummary::ByteWrite { place, size } => {
             ctx.check_raw_non_copy_byte_write(place.as_str(), *size, span);
         }
+        RawMemoryEffectSummary::IndirectCall { .. } => {}
     }
 }
 
@@ -3647,6 +4163,32 @@ fn apply_function_raw_memory_effects(
     };
     let instantiated = instantiate_function_raw_alias_summary(&summary, args, ctx, tctx);
     for effect in &instantiated.raw_memory_effects {
+        apply_raw_memory_effect_summary(effect, span, ctx);
+    }
+}
+
+fn apply_indirect_function_raw_memory_effects(
+    callee: &HirExpr,
+    args: &[HirExpr],
+    span: Span,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) {
+    let Some(callee_alias) = expression_function_value_alias(callee, ctx, tctx) else {
+        return;
+    };
+    let arg_summaries = args
+        .iter()
+        .map(|arg| value_alias_summary_from_value(arg, ctx, tctx))
+        .collect::<Vec<_>>();
+    let effects = instantiate_known_function_raw_memory_effects(
+        callee_alias.as_str(),
+        &arg_summaries,
+        ctx,
+        tctx,
+        ctx.function_raw_alias_summaries.len().saturating_add(1),
+    );
+    for effect in &effects {
         apply_raw_memory_effect_summary(effect, span, ctx);
     }
 }
@@ -3829,6 +4371,7 @@ fn visit_expr_with_escape(
             visit_expr(callee, ctx, tctx);
             let result_borrows =
                 visit_call_args_with_params(args, Some(params.as_slice()), ctx, tctx);
+            apply_indirect_function_raw_memory_effects(callee, args, expr.span, ctx, tctx);
             if type_contains_reference(tctx, expr.ty) {
                 if let Some(depth) = escape_depth {
                     ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
@@ -3969,6 +4512,7 @@ fn visit_expr_with_escape(
                 aggregate_field_raw_aliases_from_value(value, ctx, tctx);
             let enum_payload_aggregate_field_raw_aliases =
                 enum_payload_aggregate_field_raw_aliases_from_value(value, ctx, tctx);
+            let function_value_alias = expression_function_value_alias(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(target_depth));
             ctx.check_assign(name, expr.span);
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
@@ -3980,6 +4524,7 @@ fn visit_expr_with_escape(
                 name,
                 enum_payload_aggregate_field_raw_aliases,
             );
+            ctx.set_function_value_alias(name, function_value_alias);
             Vec::new()
         }
         HirExprKind::Let { name, value, .. } => {
@@ -3990,6 +4535,7 @@ fn visit_expr_with_escape(
                 aggregate_field_raw_aliases_from_value(value, ctx, tctx);
             let enum_payload_aggregate_field_raw_aliases =
                 enum_payload_aggregate_field_raw_aliases_from_value(value, ctx, tctx);
+            let function_value_alias = expression_function_value_alias(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(storage_depth));
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.declare_var_with_borrows(name.clone(), retained_borrows);
@@ -4000,6 +4546,7 @@ fn visit_expr_with_escape(
                 name,
                 enum_payload_aggregate_field_raw_aliases,
             );
+            ctx.set_function_value_alias(name, function_value_alias);
             ctx.set_state(name, VarState::Valid);
             if ctx.remaining_uses(name) == 0 {
                 ctx.release_borrow_binding(name);
@@ -4212,6 +4759,9 @@ fn seed_summary_param_aliases(
     }
     ctx.set_enum_payload_raw_aliases(&param.name, enum_payload_aliases);
     ctx.set_enum_payload_aggregate_field_raw_aliases(&param.name, enum_payload_aggregate_aliases);
+    if is_function_type(tctx, param.ty) {
+        ctx.set_function_value_alias(&param.name, Some(function_param_function_alias_key(index)));
+    }
 }
 
 fn retain_matching_aliases<K: Ord + Clone>(
@@ -4279,6 +4829,9 @@ fn merge_matching_raw_alias_summaries(
             &merged.enum_payload_aggregate_field_raw_aliases,
             &summary.enum_payload_aggregate_field_raw_aliases,
         );
+        if merged.function_value_alias != summary.function_value_alias {
+            merged.function_value_alias = None;
+        }
         extend_unique_raw_memory_effects(
             &mut merged.raw_memory_effects,
             summary.raw_memory_effects,
@@ -4292,12 +4845,13 @@ fn base_raw_alias_summary_from_value(
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> FunctionRawAliasSummary {
+    let value = value_alias_summary_from_value(expr, ctx, tctx);
     FunctionRawAliasSummary {
-        raw_addr_alias: raw_addr_alias_from_value(expr, ctx, tctx),
-        aggregate_field_raw_aliases: aggregate_field_raw_aliases_from_value(expr, ctx, tctx),
-        enum_payload_raw_aliases: enum_payload_raw_aliases_from_value(expr, ctx, tctx),
-        enum_payload_aggregate_field_raw_aliases:
-            enum_payload_aggregate_field_raw_aliases_from_value(expr, ctx, tctx),
+        raw_addr_alias: value.raw_addr_alias,
+        aggregate_field_raw_aliases: value.aggregate_field_raw_aliases,
+        enum_payload_raw_aliases: value.enum_payload_raw_aliases,
+        enum_payload_aggregate_field_raw_aliases: value.enum_payload_aggregate_field_raw_aliases,
+        function_value_alias: value.function_value_alias,
         raw_memory_effects: Vec::new(),
     }
 }
@@ -4395,10 +4949,24 @@ fn expression_raw_alias_summary(
         }
         HirExprKind::CallIndirect { callee, args, .. } => {
             let mut summary = base_raw_alias_summary_from_value(expr, ctx, tctx);
+            let callee_summary = expression_raw_alias_summary(callee, ctx, tctx);
             let child_summaries = core::iter::once(callee.as_ref())
                 .chain(args.iter())
                 .map(|arg| expression_raw_alias_summary(arg, ctx, tctx));
             add_child_raw_memory_effects(&mut summary, child_summaries);
+            if let Some(callee_alias) = callee_summary.function_value_alias {
+                let arg_summaries = args
+                    .iter()
+                    .map(|arg| value_alias_summary_from_value(arg, ctx, tctx))
+                    .collect::<Vec<_>>();
+                extend_unique_raw_memory_effects(
+                    &mut summary.raw_memory_effects,
+                    [RawMemoryEffectSummary::IndirectCall {
+                        callee: callee_alias,
+                        args: arg_summaries,
+                    }],
+                );
+            }
             summary
         }
         HirExprKind::StructConstruct { fields, .. } => {
@@ -4486,6 +5054,7 @@ fn block_raw_alias_summary(
                     name,
                     value_summary.enum_payload_aggregate_field_raw_aliases,
                 );
+                ctx.set_function_value_alias(name, value_summary.function_value_alias);
                 last_summary = FunctionRawAliasSummary::default();
             }
             HirExprKind::Set { name, value } => {
@@ -4504,6 +5073,7 @@ fn block_raw_alias_summary(
                     name,
                     value_summary.enum_payload_aggregate_field_raw_aliases,
                 );
+                ctx.set_function_value_alias(name, value_summary.function_value_alias);
                 last_summary = FunctionRawAliasSummary::default();
             }
             _ => {
@@ -4536,6 +5106,7 @@ impl MoveCheckContext {
             enum_payload_aggregate_field_raw_alias_stacks: self
                 .enum_payload_aggregate_field_raw_alias_stacks
                 .clone(),
+            function_value_alias_stacks: self.function_value_alias_stacks.clone(),
             raw_place_states: self.raw_place_states.clone(),
             borrow_counts: self.borrow_counts.clone(),
             use_counts: Vec::new(),

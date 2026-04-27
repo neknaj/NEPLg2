@@ -20500,3 +20500,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - raw memory operation を helper 関数へ分割しても compiler の raw ownership state が関数境界で途切れないようにした。
+
+# 2026-04-28 メモ (ISS-20260427T215657067Z indirect function raw memory effect summary)
+
+- [同期]:
+  - `3055e39` を push/pull 済みの `main` から `fix/indirect-raw-memory-effect-summary` branch を作成した。
+- [再現]:
+  - `apply_clobber(p, f): f p` に `@clobber_i32` を渡し、caller の live `LocalToken` raw place を callback 内 `store_i32` で上書きする inline compile_fail probe を実行した。
+  - 修正前は `expected compile_fail, but compiled successfully` になり、`CallIndirect` で raw memory effect summary が途切れることを確認した。
+- [原因]:
+  - direct user call は callee の `FunctionRawAliasSummary.raw_memory_effects` を caller 引数へ instantiate していた。
+  - 一方で `CallIndirect` は callee/args の子式 effect だけを集め、function value が指す concrete callee summary を参照していなかった。
+  - function-typed parameter が別の higher-order helper に渡される場合、callback の placeholder を保持する仕組みもなかった。
+- [修正]:
+  - `MoveCheckContext` と `FunctionRawAliasSummary` に function value alias を追加し、`@fn`、function-typed parameter、`let` / `set` 経由の既知 callee を追跡するようにした。
+  - `CallIndirect` で known callee の raw memory effect summary を indirect call 引数へ instantiate し、direct call と同じ raw ownership 検査を実行するようにした。
+  - function-typed parameter が多段 helper に渡される場合は `$fnparam:N` placeholder を保持し、outer call で concrete function value が渡された時点で展開するようにした。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test move_check`: 51/51 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/indirect-raw-memory-effect-summary-after.json -j 1`: 91/91 passed
+  - `cargo check -p nepl-core --tests`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - higher-order helper / callback 経由でも compiler の raw ownership state が関数値境界で途切れないようにした。
