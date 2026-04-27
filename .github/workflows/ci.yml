@@ -51,6 +51,7 @@ jobs:
                   node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js
                   node nodesrc/test_stdlib_no_unsafe_helpers.js
                   node nodesrc/test_stdlib_cast_doc_no_boilerplate.js
+                  node nodesrc/test_stdlib_json_doc_no_boilerplate.js
                   node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js
                   node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js
                   node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js

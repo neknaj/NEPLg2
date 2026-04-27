@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T07:03:19.416Z",
+  "generated_at": "2026-04-27T07:12:43.095Z",
   "counts": {
-    "total": 187,
+    "total": 188,
     "open": 5,
-    "resolved": 182,
+    "resolved": 183,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 79,
+        "total": 80,
         "open": 4,
-        "resolved": 75
+        "resolved": 76
       },
       "cli": {
         "total": 19,
@@ -2728,6 +2728,21 @@
       "legacy_id": "",
       "source": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
       "file": "items/ISS-20260427T065555199Z-NM-PARSER-DOC-COMMENTS-STILL-CONTAIN-97F57AD2.md"
+    },
+    {
+      "id": "ISS-20260427T070602957Z-JSON-STDLIB-DOC-COMMENTS-STILL-CONTA-19D460FE",
+      "title": "json stdlib doc comments still contain generated boilerplate",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "doc",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/encoding/json.nepl; nodesrc/test_stdlib_json_doc_no_boilerplate.js",
+      "legacy_id": "",
+      "source": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
+      "file": "items/ISS-20260427T070602957Z-JSON-STDLIB-DOC-COMMENTS-STILL-CONTA-19D460FE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

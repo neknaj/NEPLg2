@@ -41,20 +41,7 @@
 // 計算量:
 // - 値の構築とアクセサは O(1)、serialize は値全体の byte 数と要素数に比例します。
 
-// JsonValue: JSON の値表現
-//
-// 目的:
-// - null/bool/number/string/array/object を表現します。
-//
-// 実装(アルゴリズム):
-// - enum で表現します。
-//
-// 注意(重要):
-// - String は `str`、Array は `Vec<JsonValue>`、Object は `Vec<JsonMember>` を保持します。
-//
-// 計算量:
-// - O(1)
-//: JsonValue: 列挙型の概要
+//: JsonValue: JSON の値表現
 //:
 //: [目的/もくてき]:
 //: - JSON の null / bool / number / string / array / object を型付き payload で表します。
@@ -115,61 +102,35 @@ enum JsonEscapeKind:
     FormFeed
     Plain
 
-// json_null: null 値を作る
-//
-// 目的:
-// - JsonValue::Null を返します。
-//
-// 実装(アルゴリズム):
-// - 定数コンストラクタを返します。
-//
-// 注意(重要):
-// - 追加の情報は持ちません。
-//
-// 計算量:
-// - O(1)
-//: json_null: 主な用途
+//: json_null: JSON null 値を作る
 //:
 //: [目的/もくてき]:
-//: - json_null の主な用途と呼び出し方を示します。
+//: - payload を持たない `JsonValue::Null` を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - enum constructor をそのまま返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 追加の情報は保持しません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_null <()->JsonValue> ():
     JsonValue::Null
 
-// json_bool: bool 値を作る
-//
-// 目的:
-// - bool を JSON の Bool へ変換します。
-//
-// 実装(アルゴリズム):
-// - true/false を 1/0 にして格納します。
-//
-// 注意(重要):
-// - Bool の payload は i32 です。
-//
-// 計算量:
-// - O(1)
-//: json_bool: 主な用途
+//: json_bool: bool 値を JSON Bool に変換する
 //:
 //: [目的/もくてき]:
-//: - json_bool の主な用途と呼び出し方を示します。
+//: - NEPL の `bool` を `JsonValue::Bool` として保持します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `true` を 1、`false` を 0 の i32 payload に変換します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - serializer は 0 を `false`、0 以外を `true` として出力します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_bool <(bool)->JsonValue> (v):
     if:
         v
@@ -178,61 +139,35 @@ fn json_bool <(bool)->JsonValue> (v):
         else:
             JsonValue::Bool 0
 
-// json_number: 数値を作る
-//
-// 目的:
-// - i32 を JSON の Number として返します。
-//
-// 実装(アルゴリズム):
-// - Number に包むだけです。
-//
-// 注意(重要):
-// - 実数は未対応です。
-//
-// 計算量:
-// - O(1)
-//: json_number: 主な用途
+//: json_number: i32 を JSON Number として保持する
 //:
 //: [目的/もくてき]:
-//: - json_number の主な用途と呼び出し方を示します。
+//: - i32 を `JsonValue::Number` payload に包みます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - enum constructor に値を渡します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 現行実装は実数や i32 を超える整数を扱いません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_number <(i32)->JsonValue> (n):
     JsonValue::Number n
 
-// json_string: 文字列を作る
-//
-// 目的:
-// - `str` を JSON の String として返します。
-//
-// 実装(アルゴリズム):
-// - String に包むだけです。
-//
-// 注意(重要):
-// - s は API 契約上 `str` として扱います。文字列の妥当性は作成経路で保ってください。
-//
-// 計算量:
-// - O(1)
-//: json_string: 主な用途
+//: json_string: str を JSON String として保持する
 //:
 //: [目的/もくてき]:
-//: - json_string の主な用途と呼び出し方を示します。
+//: - `str` を `JsonValue::String` payload に包みます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - enum constructor に文字列を渡します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - UTF-8 の妥当性は `str` の作成経路に依存します。serialize 時は `json_escape` を通します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_string <(str)->JsonValue> (s):
     JsonValue::String s
 
@@ -268,32 +203,19 @@ fn json_array_new <()->Result<Vec<JsonValue>, StdErrorKind>> ():
 fn json_array_push <(Vec<JsonValue>,JsonValue)->Result<Vec<JsonValue>, StdErrorKind>> (arr, value):
     push<JsonValue> arr value
 
-// json_array: 配列を作る
-//
-// 目的:
-// - 配列（Vec<JsonValue>）を包みます。
-//
-// 実装(アルゴリズム):
-// - Array に包むだけです。
-//
-// 注意(重要):
-// - arr の所有権は JsonValue に移ります。
-//
-// 計算量:
-// - O(1)
-//: json_array: 主な用途
+//: json_array: Vec<JsonValue> を JSON Array として保持する
 //:
 //: [目的/もくてき]:
-//: - json_array の主な用途と呼び出し方を示します。
+//: - `json_array_new` / `json_array_push` で作った Vec を `JsonValue::Array` に包みます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - enum constructor に Vec owner を渡します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `arr` の所有権は返り値に移ります。呼び出し後は元の Vec を使い回さないでください。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_array <(Vec<JsonValue>)->JsonValue> (arr):
     JsonValue::Array arr
 
@@ -346,61 +268,35 @@ fn json_object_new <()->Result<Vec<JsonMember>, StdErrorKind>> ():
 fn json_object_push <(Vec<JsonMember>,str,JsonValue)->Result<Vec<JsonMember>, StdErrorKind>> (obj, key, value):
     push<JsonMember> obj JsonMember key value
 
-// json_object: オブジェクトを作る
-//
-// 目的:
-// - `Vec<JsonMember>` を JSON object として包みます。
-//
-// 実装(アルゴリズム):
-// - Object に包むだけです。
-//
-// 注意(重要):
-// - obj の所有権は JsonValue に移ります。
-//
-// 計算量:
-// - O(1)
-//: json_object: 主な用途
+//: json_object: Vec<JsonMember> を JSON Object として保持する
 //:
 //: [目的/もくてき]:
-//: - json_object の主な用途と呼び出し方を示します。
+//: - `json_object_new` / `json_object_push` で作った member Vec を `JsonValue::Object` に包みます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - enum constructor に Vec owner を渡します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `obj` の所有権は返り値に移ります。key の重複検査は行いません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_object <(Vec<JsonMember>)->JsonValue> (obj):
     JsonValue::Object obj
 
-// json_is_null: null 判定
-//
-// 目的:
-// - v が Null なら true を返します。
-//
-// 実装(アルゴリズム):
-// - match で分岐します。
-//
-// 注意(重要):
-// - 他の値は false です。
-//
-// 計算量:
-// - O(1)
-//: json_is_null: 主な用途
+//: json_is_null: JSON null かどうかを判定する
 //:
 //: [目的/もくてき]:
-//: - json_is_null の主な用途と呼び出し方を示します。
+//: - `JsonValue::Null` なら `true`、それ以外なら `false` を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `JsonValue` を match し、Null variant だけを成功扱いにします。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - payload を持つ variant は読み捨てます。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_is_null <(JsonValue)->bool> (v):
     match v:
         Null:
@@ -416,32 +312,19 @@ fn json_is_null <(JsonValue)->bool> (v):
         Object o:
             false
 
-// json_as_bool: Bool を取り出す
-//
-// 目的:
-// - Bool のときのみ Some を返します。
-//
-// 実装(アルゴリズム):
-// - match で分岐し、Bool の payload を bool に変換します。
-//
-// 注意(重要):
-// - それ以外は None です。
-//
-// 計算量:
-// - O(1)
-//: json_as_bool: 主な用途
+//: json_as_bool: JSON Bool payload を取り出す
 //:
 //: [目的/もくてき]:
-//: - json_as_bool の主な用途と呼び出し方を示します。
+//: - `JsonValue::Bool` のときだけ `Option::Some<bool>` を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - Bool payload の i32 を 0 判定し、0 を `false`、0 以外を `true` に変換します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - Bool 以外の variant は `Option::None` を返します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_as_bool <(JsonValue)->Option<bool>> (v):
     match v:
         Bool b:
@@ -462,32 +345,19 @@ fn json_as_bool <(JsonValue)->Option<bool>> (v):
         Object o:
             none<bool>
 
-// json_as_number: Number を取り出す
-//
-// 目的:
-// - Number のときのみ Some を返します。
-//
-// 実装(アルゴリズム):
-// - match で分岐し、Number の payload を返します。
-//
-// 注意(重要):
-// - それ以外は None です。
-//
-// 計算量:
-// - O(1)
-//: json_as_number: 主な用途
+//: json_as_number: JSON Number payload を取り出す
 //:
 //: [目的/もくてき]:
-//: - json_as_number の主な用途と呼び出し方を示します。
+//: - `JsonValue::Number` のときだけ `Option::Some<i32>` を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `JsonValue` を match し、Number payload をそのまま返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 現行 JSON Number は i32 のみです。Bool や String からの暗黙変換は行いません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_as_number <(JsonValue)->Option<i32>> (v):
     match v:
         Number n:
@@ -503,32 +373,19 @@ fn json_as_number <(JsonValue)->Option<i32>> (v):
         Object o:
             none<i32>
 
-// json_as_string: String を取り出す
-//
-// 目的:
-// - String のときのみ Some を返します。
-//
-// 実装(アルゴリズム):
-// - match で分岐し、String の payload を返します。
-//
-// 注意(重要):
-// - 返り値は `str` です。raw pointer は公開しません。
-//
-// 計算量:
-// - O(1)
-//: json_as_string: 主な用途
+//: json_as_string: JSON String payload を取り出す
 //:
 //: [目的/もくてき]:
-//: - json_as_string の主な用途と呼び出し方を示します。
+//: - `JsonValue::String` のときだけ `Option::Some<str>` を返します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `JsonValue` を match し、String payload をそのまま返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - raw pointer は公開しません。String 以外は `Option::None` を返します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1) です。
 fn json_as_string <(JsonValue)->Option<str>> (v):
     match v:
         String s:
