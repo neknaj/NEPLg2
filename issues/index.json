@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T04:30:44.557Z",
+  "generated_at": "2026-04-27T04:42:27.239Z",
   "counts": {
-    "total": 176,
+    "total": 177,
     "open": 6,
-    "resolved": 170,
+    "resolved": 171,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 68,
+        "total": 69,
         "open": 5,
-        "resolved": 63
+        "resolved": 64
       },
       "cli": {
         "total": 19,
@@ -2563,6 +2563,21 @@
       "legacy_id": "",
       "source": "ISS-20260427T041147635Z-FS-VEC-PUSH-UNWRAP-TRAPS-4A80E8C1",
       "file": "items/ISS-20260427T041629340Z-VEC-PUSH-ERR-LOSES-OWNER-7D2E9F43.md"
+    },
+    {
+      "id": "ISS-20260427T043342720Z-CLIARG-UNWRAPS-CHECKED-MEMORY-5E10A4D2",
+      "title": "std/env/cliarg が checked memory helper を unwrap している",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/env/cliarg.nepl, stdlib/tests/cliarg.n.md, nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
+      "file": "items/ISS-20260427T043342720Z-CLIARG-UNWRAPS-CHECKED-MEMORY-5E10A4D2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

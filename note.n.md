@@ -1,3 +1,24 @@
+# 2026-04-27 メモ (ISS-20260427T043342720Z cliarg checked memory unwrap)
+
+- 状況:
+  - `std/env/cliarg.nepl` は argv buffer / metadata を MemPtr 版 `load_u8` / `load_i32` で読むが、`Option` を unsafe `unwrap` で剥がしていた。
+  - LLVM 互換 `args_sizes_get` / `args_get`、`cstr_len` / `cstr_to_str`、`cliarg_count` / `cliarg_get` のいずれも host/WASI 境界の異常を値として返せず、self-host CLI 起動時に trap し得る構造だった。
+- 修正:
+  - `cli_load_u8_result` を追加し、MemPtr byte load failure を LLVM shim errno 相当の `1` へ写すようにした。
+  - `args_sizes_get` / `args_get` の byte scan/copy loop を `match` 化し、load/store 異常を `1` で返すようにした。
+  - `cstr_len_result` を追加し、既存 facade は `cstr_len = 0`、`cstr_to_str = ""` に丸める形で unsafe unwrap を除去した。
+  - `cliarg_count` / `cliarg_get` の metadata `load_i32` を `match` 化し、失敗時は `0` / `None` を返すようにした。
+  - `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/cliarg-checked-memory-docs.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/cliarg-checked-memory-focused.json -j 1`: `total=6`, `passed=6`
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-cliarg-checked-memory.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-cliarg-checked-memory.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は、self-host CLI の argv 境界で checked memory failure を trap ではなく既存の `0` / `None` / errno 相当へ戻す stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260427T041147635Z std/fs unsafe unwrap)
 
 - 状況:

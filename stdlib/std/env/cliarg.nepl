@@ -16,6 +16,13 @@
 fn cli_i32_ptr <(MemPtr<u8>,i32,i32)->Result<MemPtr<i32>,str>> (base, size, off):
     region_ptr_at<u8,i32> region_new base size off
 
+fn cli_load_u8_result <(MemPtr<u8>,i32)->Result<i32,i32>> (base, off):
+    match load_u8 mem_ptr_add base off:
+        Option::Some b:
+            Result<i32,i32>::Ok b
+        Option::None:
+            Result<i32,i32>::Err 1
+
 //: cliarg: コマンドライン引数取得（WASI / LLVM）
 //:
 //: 目的:
@@ -117,21 +124,31 @@ fn args_sizes_get <(i32,i32)*>i32> (argc_ptr, buf_ptr):
                 else:
                     let mut argc <i32> 0;
                     let mut i <i32> 0;
-                    while lt i n:
+                    let mut err <i32> 0;
+                    while and eq err 0 lt i n:
                         do:
-                            if:
-                                eq unwrap<i32> load_u8 mem_ptr_add tmp i 0
-                                then set argc add argc 1
-                                else ()
+                            match cli_load_u8_result tmp i:
+                                Result::Ok b:
+                                    if:
+                                        eq b 0
+                                        then set argc add argc 1
+                                        else ()
+                                Result::Err e:
+                                    set err e
                             set i add i 1;
-                    store_i32 argc_ptr argc;
-                    store_i32 buf_ptr n;
+                    if:
+                        eq err 0
+                        then:
+                            store_i32 argc_ptr argc;
+                            store_i32 buf_ptr n;
+                        else:
+                            ()
                     match dealloc_ptr<u8> tmp cap:
                         Result::Ok _:
                             ()
                         Result::Err _:
                             ();
-                    0
+                    if eq err 0 0 err
 
 #if[target=llvm]
 fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
@@ -154,53 +171,99 @@ fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
                             ();
                     1
                 else:
+                    let mut err <i32> 0;
                     let mut i <i32> 0;
-                    while lt i n:
+                    while and eq err 0 lt i n:
                         do:
-                            match store_u8 mem_ptr_add argv_buf_ptr i unwrap<i32> load_u8 mem_ptr_add tmp i:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
+                            match cli_load_u8_result tmp i:
+                                Result::Ok b:
+                                    match store_u8 mem_ptr_add argv_buf_ptr i b:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _:
+                                            set err 1
+                                Result::Err e:
+                                    set err e
                             set i add i 1;
 
                     let mut argi <i32> 0;
                     if:
-                        cond:
-                            lt 0 n
+                        and eq err 0 lt 0 n
                         then:
                             match store_i32 argv_ptr_i32 argv_buf:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    ()
+                                    set err 1
                         else ()
 
                     let mut j <i32> 0;
-                    while lt j n:
+                    while and eq err 0 lt j n:
                         do:
-                            if:
-                                eq unwrap<i32> load_u8 mem_ptr_add argv_buf_ptr j 0
-                                then:
-                                    set argi add argi 1;
+                            match cli_load_u8_result argv_buf_ptr j:
+                                Result::Ok b:
                                     if:
-                                        cond:
-                                            lt add j 1 n
+                                        eq b 0
                                         then:
-                                            match store_i32 mem_ptr_add argv_ptr_i32 mul argi 4 add argv_buf add j 1:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _:
-                                                    ()
+                                            set argi add argi 1;
+                                            if:
+                                                cond:
+                                                    lt add j 1 n
+                                                then:
+                                                    match store_i32 mem_ptr_add argv_ptr_i32 mul argi 4 add argv_buf add j 1:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _:
+                                                            set err 1
+                                                else ()
                                         else ()
-                                else ()
+                                Result::Err e:
+                                    set err e
                             set j add j 1;
                     match dealloc_ptr<u8> tmp cap:
                         Result::Ok _:
                             ()
                         Result::Err _:
                             ();
-                    0
+                    if eq err 0 0 err
+
+//: cstr_len_result: NUL 終端文字列の長さを checked load で求める
+//:
+//: 目的:
+//: - `MemPtr<u8>` で与えられた C 文字列の長さを、無効 pointer を `Err` として扱いながら返します。
+//:
+//: 実装(アルゴリズム):
+//: - 1 バイトずつ読み、0 に達したら停止します。
+//:
+//: 注意(重要):
+//: - `p` は NUL 終端済みの有効なバイト列を指している必要があります。
+//: - 無効 pointer に到達した場合は `Err` を返します。
+//:
+//: 計算量:
+//: - O(n)
+fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
+    let mut i <i32> 0
+    let mut done <i32> 0
+    let mut ok <i32> 1
+    while and eq done 0 eq ok 1:
+        do:
+            match load_u8 mem_ptr_add p i:
+                Option::Some b:
+                    if:
+                        cond:
+                            eq b 0
+                        then:
+                            set done 1;
+                        else:
+                            set i add i 1
+                Option::None:
+                    set ok 0
+    if:
+        eq ok 1
+        then:
+            Result<i32,str>::Ok i
+        else:
+            Result<i32,str>::Err "cliarg.cstr_len invalid pointer"
 
 //: cstr_len: NUL 終端文字列の長さを求める
 //:
@@ -208,7 +271,7 @@ fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
 //: - `MemPtr<u8>` で与えられた C 文字列の長さを返します。
 //:
 //: 実装(アルゴリズム):
-//: - 1 バイトずつ読み、0 に達したら停止します。
+//: - `cstr_len_result` に委譲し、無効 pointer は 0 に丸めます。
 //:
 //: 注意(重要):
 //: - `p` は NUL 終端済みの有効なバイト列を指している必要があります。
@@ -249,19 +312,11 @@ fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
 //:     if eq n 3 0 1
 //: ```
 fn cstr_len <(MemPtr<u8>)*>i32> (p):
-    let mut i <i32> 0
-    let mut done <i32> 0
-    while eq done 0:
-        do:
-            let b <i32> unwrap<i32> load_u8 mem_ptr_add p i;
-            if:
-                cond:
-                    eq b 0
-                then:
-                    set done 1;
-                else:
-                    set i add i 1;
-    i
+    match cstr_len_result p:
+        Result::Ok n:
+            n
+        Result::Err _e:
+            0
 
 //: cstr_to_str: NUL 終端文字列を str にコピーする
 //:
@@ -269,11 +324,12 @@ fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //: - `MemPtr<u8>` から NUL 終端文字列を読み取り、独立した `str` にコピーします。
 //:
 //: 実装(アルゴリズム):
-//: - まず `cstr_len` で長さを数え、`[len][bytes]` 形式の新領域へ転写します。
+//: - まず `cstr_len_result` で長さを数え、`[len][bytes]` 形式の新領域へ転写します。
 //:
 //: 注意(重要):
 //: - 呼び出しごとに新しい領域を確保します。
 //: - 返り値は元の C 文字列の寿命と独立です。
+//: - load/store 失敗や確保失敗は空文字列に丸めます。
 //:
 //: 計算量:
 //: - O(n)
@@ -312,28 +368,41 @@ fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:     if str_eq s "nep" 0 1
 //: ```
 fn cstr_to_str <(MemPtr<u8>)*>str> (p):
-    let len <i32> cstr_len p
-    match alloc_ptr<u8> add 4 len:
-        Result::Err _:
+    match cstr_len_result p:
+        Result::Err _e:
             ""
-        Result::Ok out:
-            let out_len <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr out
-            match store_i32 out_len len:
-                Result::Ok _:
-                    ()
+        Result::Ok len:
+            match alloc_ptr<u8> add 4 len:
                 Result::Err _:
-                    ()
-            let mut i <i32> 0
-            while lt i len:
-                do:
-                    let b <i32> unwrap<i32> load_u8 mem_ptr_add p i;
-                    match store_u8 mem_ptr_add out add 4 i b:
+                    ""
+                Result::Ok out:
+                    let out_len <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr out
+                    let mut ok <i32> 1
+                    match store_i32 out_len len:
                         Result::Ok _:
                             ()
                         Result::Err _:
-                            ()
-                    set i add i 1;
-            string_from_addr_unchecked mem_ptr_addr out
+                            set ok 0
+                    let mut i <i32> 0
+                    while and eq ok 1 lt i len:
+                        do:
+                            match load_u8 mem_ptr_add p i:
+                                Option::Some b:
+                                    match store_u8 mem_ptr_add out add 4 i b:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _:
+                                            set ok 0
+                                Option::None:
+                                    set ok 0
+                            set i add i 1;
+                    if:
+                        eq ok 1
+                        then:
+                            string_from_addr_unchecked mem_ptr_addr out
+                        else:
+                            dealloc_raw mem_ptr_addr out add 4 len
+                            ""
 
 //: cliarg_count: 引数の個数を返す
 //:
@@ -396,7 +465,11 @@ fn cliarg_count <()*>i32> ():
                             let res <i32> if:
                                 eq errno 0
                                 then:
-                                    unwrap<i32> load_i32 argc_ptr
+                                    match load_i32 argc_ptr:
+                                        Option::Some argc:
+                                            argc
+                                        Option::None:
+                                            0
                                 else:
                                     0
                             match dealloc_ptr<u8> meta 8:
@@ -481,53 +554,64 @@ fn cliarg_get <(i32)*>Option<str>> (idx):
                                     let res <Option<str>> if:
                                         eq errno 0
                                         then:
-                                            let argc <i32> unwrap<i32> load_i32 argc_ptr
-                                            if:
-                                                cond:
-                                                    lt idx argc
-                                                then:
-                                                    match alloc_ptr<u8> mul argc 4:
-                                                        Result::Err _:
-                                                            none<str>
-                                                        Result::Ok argv:
-                                                            let buf_size <i32> unwrap<i32> load_i32 buf_ptr
-                                                            match alloc_ptr<u8> buf_size:
-                                                                Result::Err _:
-                                                                    match dealloc_ptr<u8> argv mul argc 4:
-                                                                        Result::Ok _:
-                                                                            ()
-                                                                        Result::Err _:
-                                                                            ()
-                                                                    none<str>
-                                                                Result::Ok argv_buf:
-                                                                    let errno2 <i32> args_get mem_ptr_addr argv mem_ptr_addr argv_buf
-                                                                    let inner <Option<str>> if:
-                                                                        eq errno2 0
-                                                                        then:
-                                                                            match cli_i32_ptr argv mul argc 4 mul idx 4:
-                                                                                Result::Err _:
-                                                                                    none<str>
-                                                                                Result::Ok arg_slot:
-                                                                                    match load_i32 arg_slot:
-                                                                                        Option::None:
-                                                                                            none<str>
-                                                                                        Option::Some arg_ptr:
-                                                                                            some<str> cstr_to_str mem_ptr_wrap arg_ptr
-                                                                        else:
-                                                                            none<str>
-                                                                    match dealloc_ptr<u8> argv_buf buf_size:
-                                                                        Result::Ok _:
-                                                                            ()
-                                                                        Result::Err _:
-                                                                            ()
-                                                                    match dealloc_ptr<u8> argv mul argc 4:
-                                                                        Result::Ok _:
-                                                                            ()
-                                                                        Result::Err _:
-                                                                            ()
-                                                                    inner
-                                                else:
+                                            match load_i32 argc_ptr:
+                                                Option::None:
                                                     none<str>
+                                                Option::Some argc:
+                                                    if:
+                                                        cond:
+                                                            lt idx argc
+                                                        then:
+                                                            match alloc_ptr<u8> mul argc 4:
+                                                                Result::Err _:
+                                                                    none<str>
+                                                                Result::Ok argv:
+                                                                    match load_i32 buf_ptr:
+                                                                        Option::None:
+                                                                            match dealloc_ptr<u8> argv mul argc 4:
+                                                                                Result::Ok _:
+                                                                                    ()
+                                                                                Result::Err _:
+                                                                                    ()
+                                                                            none<str>
+                                                                        Option::Some buf_size:
+                                                                            match alloc_ptr<u8> buf_size:
+                                                                                Result::Err _:
+                                                                                    match dealloc_ptr<u8> argv mul argc 4:
+                                                                                        Result::Ok _:
+                                                                                            ()
+                                                                                        Result::Err _:
+                                                                                            ()
+                                                                                    none<str>
+                                                                                Result::Ok argv_buf:
+                                                                                    let errno2 <i32> args_get mem_ptr_addr argv mem_ptr_addr argv_buf
+                                                                                    let inner <Option<str>> if:
+                                                                                        eq errno2 0
+                                                                                        then:
+                                                                                            match cli_i32_ptr argv mul argc 4 mul idx 4:
+                                                                                                Result::Err _:
+                                                                                                    none<str>
+                                                                                                Result::Ok arg_slot:
+                                                                                                    match load_i32 arg_slot:
+                                                                                                        Option::None:
+                                                                                                            none<str>
+                                                                                                        Option::Some arg_ptr:
+                                                                                                            some<str> cstr_to_str mem_ptr_wrap arg_ptr
+                                                                                        else:
+                                                                                            none<str>
+                                                                                    match dealloc_ptr<u8> argv_buf buf_size:
+                                                                                        Result::Ok _:
+                                                                                            ()
+                                                                                        Result::Err _:
+                                                                                            ()
+                                                                                    match dealloc_ptr<u8> argv mul argc 4:
+                                                                                        Result::Ok _:
+                                                                                            ()
+                                                                                        Result::Err _:
+                                                                                            ()
+                                                                                    inner
+                                                        else:
+                                                            none<str>
                                         else:
                                             none<str>
                                     match dealloc_ptr<u8> meta 8:
