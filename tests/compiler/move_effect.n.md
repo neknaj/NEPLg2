@@ -373,6 +373,65 @@ fn main <()->i32> ():
     0
 ```
 
+## literal 引数で確定する raw address helper は disjoint store を誤検出しない
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
+    add base mul idx add size_of<.T> size_of<.V>
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
+    store_i32 add p size_of<LocalToken> 123
+    let a <LocalToken> load<LocalToken> p
+    0
+```
+
+## non-literal raw address helper offset は same-base raw place として保守的に扱う
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 size_of<LocalToken>
+
+fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
+    add base mul idx add size_of<.T> size_of<.V>
+
+fn main <()->i32> ():
+    let p <i32> 16
+    let off <i32> choose_offset true
+    store<LocalToken> p LocalToken @token_id
+    store<LocalToken> slot_ptr<LocalToken,i32> p off LocalToken @token_id
+    0
+```
+
 ## non-Copy raw store は未moveの place を上書きできない
 
 neplg2:test[compile_fail]

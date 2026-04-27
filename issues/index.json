@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T22:44:01.225Z",
+  "generated_at": "2026-04-27T23:16:07.575Z",
   "counts": {
-    "total": 229,
+    "total": 230,
     "open": 10,
-    "resolved": 219,
+    "resolved": 220,
     "by_area": {
       "core": {
-        "total": 96,
+        "total": 97,
         "open": 3,
-        "resolved": 93
+        "resolved": 94
       },
       "stdlib": {
         "total": 89,
@@ -1558,6 +1558,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T221533970Z-MOVE-CHECK-LOSES-RAW-EFFECTS-THROUGH-308A8AC3.md"
+    },
+    {
+      "id": "ISS-20260427T225104799Z-MOVE-CHECK-KEEPS-RAW-HELPER-OFFSETS--89FF7C37",
+      "title": "move_check keeps raw helper offsets unknown after literal instantiation",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, nepl-core/tests/neplg2.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T225104799Z-MOVE-CHECK-KEEPS-RAW-HELPER-OFFSETS--89FF7C37.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

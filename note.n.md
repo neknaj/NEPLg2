@@ -20597,3 +20597,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check`: pass
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-04-28 メモ (ISS-20260427T225104799Z raw helper literal offset summary)
+
+- [同期]:
+  - `cabf9e8` を push/pull 済みの `main` から `fix/raw-helper-constant-offset-summary` branch を作成した。
+- [再現]:
+  - `cargo test -p nepl-core --test neplg2 generic_store_uses_nested_address_call_without_stealing_value_arg -- --nocapture` が D3100 `overwriting raw memory place containing non-Copy value: p+?` で失敗した。
+  - `slot_ptr<.T,.V> p 0` は実際には base offset 0 だが、関数 raw alias summary では `idx` が未確定の段階で `p+?` に潰れていた。
+- [原因]:
+  - `move_check` は raw address add / `mem_ptr_add` の offset を literal のときだけ具体化し、`size_of<T>` や i32 `add` / `mul` で定数化できる offset を追跡していなかった。
+  - `size_of<T>` は monomorphize 後の HIR では `size_of__...` user call になり、intrinsic だけを見ても定数として扱えなかった。
+  - user helper の戻り raw alias は call-site の literal 実引数で再要約されず、unknown offset の安全側判定が valid な disjoint store にまで及んでいた。
+- [修正]:
+  - `MoveCheckContext` に i32 定数 alias を追加し、`let` / `set` / branch merge / alias summary context へ伝播させた。
+  - raw offset 判定で `size_of<T>`、monomorphized `size_of__...`、i32 `add` / `sub` / `mul` から得られる定数を評価するようにした。
+  - raw return alias が `base+?` になる user call だけ、実引数 alias / 定数を入れた context で body を再要約するようにした。
+  - raw memory effect 全般の unknown offset は保守検査のまま残し、戻り raw address alias の具体化に範囲を絞った。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test neplg2 generic_store_uses_nested_address_call_without_stealing_value_arg -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: 60/60 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-helper-constant-offset-summary.json -j 1`: 94/94 passed
+  - `cargo check -p nepl-core --tests`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - raw memory helper を使った安全な address 計算を、compiler 側の ownership 検査で過剰拒否しないようにした。

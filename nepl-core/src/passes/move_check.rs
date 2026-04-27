@@ -1,13 +1,14 @@
 extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::{
-    FuncRef, HirBlock, HirExpr, HirExprKind, HirMatchArm, HirMatchPattern, HirModule,
+    FuncRef, HirBlock, HirExpr, HirExprKind, HirFunction, HirMatchArm, HirMatchPattern, HirModule,
 };
 use crate::layout::{aggregate_fields_with_offsets, storage_size_bytes};
 use crate::span::Span;
@@ -147,6 +148,8 @@ struct MoveCheckContext {
     string_literals: Vec<String>,
     /// Function parameter types after monomorphization.
     function_params: BTreeMap<String, Vec<TypeId>>,
+    /// Function definitions used to specialize raw alias summaries at call sites.
+    function_defs: Rc<BTreeMap<String, HirFunction>>,
     /// Function return provenance summaries after monomorphization.
     function_raw_alias_summaries: BTreeMap<String, FunctionRawAliasSummary>,
     /// State of all variables currently in scope.
@@ -160,6 +163,8 @@ struct MoveCheckContext {
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     /// Canonical raw-address aliases for i32 bindings, aligned with `var_stacks`.
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
+    /// Known i32 constants for bindings, aligned with `var_stacks`.
+    i32_const_stacks: BTreeMap<String, Vec<Option<i64>>>,
     /// Raw aliases held by enum payloads, aligned with `var_stacks`.
     enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
     /// Raw aliases held by aggregate fields, aligned with `var_stacks`.
@@ -181,6 +186,8 @@ struct MoveCheckContext {
     diagnostics: Vec<Diagnostic>,
     /// Scopes for variable cleanup
     scopes: Vec<BTreeSet<String>>,
+    /// Active raw alias specializations, used to stop recursive call-site expansion.
+    raw_alias_specialization_stack: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -190,6 +197,7 @@ struct ResourceStateSnapshot {
     borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
+    i32_const_stacks: BTreeMap<String, Vec<Option<i64>>>,
     enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
     aggregate_field_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, String>>>,
     enum_payload_aggregate_field_raw_alias_stacks:
@@ -202,15 +210,22 @@ struct ResourceStateSnapshot {
 
 impl MoveCheckContext {
     fn new(module: &HirModule) -> Self {
+        let function_defs = module
+            .functions
+            .iter()
+            .map(|func| (func.name.clone(), func.clone()))
+            .collect();
         Self {
             string_literals: module.string_literals.clone(),
             function_params: BTreeMap::new(),
+            function_defs: Rc::new(function_defs),
             function_raw_alias_summaries: BTreeMap::new(),
             var_stacks: BTreeMap::new(),
             var_depth_stacks: BTreeMap::new(),
             borrow_stacks: BTreeMap::new(),
             field_move_stacks: BTreeMap::new(),
             raw_addr_alias_stacks: BTreeMap::new(),
+            i32_const_stacks: BTreeMap::new(),
             enum_payload_raw_alias_stacks: BTreeMap::new(),
             aggregate_field_raw_alias_stacks: BTreeMap::new(),
             enum_payload_aggregate_field_raw_alias_stacks: BTreeMap::new(),
@@ -221,6 +236,7 @@ impl MoveCheckContext {
             use_counts: Vec::new(),
             diagnostics: Vec::new(),
             scopes: Vec::new(),
+            raw_alias_specialization_stack: Vec::new(),
         }
     }
 
@@ -231,6 +247,7 @@ impl MoveCheckContext {
             borrow_stacks: self.borrow_stacks.clone(),
             field_move_stacks: self.field_move_stacks.clone(),
             raw_addr_alias_stacks: self.raw_addr_alias_stacks.clone(),
+            i32_const_stacks: self.i32_const_stacks.clone(),
             enum_payload_raw_alias_stacks: self.enum_payload_raw_alias_stacks.clone(),
             aggregate_field_raw_alias_stacks: self.aggregate_field_raw_alias_stacks.clone(),
             enum_payload_aggregate_field_raw_alias_stacks: self
@@ -249,6 +266,7 @@ impl MoveCheckContext {
         self.borrow_stacks = snapshot.borrow_stacks.clone();
         self.field_move_stacks = snapshot.field_move_stacks.clone();
         self.raw_addr_alias_stacks = snapshot.raw_addr_alias_stacks.clone();
+        self.i32_const_stacks = snapshot.i32_const_stacks.clone();
         self.enum_payload_raw_alias_stacks = snapshot.enum_payload_raw_alias_stacks.clone();
         self.aggregate_field_raw_alias_stacks = snapshot.aggregate_field_raw_alias_stacks.clone();
         self.enum_payload_aggregate_field_raw_alias_stacks = snapshot
@@ -297,6 +315,12 @@ impl MoveCheckContext {
                 stack.pop();
                 if stack.is_empty() {
                     self.raw_addr_alias_stacks.remove(&name);
+                }
+            }
+            if let Some(stack) = self.i32_const_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.i32_const_stacks.remove(&name);
                 }
             }
             if let Some(stack) = self.enum_payload_raw_alias_stacks.get_mut(&name) {
@@ -359,6 +383,10 @@ impl MoveCheckContext {
             .or_default()
             .push(BTreeSet::new());
         self.raw_addr_alias_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(None);
+        self.i32_const_stacks
             .entry(name.clone())
             .or_default()
             .push(None);
@@ -450,6 +478,21 @@ impl MoveCheckContext {
         if let Some(stack) = self.raw_addr_alias_stacks.get_mut(name) {
             if let Some(slot) = stack.last_mut() {
                 *slot = alias;
+            }
+        }
+    }
+
+    fn i32_const_alias(&self, name: &str) -> Option<i64> {
+        self.i32_const_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+            .and_then(|slot| *slot)
+    }
+
+    fn set_i32_const_alias(&mut self, name: &str, value: Option<i64>) {
+        if let Some(stack) = self.i32_const_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = value;
             }
         }
     }
@@ -1448,6 +1491,90 @@ fn combine_raw_memory_offsets(base_offset: Option<i64>, offset: Option<i64>) -> 
     }
 }
 
+fn i32_const_from_value(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<i64> {
+    match &expr.kind {
+        HirExprKind::LiteralI32(value) => Some(i64::from(*value)),
+        HirExprKind::Var(name) => ctx.i32_const_alias(name),
+        HirExprKind::Intrinsic {
+            name,
+            type_args,
+            args,
+        } => {
+            if name == "size_of" && type_args.len() == 1 {
+                return i64::try_from(storage_size_bytes(tctx, type_args[0])).ok();
+            }
+            i32_const_from_named_call(name, args, ctx, tctx)
+        }
+        HirExprKind::Call { callee, args } => {
+            let name = func_ref_name(callee)?;
+            i32_const_from_named_call(name, args, ctx, tctx)
+                .or_else(|| i32_const_from_size_of_call(name, ctx, tctx))
+        }
+        _ => None,
+    }
+}
+
+fn i32_const_from_named_call(
+    name: &str,
+    args: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<i64> {
+    if args.len() != 2 {
+        return None;
+    }
+    let left = i32_const_from_value(&args[0], ctx, tctx)?;
+    let right = i32_const_from_value(&args[1], ctx, tctx)?;
+    if is_raw_address_add_name(name) {
+        left.checked_add(right)
+    } else if is_i32_sub_name(name) {
+        left.checked_sub(right)
+    } else if is_i32_mul_name(name) {
+        left.checked_mul(right)
+    } else {
+        None
+    }
+}
+
+fn i32_const_from_size_of_call(
+    name: &str,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<i64> {
+    if !name.starts_with("size_of__") {
+        return None;
+    }
+    let func = ctx.function_defs.get(name)?;
+    match &func.body {
+        crate::hir::HirBody::Block(block) if block.lines.len() == 1 => {
+            let HirExprKind::Intrinsic {
+                name, type_args, ..
+            } = &block.lines[0].expr.kind
+            else {
+                return None;
+            };
+            if name == "size_of" && type_args.len() == 1 {
+                i64::try_from(storage_size_bytes(tctx, type_args[0])).ok()
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn non_negative_i32_const_from_value(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<i64> {
+    i32_const_from_value(expr, ctx, tctx).filter(|value| *value >= 0)
+}
+
 fn parse_raw_memory_place_key(key: &str) -> (String, Option<i64>) {
     let Some((base, offset)) = key.rsplit_once('+') else {
         return (key.to_string(), Some(0));
@@ -1501,25 +1628,22 @@ fn raw_memory_place_key(
             HirExprKind::LiteralI32(value) => Some((String::from("$abs"), Some(i64::from(*value)))),
             HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
                 let (base, base_offset) = inner(&args[0], ctx, tctx)?;
-                let offset = match &args[1].kind {
-                    HirExprKind::LiteralI32(value) if *value >= 0 => Some(i64::from(*value)),
-                    _ => None,
-                };
+                let offset = non_negative_i32_const_from_value(&args[1], ctx, tctx);
                 Some((base, combine_raw_memory_offsets(base_offset, offset)))
             }
             HirExprKind::Call { callee, args }
                 if args.len() >= 2 && tctx.same_type(expr.ty, tctx.i32()) =>
             {
                 let name = func_ref_name(callee)?;
-                if !is_raw_address_add_name(name) {
-                    return None;
+                if is_raw_address_add_name(name) {
+                    let (base, base_offset) = inner(&args[0], ctx, tctx)?;
+                    let offset = non_negative_i32_const_from_value(&args[1], ctx, tctx);
+                    Some((base, combine_raw_memory_offsets(base_offset, offset)))
+                } else {
+                    function_call_raw_alias_summary(expr, ctx, tctx)
+                        .and_then(|summary| summary.raw_addr_alias)
+                        .map(|key| parse_raw_memory_place_key(key.as_str()))
                 }
-                let (base, base_offset) = inner(&args[0], ctx, tctx)?;
-                let offset = match &args[1].kind {
-                    HirExprKind::LiteralI32(value) if *value >= 0 => Some(i64::from(*value)),
-                    _ => None,
-                };
-                Some((base, combine_raw_memory_offsets(base_offset, offset)))
             }
             HirExprKind::Call { callee, args } if args.len() == 1 => {
                 let name = func_ref_name(callee)?;
@@ -1623,6 +1747,14 @@ fn is_mem_ptr_add_name(name: &str) -> bool {
 
 fn is_raw_address_add_name(name: &str) -> bool {
     name == "add" || name.starts_with("add__i32_i32__i32__")
+}
+
+fn is_i32_sub_name(name: &str) -> bool {
+    name == "sub" || name.starts_with("sub__i32_i32__i32__")
+}
+
+fn is_i32_mul_name(name: &str) -> bool {
+    name == "mul" || name.starts_with("mul__i32_i32__i32__")
 }
 
 fn is_region_ptr_name(name: &str) -> bool {
@@ -2363,6 +2495,66 @@ fn instantiate_known_function_raw_memory_effects(
     .raw_memory_effects
 }
 
+fn raw_place_key_has_unknown_offset(key: &str) -> bool {
+    parse_raw_memory_place_key(key).1.is_none()
+}
+
+fn raw_alias_summary_needs_call_site_specialization(summary: &FunctionRawAliasSummary) -> bool {
+    summary
+        .raw_addr_alias
+        .as_deref()
+        .is_some_and(raw_place_key_has_unknown_offset)
+}
+
+fn specialized_function_raw_alias_summary(
+    name: &str,
+    args: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<FunctionRawAliasSummary> {
+    if ctx
+        .raw_alias_specialization_stack
+        .iter()
+        .any(|active| active == name)
+    {
+        return None;
+    }
+    let func = ctx.function_defs.get(name)?;
+    if func.params.len() != args.len() {
+        return None;
+    }
+    let mut call_ctx = ctx.clone_for_alias_summary();
+    call_ctx
+        .raw_alias_specialization_stack
+        .push(name.to_string());
+    call_ctx.push_scope();
+    for (param, arg) in func.params.iter().zip(args) {
+        let value_summary = value_alias_summary_from_value(arg, ctx, tctx);
+        let i32_const_alias = i32_const_from_value(arg, ctx, tctx);
+        call_ctx.declare_var(param.name.clone());
+        call_ctx.set_raw_addr_alias(&param.name, value_summary.raw_addr_alias);
+        call_ctx.set_i32_const_alias(&param.name, i32_const_alias);
+        call_ctx.set_enum_payload_raw_aliases(&param.name, value_summary.enum_payload_raw_aliases);
+        call_ctx.set_aggregate_field_raw_aliases(
+            &param.name,
+            value_summary.aggregate_field_raw_aliases,
+        );
+        call_ctx.set_enum_payload_aggregate_field_raw_aliases(
+            &param.name,
+            value_summary.enum_payload_aggregate_field_raw_aliases,
+        );
+        call_ctx.set_enum_payload_function_aliases(
+            &param.name,
+            value_summary.enum_payload_function_aliases,
+        );
+        call_ctx.set_function_value_alias(&param.name, value_summary.function_value_alias);
+    }
+    match &func.body {
+        crate::hir::HirBody::Block(block) => Some(block_raw_alias_summary(block, &call_ctx, tctx)),
+        _ => None,
+    }
+}
+
 fn function_call_raw_alias_summary(
     expr: &HirExpr,
     ctx: &MoveCheckContext,
@@ -2375,9 +2567,12 @@ fn function_call_raw_alias_summary(
         return None;
     };
     let summary = ctx.function_raw_alias_summaries.get(name)?;
-    Some(instantiate_function_raw_alias_summary(
-        summary, args, ctx, tctx,
-    ))
+    let instantiated = instantiate_function_raw_alias_summary(summary, args, ctx, tctx);
+    if raw_alias_summary_needs_call_site_specialization(&instantiated) {
+        specialized_function_raw_alias_summary(name, args, ctx, tctx).or(Some(instantiated))
+    } else {
+        Some(instantiated)
+    }
 }
 
 fn aggregate_field_index_by_name(
@@ -2506,10 +2701,7 @@ fn raw_memory_place_key_from_mem_ptr(
             let name = func_ref_name(callee)?;
             if is_mem_ptr_add_name(name) {
                 let key = raw_memory_place_key_from_mem_ptr(&args[0], ctx, tctx)?;
-                let offset = match &args[1].kind {
-                    HirExprKind::LiteralI32(value) => Some(i64::from(*value)),
-                    _ => None,
-                };
+                let offset = i32_const_from_value(&args[1], ctx, tctx);
                 let (base, base_offset) = parse_raw_memory_place_key(key.as_str());
                 Some(format_raw_memory_place_key_parts(
                     base.as_str(),
@@ -3763,6 +3955,47 @@ fn merge_raw_addr_alias_stacks(
     merged
 }
 
+fn merge_i32_const_stacks(branches: &[&BranchStateSnapshot]) -> BTreeMap<String, Vec<Option<i64>>> {
+    let mut names = BTreeSet::new();
+    for branch in branches {
+        for name in branch.state.i32_const_stacks.keys() {
+            names.insert(name.clone());
+        }
+    }
+
+    let mut merged = BTreeMap::new();
+    for name in names {
+        let max_len = branches
+            .iter()
+            .filter_map(|branch| branch.state.i32_const_stacks.get(name.as_str()))
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
+        let mut stack = Vec::with_capacity(max_len);
+        for index in 0..max_len {
+            let mut branch_values = branches.iter().map(|branch| {
+                branch
+                    .state
+                    .i32_const_stacks
+                    .get(name.as_str())
+                    .and_then(|stack| stack.get(index))
+                    .copied()
+                    .unwrap_or(None)
+            });
+            let first = branch_values.next().unwrap_or(None);
+            if branch_values.all(|value| value == first) {
+                stack.push(first);
+            } else {
+                stack.push(None);
+            }
+        }
+        if !stack.is_empty() {
+            merged.insert(name, stack);
+        }
+    }
+    merged
+}
+
 fn merge_function_value_alias_stacks(
     branches: &[&BranchStateSnapshot],
 ) -> BTreeMap<String, Vec<Option<String>>> {
@@ -4052,6 +4285,7 @@ fn merge_continuing_branch_states(
     }
     let merged_raw_place_states = merge_raw_place_states(&continuing);
     let merged_raw_addr_alias_stacks = merge_raw_addr_alias_stacks(&continuing);
+    let merged_i32_const_stacks = merge_i32_const_stacks(&continuing);
     let merged_function_value_alias_stacks = merge_function_value_alias_stacks(&continuing);
     let merged_enum_payload_raw_alias_stacks = merge_enum_payload_raw_alias_stacks(&continuing);
     let merged_enum_payload_function_alias_stacks =
@@ -4120,6 +4354,7 @@ fn merge_continuing_branch_states(
         ctx.borrow_stacks.insert(name, merged_stack);
     }
     ctx.raw_addr_alias_stacks = merged_raw_addr_alias_stacks;
+    ctx.i32_const_stacks = merged_i32_const_stacks;
     ctx.function_value_alias_stacks = merged_function_value_alias_stacks;
     ctx.enum_payload_raw_alias_stacks = merged_enum_payload_raw_alias_stacks;
     ctx.enum_payload_function_alias_stacks = merged_enum_payload_function_alias_stacks;
@@ -4638,6 +4873,7 @@ fn visit_expr_with_escape(
                 .scope_depth_of(name)
                 .unwrap_or_else(|| ctx.current_scope_depth());
             let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
+            let i32_const_alias = i32_const_from_value(value, ctx, tctx);
             let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
             let aggregate_field_raw_aliases =
                 aggregate_field_raw_aliases_from_value(value, ctx, tctx);
@@ -4651,6 +4887,7 @@ fn visit_expr_with_escape(
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.set_borrow_bindings(name, retained_borrows);
             ctx.set_raw_addr_alias(name, raw_addr_alias);
+            ctx.set_i32_const_alias(name, i32_const_alias);
             ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
             ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
             ctx.set_enum_payload_aggregate_field_raw_aliases(
@@ -4664,6 +4901,7 @@ fn visit_expr_with_escape(
         HirExprKind::Let { name, value, .. } => {
             let storage_depth = ctx.current_scope_depth();
             let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
+            let i32_const_alias = i32_const_from_value(value, ctx, tctx);
             let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
             let aggregate_field_raw_aliases =
                 aggregate_field_raw_aliases_from_value(value, ctx, tctx);
@@ -4676,6 +4914,7 @@ fn visit_expr_with_escape(
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.declare_var_with_borrows(name.clone(), retained_borrows);
             ctx.set_raw_addr_alias(name, raw_addr_alias);
+            ctx.set_i32_const_alias(name, i32_const_alias);
             ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
             ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
             ctx.set_enum_payload_aggregate_field_raw_aliases(
@@ -5032,6 +5271,7 @@ enum SimpleRawAliasSummaryFrame<'a> {
     Expr(&'a HirExpr),
     FinishCall {
         callee: &'a FuncRef,
+        args: &'a [HirExpr],
         arg_count: usize,
     },
 }
@@ -5088,6 +5328,7 @@ fn simple_call_tree_raw_alias_summary_iteratively(
                     }
                     frames.push(SimpleRawAliasSummaryFrame::FinishCall {
                         callee,
+                        args,
                         arg_count: args.len(),
                     });
                     for arg in args.iter().rev() {
@@ -5108,7 +5349,11 @@ fn simple_call_tree_raw_alias_summary_iteratively(
                 | HirExprKind::AddrOf(_)
                 | HirExprKind::Deref(_) => return None,
             },
-            SimpleRawAliasSummaryFrame::FinishCall { callee, arg_count } => {
+            SimpleRawAliasSummaryFrame::FinishCall {
+                callee,
+                args,
+                arg_count,
+            } => {
                 let mut child_summaries = Vec::with_capacity(arg_count);
                 for _ in 0..arg_count {
                     child_summaries.push(summaries.pop()?);
@@ -5130,13 +5375,24 @@ fn simple_call_tree_raw_alias_summary_iteratively(
                         if let Some(callee_summary) =
                             ctx.function_raw_alias_summaries.get(name.as_str())
                         {
-                            instantiate_function_raw_alias_summary_from_value_summaries(
-                                callee_summary,
-                                &arg_summaries,
-                                ctx,
-                                tctx,
-                                ctx.function_raw_alias_summaries.len().saturating_add(1),
-                            )
+                            let instantiated =
+                                instantiate_function_raw_alias_summary_from_value_summaries(
+                                    callee_summary,
+                                    &arg_summaries,
+                                    ctx,
+                                    tctx,
+                                    ctx.function_raw_alias_summaries.len().saturating_add(1),
+                                );
+                            if raw_alias_summary_needs_call_site_specialization(&instantiated) {
+                                specialized_function_raw_alias_summary(name, args, ctx, tctx)
+                                    .unwrap_or(instantiated)
+                            } else {
+                                instantiated
+                            }
+                        } else if let Some(specialized) =
+                            specialized_function_raw_alias_summary(name, args, ctx, tctx)
+                        {
+                            specialized
                         } else {
                             FunctionRawAliasSummary::default()
                         }
@@ -5337,12 +5593,14 @@ fn block_raw_alias_summary(
         match &line.expr.kind {
             HirExprKind::Let { name, value, .. } => {
                 let value_summary = expression_raw_alias_summary(value, &ctx, tctx);
+                let i32_const_alias = i32_const_from_value(value, &ctx, tctx);
                 extend_unique_raw_memory_effects(
                     &mut raw_memory_effects,
                     value_summary.raw_memory_effects.clone(),
                 );
                 ctx.declare_var(name.clone());
                 ctx.set_raw_addr_alias(name, value_summary.raw_addr_alias);
+                ctx.set_i32_const_alias(name, i32_const_alias);
                 ctx.set_enum_payload_raw_aliases(name, value_summary.enum_payload_raw_aliases);
                 ctx.set_aggregate_field_raw_aliases(
                     name,
@@ -5361,11 +5619,13 @@ fn block_raw_alias_summary(
             }
             HirExprKind::Set { name, value } => {
                 let value_summary = expression_raw_alias_summary(value, &ctx, tctx);
+                let i32_const_alias = i32_const_from_value(value, &ctx, tctx);
                 extend_unique_raw_memory_effects(
                     &mut raw_memory_effects,
                     value_summary.raw_memory_effects.clone(),
                 );
                 ctx.set_raw_addr_alias(name, value_summary.raw_addr_alias);
+                ctx.set_i32_const_alias(name, i32_const_alias);
                 ctx.set_enum_payload_raw_aliases(name, value_summary.enum_payload_raw_aliases);
                 ctx.set_aggregate_field_raw_aliases(
                     name,
@@ -5401,12 +5661,14 @@ impl MoveCheckContext {
         Self {
             string_literals: self.string_literals.clone(),
             function_params: self.function_params.clone(),
+            function_defs: self.function_defs.clone(),
             function_raw_alias_summaries: self.function_raw_alias_summaries.clone(),
             var_stacks: self.var_stacks.clone(),
             var_depth_stacks: self.var_depth_stacks.clone(),
             borrow_stacks: self.borrow_stacks.clone(),
             field_move_stacks: self.field_move_stacks.clone(),
             raw_addr_alias_stacks: self.raw_addr_alias_stacks.clone(),
+            i32_const_stacks: self.i32_const_stacks.clone(),
             enum_payload_raw_alias_stacks: self.enum_payload_raw_alias_stacks.clone(),
             aggregate_field_raw_alias_stacks: self.aggregate_field_raw_alias_stacks.clone(),
             enum_payload_aggregate_field_raw_alias_stacks: self
@@ -5419,6 +5681,7 @@ impl MoveCheckContext {
             use_counts: Vec::new(),
             diagnostics: Vec::new(),
             scopes: self.scopes.clone(),
+            raw_alias_specialization_stack: self.raw_alias_specialization_stack.clone(),
         }
     }
 }
