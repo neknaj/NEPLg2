@@ -285,6 +285,27 @@ fn main <()*>i32> ():
     println_i32 value;
     0
 ```
+
+## stream_scanner_rejects_unsupported_read_type
+
+neplg2:test[compile_fail]
+diag_id: 3006
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/streamio" as *
+#import "std/iotarget" as *
+
+fn main <()*>i32> ():
+    let input <ReadStream> ReadStream::Text "true";
+    let sc <StreamScanner> unwrap_ok open input;
+    let value <bool> read sc;
+    close sc;
+    if value 0 1
+```
+
 ## stdout_binary_writer_pipe_data_to_target
 
 neplg2:test

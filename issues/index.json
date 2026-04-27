@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T06:26:17.467Z",
+  "generated_at": "2026-04-27T06:35:03.242Z",
   "counts": {
     "total": 185,
-    "open": 6,
-    "resolved": 179,
+    "open": 5,
+    "resolved": 180,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 77,
-        "open": 5,
-        "resolved": 72
+        "open": 4,
+        "resolved": 73
       },
       "cli": {
         "total": 19,
@@ -118,21 +118,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T062158099Z-SCANNERREADABLE-DEFAULT-SCAN-TRAPS-W-FCBF9EF6",
-      "title": "ScannerReadable default scan traps with unreachable for unsupported types",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/std/streamio.nepl",
-      "legacy_id": "",
-      "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
-      "file": "items/ISS-20260427T062158099Z-SCANNERREADABLE-DEFAULT-SCAN-TRAPS-W-FCBF9EF6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -2698,6 +2683,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T060739844Z-WASIX-TUI-TEXT-WRAP-LINES-VEC-ALLOCA-405DA6BF.md"
+    },
+    {
+      "id": "ISS-20260427T062158099Z-SCANNERREADABLE-DEFAULT-SCAN-TRAPS-W-FCBF9EF6",
+      "title": "ScannerReadable default scan traps with unreachable for unsupported types",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/streamio.nepl",
+      "legacy_id": "",
+      "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
+      "file": "items/ISS-20260427T062158099Z-SCANNERREADABLE-DEFAULT-SCAN-TRAPS-W-FCBF9EF6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

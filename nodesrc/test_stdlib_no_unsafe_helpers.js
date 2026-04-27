@@ -32,11 +32,6 @@ const allowances = [
         relPath: 'stdlib/core/test.nepl',
         line: /#intrinsic\s+"unreachable"/,
     },
-    {
-        id: 'streamio-scanner-readable-default-stub-ISS-20260427T062158099Z',
-        relPath: 'stdlib/std/streamio.nepl',
-        line: /#intrinsic\s+"unreachable"/,
-    },
 ];
 
 function relFromRoot(filePath) {

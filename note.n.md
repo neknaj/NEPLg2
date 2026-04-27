@@ -1,3 +1,20 @@
+# 2026-04-27 メモ (ISS-20260427T062158099Z ScannerReadable overloads)
+
+- 状況:
+  - `ScannerReadable` trait は `Self` を返す default method に `#intrinsic "unreachable"` を置いていたため、未対応型の scanner read が compile-time error ではなく runtime trap になっていた。
+- 修正:
+  - `ScannerReadable` trait と default stub を削除し、`read <(StreamScanner)*>str/i32/i64/u32/u64/f64/f32>` の concrete overload に置き換えた。
+  - `bool` など未対応型の `read sc` は overload 解決失敗 `D3006` になるよう、`tests/stdlib/streamio.n.md` に compile_fail 回帰テストを追加した。
+  - streamio 個別 source policy と全 stdlib unsafe helper policy から scanner default stub の allowlist を削除した。
+- 検証:
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-overloads-focused.json -j 1`: `total=15`, `passed=15`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-streamio-scanner-overloads.json -j 4`: `total=418`, `passed=418`
+  - `node nodesrc/issues.js check`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib stream scanner の未対応型経路を runtime trap から compile-time failure へ移す修正。
+
 # 2026-04-27 メモ (ISS-20260425T000000Z-RV-STDLIB-010 unsafe helper parent)
 
 - 状況:

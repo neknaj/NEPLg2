@@ -13,11 +13,6 @@ const code = src
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
 
-const codeWithoutAbstractScanStub = code.replace(
-    /trait\s+ScannerReadable:[\s\S]*?fn\s+scan\s+<\(StreamScanner\)\*>Self>\s+\(sc\):\s*#intrinsic\s+"unreachable"\s+<>\s+\(\)/,
-    (match) => match.replace(/#intrinsic\s+"unreachable"\s+<>\s+\(\)/, 'ABSTRACT_SCANNER_READABLE_STUB'),
-);
-
 const forbidden = [
     /\bunwrap\b/,
     /\bunwrap_ok\b/,
@@ -28,8 +23,13 @@ const forbidden = [
 ];
 
 for (const pattern of forbidden) {
-    assert.doesNotMatch(codeWithoutAbstractScanStub, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
 }
+
+assert.doesNotMatch(code, /trait\s+ScannerReadable/, 'StreamScanner read must use concrete overloads, not an unreachable generic trait default');
+assert.match(code, /fn\s+read\s+<\(StreamScanner\)\*>str>\s+\(sc\):[\s\S]*scan_token_impl\s+sc/, 'StreamScanner must keep a str read overload');
+assert.match(code, /fn\s+read\s+<\(StreamScanner\)\*>i32>\s+\(sc\):[\s\S]*scan_i32_impl\s+sc/, 'StreamScanner must keep an i32 read overload');
+assert.match(code, /fn\s+read\s+<\(StreamScanner\)\*>f64>\s+\(sc\):[\s\S]*scan_f64_impl\s+sc/, 'StreamScanner must keep an f64 read overload');
 
 assert.match(
     code,

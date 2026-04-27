@@ -1456,50 +1456,35 @@ impl StreamWritable for f32:
     fn append <(StreamWriter,f32)*>StreamWriter> (w, value):
         append_f32_impl w value
 
-//: ## ScannerReadable
-//: `StreamScanner` から[読/よ]み[取/と]れる[値/あたい]の[能力/のうりょく]
-trait ScannerReadable:
-    fn scan <(StreamScanner)*>Self> (sc):
-        #intrinsic "unreachable" <> ()
-
-impl ScannerReadable for str:
-    fn scan <(StreamScanner)*>str> (sc):
-        scan_token_impl sc
-
-impl ScannerReadable for i32:
-    fn scan <(StreamScanner)*>i32> (sc):
-        scan_i32_impl sc
-
-impl ScannerReadable for i64:
-    fn scan <(StreamScanner)*>i64> (sc):
-        scan_i64_impl sc
-
-impl ScannerReadable for u32:
-    fn scan <(StreamScanner)*>u32> (sc):
-        scan_u32_impl sc
-
-impl ScannerReadable for u64:
-    fn scan <(StreamScanner)*>u64> (sc):
-        scan_u64_impl sc
-
-impl ScannerReadable for f64:
-    fn scan <(StreamScanner)*>f64> (sc):
-        scan_f64_impl sc
-
-impl ScannerReadable for f32:
-    fn scan <(StreamScanner)*>f32> (sc):
-        scan_f32_impl sc
-
 //: ## read
 //: `StreamScanner` から token / [数値/すうち]を[読/よ]む
 //:
 //: ### [目的/もくてき]
 //: - suffix [付/つ]き API を[残/のこ]さず、`read sc` の 1 [個/こ]の[名前/なまえ]へ[統一/とういつ]します。
+//: - 対応型ごとの overload として定義し、未対応型は runtime trap ではなく overload 解決失敗にします。
 //:
 //: ### [注意/ちゅうい]
-//: - [型引数/かたひきすう]または[受/う]け[側/がわ]の[型注釈/かたちゅうしゃく]で[読/よ]む[型/かた]を[決/き]めます。
-fn read <.T: ScannerReadable> <(StreamScanner)*>.T> (sc):
-    ScannerReadable::scan sc
+//: - [受/う]け[側/がわ]の[型注釈/かたちゅうしゃく]または式の期待型で[読/よ]む[型/かた]を[決/き]めます。
+fn read <(StreamScanner)*>str> (sc):
+    scan_token_impl sc
+
+fn read <(StreamScanner)*>i32> (sc):
+    scan_i32_impl sc
+
+fn read <(StreamScanner)*>i64> (sc):
+    scan_i64_impl sc
+
+fn read <(StreamScanner)*>u32> (sc):
+    scan_u32_impl sc
+
+fn read <(StreamScanner)*>u64> (sc):
+    scan_u64_impl sc
+
+fn read <(StreamScanner)*>f64> (sc):
+    scan_f64_impl sc
+
+fn read <(StreamScanner)*>f32> (sc):
+    scan_f32_impl sc
 
 //: ## write
 //: `StreamWriter` へ text を[追記/ついき]する[共通名/きょうつうめい] overload

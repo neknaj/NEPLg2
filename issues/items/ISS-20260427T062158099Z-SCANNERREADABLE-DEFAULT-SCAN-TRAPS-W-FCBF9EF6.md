@@ -2,8 +2,8 @@
 id: ISS-20260427T062158099Z-SCANNERREADABLE-DEFAULT-SCAN-TRAPS-W-FCBF9EF6
 title: "ScannerReadable default scan traps with unreachable for unsupported types"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P2
 type: bug
 created: 2026-04-27
@@ -42,3 +42,19 @@ ScannerReadable を Result 返却の API へ移行するか、trait method defau
 ## 検証
 
 streamio source policy で implementation unreachable の allowlist をなくす。unsupported scanner type の compile_fail または Result::Err 回帰テストを追加し、既存 str/i32/i64/u32/u64/f32/f64 scanner doctest が通ることを確認する。
+
+## 対応結果
+
+`ScannerReadable` trait と `Self` を返す generic default method を削除し、`StreamScanner` の `read` を対応型ごとの concrete overload に置き換えた。
+これにより `str` / `i32` / `i64` / `u32` / `u64` / `f64` / `f32` は従来どおり `let x <T> read sc` で選択でき、未対応型は `#intrinsic "unreachable"` ではなく overload 解決失敗になる。
+
+`tests/stdlib/streamio.n.md` に `bool` 読み取りが `D3006` compile_fail になる回帰テストを追加した。
+source policy では `streamio` の allowlist を削除し、全 stdlib policy でも `ScannerReadable` default stub の例外を外した。
+
+## 追加検証
+
+- `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`
+- `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+- `node nodesrc/tests.js -i stdlib/std/streamio.nepl -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-overloads-focused.json -j 1`: 15/15 passed
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-streamio-scanner-overloads.json -j 4`: 418/418 passed
+- `node nodesrc/issues.js check`
