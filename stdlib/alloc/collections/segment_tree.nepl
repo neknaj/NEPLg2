@@ -61,15 +61,15 @@ fn seg_diag_range <(str,i32,i32,i32)*>Diag> (op, l, r, n):
 fn seg_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (data, idx):
     mem_ptr_wrap add mem_ptr_addr data mul idx 4
 
-fn seg_load <(MemPtr<i32>,i32)->i32> (data, idx):
+fn seg_load_owned <(MemPtr<i32>,i32)->i32> (data, idx):
     match load_i32 seg_ptr data idx:
         Option::Some v:
             v
         Option::None:
             0
 
-fn seg_store <(MemPtr<i32>,i32,i32)->()> (data, idx, value):
-    let _ <()> uwok store_i32 seg_ptr data idx value
+fn seg_store_owned <(MemPtr<i32>,i32,i32)->()> (data, idx, value):
+    store_i32 mem_ptr_addr seg_ptr data idx value
 
 fn seg_next_pow2 <(i32)->i32> (n):
     let mut x <i32> 1
@@ -106,7 +106,7 @@ fn new <(i32)*>Result<SegmentTree, Diag>> (n):
                     let mut i <i32> 0
                     while lt i cells:
                         do:
-                            seg_store data i 0
+                            seg_store_owned data i 0
                             set i add i 1
                     ok<SegmentTree, Diag> SegmentTree n base data
 
@@ -141,13 +141,13 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
         and le 0 idx lt idx n
         then:
             let mut pos <i32> add base idx
-            seg_store data pos value
+            seg_store_owned data pos value
             while lt 1 pos:
                 do:
                     set pos div_s pos 2
                     let left <i32> mul pos 2
                     let right <i32> add left 1
-                    seg_store data pos add seg_load data left seg_load data right
+                    seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
             let out <SegmentTree> load<SegmentTree> mem
             dealloc_raw mem size_of<SegmentTree>
             ok<SegmentTree, Diag> out
@@ -184,15 +184,15 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
         and le 0 idx lt idx n
         then:
             let leaf <i32> add base idx
-            let cur <i32> seg_load data leaf
+            let cur <i32> seg_load_owned data leaf
             let mut pos <i32> leaf
-            seg_store data pos add cur delta
+            seg_store_owned data pos add cur delta
             while lt 1 pos:
                 do:
                     set pos div_s pos 2
                     let left <i32> mul pos 2
                     let right <i32> add left 1
-                    seg_store data pos add seg_load data left seg_load data right
+                    seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
             let out <SegmentTree> load<SegmentTree> mem
             dealloc_raw mem size_of<SegmentTree>
             ok<SegmentTree, Diag> out
@@ -239,7 +239,7 @@ fn sum_range <(SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
                     if:
                         eq rem_s left 2 1
                         then:
-                            set acc_l add acc_l seg_load data left
+                            set acc_l add acc_l seg_load_owned data left
                             set left add left 1
                         else:
                             ()
@@ -247,7 +247,7 @@ fn sum_range <(SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
                         eq rem_s right 2 1
                         then:
                             set right sub right 1
-                            set acc_r add seg_load data right acc_r
+                            set acc_r add seg_load_owned data right acc_r
                         else:
                             ()
                     set left div_s left 2
@@ -261,6 +261,13 @@ fn sum_range <(SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
 
 //: ## free
 //: [内部配列/ないぶはいれつ]を[解放/かいほう]する
+//:
+//: ### [実装/じっそう]
+//: - `data` は `new` が `2 * base * 4` byte で[確保/かくほ]し、`SegmentTree` が[単独/たんどく]で[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は `dealloc_raw` で[行/おこな]います。
+//:
+//: ### [注意/ちゅうい]
+//: - [解放後/かいほうご]に `st` を[再利用/さいりよう]してはいけません。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -279,5 +286,5 @@ fn free <(SegmentTree)->()> (st):
     store<SegmentTree> mem st
     let base <i32> get load<SegmentTree> mem "base"
     let data <MemPtr<i32>> get load<SegmentTree> mem "data"
-    let _ <()> uwok dealloc_ptr<i32> data mul mul base 2 4
+    dealloc_raw mem_ptr_addr data mul mul base 2 4
     dealloc_raw mem size_of<SegmentTree>

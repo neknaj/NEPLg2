@@ -19119,3 +19119,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の dense/sparse membership set が、内部 storage 更新と cleanup で unsafe helper に依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000312882Z SegmentTree owned cleanup)
+
+- [同期]:
+  - `origin/main` が `843fa2f stdlib: remove sparse set unsafe internal unwraps` で一致している状態から `stdlib/segment-tree-owned-cleanup` branch を作成した。
+- [原因]:
+  - `SegmentTree.new` は `2 * base` 個の `i32` tree storage を確保し、`SegmentTree` owner がその配列を単独所有する。
+  - `new` の初期化、`replace` / `add` の leaf/internal node 更新、`sum_range` の読み取り、`free` の cleanup が checked `store_i32` / `dealloc_ptr` の `Result` を `uwok` していた。
+  - range-query helper は self-host の解析や集計に使う基礎構造なので、内部保守コードが unsafe helper trap に依存しない必要がある。
+- [修正]:
+  - `seg_load_owned` / `seg_store_owned` を追加し、owned tree storage の load/store を内部 helper に集約した。
+  - `new`、`replace`、`add`、`sum_range` の内部配列 access を owned helper 経由へ変更した。
+  - `free` の owned tree storage cleanup を `dealloc_raw` に変更した。
+  - update 後の `free` と `new 0` の cleanup、その後の再確保/query regression、SegmentTree 実装に unsafe unwrap / checked deallocation が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-owned-cleanup-docs.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-owned-cleanup-focused.json -j 1`: 4/4 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-segment-tree-owned-cleanup.json -j 4`: 295/295 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-segment-tree-owned-cleanup.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の range-query helper が、内部 tree storage 更新と cleanup で unsafe helper に依存しないようになった。
