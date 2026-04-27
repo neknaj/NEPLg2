@@ -1270,6 +1270,69 @@ fn main <()->i32> ():
     0
 ```
 
+## 関数内の MemPtr store_i32 は caller の initialized non-Copy place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn clobber_i32 <(MemPtr<i32>)->()> (p):
+    let r <Result<(),str>> store_i32 p 0
+    ()
+
+fn main <()->i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    clobber_i32 pi
+    0
+```
+
+## if 条件内の helper raw write も caller の initialized non-Copy place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn clobber_and_true <(MemPtr<i32>)->bool> (p):
+    let r <Result<(),str>> store_i32 p 0
+    true
+
+fn gated_clobber <(MemPtr<i32>)->()> (p):
+    if clobber_and_true p:
+        then:
+            ()
+        else:
+            ()
+
+fn main <()->i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    gated_clobber pi
+    0
+```
+
 ## generic raw store の Copy 値でも initialized non-Copy place は上書きできない
 
 neplg2:test[compile_fail]

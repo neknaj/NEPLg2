@@ -137,6 +137,12 @@ raw `mem_copy` / `mem_move` が `move_check` の raw place state を見ず、liv
 
 raw address 版の byte write / bulk copy は拒否済みだったが、typed `MemPtr` overload の `store_i32` / `memset_u8` / `fill_i32` / `mem_copy` / `mem_move` が call-site raw place 分類から漏れていた問題を `ISS-20260427T212724800Z-MOVE-CHECK-ALLOWS-MEMPTR-BYTE-WRITES-9D19BC9D` として分離し、修正した。`MemPtr<T>` 由来の destination/source も raw place state に接続し、typed bulk copy の element count は byte size に換算して重なりを検査する。
 
+## 2026-04-28 function raw memory effect summary 部分対応
+
+direct call site の raw memory 検査は進んだが、helper 関数の内部に `store_i32` / `mem_copy` / `dealloc_ptr` などを隠すと caller の raw place state に副作用が伝わらない問題を `ISS-20260427T214055047Z-MOVE-CHECK-IGNORES-RAW-MEMORY-WRITES-417A7103` として分離し、修正した。
+
+今回の対応で、関数サマリは戻り値 raw alias だけでなく raw memory load/store/dealloc/realloc/bulk copy/byte write effect も保持する。user function call では callee summary を caller 引数へ instantiate し、direct raw call と同じ D3100 ownership 検査を caller context で実行する。これにより、stdlib/self-host helper に raw memory operation を分割しても compiler の raw ownership state を迂回できなくなった。
+
 ## 2026-04-28 mem_ptr_add raw alias 部分対応
 
 `mem_ptr_add<T>` が raw place 正規化に入っておらず、`mem_ptr_add p 0` で同じ storage を別 place として扱える問題を `ISS-20260427T191722304Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-FEAEF49B` として分離し、修正した。

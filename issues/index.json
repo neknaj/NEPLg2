@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T21:33:15.855Z",
+  "generated_at": "2026-04-27T21:53:45.887Z",
   "counts": {
-    "total": 226,
+    "total": 227,
     "open": 10,
-    "resolved": 216,
+    "resolved": 217,
     "by_area": {
       "core": {
-        "total": 93,
+        "total": 94,
         "open": 3,
-        "resolved": 90
+        "resolved": 91
       },
       "stdlib": {
         "total": 89,
@@ -1513,6 +1513,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T212724800Z-MOVE-CHECK-ALLOWS-MEMPTR-BYTE-WRITES-9D19BC9D.md"
+    },
+    {
+      "id": "ISS-20260427T214055047Z-MOVE-CHECK-IGNORES-RAW-MEMORY-WRITES-417A7103",
+      "title": "move_check ignores raw memory writes hidden behind helper functions",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T214055047Z-MOVE-CHECK-IGNORES-RAW-MEMORY-WRITES-417A7103.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

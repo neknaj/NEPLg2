@@ -20474,3 +20474,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `MemPtr` overload も compiler の raw ownership state に接続し、typed pointer 経由の byte overwrite が検査を迂回しないようにした。
+
+# 2026-04-28 メモ (ISS-20260427T214055047Z helper raw memory effect summary)
+
+- [同期]:
+  - `ad34665` を push/pull 済みの `main` から `fix/function-raw-byte-write-summary` branch を作成した。
+- [再現]:
+  - `MemPtr<i32>` を受け取る helper 関数内で `store_i32 p 0` を呼び、caller の live `LocalToken` raw place を上書きする compile_fail regression を追加した。
+  - 修正前の `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/function-raw-byte-write-summary-before.json -j 1` は 88 件中 1 件が `expected compile_fail, but compiled successfully` で失敗した。
+- [原因]:
+  - direct call site の raw memory operation は `visit_raw_memory_call` で D3100 検査されていた。
+  - 一方で `FunctionRawAliasSummary` は戻り値 raw alias だけを保持し、関数内の raw load/store/dealloc/realloc/bulk copy/byte write を caller context へ伝播していなかった。
+  - `block_raw_alias_summary` はブロック最終式の alias summary だけを返すため、途中行の `let r = store_i32 ...` の副作用も関数サマリから消えていた。
+- [修正]:
+  - `FunctionRawAliasSummary` に raw memory effect summary を追加し、load/store/dealloc/realloc/bulk copy/byte write を引数由来 raw place key として記録するようにした。
+  - user function call では callee summary を caller 引数へ instantiate し、direct raw call と同じ raw ownership 検査を caller context で実行するようにした。
+  - `block_raw_alias_summary` は戻り値 alias とブロック全体の raw memory effect を分離し、途中行の副作用も保持するようにした。
+  - `if` 条件、`while`、`match` scrutinee などの制御式に隠れた raw memory effect も関数サマリへ伝播するようにした。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test move_check`: 51/51 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/function-raw-byte-write-summary-after.json -j 1`: 89/89 passed
+  - `cargo check -p nepl-core --tests`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - raw memory operation を helper 関数へ分割しても compiler の raw ownership state が関数境界で途切れないようにした。
