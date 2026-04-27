@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T05:58:26.554Z",
+  "generated_at": "2026-04-27T06:05:14.105Z",
   "counts": {
-    "total": 182,
+    "total": 183,
     "open": 6,
-    "resolved": 176,
+    "resolved": 177,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 74,
+        "total": 75,
         "open": 5,
-        "resolved": 69
+        "resolved": 70
       },
       "cli": {
         "total": 19,
@@ -2653,6 +2653,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T054706120Z-STD-TEST-CHECKS-NEW-CHECKS-PUSH-VEC--DA0F691F.md"
+    },
+    {
+      "id": "ISS-20260427T060047209Z-KP-KPGRAPH-BFS-RESULT-VEC-ALLOCATION-317AB7D4",
+      "title": "kp/kpgraph BFS result Vec allocation failure が unwrap_ok で trap する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/kp/kpgraph.nepl, nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T060047209Z-KP-KPGRAPH-BFS-RESULT-VEC-ALLOCATION-317AB7D4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

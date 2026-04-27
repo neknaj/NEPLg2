@@ -1,3 +1,21 @@
+# 2026-04-27 メモ (ISS-20260427T060047209Z kpgraph BFS allocation)
+
+- 状況:
+  - `stdlib/kp/kpgraph.nepl` の `dense_graph_bfs_dist_raw` は BFS 後の `Vec<i32>` 結果生成と push を `unwrap_ok` していた。
+  - dense graph helper は通常の stdlib 実装コードなので、RV-STDLIB-010 の unsafe helper debt が残っていた。
+- 修正:
+  - `KpI32PushRes` / `kp_i32_empty_vec` / `kp_push_i32` を追加し、push failure 時に consumed owner を再利用しない形にした。
+  - `dense_graph_bfs_dist_raw` の `v::new` / `v::push` を `match` し、失敗時は `failed=true` で結果詰め直しを止めて空 Vec sentinel を返すようにした。
+  - `nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/kp/kpgraph.nepl --no-tree -o tmp/kpgraph-bfs-allocation-docs.json -j 1`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-kpgraph-bfs-allocation.json -j 4`: `total=418`, `passed=418`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib graph helper の allocation failure trap を sentinel fallback へ戻す修正。
+
 # 2026-04-27 メモ (ISS-20260427T054706120Z std/test allocation)
 
 - 状況:

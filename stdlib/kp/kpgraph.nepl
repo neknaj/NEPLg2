@@ -55,6 +55,7 @@
 #import "core/mem" as *
 #import "core/math" as *
 #import "alloc/collections/vec" as *
+#import "alloc/collections/vec" as v
 #import "core/field" as *
 #import "std/streamio" as *
 
@@ -68,6 +69,29 @@
 struct DenseGraph:
     n <i32>
     mat <i32>
+
+//: KpI32PushRes: `Vec<i32>` push の結果
+//:
+//: [目的/もくてき]:
+//: - BFS 結果 Vec の owner と push 成否を同時に返します。
+struct KpI32PushRes:
+    items <Vec<i32>>
+    ok <bool>
+
+//: kp_i32_empty_vec: 空の `Vec<i32>` sentinel を作る
+//:
+//: [目的/もくてき]:
+//: - allocation failure 時に consumed owner を再利用せず、空の BFS 結果へ切り替えます。
+fn kp_i32_empty_vec <()->Vec<i32>> ():
+    v::Vec<i32> 0 0 mem_ptr_wrap 0
+
+//: kp_push_i32: `Vec<i32>` push を trap せず結果化する
+fn kp_push_i32 <(Vec<i32>,i32)->KpI32PushRes> (items, item):
+    match v::push<i32> items item:
+        Result::Ok next:
+            KpI32PushRes next true
+        Result::Err _e:
+            KpI32PushRes kp_i32_empty_vec false
 
 //: dense_graph_new: 頂点数 n の空グラフを作る
 //:
@@ -197,12 +221,27 @@ fn dense_graph_bfs_dist_raw <(i32,i32,i32)*>Vec<i32>> (n, mat, start):
                         else ()
                     set to add to 1;
 
-    let mut out <Vec<i32>> unwrap_ok new<i32>;
+    let mut out <Vec<i32>> kp_i32_empty_vec;
+    let mut failed <bool> false;
+    match v::new<i32>:
+        Result::Ok out0:
+            set out out0
+        Result::Err _e:
+            set failed true;
     let mut i1 <i32> 0;
-    while lt i1 n:
+    while and lt i1 n not failed:
         do:
-            set out unwrap_ok push<i32> out load_i32 add dist mul i1 4;
-            set i1 add i1 1;
+            let pushed_out <KpI32PushRes> kp_push_i32 out load_i32 add dist mul i1 4;
+            let pushed_ok <bool> get pushed_out "ok";
+            set out get pushed_out "items";
+            if:
+                pushed_ok
+                then:
+                    set i1 add i1 1;
+                    ()
+                else:
+                    set failed true;
+                    ()
 
     dealloc_raw q mul n 4;
     dealloc_raw dist mul n 4;
