@@ -51,6 +51,15 @@ target: "stdlib/std/test.nepl, stdlib/core/result.nepl, tests/stdlib/byte_builde
 - `Result<T,E>` は payload がどちらも Copy なら Copy として扱えるよう、`impl<T: Copy,E: Copy> Clone/Copy for Result<T,E>` を追加した。`Result<(),str>` をテスト status として複数回観察する用途はこれで shallow owner move ではなく Copy read になる。
 - non-Copy payload の `Result<LocalToken,str>` は引き続き二重利用で move error になる回帰テストを追加した。
 
+## 2026-04-28 再発確認と追加対応
+
+関数戻り値・aggregate field・dealloc の raw ownership 検査が強化された後、`finish_checks` の `checks_mem` は owner を複数回 load しなくなっていた一方で、`Vec<Result<(),str>>` owner を raw temp 内に initialized のまま残して `dealloc_raw` していることが再検出された。
+
+- 変更前再現: `tests/stdlib/byte_builder.n.md` の doctest 3 件が `error[D3100]: deallocating raw memory place containing non-Copy value: checks_mem` で失敗した。
+- 根本原因: `len` / `data` の field read は観察であり、raw temp 内の `Vec` owner を consume しない。したがって storage-only `dealloc_raw` は live owner discard になる。
+- 追加対応: `checks_has_err` / `checks_summary` / `finish_checks` は観察完了後に raw temp から owner を 1 回だけ読み戻し、temporary storage を解放してから `Vec` の data storage を `v::free<Result<(),str>>` で解放する。
+- `checks_print_machine` / `checks_print_human` は従来どおり owner を 1 回だけ読み戻して返すため、呼び出し側が `checks_exit_code` へ線形に渡せる。
+
 ## 検証
 
 stdlib 修正後に `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-vec-result-raw-temp.json -j 1` を実行し、`D3100` が消えることを確認する。
@@ -61,3 +70,7 @@ stdlib 修正後に `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --n
 - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/result-copy-impl-regression6.json -j 1`: `total=7`, `passed=7`
 - `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-single-owner-final.json -j 1`: `total=12`, `passed=12`
 - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-vec-result-after-final.json -j 1`: `total=3`, `passed=3`
+- 追加再現: `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-checks-mem-regression-before.json -j 1`: `total=3`, `failed=3`, D3100 `deallocating raw memory place containing non-Copy value: checks_mem`
+- 追加確認: `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-checks-mem-regression-after.json -j 1`: `total=3`, `passed=3`
+- 追加確認: `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-checks-mem-stdlib-test-after.json -j 1`: `total=12`, `passed=12`
+- 追加確認: `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-collect-checks-mem-after.json -j 1`: `total=3`, `passed=3`

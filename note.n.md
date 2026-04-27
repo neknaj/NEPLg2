@@ -20345,3 +20345,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Rust integration tests も loader/module capability を compiler の安全境界として扱う方針に揃えた。
+
+# 2026-04-28 メモ (ISS-20260427T163710082Z std/test checks_mem live owner dealloc)
+
+- [同期]:
+  - `main` が `origin/main` と一致していることを確認し、`fix/std-test-checks-mem-owner` branch を作成した。
+- [再現]:
+  - `trunk build`: pass。前回の Rust 試作 dist が残っている可能性を排除するため、現行 source で web dist を作り直した。
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-checks-mem-regression-before.json -j 1`: 3 件すべて `D3100 deallocating raw memory place containing non-Copy value: checks_mem` で失敗した。
+- [原因]:
+  - `finish_checks` は `checks_mem` から `len` / `data` を field read で観察した後、raw temp 内の `Vec<Result<(),str>>` owner を consume しないまま `dealloc_raw` していた。
+  - field read は owner を move しないため、直近の raw dealloc 検査強化後は live owner discard として正しく拒否される。
+- [修正]:
+  - `checks_has_err` / `checks_summary` / `finish_checks` は観察後に `checks_mem` から owner を 1 回だけ読み戻し、temporary storage を解放してから `v::free<Result<(),str>>` で data storage を解放するようにした。
+  - `finish_checks` は `checks_has_err_parts` の結果を `failed` に保存し、cleanup を branch の前に 1 箇所へ集約した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-checks-mem-regression-after.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-checks-mem-stdlib-test-after.json -j 1`: 12/12 passed
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-collect-checks-mem-after.json -j 1`: 3/3 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - std/test の消費型 helper は、観察後に owner と storage の cleanup 責務を完了する方針へ寄せた。
