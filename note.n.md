@@ -19144,3 +19144,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の range-query helper が、内部 tree storage 更新と cleanup で unsafe helper に依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000313062Z Stack owned cleanup)
+
+- [同期]:
+  - `origin/main` が `15aea18 stdlib: remove segment tree unsafe internal unwraps` で一致している状態から `stdlib/stack-owned-cleanup` branch を作成した。
+- [原因]:
+  - `Stack.new` は 12 byte の header と既定 capacity 分の data buffer を確保し、`Stack` owner が両方を単独所有する。
+  - data allocation failure 時の header cleanup と、`free` の data/header cleanup は owner invariant の内側の処理だが、checked `dealloc_ptr` に依存していた。
+  - `free` は `dealloc_ptr` の `Result` を `uwok` していたため、parser/evaluator stack の通常 cleanup が unsafe helper trap に戻り得た。
+- [修正]:
+  - `new` の data allocation failure cleanup を `dealloc_raw mem_ptr_addr header 12` に変更した。
+  - `free` の owned data/header cleanup を `dealloc_raw` に変更し、doc comment も owner invariant に合わせて更新した。
+  - capacity grow 後の `clear` / `free` と再確保 regression、Stack 実装に unsafe unwrap / checked deallocation が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl --no-tree -o tmp/stack-owned-cleanup-docs.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib/stack_collections.n.md -i stdlib/tests/stack.n.md --no-tree -o tmp/stack-owned-cleanup-focused.json -j 1`: 18/18 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-stack-owned-cleanup.json -j 4`: 296/296 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-stack-owned-cleanup.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の parser/evaluator stack が cleanup 時に unsafe helper に依存しないようになった。

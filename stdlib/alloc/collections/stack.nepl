@@ -249,7 +249,7 @@ fn new <.T> <()*>Result<Stack<.T>, Diag>> ():
         Result::Ok header:
             match alloc_ptr<.T> mul cap size_of<.T>:
                 Result::Err _e:
-                    dealloc_ptr<u8> header 12
+                    dealloc_raw mem_ptr_addr header 12
                     diag_err<Stack<.T>> diag_out_of_memory "new(data)"
                 Result::Ok data:
                     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr header
@@ -789,7 +789,8 @@ fn clear <.T> <(Stack<.T>)->Stack<.T>> (stk):
 //: - `Stack<.T>` が[所有/しょゆう]するデータ[領域/りょういき]とヘッダ[領域/りょういき]を[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - capacity からデータ[領域/りょういき]の byte [数/すう]を[計算/けいさん]して `dealloc_ptr<.T>` を[呼/よ]び、[続/つづ]けてヘッダ 12 byte も[解放/かいほう]します。
+//: - capacity からデータ[領域/りょういき]の byte [数/すう]を[計算/けいさん]し、owner invariant に[基/もと]づいて `dealloc_raw` で[解放/かいほう]します。
+//: - [続/つづ]けて `Stack` が[所有/しょゆう]するヘッダ 12 byte も `dealloc_raw` で[解放/かいほう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [解放後/かいほうご]に `stk` を[再利用/さいりよう]してはいけません。
@@ -818,8 +819,8 @@ fn free <.T> <(Stack<.T>)*>()> (stk):
     let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let cap <i32> load_i32 mem_ptr_addr cap_ptr
     let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
-    let _ <()> uwok dealloc_ptr<.T> data mul cap size_of<.T>
-    let _ <()> uwok dealloc_ptr<u8> hdr 12
+    dealloc_raw mem_ptr_addr data mul cap size_of<.T>
+    dealloc_raw mem_ptr_addr hdr 12
 
 fn pop_keep <.T> <(Stack<.T>)->Option<.T>> (stk):
     pop<.T> stk

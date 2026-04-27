@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T02:44:56.326Z",
+  "generated_at": "2026-04-27T02:55:18.323Z",
   "counts": {
     "total": 173,
-    "open": 12,
-    "resolved": 161,
+    "open": 11,
+    "resolved": 162,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 65,
-        "open": 11,
-        "resolved": 54
+        "open": 10,
+        "resolved": 55
       },
       "cli": {
         "total": 19,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T000313062Z-STACK-RETAINS-UNSAFE-UNWRAPS-IN-OWNE-62A953CC",
-      "title": "Stack retains unsafe unwraps in owned buffer cleanup",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/collections/stack.nepl, tests/stdlib/stack_collections.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T000313062Z-STACK-RETAINS-UNSAFE-UNWRAPS-IN-OWNE-62A953CC.md"
     },
     {
       "id": "ISS-20260427T000313237Z-VEC-RETAINS-UNREACHABLE-CLEANUP-PATH-7FC637A9",
@@ -2503,6 +2488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T000312882Z-SEGMENTTREE-RETAINS-UNSAFE-UNWRAPS-I-28D79D02.md"
+    },
+    {
+      "id": "ISS-20260427T000313062Z-STACK-RETAINS-UNSAFE-UNWRAPS-IN-OWNE-62A953CC",
+      "title": "Stack retains unsafe unwraps in owned buffer cleanup",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/stack.nepl, tests/stdlib/stack_collections.n.md, nodesrc/test_stdlib_stack_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T000313062Z-STACK-RETAINS-UNSAFE-UNWRAPS-IN-OWNE-62A953CC.md"
     },
     {
       "id": "ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496",
