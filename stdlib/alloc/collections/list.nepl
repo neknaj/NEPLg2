@@ -140,6 +140,31 @@
 struct List<.T>:
     ptr <i32>
 
+//: ## list_alloc_node
+//: [単一/たんいつ]ノードを[確保/かくほ]して value と next を[初期化/しょきか]する
+//:
+//: ### [目的/もくてき]
+//: - `cons` と `reverse` が[同/おな]じノード layout を[共有/きょうゆう]できるようにします。
+//:
+//: ### [実装/じっそう]
+//: - `size_of<.T> + 4` byte を[確保/かくほ]し、先頭に `head`、末尾 4 byte に `tail_ptr` を[格納/かくのう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [確保/かくほ][失敗/しっぱい]では `op` を[含/ふく]む `Diag` を `Err` で[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn list_alloc_node <.T> <(.T,i32,str)*>Result<i32, Diag>> (head, tail_ptr, op):
+    let node_size <i32> add size_of<.T> 4
+    match alloc_ptr<u8> node_size:
+        Result::Err _e:
+            diag_err<i32> diag_out_of_memory op
+        Result::Ok node_ptr:
+            let node <i32> mem_ptr_addr node_ptr
+            store<.T> node head
+            store_i32 add node size_of<.T> tail_ptr
+            ok<i32, Diag> node
+
 //: ## new
 //: [空/から]リストを `Result::Ok` で[返/かえ]す
 //:
@@ -200,15 +225,11 @@ fn new <.T> <()*>Result<List<.T>, Diag>> ():
 //: ```
 fn cons <.T> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
     let tail_ptr <i32> field::get tail "ptr"
-    let node_size <i32> add size_of<.T> 4
-    match alloc_ptr<u8> node_size:
-        Result::Err _e:
-            diag_err<List<.T>> diag_out_of_memory "list_cons(node)"
-        Result::Ok node_ptr:
-            let node <i32> mem_ptr_addr node_ptr
-            store<.T> node head
-            store_i32 add node size_of<.T> tail_ptr
+    match list_alloc_node<.T> head tail_ptr "list_cons(node)":
+        Result::Ok node:
             ok<List<.T>, Diag> List node
+        Result::Err e:
+            err<List<.T>, Diag> e
 
 //: ## push
 //: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
@@ -496,7 +517,8 @@ fn free <.T> <(List<.T>)->()> (lst):
 //: - [元/もと]の[順序/じゅんじょ]を[逆/さか]さまにした[新/あたら]しいリストを[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - [先頭/せんとう]から[走査/そうさ]しながら、`cons` で[新/あたら]しい[先頭/せんとう]へ[積/つ]み[直/なお]します。
+//: - [先頭/せんとう]から[走査/そうさ]しながら、`list_alloc_node` で[新/あたら]しい[先頭/せんとう]へ[積/つ]み[直/なお]します。
+//: - [途中/とちゅう]でノード[確保/かくほ]が[失敗/しっぱい]した[場合/ばあい]は、それまでに[作/つく]った[部分/ぶぶん]リストを `free` してから `Err` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [元/もと]のノードは[再利用/さいりよう]せず、[新/あたら]しいノード[列/れつ]を[確保/かくほ]します。
@@ -530,13 +552,23 @@ fn free <.T> <(List<.T>)->()> (lst):
 //:             1
 //: ```
 fn reverse <.T> <(List<.T>)*>Result<List<.T>, Diag>> (lst):
-    let mut new_list <List<.T>> unwrap_ok<List<.T>, Diag> new<.T>;
-    let mut cur <i32> field::get lst "ptr";
-    while ne cur 0:
+    let mut new_head <i32> 0
+    let mut cur <i32> field::get lst "ptr"
+    let mut done <bool> false
+    let mut result <Result<List<.T>, Diag>> ok<List<.T>, Diag> List 0
+    while and ne cur 0 not done:
         do:
-            set new_list uwok cons<.T> load<.T> cur new_list;
-            set cur load_i32 add cur size_of<.T>;
-    ok<List<.T>, Diag> new_list
+            let value <.T> load<.T> cur
+            let next_ptr <i32> load_i32 add cur size_of<.T>
+            match list_alloc_node<.T> value new_head "list_reverse(node)":
+                Result::Ok node:
+                    set new_head node
+                    set cur next_ptr
+                Result::Err e:
+                    free<.T> List new_head
+                    set result err<List<.T>, Diag> e
+                    set done true
+    if done result ok<List<.T>, Diag> List new_head
 
 fn list_map_impl <.T,.U> <(i32, (.T)->.U)*>Result<List<.U>, Diag>> (lst_ptr, f):
     if:

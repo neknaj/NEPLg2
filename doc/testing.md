@@ -56,6 +56,7 @@ node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_list_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js

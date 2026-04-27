@@ -19194,3 +19194,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の中心 container である Vec が cleanup 時に unsafe helper / impossible dealloc branch に依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000313426Z List reverse allocation result)
+
+- [同期]:
+  - `origin/main` が `bb2cc91 stdlib: remove vec unsafe cleanup branches` で一致している状態から `stdlib/list-reverse-allocation-result` branch を作成した。
+  - 調査中に `list_map_impl` / `list_filter_impl` の partial result cleanup leak を `ISS-20260427T031251079Z-LIST-MAP-AND-FILTER-LEAK-PARTIAL-RES-9B715B6A` として追加し、Discord へ報告した。
+- [原因]:
+  - `reverse` は `Result<List<.T>, Diag>` を返す API だが、内部では `new` / `cons` を `unwrap_ok` / `uwok` で取り出していた。
+  - `cons` はノード確保を行うため通常の allocation failure があり得るが、`uwok` により `Err(Diag)` として呼び出し側へ返せなかった。
+  - 途中まで reverse list を構築した後の失敗では、部分 list を cleanup できず trap していた。
+- [修正]:
+  - `list_alloc_node` を追加し、`cons` と `reverse` のノード layout / allocation failure 診断を共有した。
+  - `reverse` は内部で `new_head` raw pointer を管理し、成功時だけ `List new_head` を `Ok` で返す形に変更した。
+  - ノード確保失敗時は `free List new_head` で部分 reverse list を解放してから `Err(Diag)` を返すようにした。
+  - normal reverse / empty reverse の focused regression と、List 実装に unsafe unwrap / checked deallocation が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/list.nepl --no-tree -o tmp/list-reverse-docs.json -j 1`: 15/15 passed
+  - `node nodesrc/tests.js -i tests/stdlib/list_collections.n.md -i stdlib/tests/list.n.md --no-tree -o tmp/list-reverse-focused.json -j 1`: 4/4 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-list-reverse.json -j 4`: 300/300 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-list-reverse.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の list reverse helper が allocation failure を trap ではなく Result と cleanup で扱うようになった。
