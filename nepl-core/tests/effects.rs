@@ -181,6 +181,30 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn pure_wasm_raw_call_to_suffixed_raw_memory_helper_is_rejected_outside_core_mem() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+#extern "env" "store_i32__i32_i32__unit__pure" fn raw_store_symbol <(i32,i32)->()>
+
+fn raw_store_helper <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        call $store_i32__i32_i32__unit__pure
+
+fn main <()->i32> ():
+    raw_store_helper 0 1
+    0
+"#;
+
+    let result = compile_wasm(FileId(0), src, options(CompileTarget::Wasm)).map(|_| ());
+    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+}
+
+#[test]
 fn pure_raw_load_intrinsic_is_rejected_outside_core_mem() {
     let src = r#"
 #entry main

@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::hir::HirBody;
+use crate::runtime_helpers::helper_base_name;
 
 pub const IMPURE_IO_EFFECT_MARKERS: &[&str] = &[
     "fd_read",
@@ -96,9 +97,10 @@ pub fn intrinsic_is_raw_memory_effect(name: &str) -> bool {
 }
 
 pub fn raw_callee_is_raw_memory_effect(name: &str) -> bool {
+    let base = helper_base_name(name);
     RAW_MEMORY_HELPER_EFFECT_MARKERS
         .iter()
-        .any(|marker| *marker == name)
+        .any(|marker| *marker == base)
 }
 
 pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {

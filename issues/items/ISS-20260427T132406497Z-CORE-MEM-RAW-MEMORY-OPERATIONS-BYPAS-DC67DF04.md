@@ -85,6 +85,10 @@ compiler 側で `core/mem.nepl` の raw primitive を外部向け `Effect::Impur
 
 raw body の direct memory instruction は拒否済みだったが、`call $store_i32` / `call @mem_grow` のように Pure signature の raw helper wrapper を直接呼ぶ経路が残っていたため、`ISS-20260427T182409751Z-PURE-RAW-BODIES-CAN-CALL-RAW-MEMORY--7C283F24` として分離して修正した。compiler-owned raw memory boundary 以外の pure raw body では、既知 raw memory helper symbol への direct call も `D3025` で拒否する。
 
+## 2026-04-28 suffixed raw helper symbol 部分対応
+
+raw body direct callee の raw helper 判定が完全一致のみだったため、`store_i32__i32_i32__unit__pure` のような compiler generated / mangled symbol で raw memory helper boundary を迂回できる問題を `ISS-20260427T212039819Z-RAW-BODY-HELPER-EFFECT-DETECTION-MIS-8D69E368` として分離し、修正した。`raw_callee_is_raw_memory_effect` は direct callee を helper base name に正規化してから marker と照合するため、suffix 付き raw helper symbol も pure raw body では `D3025` になる。
+
 ## 2026-04-28 raw aggregate field read / branch merge 部分対応
 
 `field::get load<T> p "field"` のような raw aggregate load 直後の field access が、raw address `p + offset` から field だけを読む HIR ではなく、`load<T> p` で non-Copy aggregate 全体を shallow load してから field を読む HIR になっていた。このため Copy field を読むだけでも raw place 全体が moved になり、collection helper の temporary raw storage が D3100 で誤検出されていた。

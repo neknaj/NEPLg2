@@ -20426,3 +20426,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Fenwick の field 観察は raw temporary owner ではなく direct field read へ寄せ、compiler の raw ownership 検査と stdlib 実装の責務を一致させた。
+
+# 2026-04-28 メモ (ISS-20260427T212039819Z raw body suffixed helper effect)
+
+- [同期]:
+  - `a546798` を push/pull 済みの `main` から `fix/raw-helper-effect-prefix` branch を作成した。
+- [再現]:
+  - suffixed raw helper symbol `store_i32__i32_i32__unit__pure` を pure raw body から呼ぶ regression を追加し、`cargo test -p nepl-core --test effects pure_wasm_raw_call_to_suffixed_raw_memory_helper_is_rejected_outside_core_mem` を実行した。
+  - 修正前は期待した `D3025` ではなく raw wasm 後段の parse/codegen diagnostic に進み、effect boundary が symbol suffix を見落としていることを確認した。
+- [原因]:
+  - `raw_callee_is_raw_memory_effect` は raw body direct callee を `RAW_MEMORY_HELPER_EFFECT_MARKERS` と完全一致で照合していた。
+  - compiler generated / mangled symbol の base 名へ正規化する `runtime_helpers::helper_base_name` が effect validation 側で使われていなかった。
+- [修正]:
+  - `raw_callee_is_raw_memory_effect` で direct callee symbol を `helper_base_name` に通してから raw memory helper marker と照合するようにした。
+  - suffixed raw helper symbol の D3025 regression を `nepl-core/tests/effects.rs` に追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test effects pure_wasm_raw_call_to_suffixed_raw_memory_helper_is_rejected_outside_core_mem`: pass
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test effects`: 20/20 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-helper-effect-prefix-raw-body-precheck.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-helper-effect-prefix-move-effect.json -j 1`: 85/85 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - pure raw body からの raw memory helper 呼び出し検査を、compiler generated symbol 名でも同じ境界で扱うようにした。

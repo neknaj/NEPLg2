@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T21:15:39.770Z",
+  "generated_at": "2026-04-27T21:23:22.014Z",
   "counts": {
-    "total": 224,
+    "total": 225,
     "open": 10,
-    "resolved": 214,
+    "resolved": 215,
     "by_area": {
       "core": {
-        "total": 91,
+        "total": 92,
         "open": 3,
-        "resolved": 88
+        "resolved": 89
       },
       "stdlib": {
         "total": 89,
@@ -1483,6 +1483,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T201910047Z-MOVE-CHECK-LOSES-RAW-ALIASES-RETURNE-85E61EC1.md"
+    },
+    {
+      "id": "ISS-20260427T212039819Z-RAW-BODY-HELPER-EFFECT-DETECTION-MIS-8D69E368",
+      "title": "raw body helper effect detection misses mangled raw memory symbols",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/effects.rs, nepl-core/tests/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T212039819Z-RAW-BODY-HELPER-EFFECT-DETECTION-MIS-8D69E368.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
