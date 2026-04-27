@@ -1,3 +1,24 @@
+# 2026-04-27 メモ (ISS-20260426T213057843Z LLVM Hasher monomorphize)
+
+- 状況:
+  - LLVM compile-only の `tests/stdlib/traits_hash.n.md` で、`HashMap<str,i32,DefaultHash32>` の `Hasher<str>::hash32` が `Option_T_i32` や別 hasher 型に特殊化され、monomorphize 後の未解決 trait call panic になっていた。
+  - 原因は LLVM emission が `SourceMap` なしで再 lowering し、`field::get` alias を解決できないまま旧 fallback で bare `get` に落としていたことだった。
+  - bare `get` は `HashMap get` overload と衝突し、hashmap 内部の hasher field access が collection lookup 候補へ混入して `.H` の型引数を汚染していた。
+- 修正:
+  - CLI の LLVM IR emission から `SourceMap` を渡し、LLVM codegen 前の lowering でも qualified import alias を保持した。
+  - qualified call の overload 解決を qualified binding 候補へ限定し、source-map-aware 経路では `field::get` を bare `get` に戻さないようにした。
+  - 明示型引数の置換 map と monomorphize instantiation map に raw/resolved TypeId の両方を登録し、明示型引数が再推論で上書きされないようにした。
+  - 未解決 trait call が残った場合は compiler worker を panic させず、`D4107` diagnostic として返すようにした。
+  - `nepl-core/tests/neplg2.rs` に string key HashMap と custom key/custom hasher HashMap を同一 module で使う回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_hashmap_string_key_preserves_explicit_hasher_type_args -- --nocapture`: `1/1 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --runner llvm --llvm-all --llvm-compile-only --no-tree -o tmp/llvm-hasher-monomorphize-after-diagnostic.json -j 1`: `total=6`, `passed=6`
+  - `git diff --check`: pass（CRLF 変換警告のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は NEPLg2 core の LLVM lowering / monomorphize が stdlib HashMap の explicit hasher 型を壊さないようにする修正。
+
 # 2026-04-27 メモ (ISS-20260426T213057295Z LLVM allocator runtime helper reachability)
 
 - 状況:

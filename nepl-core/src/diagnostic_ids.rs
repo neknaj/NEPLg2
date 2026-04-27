@@ -277,6 +277,8 @@ pub enum DiagnosticId {
     CodegenLlvmUnknownIntrinsic = 4105,
     /// LLVM backend が lower できない HIR 形状。
     CodegenLlvmUnsupportedHir = 4106,
+    /// monomorphize 後に trait call が残っている。
+    CodegenUnresolvedTraitCall = 4107,
 }
 
 impl DiagnosticId {
@@ -422,6 +424,7 @@ impl DiagnosticId {
             4104 => Some(DiagnosticId::CodegenLlvmUnknownFunction),
             4105 => Some(DiagnosticId::CodegenLlvmUnknownIntrinsic),
             4106 => Some(DiagnosticId::CodegenLlvmUnsupportedHir),
+            4107 => Some(DiagnosticId::CodegenUnresolvedTraitCall),
             _ => None,
         }
     }
@@ -655,6 +658,9 @@ impl DiagnosticId {
             DiagnosticId::CodegenLlvmUnknownFunction => "unknown function in LLVM codegen",
             DiagnosticId::CodegenLlvmUnknownIntrinsic => "unknown intrinsic in LLVM codegen",
             DiagnosticId::CodegenLlvmUnsupportedHir => "unsupported HIR in LLVM codegen",
+            DiagnosticId::CodegenUnresolvedTraitCall => {
+                "unresolved trait call remained after monomorphize"
+            }
         }
     }
 }

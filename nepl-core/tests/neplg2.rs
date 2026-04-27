@@ -158,6 +158,101 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn llvm_hashmap_string_key_preserves_explicit_hasher_type_args() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+#import "alloc/collections/hashmap" as *
+#import "alloc/diag/error" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "core/traits/hash" as *
+#import "core/traits/hash_key" as *
+
+fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+struct ModKey:
+    raw <i32>
+
+impl HashKey for ModKey:
+    fn eq <(ModKey,ModKey)->bool> (a, b):
+        eq field::get a "raw" field::get b "raw"
+
+    fn hash32 <(ModKey)->i32> (self):
+        rem_s field::get self "raw" 17
+
+impl Clone for ModKey:
+    fn clone <(&ModKey)->ModKey> (self):
+        *self
+
+impl Copy for ModKey:
+    fn copy_mark <(ModKey)->ModKey> (self):
+        self
+
+struct ModHasher:
+    tag <()>
+
+impl Clone for ModHasher:
+    fn clone <(&ModHasher)->ModHasher> (self):
+        *self
+
+impl Copy for ModHasher:
+    fn copy_mark <(ModHasher)->ModHasher> (self):
+        self
+
+impl Hasher<ModKey> for ModHasher:
+    fn hash32 <(ModHasher,ModKey)->i32> (_h, key):
+        rem_s field::get key "raw" 7
+
+fn must_hmk <(Result<HashMap<ModKey,i32,ModHasher>, Diag>)*>HashMap<ModKey,i32,ModHasher>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _d:
+            #intrinsic "unreachable" <> ()
+
+fn main <()*>i32> ():
+    let hms <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
+    let hms <HashMap<str,i32,DefaultHash32>> must_hms insert hms "key" 7;
+    let a <i32> match get hms "key":
+        Option::Some v:
+            v
+        Option::None:
+            0
+    let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk new ModHasher;
+    let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk insert hmk (ModKey 10) 3;
+    match get hmk (ModKey 10):
+        Option::Some v:
+            add a v
+        Option::None:
+            a
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+        Some(&loaded.source_map),
+    )
+    .expect("explicit HashMap hasher type argument should survive LLVM monomorphize");
+    assert!(!ll.contains("hash_with__H_K__i32__pure_str_Option_T_i32"));
+    assert!(!ll.contains("hash_with__H_K__i32__pure_str_ModHasher"));
+    assert!(ll.contains("hash_with__H_K__i32__pure_ModKey_ModHasher"));
+    assert!(ll.contains("DefaultHash32"));
+}
+
+#[test]
 fn llvm_match_i32_literal_lowers_to_switch() {
     let src = r#"
 #entry main

@@ -563,6 +563,19 @@ fn infer_instantiated_type_arg(
     .map(|ty| ctx.resolve_id(ty))
 }
 
+fn insert_substitution_mapping(
+    ctx: &TypeCtx,
+    mapping: &mut BTreeMap<TypeId, TypeId>,
+    param: TypeId,
+    arg: TypeId,
+) {
+    mapping.insert(param, arg);
+    let resolved_param = ctx.resolve_id(param);
+    if resolved_param != param {
+        mapping.insert(resolved_param, arg);
+    }
+}
+
 pub fn typecheck(
     module: &crate::ast::Module,
     target: CompileTarget,
@@ -1877,7 +1890,7 @@ pub fn typecheck(
                     ctx.resolve_id(target_ty),
                 );
                 for (tp, arg) in trait_info.type_params.iter().zip(trait_args.iter()) {
-                    mapping.insert(ctx.resolve_id(*tp), ctx.resolve_id(*arg));
+                    insert_substitution_mapping(&ctx, &mut mapping, *tp, *arg);
                 }
                 let expected_sig = ctx.substitute(trait_sig, &mapping);
                 let actual_sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
@@ -2933,7 +2946,7 @@ impl<'a> BlockChecker<'a> {
                     }
                     let mut mapping = BTreeMap::new();
                     for (tp, ta) in tps.iter().zip(type_args.iter()) {
-                        mapping.insert(self.ctx.resolve_id(*tp), self.ctx.resolve_id(*ta));
+                        insert_substitution_mapping(self.ctx, &mut mapping, *tp, *ta);
                     }
                     let sub_params = ps
                         .iter()
@@ -2947,7 +2960,7 @@ impl<'a> BlockChecker<'a> {
         }
         let mut mapping = BTreeMap::new();
         for (p, a) in type_params.iter().zip(entry.type_args.iter()) {
-            mapping.insert(self.ctx.resolve_id(*p), self.ctx.resolve_id(*a));
+            insert_substitution_mapping(self.ctx, &mut mapping, *p, *a);
         }
         let substituted_params = params
             .iter()
@@ -4577,7 +4590,10 @@ impl<'a> BlockChecker<'a> {
                                             .cloned()
                                             .collect()
                                     };
-                                if bindings.is_empty() && qualified_bindings.is_none() {
+                                if bindings.is_empty()
+                                    && qualified_bindings.is_none()
+                                    && self.qualified_import_targets.is_empty()
+                                {
                                     if let Some((ns, member)) = parse_variant_name(&id.name) {
                                         if !self.enums.contains_key(ns)
                                             && !self.traits.contains_key(ns)
@@ -4651,6 +4667,11 @@ impl<'a> BlockChecker<'a> {
                                     continue;
                                 }
                                 if !bindings.is_empty() {
+                                    let call_name = if qualified_bindings.is_some() {
+                                        id.name.clone()
+                                    } else {
+                                        lookup_name.clone()
+                                    };
                                     let callable_overload_count = bindings
                                         .iter()
                                         .filter(|b| matches!(b.kind, BindingKind::Func { .. }))
@@ -4707,7 +4728,7 @@ impl<'a> BlockChecker<'a> {
                                             ty,
                                             expr: HirExpr {
                                                 ty,
-                                                kind: HirExprKind::Var(lookup_name.clone()),
+                                                kind: HirExprKind::Var(call_name.clone()),
                                                 span: id.span,
                                             },
                                             type_args: Vec::new(),
@@ -4929,9 +4950,9 @@ impl<'a> BlockChecker<'a> {
                                             expr: HirExpr {
                                                 ty,
                                                 kind: if *forced_value {
-                                                    HirExprKind::FnValue(lookup_name.clone())
+                                                    HirExprKind::FnValue(call_name.clone())
                                                 } else {
-                                                    HirExprKind::Var(lookup_name.clone())
+                                                    HirExprKind::Var(call_name.clone())
                                                 },
                                                 span: id.span,
                                             },
@@ -7212,12 +7233,24 @@ impl<'a> BlockChecker<'a> {
                 );
             }
             let symbol_resolved = matches!(&func.expr.kind, HirExprKind::FnValue(_));
+            let qualified_call = if symbol_resolved {
+                None
+            } else {
+                self.lookup_qualified_bindings(&Ident {
+                    name: name.clone(),
+                    span: func.expr.span,
+                })
+            };
             let bindings = if symbol_resolved {
                 self.env.lookup_all_callables_by_symbol(name)
+            } else if let Some((_, qualified)) = &qualified_call {
+                qualified.iter().collect()
             } else {
                 self.env.lookup_all_callables(name)
             };
             let has_function_value_binding = if symbol_resolved {
+                false
+            } else if qualified_call.is_some() {
                 false
             } else {
                 self.env
@@ -7295,7 +7328,7 @@ impl<'a> BlockChecker<'a> {
                             }
                             let mut mapping = BTreeMap::new();
                             for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
-                                mapping.insert(self.ctx.resolve_id(*p), self.ctx.resolve_id(*a));
+                                insert_substitution_mapping(self.ctx, &mut mapping, *p, *a);
                             }
                             let substituted_params = params
                                 .iter()
@@ -7582,6 +7615,8 @@ impl<'a> BlockChecker<'a> {
                         } => (symbol.clone(), *builtin),
                         _ => (name.clone(), None),
                     };
+                    let selected_type_snapshot = (!explicit_type_args.is_empty())
+                        .then(|| self.ctx.snapshot_type_var_bindings(binding.ty));
                     let (inst_ty, mut resolved_args, type_arg_mapping) =
                         if !explicit_type_args.is_empty() {
                             let func_data = if let TypeKind::Function {
@@ -7610,7 +7645,7 @@ impl<'a> BlockChecker<'a> {
                             }
                             let mut mapping = BTreeMap::new();
                             for (p, a) in type_params.iter().zip(explicit_type_args.iter()) {
-                                mapping.insert(self.ctx.resolve_id(*p), self.ctx.resolve_id(*a));
+                                insert_substitution_mapping(self.ctx, &mut mapping, *p, *a);
                             }
                             let substituted_params = params
                                 .iter()
@@ -7680,20 +7715,26 @@ impl<'a> BlockChecker<'a> {
                         return None;
                     }
 
-                    resolved_args = resolved_args
-                        .into_iter()
-                        .map(|t| self.ctx.resolve_id(t))
-                        .collect();
-                    if let TypeKind::Function { type_params, .. } = self.ctx.get(binding.ty) {
-                        if type_params.len() == resolved_args.len() {
-                            for (idx, tp) in type_params.iter().enumerate() {
-                                if let Some(inferred) =
-                                    infer_instantiated_type_arg(self.ctx, binding.ty, inst_ty, *tp)
-                                {
-                                    resolved_args[idx] = self.ctx.resolve_id(inferred);
+                    if explicit_type_args.is_empty() {
+                        resolved_args = resolved_args
+                            .into_iter()
+                            .map(|t| self.ctx.resolve_id(t))
+                            .collect();
+                        if let TypeKind::Function { type_params, .. } = self.ctx.get(binding.ty) {
+                            if type_params.len() == resolved_args.len() {
+                                for (idx, tp) in type_params.iter().enumerate() {
+                                    if let Some(inferred) = infer_instantiated_type_arg(
+                                        self.ctx, binding.ty, inst_ty, *tp,
+                                    ) {
+                                        resolved_args[idx] = self.ctx.resolve_id(inferred);
+                                    }
                                 }
                             }
                         }
+                    }
+
+                    if let Some(snapshot) = &selected_type_snapshot {
+                        self.ctx.restore_type_var_bindings(snapshot);
                     }
 
                     if let BindingKind::Func {

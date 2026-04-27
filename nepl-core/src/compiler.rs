@@ -276,8 +276,23 @@ pub fn prepare_module_for_codegen_with_source_map(
     let mut tc = run_typecheck(module, target, profile, source_map)?;
     passes::insert_drops(&mut tc.module, &mut tc.types);
     let mut types = tc.types;
-    let hir_module = monomorphize::monomorphize(&mut types, tc.module);
     let mut diagnostics = tc.diagnostics;
+    let (hir_module, unresolved_trait_calls) =
+        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, tc.module);
+    if !unresolved_trait_calls.is_empty() {
+        diagnostics.extend(unresolved_trait_calls.into_iter().map(|call| {
+            Diagnostic::error(
+                format!(
+                    "unresolved trait call remained after monomorphize: {}",
+                    call.description
+                ),
+                call.span,
+            )
+            .with_id(DiagnosticId::CodegenUnresolvedTraitCall)
+            .with_code("D4107")
+        }));
+        return Err(CoreError::from_diagnostics(diagnostics));
+    }
     run_move_check(&hir_module, &types, &mut diagnostics)?;
     Ok(PreparedProgram {
         types,
@@ -292,7 +307,17 @@ pub fn prepare_module_for_llvm_codegen(
     profile: BuildProfile,
     entry_names: &[String],
 ) -> Result<PreparedLlvmProgram, CoreError> {
-    let program = prepare_module_for_codegen(module, target, profile)?;
+    prepare_module_for_llvm_codegen_with_source_map(module, target, profile, entry_names, None)
+}
+
+pub fn prepare_module_for_llvm_codegen_with_source_map(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    entry_names: &[String],
+    source_map: Option<&SourceMap>,
+) -> Result<PreparedLlvmProgram, CoreError> {
+    let program = prepare_module_for_codegen_with_source_map(module, target, profile, source_map)?;
     let raw_entry_defs = collect_top_level_llvm_defined_functions(module, target, profile);
     let mut reachable_set = BTreeSet::new();
     let mut resolved_entries = BTreeMap::new();
