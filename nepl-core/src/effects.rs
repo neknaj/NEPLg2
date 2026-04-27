@@ -83,6 +83,26 @@ pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {
     out
 }
 
+pub fn raw_body_memory_operations(body: &HirBody) -> Vec<String> {
+    let lines = match body {
+        HirBody::Wasm(w) => &w.lines,
+        HirBody::LlvmIr(l) => &l.lines,
+        HirBody::Block(_) => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for line in lines {
+        let op = match body {
+            HirBody::Wasm(_) => wasm_memory_operation(line),
+            HirBody::LlvmIr(_) => llvm_memory_operation(line),
+            HirBody::Block(_) => None,
+        };
+        if let Some(op) = op {
+            out.push(op);
+        }
+    }
+    out
+}
+
 fn wasm_direct_callee(line: &str) -> Option<String> {
     let code = strip_wasm_comment(line).trim();
     let mut parts = code.split_whitespace();
@@ -100,6 +120,20 @@ fn strip_wasm_comment(line: &str) -> &str {
         (Some(a), None) | (None, Some(a)) => &line[..a],
         (None, None) => line,
     }
+}
+
+fn wasm_memory_operation(line: &str) -> Option<String> {
+    let code = strip_wasm_comment(line).trim();
+    let op = code.split_whitespace().next()?;
+    if wasm_op_is_memory_effect(op) {
+        Some(String::from(op))
+    } else {
+        None
+    }
+}
+
+fn wasm_op_is_memory_effect(op: &str) -> bool {
+    op.starts_with("memory.") || op == "data.drop" || op.contains(".load") || op.contains(".store")
 }
 
 fn llvm_direct_callee(line: &str) -> Option<String> {
@@ -125,6 +159,45 @@ fn parse_llvm_symbol(text: &str) -> Option<&str> {
     } else {
         Some(&text[..end])
     }
+}
+
+fn llvm_memory_operation(line: &str) -> Option<String> {
+    let code = line.split(';').next().unwrap_or(line).trim();
+    if code.is_empty() {
+        return None;
+    }
+    if let Some(callee) = llvm_direct_callee(line) {
+        if llvm_callee_is_memory_effect(&callee) {
+            return Some(callee);
+        }
+    }
+    let op = llvm_instruction_opcode(code)?;
+    if llvm_op_is_memory_effect(op) {
+        Some(String::from(op))
+    } else {
+        None
+    }
+}
+
+fn llvm_instruction_opcode(code: &str) -> Option<&str> {
+    let mut text = code.trim_start();
+    if let Some(eq_idx) = text.find('=') {
+        text = text[(eq_idx + 1)..].trim_start();
+    }
+    text.split_whitespace().next()
+}
+
+fn llvm_op_is_memory_effect(op: &str) -> bool {
+    matches!(
+        op,
+        "alloca" | "load" | "store" | "atomicrmw" | "cmpxchg" | "fence"
+    )
+}
+
+fn llvm_callee_is_memory_effect(callee: &str) -> bool {
+    callee.starts_with("llvm.memcpy")
+        || callee.starts_with("llvm.memmove")
+        || callee.starts_with("llvm.memset")
 }
 
 fn normalize_raw_symbol(symbol: &str) -> String {

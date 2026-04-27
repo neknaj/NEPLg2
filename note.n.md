@@ -1,3 +1,20 @@
+# 2026-04-28 メモ (ISS-20260427T152947135Z raw body memory effect)
+
+- 状況:
+  - pure raw body の effect validation は raw body 内の direct call だけを見ており、Wasm `i32.store` / `memory.grow` や LLVM `store` / `alloca` / `llvm.memcpy` などの memory instruction を分類していなかった。
+  - `stdlib/core/mem.nepl` は移行中の compiler-owned memory boundary として同種の raw memory instruction を使うため、全面拒否ではなく通常 source と core/mem boundary を分ける必要があった。
+- 修正:
+  - `effects.rs` に raw body memory operation の構造的分類を追加した。
+  - pure raw body で memory instruction を見つけた場合は `D3025` で拒否する。
+  - `stdlib/core/mem.nepl` だけは現行 allocator / load-store 移行のため限定許可し、公開 API 分離は後続 issue に残した。
+- 検証:
+  - `cargo test -p nepl-core --test effects`: `9 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-body-memory-effect-validation.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --runner llvm --no-tree -o tmp/raw-body-memory-effect-validation-llvm.json -j 1`: `total=2`, `passed=2`
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の effect / memory safety 検査を強化する変更。
+
 # 2026-04-28 メモ (compiler / core mem 責務分割レビュー)
 
 - 状況:

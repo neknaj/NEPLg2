@@ -14,7 +14,7 @@ use crate::builtins::BuiltinKind;
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
-use crate::effects::{intrinsic_effect, raw_body_direct_callees};
+use crate::effects::{intrinsic_effect, raw_body_direct_callees, raw_body_memory_operations};
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
@@ -1735,6 +1735,7 @@ pub fn typecheck(
                 &impls,
                 &mut nested_functions,
                 &import_resolution,
+                source_map,
             ) {
                 Ok(checked) => {
                     diagnostics.extend(checked.diagnostics);
@@ -1940,6 +1941,7 @@ pub fn typecheck(
                     &impls,
                     &mut nested_functions,
                     &import_resolution,
+                    source_map,
                 ) {
                     Ok(checked) => checked,
                     Err(mut diags) => {
@@ -2100,6 +2102,7 @@ fn check_function(
     impls: &Vec<ImplInfo>,
     generated_functions: &mut Vec<HirFunction>,
     import_resolution: &ImportResolution,
+    source_map: Option<&SourceMap>,
 ) -> Result<CheckedFunction, Vec<Diagnostic>> {
     let mut diags = Vec::new();
     let func_ty_snapshot = ctx.snapshot_type_var_bindings(func_ty);
@@ -2185,6 +2188,7 @@ fn check_function(
             generated_functions,
             target,
             profile,
+            source_map,
         };
 
         let body_res = match &f.body {
@@ -2369,6 +2373,7 @@ struct BlockChecker<'a> {
     generated_functions: &'a mut Vec<HirFunction>,
     target: CompileTarget,
     profile: BuildProfile,
+    source_map: Option<&'a SourceMap>,
 }
 
 impl<'a> BlockChecker<'a> {
@@ -2490,6 +2495,24 @@ impl<'a> BlockChecker<'a> {
 
     fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {
         if matches!(self.current_effect, Effect::Pure) {
+            let memory_ops = raw_body_memory_operations(body);
+            if !memory_ops.is_empty() && !self.raw_body_memory_operations_allowed(span) {
+                let op = memory_ops
+                    .first()
+                    .map(String::as_str)
+                    .unwrap_or("raw memory operation");
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        format!(
+                            "pure raw body cannot access raw memory instruction '{}'",
+                            op
+                        ),
+                        span,
+                    )
+                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                );
+                return false;
+            }
             for callee in raw_body_direct_callees(body) {
                 if self.raw_callee_is_impure(&callee) {
                     self.diagnostics.push(
@@ -2501,6 +2524,17 @@ impl<'a> BlockChecker<'a> {
             }
         }
         true
+    }
+
+    fn raw_body_memory_operations_allowed(&self, span: Span) -> bool {
+        let Some(source_map) = self.source_map else {
+            return false;
+        };
+        let Some(path) = source_map.path(span.file_id) else {
+            return false;
+        };
+        let normalized = path.as_str().replace('\\', "/");
+        normalized.ends_with("/stdlib/core/mem.nepl") || normalized == "stdlib/core/mem.nepl"
     }
 
     fn raw_callee_is_impure(&self, callee: &str) -> bool {
@@ -4128,6 +4162,7 @@ impl<'a> BlockChecker<'a> {
                         self.impls,
                         self.generated_functions,
                         self.import_resolution,
+                        self.source_map,
                     ) {
                         Ok(checked) => {
                             self.diagnostics.extend(checked.diagnostics);

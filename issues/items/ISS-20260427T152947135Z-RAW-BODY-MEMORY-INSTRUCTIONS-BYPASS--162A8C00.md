@@ -2,8 +2,8 @@
 id: ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00
 title: "raw body memory instructions bypass pure effect validation"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P0
 type: bug
 created: 2026-04-27
@@ -45,3 +45,18 @@ raw body を構文または IR として解析し、memory instruction を `Inte
 ## 検証
 
 pure raw body に `i32.store` / LLVM `store` / `memory.grow` 相当を含めた compile_fail を追加する。既存の raw body call 検査が維持されること、compiler-owned allocator helper を許可する場合はその許可が public raw body へ漏れないことを回帰テストで固定する。
+
+## 対応結果
+
+- `nepl-core/src/effects.rs` に raw body memory operation の構造的分類を追加した。
+- Wasm raw body では `*.load` / `*.store` / `memory.*` / `data.drop` を memory effect として扱う。
+- LLVM raw body では `alloca` / `load` / `store` / atomic memory operation と `llvm.memcpy` / `llvm.memmove` / `llvm.memset` 系 call を memory effect として扱う。
+- `nepl-core/src/typecheck.rs` の pure raw body validation で、通常 source の raw memory instruction を `D3025` として拒否するようにした。
+- 移行中の `stdlib/core/mem.nepl` だけは compiler-owned memory boundary として限定許可した。この許可は `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` と `ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E` の修正で縮小する。
+
+## 実施した検証
+
+- `cargo test -p nepl-core --test effects`: `9 passed`
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-body-memory-effect-validation.json -j 1`: `total=6`, `passed=6`
+- `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --runner llvm --no-tree -o tmp/raw-body-memory-effect-validation-llvm.json -j 1`: `total=2`, `passed=2`

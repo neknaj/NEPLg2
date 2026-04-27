@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T15:32:41.070Z",
+  "generated_at": "2026-04-27T15:44:03.650Z",
   "counts": {
     "total": 199,
-    "open": 11,
-    "resolved": 188,
+    "open": 10,
+    "resolved": 189,
     "by_area": {
       "core": {
         "total": 70,
-        "open": 5,
-        "resolved": 65
+        "open": 4,
+        "resolved": 66
       },
       "stdlib": {
         "total": 85,
@@ -44,21 +44,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00",
-      "title": "raw body memory instructions bypass pure effect validation",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, tests/compiler/raw_body_precheck.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -418,6 +403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T151835595Z-AGGREGATE-VALUES-WITHOUT-CUSTOM-DROP-83DACC3B.md"
+    },
+    {
+      "id": "ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00",
+      "title": "raw body memory instructions bypass pure effect validation",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, tests/compiler/raw_body_precheck.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-001-CDADB88A",
