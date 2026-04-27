@@ -89,6 +89,8 @@ struct BorrowCount {
 }
 
 struct MoveCheckContext {
+    /// String literals referenced by HIR field selector expressions.
+    string_literals: Vec<String>,
     /// Function parameter types after monomorphization.
     function_params: BTreeMap<String, Vec<TypeId>>,
     /// State of all variables currently in scope.
@@ -104,6 +106,8 @@ struct MoveCheckContext {
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
     /// Raw aliases held by enum payloads, aligned with `var_stacks`.
     enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
+    /// Raw aliases held by aggregate fields, aligned with `var_stacks`.
+    aggregate_field_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, String>>>,
     /// Ownership state for trackable raw memory places that carry non-Copy values.
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     /// Active borrow counts per source variable.
@@ -124,13 +128,15 @@ struct ResourceStateSnapshot {
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
     enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
+    aggregate_field_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, String>>>,
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
 
 impl MoveCheckContext {
-    fn new() -> Self {
+    fn new(module: &HirModule) -> Self {
         Self {
+            string_literals: module.string_literals.clone(),
             function_params: BTreeMap::new(),
             var_stacks: BTreeMap::new(),
             var_depth_stacks: BTreeMap::new(),
@@ -138,6 +144,7 @@ impl MoveCheckContext {
             field_move_stacks: BTreeMap::new(),
             raw_addr_alias_stacks: BTreeMap::new(),
             enum_payload_raw_alias_stacks: BTreeMap::new(),
+            aggregate_field_raw_alias_stacks: BTreeMap::new(),
             raw_place_states: BTreeMap::new(),
             borrow_counts: BTreeMap::new(),
             use_counts: Vec::new(),
@@ -154,6 +161,7 @@ impl MoveCheckContext {
             field_move_stacks: self.field_move_stacks.clone(),
             raw_addr_alias_stacks: self.raw_addr_alias_stacks.clone(),
             enum_payload_raw_alias_stacks: self.enum_payload_raw_alias_stacks.clone(),
+            aggregate_field_raw_alias_stacks: self.aggregate_field_raw_alias_stacks.clone(),
             raw_place_states: self.raw_place_states.clone(),
             borrow_counts: self.borrow_counts.clone(),
         }
@@ -166,6 +174,7 @@ impl MoveCheckContext {
         self.field_move_stacks = snapshot.field_move_stacks.clone();
         self.raw_addr_alias_stacks = snapshot.raw_addr_alias_stacks.clone();
         self.enum_payload_raw_alias_stacks = snapshot.enum_payload_raw_alias_stacks.clone();
+        self.aggregate_field_raw_alias_stacks = snapshot.aggregate_field_raw_alias_stacks.clone();
         self.raw_place_states = snapshot.raw_place_states.clone();
         self.borrow_counts = snapshot.borrow_counts.clone();
     }
@@ -214,6 +223,12 @@ impl MoveCheckContext {
                     self.enum_payload_raw_alias_stacks.remove(&name);
                 }
             }
+            if let Some(stack) = self.aggregate_field_raw_alias_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.aggregate_field_raw_alias_stacks.remove(&name);
+                }
+            }
         }
     }
 
@@ -244,6 +259,10 @@ impl MoveCheckContext {
             .or_default()
             .push(None);
         self.enum_payload_raw_alias_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(BTreeMap::new());
+        self.aggregate_field_raw_alias_stacks
             .entry(name.clone())
             .or_default()
             .push(BTreeMap::new());
@@ -342,6 +361,34 @@ impl MoveCheckContext {
                 *slot = aliases;
             }
         }
+    }
+
+    fn aggregate_field_raw_alias(&self, name: &str, offset: usize) -> Option<&str> {
+        self.aggregate_field_raw_alias_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+            .and_then(|aliases| aliases.get(&offset))
+            .map(String::as_str)
+    }
+
+    fn aggregate_field_raw_aliases(&self, name: &str) -> BTreeMap<usize, String> {
+        self.aggregate_field_raw_alias_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn set_aggregate_field_raw_aliases(&mut self, name: &str, aliases: BTreeMap<usize, String>) {
+        if let Some(stack) = self.aggregate_field_raw_alias_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = aliases;
+            }
+        }
+    }
+
+    fn string_literal(&self, id: u32) -> Option<&str> {
+        self.string_literals.get(id as usize).map(String::as_str)
     }
 
     fn has_field_moves(&self, name: &str) -> bool {
@@ -595,8 +642,11 @@ impl MoveCheckContext {
         }
     }
 
-    fn with_function_params(function_params: BTreeMap<String, Vec<TypeId>>) -> Self {
-        let mut ctx = Self::new();
+    fn with_function_params(
+        module: &HirModule,
+        function_params: BTreeMap<String, Vec<TypeId>>,
+    ) -> Self {
+        let mut ctx = Self::new(module);
         ctx.function_params = function_params;
         ctx
     }
@@ -1177,10 +1227,9 @@ fn field_move_path_from_addr(
     }
 
     let (owner, owner_ty, offset) = base_owner(addr)?;
-    let field_ty = tctx.resolve_id(field_ty);
     let is_declared_field = aggregate_fields_with_offsets(tctx, owner_ty)
         .into_iter()
-        .any(|field| field.offset == offset && tctx.resolve_id(field.ty) == field_ty);
+        .any(|field| field.offset == offset && tctx.same_type(field.ty, field_ty));
     if is_declared_field {
         Some(FieldMovePath {
             owner: owner.to_string(),
@@ -1329,6 +1378,9 @@ fn raw_addr_alias_from_value(
     if let Some(key) = raw_memory_place_key_from_region_token(value, ctx, tctx) {
         return Some(key);
     }
+    if let Some(key) = raw_alias_from_aggregate_field_load(value, ctx, tctx) {
+        return Some(key);
+    }
     if tctx.same_type(value.ty, tctx.i32()) {
         raw_memory_place_key(value, ctx, tctx)
     } else {
@@ -1371,6 +1423,10 @@ fn is_region_ptr_at_name(name: &str) -> bool {
     name == "region_ptr_at" || name.starts_with("region_ptr_at_")
 }
 
+fn is_field_get_name(name: &str) -> bool {
+    name == "get" || name.starts_with("get__")
+}
+
 fn is_mem_ptr_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
     match tctx.get_ref(tctx.resolve_id(ty)) {
         TypeKind::Struct { name, .. } if name == "MemPtr" => true,
@@ -1391,6 +1447,107 @@ fn is_region_token_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
         },
         _ => false,
     }
+}
+
+fn aggregate_field_index_by_name(
+    tctx: &crate::types::TypeCtx,
+    ty: TypeId,
+    field_name: &str,
+) -> Option<usize> {
+    let ty = tctx.resolve_named_type_id(ty);
+    match tctx.get_ref(ty) {
+        TypeKind::Struct { field_names, .. } => {
+            field_names.iter().position(|name| name == field_name)
+        }
+        TypeKind::Tuple { items } => field_name
+            .parse::<usize>()
+            .ok()
+            .filter(|index| *index < items.len()),
+        TypeKind::Apply { base, .. } => {
+            let base = tctx.resolve_named_type_id(*base);
+            match tctx.get_ref(base) {
+                TypeKind::Struct { field_names, .. } => {
+                    field_names.iter().position(|name| name == field_name)
+                }
+                TypeKind::Tuple { items } => field_name
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|index| *index < items.len()),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn aggregate_field_layout_from_selector(
+    owner_ty: TypeId,
+    selector: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<(usize, TypeId)> {
+    let index = match &selector.kind {
+        HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
+        HirExprKind::LiteralStr(id) => {
+            let field_name = ctx.string_literal(*id)?;
+            aggregate_field_index_by_name(tctx, owner_ty, field_name)
+        }
+        _ => None,
+    }?;
+    aggregate_fields_with_offsets(tctx, owner_ty)
+        .get(index)
+        .map(|field| (field.offset, field.ty))
+}
+
+fn field_get_projection<'a>(
+    expr: &'a HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<(&'a HirExpr, usize, TypeId)> {
+    let HirExprKind::Call { callee, args } = &expr.kind else {
+        return None;
+    };
+    if args.len() < 2 {
+        return None;
+    }
+    let name = func_ref_name(callee)?;
+    if !is_field_get_name(name) {
+        return None;
+    }
+    let (offset, field_ty) = aggregate_field_layout_from_selector(args[0].ty, &args[1], ctx, tctx)?;
+    Some((&args[0], offset, field_ty))
+}
+
+fn aggregate_field_raw_alias_at(
+    owner: &HirExpr,
+    offset: usize,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    if let HirExprKind::Var(name) = &owner.kind {
+        return ctx
+            .aggregate_field_raw_alias(name, offset)
+            .map(ToString::to_string);
+    }
+    aggregate_field_raw_aliases_from_value(owner, ctx, tctx)
+        .get(&offset)
+        .cloned()
+}
+
+fn raw_alias_from_aggregate_field_load(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    let HirExprKind::Intrinsic { name, args, .. } = &value.kind else {
+        return None;
+    };
+    if name != "load" || args.len() != 1 {
+        return None;
+    }
+    let path = field_move_path_from_addr(&args[0], value.ty, tctx)?;
+    ctx.aggregate_field_raw_alias(path.owner.as_str(), path.offset)
+        .map(ToString::to_string)
 }
 
 fn raw_memory_place_key_from_mem_ptr(
@@ -1426,8 +1583,17 @@ fn raw_memory_place_key_from_mem_ptr(
                     base.as_str(),
                     combine_raw_memory_offsets(base_offset, offset),
                 ))
-            } else if name == "get" && is_region_token_type(tctx, args[0].ty) {
-                raw_memory_place_key_from_region_token(&args[0], ctx, tctx)
+            } else if is_field_get_name(name) {
+                if let Some((owner, offset, _)) = field_get_projection(expr, ctx, tctx) {
+                    if let Some(alias) = aggregate_field_raw_alias_at(owner, offset, ctx, tctx) {
+                        return Some(alias);
+                    }
+                }
+                if is_region_token_type(tctx, args[0].ty) {
+                    raw_memory_place_key_from_region_token(&args[0], ctx, tctx)
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -1436,6 +1602,11 @@ fn raw_memory_place_key_from_mem_ptr(
             if name == "MemPtr" && fields.len() == 1 =>
         {
             raw_memory_place_key(&fields[0], ctx, tctx)
+        }
+        HirExprKind::Intrinsic { name, args, .. }
+            if name == "load" && args.len() == 1 && is_mem_ptr_type(tctx, expr.ty) =>
+        {
+            raw_alias_from_aggregate_field_load(expr, ctx, tctx)
         }
         _ => None,
     }
@@ -1453,15 +1624,24 @@ fn raw_memory_place_key_from_region_token(
             .or_else(|| Some(alloc::format!("$region:{}", name))),
         HirExprKind::Call { callee, args } if args.len() >= 2 => {
             let name = func_ref_name(callee)?;
-            if !is_region_new_name(name) {
-                return None;
+            if is_region_new_name(name) {
+                return raw_memory_place_key_from_mem_ptr(&args[0], ctx, tctx);
             }
-            raw_memory_place_key_from_mem_ptr(&args[0], ctx, tctx)
+            if is_field_get_name(name) && is_region_token_type(tctx, expr.ty) {
+                let (owner, offset, _) = field_get_projection(expr, ctx, tctx)?;
+                return aggregate_field_raw_alias_at(owner, offset, ctx, tctx);
+            }
+            None
         }
         HirExprKind::StructConstruct { name, fields, .. }
             if name == "RegionToken" && !fields.is_empty() =>
         {
             raw_memory_place_key_from_mem_ptr(&fields[0], ctx, tctx)
+        }
+        HirExprKind::Intrinsic { name, args, .. }
+            if name == "load" && args.len() == 1 && is_region_token_type(tctx, expr.ty) =>
+        {
+            raw_alias_from_aggregate_field_load(expr, ctx, tctx)
         }
         _ => None,
     }
@@ -1548,6 +1728,107 @@ fn enum_payload_raw_aliases_from_value(
         }
     }
     aliases
+}
+
+fn aggregate_field_raw_aliases_from_items(
+    value_ty: TypeId,
+    items: &[HirExpr],
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<usize, String> {
+    let layouts = aggregate_fields_with_offsets(tctx, value_ty);
+    let mut aliases = BTreeMap::new();
+    for (item, layout) in items.iter().zip(layouts.into_iter()) {
+        if let Some(alias) = raw_addr_alias_from_value(item, ctx, tctx) {
+            aliases.insert(layout.offset, alias);
+        }
+        for (nested_offset, alias) in aggregate_field_raw_aliases_from_value(item, ctx, tctx) {
+            aliases.insert(layout.offset.saturating_add(nested_offset), alias);
+        }
+    }
+    aliases
+}
+
+fn aggregate_field_raw_aliases_from_projection(
+    owner: &HirExpr,
+    field_offset: usize,
+    field_ty: TypeId,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<usize, String> {
+    let field_size = storage_size_bytes(tctx, field_ty);
+    if field_size == 0 {
+        return BTreeMap::new();
+    }
+    let field_end = field_offset.saturating_add(field_size);
+    aggregate_field_raw_aliases_from_value(owner, ctx, tctx)
+        .into_iter()
+        .filter_map(|(offset, alias)| {
+            if field_offset <= offset && offset < field_end {
+                Some((offset - field_offset, alias))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn aggregate_field_raw_aliases_from_field_load(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<usize, String> {
+    let HirExprKind::Intrinsic { name, args, .. } = &value.kind else {
+        return BTreeMap::new();
+    };
+    if name != "load" || args.len() != 1 {
+        return BTreeMap::new();
+    }
+    let Some(path) = field_move_path_from_addr(&args[0], value.ty, tctx) else {
+        return BTreeMap::new();
+    };
+    let field_size = storage_size_bytes(tctx, path.field_ty);
+    if field_size == 0 {
+        return BTreeMap::new();
+    }
+    let field_end = path.offset.saturating_add(field_size);
+    ctx.aggregate_field_raw_aliases(path.owner.as_str())
+        .into_iter()
+        .filter_map(|(offset, alias)| {
+            if path.offset <= offset && offset < field_end {
+                Some((offset - path.offset, alias))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn aggregate_field_raw_aliases_from_value(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<usize, String> {
+    match &value.kind {
+        HirExprKind::Var(name) => ctx.aggregate_field_raw_aliases(name),
+        HirExprKind::StructConstruct { fields, .. } => {
+            aggregate_field_raw_aliases_from_items(value.ty, fields, ctx, tctx)
+        }
+        HirExprKind::TupleConstruct { items } => {
+            aggregate_field_raw_aliases_from_items(value.ty, items, ctx, tctx)
+        }
+        HirExprKind::Call { .. } => {
+            if let Some((owner, offset, field_ty)) = field_get_projection(value, ctx, tctx) {
+                aggregate_field_raw_aliases_from_projection(owner, offset, field_ty, ctx, tctx)
+            } else {
+                BTreeMap::new()
+            }
+        }
+        HirExprKind::Intrinsic { .. } => {
+            aggregate_field_raw_aliases_from_field_load(value, ctx, tctx)
+        }
+        _ => BTreeMap::new(),
+    }
 }
 
 fn is_raw_memory_load_name(name: &str) -> bool {
@@ -2363,6 +2644,54 @@ fn merge_enum_payload_raw_alias_stacks(
     merged
 }
 
+fn merge_aggregate_field_raw_alias_stacks(
+    branches: &[&BranchStateSnapshot],
+) -> BTreeMap<String, Vec<BTreeMap<usize, String>>> {
+    let mut names = BTreeSet::new();
+    for branch in branches {
+        for name in branch.state.aggregate_field_raw_alias_stacks.keys() {
+            names.insert(name.clone());
+        }
+    }
+
+    let mut merged = BTreeMap::new();
+    for name in names {
+        let max_len = branches
+            .iter()
+            .filter_map(|branch| {
+                branch
+                    .state
+                    .aggregate_field_raw_alias_stacks
+                    .get(name.as_str())
+            })
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
+        let mut stack = Vec::with_capacity(max_len);
+        for index in 0..max_len {
+            let mut branch_values = branches.iter().map(|branch| {
+                branch
+                    .state
+                    .aggregate_field_raw_alias_stacks
+                    .get(name.as_str())
+                    .and_then(|stack| stack.get(index))
+                    .cloned()
+                    .unwrap_or_default()
+            });
+            let first = branch_values.next().unwrap_or_default();
+            if branch_values.all(|aliases| aliases == first) {
+                stack.push(first);
+            } else {
+                stack.push(BTreeMap::new());
+            }
+        }
+        if !stack.is_empty() {
+            merged.insert(name, stack);
+        }
+    }
+    merged
+}
+
 fn merged_branch_borrow_stack(
     name: &str,
     active_len: usize,
@@ -2414,6 +2743,8 @@ fn merge_continuing_branch_states(
     let merged_raw_place_states = merge_raw_place_states(&continuing);
     let merged_raw_addr_alias_stacks = merge_raw_addr_alias_stacks(&continuing);
     let merged_enum_payload_raw_alias_stacks = merge_enum_payload_raw_alias_stacks(&continuing);
+    let merged_aggregate_field_raw_alias_stacks =
+        merge_aggregate_field_raw_alias_stacks(&continuing);
 
     ctx.restore_resource_state(saved);
 
@@ -2475,6 +2806,7 @@ fn merge_continuing_branch_states(
     }
     ctx.raw_addr_alias_stacks = merged_raw_addr_alias_stacks;
     ctx.enum_payload_raw_alias_stacks = merged_enum_payload_raw_alias_stacks;
+    ctx.aggregate_field_raw_alias_stacks = merged_aggregate_field_raw_alias_stacks;
     ctx.raw_place_states = merged_raw_place_states;
     ctx.rebuild_borrow_counts_from_bindings();
     ctx.release_dead_borrows();
@@ -2907,23 +3239,29 @@ fn visit_expr_with_escape(
                 .unwrap_or_else(|| ctx.current_scope_depth());
             let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
             let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
+            let aggregate_field_raw_aliases =
+                aggregate_field_raw_aliases_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(target_depth));
             ctx.check_assign(name, expr.span);
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.set_borrow_bindings(name, retained_borrows);
             ctx.set_raw_addr_alias(name, raw_addr_alias);
             ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
+            ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
             Vec::new()
         }
         HirExprKind::Let { name, value, .. } => {
             let storage_depth = ctx.current_scope_depth();
             let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
             let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
+            let aggregate_field_raw_aliases =
+                aggregate_field_raw_aliases_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(storage_depth));
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.declare_var_with_borrows(name.clone(), retained_borrows);
             ctx.set_raw_addr_alias(name, raw_addr_alias);
             ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
+            ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
             ctx.set_state(name, VarState::Valid);
             if ctx.remaining_uses(name) == 0 {
                 ctx.release_borrow_binding(name);
@@ -3118,7 +3456,7 @@ pub fn run(module: &HirModule, types: &crate::types::TypeCtx) -> Vec<Diagnostic>
     let mut diagnostics = Vec::new();
 
     for func in &module.functions {
-        let mut f_ctx = MoveCheckContext::with_function_params(function_params.clone());
+        let mut f_ctx = MoveCheckContext::with_function_params(module, function_params.clone());
         for param in &func.params {
             f_ctx.declare_param(param.name.clone());
         }

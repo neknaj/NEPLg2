@@ -670,6 +670,71 @@ fn main <()->i32> ():
             0
 ```
 
+## aggregate field の MemPtr alias は field get 後も保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/field" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct PtrHolder:
+    ptr <MemPtr<LocalToken>>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let holder <PtrHolder> PtrHolder p
+    let q <MemPtr<LocalToken>> field::get holder "ptr"
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
+## aggregate field alias は branch merge 後も一致する場合だけ保持する
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/field" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct PtrHolder:
+    ptr <MemPtr<LocalToken>>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let mut holder <PtrHolder> PtrHolder p
+    if true:
+        then:
+            set holder PtrHolder p
+        else:
+            set holder PtrHolder p
+    let q <MemPtr<LocalToken>> field::get holder "ptr"
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
 ## raw realloc は initialized non-Copy place を byte move できない
 
 neplg2:test[compile_fail]

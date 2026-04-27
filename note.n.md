@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260427T195722619Z aggregate field raw alias tracking)
+
+- 状況:
+  - `move_check` は raw alias を direct `i32` / `MemPtr` / `RegionToken` 変数と enum payload には保持していたが、通常の aggregate field に格納された `MemPtr` の alias を保持していなかった。
+  - `PtrHolder { ptr: MemPtr<LocalToken> }` から `field::get holder "ptr"` で取り出した `q` と元の `p` から同じ `LocalToken` を二重 `load` する修正前再現では、compiler が exit 0 で受理した。
+- 修正:
+  - `MoveCheckContext` に aggregate field raw alias stack を追加し、scope / snapshot / restore / branch merge に含める。
+  - `let` / `set` で struct/tuple construction や aggregate projection が持つ field alias を保存する。
+  - `core/field::get` が monomorphize 後に `load` intrinsic へ下がる経路でも、aggregate field address から `MemPtr` / `RegionToken` の raw place を復元し、raw memory ownership 検査へ接続する。
+  - generic 適用後の aggregate field path 判定で `TypeId` 直比較をやめ、`same_type` により `MemPtr<LocalToken>` などを同一 field として扱うようにした。
+  - `tests/compiler/move_effect.n.md` に struct field projection と branch merge 後 projection の compile_fail 回帰テストを追加する。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/aggregate-field-raw-alias-node.json -j 1`: `total=77`, `passed=77`
+  - 修正前再現 `tmp/struct-field-memptr-alias-double-load.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の aggregate field provenance tracking を raw alias state に接続する作業。
+
 # 2026-04-28 メモ (ISS-20260427T194927207Z enum payload raw alias tracking)
 
 - 状況:
