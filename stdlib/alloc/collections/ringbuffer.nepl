@@ -123,6 +123,9 @@ fn ringbuffer_header_head_ptr_from_hdr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
 fn ringbuffer_header_data_ptr_ptr_from_hdr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
     mem_ptr_wrap add mem_ptr_addr hdr 12
 
+fn ringbuffer_store_header_i32 <(MemPtr<i32>,i32)->()> (ptr, value):
+    store_i32 mem_ptr_addr ptr value
+
 fn ringbuffer_len_from_hdr <(MemPtr<u8>)->i32> (hdr):
     match load_i32 ringbuffer_header_len_ptr_from_hdr hdr:
         Option::Some v:
@@ -228,15 +231,15 @@ fn with_capacity <.T> <(i32)*>Result<RingBuffer<.T>, Diag>> (initial_cap):
         Result::Ok header:
             match alloc_ptr<.T> mul cap size_of<.T>:
                 Result::Err _e:
-                    let _ <()> uwok dealloc_ptr<u8> header 16
+                    dealloc_raw mem_ptr_addr header 16
                     diag_err<RingBuffer<.T>> diag_out_of_memory "with_capacity(data)"
                 Result::Ok data:
                     let rb <RingBuffer<.T>> RingBuffer header
                     let hdr <MemPtr<u8>> get rb "hdr"
-                    let _ <()> uwok store_i32 ringbuffer_header_len_ptr_from_hdr hdr 0
-                    let _ <()> uwok store_i32 ringbuffer_header_cap_ptr_from_hdr hdr cap
-                    let _ <()> uwok store_i32 ringbuffer_header_head_ptr_from_hdr hdr 0
-                    let _ <()> uwok store_i32 ringbuffer_header_data_ptr_ptr_from_hdr hdr mem_ptr_addr data
+                    ringbuffer_store_header_i32 ringbuffer_header_len_ptr_from_hdr hdr 0
+                    ringbuffer_store_header_i32 ringbuffer_header_cap_ptr_from_hdr hdr cap
+                    ringbuffer_store_header_i32 ringbuffer_header_head_ptr_from_hdr hdr 0
+                    ringbuffer_store_header_i32 ringbuffer_header_data_ptr_ptr_from_hdr hdr mem_ptr_addr data
                     ok<RingBuffer<.T>, Diag> rb
 
 //: ## len
@@ -370,19 +373,19 @@ fn push <.T> <(RingBuffer<.T>, .T)*>Result<RingBuffer<.T>, Diag>> (rb, item):
                             let dst_off <i32> mul i size_of<.T>
                             store<.T> add mem_ptr_addr new_data dst_off load<.T> add mem_ptr_addr data src_off
                             set i add i 1
-                    let _ <()> uwok dealloc_ptr<.T> data mul cap size_of<.T>
-                    let _ <()> uwok store_i32 ringbuffer_header_cap_ptr_from_hdr hdr new_cap
-                    let _ <()> uwok store_i32 ringbuffer_header_head_ptr_from_hdr hdr 0
-                    let _ <()> uwok store_i32 ringbuffer_header_data_ptr_ptr_from_hdr hdr mem_ptr_addr new_data
+                    dealloc_raw mem_ptr_addr data mul cap size_of<.T>
+                    ringbuffer_store_header_i32 ringbuffer_header_cap_ptr_from_hdr hdr new_cap
+                    ringbuffer_store_header_i32 ringbuffer_header_head_ptr_from_hdr hdr 0
+                    ringbuffer_store_header_i32 ringbuffer_header_data_ptr_ptr_from_hdr hdr mem_ptr_addr new_data
                     let tail_off <i32> mul len size_of<.T>
                     store<.T> add mem_ptr_addr new_data tail_off item
-                    let _ <()> uwok store_i32 ringbuffer_header_len_ptr_from_hdr hdr add len 1
+                    ringbuffer_store_header_i32 ringbuffer_header_len_ptr_from_hdr hdr add len 1
                     ok<RingBuffer<.T>, Diag> rb
         else:
             let tail_idx <i32> mod_s add head len cap
             let tail_off <i32> mul tail_idx size_of<.T>
             store<.T> add mem_ptr_addr data tail_off item
-            let _ <()> uwok store_i32 ringbuffer_header_len_ptr_from_hdr hdr add len 1
+            ringbuffer_store_header_i32 ringbuffer_header_len_ptr_from_hdr hdr add len 1
             ok<RingBuffer<.T>, Diag> rb
 
 //: ## pop
@@ -432,8 +435,8 @@ fn pop <.T> <(RingBuffer<.T>)*>Option<.T>> (rb):
             let data <MemPtr<.T>> ringbuffer_data_from_hdr<.T> hdr
             let off <i32> mul head size_of<.T>
             let item <.T> load<.T> add mem_ptr_addr data off
-            let _ <()> uwok store_i32 ringbuffer_header_head_ptr_from_hdr hdr mod_s add head 1 cap
-            let _ <()> uwok store_i32 ringbuffer_header_len_ptr_from_hdr hdr sub len 1
+            ringbuffer_store_header_i32 ringbuffer_header_head_ptr_from_hdr hdr mod_s add head 1 cap
+            ringbuffer_store_header_i32 ringbuffer_header_len_ptr_from_hdr hdr sub len 1
             some<.T> item
 
 //: ## peek
@@ -513,8 +516,8 @@ fn peek <.T> <(RingBuffer<.T>)->Option<.T>> (rb):
 //: ```
 fn clear <.T> <(RingBuffer<.T>)*>RingBuffer<.T>> (rb):
     let hdr <MemPtr<u8>> get rb "hdr"
-    let _ <()> uwok store_i32 ringbuffer_header_len_ptr_from_hdr hdr 0
-    let _ <()> uwok store_i32 ringbuffer_header_head_ptr_from_hdr hdr 0
+    ringbuffer_store_header_i32 ringbuffer_header_len_ptr_from_hdr hdr 0
+    ringbuffer_store_header_i32 ringbuffer_header_head_ptr_from_hdr hdr 0
     rb
 
 //: ## free
@@ -524,7 +527,7 @@ fn clear <.T> <(RingBuffer<.T>)*>RingBuffer<.T>> (rb):
 //: - [要素/ようそ][領域/りょういき]とヘッダ[領域/りょういき]を[両方/りょうほう][解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - `cap * size_of<.T>` byte の[要素/ようそ][領域/りょういき]を `dealloc_ptr<.T>` し、その[後/あと]で 16 byte のヘッダを `dealloc_ptr<u8>` します。
+//: - `cap * size_of<.T>` byte の[要素/ようそ][領域/りょういき]と 16 byte のヘッダを、owner invariant に[基/もと]づき `dealloc_raw` で[解放/かいほう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [解放後/かいほうご]に `rb` を[再利用/さいりよう]してはいけません。
@@ -548,5 +551,5 @@ fn free <.T> <(RingBuffer<.T>)*>()> (rb):
     let hdr <MemPtr<u8>> get rb "hdr"
     let cap <i32> ringbuffer_cap_from_hdr hdr
     let data <MemPtr<.T>> ringbuffer_data_from_hdr<.T> hdr
-    let _ <()> uwok dealloc_ptr<.T> data mul cap size_of<.T>
-    let _ <()> uwok dealloc_ptr<u8> hdr 16
+    dealloc_raw mem_ptr_addr data mul cap size_of<.T>
+    dealloc_raw mem_ptr_addr hdr 16

@@ -19043,3 +19043,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の frequency / prefix-sum helper に使える Fenwick が、内部配列 access と cleanup で unsafe helper に依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000312311Z RingBuffer owned cleanup)
+
+- [同期]:
+  - `origin/main` が `2be6038 stdlib: remove fenwick unsafe internal unwraps` で一致している状態から `stdlib/ringbuffer-owned-cleanup` branch で作業した。
+- [原因]:
+  - `RingBuffer.with_capacity` は header と element buffer を確保し、`RingBuffer` owner がその storage を単独所有する。
+  - header の `len/cap/head/data` 更新、grow 時の旧 buffer cleanup、`free` の data/header cleanup は owner invariant の内側の処理にもかかわらず `uwok` で checked API の `Result` を unwrap していた。
+  - Queue / Deque の下層になる circular buffer が unsafe helper trap へ戻ると、self-host collection の基盤が再び compiler 回避的な書き方に依存してしまう。
+- [修正]:
+  - `ringbuffer_store_header_i32` を追加し、所有済み header field の write を内部 helper に集約した。
+  - data allocation failure cleanup、grow 時の旧 data cleanup、`free` の data/header cleanup を `dealloc_raw` に変更した。
+  - grow 後の `clear` / `free` と、single-element buffer の `free` regression を追加した。
+  - RingBuffer 実装に unsafe unwrap / unreachable / checked deallocation が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/ringbuffer-owned-cleanup-docs.json -j 1`: 10/10 passed
+  - `node nodesrc/tests.js -i tests/stdlib/ringbuffer_collections.n.md -i stdlib/tests/ringbuffer.n.md --no-tree -o tmp/ringbuffer-owned-cleanup-focused-2.json -j 1`: 4/4 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-ringbuffer-owned-cleanup.json -j 4`: 292/292 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-ringbuffer-owned-cleanup.json -j 4`: 418/418 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Queue / Deque を支える circular buffer が、header 更新と cleanup で unsafe helper に依存しないようになった。
