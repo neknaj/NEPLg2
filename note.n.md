@@ -20551,3 +20551,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - enum payload に包まれた callback 経由でも compiler の raw ownership state が function value / match 境界で途切れないようにした。
+
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-016 raw effect summary 再発対応)
+
+- [同期]:
+  - `f7848ea` を push/pull 済みの `main` から `fix/deep-prefix-wasm-stack-overflow` branch を作成した。
+- [再現]:
+  - GH Actions run `25022369695` の `rust-test` で `compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow` が native stack overflow していた。
+  - 手元でも `cargo test -p nepl-core --test check_pipeline compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow -- --nocapture` が `STATUS_STACK_OVERFLOW` で失敗した。
+  - `prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow` と `move_check_accepts_deep_prefix_chain_without_stack_overflow` も同じく失敗し、起点が `move_check` であることを確認した。
+- [原因]:
+  - 通常の ownership visit には simple expression 用の iterative fast path がある。
+  - しかし raw memory effect summary 追加後の `build_function_raw_alias_summaries` は `expression_raw_alias_summary` で深い direct call chain を再帰的に辿っていた。
+  - call summary の `$param:N` alias instantiation も nested call argument に対して `raw_addr_alias_from_value` を再帰し、深い `inc inc ... 0` で native stack を消費していた。
+- [修正]:
+  - `expression_raw_alias_summary` に simple direct user call tree 専用の bottom-up fast path を追加した。
+  - child summary を explicit stack で集め、user function call の return alias / raw effect は `instantiate_function_raw_alias_summary_from_value_summaries` で `ValueAliasSummary` から展開するようにした。
+  - raw memory call、`get` / `mem_ptr_*` / `region_*` などの特別な raw alias 規則を持つ call、indirect call、control-flow、borrow/lifetime が絡む式は従来の詳細経路に残し、検査の意味を簡略化しないようにした。
+- [検証]:
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `cargo test -p nepl-core --test check_pipeline compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow -- --nocapture`: pass
+  - `cargo test -p nepl-core --test check_pipeline -- --nocapture`: 7/7 passed
+  - `cargo test -p nepl-core --test move_check`: 51/51 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - raw effect summary 構築も深い HIR を native stack に積まずに処理できるようにした。

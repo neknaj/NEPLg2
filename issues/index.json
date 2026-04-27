@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T22:27:34.684Z",
+  "generated_at": "2026-04-27T22:35:29.741Z",
   "counts": {
     "total": 229,
     "open": 10,
@@ -798,7 +798,7 @@
       "id": "ISS-20260425T000000Z-RV-CORE-016-69B16F10",
       "title": "深い HIR を artifact codegen pipeline が再帰処理して stack overflow する",
       "area": "core",
-      "status": "fixed",
+      "status": "verified",
       "resolved": true,
       "priority": "P1",
       "type": "bug",

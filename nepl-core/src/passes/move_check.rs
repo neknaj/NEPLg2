@@ -5006,6 +5006,19 @@ fn base_raw_alias_summary_from_value(
     }
 }
 
+fn value_alias_summary_from_raw_summary(summary: &FunctionRawAliasSummary) -> ValueAliasSummary {
+    ValueAliasSummary {
+        raw_addr_alias: summary.raw_addr_alias.clone(),
+        aggregate_field_raw_aliases: summary.aggregate_field_raw_aliases.clone(),
+        enum_payload_raw_aliases: summary.enum_payload_raw_aliases.clone(),
+        enum_payload_aggregate_field_raw_aliases: summary
+            .enum_payload_aggregate_field_raw_aliases
+            .clone(),
+        enum_payload_function_aliases: summary.enum_payload_function_aliases.clone(),
+        function_value_alias: summary.function_value_alias.clone(),
+    }
+}
+
 fn add_child_raw_memory_effects(
     summary: &mut FunctionRawAliasSummary,
     children: impl IntoIterator<Item = FunctionRawAliasSummary>,
@@ -5015,11 +5028,143 @@ fn add_child_raw_memory_effects(
     }
 }
 
+enum SimpleRawAliasSummaryFrame<'a> {
+    Expr(&'a HirExpr),
+    FinishCall {
+        callee: &'a FuncRef,
+        arg_count: usize,
+    },
+}
+
+fn direct_call_summary_fast_path_supported(callee: &FuncRef) -> bool {
+    let FuncRef::User(name, _, _) = callee else {
+        return false;
+    };
+    !(name == "if"
+        || name == "while"
+        || is_field_get_name(name)
+        || is_mem_ptr_addr_name(name)
+        || is_mem_ptr_wrap_name(name)
+        || is_mem_ptr_add_name(name)
+        || is_raw_address_add_name(name)
+        || is_region_ptr_name(name)
+        || is_region_new_name(name)
+        || is_region_ptr_at_name(name)
+        || is_raw_memory_load_name(name)
+        || is_raw_memory_store_name(name)
+        || is_raw_memory_dealloc_name(name)
+        || is_raw_memory_realloc_name(name)
+        || is_raw_memory_bulk_copy_name(name)
+        || is_raw_memory_byte_fill_name(name))
+}
+
+fn simple_call_tree_raw_alias_summary_iteratively(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<FunctionRawAliasSummary> {
+    let mut frames = Vec::new();
+    let mut summaries = Vec::new();
+    frames.push(SimpleRawAliasSummaryFrame::Expr(expr));
+    while let Some(frame) = frames.pop() {
+        match frame {
+            SimpleRawAliasSummaryFrame::Expr(expr) => match &expr.kind {
+                HirExprKind::Var(_)
+                | HirExprKind::FnValue(_)
+                | HirExprKind::LiteralI32(_)
+                | HirExprKind::LiteralF32(_)
+                | HirExprKind::LiteralBool(_)
+                | HirExprKind::LiteralStr(_)
+                | HirExprKind::Unit
+                | HirExprKind::Drop { .. } => {
+                    summaries.push(base_raw_alias_summary_from_value(expr, ctx, tctx));
+                }
+                HirExprKind::Call { callee, args } => {
+                    if raw_memory_call_kind(callee, args, expr.ty, tctx).is_some() {
+                        return None;
+                    }
+                    if !direct_call_summary_fast_path_supported(callee) {
+                        return None;
+                    }
+                    frames.push(SimpleRawAliasSummaryFrame::FinishCall {
+                        callee,
+                        arg_count: args.len(),
+                    });
+                    for arg in args.iter().rev() {
+                        frames.push(SimpleRawAliasSummaryFrame::Expr(arg));
+                    }
+                }
+                HirExprKind::CallIndirect { .. }
+                | HirExprKind::If { .. }
+                | HirExprKind::While { .. }
+                | HirExprKind::Match { .. }
+                | HirExprKind::Block(_)
+                | HirExprKind::Let { .. }
+                | HirExprKind::Set { .. }
+                | HirExprKind::Intrinsic { .. }
+                | HirExprKind::EnumConstruct { .. }
+                | HirExprKind::StructConstruct { .. }
+                | HirExprKind::TupleConstruct { .. }
+                | HirExprKind::AddrOf(_)
+                | HirExprKind::Deref(_) => return None,
+            },
+            SimpleRawAliasSummaryFrame::FinishCall { callee, arg_count } => {
+                let mut child_summaries = Vec::with_capacity(arg_count);
+                for _ in 0..arg_count {
+                    child_summaries.push(summaries.pop()?);
+                }
+                child_summaries.reverse();
+
+                let mut child_effects = Vec::new();
+                let mut arg_summaries = Vec::with_capacity(arg_count);
+                for child in child_summaries {
+                    extend_unique_raw_memory_effects(
+                        &mut child_effects,
+                        child.raw_memory_effects.clone(),
+                    );
+                    arg_summaries.push(value_alias_summary_from_raw_summary(&child));
+                }
+
+                let mut summary = match callee {
+                    FuncRef::User(name, _, _) => {
+                        if let Some(callee_summary) =
+                            ctx.function_raw_alias_summaries.get(name.as_str())
+                        {
+                            instantiate_function_raw_alias_summary_from_value_summaries(
+                                callee_summary,
+                                &arg_summaries,
+                                ctx,
+                                tctx,
+                                ctx.function_raw_alias_summaries.len().saturating_add(1),
+                            )
+                        } else {
+                            FunctionRawAliasSummary::default()
+                        }
+                    }
+                    _ => return None,
+                };
+                let mut effects = child_effects;
+                extend_unique_raw_memory_effects(&mut effects, summary.raw_memory_effects);
+                summary.raw_memory_effects = effects;
+                summaries.push(summary);
+            }
+        }
+    }
+    if summaries.len() == 1 {
+        summaries.pop()
+    } else {
+        None
+    }
+}
+
 fn expression_raw_alias_summary(
     expr: &HirExpr,
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> FunctionRawAliasSummary {
+    if let Some(summary) = simple_call_tree_raw_alias_summary_iteratively(expr, ctx, tctx) {
+        return summary;
+    }
     match &expr.kind {
         HirExprKind::Block(block) => block_raw_alias_summary(block, ctx, tctx),
         HirExprKind::If {
