@@ -59,10 +59,41 @@ impl fmt::Display for SourcePathDisplay<'_> {
     }
 }
 
+/// Compiler-owned privileges attached to a source file.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SourceCapabilities {
+    raw_memory_boundary: bool,
+}
+
+impl SourceCapabilities {
+    pub fn none() -> Self {
+        Self {
+            raw_memory_boundary: false,
+        }
+    }
+
+    pub fn raw_memory_boundary() -> Self {
+        Self {
+            raw_memory_boundary: true,
+        }
+    }
+
+    pub fn allows_raw_memory_boundary(self) -> bool {
+        self.raw_memory_boundary
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SourceFile {
+    path: SourcePath,
+    src: String,
+    capabilities: SourceCapabilities,
+}
+
 /// Holds all loaded sources and their assigned FileId.
 #[derive(Debug, Clone, Default)]
 pub struct SourceMap {
-    files: Vec<(SourcePath, String)>,
+    files: Vec<SourceFile>,
 }
 
 impl SourceMap {
@@ -71,14 +102,25 @@ impl SourceMap {
     }
 
     pub fn path(&self, id: FileId) -> Option<&SourcePath> {
-        self.files.get(id.0 as usize).map(|(p, _)| p)
+        self.files.get(id.0 as usize).map(|file| &file.path)
+    }
+
+    pub fn capabilities(&self, id: FileId) -> SourceCapabilities {
+        self.files
+            .get(id.0 as usize)
+            .map(|file| file.capabilities)
+            .unwrap_or_default()
+    }
+
+    pub fn raw_memory_boundary_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id).allows_raw_memory_boundary()
     }
 
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {
         self.files
             .iter()
             .enumerate()
-            .map(|(idx, (path, _))| (FileId(idx as u32), path))
+            .map(|(idx, file)| (FileId(idx as u32), &file.path))
     }
 
     /// Convert a byte offset to (line, column) 0-based.
@@ -112,12 +154,25 @@ impl SourceMap {
     }
 
     pub fn get(&self, id: FileId) -> Option<&str> {
-        self.files.get(id.0 as usize).map(|(_, s)| s.as_str())
+        self.files.get(id.0 as usize).map(|file| file.src.as_str())
     }
 
     pub fn add(&mut self, path: impl Into<SourcePath>, src: String) -> FileId {
+        self.add_with_capabilities(path, src, SourceCapabilities::none())
+    }
+
+    pub fn add_with_capabilities(
+        &mut self,
+        path: impl Into<SourcePath>,
+        src: String,
+        capabilities: SourceCapabilities,
+    ) -> FileId {
         let id = self.files.len() as u32;
-        self.files.push((path.into(), src));
+        self.files.push(SourceFile {
+            path: path.into(),
+            src,
+            capabilities,
+        });
         FileId(id)
     }
 }

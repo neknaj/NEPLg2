@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T16:52:23.238Z",
+  "generated_at": "2026-04-27T16:57:41.475Z",
   "counts": {
     "total": 206,
-    "open": 13,
-    "resolved": 193,
+    "open": 12,
+    "resolved": 194,
     "by_area": {
       "core": {
         "total": 74,
-        "open": 5,
-        "resolved": 69
+        "open": 4,
+        "resolved": 70
       },
       "stdlib": {
         "total": 88,
@@ -103,21 +103,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T164419173Z-MEMORY-LAYOUT-RULES-ARE-DUPLICATED-A-FDB20787.md"
-    },
-    {
-      "id": "ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95",
-      "title": "core mem raw body privilege is granted by source path suffix",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "security",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/source_map.rs, nepl-core/tests/effects.rs, nepl-cli/tests/cli_output.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1243,6 +1228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T161537286Z-CORE-MEM-RAW-BOUNDARY-REJECTS-CUSTOM-52920E69.md"
+    },
+    {
+      "id": "ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95",
+      "title": "core mem raw body privilege is granted by source path suffix",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/source_map.rs, nepl-core/tests/effects.rs, nepl-cli/tests/cli_output.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

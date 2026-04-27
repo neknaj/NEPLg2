@@ -1,7 +1,8 @@
 use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_ids::DiagnosticId;
 use nepl_core::error::CoreError;
-use nepl_core::source_map::SourceMap;
+use nepl_core::loader::Loader;
+use nepl_core::source_map::{SourceCapabilities, SourceMap};
 use nepl_core::span::FileId;
 use nepl_core::{
     check_module, check_module_with_source_map, compile_wasm, lexer, parser, CompileOptions,
@@ -41,6 +42,21 @@ fn check_source(src: &str, target: CompileTarget) -> Result<(), CoreError> {
 fn check_source_with_path(src: &str, path: &str, target: CompileTarget) -> Result<(), CoreError> {
     let mut source_map = SourceMap::new();
     let file_id = source_map.add(path, String::from(src));
+    let module = parse_module_with_file_id(file_id, src);
+    check_module_with_source_map(module, Some(&source_map), options(target))
+}
+
+fn check_source_as_core_mem_boundary(
+    src: &str,
+    path: &str,
+    target: CompileTarget,
+) -> Result<(), CoreError> {
+    let mut source_map = SourceMap::new();
+    let file_id = source_map.add_with_capabilities(
+        path,
+        String::from(src),
+        SourceCapabilities::raw_memory_boundary(),
+    );
     let module = parse_module_with_file_id(file_id, src);
     check_module_with_source_map(module, Some(&source_map), options(target))
 }
@@ -192,7 +208,7 @@ fn load_i32 <(i32)->i32> (p):
     #intrinsic "load" <i32> (p)
 "#;
 
-    check_source_with_path(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
+    check_source_as_core_mem_boundary(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
         .expect("core/mem intrinsic helper remains allowed during migration");
 }
 
@@ -310,8 +326,27 @@ fn raw_store <(i32,i32)->()> (p, v):
         i32.store
 "#;
 
-    check_source_with_path(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
+    check_source_as_core_mem_boundary(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
         .expect("core/mem raw memory helper remains allowed during migration");
+}
+
+#[test]
+fn pure_raw_memory_path_suffix_without_capability_is_rejected() {
+    let src = r#"
+#entry raw_store
+#indent 4
+#target wasm
+
+fn raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#;
+
+    let result =
+        check_source_with_path(src, "/tmp/custom_stdlib/core/mem.nepl", CompileTarget::Wasm);
+    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
 }
 
 #[test]
@@ -328,6 +363,88 @@ fn raw_store <(i32,i32)->()> (p, v):
         i32.store
 "#;
 
-    check_source_with_path(src, "/tmp/custom_stdlib/core/mem.nepl", CompileTarget::Wasm)
+    check_source_as_core_mem_boundary(src, "/tmp/custom_stdlib/core/mem.nepl", CompileTarget::Wasm)
         .expect("custom stdlib roots still provide the core/mem raw memory boundary");
+}
+
+#[test]
+fn loader_marks_configured_stdlib_core_mem_as_raw_memory_boundary() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let stdlib_root = temp.path().join("stdlib");
+    std::fs::create_dir_all(stdlib_root.join("core")).expect("create stdlib core dir");
+    std::fs::write(
+        stdlib_root.join("core").join("mem.nepl"),
+        r#"
+#indent 4
+#target wasm
+
+fn raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#,
+    )
+    .expect("write core mem");
+    let entry = temp.path().join("main.nepl");
+    std::fs::write(
+        &entry,
+        r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    raw_store 0 1;
+    0
+"#,
+    )
+    .expect("write entry");
+
+    let mut loader = Loader::new(stdlib_root);
+    let loaded = loader.load(&entry).expect("load");
+    check_module_with_source_map(
+        loaded.module,
+        Some(&loaded.source_map),
+        options(CompileTarget::Wasm),
+    )
+    .expect("configured stdlib core/mem has raw memory capability");
+}
+
+#[test]
+fn loader_does_not_mark_user_core_mem_path_by_suffix() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let stdlib_root = temp.path().join("stdlib");
+    std::fs::create_dir_all(&stdlib_root).expect("create stdlib root");
+    let user_core_dir = temp.path().join("user").join("core");
+    std::fs::create_dir_all(&user_core_dir).expect("create user core dir");
+    let entry = user_core_dir.join("mem.nepl");
+    std::fs::write(
+        &entry,
+        r#"
+#entry raw_store
+#indent 4
+#target wasm
+#no_prelude
+
+fn raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#,
+    )
+    .expect("write user core mem");
+
+    let mut loader = Loader::new(stdlib_root);
+    let loaded = loader.load(&entry).expect("load");
+    let result = check_module_with_source_map(
+        loaded.module,
+        Some(&loaded.source_map),
+        options(CompileTarget::Wasm),
+    );
+    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
 }

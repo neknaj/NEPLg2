@@ -2533,11 +2533,7 @@ impl<'a> BlockChecker<'a> {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        let Some(path) = source_map.path(span.file_id) else {
-            return false;
-        };
-        let normalized = path.as_str().replace('\\', "/");
-        normalized.ends_with("/core/mem.nepl") || normalized == "core/mem.nepl"
+        source_map.raw_memory_boundary_allowed(span.file_id)
     }
 
     fn raw_memory_intrinsic_allowed(&self, name: &str, span: Span) -> bool {

@@ -14,7 +14,7 @@ use std::fs;
 use std::path::{Component, PathBuf};
 extern crate std;
 
-pub use crate::source_map::{SourceMap, SourcePath};
+pub use crate::source_map::{SourceCapabilities, SourceMap, SourcePath};
 
 macro_rules! loader_log {
     ($($arg:tt)*) => {
@@ -189,7 +189,11 @@ impl Loader {
                 canon
             )));
         }
-        let file_id = sm.add(path_to_source_label(&canon), src.clone());
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&canon),
+            src.clone(),
+            self.source_capabilities_for_path(&canon),
+        );
         let module = self.parse_module(file_id, src)?;
         let module = self.process_directives(
             canon.clone(),
@@ -231,7 +235,11 @@ impl Loader {
                 canon
             )));
         }
-        let file_id = sm.add(path_to_source_label(&canon), src.clone());
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&canon),
+            src.clone(),
+            self.source_capabilities_for_path(&canon),
+        );
         let module = self.parse_module(file_id, src)?;
         loader_log!("[Loader] processing directives for {:?}", canon);
         let module = self.process_directives_with(
@@ -271,7 +279,11 @@ impl Loader {
         }
         loader_log!("[Loader] Loading file: {:?}", canon);
         let src = read_file_to_string(&canon)?;
-        let file_id = sm.add(path_to_source_label(&canon), src.clone());
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&canon),
+            src.clone(),
+            self.source_capabilities_for_path(&canon),
+        );
         loader_log!("[Loader] Parsing module: {:?}", canon);
         let module = self.parse_module(file_id, src)?;
         loader_log!("[Loader] Processing directives for: {:?}", canon);
@@ -311,7 +323,11 @@ impl Loader {
             )));
         }
         let src = provider(&canon)?;
-        let file_id = sm.add(path_to_source_label(&canon), src.clone());
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&canon),
+            src.clone(),
+            self.source_capabilities_for_path(&canon),
+        );
         let module = self.parse_module(file_id, src)?;
         let module = self.process_directives_with(
             canon.clone(),
@@ -650,6 +666,14 @@ impl Loader {
             p
         );
         p
+    }
+
+    fn source_capabilities_for_path(&self, canon: &PathBuf) -> SourceCapabilities {
+        if *canon == canonicalize_path(&self.stdlib_root.join("core").join("mem.nepl")) {
+            SourceCapabilities::raw_memory_boundary()
+        } else {
+            SourceCapabilities::none()
+        }
     }
 }
 

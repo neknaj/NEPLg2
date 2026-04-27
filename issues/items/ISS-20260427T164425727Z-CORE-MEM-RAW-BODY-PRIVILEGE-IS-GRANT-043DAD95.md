@@ -2,8 +2,8 @@
 id: ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95
 title: "core mem raw body privilege is granted by source path suffix"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: security
 created: 2026-04-27
@@ -41,6 +41,22 @@ alternate stdlib root を許可する要件自体は正しいが、path suffix �
 
 loader が import 解決時に「configured stdlib の `core/mem`」「compiler generated internal module」「user module」を区別する module identity/capability を SourceMap または typed module table へ付与する。`raw_body_memory_operations_allowed` は path suffix ではなくその capability を確認する。custom stdlib root は capability 付きで許可し、同名 user file は拒否する。
 
+## 対応結果
+
+- `SourceMap` に `SourceCapabilities` を追加し、source file ごとに compiler-owned raw memory boundary capability を保持できるようにした。
+- `Loader` が configured stdlib root の `core/mem.nepl` を読み込む場合だけ `SourceCapabilities::raw_memory_boundary()` を付与するようにした。
+- `raw_body_memory_operations_allowed` / raw memory intrinsic 許可は SourceMap path suffix ではなく capability を確認するように変更した。
+- 既存の custom stdlib root は Loader が capability を付与するため引き続き許可される一方、同じ `/core/mem.nepl` suffix を持つ user file は raw memory instruction を使えない。
+
 ## 検証
 
 既存の custom stdlib root regression は維持する。加えて、任意の user file / fixture を `core/mem.nepl` という path に置いて raw `i32.store` / `memory.grow` / `#intrinsic "store"` を書いた場合は compile_fail になることを確認する。SourceMap path のみを改変しても capability が付かないことを unit test で固定する。
+
+## 実施した検証
+
+- `cargo fmt --check`: pass
+- `cargo test -p nepl-core --test effects raw_memory -- --nocapture`: `8 passed`
+- `cargo test -p nepl-core --test effects loader_does_not_mark_user_core_mem_path_by_suffix -- --nocapture`: `1 passed`
+- `cargo check -p nepl-core`: pass
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-memory-capability-raw-body-precheck.json -j 1`: `total=6`, `passed=6`

@@ -19905,3 +19905,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - raw non-Copy move-init API は Resource IR / owner token 設計が必要なため、別 issue のまま扱う。
+
+# 2026-04-28 メモ (ISS-20260427T164425727Z raw memory boundary capability)
+
+- [同期]:
+  - typed mem bulk copy 修正を `main` へ merge / push / pull 済みの状態から `fix/core-mem-raw-capability-source-map` branch を作成した。
+- [原因]:
+  - `typecheck.rs` の `raw_body_memory_operations_allowed` は SourceMap path が `/core/mem.nepl` で終わるかだけを見ていた。
+  - custom stdlib root を許可する必要はあるが、path suffix では configured stdlib の `core/mem` か user file かを区別できなかった。
+- [修正]:
+  - `SourceMap` に `SourceCapabilities` を追加し、file ごとに raw memory boundary capability を保持するようにした。
+  - `Loader` が configured stdlib root の `core/mem.nepl` を読み込む時だけ raw memory boundary capability を付与するようにした。
+  - `typecheck` の raw body / raw intrinsic 許可を path suffix 判定から capability 判定へ変更した。
+  - path suffix だけでは許可されない regression と、configured stdlib root の `core/mem` だけが許可される regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test effects raw_memory -- --nocapture`: 8 passed
+  - `cargo test -p nepl-core --test effects loader_does_not_mark_user_core_mem_path_by_suffix -- --nocapture`: 1 passed
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-memory-capability-raw-body-precheck.json -j 1`: 6/6 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - raw memory boundary は file name ではなく compiler/loader が付与する capability として扱う方針へ近づけた。
