@@ -309,11 +309,12 @@ fn main <()->i32> ():
             3
 "#;
     let loaded = load_inline_with_stdlib(src);
-    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
         &loaded.module,
         CompileTarget::Llvm,
         BuildProfile::Debug,
         false,
+        Some(&loaded.source_map),
     )
     .expect("i32 literal match should emit LLVM IR");
     assert!(ll.contains("switch i32"));
@@ -335,11 +336,12 @@ fn main <()->i32> ():
     deref_i32 &a
 "#;
     let loaded = load_inline_with_stdlib(src);
-    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
         &loaded.module,
         CompileTarget::Llvm,
         BuildProfile::Debug,
         false,
+        Some(&loaded.source_map),
     )
     .expect("scalar references should emit LLVM IR without unsupported AddrOf/Deref");
     assert!(ll.contains("store i32"));
@@ -365,11 +367,12 @@ fn main <()->i32> ():
     observe_pair &p
 "#;
     let loaded = load_inline_with_stdlib(src);
-    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
         &loaded.module,
         CompileTarget::Llvm,
         BuildProfile::Debug,
         false,
+        Some(&loaded.source_map),
     )
     .expect("aggregate address-of should emit LLVM IR without unsupported AddrOf");
     assert!(ll.contains("define i32 @\"observe_pair\"(i32 %p0)"));

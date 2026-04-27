@@ -20576,3 +20576,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - raw effect summary 構築も深い HIR を native stack に積まずに処理できるようにした。
+
+# 2026-04-28 メモ (ISS-20260427T172347729Z neplg2 LLVM harness SourceMap 追補)
+
+- [同期]:
+  - `d7bd538` を push/pull 済みの `main` で確認し、`nepl-core --test neplg2` の失敗を切り分けた。
+- [再現]:
+  - `llvm_match_i32_literal_lowers_to_switch`、`llvm_reference_scalar_addr_of_and_deref_lowers`、`llvm_reference_aggregate_addr_of_lowers` が D3025 で失敗した。
+  - 診断は `stdlib/core/mem.nepl` の `llvm.memcpy.p0.p0.i32`、`llvm.memmove.p0.p0.i32`、`load`、`store` を pure raw body からアクセスした扱いになっていた。
+- [原因]:
+  - 3件とも Loader で stdlib を読み込むが、LLVM IR 生成時に `emit_ll_from_module_for_target` を呼び、`loaded.source_map` を compiler pipeline へ渡していなかった。
+  - そのため configured stdlib の `core/mem` raw memory boundary capability が失われ、検査対象ではない stdlib raw body が先に拒否されていた。
+- [修正]:
+  - 該当 LLVM harness を `emit_ll_from_module_for_target_with_source_map(..., Some(&loaded.source_map))` に変更した。
+  - 既存 issue に `neplg2.rs` の取りこぼしを追記し、raw/effect 検査本体は緩めていない。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_ -- --nocapture`: 7/7 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
