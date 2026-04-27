@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T02:22:17.164Z",
+  "generated_at": "2026-04-27T02:25:42.816Z",
   "counts": {
-    "total": 172,
-    "open": 13,
+    "total": 173,
+    "open": 14,
     "resolved": 159,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 64,
-        "open": 12,
+        "total": 65,
+        "open": 13,
         "resolved": 52
       },
       "cli": {
@@ -238,6 +238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E.md"
+    },
+    {
+      "id": "ISS-20260427T022527514Z-SPARSESET-NEW-REJECTS-ZERO-UNIVERSE--0DB75A65",
+      "title": "SparseSet new rejects zero universe length despite documented non-negative domain",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/sparse_set.nepl, tests/stdlib/sparse_set_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T022527514Z-SPARSESET-NEW-REJECTS-ZERO-UNIVERSE--0DB75A65.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
