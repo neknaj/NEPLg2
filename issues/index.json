@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T21:08:18.679Z",
+  "generated_at": "2026-04-27T21:15:39.770Z",
   "counts": {
     "total": 224,
     "open": 10,
@@ -2888,7 +2888,7 @@
       "priority": "P2",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-04-27",
+      "updated": "2026-04-28",
       "target": "stdlib/alloc/collections/fenwick.nepl, tests/stdlib/fenwick_collections.n.md, nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js",
       "legacy_id": "",
       "source": "",

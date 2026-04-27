@@ -163,10 +163,8 @@ fn len <(Fenwick)->i32> (fw):
 //:     if eq total 7 1 0
 //: ```
 fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
-    let fw_mem <i32> alloc_raw size_of<Fenwick>
-    store<Fenwick> fw_mem fw
-    let n <i32> get load<Fenwick> fw_mem "n"
-    let bit <MemPtr<i32>> get load<Fenwick> fw_mem "bit"
+    let n <i32> field::get fw "n"
+    let bit <MemPtr<i32>> field::get fw "bit"
     if:
         and le 0 idx lt idx n
         then:
@@ -179,12 +177,9 @@ fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
                     let neg_i <i32> sub 0 i
                     let lb <i32> and i neg_i
                     set i add i lb
-            let out <Fenwick> load<Fenwick> fw_mem
-            dealloc_raw fw_mem size_of<Fenwick>
-            ok<Fenwick, Diag> out
+            ok<Fenwick, Diag> fw
         else:
             let d <Diag> fenwick_diag_index "fenwick_add" idx n
-            dealloc_raw fw_mem size_of<Fenwick>
             err<Fenwick, Diag> d
 
 //: ## sum_prefix
@@ -213,19 +208,15 @@ fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
 //:     if eq total 6 1 0
 //: ```
 fn sum_prefix <(Fenwick,i32)*>Result<i32, Diag>> (fw, r):
-    let fw_mem <i32> alloc_raw size_of<Fenwick>
-    store<Fenwick> fw_mem fw
-    let n <i32> get load<Fenwick> fw_mem "n"
-    let bit <MemPtr<i32>> get load<Fenwick> fw_mem "bit"
+    let n <i32> field::get fw "n"
+    let bit <MemPtr<i32>> field::get fw "bit"
     if:
         and le 0 r le r n
         then:
             let acc <i32> fenwick_sum_prefix_raw bit r
-            dealloc_raw fw_mem size_of<Fenwick>
             ok<i32, Diag> acc
         else:
             let d <Diag> fenwick_diag_index "fenwick_sum_prefix" r n
-            dealloc_raw fw_mem size_of<Fenwick>
             err<i32, Diag> d
 
 //: ## sum_range
@@ -252,20 +243,16 @@ fn sum_prefix <(Fenwick,i32)*>Result<i32, Diag>> (fw, r):
 //:     if eq total 9 1 0
 //: ```
 fn sum_range <(Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
-    let fw_mem <i32> alloc_raw size_of<Fenwick>
-    store<Fenwick> fw_mem fw
-    let n <i32> get load<Fenwick> fw_mem "n"
-    let bit <MemPtr<i32>> get load<Fenwick> fw_mem "bit"
+    let n <i32> field::get fw "n"
+    let bit <MemPtr<i32>> field::get fw "bit"
     if:
         and and le 0 l le l r le r n
         then:
             let sr <i32> fenwick_sum_prefix_raw bit r
             let sl <i32> fenwick_sum_prefix_raw bit l
-            dealloc_raw fw_mem size_of<Fenwick>
             ok<i32, Diag> sub sr sl
         else:
             let d <Diag> fenwick_diag_range "fenwick_sum_range" l r n
-            dealloc_raw fw_mem size_of<Fenwick>
             err<i32, Diag> d
 
 //: ## free
@@ -292,11 +279,8 @@ fn sum_range <(Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
 //:     1
 //: ```
 fn free <(Fenwick)*>()> (fw):
-    let fw_mem <i32> alloc_raw size_of<Fenwick>
-    store<Fenwick> fw_mem fw
-    let n <i32> get load<Fenwick> fw_mem "n"
-    let bit <MemPtr<i32>> get load<Fenwick> fw_mem "bit"
+    let n <i32> field::get fw "n"
+    let bit <MemPtr<i32>> field::get fw "bit"
     let bit_len <i32> add n 1
     let bytes <i32> mul bit_len 4
-    dealloc_raw fw_mem size_of<Fenwick>
     dealloc_raw mem_ptr_addr bit bytes

@@ -7,7 +7,7 @@ resolved: true
 priority: P2
 type: bug
 created: 2026-04-27
-updated: 2026-04-27
+updated: 2026-04-28
 target: "stdlib/alloc/collections/fenwick.nepl, tests/stdlib/fenwick_collections.n.md, nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js"
 ---
 
@@ -57,3 +57,27 @@ Introduce raw owned-array store helpers, replace owned cleanup with dealloc_raw,
 - `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md -i stdlib/tests/fenwick.n.md --no-tree -o tmp/fenwick-owned-cleanup-focused.json -j 1`: 4/4 passed
 - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-fenwick-owned-cleanup.json -j 4`: 291/291 passed
 - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-fenwick-owned-cleanup.json -j 4`: 418/418 passed
+
+## 2026-04-28 再発確認と追加解決
+
+### 再現
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-raw-temp-regression-before.json -j 1`: 5 件中 4 件が `D3100 deallocating raw memory place containing non-Copy value: fw_mem` で失敗した。
+- 失敗箇所は `add` / `sum_prefix` / `sum_range` / `free` の doctest で、いずれも field 観察用に `Fenwick` owner を `fw_mem` raw temporary へ格納した後、owner を consume しないまま `dealloc_raw fw_mem size_of<Fenwick>` していた。
+
+### 根本原因
+
+`get load<Fenwick> fw_mem "field"` は field を観察するだけで raw temporary 内の `Fenwick` owner を move しない。したがって、`fw_mem` を raw dealloc すると `bit` owner を含む `Fenwick` 値を破棄する形になり、強化された raw memory checker が live owner discard として拒否する。
+
+### 追加修正
+
+- `add` / `sum_prefix` / `sum_range` / `free` から `fw_mem` の `alloc_raw` / `store` / `load` / `dealloc_raw` を削除した。
+- `n` と `bit` は `field::get fw "n"` / `field::get fw "bit"` で直接読むようにした。
+- `add` の成功時は元の `fw` owner を `Ok` として返し、失敗時は従来どおり `Diag` を返す。
+- owned `bit` 配列の解放責務は `free` の `dealloc_raw mem_ptr_addr bit bytes` に限定し、struct 観察用 temporary と backing storage の責務を分離した。
+
+### 追加検証
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-raw-temp-regression-after.json -j 1`: 5/5 passed
+- `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md -i stdlib/tests/fenwick.n.md --no-tree -o tmp/fenwick-raw-temp-focused-after.json -j 1`: 4/4 passed
+- `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: pass

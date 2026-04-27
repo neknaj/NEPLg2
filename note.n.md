@@ -20406,3 +20406,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CountingBloomFilter の field 観察は raw temporary owner ではなく direct field read へ寄せ、compiler の raw ownership 検査と stdlib 実装の責務を一致させた。
+
+# 2026-04-28 メモ (ISS-20260427T000312112Z Fenwick fw_mem live owner dealloc)
+
+- [同期]:
+  - `main` が `origin/main` と一致している状態から `fix/fenwick-fw-mem-owner` branch を作成した。
+- [再現]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-raw-temp-regression-before.json -j 1`: 5 件中 4 件が `D3100 deallocating raw memory place containing non-Copy value: fw_mem` で失敗した。
+- [原因]:
+  - `add` / `sum_prefix` / `sum_range` / `free` は field 観察用に `Fenwick` owner を `fw_mem` へ store した後、`n` / `bit` を field read するだけで owner を consume せずに temporary storage を dealloc していた。
+  - `field read` は owner を move しないため、raw temporary 内の `Fenwick` owner を破棄する形になっていた。
+- [修正]:
+  - `add` / `sum_prefix` / `sum_range` / `free` は `field::get` で必要な field を直接読むようにし、`fw_mem` の alloc/store/load/dealloc を削除した。
+  - owned `bit` 配列の解放は `free` の `dealloc_raw mem_ptr_addr bit bytes` に限定した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-raw-temp-regression-after.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md -i stdlib/tests/fenwick.n.md --no-tree -o tmp/fenwick-raw-temp-focused-after.json -j 1`: 4/4 passed
+  - `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Fenwick の field 観察は raw temporary owner ではなく direct field read へ寄せ、compiler の raw ownership 検査と stdlib 実装の責務を一致させた。
