@@ -56,25 +56,25 @@ fn sparse_set_valid_index <(i32,i32)->bool> (idx, n):
 fn sparse_set_slot_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (base, idx):
     mem_ptr_wrap add mem_ptr_addr base mul idx 4
 
-fn sparse_set_load <(MemPtr<i32>,i32)->i32> (base, idx):
+fn sparse_set_load_owned <(MemPtr<i32>,i32)->i32> (base, idx):
     match load_i32 sparse_set_slot_ptr base idx:
         Option::Some v:
             v
         Option::None:
             0
 
-fn sparse_set_store <(MemPtr<i32>,i32,i32)->()> (base, idx, value):
-    let _ <()> uwok store_i32 sparse_set_slot_ptr base idx value
+fn sparse_set_store_owned <(MemPtr<i32>,i32,i32)->()> (base, idx, value):
+    store_i32 mem_ptr_addr sparse_set_slot_ptr base idx value
 
 fn sparse_set_contains_raw <(i32,MemPtr<i32>,MemPtr<i32>,i32,i32)->bool> (n, dense, sparse, len0, value):
     if:
         not sparse_set_valid_index value n
         then false
         else:
-            let idx <i32> sparse_set_load sparse value
+            let idx <i32> sparse_set_load_owned sparse value
             if:
                 and le 0 idx lt idx len0
-                then eq sparse_set_load dense idx value
+                then eq sparse_set_load_owned dense idx value
                 else false
 
 fn sparse_set_hdr_n_ptr <(i32)->MemPtr<i32>> (hdr):
@@ -117,17 +117,20 @@ fn sparse_set_hdr_sparse <(i32)->MemPtr<i32>> (hdr):
         Option::None:
             mem_ptr_wrap 0
 
+fn sparse_set_hdr_store_i32 <(MemPtr<i32>,i32)->()> (ptr, value):
+    store_i32 mem_ptr_addr ptr value
+
 fn sparse_set_hdr_set_n <(i32,i32)->()> (hdr, n):
-    let _ <()> uwok store_i32 sparse_set_hdr_n_ptr hdr n
+    sparse_set_hdr_store_i32 sparse_set_hdr_n_ptr hdr n
 
 fn sparse_set_hdr_set_len0 <(i32,i32)->()> (hdr, len0):
-    let _ <()> uwok store_i32 sparse_set_hdr_len0_ptr hdr len0
+    sparse_set_hdr_store_i32 sparse_set_hdr_len0_ptr hdr len0
 
 fn sparse_set_hdr_set_dense <(i32,MemPtr<i32>)->()> (hdr, dense):
-    let _ <()> uwok store_i32 sparse_set_hdr_dense_ptr_ptr hdr mem_ptr_addr dense
+    sparse_set_hdr_store_i32 sparse_set_hdr_dense_ptr_ptr hdr mem_ptr_addr dense
 
 fn sparse_set_hdr_set_sparse <(i32,MemPtr<i32>)->()> (hdr, sparse):
-    let _ <()> uwok store_i32 sparse_set_hdr_sparse_ptr_ptr hdr mem_ptr_addr sparse
+    sparse_set_hdr_store_i32 sparse_set_hdr_sparse_ptr_ptr hdr mem_ptr_addr sparse
 
 //: ## new
 //: domain `[0, n)` の[空/から] set を[作/つく]る
@@ -154,21 +157,21 @@ fn new <(i32)*>Result<SparseSet, Diag>> (n):
                 Result::Ok hdr:
                     match alloc_ptr<i32> mul n 4:
                         Result::Err _e:
-                            let _ <()> uwok dealloc_ptr<u8> hdr 16
+                            dealloc_raw mem_ptr_addr hdr 16
                             diag_err<SparseSet> diag_out_of_memory "sparse_set_new(dense)"
                         Result::Ok dense:
                             match alloc_ptr<i32> mul n 4:
                                 Result::Err _e:
-                                    let _ <()> uwok dealloc_ptr<i32> dense mul n 4
-                                    let _ <()> uwok dealloc_ptr<u8> hdr 16
+                                    dealloc_raw mem_ptr_addr dense mul n 4
+                                    dealloc_raw mem_ptr_addr hdr 16
                                     diag_err<SparseSet> diag_out_of_memory "sparse_set_new(sparse)"
                                 Result::Ok sparse:
                                     let hdr_raw <i32> mem_ptr_addr hdr
                                     let mut i <i32> 0
                                     while lt i n:
                                         do:
-                                            sparse_set_store dense i 0
-                                            sparse_set_store sparse i 0
+                                            sparse_set_store_owned dense i 0
+                                            sparse_set_store_owned sparse i 0
                                             set i add i 1
                                     sparse_set_hdr_set_n hdr_raw n
                                     sparse_set_hdr_set_len0 hdr_raw 0
@@ -263,8 +266,8 @@ fn insert <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
                 then:
                     ok<SparseSet, Diag> s
                 else:
-                    sparse_set_store dense len0 value
-                    sparse_set_store sparse value len0
+                    sparse_set_store_owned dense len0 value
+                    sparse_set_store_owned sparse value len0
                     sparse_set_hdr_set_len0 hdr add len0 1
                     ok<SparseSet, Diag> s
 
@@ -303,11 +306,11 @@ fn remove <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
                 then:
                     ok<SparseSet, Diag> s
                 else:
-                    let idx <i32> sparse_set_load sparse value
+                    let idx <i32> sparse_set_load_owned sparse value
                     let last_idx <i32> sub len0 1
-                    let last_value <i32> sparse_set_load dense last_idx
-                    sparse_set_store dense idx last_value
-                    sparse_set_store sparse last_value idx
+                    let last_value <i32> sparse_set_load_owned dense last_idx
+                    sparse_set_store_owned dense idx last_value
+                    sparse_set_store_owned sparse last_value idx
                     sparse_set_hdr_set_len0 hdr last_idx
                     ok<SparseSet, Diag> s
 
@@ -336,6 +339,13 @@ fn clear <(SparseSet)->SparseSet> (s):
 //: ## free
 //: dense/sparse [配列/はいれつ]を[解放/かいほう]する
 //:
+//: ### [実装/じっそう]
+//: - header は 16 byte、dense/sparse はそれぞれ `n * 4` byte を `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は `dealloc_raw` で[行/おこな]います。
+//:
+//: ### [注意/ちゅうい]
+//: - [解放後/かいほうご]に `s` を[再利用/さいりよう]してはいけません。
+//:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
@@ -353,6 +363,6 @@ fn free <(SparseSet)->()> (s):
     let n <i32> sparse_set_hdr_n hdr
     let dense <MemPtr<i32>> sparse_set_hdr_dense hdr
     let sparse <MemPtr<i32>> sparse_set_hdr_sparse hdr
-    let _ <()> uwok dealloc_ptr<i32> dense mul n 4
-    let _ <()> uwok dealloc_ptr<i32> sparse mul n 4
-    let _ <()> uwok dealloc hdr 16
+    dealloc_raw mem_ptr_addr dense mul n 4
+    dealloc_raw mem_ptr_addr sparse mul n 4
+    dealloc_raw hdr 16

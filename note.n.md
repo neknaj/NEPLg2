@@ -19093,3 +19093,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の union-find 基盤が、内部 array 更新と cleanup で unsafe helper に依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000312692Z SparseSet owned cleanup)
+
+- [同期]:
+  - `origin/main` が `26c8dee stdlib: remove disjoint set unsafe internal unwraps` で一致している状態から `stdlib/sparse-set-owned-cleanup` branch を作成した。
+  - 作業中に別件の空 domain constructor 問題を `ISS-20260427T022527514Z-SPARSESET-NEW-REJECTS-ZERO-UNIVERSE--0DB75A65` として追加し、Discord へ報告した。
+- [原因]:
+  - `SparseSet.new` は 16 byte の header と、`n * 4` byte の dense/sparse 配列を確保し、`SparseSet` owner がそれらを単独所有する。
+  - header field write、dense/sparse slot write、途中確保失敗時の cleanup、`free` の cleanup が checked API の `Result` を `uwok` していた。
+  - SparseSet は self-host の symbol/id set で使う基礎構造なので、内部保守コードが unsafe helper trap に依存しない必要がある。
+- [修正]:
+  - `sparse_set_store_owned` と `sparse_set_hdr_store_i32` を追加し、dense/sparse slot と header field の raw owner write を集約した。
+  - `new` の初期化、`insert`、`remove`、`clear` の内部更新を owned helper 経由へ変更した。
+  - `new` の途中確保失敗 cleanup と `free` の dense/sparse/header cleanup を `dealloc_raw` に変更した。
+  - `clear` 後の `free` と再確保 regression、SparseSet 実装に unsafe unwrap / checked deallocation が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl --no-tree -o tmp/sparse-set-owned-cleanup-docs.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i tests/stdlib/sparse_set_collections.n.md -i stdlib/tests/sparse_set.n.md --no-tree -o tmp/sparse-set-owned-cleanup-focused.json -j 1`: 4/4 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-sparse-set-owned-cleanup.json -j 4`: 294/294 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-sparse-set-owned-cleanup.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の dense/sparse membership set が、内部 storage 更新と cleanup で unsafe helper に依存しないようになった。
