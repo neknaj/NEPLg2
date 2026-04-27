@@ -1,3 +1,24 @@
+# 2026-04-27 メモ (ISS-20260426T213057658Z LLVM zero-sized local lowering)
+
+- 状況:
+  - `tests/compiler/move_effect.n.md::doctest#27::llvm` で `let u <()> ()` の後続参照が `D4102 unknown variable 'u'` になっていた。
+  - `stdlib/alloc/collections/adjacency_matrix.nepl::doctest#6::llvm` では `uwok dealloc_ptr<u8> ...` の `Result<(), E>` unwrap 経路で `Result::Ok v` の unit payload binding が `D4102 unknown variable 'v'` になっていた。
+  - 原因は LLVM lowering が `LlTy::Void` のlocal/payloadを「storage不要」としてlocal環境へも登録していなかったこと。HIR上のlexical bindingは有効なので、後続の `Var(u)` / `Var(v)` が未束縛扱いになる構造だった。
+- 修正:
+  - LLVM lowering の `LowerCtx` に zero-sized local binding を追加し、block predeclare と `let` fallback の両方で unit local 名を登録するようにした。
+  - `Var` lowering は `LlTy::Void` binding をloadせず、値を生成しない式として扱うようにした。
+  - enum match payload が unit の場合も、payload bind local を zero-sized binding として登録するようにした。
+  - `nepl-core/tests/neplg2.rs` に unit local reuse と `Result<(), E>` payload bind を同時に検証するLLVM回帰テストを追加した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_unit_locals_and_payload_binds_remain_in_scope -- --nocapture`: `1/1 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/bloom_filter.nepl -i stdlib/alloc/collections/counting_bloom_filter.nepl -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl --runner llvm --llvm-all --llvm-compile-only --no-tree -o tmp/llvm-unbound-collections-after-trunk.json -j 1`: `total=41`, `passed=41`
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --runner llvm --llvm-all --llvm-compile-only --no-tree -o tmp/llvm-unbound-move-effect-after-unit-bind.json -j 1`: doctest#27 passed、D4102なし。既存のreturn mismatchは別issueとして残存。
+  - `git diff --check`: pass（CRLF 変換警告のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は NEPLg2 core の LLVM backend が zero-sized lexical binding を失わないようにする修正。
+
 # 2026-04-27 メモ (ISS-20260426T213057843Z LLVM Hasher monomorphize)
 
 - 状況:

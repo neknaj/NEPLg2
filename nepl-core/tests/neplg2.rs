@@ -253,6 +253,43 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn llvm_unit_locals_and_payload_binds_remain_in_scope() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+fn unwrap_unit <(Result<(),i32>)->()> (r):
+    match r:
+        Result::Ok v:
+            v
+        Result::Err _e:
+            #intrinsic "unreachable" <> ()
+
+fn main <()->i32> ():
+    let u <()> ()
+    let a <()> u
+    let b <()> u
+    let r <Result<(),i32>> Result<(),i32>::Ok b
+    unwrap_unit r
+    0
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+        Some(&loaded.source_map),
+    )
+    .expect("unit locals and unit payload binds should remain visible to LLVM lowering");
+    assert!(ll.contains("define i32"));
+}
+
+#[test]
 fn llvm_match_i32_literal_lowers_to_switch() {
     let src = r#"
 #entry main
