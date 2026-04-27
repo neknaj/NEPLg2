@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T00:47:58.952Z",
+  "generated_at": "2026-04-27T00:54:27.104Z",
   "counts": {
     "total": 170,
-    "open": 21,
-    "resolved": 149,
+    "open": 20,
+    "resolved": 150,
     "by_area": {
-      "cli": {
-        "total": 19,
-        "open": 1,
-        "resolved": 18
-      },
       "core": {
         "total": 63,
         "open": 2,
@@ -20,6 +15,11 @@
         "total": 63,
         "open": 18,
         "resolved": 45
+      },
+      "cli": {
+        "total": 19,
+        "open": 0,
+        "resolved": 19
       },
       "examples": {
         "total": 13,
@@ -44,21 +44,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260426T213056969Z-CI-WASIX-DOCTESTS-RUN-WITHOUT-A-WASM-B1BD31BA",
-      "title": "CI wasix doctests run without a wasmer executable",
-      "area": "cli",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": ".github/workflows/ci.yml, nodesrc/run_test.js, tests/stdlib/features_tui.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T213056969Z-CI-WASIX-DOCTESTS-RUN-WITHOUT-A-WASM-B1BD31BA.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -778,6 +763,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094.md"
+    },
+    {
+      "id": "ISS-20260426T213056969Z-CI-WASIX-DOCTESTS-RUN-WITHOUT-A-WASM-B1BD31BA",
+      "title": "CI wasix doctests run without a wasmer executable",
+      "area": "cli",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": ".github/workflows/ci.yml, nodesrc/run_test.js, tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213056969Z-CI-WASIX-DOCTESTS-RUN-WITHOUT-A-WASM-B1BD31BA.md"
     },
     {
       "id": "ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55",
