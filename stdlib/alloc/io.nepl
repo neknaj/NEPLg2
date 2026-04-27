@@ -131,7 +131,7 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //: - 所有 byte buffer を text helper へ渡せる `str` 表現に詰め直し、確保失敗を `StdErrorKind::OutOfMemory` として返します。
 //:
 //: [実装/じっそう]:
-//: - `string_alloc_region` で文字列領域を確保し、bulk copy で byte 表現をそのまま複製します。
+//: - `string_from_mem_unchecked_result` で文字列領域を確保し、bulk copy で byte 表現をそのまま複製します。
 //: - 成功時も失敗時も入力 `ByteBuf` はこの関数が解放します。
 //:
 //: [注意/ちゅうい]:
@@ -143,18 +143,13 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
     let byte_len <i32> get buf "len"
     let data <MemPtr<u8>> get buf "ptr"
-    match string_alloc_region byte_len:
+    match string_from_mem_unchecked_result data byte_len:
         Result::Err _e:
             io_bytebuf_free buf
             Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-        Result::Ok region:
-            let out <MemPtr<u8>> get region "ptr"
-            let out_data <MemPtr<u8>> mem_ptr_add out 4
-            let out_raw <i32> mem_ptr_addr out_data
-            let data_raw <i32> mem_ptr_addr data
-            mem_copy out_raw data_raw byte_len
+        Result::Ok text:
             io_bytebuf_free buf
-            Result<str, StdErrorKind>::Ok string_finish region byte_len
+            Result<str, StdErrorKind>::Ok text
 
 //: io_bytebuf_to_str: `ByteBuf` を `str` へ変換する互換 facade
 //:

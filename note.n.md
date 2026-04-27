@@ -18800,3 +18800,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の S1-S4 で必要になる collection と string 基盤の残課題を、実装単位の issue として分割した。
+
+# 2026-04-27 メモ (ISS-20260427T000313614Z alloc/string 所有権安全 UTF-8 再実装)
+
+- [同期]:
+  - `origin/main` に issue 追加 commit `40a7f12` を反映した後、`stdlib/string-ownership-utf8-reimplementation` branch で作業した。
+  - borrow checker 本体には触れず、修正済みの borrow/move 挙動を前提に、`alloc/string` 内の不要な checked-store workaround と unsafe helper 経路を整理した。
+- [原因]:
+  - `alloc/string` は owned string header store、concat/slice/builder/split、整数/浮動小数点 formatting の scratch buffer で `unwrap_ok` / `unwrap` / `unreachable` を使っていた。
+  - `ByteBuf -> str` の詰め直しが `alloc/io` にもあり、string layout の責務が分散していた。
+  - self-host lexer/parser/diagnostic では、allocation failure を trap ではなく Result として扱える string API が必要だった。
+- [修正]:
+  - `string_finish_base` を raw owned header store に変更した。
+  - `string_from_mem_unchecked_result` / `string_from_utf8_mem_result` を追加し、raw byte 複製と UTF-8 checked construction を分離した。
+  - `StringUtf8LeadKind` enum と `match` により UTF-8 sequence 長の分岐を明示した。
+  - `concat_result` / `str_slice_result` / `str_split_result` / `StringBuilder` Result API / `from_f64_result` を追加し、既存 API は互換 facade として残した。
+  - `from_u128_radix` / `from_f64_result` の scratch buffer 管理から unsafe helper を削除した。
+  - `alloc/io.io_bytebuf_to_str_result` を `string_from_mem_unchecked_result` へ委譲し、string layout への詰め直しを `alloc/string` へ集約した。
+  - `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` を追加し、CI source policy と `doc/testing.md` に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/alloc/io.nepl --no-tree -o tmp/string-refactor-docs-io.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/text_utf8.n.md -i tests/stdlib/bytebuf_result.n.md -i tests/stdlib/fs.n.md --no-tree -o tmp/string-refactor-focused.json -j 1`: 42/42 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の source text / diagnostic / path 処理で使う string 基盤が、Result-returning API と UTF-8 checked construction を持つようになった。

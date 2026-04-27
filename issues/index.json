@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T00:31:48.618Z",
+  "generated_at": "2026-04-27T00:34:36.148Z",
   "counts": {
     "total": 170,
-    "open": 24,
-    "resolved": 146,
+    "open": 23,
+    "resolved": 147,
     "by_area": {
       "cli": {
         "total": 19,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 63,
-        "open": 19,
-        "resolved": 44
+        "open": 18,
+        "resolved": 45
       },
       "examples": {
         "total": 13,
@@ -388,21 +388,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T000313426Z-LIST-REVERSE-HIDES-ALLOCATION-FAILUR-E4B68FAA.md"
-    },
-    {
-      "id": "ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496",
-      "title": "alloc/string needs ownership-safe UTF-8 reimplementation",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/string.nepl, stdlib/tests/string.n.md, tests/stdlib/string.n.md, stdlib/std/fs.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -2473,6 +2458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T233321666Z-QUEUE-AND-DEQUE-OBSERVATION-APIS-CON-E7627BD3.md"
+    },
+    {
+      "id": "ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496",
+      "title": "alloc/string needs ownership-safe UTF-8 reimplementation",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/tests/string.n.md, tests/stdlib/string.n.md, stdlib/std/fs.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

@@ -13,7 +13,7 @@
 ## 現在の運用ルール
 
 - 1 issue につき 1 commit にする。
-- commit 後は Discord report を送る。
+- commit 後は Discord report を送る。Markdown 本文を直接送信し、ファイルパス参照だけの報告にしない。
 - commit 後は push し、その後 `git pull --rebase origin main` で他 agent の変更を取り込む。
 - commit 前には必要なテストを通し、`node nodesrc/issues.js index` と `node nodesrc/issues.js check` を実行する。
 - 新たな問題を発見したら `issues/items/*.md` に Issue を追加し、`issues/index.*` を再生成する。Issue を追加した時点でも、その Issue ID・原因・影響・次の対応を Discord report として送る。

@@ -77,7 +77,7 @@ fn string_alloc_region <(i32)->Result<RegionToken<u8>,str>> (byte_len):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_region_len_ptr <(RegionToken<u8>)->MemPtr<i32>> (region):
-    unwrap_ok region_ptr_at<u8,i32> region 0
+    mem_ptr_wrap mem_ptr_addr get region "ptr"
 
 //: string_region_data_ptr: 文字列本文先頭への型付きポインタを得る
 //:
@@ -93,7 +93,7 @@ fn string_region_len_ptr <(RegionToken<u8>)->MemPtr<i32>> (region):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_region_data_ptr <(RegionToken<u8>)->MemPtr<u8>> (region):
-    unwrap_ok region_ptr_at<u8,u8> region 4
+    mem_ptr_add get region "ptr" 4
 
 //: string_addr: `str` の内部アドレスを低レベル処理用に取り出す
 //:
@@ -176,12 +176,260 @@ fn string_from_addr_unchecked <(i32)->str> (addr):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
-    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr base
-    match store_i32 len_ptr byte_len:
+    store_i32 mem_ptr_addr base byte_len
+    string_from_addr_unchecked mem_ptr_addr base
+
+//: string_from_mem_unchecked_result: raw byte 列を検証なしで `str` へ複製する
+//:
+//: [目的/もくてき]:
+//: - 既に UTF-8 として検証済み、または byte 列として扱うことが明確な領域を、新しい `str` 領域へ複製します。
+//:
+//: [実装/じっそう]:
+//: - `string_alloc_region` で `[len][bytes...]` layout の領域を確保し、本文へ `mem_copy` します。
+//: - 長さヘッダは `string_finish_base` で raw store し、checked store の `unwrap` に依存しません。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 検証は行いません。外部入力には `string_from_utf8_mem_result` を使ってください。
+//: - `byte_len > 0` の場合、`src` は少なくとも `byte_len` byte の有効領域を指している必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn string_from_mem_unchecked_result <(MemPtr<u8>,i32)->Result<str,str>> (src, byte_len):
+    if:
+        lt byte_len 0
+        then:
+            Result<str,str>::Err "string.from_mem invalid length"
+        else:
+            match string_alloc_region byte_len:
+                Result::Err e:
+                    Result<str,str>::Err e
+                Result::Ok region:
+                    let out_base <MemPtr<u8>> get region "ptr"
+                    let out_data <MemPtr<u8>> string_region_data_ptr region
+                    if:
+                        gt byte_len 0
+                        then:
+                            mem_copy mem_ptr_addr out_data mem_ptr_addr src byte_len
+                        else:
+                            ()
+                    Result<str,str>::Ok string_finish_base out_base byte_len
+
+//: StringUtf8LeadKind: UTF-8 leading byte の分類
+//:
+//: [目的/もくてき]:
+//: - UTF-8 検証の分岐を enum と `match` にし、if の深いネストに戻らないようにします。
+enum StringUtf8LeadKind:
+    Ascii
+    Two
+    Three
+    Four
+    Invalid
+
+fn string_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
+    and ge b lo le b hi
+
+fn string_utf8_is_continuation <(i32)->bool> (b):
+    string_utf8_in_range b 128 191
+
+fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
+    if:
+        le b 127
+        then:
+            StringUtf8LeadKind::Ascii
+        else:
+            if:
+                string_utf8_in_range b 194 223
+                then:
+                    StringUtf8LeadKind::Two
+                else:
+                    if:
+                        string_utf8_in_range b 224 239
+                        then:
+                            StringUtf8LeadKind::Three
+                        else:
+                            if:
+                                string_utf8_in_range b 240 244
+                                then:
+                                    StringUtf8LeadKind::Four
+                                else:
+                                    StringUtf8LeadKind::Invalid
+
+fn string_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32,str>> (data, idx):
+    match load_u8 mem_ptr_add data idx:
+        Option::Some b:
+            Result<i32,str>::Ok b
+        Option::None:
+            Result<i32,str>::Err "string.utf8 invalid pointer"
+
+fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byte_len):
+    if:
+        gt add i 2 byte_len
+        then:
+            Result<(),str>::Err "string.utf8 truncated sequence"
+        else:
+            match string_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(),str>::Err e
+                Result::Ok b1:
+                    if:
+                        string_utf8_is_continuation b1
+                        then:
+                            Result<(),str>::Ok ()
+                        else:
+                            Result<(),str>::Err "string.utf8 invalid continuation"
+
+fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+    if:
+        gt add i 3 byte_len
+        then:
+            Result<(),str>::Err "string.utf8 truncated sequence"
+        else:
+            match string_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(),str>::Err e
+                Result::Ok b1:
+                    match string_utf8_byte_at data add i 2:
+                        Result::Err e:
+                            Result<(),str>::Err e
+                        Result::Ok b2:
+                            let first_ok <bool>:
+                                if:
+                                    eq b0 224
+                                    then:
+                                        string_utf8_in_range b1 160 191
+                                    else:
+                                        if:
+                                            eq b0 237
+                                            then:
+                                                string_utf8_in_range b1 128 159
+                                            else:
+                                                string_utf8_is_continuation b1
+                            if:
+                                and first_ok string_utf8_is_continuation b2
+                                then:
+                                    Result<(),str>::Ok ()
+                                else:
+                                    Result<(),str>::Err "string.utf8 invalid three-byte sequence"
+
+fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+    if:
+        gt add i 4 byte_len
+        then:
+            Result<(),str>::Err "string.utf8 truncated sequence"
+        else:
+            match string_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(),str>::Err e
+                Result::Ok b1:
+                    match string_utf8_byte_at data add i 2:
+                        Result::Err e:
+                            Result<(),str>::Err e
+                        Result::Ok b2:
+                            match string_utf8_byte_at data add i 3:
+                                Result::Err e:
+                                    Result<(),str>::Err e
+                                Result::Ok b3:
+                                    let first_ok <bool>:
+                                        if:
+                                            eq b0 240
+                                            then:
+                                                string_utf8_in_range b1 144 191
+                                            else:
+                                                if:
+                                                    eq b0 244
+                                                    then:
+                                                        string_utf8_in_range b1 128 143
+                                                    else:
+                                                        string_utf8_is_continuation b1
+                                    if:
+                                        and first_ok and string_utf8_is_continuation b2 string_utf8_is_continuation b3
+                                        then:
+                                            Result<(),str>::Ok ()
+                                        else:
+                                            Result<(),str>::Err "string.utf8 invalid four-byte sequence"
+
+//: string_utf8_validate_mem: raw byte 列が UTF-8 として妥当か検証する
+//:
+//: [目的/もくてき]:
+//: - `str` を構築する前に、外部由来の byte 列が UTF-8 scalar value の制約を満たすことを確認します。
+//:
+//: [実装/じっそう]:
+//: - leading byte を `StringUtf8LeadKind` に分類し、sequence 長ごとの検査関数を `match` で呼び分けます。
+//:
+//: [注意/ちゅうい]:
+//: - overlong sequence、surrogate range、U+10FFFF 超過につながる先頭 byte は拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_len):
+    if:
+        lt byte_len 0
+        then:
+            Result<(),str>::Err "string.utf8 invalid length"
+        else:
+            let mut i <i32> 0
+            let mut done <i32> 0
+            let mut res <Result<(),str>> Result<(),str>::Ok ()
+            while eq done 0:
+                do:
+                    if:
+                        ge i byte_len
+                        then:
+                            set done 1
+                        else:
+                            match string_utf8_byte_at data i:
+                                Result::Err e:
+                                    set res Result<(),str>::Err e
+                                    set done 1
+                                Result::Ok b0:
+                                    match string_utf8_lead_kind b0:
+                                        StringUtf8LeadKind::Ascii:
+                                            set i add i 1
+                                        StringUtf8LeadKind::Two:
+                                            match string_utf8_validate_two data i byte_len:
+                                                Result::Ok _:
+                                                    set i add i 2
+                                                Result::Err e:
+                                                    set res Result<(),str>::Err e
+                                                    set done 1
+                                        StringUtf8LeadKind::Three:
+                                            match string_utf8_validate_three data i byte_len b0:
+                                                Result::Ok _:
+                                                    set i add i 3
+                                                Result::Err e:
+                                                    set res Result<(),str>::Err e
+                                                    set done 1
+                                        StringUtf8LeadKind::Four:
+                                            match string_utf8_validate_four data i byte_len b0:
+                                                Result::Ok _:
+                                                    set i add i 4
+                                                Result::Err e:
+                                                    set res Result<(),str>::Err e
+                                                    set done 1
+                                        StringUtf8LeadKind::Invalid:
+                                            set res Result<(),str>::Err "string.utf8 invalid leading byte"
+                                            set done 1
+            res
+
+//: string_from_utf8_mem_result: UTF-8 検証済みの `str` を構築する
+//:
+//: [目的/もくてき]:
+//: - filesystem / stdin / byte builder など外部由来の raw byte 列を、UTF-8 検証してから `str` にします。
+//:
+//: [実装/じっそう]:
+//: - `string_utf8_validate_mem` に成功した場合だけ、`string_from_mem_unchecked_result` で新しい文字列領域へ複製します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力 byte 領域の所有権は消費しません。必要なら呼び出し側で解放してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn string_from_utf8_mem_result <(MemPtr<u8>,i32)->Result<str,str>> (src, byte_len):
+    match string_utf8_validate_mem src byte_len:
+        Result::Err e:
+            Result<str,str>::Err e
         Result::Ok _:
-            string_from_addr_unchecked mem_ptr_addr base
-        Result::Err _e:
-            #intrinsic "unreachable" <> ()
+            string_from_mem_unchecked_result src byte_len
 
 // len: 文字列の長さを返す
 //
@@ -304,23 +552,26 @@ fn string_byte_at_unchecked <(str,i32)->i32> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn concat <(str,str)->str> (a,b):
+fn concat_result <(str,str)->Result<str,str>> (a,b):
     let la <i32> len a;
     let lb <i32> len b;
     let total <i32> add la lb;
-    let out_region <RegionToken<u8>> unwrap_ok string_alloc_region total;
-    let out_base <MemPtr<u8>> get out_region "ptr";
-    let out_data <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr out_base 4;
-    let a_data <MemPtr<u8>> string_data_ptr a;
-    let b_data <MemPtr<u8>> string_data_ptr b;
-    let out_raw <i32> mem_ptr_addr out_data;
-    let a_raw <i32> mem_ptr_addr a_data;
-    mem_copy out_raw a_raw la;
-    let b_out <MemPtr<u8>> mem_ptr_add out_data la;
-    let b_out_raw <i32> mem_ptr_addr b_out;
-    let b_raw <i32> mem_ptr_addr b_data;
-    mem_copy b_out_raw b_raw lb;
-    string_finish_base out_base total
+    match string_alloc_region total:
+        Result::Err e:
+            Result<str,str>::Err e
+        Result::Ok out_region:
+            let out_base <MemPtr<u8>> get out_region "ptr";
+            let out_data <MemPtr<u8>> string_region_data_ptr out_region;
+            mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr a la;
+            mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
+            Result<str,str>::Ok string_finish_base out_base total
+
+fn concat <(str,str)->str> (a,b):
+    match concat_result a b:
+        Result::Ok s:
+            s
+        Result::Err _e:
+            ""
 
 // concat3: 3つの文字列を連結する
 //
@@ -382,6 +633,9 @@ fn concat3 <(str,str,str)->str> (a,b,c):
 struct StringBuilder:
     parts <Vec<str>>
 
+fn string_builder_empty <()->StringBuilder> ():
+    StringBuilder v::Vec<str> 0 0 mem_ptr_wrap 0
+
 // string_builder_new: 空のビルダを作る
 //
 // 目的:
@@ -408,8 +662,19 @@ struct StringBuilder:
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
+fn string_builder_new_result <()->Result<StringBuilder,str>> ():
+    match v::new<str>:
+        Result::Ok parts:
+            Result<StringBuilder,str>::Ok StringBuilder parts
+        Result::Err _e:
+            Result<StringBuilder,str>::Err "string.builder allocation failed"
+
 fn string_builder_new <()->StringBuilder> ():
-    StringBuilder unwrap_ok v::new<str>
+    match string_builder_new_result:
+        Result::Ok sb:
+            sb
+        Result::Err _e:
+            string_builder_empty
 
 // sb_append: 文字列を追加する
 //
@@ -437,11 +702,19 @@ fn string_builder_new <()->StringBuilder> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
+fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s):
+    match v::push<str> get sb "parts" s:
+        Result::Ok parts:
+            Result<StringBuilder,str>::Ok StringBuilder parts
+        Result::Err _e:
+            Result<StringBuilder,str>::Err "string.builder append allocation failed"
+
 fn sb_append <(StringBuilder,str)->StringBuilder> (sb, s):
-    get sb "parts"
-    |> v::push<str> s
-    |> unwrap_ok
-    |> StringBuilder
+    match sb_append_result sb s:
+        Result::Ok next:
+            next
+        Result::Err _e:
+            string_builder_empty
 
 // sb_append_i32: i32 を追加する
 //
@@ -469,9 +742,19 @@ fn sb_append <(StringBuilder,str)->StringBuilder> (sb, s):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
+fn sb_append_i32_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, v):
+    match from_i32_radix v 10:
+        Result::Ok text:
+            sb_append_result sb text
+        Result::Err _e:
+            Result<StringBuilder,str>::Err "string.builder append_i32 conversion failed"
+
 fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
-    sb
-    |> sb_append from_i32 v
+    match sb_append_i32_result sb v:
+        Result::Ok next:
+            next
+        Result::Err _e:
+            string_builder_empty
 
 // sb_build: 文字列を生成する
 //
@@ -500,7 +783,7 @@ fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn sb_build <(StringBuilder)->str> (sb):
+fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
     let parts_vec <Vec<str>> get sb "parts";
     let n <i32> get parts_vec "len";
     let parts_data <i32> mem_ptr_addr get parts_vec "data";
@@ -511,23 +794,29 @@ fn sb_build <(StringBuilder)->str> (sb):
             let part <str> load<str> add parts_data mul idx0 size_of<str>;
             set total add total len part;
             set idx0 add idx0 1;
-    let out_region <RegionToken<u8>> unwrap_ok string_alloc_region total;
-    let out_base <MemPtr<u8>> get out_region "ptr";
-    let out_data <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr out_base 4;
-    let mut idx <i32> 0;
-    let mut dst <i32> 0;
-    while lt idx n:
-        do:
-            let part <str> load<str> add parts_data mul idx size_of<str>;
-            let plen <i32> len part;
-            let part_data <MemPtr<u8>> string_data_ptr part;
-            let out_part <MemPtr<u8>> mem_ptr_add out_data dst;
-            let out_part_raw <i32> mem_ptr_addr out_part;
-            let part_raw <i32> mem_ptr_addr part_data;
-            mem_copy out_part_raw part_raw plen;
-            set dst add dst plen;
-            set idx add idx 1;
-    string_finish_base out_base total
+    match string_alloc_region total:
+        Result::Err e:
+            Result<str,str>::Err e
+        Result::Ok out_region:
+            let out_base <MemPtr<u8>> get out_region "ptr";
+            let out_data <MemPtr<u8>> string_region_data_ptr out_region;
+            let mut idx <i32> 0;
+            let mut dst <i32> 0;
+            while lt idx n:
+                do:
+                    let part <str> load<str> add parts_data mul idx size_of<str>;
+                    let plen <i32> len part;
+                    mem_copy add mem_ptr_addr out_data dst mem_ptr_addr string_data_ptr part plen;
+                    set dst add dst plen;
+                    set idx add idx 1;
+            Result<str,str>::Ok string_finish_base out_base total
+
+fn sb_build <(StringBuilder)->str> (sb):
+    match sb_build_result sb:
+        Result::Ok out:
+            out
+        Result::Err _e:
+            ""
 
 // str_eq: 文字列が等しいか判定する
 //
@@ -782,7 +1071,7 @@ fn str_ends_with <(str,str)->bool> (s, suffix):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn str_slice <(str,i32,i32)->str> (s, start, end):
+fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
     let n <i32> len s;
     let mut s0 <i32> start;
     let mut e0 <i32> end;
@@ -799,15 +1088,14 @@ fn str_slice <(str,i32,i32)->str> (s, start, end):
         then set e0 n
         else ()
     let out_len <i32> sub e0 s0;
-    let out_region <RegionToken<u8>> unwrap_ok string_alloc_region out_len;
-    let out_base <MemPtr<u8>> get out_region "ptr";
-    let out_data <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr out_base 4;
-    let s_data <MemPtr<u8>> string_data_ptr s;
-    let slice_data <MemPtr<u8>> mem_ptr_add s_data s0;
-    let out_raw <i32> mem_ptr_addr out_data;
-    let slice_raw <i32> mem_ptr_addr slice_data;
-    mem_copy out_raw slice_raw out_len;
-    string_finish_base out_base out_len
+    string_from_mem_unchecked_result mem_ptr_add string_data_ptr s s0 out_len
+
+fn str_slice <(str,i32,i32)->str> (s, start, end):
+    match str_slice_result s start end:
+        Result::Ok out:
+            out
+        Result::Err _e:
+            ""
 
 // str_trim: 前後の空白を取り除く
 //
@@ -939,35 +1227,95 @@ fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn str_split <(str,str)->Vec<str>> (s, sep):
-    let sep_len <i32> len sep;
-    let mut out <Vec<str>> unwrap_ok v::new<str>;
+fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
     if:
         eq sep_len 0
         then:
-            set out unwrap_ok v::push<str> out s
-            out
+            1
         else:
-            let s_len <i32> len s;
-            let mut i <i32> 0;
-            let mut start <i32> 0;
-            let mut scan_end <i32> add i sep_len;
-            while le <i32> scan_end s_len:
+            let mut part_total <i32> 1
+            let mut i <i32> 0
+            let mut scan_end <i32> sep_len
+            while le scan_end s_len:
                 do:
                     if:
                         str_match_at s sep i sep_len
                         then:
-                            let part <str> str_slice s start i;
-                            set out unwrap_ok v::push<str> out part;
-                            set i <i32> add i sep_len;
-                            set start i;
-                            set scan_end <i32> add i sep_len;
+                            set part_total add part_total 1;
+                            set i add i sep_len;
+                            set scan_end add i sep_len;
                         else:
-                            set i <i32> add i 1;
-                            set scan_end <i32> add i sep_len;
-            let tail <str> str_slice s start s_len;
-            set out unwrap_ok v::push<str> out tail;
-            out
+                            set i add i 1;
+                            set scan_end add i sep_len;
+            part_total
+
+fn str_split_result <(str,str)->Result<Vec<str>,str>> (s, sep):
+    let sep_len <i32> len sep;
+    let s_len <i32> len s;
+    let part_count <i32> str_split_count s sep s_len sep_len;
+    match v::with_capacity<str> part_count:
+        Result::Err _e:
+            Result<Vec<str>,str>::Err "string.split allocation failed"
+        Result::Ok storage:
+            let data <MemPtr<str>> get storage "data"
+            let data_raw <i32> mem_ptr_addr data
+            let cap0 <i32> get storage "cap"
+            let mut out_len <i32> 0
+            let mut ok <i32> 1
+            let mut err_msg <str> ""
+            let mut i <i32> 0;
+            let mut start <i32> 0;
+            let mut scan_end <i32> add i sep_len;
+            if:
+                eq sep_len 0
+                then:
+                    store<str> data_raw s
+                    set out_len 1
+                else:
+                    while and eq ok 1 le scan_end s_len:
+                        do:
+                            if:
+                                str_match_at s sep i sep_len
+                                then:
+                                    match str_slice_result s start i:
+                                        Result::Ok part:
+                                            store<str> add data_raw mul out_len size_of<str> part
+                                            set out_len add out_len 1
+                                            set i <i32> add i sep_len
+                                            set start i
+                                            set scan_end <i32> add i sep_len
+                                        Result::Err e:
+                                            set err_msg e
+                                            set ok 0
+                                else:
+                                    set i <i32> add i 1;
+                                    set scan_end <i32> add i sep_len;
+                    if:
+                        eq ok 1
+                        then:
+                            match str_slice_result s start s_len:
+                                Result::Ok tail:
+                                    store<str> add data_raw mul out_len size_of<str> tail
+                                    set out_len add out_len 1
+                                Result::Err e:
+                                    set err_msg e
+                                    set ok 0
+                        else:
+                            ()
+            if:
+                eq ok 1
+                then:
+                    Result<Vec<str>,str>::Ok v::Vec<str> out_len cap0 data
+                else:
+                    dealloc_raw data_raw mul cap0 size_of<str>;
+                    Result<Vec<str>,str>::Err err_msg
+
+fn str_split <(str,str)->Vec<str>> (s, sep):
+    match str_split_result s sep:
+        Result::Ok parts:
+            parts
+        Result::Err _e:
+            v::Vec<str> 0 0 mem_ptr_wrap 0
 
 // from_bool: bool を文字列へ変換する
 //
@@ -1746,39 +2094,36 @@ fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
                 then:
                     Result::Ok<str,i32> "0"
                 else:
-                    let scratch_region <RegionToken<u8>> unwrap_ok alloc_region_bytes<u8> 132;
-                    let scratch <MemPtr<u8>> get scratch_region "ptr";
-                    let mut idx <i32> 0;
-                    let mut n <u128> v;
-                    while not u128_is_zero n:
-                        do:
-                            let qr <U128DivRem> u128_divrem_small n radix;
-                            match store_u8 mem_ptr_add scratch idx digit_to_char_lower get qr "remainder":
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    #intrinsic "unreachable" <> ()
-                            set idx add idx 1;
-                            set n get qr "quotient";
-                    let out_region <RegionToken<u8>> unwrap_ok string_alloc_region idx;
-                    let out_base <MemPtr<u8>> get out_region "ptr";
-                    let out_data <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr out_base 4;
-                    let mut i <i32> 0;
-                    while lt i idx:
-                        do:
-                            let rev <i32> sub idx add i 1;
-                            let ch <i32> unwrap load_u8 mem_ptr_add scratch rev;
-                            match store_u8 mem_ptr_add out_data i ch:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    #intrinsic "unreachable" <> ()
-                            set i add i 1;
-                    match dealloc_region scratch_region:
-                        Result::Ok _:
-                            Result::Ok<str,i32> string_finish_base out_base idx
+                    match alloc_ptr<u8> 132:
                         Result::Err _e:
-                            #intrinsic "unreachable" <> ()
+                            Result::Err<str,i32> 12
+                        Result::Ok scratch:
+                            let scratch_raw <i32> mem_ptr_addr scratch;
+                            let mut idx <i32> 0;
+                            let mut n <u128> v;
+                            while not u128_is_zero n:
+                                do:
+                                    let qr <U128DivRem> u128_divrem_small n radix;
+                                    store_u8 add scratch_raw idx digit_to_char_lower get qr "remainder";
+                                    set idx add idx 1;
+                                    set n get qr "quotient";
+                            match string_alloc_region idx:
+                                Result::Err _e:
+                                    dealloc_raw scratch_raw 132
+                                    Result::Err<str,i32> 12
+                                Result::Ok out_region:
+                                    let out_base <MemPtr<u8>> get out_region "ptr";
+                                    let out_data <MemPtr<u8>> string_region_data_ptr out_region;
+                                    let out_raw <i32> mem_ptr_addr out_data;
+                                    let mut i <i32> 0;
+                                    while lt i idx:
+                                        do:
+                                            let rev <i32> sub idx add i 1;
+                                            let ch <i32> load_u8 add scratch_raw rev;
+                                            store_u8 add out_raw i ch;
+                                            set i add i 1;
+                                    dealloc_raw scratch_raw 132
+                                    Result::Ok<str,i32> string_finish_base out_base idx
 
 // to_u128: 10 進文字列を u128 に変換する
 //
@@ -1906,7 +2251,11 @@ fn from_i128_radix <(i128,i32)->Result<str,i32>> (v, radix):
             if:
                 neg
                 then:
-                    Result::Ok<str,i32> concat "-" body
+                    match concat_result "-" body:
+                        Result::Ok text:
+                            Result::Ok<str,i32> text
+                        Result::Err _e:
+                            Result::Err<str,i32> 12
                 else:
                     Result::Ok<str,i32> body
         Result::Err e:
@@ -2059,11 +2408,11 @@ fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
 //:
 //: [計算量/けいさんりょう]:
 //: - 本体処理に準じます。
-fn from_f64 <(f64)->str> (x):
+fn from_f64_result <(f64)->Result<str,i32>> (x):
     if:
         ne x x
         then:
-            "nan"
+            Result::Ok<str,i32> "nan"
         else:
             let neg <bool> lt x <f64> cast 0;
             let absx <f64> if neg:
@@ -2072,76 +2421,84 @@ fn from_f64 <(f64)->str> (x):
             let int_part <i64> cast absx;
             let int_f <f64> cast int_part;
             let mut frac <f64> sub absx int_f;
-            let int_s <str> from_i64 int_part;
-            let mut sb <StringBuilder> string_builder_new;
-            if:
-                neg
-                then:
-                    set sb sb_append sb "-";
-                else:
-                    ();
-            set sb sb_append sb int_s;
-
-            let scratch_region <RegionToken<u8>> unwrap_ok alloc_region_bytes<u8> 6;
-            let scratch_ptr <MemPtr<u8>> get scratch_region "ptr";
-            let scratch_size <i32> get scratch_region "size";
-            let scratch <MemPtr<u8>> scratch_ptr;
-            let mut k <i32> 0;
-            while lt k 6:
-                do:
-                    set frac mul frac <f64> cast 10;
-                    let d <i32> cast frac;
-                    match store_u8 mem_ptr_add scratch k add 48 d:
-                        Result::Ok _:
-                            ()
+            match from_i64_radix int_part 10:
+                Result::Err e:
+                    Result::Err<str,i32> e
+                Result::Ok int_s:
+                    match alloc_ptr<u8> 6:
                         Result::Err _e:
-                            #intrinsic "unreachable" <> ()
-                    set frac sub frac <f64> cast d;
-                    set k add k 1;
+                            Result::Err<str,i32> 12
+                        Result::Ok scratch:
+                            let scratch_raw <i32> mem_ptr_addr scratch;
+                            let mut k <i32> 0;
+                            while lt k 6:
+                                do:
+                                    set frac mul frac <f64> cast 10;
+                                    let d <i32> cast frac;
+                                    store_u8 add scratch_raw k add 48 d;
+                                    set frac sub frac <f64> cast d;
+                                    set k add k 1;
 
-            let mut trim <i32> 6;
-            let mut done_trim <i32> 0;
-            while eq done_trim 0:
-                do:
-                    if:
-                        lt 0 trim
-                        then:
-                            let idx <i32> sub trim 1;
-                            let b <i32> unwrap load_u8 mem_ptr_add scratch idx;
-                            if:
-                                eq b 48
+                            let mut trim <i32> 6;
+                            let mut done_trim <i32> 0;
+                            while eq done_trim 0:
+                                do:
+                                    if:
+                                        lt 0 trim
+                                        then:
+                                            let idx <i32> sub trim 1;
+                                            let b <i32> load_u8 add scratch_raw idx;
+                                            if:
+                                                eq b 48
+                                                then:
+                                                    set trim sub trim 1;
+                                                else:
+                                                    set done_trim 1;
+                                        else:
+                                            set done_trim 1;
+
+                            let signed_int <Result<str,i32>> if:
+                                neg
                                 then:
-                                    set trim sub trim 1;
+                                    match concat_result "-" int_s:
+                                        Result::Ok text:
+                                            Result::Ok<str,i32> text
+                                        Result::Err _e:
+                                            Result::Err<str,i32> 12
                                 else:
-                                    set done_trim 1;
-                        else:
-                            set done_trim 1;
+                                    Result::Ok<str,i32> int_s
 
-            if:
-                gt trim 0
-                then:
-                    let frac_region <RegionToken<u8>> unwrap_ok string_alloc_region trim;
-                    let frac_ptr <MemPtr<u8>> get frac_region "ptr";
-                    let frac_data <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr frac_ptr 4;
-                    let mut i <i32> 0;
-                    while lt i trim:
-                        do:
-                            let ch <i32> unwrap load_u8 mem_ptr_add scratch i;
-                            match store_u8 mem_ptr_add frac_data i ch:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    #intrinsic "unreachable" <> ()
-                            set i add i 1;
-                    set sb sb_append sb ".";
-                    set sb sb_append sb string_finish_base frac_ptr trim;
-                else:
-                    ();
-            match dealloc_ptr<u8> scratch_ptr scratch_size:
-                Result::Ok _:
-                    sb_build sb
-                Result::Err _e:
-                    #intrinsic "unreachable" <> ()
+                            let out_result <Result<str,i32>> if:
+                                gt trim 0
+                                then:
+                                    match signed_int:
+                                        Result::Err e:
+                                            Result::Err<str,i32> e
+                                        Result::Ok body:
+                                            match string_from_mem_unchecked_result scratch trim:
+                                                Result::Err _e:
+                                                    Result::Err<str,i32> 12
+                                                Result::Ok frac_s:
+                                                    match concat_result "." frac_s:
+                                                        Result::Err _e:
+                                                            Result::Err<str,i32> 12
+                                                        Result::Ok dot_frac:
+                                                            match concat_result body dot_frac:
+                                                                Result::Ok out:
+                                                                    Result::Ok<str,i32> out
+                                                                Result::Err _e:
+                                                                    Result::Err<str,i32> 12
+                                else:
+                                    signed_int
+                            dealloc_raw scratch_raw 6
+                            out_result
+
+fn from_f64 <(f64)->str> (x):
+    match from_f64_result x:
+        Result::Ok text:
+            text
+        Result::Err _e:
+            "0"
 
 //: cast: 主な用途
 //:

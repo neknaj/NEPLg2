@@ -20,6 +20,7 @@ node nodesrc/cli.js --discord-webhook-url "https://discord.com/api/webhooks/..."
 ## Notes
 
 - `--discord` is optional. If no mode flags are used, plain `node nodesrc/cli.js "..."` is treated as a discord message.
+- Discord report は Markdown 本文を `--discord` の引数として直接送る。本文を保存したファイルパスや「このファイルを参照」という形式では送らない。
 - Discord posting mode cannot be mixed with `-i`, `-o`, or `--playground-editor-tests`.
 - Message text is split into chunks up to 2000 characters by default.
 - Environment variables:
