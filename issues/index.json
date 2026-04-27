@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T18:07:18.407Z",
+  "generated_at": "2026-04-27T18:19:48.152Z",
   "counts": {
     "total": 209,
     "open": 9,
@@ -783,13 +783,13 @@
       "id": "ISS-20260425T000000Z-RV-CORE-016-69B16F10",
       "title": "深い HIR を artifact codegen pipeline が再帰処理して stack overflow する",
       "area": "core",
-      "status": "verified",
+      "status": "fixed",
       "resolved": true,
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/monomorphize.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/codegen_precheck.rs, nepl-core/src/wasm_shared.rs, nepl-core/src/codegen_wasm.rs",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/monomorphize.rs, nepl-core/src/passes/codegen_precheck.rs, nepl-core/src/wasm_shared.rs, nepl-core/src/codegen_wasm.rs",
       "legacy_id": "RV-CORE-016",
       "source": "doc/review20260425/core.md#rv-core-016",
       "file": "items/ISS-20260425T000000Z-RV-CORE-016-69B16F10.md"

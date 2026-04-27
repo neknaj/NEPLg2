@@ -1,6 +1,7 @@
+use nepl_core::compiler::prepare_module_for_codegen;
 use nepl_core::error::CoreError;
 use nepl_core::span::FileId;
-use nepl_core::{check_module, compile_wasm, lexer, parser, CompileOptions};
+use nepl_core::{check_module, compile_wasm, lexer, parser, CompileOptions, CompileTarget};
 
 fn parse_module(source: &str) -> nepl_core::ast::Module {
     let lexed = lexer::lex(FileId(0), source);
@@ -42,6 +43,73 @@ fn compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow() {
     .expect("artifact pipeline should lower a deep prefix call chain without stack overflow");
 
     assert!(!artifact.wasm.is_empty());
+}
+
+#[test]
+fn prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow() {
+    let module = parse_module(&deep_identity_source(1105));
+
+    let prepared = prepare_module_for_codegen(
+        &module,
+        CompileTarget::Wasm,
+        nepl_core::BuildProfile::detect(),
+    )
+    .expect("prepare codegen should not recurse through a deep prefix call chain");
+    assert!(!prepared.hir_module.functions.is_empty());
+}
+
+#[test]
+fn drop_insertion_accepts_deep_prefix_chain_without_stack_overflow() {
+    let module = parse_module(&deep_identity_source(1105));
+    let mut tc = nepl_core::typecheck::typecheck(
+        &module,
+        CompileTarget::Wasm,
+        nepl_core::BuildProfile::detect(),
+        None,
+    );
+    let mut hir = tc.module.take().expect("typecheck should produce HIR");
+
+    nepl_core::passes::insert_drops(&mut hir, &mut tc.types);
+}
+
+#[test]
+fn monomorphize_accepts_deep_prefix_chain_without_stack_overflow() {
+    let module = parse_module(&deep_identity_source(1105));
+    let mut tc = nepl_core::typecheck::typecheck(
+        &module,
+        CompileTarget::Wasm,
+        nepl_core::BuildProfile::detect(),
+        None,
+    );
+    let mut hir = tc.module.take().expect("typecheck should produce HIR");
+    nepl_core::passes::insert_drops(&mut hir, &mut tc.types);
+
+    let (hir, unresolved) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);
+    assert!(unresolved.is_empty());
+    assert!(!hir.functions.is_empty());
+}
+
+#[test]
+fn move_check_accepts_deep_prefix_chain_without_stack_overflow() {
+    let module = parse_module(&deep_identity_source(1105));
+    let mut tc = nepl_core::typecheck::typecheck(
+        &module,
+        CompileTarget::Wasm,
+        nepl_core::BuildProfile::detect(),
+        None,
+    );
+    let mut hir = tc.module.take().expect("typecheck should produce HIR");
+    nepl_core::passes::insert_drops(&mut hir, &mut tc.types);
+    let (hir, unresolved) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);
+    assert!(unresolved.is_empty());
+
+    let diagnostics = nepl_core::passes::move_check::run(&hir, &tc.types);
+    assert!(
+        diagnostics.is_empty(),
+        "move check diagnostics: {diagnostics:?}"
+    );
 }
 
 #[test]
