@@ -289,6 +289,49 @@ fn main <()->i32> ():
     add sum_pair q1 sum_pair q2
 ```
 
+## Copy bound つき generic Copy impl は非 Copy の具体型へ適用しない
+
+neplg2:test[compile_fail]
+diag_id: 3053
+```neplg2
+#entry main
+#indent 4
+#target core
+
+#import "core/option" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let token <LocalToken> LocalToken @token_id
+    let opt <Option<LocalToken>> Option::Some token
+    let first <Option<LocalToken>> opt
+    let second <Option<LocalToken>> opt
+    0
+```
+
+## Copy bound つき generic Copy impl は Copy の具体型へ適用する
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+
+#import "core/option" as *
+
+fn main <()->i32> ():
+    let opt <Option<i32>> Option::Some 1
+    let first <Option<i32>> opt
+    let second <Option<i32>> opt
+    0
+```
+
 ## Copy impl がある enum は再利用できる
 
 neplg2:test

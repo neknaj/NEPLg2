@@ -641,6 +641,9 @@ impl TypeCtx {
                 if let Some(bound) = v.binding {
                     return self.type_pattern_matches_inner(bound, actual, mapping, seen);
                 }
+                if !self.pattern_var_capabilities_match(v, actual) {
+                    return false;
+                }
                 match mapping.get(&pattern).copied() {
                     Some(prev) => self.same_type(prev, actual),
                     None => {
@@ -775,6 +778,10 @@ impl TypeCtx {
             }
             _ => false,
         }
+    }
+
+    fn pattern_var_capabilities_match(&self, var: &TypeVar, actual: TypeId) -> bool {
+        (!var.copy_cap || self.is_copy(actual)) && (!var.drop_cap || self.has_drop(actual))
     }
 
     pub fn set_copy_trait_enabled(&mut self, enabled: bool) {

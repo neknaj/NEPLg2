@@ -1,3 +1,18 @@
+# 2026-04-28 メモ (ISS-20260427T150957437Z capability-bound impl matching)
+
+- 状況:
+  - `impl<.T: Copy> Copy for Option<.T>` のような capability bound 付き generic impl が、`Option<LocalToken>` のような非 Copy 具体型にも一致し得ることを確認した。
+  - 根本原因は `TypeCtx::type_pattern_matches` が pattern 側の未束縛 type variable を actual 型へ割り当てる際、`copy_cap` / `drop_cap` を評価していなかったこと。
+- 修正:
+  - impl target pattern matching で generic variable の Copy / Drop capability bound を actual 型へ適用する。
+  - `Option<LocalToken>` の再利用を compile_fail、`Option<i32>` の再利用を正常系として固定する compiler doctest を追加する。
+- 検証:
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/capability-bound-impl-matching.json -j 1`: `total=33`, `passed=33`
+- plan.md との差異:
+  - plan.md は変更していない。セルフホスト実装前提の core memory safety 検査を強化する変更。
+
 # 2026-04-27 メモ (ISS-20260427T132406497Z raw memory ownership)
 
 - 状況:
