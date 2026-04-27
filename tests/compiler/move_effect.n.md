@@ -103,6 +103,55 @@ fn main <()->i32> ():
     0
 ```
 
+## non-Copy raw load は同じ MemPtr 由来 address から二重に所有値を作れない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let r1 <i32> mem_ptr_addr p
+    let r2 <i32> mem_ptr_addr p
+    let a <LocalToken> load<LocalToken> r1
+    let b <LocalToken> load<LocalToken> r2
+    0
+```
+
+## non-Copy raw load は copy した MemPtr 由来 address から二重に所有値を作れない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let q <MemPtr<LocalToken>> p
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
 ## non-Copy raw store は未moveの place を上書きできない
 
 neplg2:test[compile_fail]

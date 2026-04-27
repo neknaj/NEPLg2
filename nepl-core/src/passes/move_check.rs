@@ -1038,8 +1038,16 @@ fn raw_place_ranges_overlap(
     left_offset < right_end && right_offset < left_end
 }
 
-fn raw_memory_place_key(addr: &HirExpr, ctx: &MoveCheckContext) -> Option<String> {
-    fn inner(expr: &HirExpr, ctx: &MoveCheckContext) -> Option<(String, i64)> {
+fn raw_memory_place_key(
+    addr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    fn inner(
+        expr: &HirExpr,
+        ctx: &MoveCheckContext,
+        tctx: &crate::types::TypeCtx,
+    ) -> Option<(String, i64)> {
         match &expr.kind {
             HirExprKind::Var(name) => ctx
                 .raw_addr_alias(name)
@@ -1047,18 +1055,26 @@ fn raw_memory_place_key(addr: &HirExpr, ctx: &MoveCheckContext) -> Option<String
                 .or_else(|| Some((name.clone(), 0))),
             HirExprKind::LiteralI32(value) => Some((String::from("$abs"), i64::from(*value))),
             HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
-                let (base, base_offset) = inner(&args[0], ctx)?;
+                let (base, base_offset) = inner(&args[0], ctx, tctx)?;
                 let offset = match &args[1].kind {
                     HirExprKind::LiteralI32(value) if *value >= 0 => i64::from(*value),
                     _ => return None,
                 };
                 Some((base, base_offset + offset))
             }
+            HirExprKind::Call { callee, args } if args.len() == 1 => {
+                let name = func_ref_name(callee)?;
+                if !is_mem_ptr_addr_name(name) {
+                    return None;
+                }
+                raw_memory_place_key_from_mem_ptr(&args[0], ctx, tctx)
+                    .map(|key| parse_raw_memory_place_key(key.as_str()))
+            }
             _ => None,
         }
     }
 
-    let (base, offset) = inner(addr, ctx)?;
+    let (base, offset) = inner(addr, ctx, tctx)?;
     Some(format_raw_memory_place_key(base.as_str(), offset))
 }
 
@@ -1067,10 +1083,65 @@ fn raw_addr_alias_from_value(
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> Option<String> {
+    if let Some(key) = raw_memory_place_key_from_mem_ptr(value, ctx, tctx) {
+        return Some(key);
+    }
     if tctx.same_type(value.ty, tctx.i32()) {
-        raw_memory_place_key(value, ctx)
+        raw_memory_place_key(value, ctx, tctx)
     } else {
         None
+    }
+}
+
+fn func_ref_name(callee: &FuncRef) -> Option<&str> {
+    match callee {
+        FuncRef::User(name, _, _) | FuncRef::Builtin(name) => Some(name.as_str()),
+        FuncRef::Trait { .. } => None,
+    }
+}
+
+fn is_mem_ptr_addr_name(name: &str) -> bool {
+    name == "mem_ptr_addr" || name.starts_with("mem_ptr_addr_")
+}
+
+fn is_mem_ptr_wrap_name(name: &str) -> bool {
+    name == "mem_ptr_wrap" || name.starts_with("mem_ptr_wrap_")
+}
+
+fn is_mem_ptr_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
+    match tctx.get_ref(tctx.resolve_id(ty)) {
+        TypeKind::Struct { name, .. } if name == "MemPtr" => true,
+        TypeKind::Apply { base, .. } => match tctx.get_ref(tctx.resolve_id(*base)) {
+            TypeKind::Struct { name, .. } => name == "MemPtr",
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn raw_memory_place_key_from_mem_ptr(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    match &expr.kind {
+        HirExprKind::Var(name) if is_mem_ptr_type(tctx, expr.ty) => ctx
+            .raw_addr_alias(name)
+            .map(ToString::to_string)
+            .or_else(|| Some(alloc::format!("$memptr:{}", name))),
+        HirExprKind::Call { callee, args } if args.len() == 1 => {
+            let name = func_ref_name(callee)?;
+            if !is_mem_ptr_wrap_name(name) {
+                return None;
+            }
+            raw_memory_place_key(&args[0], ctx, tctx)
+        }
+        HirExprKind::StructConstruct { name, fields, .. }
+            if name == "MemPtr" && fields.len() == 1 =>
+        {
+            raw_memory_place_key(&fields[0], ctx, tctx)
+        }
+        _ => None,
     }
 }
 
@@ -1850,7 +1921,7 @@ fn visit_raw_memory_call(
                 visit_expr(addr, ctx, tctx);
                 if let Some(path) = field_move_path_from_addr(addr, expr.ty, tctx) {
                     ctx.check_field_move(&path, expr.span);
-                } else if let Some(place) = raw_memory_place_key(addr, ctx) {
+                } else if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
                     ctx.check_raw_non_copy_load(
                         place.as_str(),
                         storage_size_bytes(tctx, expr.ty),
@@ -1865,7 +1936,7 @@ fn visit_raw_memory_call(
                 if let Some(value) = args.get(1) {
                     visit_expr(value, ctx, tctx);
                 }
-                if let Some(place) = raw_memory_place_key(addr, ctx) {
+                if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
                     let size = args
                         .get(1)
                         .map(|value| storage_size_bytes(tctx, value.ty))
@@ -2235,7 +2306,7 @@ fn visit_expr_with_escape(
                         visit_temporary_borrow(addr, ctx, BorrowKind::Shared);
                     } else if !visit_field_move_source(addr, expr.ty, ctx, tctx) {
                         visit_expr(addr, ctx, tctx);
-                        if let Some(place) = raw_memory_place_key(addr, ctx) {
+                        if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
                             ctx.check_raw_non_copy_load(
                                 place.as_str(),
                                 storage_size_bytes(tctx, expr.ty),
@@ -2271,7 +2342,7 @@ fn visit_expr_with_escape(
                 }
                 if let (Some(addr), Some(val)) = (args.get(0), args.get(1)) {
                     if !tctx.is_copy(val.ty) {
-                        if let Some(place) = raw_memory_place_key(addr, ctx) {
+                        if let Some(place) = raw_memory_place_key(addr, ctx, tctx) {
                             ctx.check_raw_non_copy_store(
                                 place.as_str(),
                                 storage_size_bytes(tctx, val.ty),

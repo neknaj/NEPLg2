@@ -89,6 +89,10 @@ raw body の direct memory instruction は拒否済みだったが、`call $stor
 
 この修正で `tests/stdlib/bloom_filter_collections.n.md` の D3100 は解消した。一方、`tests/stdlib/byte_builder.n.md` の D3100 は `stdlib/std/test.nepl` が `Vec<Result<(),str>>` を同じ raw temp から複数回 by-value load している実際の所有権問題であり、`ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069` として分離した。
 
+## 2026-04-28 MemPtr raw alias 部分対応
+
+同じ raw memory place を `MemPtr<T>` 経由で複数の i32 address に戻すと、既存の i32 alias tracking を迂回できる問題を `ISS-20260427T183234007Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-CE6E5F55` として分離し、修正した。`mem_ptr_wrap` / `mem_ptr_addr` / `MemPtr` copy 由来の raw address は同じ raw place key に正規化され、non-Copy raw load の二重 move が D3100 になる。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

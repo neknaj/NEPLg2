@@ -1,3 +1,20 @@
+# 2026-04-28 メモ (ISS-20260427T183234007Z MemPtr raw alias move_check)
+
+- 状況:
+  - `move_check` は i32 raw address alias を追跡していたが、`MemPtr<T>` から `mem_ptr_addr` で取り出した address は同じ raw place に正規化していなかった。
+  - 同じ `MemPtr<LocalToken>` から raw address を 2 回取り出し、それぞれから non-Copy `LocalToken` を `load` しても D3100 にならず wasm compile まで通った。
+- 修正:
+  - raw place key 生成を `mem_ptr_addr` call に対応させた。
+  - `mem_ptr_wrap` call、`MemPtr` struct construct、`MemPtr` 変数コピーを同じ raw place alias に畳み込むようにした。
+  - `tests/compiler/move_effect.n.md` に同じ `MemPtr` と copy した `MemPtr` 由来 address の二重 non-Copy load compile_fail を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/memptr-raw-alias-move-node.json -j 1`: `total=44`, `passed=44`
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の raw memory / MemPtr alias 検査を強化した。
+
 # 2026-04-28 メモ (ISS-20260427T182409751Z pure raw body helper call)
 
 - 状況:
