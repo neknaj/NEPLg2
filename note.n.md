@@ -19661,3 +19661,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host で使う string API の契約が、生成コメントではなく現在の実装と未解決リスクに沿って追跡できるようになった。
+
+# 2026-04-27 メモ (ISS-20260427T132911158Z alloc/string to_f64 parser)
+
+- [同期]:
+  - `origin/main` に `c81d998 stdlib: replace string doc boilerplate` を push 済みの状態から `stdlib/string-to-f64-parser` branch を作成した。
+  - 作業前に `git fetch origin main; git pull --ff-only origin main` を実行し、remote main と一致していることを確認した。
+- [原因]:
+  - `to_f64` は `ok = 2` を separator を見た状態と最終成功状態の両方に使っていた。
+  - 整数部、小数部、指数部の digit を読み切って入力末尾へ到達した場合、`ok = 1` のまま残り、最後の成功判定で `Result::Err` になっていた。
+  - 整数部直後の non-digit を小数点以外なら即 error にしていたため、`1e2` のような exponent も正しく扱いにくい構造だった。
+- [修正]:
+  - 整数部、小数部、指数部を `done_int` / `done_frac` / `done_exp` で個別に停止する state machine に整理した。
+  - clean end-of-input を成功状態として扱い、未消費 byte、digit 不足、指数部 digit 不足は `Result::Err 1` のまま維持した。
+  - `stdlib/tests/string.n.md` に、整数だけ、小数、先頭小数点、指数表記、invalid suffix / digit 不足の回帰テストを追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/string-to-f64-parser.json -j 1`: 8/8 passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string_numeric_overflow.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/string-to-f64-focused.json -j 1`: 28/28 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-string-to-f64-parser.json -j 4`: 419/419 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の literal/config/diagnostics 用 float parsing が通常の finite decimal を受理できるようになった。

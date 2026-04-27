@@ -243,3 +243,61 @@ fn main <()*>i32> ():
             dealloc_raw raw 1;
     checks_exit_code checks
 ```
+
+## string_to_f64_parser
+
+`to_f64` が整数部だけ、符号付き小数、先頭が小数点の値、指数表記を clean end-of-input で正しく受理し、
+不正な末尾や digit 不足を `Result::Err` として返すことを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string" as *
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn expect_f64_ok <(str,Result<f64,i32>,f64)*>Result<(),str>> (label, got, expected):
+    match got:
+        Result::Ok actual:
+            if:
+                eq actual expected
+                then:
+                    Result<(),str>::Ok ()
+                else:
+                    Result<(),str>::Err concat label " value mismatch"
+        Result::Err _e:
+            Result<(),str>::Err concat label " rejected"
+
+fn expect_f64_err <(str,Result<f64,i32>)*>Result<(),str>> (label, got):
+    match got:
+        Result::Ok _actual:
+            Result<(),str>::Err concat label " accepted"
+        Result::Err _e:
+            Result<(),str>::Ok ()
+
+fn main <()*>i32> ():
+    let mut checks <Vec<Result<(),str>>> checks_new;
+    let expected_integer <f64> <f64> cast 123;
+    let expected_signed_fraction <f64> div <f64> cast -3 <f64> cast 2;
+    let expected_leading_fraction <f64> div <f64> cast 1 <f64> cast 2;
+    let expected_integer_exp <f64> <f64> cast 100;
+    let expected_fraction_exp <f64> <f64> cast 125;
+    set checks checks_push checks expect_f64_ok "integer" (to_f64 "123") expected_integer;
+    set checks checks_push checks expect_f64_ok "signed fraction" (to_f64 "-1.5") expected_signed_fraction;
+    set checks checks_push checks expect_f64_ok "leading fraction" (to_f64 ".5") expected_leading_fraction;
+    set checks checks_push checks expect_f64_ok "integer exponent" (to_f64 "1e2") expected_integer_exp;
+    set checks checks_push checks expect_f64_ok "fraction exponent" (to_f64 "1.25e2") expected_fraction_exp;
+    set checks checks_push checks expect_f64_err "empty" (to_f64 "");
+    set checks checks_push checks expect_f64_err "sign only" (to_f64 "-");
+    set checks checks_push checks expect_f64_err "dot only" (to_f64 ".");
+    set checks checks_push checks expect_f64_err "missing exponent" (to_f64 "1e");
+    set checks checks_push checks expect_f64_err "trailing byte" (to_f64 "1x");
+    set checks checks_push checks expect_f64_err "trailing fraction byte" (to_f64 "1.2x");
+    checks_exit_code checks
+```

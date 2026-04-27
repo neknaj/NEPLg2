@@ -2,8 +2,8 @@
 id: ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8
 title: "alloc/string to_f64 rejects finite decimal strings after digit scan"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
@@ -39,6 +39,19 @@ Self-host config, diagnostics, and literal parsing need basic floating-point tex
 
 Normalize the parser state so a clean end-of-input after required digits is accepted, while malformed decimal/exponent forms still return Err. Add focused regressions for integer-only, fractional, exponent, signed, and invalid inputs.
 
+## 修正内容
+
+- `to_f64` の `ok = 2` に separator state と success state を兼任させる実装をやめた。
+- 整数部、小数部、指数部を `done_int` / `done_frac` / `done_exp` でそれぞれ停止する state machine に整理した。
+- clean end-of-input は `ok = 1` のまま成功として扱い、未消費 byte、digit 不足、指数部 digit 不足は `Result::Err 1` のまま維持した。
+- `stdlib/tests/string.n.md` に、整数だけ、小数、先頭小数点、指数表記、invalid suffix / digit 不足の回帰テストを追加した。
+
 ## 検証
 
-node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/string-to-f64-parser.json -j 1; node nodesrc/issues.js check; git diff --check
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/string-to-f64-parser.json -j 1`: `total=8`, `passed=8`
+- `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+- `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+- `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string_numeric_overflow.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/string-to-f64-focused.json -j 1`: `total=28`, `passed=28`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-string-to-f64-parser.json -j 4`: `total=419`, `passed=419`
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass（CRLF 変換 warning のみ）

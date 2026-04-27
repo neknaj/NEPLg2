@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T13:47:20.904Z",
+  "generated_at": "2026-04-27T14:05:37.974Z",
   "counts": {
     "total": 193,
-    "open": 9,
-    "resolved": 184,
+    "open": 8,
+    "resolved": 185,
     "by_area": {
       "core": {
         "total": 65,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 84,
-        "open": 7,
-        "resolved": 77
+        "open": 6,
+        "resolved": 78
       },
       "cli": {
         "total": 19,
@@ -118,21 +118,6 @@
       "legacy_id": "",
       "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
       "file": "items/ISS-20260427T132911011Z-ALLOC-STRING-BYTE-SLICING-CAN-CONSTR-FA25D390.md"
-    },
-    {
-      "id": "ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8",
-      "title": "alloc/string to_f64 rejects finite decimal strings after digit scan",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/string.nepl; stdlib/tests/string.n.md",
-      "legacy_id": "",
-      "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
-      "file": "items/ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -1618,6 +1603,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T111438071Z-TUI-BUFFER-NEW-STORES-STR-VALUES-THR-4B4350FE.md"
+    },
+    {
+      "id": "ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8",
+      "title": "alloc/string to_f64 rejects finite decimal strings after digit scan",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/string.nepl; stdlib/tests/string.n.md",
+      "legacy_id": "",
+      "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
+      "file": "items/ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
