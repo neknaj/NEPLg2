@@ -2,8 +2,8 @@
 id: ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86
 title: "SelfhostOutcome free drops only storage, not generic Result payload"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
@@ -47,6 +47,18 @@ target: "stdlib/neplg2/core/infra/outcome.nepl, stdlib/core/result.nepl, nepl-co
 
 修正時は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` の owner token / initialized cell 設計に合わせる。stdlib 側で先に対応する場合でも、`SelfhostOutcome` の cell を「必ず一度だけ consume する owner」として表現し、payload drop と storage dealloc を分けて検証する。
 
+## 対応結果
+
+`SelfhostOutcome` の storage 解放前に `Result<T,E>` cell を 1 回だけ load し、Ok payload / Err payload を caller 指定の cleanup callback に渡す形へ変更した。これにより `selfhost_outcome_free` と `selfhost_outcome_push_diagnostic` の diagnostics push 失敗 branch は、raw dealloc-only ではなく、payload cleanup と storage dealloc を明示的に分離して実行する。
+
+既存の `i32` / `str` payload 用には no-op cleanup callback を追加した。Drop を持つ payload では caller が payload を消費する callback を渡す。今回の回帰テストでは `DropCounter` payload の callback が local へ所有権を移し、destructor side effect が `Ok` / `Err` の両方で 1 回だけ起きることを確認した。
+
+調査中に、Drop 付き関数 parameter 自体が auto drop 対象にならない compiler 側問題を発見したため、`ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5` として分離した。今回の outcome callback は、現行 compiler の制約下で payload を local へ移す callback により cleanup を確認している。
+
 ## 検証
 
 observable Drop / free behavior を持つ payload で、`selfhost_outcome_free` と `selfhost_outcome_push_diagnostic` failure cleanup を確認する self-host stdlib test を追加する。outcome cleanup が raw dealloc-only storage release に戻らない source policy も追加する。
+
+## 実施した検証
+
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/selfhost-outcome-payload-drop.json -j 1`: `total=3`, `passed=3`

@@ -1,3 +1,20 @@
+# 2026-04-28 メモ (ISS-20260427T132414663Z SelfhostOutcome payload cleanup)
+
+- 状況:
+  - `SelfhostOutcome<T,E>` は `Result<T,E>` を heap cell に保存していたが、`selfhost_outcome_free` と diagnostics push 失敗経路は payload を破棄せず storage だけを解放していた。
+  - generic 関数内で unconstrained `T/E` の Drop を暗黙に判断できないため、payload cleanup を caller 指定 callback として明示する必要があった。
+- 修正:
+  - `selfhost_outcome_drop_result_payload` を追加し、result cell を 1 回だけ load して Ok / Err payload を cleanup callback に渡すようにした。
+  - `selfhost_outcome_free` と `selfhost_outcome_push_diagnostic` は cleanup callback を受け取り、storage dealloc 前に payload cleanup を実行する形へ変更した。
+  - `i32` / `str` payload 用の no-op cleanup callback を追加した。
+  - `tests/stdlib/neplg2_diag_outcome.n.md` に DropCounter payload の Ok / Err outcome free 回帰テストを追加した。
+- 追加 issue:
+  - callback 調査中に、Drop 付き function parameter が scope end の auto drop 対象にならない compiler 側問題を確認し、`ISS-20260427T174539616Z-FUNCTION-PARAMETERS-WITH-DROP-ARE-NO-E6B629C5` として分離した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/selfhost-outcome-payload-drop.json -j 1`: `total=3`, `passed=3`
+- plan.md との差異:
+  - plan.md は変更していない。self-host outcome の memory cleanup 契約を、現行 compiler の Drop 制約下で明示 callback API として固定した。
+
 # 2026-04-28 メモ (raw aggregate field read / raw place merge)
 
 - 状況:
