@@ -152,6 +152,82 @@ fn main <()->i32> ():
     0
 ```
 
+## non-Copy raw load は mem_ptr_add した同じ MemPtr place から二重に所有値を作れない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 0
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
+## dealloc_ptr は mem_ptr_add した same-place live non-Copy payload を捨てられない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 0
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+    0
+```
+
+## mem_ptr_add の disjoint offset は別 raw place として扱う
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 8
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    store<LocalToken> mem_ptr_addr q LocalToken @token_id
+    let a <LocalToken> load<LocalToken> mem_ptr_addr p
+    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+```
+
 ## non-Copy raw store は未moveの place を上書きできない
 
 neplg2:test[compile_fail]

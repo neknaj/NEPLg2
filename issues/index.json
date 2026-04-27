@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T19:14:14.915Z",
+  "generated_at": "2026-04-27T19:20:47.552Z",
   "counts": {
-    "total": 216,
+    "total": 217,
     "open": 9,
-    "resolved": 207,
+    "resolved": 208,
     "by_area": {
       "core": {
-        "total": 84,
+        "total": 85,
         "open": 3,
-        "resolved": 81
+        "resolved": 82
       },
       "stdlib": {
         "total": 88,
@@ -1363,6 +1363,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T190852368Z-MOVE-CHECK-ALLOWS-RAW-BYTE-WRITES-TO-B56A7B43.md"
+    },
+    {
+      "id": "ISS-20260427T191722304Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-FEAEF49B",
+      "title": "move_check does not canonicalize mem_ptr_add aliases",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T191722304Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-FEAEF49B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

@@ -1,3 +1,21 @@
+# 2026-04-28 メモ (ISS-20260427T191722304Z mem_ptr_add raw alias check)
+
+- 状況:
+  - `move_check` は `mem_ptr_wrap` / `mem_ptr_addr` / `MemPtr` copy / `RegionToken` projection を raw place に正規化していたが、`mem_ptr_add` を扱っていなかった。
+  - `q = mem_ptr_add p 0` の後に `p` と `q` から同じ `LocalToken` を二重 `load` する修正前再現では、compiler が exit 0 で受理した。
+- 修正:
+  - `mem_ptr_add` helper 名の分類を追加した。
+  - `raw_memory_place_key_from_mem_ptr` が `mem_ptr_add base literal_offset` を base raw place + offset として正規化するようにした。
+  - `tests/compiler/move_effect.n.md` に `mem_ptr_add p 0` の二重 non-Copy load、same-place dealloc compile_fail、disjoint offset 正常系を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/memptr-add-raw-alias-node.json -j 1`: `total=66`, `passed=66`
+  - 修正前再現ファイル `tmp/memptr-add-alias-double-load.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の MemPtr pointer arithmetic alias 検査を literal offset に拡張した。
+
 # 2026-04-28 メモ (ISS-20260427T190852368Z raw byte write live non-Copy check)
 
 - 状況:

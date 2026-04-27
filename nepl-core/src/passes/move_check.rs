@@ -1267,6 +1267,10 @@ fn is_mem_ptr_wrap_name(name: &str) -> bool {
     name == "mem_ptr_wrap" || name.starts_with("mem_ptr_wrap_")
 }
 
+fn is_mem_ptr_add_name(name: &str) -> bool {
+    name == "mem_ptr_add" || name.starts_with("mem_ptr_add_")
+}
+
 fn is_region_ptr_name(name: &str) -> bool {
     name == "region_ptr" || name.starts_with("region_ptr_")
 }
@@ -1319,10 +1323,22 @@ fn raw_memory_place_key_from_mem_ptr(
         }
         HirExprKind::Call { callee, args } if args.len() >= 2 && is_mem_ptr_type(tctx, expr.ty) => {
             let name = func_ref_name(callee)?;
-            if name != "get" || !is_region_token_type(tctx, args[0].ty) {
-                return None;
+            if is_mem_ptr_add_name(name) {
+                let key = raw_memory_place_key_from_mem_ptr(&args[0], ctx, tctx)?;
+                let offset = match &args[1].kind {
+                    HirExprKind::LiteralI32(value) => i64::from(*value),
+                    _ => return None,
+                };
+                let (base, base_offset) = parse_raw_memory_place_key(key.as_str());
+                Some(format_raw_memory_place_key(
+                    base.as_str(),
+                    base_offset.saturating_add(offset),
+                ))
+            } else if name == "get" && is_region_token_type(tctx, args[0].ty) {
+                raw_memory_place_key_from_region_token(&args[0], ctx, tctx)
+            } else {
+                None
             }
-            raw_memory_place_key_from_region_token(&args[0], ctx, tctx)
         }
         HirExprKind::StructConstruct { name, fields, .. }
             if name == "MemPtr" && fields.len() == 1 =>

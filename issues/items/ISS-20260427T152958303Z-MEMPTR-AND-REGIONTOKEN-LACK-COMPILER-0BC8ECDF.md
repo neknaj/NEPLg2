@@ -75,6 +75,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 この対応も局所的な raw place alias 検査であり、`MemPtr<T>` の owner/non-owner 分離は未解決である。
 
+## 2026-04-28 mem_ptr_add alias 部分対応
+
+`mem_ptr_add<T>` が `move_check` の raw place 正規化に含まれておらず、`mem_ptr_add p 0` で同じ storage を別 raw place として扱える問題を `ISS-20260427T191722304Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-FEAEF49B` として修正した。literal offset の `mem_ptr_add` は base `MemPtr` の canonical raw place に offset を加えた key へ畳み込まれ、same-place の二重 non-Copy load や live-payload dealloc は D3100 になる。
+
+この対応は pointer arithmetic の literal offset に対する局所検査であり、未知 offset や owner/non-owner 分離は compiler-owned Resource IR の残件である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。
