@@ -319,27 +319,65 @@ fn stream_scanner_header_off <(StreamScannerHeaderField)->i32> (field):
 fn stream_scanner_header_ptr <(MemPtr<u8>,StreamScannerHeaderField)->Result<MemPtr<i32>,str>> (header, field):
     region_ptr_at<u8,i32> region_new header 12 stream_scanner_header_off field
 
-fn stream_scanner_load_header <(MemPtr<u8>,StreamScannerHeaderField)->i32> (header, field):
+//: ## stream_scanner_load_header_result
+//: scanner header の 32 bit field を checked memory 経由で読む
+//:
+//: ### [目的/もくてき]
+//: - header pointer の境界確認と `load_i32` の失敗を `Result` として呼び出し側へ返します。
+//: - scanner の公開 facade が失敗を sentinel へ丸める前に、内部初期化では失敗を検出できるようにします。
+fn stream_scanner_load_header_result <(MemPtr<u8>,StreamScannerHeaderField)->Result<i32,str>> (header, field):
     match stream_scanner_header_ptr header field:
-        Result::Err _e:
-            #intrinsic "unreachable" <> ()
+        Result::Err e:
+            Result<i32,str>::Err e
         Result::Ok p:
             match load_i32 p:
                 Option::Some v:
-                    v
+                    Result<i32,str>::Ok v
                 Option::None:
-                    #intrinsic "unreachable" <> ()
+                    Result<i32,str>::Err "streamio.stream_scanner_load_header failed"
 
-fn stream_scanner_store_header <(MemPtr<u8>,StreamScannerHeaderField,i32)->()> (header, field, v):
-    match stream_scanner_header_ptr header field:
+//: ## stream_scanner_load_header
+//: scanner header を読む互換 facade
+//:
+//: ### [注意/ちゅうい]
+//: - 既存の scanner API は `Result` を返さないため、header が壊れている場合は 0 に丸めます。
+//: - 初期化など失敗を区別すべき箇所では `stream_scanner_load_header_result` を使います。
+fn stream_scanner_load_header <(MemPtr<u8>,StreamScannerHeaderField)->i32> (header, field):
+    match stream_scanner_load_header_result header field:
+        Result::Ok v:
+            v
         Result::Err _e:
-            #intrinsic "unreachable" <> ()
+            0
+
+//: ## stream_scanner_store_header_result
+//: scanner header の 32 bit field を checked memory 経由で書く
+//:
+//: ### [目的/もくてき]
+//: - header pointer の境界確認と `store_i32` の失敗を `Result` として呼び出し側へ返します。
+//: - scanner 初期化時に header 設定失敗を握りつぶさず、buffer と header を解放して失敗できます。
+fn stream_scanner_store_header_result <(MemPtr<u8>,StreamScannerHeaderField,i32)->Result<(),str>> (header, field, v):
+    match stream_scanner_header_ptr header field:
+        Result::Err e:
+            Result<(),str>::Err e
         Result::Ok p:
             match store_i32 p v:
                 Result::Ok _:
-                    ()
+                    Result<(),str>::Ok ()
                 Result::Err _e:
-                    #intrinsic "unreachable" <> ()
+                    Result<(),str>::Err "streamio.stream_scanner_store_header failed"
+
+//: ## stream_scanner_store_header
+//: scanner header を書く互換 facade
+//:
+//: ### [注意/ちゅうい]
+//: - 既存の scanner API は `Result` を返さないため、失敗時は状態を進めず no-op にします。
+//: - 初期化など失敗を区別すべき箇所では `stream_scanner_store_header_result` を使います。
+fn stream_scanner_store_header <(MemPtr<u8>,StreamScannerHeaderField,i32)->()> (header, field, v):
+    match stream_scanner_store_header_result header field v:
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
 
 //: ## stream_bytes_from_str_result
 //: `str` を byte [列/れつ]へ[変換/へんかん]する Result API
@@ -394,7 +432,7 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
             io_bytebuf_free bytes;
             Result<StreamScanner,str>::Err "streamio.scanner header alloc failed"
         Result::Ok header:
-            match stream_scanner_header_ptr header StreamScannerHeaderField::BufPtr:
+            match stream_scanner_store_header_result header StreamScannerHeaderField::BufPtr mem_ptr_addr buf:
                 Result::Err _e:
                     io_bytebuf_free bytes;
                     match dealloc_ptr<u8> header 12:
@@ -404,10 +442,27 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
                             ();
                     Result<StreamScanner,str>::Err "streamio.scanner header init failed"
                 Result::Ok _:
-                    stream_scanner_store_header header StreamScannerHeaderField::BufPtr mem_ptr_addr buf;
-                    stream_scanner_store_header header StreamScannerHeaderField::Len len;
-                    stream_scanner_store_header header StreamScannerHeaderField::Pos 0;
-                    Result<StreamScanner,str>::Ok stream_scanner_wrap header
+                    match stream_scanner_store_header_result header StreamScannerHeaderField::Len len:
+                        Result::Err _e:
+                            io_bytebuf_free bytes;
+                            match dealloc_ptr<u8> header 12:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _e2:
+                                    ();
+                            Result<StreamScanner,str>::Err "streamio.scanner header init failed"
+                        Result::Ok _:
+                            match stream_scanner_store_header_result header StreamScannerHeaderField::Pos 0:
+                                Result::Err _e:
+                                    io_bytebuf_free bytes;
+                                    match dealloc_ptr<u8> header 12:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _e2:
+                                            ();
+                                    Result<StreamScanner,str>::Err "streamio.scanner header init failed"
+                                Result::Ok _:
+                                    Result<StreamScanner,str>::Ok stream_scanner_wrap header
 
 //: ## open
 //: read target から scanner を[開/ひら]く
@@ -1128,14 +1183,13 @@ fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
                                 Result::Ok write_len:
                                     match store_u8 mem_ptr_add buf write_len b:
                                         Result::Ok _:
-                                            ()
+                                            match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen add write_len 1:
+                                                Result::Ok _:
+                                                    ()
+                                                Result::Err _e:
+                                                    ()
                                         Result::Err _e:
-                                            ();
-                                    match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen add write_len 1:
-                                        Result::Ok _:
                                             ()
-                                        Result::Err _e:
-                                            ();
                                     w1
 
 //: ## push_newline_impl
@@ -1148,45 +1202,22 @@ fn push_newline_impl <(StreamWriter)*>StreamWriter> (w):
 //:
 //: ### [注意/ちゅうい]
 //: - `str` は `[len][bytes]` [形式/けいしき]なので、bytes [先頭/せんとう]は `string_data_ptr` で[得/え]ます。
+//: - writer buffer の capacity を[超/こ]える文字列でも、1 byte ずつ `push_u8_impl` に通して flush 境界を保ちます。
 fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
-    let w_mem <MemPtr<u8>> get w "header";
     let n <i32> len s;
     let src <MemPtr<u8>> string_data_ptr s;
-    match stream_writer_load_header w_mem StreamWriterHeaderField::Cap:
-        Result::Err _e:
-            w
-        Result::Ok cap:
-            if:
-                or le n 0 le cap 0
-                then:
-                    w
-                else:
-                    let w1 <StreamWriter> reserve_impl w n;
-                    match stream_writer_load_header_ptr w_mem StreamWriterHeaderField::BufPtr:
-                        Result::Err _e:
-                            w1
-                        Result::Ok buf:
-                            match stream_writer_load_header w_mem StreamWriterHeaderField::WriteLen:
-                                Result::Err _e:
-                                    w1
-                                Result::Ok write_len:
-                                    let mut i <i32> 0;
-                                    while lt i n:
-                                        do:
-                                            let ch <i32> unwrap<i32> load_u8 mem_ptr_add src i;
-                                            match store_u8 mem_ptr_add buf add write_len i ch:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _e:
-                                                    ();
-                                            set i add i 1;
-                                    let new_len <i32> add write_len n;
-                                    match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen new_len:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e:
-                                            ();
-                                    w1
+    let mut ww <StreamWriter> w;
+    let mut i <i32> 0;
+    let mut done <i32> 0;
+    while and eq done 0 lt i n:
+        do:
+            match load_u8 mem_ptr_add src i:
+                Option::Some ch:
+                    set ww push_u8_impl ww ch;
+                    set i add i 1;
+                Option::None:
+                    set done 1;
+    ww
 
 //: ## append_bytebuf_impl
 //: `ByteBuf` を buffered sink へ[追記/ついき]する
@@ -1202,22 +1233,67 @@ fn append_bytebuf_impl <(StreamWriter,ByteBuf)*>StreamWriter> (w, bytes):
     let src <MemPtr<u8>> get bytes "ptr";
     let mut ww <StreamWriter> w;
     let mut i <i32> 0;
-    while lt i n:
+    let mut done <i32> 0;
+    while and eq done 0 lt i n:
         do:
-            let ch <i32> unwrap<i32> load_u8 mem_ptr_add src i;
-            set ww push_u8_impl ww ch;
-            set i add i 1;
+            match load_u8 mem_ptr_add src i:
+                Option::Some ch:
+                    set ww push_u8_impl ww ch;
+                    set i add i 1;
+                Option::None:
+                    set done 1;
     io_bytebuf_free bytes;
     ww
+
+//: ## append_i32_digits_impl
+//: 正の `i32` を 10 [進/しん] digit として[追記/ついき]する
+//:
+//: ### [実装/じっそう]
+//: - 上位 digit を再帰で先に出し、各 digit は `push_u8_impl` に通します。
+//: - 直接 buffer に書かないため、checked store 失敗時も writer header の長さだけが先に進むことを避けます。
+fn append_i32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
+    if:
+        ge x 10
+        then:
+            let w1 <StreamWriter> append_i32_digits_impl w div_s x 10;
+            let digit <i32> mod_s x 10;
+            push_u8_impl w1 add 48 digit
+        else:
+            push_u8_impl w add 48 x
+
+//: ## append_u32_digits_impl
+//: `u32` 表現の `i32` を符号なし 10 [進/しん] digit として[追記/ついき]する
+fn append_u32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
+    if:
+        ge_u x 10
+        then:
+            let w1 <StreamWriter> append_u32_digits_impl w div_u x 10;
+            let digit <i32> rem_u x 10;
+            push_u8_impl w1 add 48 digit
+        else:
+            push_u8_impl w add 48 x
+
+//: ## append_u64_digits_impl
+//: `u64` 表現の `i64` を符号なし 10 [進/しん] digit として[追記/ついき]する
+fn append_u64_digits_impl <(StreamWriter,i64)*>StreamWriter> (w, x):
+    let ten <i64> cast 10;
+    if:
+        ge_u x ten
+        then:
+            let w1 <StreamWriter> append_u64_digits_impl w div_u x ten;
+            let rem <i32> cast rem_u x ten;
+            push_u8_impl w1 add 48 rem
+        else:
+            let digit <i32> cast x;
+            push_u8_impl w add 48 digit
 
 //: ## append_i32_impl
 //: `i32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
 //:
 //: ### [実装/じっそう]
 //: - `INT_MIN` は[絶対値/ぜったいち]が overflow するため[定数/ていすう][文字列/もじれつ]で[処理/しょり]します。
-//: - それ[以外/いがい]は[桁数/けたすう]を[数/かぞ]えて[末尾/まつび]から[埋/う]めます。
+//: - それ[以外/いがい]は digit helper で上位桁から `push_u8_impl` へ通します。
 fn append_i32_impl <(StreamWriter,i32)*>StreamWriter> (w, v):
-    let w_mem <MemPtr<u8>> get w "header";
     if:
         eq v -2147483648
         then:
@@ -1239,150 +1315,31 @@ fn append_i32_impl <(StreamWriter,i32)*>StreamWriter> (w, v):
                             ()
                         else:
                             ();
-
-                    let mut t <i32> x;
-                    let mut d <i32> 0;
-                    while lt 0 t:
-                        do:
-                            set d add d 1;
-                            set t div_s t 10;
-
-                    set ww reserve_impl ww d;
-                    match stream_writer_load_header_ptr w_mem StreamWriterHeaderField::BufPtr:
-                        Result::Err _e:
-                            ww
-                        Result::Ok buf:
-                            match stream_writer_load_header w_mem StreamWriterHeaderField::WriteLen:
-                                Result::Err _e:
-                                    ww
-                                Result::Ok old_len:
-                                    let new_len <i32> add old_len d;
-                                    match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen new_len:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e:
-                                            ();
-
-                                    let mut n <i32> x;
-                                    let mut i <i32> 0;
-                                    let endm1 <i32> sub add old_len d 1;
-                                    while lt i d:
-                                        do:
-                                            let rem <i32> mod_s n 10;
-                                            let off <i32> sub endm1 i;
-                                            match store_u8 mem_ptr_add buf off add 48 rem:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _e:
-                                                    ();
-                                            set n div_s n 10;
-                                            set i add i 1;
-                                    ww
+                    append_i32_digits_impl ww x
 
 //: ## append_u32_impl
 //: `u32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
 fn append_u32_impl <(StreamWriter,u32)*>StreamWriter> (w, v):
-    let w_mem <MemPtr<u8>> get w "header";
     let vi <i32> cast v;
     let zero <i32> 0;
-    let ten <i32> 10;
     if:
         eq vi zero
         then:
             push_u8_impl w 48
         else:
-            let mut ww <StreamWriter> w;
-            let mut t <i32> vi;
-            let mut d <i32> 0;
-            while gt_u t zero:
-                do:
-                    set d add d 1;
-                    set t div_u t ten;
-
-            set ww reserve_impl ww d;
-            match stream_writer_load_header_ptr w_mem StreamWriterHeaderField::BufPtr:
-                Result::Err _e:
-                    ww
-                Result::Ok buf:
-                    match stream_writer_load_header w_mem StreamWriterHeaderField::WriteLen:
-                        Result::Err _e:
-                            ww
-                        Result::Ok old_len:
-                            let new_len <i32> add old_len d;
-                            match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen new_len:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    ();
-
-                            let mut n <i32> vi;
-                            let mut i <i32> 0;
-                            let endm1 <i32> sub add old_len d 1;
-                            while lt i d:
-                                do:
-                                    let rem <i32> rem_u n ten;
-                                    let off <i32> sub endm1 i;
-                                    match store_u8 mem_ptr_add buf off add 48 rem:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e:
-                                            ();
-                                    set n div_u n ten;
-                                    set i add i 1;
-                            ww
+            append_u32_digits_impl w vi
 
 //: ## append_u64_impl
 //: `u64` を 10 [進/しん]で[追記/ついき]する
 fn append_u64_impl <(StreamWriter,u64)*>StreamWriter> (w, v):
-    let w_mem <MemPtr<u8>> get w "header";
     let vi <i64> cast v;
     let zero <i64> cast 0;
-    let ten <i64> cast 10;
     if:
         eq vi zero
         then:
             push_u8_impl w 48
         else:
-            let mut ww <StreamWriter> w;
-            let mut t <i64> vi;
-            let mut d <i32> 0;
-            while gt_u t zero:
-                do:
-                    set d add d 1;
-                    set t div_u t ten;
-
-            set ww reserve_impl ww d;
-            match stream_writer_load_header_ptr w_mem StreamWriterHeaderField::BufPtr:
-                Result::Err _e:
-                    ww
-                Result::Ok buf:
-                    match stream_writer_load_header w_mem StreamWriterHeaderField::WriteLen:
-                        Result::Err _e:
-                            ww
-                        Result::Ok old_len:
-                            let new_len <i32> add old_len d;
-                            match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen new_len:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    ();
-
-                            let mut n <i64> vi;
-                            let mut i <i32> 0;
-                            let endm1 <i32> sub add old_len d 1;
-                            while lt i d:
-                                do:
-                                    let rem64 <i64> rem_u n ten;
-                                    let rem <i32> cast rem64;
-                                    let off <i32> sub endm1 i;
-                                    match store_u8 mem_ptr_add buf off add 48 rem:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e:
-                                            ();
-                                    set n div_u n ten;
-                                    set i add i 1;
-                            ww
+            append_u64_digits_impl w vi
 
 //: ## append_i64_impl
 //: `i64` を[符号付/ふごうつ]き 10 [進/しん]で[追記/ついき]する

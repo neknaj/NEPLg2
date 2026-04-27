@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T04:42:27.239Z",
+  "generated_at": "2026-04-27T04:59:40.688Z",
   "counts": {
-    "total": 177,
+    "total": 178,
     "open": 6,
-    "resolved": 171,
+    "resolved": 172,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 69,
+        "total": 70,
         "open": 5,
-        "resolved": 64
+        "resolved": 65
       },
       "cli": {
         "total": 19,
@@ -2578,6 +2578,21 @@
       "legacy_id": "",
       "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
       "file": "items/ISS-20260427T043342720Z-CLIARG-UNWRAPS-CHECKED-MEMORY-5E10A4D2.md"
+    },
+    {
+      "id": "ISS-20260427T044701965Z-STD-STREAMIO-CHECKED-MEMORY-FAILURE--0D5EB281",
+      "title": "std/streamio が checked memory failure を trap する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md, nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
+      "file": "items/ISS-20260427T044701965Z-STD-STREAMIO-CHECKED-MEMORY-FAILURE--0D5EB281.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

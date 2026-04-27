@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260427T044701965Z streamio checked memory trap)
+
+- 状況:
+  - `std/streamio.nepl` の scanner header helper は `stream_scanner_header_ptr` / `load_i32` / `store_i32` の失敗を `unreachable` にしていた。
+  - `append_str_impl` / `append_bytebuf_impl` は MemPtr 版 `load_u8` の `Option` を unsafe `unwrap` で剥がしていた。
+  - 文字列 writer は 4096 byte を超える入力でも fixed buffer へ一括 copy しようとし、`store_u8` 失敗を無視したまま `WriteLen` を進め得る構造だった。
+- 修正:
+  - `stream_scanner_load_header_result` / `stream_scanner_store_header_result` を追加し、scanner header の checked memory failure を `Result` として扱うようにした。
+  - 既存 scanner facade は API 互換のため `0` / no-op に丸め、`scanner_from_bytes` は Result 版 helper で初期化失敗を検出して `ByteBuf` と header を解放するようにした。
+  - `push_u8_impl` は byte store 成功後だけ `WriteLen` を進めるようにし、`append_str_impl` / `append_bytebuf_impl` と数値 writer helper は `push_u8_impl` に集約した。
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-checked-memory-docs.json -j 1`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-checked-memory-focused.json -j 1`: `total=13`, `passed=13`
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-streamio-checked-memory.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-streamio-checked-memory.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は self-host CLI の標準入出力基盤である `std/streamio` の checked memory failure を trap ではなく Result / sentinel / no-op へ戻す stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260427T043342720Z cliarg checked memory unwrap)
 
 - 状況:
