@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T18:19:48.152Z",
+  "generated_at": "2026-04-27T18:28:12.359Z",
   "counts": {
-    "total": 209,
+    "total": 210,
     "open": 9,
-    "resolved": 200,
+    "resolved": 201,
     "by_area": {
       "core": {
-        "total": 77,
+        "total": 78,
         "open": 3,
-        "resolved": 74
+        "resolved": 75
       },
       "stdlib": {
         "total": 88,
@@ -1258,6 +1258,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T175508838Z-ENUM-PAYLOADS-WITHOUT-ENUM-DROP-IMPL-9985D226.md"
+    },
+    {
+      "id": "ISS-20260427T182409751Z-PURE-RAW-BODIES-CAN-CALL-RAW-MEMORY--7C283F24",
+      "title": "pure raw bodies can call raw memory helper wrappers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, tests/compiler/raw_body_precheck.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T182409751Z-PURE-RAW-BODIES-CAN-CALL-RAW-MEMORY--7C283F24.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

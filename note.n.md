@@ -1,3 +1,20 @@
+# 2026-04-28 メモ (ISS-20260427T182409751Z pure raw body helper call)
+
+- 状況:
+  - pure raw body の直接 `i32.store` / `memory.grow` などは D3025 で拒否済みだった。
+  - しかし `store_i32` / `load_i32` / `mem_grow` などの raw helper wrapper は stdlib 移行中の Pure signature のため、raw body 内の `call` 経由では memory effect として分類されていなかった。
+- 修正:
+  - `effects.rs` に raw memory helper symbol の分類を追加した。
+  - `typecheck.rs` の pure raw body validation で、compiler-owned raw memory boundary 以外から raw helper を direct call した場合に D3025 を出すようにした。
+  - wasm / LLVM の raw helper call compile_fail を Rust test と n.md test に追加した。
+- 検証:
+  - `cargo test -p nepl-core --test effects -- --nocapture`: `19 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md --no-tree -o tmp/raw-helper-callee-effect-node.json -j 1`: `total=7`, `passed=7`
+  - LLVM runner はローカルで `clang --version` が見つからず未完了。Rust 側 LLVM raw body effect test は通過した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の raw memory effect boundary を一段強化した。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-016 deep prefix artifact stack)
 
 - 状況:

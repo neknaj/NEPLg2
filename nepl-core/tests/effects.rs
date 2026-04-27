@@ -157,6 +157,30 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn pure_wasm_raw_call_to_raw_memory_helper_is_rejected_outside_core_mem() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+#extern "env" "store_i32" fn store_i32 <(i32,i32)->()>
+
+fn raw_store_helper <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        call $store_i32
+
+fn main <()->i32> ():
+    raw_store_helper 0 1
+    0
+"#;
+
+    let result = compile_wasm(FileId(0), src, options(CompileTarget::Wasm)).map(|_| ());
+    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+}
+
+#[test]
 fn pure_raw_load_intrinsic_is_rejected_outside_core_mem() {
     let src = r#"
 #entry main
@@ -313,6 +337,33 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn pure_llvm_raw_call_to_raw_memory_helper_is_rejected_outside_core_mem() {
+    let src = r#"
+#entry main
+#indent 4
+#target llvm
+
+#extern "c" "mem_grow" fn mem_grow <(i32)->i32>
+
+fn raw_grow_helper <(i32)->i32> (pages):
+    #llvmir:
+        define i32 @raw_grow_helper(i32 %pages) {
+        entry:
+            %x = call i32 @mem_grow(i32 %pages)
+            ret i32 %x
+        }
+
+fn main <()->i32> ():
+    raw_grow_helper 1
+"#;
+
+    assert_has_diag(
+        check_source(src, CompileTarget::Llvm),
+        DiagnosticId::TypePureCallsImpureFunction,
+    );
+}
+
+#[test]
 fn pure_raw_memory_in_core_mem_source_is_allowed_during_migration() {
     let src = r#"
 #entry raw_store
@@ -328,6 +379,30 @@ fn raw_store <(i32,i32)->()> (p, v):
 
     check_source_as_core_mem_boundary(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
         .expect("core/mem raw memory helper remains allowed during migration");
+}
+
+#[test]
+fn pure_raw_body_call_to_raw_helper_in_core_mem_source_is_allowed_during_migration() {
+    let src = r#"
+#entry raw_store_helper
+#indent 4
+#target wasm
+
+fn store_i32 <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+
+fn raw_store_helper <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        call $store_i32
+"#;
+
+    check_source_as_core_mem_boundary(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
+        .expect("core/mem raw memory helper call remains allowed during migration");
 }
 
 #[test]

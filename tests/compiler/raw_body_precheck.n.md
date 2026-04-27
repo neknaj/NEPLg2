@@ -86,6 +86,27 @@ fn main <()->i32> ():
     0
 ```
 
+## pure_wasm_raw_helper_call_is_rejected
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#target core
+#entry main
+#indent 4
+#import "core/mem" as *
+
+fn raw_store_helper <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        call $store_i32
+
+fn main <()->i32> ():
+    raw_store_helper 0 1
+    0
+```
+
 ## pure_llvm_raw_memory_store_is_rejected
 
 neplg2:test[llvm_cli, compile_fail]
@@ -107,6 +128,28 @@ fn raw_store <(i32)->()> (v):
 fn main <()->i32> ():
     raw_store 1
     0
+```
+
+## pure_llvm_raw_helper_call_is_rejected
+
+neplg2:test[llvm_cli, compile_fail]
+diag_id: 3025
+```neplg2
+#target llvm
+#entry main
+#indent 4
+#import "core/mem" as *
+
+fn raw_grow_helper <(i32)->i32> (pages):
+    #llvmir:
+        define i32 @raw_grow_helper(i32 %pages) {
+        entry:
+            %x = call i32 @mem_grow(i32 %pages)
+            ret i32 %x
+        }
+
+fn main <()->i32> ():
+    raw_grow_helper 1
 ```
 
 ## wasm_precheck_rejects_unsupported_extern_signature

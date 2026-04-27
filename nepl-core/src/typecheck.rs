@@ -16,7 +16,7 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::effects::{
     intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callees,
-    raw_body_memory_operations,
+    raw_body_memory_operations, raw_callee_is_raw_memory_effect,
 };
 use crate::hir::*;
 use crate::layout::{composite_field_offset_bytes, is_aggregate_storage_type};
@@ -2518,6 +2518,19 @@ impl<'a> BlockChecker<'a> {
                 return false;
             }
             for callee in raw_body_direct_callees(body) {
+                if raw_callee_is_raw_memory_effect(&callee) {
+                    if !self.raw_body_memory_operations_allowed(span) {
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                format!("pure raw body cannot call raw memory helper '{}'", callee),
+                                span,
+                            )
+                            .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                        );
+                        return false;
+                    }
+                    continue;
+                }
                 if self.raw_callee_is_impure(&callee) {
                     self.diagnostics.push(
                         Diagnostic::error("pure context cannot call impure function", span)

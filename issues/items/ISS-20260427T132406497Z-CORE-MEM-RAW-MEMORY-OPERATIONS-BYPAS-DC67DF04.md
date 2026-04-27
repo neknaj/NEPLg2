@@ -75,6 +75,10 @@ pure source code が observable raw address を allocate / free / load / store �
 
 `#intrinsic "load"` / `#intrinsic "store"` が `intrinsic_effect` で pure 扱いになっていたため、user source が `core/mem` の wrapper を通さず raw memory を直接読み書きできる穴を `ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6` として分離し、修正した。これにより direct raw memory intrinsic は pure context で `D3025` になる。移行中の `stdlib/core/mem.nepl` は SourceMap path による compiler-owned memory boundary として限定許可している。
 
+## 2026-04-28 pure raw body helper call 部分対応
+
+raw body の direct memory instruction は拒否済みだったが、`call $store_i32` / `call @mem_grow` のように Pure signature の raw helper wrapper を直接呼ぶ経路が残っていたため、`ISS-20260427T182409751Z-PURE-RAW-BODIES-CAN-CALL-RAW-MEMORY--7C283F24` として分離して修正した。compiler-owned raw memory boundary 以外の pure raw body では、既知 raw memory helper symbol への direct call も `D3025` で拒否する。
+
 ## 2026-04-28 raw aggregate field read / branch merge 部分対応
 
 `field::get load<T> p "field"` のような raw aggregate load 直後の field access が、raw address `p + offset` から field だけを読む HIR ではなく、`load<T> p` で non-Copy aggregate 全体を shallow load してから field を読む HIR になっていた。このため Copy field を読むだけでも raw place 全体が moved になり、collection helper の temporary raw storage が D3100 で誤検出されていた。
