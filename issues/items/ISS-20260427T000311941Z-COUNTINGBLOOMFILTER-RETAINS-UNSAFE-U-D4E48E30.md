@@ -4,10 +4,10 @@ title: "CountingBloomFilter retains unsafe unwrap in owned counter cleanup"
 area: stdlib
 status: verified
 resolved: true
-priority: P2
+priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-27
+updated: 2026-04-28
 target: "stdlib/alloc/collections/counting_bloom_filter.nepl, tests/stdlib/counting_bloom_filter_collections.n.md, nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js"
 ---
 
@@ -56,3 +56,19 @@ Use dealloc_raw for owned counter storage, document the invariant, add a cleanup
 - `node nodesrc/tests.js -i tests/stdlib/counting_bloom_filter_collections.n.md -i stdlib/tests/counting_bloom_filter.n.md --no-tree -o tmp/counting-bloom-filter-owned-cleanup-focused-after-32f5c78.json -j 1`: 4/4 passed
 - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-counting-bloom-filter-owned-cleanup-after-32f5c78.json -j 4`: 290/290 passed
 - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-counting-bloom-filter-owned-cleanup-after-32f5c78.json -j 4`: 418/418 passed
+
+## 2026-04-28 再発確認と追加対応
+
+raw dealloc 検査強化後、unsafe unwrap は戻っていないが、`contains` と `free` が field 観察用の `bf_mem` temporary raw storage に `CountingBloomFilter<T,H>` owner を残したまま `dealloc_raw bf_mem` していることが再検出された。
+
+- 変更前再現: `tests/stdlib/counting_bloom_filter_collections.n.md` の doctest 2 件が `error[D3100]: deallocating raw memory place containing non-Copy value: bf_mem` で失敗した。
+- 根本原因: `bf_mem` は `nslots` / `nbytes` / `counters` / `hasher` の field read のためだけに使われており、field read は owner を consume しない。temporary storage の解放時点で `CountingBloomFilter<T,H>` owner が live のまま残っていた。
+- 追加対応: `insert` / `remove` / `contains` / `clear` / `free` は raw temporary に struct owner を退避せず、`field::get` で必要な Copy field を直接読む形へ統一した。
+- これにより、CountingBloomFilter の通常操作は不要な raw struct storage を確保せず、owned counter storage cleanup と temporary storage cleanup が混ざらない。
+
+## 追加検証
+
+- `node nodesrc/tests.js -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-filter-bf-mem-regression-before.json -j 1`: `total=2`, `failed=2`, D3100 `bf_mem`
+- `node nodesrc/tests.js -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-filter-bf-mem-regression-after.json -j 1`: `total=2`, `passed=2`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl --no-tree -o tmp/counting-bloom-filter-bf-mem-stdlib-after.json -j 1`: `total=6`, `passed=6`
+- `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: pass

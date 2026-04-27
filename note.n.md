@@ -20386,3 +20386,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - BloomFilter の field 観察は raw temporary owner ではなく direct field read へ寄せ、compiler の raw ownership 検査と stdlib 実装の責務を一致させた。
+
+# 2026-04-28 メモ (ISS-20260427T000311941Z CountingBloomFilter bf_mem live owner dealloc)
+
+- [同期]:
+  - `main` が `origin/main` と一致していることを確認し、`fix/counting-bloom-filter-bf-mem-owner` branch を作成した。
+- [再現]:
+  - `node nodesrc/tests.js -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-filter-bf-mem-regression-before.json -j 1`: 2 件すべて `D3100 deallocating raw memory place containing non-Copy value: bf_mem` で失敗した。
+- [原因]:
+  - `contains` と `free` は field 観察用に `CountingBloomFilter<T,H>` owner を `bf_mem` へ store した後、`nslots` / `nbytes` / `counters` / `hasher` を field read するだけで owner を consume せずに temporary storage を dealloc していた。
+  - `insert` / `remove` / `clear` も同じ不要な raw temporary pattern を持っていたため、CountingBloomFilter の通常操作全体で raw struct storage を避ける方針へ揃えた。
+- [修正]:
+  - `insert` / `remove` / `contains` / `clear` / `free` は `field::get` で必要な Copy field を直接読むようにし、`bf_mem` の alloc/store/load/dealloc を削除した。
+  - owned counter storage の解放は従来どおり `free` の `dealloc_raw mem_ptr_addr counters nbytes` に限定した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-filter-bf-mem-regression-after.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl --no-tree -o tmp/counting-bloom-filter-bf-mem-stdlib-after.json -j 1`: 6/6 passed
+  - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - CountingBloomFilter の field 観察は raw temporary owner ではなく direct field read へ寄せ、compiler の raw ownership 検査と stdlib 実装の責務を一致させた。
