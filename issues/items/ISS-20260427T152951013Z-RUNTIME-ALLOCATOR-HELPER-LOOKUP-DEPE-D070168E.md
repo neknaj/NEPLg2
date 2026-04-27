@@ -2,8 +2,8 @@
 id: ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E
 title: "runtime allocator helper lookup depends on public core mem names"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-27
@@ -44,3 +44,20 @@ compiler runtime helper は public function name discovery ではなく、DefId 
 ## 検証
 
 `runtime_helpers` の unit test を、public `alloc_raw` 名優先ではなく compiler-owned ABI 優先へ更新する。`core/mem.nepl` から raw helper を非公開化しても wasm / llvm codegen が allocator を解決できる regression を追加する。stdlib safe API の rename が codegen helper lookup に影響しないことも確認する。
+
+## 対応結果
+
+- `nepl-core/src/runtime_helpers.rs` に compiler runtime ABI 名 `__nepl_rt_alloc` / `__nepl_rt_dealloc` / `__nepl_rt_realloc` を定義し、helper lookup は ABI 名を最優先、旧 public raw/safe 名は移行用 fallback とした。
+- `helper_base_name` は予約 ABI 名の先頭 `__` と monomorphize suffix の `__...` を区別するようにした。これにより `__nepl_rt_alloc__i32__i32__pure` のような lowered symbol も runtime ABI helper として解決できる。
+- `stdlib/core/mem.nepl` に compiler 予約 ABI wrapper を追加し、codegen が公開 `alloc_raw` 名を直接探索しなくても runtime allocator を保持・解決できるようにした。
+- LLVM の aggregate allocation regression は `__nepl_rt_alloc` の呼び出しと定義を確認するよう更新した。`core/mem.nepl` raw body の許可境界は SourceMap path に依存するため、stdlib を読み込む LLVM tests は source-map aware API を使うようにした。
+
+## 実施した検証
+
+- `cargo test -p nepl-core runtime_helpers`: pass
+- `cargo test -p nepl-core --test neplg2 llvm_allocator_helper_is_emitted_for_codegen_inserted_alloc`: pass
+- `cargo test -p nepl-core --test neplg2 llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics`: pass
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/runtime-helper-abi-intrinsic.json -j 1`: `total=8`, `passed=8`
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

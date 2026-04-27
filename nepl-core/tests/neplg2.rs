@@ -109,11 +109,12 @@ fn main <()->i32> ():
     0
 "#;
     let loaded = load_inline_with_stdlib(src);
-    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
         &loaded.module,
         CompileTarget::Llvm,
         BuildProfile::Debug,
         false,
+        Some(&loaded.source_map),
     )
     .expect("stdlib mem bulk copy should emit LLVM IR without clang");
     assert!(ll.contains("declare void @llvm.memcpy.p0.p0.i32"));
@@ -142,17 +143,18 @@ fn main <()->i32> ():
     0
 "#;
     let loaded = load_inline_with_stdlib(src);
-    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target(
+    let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
         &loaded.module,
         CompileTarget::Llvm,
         BuildProfile::Debug,
         false,
+        Some(&loaded.source_map),
     )
     .expect("codegen-inserted aggregate allocation should emit allocator helpers");
-    assert!(ll.contains("call i32 @\"alloc_raw"));
+    assert!(ll.contains("call i32 @\"__nepl_rt_alloc"));
     assert!(ll
         .lines()
-        .any(|line| line.starts_with("define i32 @") && line.contains("alloc_raw")));
+        .any(|line| line.starts_with("define i32 @") && line.contains("__nepl_rt_alloc")));
     assert!(ll.contains("load_i32"));
     assert!(ll.contains("store_i32"));
 }

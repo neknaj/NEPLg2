@@ -5,9 +5,13 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 
-pub const ALLOC_CANDIDATES: &[&str] = &["alloc_raw", "alloc"];
-pub const DEALLOC_CANDIDATES: &[&str] = &["dealloc", "dealloc_raw"];
-pub const REALLOC_CANDIDATES: &[&str] = &["realloc", "realloc_raw"];
+pub const ALLOC_RUNTIME_ABI: &str = "__nepl_rt_alloc";
+pub const DEALLOC_RUNTIME_ABI: &str = "__nepl_rt_dealloc";
+pub const REALLOC_RUNTIME_ABI: &str = "__nepl_rt_realloc";
+
+pub const ALLOC_CANDIDATES: &[&str] = &[ALLOC_RUNTIME_ABI, "alloc_raw", "alloc"];
+pub const DEALLOC_CANDIDATES: &[&str] = &[DEALLOC_RUNTIME_ABI, "dealloc_raw", "dealloc"];
+pub const REALLOC_CANDIDATES: &[&str] = &[REALLOC_RUNTIME_ABI, "realloc_raw", "realloc"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeHelperKind {
@@ -24,13 +28,32 @@ pub fn helper_candidates(kind: RuntimeHelperKind) -> &'static [&'static str] {
     }
 }
 
+pub fn runtime_abi_name(kind: RuntimeHelperKind) -> &'static str {
+    match kind {
+        RuntimeHelperKind::Alloc => ALLOC_RUNTIME_ABI,
+        RuntimeHelperKind::Dealloc => DEALLOC_RUNTIME_ABI,
+        RuntimeHelperKind::Realloc => REALLOC_RUNTIME_ABI,
+    }
+}
+
 pub fn helper_base_name(name: &str) -> &str {
     let tail = if let Some(pos) = name.rfind("::") {
         &name[pos + 2..]
     } else {
         name
     };
-    if let Some(pos) = tail.find("__") {
+    let suffix_pos = [ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI]
+        .iter()
+        .find_map(|abi| {
+            let rest = tail.strip_prefix(*abi)?;
+            if rest.starts_with("__") {
+                Some(abi.len())
+            } else {
+                None
+            }
+        })
+        .or_else(|| tail.find("__").filter(|pos| *pos > 0));
+    if let Some(pos) = suffix_pos {
         &tail[..pos]
     } else {
         tail
@@ -88,15 +111,31 @@ mod tests {
         assert_eq!(helper_base_name("alloc__i32"), "alloc");
         assert_eq!(helper_base_name("::core/mem::alloc"), "alloc");
         assert_eq!(helper_base_name("::core/mem::alloc__i32"), "alloc");
+        assert_eq!(helper_base_name("__nepl_rt_alloc"), "__nepl_rt_alloc");
+        assert_eq!(
+            helper_base_name("::core/mem::__nepl_rt_alloc__i32"),
+            "__nepl_rt_alloc"
+        );
+        assert_eq!(
+            helper_base_name("::core/mem::__nepl_rt_alloc__i32__i32__pure"),
+            "__nepl_rt_alloc"
+        );
     }
 
     #[test]
-    fn find_runtime_helper_key_prefers_raw_allocator_for_internal_codegen() {
+    fn find_runtime_helper_key_prefers_compiler_runtime_abi() {
         let mut map = BTreeMap::new();
         map.insert(String::from("alloc_raw"), 1u32);
         map.insert(String::from("alloc"), 2u32);
+        map.insert(String::from("__nepl_rt_alloc"), 3u32);
         let found = find_runtime_helper_key(&map, RuntimeHelperKind::Alloc);
-        assert_eq!(found, Some("alloc_raw"));
+        assert_eq!(found, Some("__nepl_rt_alloc"));
+
+        let mut namespaced = BTreeMap::new();
+        namespaced.insert(String::from("::core/mem::alloc_raw"), 1u32);
+        namespaced.insert(String::from("::core/mem::__nepl_rt_alloc"), 2u32);
+        let found_namespaced = find_runtime_helper_key(&namespaced, RuntimeHelperKind::Alloc);
+        assert_eq!(found_namespaced, Some("::core/mem::__nepl_rt_alloc"));
 
         let mut raw_only = BTreeMap::new();
         raw_only.insert(String::from("::core/mem::alloc_raw__i32"), 10u32);
@@ -109,8 +148,35 @@ mod tests {
         let mut map = BTreeMap::new();
         map.insert(String::from("alloc"), 4u32);
         map.insert(String::from("::core/mem::alloc_raw__i32"), 5u32);
+        map.insert(String::from("__nepl_rt_alloc"), 6u32);
         map.insert(String::from("current"), 4u32);
         let idx = find_runtime_helper_index(&map, RuntimeHelperKind::Alloc, Some("current"));
+        assert_eq!(idx, Some(6u32));
+    }
+
+    #[test]
+    fn find_runtime_helper_index_falls_back_when_current_is_abi_helper() {
+        let mut map = BTreeMap::new();
+        map.insert(String::from("__nepl_rt_alloc"), 4u32);
+        map.insert(String::from("::core/mem::alloc_raw__i32"), 5u32);
+        let idx =
+            find_runtime_helper_index(&map, RuntimeHelperKind::Alloc, Some("__nepl_rt_alloc"));
         assert_eq!(idx, Some(5u32));
+    }
+
+    #[test]
+    fn runtime_abi_name_is_stable_for_each_helper_kind() {
+        assert_eq!(
+            runtime_abi_name(RuntimeHelperKind::Alloc),
+            "__nepl_rt_alloc"
+        );
+        assert_eq!(
+            runtime_abi_name(RuntimeHelperKind::Dealloc),
+            "__nepl_rt_dealloc"
+        );
+        assert_eq!(
+            runtime_abi_name(RuntimeHelperKind::Realloc),
+            "__nepl_rt_realloc"
+        );
     }
 }

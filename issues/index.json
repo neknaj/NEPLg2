@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T15:44:03.650Z",
+  "generated_at": "2026-04-27T16:03:54.980Z",
   "counts": {
     "total": 199,
-    "open": 10,
-    "resolved": 189,
+    "open": 9,
+    "resolved": 190,
     "by_area": {
       "core": {
         "total": 70,
-        "open": 4,
-        "resolved": 66
+        "open": 3,
+        "resolved": 67
       },
       "stdlib": {
         "total": 85,
@@ -73,21 +73,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md"
-    },
-    {
-      "id": "ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E",
-      "title": "runtime allocator helper lookup depends on public core mem names",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/runtime_helpers.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/core/mem.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E.md"
     },
     {
       "id": "ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF",
@@ -1153,6 +1138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T222120121Z-MATCH-PAYLOAD-BINDING-LOSES-BORROW-O-14A71629.md"
+    },
+    {
+      "id": "ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E",
+      "title": "runtime allocator helper lookup depends on public core mem names",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/runtime_helpers.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

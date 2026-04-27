@@ -1,3 +1,21 @@
+# 2026-04-28 メモ (ISS-20260427T152951013Z runtime allocator helper ABI)
+
+- 状況:
+  - compiler の runtime allocator helper lookup が `alloc_raw` / `alloc` などの public stdlib 名を直接候補にしていた。
+  - raw API の公開面を縮小すると codegen が helper を見失うため、compiler-owned ABI と stdlib public API の責務を分ける必要があった。
+- 修正:
+  - `runtime_helpers.rs` に `__nepl_rt_alloc` / `__nepl_rt_dealloc` / `__nepl_rt_realloc` を定義し、候補順を compiler ABI 優先、旧名 fallback に変更した。
+  - monomorphize suffix 付きの予約 ABI 名も基底名へ戻せるよう `helper_base_name` を修正した。
+  - `stdlib/core/mem.nepl` に compiler 予約 ABI wrapper を追加し、LLVM aggregate allocation の回帰テストを `__nepl_rt_alloc` 期待に更新した。
+- 検証:
+  - `cargo test -p nepl-core runtime_helpers`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_allocator_helper_is_emitted_for_codegen_inserted_alloc`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/runtime-helper-abi-intrinsic.json -j 1`: `total=8`, `passed=8`
+- plan.md との差異:
+  - plan.md は変更していない。compiler と stdlib memory boundary の責務分割を進める変更。
+
 # 2026-04-28 メモ (ISS-20260427T152947135Z raw body memory effect)
 
 - 状況:

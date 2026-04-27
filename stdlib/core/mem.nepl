@@ -473,6 +473,55 @@ fn realloc_raw <(i32,i32,i32)->i32> (ptr, old_size, new_size):
                             dealloc_raw ptr old_size
                             new_ptr
 
+//: __nepl_rt_alloc: compiler runtime ABI 用の確保入口
+//:
+//: 目的:
+//: - compiler が aggregate などの内部 lowering で使う allocator symbol を、公開 raw API 名から分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 現行 runtime allocator の `alloc_raw` へ委譲します。
+//:
+//: 注意(重要):
+//: - これは compiler が予約する ABI です。通常の stdlib 利用コードは `alloc` または所有権付き wrapper を使ってください。
+//: - 移行期間中は互換のために `alloc_raw` も残りますが、codegen はこの ABI 名を優先します。
+//:
+//: 計算量:
+//: - O(alloc_raw)
+fn __nepl_rt_alloc <(i32)->i32> (size):
+    alloc_raw size
+
+//: __nepl_rt_dealloc: compiler runtime ABI 用の解放入口
+//:
+//: 目的:
+//: - compiler が runtime helper を保持・解決するときの deallocator symbol を、公開 raw API 名から分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 現行 runtime deallocator の `dealloc_raw` へ委譲します。
+//:
+//: 注意(重要):
+//: - これは compiler が予約する ABI です。通常の stdlib 利用コードは安全 API または所有権付き wrapper を使ってください。
+//:
+//: 計算量:
+//: - O(dealloc_raw)
+fn __nepl_rt_dealloc <(i32,i32)->()> (ptr, size):
+    dealloc_raw ptr size
+
+//: __nepl_rt_realloc: compiler runtime ABI 用の再確保入口
+//:
+//: 目的:
+//: - compiler が runtime helper を保持・解決するときの reallocator symbol を、公開 raw API 名から分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 現行 runtime reallocator の `realloc_raw` へ委譲します。
+//:
+//: 注意(重要):
+//: - これは compiler が予約する ABI です。通常の stdlib 利用コードは安全 API または所有権付き wrapper を使ってください。
+//:
+//: 計算量:
+//: - O(realloc_raw)
+fn __nepl_rt_realloc <(i32,i32,i32)->i32> (ptr, old_size, new_size):
+    realloc_raw ptr old_size new_size
+
 //: alloc: alloc の結果を Result で返す安全API
 //:
 //: 目的:
