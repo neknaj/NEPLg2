@@ -1,3 +1,16 @@
+# 2026-04-27 メモ (ISS-20260427T062158099Z ScannerReadable default stub)
+
+- 状況:
+  - stdlib unsafe helper 再スキャンで、core の helper 定義と core test 以外では `stdlib/std/streamio.nepl` の `ScannerReadable::scan` default stub にだけ `#intrinsic "unreachable"` が残ることを確認した。
+  - `ScannerReadable` は戻り値が `Self` で、未対応型を `Result::Err` に落とす default を書けないため、`RV-STDLIB-010` の残りとして分離する必要がある。
+- 対応:
+  - 新 issue `ISS-20260427T062158099Z-SCANNERREADABLE-DEFAULT-SCAN-TRAPS-W-FCBF9EF6` を追加した。
+  - 対応方針は scanner trait を Result 返却へ移行するか、compiler/language 側で trait method default body を必須にしない仕組みを入れて、source policy の allowlist から streamio stub を外すこと。
+- 検証:
+  - `rg` により残存箇所が `stdlib/std/streamio.nepl:1463` の default stub に限定されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は RV-STDLIB-010 の残りを追跡可能な issue へ分離する記録。
+
 # 2026-04-27 メモ (ISS-20260427T060739844Z WASIX TUI wrap allocation)
 
 - 状況:
