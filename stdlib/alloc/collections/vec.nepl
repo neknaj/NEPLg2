@@ -555,6 +555,7 @@ fn is_empty_ref <.T> <(&Vec<.T>)->bool> (v):
 //: ### [注意/ちゅうい]
 //: - [返/かえ]り[値/あたい]は `Result<Vec<.T>, StdErrorKind>` です。`unwrap_ok` や `match` で[受/う]け[取/と]り[直/なお]してください。
 //: - [再確保/さいかくほ]が[起/お]きると[内部/ないぶ]バッファ[番地/ばんち]は[変/か]わります。
+//: - [容量/ようりょう][拡張/かくちょう]に[失敗/しっぱい]した[場合/ばあい]、入力 `Vec` の owner はこの[関数/かんすう]が[消費/しょうひ]し、旧 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [償却/しょうきゃく] O(1)
@@ -590,6 +591,7 @@ fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
                     store<.T> write_ptr item
                     Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> next_len grown_cap grown_data
                 Result::Err _e:
+                    dealloc_raw mem_ptr_addr v_data old_bytes
                     Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
         else:
             let write_off <i32> mul v_len size_of<.T>

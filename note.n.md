@@ -1,3 +1,23 @@
+# 2026-04-27 メモ (ISS-20260427T041629340Z Vec push owner 喪失)
+
+- 状況:
+  - `Vec.push` は `Vec<.T>` を値で受け取る consuming API だが、容量不足で `realloc_ptr` が失敗した場合に旧 `data` buffer owner を返さず、解放もしていなかった。
+  - `realloc_ptr` は失敗時に旧 buffer を保持するため、`push` 側が `Err` だけを返すと caller は旧 `Vec` owner を回収できない。
+  - `std/fs` の `v::push` unsafe unwrap 修正を検討中に、FS だけでなく parser / loader / diagnostic collection にも影響する根本問題として分離した。
+- 修正:
+  - `Vec.push` の grow failure branch で `dealloc_raw mem_ptr_addr v_data old_bytes` を呼び、consumed owner の旧 buffer を解放してから `Err(OutOfMemory)` を返すようにした。
+  - `push` のコメントに、容量拡張失敗時も入力 owner は関数が消費し、旧 buffer を解放することを明記した。
+  - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に、`push` の grow failure branch が旧 buffer を解放することを固定する source policy regression を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-push-owner-docs.json -j 1`: `total=39`, `passed=39`
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-push-owner-focused.json -j 1`: `total=4`, `passed=4`
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-vec-push-owner.json -j 4`: `total=305`, `passed=305`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-vec-push-owner.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は、self-host の基礎 collection で allocation failure 時に owner storage を失わないようにする stdlib 修正。
+
 # 2026-04-27 メモ (ISS-20260425T000000Z-RV-STDLIB-007 UTF-8 境界)
 
 - 状況:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T04:12:26.453Z",
+  "generated_at": "2026-04-27T04:22:53.020Z",
   "counts": {
-    "total": 175,
+    "total": 176,
     "open": 7,
-    "resolved": 168,
+    "resolved": 169,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 67,
+        "total": 68,
         "open": 6,
-        "resolved": 61
+        "resolved": 62
       },
       "cli": {
         "total": 19,
@@ -2548,6 +2548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T031251079Z-LIST-MAP-AND-FILTER-LEAK-PARTIAL-RES-9B715B6A.md"
+    },
+    {
+      "id": "ISS-20260427T041629340Z-VEC-PUSH-ERR-LOSES-OWNER-7D2E9F43",
+      "title": "Vec push が grow 失敗時に旧 buffer owner を失う",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/vec.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, tests/stdlib/vec_collections.n.md",
+      "legacy_id": "",
+      "source": "ISS-20260427T041147635Z-FS-VEC-PUSH-UNWRAP-TRAPS-4A80E8C1",
+      "file": "items/ISS-20260427T041629340Z-VEC-PUSH-ERR-LOSES-OWNER-7D2E9F43.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",
