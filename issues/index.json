@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T15:13:42.844Z",
+  "generated_at": "2026-04-27T15:21:15.632Z",
   "counts": {
-    "total": 194,
+    "total": 195,
     "open": 7,
-    "resolved": 187,
+    "resolved": 188,
     "by_area": {
       "core": {
-        "total": 66,
+        "total": 67,
         "open": 2,
-        "resolved": 64
+        "resolved": 65
       },
       "stdlib": {
         "total": 84,
@@ -343,6 +343,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T150957437Z-GENERIC-CAPABILITY-BOUND-IMPLS-MATCH-2D884C11.md"
+    },
+    {
+      "id": "ISS-20260427T151835595Z-AGGREGATE-VALUES-WITHOUT-CUSTOM-DROP-83DACC3B",
+      "title": "aggregate values without custom Drop skip droppable fields",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/drop_insertion.rs, nepl-core/tests/drop.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T151835595Z-AGGREGATE-VALUES-WITHOUT-CUSTOM-DROP-83DACC3B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-001-CDADB88A",

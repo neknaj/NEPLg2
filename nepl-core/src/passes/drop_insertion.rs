@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
@@ -149,35 +149,50 @@ impl<'a> DropInsertionContext<'a> {
             return Vec::new();
         }
         if info.moved_fields.is_empty() {
-            if !self.types.has_drop(info.ty) {
-                return Vec::new();
+            if self.types.has_drop_impl_target(info.ty) {
+                return vec![HirLine {
+                    expr: drop_call_expr(self.types, self.plan, name.to_string(), info.ty, span),
+                    drop_result: true,
+                }];
             }
-            return vec![HirLine {
-                expr: drop_call_expr(self.types, self.plan, name.to_string(), info.ty, span),
-                drop_result: true,
-            }];
+            return self.structural_field_drop_lines(name, info.ty, info.ty, 0, span);
         }
 
         let fields = aggregate_fields_with_offsets(self.types, info.ty);
         let mut out = Vec::new();
         for (offset, field_ty) in fields {
-            if info.moved_fields.contains_key(&offset) || !self.types.has_drop(field_ty) {
+            if info.moved_fields.contains_key(&offset) {
                 continue;
             }
-            out.push(HirLine {
+            out.extend(self.structural_field_drop_lines(name, info.ty, field_ty, offset, span));
+        }
+        out
+    }
+
+    fn structural_field_drop_lines(
+        &mut self,
+        name: &str,
+        owner_ty: TypeId,
+        ty: TypeId,
+        base_offset: usize,
+        span: crate::span::Span,
+    ) -> Vec<HirLine> {
+        let drop_fields = structural_drop_fields(self.types, ty, base_offset);
+        drop_fields
+            .into_iter()
+            .map(|(offset, field_ty)| HirLine {
                 expr: drop_field_call_expr(
                     self.types,
                     self.plan,
                     name.to_string(),
-                    info.ty,
+                    owner_ty,
                     field_ty,
                     offset,
                     span,
                 ),
                 drop_result: true,
-            });
-        }
-        out
+            })
+            .collect()
     }
 
     fn fresh_assignment_temp(&mut self) -> String {
@@ -673,6 +688,31 @@ fn aggregate_fields_with_offsets(types: &TypeCtx, ty: TypeId) -> Vec<(usize, Typ
     }
 
     inner(types, ty, &BTreeMap::new())
+}
+
+fn structural_drop_fields(types: &TypeCtx, ty: TypeId, base_offset: usize) -> Vec<(usize, TypeId)> {
+    fn inner(
+        types: &TypeCtx,
+        ty: TypeId,
+        base_offset: usize,
+        visiting: &mut BTreeSet<TypeId>,
+    ) -> Vec<(usize, TypeId)> {
+        let resolved = types.resolve_id(ty);
+        if types.has_drop_impl_target(resolved) {
+            return vec![(base_offset, resolved)];
+        }
+        if !visiting.insert(resolved) {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for (offset, field_ty) in aggregate_fields_with_offsets(types, resolved) {
+            out.extend(inner(types, field_ty, base_offset + offset, visiting));
+        }
+        visiting.remove(&resolved);
+        out
+    }
+
+    inner(types, ty, base_offset, &mut BTreeSet::new())
 }
 
 fn field_move_path_from_addr(

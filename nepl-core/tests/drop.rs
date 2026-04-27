@@ -163,6 +163,33 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn auto_drop_plain_struct_drops_droppable_fields() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+struct PlainBox:
+    guard <Guard>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 7;
+        ()
+
+fn main <()->i32> ():
+    let plain <PlainBox> PlainBox (Guard 0);
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![7]);
+}
+
+#[test]
 fn auto_drop_partially_moved_struct_drops_remaining_fields() {
     let source = r#"
 #target wasm

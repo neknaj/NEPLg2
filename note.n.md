@@ -1,3 +1,19 @@
+# 2026-04-28 メモ (ISS-20260427T151835595Z structural field drop)
+
+- 状況:
+  - custom Drop を持たない struct / tuple が Drop field を内包していても、scope end の drop elaboration は outer 型自身の Drop impl だけを見ていた。
+  - そのため、plain aggregate の内側に所有 resource を入れると field destructor が実行されず、compiler 側の structural cleanup が成立しなかった。
+- 修正:
+  - `drop_insertion` で outer aggregate に custom Drop impl がない場合、struct / tuple field を再帰的に走査し、Drop impl を持つ leaf field に field-address Drop call を生成するようにした。
+  - partial move 済み aggregate でも、未 move field の内側にある droppable leaf を drop できるようにした。
+- 検証:
+  - `cargo test -p nepl-core --test drop auto_drop_plain_struct_drops_droppable_fields`: pass
+  - `cargo test -p nepl-core --test drop`: `9 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree -o tmp/structural-field-drop.json -j 1`: `total=5`, `passed=5`
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の ownership/resource cleanup を強化する変更。
+
 # 2026-04-28 メモ (ISS-20260427T150957437Z capability-bound impl matching)
 
 - 状況:
