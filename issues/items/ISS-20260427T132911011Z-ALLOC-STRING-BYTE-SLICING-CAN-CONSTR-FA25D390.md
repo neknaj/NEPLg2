@@ -2,8 +2,8 @@
 id: ISS-20260427T132911011Z-ALLOC-STRING-BYTE-SLICING-CAN-CONSTR-FA25D390
 title: "alloc/string byte slicing can construct invalid UTF-8 str"
 area: stdlib
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
@@ -39,6 +39,20 @@ Self-host lexer/parser/diagnostics code relies on str being valid UTF-8 after co
 
 Define and enforce the boundary contract for string slicing. Prefer rejecting non-UTF-8-boundary start/end in str_slice_result and keeping byte-level operations in explicitly raw/byte APIs. Add regressions for multibyte partial slices and split behavior.
 
+## 修正内容
+
+- `str_utf8_is_boundary` を追加し、0、`len(s)`、continuation byte 以外の位置だけを UTF-8 文字境界として扱うようにした。
+- `str_slice_result` が clamp 後の start/end を `str_utf8_is_boundary` で確認し、非境界なら `Result::Err "string.slice invalid utf8 boundary"` を返すようにした。
+- `str_slice` は互換 facade として、非境界 slice では従来どおり空文字列 fallback を返す。
+- `stdlib/tests/string.n.md` に multibyte 文字の valid slice / invalid partial slice regression を追加した。
+- source policy を拡張し、`str_slice_result` から境界検査が外れないようにした。
+
 ## 検証
 
-node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md --no-tree -o tmp/string-utf8-slice-boundary.json -j 1; node nodesrc/issues.js check; git diff --check
+- `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+- `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/string-utf8-slice-boundary.json -j 1`: `total=9`, `passed=9`
+- `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string_numeric_overflow.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/string-utf8-slice-focused.json -j 1`: `total=29`, `passed=29`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-string-utf8-slice-boundary.json -j 4`: `total=420`, `passed=420`
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass（CRLF 変換 warning のみ）

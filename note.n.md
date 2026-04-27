@@ -19686,3 +19686,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の literal/config/diagnostics 用 float parsing が通常の finite decimal を受理できるようになった。
+
+# 2026-04-27 メモ (ISS-20260427T132911011Z alloc/string UTF-8 slice boundary)
+
+- [同期]:
+  - `origin/main` に `f7a56dd stdlib: fix string to_f64 parser state` を push 済みの状態から `stdlib/string-utf8-slice-boundary` branch を作成した。
+  - 作業前に `git fetch origin main; git pull --ff-only origin main` を実行し、remote main と一致していることを確認した。
+- [原因]:
+  - `str_slice_result` は byte index を clamp した後、`string_from_mem_unchecked_result` で任意 byte 範囲をそのまま `str` にしていた。
+  - そのため、multi-byte UTF-8 文字の途中を slice しても `Result::Ok<str>` になり、外部入力境界で守っている `str` の UTF-8 不変条件を stdlib 内部で破れた。
+- [修正]:
+  - `str_utf8_is_boundary` を追加し、0、`len(s)`、continuation byte 以外の位置だけを UTF-8 文字境界として扱うようにした。
+  - `str_slice_result` が clamp 後の start/end を境界検査し、非境界なら `Result::Err "string.slice invalid utf8 boundary"` を返すようにした。
+  - `str_slice` は互換 facade として、非境界 slice では空文字列 fallback を返す。
+  - `stdlib/tests/string.n.md` に valid multibyte slice / invalid partial slice の回帰テストを追加した。
+  - source policy を拡張し、`str_slice_result` から境界検査が外れないようにした。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/string-utf8-slice-boundary.json -j 1`: 9/9 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string_numeric_overflow.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/string-utf8-slice-focused.json -j 1`: 29/29 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-string-utf8-slice-boundary.json -j 4`: 420/420 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の lexer/parser/diagnostics が `str` は常に valid UTF-8 であるという前提を内部 slice 後も保てるようになった。

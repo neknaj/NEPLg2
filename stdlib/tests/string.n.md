@@ -301,3 +301,44 @@ fn main <()*>i32> ():
     set checks checks_push checks expect_f64_err "trailing fraction byte" (to_f64 "1.2x");
     checks_exit_code checks
 ```
+
+## string_slice_utf8_boundary
+
+`str_slice_result` が UTF-8 の文字境界に揃った範囲だけを `str` として返し、
+multi-byte 文字の途中で切る範囲を `Result::Err` にすることを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string" as *
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn expect_slice_ok <(str,Result<str,str>,str)*>Result<(),str>> (label, got, expected):
+    match got:
+        Result::Ok actual:
+            check_str_eq expected actual
+        Result::Err e:
+            Result<(),str>::Err concat label e
+
+fn expect_slice_err <(str,Result<str,str>)*>Result<(),str>> (label, got):
+    match got:
+        Result::Ok _actual:
+            Result<(),str>::Err concat label " accepted invalid boundary"
+        Result::Err _e:
+            Result<(),str>::Ok ()
+
+fn main <()*>i32> ():
+    let mut checks <Vec<Result<(),str>>> checks_new;
+    set checks checks_push checks expect_slice_ok "full: " (str_slice_result "あ" 0 3) "あ";
+    set checks checks_push checks expect_slice_ok "second: " (str_slice_result "あい" 3 6) "い";
+    set checks checks_push checks expect_slice_err "cut end: " (str_slice_result "あ" 0 1);
+    set checks checks_push checks expect_slice_err "cut start: " (str_slice_result "あ" 1 3);
+    set checks checks_push checks check_str_eq "" (str_slice "あ" 0 1);
+    checks_exit_code checks
+```

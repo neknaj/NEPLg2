@@ -873,17 +873,56 @@ fn str_ends_with <(str,str)->bool> (s, suffix):
             let start <i32> sub ls lp;
             str_eq_at s suffix start lp 0
 
-//: str_slice_result: byte 範囲を新しい str として切り出す
+//: str_utf8_is_boundary: byte index が UTF-8 文字境界か判定する
+//:
+//: [目的/もくてき]:
+//: - `str_slice_result` が valid UTF-8 の途中 byte から新しい `str` を作らないようにします。
+//:
+//: [実装/じっそう]:
+//: - 0 と `len(s)` は常に境界として扱います。
+//: - それ以外の位置では、その byte が UTF-8 continuation byte でなければ境界です。
+//:
+//: [注意/ちゅうい]:
+//: - `s` 自体は valid UTF-8 である前提です。
+//: - 範囲外 index は `false` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_utf8_is_boundary <(str,i32)->bool> (s, idx):
+    let n <i32> len s;
+    if:
+        lt idx 0
+        then:
+            false
+        else:
+            if:
+                eq idx 0
+                then:
+                    true
+                else:
+                    if:
+                        eq idx n
+                        then:
+                            true
+                        else:
+                            if:
+                                lt n idx
+                                then:
+                                    false
+                                else:
+                                    not string_utf8_is_continuation string_byte_at_unchecked s idx
+
+//: str_slice_result: UTF-8 境界に揃った byte 範囲を新しい str として切り出す
 //:
 //: [目的/もくてき]:
 //: - `s[start..end]` の byte 範囲を copy した新しい `str` を返します。
 //:
 //: [実装/じっそう]:
 //: - `start` は 0 未満なら 0 に、`end` は `start` 未満なら `start` に、`len(s)` より大きければ `len(s)` に丸めます。
-//: - 丸め後の範囲を `string_from_mem_unchecked_result` で新規確保します。
+//: - 丸め後の start/end が UTF-8 文字境界であることを確認してから、新しい `str` 領域へ copy します。
 //:
 //: [注意/ちゅうい]:
-//: - index は byte index です。UTF-8 の文字境界に揃っているかは検査しません。
+//: - index は byte index です。ただし `str` の UTF-8 不変条件を守るため、文字境界でない範囲は `Result::Err` にします。
 //: - `str_slice` は失敗時に空文字列 fallback を返す互換 API です。
 //:
 //: [計算量/けいさんりょう]:
@@ -905,7 +944,12 @@ fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
         then set e0 n
         else ()
     let out_len <i32> sub e0 s0;
-    string_from_mem_unchecked_result mem_ptr_add string_data_ptr s s0 out_len
+    if:
+        and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0
+        then:
+            string_from_mem_unchecked_result mem_ptr_add string_data_ptr s s0 out_len
+        else:
+            Result<str,str>::Err "string.slice invalid utf8 boundary"
 
 fn str_slice <(str,i32,i32)->str> (s, start, end):
     match str_slice_result s start end:
