@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T02:06:09.519Z",
+  "generated_at": "2026-04-27T02:15:10.753Z",
   "counts": {
-    "total": 171,
-    "open": 13,
+    "total": 172,
+    "open": 14,
     "resolved": 158,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 63,
-        "open": 12,
+        "total": 64,
+        "open": 13,
         "resolved": 51
       },
       "cli": {
@@ -238,6 +238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T000313426Z-LIST-REVERSE-HIDES-ALLOCATION-FAILUR-E4B68FAA.md"
+    },
+    {
+      "id": "ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E",
+      "title": "DisjointSet new rejects zero length despite documented non-negative length",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/disjoint_set.nepl, tests/stdlib/disjoint_set_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
