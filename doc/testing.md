@@ -56,6 +56,7 @@ node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js
 node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js

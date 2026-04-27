@@ -1,3 +1,21 @@
+# 2026-04-27 メモ (ISS-20260427T060739844Z WASIX TUI wrap allocation)
+
+- 状況:
+  - `stdlib/platforms/wasix/tui.nepl` の `text_wrap_lines` は折り返し行 `Vec<str>` の生成と push を `unwrap_ok` していた。
+  - TUI rendering helper が memory pressure で trap し、RV-STDLIB-010 の normal-code 残件になっていた。
+- 修正:
+  - `TuiStrPushRes` / `tui_empty_str_vec` / `tui_push_str` を追加し、push failure 時に consumed owner を再利用しない形にした。
+  - `text_wrap_lines` の `v::new` / `v::push` を `match` し、失敗時は `failed=true` で line scan を止めて空 Vec sentinel を返すようにした。
+  - `nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js` を追加し、CI/source policy と `doc/testing.md` に登録した。
+- 検証:
+  - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/wasix-tui-wrap-allocation-focused.json -j 1`: `total=4`, `passed=4`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-wasix-tui-wrap-allocation.json -j 4`: `total=418`, `passed=418`
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib TUI helper の allocation failure trap を sentinel fallback へ戻す修正。
+
 # 2026-04-27 メモ (ISS-20260427T060047209Z kpgraph BFS allocation)
 
 - 状況:

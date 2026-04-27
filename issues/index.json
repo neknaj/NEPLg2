@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T06:05:14.105Z",
+  "generated_at": "2026-04-27T06:12:17.633Z",
   "counts": {
-    "total": 183,
+    "total": 184,
     "open": 6,
-    "resolved": 177,
+    "resolved": 178,
     "by_area": {
       "core": {
         "total": 64,
@@ -12,9 +12,9 @@
         "resolved": 63
       },
       "stdlib": {
-        "total": 75,
+        "total": 76,
         "open": 5,
-        "resolved": 70
+        "resolved": 71
       },
       "cli": {
         "total": 19,
@@ -2668,6 +2668,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T060047209Z-KP-KPGRAPH-BFS-RESULT-VEC-ALLOCATION-317AB7D4.md"
+    },
+    {
+      "id": "ISS-20260427T060739844Z-WASIX-TUI-TEXT-WRAP-LINES-VEC-ALLOCA-405DA6BF",
+      "title": "WASIX TUI text_wrap_lines が Vec allocation failure を unwrap_ok で trap する",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/platforms/wasix/tui.nepl, tests/stdlib/features_tui.n.md, nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T060739844Z-WASIX-TUI-TEXT-WRAP-LINES-VEC-ALLOCA-405DA6BF.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

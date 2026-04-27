@@ -9,6 +9,7 @@
 #import "core/math" as *
 #import "alloc/string" as *
 #import "alloc/collections/vec" as *
+#import "alloc/collections/vec" as v
 #import "std/stdio" as *
 
 //: wasix/tui: WASIX 端末制御と TUI 描画補助ライブラリ
@@ -55,6 +56,29 @@
 struct TerminalSize:
     cols <i32>
     rows <i32>
+
+//: TuiStrPushRes: `Vec<str>` push の結果
+//:
+//: [目的/もくてき]:
+//: - `text_wrap_lines` の行配列 owner と push 成否を同時に返します。
+struct TuiStrPushRes:
+    items <Vec<str>>
+    ok <bool>
+
+//: tui_empty_str_vec: 空の `Vec<str>` sentinel を作る
+//:
+//: [目的/もくてき]:
+//: - allocation failure 時に consumed owner を再利用せず、空の折り返し結果へ切り替えます。
+fn tui_empty_str_vec <()->Vec<str>> ():
+    v::Vec<str> 0 0 mem_ptr_wrap 0
+
+//: tui_push_str: `Vec<str>` push を trap せず結果化する
+fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):
+    match v::push<str> items item:
+        Result::Ok next:
+            TuiStrPushRes next true
+        Result::Err _e:
+            TuiStrPushRes tui_empty_str_vec false
 
 fn get_tty_state <()*>i32> ():
     let ptr <i32> alloc_raw 24;
@@ -436,7 +460,13 @@ fn line_clip_to_cols <(str,i32)*>str> (s, cols):
 //: [計算量/けいさんりょう]:
 //: - O(n)
 fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
-    let mut out <Vec<str>> unwrap_ok new<str>;
+    let mut out <Vec<str>> tui_empty_str_vec;
+    let mut failed <bool> false;
+    match v::new<str>:
+        Result::Ok out0:
+            set out out0
+        Result::Err _e:
+            set failed true;
     if:
         lt cols 1
         then:
@@ -446,17 +476,25 @@ fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
             let mut i <i32> 0;
             let mut line_start <i32> 0;
             let mut line_w <i32> 0;
-            while lt i n:
+            while and lt i n not failed:
                 do:
                     let b <i32> str_byte_at text i;
                     if:
                         eq b 10
                         then:
                             let ln <str> str_slice text line_start i;
-                            set out unwrap_ok push<str> out ln;
-                            set i add i 1;
-                            set line_start i;
-                            set line_w 0;
+                            let pushed_out <TuiStrPushRes> tui_push_str out ln;
+                            let pushed_ok <bool> get pushed_out "ok";
+                            set out get pushed_out "items";
+                            if:
+                                pushed_ok
+                                then:
+                                    set i add i 1;
+                                    set line_start i;
+                                    set line_w 0;
+                                else:
+                                    set failed true;
+                                    ()
                         else:
                             let ch_len <i32> if:
                                 lt b 128
@@ -483,20 +521,42 @@ fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
                                         eq i line_start
                                         then:
                                             let ln2 <str> str_slice text line_start add i ch_len;
-                                            set out unwrap_ok push<str> out ln2;
-                                            set i add i ch_len;
-                                            set line_start i;
-                                            set line_w 0;
+                                            let pushed_out2 <TuiStrPushRes> tui_push_str out ln2;
+                                            let pushed_ok2 <bool> get pushed_out2 "ok";
+                                            set out get pushed_out2 "items";
+                                            if:
+                                                pushed_ok2
+                                                then:
+                                                    set i add i ch_len;
+                                                    set line_start i;
+                                                    set line_w 0;
+                                                else:
+                                                    set failed true;
+                                                    ()
                                         else:
                                             let ln3 <str> str_slice text line_start i;
-                                            set out unwrap_ok push<str> out ln3;
-                                            set line_start i;
-                                            set line_w 0;
+                                            let pushed_out3 <TuiStrPushRes> tui_push_str out ln3;
+                                            let pushed_ok3 <bool> get pushed_out3 "ok";
+                                            set out get pushed_out3 "items";
+                                            if:
+                                                pushed_ok3
+                                                then:
+                                                    set line_start i;
+                                                    set line_w 0;
+                                                else:
+                                                    set failed true;
+                                                    ()
                                 else:
                                     set i add i ch_len;
                                     set line_w next_w;
-            let tail <str> str_slice text line_start n;
-            set out unwrap_ok push<str> out tail;
+            if:
+                not failed
+                then:
+                    let tail <str> str_slice text line_start n;
+                    let pushed_tail <TuiStrPushRes> tui_push_str out tail;
+                    set out get pushed_tail "items";
+                    ()
+                else ()
             out
 
 //: buffer_set_wrapped_text: 折り返し文字列を行バッファへ描画する
