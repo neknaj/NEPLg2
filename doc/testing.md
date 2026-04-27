@@ -51,6 +51,7 @@ node nodesrc/test_stdlib_bytebuf_utf8_boundary.js
 node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_no_unsafe_helpers.js
 node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js
 node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js
 node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T06:21:58.144Z",
+  "generated_at": "2026-04-27T06:26:17.467Z",
   "counts": {
     "total": 185,
-    "open": 7,
-    "resolved": 178,
+    "open": 6,
+    "resolved": 179,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 77,
-        "open": 6,
-        "resolved": 71
+        "open": 5,
+        "resolved": 72
       },
       "cli": {
         "total": 19,
@@ -103,21 +103,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
-      "title": "Result/Option の unsafe helper が通常コードに広く残っている",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/**",
-      "legacy_id": "RV-STDLIB-010",
-      "source": "doc/review20260425/stdlib.md#rv-stdlib-010",
-      "file": "items/ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB.md"
     },
     {
       "id": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
@@ -2053,6 +2038,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
+      "title": "Result/Option の unsafe helper が通常コードに広く残っている",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-25",
+      "updated": "2026-04-27",
+      "target": "stdlib/**",
+      "legacy_id": "RV-STDLIB-010",
+      "source": "doc/review20260425/stdlib.md#rv-stdlib-010",
+      "file": "items/ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB.md"
     },
     {
       "id": "ISS-20260426T021001000Z-BTREE-ARRAY-COST-B37E2A91",

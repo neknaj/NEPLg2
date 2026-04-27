@@ -1,3 +1,18 @@
+# 2026-04-27 メモ (ISS-20260425T000000Z-RV-STDLIB-010 unsafe helper parent)
+
+- 状況:
+  - 個別修正後の stdlib 再スキャンで、unsafe helper / `#intrinsic "unreachable"` の通常実装残存は core の helper 定義、core test、`ScannerReadable` default stub に限定された。
+  - `ScannerReadable` default stub は `ISS-20260427T062158099Z-SCANNERREADABLE-DEFAULT-SCAN-TRAPS-W-FCBF9EF6` に分離済み。
+- 修正:
+  - `nodesrc/test_stdlib_no_unsafe_helpers.js` を追加し、全 `stdlib/**/*.nepl` を対象に通常実装の unsafe helper 再導入を検出するようにした。
+  - CI と `doc/testing.md` に全体 source policy を登録し、`RV-STDLIB-010` を verified に更新した。
+- 検証:
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+  - `node nodesrc/issues.js check`
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-unsafe-helper-policy.json -j 4`: `total=418`, `passed=418`
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は stdlib の unsafe helper 除去作業を全体 policy で固定するもの。
+
 # 2026-04-27 メモ (ISS-20260427T062158099Z ScannerReadable default stub)
 
 - 状況:
