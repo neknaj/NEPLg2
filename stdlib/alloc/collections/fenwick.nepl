@@ -77,17 +77,23 @@ fn fenwick_check_range <(str,Fenwick,i32,i32)*>Result<(), Diag>> (op, fw, l, r):
         then ok<(), Diag> ()
         else diag_err<()> fenwick_diag_range op l r n
 
+fn fenwick_ptr_at <(MemPtr<i32>,i32)->MemPtr<i32>> (bit, idx):
+    mem_ptr_wrap add mem_ptr_addr bit mul idx 4
+
+fn fenwick_load_owned <(MemPtr<i32>)->i32> (ptr):
+    load_i32 mem_ptr_addr ptr
+
+fn fenwick_store_owned <(MemPtr<i32>,i32)->()> (ptr, value):
+    store_i32 mem_ptr_addr ptr value
+
 fn fenwick_sum_prefix_raw <(MemPtr<i32>,i32)->i32> (bit, r):
     let mut i <i32> r
     let mut acc <i32> 0
     while lt 0 i:
         do:
-            let ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr bit mul i 4
-            match load_i32 ptr:
-                Option::Some v:
-                    set acc add acc v
-                Option::None:
-                    ()
+            let ptr <MemPtr<i32>> fenwick_ptr_at bit i
+            let v <i32> fenwick_load_owned ptr
+            set acc add acc v
             let neg_i <i32> sub 0 i
             let lb <i32> and i neg_i
             set i sub i lb
@@ -122,8 +128,8 @@ fn new <(i32)*>Result<Fenwick, Diag>> (n):
             let mut i <i32> 0
             while lt i bit_len:
                 do:
-                    let ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr bit mul i 4
-                    let _ <()> uwok store_i32 ptr 0
+                    let ptr <MemPtr<i32>> fenwick_ptr_at bit i
+                    fenwick_store_owned ptr 0
                     set i add i 1
             ok<Fenwick, Diag> Fenwick n bit
 
@@ -167,12 +173,9 @@ fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
             let mut i <i32> add idx 1
             while le i n:
                 do:
-                    let ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr bit mul i 4
-                    match load_i32 ptr:
-                        Option::Some cur:
-                            let _ <()> uwok store_i32 ptr add cur delta
-                        Option::None:
-                            ()
+                    let ptr <MemPtr<i32>> fenwick_ptr_at bit i
+                    let cur <i32> fenwick_load_owned ptr
+                    fenwick_store_owned ptr add cur delta
                     let neg_i <i32> sub 0 i
                     let lb <i32> and i neg_i
                     set i add i lb
@@ -268,6 +271,11 @@ fn sum_range <(Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
 //: ## free
 //: [内部/ないぶ][配列/はいれつ]を[解放/かいほう]する
 //:
+//: ### [仕様/しよう]
+//: - `Fenwick` は `new` が[確保/かくほ]した `n + 1` 要素の 1-indexed `bit` [配列/はいれつ]を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - caller は `free` [後/ご]の `Fenwick` を[再利用/さいりよう]してはいけません。
+//:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
 //:
@@ -291,4 +299,4 @@ fn free <(Fenwick)*>()> (fw):
     let bit_len <i32> add n 1
     let bytes <i32> mul bit_len 4
     dealloc_raw fw_mem size_of<Fenwick>
-    let _ <()> uwok dealloc_ptr<i32> bit bytes
+    dealloc_raw mem_ptr_addr bit bytes

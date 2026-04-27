@@ -19020,3 +19020,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host cache / membership helper に使える CountingBloomFilter が、cleanup 時に unsafe helper へ依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000312112Z Fenwick owned cleanup)
+
+- [同期]:
+  - `origin/main` が `c501cd5 stdlib: remove counting bloom unsafe cleanup unwrap` で一致している状態から `stdlib/fenwick-owned-cleanup` branch を作成した。
+- [原因]:
+  - `Fenwick.new` は `n + 1` 要素の 1-indexed `bit` 配列を確保し、`Fenwick` がその pointer を所有する。
+  - `new` の初期化と `add` の更新は owner 配列内の index だけを操作しているが、checked `store_i32` の `Result` を `uwok` していた。
+  - `Fenwick.free` も owned `bit` 配列の cleanup で `dealloc_ptr<i32>` の `Result` を `uwok` していた。
+- [修正]:
+  - `fenwick_ptr_at` / `fenwick_load_owned` / `fenwick_store_owned` を追加し、所有済み配列の raw access を内部 helper に集約した。
+  - `new` / `add` / `fenwick_sum_prefix_raw` の内部配列 access を helper 経由に揃え、unsafe helper を削除した。
+  - `free` を `dealloc_raw mem_ptr_addr bit bytes` に変更し、owner invariant と free 後の再利用禁止を doc comment に明記した。
+  - free 後の再確保 regression と、Fenwick 実装に unsafe unwrap / unreachable が戻らない source policy guard を追加した。
+- [検証]:
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-owned-cleanup-docs.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md -i stdlib/tests/fenwick.n.md --no-tree -o tmp/fenwick-owned-cleanup-focused.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-fenwick-owned-cleanup.json -j 4`: 291/291 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-fenwick-owned-cleanup.json -j 4`: 418/418 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の frequency / prefix-sum helper に使える Fenwick が、内部配列 access と cleanup で unsafe helper に依存しないようになった。

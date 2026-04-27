@@ -41,3 +41,36 @@ fn main <()*>i32> ():
     let ok <bool> and ok0 ok1;
     if ok 1 0
 ```
+
+## fenwick_free_releases_owned_storage
+
+[目的/もくてき]:
+- `Fenwick.free` が owner [管理/かんり]している 1-indexed `bit` [配列/はいれつ]を trap せず[解放/かいほう]し、その[後/あと]の[再確保/さいかくほ]で allocator が[継続/けいぞく]して[動作/どうさ]することを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `free`
+- `new`
+- `add`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/fenwick" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let fw0 <Fenwick>:
+        unwrap_ok<Fenwick, Diag> new 6
+        |> add 1 3 |> uwok
+    free fw0
+    let fw1 <Fenwick>:
+        unwrap_ok<Fenwick, Diag> new 6
+        |> add 2 5 |> uwok
+    free fw1
+    1
+```
