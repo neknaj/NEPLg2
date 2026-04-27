@@ -108,6 +108,9 @@ struct MoveCheckContext {
     enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
     /// Raw aliases held by aggregate fields, aligned with `var_stacks`.
     aggregate_field_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, String>>>,
+    /// Aggregate-field raw aliases held by enum payloads, aligned with `var_stacks`.
+    enum_payload_aggregate_field_raw_alias_stacks:
+        BTreeMap<String, Vec<BTreeMap<String, BTreeMap<usize, String>>>>,
     /// Ownership state for trackable raw memory places that carry non-Copy values.
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     /// Active borrow counts per source variable.
@@ -129,6 +132,8 @@ struct ResourceStateSnapshot {
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
     enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
     aggregate_field_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, String>>>,
+    enum_payload_aggregate_field_raw_alias_stacks:
+        BTreeMap<String, Vec<BTreeMap<String, BTreeMap<usize, String>>>>,
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
@@ -145,6 +150,7 @@ impl MoveCheckContext {
             raw_addr_alias_stacks: BTreeMap::new(),
             enum_payload_raw_alias_stacks: BTreeMap::new(),
             aggregate_field_raw_alias_stacks: BTreeMap::new(),
+            enum_payload_aggregate_field_raw_alias_stacks: BTreeMap::new(),
             raw_place_states: BTreeMap::new(),
             borrow_counts: BTreeMap::new(),
             use_counts: Vec::new(),
@@ -162,6 +168,9 @@ impl MoveCheckContext {
             raw_addr_alias_stacks: self.raw_addr_alias_stacks.clone(),
             enum_payload_raw_alias_stacks: self.enum_payload_raw_alias_stacks.clone(),
             aggregate_field_raw_alias_stacks: self.aggregate_field_raw_alias_stacks.clone(),
+            enum_payload_aggregate_field_raw_alias_stacks: self
+                .enum_payload_aggregate_field_raw_alias_stacks
+                .clone(),
             raw_place_states: self.raw_place_states.clone(),
             borrow_counts: self.borrow_counts.clone(),
         }
@@ -175,6 +184,9 @@ impl MoveCheckContext {
         self.raw_addr_alias_stacks = snapshot.raw_addr_alias_stacks.clone();
         self.enum_payload_raw_alias_stacks = snapshot.enum_payload_raw_alias_stacks.clone();
         self.aggregate_field_raw_alias_stacks = snapshot.aggregate_field_raw_alias_stacks.clone();
+        self.enum_payload_aggregate_field_raw_alias_stacks = snapshot
+            .enum_payload_aggregate_field_raw_alias_stacks
+            .clone();
         self.raw_place_states = snapshot.raw_place_states.clone();
         self.borrow_counts = snapshot.borrow_counts.clone();
     }
@@ -229,6 +241,16 @@ impl MoveCheckContext {
                     self.aggregate_field_raw_alias_stacks.remove(&name);
                 }
             }
+            if let Some(stack) = self
+                .enum_payload_aggregate_field_raw_alias_stacks
+                .get_mut(&name)
+            {
+                stack.pop();
+                if stack.is_empty() {
+                    self.enum_payload_aggregate_field_raw_alias_stacks
+                        .remove(&name);
+                }
+            }
         }
     }
 
@@ -263,6 +285,10 @@ impl MoveCheckContext {
             .or_default()
             .push(BTreeMap::new());
         self.aggregate_field_raw_alias_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(BTreeMap::new());
+        self.enum_payload_aggregate_field_raw_alias_stacks
             .entry(name.clone())
             .or_default()
             .push(BTreeMap::new());
@@ -381,6 +407,46 @@ impl MoveCheckContext {
 
     fn set_aggregate_field_raw_aliases(&mut self, name: &str, aliases: BTreeMap<usize, String>) {
         if let Some(stack) = self.aggregate_field_raw_alias_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = aliases;
+            }
+        }
+    }
+
+    fn enum_payload_aggregate_field_raw_aliases(
+        &self,
+        name: &str,
+        variant: &str,
+    ) -> BTreeMap<usize, String> {
+        let Some(aliases) = self
+            .enum_payload_aggregate_field_raw_alias_stacks
+            .get(name)
+            .and_then(|stack| stack.last())
+        else {
+            return BTreeMap::new();
+        };
+        aliases
+            .get(variant)
+            .or_else(|| {
+                if is_result_ok_variant_name(variant) {
+                    aliases.get("Ok")
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn set_enum_payload_aggregate_field_raw_aliases(
+        &mut self,
+        name: &str,
+        aliases: BTreeMap<String, BTreeMap<usize, String>>,
+    ) {
+        if let Some(stack) = self
+            .enum_payload_aggregate_field_raw_alias_stacks
+            .get_mut(name)
+        {
             if let Some(slot) = stack.last_mut() {
                 *slot = aliases;
             }
@@ -1705,6 +1771,26 @@ fn match_bind_raw_addr_alias(
     }
 }
 
+fn match_bind_aggregate_field_raw_aliases(
+    scrutinee: &HirExpr,
+    arm: &HirMatchArm,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<usize, String> {
+    let Some(variant_name) = pattern_variant_name(arm) else {
+        return BTreeMap::new();
+    };
+    match &scrutinee.kind {
+        HirExprKind::Var(name) => ctx.enum_payload_aggregate_field_raw_aliases(name, variant_name),
+        HirExprKind::EnumConstruct {
+            variant,
+            payload: Some(payload),
+            ..
+        } if variant == variant_name => aggregate_field_raw_aliases_from_value(payload, ctx, tctx),
+        _ => BTreeMap::new(),
+    }
+}
+
 fn enum_payload_raw_aliases_from_value(
     value: &HirExpr,
     ctx: &MoveCheckContext,
@@ -1725,6 +1811,26 @@ fn enum_payload_raw_aliases_from_value(
             if let Some(alias) = region_ptr_at_result_ok_raw_alias(value, ctx, tctx) {
                 aliases.insert(String::from("Ok"), alias);
             }
+        }
+    }
+    aliases
+}
+
+fn enum_payload_aggregate_field_raw_aliases_from_value(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<String, BTreeMap<usize, String>> {
+    let mut aliases = BTreeMap::new();
+    if let HirExprKind::EnumConstruct {
+        variant,
+        payload: Some(payload),
+        ..
+    } = &value.kind
+    {
+        let aggregate_aliases = aggregate_field_raw_aliases_from_value(payload, ctx, tctx);
+        if !aggregate_aliases.is_empty() {
+            aliases.insert(variant.clone(), aggregate_aliases);
         }
     }
     aliases
@@ -2692,6 +2798,58 @@ fn merge_aggregate_field_raw_alias_stacks(
     merged
 }
 
+fn merge_enum_payload_aggregate_field_raw_alias_stacks(
+    branches: &[&BranchStateSnapshot],
+) -> BTreeMap<String, Vec<BTreeMap<String, BTreeMap<usize, String>>>> {
+    let mut names = BTreeSet::new();
+    for branch in branches {
+        for name in branch
+            .state
+            .enum_payload_aggregate_field_raw_alias_stacks
+            .keys()
+        {
+            names.insert(name.clone());
+        }
+    }
+
+    let mut merged = BTreeMap::new();
+    for name in names {
+        let max_len = branches
+            .iter()
+            .filter_map(|branch| {
+                branch
+                    .state
+                    .enum_payload_aggregate_field_raw_alias_stacks
+                    .get(name.as_str())
+            })
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
+        let mut stack = Vec::with_capacity(max_len);
+        for index in 0..max_len {
+            let mut branch_values = branches.iter().map(|branch| {
+                branch
+                    .state
+                    .enum_payload_aggregate_field_raw_alias_stacks
+                    .get(name.as_str())
+                    .and_then(|stack| stack.get(index))
+                    .cloned()
+                    .unwrap_or_default()
+            });
+            let first = branch_values.next().unwrap_or_default();
+            if branch_values.all(|aliases| aliases == first) {
+                stack.push(first);
+            } else {
+                stack.push(BTreeMap::new());
+            }
+        }
+        if !stack.is_empty() {
+            merged.insert(name, stack);
+        }
+    }
+    merged
+}
+
 fn merged_branch_borrow_stack(
     name: &str,
     active_len: usize,
@@ -2745,6 +2903,8 @@ fn merge_continuing_branch_states(
     let merged_enum_payload_raw_alias_stacks = merge_enum_payload_raw_alias_stacks(&continuing);
     let merged_aggregate_field_raw_alias_stacks =
         merge_aggregate_field_raw_alias_stacks(&continuing);
+    let merged_enum_payload_aggregate_field_raw_alias_stacks =
+        merge_enum_payload_aggregate_field_raw_alias_stacks(&continuing);
 
     ctx.restore_resource_state(saved);
 
@@ -2807,6 +2967,8 @@ fn merge_continuing_branch_states(
     ctx.raw_addr_alias_stacks = merged_raw_addr_alias_stacks;
     ctx.enum_payload_raw_alias_stacks = merged_enum_payload_raw_alias_stacks;
     ctx.aggregate_field_raw_alias_stacks = merged_aggregate_field_raw_alias_stacks;
+    ctx.enum_payload_aggregate_field_raw_alias_stacks =
+        merged_enum_payload_aggregate_field_raw_alias_stacks;
     ctx.raw_place_states = merged_raw_place_states;
     ctx.rebuild_borrow_counts_from_bindings();
     ctx.release_dead_borrows();
@@ -3208,8 +3370,11 @@ fn visit_expr_with_escape(
                 if let Some(bind) = &arm.bind_local {
                     let retained_borrows = ctx.retain_expr_borrows(scrutinee_borrows.clone());
                     let raw_addr_alias = match_bind_raw_addr_alias(scrutinee, arm, ctx, tctx);
+                    let aggregate_field_raw_aliases =
+                        match_bind_aggregate_field_raw_aliases(scrutinee, arm, ctx, tctx);
                     ctx.declare_var_with_borrows(bind.clone(), retained_borrows);
                     ctx.set_raw_addr_alias(bind, raw_addr_alias);
+                    ctx.set_aggregate_field_raw_aliases(bind, aggregate_field_raw_aliases);
                 }
                 let arm_borrows = visit_expr_with_escape(&arm.body, ctx, tctx, escape_depth);
                 ctx.pop_scope();
@@ -3241,6 +3406,8 @@ fn visit_expr_with_escape(
             let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
             let aggregate_field_raw_aliases =
                 aggregate_field_raw_aliases_from_value(value, ctx, tctx);
+            let enum_payload_aggregate_field_raw_aliases =
+                enum_payload_aggregate_field_raw_aliases_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(target_depth));
             ctx.check_assign(name, expr.span);
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
@@ -3248,6 +3415,10 @@ fn visit_expr_with_escape(
             ctx.set_raw_addr_alias(name, raw_addr_alias);
             ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
             ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
+            ctx.set_enum_payload_aggregate_field_raw_aliases(
+                name,
+                enum_payload_aggregate_field_raw_aliases,
+            );
             Vec::new()
         }
         HirExprKind::Let { name, value, .. } => {
@@ -3256,12 +3427,18 @@ fn visit_expr_with_escape(
             let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
             let aggregate_field_raw_aliases =
                 aggregate_field_raw_aliases_from_value(value, ctx, tctx);
+            let enum_payload_aggregate_field_raw_aliases =
+                enum_payload_aggregate_field_raw_aliases_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(storage_depth));
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.declare_var_with_borrows(name.clone(), retained_borrows);
             ctx.set_raw_addr_alias(name, raw_addr_alias);
             ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
             ctx.set_aggregate_field_raw_aliases(name, aggregate_field_raw_aliases);
+            ctx.set_enum_payload_aggregate_field_raw_aliases(
+                name,
+                enum_payload_aggregate_field_raw_aliases,
+            );
             ctx.set_state(name, VarState::Valid);
             if ctx.remaining_uses(name) == 0 {
                 ctx.release_borrow_binding(name);

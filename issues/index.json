@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T20:10:29.122Z",
+  "generated_at": "2026-04-27T20:16:47.743Z",
   "counts": {
-    "total": 221,
+    "total": 222,
     "open": 9,
-    "resolved": 212,
+    "resolved": 213,
     "by_area": {
       "core": {
-        "total": 89,
+        "total": 90,
         "open": 3,
-        "resolved": 86
+        "resolved": 87
       },
       "stdlib": {
         "total": 88,
@@ -1438,6 +1438,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T195722619Z-MOVE-CHECK-LOSES-RAW-ALIASES-STORED--14B816A3.md"
+    },
+    {
+      "id": "ISS-20260427T201239483Z-MOVE-CHECK-LOSES-AGGREGATE-RAW-ALIAS-4C18ECA0",
+      "title": "move_check loses aggregate raw aliases stored in enum payloads",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T201239483Z-MOVE-CHECK-LOSES-AGGREGATE-RAW-ALIAS-4C18ECA0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
