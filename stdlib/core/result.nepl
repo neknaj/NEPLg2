@@ -136,6 +136,52 @@ enum Result<.T, .E>:
     Ok <.T>
     Err <.E>
 
+//: Result<Copy, Copy>: payload がどちらも Copy なら Result も Copy として扱う
+//:
+//: 目的:
+//: - `Result<(), str>` や `Result<i32, str>` のような軽量値を、検査結果や一時 buffer から安全に読み取れるようにします。
+//:
+//: 注意:
+//: - `.T` または `.E` が Copy でない場合は shallow copy を避けるため、この impl は使えません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/result" as *
+//: fn main <()->i32> ():
+//:     let r <Result<(),str>> Result::Err "oops";
+//:     let a <Result<(),str>> r;
+//:     let b <Result<(),str>> r;
+//:     0
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/result" as *
+//: struct LocalToken:
+//:     raw <(i32)->i32>
+//:
+//: fn token_id <(i32)->i32> (x):
+//:     x
+//:
+//: fn main <()->i32> ():
+//:     let token <LocalToken> LocalToken @token_id;
+//:     let r <Result<LocalToken,str>> Result::Ok token;
+//:     let a <Result<LocalToken,str>> r;
+//:     let b <Result<LocalToken,str>> r;
+//:     0
+//: ```
+impl<.T: Copy, .E: Copy> Clone for Result<.T, .E>:
+    fn clone <(&Result<.T, .E>)->Result<.T, .E>> (x):
+        *x
+
+impl<.T: Copy, .E: Copy> Copy for Result<.T, .E>:
+    fn copy_mark <(Result<.T, .E>)->Result<.T, .E>> (x):
+        x
+
 //: ok: 成功値を包む
 //:
 //: 目的:

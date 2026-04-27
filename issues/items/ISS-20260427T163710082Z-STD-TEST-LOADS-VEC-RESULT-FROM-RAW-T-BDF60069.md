@@ -2,13 +2,13 @@
 id: ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069
 title: "std/test loads Vec<Result> from raw temp multiple times"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-27
-target: "stdlib/std/test.nepl, tests/stdlib/byte_builder.n.md"
+updated: 2026-04-28
+target: "stdlib/std/test.nepl, stdlib/core/result.nepl, tests/stdlib/byte_builder.n.md"
 ---
 
 # ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069: std/test loads Vec<Result> from raw temp multiple times
@@ -19,7 +19,7 @@ target: "stdlib/std/test.nepl, tests/stdlib/byte_builder.n.md"
 
 ## 対象
 
-- `stdlib/std/test.nepl, tests/stdlib/byte_builder.n.md`
+- `stdlib/std/test.nepl, stdlib/core/result.nepl, tests/stdlib/byte_builder.n.md`
 
 ## 根拠
 
@@ -44,6 +44,20 @@ target: "stdlib/std/test.nepl, tests/stdlib/byte_builder.n.md"
 - observer helper を参照または raw slice 相当で表現し、Vec owner は最後まで 1 つだけ保持する。
 - どうしても by-value helper を維持する場合は、owner を線形に受け渡して返す API に変える。
 
+## 対応結果
+
+- `checks_has_err_parts` / `checks_summary_parts` を追加し、`Vec<Result<(),str>>` owner を raw memory から読み出さず、取り出し済みの `data` pointer と `len` だけで観察できるようにした。
+- `checks_print_machine` と `finish_checks` は `checks_mem` から owner を複数回 load せず、field read で `len` / `data` を取得して parts helper を呼ぶようにした。
+- `Result<T,E>` は payload がどちらも Copy なら Copy として扱えるよう、`impl<T: Copy,E: Copy> Clone/Copy for Result<T,E>` を追加した。`Result<(),str>` をテスト status として複数回観察する用途はこれで shallow owner move ではなく Copy read になる。
+- non-Copy payload の `Result<LocalToken,str>` は引き続き二重利用で move error になる回帰テストを追加した。
+
 ## 検証
 
 stdlib 修正後に `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-vec-result-raw-temp.json -j 1` を実行し、`D3100` が消えることを確認する。
+
+## 実施した検証
+
+- 変更前再現: `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-vec-result-before.json -j 1`: `D3100` で 3 failed
+- `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/result-copy-impl-regression6.json -j 1`: `total=7`, `passed=7`
+- `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-single-owner-final.json -j 1`: `total=12`, `passed=12`
+- `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-vec-result-after-final.json -j 1`: `total=3`, `passed=3`

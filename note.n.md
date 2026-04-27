@@ -19927,3 +19927,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - raw memory boundary は file name ではなく compiler/loader が付与する capability として扱う方針へ近づけた。
+
+# 2026-04-28 メモ (ISS-20260427T163710082Z std/test Vec<Result> raw temp)
+
+- [同期]:
+  - raw memory boundary capability 修正を `main` へ merge / push / pull 済みの状態から `fix/std-test-vec-result-single-owner` branch を作成した。
+- [再現]:
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-vec-result-before.json -j 1`: 3 件すべて `D3100 use of moved raw memory place: checks_mem` で失敗した。
+- [原因]:
+  - `checks_print_machine` と `finish_checks` が `checks_mem` から `Vec<Result<(),str>>` owner を複数回 by-value load していた。
+  - `Result<(),str>` は payload が Copy なのに `Result` 自体の Copy impl がなく、test status の観察が non-Copy move として扱われやすかった。
+- [修正]:
+  - `checks_has_err_parts` / `checks_summary_parts` を追加し、`len` / `data` だけで観察する経路を作った。
+  - `checks_print_machine` と `finish_checks` は owner 再 load をやめ、field read で取得した `len` / `data` を parts helper に渡すようにした。
+  - `Result<T,E>` に `T: Copy, E: Copy` の Clone/Copy impl を追加し、`Result<(),str>` のような軽量 status は Copy read できるようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/result-copy-impl-regression6.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-single-owner-final.json -j 1`: 12/12 passed
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-vec-result-after-final.json -j 1`: 3/3 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - std/test の観察 helper は owner 複製ではなく raw parts / Copy status の観察として扱う方針に寄せた。

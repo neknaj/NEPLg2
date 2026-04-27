@@ -524,6 +524,25 @@ fn checks_has_err_loop <(i32,i32,i32)->bool> (checks_data, n, i):
                 Result::Err e:
                     true
 
+//: ## checks_has_err_parts
+//: raw data pointer と[長/なが]さから[失敗/しっぱい]の[有無/うむ]を[判定/はんてい]する
+//:
+//: ### [目的/もくてき]
+//: - `Vec<Result<(),str>>` owner を[読/よ]み[出/だ]さず、すでに[取/と]り[出/だ]した data pointer と len だけで[観察/かんさつ]します。
+//: - `checks_print_machine` や `finish_checks` が[同/おな]じ Vec owner を[複数回/ふくすうかい] raw load しないようにします。
+//:
+//: ### [実装/じっそう]
+//: - `checks_has_err_loop` へ index 0 から[委譲/いじょう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `checks_data` は `Vec<Result<(),str>>` の data pointer、`n` は[長/なが]さです。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n)
+//: - [空間/くうかん]: O(n)（[再帰/さいき]）
+fn checks_has_err_parts <(i32,i32)->bool> (checks_data, n):
+    checks_has_err_loop checks_data n 0
+
 //: ## checks_has_err
 //: [集約/しゅうやく][済/ず]み[検査列/けんされつ]に `Err` が[含/ふく]まれるか[判定/はんてい]する
 //:
@@ -544,7 +563,7 @@ fn checks_has_err <(Vec<Result<(),str>>)->bool> (checks):
     store<Vec<Result<(),str>>> checks_mem checks;
     let checks_len <i32> get load<Vec<Result<(),str>>> checks_mem "len";
     let checks_data <i32> mem_ptr_addr get load<Vec<Result<(),str>>> checks_mem "data";
-    let out <bool> checks_has_err_loop checks_data checks_len 0;
+    let out <bool> checks_has_err_parts checks_data checks_len;
     dealloc_raw checks_mem size_of<Vec<Result<(),str>>>;
     out
 
@@ -575,6 +594,25 @@ fn checks_summary_loop <(i32,i32,i32,str)->str> (checks_data, n, i, acc):
             let a1 <str> concat a0 check_status_str r;
             checks_summary_loop checks_data n add i 1 a1
 
+//: ## checks_summary_parts
+//: raw data pointer と[長/なが]さから machine summary を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - `Vec<Result<(),str>>` owner を[読/よ]み[出/だ]さず、data pointer と len だけで `[ok,err ...]` [形式/けいしき]へ[整形/せいけい]します。
+//: - owner を[最後/さいご]まで 1 つだけ[保持/ほじ]したい helper から[共通/きょうつう][利用/りよう]します。
+//:
+//: ### [実装/じっそう]
+//: - `checks_summary_loop` へ初期 accumulator `[` と index 0 を[渡/わた]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `checks_data` は `Vec<Result<(),str>>` の data pointer、`n` は[長/なが]さです。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n^2)（[文字列/もじれつ][連結/れんけつ]を[繰/く]り[返/かえ]すため）
+//: - [空間/くうかん]: O(n)
+fn checks_summary_parts <(i32,i32)->str> (checks_data, n):
+    checks_summary_loop checks_data n 0 "["
+
 //: ## checks_summary
 //: [集約/しゅうやく][済/ず]み[検査列/けんされつ]を `[ok,err <msg>,...]` [形式/けいしき]へ[整形/せいけい]する
 //:
@@ -595,7 +633,7 @@ fn checks_summary <(Vec<Result<(),str>>)->str> (checks):
     store<Vec<Result<(),str>>> checks_mem checks;
     let checks_len <i32> get load<Vec<Result<(),str>>> checks_mem "len";
     let checks_data <i32> mem_ptr_addr get load<Vec<Result<(),str>>> checks_mem "data";
-    let out <str> checks_summary_loop checks_data checks_len 0 "[";
+    let out <str> checks_summary_parts checks_data checks_len;
     dealloc_raw checks_mem size_of<Vec<Result<(),str>>>;
     out
 
@@ -688,7 +726,7 @@ fn checks_print_human <(Vec<Result<(),str>>)*>Vec<Result<(),str>>> (checks):
 //: - [表示/ひょうじ][後/ご]も[同/おな]じ `Vec<Result<(),str>>` を[返/かえ]し、その[後/あと]の[処理/しょり]へ[繋/つな]げられるようにします。
 //:
 //: ### [実装/じっそう]
-//: - `checks` を temporary memory に[保存/ほぞん]し、`checks_summary` を[計算/けいさん]して[失敗/しっぱい]があるときは `FAIL: ` [付き/つき]、なければ `Checked ` [付き/つき]で 1 [行/ぎょう][表示/ひょうじ]します。
+//: - `checks` を temporary memory に[保存/ほぞん]し、len と data pointer だけを[取/と]り[出/だ]して summary と[失敗/しっぱい][有無/うむ]を[計算/けいさん]します。
 //: - [最後/さいご]に[同/おな]じ `Vec<Result<(),str>>` を[読/よ]み[戻/もど]して[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
@@ -702,9 +740,11 @@ fn checks_print_human <(Vec<Result<(),str>>)*>Vec<Result<(),str>>> (checks):
 fn checks_print_machine <(Vec<Result<(),str>>)*>Vec<Result<(),str>>> (checks):
     let checks_mem <i32> alloc_raw size_of<Vec<Result<(),str>>>;
     store<Vec<Result<(),str>>> checks_mem checks;
-    let summary <str> checks_summary load<Vec<Result<(),str>>> checks_mem;
+    let checks_len <i32> get load<Vec<Result<(),str>>> checks_mem "len";
+    let checks_data <i32> mem_ptr_addr get load<Vec<Result<(),str>>> checks_mem "data";
+    let summary <str> checks_summary_parts checks_data checks_len;
     if:
-        checks_has_err load<Vec<Result<(),str>>> checks_mem
+        checks_has_err_parts checks_data checks_len
         then:
             test_print_fail summary
         else:
@@ -742,7 +782,7 @@ fn checks_print_report <(Vec<Result<(),str>>)*>Vec<Result<(),str>>> (checks):
 //: - [途中/とちゅう]の[検査/けんさ]は[継続/けいぞく]しつつ、[最後/さいご]に[表示/ひょうじ]なしで[成功/せいこう] / [失敗/しっぱい]を[値/あたい]として[得/え]られます。
 //:
 //: ### [実装/じっそう]
-//: - `checks_summary` で machine [向/む]け summary を[作/つく]ります。
+//: - len と data pointer を[取/と]り[出/だ]し、owner を[再/ふたた]び raw load せず machine [向/む]け summary と[失敗/しっぱい][有無/うむ]を[作/つく]ります。
 //: - [失敗/しっぱい]が 1 [件/けん]でもあれば `Result::Err summary`、なければ `Result::Ok ()` を[返/かえ]します。
 //: - move model に[合/あ]わせ、[入力/にゅうりょく]の `Vec<Result<(),str>>` は 1 [回/かい]だけ memory に[保存/ほぞん]してから helper へ[渡/わた]します。
 //:
@@ -774,9 +814,11 @@ fn checks_print_report <(Vec<Result<(),str>>)*>Vec<Result<(),str>>> (checks):
 fn finish_checks <(Vec<Result<(),str>>)*>Result<(),str>> (checks):
     let checks_mem <i32> alloc_raw size_of<Vec<Result<(),str>>>;
     store<Vec<Result<(),str>>> checks_mem checks;
-    let summary <str> checks_summary load<Vec<Result<(),str>>> checks_mem;
+    let checks_len <i32> get load<Vec<Result<(),str>>> checks_mem "len";
+    let checks_data <i32> mem_ptr_addr get load<Vec<Result<(),str>>> checks_mem "data";
+    let summary <str> checks_summary_parts checks_data checks_len;
     if:
-        checks_has_err load<Vec<Result<(),str>>> checks_mem
+        checks_has_err_parts checks_data checks_len
         then:
             dealloc_raw checks_mem size_of<Vec<Result<(),str>>>
             Result<(),str>::Err summary

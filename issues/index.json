@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T16:57:41.475Z",
+  "generated_at": "2026-04-27T17:07:20.986Z",
   "counts": {
     "total": 206,
-    "open": 12,
-    "resolved": 194,
+    "open": 11,
+    "resolved": 195,
     "by_area": {
       "core": {
         "total": 74,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 88,
-        "open": 8,
-        "resolved": 80
+        "open": 7,
+        "resolved": 81
       },
       "cli": {
         "total": 19,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
-    },
-    {
-      "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",
-      "title": "std/test loads Vec<Result> from raw temp multiple times",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/std/test.nepl, tests/stdlib/byte_builder.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
     },
     {
       "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
@@ -1798,6 +1783,21 @@
       "legacy_id": "",
       "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
       "file": "items/ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8.md"
+    },
+    {
+      "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",
+      "title": "std/test loads Vec<Result> from raw temp multiple times",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/std/test.nepl, stdlib/core/result.nepl, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
     },
     {
       "id": "ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7",
