@@ -20666,3 +20666,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - raw memory helper を使った安全な address 計算を、compiler 側の ownership 検査で過剰拒否しないようにした。
+
+# 2026-04-28 メモ (ISS-20260427T234603255Z ambiguous function raw effects)
+
+- [同期]:
+  - `8d0c6ab` を push/pull 済みの `main` から `fix/unknown-function-raw-effects` branch を作成した。
+- [再現]:
+  - `let f <(MemPtr<i32>)->()> if true: ...` で `@clobber_a` と `@clobber_b` のどちらかになる function value を作り、`f pi` で initialized non-Copy raw place を上書きするケースが `compile_fail` にならず通っていた。
+  - `store<LocalToken>` 済みの場所へ callback が `store_i32` するため、本来は D3100 で拒否される必要がある。
+- [原因]:
+  - `move_check` は function value alias を単一 `Option<String>` として保持しており、分岐合流で候補が異なると `None` にしていた。
+  - `CallIndirect` は callee alias がない場合 raw memory effect を適用しないため、曖昧な候補全体を保守的に検査できていなかった。
+  - enum payload や `$fnparam:*` 経由の higher-order summary も単一 alias 前提だったため、同じ欠落が再発し得る構造だった。
+- [修正]:
+  - function value alias と enum payload 内 function alias を `BTreeSet<String>` の候補集合として保持するように変更した。
+  - 分岐合流と raw alias summary merge では function alias 候補を union し、異なる候補を破棄しないようにした。
+  - 間接呼び出しと `$fnparam:*` 展開では候補 callee 全ての raw memory effect を適用し、higher-order helper 経由でも D3100 が落ちないようにした。
+  - `tests/compiler/move_effect.n.md` に分岐で選ばれた function value raw write の回帰テストを追加した。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/ambiguous-function-raw-effects.json -j 1`: 96/96 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - compiler core の raw ownership effect propagation を保守的にし、曖昧な higher-order function value を安全側に扱うようにした。
