@@ -1,3 +1,19 @@
+# 2026-04-27 メモ (ISS-20260426T213057127Z wasm32 cli_output fixture)
+
+- 状況:
+  - CI compile-test の `cargo test --target wasm32-unknown-unknown --no-run --all --all-features --locked` が、`nepl-cli/tests/cli_output.rs` の fake clang fixture で `std::os::unix::fs::PermissionsExt` と `Permissions::set_mode` を compile しようとして失敗していた。
+  - 原因は `#[cfg(not(windows))]` が Unix host 判定として使われており、Unix ではない wasm32 target も含んでしまっていたこと。
+- 修正:
+  - Unix shell fixture を `#[cfg(unix)]` に狭めた。
+  - Windows でも Unix でもない compile target 用に、実行権限変更を含まない fallback fixture を追加した。これは wasm32 compile-test のための compile-only 経路で、host 実行用の Windows `.cmd` / Unix executable script は維持している。
+  - issue を `verified` / `resolved: true` に更新し、issue index を再生成した。
+- 検証:
+  - `cargo fmt --all --check`: pass
+  - `cargo test -p nepl-cli --target wasm32-unknown-unknown --test cli_output --no-run`: pass
+  - `cargo test -p nepl-cli --test cli_output llvm_target_default_accepts_available_clang_without_fixed_linux_version -- --nocapture`: pass
+- plan.md との差異:
+  - plan.md は変更していない。今回の変更は Rust CLI integration test fixture の target cfg を修正し、wasm32 compile boundary を CI で再び検証可能にするもの。
+
 # 2026-04-27 メモ (ISS-20260426T213058233Z LLVM compile_fail diagnostics)
 
 - 状況:

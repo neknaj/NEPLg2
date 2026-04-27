@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T00:42:27.023Z",
+  "generated_at": "2026-04-27T00:47:58.952Z",
   "counts": {
     "total": 170,
-    "open": 22,
-    "resolved": 148,
+    "open": 21,
+    "resolved": 149,
     "by_area": {
       "cli": {
         "total": 19,
-        "open": 2,
-        "resolved": 17
+        "open": 1,
+        "resolved": 18
       },
       "core": {
         "total": 63,
@@ -58,21 +58,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T213056969Z-CI-WASIX-DOCTESTS-RUN-WITHOUT-A-WASM-B1BD31BA.md"
-    },
-    {
-      "id": "ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55",
-      "title": "wasm32 compile-test builds unix-only cli_output fixture",
-      "area": "cli",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "nepl-cli/tests/cli_output.rs, .github/workflows/ci.yml",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
@@ -793,6 +778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T031747615Z-WASIX-DOCTEST-RUNNER-LACKS-HOST-SUPP-EC9A9094.md"
+    },
+    {
+      "id": "ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55",
+      "title": "wasm32 compile-test builds unix-only cli_output fixture",
+      "area": "cli",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-26",
+      "updated": "2026-04-27",
+      "target": "nepl-cli/tests/cli_output.rs, .github/workflows/ci.yml",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

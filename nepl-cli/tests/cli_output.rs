@@ -399,7 +399,7 @@ fn write_fake_clang(dir: &TempDir, version: &str, triple: &str) -> PathBuf {
         path
     }
 
-    #[cfg(not(windows))]
+    #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
 
@@ -413,6 +413,16 @@ fn write_fake_clang(dir: &TempDir, version: &str, triple: &str) -> PathBuf {
             .permissions();
         perms.set_mode(0o755);
         fs::set_permissions(&path, perms).expect("make fake clang executable");
+        path
+    }
+
+    #[cfg(all(not(unix), not(windows)))]
+    {
+        let path = dir.path().join("fake-clang");
+        let script = format!(
+            "if [ \"$1\" = \"--version\" ]; then\n  echo 'clang version {version}'\n  exit 0\nfi\nif [ \"$1\" = \"-dumpmachine\" ]; then\n  echo '{triple}'\n  exit 0\nfi\nexit 2\n"
+        );
+        fs::write(&path, script).expect("write fake clang");
         path
     }
 }
