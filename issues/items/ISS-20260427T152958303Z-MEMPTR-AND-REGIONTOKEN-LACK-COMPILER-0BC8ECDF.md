@@ -117,6 +117,12 @@ raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の
 
 この対応で enum wrapper 変数を挟んでも `MemPtr` payload は raw ownership state に戻る。ただし、これは現行 HIR 上の raw alias tracking の補強であり、enum payload を含む resource provenance を型・Resource IR で一貫表現する根本設計はまだ未解決である。
 
+## 2026-04-28 enum payload callback raw effect 部分対応
+
+`Option<(MemPtr<T>)->()>` のように `MemPtr` を操作する callback を enum payload に保存すると、match-bind 後の indirect call で callback の raw memory effect が caller の `MemPtr` raw place に戻らない問題を `ISS-20260427T221533970Z-MOVE-CHECK-LOSES-RAW-EFFECTS-THROUGH-308A8AC3` として修正した。
+
+今回の対応では、enum payload function alias を `MoveCheckContext` と関数サマリに保持し、`match` payload bind で function value alias を復元する。これにより、`MemPtr` を渡す callback を `Option::Some` などに包んでも raw ownership state は D3100 検査へ伝播する。ただし、callback、enum payload、pointer provenance を型・Resource IR で一貫表現する根本設計は引き続きこの親 issue の残件である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

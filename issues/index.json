@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T22:10:21.790Z",
+  "generated_at": "2026-04-27T22:27:34.684Z",
   "counts": {
-    "total": 228,
+    "total": 229,
     "open": 10,
-    "resolved": 218,
+    "resolved": 219,
     "by_area": {
       "core": {
-        "total": 95,
+        "total": 96,
         "open": 3,
-        "resolved": 92
+        "resolved": 93
       },
       "stdlib": {
         "total": 89,
@@ -1543,6 +1543,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T215657067Z-MOVE-CHECK-LOSES-RAW-MEMORY-EFFECTS--BDFF8DD5.md"
+    },
+    {
+      "id": "ISS-20260427T221533970Z-MOVE-CHECK-LOSES-RAW-EFFECTS-THROUGH-308A8AC3",
+      "title": "move_check loses raw effects through enum-wrapped function values",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T221533970Z-MOVE-CHECK-LOSES-RAW-EFFECTS-THROUGH-308A8AC3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

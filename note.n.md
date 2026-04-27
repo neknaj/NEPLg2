@@ -20525,3 +20525,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - higher-order helper / callback 経由でも compiler の raw ownership state が関数値境界で途切れないようにした。
+
+# 2026-04-28 メモ (ISS-20260427T221533970Z enum payload function raw effect summary)
+
+- [同期]:
+  - `e81df81` を push/pull 済みの `main` から `fix/wrapped-function-raw-effect-summary` branch を作成した。
+- [再現]:
+  - `Option::Some @clobber_i32` を helper に渡し、helper 内の `match` で bind した callback が `MemPtr<i32>` に `store_i32` する compile_fail probe を実行した。
+  - 修正前は `expected compile_fail, but compiled successfully` になり、caller の live `LocalToken` raw place 上書きが見逃されることを確認した。
+- [原因]:
+  - `@fn` と function-typed parameter の function value alias は追跡していたが、`Option::Some @fn` のような enum payload には alias を保存していなかった。
+  - `match opt: Option::Some f:` で payload を bind しても、`f` の function value alias が復元されず、`CallIndirect` が concrete callback の raw memory effect summary を参照できなかった。
+  - variant 名が `Some` と `Option::Some` のどちらで現れるかにより、保存済み payload alias の参照が落ちる可能性もあった。
+- [修正]:
+  - `MoveCheckContext`、`ValueAliasSummary`、`FunctionRawAliasSummary` に enum payload function alias を追加した。
+  - `let` / `set`、snapshot / restore、branch merge、function summary instantiation、match payload bind に enum payload function alias を接続した。
+  - function-typed enum payload を持つ parameter に `$fnparam_enum_payload:N:Variant` placeholder を seed し、outer call で concrete callback へ展開するようにした。
+  - payload alias 参照時は qualified / unqualified variant 名の差を short variant name で吸収するようにした。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test move_check`: 51/51 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/enum-function-raw-effect-summary-after.json -j 1`: 92/92 passed
+  - `cargo check -p nepl-core --tests`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - enum payload に包まれた callback 経由でも compiler の raw ownership state が function value / match 境界で途切れないようにした。

@@ -1398,6 +1398,42 @@ fn main <()->i32> ():
     0
 ```
 
+## enum payload の function value raw write も caller の initialized non-Copy place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/option" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn clobber_i32 <(MemPtr<i32>)->()> (p):
+    let r <Result<(),str>> store_i32 p 0
+    ()
+
+fn call_option <(MemPtr<i32>, Option<(MemPtr<i32>)->()>)->()> (p, opt):
+    match opt:
+        Option::Some f:
+            f p
+        Option::None:
+            ()
+
+fn main <()->i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    call_option pi Option::Some @clobber_i32
+    0
+```
+
 ## generic raw store の Copy 値でも initialized non-Copy place は上書きできない
 
 neplg2:test[compile_fail]

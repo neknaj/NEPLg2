@@ -173,6 +173,12 @@ direct user call の raw memory effect は伝播するようになったが、`a
 
 今回の対応で、`let` / `set` は enum payload raw alias を variant ごとに保存し、`match` payload bind はその alias を bind local へ引き継ぐ。branch merge では全 continuing branch で一致する alias だけ保持する。これにより、enum wrapper 変数経由の non-Copy 二重 load は D3100 になる。
 
+## 2026-04-28 enum payload function raw effect 部分対応
+
+function value / higher-order helper の raw memory effect は伝播するようになったが、`Option::Some @callback` のように callback を enum payload に包むと function value alias が保存されず、match-bind 後の `f p` が caller の raw ownership state に伝播しない問題を `ISS-20260427T221533970Z-MOVE-CHECK-LOSES-RAW-EFFECTS-THROUGH-308A8AC3` として分離し、修正した。
+
+今回の対応で、`move_check` は enum payload function alias を `let` / `set`、branch merge、function summary instantiation、match payload bind に接続した。function-typed enum payload を持つ parameter には placeholder を seed し、outer call で concrete callback へ展開する。これにより、enum wrapper 経由の callback 内 raw memory write も D3100 raw ownership 検査を迂回できなくなった。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。
