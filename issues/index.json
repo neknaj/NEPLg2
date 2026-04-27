@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T18:48:05.113Z",
+  "generated_at": "2026-04-27T18:55:14.488Z",
   "counts": {
-    "total": 212,
+    "total": 213,
     "open": 9,
-    "resolved": 203,
+    "resolved": 204,
     "by_area": {
       "core": {
-        "total": 80,
+        "total": 81,
         "open": 3,
-        "resolved": 77
+        "resolved": 78
       },
       "stdlib": {
         "total": 88,
@@ -1303,6 +1303,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T184214411Z-MOVE-CHECK-ALLOWS-RAW-DEALLOC-WITH-L-6543A0A2.md"
+    },
+    {
+      "id": "ISS-20260427T185057228Z-MOVE-CHECK-DOES-NOT-CONNECT-REGIONTO-665927E2",
+      "title": "move_check does not connect RegionToken dealloc to raw place state",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T185057228Z-MOVE-CHECK-DOES-NOT-CONNECT-REGIONTO-665927E2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

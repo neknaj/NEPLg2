@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260427T185057228Z RegionToken raw dealloc check)
+
+- 状況:
+  - 直前の raw/MemPtr dealloc 検査では、`RegionToken<T>` が保持する raw storage provenance を `move_check` の alias state に接続していなかった。
+  - `region_new p size_of<T>` で作った token に対し、同じ `p` へ non-Copy value を `store<T>` してから `dealloc_region token` すると、修正前は compiler が exit 0 で受理した。
+- 修正:
+  - `RegionToken<T>` を raw place alias の対象に追加し、`region_new` call、`RegionToken` struct construct、token copy から underlying raw place を引き継ぐようにした。
+  - `region_ptr token` と `get token "ptr"` の `MemPtr<T>` projection を token の raw place へ正規化した。
+  - `dealloc_region<T> token` を raw dealloc event として扱い、live non-Copy payload が残る場合は D3100 にした。
+  - `tests/compiler/move_effect.n.md` に RegionToken dealloc の compile_fail と、`load<T>` 後の正常系を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/region-token-raw-dealloc-node.json -j 1`: `total=49`, `passed=49`
+  - 修正前再現ファイル `tmp/region-dealloc-drops-noncopy.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の RegionToken / raw memory ownership 検査を強化した。
+
 # 2026-04-28 メモ (ISS-20260427T184214411Z raw dealloc drop obligation)
 
 - 状況:

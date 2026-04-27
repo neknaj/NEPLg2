@@ -99,6 +99,12 @@ raw place tracking は non-Copy `load<T>` / `store<T>` を扱っていたが、`
 
 今回の対応で、initialized または possibly moved の non-Copy raw place を含む range を dealloc すると D3100 になる。`load<T>` で ownership を消費してから storage を解放する経路は維持している。effect model と public raw API の設計不足は引き続きこの親 issue の残件である。
 
+## 2026-04-28 RegionToken dealloc alias 部分対応
+
+`RegionToken<T>` 経由の `dealloc_region` が raw place tracking に接続されず、raw/MemPtr dealloc 検査を迂回できる問題を `ISS-20260427T185057228Z-MOVE-CHECK-DOES-NOT-CONNECT-REGIONTO-665927E2` として分離し、修正した。`region_new` / `RegionToken` construct / `region_ptr` / `get token "ptr"` / `dealloc_region` は同じ raw place に正規化される。
+
+この対応で RegionToken 経由の live non-Copy payload dealloc も D3100 になるが、raw API の effect 境界と compiler-owned Resource IR は未解決である。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

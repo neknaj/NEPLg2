@@ -1138,6 +1138,9 @@ fn raw_addr_alias_from_value(
     if let Some(key) = raw_memory_place_key_from_mem_ptr(value, ctx, tctx) {
         return Some(key);
     }
+    if let Some(key) = raw_memory_place_key_from_region_token(value, ctx, tctx) {
+        return Some(key);
+    }
     if tctx.same_type(value.ty, tctx.i32()) {
         raw_memory_place_key(value, ctx, tctx)
     } else {
@@ -1160,11 +1163,30 @@ fn is_mem_ptr_wrap_name(name: &str) -> bool {
     name == "mem_ptr_wrap" || name.starts_with("mem_ptr_wrap_")
 }
 
+fn is_region_ptr_name(name: &str) -> bool {
+    name == "region_ptr" || name.starts_with("region_ptr_")
+}
+
+fn is_region_new_name(name: &str) -> bool {
+    name == "region_new" || name.starts_with("region_new_")
+}
+
 fn is_mem_ptr_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
     match tctx.get_ref(tctx.resolve_id(ty)) {
         TypeKind::Struct { name, .. } if name == "MemPtr" => true,
         TypeKind::Apply { base, .. } => match tctx.get_ref(tctx.resolve_id(*base)) {
             TypeKind::Struct { name, .. } => name == "MemPtr",
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn is_region_token_type(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
+    match tctx.get_ref(tctx.resolve_id(ty)) {
+        TypeKind::Struct { name, .. } if name == "RegionToken" => true,
+        TypeKind::Apply { base, .. } => match tctx.get_ref(tctx.resolve_id(*base)) {
+            TypeKind::Struct { name, .. } => name == "RegionToken",
             _ => false,
         },
         _ => false,
@@ -1183,15 +1205,51 @@ fn raw_memory_place_key_from_mem_ptr(
             .or_else(|| Some(alloc::format!("$memptr:{}", name))),
         HirExprKind::Call { callee, args } if args.len() == 1 => {
             let name = func_ref_name(callee)?;
-            if !is_mem_ptr_wrap_name(name) {
+            if is_mem_ptr_wrap_name(name) {
+                raw_memory_place_key(&args[0], ctx, tctx)
+            } else if is_region_ptr_name(name) {
+                raw_memory_place_key_from_region_token(&args[0], ctx, tctx)
+            } else {
+                None
+            }
+        }
+        HirExprKind::Call { callee, args } if args.len() >= 2 && is_mem_ptr_type(tctx, expr.ty) => {
+            let name = func_ref_name(callee)?;
+            if name != "get" || !is_region_token_type(tctx, args[0].ty) {
                 return None;
             }
-            raw_memory_place_key(&args[0], ctx, tctx)
+            raw_memory_place_key_from_region_token(&args[0], ctx, tctx)
         }
         HirExprKind::StructConstruct { name, fields, .. }
             if name == "MemPtr" && fields.len() == 1 =>
         {
             raw_memory_place_key(&fields[0], ctx, tctx)
+        }
+        _ => None,
+    }
+}
+
+fn raw_memory_place_key_from_region_token(
+    expr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    match &expr.kind {
+        HirExprKind::Var(name) if is_region_token_type(tctx, expr.ty) => ctx
+            .raw_addr_alias(name)
+            .map(ToString::to_string)
+            .or_else(|| Some(alloc::format!("$region:{}", name))),
+        HirExprKind::Call { callee, args } if args.len() >= 2 => {
+            let name = func_ref_name(callee)?;
+            if !is_region_new_name(name) {
+                return None;
+            }
+            raw_memory_place_key_from_mem_ptr(&args[0], ctx, tctx)
+        }
+        HirExprKind::StructConstruct { name, fields, .. }
+            if name == "RegionToken" && !fields.is_empty() =>
+        {
+            raw_memory_place_key_from_mem_ptr(&fields[0], ctx, tctx)
         }
         _ => None,
     }
@@ -1209,9 +1267,11 @@ fn is_raw_memory_dealloc_name(name: &str) -> bool {
     name == "dealloc"
         || name == "dealloc_raw"
         || name == "dealloc_ptr"
+        || name == "dealloc_region"
         || name == "__nepl_rt_dealloc"
         || name.starts_with("dealloc_raw_")
         || name.starts_with("dealloc_ptr_")
+        || name.starts_with("dealloc_region_")
         || name.starts_with("__nepl_rt_dealloc_")
 }
 
@@ -1244,6 +1304,10 @@ fn raw_memory_call_kind(
     {
         return Some(RawMemoryCallKind::Dealloc);
     }
+    if is_raw_memory_dealloc_name(name) && args.len() == 1 && is_region_token_type(tctx, args[0].ty)
+    {
+        return Some(RawMemoryCallKind::Dealloc);
+    }
     None
 }
 
@@ -1254,6 +1318,8 @@ fn raw_dealloc_place_key(
 ) -> Option<String> {
     if is_mem_ptr_type(tctx, addr.ty) {
         raw_memory_place_key_from_mem_ptr(addr, ctx, tctx)
+    } else if is_region_token_type(tctx, addr.ty) {
+        raw_memory_place_key_from_region_token(addr, ctx, tctx)
     } else if tctx.same_type(addr.ty, tctx.i32()) {
         raw_memory_place_key(addr, ctx, tctx)
     } else {

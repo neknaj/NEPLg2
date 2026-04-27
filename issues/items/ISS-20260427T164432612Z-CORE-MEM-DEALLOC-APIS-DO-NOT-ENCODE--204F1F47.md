@@ -46,6 +46,12 @@ generic storage owner は payload を drop せず bytes だけ解放できる。
 
 ただし、この親 issue はまだ閉じない。`dealloc_region` の compiler-issued capability 化、owner token と storage-only dealloc の型分離、stdlib collection の要素 drop contract、Resource IR での initialized cell / drop obligation 表現は残件である。
 
+## 2026-04-28 RegionToken dealloc 部分対応
+
+`RegionToken<T>` が `MemPtr<T>` と同じ raw storage provenance を持つにもかかわらず、`move_check` が token alias と `dealloc_region` を raw place state に接続していなかった問題を `ISS-20260427T185057228Z-MOVE-CHECK-DOES-NOT-CONNECT-REGIONTO-665927E2` として分離し、修正した。
+
+この対応で、`region_new` / `RegionToken` construct / token copy から raw place alias を引き継ぎ、`dealloc_region<T> token` も live non-Copy payload が残っていれば D3100 になる。`RegionToken` が stdlib code から forgeable である問題と、storage owner token の型分離はまだこの親 issue の残件である。
+
 ## 修正方針
 
 `Storage<T>` / `OwnedRegion<T>` / `InitializedCell<T>` の責務を分ける。uninitialized storage の dealloc は storage owner token のみで許可し、initialized cell を含む region は要素を consume/drop してから storage-only state へ戻す。compiler Resource IR は initialized state と drop obligation を tracked resource として保持し、`dealloc_*` が残 obligation を捨てる経路を拒否する。
