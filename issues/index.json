@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T22:35:29.741Z",
+  "generated_at": "2026-04-27T22:44:01.225Z",
   "counts": {
     "total": 229,
     "open": 10,
@@ -1238,8 +1238,8 @@
       "priority": "P1",
       "type": "test",
       "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "nepl-core/tests/move_check.rs, nepl-core/tests/drop.rs, nepl-core/tests/recursive_type.rs, nepl-core/tests/repro_recursive.rs, nepl-core/tests/debug_loader.rs",
+      "updated": "2026-04-28",
+      "target": "nepl-core/tests/move_check.rs, nepl-core/tests/drop.rs, nepl-core/tests/recursive_type.rs, nepl-core/tests/repro_recursive.rs, nepl-core/tests/debug_loader.rs, nepl-core/tests/neplg2.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB.md"
