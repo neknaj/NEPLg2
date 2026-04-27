@@ -621,6 +621,9 @@ function applyDoctestExpectations(result, testCase, options = {}) {
         }
         return r;
     }
+    if (options.llvmCompileOnly && r.phase === 'compile_llvm_cli') {
+        return r;
+    }
     if (wantsRet) {
         const expected = testCase.expected_ret;
         const actual = Object.prototype.hasOwnProperty.call(r, 'return_value') ? r.return_value : null;
@@ -704,6 +707,18 @@ function skipOnLlvmRunner(c) {
     return hasTag(c.tags, 'skip_llvm') || hasTag(c.tags, 'wasm_only') || hasTag(c.tags, 'wasi_only');
 }
 
+function llvmProgramTerminatedAbnormally(runResult) {
+    if (!runResult) return true;
+    if (runResult.signal) return true;
+    if (runResult.code === null || runResult.code === undefined) return true;
+    return Number(runResult.code) < 0;
+}
+
+function llvmReturnValueFromProcessResult(runResult) {
+    if (llvmProgramTerminatedAbnormally(runResult)) return null;
+    return Number(runResult.code);
+}
+
 function runCommand(cmd, args, options = {}) {
     return new Promise((resolve) => {
         const stdinText = Object.prototype.hasOwnProperty.call(options, 'stdinText')
@@ -766,6 +781,40 @@ function runCommand(cmd, args, options = {}) {
             });
         }, timeoutMs);
     });
+}
+
+function buildLlvmRunResult(c, workerId, llPath, exePath, runWithArgs, t0) {
+    const abnormal = llvmProgramTerminatedAbnormally(runWithArgs);
+    const base = {
+        id: `${c.id}::llvm`,
+        file: c.file,
+        index: c.index,
+        tags: c.tags,
+        phase: 'run_llvm_cli',
+        stdout: String(runWithArgs.stdout || ''),
+        stderr: String(runWithArgs.stderr || ''),
+        runtime: { code: runWithArgs.code, signal: runWithArgs.signal },
+        worker: workerId,
+        compiler: { runner: 'nepl-cli-llvm', ll_path: llPath, exe_path: exePath },
+        duration_ms: Date.now() - t0,
+    };
+    if (hasTag(c.tags, 'should_panic')) {
+        const ok = abnormal || (runWithArgs.code !== 0);
+        return {
+            ...base,
+            ok,
+            status: ok ? 'pass' : 'fail',
+            error: ok ? null : 'expected should_panic, but llvm program finished successfully',
+        };
+    }
+    const ok = !abnormal;
+    return {
+        ...base,
+        ok,
+        status: ok ? 'pass' : 'fail',
+        return_value: llvmReturnValueFromProcessResult(runWithArgs),
+        error: ok ? null : `llvm program terminated by signal=${runWithArgs.signal ?? 'null'}`,
+    };
 }
 
 function ensureNeplCliBuilt() {
@@ -988,45 +1037,7 @@ async function runSingleLlvmCli(c, workerId, cliPath, options = {}) {
                     env: { ...process.env, NO_COLOR: 'true' },
                     stdinText: c.stdin || '',
                 });
-                const signaled = !!runWithArgs.signal;
-                const abnormal = signaled;
-                if (hasTag(c.tags, 'should_panic')) {
-                    const ok = abnormal || (runWithArgs.code !== 0);
-                    result = {
-                        ok,
-                        id: `${c.id}::llvm`,
-                        file: c.file,
-                        index: c.index,
-                        tags: c.tags,
-                        status: ok ? 'pass' : 'fail',
-                        phase: 'run_llvm_cli',
-                        stdout: String(runWithArgs.stdout || ''),
-                        stderr: String(runWithArgs.stderr || ''),
-                        error: ok ? null : 'expected should_panic, but llvm program finished successfully',
-                        runtime: { code: runWithArgs.code, signal: runWithArgs.signal },
-                        worker: workerId,
-                        compiler: { runner: 'nepl-cli-llvm', ll_path: llPath, exe_path: exePath },
-                        duration_ms: Date.now() - t0,
-                    };
-                } else {
-                    const ok = !abnormal;
-                    result = {
-                        ok,
-                        id: `${c.id}::llvm`,
-                        file: c.file,
-                        index: c.index,
-                        tags: c.tags,
-                        status: ok ? 'pass' : 'fail',
-                        phase: 'run_llvm_cli',
-                        stdout: String(runWithArgs.stdout || ''),
-                        stderr: String(runWithArgs.stderr || ''),
-                        error: ok ? null : `llvm program terminated by signal=${runWithArgs.signal ?? 'null'}`,
-                        runtime: { code: runWithArgs.code, signal: runWithArgs.signal },
-                        worker: workerId,
-                        compiler: { runner: 'nepl-cli-llvm', ll_path: llPath, exe_path: exePath },
-                        duration_ms: Date.now() - t0,
-                    };
-                }
+                result = buildLlvmRunResult(c, workerId, llPath, exePath, runWithArgs, t0);
             }
         }
     }
@@ -1518,3 +1529,9 @@ if (require.main === module) {
         process.exit(1);
     });
 }
+
+module.exports = {
+    applyDoctestExpectations,
+    buildLlvmRunResult,
+    llvmReturnValueFromProcessResult,
+};
