@@ -245,6 +245,11 @@ fn fill <(BitSet)->BitSet> (bs):
 //: ## free
 //: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
 //:
+//: ### [仕様/しよう]
+//: - `BitSet` は `new` が[確保/かくほ]した `nbytes > 0` の byte [配列/はいれつ]を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - caller は `free` [後/ご]の `BitSet` を[再利用/さいりよう]してはいけません。
+//:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
@@ -260,4 +265,4 @@ fn fill <(BitSet)->BitSet> (bs):
 fn free <(BitSet)->()> (bs):
     let bits <MemPtr<u8>> field::get bs "bits"
     let nbytes <i32> field::get bs "nbytes"
-    let _ <()> uwok dealloc_ptr<u8> bits nbytes
+    dealloc_raw mem_ptr_addr bits nbytes

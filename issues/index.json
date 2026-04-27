@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T00:54:27.104Z",
+  "generated_at": "2026-04-27T01:05:50.855Z",
   "counts": {
     "total": 170,
-    "open": 20,
-    "resolved": 150,
+    "open": 19,
+    "resolved": 151,
     "by_area": {
       "core": {
         "total": 63,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 63,
-        "open": 18,
-        "resolved": 45
+        "open": 17,
+        "resolved": 46
       },
       "cli": {
         "total": 19,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T000311423Z-BITSET-RETAINS-UNSAFE-UNWRAP-IN-OWNE-60B0934D",
-      "title": "BitSet retains unsafe unwrap in owned bit storage cleanup",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/collections/bitset.nepl, tests/stdlib/bitset_collections.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T000311423Z-BITSET-RETAINS-UNSAFE-UNWRAP-IN-OWNE-60B0934D.md"
     },
     {
       "id": "ISS-20260427T000311579Z-ADJACENCYMATRIX-RETAINS-UNSAFE-UNWRA-1D406374",
@@ -2458,6 +2443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T233321666Z-QUEUE-AND-DEQUE-OBSERVATION-APIS-CON-E7627BD3.md"
+    },
+    {
+      "id": "ISS-20260427T000311423Z-BITSET-RETAINS-UNSAFE-UNWRAP-IN-OWNE-60B0934D",
+      "title": "BitSet retains unsafe unwrap in owned bit storage cleanup",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/bitset.nepl, tests/stdlib/bitset_collections.n.md, nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T000311423Z-BITSET-RETAINS-UNSAFE-UNWRAP-IN-OWNE-60B0934D.md"
     },
     {
       "id": "ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496",

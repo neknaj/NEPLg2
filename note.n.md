@@ -18880,3 +18880,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の source text / diagnostic / path 処理で使う string 基盤が、Result-returning API と UTF-8 checked construction を持つようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000311423Z BitSet owned cleanup)
+
+- [同期]:
+  - 作業開始時に `origin/main` の `5dc219a` まで fast-forward し、remote の lexer / nodesrc test runner 更新を取り込んだ。
+  - commit 前に `origin/main` の `f72e378` まで再同期し、CLI wasm32 compile fixture 修正も取り込んだ。
+  - さらに `origin/main` の `70c1e27` まで再同期し、wasix doctest fallback 修正も取り込んだ。
+  - `stdlib/bitset-owned-cleanup` branch で BitSet の cleanup issue のみを処理した。
+- [原因]:
+  - `BitSet.new` は `nbits > 0` の場合に `nbytes > 0` の byte 配列を確保し、`BitSet` がその pointer を所有する。
+  - `BitSet.free` はこの owner invariant があるにもかかわらず、`dealloc_ptr<u8>` の `Result` を `uwok` して通常 cleanup を unsafe helper に依存させていた。
+- [修正]:
+  - `BitSet.free` を `dealloc_raw mem_ptr_addr bits nbytes` に変更し、所有済み storage の解放を raw owner cleanup に統一した。
+  - `free` の doc comment に owner invariant と free 後の再利用禁止を明記した。
+  - free 後の再確保 regression と、BitSet 実装に unsafe unwrap / unreachable が戻らない source policy guard を追加した。
+- [検証]:
+  - `trunk build`: pass
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-owned-cleanup-docs-after-70c1e27.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i tests/stdlib/bitset_collections.n.md -i stdlib/tests/bitset.n.md --no-tree -o tmp/bitset-owned-cleanup-focused-after-70c1e27.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-bitset-owned-cleanup-after-70c1e27.json -j 4`: 287/287 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-bitset-owned-cleanup-after-70c1e27.json -j 4`: 418/418 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の set membership helper に使える BitSet が、cleanup 時に unsafe helper へ依存しないようになった。
