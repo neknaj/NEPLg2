@@ -2,8 +2,9 @@
 //!
 //! `ImportResolution` is used by the main typecheck pipeline to enforce
 //! `#import` visibility on the current flat loader representation.  The
-//! ModuleGraph/DefId APIs below remain host-side utilities for module-scope
-//! export resolution and the NEPLg3 split pipeline.
+//! Source span based DefId is shared with HIR, while ModuleGraph/export table
+//! APIs below remain host-side utilities for module-scope export resolution and
+//! the NEPLg3 split pipeline.
 
 extern crate alloc;
 
@@ -448,9 +449,34 @@ fn expand_files_through_merge_imports(
     expanded
 }
 
-#[cfg(not(target_os = "none"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DefId(pub u32);
+pub struct DefId {
+    pub file_id: u32,
+    pub start: u32,
+    pub end: u32,
+}
+
+impl DefId {
+    pub fn from_span(span: crate::span::Span) -> Option<Self> {
+        if span == crate::span::Span::dummy() {
+            return None;
+        }
+        Some(Self {
+            file_id: span.file_id.0,
+            start: span.start,
+            end: span.end,
+        })
+    }
+
+    #[cfg(not(target_os = "none"))]
+    fn synthetic(index: u32) -> Self {
+        Self {
+            file_id: u32::MAX,
+            start: index,
+            end: index,
+        }
+    }
+}
 
 #[cfg(not(target_os = "none"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -493,8 +519,11 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
         for stmt in &node.module.root.items {
             match stmt {
                 crate::ast::Stmt::FnDef(FnDef { name, vis, .. }) if *vis == Visibility::Pub => {
-                    let id = DefId(next_id);
-                    next_id += 1;
+                    let id = DefId::from_span(name.span).unwrap_or_else(|| {
+                        let id = DefId::synthetic(next_id);
+                        next_id += 1;
+                        id
+                    });
                     map.insert(
                         name.name.clone(),
                         DefInfo {
@@ -505,8 +534,11 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
                     );
                 }
                 crate::ast::Stmt::FnAlias(FnAlias { name, vis, .. }) if *vis == Visibility::Pub => {
-                    let id = DefId(next_id);
-                    next_id += 1;
+                    let id = DefId::from_span(name.span).unwrap_or_else(|| {
+                        let id = DefId::synthetic(next_id);
+                        next_id += 1;
+                        id
+                    });
                     map.insert(
                         name.name.clone(),
                         DefInfo {
@@ -519,8 +551,11 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
                 crate::ast::Stmt::StructDef(StructDef { name, vis, .. })
                     if *vis == Visibility::Pub =>
                 {
-                    let id = DefId(next_id);
-                    next_id += 1;
+                    let id = DefId::from_span(name.span).unwrap_or_else(|| {
+                        let id = DefId::synthetic(next_id);
+                        next_id += 1;
+                        id
+                    });
                     map.insert(
                         name.name.clone(),
                         DefInfo {
@@ -531,8 +566,11 @@ pub fn collect_defs(graph: &ModuleGraph) -> DefTable {
                     );
                 }
                 crate::ast::Stmt::EnumDef(EnumDef { name, vis, .. }) if *vis == Visibility::Pub => {
-                    let id = DefId(next_id);
-                    next_id += 1;
+                    let id = DefId::from_span(name.span).unwrap_or_else(|| {
+                        let id = DefId::synthetic(next_id);
+                        next_id += 1;
+                        id
+                    });
                     map.insert(
                         name.name.clone(),
                         DefInfo {

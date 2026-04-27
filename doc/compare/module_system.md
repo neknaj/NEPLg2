@@ -87,7 +87,7 @@ module lexer:
 - `#import` は物理的なファイル結合（AST 平坦化）を行っていた。
 - パスはファイルシステム位置に直接解決していた。
 - `#use` はパースされていたが名前解決で使われていなかった。
-- 旧 `name_resolve.rs` は未使用スタブだったため削除済み。現行 NEPLg2.0 は flat merge AST を維持しつつ、`resolve.rs` の `ImportResolution` が SourceMap ベースで import 可視性を型検査へ渡している。
+- 旧 `name_resolve.rs` は未使用スタブだったため削除済み。現行 NEPLg2.0 は flat merge AST を維持しつつ、`resolve.rs` の `ImportResolution` が SourceMap ベースで import 可視性を型検査へ渡している。HIR の user function call は backend symbol と別に source span based `DefId` を保持し、qualified import や shadowing 後の参照先を snapshot できる。
 
 ### NEPLg3 の解決策
 

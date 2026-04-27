@@ -997,7 +997,7 @@ fn can_lower_simple_expr_iteratively(expr: &HirExpr) -> bool {
 
 fn missing_direct_call_name(ctx: &TypeCtx, callee: &FuncRef) -> String {
     match callee {
-        FuncRef::Builtin(n) | FuncRef::User(n, _) => n.clone(),
+        FuncRef::Builtin(n) | FuncRef::User(n, _, _) => n.clone(),
         FuncRef::Trait {
             trait_name,
             trait_args: _,
@@ -1023,7 +1023,7 @@ fn emit_direct_call(
     insts: &mut Vec<Instruction<'static>>,
 ) -> LowerResult<()> {
     if let Some(idx) = match callee {
-        FuncRef::Builtin(n) | FuncRef::User(n, _) => name_map.get(n),
+        FuncRef::Builtin(n) | FuncRef::User(n, _, _) => name_map.get(n),
         FuncRef::Trait { .. } => None,
     } {
         insts.push(Instruction::Call(*idx));

@@ -341,7 +341,7 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
         | HirExprKind::LiteralStr(_)
         | HirExprKind::Unit => {}
         HirExprKind::Call { callee, args } => match callee {
-            FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "get" => {
+            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "get" => {
                 if let Some(base) = args.get_mut(0) {
                     if !ctx.types.is_copy(expr.ty) {
                         insert_drops_in_expr(base, ctx);

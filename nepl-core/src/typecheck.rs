@@ -16,7 +16,7 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::effects::{intrinsic_effect, raw_body_direct_callees};
 use crate::hir::*;
-use crate::resolve::ImportResolution;
+use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
@@ -659,6 +659,7 @@ pub fn typecheck(
                     defined: true,
                     span: *span,
                     kind: BindingKind::Func {
+                        def_id: DefId::from_span(func.span),
                         symbol: func.name.clone(),
                         effect,
                         arity: params.len(),
@@ -815,6 +816,7 @@ pub fn typecheck(
                         defined: true,
                         span: e.name.span,
                         kind: BindingKind::Func {
+                            def_id: DefId::from_span(e.name.span),
                             symbol: v.name.clone(),
                             effect: Effect::Pure,
                             arity: params.len(),
@@ -834,6 +836,7 @@ pub fn typecheck(
                         defined: true,
                         span: e.name.span,
                         kind: BindingKind::Func {
+                            def_id: DefId::from_span(e.name.span),
                             symbol: format!("{}::{}", e.name.name, v.name),
                             effect: Effect::Pure,
                             arity: params.len(),
@@ -919,6 +922,7 @@ pub fn typecheck(
                     defined: true,
                     span: s.name.span,
                     kind: BindingKind::Func {
+                        def_id: DefId::from_span(s.name.span),
                         symbol: s.name.name.clone(),
                         effect: Effect::Pure,
                         arity: if is_tag_unit_struct { 0 } else { fs.len() },
@@ -1046,6 +1050,7 @@ pub fn typecheck(
                     defined: true,
                     span: Span::dummy(),
                     kind: BindingKind::Func {
+                        def_id: None,
                         symbol: vname.clone(),
                         effect: Effect::Pure,
                         arity: params.len(),
@@ -1237,6 +1242,7 @@ pub fn typecheck(
                 defined: true,
                 span: Span::dummy(),
                 kind: BindingKind::Func {
+                    def_id: None,
                     symbol: name.clone(),
                     effect: Effect::Pure,
                     arity: info.fields.len(),
@@ -1419,6 +1425,7 @@ pub fn typecheck(
                     defined: true,
                     span: f.name.span,
                     kind: BindingKind::Func {
+                        def_id: DefId::from_span(f.name.span),
                         symbol,
                         effect,
                         arity: f.params.len(),
@@ -1465,6 +1472,7 @@ pub fn typecheck(
                         field_accessor,
                         type_param_bounds,
                         captures,
+                        ..
                     } => (
                         symbol.clone(),
                         *effect,
@@ -1580,6 +1588,7 @@ pub fn typecheck(
                 defined: true,
                 span: alias.name.span,
                 kind: BindingKind::Func {
+                    def_id: DefId::from_span(alias.name.span),
                     symbol,
                     effect,
                     arity,
@@ -3895,6 +3904,7 @@ impl<'a> BlockChecker<'a> {
                         defined: true,
                         span: f.name.span,
                         kind: BindingKind::Func {
+                            def_id: DefId::from_span(f.name.span),
                             symbol: f.name.name.clone(),
                             effect,
                             arity: f.params.len(),
@@ -7587,6 +7597,10 @@ impl<'a> BlockChecker<'a> {
                         } => (symbol.clone(), *builtin),
                         _ => (name.clone(), None),
                     };
+                    let selected_def_id = match &binding.kind {
+                        BindingKind::Func { def_id, .. } => *def_id,
+                        _ => None,
+                    };
                     let selected_type_snapshot = (!explicit_type_args.is_empty())
                         .then(|| self.ctx.snapshot_type_var_bindings(binding.ty));
                     let (inst_ty, mut resolved_args, type_arg_mapping) =
@@ -8188,7 +8202,11 @@ impl<'a> BlockChecker<'a> {
                                 .or_insert_with(Vec::new)
                                 .push(resolved_args.clone());
                         }
-                        FuncRef::User(selected_symbol.clone(), resolved_args.clone())
+                        FuncRef::User(
+                            selected_symbol.clone(),
+                            resolved_args.clone(),
+                            selected_def_id,
+                        )
                     };
                     let mut final_args: Vec<HirExpr> = Vec::new();
                     for (cap_name, cap_ty) in captures.iter() {
@@ -8529,6 +8547,7 @@ struct Binding {
 enum BindingKind {
     Var,
     Func {
+        def_id: Option<DefId>,
         symbol: String,
         effect: Effect,
         arity: usize,
@@ -8566,7 +8585,7 @@ fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
         match &mut expr.kind {
             HirExprKind::Call { callee, args } => {
                 match callee {
-                    FuncRef::User(_, type_args) => {
+                    FuncRef::User(_, type_args, _) => {
                         for ty in type_args {
                             *ty = ctx.resolve_id(*ty);
                         }

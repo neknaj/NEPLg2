@@ -1,13 +1,15 @@
 use nepl_core::ast::{Directive, ImportClause};
 use nepl_core::diagnostic::Severity;
+use nepl_core::hir::{FuncRef, HirBody, HirExprKind, HirModule};
 use nepl_core::lexer;
 use nepl_core::loader::{Loader, LoaderError, SourceMap};
 use nepl_core::module_graph::ModuleGraphBuilder;
 use nepl_core::parser;
 use nepl_core::resolve::{
-    build_visible_map, collect_defs, compose_exports, resolve_imports, ImportResolution,
+    build_visible_map, collect_defs, compose_exports, resolve_imports, DefId, ImportResolution,
 };
-use nepl_core::span::FileId;
+use nepl_core::span::{FileId, Span};
+use nepl_core::{BuildProfile, CompileTarget};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -55,6 +57,53 @@ fn source_file_id(source_map: &SourceMap, suffix: &str) -> u32 {
             }
         })
         .unwrap_or_else(|| panic!("source file not found: {}", suffix))
+}
+
+fn def_id_for_name(source_map: &SourceMap, file_id: u32, name: &str) -> DefId {
+    let source = source_map.get(FileId(file_id)).expect("source text");
+    let start = source
+        .find(name)
+        .unwrap_or_else(|| panic!("definition name not found: {}", name)) as u32;
+    DefId::from_span(Span::new(FileId(file_id), start, start + name.len() as u32))
+        .expect("source definition span")
+}
+
+fn typecheck_virtual(main: &str, sources: &[(&str, &str)]) -> (HirModule, SourceMap) {
+    let (module, source_map) = load_virtual_sources(main, sources);
+    let result = nepl_core::typecheck::typecheck(
+        &module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&source_map),
+    );
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|d| d.severity != Severity::Error),
+        "unexpected typecheck errors: {:?}",
+        result.diagnostics
+    );
+    (result.module.expect("hir module"), source_map)
+}
+
+fn entry_call_def_id(hir: &HirModule) -> Option<DefId> {
+    let entry = hir.entry.as_deref().expect("resolved entry");
+    let function = hir
+        .functions
+        .iter()
+        .find(|f| f.name == entry)
+        .unwrap_or_else(|| panic!("entry function not found: {}", entry));
+    let HirBody::Block(block) = &function.body else {
+        panic!("entry body is not a block")
+    };
+    let HirExprKind::Call { callee, .. } = &block.lines[0].expr.kind else {
+        panic!("entry expression is not a call")
+    };
+    let FuncRef::User(_, _, def_id) = callee else {
+        panic!("entry callee is not a user function")
+    };
+    *def_id
 }
 
 #[test]
@@ -204,6 +253,61 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn hir_user_call_keeps_def_id_for_qualified_import() {
+    const DEP: &str = r#"
+#indent 4
+#no_prelude
+
+fn allowed <()->i32> ():
+    41
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as dep
+
+fn main <()->i32> ():
+    dep::allowed
+"#;
+    let (hir, source_map) = typecheck_virtual(main, &[("dep.nepl", DEP)]);
+    let dep_file = source_file_id(&source_map, "dep.nepl");
+    let expected = def_id_for_name(&source_map, dep_file, "allowed");
+
+    assert_eq!(entry_call_def_id(&hir), Some(expected));
+}
+
+#[test]
+fn hir_user_call_keeps_local_def_id_when_open_import_is_shadowed() {
+    const DEP: &str = r#"
+#indent 4
+#no_prelude
+
+pub fn pick <()->i32> ():
+    1
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as *
+
+fn pick <()->i32> ():
+    2
+
+fn main <()->i32> ():
+    pick
+"#;
+    let (hir, source_map) = typecheck_virtual(main, &[("dep.nepl", DEP)]);
+    let main_file = source_file_id(&source_map, "main.nepl");
+    let expected = def_id_for_name(&source_map, main_file, "pick");
+
+    assert_eq!(entry_call_def_id(&hir), Some(expected));
+}
+
+#[test]
 fn resolve_import_alias_open_selective() {
     let dir = tempdir().unwrap();
     let root = dir.path().join("main.nepl");
@@ -263,6 +367,15 @@ fn build_visible_map_reports_ambiguous_open() {
     let export_defs = compose_exports(&defs, &exports);
     let resolved = resolve_imports(&g, &export_defs);
     let (_visible, diags) = build_visible_map(&defs, &resolved);
+
+    let a_path = canonicalize_path(&a);
+    let b_path = canonicalize_path(&b);
+    let a_id = g.nodes.iter().find(|n| n.path == a_path).unwrap().id;
+    let b_id = g.nodes.iter().find(|n| n.path == b_path).unwrap().id;
+    let a_foo = defs.defs.get(&a_id).unwrap().get("foo").unwrap().id;
+    let b_foo = defs.defs.get(&b_id).unwrap().get("foo").unwrap().id;
+    assert_ne!(a_foo, b_foo);
+
     assert!(
         diags.iter().any(|d| d.message.contains("ambiguous import")),
         "expected ambiguous import diagnostic, got {:?}",

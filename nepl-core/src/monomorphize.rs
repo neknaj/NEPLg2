@@ -418,6 +418,7 @@ impl<'a> Monomorphizer<'a> {
                             *callee = FuncRef::User(
                                 self.request_instantiation(name, trait_args.clone()),
                                 Vec::new(),
+                                None,
                             );
                         }
                     }
@@ -654,7 +655,7 @@ impl<'a> Monomorphizer<'a> {
                         stack.push(arg);
                     }
                     match callee {
-                        FuncRef::User(name, type_args) => {
+                        FuncRef::User(name, type_args, _) => {
                             for arg in type_args.iter_mut() {
                                 *arg = self.ctx.resolve_id(*arg);
                             }
@@ -931,7 +932,7 @@ impl<'a> Monomorphizer<'a> {
                     self.substitute_expr(arg, mapping, local_names);
                 }
                 match callee {
-                    FuncRef::User(name, type_args) => {
+                    FuncRef::User(name, type_args, _) => {
                         for arg in type_args.iter_mut() {
                             *arg = self.ctx.substitute(*arg, mapping);
                         }
@@ -970,7 +971,7 @@ impl<'a> Monomorphizer<'a> {
                             dispatch_self_ty,
                         ) {
                             let inst = self.request_instantiation(func_name, trait_args.clone());
-                            *callee = FuncRef::User(inst, Vec::new());
+                            *callee = FuncRef::User(inst, Vec::new(), None);
                         }
                     }
                     FuncRef::Builtin(_) => {}

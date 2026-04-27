@@ -1306,7 +1306,7 @@ fn can_visit_expr_iteratively(
             | HirExprKind::Drop { .. } => {}
             HirExprKind::Call { callee, args } => {
                 match callee {
-                    FuncRef::Builtin(name) | FuncRef::User(name, _)
+                    FuncRef::Builtin(name) | FuncRef::User(name, _, _)
                         if name == "get" || name == "if" || name == "while" =>
                     {
                         return false;
@@ -1314,7 +1314,7 @@ fn can_visit_expr_iteratively(
                     _ => {}
                 }
                 let params = match callee {
-                    FuncRef::User(name, _) => ctx.function_params.get(name).map(Vec::as_slice),
+                    FuncRef::User(name, _, _) => ctx.function_params.get(name).map(Vec::as_slice),
                     _ => None,
                 };
                 for (i, arg) in args.iter().enumerate().rev() {
@@ -1640,7 +1640,7 @@ fn visit_expr_with_escape(
         }
         HirExprKind::FnValue(_) => Vec::new(),
         HirExprKind::Call { callee, args } => match callee {
-            FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "get" => {
+            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "get" => {
                 let result_borrows = if type_contains_reference(tctx, expr.ty) {
                     args.first()
                         .map(|base| {
@@ -1668,7 +1668,7 @@ fn visit_expr_with_escape(
                 }
                 result_borrows
             }
-            FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "if" => {
+            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "if" => {
                 if args.len() == 3 {
                     visit_expr(&args[0], ctx, tctx);
 
@@ -1706,7 +1706,7 @@ fn visit_expr_with_escape(
                     Vec::new()
                 }
             }
-            FuncRef::Builtin(name) | FuncRef::User(name, _) if name == "while" => {
+            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "while" => {
                 if args.len() == 2 {
                     visit_expr(&args[0], ctx, tctx);
 
@@ -1755,7 +1755,7 @@ fn visit_expr_with_escape(
             }
             _ => {
                 let params = match callee {
-                    FuncRef::User(name, _) => ctx.function_params.get(name).cloned(),
+                    FuncRef::User(name, _, _) => ctx.function_params.get(name).cloned(),
                     _ => None,
                 };
                 let result_borrows =

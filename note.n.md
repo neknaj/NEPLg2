@@ -18951,3 +18951,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の dependency graph / reachability helper に使える AdjacencyMatrix が、cleanup 時に unsafe helper へ依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T011048496Z HIR function reference DefId)
+
+- [同期]:
+  - `origin/main` と一致した `main` から `fix/hir-user-call-def-id` branch を作成した。
+  - 修正前に調査結果を Discord へ報告し、HIR の user function call が backend symbol のみを保持していることを根本原因として確認した。
+- [原因]:
+  - `FuncRef::User` は backend symbol と type arguments だけを持ち、qualified import / shadowing / module boundary を越えた declaration identity を HIR 単体から復元できなかった。
+  - `BindingKind::Func` も source declaration id を保持していなかったため、overload 解決後に選ばれた binding から HIR へ stable id を渡せなかった。
+- [修正]:
+  - `resolve::DefId` を `file_id/start/end` の source span based id に変更した。
+  - typecheck の function binding に `def_id` を持たせ、top-level / imported / nested / alias / constructor binding の declaration span から設定した。
+  - `FuncRef::User` を `User(symbol, type_args, def_id)` に拡張し、後段 pass は既存の symbol/type args 動作を維持しつつ新 field を無視または保持するようにした。
+  - `nepl-core/tests/resolve.rs` に qualified import、open import shadowing、ambiguous open import の DefId 回帰テストを追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 16/16 passed
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: 10/10 passed
+  - `cargo test -p nepl-core --target wasm32-unknown-unknown --no-run --all-features`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - NEPLg3 で想定している `resolve/def_id` と `hir/lower` 分離に向け、現行 NEPLg2.0 HIR が source declaration identity を保持できるようになった。
