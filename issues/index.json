@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T02:15:10.753Z",
+  "generated_at": "2026-04-27T02:22:17.164Z",
   "counts": {
     "total": 172,
-    "open": 14,
-    "resolved": 158,
+    "open": 13,
+    "resolved": 159,
     "by_area": {
       "core": {
         "total": 64,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 64,
-        "open": 13,
-        "resolved": 51
+        "open": 12,
+        "resolved": 52
       },
       "cli": {
         "total": 19,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T000312512Z-DISJOINTSET-RETAINS-UNSAFE-UNWRAPS-I-3F8F89F7",
-      "title": "DisjointSet retains unsafe unwraps in owned array internals",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/collections/disjoint_set.nepl, tests/stdlib/disjoint_set_collections.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T000312512Z-DISJOINTSET-RETAINS-UNSAFE-UNWRAPS-I-3F8F89F7.md"
     },
     {
       "id": "ISS-20260427T000312692Z-SPARSESET-RETAINS-UNSAFE-UNWRAPS-IN--D292C789",
@@ -2488,6 +2473,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T000312311Z-RINGBUFFER-RETAINS-UNSAFE-UNWRAPS-IN-8E14D45A.md"
+    },
+    {
+      "id": "ISS-20260427T000312512Z-DISJOINTSET-RETAINS-UNSAFE-UNWRAPS-I-3F8F89F7",
+      "title": "DisjointSet retains unsafe unwraps in owned array internals",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-27",
+      "target": "stdlib/alloc/collections/disjoint_set.nepl, tests/stdlib/disjoint_set_collections.n.md, nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T000312512Z-DISJOINTSET-RETAINS-UNSAFE-UNWRAPS-I-3F8F89F7.md"
     },
     {
       "id": "ISS-20260427T000313614Z-ALLOC-STRING-NEEDS-OWNERSHIP-SAFE-UT-53AE8496",

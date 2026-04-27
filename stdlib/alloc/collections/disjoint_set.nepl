@@ -52,25 +52,25 @@ fn dsu_diag_index <(str,i32,i32)*>Diag> (op, idx, n):
     let msg3 <str> concat msg2 from_i32 n
     diag_error StdErrorKind::IndexOutOfBounds msg3
 
-fn dsu_parent_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (base, idx):
+fn dsu_slot_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (base, idx):
     mem_ptr_wrap add mem_ptr_addr base mul idx 4
 
-fn dsu_parent_load <(MemPtr<i32>,i32)->i32> (base, idx):
-    match load_i32 dsu_parent_ptr base idx:
+fn dsu_load_owned <(MemPtr<i32>,i32)->i32> (base, idx):
+    match load_i32 dsu_slot_ptr base idx:
         Option::Some v:
             v
         Option::None:
             0
 
-fn dsu_parent_store <(MemPtr<i32>,i32,i32)->()> (base, idx, value):
-    let _ <()> uwok store_i32 dsu_parent_ptr base idx value
+fn dsu_store_owned <(MemPtr<i32>,i32,i32)->()> (base, idx, value):
+    store_i32 mem_ptr_addr dsu_slot_ptr base idx value
 
 fn dsu_root_raw <(MemPtr<i32>,i32)->i32> (parent, idx):
     let mut cur <i32> idx
     let mut done <bool> false
     while not done:
         do:
-            let next <i32> dsu_parent_load parent cur
+            let next <i32> dsu_load_owned parent cur
             if:
                 eq next cur
                 then:
@@ -80,11 +80,7 @@ fn dsu_root_raw <(MemPtr<i32>,i32)->i32> (parent, idx):
     cur
 
 fn dsu_size_raw <(MemPtr<i32>,i32)->i32> (sizes, root):
-    match load_i32 dsu_parent_ptr sizes root:
-        Option::Some v:
-            v
-        Option::None:
-            0
+    dsu_load_owned sizes root
 
 //: ## new
 //: [長/なが]さ `n` の[素集合/そしゅうごう]を[作/つく]る
@@ -114,14 +110,14 @@ fn new <(i32)*>Result<DisjointSet, Diag>> (n):
                 Result::Ok parent:
                     match alloc_ptr<i32> mul n 4:
                         Result::Err _e:
-                            let _ <()> uwok dealloc_ptr<i32> parent mul n 4
+                            dealloc_raw mem_ptr_addr parent mul n 4
                             diag_err<DisjointSet> diag_out_of_memory "disjoint_set_new(sizes)"
                         Result::Ok sizes:
                             let mut i <i32> 0
                             while lt i n:
                                 do:
-                                    dsu_parent_store parent i i
-                                    dsu_parent_store sizes i 1
+                                    dsu_store_owned parent i i
+                                    dsu_store_owned sizes i 1
                                     set i add i 1
                             ok<DisjointSet, Diag> DisjointSet n parent sizes
 
@@ -215,8 +211,8 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
                     let root_drop <i32> if lt sa sb ra rb
                     let sk <i32> dsu_size_raw sizes root_keep
                     let sd <i32> dsu_size_raw sizes root_drop
-                    dsu_parent_store parent root_drop root_keep
-                    dsu_parent_store sizes root_keep add sk sd
+                    dsu_store_owned parent root_drop root_keep
+                    dsu_store_owned sizes root_keep add sk sd
                     let out1 <DisjointSet> load<DisjointSet> mem
                     dealloc_raw mem size_of<DisjointSet>
                     ok<DisjointSet, Diag> out1
@@ -308,6 +304,13 @@ fn size <(DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //: ## free
 //: [内部配列/ないぶはいれつ]を[解放/かいほう]する
 //:
+//: ### [実装/じっそう]
+//: - `parent` と `sizes` は `new` が `n * 4` byte で[確保/かくほ]し、`DisjointSet` が[単独/たんどく]で[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は `dealloc_raw` で[行/おこな]います。
+//:
+//: ### [注意/ちゅうい]
+//: - [解放後/かいほうご]に `dsu` を[再利用/さいりよう]してはいけません。
+//:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
@@ -326,6 +329,6 @@ fn free <(DisjointSet)->()> (dsu):
     let n <i32> get load<DisjointSet> mem "n"
     let parent <MemPtr<i32>> get load<DisjointSet> mem "parent"
     let sizes <MemPtr<i32>> get load<DisjointSet> mem "sizes"
-    let _ <()> uwok dealloc_ptr<i32> parent mul n 4
-    let _ <()> uwok dealloc_ptr<i32> sizes mul n 4
+    dealloc_raw mem_ptr_addr parent mul n 4
+    dealloc_raw mem_ptr_addr sizes mul n 4
     dealloc_raw mem size_of<DisjointSet>

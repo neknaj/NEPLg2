@@ -19067,3 +19067,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Queue / Deque を支える circular buffer が、header 更新と cleanup で unsafe helper に依存しないようになった。
+
+# 2026-04-27 メモ (ISS-20260427T000312512Z DisjointSet owned cleanup)
+
+- [同期]:
+  - `origin/main` が `49dbebe stdlib: remove ringbuffer unsafe internal unwraps` で一致している状態から `stdlib/disjoint-set-owned-cleanup` branch を作成した。
+  - 作業中に別件の空集合 constructor 問題を `ISS-20260427T021419221Z-DISJOINTSET-NEW-REJECTS-ZERO-LENGTH--0D80C30E` として追加し、Discord へ報告した。
+- [原因]:
+  - `DisjointSet.new` は `parent` と `sizes` の 2 本の `i32` 配列を確保し、`DisjointSet` owner がその配列を単独所有する。
+  - 初期化時の `parent[i]` / `sizes[i]` store、`union` の root/size 更新、`sizes` 確保失敗時の `parent` cleanup、`free` の `parent` / `sizes` cleanup が checked API の `Result` を `uwok` していた。
+  - union-find は self-host の graph / grouping / equivalence class 管理に使う基礎データ構造なので、内部保守コードが unsafe helper trap へ戻らないようにする必要があった。
+- [修正]:
+  - `dsu_slot_ptr` / `dsu_load_owned` / `dsu_store_owned` を追加し、`parent` と `sizes` の owned array access を共通 helper に集約した。
+  - `new` の初期化と `union` の更新を owned helper に移し、checked `store_i32` unwrap を削除した。
+  - `sizes` allocation failure cleanup と `free` の owned array cleanup を `dealloc_raw` に変更した。
+  - union 後の `free` と再確保 regression、DisjointSet 実装に unsafe unwrap / checked deallocation が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-owned-cleanup-docs.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md -i stdlib/tests/disjoint_set.n.md --no-tree -o tmp/disjoint-set-owned-cleanup-focused.json -j 1`: 4/4 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-disjoint-set-owned-cleanup.json -j 4`: 293/293 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-disjoint-set-owned-cleanup.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の union-find 基盤が、内部 array 更新と cleanup で unsafe helper に依存しないようになった。
