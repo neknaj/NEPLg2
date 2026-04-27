@@ -78,6 +78,54 @@ fn main <()->i32> ():
             0
 ```
 
+## typed_mem_copy_rejects_non_copy_owner
+
+neplg2:test[compile_fail]
+diag_id: 3069
+```neplg2
+#entry main
+#indent 4
+#target core
+
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap 0
+    let r <Result<(),str>> mem_copy<LocalToken> p p 0
+    0
+```
+
+## typed_mem_move_rejects_non_copy_owner
+
+neplg2:test[compile_fail]
+diag_id: 3069
+```neplg2
+#entry main
+#indent 4
+#target core
+
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap 0
+    let r <Result<(),str>> mem_move<LocalToken> p p 0
+    0
+```
+
 ## realloc_raw_preserves_bytes
 
 neplg2:test

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T16:47:55.254Z",
+  "generated_at": "2026-04-27T16:52:23.238Z",
   "counts": {
     "total": 206,
-    "open": 14,
-    "resolved": 192,
+    "open": 13,
+    "resolved": 193,
     "by_area": {
       "core": {
         "total": 74,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 88,
-        "open": 9,
-        "resolved": 79
+        "open": 8,
+        "resolved": 80
       },
       "cli": {
         "total": 19,
@@ -178,21 +178,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
-    },
-    {
-      "id": "ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7",
-      "title": "core mem typed mem_copy and mem_move can duplicate non-Copy owners",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "security",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/move_check.rs, tests/stdlib/mem_bulk_copy.n.md, tests/compiler/move_effect.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7.md"
     },
     {
       "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
@@ -1813,6 +1798,21 @@
       "legacy_id": "",
       "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
       "file": "items/ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8.md"
+    },
+    {
+      "id": "ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7",
+      "title": "core mem typed mem_copy and mem_move can duplicate non-Copy owners",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/move_check.rs, tests/stdlib/mem_bulk_copy.n.md, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

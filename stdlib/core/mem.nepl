@@ -955,6 +955,7 @@ fn fill_i32 <(MemPtr<i32>,i32,i32)->Result<(),str>> (ptr, count, value):
 //:
 //: 目的:
 //: - `src` から `dst` へ `count` 個の `.T` 要素をコピーします。
+//: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
 //:
 //: 実装(アルゴリズム):
 //: - `count * size_of<.T>` を byte 数に変換し、raw `mem_copy` に委譲します。
@@ -962,10 +963,11 @@ fn fill_i32 <(MemPtr<i32>,i32,i32)->Result<(),str>> (ptr, count, value):
 //: 注意(重要):
 //: - `dst` と `src` の対象範囲が重ならない場合に使います。
 //: - `count==0` はポインタが 0 でも成功として扱います。
+//: - non-Copy 値を移動初期化する用途には使えません。将来の所有権付き region API で扱います。
 //:
 //: 計算量:
 //: - O(count * size_of<.T>)
-fn mem_copy <.T> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
+fn mem_copy <.T: Copy> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
     let dst_raw <i32> mem_ptr_addr dst;
     let src_raw <i32> mem_ptr_addr src;
     if:
@@ -989,7 +991,8 @@ fn mem_copy <.T> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count)
 //: mem_move: MemPtr の要素列を重なりを許してまとめてコピーする安全オーバーロード
 //:
 //: 目的:
-//: - `src` から `dst` へ `count` 個の `.T` 要素を移動コピーします。
+//: - `src` から `dst` へ `count` 個の `.T` 要素を重なり許容でコピーします。
+//: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
 //:
 //: 実装(アルゴリズム):
 //: - `count * size_of<.T>` を byte 数に変換し、raw `mem_move` に委譲します。
@@ -997,10 +1000,11 @@ fn mem_copy <.T> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count)
 //: 注意(重要):
 //: - `dst` と `src` の対象範囲が重なり得る場合はこちらを使います。
 //: - `count==0` はポインタが 0 でも成功として扱います。
+//: - 名前は low-level memory move に合わせていますが、source の所有権を未初期化へ変える操作ではありません。
 //:
 //: 計算量:
 //: - O(count * size_of<.T>)
-fn mem_move <.T> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
+fn mem_move <.T: Copy> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
     let dst_raw <i32> mem_ptr_addr dst;
     let src_raw <i32> mem_ptr_addr src;
     if:

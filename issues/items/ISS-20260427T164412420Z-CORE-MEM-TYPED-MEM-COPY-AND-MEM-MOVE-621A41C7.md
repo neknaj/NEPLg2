@@ -2,8 +2,8 @@
 id: ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7
 title: "core mem typed mem_copy and mem_move can duplicate non-Copy owners"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: security
 created: 2026-04-27
@@ -41,6 +41,17 @@ collection、diagnostic、self-host AST node、`Result` payload などが owning
 
 typed `mem_copy<T>` は `T: Copy` に限定する。non-Copy value の bulk move は、`OwnedRegion<T>` / `InitializedCell<T>` のような owner token と compiler Resource IR が source/destination の initialized state を更新する専用 API として設計する。既存の raw `mem_copy` / `mem_move` は unsafe/internal boundary に閉じ、public safe API からは直接使わせない。
 
+## 対応結果
+
+- `stdlib/core/mem.nepl` の typed `mem_copy<T>` / `mem_move<T>` を `T: Copy` bound 付きに変更した。
+- `mem_move<T>` のコメントを、所有権 move ではなく overlap を許す Copy byte copy API であることが分かる内容へ修正した。
+- non-Copy owner に対する typed `mem_copy<LocalToken>` / `mem_move<LocalToken>` の compile_fail regression を追加した。
+- raw `mem_copy(i32,i32,i32)` / `mem_move(i32,i32,i32)` は byte primitive として残した。raw API の隔離と non-Copy move-init API は、Resource IR / unsafe boundary の別 issue で扱う。
+
 ## 検証
 
 `MemPtr<Vec<i32>>` や Drop payload を持つ owner 型に対する typed `mem_copy` / `mem_move` を compile_fail にする。`u8` / `i32` / Copy struct の copy は成功させる。将来 owner-aware move API を入れる場合は、source が moved/uninitialized になり、destination が exactly-once drop obligation を持つことを Resource IR dump と compile_fail で確認する。
+
+## 実施した検証
+
+- `node nodesrc/tests.js -i tests/stdlib/mem_bulk_copy.n.md --no-tree -o tmp/mem-typed-bulk-copy-bound-initial.json -j 1`: `total=8`, `passed=8`

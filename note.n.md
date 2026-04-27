@@ -19888,3 +19888,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `mem.nepl` 側だけで drop 呼び出しや bounds check を増やす修正は、将来の compiler auto-drop と衝突するため根本対応にならない。
 - [検証]:
   - issue index / validation を実行する予定。
+
+# 2026-04-28 メモ (ISS-20260427T164412420Z typed mem bulk copy Copy bound)
+
+- [同期]:
+  - `main` が `origin/main` と一致していることを確認し、`fix/mem-typed-bulk-copy-copy-bound` branch を作成した。
+- [原因]:
+  - `stdlib/core/mem.nepl` の typed `mem_copy<T>` / `mem_move<T>` は `MemPtr<T>` を受け取る public overload でありながら `T: Copy` 制約がなかった。
+  - 実体は raw byte copy なので、non-Copy owner を複製しても source raw place を moved/uninitialized にせず、drop obligation も移らなかった。
+- [修正]:
+  - typed `mem_copy<T>` / `mem_move<T>` を `T: Copy` bound 付きに変更した。
+  - `mem_move<T>` は所有権 move ではなく overlap を許す Copy byte copy API であることをコメントに明記した。
+  - non-Copy owner に対する typed `mem_copy` / `mem_move` の compile_fail regression を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/mem_bulk_copy.n.md --no-tree -o tmp/mem-typed-bulk-copy-bound-initial.json -j 1`: 8/8 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - raw non-Copy move-init API は Resource IR / owner token 設計が必要なため、別 issue のまま扱う。
