@@ -158,11 +158,9 @@ fn len <.T,.H> <(BloomFilter<.T,.H>)->i32> (bf):
 //:     if ok 1 0
 //: ```
 fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->BloomFilter<.T,.H>> (bf, key):
-    let bf_mem <i32> alloc_raw size_of<BloomFilter<.T,.H>>
-    store<BloomFilter<.T,.H>> bf_mem bf
-    let nbits <i32> get load<BloomFilter<.T,.H>> bf_mem "nbits"
-    let bits <MemPtr<u8>> get load<BloomFilter<.T,.H>> bf_mem "bits"
-    let hasher <.H> get load<BloomFilter<.T,.H>> bf_mem "hasher"
+    let nbits <i32> field::get bf "nbits"
+    let bits <MemPtr<u8>> field::get bf "bits"
+    let hasher <.H> field::get bf "hasher"
     let h0 <i32> bloom_hash0<.T,.H> hasher key
     let h1 <i32> bloom_hash1<.T,.H> hasher key
     let i0 <i32> rem_u h0 nbits
@@ -171,9 +169,7 @@ fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->Bloom
     bloom_set_bit bits i0
     bloom_set_bit bits i1
     bloom_set_bit bits i2
-    let out <BloomFilter<.T,.H>> load<BloomFilter<.T,.H>> bf_mem
-    dealloc_raw bf_mem size_of<BloomFilter<.T,.H>>
-    out
+    bf
 
 //: ## contains
 //: [要素/ようそ]が[登録済/とうろくず]みかを[近似/きんじ][判定/はんてい]する
@@ -200,11 +196,9 @@ fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->Bloom
 //:     if ok 1 0
 //: ```
 fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->bool> (bf, key):
-    let bf_mem <i32> alloc_raw size_of<BloomFilter<.T,.H>>
-    store<BloomFilter<.T,.H>> bf_mem bf
-    let nbits <i32> get load<BloomFilter<.T,.H>> bf_mem "nbits"
-    let bits <MemPtr<u8>> get load<BloomFilter<.T,.H>> bf_mem "bits"
-    let hasher <.H> get load<BloomFilter<.T,.H>> bf_mem "hasher"
+    let nbits <i32> field::get bf "nbits"
+    let bits <MemPtr<u8>> field::get bf "bits"
+    let hasher <.H> field::get bf "hasher"
     let h0 <i32> bloom_hash0<.T,.H> hasher key
     let h1 <i32> bloom_hash1<.T,.H> hasher key
     let i0 <i32> rem_u h0 nbits
@@ -213,7 +207,6 @@ fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->boo
     let ok0 <bool> bloom_test_bit bits i0
     let ok1 <bool> bloom_test_bit bits i1
     let ok2 <bool> bloom_test_bit bits i2
-    dealloc_raw bf_mem size_of<BloomFilter<.T,.H>>
     and ok0 and ok1 ok2
 
 //: ## clear
@@ -239,19 +232,15 @@ fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->boo
 //:     if ok 0 1
 //: ```
 fn clear <.T,.H> <(BloomFilter<.T,.H>)->BloomFilter<.T,.H>> (bf):
-    let bf_mem <i32> alloc_raw size_of<BloomFilter<.T,.H>>
-    store<BloomFilter<.T,.H>> bf_mem bf
-    let nbytes <i32> get load<BloomFilter<.T,.H>> bf_mem "nbytes"
-    let bits <MemPtr<u8>> get load<BloomFilter<.T,.H>> bf_mem "bits"
+    let nbytes <i32> field::get bf "nbytes"
+    let bits <MemPtr<u8>> field::get bf "bits"
     let mut i <i32> 0
     while lt i nbytes:
         do:
             let ptr <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr bits i
             store_u8 mem_ptr_addr ptr 0
             set i add i 1
-    let out <BloomFilter<.T,.H>> load<BloomFilter<.T,.H>> bf_mem
-    dealloc_raw bf_mem size_of<BloomFilter<.T,.H>>
-    out
+    bf
 
 //: ## free
 //: bitset [領域/りょういき]を[解放/かいほう]する
@@ -275,9 +264,6 @@ fn clear <.T,.H> <(BloomFilter<.T,.H>)->BloomFilter<.T,.H>> (bf):
 //:     0
 //: ```
 fn free <.T,.H> <(BloomFilter<.T,.H>)->()> (bf):
-    let bf_mem <i32> alloc_raw size_of<BloomFilter<.T,.H>>
-    store<BloomFilter<.T,.H>> bf_mem bf
-    let nbytes <i32> get load<BloomFilter<.T,.H>> bf_mem "nbytes"
-    let bits <MemPtr<u8>> get load<BloomFilter<.T,.H>> bf_mem "bits"
+    let nbytes <i32> field::get bf "nbytes"
+    let bits <MemPtr<u8>> field::get bf "bits"
     dealloc_raw mem_ptr_addr bits nbytes
-    dealloc_raw bf_mem size_of<BloomFilter<.T,.H>>

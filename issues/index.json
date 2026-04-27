@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T20:59:12.346Z",
+  "generated_at": "2026-04-27T21:04:45.936Z",
   "counts": {
     "total": 224,
     "open": 10,
@@ -2010,6 +2010,21 @@
       "file": "items/ISS-20260426T111438071Z-TUI-BUFFER-NEW-STORES-STR-VALUES-THR-4B4350FE.md"
     },
     {
+      "id": "ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230",
+      "title": "BloomFilter retains unsafe unwrap in owned bit storage cleanup",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/alloc/collections/bloom_filter.nepl, tests/stdlib/bloom_filter_collections.n.md, nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230.md"
+    },
+    {
       "id": "ISS-20260427T132414663Z-SELFHOSTOUTCOME-FREE-DROPS-ONLY-STOR-CFD7EA86",
       "title": "SelfhostOutcome free drops only storage, not generic Result payload",
       "area": "stdlib",
@@ -2848,21 +2863,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T000311579Z-ADJACENCYMATRIX-RETAINS-UNSAFE-UNWRA-1D406374.md"
-    },
-    {
-      "id": "ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230",
-      "title": "BloomFilter retains unsafe unwrap in owned bit storage cleanup",
-      "area": "stdlib",
-      "status": "verified",
-      "resolved": true,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/collections/bloom_filter.nepl, tests/stdlib/bloom_filter_collections.n.md, nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T000311744Z-BLOOMFILTER-RETAINS-UNSAFE-UNWRAP-IN-8D46F230.md"
     },
     {
       "id": "ISS-20260427T000311941Z-COUNTINGBLOOMFILTER-RETAINS-UNSAFE-U-D4E48E30",
