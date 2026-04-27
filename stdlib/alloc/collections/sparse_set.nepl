@@ -14,6 +14,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [扱/あつか]える key は `[0, universe_len)` に[限/かぎ]られます。
+//: - `universe_len = 0` は[空/から] domain として[有効/ゆうこう]で、dense/sparse [配列/はいれつ]は[確保/かくほ]しません。
 //: - `clear` は `len = 0` に[戻/もど]すだけで、`sparse` [配列/はいれつ]の[過去値/かこち]は[消/け]しません。membership [判定/はんてい]は `len` と `dense` の[両方/りょうほう]で[検証/けんしょう]するため[安全/あんぜん]です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -155,29 +156,38 @@ fn new <(i32)*>Result<SparseSet, Diag>> (n):
                 Result::Err _e:
                     diag_err<SparseSet> diag_out_of_memory "sparse_set_new(hdr)"
                 Result::Ok hdr:
-                    match alloc_ptr<i32> mul n 4:
-                        Result::Err _e:
-                            dealloc_raw mem_ptr_addr hdr 16
-                            diag_err<SparseSet> diag_out_of_memory "sparse_set_new(dense)"
-                        Result::Ok dense:
+                    let hdr_raw <i32> mem_ptr_addr hdr
+                    if:
+                        eq n 0
+                        then:
+                            sparse_set_hdr_set_n hdr_raw 0
+                            sparse_set_hdr_set_len0 hdr_raw 0
+                            sparse_set_hdr_set_dense hdr_raw mem_ptr_wrap 0
+                            sparse_set_hdr_set_sparse hdr_raw mem_ptr_wrap 0
+                            ok<SparseSet, Diag> SparseSet hdr_raw
+                        else:
                             match alloc_ptr<i32> mul n 4:
                                 Result::Err _e:
-                                    dealloc_raw mem_ptr_addr dense mul n 4
                                     dealloc_raw mem_ptr_addr hdr 16
-                                    diag_err<SparseSet> diag_out_of_memory "sparse_set_new(sparse)"
-                                Result::Ok sparse:
-                                    let hdr_raw <i32> mem_ptr_addr hdr
-                                    let mut i <i32> 0
-                                    while lt i n:
-                                        do:
-                                            sparse_set_store_owned dense i 0
-                                            sparse_set_store_owned sparse i 0
-                                            set i add i 1
-                                    sparse_set_hdr_set_n hdr_raw n
-                                    sparse_set_hdr_set_len0 hdr_raw 0
-                                    sparse_set_hdr_set_dense hdr_raw dense
-                                    sparse_set_hdr_set_sparse hdr_raw sparse
-                                    ok<SparseSet, Diag> SparseSet hdr_raw
+                                    diag_err<SparseSet> diag_out_of_memory "sparse_set_new(dense)"
+                                Result::Ok dense:
+                                    match alloc_ptr<i32> mul n 4:
+                                        Result::Err _e:
+                                            dealloc_raw mem_ptr_addr dense mul n 4
+                                            dealloc_raw mem_ptr_addr hdr 16
+                                            diag_err<SparseSet> diag_out_of_memory "sparse_set_new(sparse)"
+                                        Result::Ok sparse:
+                                            let mut i <i32> 0
+                                            while lt i n:
+                                                do:
+                                                    sparse_set_store_owned dense i 0
+                                                    sparse_set_store_owned sparse i 0
+                                                    set i add i 1
+                                            sparse_set_hdr_set_n hdr_raw n
+                                            sparse_set_hdr_set_len0 hdr_raw 0
+                                            sparse_set_hdr_set_dense hdr_raw dense
+                                            sparse_set_hdr_set_sparse hdr_raw sparse
+                                            ok<SparseSet, Diag> SparseSet hdr_raw
 
 //: ## len
 //: [現/げん]在[入/はい]っている[要素数/ようそすう]を[返/かえ]す

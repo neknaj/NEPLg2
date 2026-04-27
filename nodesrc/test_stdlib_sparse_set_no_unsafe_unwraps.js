@@ -28,6 +28,7 @@ for (const pattern of forbidden) {
 
 assert.match(code, /fn\s+sparse_set_store_owned\s+/, 'SparseSet must centralize owned dense/sparse array raw stores');
 assert.match(code, /fn\s+sparse_set_hdr_store_i32\s+/, 'SparseSet must centralize owned header raw stores');
+assert.match(code, /eq\s+n\s+0[\s\S]*sparse_set_hdr_set_dense\s+hdr_raw\s+mem_ptr_wrap\s+0[\s\S]*sparse_set_hdr_set_sparse\s+hdr_raw\s+mem_ptr_wrap\s+0[\s\S]*ok<SparseSet,\s*Diag>\s+SparseSet\s+hdr_raw/, 'SparseSet.new must treat zero universe as an empty set without allocating zero-byte dense/sparse arrays');
 assert.match(code, /fn\s+free\s+<\(SparseSet\)->\(\)>\s+\(s\):[\s\S]*dealloc_raw\s+mem_ptr_addr\s+dense[\s\S]*dealloc_raw\s+mem_ptr_addr\s+sparse[\s\S]*dealloc_raw\s+hdr\s+16/, 'SparseSet.free must use raw owner cleanup for dense, sparse, and header storage');
 assert.doesNotMatch(code, /dealloc_ptr/, 'SparseSet must not use checked pointer deallocation for owned internals');
 assert.doesNotMatch(code, /\bdealloc\b/, 'SparseSet must not use checked deallocation for owned internals');

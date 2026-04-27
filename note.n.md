@@ -19269,3 +19269,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の空 graph / 空 union-find 状態を stdlib collection として自然に作れるようになった。
+
+# 2026-04-27 メモ (ISS-20260427T022527514Z SparseSet zero universe)
+
+- [同期]:
+  - `origin/main` が `acc9a3b stdlib: allow empty disjoint set construction` で一致している状態から `stdlib/sparse-set-zero-universe` branch を作成した。
+- [原因]:
+  - `SparseSet.new` は domain `[0, n)` を扱う API なので `n = 0` は空 domain として自然に有効だが、実装は `alloc_ptr<i32> 0` で dense/sparse 配列を確保しようとしていた。
+  - `alloc_ptr` は zero-byte allocation を failure として返すため、空 domain が out-of-memory と同じ失敗に落ちていた。
+- [修正]:
+  - header 確保後に `n = 0` を明示的に扱い、`dense` / `sparse` は `mem_ptr_wrap 0` として header に格納した。
+  - `n > 0` の場合だけ dense/sparse 配列を確保して初期化するようにした。
+  - `new 0` / `universe_len` / empty `contains` error / `free` / 再確保 regression と、zero-universe branch が戻らない source policy guard を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl --no-tree -o tmp/sparse-set-zero-docs.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i tests/stdlib/sparse_set_collections.n.md -i stdlib/tests/sparse_set.n.md --no-tree -o tmp/sparse-set-zero-focused.json -j 1`: 5/5 passed
+  - source policy regressions: pass
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-sparse-zero.json -j 4`: 303/303 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-sparse-zero.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の空 symbol/id set 状態を stdlib collection として自然に作れるようになった。
