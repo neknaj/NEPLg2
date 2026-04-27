@@ -19632,3 +19632,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - NEPLg2 self-host 実装前に解くべき安全性 issue として、memory effect / raw memory ownership / outcome cleanup を issue 管理へ追加した。
+
+# 2026-04-27 メモ (ISS-20260427T132142587Z alloc/string doc boilerplate)
+
+- [同期]:
+  - `origin/main` が `b381625 stdlib: replace json doc boilerplate` で一致している状態から `stdlib/string-rework` branch を作成した。
+  - 作業前に `git fetch origin main; git pull --ff-only origin main` を実行し、remote main が取り込み済みであることを確認した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` の public API コメントに、`主な用途` / `定義済み処理` / `薄いラッパ` / `再利用時は束縛し直` などの生成テンプレート由来文言が残っていた。
+  - それにより、`str` の byte 長、UTF-8 境界、allocation failure を Result で返す API、StringBuilder の所有権、slice/split の byte index、数値変換の overflow/radix 契約が読み取りにくかった。
+  - レビュー中に `str_slice_result` の UTF-8 境界問題と `to_f64` の終端状態問題を発見し、それぞれ別 issue として追加して Discord へ報告した。
+- [修正]:
+  - `len`、`concat_result`、`StringBuilder`、`str_slice_result`、`str_split_result`、数値変換、float 変換、`find` などのコメントを、実装契約に基づく日本語 nm-style コメントへ置き換えた。
+  - `StringBuilder` の build 計算量説明を現在の一括 allocation 実装に合わせて修正した。
+  - `to_i32` のコメントを、現在の range check 付き `to_i32_radix` 実装に合わせて修正した。
+  - `nodesrc/test_stdlib_string_doc_no_boilerplate.js` を追加し、生成テンプレート文言の再混入と string API の重要契約説明欠落を検出するようにした。
+  - CI と `doc/testing.md` の source policy regressions に同テストを追加した。
+- [追加 issue]:
+  - `ISS-20260427T132911011Z-ALLOC-STRING-BYTE-SLICING-CAN-CONSTR-FA25D390`: `str_slice_result` が arbitrary byte range から invalid UTF-8 `str` を構築できる。
+  - `ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8`: `to_f64` が digit scan 後の clean end-of-input を成功状態として扱えない。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string_numeric_overflow.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/string-doc-boilerplate-focused.json -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-string-doc-boilerplate.json -j 4`: 418/418 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass（CRLF 変換 warning のみ）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host で使う string API の契約が、生成コメントではなく現在の実装と未解決リスクに沿って追跡できるようになった。
