@@ -118,6 +118,62 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn auto_drop_runs_for_function_parameters() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 11;
+        ()
+
+fn consume <(Guard)*>()> (g):
+    ()
+
+fn main <()*>i32> ():
+    consume Guard 0;
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![11]);
+}
+
+#[test]
+fn moved_function_parameter_is_not_dropped_twice() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 12;
+        ()
+
+fn forward <(Guard)*>Guard> (g):
+    g
+
+fn main <()*>i32> ():
+    let kept <Guard> forward Guard 0;
+    0
+"#;
+    assert_eq!(run_drop_trace(source), vec![12]);
+}
+
+#[test]
 fn auto_drop_uses_lifo_order_in_nested_scope() {
     let source = r#"
 #target wasm

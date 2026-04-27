@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260427T174539616Z Drop parameter auto drop)
+
+- 状況:
+  - Drop 付き payload cleanup callback の調査中、function parameter として受け取った Drop 値が、本文で local に移されない限り scope end で drop されないことを確認した。
+  - `drop_insertion` は parameter を outer scope に登録していたが、function body 処理後にその scope の drop lines を HIR block へ追加していなかった。
+- 修正:
+  - function body の drop 挿入後、parameter scope の drop lines を block 末尾へ追加するようにした。
+  - body 内で戻り値などへ move 済みになった parameter は既存の VarState に従って drop しないため、二重 drop は発生しない。
+  - `nepl-core/tests/drop.rs` に、未使用 Drop parameter の destructor 実行と move 済み parameter の二重 drop 防止を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test drop function_parameter -- --nocapture`: `2 passed`
+  - `cargo test -p nepl-core --test drop`: `11 passed`
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/drop-parameter-autodrop-node.json -j 1`: `total=7`, `passed=7`
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の Drop/resource cleanup 検査を強化した。
+
 # 2026-04-28 メモ (ISS-20260427T132414663Z SelfhostOutcome payload cleanup)
 
 - 状況:
