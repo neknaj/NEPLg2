@@ -93,6 +93,12 @@ raw body の direct memory instruction は拒否済みだったが、`call $stor
 
 同じ raw memory place を `MemPtr<T>` 経由で複数の i32 address に戻すと、既存の i32 alias tracking を迂回できる問題を `ISS-20260427T183234007Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-CE6E5F55` として分離し、修正した。`mem_ptr_wrap` / `mem_ptr_addr` / `MemPtr` copy 由来の raw address は同じ raw place key に正規化され、non-Copy raw load の二重 move が D3100 になる。
 
+## 2026-04-28 raw dealloc live payload 部分対応
+
+raw place tracking は non-Copy `load<T>` / `store<T>` を扱っていたが、`dealloc_raw` / `dealloc_ptr` は initialized raw place state を見ていなかったため、live payload を storage-only dealloc で捨てられる穴が残っていた。この問題を `ISS-20260427T184214411Z-MOVE-CHECK-ALLOWS-RAW-DEALLOC-WITH-L-6543A0A2` として分離し、修正した。
+
+今回の対応で、initialized または possibly moved の non-Copy raw place を含む range を dealloc すると D3100 になる。`load<T>` で ownership を消費してから storage を解放する経路は維持している。effect model と public raw API の設計不足は引き続きこの親 issue の残件である。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

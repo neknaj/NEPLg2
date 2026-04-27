@@ -68,6 +68,7 @@ struct RawPlaceInfo {
 enum RawMemoryCallKind {
     Load,
     Store,
+    Dealloc,
 }
 
 impl ExprBorrow {
@@ -945,10 +946,61 @@ impl MoveCheckContext {
         );
     }
 
+    fn check_raw_non_copy_dealloc(&mut self, place: &str, size: Option<usize>, span: Span) {
+        if let Some((live_place, _)) = self
+            .raw_places_overlapping_dealloc(place, size)
+            .into_iter()
+            .find(|(_, info)| {
+                matches!(
+                    info.state,
+                    RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
+                )
+            })
+        {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    alloc::format!(
+                        "deallocating raw memory place containing non-Copy value: `{}`",
+                        live_place
+                    ),
+                    span,
+                )
+                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            );
+        }
+    }
+
     fn overlapping_raw_places(&self, place: &str, size: usize) -> Vec<(String, RawPlaceInfo)> {
         self.raw_place_states
             .iter()
             .filter(|(key, info)| raw_place_ranges_overlap(place, size, key.as_str(), info.size))
+            .map(|(key, info)| (key.clone(), *info))
+            .collect()
+    }
+
+    fn raw_places_overlapping_dealloc(
+        &self,
+        place: &str,
+        size: Option<usize>,
+    ) -> Vec<(String, RawPlaceInfo)> {
+        if let Some(size) = size {
+            if size == 0 {
+                return Vec::new();
+            }
+            return self.overlapping_raw_places(place, size);
+        }
+
+        let (base, offset) = parse_raw_memory_place_key(place);
+        self.raw_place_states
+            .iter()
+            .filter(|(key, info)| {
+                let (tracked_base, tracked_offset) = parse_raw_memory_place_key(key.as_str());
+                if tracked_base != base {
+                    return false;
+                }
+                let tracked_end = tracked_offset.saturating_add(info.size as i64);
+                tracked_end > offset || tracked_offset >= offset
+            })
             .map(|(key, info)| (key.clone(), *info))
             .collect()
     }
@@ -1153,6 +1205,16 @@ fn is_raw_memory_store_name(name: &str) -> bool {
     name == "store" || name.starts_with("store_")
 }
 
+fn is_raw_memory_dealloc_name(name: &str) -> bool {
+    name == "dealloc"
+        || name == "dealloc_raw"
+        || name == "dealloc_ptr"
+        || name == "__nepl_rt_dealloc"
+        || name.starts_with("dealloc_raw_")
+        || name.starts_with("dealloc_ptr_")
+        || name.starts_with("__nepl_rt_dealloc_")
+}
+
 fn raw_memory_call_kind(
     callee: &FuncRef,
     args: &[HirExpr],
@@ -1176,7 +1238,42 @@ fn raw_memory_call_kind(
     {
         return Some(RawMemoryCallKind::Store);
     }
+    if is_raw_memory_dealloc_name(name)
+        && args.len() >= 2
+        && (tctx.same_type(args[0].ty, tctx.i32()) || is_mem_ptr_type(tctx, args[0].ty))
+    {
+        return Some(RawMemoryCallKind::Dealloc);
+    }
     None
+}
+
+fn raw_dealloc_place_key(
+    addr: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<String> {
+    if is_mem_ptr_type(tctx, addr.ty) {
+        raw_memory_place_key_from_mem_ptr(addr, ctx, tctx)
+    } else if tctx.same_type(addr.ty, tctx.i32()) {
+        raw_memory_place_key(addr, ctx, tctx)
+    } else {
+        None
+    }
+}
+
+fn raw_dealloc_size_arg_bytes(
+    arg: Option<&HirExpr>,
+    tctx: &crate::types::TypeCtx,
+) -> Option<usize> {
+    match arg.map(|arg| &arg.kind) {
+        Some(HirExprKind::LiteralI32(value)) if *value > 0 => Some(*value as usize),
+        Some(HirExprKind::Intrinsic {
+            name, type_args, ..
+        }) if name == "size_of" && type_args.len() == 1 => {
+            Some(storage_size_bytes(tctx, type_args[0]))
+        }
+        _ => None,
+    }
 }
 
 // Logic to traverse HIR
@@ -1942,6 +2039,20 @@ fn visit_raw_memory_call(
                         .map(|value| storage_size_bytes(tctx, value.ty))
                         .unwrap_or(0);
                     ctx.check_raw_non_copy_store(place.as_str(), size, expr.span);
+                }
+            }
+        }
+        RawMemoryCallKind::Dealloc => {
+            for arg in args {
+                visit_expr(arg, ctx, tctx);
+            }
+            if let Some(addr) = args.get(0) {
+                if let Some(place) = raw_dealloc_place_key(addr, ctx, tctx) {
+                    ctx.check_raw_non_copy_dealloc(
+                        place.as_str(),
+                        raw_dealloc_size_arg_bytes(args.get(1), tctx),
+                        expr.span,
+                    );
                 }
             }
         }

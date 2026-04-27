@@ -57,6 +57,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 この対応で `mem_ptr_wrap` / `mem_ptr_addr` / `MemPtr` 変数コピーは同じ raw place key に畳み込まれる。これにより、同じ `MemPtr` 由来 address から non-Copy value を二重に `load<T>` する経路は D3100 で拒否される。ただし、`RegionToken` の forging、owner/free 責務、initialized cell tracking はまだこの親 issue の残件である。
 
+## 2026-04-28 MemPtr dealloc 部分対応
+
+`dealloc_ptr<T>` が `MemPtr<T>` 由来の raw place に initialized non-Copy payload が残っているか確認しない問題を `ISS-20260427T184214411Z-MOVE-CHECK-ALLOWS-RAW-DEALLOC-WITH-L-6543A0A2` として修正した。これにより、`MemPtr<T>` から `store<T>` 済み cell を consume せずに `dealloc_ptr<T>` する経路は D3100 で拒否される。
+
+この対応は `MemPtr` の raw place 正規化を使った局所検査であり、`MemPtr` が non-owning pointer と storage owner の両方に使われる設計そのものはまだ未解決である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

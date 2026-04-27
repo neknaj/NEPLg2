@@ -38,6 +38,14 @@ storage-only free と owner-cell destruction の責務が同じ API に混ざっ
 
 generic storage owner は payload を drop せず bytes だけ解放できる。逆に stdlib 側が場当たり的に drop loop を増やすと、将来 Resource IR による auto-drop と衝突して double drop になる。self-host の AST、diagnostic、buffer、`Result` cell の失敗経路で leak が見えにくくなる。
 
+## 2026-04-28 raw dealloc move_check 部分対応
+
+`move_check` が raw `load` / `store` だけを ownership event として扱い、`dealloc_raw` / `dealloc_ptr` は live initialized state を確認していなかった問題を `ISS-20260427T184214411Z-MOVE-CHECK-ALLOWS-RAW-DEALLOC-WITH-L-6543A0A2` として分離し、修正した。
+
+この対応で、non-Copy value を `store<T>` した raw place を `load<T>` などで consume せずに `dealloc_raw` / `dealloc_ptr` へ渡す経路は `D3100` になる。raw place は i32 address と `MemPtr<T>` 由来 address の両方を正規化して検査する。
+
+ただし、この親 issue はまだ閉じない。`dealloc_region` の compiler-issued capability 化、owner token と storage-only dealloc の型分離、stdlib collection の要素 drop contract、Resource IR での initialized cell / drop obligation 表現は残件である。
+
 ## 修正方針
 
 `Storage<T>` / `OwnedRegion<T>` / `InitializedCell<T>` の責務を分ける。uninitialized storage の dealloc は storage owner token のみで許可し、initialized cell を含む region は要素を consume/drop してから storage-only state へ戻す。compiler Resource IR は initialized state と drop obligation を tracked resource として保持し、`dealloc_*` が残 obligation を捨てる経路を拒否する。

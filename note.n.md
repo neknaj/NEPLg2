@@ -1,3 +1,21 @@
+# 2026-04-28 メモ (ISS-20260427T184214411Z raw dealloc drop obligation)
+
+- 状況:
+  - `move_check` は non-Copy raw `load<T>` / `store<T>` の place state を持っていたが、`dealloc_raw` / `dealloc_ptr` を raw memory ownership event として扱っていなかった。
+  - `store<LocalToken> p ...` の直後に `dealloc_raw p size_of<LocalToken>` を呼ぶ修正前再現では、compiler が exit 0 で受理し、initialized non-Copy payload の drop/consume 義務を storage-only dealloc で捨てられた。
+- 修正:
+  - `RawMemoryCallKind::Dealloc` を追加し、`dealloc_raw` / `dealloc` / `dealloc_ptr` / `__nepl_rt_dealloc` 系 call を分類するようにした。
+  - i32 raw address と `MemPtr<T>` の第 1 引数を canonical raw place に畳み込み、dealloc 対象範囲に `Initialized` / `PossiblyMoved` の non-Copy raw place が残っていれば D3100 にするようにした。
+  - `tests/compiler/move_effect.n.md` に `dealloc_raw` / `dealloc_ptr` の compile_fail と、`load<T>` 後の storage-only dealloc 正常系を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-dealloc-drop-obligation-node.json -j 1`: `total=47`, `passed=47`
+  - 修正前再現ファイル `tmp/dealloc-raw-drops-noncopy.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の raw memory ownership 検査を強化した。
+
 # 2026-04-28 メモ (ISS-20260427T183234007Z MemPtr raw alias move_check)
 
 - 状況:

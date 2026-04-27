@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T18:36:30.255Z",
+  "generated_at": "2026-04-27T18:48:05.113Z",
   "counts": {
-    "total": 211,
+    "total": 212,
     "open": 9,
-    "resolved": 202,
+    "resolved": 203,
     "by_area": {
       "core": {
-        "total": 79,
+        "total": 80,
         "open": 3,
-        "resolved": 76
+        "resolved": 77
       },
       "stdlib": {
         "total": 88,
@@ -1288,6 +1288,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T183234007Z-MOVE-CHECK-DOES-NOT-CANONICALIZE-MEM-CE6E5F55.md"
+    },
+    {
+      "id": "ISS-20260427T184214411Z-MOVE-CHECK-ALLOWS-RAW-DEALLOC-WITH-L-6543A0A2",
+      "title": "move_check allows raw dealloc with live non-Copy place",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T184214411Z-MOVE-CHECK-ALLOWS-RAW-DEALLOC-WITH-L-6543A0A2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
