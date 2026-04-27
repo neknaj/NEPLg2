@@ -93,6 +93,12 @@ collection / self-host outcome / temporary buffer が増えるほど、所有者
 
 この対応で bounds-checked projection API から取り出した `MemPtr` も、元 region と同じ raw ownership state に接続される。ただし、`Result<MemPtr<T>,E>` payload の provenance を compiler-owned Resource IR として一般化する設計変更はまだ未解決である。
 
+## 2026-04-28 enum payload raw alias 部分対応
+
+`Result::Ok p` や `region_ptr_at token off` の結果を enum 変数に保存した後で match すると、payload の `MemPtr` provenance が復元されない問題を `ISS-20260427T194927207Z-MOVE-CHECK-LOSES-RAW-ALIASES-STORED--5E0586DB` として修正した。`MoveCheckContext` に enum payload raw alias stack を追加し、let/set、snapshot/restore、branch merge、match bind に接続した。
+
+この対応で enum wrapper 変数を挟んでも `MemPtr` payload は raw ownership state に戻る。ただし、これは現行 HIR 上の raw alias tracking の補強であり、enum payload を含む resource provenance を型・Resource IR で一貫表現する根本設計はまだ未解決である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

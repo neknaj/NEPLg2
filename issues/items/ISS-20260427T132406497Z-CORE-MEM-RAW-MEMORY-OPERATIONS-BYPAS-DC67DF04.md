@@ -141,6 +141,12 @@ raw `mem_copy` / `mem_move` が `move_check` の raw place state を見ず、liv
 
 今回の対応で、`region_ptr_at` の Ok payload bind は token raw place + offset に正規化される。literal offset は known place、non-literal offset は `base+?` として扱い、dynamic projection 経由の non-Copy 二重 load / live payload dealloc は D3100 になる。Result payload 全般の Resource IR 化と owner/non-owner 分離は引き続きこの親 issue の残件である。
 
+## 2026-04-28 enum payload raw alias 部分対応
+
+`Result::Ok p` や `region_ptr_at token off` の結果を一度 enum 変数へ束縛すると、match bind 時に payload の raw alias が復元されず、direct match 修正を迂回できる問題を `ISS-20260427T194927207Z-MOVE-CHECK-LOSES-RAW-ALIASES-STORED--5E0586DB` として分離し、修正した。
+
+今回の対応で、`let` / `set` は enum payload raw alias を variant ごとに保存し、`match` payload bind はその alias を bind local へ引き継ぐ。branch merge では全 continuing branch で一致する alias だけ保持する。これにより、enum wrapper 変数経由の non-Copy 二重 load は D3100 になる。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

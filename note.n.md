@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260427T194927207Z enum payload raw alias tracking)
+
+- 状況:
+  - `move_check` は raw alias を `i32` / `MemPtr` / `RegionToken` 変数にだけ保持し、`Result::Ok p` のような enum payload 内の raw alias を保存していなかった。
+  - `let res Result::Ok p; match res: Result::Ok q` の後に `p` と `q` から同じ `LocalToken` を二重 `load` する修正前再現では、compiler が exit 0 で受理した。
+- 修正:
+  - `MoveCheckContext` に `enum_payload_raw_alias_stacks` を追加し、scope / snapshot / restore / branch merge に含めた。
+  - `let` / `set` で enum payload が raw alias を持つ場合、variant 名ごとに alias を保存するようにした。
+  - `region_ptr_at` の `Result::Ok` も、変数束縛時に Ok payload alias として保存するようにした。
+  - `match` payload bind は、scrutinee 変数に保存された enum payload alias を bind local へ引き継ぐようにした。
+  - `tests/compiler/move_effect.n.md` に Result::Ok MemPtr 変数 match と branch merge 後の alias 引き継ぎの compile_fail を追加した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/enum-payload-raw-alias-node.json -j 1`: `total=75`, `passed=75`
+  - 修正前再現ファイル `tmp/result-memptr-variable-alias-double-load.nepl` は修正後 D3100 で拒否されることを確認した。
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の enum payload provenance tracking を raw alias state に接続した。
+
 # 2026-04-28 メモ (ISS-20260427T194024586Z region_ptr_at Ok binding raw alias)
 
 - 状況:

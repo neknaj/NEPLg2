@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T19:44:45.807Z",
+  "generated_at": "2026-04-27T19:52:27.882Z",
   "counts": {
-    "total": 219,
+    "total": 220,
     "open": 9,
-    "resolved": 210,
+    "resolved": 211,
     "by_area": {
       "core": {
-        "total": 87,
+        "total": 88,
         "open": 3,
-        "resolved": 84
+        "resolved": 85
       },
       "stdlib": {
         "total": 88,
@@ -1408,6 +1408,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T194024586Z-MOVE-CHECK-LOSES-REGIONTOKEN-PROVENA-711BD515.md"
+    },
+    {
+      "id": "ISS-20260427T194927207Z-MOVE-CHECK-LOSES-RAW-ALIASES-STORED--5E0586DB",
+      "title": "move_check loses raw aliases stored in enum payload variables",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T194927207Z-MOVE-CHECK-LOSES-RAW-ALIASES-STORED--5E0586DB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

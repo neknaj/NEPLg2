@@ -102,6 +102,8 @@ struct MoveCheckContext {
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     /// Canonical raw-address aliases for i32 bindings, aligned with `var_stacks`.
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
+    /// Raw aliases held by enum payloads, aligned with `var_stacks`.
+    enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
     /// Ownership state for trackable raw memory places that carry non-Copy values.
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     /// Active borrow counts per source variable.
@@ -121,6 +123,7 @@ struct ResourceStateSnapshot {
     borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
     field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
     raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
+    enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
     raw_place_states: BTreeMap<String, RawPlaceInfo>,
     borrow_counts: BTreeMap<String, BorrowCount>,
 }
@@ -134,6 +137,7 @@ impl MoveCheckContext {
             borrow_stacks: BTreeMap::new(),
             field_move_stacks: BTreeMap::new(),
             raw_addr_alias_stacks: BTreeMap::new(),
+            enum_payload_raw_alias_stacks: BTreeMap::new(),
             raw_place_states: BTreeMap::new(),
             borrow_counts: BTreeMap::new(),
             use_counts: Vec::new(),
@@ -149,6 +153,7 @@ impl MoveCheckContext {
             borrow_stacks: self.borrow_stacks.clone(),
             field_move_stacks: self.field_move_stacks.clone(),
             raw_addr_alias_stacks: self.raw_addr_alias_stacks.clone(),
+            enum_payload_raw_alias_stacks: self.enum_payload_raw_alias_stacks.clone(),
             raw_place_states: self.raw_place_states.clone(),
             borrow_counts: self.borrow_counts.clone(),
         }
@@ -160,6 +165,7 @@ impl MoveCheckContext {
         self.borrow_stacks = snapshot.borrow_stacks.clone();
         self.field_move_stacks = snapshot.field_move_stacks.clone();
         self.raw_addr_alias_stacks = snapshot.raw_addr_alias_stacks.clone();
+        self.enum_payload_raw_alias_stacks = snapshot.enum_payload_raw_alias_stacks.clone();
         self.raw_place_states = snapshot.raw_place_states.clone();
         self.borrow_counts = snapshot.borrow_counts.clone();
     }
@@ -202,6 +208,12 @@ impl MoveCheckContext {
                     self.raw_addr_alias_stacks.remove(&name);
                 }
             }
+            if let Some(stack) = self.enum_payload_raw_alias_stacks.get_mut(&name) {
+                stack.pop();
+                if stack.is_empty() {
+                    self.enum_payload_raw_alias_stacks.remove(&name);
+                }
+            }
         }
     }
 
@@ -231,6 +243,10 @@ impl MoveCheckContext {
             .entry(name.clone())
             .or_default()
             .push(None);
+        self.enum_payload_raw_alias_stacks
+            .entry(name.clone())
+            .or_default()
+            .push(BTreeMap::new());
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name);
         }
@@ -299,6 +315,31 @@ impl MoveCheckContext {
         if let Some(stack) = self.raw_addr_alias_stacks.get_mut(name) {
             if let Some(slot) = stack.last_mut() {
                 *slot = alias;
+            }
+        }
+    }
+
+    fn enum_payload_raw_alias(&self, name: &str, variant: &str) -> Option<&str> {
+        let aliases = self
+            .enum_payload_raw_alias_stacks
+            .get(name)
+            .and_then(|stack| stack.last())?;
+        aliases
+            .get(variant)
+            .or_else(|| {
+                if is_result_ok_variant_name(variant) {
+                    aliases.get("Ok")
+                } else {
+                    None
+                }
+            })
+            .map(String::as_str)
+    }
+
+    fn set_enum_payload_raw_aliases(&mut self, name: &str, aliases: BTreeMap<String, String>) {
+        if let Some(stack) = self.enum_payload_raw_alias_stacks.get_mut(name) {
+            if let Some(slot) = stack.last_mut() {
+                *slot = aliases;
             }
         }
     }
@@ -1469,6 +1510,9 @@ fn match_bind_raw_addr_alias(
 ) -> Option<String> {
     let variant_name = pattern_variant_name(arm)?;
     match &scrutinee.kind {
+        HirExprKind::Var(name) => ctx
+            .enum_payload_raw_alias(name, variant_name)
+            .map(ToString::to_string),
         HirExprKind::EnumConstruct {
             variant,
             payload: Some(payload),
@@ -1479,6 +1523,31 @@ fn match_bind_raw_addr_alias(
         }
         _ => None,
     }
+}
+
+fn enum_payload_raw_aliases_from_value(
+    value: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> BTreeMap<String, String> {
+    let mut aliases = BTreeMap::new();
+    match &value.kind {
+        HirExprKind::EnumConstruct {
+            variant,
+            payload: Some(payload),
+            ..
+        } => {
+            if let Some(alias) = raw_addr_alias_from_value(payload, ctx, tctx) {
+                aliases.insert(variant.clone(), alias);
+            }
+        }
+        _ => {
+            if let Some(alias) = region_ptr_at_result_ok_raw_alias(value, ctx, tctx) {
+                aliases.insert(String::from("Ok"), alias);
+            }
+        }
+    }
+    aliases
 }
 
 fn is_raw_memory_load_name(name: &str) -> bool {
@@ -2246,6 +2315,54 @@ fn merge_raw_addr_alias_stacks(
     merged
 }
 
+fn merge_enum_payload_raw_alias_stacks(
+    branches: &[&BranchStateSnapshot],
+) -> BTreeMap<String, Vec<BTreeMap<String, String>>> {
+    let mut names = BTreeSet::new();
+    for branch in branches {
+        for name in branch.state.enum_payload_raw_alias_stacks.keys() {
+            names.insert(name.clone());
+        }
+    }
+
+    let mut merged = BTreeMap::new();
+    for name in names {
+        let max_len = branches
+            .iter()
+            .filter_map(|branch| {
+                branch
+                    .state
+                    .enum_payload_raw_alias_stacks
+                    .get(name.as_str())
+            })
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
+        let mut stack = Vec::with_capacity(max_len);
+        for index in 0..max_len {
+            let mut branch_values = branches.iter().map(|branch| {
+                branch
+                    .state
+                    .enum_payload_raw_alias_stacks
+                    .get(name.as_str())
+                    .and_then(|stack| stack.get(index))
+                    .cloned()
+                    .unwrap_or_default()
+            });
+            let first = branch_values.next().unwrap_or_default();
+            if branch_values.all(|aliases| aliases == first) {
+                stack.push(first);
+            } else {
+                stack.push(BTreeMap::new());
+            }
+        }
+        if !stack.is_empty() {
+            merged.insert(name, stack);
+        }
+    }
+    merged
+}
+
 fn merged_branch_borrow_stack(
     name: &str,
     active_len: usize,
@@ -2296,6 +2413,7 @@ fn merge_continuing_branch_states(
     }
     let merged_raw_place_states = merge_raw_place_states(&continuing);
     let merged_raw_addr_alias_stacks = merge_raw_addr_alias_stacks(&continuing);
+    let merged_enum_payload_raw_alias_stacks = merge_enum_payload_raw_alias_stacks(&continuing);
 
     ctx.restore_resource_state(saved);
 
@@ -2356,6 +2474,7 @@ fn merge_continuing_branch_states(
         ctx.borrow_stacks.insert(name, merged_stack);
     }
     ctx.raw_addr_alias_stacks = merged_raw_addr_alias_stacks;
+    ctx.enum_payload_raw_alias_stacks = merged_enum_payload_raw_alias_stacks;
     ctx.raw_place_states = merged_raw_place_states;
     ctx.rebuild_borrow_counts_from_bindings();
     ctx.release_dead_borrows();
@@ -2787,20 +2906,24 @@ fn visit_expr_with_escape(
                 .scope_depth_of(name)
                 .unwrap_or_else(|| ctx.current_scope_depth());
             let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
+            let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(target_depth));
             ctx.check_assign(name, expr.span);
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.set_borrow_bindings(name, retained_borrows);
             ctx.set_raw_addr_alias(name, raw_addr_alias);
+            ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
             Vec::new()
         }
         HirExprKind::Let { name, value, .. } => {
             let storage_depth = ctx.current_scope_depth();
             let raw_addr_alias = raw_addr_alias_from_value(value, ctx, tctx);
+            let enum_payload_raw_aliases = enum_payload_raw_aliases_from_value(value, ctx, tctx);
             let value_borrows = visit_expr_with_escape(value, ctx, tctx, Some(storage_depth));
             let retained_borrows = ctx.retain_expr_borrows(value_borrows);
             ctx.declare_var_with_borrows(name.clone(), retained_borrows);
             ctx.set_raw_addr_alias(name, raw_addr_alias);
+            ctx.set_enum_payload_raw_aliases(name, enum_payload_raw_aliases);
             ctx.set_state(name, VarState::Valid);
             if ctx.remaining_uses(name) == 0 {
                 ctx.release_borrow_binding(name);
