@@ -675,6 +675,10 @@ fn insert_drops_in_block(block: &mut HirBlock, ctx: &mut DropInsertionContext<'_
 }
 
 fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) {
+    if can_skip_drop_walk_iteratively(expr, ctx.types) {
+        return;
+    }
+
     match &mut expr.kind {
         HirExprKind::Var(name) => {
             if !ctx.types.is_copy(expr.ty) {
@@ -872,6 +876,63 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
             ctx.set_state(name, VarState::Moved);
         }
     }
+}
+
+fn can_skip_drop_walk_iteratively(expr: &HirExpr, types: &TypeCtx) -> bool {
+    let mut stack = Vec::new();
+    stack.push(expr);
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::Var(_) => {
+                if !types.is_copy(expr.ty) {
+                    return false;
+                }
+            }
+            HirExprKind::Call { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+                stack.push(callee);
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
+            }
+            HirExprKind::TupleConstruct { items } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
+            }
+            HirExprKind::FnValue(_)
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit
+            | HirExprKind::Drop { .. } => {}
+            HirExprKind::If { .. }
+            | HirExprKind::While { .. }
+            | HirExprKind::Match { .. }
+            | HirExprKind::Block(_)
+            | HirExprKind::Let { .. }
+            | HirExprKind::Set { .. }
+            | HirExprKind::Intrinsic { .. }
+            | HirExprKind::AddrOf(_)
+            | HirExprKind::Deref(_) => return false,
+        }
+    }
+    true
 }
 
 fn process_match_arm(arm: &mut HirMatchArm, ctx: &mut DropInsertionContext<'_>) {

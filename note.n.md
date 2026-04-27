@@ -1,3 +1,18 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-016 deep prefix artifact stack)
+
+- 状況:
+  - GH Actions の `rust-test` で `compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow` が再び native stack overflow していた。
+  - ローカルでも同じ 1105 個の prefix call chain で再現し、段階別テストで `move_check` の last expression 処理まで絞り込んだ。
+  - `drop_insertion` も深い Copy-only call tree を再帰で降りる余地が残っていたため、同じ artifact pipeline 問題として併せて塞いだ。
+- 修正:
+  - `drop_insertion` に Copy 値だけで構成された単純 call / construct tree の explicit-stack skip 判定を追加し、drop state 更新が不要な式では再帰 descent しないようにした。
+  - `move_check` は戻り値型が参照を含まない式なら `escape_depth` が付く function body 最終式でも iterative visitor を使うようにした。
+  - `nepl-core/tests/check_pipeline.rs` に drop insertion / monomorphize / move check / prepare / compile_wasm の段階別回帰テストを追加した。
+- 検証:
+  - `cargo test -p nepl-core --test check_pipeline -- --nocapture`: `7 passed`
+- plan.md との差異:
+  - plan.md は変更していない。artifact pipeline の深い HIR 処理をさらに反復走査へ寄せ、compiler crash を防止する修正。
+
 # 2026-04-28 メモ (ISS-20260427T175508838Z enum payload structural drop)
 
 - 状況:

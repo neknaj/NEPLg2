@@ -1883,10 +1883,7 @@ fn visit_expr_with_escape(
     tctx: &crate::types::TypeCtx,
     escape_depth: Option<usize>,
 ) -> Vec<ExprBorrow> {
-    if escape_depth.is_none()
-        && !type_contains_reference(tctx, expr.ty)
-        && can_visit_expr_iteratively(expr, ctx, tctx)
-    {
+    if !type_contains_reference(tctx, expr.ty) && can_visit_expr_iteratively(expr, ctx, tctx) {
         visit_expr_iteratively(expr, ctx, tctx);
         return Vec::new();
     }
