@@ -55,12 +55,24 @@ pub const IMPURE_IO_EFFECT_MARKERS: &[&str] = &[
     "environ_sizes_get",
 ];
 
+pub const RAW_MEMORY_INTRINSIC_EFFECT_MARKERS: &[&str] = &["load", "store"];
+
 pub fn intrinsic_effect(name: &str) -> Effect {
-    if IMPURE_IO_EFFECT_MARKERS.iter().any(|m| *m == name) {
+    if IMPURE_IO_EFFECT_MARKERS.iter().any(|m| *m == name)
+        || RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
+            .iter()
+            .any(|m| *m == name)
+    {
         Effect::Impure
     } else {
         Effect::Pure
     }
+}
+
+pub fn intrinsic_is_raw_memory_effect(name: &str) -> bool {
+    RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
+        .iter()
+        .any(|marker| *marker == name)
 }
 
 pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {

@@ -1,3 +1,20 @@
+# 2026-04-28 メモ (ISS-20260427T160936494Z raw memory intrinsic effect)
+
+- 状況:
+  - `#intrinsic "load"` / `#intrinsic "store"` は raw memory を読む/書くが、`intrinsic_effect` では pure 扱いだった。
+  - raw body memory instruction の検査を強化しても、user source から direct intrinsic を呼ぶと pure 関数で同じ memory effect を作れる状態だった。
+- 修正:
+  - `effects.rs` に raw memory intrinsic marker を追加し、`load` / `store` を impure effect として分類した。
+  - `typecheck.rs` で pure context の raw memory intrinsic を `D3025` で拒否するようにした。
+  - 移行中の `stdlib/core/mem.nepl` だけは SourceMap path に基づく compiler-owned memory boundary として許可した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo test -p nepl-core --test effects`: `12 passed`
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/raw-memory-intrinsic-effect.json -j 1`: `total=35`, `passed=35`
+- plan.md との差異:
+  - plan.md は変更していない。compiler 側の effect / memory safety 検査を強化する変更。
+
 # 2026-04-28 メモ (ISS-20260427T152951013Z runtime allocator helper ABI)
 
 - 状況:

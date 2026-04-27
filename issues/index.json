@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T16:03:54.980Z",
+  "generated_at": "2026-04-27T16:13:16.193Z",
   "counts": {
-    "total": 199,
+    "total": 200,
     "open": 9,
-    "resolved": 190,
+    "resolved": 191,
     "by_area": {
       "core": {
-        "total": 70,
+        "total": 71,
         "open": 3,
-        "resolved": 67
+        "resolved": 68
       },
       "stdlib": {
         "total": 85,
@@ -1153,6 +1153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E.md"
+    },
+    {
+      "id": "ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6",
+      "title": "raw memory intrinsics are treated as pure effects",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

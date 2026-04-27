@@ -141,6 +141,62 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn pure_raw_load_intrinsic_is_rejected_outside_core_mem() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn raw_load <()->i32> ():
+    #intrinsic "load" <i32> (16)
+
+fn main <()->i32> ():
+    raw_load
+"#;
+
+    assert_has_diag(
+        check_source(src, CompileTarget::Wasm),
+        DiagnosticId::TypePureCallsImpureFunction,
+    );
+}
+
+#[test]
+fn pure_raw_store_intrinsic_is_rejected_outside_core_mem() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn raw_store <()->i32> ():
+    #intrinsic "store" <i32> (16, 1)
+    0
+
+fn main <()->i32> ():
+    raw_store
+"#;
+
+    assert_has_diag(
+        check_source(src, CompileTarget::Wasm),
+        DiagnosticId::TypePureCallsImpureFunction,
+    );
+}
+
+#[test]
+fn raw_memory_intrinsic_in_core_mem_source_is_allowed_during_migration() {
+    let src = r#"
+#entry load_i32
+#indent 4
+#target wasm
+
+fn load_i32 <(i32)->i32> (p):
+    #intrinsic "load" <i32> (p)
+"#;
+
+    check_source_with_path(src, "C:/repo/stdlib/core/mem.nepl", CompileTarget::Wasm)
+        .expect("core/mem intrinsic helper remains allowed during migration");
+}
+
+#[test]
 fn pure_llvm_raw_comment_with_impure_marker_is_allowed() {
     let src = r#"
 #entry main

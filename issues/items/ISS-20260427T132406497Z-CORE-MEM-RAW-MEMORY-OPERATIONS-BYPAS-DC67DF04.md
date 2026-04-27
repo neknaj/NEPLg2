@@ -64,6 +64,10 @@ pure source code が observable raw address を allocate / free / load / store �
 - `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`: `core/mem` が safe API として raw address escape hatch を公開している。
 - `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`: `MemPtr` / `RegionToken` に compiler-owned provenance model がない。
 
+## 2026-04-28 raw memory intrinsic effect 部分対応
+
+`#intrinsic "load"` / `#intrinsic "store"` が `intrinsic_effect` で pure 扱いになっていたため、user source が `core/mem` の wrapper を通さず raw memory を直接読み書きできる穴を `ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6` として分離し、修正した。これにより direct raw memory intrinsic は pure context で `D3025` になる。移行中の `stdlib/core/mem.nepl` は SourceMap path による compiler-owned memory boundary として限定許可している。
+
 ## 修正方針
 
 `InternalAlloc` / `UnsafeMemory` のような内部 memory effect を導入し、raw identity が観測できない場合だけ surface `Pure` へ畳み込む。raw `load` / `store` / `alloc` / `dealloc` は unsafe 層または compiler-owned boundary に閉じ込める。Resource IR では memory token / place を表現し、non-Copy raw load は unrestricted copy ではなく owning place からの move として扱う。

@@ -14,7 +14,10 @@ use crate::builtins::BuiltinKind;
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
-use crate::effects::{intrinsic_effect, raw_body_direct_callees, raw_body_memory_operations};
+use crate::effects::{
+    intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callees,
+    raw_body_memory_operations,
+};
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
@@ -2535,6 +2538,10 @@ impl<'a> BlockChecker<'a> {
         };
         let normalized = path.as_str().replace('\\', "/");
         normalized.ends_with("/stdlib/core/mem.nepl") || normalized == "stdlib/core/mem.nepl"
+    }
+
+    fn raw_memory_intrinsic_allowed(&self, name: &str, span: Span) -> bool {
+        intrinsic_is_raw_memory_effect(name) && self.raw_body_memory_operations_allowed(span)
     }
 
     fn raw_callee_is_impure(&self, callee: &str) -> bool {
@@ -5299,6 +5306,7 @@ impl<'a> BlockChecker<'a> {
                     let intrin_effect = intrinsic_effect(&intrin.name);
                     if matches!(self.current_effect, Effect::Pure)
                         && matches!(intrin_effect, Effect::Impure)
+                        && !self.raw_memory_intrinsic_allowed(&intrin.name, *sp)
                     {
                         self.diagnostics.push(
                             Diagnostic::error("pure context cannot call impure function", *sp)

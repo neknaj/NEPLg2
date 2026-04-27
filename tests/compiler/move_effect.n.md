@@ -23,6 +23,39 @@ fn main <()->i32> ():
     compute
 ```
 
+## pure から raw load intrinsic を直接呼べない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+
+fn read_raw <()->i32> ():
+    #intrinsic "load" <i32> (16)
+
+fn main <()->i32> ():
+    read_raw
+```
+
+## pure から raw store intrinsic を直接呼べない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+
+fn write_raw <()->i32> ():
+    #intrinsic "store" <i32> (16, 1)
+    0
+
+fn main <()->i32> ():
+    write_raw
+```
+
 ## non-Copy raw load は同じ place から二重に所有値を作れない
 
 neplg2:test[compile_fail]
