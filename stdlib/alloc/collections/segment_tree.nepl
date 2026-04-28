@@ -115,6 +115,9 @@ fn new <(i32)*>Result<SegmentTree, Diag>> (n):
 fn len <(SegmentTree)->i32> (st):
     field::get st "n"
 
+fn len_ref <(&SegmentTree)->i32> (st):
+    *field::get_ref st "n"
+
 //: ## replace
 //: `idx` の[値/あたい]を `value` に[置/お]き[換/か]える
 //:
@@ -128,15 +131,13 @@ fn len <(SegmentTree)->i32> (st):
 //: fn main <()*>i32> ():
 //:     let st0 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
 //:     let st1 <SegmentTree> unwrap_ok<SegmentTree, Diag> replace st0 1 5;
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range st1 0 4;
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st1 0 4;
 //:     if eq total 5 1 0
 //: ```
 fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
-    let mem <i32> alloc_raw size_of<SegmentTree>
-    store<SegmentTree> mem st
-    let n <i32> get load<SegmentTree> mem "n"
-    let base <i32> get load<SegmentTree> mem "base"
-    let data <MemPtr<i32>> get load<SegmentTree> mem "data"
+    let n <i32> *field::get_ref &st "n"
+    let base <i32> *field::get_ref &st "base"
+    let data <MemPtr<i32>> *field::get_ref &st "data"
     if:
         and le 0 idx lt idx n
         then:
@@ -148,12 +149,10 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
                     let left <i32> mul pos 2
                     let right <i32> add left 1
                     seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
-            let out <SegmentTree> load<SegmentTree> mem
-            dealloc_raw mem size_of<SegmentTree>
-            ok<SegmentTree, Diag> out
+            ok<SegmentTree, Diag> st
         else:
             let d <Diag> seg_diag_index "segment_tree_replace" idx n
-            dealloc_raw mem size_of<SegmentTree>
+            free st
             err<SegmentTree, Diag> d
 
 //: ## add
@@ -171,15 +170,13 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
 //:         unwrap_ok<SegmentTree, Diag> new 4
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range st 0 4;
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 4;
 //:     if eq total 7 1 0
 //: ```
 fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
-    let mem <i32> alloc_raw size_of<SegmentTree>
-    store<SegmentTree> mem st
-    let n <i32> get load<SegmentTree> mem "n"
-    let base <i32> get load<SegmentTree> mem "base"
-    let data <MemPtr<i32>> get load<SegmentTree> mem "data"
+    let n <i32> *field::get_ref &st "n"
+    let base <i32> *field::get_ref &st "base"
+    let data <MemPtr<i32>> *field::get_ref &st "data"
     if:
         and le 0 idx lt idx n
         then:
@@ -193,12 +190,10 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
                     let left <i32> mul pos 2
                     let right <i32> add left 1
                     seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
-            let out <SegmentTree> load<SegmentTree> mem
-            dealloc_raw mem size_of<SegmentTree>
-            ok<SegmentTree, Diag> out
+            ok<SegmentTree, Diag> st
         else:
             let d <Diag> seg_diag_index "segment_tree_add" idx n
-            dealloc_raw mem size_of<SegmentTree>
+            free st
             err<SegmentTree, Diag> d
 
 //: ## sum_range
@@ -218,15 +213,13 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
 //:         |> replace 1 2 |> uwok
 //:         |> replace 2 3 |> uwok
 //:         |> replace 3 4 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range st 1 4;
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 1 4;
 //:     if eq total 9 1 0
 //: ```
-fn sum_range <(SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
-    let mem <i32> alloc_raw size_of<SegmentTree>
-    store<SegmentTree> mem st
-    let n <i32> get load<SegmentTree> mem "n"
-    let base <i32> get load<SegmentTree> mem "base"
-    let data <MemPtr<i32>> get load<SegmentTree> mem "data"
+fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
+    let n <i32> *field::get_ref st "n"
+    let base <i32> *field::get_ref st "base"
+    let data <MemPtr<i32>> *field::get_ref st "data"
     if:
         and and le 0 l le l r le r n
         then:
@@ -252,11 +245,9 @@ fn sum_range <(SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
                             ()
                     set left div_s left 2
                     set right div_s right 2
-            dealloc_raw mem size_of<SegmentTree>
             ok<i32, Diag> add acc_l acc_r
         else:
             let d <Diag> seg_diag_range "segment_tree_sum_range" l r n
-            dealloc_raw mem size_of<SegmentTree>
             err<i32, Diag> d
 
 //: ## free
@@ -282,9 +273,6 @@ fn sum_range <(SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
 //:     0
 //: ```
 fn free <(SegmentTree)->()> (st):
-    let mem <i32> alloc_raw size_of<SegmentTree>
-    store<SegmentTree> mem st
-    let base <i32> get load<SegmentTree> mem "base"
-    let data <MemPtr<i32>> get load<SegmentTree> mem "data"
+    let base <i32> *field::get_ref &st "base"
+    let data <MemPtr<i32>> *field::get_ref &st "data"
     dealloc_raw mem_ptr_addr data mul mul base 2 4
-    dealloc_raw mem size_of<SegmentTree>

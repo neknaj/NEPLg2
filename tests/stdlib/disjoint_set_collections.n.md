@@ -28,13 +28,13 @@ fn main <()*>i32> ():
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> same dsu0 0 3;
+    let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
     let dsu1 <DisjointSet>:
         unwrap_ok<DisjointSet, Diag> new 5
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
-    let sz <i32> unwrap_ok<i32, Diag> size dsu1 4;
+    let sz <i32> unwrap_ok<i32, Diag> size &dsu1 4;
     let ok1 <bool> eq sz 4;
     if and ok0 ok1 1 0
 ```
@@ -71,7 +71,7 @@ fn main <()*>i32> ():
     let dsu0 <DisjointSet>:
         unwrap_ok<DisjointSet, Diag> new 4
         |> union 0 3 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> same dsu0 0 3;
+    let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
     if ok0 1 0
 ```
 
@@ -103,12 +103,12 @@ fn main <()*>i32> ():
         Result::Err _e:
             false
         Result::Ok dsu:
-            eq len dsu 0
+            eq len_ref &dsu 0
     let find_err_ok <bool> match new 0:
         Result::Err _e:
             false
         Result::Ok dsu:
-            match find dsu 0:
+            match find &dsu 0:
                 Result::Ok _root:
                     false
                 Result::Err _e:
@@ -121,7 +121,7 @@ fn main <()*>i32> ():
         Result::Err _e:
             false
         Result::Ok dsu:
-            match find dsu 0:
+            match find &dsu 0:
                 Result::Ok root:
                     eq root 0
                 Result::Err _e:

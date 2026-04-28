@@ -98,7 +98,7 @@ fn dsu_size_raw <(MemPtr<i32>,i32)->i32> (sizes, root):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
-//:     if eq len dsu 5 1 0
+//:     if eq len_ref &dsu 5 1 0
 //: ```
 fn new <(i32)*>Result<DisjointSet, Diag>> (n):
     if:
@@ -132,6 +132,9 @@ fn new <(i32)*>Result<DisjointSet, Diag>> (n):
 fn len <(DisjointSet)->i32> (dsu):
     field::get dsu "n"
 
+fn len_ref <(&DisjointSet)->i32> (dsu):
+    *field::get_ref dsu "n"
+
 //: ## find
 //: `idx` の[代表元/だいひょうげん]を[返/かえ]す
 //:
@@ -148,26 +151,22 @@ fn len <(DisjointSet)->i32> (dsu):
 //: fn main <()*>i32> ():
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
 //:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
-//:     let root0 <i32> unwrap_ok<i32, Diag> find dsu1 0;
+//:     let root0 <i32> unwrap_ok<i32, Diag> find &dsu1 0;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
 //:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu2 0 1;
-//:     let root1 <i32> unwrap_ok<i32, Diag> find dsu3 1;
+//:     let root1 <i32> unwrap_ok<i32, Diag> find &dsu3 1;
 //:     if eq root0 root1 1 0
 //: ```
-fn find <(DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
-    let mem <i32> alloc_raw size_of<DisjointSet>
-    store<DisjointSet> mem dsu
-    let n <i32> get load<DisjointSet> mem "n"
-    let parent <MemPtr<i32>> get load<DisjointSet> mem "parent"
+fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
+    let n <i32> *field::get_ref dsu "n"
+    let parent <MemPtr<i32>> *field::get_ref dsu "parent"
     if:
         and le 0 idx lt idx n
         then:
             let root <i32> dsu_root_raw parent idx
-            dealloc_raw mem size_of<DisjointSet>
             ok<i32, Diag> root
         else:
             let d <Diag> dsu_diag_index "disjoint_set_find" idx n
-            dealloc_raw mem size_of<DisjointSet>
             err<i32, Diag> d
 
 //: ## union
@@ -190,15 +189,13 @@ fn find <(DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
 //:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu1 1 2;
-//:     let ok <bool> unwrap_ok<bool, Diag> same dsu2 0 2;
+//:     let ok <bool> unwrap_ok<bool, Diag> same &dsu2 0 2;
 //:     if ok 1 0
 //: ```
 fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
-    let mem <i32> alloc_raw size_of<DisjointSet>
-    store<DisjointSet> mem dsu
-    let n <i32> get load<DisjointSet> mem "n"
-    let parent <MemPtr<i32>> get load<DisjointSet> mem "parent"
-    let sizes <MemPtr<i32>> get load<DisjointSet> mem "sizes"
+    let n <i32> *field::get_ref &dsu "n"
+    let parent <MemPtr<i32>> *field::get_ref &dsu "parent"
+    let sizes <MemPtr<i32>> *field::get_ref &dsu "sizes"
     if:
         and and le 0 a lt a n and le 0 b lt b n
         then:
@@ -207,9 +204,7 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
             if:
                 eq ra rb
                 then:
-                    let out0 <DisjointSet> load<DisjointSet> mem
-                    dealloc_raw mem size_of<DisjointSet>
-                    ok<DisjointSet, Diag> out0
+                    ok<DisjointSet, Diag> dsu
                 else:
                     let sa <i32> dsu_size_raw sizes ra
                     let sb <i32> dsu_size_raw sizes rb
@@ -219,13 +214,11 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
                     let sd <i32> dsu_size_raw sizes root_drop
                     dsu_store_owned parent root_drop root_keep
                     dsu_store_owned sizes root_keep add sk sd
-                    let out1 <DisjointSet> load<DisjointSet> mem
-                    dealloc_raw mem size_of<DisjointSet>
-                    ok<DisjointSet, Diag> out1
+                    ok<DisjointSet, Diag> dsu
         else:
             let bad <i32> if and le 0 a lt a n b a
             let d <Diag> dsu_diag_index "disjoint_set_union" bad n
-            dealloc_raw mem size_of<DisjointSet>
+            free dsu
             err<DisjointSet, Diag> d
 
 //: ## same
@@ -244,29 +237,25 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
 //: fn main <()*>i32> ():
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
 //:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
-//:     let ok0 <bool> unwrap_ok<bool, Diag> same dsu1 0 1;
+//:     let ok0 <bool> unwrap_ok<bool, Diag> same &dsu1 0 1;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
 //:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu2 0 1;
-//:     let ok1 <bool> unwrap_ok<bool, Diag> same dsu3 0 2;
+//:     let ok1 <bool> unwrap_ok<bool, Diag> same &dsu3 0 2;
 //:     let ok2 <bool> if ok1 false true;
 //:     if and ok0 ok2 1 0
 //: ```
-fn same <(DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
-    let mem <i32> alloc_raw size_of<DisjointSet>
-    store<DisjointSet> mem dsu
-    let n <i32> get load<DisjointSet> mem "n"
-    let parent <MemPtr<i32>> get load<DisjointSet> mem "parent"
+fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
+    let n <i32> *field::get_ref dsu "n"
+    let parent <MemPtr<i32>> *field::get_ref dsu "parent"
     if:
         and and le 0 a lt a n and le 0 b lt b n
         then:
             let ra <i32> dsu_root_raw parent a
             let rb <i32> dsu_root_raw parent b
-            dealloc_raw mem size_of<DisjointSet>
             ok<bool, Diag> eq ra rb
         else:
             let bad <i32> if and le 0 a lt a n b a
             let d <Diag> dsu_diag_index "disjoint_set_same" bad n
-            dealloc_raw mem size_of<DisjointSet>
             err<bool, Diag> d
 
 //: ## size
@@ -286,25 +275,21 @@ fn same <(DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
 //:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu1 1 2;
-//:     let s <i32> unwrap_ok<i32, Diag> size dsu2 2;
+//:     let s <i32> unwrap_ok<i32, Diag> size &dsu2 2;
 //:     if eq s 3 1 0
 //: ```
-fn size <(DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
-    let mem <i32> alloc_raw size_of<DisjointSet>
-    store<DisjointSet> mem dsu
-    let n <i32> get load<DisjointSet> mem "n"
-    let parent <MemPtr<i32>> get load<DisjointSet> mem "parent"
-    let sizes <MemPtr<i32>> get load<DisjointSet> mem "sizes"
+fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
+    let n <i32> *field::get_ref dsu "n"
+    let parent <MemPtr<i32>> *field::get_ref dsu "parent"
+    let sizes <MemPtr<i32>> *field::get_ref dsu "sizes"
     if:
         and le 0 idx lt idx n
         then:
             let root <i32> dsu_root_raw parent idx
             let out <i32> dsu_size_raw sizes root
-            dealloc_raw mem size_of<DisjointSet>
             ok<i32, Diag> out
         else:
             let d <Diag> dsu_diag_index "disjoint_set_size" idx n
-            dealloc_raw mem size_of<DisjointSet>
             err<i32, Diag> d
 
 //: ## free
@@ -330,11 +315,13 @@ fn size <(DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //:     0
 //: ```
 fn free <(DisjointSet)->()> (dsu):
-    let mem <i32> alloc_raw size_of<DisjointSet>
-    store<DisjointSet> mem dsu
-    let n <i32> get load<DisjointSet> mem "n"
-    let parent <MemPtr<i32>> get load<DisjointSet> mem "parent"
-    let sizes <MemPtr<i32>> get load<DisjointSet> mem "sizes"
-    dealloc_raw mem_ptr_addr parent mul n 4
-    dealloc_raw mem_ptr_addr sizes mul n 4
-    dealloc_raw mem size_of<DisjointSet>
+    let n <i32> *field::get_ref &dsu "n"
+    let parent <MemPtr<i32>> *field::get_ref &dsu "parent"
+    let sizes <MemPtr<i32>> *field::get_ref &dsu "sizes"
+    if:
+        lt 0 n
+        then:
+            dealloc_raw mem_ptr_addr parent mul n 4
+            dealloc_raw mem_ptr_addr sizes mul n 4
+        else:
+            ()

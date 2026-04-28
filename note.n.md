@@ -256,6 +256,46 @@
 - plan.md との差異:
   - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
 
+# 2026-04-28 メモ (ISS-20260428T031445330Z disjoint_set / segment_tree strict move follow-up)
+
+- 状況:
+  - `stdlib/tests` を最新 main で確認したところ、80 件中 71 件通過、9 件が D3100 で失敗した。
+  - 失敗は diag/error の raw aggregate detour と、disjoint_set / segment_tree の owner struct raw scratch detour に分かれた。
+  - `tests/stdlib` 一括は 10 分で timeout し、partial JSON は 0 件だったため停止した。今後は shard 分割か focused test で確認する。
+- issue 追加:
+  - `ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F` を追加し、Discord に報告した。こちらは open のまま。
+  - `ISS-20260428T031445330Z-DISJOINT-SET-AND-SEGMENT-TREE-RAW-OW-D2F6ED1A` を追加し、Discord に報告した。
+- 修正:
+  - `DisjointSet` / `SegmentTree` owner struct を `alloc_raw size_of<T>` の scratch cell に退避する処理を削除した。
+  - Copy field は `field::get_ref` で借用読み取りし、`find` / `same` / `size` / `sum_range` は参照受け取りの read-only API に変更した。
+  - `union` / `replace` / `add` の invalid input path は owner を消費するため、`Err` 前に `free` して backing array を残さないようにした。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md --no-tree -o tmp/dsu-static-followup-stdlib.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segtree-static-followup-stdlib.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/dsu-static-followup-tests.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segtree-static-followup-tests.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/dsu-segtree-static-followup-docs.json -j 1`: 11/11 passed
+  - remote main `412a69c` 取り込み後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/stdlib-dsu-segtree-after-rebase.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/tests-dsu-segtree-after-rebase.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/dsu-segtree-docs-after-rebase.json -j 1`: 11/11 passed
+  - `node nodesrc/tests.js -i stdlib/tests --no-tree -o tmp/stdlib-tests-static-followup-after-dsu-segtree-20260428.json -j 1`: 80 件中 75 件 passed、残り 5 件は diag/error issue の D3100。
+  - remote main `492bcce` 取り込み後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/stdlib-dsu-segtree-final.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/tests-dsu-segtree-final.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/dsu-segtree-docs-final.json -j 1`: 11/11 passed
+  - remote main `6127d99` 取り込み後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/stdlib-dsu-segtree-post-binding-rules.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/tests-dsu-segtree-post-binding-rules.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/dsu-segtree-docs-post-binding-rules.json -j 1`: 11/11 passed
+  - remote main `cef5f6e` 取り込み後の `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/stdlib-dsu-segtree-post-ascription.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/tests-dsu-segtree-post-ascription.json -j 1`: 5/5 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。
+  - stdlib の基本データ構造を、最新の strict move checking と borrowed field projection 方針に追従させた。
+
 # 2026-04-28 メモ (ISS-20260428T004329925Z stdlib char literal migration)
 
 - 状況:
