@@ -270,6 +270,12 @@ Resource IR effect boundary checker に function value alias table を追加し�
 
 Resource IR effect boundary checker に raw memory identity payload table を追加し、`Store` が tracked raw identity value を slot に書いた場合は、その slot からの後続 `Load` output へ identity を伝播するようにした。`Realloc` は旧 slot の payload を新 output へ移し、`BulkCopy` / `BulkMove` は source slot の payload を destination slot へ伝播する。通常の数値 store は identity payload を clear するため、既存の pure internal numeric store/load は維持される。
 
+## 2026-04-28 Stage 5 raw slot pointer alias 追記
+
+`ISS-20260428T105154736Z-RESOURCE-EFFECT-GATE-KEYS-RAW-SLOT-P-9A800C94` として、raw slot payload table が internal allocation identity group でしか slot を key 化できず、function parameter や copied pointer alias の raw slot を追跡できない問題を分離した。
+
+Resource IR effect boundary checker に `RawPointerAliasTable` を追加し、raw allocation identity value と raw memory slot pointer alias を分けて扱うようにした。これにより、caller-provided / parameter-derived slot に internal allocation identity を store してから load / return する経路も D3025 で拒否される。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。

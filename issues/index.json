@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T10:48:08.207Z",
+  "generated_at": "2026-04-28T10:55:39.443Z",
   "counts": {
-    "total": 256,
+    "total": 257,
     "open": 11,
-    "resolved": 245,
+    "resolved": 246,
     "by_area": {
       "core": {
-        "total": 108,
+        "total": 109,
         "open": 4,
-        "resolved": 104
+        "resolved": 105
       },
       "selfhost": {
         "total": 17,
@@ -1743,6 +1743,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T103216940Z-RESOURCE-EFFECT-GATE-LOSES-RAW-ALLOC-DC80BAD0.md"
+    },
+    {
+      "id": "ISS-20260428T105154736Z-RESOURCE-EFFECT-GATE-KEYS-RAW-SLOT-P-9A800C94",
+      "title": "Resource effect gate keys raw slot payloads only by internal allocation identity",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, tests/compiler/move_effect.n.md, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T105154736Z-RESOURCE-EFFECT-GATE-KEYS-RAW-SLOT-P-9A800C94.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

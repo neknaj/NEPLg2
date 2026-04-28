@@ -192,6 +192,67 @@ fn main <()->i32> ():
     leak_via_copied_slot
 ```
 
+## parameter raw slot 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn leak_via_param_slot <(i32)->i32> (slot):
+    let p <i32> alloc_raw 4
+    store_i32 slot p
+    load_i32 slot
+
+fn main <()->i32> ():
+    let slot <i32> alloc_raw 4
+    leak_via_param_slot slot
+```
+
+## copied parameter raw slot 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn leak_via_copied_param_slot <(i32)->i32> (slot):
+    let alias <i32> slot
+    let p <i32> alloc_raw 4
+    store_i32 alias p
+    load_i32 slot
+
+fn main <()->i32> ():
+    let slot <i32> alloc_raw 4
+    leak_via_copied_param_slot slot
+```
+
+## helper に渡した raw identity も parameter raw slot 経由で返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn raw_slot_id <(i32,i32)->i32> (slot, p):
+    store_i32 slot p
+    load_i32 slot
+
+fn main <()->i32> ():
+    let p <i32> alloc_raw 4
+    let slot <i32> alloc_raw 4
+    raw_slot_id slot p
+```
+
 ## pure から raw load intrinsic を直接呼べない
 
 neplg2:test[compile_fail]

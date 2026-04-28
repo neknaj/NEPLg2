@@ -22399,3 +22399,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、raw memory slot 内の identity payload を補足した。
+
+# 2026-04-28 メモ (ISS-20260428T105154736Z raw slot pointer alias)
+
+- [同期]:
+  - `origin/main` の `661e3c5 fix(core): track raw identity through memory slots` まで同期した main から `work/stage5-raw-slot-pointer-alias` branch を作成した。
+- [原因]:
+  - Stage 5 raw slot payload table は slot を `RawIdentityTable` の group で key 化していたため、slot pointer 自体が internal allocation identity である場合だけ追跡できた。
+  - function parameter や caller-provided slot は raw memory pointer ではあっても internal allocation identity value ではないため、`store_i32 slot p` / `load_i32 slot` の same pointer value 経路でも payload が途切れていた。
+- [修正]:
+  - Resource IR effect boundary checker に `RawPointerAliasTable` を追加し、raw identity value と raw pointer alias を分離した。
+  - `DeclareLocal` / `Read` / `Move` / `Assign` と branch / loop / match merge で pointer alias を伝播し、`RawMemoryIdentityTable` は pointer alias group で slot payload を key 化するようにした。
+  - `tests/compiler/move_effect.n.md` に parameter slot、copied parameter slot、helper に渡した raw identity の slot laundering 回帰を追加した。
+  - `nepl-core/tests/resource_ir.rs` に parameter slot alias の Resource IR 単体回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、raw memory slot key を identity group から pointer alias group へ分離した。

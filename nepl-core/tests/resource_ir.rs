@@ -10,8 +10,8 @@ use nepl_core::resource::{
     RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation,
     ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceEffectBoundaryDiagnostic,
-    ResourceFunction, ResourceId, ResourceModule, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator,
+    ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOp,
+    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -551,6 +551,83 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_raw_slot() {
                         operation: RawMemoryOp::Store,
                         output: Place::temporary(ResourceId(5), TypeId(0)),
                         args: vec![slot.clone(), raw],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded.clone(),
+                        args: vec![slot],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(loaded),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_effect_check_reports_raw_alloc_escape_through_parameter_slot_alias() {
+    let unit_ty = TypeId(0);
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let slot = Place::local("slot".to_string(), i32_ty);
+    let alias = Place::temporary(ResourceId(0), i32_ty);
+    let size = Place::temporary(ResourceId(1), i32_ty);
+    let raw = Place::temporary(ResourceId(2), i32_ty);
+    let loaded = Place::temporary(ResourceId(3), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![ResourceLocal {
+                name: "slot".to_string(),
+                ty: i32_ty,
+                mutable: false,
+                place: slot.clone(),
+            }],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Read {
+                        source: slot.clone(),
+                        output: alias.clone(),
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![size],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Store,
+                        output: Place::temporary(ResourceId(4), unit_ty),
+                        args: vec![alias, raw],
                         span,
                     },
                     ResourceOp::RawMemory {

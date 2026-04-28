@@ -93,11 +93,13 @@ struct ResourceEffectBoundaryEngine<'a> {
 impl ResourceEffectBoundaryEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) {
         let mut identities = RawIdentityTable::default();
+        let mut pointer_aliases = RawPointerAliasTable::default();
         let mut function_aliases = FunctionAliasTable::default();
         let mut raw_memory_identities = RawMemoryIdentityTable::default();
         for block in &function.blocks {
             self.check_block(
                 &mut identities,
+                &mut pointer_aliases,
                 &mut function_aliases,
                 &mut raw_memory_identities,
                 block,
@@ -108,12 +110,14 @@ impl ResourceEffectBoundaryEngine<'_> {
     fn check_block(
         &mut self,
         identities: &mut RawIdentityTable,
+        pointer_aliases: &mut RawPointerAliasTable,
         function_aliases: &mut FunctionAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
         block: &ResourceBlock,
     ) {
         self.check_ops(
             identities,
+            pointer_aliases,
             function_aliases,
             raw_memory_identities,
             &block.ops,
@@ -141,18 +145,26 @@ impl ResourceEffectBoundaryEngine<'_> {
     fn check_ops(
         &mut self,
         identities: &mut RawIdentityTable,
+        pointer_aliases: &mut RawPointerAliasTable,
         function_aliases: &mut FunctionAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
         ops: &[ResourceOp],
     ) {
         for op in ops {
-            self.check_op(identities, function_aliases, raw_memory_identities, op);
+            self.check_op(
+                identities,
+                pointer_aliases,
+                function_aliases,
+                raw_memory_identities,
+                op,
+            );
         }
     }
 
     fn check_op(
         &mut self,
         identities: &mut RawIdentityTable,
+        pointer_aliases: &mut RawPointerAliasTable,
         function_aliases: &mut FunctionAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
         op: &ResourceOp,
@@ -168,8 +180,12 @@ impl ResourceEffectBoundaryEngine<'_> {
                 if self.track_alloc_identities && raw_memory_op_produces_identity(operation) {
                     identities.mark(output);
                 }
+                if raw_memory_op_produces_identity(operation) {
+                    pointer_aliases.mark(output);
+                }
                 self.apply_raw_memory_identity_effect(
                     identities,
+                    pointer_aliases,
                     raw_memory_identities,
                     operation,
                     output,
@@ -181,15 +197,18 @@ impl ResourceEffectBoundaryEngine<'_> {
             } => {
                 if let Some(initializer) = initializer {
                     identities.copy_identity(initializer, place);
+                    pointer_aliases.copy_alias(initializer, place);
                     function_aliases.copy_alias(initializer, place);
                 }
             }
             ResourceOp::Read { source, output, .. } | ResourceOp::Move { source, output, .. } => {
                 identities.copy_identity(source, output);
+                pointer_aliases.copy_alias(source, output);
                 function_aliases.copy_alias(source, output);
             }
             ResourceOp::Assign { target, value, .. } => {
                 identities.copy_identity(value, target);
+                pointer_aliases.copy_alias(value, target);
                 function_aliases.copy_alias(value, target);
             }
             ResourceOp::Construct { output, inputs, .. } => {
@@ -229,27 +248,37 @@ impl ResourceEffectBoundaryEngine<'_> {
             } => {
                 let mut then_identities = identities.clone();
                 let mut else_identities = identities.clone();
+                let mut then_pointer_aliases = pointer_aliases.clone();
+                let mut else_pointer_aliases = pointer_aliases.clone();
                 let mut then_function_aliases = function_aliases.clone();
                 let mut else_function_aliases = function_aliases.clone();
                 let mut then_raw_memory_identities = raw_memory_identities.clone();
                 let mut else_raw_memory_identities = raw_memory_identities.clone();
                 self.check_ops(
                     &mut then_identities,
+                    &mut then_pointer_aliases,
                     &mut then_function_aliases,
                     &mut then_raw_memory_identities,
                     then_ops,
                 );
                 self.check_ops(
                     &mut else_identities,
+                    &mut else_pointer_aliases,
                     &mut else_function_aliases,
                     &mut else_raw_memory_identities,
                     else_ops,
                 );
                 then_identities.copy_identity(then_value, output);
                 else_identities.copy_identity(else_value, output);
+                then_pointer_aliases.copy_alias(then_value, output);
+                else_pointer_aliases.copy_alias(else_value, output);
                 then_function_aliases.copy_alias(then_value, output);
                 else_function_aliases.copy_alias(else_value, output);
                 *identities = RawIdentityTable::merge_paths(&[then_identities, else_identities]);
+                *pointer_aliases = RawPointerAliasTable::merge_paths(&[
+                    then_pointer_aliases,
+                    else_pointer_aliases,
+                ]);
                 *function_aliases = FunctionAliasTable::merge_paths(&[
                     then_function_aliases,
                     else_function_aliases,
@@ -265,25 +294,33 @@ impl ResourceEffectBoundaryEngine<'_> {
                 ..
             } => {
                 let mut condition_identities = identities.clone();
+                let mut condition_pointer_aliases = pointer_aliases.clone();
                 let mut condition_function_aliases = function_aliases.clone();
                 let mut condition_raw_memory_identities = raw_memory_identities.clone();
                 self.check_ops(
                     &mut condition_identities,
+                    &mut condition_pointer_aliases,
                     &mut condition_function_aliases,
                     &mut condition_raw_memory_identities,
                     condition_ops,
                 );
                 let mut body_identities = condition_identities.clone();
+                let mut body_pointer_aliases = condition_pointer_aliases.clone();
                 let mut body_function_aliases = condition_function_aliases.clone();
                 let mut body_raw_memory_identities = condition_raw_memory_identities.clone();
                 self.check_ops(
                     &mut body_identities,
+                    &mut body_pointer_aliases,
                     &mut body_function_aliases,
                     &mut body_raw_memory_identities,
                     body_ops,
                 );
                 *identities =
                     RawIdentityTable::merge_paths(&[condition_identities, body_identities]);
+                *pointer_aliases = RawPointerAliasTable::merge_paths(&[
+                    condition_pointer_aliases,
+                    body_pointer_aliases,
+                ]);
                 *function_aliases = FunctionAliasTable::merge_paths(&[
                     condition_function_aliases,
                     body_function_aliases,
@@ -295,26 +332,32 @@ impl ResourceEffectBoundaryEngine<'_> {
             }
             ResourceOp::Match { output, arms, .. } => {
                 let mut arm_paths = Vec::new();
+                let mut pointer_alias_paths = Vec::new();
                 let mut function_alias_paths = Vec::new();
                 let mut raw_memory_identity_paths = Vec::new();
                 for arm in arms {
                     let mut arm_identities = identities.clone();
+                    let mut arm_pointer_aliases = pointer_aliases.clone();
                     let mut arm_function_aliases = function_aliases.clone();
                     let mut arm_raw_memory_identities = raw_memory_identities.clone();
                     self.check_ops(
                         &mut arm_identities,
+                        &mut arm_pointer_aliases,
                         &mut arm_function_aliases,
                         &mut arm_raw_memory_identities,
                         &arm.ops,
                     );
                     arm_identities.copy_identity(&arm.value, output);
+                    arm_pointer_aliases.copy_alias(&arm.value, output);
                     arm_function_aliases.copy_alias(&arm.value, output);
                     arm_paths.push(arm_identities);
+                    pointer_alias_paths.push(arm_pointer_aliases);
                     function_alias_paths.push(arm_function_aliases);
                     raw_memory_identity_paths.push(arm_raw_memory_identities);
                 }
                 if !arm_paths.is_empty() {
                     *identities = RawIdentityTable::merge_paths(&arm_paths);
+                    *pointer_aliases = RawPointerAliasTable::merge_paths(&pointer_alias_paths);
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
                     *raw_memory_identities =
                         RawMemoryIdentityTable::merge_paths(&raw_memory_identity_paths);
@@ -391,6 +434,7 @@ impl ResourceEffectBoundaryEngine<'_> {
     fn apply_raw_memory_identity_effect(
         &self,
         identities: &mut RawIdentityTable,
+        pointer_aliases: &RawPointerAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
         operation: &RawMemoryOp,
         output: &Place,
@@ -400,7 +444,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             RawMemoryOp::Load => {
                 if args
                     .first()
-                    .is_some_and(|ptr| raw_memory_identities.contains(identities, ptr))
+                    .is_some_and(|ptr| raw_memory_identities.contains(pointer_aliases, ptr))
                 {
                     identities.mark(output);
                 }
@@ -408,32 +452,32 @@ impl ResourceEffectBoundaryEngine<'_> {
             RawMemoryOp::Store => {
                 if let Some(ptr) = args.first() {
                     if args.get(1).is_some_and(|value| identities.contains(value)) {
-                        raw_memory_identities.mark(identities, ptr);
+                        raw_memory_identities.mark(pointer_aliases, ptr);
                     } else {
-                        raw_memory_identities.clear(identities, ptr);
+                        raw_memory_identities.clear(pointer_aliases, ptr);
                     }
                 }
             }
             RawMemoryOp::Realloc => {
                 let carries_payload = args
                     .first()
-                    .is_some_and(|ptr| raw_memory_identities.contains(identities, ptr));
+                    .is_some_and(|ptr| raw_memory_identities.contains(pointer_aliases, ptr));
                 if let Some(ptr) = args.first() {
-                    raw_memory_identities.clear(identities, ptr);
+                    raw_memory_identities.clear(pointer_aliases, ptr);
                 }
                 if carries_payload {
-                    raw_memory_identities.mark(identities, output);
+                    raw_memory_identities.mark(pointer_aliases, output);
                 }
             }
             RawMemoryOp::Dealloc => {
                 if let Some(ptr) = args.first() {
-                    raw_memory_identities.clear(identities, ptr);
+                    raw_memory_identities.clear(pointer_aliases, ptr);
                 }
             }
             RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
                 if let (Some(dst), Some(src)) = (args.first(), args.get(1)) {
-                    if raw_memory_identities.contains(identities, src) {
-                        raw_memory_identities.mark(identities, dst);
+                    if raw_memory_identities.contains(pointer_aliases, src) {
+                        raw_memory_identities.mark(pointer_aliases, dst);
                     }
                 }
             }
@@ -518,10 +562,12 @@ fn function_returns_marked_identity(
         counts: ResourceEffectCounts::default(),
     };
     let mut function_aliases = FunctionAliasTable::default();
+    let mut pointer_aliases = RawPointerAliasTable::default();
     let mut raw_memory_identities = RawMemoryIdentityTable::default();
     for block in &function.blocks {
         engine.check_ops(
             &mut identities,
+            &mut pointer_aliases,
             &mut function_aliases,
             &mut raw_memory_identities,
             &block.ops,
@@ -622,25 +668,21 @@ struct RawMemoryIdentityTable {
 }
 
 impl RawMemoryIdentityTable {
-    fn contains(&self, identities: &RawIdentityTable, place: &Place) -> bool {
-        identities.group_for(place).is_some_and(|group| {
-            self.pointer_groups
-                .iter()
-                .any(|stored| groups_overlap(stored, group))
-        })
+    fn contains(&self, pointer_aliases: &RawPointerAliasTable, place: &Place) -> bool {
+        let group = pointer_aliases.group_for_or_singleton(place);
+        self.pointer_groups
+            .iter()
+            .any(|stored| groups_overlap(stored, &group))
     }
 
-    fn mark(&mut self, identities: &RawIdentityTable, place: &Place) {
-        if let Some(group) = identities.group_for(place) {
-            self.union_group(group);
-        }
+    fn mark(&mut self, pointer_aliases: &RawPointerAliasTable, place: &Place) {
+        self.union_group(&pointer_aliases.group_for_or_singleton(place));
     }
 
-    fn clear(&mut self, identities: &RawIdentityTable, place: &Place) {
-        if let Some(group) = identities.group_for(place) {
-            self.pointer_groups
-                .retain(|stored| !groups_overlap(stored, group));
-        }
+    fn clear(&mut self, pointer_aliases: &RawPointerAliasTable, place: &Place) {
+        let group = pointer_aliases.group_for_or_singleton(place);
+        self.pointer_groups
+            .retain(|stored| !groups_overlap(stored, &group));
     }
 
     fn merge_paths(paths: &[RawMemoryIdentityTable]) -> Self {
@@ -667,6 +709,59 @@ impl RawMemoryIdentityTable {
             retained.push(merged);
         }
         self.pointer_groups = retained;
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct RawPointerAliasTable {
+    groups: Vec<Vec<Place>>,
+}
+
+impl RawPointerAliasTable {
+    fn mark(&mut self, place: &Place) {
+        self.union_group(core::slice::from_ref(place));
+    }
+
+    fn copy_alias(&mut self, source: &Place, target: &Place) {
+        let mut merged = self.group_for_or_singleton(source);
+        if !merged.contains(target) {
+            merged.push(target.clone());
+        }
+        self.union_group(&merged);
+    }
+
+    fn merge_paths(paths: &[RawPointerAliasTable]) -> Self {
+        let mut out = RawPointerAliasTable::default();
+        for path in paths {
+            for group in &path.groups {
+                out.union_group(group);
+            }
+        }
+        out
+    }
+
+    fn group_for_or_singleton(&self, place: &Place) -> Vec<Place> {
+        self.groups
+            .iter()
+            .find(|group| group.iter().any(|existing| existing == place))
+            .cloned()
+            .unwrap_or_else(|| vec![place.clone()])
+    }
+
+    fn union_group(&mut self, group: &[Place]) {
+        let mut merged = group.to_vec();
+        let mut retained = Vec::new();
+        for existing in self.groups.drain(..) {
+            if groups_overlap(&existing, &merged) {
+                push_unique_places(&mut merged, &existing);
+            } else {
+                retained.push(existing);
+            }
+        }
+        if !merged.is_empty() {
+            retained.push(merged);
+        }
+        self.groups = retained;
     }
 }
 
