@@ -1,3 +1,26 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck syntax helpers module)
+
+- 状況:
+  - Stage 1 の call reduction module 化後、variant / trait method name parse、i32 literal parse、target/profile gate 判定が `typecheck.rs` 本体末尾に残っていた。
+  - これらは match / name lookup / effect check / top-level gate processing から共有される primitive helper であり、typecheck 本体から独立した依存先にする必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/syntax_helpers.rs` を追加し、`parse_variant_name`、`parse_i32_literal`、`gate_allows` を移動した。
+  - `effect_check.rs`、`match_check.rs`、`name_lookup.rs` は `syntax_helpers` module を参照する形に変更し、syntax-level parse と type/effect 検査の依存方向を明示した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck syntax helper 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/syntax_helpers.rs nepl-core/src/typecheck/effect_check.rs nepl-core/src/typecheck/match_check.rs nepl-core/src/typecheck/name_lookup.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test char -- --nocapture`: 11/11 passed
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 20/20 passed
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 16/16 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/char_literals.n.md -i tests/compiler/match_literal_patterns.n.md -i tests/compiler/raw_body_precheck.n.md -i tests/compiler/resolve.n.md -i tests/compiler/generics.n.md -i tests/compiler/overload.n.md --no-tree -o tmp/stage1-typecheck-syntax-helpers-focused.json -j 1`: 101/101 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck call reduction module)
 
 - 状況:

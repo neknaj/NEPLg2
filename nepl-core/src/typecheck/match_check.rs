@@ -11,7 +11,8 @@ use crate::types::{EnumVariantInfo, TypeId, TypeKind};
 
 use super::binding_rules::emit_shadow_warning;
 use super::env::{Binding, BindingKind};
-use super::{parse_i32_literal, BlockChecker, ScalarMatchKind};
+use super::syntax_helpers::parse_i32_literal;
+use super::{BlockChecker, ScalarMatchKind};
 
 impl<'a> BlockChecker<'a> {
     pub(super) fn check_match_expr(&mut self, m: &MatchExpr) -> Option<(HirExpr, TypeId)> {

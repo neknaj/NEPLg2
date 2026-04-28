@@ -12,7 +12,8 @@ use crate::hir::HirBody;
 use crate::span::Span;
 
 use super::env::BindingKind;
-use super::{gate_allows, BlockChecker};
+use super::syntax_helpers::gate_allows;
+use super::BlockChecker;
 
 impl<'a> BlockChecker<'a> {
     pub(super) fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {

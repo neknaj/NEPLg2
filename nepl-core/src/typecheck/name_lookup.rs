@@ -4,7 +4,8 @@ use alloc::vec::Vec;
 use crate::ast::Ident;
 
 use super::env::Binding;
-use super::{parse_variant_name, BlockChecker};
+use super::syntax_helpers::parse_variant_name;
+use super::BlockChecker;
 
 impl<'a> BlockChecker<'a> {
     pub(super) fn lookup_qualified_bindings(&self, id: &Ident) -> Option<(String, Vec<Binding>)> {
