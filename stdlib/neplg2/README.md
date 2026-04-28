@@ -17,7 +17,7 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 ## S2 Module Layer
 
-`core/module/loader.nepl` は filesystem 非依存の in-memory VFS と single-module load entry を提供します。`core/module/import_spec.nepl` は parser が保持した import directive を `SelfhostImportSpec` に変換し、`core/module/graph.nepl` は root module から import closure を構築して missing module と cycle を `SelfhostDiagnostic` として返します。stdlib root / user root の path mapping は後続の `stdlib_map` stage で追加します。
+`core/module/loader.nepl` は filesystem 非依存の in-memory VFS と single-module load entry を提供します。`core/module/import_spec.nepl` は parser が保持した import directive を `SelfhostImportSpec` に変換し、`core/module/stdlib_map.nepl` は stdlib root / user root から VFS logical path を解決します。`core/module/graph.nepl` は root module から import closure を構築して missing module と cycle を `SelfhostDiagnostic` として返し、`selfhost_build_module_graph_with_path_map` では `core/result` と `./util` のような import を同じ graph に載せます。
 
 ## 検証
 
@@ -27,4 +27,5 @@ node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tr
 node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/neplg2-source-text-focused.json -j 1
 node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/neplg2-diag-outcome-focused.json -j 1
 node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg2-module-graph-focused.json -j 1
+node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg2-stdlib-map-focused.json -j 1
 ```

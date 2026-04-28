@@ -1,0 +1,348 @@
+#indent 4
+
+//: # stdlib_map
+//: NEPLg2.0 self-host compiler の module path mapping を扱うモジュールです。
+//:
+//: [目的/もくてき]:
+//: - `#import "core/result"` のような stdlib import と、`#import "./util"` のような user relative import を、VFS logical path へ変換します。
+//: - filesystem path ではなく、CLI [層/そう]が VFS に登録する logical root を入力にすることで、core [層/そう]を filesystem 非依存に保ちます。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostModulePathMap` は user root と stdlib root の logical prefix を保持します。
+//: - 非 relative import は stdlib root 基準、`.` / `..` / `/` で始まる import は user または現在 module の root 基準で解決します。
+//: - 拡張子が無い import には `.nepl` を付与します。
+//:
+//: [注意/ちゅうい]:
+//: - ここでは実 filesystem の canonicalize は行いません。`..` は lexical に処理し、user root / stdlib root を越える場合は diagnostic を返します。
+//: - VFS 側の path もこの mapper が返す logical path と同じ規約で登録してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - path の解決は import spec 長 n と current path 長 m に対して O(n + m) です。
+//: - 文字列結合は返す logical path の長さに比例して確保します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/module/stdlib_map" as *
+//: fn main <()*>i32> ():
+//:     let map <SelfhostModulePathMap> selfhost_module_path_map_new "user" "stdlib";
+//:     match selfhost_module_path_resolve_import &map "user/app/main.nepl" source_span_empty 0 0 "core/result":
+//:         Result::Ok resolved:
+//:             if selfhost_resolved_module_path_is_stdlib resolved 0 1
+//:         Result::Err _diag:
+//:             1
+//: ```
+
+#import "alloc/string" as string
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/import_spec" as *
+
+//: SelfhostModulePathKind: 解決後 module path が属する logical root
+//:
+//: [目的/もくてき]:
+//: - resolver が user module と stdlib module を区別できるように、path 文字列だけでなく分類を保持します。
+enum SelfhostModulePathKind:
+    User
+    Stdlib
+
+impl Clone for SelfhostModulePathKind:
+    fn clone <(&SelfhostModulePathKind)->SelfhostModulePathKind> (self):
+        *self
+
+impl Copy for SelfhostModulePathKind:
+    fn copy_mark <(SelfhostModulePathKind)->SelfhostModulePathKind> (self):
+        self
+
+//: SelfhostResolvedModulePath: import spec から得られた VFS logical path
+struct SelfhostResolvedModulePath:
+    kind <SelfhostModulePathKind>
+    path <str>
+
+impl Clone for SelfhostResolvedModulePath:
+    fn clone <(&SelfhostResolvedModulePath)->SelfhostResolvedModulePath> (self):
+        *self
+
+impl Copy for SelfhostResolvedModulePath:
+    fn copy_mark <(SelfhostResolvedModulePath)->SelfhostResolvedModulePath> (self):
+        self
+
+//: SelfhostModulePathMap: self-host core に渡す logical root mapping
+//:
+//: [注意/ちゅうい]:
+//: - `user_root` と `stdlib_root` は末尾 `/` なしを推奨します。末尾 `/` があっても join helper が二重 slash を避けます。
+struct SelfhostModulePathMap:
+    user_root <str>
+    stdlib_root <str>
+
+impl Clone for SelfhostModulePathMap:
+    fn clone <(&SelfhostModulePathMap)->SelfhostModulePathMap> (self):
+        *self
+
+impl Copy for SelfhostModulePathMap:
+    fn copy_mark <(SelfhostModulePathMap)->SelfhostModulePathMap> (self):
+        self
+
+//: selfhost_module_path_map_new: logical root mapping を[作/つく]る
+fn selfhost_module_path_map_new <(str,str)->SelfhostModulePathMap> (user_root, stdlib_root):
+    SelfhostModulePathMap user_root stdlib_root
+
+//: selfhost_module_path_map_user_root: user root を[返/かえ]す
+fn selfhost_module_path_map_user_root <(&SelfhostModulePathMap)->str> (map):
+    *field::get_ref map "user_root"
+
+//: selfhost_module_path_map_stdlib_root: stdlib root を[返/かえ]す
+fn selfhost_module_path_map_stdlib_root <(&SelfhostModulePathMap)->str> (map):
+    *field::get_ref map "stdlib_root"
+
+//: selfhost_resolved_module_path_new: resolved path を[作/つく]る
+fn selfhost_resolved_module_path_new <(SelfhostModulePathKind,str)->SelfhostResolvedModulePath> (kind, path):
+    SelfhostResolvedModulePath kind path
+
+//: selfhost_resolved_module_path_is_stdlib: stdlib module か[返/かえ]す
+fn selfhost_resolved_module_path_is_stdlib <(SelfhostResolvedModulePath)->bool> (resolved):
+    match resolved.kind:
+        SelfhostModulePathKind::User:
+            false
+        SelfhostModulePathKind::Stdlib:
+            true
+
+//: selfhost_module_path_diag: path mapping diagnostic を[作/つく]る
+fn selfhost_module_path_diag <(SelfhostSourceSpan,str,str,str,str)->SelfhostDiagnostic> (span, code, message, label, note):
+    let diag <SelfhostDiagnostic> selfhost_diag_error code message
+    let labeled <SelfhostDiagnostic> selfhost_diag_with_primary_label diag selfhost_diag_label_new span label
+    selfhost_diag_with_note labeled note
+
+//: selfhost_module_path_oom_diag: path 文字列確保失敗 diagnostic を[作/つく]る
+fn selfhost_module_path_oom_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
+    selfhost_module_path_diag span "selfhost.module_path.oom" "module path allocation failed" "allocation failed while resolving import path" ""
+
+//: selfhost_module_path_invalid_diag: import path の形式不正 diagnostic を[作/つく]る
+fn selfhost_module_path_invalid_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, spec):
+    selfhost_module_path_diag span "selfhost.module_path.invalid_import" "import path is not a valid module path" "invalid import path" spec
+
+//: selfhost_module_path_escape_diag: `..` が logical root を越えた diagnostic を[作/つく]る
+fn selfhost_module_path_escape_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, spec):
+    selfhost_module_path_diag span "selfhost.module_path.escape_root" "relative import escapes its logical module root" "relative import escapes module root" spec
+
+//: selfhost_module_path_join: root と path segment を `/` で[結合/けつごう]する
+fn selfhost_module_path_join <(SelfhostSourceSpan,str,str)*>Result<str, SelfhostDiagnostic>> (span, left, right):
+    if:
+        eq string::len left 0
+        then:
+            Result<str, SelfhostDiagnostic>::Ok right
+        else:
+            if:
+                string::str_ends_with left "/"
+                then:
+                    match string::concat_result left right:
+                        Result::Ok out:
+                            Result<str, SelfhostDiagnostic>::Ok out
+                        Result::Err _e:
+                            Result<str, SelfhostDiagnostic>::Err selfhost_module_path_oom_diag span
+                else:
+                    match string::concat_result left "/":
+                        Result::Ok prefix:
+                            match string::concat_result prefix right:
+                                Result::Ok out:
+                                    Result<str, SelfhostDiagnostic>::Ok out
+                                Result::Err _e:
+                                    Result<str, SelfhostDiagnostic>::Err selfhost_module_path_oom_diag span
+                        Result::Err _e:
+                            Result<str, SelfhostDiagnostic>::Err selfhost_module_path_oom_diag span
+
+//: selfhost_module_path_ensure_extension: `.nepl` 拡張子を[補/おぎな]う
+fn selfhost_module_path_ensure_extension <(SelfhostSourceSpan,str)*>Result<str, SelfhostDiagnostic>> (span, path):
+    if:
+        string::str_ends_with path ".nepl"
+        then:
+            Result<str, SelfhostDiagnostic>::Ok path
+        else:
+            match string::concat_result path ".nepl":
+                Result::Ok out:
+                    Result<str, SelfhostDiagnostic>::Ok out
+                Result::Err _e:
+                    Result<str, SelfhostDiagnostic>::Err selfhost_module_path_oom_diag span
+
+//: selfhost_module_path_last_slash_loop: 最後の `/` byte index を[探/さが]す
+fn selfhost_module_path_last_slash_loop <(str,i32,i32,i32)->i32> (path, n, idx, last):
+    if:
+        ge idx n
+        then:
+            last
+        else:
+            let ch <i32> string::string_byte_at_unchecked path idx
+            let next_last <i32> if:
+                eq ch '/'
+                then:
+                    idx
+                else:
+                    last
+            selfhost_module_path_last_slash_loop path n add idx 1 next_last
+
+//: selfhost_module_path_parent_dir: logical path の親 directory を[返/かえ]す
+fn selfhost_module_path_parent_dir <(str)->str> (path):
+    let n <i32> string::len path
+    let last <i32> selfhost_module_path_last_slash_loop path n 0 -1
+    if:
+        lt last 0
+        then:
+            ""
+        else:
+            string::str_slice path 0 last
+
+//: selfhost_module_path_in_root: path が root prefix 配下か[返/かえ]す
+fn selfhost_module_path_in_root <(str,str)->bool> (path, root):
+    if:
+        eq string::len root 0
+        then:
+            false
+        else:
+            if:
+                string::str_eq path root
+                then:
+                    true
+                else:
+                    string::str_starts_with path string::concat root "/"
+
+//: selfhost_module_path_kind_for_current: current module path から root 分類を[決/き]める
+fn selfhost_module_path_kind_for_current <(&SelfhostModulePathMap,str)->SelfhostModulePathKind> (map, current_path):
+    if:
+        selfhost_module_path_in_root current_path selfhost_module_path_map_stdlib_root map
+        then:
+            SelfhostModulePathKind::Stdlib
+        else:
+            SelfhostModulePathKind::User
+
+//: selfhost_module_path_root_for_kind: root 分類から logical root を[返/かえ]す
+fn selfhost_module_path_root_for_kind <(&SelfhostModulePathMap,SelfhostModulePathKind)->str> (map, kind):
+    match kind:
+        SelfhostModulePathKind::User:
+            selfhost_module_path_map_user_root map
+        SelfhostModulePathKind::Stdlib:
+            selfhost_module_path_map_stdlib_root map
+
+//: selfhost_module_path_cannot_pop: `..` で root を越えるか[判定/はんてい]する
+fn selfhost_module_path_cannot_pop <(str,str)->bool> (root, base_dir):
+    if:
+        eq string::len base_dir 0
+        then:
+            true
+        else:
+            if:
+                eq string::len root 0
+                then:
+                    false
+                else:
+                    string::str_eq base_dir root
+
+//: selfhost_module_path_finish: path に拡張子を付け、resolved value にする
+fn selfhost_module_path_finish <(SelfhostSourceSpan,SelfhostModulePathKind,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (span, kind, path):
+    if:
+        eq string::len path 0
+        then:
+            Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span path
+        else:
+            match selfhost_module_path_ensure_extension span path:
+                Result::Ok with_ext:
+                    Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Ok selfhost_resolved_module_path_new kind with_ext
+                Result::Err diag:
+                    Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err diag
+
+//: selfhost_module_path_resolve_relative_loop: `.` / `..` を lexical に[処理/しょり]する
+fn selfhost_module_path_resolve_relative_loop <(SelfhostSourceSpan,SelfhostModulePathKind,str,str,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (span, kind, root, base_dir, rel):
+    if:
+        eq string::len rel 0
+        then:
+            Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span rel
+        else:
+            if:
+                string::str_starts_with rel "./"
+                then:
+                    selfhost_module_path_resolve_relative_loop span kind root base_dir string::str_slice rel 2 string::len rel
+                else:
+                    if:
+                        string::str_starts_with rel "../"
+                        then:
+                            if:
+                                selfhost_module_path_cannot_pop root base_dir
+                                then:
+                                    Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_escape_diag span rel
+                                else:
+                                    selfhost_module_path_resolve_relative_loop span kind root selfhost_module_path_parent_dir base_dir string::str_slice rel 3 string::len rel
+                        else:
+                            match selfhost_module_path_join span base_dir rel:
+                                Result::Ok joined:
+                                    selfhost_module_path_finish span kind joined
+                                Result::Err diag:
+                                    Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err diag
+
+//: selfhost_module_path_kind_for_absolute: root-relative path の分類を[決/き]める
+fn selfhost_module_path_kind_for_absolute <(&SelfhostModulePathMap,str)->SelfhostModulePathKind> (map, path):
+    if:
+        selfhost_module_path_in_root path selfhost_module_path_map_stdlib_root map
+        then:
+            SelfhostModulePathKind::Stdlib
+        else:
+            SelfhostModulePathKind::User
+
+//: selfhost_module_path_resolve_absolute: `/...` を root-relative logical path として[解決/かいけつ]する
+fn selfhost_module_path_resolve_absolute <(&SelfhostModulePathMap,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, span, spec):
+    let n <i32> string::len spec
+    if:
+        le n 1
+        then:
+            Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span spec
+        else:
+            let stripped <str> string::str_slice spec 1 n
+            let kind <SelfhostModulePathKind> selfhost_module_path_kind_for_absolute map stripped
+            selfhost_module_path_finish span kind stripped
+
+//: selfhost_module_path_resolve_stdlib: stdlib root 基準で import path を[解決/かいけつ]する
+fn selfhost_module_path_resolve_stdlib <(&SelfhostModulePathMap,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, span, spec):
+    if:
+        eq string::len spec 0
+        then:
+            Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span spec
+        else:
+            match selfhost_module_path_join span selfhost_module_path_map_stdlib_root map spec:
+                Result::Ok joined:
+                    selfhost_module_path_finish span SelfhostModulePathKind::Stdlib joined
+                Result::Err diag:
+                    Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err diag
+
+//: selfhost_module_path_resolve_relative: current module 基準で relative import を[解決/かいけつ]する
+fn selfhost_module_path_resolve_relative <(&SelfhostModulePathMap,str,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, current_path, span, spec):
+    let kind <SelfhostModulePathKind> selfhost_module_path_kind_for_current map current_path
+    let root <str> selfhost_module_path_root_for_kind map kind
+    let base_dir <str> selfhost_module_path_parent_dir current_path
+    selfhost_module_path_resolve_relative_loop span kind root base_dir spec
+
+//: selfhost_module_path_resolve_import: import path 文字列を VFS logical path へ[解決/かいけつ]する
+//:
+//: [仕様/しよう]:
+//: - `/` で始まる path は root-relative logical path として扱います。
+//: - `.` で始まる path は current module の directory から lexical に解決します。
+//: - それ以外は stdlib root 基準で解決します。
+fn selfhost_module_path_resolve_import <(&SelfhostModulePathMap,str,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, current_path, span, spec):
+    if:
+        string::str_starts_with spec "/"
+        then:
+            selfhost_module_path_resolve_absolute map span spec
+        else:
+            if:
+                string::str_starts_with spec "."
+                then:
+                    selfhost_module_path_resolve_relative map current_path span spec
+                else:
+                    selfhost_module_path_resolve_stdlib map span spec
+
+//: selfhost_module_path_resolve_import_spec: typed import spec を VFS logical path へ[解決/かいけつ]する
+fn selfhost_module_path_resolve_import_spec <(&SelfhostModulePathMap,str,SelfhostImportSpec)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, current_path, spec):
+    selfhost_module_path_resolve_import map current_path spec.span spec.path

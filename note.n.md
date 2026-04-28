@@ -23283,3 +23283,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host import spec で `_` fallback を使えるようにする compiler 側の型検査 / backend gap を解消した。
+
+# 2026-04-28 メモ (ISS-20260428T155038303Z self-host stdlib map)
+
+- [同期]:
+  - `main` は `origin/main` の `e865c76 fix(selfhost): build import graph` まで同期済みで、`selfhost/s2-stdlib-map` branch を作成して作業した。
+- [原因]:
+  - S2 の import graph は VFS logical path を完全一致で辿れるが、`#import "core/result"` を stdlib root 配下へ、`#import "./util"` を current module directory 配下へ正規化する境界が無かった。
+  - このままだと CLI / resolver / pipeline が import lexeme を個別に連結し、core 層へ filesystem path の知識が漏れる。
+- [修正]:
+  - `stdlib/neplg2/core/module/stdlib_map.nepl` を追加し、`SelfhostModulePathMap`、`SelfhostModulePathKind`、`SelfhostResolvedModulePath` を定義した。
+  - 非 relative import は stdlib root 基準、`.` / `..` / `/` で始まる import は current module の root / directory 基準で解決し、拡張子なし path には `.nepl` を補うようにした。
+  - `/stdlib/...` のような absolute logical path も stdlib root 配下として分類し、resolver が user module と stdlib module を enum で区別できるようにした。
+  - `..` が user root / stdlib root を越える場合は `selfhost.module_path.escape_root` diagnostic にした。
+  - `core/module/graph.nepl` に `selfhost_build_module_graph_with_path_map` を追加し、既存の完全一致 graph API と mapped graph API を分けた。
+  - `tests/stdlib/neplg2_stdlib_map.n.md` に stdlib import、relative import、mapped graph、root escape diagnostic の回帰を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/neplg2-stdlib-map-doctest.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg2-stdlib-map-focused.json -j 1`: total=3 passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg2-module-graph-after-stdlib-map.json -j 1`: total=3 passed=3
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_stdlib_map.n.md -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-stdlib-map-syntax.json -j 1`: total=53 passed=53
+  - remote main の `1166ee3 fix(core): support enum match wildcard arms` まで rebase 後、`trunk build`: pass
+  - rebase 後、`node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/neplg2-stdlib-map-doctest-after-rebase-1166ee3.json -j 1`: total=1 passed=1
+  - rebase 後、`node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg2-stdlib-map-focused-after-rebase-1166ee3.json -j 1`: total=3 passed=3
+  - rebase 後、`node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg2-module-graph-after-stdlib-map-rebase-1166ee3.json -j 1`: total=3 passed=3
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_execution_plan.md` S2 の `selfhost/s2-stdlib-map` に対応し、core 層を filesystem 非依存に保ったまま stdlib/user root mapping を追加した。

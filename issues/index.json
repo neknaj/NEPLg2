@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T16:17:39.793Z",
+  "generated_at": "2026-04-28T16:25:46.352Z",
   "counts": {
-    "total": 290,
+    "total": 291,
     "open": 9,
-    "resolved": 281,
+    "resolved": 282,
     "by_area": {
       "core": {
         "total": 136,
@@ -17,9 +17,9 @@
         "resolved": 90
       },
       "selfhost": {
-        "total": 22,
+        "total": 23,
         "open": 1,
-        "resolved": 21
+        "resolved": 22
       },
       "cli": {
         "total": 19,
@@ -3543,6 +3543,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D.md"
+    },
+    {
+      "id": "ISS-20260428T155038303Z-SELF-HOST-MODULE-LOADER-LACKS-STDLIB-B3D12B30",
+      "title": "self-host module loader lacks stdlib and user root path mapping",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/module/stdlib_map.nepl, stdlib/neplg2/core/module/graph.nepl, tests/stdlib/neplg2_stdlib_map.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T155038303Z-SELF-HOST-MODULE-LOADER-LACKS-STDLIB-B3D12B30.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
