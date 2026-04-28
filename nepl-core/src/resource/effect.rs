@@ -206,23 +206,24 @@ impl ResourceEffectBoundaryEngine<'_> {
             } => {
                 if let Some(initializer) = initializer {
                     identities.copy_identity(initializer, place);
-                    pointer_aliases.copy_alias(initializer, place);
+                    copy_pointer_alias(pointer_aliases, raw_memory_identities, initializer, place);
                     function_aliases.copy_alias(initializer, place);
                 }
             }
             ResourceOp::Read { source, output, .. } | ResourceOp::Move { source, output, .. } => {
                 identities.copy_identity(source, output);
-                pointer_aliases.copy_alias(source, output);
+                copy_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
                 function_aliases.copy_alias(source, output);
             }
             ResourceOp::Assign { target, value, .. } => {
                 identities.copy_identity(value, target);
-                pointer_aliases.copy_alias(value, target);
+                copy_pointer_alias(pointer_aliases, raw_memory_identities, value, target);
                 function_aliases.copy_alias(value, target);
             }
             ResourceOp::Construct { output, inputs, .. } => {
+                identities.clear(output);
                 for input in inputs {
-                    identities.copy_identity(input, output);
+                    identities.merge_identity(input, output);
                 }
             }
             ResourceOp::Call {
@@ -232,7 +233,13 @@ impl ResourceEffectBoundaryEngine<'_> {
                 ..
             } => {
                 self.copy_call_return_identity(identities, output, target, args);
-                self.copy_call_return_pointer_alias(pointer_aliases, output, target, args);
+                self.copy_call_return_pointer_alias(
+                    pointer_aliases,
+                    raw_memory_identities,
+                    output,
+                    target,
+                    args,
+                );
             }
             ResourceOp::IndirectCall {
                 output,
@@ -249,6 +256,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 );
                 self.copy_indirect_call_return_pointer_alias(
                     pointer_aliases,
+                    raw_memory_identities,
                     output,
                     callee,
                     args,
@@ -287,8 +295,18 @@ impl ResourceEffectBoundaryEngine<'_> {
                 );
                 then_identities.copy_identity(then_value, output);
                 else_identities.copy_identity(else_value, output);
-                then_pointer_aliases.copy_alias(then_value, output);
-                else_pointer_aliases.copy_alias(else_value, output);
+                copy_pointer_alias(
+                    &mut then_pointer_aliases,
+                    &mut then_raw_memory_identities,
+                    then_value,
+                    output,
+                );
+                copy_pointer_alias(
+                    &mut else_pointer_aliases,
+                    &mut else_raw_memory_identities,
+                    else_value,
+                    output,
+                );
                 then_function_aliases.copy_alias(then_value, output);
                 else_function_aliases.copy_alias(else_value, output);
                 *identities = RawIdentityTable::merge_paths(&[then_identities, else_identities]);
@@ -365,7 +383,12 @@ impl ResourceEffectBoundaryEngine<'_> {
                         &arm.ops,
                     );
                     arm_identities.copy_identity(&arm.value, output);
-                    arm_pointer_aliases.copy_alias(&arm.value, output);
+                    copy_pointer_alias(
+                        &mut arm_pointer_aliases,
+                        &mut arm_raw_memory_identities,
+                        &arm.value,
+                        output,
+                    );
                     arm_function_aliases.copy_alias(&arm.value, output);
                     arm_paths.push(arm_identities);
                     pointer_alias_paths.push(arm_pointer_aliases);
@@ -451,6 +474,7 @@ impl ResourceEffectBoundaryEngine<'_> {
     fn copy_call_return_pointer_alias(
         &self,
         pointer_aliases: &mut RawPointerAliasTable,
+        raw_memory_identities: &mut RawMemoryIdentityTable,
         output: &Place,
         target: &ResourceCallTarget,
         args: &[Place],
@@ -470,13 +494,14 @@ impl ResourceEffectBoundaryEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            pointer_aliases.copy_alias(arg, output);
+            copy_pointer_alias(pointer_aliases, raw_memory_identities, arg, output);
         }
     }
 
     fn copy_indirect_call_return_pointer_alias(
         &self,
         pointer_aliases: &mut RawPointerAliasTable,
+        raw_memory_identities: &mut RawMemoryIdentityTable,
         output: &Place,
         callee: &Place,
         args: &[Place],
@@ -485,7 +510,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         let functions = function_aliases.functions(callee);
         if functions.is_empty() {
             for arg in args {
-                pointer_aliases.copy_alias(arg, output);
+                copy_pointer_alias(pointer_aliases, raw_memory_identities, arg, output);
             }
             return;
         }
@@ -500,7 +525,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                     .iter()
                     .filter_map(|index| args.get(*index))
                 {
-                    pointer_aliases.copy_alias(arg, output);
+                    copy_pointer_alias(pointer_aliases, raw_memory_identities, arg, output);
                 }
             }
         }
@@ -824,6 +849,16 @@ fn dedupe_functions(functions: Vec<String>) -> Vec<String> {
     out
 }
 
+fn copy_pointer_alias(
+    pointer_aliases: &mut RawPointerAliasTable,
+    raw_memory_identities: &mut RawMemoryIdentityTable,
+    source: &Place,
+    target: &Place,
+) {
+    raw_memory_identities.remove_place(target);
+    pointer_aliases.copy_alias(source, target);
+}
+
 #[derive(Debug, Clone, Default)]
 struct RawMemoryIdentityTable {
     pointer_groups: Vec<Vec<Place>>,
@@ -845,6 +880,13 @@ impl RawMemoryIdentityTable {
         let group = pointer_aliases.group_for_or_singleton(place);
         self.pointer_groups
             .retain(|stored| !groups_overlap(stored, &group));
+    }
+
+    fn remove_place(&mut self, place: &Place) {
+        for group in &mut self.pointer_groups {
+            group.retain(|existing| existing != place);
+        }
+        self.pointer_groups.retain(|group| !group.is_empty());
     }
 
     fn merge_paths(paths: &[RawMemoryIdentityTable]) -> Self {
@@ -885,6 +927,10 @@ impl RawPointerAliasTable {
     }
 
     fn copy_alias(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        self.remove_place(target);
         let mut merged = self.group_for_or_singleton(source);
         if !merged.contains(target) {
             merged.push(target.clone());
@@ -914,6 +960,13 @@ impl RawPointerAliasTable {
             .find(|group| group.iter().any(|existing| existing == place))
             .cloned()
             .unwrap_or_else(|| vec![place.clone()])
+    }
+
+    fn remove_place(&mut self, place: &Place) {
+        for group in &mut self.groups {
+            group.retain(|existing| existing != place);
+        }
+        self.groups.retain(|group| !group.is_empty());
     }
 
     fn union_group(&mut self, group: &[Place]) {
@@ -950,6 +1003,14 @@ impl RawIdentityTable {
     }
 
     fn copy_identity(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        self.clear(target);
+        self.merge_identity(source, target);
+    }
+
+    fn merge_identity(&mut self, source: &Place, target: &Place) {
         if let Some(group) = self.group_for(source) {
             let mut merged = group.to_vec();
             if !merged.contains(target) {
@@ -957,6 +1018,13 @@ impl RawIdentityTable {
             }
             self.union_group(&merged);
         }
+    }
+
+    fn clear(&mut self, place: &Place) {
+        for group in &mut self.groups {
+            group.retain(|existing| existing != place);
+        }
+        self.groups.retain(|group| !group.is_empty());
     }
 
     fn merge_paths(paths: &[RawIdentityTable]) -> Self {

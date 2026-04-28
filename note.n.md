@@ -22707,3 +22707,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の public escape diagnostics に向けて、effect checker の unknown callback raw identity propagation を stale alias で迂回しないようにした。
+
+# 2026-04-28 メモ (ISS-20260428T124306511Z raw pointer alias overwrite)
+
+- [同期]:
+  - `origin/main` の `c7f5156 fix(core): clear stale effect aliases` まで同期した main から `work/stage5-raw-pointer-alias-overwrite` branch を作成した。
+- [原因]:
+  - `RawPointerAliasTable::copy_alias` は target を旧 alias group から外さず source group と union していた。
+  - `RawMemoryIdentityTable` は pointer alias group 単位で raw slot payload identity を保持するため、再代入された pointer variable が旧 storage identity group に残ると、新しい pointer への `store` が旧 storage identity を消す false negative になり得た。
+  - `RawIdentityTable::copy_identity` も source が identity を持たない場合に target の古い identity を消さず、raw value identity の上書き状態が曖昧だった。
+- [修正]:
+  - raw value identity copy と pointer alias copy を target state の上書き操作に変更し、copy 前に target place を旧 group から外すようにした。
+  - pointer alias overwrite 前に `RawMemoryIdentityTable` から target place を外し、memory slot identity が再代入後の pointer variable へ追従しないようにした。
+  - aggregate construction は複数 input の raw identity を集約する必要があるため、overwrite copy ではなく `merge_identity` を使う形に分けた。
+  - `nepl-core/tests/resource_ir.rs` に ptr A の raw slot identity が pointer local 再代入後の ptr B store で消えず、ptr A load の raw address escape が検出される回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の raw identity / pointer provenance に向けた補強として、effect checker の alias overwrite semantics を固定した。

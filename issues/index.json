@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:39:36.166Z",
+  "generated_at": "2026-04-28T12:47:06.459Z",
   "counts": {
-    "total": 276,
+    "total": 277,
     "open": 10,
-    "resolved": 266,
+    "resolved": 267,
     "by_area": {
       "core": {
-        "total": 126,
+        "total": 127,
         "open": 4,
-        "resolved": 122
+        "resolved": 123
       },
       "stdlib": {
         "total": 95,
@@ -1998,6 +1998,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T123750146Z-RESOURCE-EFFECT-CHECKER-KEEPS-STALE--0C4747E0.md"
+    },
+    {
+      "id": "ISS-20260428T124306511Z-RESOURCE-EFFECT-CHECKER-KEEPS-STALE--E36BD546",
+      "title": "Resource effect checker keeps stale raw pointer aliases after assignment",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T124306511Z-RESOURCE-EFFECT-CHECKER-KEEPS-STALE--E36BD546.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -583,6 +583,117 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_raw_slot() {
 }
 
 #[test]
+fn resource_ir_effect_check_preserves_raw_slot_identity_after_pointer_reassignment() {
+    let unit_ty = TypeId(0);
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let size_a = Place::temporary(ResourceId(0), i32_ty);
+    let ptr_a = Place::temporary(ResourceId(1), i32_ty);
+    let size_b = Place::temporary(ResourceId(2), i32_ty);
+    let ptr_b = Place::temporary(ResourceId(3), i32_ty);
+    let identity_value = Place::temporary(ResourceId(4), i32_ty);
+    let p = Place::local("p".to_string(), i32_ty);
+    let non_identity = Place::temporary(ResourceId(5), i32_ty);
+    let loaded = Place::temporary(ResourceId(6), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: size_a.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: ptr_a.clone(),
+                        args: vec![size_a],
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: size_b.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: ptr_b.clone(),
+                        args: vec![size_b],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: identity_value.clone(),
+                        args: vec![],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Store,
+                        output: Place::temporary(ResourceId(7), unit_ty),
+                        args: vec![ptr_a.clone(), identity_value],
+                        span,
+                    },
+                    ResourceOp::DeclareLocal {
+                        place: p.clone(),
+                        mutable: true,
+                        initializer: Some(ptr_a.clone()),
+                        span,
+                    },
+                    ResourceOp::Assign {
+                        target: p.clone(),
+                        value: ptr_b,
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: non_identity.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Store,
+                        output: Place::temporary(ResourceId(8), unit_ty),
+                        args: vec![p, non_identity],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded.clone(),
+                        args: vec![ptr_a],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(loaded),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_raw_alloc_escape_through_parameter_slot_alias() {
     let unit_ty = TypeId(0);
     let i32_ty = TypeId(1);
