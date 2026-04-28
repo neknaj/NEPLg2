@@ -107,6 +107,28 @@ pub enum ResourceOp {
         effect: EffectOp,
         span: Span,
     },
+    FunctionValue {
+        output: Place,
+        name: String,
+        effect: EffectOp,
+        span: Span,
+    },
+    Call {
+        output: Place,
+        target: ResourceCallTarget,
+        args: Vec<Place>,
+        effect: EffectOp,
+        span: Span,
+    },
+    IndirectCall {
+        output: Place,
+        callee: Place,
+        params: Vec<TypeId>,
+        result: TypeId,
+        args: Vec<Place>,
+        effect: EffectOp,
+        span: Span,
+    },
     RawMemory {
         operation: RawMemoryOp,
         output: Place,
@@ -175,6 +197,23 @@ pub enum RawMemoryOp {
     MemoryGrow,
     Fill,
     Other { name: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceCallTarget {
+    Builtin {
+        name: String,
+    },
+    User {
+        name: String,
+        type_args: Vec<TypeId>,
+    },
+    Trait {
+        trait_name: String,
+        trait_args: Vec<TypeId>,
+        method: String,
+        self_ty: TypeId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

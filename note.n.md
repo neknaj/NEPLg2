@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 3 function call / callback effect lowering)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 3 として、function call / callback effect lowering を進めた。
+  - これまでは direct/indirect call が `Expr` と粗い `CallEffect` だけで、callee、callee place、argument places、function value identity、実際の user function effect が Resource IR に残らなかった。
+- 修正:
+  - `ResourceOp::Call`、`ResourceOp::IndirectCall`、`ResourceOp::FunctionValue`、`ResourceCallTarget` を追加し、direct call / callback / `@fn` を Resource IR dump に残すようにした。
+  - module-level effect map を Resource IR lowering に追加し、`FuncRef::User` と function value の effect が常に Pure に潰れる問題を修正した。同名 overload / extern の effect は安全側で Impure に合流する。
+  - `nepl-core/tests/resource_ir.rs` に direct impure call、function value、indirect callback の lowering regression を追加した。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 3 function call / callback effect lowering の到達点と残作業を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/model.rs nepl-core/src/resource/lower.rs nepl-core/src/resource/dump.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 5 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage3-resource-ir-call-effect-focused.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正は doc/neplg2 の Stage 3 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260427T132406497Z Stage 3 raw memory operation lowering)
 
 - 状況:

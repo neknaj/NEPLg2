@@ -6,7 +6,7 @@ use core::fmt::Write;
 
 use super::model::{
     AggregateKind, EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, RawMemoryOp,
-    ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceCallTarget, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 impl ResourceModule {
@@ -165,6 +165,65 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
             let _ = writeln!(
                 out,
                 "effect {} span={}:{}-{}",
+                dump_effect(effect),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::FunctionValue {
+            output,
+            name,
+            effect,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "function_value {} out={} effect={} span={}:{}-{}",
+                name,
+                dump_place(output),
+                dump_effect(effect),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Call {
+            output,
+            target,
+            args,
+            effect,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "call {} out={} args=[{}] effect={} span={}:{}-{}",
+                dump_call_target(target),
+                dump_place(output),
+                dump_place_list(args),
+                dump_effect(effect),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::IndirectCall {
+            output,
+            callee,
+            params,
+            result,
+            args,
+            effect,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "indirect_call out={} callee={} params=[{}] result=t{} args=[{}] effect={} span={}:{}-{}",
+                dump_place(output),
+                dump_place(callee),
+                dump_type_list(params),
+                result.0,
+                dump_place_list(args),
                 dump_effect(effect),
                 span.file_id.0,
                 span.start,
@@ -362,6 +421,17 @@ fn dump_place_list(places: &[Place]) -> String {
     out
 }
 
+fn dump_type_list(types: &[crate::types::TypeId]) -> String {
+    let mut out = String::new();
+    for (idx, ty) in types.iter().enumerate() {
+        if idx > 0 {
+            out.push_str(", ");
+        }
+        let _ = write!(out, "t{}", ty.0);
+    }
+    out
+}
+
 fn dump_projection(projection: &PlaceProjection) -> String {
     match projection {
         PlaceProjection::Field {
@@ -413,6 +483,27 @@ fn dump_raw_memory_op(operation: &RawMemoryOp) -> String {
         RawMemoryOp::MemoryGrow => String::from("memory_grow"),
         RawMemoryOp::Fill => String::from("fill"),
         RawMemoryOp::Other { name } => format!("other({})", name),
+    }
+}
+
+fn dump_call_target(target: &ResourceCallTarget) -> String {
+    match target {
+        ResourceCallTarget::Builtin { name } => format!("builtin({})", name),
+        ResourceCallTarget::User { name, type_args } => {
+            format!("user({}<{}>)", name, dump_type_list(type_args))
+        }
+        ResourceCallTarget::Trait {
+            trait_name,
+            trait_args,
+            method,
+            self_ty,
+        } => format!(
+            "trait({}<{}>::{} self=t{})",
+            trait_name,
+            dump_type_list(trait_args),
+            method,
+            self_ty.0
+        ),
     }
 }
 

@@ -17,20 +17,62 @@ use crate::types::TypeId;
 
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, RawMemoryOp, ResourceBlock,
-    ResourceBlockId, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
-    ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceBlockId, ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId,
+    ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp,
+    ResourceTerminator,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
+    let env = LoweringEnvironment::new(module);
     ResourceModule {
         functions: module
             .functions
             .iter()
-            .map(lower_hir_function_skeleton)
+            .map(|function| lower_hir_function_skeleton(function, &env))
             .collect(),
         entry: module.entry.clone(),
         string_literals: module.string_literals.clone(),
     }
+}
+
+struct LoweringEnvironment {
+    function_effects: BTreeMap<String, Effect>,
+}
+
+impl LoweringEnvironment {
+    fn new(module: &HirModule) -> Self {
+        let mut function_effects = BTreeMap::new();
+        for function in &module.functions {
+            insert_effect(
+                &mut function_effects,
+                function.name.clone(),
+                function.effect,
+            );
+        }
+        for extern_fn in &module.externs {
+            insert_effect(
+                &mut function_effects,
+                extern_fn.local_name.clone(),
+                extern_fn.effect,
+            );
+        }
+        Self { function_effects }
+    }
+
+    fn function_effect(&self, name: &str) -> Effect {
+        self.function_effects
+            .get(name)
+            .copied()
+            .unwrap_or(Effect::Pure)
+    }
+}
+
+fn insert_effect(function_effects: &mut BTreeMap<String, Effect>, name: String, effect: Effect) {
+    let merged = match (function_effects.get(name.as_str()).copied(), effect) {
+        (Some(Effect::Impure), _) | (_, Effect::Impure) => Effect::Impure,
+        _ => Effect::Pure,
+    };
+    function_effects.insert(name, merged);
 }
 
 struct LoweringContext {
@@ -89,7 +131,10 @@ impl LoweringContext {
     }
 }
 
-fn lower_hir_function_skeleton(function: &HirFunction) -> ResourceFunction {
+fn lower_hir_function_skeleton(
+    function: &HirFunction,
+    env: &LoweringEnvironment,
+) -> ResourceFunction {
     let params = function
         .params
         .iter()
@@ -99,7 +144,7 @@ fn lower_hir_function_skeleton(function: &HirFunction) -> ResourceFunction {
     let mut ops = Vec::new();
     let terminator = match &function.body {
         HirBody::Block(block) => {
-            let value = lower_block_skeleton(block, &mut ops, &mut ctx);
+            let value = lower_block_skeleton(block, &mut ops, &mut ctx, env);
             ResourceTerminator::Return {
                 value: Some(value),
                 span: block.span,
@@ -145,6 +190,7 @@ fn lower_block_skeleton(
     block: &HirBlock,
     ops: &mut Vec<ResourceOp>,
     ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
 ) -> Place {
     let block_output = ctx.temporary(block.ty);
     ops.push(ResourceOp::Expr {
@@ -156,7 +202,7 @@ fn lower_block_skeleton(
     ctx.push_scope();
     let mut last = block_output;
     for line in &block.lines {
-        let value = lower_expr_skeleton(&line.expr, ops, ctx);
+        let value = lower_expr_skeleton(&line.expr, ops, ctx, env);
         if !line.drop_result {
             last = value;
         }
@@ -169,6 +215,7 @@ fn lower_expr_skeleton(
     expr: &HirExpr,
     ops: &mut Vec<ResourceOp>,
     ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
 ) -> Place {
     match &expr.kind {
         HirExprKind::LiteralI32(_)
@@ -191,15 +238,39 @@ fn lower_expr_skeleton(
             });
             output
         }
-        HirExprKind::FnValue(_) => push_expr(ops, ResourceExprKind::FunctionValue, expr, ctx),
+        HirExprKind::FnValue(name) => {
+            let output = ctx.temporary(expr.ty);
+            let effect = function_value_effect(name, env);
+            ops.push(ResourceOp::FunctionValue {
+                output: output.clone(),
+                name: name.clone(),
+                effect,
+                span: expr.span,
+            });
+            ops.push(ResourceOp::Expr {
+                kind: ResourceExprKind::FunctionValue,
+                output: output.clone(),
+                ty: expr.ty,
+                span: expr.span,
+            });
+            output
+        }
         HirExprKind::Call { callee, args } => {
-            let arg_places = lower_args_skeleton(args, ops, ctx);
+            let arg_places = lower_args_skeleton(args, ops, ctx, env);
+            let effect = call_effect_skeleton(callee, env);
             ops.push(ResourceOp::CallEffect {
-                effect: call_effect_skeleton(callee),
+                effect: effect.clone(),
+                span: expr.span,
+            });
+            let output = ctx.temporary(expr.ty);
+            ops.push(ResourceOp::Call {
+                output: output.clone(),
+                target: lower_call_target(callee),
+                args: arg_places.clone(),
+                effect: effect.clone(),
                 span: expr.span,
             });
             if let Some(operation) = raw_memory_op_from_callee(callee) {
-                let output = ctx.temporary(expr.ty);
                 ops.push(ResourceOp::RawMemory {
                     operation,
                     output: output.clone(),
@@ -212,36 +283,60 @@ fn lower_expr_skeleton(
                     ty: expr.ty,
                     span: expr.span,
                 });
-                output
-            } else {
-                push_expr(ops, ResourceExprKind::Call, expr, ctx)
             }
-        }
-        HirExprKind::CallIndirect { callee, args, .. } => {
-            lower_expr_skeleton(callee, ops, ctx);
-            for arg in args {
-                lower_expr_skeleton(arg, ops, ctx);
-            }
-            ops.push(ResourceOp::CallEffect {
-                effect: EffectOp::Unknown {
-                    reason: String::from("indirect call"),
-                },
+            ops.push(ResourceOp::Expr {
+                kind: ResourceExprKind::Call,
+                output: output.clone(),
+                ty: expr.ty,
                 span: expr.span,
             });
-            push_expr(ops, ResourceExprKind::IndirectCall, expr, ctx)
+            output
+        }
+        HirExprKind::CallIndirect {
+            callee,
+            params,
+            result,
+            args,
+        } => {
+            let callee = lower_expr_skeleton(callee, ops, ctx, env);
+            let arg_places = lower_args_skeleton(args, ops, ctx, env);
+            let effect = EffectOp::Unknown {
+                reason: String::from("indirect call"),
+            };
+            ops.push(ResourceOp::CallEffect {
+                effect: effect.clone(),
+                span: expr.span,
+            });
+            let output = ctx.temporary(expr.ty);
+            ops.push(ResourceOp::IndirectCall {
+                output: output.clone(),
+                callee,
+                params: params.clone(),
+                result: *result,
+                args: arg_places,
+                effect,
+                span: expr.span,
+            });
+            ops.push(ResourceOp::Expr {
+                kind: ResourceExprKind::IndirectCall,
+                output: output.clone(),
+                ty: expr.ty,
+                span: expr.span,
+            });
+            output
         }
         HirExprKind::If {
             cond,
             then_branch,
             else_branch,
         } => {
-            let condition = lower_expr_skeleton(cond, ops, ctx);
+            let condition = lower_expr_skeleton(cond, ops, ctx, env);
             let branch_locals = ctx.snapshot_locals();
             let mut then_ops = Vec::new();
-            let then_value = lower_expr_skeleton(then_branch, &mut then_ops, ctx);
+            let then_value = lower_expr_skeleton(then_branch, &mut then_ops, ctx, env);
             ctx.restore_locals(branch_locals.clone());
             let mut else_ops = Vec::new();
-            let else_value = lower_expr_skeleton(else_branch, &mut else_ops, ctx);
+            let else_value = lower_expr_skeleton(else_branch, &mut else_ops, ctx, env);
             ctx.restore_locals(branch_locals);
             let output = ctx.temporary(expr.ty);
             ops.push(ResourceOp::Branch {
@@ -258,10 +353,10 @@ fn lower_expr_skeleton(
         HirExprKind::While { cond, body } => {
             let loop_locals = ctx.snapshot_locals();
             let mut condition_ops = Vec::new();
-            let condition = lower_expr_skeleton(cond, &mut condition_ops, ctx);
+            let condition = lower_expr_skeleton(cond, &mut condition_ops, ctx, env);
             ctx.restore_locals(loop_locals.clone());
             let mut body_ops = Vec::new();
-            lower_expr_skeleton(body, &mut body_ops, ctx);
+            lower_expr_skeleton(body, &mut body_ops, ctx, env);
             ctx.restore_locals(loop_locals);
             ops.push(ResourceOp::Loop {
                 condition_ops,
@@ -272,7 +367,7 @@ fn lower_expr_skeleton(
             Place::unknown(expr.ty)
         }
         HirExprKind::Match { scrutinee, arms } => {
-            let scrutinee = lower_expr_skeleton(scrutinee, ops, ctx);
+            let scrutinee = lower_expr_skeleton(scrutinee, ops, ctx, env);
             let mut resource_arms = Vec::new();
             let match_locals = ctx.snapshot_locals();
             for arm in arms {
@@ -288,7 +383,7 @@ fn lower_expr_skeleton(
                         ctx.declare_local(name.clone(), place.ty);
                     }
                 }
-                let value = lower_expr_skeleton(&arm.body, &mut arm_ops, ctx);
+                let value = lower_expr_skeleton(&arm.body, &mut arm_ops, ctx, env);
                 resource_arms.push(ResourceMatchArm {
                     pattern: lower_match_pattern(&arm.pattern),
                     bind_local,
@@ -315,7 +410,7 @@ fn lower_expr_skeleton(
         } => {
             let mut inputs = Vec::new();
             if let Some(payload) = payload {
-                inputs.push(lower_expr_skeleton(payload, ops, ctx));
+                inputs.push(lower_expr_skeleton(payload, ops, ctx, env));
             }
             push_construct(
                 ops,
@@ -331,7 +426,7 @@ fn lower_expr_skeleton(
         HirExprKind::StructConstruct { name, fields, .. } => {
             let inputs = fields
                 .iter()
-                .map(|field| lower_expr_skeleton(field, ops, ctx))
+                .map(|field| lower_expr_skeleton(field, ops, ctx, env))
                 .collect();
             push_construct(
                 ops,
@@ -344,17 +439,17 @@ fn lower_expr_skeleton(
         HirExprKind::TupleConstruct { items } => {
             let inputs = items
                 .iter()
-                .map(|item| lower_expr_skeleton(item, ops, ctx))
+                .map(|item| lower_expr_skeleton(item, ops, ctx, env))
                 .collect();
             push_construct(ops, AggregateKind::Tuple, inputs, expr, ctx)
         }
-        HirExprKind::Block(block) => lower_block_skeleton(block, ops, ctx),
+        HirExprKind::Block(block) => lower_block_skeleton(block, ops, ctx, env),
         HirExprKind::Let {
             name,
             mutable,
             value,
         } => {
-            let initializer = lower_expr_skeleton(value, ops, ctx);
+            let initializer = lower_expr_skeleton(value, ops, ctx, env);
             let place = Place::local(name.clone(), value.ty);
             ctx.declare_local(name.clone(), value.ty);
             ops.push(ResourceOp::DeclareLocal {
@@ -373,7 +468,7 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Set { name, value } => {
-            let value_place = lower_expr_skeleton(value, ops, ctx);
+            let value_place = lower_expr_skeleton(value, ops, ctx, env);
             let target = ctx.local_place(name, value.ty);
             ops.push(ResourceOp::Assign {
                 target: target.clone(),
@@ -390,7 +485,7 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Intrinsic { name, args, .. } => {
-            let arg_places = lower_args_skeleton(args, ops, ctx);
+            let arg_places = lower_args_skeleton(args, ops, ctx, env);
             let raw_operation = raw_memory_op_from_intrinsic(name);
             if raw_operation.is_some() {
                 ops.push(ResourceOp::CallEffect {
@@ -422,7 +517,7 @@ fn lower_expr_skeleton(
         HirExprKind::AddrOf(inner) => {
             let source = place_from_expr_skeleton(inner, ctx);
             if matches!(&source.root, super::model::PlaceRoot::Unknown) {
-                lower_expr_skeleton(inner, ops, ctx);
+                lower_expr_skeleton(inner, ops, ctx, env);
             }
             let output = ctx.temporary(expr.ty);
             ops.push(ResourceOp::Borrow {
@@ -440,7 +535,7 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Deref(inner) => {
-            lower_expr_skeleton(inner, ops, ctx);
+            lower_expr_skeleton(inner, ops, ctx, env);
             push_expr(ops, ResourceExprKind::Deref, expr, ctx)
         }
         HirExprKind::Drop { name } => {
@@ -490,9 +585,10 @@ fn lower_args_skeleton(
     args: &[HirExpr],
     ops: &mut Vec<ResourceOp>,
     ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
 ) -> Vec<Place> {
     args.iter()
-        .map(|arg| lower_expr_skeleton(arg, ops, ctx))
+        .map(|arg| lower_expr_skeleton(arg, ops, ctx, env))
         .collect()
 }
 
@@ -505,7 +601,7 @@ fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
     }
 }
 
-fn call_effect_skeleton(callee: &FuncRef) -> EffectOp {
+fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp {
     match callee {
         FuncRef::Builtin(name) | FuncRef::User(name, _, _)
             if raw_callee_is_raw_memory_effect(name.as_str()) =>
@@ -520,13 +616,47 @@ fn call_effect_skeleton(callee: &FuncRef) -> EffectOp {
         },
         FuncRef::User(name, _, _) => EffectOp::UserCall {
             name: name.clone(),
-            effect: Effect::Pure,
+            effect: env.function_effect(name),
         },
         FuncRef::Trait {
             trait_name, method, ..
         } => EffectOp::UserCall {
             name: alloc::format!("{}::{}", trait_name, method),
             effect: Effect::Pure,
+        },
+    }
+}
+
+fn function_value_effect(name: &str, env: &LoweringEnvironment) -> EffectOp {
+    if raw_callee_is_raw_memory_effect(name) {
+        EffectOp::UnsafeMemory {
+            operation: String::from(helper_base_name(name)),
+        }
+    } else {
+        EffectOp::UserCall {
+            name: String::from(name),
+            effect: env.function_effect(name),
+        }
+    }
+}
+
+fn lower_call_target(callee: &FuncRef) -> ResourceCallTarget {
+    match callee {
+        FuncRef::Builtin(name) => ResourceCallTarget::Builtin { name: name.clone() },
+        FuncRef::User(name, type_args, _) => ResourceCallTarget::User {
+            name: name.clone(),
+            type_args: type_args.clone(),
+        },
+        FuncRef::Trait {
+            trait_name,
+            trait_args,
+            method,
+            self_ty,
+        } => ResourceCallTarget::Trait {
+            trait_name: trait_name.clone(),
+            trait_args: trait_args.clone(),
+            method: method.clone(),
+            self_ty: *self_ty,
         },
     }
 }
