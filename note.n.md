@@ -1,3 +1,14 @@
+# 2026-04-29 メモ (ISS-20260428T210025111Z self-host name resolver kind lookup)
+
+- `selfhost_name_scope_find` は名前だけで最新 binding を返すため、同じ文字列を持つ value / type / trait 系の定義を caller が安全に分ける API がなかった。
+- `selfhost_name_scope_find_kind_loop` と `selfhost_name_scope_find_kind` を追加し、末尾から探索しながら `name` と `SelfhostDefKind` の両方が一致する binding だけを返すようにした。
+- 既存の `selfhost_name_scope_find` は any-kind の最新 binding を返す API として維持し、名前空間が必要な checker / import resolver は kind-filtered API を使う形にした。
+- 回帰テストとして同名 `Local` / `Struct` binding を追加し、名前だけ lookup は最新 `Struct`、`find_kind Local` は古い `Local`、存在しない `Builtin` は `None` になることを確認した。
+- 検証:
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\resolve\name_resolver.nepl --no-tree -o tmp\selfhost-name-kind-lookup.json -j 1`: total=2, passed=2
+  - `node nodesrc\issues.js check`: pass, files=318
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T204905577Z self-host name resolver scope)
 
 - `stdlib/neplg2/core/resolve/name_resolver.nepl` は marker API だけで、後続の HIR / check / diagnostic が定義を安定 id で参照するための境界がなかった。

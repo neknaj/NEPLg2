@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:57:40.634Z",
+  "generated_at": "2026-04-28T21:03:18.088Z",
   "counts": {
-    "total": 317,
+    "total": 318,
     "open": 11,
-    "resolved": 306,
+    "resolved": 307,
     "by_area": {
       "core": {
         "total": 150,
@@ -17,9 +17,9 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 34,
+        "total": 35,
         "open": 1,
-        "resolved": 33
+        "resolved": 34
       },
       "cli": {
         "total": 19,
@@ -3933,6 +3933,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T204905577Z-SELF-HOST-NAME-RESOLVER-LACKS-DEFID--D1423D04.md"
+    },
+    {
+      "id": "ISS-20260428T210025111Z-SELF-HOST-NAME-RESOLVER-LOOKUP-CANNO-03EDF726",
+      "title": "self-host name resolver lookup cannot filter definition kind",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/resolve/name_resolver.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T210025111Z-SELF-HOST-NAME-RESOLVER-LOOKUP-CANNO-03EDF726.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
