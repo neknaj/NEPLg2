@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T22:31:41.906Z",
+  "generated_at": "2026-04-28T22:34:49.780Z",
   "counts": {
     "total": 325,
-    "open": 10,
-    "resolved": 315,
+    "open": 9,
+    "resolved": 316,
     "by_area": {
       "core": {
         "total": 152,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 99,
-        "open": 6,
-        "resolved": 93
+        "open": 5,
+        "resolved": 94
       },
       "selfhost": {
         "total": 37,
@@ -153,21 +153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260428T222332284Z-VEC-PUSH-FREE-REJECT-INITIALIZED-HEA-736A6DA9",
-      "title": "Vec push/free reject initialized headers under RawMemoryLoadCell gate",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/collections/vec.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T222332284Z-VEC-PUSH-FREE-REJECT-INITIALIZED-HEA-736A6DA9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -3318,6 +3303,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A.md"
+    },
+    {
+      "id": "ISS-20260428T222332284Z-VEC-PUSH-FREE-REJECT-INITIALIZED-HEA-736A6DA9",
+      "title": "Vec push/free reject initialized headers under RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T222332284Z-VEC-PUSH-FREE-REJECT-INITIALIZED-HEA-736A6DA9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

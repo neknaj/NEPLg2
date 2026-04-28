@@ -3,8 +3,10 @@
 - self-host primitive type kind parity の検証中、`stdlib\neplg2\core\ty\ty.nepl` の doctest が `alloc/collections/vec.nepl` 側の D3100 で止まることを確認した。
 - 根拠は `tmp\selfhost-type-kind-primitives.json` で、`free__Vec< SelfhostTypeId >` / `free__Vec< SelfhostTypeRecord >` の `field::get v "data"` と、`push__Vec< SelfhostTypeRecord >` の同じ header read が `RawMemoryLoadCell ... found Uninit` になっている。
 - これは `alloc/string` の string backing storage D3100 とは別に、`Vec` の header / backing storage の初期化 provenance が Resource IR へ十分に伝わっていない collection 境界の問題として `ISS-20260428T222332284Z-VEC-PUSH-FREE-REJECT-INITIALIZED-HEA-736A6DA9` を追加した。
-- 根本修正は `Vec` の `push` / `free` / `get_ref` が raw `field::get` / `load<.T>` を直接ばらまく形ではなく、所有権と初期化状態を保持できる stdlib boundary または compiler-owned raw memory model に寄せる必要がある。
-- この作業では問題の実装修正はまだ行わず、self-host TypeArena の検証を隠している独立ブロッカーとして issue 化する。
+- `push` / `free` だけでなく `Vec` の owner-consuming helpers 全体で、header を `field::get v "len|cap|data"` として owned aggregate から move する形が残っていたため、`field::get_ref &v` から Copy field として読む形へ統一した。
+- 再発防止として `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に `Vec` 実装で direct header `field::get` を禁止する source policy を追加した。
+- `stdlib\neplg2\core\ty\ty.nepl` + prelude focused doctest は 2/2 pass になり、`Vec push/free` header D3100 は解消した。
+- `stdlib\alloc\collections\vec.nepl` doctest は 13/39 pass まで改善したが、残りは `load<.T>` による backing storage provenance D3100 と既知の string storage D3100 である。これは header field move とは別に切り分ける。
 - plan.md は変更していない。
 
 # 2026-04-29 メモ (ISS-20260428T180803802Z initialized_alias flow split)

@@ -2,8 +2,8 @@
 id: ISS-20260428T222332284Z-VEC-PUSH-FREE-REJECT-INITIALIZED-HEA-736A6DA9
 title: "Vec push/free reject initialized headers under RawMemoryLoadCell gate"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
@@ -41,6 +41,16 @@ Blocks self-host TypeArena verification and any code that owns Vec<T> across pus
 
 Make Vec header/data access go through an ownership/provenance-preserving stdlib boundary or compiler-owned raw memory model; do not silence by dropping free/push calls. Clarify how initialized Vec headers are represented to Resource IR and align the implementation with the parent raw-memory-backed API migration.
 
+## 修正内容
+
+- `Vec` の owner-consuming helpers が `len` / `cap` / `data` header を観察するとき、owned aggregate から `field::get` で field move するのをやめ、`field::get_ref &v` から Copy field として読む形に統一した。
+- 対象は `push` / `free` だけでなく、同じ根を持つ `len` / `cap` / `data_ptr` / `data_mem_ptr` / `data_len` / `is_empty` / `get` / `replace` / `pop` / `clear` / `map` / `filter` / `partition` / `take_while` / `drop_while` / `count` / `fold` / `reduce` / `find` / `any` / `all` の header read。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に、`Vec` 実装で `field::get <var> "len|cap|data"` を再導入しない source policy regression を追加した。
+- `Vec` backing storage の `load<.T>` が `RawMemoryLoadCell ... found Uninit` になる問題は、header field move とは別の element storage provenance 問題として分離する。
+
 ## 検証
 
-Run ty/prelude focused doctests, vec focused doctests, and a regression that allocates Vec<SelfhostTypeId>/Vec<SelfhostTypeRecord>, pushes values, and frees successfully under RawMemoryLoadCell gate.
+- `node nodesrc\test_stdlib_vec_no_unsafe_unwraps.js`: pass
+- `node nodesrc/tests.js -i stdlib\neplg2\core\ty\ty.nepl -i stdlib\neplg2\core\builtins\prelude.nepl --no-tree -o tmp\vec-header-ref-reads-ty-prelude-after-all.json -j 1`: total=2, passed=2
+- `node nodesrc/tests.js -i stdlib\alloc\collections\vec.nepl --no-tree -o tmp\vec-header-ref-reads-vec-after-all.json -j 1`: total=39, passed=13, failed=26。`push` / `free` header D3100 は消えた。残件は既知の string storage D3100 と、`get` / `get_ref` / helper doctest の `load<.T>` backing storage provenance D3100。
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\vec-header-ref-reads-type-arena-after-all.json -j 1`: total=5, failed=5。失敗 top issue は既知の `alloc/string.nepl` `concat_result` D3100 で、`Vec push/free` header D3100 は出ていない。
