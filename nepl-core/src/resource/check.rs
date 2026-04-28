@@ -9,6 +9,7 @@ use crate::span::Span;
 use crate::types::TypeCtx;
 
 use super::coverage::{compare_hir_resource_lowering, ResourceLoweringCoverage};
+use super::effect::{check_resource_effect_boundaries, ResourceEffectBoundaryReport};
 use super::lower::lower_hir_module_skeleton;
 use super::model::{
     BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, OwnerState,
@@ -22,6 +23,7 @@ pub struct ResourceSafetyShadowReport {
     pub initialized_moves: ResourceCheckReport,
     pub owner_obligations: ResourceOwnerCheckReport,
     pub borrow_lifetimes: ResourceBorrowCheckReport,
+    pub effect_boundaries: ResourceEffectBoundaryReport,
 }
 
 impl ResourceSafetyShadowReport {
@@ -33,6 +35,7 @@ impl ResourceSafetyShadowReport {
         self.initialized_moves.diagnostics.len()
             + self.owner_obligations.diagnostics.len()
             + self.borrow_lifetimes.diagnostics.len()
+            + self.effect_boundaries.diagnostics.len()
     }
 
     pub fn has_lowering_diagnostics(&self) -> bool {
@@ -43,6 +46,7 @@ impl ResourceSafetyShadowReport {
         !self.initialized_moves.diagnostics.is_empty()
             || !self.owner_obligations.diagnostics.is_empty()
             || !self.borrow_lifetimes.diagnostics.is_empty()
+            || !self.effect_boundaries.diagnostics.is_empty()
     }
 }
 
@@ -294,6 +298,7 @@ pub fn check_hir_resource_safety_shadow(
         initialized_moves: check_resource_initialized_moves(&resource, types),
         owner_obligations: check_resource_owner_obligations(&resource),
         borrow_lifetimes: check_resource_borrow_lifetimes(&resource),
+        effect_boundaries: check_resource_effect_boundaries(&resource),
     }
 }
 

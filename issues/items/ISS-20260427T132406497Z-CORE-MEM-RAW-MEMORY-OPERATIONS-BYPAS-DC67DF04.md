@@ -209,6 +209,16 @@ Resource IR lowering では、raw allocation / deallocation / reallocation / mem
 
 回帰テストでは、mangled raw helper symbol の分類、`UnsafeMemory` の fold 不可、WASI I/O と nondet の分類、Resource IR dump の `internal_alloc` / `unsafe_memory(load|store)` を固定した。この段階では stdlib public API を一括変更せず、Stage 5 の後続で internal effect の escape 判定と stdlib boundary migration を進める。
 
+## 2026-04-28 Stage 5 Resource IR effect boundary 追記
+
+Stage 5 commit 単位 4 の public escape diagnostics へ進む前段として、Resource IR 上で internal effect boundary を非強制に検査する `check_resource_effect_boundaries` を追加した。
+
+今回の検査は、pure function 内の `EffectOp::UnsafeMemory` と、`RawMemoryOp::Alloc` / `Realloc` 由来の raw identity が pure function の戻り値として外へ出る経路を診断する。前者は `UnsafeMemoryInPureFunction`、後者は `RawAddressEscapeFromInternalAlloc` として保持する。`DeclareLocal` / `Read` / `Assign` / `Move` と branch / loop / match の合流では raw identity alias を追跡するため、単純な temp だけでなく local や分岐値経由の return escape も検出対象になる。
+
+この check はまだ compiler error には接続していない。現行 stdlib の raw-memory-backed API と self-host 用 collection が残っているため、enforcement へ切り替える前に stdlib boundary と owner token API を同期する必要がある。代わりに Stage 4 で追加した Resource IR shadow report に `effect_boundaries` を組み込み、verbose 時に effect 診断件数を観測できるようにした。
+
+回帰テストでは、pure function が `alloc_raw` の raw address を返すケースと、pure function 内で raw `store` intrinsic を実行するケースを `nepl-core/tests/resource_ir.rs` に固定した。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。

@@ -263,11 +263,12 @@ fn run_resource_shadow_check(hir_module: &crate::hir::HirModule, types: &crate::
 #[cfg(not(target_os = "none"))]
 fn emit_resource_shadow_report(report: &crate::resource::ResourceSafetyShadowReport) {
     std::eprintln!(
-        "[resource-check-shadow] lowering={} cell={} owner={} borrow={} resource_total={}",
+        "[resource-check-shadow] lowering={} cell={} owner={} borrow={} effect={} resource_total={}",
         report.lowering_diagnostic_count(),
         report.initialized_moves.diagnostics.len(),
         report.owner_obligations.diagnostics.len(),
         report.borrow_lifetimes.diagnostics.len(),
+        report.effect_boundaries.diagnostics.len(),
         report.resource_diagnostic_count()
     );
 }

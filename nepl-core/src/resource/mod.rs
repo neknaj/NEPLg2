@@ -10,6 +10,7 @@ extern crate alloc;
 mod check;
 mod coverage;
 mod dump;
+mod effect;
 mod lower;
 mod model;
 
@@ -25,6 +26,10 @@ pub use check::{
 pub use coverage::{
     compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
     ResourceCoverageKind, ResourceFunctionCoverage, ResourceLoweringCoverage,
+};
+pub use effect::{
+    check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
+    ResourceEffectBoundaryReport, ResourceEffectCounts, ResourceEffectFunctionCheck,
 };
 pub use lower::lower_hir_module_skeleton;
 pub use model::{

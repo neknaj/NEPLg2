@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260427T132406497Z Stage 5 effect boundary shadow check)
+
+- 状況:
+  - Stage 5 の internal effect 分類は入ったが、`InternalAlloc` が public raw identity として漏れるか、`UnsafeMemory` が pure function 内に残るかを Resource IR 上で観測する検査がまだなかった。
+  - 現行 stdlib の移行前に enforcement へ切り替えると誤検出で止まり得るため、まず shadow report として診断を追加する方針にした。
+- 修正:
+  - `nepl-core/src/resource/effect.rs` を追加し、`check_resource_effect_boundaries` で pure function 内の unsafe memory effect と raw allocation identity return escape を診断するようにした。
+  - `RawMemoryOp::Alloc` / `Realloc` の output を raw identity として追跡し、`DeclareLocal` / `Read` / `Assign` / `Move` と branch / loop / match 合流で alias を伝播するようにした。
+  - `ResourceSafetyShadowReport` に `effect_boundaries` を追加し、verbose shadow log でも effect 診断件数を表示するようにした。
+  - `nepl-core/tests/resource_ir.rs` に pure `alloc_raw` return escape と pure raw `store` intrinsic の regression を追加した。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 Resource IR effect boundary の到達点を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/resource/effect.rs nepl-core/src/resource/mod.rs nepl-core/src/resource/check.rs nepl-core/src/compiler.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 21 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 23 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage5-effect-boundary-after-rebase-focused.json -j 1`: total=97, passed=97
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。この check は Stage 5 の public escape diagnostics に向けた shadow 実装であり、stdlib boundary の同期前なので compiler error にはまだ接続していない。
+
 # 2026-04-28 メモ (ISS-20260427T132406497Z Stage 5 internal effect 分類)
 
 - 状況:

@@ -4,13 +4,14 @@ use nepl_core::hir::{
 };
 use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
-    check_resource_initialized_moves, check_resource_owner_obligations,
-    compare_hir_resource_lowering, lower_hir_module_skeleton, AggregateKind, BorrowKind,
-    BorrowState, CellState, EffectOp, OwnerState, Place, PlaceRoot, RawMemoryOp, ResourceBlock,
-    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCoverageDiagnostic,
-    ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule, ResourceOp,
-    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    check_resource_effect_boundaries, check_resource_initialized_moves,
+    check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module_skeleton,
+    AggregateKind, BorrowKind, BorrowState, CellState, EffectOp, OwnerState, Place, PlaceRoot,
+    RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation,
+    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceEffectBoundaryDiagnostic,
+    ResourceFunction, ResourceId, ResourceModule, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -448,6 +449,122 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
                 resource: 0,
             } if function == "main"
         )));
+}
+
+#[test]
+fn resource_ir_effect_check_reports_raw_alloc_return_escape() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(20),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![HirLine {
+                    expr: HirExpr {
+                        ty: i32_ty,
+                        kind: HirExprKind::Call {
+                            callee: FuncRef::User("alloc_raw".to_string(), vec![], None),
+                            args: vec![HirExpr {
+                                ty: i32_ty,
+                                kind: HirExprKind::LiteralI32(4),
+                                span,
+                            }],
+                        },
+                        span,
+                    },
+                    drop_result: false,
+                }],
+                ty: i32_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_effect_boundaries(&resource);
+    assert_eq!(report.functions[0].counts.internal_allocs, 1);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(21),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![HirLine {
+                    expr: HirExpr {
+                        ty: unit_ty,
+                        kind: HirExprKind::Intrinsic {
+                            name: "store".to_string(),
+                            type_args: vec![i32_ty],
+                            args: vec![
+                                HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::LiteralI32(16),
+                                    span,
+                                },
+                                HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::LiteralI32(7),
+                                    span,
+                                },
+                            ],
+                        },
+                        span,
+                    },
+                    drop_result: true,
+                }],
+                ty: unit_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_effect_boundaries(&resource);
+    assert_eq!(report.functions[0].counts.unsafe_memory_ops, 1);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+            function,
+            operation,
+            ..
+        } if function == "main" && operation == "store"
+    )));
 }
 
 #[test]
@@ -969,16 +1086,17 @@ fn resource_ir_shadow_report_combines_lowering_and_resource_checks() {
         .diagnostics
         .iter()
         .any(|diagnostic| matches!(
-            diagnostic,
-            ResourceCheckDiagnostic::CellUnavailable {
-                function,
-                operation: ResourceCheckOperation::Read,
-                state: CellState::Moved,
-                ..
-            } if function == "main"
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable {
+                    function,
+                    operation: ResourceCheckOperation::Read,
+                    state: CellState::Moved,
+                    ..
+                } if function == "main"
         )));
     assert_eq!(report.owner_obligations.diagnostics, vec![]);
     assert_eq!(report.borrow_lifetimes.diagnostics, vec![]);
+    assert_eq!(report.effect_boundaries.diagnostics, vec![]);
 }
 
 #[test]
