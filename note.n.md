@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck signature module)
+
+- 状況:
+  - Stage 1 の typecheck type expr module 化後、function signature 表現、symbol mangling、generic signature 比較、unbound type 判定が `typecheck.rs` 本体末尾に残っていた。
+  - overload / alias / impl method registration / trait check が同じ signature helper に依存しているため、独立 module として境界を明示する必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/signature.rs` を追加し、`mangle_function_symbol`、`mangle_impl_method`、`function_signature_string`、`same_function_signature`、generic type parameter 対応の signature type comparison、unique type collection、unbound type variable 判定を移動した。
+  - `env.rs` と `trait_check.rs` は `signature` module を参照する形に変更し、名前環境と trait 検査が function signature 判定へ依存していることを明示した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck signature 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/signature.rs nepl-core/src/typecheck/env.rs nepl-core/src/typecheck/trait_check.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 16/16 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/drop.n.md --no-tree -o tmp/stage1-typecheck-signature-focused.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck type expr module)
 
 - 状況:

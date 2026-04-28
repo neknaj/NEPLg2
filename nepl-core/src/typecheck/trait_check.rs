@@ -3,11 +3,12 @@ use alloc::vec::Vec;
 
 use crate::types::{TypeId, TypeKind};
 
+use super::signature::type_contains_unbound_var;
 use super::traits::{
     format_trait_ref_name, infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
     parse_trait_ref_name, trait_application_matches, TraitBoundRef, TraitInfo,
 };
-use super::{type_contains_unbound_var, BlockChecker, StackEntry};
+use super::{BlockChecker, StackEntry};
 
 macro_rules! trait_check_log {
     ($($arg:tt)*) => {{

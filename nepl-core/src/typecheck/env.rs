@@ -9,7 +9,8 @@ use crate::resolve::DefId;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
-use super::{same_function_signature, FieldAccessorKind, TraitBoundRef};
+use super::signature::same_function_signature;
+use super::{FieldAccessorKind, TraitBoundRef};
 // ---------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------
