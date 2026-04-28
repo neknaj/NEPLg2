@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck match module)
+
+- 状況:
+  - Stage 1 の typecheck call resolution module 化後、match scrutinee 判定、enum/scalar arm validation、exhaustiveness、match arm result type unify が `BlockChecker` 本体に残っていた。
+  - match は self-host compiler 側で構文木・型分岐・診断分岐に多用されるため、HIR lowering と型/effect 解決の境界を読みやすくする必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/match_check.rs` を追加し、`check_match_expr`、enum variant type application、enum match binding scope、bool / char / i32 / u8 literal pattern 判定、wildcard ordering、duplicate arm、non-exhaustive arm、match arm result type unify を移動した。
+  - `typecheck.rs` 側は `mod match_check;` を追加し、match 専用の診断生成と HIR match lowering 補助を module 境界へ出した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck match 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/match_check.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test char -- --nocapture`: 11/11 passed
+  - `cargo test -p nepl-core --test if -- --nocapture`: 42/42 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md -i tests/compiler/generics.n.md -i tests/compiler/if.n.md --no-tree -o tmp/stage1-typecheck-match-focused.json -j 1`: 99/99 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck call resolution module)
 
 - 状況:
