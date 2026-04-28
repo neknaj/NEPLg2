@@ -22461,3 +22461,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、borrow token binding を direct function boundary へ伝播した。
+
+# 2026-04-28 メモ (ISS-20260428T111459572Z borrow token function value summary)
+
+- [同期]:
+  - `origin/main` の `1494605 fix(core): propagate borrow token returns` まで同期した main から `work/stage4-borrow-token-indirect-summary` branch を作成した。
+- [原因]:
+  - direct call の borrow token return summary は入ったが、`ResourceOp::FunctionValue` / `IndirectCall` で known callee alias を保持していなかった。
+  - `let f @borrow_id; f token` のような first-class function 経由では、active borrow token binding が call output へ戻らず return escape 検査を迂回していた。
+- [修正]:
+  - Resource IR borrow checker に function value alias table を追加した。
+  - `FunctionValue`、local copy / move / assign、branch / loop / match merge で alias を保持し、known `IndirectCall` に direct call と同じ borrow token return summary を適用した。
+  - `nepl-core/tests/resource_ir.rs` に function value 経由の borrow token return escape 回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、borrow token binding を known function value 境界へ伝播した。

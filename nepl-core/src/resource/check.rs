@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use alloc::string::String;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::hir::HirModule;
@@ -691,14 +692,20 @@ impl ResourceCheckEngine<'_> {
 impl ResourceBorrowCheckEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) -> Vec<BorrowStateEntry> {
         let mut borrows = BorrowTable::default();
+        let mut function_aliases = BorrowFunctionAliasTable::default();
         for block in &function.blocks {
-            self.check_block(&mut borrows, block);
+            self.check_block(&mut borrows, &mut function_aliases, block);
         }
         borrows.into_entries()
     }
 
-    fn check_block(&mut self, borrows: &mut BorrowTable, block: &ResourceBlock) {
-        self.check_ops(borrows, &block.ops);
+    fn check_block(
+        &mut self,
+        borrows: &mut BorrowTable,
+        function_aliases: &mut BorrowFunctionAliasTable,
+        block: &ResourceBlock,
+    ) {
+        self.check_ops(borrows, function_aliases, &block.ops);
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
@@ -709,19 +716,30 @@ impl ResourceBorrowCheckEngine<'_> {
         }
     }
 
-    fn check_ops(&mut self, borrows: &mut BorrowTable, ops: &[ResourceOp]) {
+    fn check_ops(
+        &mut self,
+        borrows: &mut BorrowTable,
+        function_aliases: &mut BorrowFunctionAliasTable,
+        ops: &[ResourceOp],
+    ) {
         for op in ops {
-            self.check_op(borrows, op);
+            self.check_op(borrows, function_aliases, op);
         }
     }
 
-    fn check_op(&mut self, borrows: &mut BorrowTable, op: &ResourceOp) {
+    fn check_op(
+        &mut self,
+        borrows: &mut BorrowTable,
+        function_aliases: &mut BorrowFunctionAliasTable,
+        op: &ResourceOp,
+    ) {
         match op {
             ResourceOp::DeclareLocal {
                 place, initializer, ..
             } => {
                 if let Some(initializer) = initializer {
                     borrows.transfer_token(initializer, place);
+                    function_aliases.copy_alias(initializer, place);
                 }
             }
             ResourceOp::Read {
@@ -732,6 +750,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 if !borrows.copy_or_move_token(source, output) {
                     self.check_source_read(borrows, source, *span);
                 }
+                function_aliases.copy_alias(source, output);
             }
             ResourceOp::Assign {
                 target,
@@ -745,6 +764,7 @@ impl ResourceBorrowCheckEngine<'_> {
                     *span,
                 );
                 borrows.transfer_token(value, target);
+                function_aliases.copy_alias(value, target);
             }
             ResourceOp::Borrow {
                 source,
@@ -765,6 +785,7 @@ impl ResourceBorrowCheckEngine<'_> {
                         *span,
                     );
                 }
+                function_aliases.copy_alias(source, output);
             }
             ResourceOp::Drop { place, span } => {
                 if !borrows.release_token(place) {
@@ -781,9 +802,15 @@ impl ResourceBorrowCheckEngine<'_> {
             } => {
                 let mut then_borrows = borrows.clone();
                 let mut else_borrows = borrows.clone();
-                self.check_ops(&mut then_borrows, then_ops);
-                self.check_ops(&mut else_borrows, else_ops);
+                let mut then_function_aliases = function_aliases.clone();
+                let mut else_function_aliases = function_aliases.clone();
+                self.check_ops(&mut then_borrows, &mut then_function_aliases, then_ops);
+                self.check_ops(&mut else_borrows, &mut else_function_aliases, else_ops);
                 *borrows = BorrowTable::merge_paths(&[then_borrows, else_borrows]);
+                *function_aliases = BorrowFunctionAliasTable::merge_paths(&[
+                    then_function_aliases,
+                    else_function_aliases,
+                ]);
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -791,21 +818,39 @@ impl ResourceBorrowCheckEngine<'_> {
                 ..
             } => {
                 let mut condition_borrows = borrows.clone();
-                self.check_ops(&mut condition_borrows, condition_ops);
+                let mut condition_function_aliases = function_aliases.clone();
+                self.check_ops(
+                    &mut condition_borrows,
+                    &mut condition_function_aliases,
+                    condition_ops,
+                );
                 let mut body_borrows = condition_borrows.clone();
-                self.check_ops(&mut body_borrows, body_ops);
+                let mut body_function_aliases = condition_function_aliases.clone();
+                self.check_ops(&mut body_borrows, &mut body_function_aliases, body_ops);
                 *borrows = BorrowTable::merge_paths(&[condition_borrows, body_borrows]);
+                *function_aliases = BorrowFunctionAliasTable::merge_paths(&[
+                    condition_function_aliases,
+                    body_function_aliases,
+                ]);
             }
             ResourceOp::Match { arms, .. } => {
                 let mut arm_paths = Vec::new();
+                let mut function_alias_paths = Vec::new();
                 for arm in arms {
                     let mut arm_borrows = borrows.clone();
-                    self.check_ops(&mut arm_borrows, &arm.ops);
+                    let mut arm_function_aliases = function_aliases.clone();
+                    self.check_ops(&mut arm_borrows, &mut arm_function_aliases, &arm.ops);
                     arm_paths.push(arm_borrows);
+                    function_alias_paths.push(arm_function_aliases);
                 }
                 if !arm_paths.is_empty() {
                     *borrows = BorrowTable::merge_paths(&arm_paths);
+                    *function_aliases =
+                        BorrowFunctionAliasTable::merge_paths(&function_alias_paths);
                 }
+            }
+            ResourceOp::FunctionValue { output, name, .. } => {
+                function_aliases.set_alias(output, name.clone());
             }
             ResourceOp::Call {
                 output,
@@ -813,10 +858,20 @@ impl ResourceBorrowCheckEngine<'_> {
                 args,
                 ..
             } => self.propagate_call_return_token(borrows, output, target, args),
+            ResourceOp::IndirectCall {
+                output,
+                callee,
+                args,
+                ..
+            } => self.propagate_indirect_call_return_token(
+                borrows,
+                function_aliases,
+                output,
+                callee,
+                args,
+            ),
             ResourceOp::Expr { .. }
             | ResourceOp::CallEffect { .. }
-            | ResourceOp::FunctionValue { .. }
-            | ResourceOp::IndirectCall { .. }
             | ResourceOp::RawMemory { .. }
             | ResourceOp::Construct { .. } => {}
         }
@@ -903,6 +958,33 @@ impl ResourceBorrowCheckEngine<'_> {
         }
     }
 
+    fn propagate_indirect_call_return_token(
+        &self,
+        borrows: &mut BorrowTable,
+        function_aliases: &BorrowFunctionAliasTable,
+        output: &Place,
+        callee: &Place,
+        args: &[Place],
+    ) {
+        for function in function_aliases.functions(callee) {
+            if let Some(summary) = self
+                .summaries
+                .iter()
+                .find(|summary| summary.function == function.as_str())
+            {
+                for arg in summary
+                    .parameter_indices
+                    .iter()
+                    .filter_map(|index| args.get(*index))
+                {
+                    if borrows.copy_or_move_token(arg, output) {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     fn check_source_exclusive(
         &mut self,
         borrows: &BorrowTable,
@@ -974,9 +1056,10 @@ fn function_returns_borrow_token(
         deferred: ResourceBorrowCheckDeferred::default(),
     };
     let mut borrows = BorrowTable::default();
+    let mut function_aliases = BorrowFunctionAliasTable::default();
     borrows.add_shared(parameter, parameter);
     for block in &function.blocks {
-        engine.check_ops(&mut borrows, &block.ops);
+        engine.check_ops(&mut borrows, &mut function_aliases, &block.ops);
         if let ResourceTerminator::Return {
             value: Some(value), ..
         } = &block.terminator
@@ -1292,6 +1375,84 @@ struct BorrowBinding {
     token: Place,
     source: Place,
     kind: BorrowKind,
+}
+
+#[derive(Debug, Clone, Default)]
+struct BorrowFunctionAliasTable {
+    entries: Vec<BorrowFunctionAliasEntry>,
+}
+
+#[derive(Debug, Clone)]
+struct BorrowFunctionAliasEntry {
+    place: Place,
+    functions: Vec<String>,
+}
+
+impl BorrowFunctionAliasTable {
+    fn functions(&self, place: &Place) -> &[String] {
+        self.entries
+            .iter()
+            .find(|entry| entry.place == *place)
+            .map(|entry| entry.functions.as_slice())
+            .unwrap_or(&[])
+    }
+
+    fn set_alias(&mut self, place: &Place, function: String) {
+        self.set_functions(place, vec![function]);
+    }
+
+    fn copy_alias(&mut self, source: &Place, target: &Place) {
+        let functions = self.functions(source).to_vec();
+        if !functions.is_empty() {
+            self.set_functions(target, functions);
+        }
+    }
+
+    fn set_functions(&mut self, place: &Place, functions: Vec<String>) {
+        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.place == *place) {
+            entry.functions = dedupe_borrow_functions(functions);
+            return;
+        }
+        self.entries.push(BorrowFunctionAliasEntry {
+            place: place.clone(),
+            functions: dedupe_borrow_functions(functions),
+        });
+    }
+
+    fn merge_paths(paths: &[BorrowFunctionAliasTable]) -> Self {
+        let mut out = BorrowFunctionAliasTable::default();
+        for path in paths {
+            for entry in &path.entries {
+                out.union_functions(&entry.place, entry.functions.iter().cloned());
+            }
+        }
+        out
+    }
+
+    fn union_functions<I>(&mut self, place: &Place, functions: I)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let mut merged = self.functions(place).to_vec();
+        for function in functions {
+            if !merged.contains(&function) {
+                merged.push(function);
+            }
+        }
+        if !merged.is_empty() {
+            self.set_functions(place, merged);
+        }
+    }
+}
+
+fn dedupe_borrow_functions(functions: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for function in functions {
+        if !out.contains(&function) {
+            out.push(function);
+        }
+    }
+    out
 }
 
 #[derive(Debug, Clone, Default)]
