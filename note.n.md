@@ -21880,3 +21880,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host diagnostics では compact text notes/help を当面維持し、Resource IR 前に non-Copy `Vec<str>` diagnostic storage を戻さない方針とした。
+
+# 2026-04-28 メモ (stdlib full review / static check follow-up)
+
+- [同期]:
+  - `origin/main` の `0e6ffae test(stdlib): align diag error policy with compact layout` まで同期した main から `docs/stdlib-full-review-static-20260428` branch を作成した。
+- [確認]:
+  - `nodesrc/test_stdlib*.js` の source policy は全件 pass した。
+  - `node nodesrc/tests.js -i stdlib/tests --no-tree -o tmp/stdlib-tests-full-review-after-diag-policy.json -j 4`: 80/80 passed
+  - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-full-review-after-diag-policy.json -j 4`: 311 件中 303 passed、7 failed、1 errored
+  - `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/traits-hash-timeout-review-20260428.json -j 1`: 6/6 passed
+- [残件の整理]:
+  - `capacity_stack.n.md::doctest#6` と `json_typed_values.n.md::doctest#2` は generic `Vec<T>` が enum/non-Copy payload を raw storage に置いたまま grow する D3100。
+  - `json_typed_values.n.md::doctest#3/#4` は structured JSON payload の raw `data` owner 再利用による D3100。
+  - `fs.n.md::doctest#5/#6` は `std/test` result aggregation path の `popped` raw owner D3100。
+  - `neplg2_diag_outcome.n.md::doctest#3` は `SelfhostOutcome` result cell owner の D3100。
+  - broad run の `traits_hash.n.md::doctest#5` timeout は focused run で再現しなかったため、現時点では新規 issue に分離しない。
+- [issue 更新]:
+  - `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` に今回の full review 結果を追記した。
+  - 新規 issue は追加していない。残件は同 parent issue の Stage 6 入力として扱える。
+- [self-host 開始判断]:
+  - 文字列、診断 text、NM direct serializer、source policy は最新静的検査に追従できている。
+  - typed JSON value、generic `Vec<T>` non-Copy payload、`std/test` aggregation、`SelfhostOutcome` cell owner が残るため、self-host 本体は raw `MemPtr` を直接持ち込まない範囲で開始し、AST/JSON/diagnostic owner model は Resource IR 移行と並行して設計する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host 着手条件の stdlib 側リスクを、現行の静的検査結果として parent issue に集約した。
