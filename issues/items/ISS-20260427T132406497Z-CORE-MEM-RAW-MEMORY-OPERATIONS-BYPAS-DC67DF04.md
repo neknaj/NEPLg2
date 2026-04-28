@@ -199,6 +199,16 @@ raw identity が観測可能な public raw memory operation を pure function �
 
 今後の修正では、raw memory helper をさらに call name summary で追い続ける方向を最終設計にしない。raw operation は Resource IR の `EffectOp` と storage/cell state の変化として表し、safe public surface から raw identity が漏れない場合だけ internal effect を `Pure` へ fold する。
 
+## 2026-04-28 Stage 5 internal effect 分類追記
+
+`doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5 commit 単位 1 として、surface `Effect::Pure` / `Effect::Impure` を壊さずに compiler 内部の effect 分類を追加した。
+
+今回追加した `InternalEffect` は `Pure`、`InternalAlloc`、`UnsafeMemory`、`ExternalIo`、`Nondet` を分ける。`internal_effect_surface_fold` は `InternalAlloc -> Pure`、`ExternalIo` / `Nondet -> Impure`、`UnsafeMemory -> fold 不可` を表す。現行の `intrinsic_effect` は untrusted surface へ畳み込むため、`load` / `store` の raw intrinsic は引き続き pure context で D3025 になる。
+
+Resource IR lowering では、raw allocation / deallocation / reallocation / memory size/grow を `EffectOp::InternalAlloc` とし、raw load/store/bulk copy/fill を `EffectOp::UnsafeMemory` として dump に残すようにした。通常の HIR user function call は名前だけで `ExternalIo` 扱いにせず、宣言済み surface effect を維持する。これにより、stdlib や user code の関数名に依存して Resource IR が過剰に impure 化されることを避ける。
+
+回帰テストでは、mangled raw helper symbol の分類、`UnsafeMemory` の fold 不可、WASI I/O と nondet の分類、Resource IR dump の `internal_alloc` / `unsafe_memory(load|store)` を固定した。この段階では stdlib public API を一括変更せず、Stage 5 の後続で internal effect の escape 判定と stdlib boundary migration を進める。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。

@@ -458,6 +458,7 @@ fn dump_effect(effect: &EffectOp) -> String {
         EffectOp::InternalAlloc => String::from("internal_alloc"),
         EffectOp::UnsafeMemory { operation } => format!("unsafe_memory({})", operation),
         EffectOp::ExternalIo { operation } => format!("external_io({})", operation),
+        EffectOp::Nondet { operation } => format!("nondet({})", operation),
         EffectOp::Unknown { reason } => format!("unknown({})", reason),
     }
 }

@@ -1,5 +1,10 @@
+use nepl_core::ast::Effect;
 use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::effects::{
+    internal_effect_surface_fold, intrinsic_effect, raw_callee_internal_effect,
+    raw_memory_callee_internal_effect, InternalEffect,
+};
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
 use nepl_core::source_map::{SourceCapabilities, SourceMap};
@@ -71,6 +76,39 @@ fn assert_has_diag(result: Result<(), CoreError>, id: DiagnosticId) {
         ),
         other => panic!("expected diagnostics, got {:?}", other),
     }
+}
+
+#[test]
+fn internal_effect_classifies_raw_memory_and_surface_fold() {
+    let alloc = raw_callee_internal_effect("alloc_raw").expect("alloc effect");
+    assert!(matches!(
+        alloc,
+        InternalEffect::InternalAlloc { ref operation } if operation == "alloc_raw"
+    ));
+    assert_eq!(internal_effect_surface_fold(&alloc), Some(Effect::Pure));
+
+    let store = raw_callee_internal_effect("store_i32__i32_i32__unit__pure").expect("store effect");
+    assert!(matches!(
+        store,
+        InternalEffect::UnsafeMemory { ref operation } if operation == "store_i32"
+    ));
+    assert_eq!(internal_effect_surface_fold(&store), None);
+    assert_eq!(intrinsic_effect("load"), Effect::Impure);
+
+    let io = raw_callee_internal_effect("fd_write").expect("io effect");
+    assert!(matches!(
+        io,
+        InternalEffect::ExternalIo { ref operation } if operation == "fd_write"
+    ));
+    assert_eq!(raw_memory_callee_internal_effect("fd_write"), None);
+    assert_eq!(internal_effect_surface_fold(&io), Some(Effect::Impure));
+
+    let nondet = raw_callee_internal_effect("random_get").expect("nondet effect");
+    assert!(matches!(
+        nondet,
+        InternalEffect::Nondet { ref operation } if operation == "random_get"
+    ));
+    assert_eq!(internal_effect_surface_fold(&nondet), Some(Effect::Impure));
 }
 
 #[test]

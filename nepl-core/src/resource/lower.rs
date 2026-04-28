@@ -5,7 +5,10 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
-use crate::effects::{intrinsic_is_raw_memory_effect, raw_callee_is_raw_memory_effect};
+use crate::effects::{
+    intrinsic_internal_effect, intrinsic_is_raw_memory_effect, raw_callee_is_raw_memory_effect,
+    raw_memory_callee_internal_effect, InternalEffect,
+};
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
     HirParam,
@@ -487,11 +490,10 @@ fn lower_expr_skeleton(
         HirExprKind::Intrinsic { name, args, .. } => {
             let arg_places = lower_args_skeleton(args, ops, ctx, env);
             let raw_operation = raw_memory_op_from_intrinsic(name);
-            if raw_operation.is_some() {
+            let internal_effect = intrinsic_internal_effect(name);
+            if !matches!(internal_effect, InternalEffect::Pure) {
                 ops.push(ResourceOp::CallEffect {
-                    effect: EffectOp::UnsafeMemory {
-                        operation: name.clone(),
-                    },
+                    effect: resource_effect_from_internal(internal_effect),
                     span: expr.span,
                 });
             }
@@ -603,21 +605,26 @@ fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
 
 fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp {
     match callee {
-        FuncRef::Builtin(name) | FuncRef::User(name, _, _)
-            if raw_callee_is_raw_memory_effect(name.as_str()) =>
-        {
-            EffectOp::UnsafeMemory {
-                operation: String::from(helper_base_name(name.as_str())),
+        FuncRef::Builtin(name) => {
+            if let Some(effect) = raw_memory_callee_internal_effect(name.as_str()) {
+                resource_effect_from_internal(effect)
+            } else {
+                EffectOp::UserCall {
+                    name: name.clone(),
+                    effect: Effect::Pure,
+                }
             }
         }
-        FuncRef::Builtin(name) => EffectOp::UserCall {
-            name: name.clone(),
-            effect: Effect::Pure,
-        },
-        FuncRef::User(name, _, _) => EffectOp::UserCall {
-            name: name.clone(),
-            effect: env.function_effect(name),
-        },
+        FuncRef::User(name, _, _) => {
+            if let Some(effect) = raw_memory_callee_internal_effect(name.as_str()) {
+                resource_effect_from_internal(effect)
+            } else {
+                EffectOp::UserCall {
+                    name: name.clone(),
+                    effect: env.function_effect(name),
+                }
+            }
+        }
         FuncRef::Trait {
             trait_name, method, ..
         } => EffectOp::UserCall {
@@ -628,15 +635,23 @@ fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp
 }
 
 fn function_value_effect(name: &str, env: &LoweringEnvironment) -> EffectOp {
-    if raw_callee_is_raw_memory_effect(name) {
-        EffectOp::UnsafeMemory {
-            operation: String::from(helper_base_name(name)),
-        }
+    if let Some(effect) = raw_memory_callee_internal_effect(name) {
+        resource_effect_from_internal(effect)
     } else {
         EffectOp::UserCall {
             name: String::from(name),
             effect: env.function_effect(name),
         }
+    }
+}
+
+fn resource_effect_from_internal(effect: InternalEffect) -> EffectOp {
+    match effect {
+        InternalEffect::Pure => EffectOp::Pure,
+        InternalEffect::InternalAlloc { .. } => EffectOp::InternalAlloc,
+        InternalEffect::UnsafeMemory { operation } => EffectOp::UnsafeMemory { operation },
+        InternalEffect::ExternalIo { operation } => EffectOp::ExternalIo { operation },
+        InternalEffect::Nondet { operation } => EffectOp::Nondet { operation },
     }
 }
 

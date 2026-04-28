@@ -283,6 +283,7 @@ pub enum EffectOp {
     InternalAlloc,
     UnsafeMemory { operation: String },
     ExternalIo { operation: String },
+    Nondet { operation: String },
     Unknown { reason: String },
 }
 

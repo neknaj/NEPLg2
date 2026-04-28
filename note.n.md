@@ -1,3 +1,26 @@
+# 2026-04-28 メモ (ISS-20260427T132406497Z Stage 5 internal effect 分類)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5 commit 単位 1 として、raw memory operation を surface `Pure` / `Impure` だけで扱う状態から、compiler 内部 effect へ分ける足場を追加した。
+  - 現行 stdlib は pure raw-memory-backed API を多く持つため、surface effect を即座に変更すると大量の D3025 が出る。今回は既存挙動を壊さず、Resource IR へ内部分類を流すことを範囲にした。
+- 修正:
+  - `nepl-core/src/effects.rs` に `InternalEffect::{Pure, InternalAlloc, UnsafeMemory, ExternalIo, Nondet}` と `internal_effect_surface_fold` を追加した。
+  - `intrinsic_effect` は内部 effect を untrusted surface へ畳み込む形に変更し、raw `load` / `store` intrinsic が引き続き `Impure` になることを維持した。
+  - Resource IR の `EffectOp` に `Nondet` を追加し、lowering では raw alloc/dealloc/realloc/mem_size/mem_grow を `InternalAlloc`、raw load/store/bulk copy/fill を `UnsafeMemory` として dump に残すようにした。
+  - 通常の HIR user function call は名前だけで `ExternalIo` 扱いにせず、declared surface effect を維持するようにした。
+  - `nepl-core/tests/effects.rs` と `nepl-core/tests/resource_ir.rs` に internal effect 分類と Resource IR dump の regression を追加した。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 internal effect 分類の到達点を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/effects.rs nepl-core/src/resource/lower.rs nepl-core/src/resource/model.rs nepl-core/src/resource/dump.rs nepl-core/tests/effects.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 21 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 21 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage5-internal-effect-focused.json -j 1`: total=97, passed=97
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。Stage 5 の後続で internal effect の escape 判定と stdlib boundary migration を進める。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 4 old checker shadow gate)
 
 - 状況:

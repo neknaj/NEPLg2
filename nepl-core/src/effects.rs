@@ -78,16 +78,33 @@ pub const RAW_MEMORY_HELPER_EFFECT_MARKERS: &[&str] = &[
     "mem_fill",
 ];
 
-pub fn intrinsic_effect(name: &str) -> Effect {
-    if IMPURE_IO_EFFECT_MARKERS.iter().any(|m| *m == name)
-        || RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
-            .iter()
-            .any(|m| *m == name)
-    {
-        Effect::Impure
-    } else {
-        Effect::Pure
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InternalEffect {
+    Pure,
+    InternalAlloc { operation: String },
+    UnsafeMemory { operation: String },
+    ExternalIo { operation: String },
+    Nondet { operation: String },
+}
+
+impl InternalEffect {
+    pub fn operation(&self) -> Option<&str> {
+        match self {
+            InternalEffect::Pure => None,
+            InternalEffect::InternalAlloc { operation }
+            | InternalEffect::UnsafeMemory { operation }
+            | InternalEffect::ExternalIo { operation }
+            | InternalEffect::Nondet { operation } => Some(operation.as_str()),
+        }
     }
+}
+
+pub fn intrinsic_effect(name: &str) -> Effect {
+    internal_effect_untrusted_surface(&intrinsic_internal_effect(name))
+}
+
+pub fn intrinsic_internal_effect(name: &str) -> InternalEffect {
+    raw_memory_internal_effect(name).unwrap_or_else(|| named_internal_effect(name))
 }
 
 pub fn intrinsic_is_raw_memory_effect(name: &str) -> bool {
@@ -96,11 +113,35 @@ pub fn intrinsic_is_raw_memory_effect(name: &str) -> bool {
         .any(|marker| *marker == name)
 }
 
+pub fn raw_callee_internal_effect(name: &str) -> Option<InternalEffect> {
+    raw_memory_internal_effect(name).or_else(|| {
+        let base = helper_base_name(name);
+        match named_internal_effect(base) {
+            InternalEffect::Pure => None,
+            effect => Some(effect),
+        }
+    })
+}
+
+pub fn raw_memory_callee_internal_effect(name: &str) -> Option<InternalEffect> {
+    raw_memory_internal_effect(name)
+}
+
 pub fn raw_callee_is_raw_memory_effect(name: &str) -> bool {
-    let base = helper_base_name(name);
-    RAW_MEMORY_HELPER_EFFECT_MARKERS
-        .iter()
-        .any(|marker| *marker == base)
+    raw_memory_internal_effect(name).is_some()
+}
+
+pub fn internal_effect_surface_fold(effect: &InternalEffect) -> Option<Effect> {
+    match effect {
+        InternalEffect::Pure => Some(Effect::Pure),
+        InternalEffect::InternalAlloc { .. } => Some(Effect::Pure),
+        InternalEffect::ExternalIo { .. } | InternalEffect::Nondet { .. } => Some(Effect::Impure),
+        InternalEffect::UnsafeMemory { .. } => None,
+    }
+}
+
+pub fn internal_effect_untrusted_surface(effect: &InternalEffect) -> Effect {
+    internal_effect_surface_fold(effect).unwrap_or(Effect::Impure)
 }
 
 pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {
@@ -238,6 +279,40 @@ fn llvm_callee_is_memory_effect(callee: &str) -> bool {
     callee.starts_with("llvm.memcpy")
         || callee.starts_with("llvm.memmove")
         || callee.starts_with("llvm.memset")
+}
+
+fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
+    let base = helper_base_name(name);
+    if !RAW_MEMORY_HELPER_EFFECT_MARKERS
+        .iter()
+        .any(|marker| *marker == base)
+        && !RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
+            .iter()
+            .any(|marker| *marker == base)
+    {
+        return None;
+    }
+    let operation = String::from(base);
+    match base {
+        "__nepl_rt_alloc" | "__nepl_rt_dealloc" | "__nepl_rt_realloc" | "alloc_raw"
+        | "dealloc_raw" | "realloc_raw" | "alloc" | "dealloc" | "realloc" | "mem_size"
+        | "mem_grow" => Some(InternalEffect::InternalAlloc { operation }),
+        _ => Some(InternalEffect::UnsafeMemory { operation }),
+    }
+}
+
+fn named_internal_effect(name: &str) -> InternalEffect {
+    if !IMPURE_IO_EFFECT_MARKERS
+        .iter()
+        .any(|marker| *marker == name)
+    {
+        return InternalEffect::Pure;
+    }
+    let operation = String::from(name);
+    match name {
+        "random_get" | "clock_time_get" | "clock_res_get" => InternalEffect::Nondet { operation },
+        _ => InternalEffect::ExternalIo { operation },
+    }
 }
 
 fn normalize_raw_symbol(symbol: &str) -> String {
