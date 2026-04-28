@@ -22724,3 +22724,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の raw identity / pointer provenance に向けた補強として、effect checker の alias overwrite semantics を固定した。
+
+# 2026-04-28 メモ (ISS-20260428T125012535Z aggregate field function alias)
+
+- [同期]:
+  - `origin/main` の `5270999 fix(core): overwrite raw pointer aliases` まで同期した main から `work/stage4-function-alias-aggregate-fields` branch を作成した。
+- [原因]:
+  - `ResourceBorrowCheckEngine` と `ResourceOwnerCheckEngine` は function value alias を locals / reads / assignments / branch merge で保持していたが、`ResourceOp::Construct` では input alias を aggregate field projection へ伝播していなかった。
+  - そのため function value を struct / tuple / enum payload に格納してから field projection 経由で `IndirectCall` すると known callee summary が失われ、callback が返す owner の free obligation を caller 側で見逃す可能性があった。
+- [修正]:
+  - aggregate construction 時に owner transfer と同じ projection mapping を使い、input の function alias を output field projection へ copy する helper を追加した。
+  - borrow checker と owner checker の双方で `ResourceOp::Construct` からこの helper を呼び、function/callback boundary の alias state を aggregate field 経由でも維持するようにした。
+  - `nepl-core/tests/resource_ir.rs` に function value を struct field に格納し、その field projection を callee とする indirect call が fresh owner を返して leak する回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の function / callback boundary と owner token / free obligation の続きとして、aggregate field に格納された callback の resource summary 伝播を Resource IR 上に固定した。

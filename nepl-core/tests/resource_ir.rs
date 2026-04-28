@@ -2395,6 +2395,118 @@ fn resource_ir_owner_check_reports_function_value_alloc_return_leak() {
 }
 
 #[test]
+fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_alloc_return_leak() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let fn_ty = types.function(vec![], vec![], i32_ty, Effect::Pure);
+    let wrapper_ty = types.register_named(
+        "CallbackBox".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "CallbackBox".to_string(),
+            type_params: vec![],
+            fields: vec![fn_ty],
+            field_names: vec!["make".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let helper_owned = Place::temporary(ResourceId(0), i32_ty);
+    let function_value = Place::temporary(ResourceId(1), fn_ty);
+    let wrapper = Place::temporary(ResourceId(2), wrapper_ty);
+    let callee = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        fn_ty,
+    );
+    let returned = Place::temporary(ResourceId(3), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "make_owner".to_string(),
+                params: vec![],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: helper_owned.clone(),
+                        args: vec![],
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(helper_owned),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::FunctionValue {
+                            output: function_value.clone(),
+                            name: "make_owner".to_string(),
+                            effect: EffectOp::UserCall {
+                                name: "make_owner".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::Construct {
+                            output: wrapper,
+                            kind: AggregateKind::Struct {
+                                name: "CallbackBox".to_string(),
+                            },
+                            inputs: vec![function_value],
+                            span,
+                        },
+                        ResourceOp::IndirectCall {
+                            output: returned.clone(),
+                            callee,
+                            params: vec![],
+                            result: i32_ty,
+                            args: vec![],
+                            effect: EffectOp::UserCall {
+                                name: "make_owner".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerLeaked {
+            function,
+            place,
+            ..
+        } if function == "main" && place == &returned
+    )));
+}
+
+#[test]
 fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();

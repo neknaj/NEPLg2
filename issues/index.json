@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:47:06.459Z",
+  "generated_at": "2026-04-28T12:55:05.029Z",
   "counts": {
-    "total": 277,
+    "total": 278,
     "open": 10,
-    "resolved": 267,
+    "resolved": 268,
     "by_area": {
       "core": {
-        "total": 127,
+        "total": 128,
         "open": 4,
-        "resolved": 123
+        "resolved": 124
       },
       "stdlib": {
         "total": 95,
@@ -2013,6 +2013,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T124306511Z-RESOURCE-EFFECT-CHECKER-KEEPS-STALE--E36BD546.md"
+    },
+    {
+      "id": "ISS-20260428T125012535Z-RESOURCE-FUNCTION-ALIAS-TABLE-LOSES--28281D3F",
+      "title": "Resource function alias table loses aliases stored in aggregate fields",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T125012535Z-RESOURCE-FUNCTION-ALIAS-TABLE-LOSES--28281D3F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

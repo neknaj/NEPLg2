@@ -888,8 +888,15 @@ impl ResourceBorrowCheckEngine<'_> {
             ),
             ResourceOp::Expr { .. }
             | ResourceOp::CallEffect { .. }
-            | ResourceOp::RawMemory { .. }
-            | ResourceOp::Construct { .. } => {}
+            | ResourceOp::RawMemory { .. } => {}
+            ResourceOp::Construct {
+                output,
+                kind,
+                inputs,
+                ..
+            } => {
+                construct_function_alias_fields(function_aliases, output, kind, inputs);
+            }
         }
     }
 
@@ -1459,7 +1466,10 @@ impl ResourceOwnerCheckEngine<'_> {
                 kind,
                 inputs,
                 span,
-            } => self.construct_owner_fields(owners, output, kind, inputs, *span),
+            } => {
+                self.construct_owner_fields(owners, output, kind, inputs, *span);
+                construct_function_alias_fields(function_aliases, output, kind, inputs);
+            }
             ResourceOp::Expr { .. }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
@@ -2335,6 +2345,18 @@ fn construct_owner_field_place(
     }
     place.ty = input.ty;
     place
+}
+
+fn construct_function_alias_fields(
+    function_aliases: &mut FunctionAliasTable,
+    output: &Place,
+    kind: &AggregateKind,
+    inputs: &[Place],
+) {
+    for (index, input) in inputs.iter().enumerate() {
+        let field = construct_owner_field_place(output, kind, index, input);
+        function_aliases.copy_alias(input, &field);
+    }
 }
 
 fn replace_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> Option<Place> {
