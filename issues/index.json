@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T07:20:07.419Z",
+  "generated_at": "2026-04-28T07:28:54.352Z",
   "counts": {
     "total": 247,
-    "open": 16,
-    "resolved": 231,
+    "open": 15,
+    "resolved": 232,
     "by_area": {
       "core": {
         "total": 103,
@@ -18,8 +18,8 @@
       },
       "selfhost": {
         "total": 14,
-        "open": 4,
-        "resolved": 10
+        "open": 3,
+        "resolved": 11
       },
       "stdlib": {
         "total": 94,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4.md"
-    },
-    {
-      "id": "ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235",
-      "title": "self-host SourceText builds line maps with per-byte recursion",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/infra/text.nepl, tests/stdlib/neplg2_text.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1953,6 +1938,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T174140008Z-NEPLG2-SELFHOST-LACKS-SHARED-DIAGNOS-CD740CFD.md"
+    },
+    {
+      "id": "ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235",
+      "title": "self-host SourceText builds line maps with per-byte recursion",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/infra/text.nepl, tests/stdlib/neplg2_text.n.md, nodesrc/test_selfhost_source_text_no_recursive_line_map.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

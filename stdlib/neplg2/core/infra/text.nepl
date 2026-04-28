@@ -76,44 +76,68 @@ impl Copy for SelfhostSourceLocation:
     fn copy_mark <(SelfhostSourceLocation)->SelfhostSourceLocation> (self):
         self
 
+//: source_text_next_index_after_cr: CR または CRLF の次 byte offset を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - line map 構築時に、CRLF を 1 つの改行として[扱/あつか]い、CR 単独も改行として[扱/あつか]います。
+//:
+//: [注意/ちゅうい]:
+//: - idx は `'\r'` を指している前提です。返る offset は次の line start です。
+fn source_text_next_index_after_cr <(str,i32,i32)->i32> (source, n, idx):
+    let next_idx <i32> add idx 1
+    if:
+        lt next_idx n
+        then:
+            let next_ch <i32> string::string_byte_at_unchecked source next_idx
+            match next_ch:
+                '\n':
+                    add idx 2
+                _:
+                    next_idx
+        else:
+            next_idx
+
 //: source_text_collect_line_starts: source を 1 [回/かい][走査/そうさ]して line start table を[作/つく]る
+//:
+//: [実装/じっそう]:
+//: - source byte を while で前から 1 回だけ[走査/そうさ]します。
+//: - LF / CR / CRLF を[見/み]つけたときだけ次 line start を `Vec<i32>` へ[追加/ついか]します。
 //:
 //: [注意/ちゅうい]:
 //: - allocation failure は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
 fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, StdErrorKind>> (source, n, idx, starts):
-    if:
-        ge idx n
-        then:
-            Result<Vec<i32>, StdErrorKind>::Ok starts
-        else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+    let mut i <i32> idx
+    let mut out <Vec<i32>> starts
+    let mut failed <bool> false
+    while and lt i n not failed:
+        do:
+            let ch <i32> string::string_byte_at_unchecked source i
             match ch:
-                10:
-                    match v::push<i32> starts add idx 1:
+                '\n':
+                    match v::push<i32> out add i 1:
                         Result::Ok next_starts:
-                            source_text_collect_line_starts source n add idx 1 next_starts
+                            set out next_starts
+                            set i add i 1
                         Result::Err _e:
-                            Result<Vec<i32>, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                13:
-                    let next_idx <i32>:
-                        if:
-                            lt add idx 1 n
-                            then:
-                                let next_ch <i32> string::string_byte_at_unchecked source add idx 1
-                                match next_ch:
-                                    10:
-                                        add idx 2
-                                    _:
-                                        add idx 1
-                            else:
-                                add idx 1
-                    match v::push<i32> starts next_idx:
+                            set out v::Vec<i32> 0 0 mem_ptr_wrap 0
+                            set failed true
+                '\r':
+                    let next_idx <i32> source_text_next_index_after_cr source n i
+                    match v::push<i32> out next_idx:
                         Result::Ok next_starts:
-                            source_text_collect_line_starts source n next_idx next_starts
+                            set out next_starts
+                            set i next_idx
                         Result::Err _e:
-                            Result<Vec<i32>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                            set out v::Vec<i32> 0 0 mem_ptr_wrap 0
+                            set failed true
                 _:
-                    source_text_collect_line_starts source n add idx 1 starts
+                    set i add i 1
+    if:
+        failed
+        then:
+            Result<Vec<i32>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        else:
+            Result<Vec<i32>, StdErrorKind>::Ok out
 
 //: source_text_new: source text と line map を[作/つく]る
 //:

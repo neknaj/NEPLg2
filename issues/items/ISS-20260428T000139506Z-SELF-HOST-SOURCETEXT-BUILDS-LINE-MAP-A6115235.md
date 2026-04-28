@@ -2,13 +2,13 @@
 id: ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235
 title: "self-host SourceText builds line maps with per-byte recursion"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
 updated: 2026-04-28
-target: "stdlib/neplg2/core/infra/text.nepl, tests/stdlib/neplg2_text.n.md"
+target: "stdlib/neplg2/core/infra/text.nepl, tests/stdlib/neplg2_text.n.md, nodesrc/test_selfhost_source_text_no_recursive_line_map.js"
 ---
 
 # ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235: self-host SourceText builds line maps with per-byte recursion
@@ -42,3 +42,18 @@ source_text_collect_line_starts を index 付き while/loop 相当の反復 help
 ## 検証
 
 長い 1 行、数万行、CRLF 混在の large source fixture を追加し、source_text_new と offset lookup が panic/trap せず O(n) で完走することを stdlib/neplg2_text focused test で確認する。
+
+## 解決
+
+- `source_text_collect_line_starts` を per-byte 再帰から `while` による 1-pass 走査へ置き換えた。
+- CRLF は `source_text_next_index_after_cr` に切り出し、`'\r\n'` を 1 改行、`'\r'` 単独も 1 改行として扱う既存契約を維持した。
+- `Vec<i32>` への line start 追加が失敗した場合は `StdErrorKind::OutOfMemory` を返し、消費済み owner を空 `Vec` に差し替えて loop 後の owner 状態を明確にした。
+- `tests/stdlib/neplg2_text.n.md` に `ret: 0` を追加し、既存 fixture の runtime failure が見逃されないようにした。`"alpha\nbeta\n"` の byte 長は 11 で、EOF offset も 11 が正しいため期待値を修正した。
+- 4096 行の generated source fixture を追加し、line count、EOF location、末尾 content line span を検証するようにした。
+- `nodesrc/test_selfhost_source_text_no_recursive_line_map.js` を追加し、line map builder が明示 loop を使い、関数本体で自己再帰しないことを静的に確認する。
+
+## 検証結果
+
+- `node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md --no-tree -o tmp/source-text-iter-line-map.json -j 1`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/infra/text.nepl --no-tree -o tmp/source-text-iter-line-map-docs.json -j 1`
