@@ -22522,3 +22522,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、direct function boundary で owner obligation を維持した。
+
+# 2026-04-28 メモ (ISS-20260428T113234640Z owner function value summary)
+
+- [同期]:
+  - `origin/main` の `0b460f1 fix(core): propagate owner return summaries` まで同期した main から `work/stage4-owner-function-value-summary` branch を作成した。
+- [原因]:
+  - direct call の owner return summary は caller へ適用できるようになったが、`ResourceOwnerCheckEngine` は `FunctionValue` / `IndirectCall` の known callee alias を保持していなかった。
+  - helper が first-class function として呼ばれると、fresh owner return と owner argument return transfer が caller の `OwnerTable` へ反映されず、free obligation が落ちていた。
+- [修正]:
+  - borrow checker 用の alias table を汎用 `FunctionAliasTable` に整理し、owner checker でも共有した。
+  - owner checker で `FunctionValue`、local copy / move / assign、branch / loop / match merge を通じて known callee alias を保持し、known `IndirectCall` へ owner return summary を適用した。
+  - `nepl-core/tests/resource_ir.rs` に function value 経由の fresh owner leak 検出回帰と owner argument transfer 正常系を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、first-class function 境界で owner obligation を維持した。

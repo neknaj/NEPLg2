@@ -1732,6 +1732,182 @@ fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
 }
 
 #[test]
+fn resource_ir_owner_check_reports_function_value_alloc_return_leak() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_owned = Place::temporary(ResourceId(0), i32_ty);
+    let callee = Place::temporary(ResourceId(1), i32_ty);
+    let main_owned = Place::temporary(ResourceId(2), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "alloc_owner".to_string(),
+                params: vec![],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: helper_owned.clone(),
+                        args: vec![],
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(helper_owned),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::FunctionValue {
+                            output: callee.clone(),
+                            name: "alloc_owner".to_string(),
+                            effect: EffectOp::UserCall {
+                                name: "alloc_owner".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::IndirectCall {
+                            output: main_owned.clone(),
+                            callee,
+                            params: vec![],
+                            result: i32_ty,
+                            args: vec![],
+                            effect: EffectOp::UserCall {
+                                name: "alloc_owner".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerLeaked {
+            function,
+            place,
+            ..
+        } if function == "main" && place == &main_owned
+    )));
+}
+
+#[test]
+fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_param = Place::local("p".to_string(), i32_ty);
+    let p = Place::temporary(ResourceId(0), i32_ty);
+    let callee = Place::temporary(ResourceId(1), i32_ty);
+    let returned = Place::temporary(ResourceId(2), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "owner_id".to_string(),
+                params: vec![ResourceLocal {
+                    name: "p".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: helper_param.clone(),
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(helper_param),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: p.clone(),
+                            args: vec![],
+                            span,
+                        },
+                        ResourceOp::FunctionValue {
+                            output: callee.clone(),
+                            name: "owner_id".to_string(),
+                            effect: EffectOp::UserCall {
+                                name: "owner_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::IndirectCall {
+                            output: returned.clone(),
+                            callee,
+                            params: vec![i32_ty],
+                            result: i32_ty,
+                            args: vec![p],
+                            effect: EffectOp::UserCall {
+                                name: "owner_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: Place::temporary(ResourceId(3), unit_ty),
+                            args: vec![returned],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_owner_obligations(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_shared_read_until_release() {
     let types = TypeCtx::new();
     let span = Span::dummy();

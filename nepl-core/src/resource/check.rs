@@ -702,7 +702,7 @@ impl ResourceCheckEngine<'_> {
 impl ResourceBorrowCheckEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) -> Vec<BorrowStateEntry> {
         let mut borrows = BorrowTable::default();
-        let mut function_aliases = BorrowFunctionAliasTable::default();
+        let mut function_aliases = FunctionAliasTable::default();
         for block in &function.blocks {
             self.check_block(&mut borrows, &mut function_aliases, block);
         }
@@ -712,7 +712,7 @@ impl ResourceBorrowCheckEngine<'_> {
     fn check_block(
         &mut self,
         borrows: &mut BorrowTable,
-        function_aliases: &mut BorrowFunctionAliasTable,
+        function_aliases: &mut FunctionAliasTable,
         block: &ResourceBlock,
     ) {
         self.check_ops(borrows, function_aliases, &block.ops);
@@ -729,7 +729,7 @@ impl ResourceBorrowCheckEngine<'_> {
     fn check_ops(
         &mut self,
         borrows: &mut BorrowTable,
-        function_aliases: &mut BorrowFunctionAliasTable,
+        function_aliases: &mut FunctionAliasTable,
         ops: &[ResourceOp],
     ) {
         for op in ops {
@@ -740,7 +740,7 @@ impl ResourceBorrowCheckEngine<'_> {
     fn check_op(
         &mut self,
         borrows: &mut BorrowTable,
-        function_aliases: &mut BorrowFunctionAliasTable,
+        function_aliases: &mut FunctionAliasTable,
         op: &ResourceOp,
     ) {
         match op {
@@ -817,7 +817,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 self.check_ops(&mut then_borrows, &mut then_function_aliases, then_ops);
                 self.check_ops(&mut else_borrows, &mut else_function_aliases, else_ops);
                 *borrows = BorrowTable::merge_paths(&[then_borrows, else_borrows]);
-                *function_aliases = BorrowFunctionAliasTable::merge_paths(&[
+                *function_aliases = FunctionAliasTable::merge_paths(&[
                     then_function_aliases,
                     else_function_aliases,
                 ]);
@@ -838,7 +838,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 let mut body_function_aliases = condition_function_aliases.clone();
                 self.check_ops(&mut body_borrows, &mut body_function_aliases, body_ops);
                 *borrows = BorrowTable::merge_paths(&[condition_borrows, body_borrows]);
-                *function_aliases = BorrowFunctionAliasTable::merge_paths(&[
+                *function_aliases = FunctionAliasTable::merge_paths(&[
                     condition_function_aliases,
                     body_function_aliases,
                 ]);
@@ -855,8 +855,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 }
                 if !arm_paths.is_empty() {
                     *borrows = BorrowTable::merge_paths(&arm_paths);
-                    *function_aliases =
-                        BorrowFunctionAliasTable::merge_paths(&function_alias_paths);
+                    *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
                 }
             }
             ResourceOp::FunctionValue { output, name, .. } => {
@@ -971,7 +970,7 @@ impl ResourceBorrowCheckEngine<'_> {
     fn propagate_indirect_call_return_token(
         &self,
         borrows: &mut BorrowTable,
-        function_aliases: &BorrowFunctionAliasTable,
+        function_aliases: &FunctionAliasTable,
         output: &Place,
         callee: &Place,
         args: &[Place],
@@ -1084,7 +1083,7 @@ fn function_returns_borrow_token(
         deferred: ResourceBorrowCheckDeferred::default(),
     };
     let mut borrows = BorrowTable::default();
-    let mut function_aliases = BorrowFunctionAliasTable::default();
+    let mut function_aliases = FunctionAliasTable::default();
     borrows.add_shared(parameter, parameter);
     for block in &function.blocks {
         engine.check_ops(&mut borrows, &mut function_aliases, &block.ops);
@@ -1142,8 +1141,9 @@ fn function_owner_return_summary(
 
     let mut parameter_indices = Vec::new();
     let mut returns_fresh_owner = false;
+    let mut function_aliases = FunctionAliasTable::default();
     for block in &function.blocks {
-        engine.check_ops(&mut owners, &block.ops);
+        engine.check_ops(&mut owners, &mut function_aliases, &block.ops);
         if let ResourceTerminator::Return {
             value: Some(value), ..
         } = &block.terminator
@@ -1178,15 +1178,21 @@ fn function_owner_return_summary(
 impl ResourceOwnerCheckEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) -> Vec<OwnerStateEntry> {
         let mut owners = OwnerTable::default();
+        let mut function_aliases = FunctionAliasTable::default();
         for block in &function.blocks {
-            self.check_block(&mut owners, block);
+            self.check_block(&mut owners, &mut function_aliases, block);
         }
         self.push_live_owner_diagnostics(&owners, function.span);
         owners.into_entries()
     }
 
-    fn check_block(&mut self, owners: &mut OwnerTable, block: &ResourceBlock) {
-        self.check_ops(owners, &block.ops);
+    fn check_block(
+        &mut self,
+        owners: &mut OwnerTable,
+        function_aliases: &mut FunctionAliasTable,
+        block: &ResourceBlock,
+    ) {
+        self.check_ops(owners, function_aliases, &block.ops);
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
@@ -1197,13 +1203,23 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    fn check_ops(&mut self, owners: &mut OwnerTable, ops: &[ResourceOp]) {
+    fn check_ops(
+        &mut self,
+        owners: &mut OwnerTable,
+        function_aliases: &mut FunctionAliasTable,
+        ops: &[ResourceOp],
+    ) {
         for op in ops {
-            self.check_op(owners, op);
+            self.check_op(owners, function_aliases, op);
         }
     }
 
-    fn check_op(&mut self, owners: &mut OwnerTable, op: &ResourceOp) {
+    fn check_op(
+        &mut self,
+        owners: &mut OwnerTable,
+        function_aliases: &mut FunctionAliasTable,
+        op: &ResourceOp,
+    ) {
         match op {
             ResourceOp::DeclareLocal {
                 place,
@@ -1219,6 +1235,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         ResourceOwnerOperation::DeclareInitializer,
                         *span,
                     );
+                    function_aliases.copy_alias(initializer, place);
                 }
             }
             ResourceOp::Read {
@@ -1227,6 +1244,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             } => {
                 self.transfer_owner(owners, source, output, ResourceOwnerOperation::Read, *span);
+                function_aliases.copy_alias(source, output);
             }
             ResourceOp::Assign {
                 target,
@@ -1240,6 +1258,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::AssignValue,
                     *span,
                 );
+                function_aliases.copy_alias(value, target);
             }
             ResourceOp::Move {
                 source,
@@ -1247,6 +1266,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             } => {
                 self.transfer_owner(owners, source, output, ResourceOwnerOperation::Move, *span);
+                function_aliases.copy_alias(source, output);
             }
             ResourceOp::RawMemory {
                 operation,
@@ -1294,8 +1314,10 @@ impl ResourceOwnerCheckEngine<'_> {
             } => {
                 let mut then_owners = owners.clone();
                 let mut else_owners = owners.clone();
-                self.check_ops(&mut then_owners, then_ops);
-                self.check_ops(&mut else_owners, else_ops);
+                let mut then_function_aliases = function_aliases.clone();
+                let mut else_function_aliases = function_aliases.clone();
+                self.check_ops(&mut then_owners, &mut then_function_aliases, then_ops);
+                self.check_ops(&mut else_owners, &mut else_function_aliases, else_ops);
                 self.transfer_owner(
                     &mut then_owners,
                     then_value,
@@ -1311,6 +1333,10 @@ impl ResourceOwnerCheckEngine<'_> {
                     *span,
                 );
                 *owners = OwnerTable::merge_paths(&[then_owners, else_owners]);
+                *function_aliases = FunctionAliasTable::merge_paths(&[
+                    then_function_aliases,
+                    else_function_aliases,
+                ]);
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -1318,18 +1344,30 @@ impl ResourceOwnerCheckEngine<'_> {
                 ..
             } => {
                 let mut condition_owners = owners.clone();
-                self.check_ops(&mut condition_owners, condition_ops);
+                let mut condition_function_aliases = function_aliases.clone();
+                self.check_ops(
+                    &mut condition_owners,
+                    &mut condition_function_aliases,
+                    condition_ops,
+                );
                 let mut body_owners = condition_owners.clone();
-                self.check_ops(&mut body_owners, body_ops);
+                let mut body_function_aliases = condition_function_aliases.clone();
+                self.check_ops(&mut body_owners, &mut body_function_aliases, body_ops);
                 *owners = OwnerTable::merge_paths(&[condition_owners, body_owners]);
+                *function_aliases = FunctionAliasTable::merge_paths(&[
+                    condition_function_aliases,
+                    body_function_aliases,
+                ]);
             }
             ResourceOp::Match {
                 output, arms, span, ..
             } => {
                 let mut arm_paths = Vec::new();
+                let mut function_alias_paths = Vec::new();
                 for arm in arms {
                     let mut arm_owners = owners.clone();
-                    self.check_ops(&mut arm_owners, &arm.ops);
+                    let mut arm_function_aliases = function_aliases.clone();
+                    self.check_ops(&mut arm_owners, &mut arm_function_aliases, &arm.ops);
                     self.transfer_owner(
                         &mut arm_owners,
                         &arm.value,
@@ -1338,10 +1376,15 @@ impl ResourceOwnerCheckEngine<'_> {
                         *span,
                     );
                     arm_paths.push(arm_owners);
+                    function_alias_paths.push(arm_function_aliases);
                 }
                 if !arm_paths.is_empty() {
                     *owners = OwnerTable::merge_paths(&arm_paths);
+                    *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
                 }
+            }
+            ResourceOp::FunctionValue { output, name, .. } => {
+                function_aliases.set_alias(output, name.clone());
             }
             ResourceOp::Call {
                 output,
@@ -1350,12 +1393,24 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
                 ..
             } => self.apply_call_return_owner(owners, output, target, args, *span),
+            ResourceOp::IndirectCall {
+                output,
+                callee,
+                args,
+                span,
+                ..
+            } => self.apply_indirect_call_return_owner(
+                owners,
+                function_aliases,
+                output,
+                callee,
+                args,
+                *span,
+            ),
             ResourceOp::Expr { .. }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
             | ResourceOp::CallEffect { .. }
-            | ResourceOp::FunctionValue { .. }
-            | ResourceOp::IndirectCall { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }
@@ -1378,6 +1433,43 @@ impl ResourceOwnerCheckEngine<'_> {
         else {
             return;
         };
+        self.apply_owner_return_summary(owners, output, args, summary, span);
+    }
+
+    fn apply_indirect_call_return_owner(
+        &mut self,
+        owners: &mut OwnerTable,
+        function_aliases: &FunctionAliasTable,
+        output: &Place,
+        callee: &Place,
+        args: &[Place],
+        span: Span,
+    ) {
+        for function in function_aliases.functions(callee) {
+            if let Some(summary) = self
+                .summaries
+                .iter()
+                .find(|summary| summary.function == function.as_str())
+            {
+                self.apply_owner_return_summary(owners, output, args, summary, span);
+                if owners
+                    .state(output)
+                    .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    fn apply_owner_return_summary(
+        &mut self,
+        owners: &mut OwnerTable,
+        output: &Place,
+        args: &[Place],
+        summary: &OwnerReturnSummary,
+        span: Span,
+    ) {
         let mut transferred = false;
         for arg in summary
             .parameter_indices
@@ -1528,17 +1620,17 @@ struct BorrowBinding {
 }
 
 #[derive(Debug, Clone, Default)]
-struct BorrowFunctionAliasTable {
-    entries: Vec<BorrowFunctionAliasEntry>,
+struct FunctionAliasTable {
+    entries: Vec<FunctionAliasEntry>,
 }
 
 #[derive(Debug, Clone)]
-struct BorrowFunctionAliasEntry {
+struct FunctionAliasEntry {
     place: Place,
     functions: Vec<String>,
 }
 
-impl BorrowFunctionAliasTable {
+impl FunctionAliasTable {
     fn functions(&self, place: &Place) -> &[String] {
         self.entries
             .iter()
@@ -1560,17 +1652,17 @@ impl BorrowFunctionAliasTable {
 
     fn set_functions(&mut self, place: &Place, functions: Vec<String>) {
         if let Some(entry) = self.entries.iter_mut().find(|entry| entry.place == *place) {
-            entry.functions = dedupe_borrow_functions(functions);
+            entry.functions = dedupe_functions(functions);
             return;
         }
-        self.entries.push(BorrowFunctionAliasEntry {
+        self.entries.push(FunctionAliasEntry {
             place: place.clone(),
-            functions: dedupe_borrow_functions(functions),
+            functions: dedupe_functions(functions),
         });
     }
 
-    fn merge_paths(paths: &[BorrowFunctionAliasTable]) -> Self {
-        let mut out = BorrowFunctionAliasTable::default();
+    fn merge_paths(paths: &[FunctionAliasTable]) -> Self {
+        let mut out = FunctionAliasTable::default();
         for path in paths {
             for entry in &path.entries {
                 out.union_functions(&entry.place, entry.functions.iter().cloned());
@@ -1595,7 +1687,7 @@ impl BorrowFunctionAliasTable {
     }
 }
 
-fn dedupe_borrow_functions(functions: Vec<String>) -> Vec<String> {
+fn dedupe_functions(functions: Vec<String>) -> Vec<String> {
     let mut out = Vec::new();
     for function in functions {
         if !out.contains(&function) {
