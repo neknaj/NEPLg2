@@ -23791,3 +23791,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` の core/CLI 分離に合わせ、CLI parser と core pipeline の option 境界を明示した。
+
+# 2026-04-29 メモ (ISS-20260428T204350258Z self-host pipeline root load boundary)
+
+- [同期]:
+  - `main` は `origin/main` の `e91f01b selfhost(cli): convert parsed options for core` まで同期済みで、`selfhost/pipeline-root-load` branch を作成して作業した。
+- [原因]:
+  - VFS loader と core compile options は実装済みだが、`core/pipeline.nepl` は marker API だけで、root path と options を束ねて root module をロードする入口がなかった。
+  - このままだと driver が lower-level loader を直接呼び、pipeline/check/lowering が ad hoc な接続になりやすい。
+- [修正]:
+  - `SelfhostCompileRequest` を追加し、root module logical path と `SelfhostCompileOptions` を 1 value にまとめた。
+  - `SelfhostPipelineLoadedRoot` と `selfhost_pipeline_load_root` を追加し、VFS から root module をロードして compile options と一緒に返すようにした。
+  - loaded root は `SelfhostLoadedModule` の AST buffer を所有するため、`selfhost_pipeline_loaded_root_free` を追加して解放責務を pipeline API 側に明示した。
+  - doctest で VFS に root source を登録し、`Wasi` target override 付き request から root AST と options が取得できることを固定した。
+- [検証]:
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\pipeline.nepl --no-tree -o tmp\selfhost-pipeline-root-load.json -j 1`: total=1 passed=1
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の `pipeline.nepl # compile_* API` に向け、filesystem/stdio 非依存の root load 境界を追加した。

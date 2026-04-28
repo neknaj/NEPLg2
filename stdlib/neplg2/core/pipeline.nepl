@@ -5,22 +5,136 @@
 //:
 //: [目的/もくてき]:
 //: - `syntax`、`module`、`resolve`、`check`、`hir`、`resource`、`mono`、`codegen` の依存方向を束ねます。
-//: - Stage 0 では source tree と focused doctest の存在を確認する marker API だけを公開します。
+//: - CLI 層から渡された root path と compile options を pure core の request として受け取り、VFS loader から root module を読みます。
 //:
 //: [注意/ちゅうい]:
 //: - filesystem や stdio は扱いません。CLI 層が source map / virtual file system を構築して渡す設計にします。
+//: - `SelfhostPipelineLoadedRoot` は loaded module の AST buffer を所有するため、使用後に `selfhost_pipeline_loaded_root_free` を呼びます。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - root load は VFS の file 数 n と source byte 数 m に対して O(n + m) です。
+//: - request / option accessor は O(1) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
+//:| #import "core/result" as *
 //:| #import "neplg2/core/pipeline" as *
-//: fn main <()->i32> ():
-//:     selfhost_pipeline_stage0
+//:| #import "neplg2/core/module/loader" as *
+//:| #import "neplg2/core/options" as *
+//: fn main <()*>i32> ():
+//:     match selfhost_vfs_new:
+//:         Result::Ok vfs0:
+//:             match selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> ():\n    0\n":
+//:                 Result::Ok vfs1:
+//:                     let options0 <SelfhostCompileOptions> selfhost_compile_options_default
+//:                     let options1 <SelfhostCompileOptions> selfhost_compile_options_with_target options0 SelfhostCompileTarget::Wasi
+//:                     let request <SelfhostCompileRequest> selfhost_compile_request_new "main.nepl" options1
+//:                     match selfhost_pipeline_load_root &vfs1 request:
+//:                         Result::Ok loaded:
+//:                             let ast_ref <&SelfhostModuleAst> selfhost_pipeline_loaded_root_ast &loaded
+//:                             let n <i32> selfhost_module_ast_len ast_ref
+//:                             let got_options <SelfhostCompileOptions> selfhost_pipeline_loaded_root_options &loaded
+//:                             let target <SelfhostCompileTarget> selfhost_compile_resolve_target got_options none<SelfhostCompileTarget>
+//:                             selfhost_pipeline_loaded_root_free loaded
+//:                             selfhost_vfs_free vfs1
+//:                             if and eq n 1 selfhost_compile_target_is_wasi target 0 1
+//:                         Result::Err _diag:
+//:                             selfhost_vfs_free vfs1
+//:                             1
+//:                 Result::Err _e:
+//:                     1
+//:         Result::Err _e:
+//:             1
 //: ```
+
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/module/loader" as *
+#import "neplg2/core/options" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+
+//: SelfhostCompileRequest: core pipeline へ渡す compile request
+//:
+//: [目的/もくてき]:
+//: - root module の logical path と core compile options を 1 value にまとめます。
+//: - CLI の argv 構造や filesystem path ではなく、core が理解する VFS path を受け取ります。
+struct SelfhostCompileRequest:
+    root_path <str>
+    options <SelfhostCompileOptions>
+
+impl Clone for SelfhostCompileRequest:
+    fn clone <(&SelfhostCompileRequest)->SelfhostCompileRequest> (self):
+        *self
+
+impl Copy for SelfhostCompileRequest:
+    fn copy_mark <(SelfhostCompileRequest)->SelfhostCompileRequest> (self):
+        self
+
+//: SelfhostPipelineLoadedRoot: pipeline が読み込んだ root module
+//:
+//: [注意/ちゅうい]:
+//: - `module` の AST buffer を所有します。使用後は `selfhost_pipeline_loaded_root_free` で解放します。
+struct SelfhostPipelineLoadedRoot:
+    module <SelfhostLoadedModule>
+    options <SelfhostCompileOptions>
+
+//: selfhost_compile_request_new: compile request を[作/つく]る
+fn selfhost_compile_request_new <(str,SelfhostCompileOptions)->SelfhostCompileRequest> (root_path, options):
+    SelfhostCompileRequest root_path options
+
+//: selfhost_compile_request_default: 既定 options の compile request を[作/つく]る
+fn selfhost_compile_request_default <(str)->SelfhostCompileRequest> (root_path):
+    selfhost_compile_request_new root_path selfhost_compile_options_default
+
+//: selfhost_compile_request_root_path: root module path を[返/かえ]す
+fn selfhost_compile_request_root_path <(SelfhostCompileRequest)->str> (request):
+    request.root_path
+
+//: selfhost_compile_request_options: compile options を[返/かえ]す
+fn selfhost_compile_request_options <(SelfhostCompileRequest)->SelfhostCompileOptions> (request):
+    request.options
+
+//: selfhost_pipeline_loaded_root_new: loaded root result を[作/つく]る
+fn selfhost_pipeline_loaded_root_new <(SelfhostLoadedModule,SelfhostCompileOptions)*>SelfhostPipelineLoadedRoot> (module, options):
+    SelfhostPipelineLoadedRoot module options
+
+//: selfhost_pipeline_load_root: VFS から root module を[読/よ]み、compile options と[一緒/いっしょ]に[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - driver が lower-level loader を直接呼ばず、pipeline の入口として root module load を開始できるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - VFS は borrow するだけで、この関数は所有しません。
+//: - 成功時の `SelfhostPipelineLoadedRoot` は loaded module の AST を所有します。
+fn selfhost_pipeline_load_root <(&SelfhostVirtualFileSystem,SelfhostCompileRequest)*>Result<SelfhostPipelineLoadedRoot, SelfhostDiagnostic>> (vfs, request):
+    match selfhost_load_module vfs request.root_path:
+        Result::Ok module:
+            Result<SelfhostPipelineLoadedRoot, SelfhostDiagnostic>::Ok selfhost_pipeline_loaded_root_new module request.options
+        Result::Err diag:
+            Result<SelfhostPipelineLoadedRoot, SelfhostDiagnostic>::Err diag
+
+//: selfhost_pipeline_loaded_root_ast: loaded root の AST を[参照/さんしょう]する
+fn selfhost_pipeline_loaded_root_ast <(&SelfhostPipelineLoadedRoot)->&SelfhostModuleAst> (loaded):
+    let module <&SelfhostLoadedModule> field::get_ref loaded "module"
+    selfhost_loaded_module_ast module
+
+//: selfhost_pipeline_loaded_root_path: loaded root の logical path を[返/かえ]す
+fn selfhost_pipeline_loaded_root_path <(&SelfhostPipelineLoadedRoot)->str> (loaded):
+    let module <&SelfhostLoadedModule> field::get_ref loaded "module"
+    selfhost_loaded_module_path module
+
+//: selfhost_pipeline_loaded_root_options: loaded root に付随する compile options を[返/かえ]す
+fn selfhost_pipeline_loaded_root_options <(&SelfhostPipelineLoadedRoot)->SelfhostCompileOptions> (loaded):
+    *field::get_ref loaded "options"
+
+//: selfhost_pipeline_loaded_root_free: loaded root が所有する AST buffer を[解放/かいほう]する
+fn selfhost_pipeline_loaded_root_free <(SelfhostPipelineLoadedRoot)*>()> (loaded):
+    selfhost_loaded_module_free field::get loaded "module"
+
 fn selfhost_pipeline_stage0 <()->i32> ():
-    0
+    selfhost_options_stage0

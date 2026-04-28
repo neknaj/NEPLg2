@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:40:35.318Z",
+  "generated_at": "2026-04-28T20:46:23.636Z",
   "counts": {
-    "total": 313,
+    "total": 314,
     "open": 10,
-    "resolved": 303,
+    "resolved": 304,
     "by_area": {
       "core": {
         "total": 148,
@@ -17,9 +17,9 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 32,
+        "total": 33,
         "open": 1,
-        "resolved": 31
+        "resolved": 32
       },
       "cli": {
         "total": 19,
@@ -3873,6 +3873,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T203749997Z-SELF-HOST-CLI-OPTIONS-DO-NOT-CONVERT-065062E7.md"
+    },
+    {
+      "id": "ISS-20260428T204350258Z-SELF-HOST-PIPELINE-ONLY-EXPOSES-MARK-ED0EEC14",
+      "title": "self-host pipeline only exposes marker API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/pipeline.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T204350258Z-SELF-HOST-PIPELINE-ONLY-EXPOSES-MARK-ED0EEC14.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
