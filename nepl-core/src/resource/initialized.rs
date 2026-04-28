@@ -138,7 +138,7 @@ impl ResourceCheckEngine<'_> {
                         *span,
                     ) {
                         cells.mark_initialized(place);
-                        raw_aliases.copy_alias_or_seed(initializer, place);
+                        self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, initializer, place);
                         function_aliases.copy_alias(initializer, place);
                     } else {
                         cells.set_state(place, CellState::Uninit);
@@ -156,7 +156,7 @@ impl ResourceCheckEngine<'_> {
             } => {
                 if self.consume_by_value(cells, source, ResourceCheckOperation::Read, *span) {
                     cells.mark_initialized(output);
-                    raw_aliases.copy_alias_or_seed(source, output);
+                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     function_aliases.copy_alias(source, output);
                 }
             }
@@ -167,7 +167,7 @@ impl ResourceCheckEngine<'_> {
             } => {
                 if self.consume_by_value(cells, value, ResourceCheckOperation::AssignValue, *span) {
                     cells.mark_initialized(target);
-                    raw_aliases.copy_alias_or_seed(value, target);
+                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, value, target);
                     function_aliases.copy_alias(value, target);
                 } else {
                     raw_aliases.clear(target);
@@ -192,7 +192,7 @@ impl ResourceCheckEngine<'_> {
                 if self.ensure_available(cells, source, ResourceCheckOperation::Move, *span) {
                     cells.set_state(source, CellState::Moved);
                     cells.mark_initialized(output);
-                    raw_aliases.copy_alias_or_seed(source, output);
+                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     function_aliases.copy_alias(source, output);
                 }
             }
@@ -327,11 +327,21 @@ impl ResourceCheckEngine<'_> {
                     *span,
                 );
                 if then_available {
-                    then_aliases.copy_alias_or_seed(then_value, output);
+                    self.copy_raw_alias_and_rekey_cells(
+                        &mut then_cells,
+                        &mut then_aliases,
+                        then_value,
+                        output,
+                    );
                     then_function_aliases.copy_alias(then_value, output);
                 }
                 if else_available {
-                    else_aliases.copy_alias_or_seed(else_value, output);
+                    self.copy_raw_alias_and_rekey_cells(
+                        &mut else_cells,
+                        &mut else_aliases,
+                        else_value,
+                        output,
+                    );
                     else_function_aliases.copy_alias(else_value, output);
                 }
                 *cells = CellTable::merge_paths(&[then_cells, else_cells]);
@@ -422,7 +432,12 @@ impl ResourceCheckEngine<'_> {
                     );
                     arms_available &= arm_available;
                     if arm_available {
-                        arm_aliases.copy_alias_or_seed(&arm.value, output);
+                        self.copy_raw_alias_and_rekey_cells(
+                            &mut arm_cells,
+                            &mut arm_aliases,
+                            &arm.value,
+                            output,
+                        );
                         arm_function_aliases.copy_alias(&arm.value, output);
                     }
                     arm_paths.push(arm_cells);
@@ -475,6 +490,19 @@ impl ResourceCheckEngine<'_> {
             args,
             self.raw_alias_summaries,
         )
+    }
+
+    fn copy_raw_alias_and_rekey_cells(
+        &self,
+        cells: &mut CellTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        source: &Place,
+        target: &Place,
+    ) {
+        let source_canonical = raw_aliases.canonicalize(source);
+        raw_aliases.copy_alias_or_seed(source, target);
+        let target_canonical = raw_aliases.canonicalize(target);
+        cells.rekey_raw_cells(&source_canonical, &target_canonical);
     }
 
     fn check_expr(

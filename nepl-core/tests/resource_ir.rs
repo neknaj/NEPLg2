@@ -5877,6 +5877,46 @@ fn main <()->i32> ():
     );
 }
 
+#[test]
+fn resource_ir_cell_check_realloc_transfers_copy_raw_cells() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn leak_via_realloc_slot <()->i32> ():
+    let p <i32> alloc_raw 4
+    let slot <i32> alloc_raw 4
+    store_i32 slot p
+    let grown <i32> realloc_raw slot 4 8
+    load_i32 grown
+
+fn main <()->i32> ():
+    leak_via_realloc_slot
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let realloc_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("leak_via_realloc_slot__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        realloc_diagnostics.is_empty(),
+        "realloc must transfer initialized Copy raw cells: {:#?}",
+        realloc_diagnostics
+    );
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

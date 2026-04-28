@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:13:21.281Z",
+  "generated_at": "2026-04-28T20:21:16.539Z",
   "counts": {
-    "total": 308,
+    "total": 309,
     "open": 10,
-    "resolved": 298,
+    "resolved": 299,
     "by_area": {
       "core": {
-        "total": 147,
+        "total": 148,
         "open": 4,
-        "resolved": 143
+        "resolved": 144
       },
       "stdlib": {
         "total": 96,
@@ -2298,6 +2298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T200446882Z-RESOURCE-CELLSTATE-MERGE-STARTS-FROM-C81C0269.md"
+    },
+    {
+      "id": "ISS-20260428T201631358Z-RESOURCE-CELLSTATE-RAW-CELLS-DO-NOT--72A5D076",
+      "title": "Resource CellState raw cells do not rekey when address alias canonical changes",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/cell_state.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T201631358Z-RESOURCE-CELLSTATE-RAW-CELLS-DO-NOT--72A5D076.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

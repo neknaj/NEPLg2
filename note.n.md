@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T201631358Z Resource CellState raw cell rekey)
+
+- `RawMemoryLoadCell` gate の残件調査で、`tests/compiler/move_effect.n.md::doctest#8` の realloc 後 raw slot load が D3025 ではなく false D3100 になる原因を確認した。
+- `RawMemory::Realloc` は Copy raw cell を output temporary へ transfer していたが、直後の `let grown = tmp` で raw address canonical が local `grown` に変わっても、CellTable の raw cell entry は `tmp.deref` のまま残っていた。
+- `ResourceCheckEngine` の raw alias transfer を `copy_raw_alias_and_rekey_cells` に統一し、alias canonical が変わった場合は `CellTable::rekey_raw_cells` で raw cell state を旧 canonical から新 canonical へ移すようにした。
+- `resource_ir_cell_check_realloc_transfers_copy_raw_cells` を追加し、typechecked source から lowered Resource IR を作って `realloc_raw` 後に local 束縛された raw slot から `load_i32` しても initialized/moved CellState diagnostics が出ないことを固定した。
+- temporary `RawMemoryLoadCell` gate で `tests/compiler/move_effect.n.md` は 106/110 から 107/110 に改善し、doctest#8 は本来の D3025 raw allocation escape diagnostic へ戻った。gate はまだ本 commit では有効化しない。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_realloc_transfers_copy_raw_cells -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir`: 78 passed
+  - temporary `RawMemoryLoadCell` gate + `trunk build`: pass
+  - temporary `RawMemoryLoadCell` gate + `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-load-cell-realloc-transfer-gate.json -j 1`: total=110, passed=107, failed=3
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T200446882Z Resource CellState merge)
 
 - `RawMemoryLoadCell` gate の残件調査で、loop body が raw place を触っていない `tests/compiler/move_effect.n.md::doctest#80` が false D3100 になる原因を確認した。

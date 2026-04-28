@@ -77,6 +77,26 @@ impl CellTable {
         }
     }
 
+    pub(super) fn rekey_raw_cells(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        let mut relocated = Vec::new();
+        self.cells.retain(|entry| {
+            if raw_cell_suffix_after_address(&entry.place, source).is_none() {
+                return true;
+            }
+            if let Some(place) = replace_place_prefix(&entry.place, source, target) {
+                relocated.push(CellStateEntry {
+                    place,
+                    state: entry.state.clone(),
+                });
+            }
+            false
+        });
+        self.extend_entries(relocated);
+    }
+
     pub(super) fn live_non_copy_raw_cells_under(
         &self,
         address: &Place,
