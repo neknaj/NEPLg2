@@ -12,6 +12,7 @@
 //: - `SelfhostHirModule` は function / param / expr / expr_children の 4 つの Vec を所有します。
 //: - `SelfhostHirFunctionId` と `SelfhostHirExprId` は arena-local index です。別 module の id と混ぜないでください。
 //: - expression record は typed child range から作り、first_child / child_count で child table 範囲を参照します。
+//: - function record は typed parameter range から作り、first_param / param_count で param table 範囲を参照します。
 //:
 //: [注意/ちゅうい]:
 //: - これは S4 HIR stage の最小 model です。完全な lowering、pattern、drop plan は別 issue で追加します。
@@ -162,6 +163,84 @@
 //:             let shown <Vec<Result<(),str>>> checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/field" as field
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let checks0 <Vec<Result<(),str>>> checks_new
+//:     match selfhost_hir_module_new:
+//:         Result::Ok module0:
+//:             let span <SelfhostSourceSpan> source_span_new 5 30 35
+//:             let result_ty <SelfhostTypeId> selfhost_type_id_new 1
+//:             let param0 <SelfhostHirParam> selfhost_hir_param_new "x" result_ty true span
+//:             let params0 <Vec<SelfhostHirParam>> unwrap_ok v::new<SelfhostHirParam>
+//:             let params1 <Vec<SelfhostHirParam>> unwrap_ok v::push<SelfhostHirParam> params0 param0
+//:             match selfhost_hir_module_add_param_range module0 params1:
+//:                 Result::Ok param_alloc:
+//:                     let param_range <SelfhostHirParamRange> field::get param_alloc "param_range"
+//:                     let module1 <SelfhostHirModule> field::get param_alloc "module"
+//:                     let root_expr <SelfhostHirExpr> selfhost_hir_expr_leaf SelfhostHirExprKind::Unit result_ty span "" 0 false
+//:                     match selfhost_hir_module_add_expr module1 root_expr:
+//:                         Result::Ok expr_alloc:
+//:                             let root <SelfhostHirExprId> field::get expr_alloc "expr_id"
+//:                             let module2 <SelfhostHirModule> field::get expr_alloc "module"
+//:                             let func <SelfhostHirFunction> selfhost_hir_function_with_params "main" result_ty span root param_range
+//:                             match selfhost_hir_module_add_function module2 func:
+//:                                 Result::Ok func_alloc:
+//:                                     let function_id <SelfhostHirFunctionId> field::get func_alloc "function_id"
+//:                                     let module3 <SelfhostHirModule> field::get func_alloc "module"
+//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 1 selfhost_hir_module_param_len &module3
+//:                                     let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 0 selfhost_hir_param_range_first param_range
+//:                                     let checks3 <Vec<Result<(),str>>> checks_push checks2 check_eq_i32 1 selfhost_hir_param_range_count param_range
+//:                                     match selfhost_hir_module_get_param &module3 param_range 0:
+//:                                         Option::Some got_param:
+//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 check_str_eq "x" got_param.name
+//:                                             let checks5 <Vec<Result<(),str>>> checks_push checks4 check got_param.mutable
+//:                                             match selfhost_hir_module_get_function &module3 function_id:
+//:                                                 Option::Some got_func:
+//:                                                     let got_range <SelfhostHirParamRange> selfhost_hir_function_param_range got_func
+//:                                                     let checks6 <Vec<Result<(),str>>> checks_push checks5 check_eq_i32 0 selfhost_hir_param_range_first got_range
+//:                                                     let checks7 <Vec<Result<(),str>>> checks_push checks6 check_eq_i32 1 selfhost_hir_param_range_count got_range
+//:                                                     selfhost_hir_module_free module3
+//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks7
+//:                                                     checks_exit_code shown
+//:                                                 Option::None:
+//:                                                     selfhost_hir_module_free module3
+//:                                                     let checks6 <Vec<Result<(),str>>> checks_push checks5 Result<(),str>::Err "missing function"
+//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks6
+//:                                                     checks_exit_code shown
+//:                                         Option::None:
+//:                                             selfhost_hir_module_free module3
+//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 Result<(),str>::Err "missing param"
+//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks4
+//:                                             checks_exit_code shown
+//:                                 Result::Err _e:
+//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "function push failed"
+//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                                     checks_exit_code shown
+//:                         Result::Err _e:
+//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "root expr push failed"
+//:                             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                             checks_exit_code shown
+//:                 Result::Err _e:
+//:                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "param range push failed"
+//:                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
 
 #import "alloc/collections/vec" as v
 #import "core/field" as field
@@ -207,6 +286,19 @@ impl Clone for SelfhostHirChildRange:
 
 impl Copy for SelfhostHirChildRange:
     fn copy_mark <(SelfhostHirChildRange)->SelfhostHirChildRange> (self):
+        self
+
+//: SelfhostHirParamRange: parameter table 上の連続範囲
+struct SelfhostHirParamRange:
+    first_param <i32>
+    param_count <i32>
+
+impl Clone for SelfhostHirParamRange:
+    fn clone <(&SelfhostHirParamRange)->SelfhostHirParamRange> (self):
+        *self
+
+impl Copy for SelfhostHirParamRange:
+    fn copy_mark <(SelfhostHirParamRange)->SelfhostHirParamRange> (self):
         self
 
 //: SelfhostHirExprKind: S4 初期段階で扱う HIR expression の分類
@@ -315,6 +407,11 @@ struct SelfhostHirModuleChildRangeAlloc:
     module <SelfhostHirModule>
     child_range <SelfhostHirChildRange>
 
+//: SelfhostHirModuleParamRangeAlloc: parameter range 追加結果
+struct SelfhostHirModuleParamRangeAlloc:
+    module <SelfhostHirModule>
+    param_range <SelfhostHirParamRange>
+
 //: selfhost_hir_function_id_new: function id を[作/つく]る
 fn selfhost_hir_function_id_new <(i32)->SelfhostHirFunctionId> (index):
     SelfhostHirFunctionId index
@@ -350,6 +447,22 @@ fn selfhost_hir_child_range_first <(SelfhostHirChildRange)->i32> (child_range):
 //: selfhost_hir_child_range_count: child 数を[返/かえ]す
 fn selfhost_hir_child_range_count <(SelfhostHirChildRange)->i32> (child_range):
     child_range.child_count
+
+//: selfhost_hir_param_range_new: parameter table 範囲を[作/つく]る
+fn selfhost_hir_param_range_new <(i32,i32)->SelfhostHirParamRange> (first_param, param_count):
+    SelfhostHirParamRange first_param param_count
+
+//: selfhost_hir_param_range_empty: parameter を持たない範囲を[返/かえ]す
+fn selfhost_hir_param_range_empty <()->SelfhostHirParamRange> ():
+    selfhost_hir_param_range_new -1 0
+
+//: selfhost_hir_param_range_first: parameter table の開始 index を[返/かえ]す
+fn selfhost_hir_param_range_first <(SelfhostHirParamRange)->i32> (param_range):
+    param_range.first_param
+
+//: selfhost_hir_param_range_count: parameter 数を[返/かえ]す
+fn selfhost_hir_param_range_count <(SelfhostHirParamRange)->i32> (param_range):
+    param_range.param_count
 
 //: selfhost_hir_expr_kind_tag: expression kind を比較用 tag に[変換/へんかん]する
 fn selfhost_hir_expr_kind_tag <(SelfhostHirExprKind)->i32> (kind):
@@ -400,6 +513,14 @@ fn selfhost_hir_expr_child_range <(SelfhostHirExpr)->SelfhostHirChildRange> (exp
 //: selfhost_hir_function_new: function record を[作/つく]る
 fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
     SelfhostHirFunction name result span root first_param param_count
+
+//: selfhost_hir_function_with_params: parameter range を持つ function record を[作/つく]る
+fn selfhost_hir_function_with_params <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,SelfhostHirParamRange)->SelfhostHirFunction> (name, result, span, root, param_range):
+    selfhost_hir_function_new name result span root param_range.first_param param_range.param_count
+
+//: selfhost_hir_function_param_range: function record の parameter 範囲を[返/かえ]す
+fn selfhost_hir_function_param_range <(SelfhostHirFunction)->SelfhostHirParamRange> (func):
+    selfhost_hir_param_range_new func.first_param func.param_count
 
 //: selfhost_hir_module_new: [空/から]の HIR module を[作/つく]る
 fn selfhost_hir_module_new <()*>Result<SelfhostHirModule, StdErrorKind>> ():
@@ -466,6 +587,28 @@ fn selfhost_hir_module_add_function_alloc_new <(SelfhostHirModule,SelfhostHirFun
 fn selfhost_hir_module_add_child_range_alloc_new <(SelfhostHirModule,SelfhostHirChildRange)*>SelfhostHirModuleChildRangeAlloc> (module, child_range):
     SelfhostHirModuleChildRangeAlloc module child_range
 
+//: selfhost_hir_module_add_param_range_alloc_new: parameter range 追加結果を[作/つく]る
+fn selfhost_hir_module_add_param_range_alloc_new <(SelfhostHirModule,SelfhostHirParamRange)*>SelfhostHirModuleParamRangeAlloc> (module, param_range):
+    SelfhostHirModuleParamRangeAlloc module param_range
+
+//: selfhost_hir_module_copy_params: parameter record 列を parameter table に[複製/ふくせい]する
+fn selfhost_hir_module_copy_params <(Vec<SelfhostHirParam>,&Vec<SelfhostHirParam>,i32,i32)*>Result<Vec<SelfhostHirParam>, StdErrorKind>> (out, params, n, idx):
+    if:
+        ge idx n
+        then:
+            Result<Vec<SelfhostHirParam>, StdErrorKind>::Ok out
+        else:
+            match v::get_ref<SelfhostHirParam> params idx:
+                Option::Some param:
+                    match v::push<SelfhostHirParam> out param:
+                        Result::Ok next_out:
+                            selfhost_hir_module_copy_params next_out params n add idx 1
+                        Result::Err e:
+                            Result<Vec<SelfhostHirParam>, StdErrorKind>::Err e
+                Option::None:
+                    v::free<SelfhostHirParam> out
+                    Result<Vec<SelfhostHirParam>, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+
 //: selfhost_hir_module_copy_expr_children: child id 列を expression child table に[複製/ふくせい]する
 fn selfhost_hir_module_copy_expr_children <(Vec<SelfhostHirExprId>,&Vec<SelfhostHirExprId>,i32,i32)*>Result<Vec<SelfhostHirExprId>, StdErrorKind>> (out, children, n, idx):
     if:
@@ -522,6 +665,39 @@ fn selfhost_hir_module_add_function <(SelfhostHirModule,SelfhostHirFunction)*>Re
             v::free<SelfhostHirExprId> expr_children
             Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>::Err e
 
+//: selfhost_hir_module_add_param_range: parameter table に parameter record 列を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - lowering が parameter table の raw offset を直接作らずに、typed range として function record へ渡せるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `params_to_add` はこの関数が消費し、成功・失敗どちらでも解放します。
+//: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
+fn selfhost_hir_module_add_param_range <(SelfhostHirModule,Vec<SelfhostHirParam>)*>Result<SelfhostHirModuleParamRangeAlloc, StdErrorKind>> (module, params_to_add):
+    let param_count <i32> v::len_ref<SelfhostHirParam> &params_to_add
+    if:
+        eq param_count 0
+        then:
+            v::free<SelfhostHirParam> params_to_add
+            Result<SelfhostHirModuleParamRangeAlloc, StdErrorKind>::Ok selfhost_hir_module_add_param_range_alloc_new module selfhost_hir_param_range_empty
+        else:
+            let first_param <i32> selfhost_hir_module_param_len &module
+            let functions <Vec<SelfhostHirFunction>> field::get module "functions"
+            let params <Vec<SelfhostHirParam>> field::get module "params"
+            let exprs <Vec<SelfhostHirExpr>> field::get module "exprs"
+            let expr_children <Vec<SelfhostHirExprId>> field::get module "expr_children"
+            match selfhost_hir_module_copy_params params &params_to_add param_count 0:
+                Result::Ok next_params:
+                    v::free<SelfhostHirParam> params_to_add
+                    let param_range <SelfhostHirParamRange> selfhost_hir_param_range_new first_param param_count
+                    Result<SelfhostHirModuleParamRangeAlloc, StdErrorKind>::Ok selfhost_hir_module_add_param_range_alloc_new (SelfhostHirModule functions next_params exprs expr_children) param_range
+                Result::Err e:
+                    v::free<SelfhostHirFunction> functions
+                    v::free<SelfhostHirExpr> exprs
+                    v::free<SelfhostHirExprId> expr_children
+                    v::free<SelfhostHirParam> params_to_add
+                    Result<SelfhostHirModuleParamRangeAlloc, StdErrorKind>::Err e
+
 //: selfhost_hir_module_add_child_range: expression child table に child id 列を[追加/ついか]する
 //:
 //: [目的/もくてき]:
@@ -574,6 +750,21 @@ fn selfhost_hir_module_get_expr <(&SelfhostHirModule,SelfhostHirExprId)->Option<
         else:
             let exprs <&Vec<SelfhostHirExpr>> field::get_ref module "exprs"
             v::get_ref<SelfhostHirExpr> exprs expr_id.index
+
+//: selfhost_hir_module_get_param: parameter range 内の parameter record を[返/かえ]す
+fn selfhost_hir_module_get_param <(&SelfhostHirModule,SelfhostHirParamRange,i32)->Option<SelfhostHirParam>> (module, param_range, idx):
+    if:
+        or lt idx 0 ge idx param_range.param_count
+        then:
+            none<SelfhostHirParam>
+        else:
+            if:
+                lt param_range.first_param 0
+                then:
+                    none<SelfhostHirParam>
+                else:
+                    let params <&Vec<SelfhostHirParam>> field::get_ref module "params"
+                    v::get_ref<SelfhostHirParam> params add param_range.first_param idx
 
 //: selfhost_hir_module_get_child: child range 内の expression id を[返/かえ]す
 fn selfhost_hir_module_get_child <(&SelfhostHirModule,SelfhostHirChildRange,i32)->Option<SelfhostHirExprId>> (module, child_range, idx):

@@ -23737,3 +23737,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` S4 の HIR lowering に向け、leaf expression だけでなく non-leaf expression を arena に載せるための child range 境界を追加した。
+
+# 2026-04-29 メモ (ISS-20260428T202624698Z self-host HIR param range API)
+
+- [同期]:
+  - `main` は `origin/main` の `4b6eaac selfhost(hir): add expression child ranges` まで同期済みで、`selfhost/hir-param-ranges` branch を作成して作業した。
+- [原因]:
+  - `SelfhostHirFunction` は `first_param` / `param_count` を持ち、`SelfhostHirModule` も `params` table を所有していたが、parameter record 列を table に追加して typed range として返す API がなかった。
+  - このままだと function lowering が parameter table offset を直接管理することになり、HIR arena の不変条件が pass ごとに分散する。
+- [修正]:
+  - `SelfhostHirParamRange` と `SelfhostHirModuleParamRangeAlloc` を追加した。
+  - `selfhost_hir_module_add_param_range` で `Vec<SelfhostHirParam>` を module の parameter table にコピーし、empty range は `-1/0` に正規化するようにした。
+  - `selfhost_hir_function_with_params`、`selfhost_hir_function_param_range`、`selfhost_hir_module_get_param` を追加し、function record が raw offset を直接受け取らなくても parameter range を保持できるようにした。
+  - doctest で parameter 1 件を持つ function record の保存と lookup を確認するようにした。
+- [検証]:
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\hir\hir.nepl --no-tree -o tmp\selfhost-hir-param-ranges.json -j 1`: total=3 passed=3
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` S4 の HIR lowering に向け、parameter 付き function record を arena に載せるための param range 境界を追加した。
