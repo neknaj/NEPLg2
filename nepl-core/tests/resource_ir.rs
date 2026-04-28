@@ -2603,6 +2603,66 @@ fn resource_ir_cell_check_canonicalizes_raw_address_local_reads() {
 }
 
 #[test]
+fn resource_ir_cell_check_raw_memory_call_does_not_consume_store_value_twice() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let value = Place::temporary(ResourceId(1), owned_ty);
+    let store_out = Place::temporary(ResourceId(2), unit_ty);
+    let loaded = Place::temporary(ResourceId(3), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: nepl_core::resource::ResourceExprKind::Literal,
+                output: ptr.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Construct {
+                output: value.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::Call {
+                output: store_out.clone(),
+                target: ResourceCallTarget::User {
+                    name: "store".to_string(),
+                    type_args: vec![owned_ty],
+                },
+                args: vec![ptr.clone(), value.clone()],
+                effect: EffectOp::UnsafeMemory {
+                    operation: "store".to_string(),
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_out,
+                args: vec![ptr.clone(), value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![ptr],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_cell_check_moves_non_copy_raw_load_cell() {
     let (mut types, owned_ty) = types_with_non_copy_owned();
     types.register_copy_impl_target(types.i32());

@@ -1,3 +1,18 @@
+# 2026-04-29 メモ (ISS-20260428T173213551Z Resource CellState raw helper call)
+
+- `ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` の調査中に、direct raw memory helper が Resource IR 上で `ResourceOp::Call` と `ResourceOp::RawMemory` の両方を持つため、CellState checker が `store<T>(ptr, value)` の `value` を generic `CallArgument` として先に moved にしてしまう問題を発見した。
+- `ISS-20260428T173213551Z-RESOURCE-CELLSTATE-CHECKER-CONSUMES--DD20A3D7` として分離し、`EffectOp::InternalAlloc` / `EffectOp::UnsafeMemory` の direct `ResourceOp::Call` は CellState では消費せず、raw memory semantics は直後の `ResourceOp::RawMemory` に一本化した。
+- `resource_ir_cell_check_raw_memory_call_does_not_consume_store_value_twice` を追加し、generic `Call` + `RawMemory::Store` + `RawMemory::Load` の並びで非Copy store valueが二重消費されないことを固定した。
+- `RawMemoryLoadCell` compiler gate はまだ有効化していない。一時的に有効化した調査では `move_effect.n.md` の失敗が 18 件から 11 件へ減り、残件は helper-returned slot summary、`MemPtr` / `RegionToken` address wrapper、raw aggregate field offset/projection CellState に絞られた。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_memory_call_does_not_consume_store_value_twice -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 70 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-cellstate-raw-call-move-effect.json -j 1`: total=110, passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-cellstate-raw-call-move-check.json -j 1`: total=52, passed=52
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T171533230Z Resource IR while return coverage)
 
 - `ISS-20260428T171533230Z-RESOURCE-IR-LOWERING-EMITS-UNKNOWN-R-ACE2EF90` として、unit-return function の末尾にある `while` が Resource IR 上で `return unknown:t0` になり、D3101 coverage gate を誤発火させる問題を修正した。

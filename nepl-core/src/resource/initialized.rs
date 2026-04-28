@@ -8,7 +8,7 @@ use crate::types::TypeCtx;
 
 use super::cell_state::CellTable;
 use super::model::{
-    CellState, CellStateEntry, Place, RawMemoryOp, ResourceBlock, ResourceExprKind,
+    CellState, CellStateEntry, EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceExprKind,
     ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
@@ -297,8 +297,18 @@ impl ResourceCheckEngine<'_> {
                 raw_aliases.clear(output);
             }
             ResourceOp::Call {
-                output, args, span, ..
+                output,
+                args,
+                effect,
+                span,
+                ..
             } => {
+                if matches!(
+                    effect,
+                    EffectOp::InternalAlloc | EffectOp::UnsafeMemory { .. }
+                ) {
+                    return;
+                }
                 let args_available =
                     self.consume_args(cells, args, ResourceCheckOperation::CallArgument, *span);
                 if args_available {

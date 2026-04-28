@@ -47,3 +47,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 
 - [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md)
 - [RV-CORE-009 Resource IR parent](./ISS-20260425T000000Z-RV-CORE-009-58589A3F.md)
+
+## 2026-04-29 調査追記
+
+`RawMemoryLoadCell` gate を一時的に compiler error 化して `tests/compiler/move_effect.n.md` を実行したところ、最初の大きな false positive 群は Resource IR lowering ではなく CellState checker 側の二重消費だった。direct raw memory helper は Resource IR 上で `ResourceOp::Call` と `ResourceOp::RawMemory` の両方を持つため、generic `Call` が先に store value を moved にし、直後の `RawMemory::Store` が pointed cell を initialized にできていなかった。
+
+この前提不備は `ISS-20260428T173213551Z-RESOURCE-CELLSTATE-CHECKER-CONSUMES--DD20A3D7` として分離し、修正済み。修正後に同じ一時 gate 調査を再実行すると、`move_effect.n.md` の失敗は 18 件から 11 件へ減った。残件は helper-returned slot の direct/indirect return summary、`MemPtr` / `RegionToken` の address wrapper、raw aggregate field load の offset/projection CellState に絞られる。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T17:36:59.959Z",
+  "generated_at": "2026-04-28T17:39:32.784Z",
   "counts": {
-    "total": 295,
+    "total": 296,
     "open": 10,
-    "resolved": 285,
+    "resolved": 286,
     "by_area": {
       "core": {
-        "total": 138,
+        "total": 139,
         "open": 4,
-        "resolved": 134
+        "resolved": 135
       },
       "stdlib": {
         "total": 95,
@@ -2163,6 +2163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T171533230Z-RESOURCE-IR-LOWERING-EMITS-UNKNOWN-R-ACE2EF90.md"
+    },
+    {
+      "id": "ISS-20260428T173213551Z-RESOURCE-CELLSTATE-CHECKER-CONSUMES--DD20A3D7",
+      "title": "Resource CellState checker consumes raw memory helper arguments before raw operations",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T173213551Z-RESOURCE-CELLSTATE-CHECKER-CONSUMES--DD20A3D7.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
