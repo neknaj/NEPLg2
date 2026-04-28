@@ -40,6 +40,28 @@ fn main <()->i32> ():
     leak_raw
 ```
 
+## pure から alloc_raw の raw address を struct に包んで返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct RawBox:
+    ptr <i32>
+
+fn leak_box <()->RawBox> ():
+    let p <i32> alloc_raw 4
+    RawBox p
+
+fn main <()->i32> ():
+    let b <RawBox> leak_box
+    0
+```
+
 ## pure から raw load intrinsic を直接呼べない
 
 neplg2:test[compile_fail]

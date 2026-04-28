@@ -505,6 +505,67 @@ fn resource_ir_effect_check_reports_raw_alloc_return_escape() {
 }
 
 #[test]
+fn resource_ir_effect_check_reports_raw_alloc_escape_wrapped_in_struct() {
+    let i32_ty = TypeId(1);
+    let box_ty = TypeId(2);
+    let span = Span::dummy();
+    let size = Place::temporary(ResourceId(0), i32_ty);
+    let raw = Place::temporary(ResourceId(1), i32_ty);
+    let boxed = Place::temporary(ResourceId(2), box_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "make_box".to_string(),
+            params: vec![],
+            result: box_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![size],
+                        span,
+                    },
+                    ResourceOp::Construct {
+                        output: boxed.clone(),
+                        kind: AggregateKind::Struct {
+                            name: "RawBox".to_string(),
+                        },
+                        inputs: vec![raw],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(boxed),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "make_box"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();

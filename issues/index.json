@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T09:50:46.227Z",
+  "generated_at": "2026-04-28T10:08:28.879Z",
   "counts": {
-    "total": 250,
+    "total": 251,
     "open": 11,
-    "resolved": 239,
+    "resolved": 240,
     "by_area": {
       "core": {
-        "total": 103,
+        "total": 104,
         "open": 4,
-        "resolved": 99
+        "resolved": 100
       },
       "selfhost": {
         "total": 16,
@@ -1668,6 +1668,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T021121770Z-CHAR-LITERAL-ESCAPES-MISS-BACKSPACE--EB703EFF.md"
+    },
+    {
+      "id": "ISS-20260428T100333122Z-RESOURCE-EFFECT-GATE-MISSES-RAW-ALLO-0E0A15D1",
+      "title": "Resource effect gate misses raw allocation identity wrapped in aggregates",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/src/compiler.rs, tests/compiler/move_effect.n.md, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T100333122Z-RESOURCE-EFFECT-GATE-MISSES-RAW-ALLO-0E0A15D1.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

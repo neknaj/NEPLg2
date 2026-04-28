@@ -137,6 +137,11 @@ impl ResourceEffectBoundaryEngine<'_> {
             ResourceOp::Assign { target, value, .. } => {
                 identities.copy_identity(value, target);
             }
+            ResourceOp::Construct { output, inputs, .. } => {
+                for input in inputs {
+                    identities.copy_identity(input, output);
+                }
+            }
             ResourceOp::Branch {
                 output,
                 then_ops,
@@ -182,8 +187,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             | ResourceOp::Drop { .. }
             | ResourceOp::FunctionValue { .. }
             | ResourceOp::Call { .. }
-            | ResourceOp::IndirectCall { .. }
-            | ResourceOp::Construct { .. } => {}
+            | ResourceOp::IndirectCall { .. } => {}
         }
     }
 

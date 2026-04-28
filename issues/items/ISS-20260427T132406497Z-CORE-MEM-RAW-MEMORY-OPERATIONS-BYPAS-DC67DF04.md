@@ -240,6 +240,12 @@ Resource IR effect boundary のうち、`InternalAlloc` 由来の raw address id
 - `trunk build`: pass
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage5-raw-identity-escape-focused.json -j 1`: total=98, passed=98
 
+## 2026-04-28 Stage 5 aggregate raw identity escape 追記
+
+`ISS-20260428T100333122Z-RESOURCE-EFFECT-GATE-MISSES-RAW-ALLO-0E0A15D1` として、internal allocation identity を struct / tuple / enum constructor に包むと public escape diagnostics から漏れる問題を分離した。
+
+Resource IR の effect boundary check で `ResourceOp::Construct` の input identity を output へ伝播するようにし、`alloc_raw` 由来 address を aggregate に包んで pure function から返す経路も D3025 で拒否される。これは Stage 5 commit 単位 4 の public escape diagnostics の補強であり、raw memory operation 全体の effect migration や Stage 6 stdlib API 移行は引き続き本 issue の残件として扱う。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。

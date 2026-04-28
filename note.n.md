@@ -22300,3 +22300,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host で使う hash / renderer / sort / field access の仕様判断を、stdlib doc comment 側でも読める状態に近づけた。
+
+# 2026-04-28 メモ (ISS-20260428T100333122Z aggregate raw identity escape)
+
+- [同期]:
+  - `origin/main` の `bf20756 feat(core): reject raw allocation identity escape` まで同期した main から `work/stage5-aggregate-raw-identity-escape` branch を作成した。
+- [原因]:
+  - Stage 5 の Resource IR effect boundary gate は `alloc_raw` / `realloc` 由来の raw identity を `let` / `read` / `move` / `assign` / branch / match value では追跡していた。
+  - 一方で `ResourceOp::Construct` を identity propagation の対象にしていなかったため、raw address を struct / tuple / enum に包むと pure function の戻り値として public surface へ漏れる可能性があった。
+- [修正]:
+  - `ResourceOp::Construct` の inputs に raw identity が含まれる場合、construct output も raw identity を持つものとして `RawIdentityTable` に登録するようにした。
+  - `tests/compiler/move_effect.n.md` に `alloc_raw` address を `RawBox` に包んで返す compile_fail を追加し、D3025 を固定した。
+  - `nepl-core/tests/resource_ir.rs` に Resource IR checker 単体の aggregate-wrapped raw identity escape 回帰を追加した。
+  - `ISS-20260428T100333122Z-RESOURCE-EFFECT-GATE-MISSES-RAW-ALLO-0E0A15D1` を追加し、親 issue `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 補強として関連を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、aggregate construction 経由の public escape を塞いだ。
