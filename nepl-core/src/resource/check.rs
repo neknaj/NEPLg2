@@ -1563,6 +1563,7 @@ impl ResourceOwnerCheckEngine<'_> {
         if source == target || !should_track(source) {
             return;
         }
+        let descendants = owners.descendant_entries(source);
         match owners.state(source) {
             Some(OwnerState::Live { storage }) => {
                 owners.set_state(source, OwnerState::Moved);
@@ -1575,6 +1576,23 @@ impl ResourceOwnerCheckEngine<'_> {
                 self.push_unavailable(operation, source, state, span);
             }
             Some(OwnerState::NoFreeObligation) | None => {}
+        }
+        for entry in descendants {
+            let Some(target_place) = replace_place_prefix(&entry.place, source, target) else {
+                continue;
+            };
+            match entry.state {
+                OwnerState::Live { storage } => {
+                    owners.set_state(&entry.place, OwnerState::Moved);
+                    if should_track(&target_place) {
+                        owners.set_state(&target_place, OwnerState::Live { storage });
+                    }
+                }
+                OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {
+                    self.push_unavailable(operation, &entry.place, entry.state, span);
+                }
+                OwnerState::NoFreeObligation => {}
+            }
         }
     }
 
@@ -2013,6 +2031,17 @@ impl OwnerTable {
             .collect()
     }
 
+    fn descendant_entries(&self, prefix: &Place) -> Vec<OwnerStateEntry> {
+        self.owners
+            .iter()
+            .filter(|entry| {
+                entry.place != *prefix
+                    && replace_place_prefix(&entry.place, prefix, prefix).is_some()
+            })
+            .cloned()
+            .collect()
+    }
+
     fn merge_paths(paths: &[OwnerTable]) -> Self {
         let mut out = OwnerTable::default();
         out.next_storage = paths
@@ -2076,6 +2105,20 @@ fn construct_owner_field_place(
     }
     place.ty = input.ty;
     place
+}
+
+fn replace_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> Option<Place> {
+    if place.root != prefix.root || place.projections.len() < prefix.projections.len() {
+        return None;
+    }
+    if place.projections[..prefix.projections.len()] != prefix.projections[..] {
+        return None;
+    }
+    let mut out = replacement.clone();
+    out.projections
+        .extend_from_slice(&place.projections[prefix.projections.len()..]);
+    out.ty = place.ty;
+    Some(out)
 }
 
 fn push_unique_place(places: &mut Vec<Place>, place: &Place) {

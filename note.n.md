@@ -22567,3 +22567,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate construction の owner movement を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T114942018Z aggregate owner projection move)
+
+- [同期]:
+  - `origin/main` の `2f71280 fix(core): move owners into constructed aggregates` まで同期した main から `work/stage4-owner-aggregate-move-transfer` branch を作成した。
+- [原因]:
+  - construct input owner は aggregate output projection へ移るようになったが、aggregate value 自体を move / assign / branch value transfer したときに projection 配下の owner が旧 aggregate path に残っていた。
+  - その結果、移動後の旧 aggregate field path から dealloc / move できる状態だった。
+- [修正]:
+  - `OwnerTable` が source prefix 配下の owner entries を列挙できるようにした。
+  - `transfer_owner` は exact owner に加えて descendant owner projection を target prefix 配下へ移すようにした。
+  - `nepl-core/tests/resource_ir.rs` に struct move 後の旧 field path dealloc が `Moved` になる回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate projection owner の value movement 追従を Resource IR 上に固定した。

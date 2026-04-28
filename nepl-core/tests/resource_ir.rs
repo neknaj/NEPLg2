@@ -6,12 +6,12 @@ use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_effect_boundaries, check_resource_initialized_moves,
     check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module_skeleton,
-    AggregateKind, BorrowKind, BorrowState, CellState, EffectOp, OwnerState, Place, PlaceRoot,
-    RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation,
-    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceEffectBoundaryDiagnostic,
-    ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOp,
-    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    AggregateKind, BorrowKind, BorrowState, CellState, EffectOp, OwnerState, Place,
+    PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
+    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic,
+    ResourceCheckOperation, ResourceCoverageDiagnostic, ResourceCoverageKind,
+    ResourceEffectBoundaryDiagnostic, ResourceFunction, ResourceId, ResourceLocal, ResourceModule,
+    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -2005,6 +2005,90 @@ fn resource_ir_owner_check_moves_owner_into_constructed_aggregate() {
             state: OwnerState::Moved,
             ..
         } if function == "main" && place == &p
+    )));
+}
+
+#[test]
+fn resource_ir_owner_check_moves_aggregate_owner_projection() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let p = Place::temporary(ResourceId(0), i32_ty);
+    let wrapper = Place::temporary(ResourceId(1), wrapper_ty);
+    let moved_wrapper = Place::temporary(ResourceId(2), wrapper_ty);
+    let old_field = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let moved_field = moved_wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: p.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: wrapper.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Wrapper".to_string(),
+                },
+                inputs: vec![p],
+                span,
+            },
+            ResourceOp::Move {
+                source: wrapper,
+                output: moved_wrapper,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(3), unit_ty),
+                args: vec![old_field.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(4), unit_ty),
+                args: vec![moved_field],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerUnavailable {
+            function,
+            operation: ResourceOwnerOperation::Dealloc,
+            place,
+            state: OwnerState::Moved,
+            ..
+        } if function == "main" && place == &old_field
     )));
 }
 
