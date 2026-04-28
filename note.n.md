@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260427T164432612Z Stage 4 owner token / free obligation)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4 commit 単位 2 として、Resource IR 上の free obligation owner 検査を開始した。
+  - initialized / moved の `CellState` だけでは、allocation を解放すべき owner が残っているか、二重に dealloc されたかを表現できない。
+- 修正:
+  - `check_resource_owner_obligations` を追加し、`RawMemoryOp::Alloc` の output に `OwnerState::Live { storage }` を割り当てるようにした。
+  - `DeclareLocal` / `Read` / `Assign` / `Move` / `Return` で owner state を transfer し、`RawMemoryOp::Dealloc` で live owner を `Freed` にする。
+  - owner が moved / freed / missing のまま dealloc や owner transfer に使われた場合は `ResourceOwnerDiagnostic::OwnerUnavailable`、関数終了時に live owner が残る場合は `OwnerLeaked` を返す。
+  - `MemPtr` を owner に拡張せず、Resource IR の owner table として free obligation を分ける実装にした。
+  - `nepl-core/tests/resource_ir.rs` に alloc/dealloc 正常系、未解放 allocation leak、二重 dealloc の regression を追加した。
+  - `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` に Stage 4 owner token / free obligation の到達点と未接続部分を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/check.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 12 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage4-resource-ir-owner-obligation-focused.json -j 1`: total=97, passed=97
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。現時点では compiler pipeline へ接続せず、function summary、aggregate owner、branch / loop merge、RegionToken capability 化は後続 Stage に残している。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 4 initialized / moved state)
 
 - 状況:

@@ -69,3 +69,13 @@ owning payload を `store<T>` した region を `dealloc_region` / `dealloc_ptr`
 この issue は Stage 4/6 の initialized cell / drop obligation / storage-only dealloc の境界を追跡する。`dealloc_*` の caller を一つずつ patch するだけでは解決にならない。完了条件は、Resource IR または同等の compiler-owned state が「initialized payload を含む storage」と「payload consume/drop 後の storage-only region」を区別し、後者だけを free できることである。
 
 collection 固有の element cleanup API は `ISS-20260425T000000Z-RV-STDLIB-004-91534828`、owner token と `MemPtr` の型分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に分ける。
+
+## 2026-04-28 Stage 4 owner token / free obligation 追記
+
+`doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4 commit 単位 2 として、Resource IR 上で allocation の free obligation を `OwnerState` として追跡する検査を追加した。
+
+今回追加した `check_resource_owner_obligations` は、`RawMemoryOp::Alloc` の output に `OwnerState::Live { storage }` を与え、`DeclareLocal` / `Read` / `Assign` / `Move` / `Return` で owner state を transfer する。`RawMemoryOp::Dealloc` は live owner を `Freed` にし、同じ owner を再度 read/dealloc した場合は `ResourceOwnerDiagnostic::OwnerUnavailable` を返す。関数終了時に `Live` owner が残っていれば `OwnerLeaked` として報告する。
+
+この実装は `MemPtr` を owner として拡張するものではなく、free obligation を Resource IR の owner table として分離するための最初の足場である。現時点では compiler pipeline へ接続せず、function summary、aggregate owner、branch / loop merge、RegionToken capability 化は後続 Stage に残す。既存の D3100 防壁は維持しつつ、Resource IR 側で storage owner と initialized cell を分ける方向へ移行する。
+
+回帰テストでは、`alloc_raw` 後に `dealloc_raw` する正常系、未解放 allocation の leak、二重 dealloc の owner moved 診断を `nepl-core/tests/resource_ir.rs` に固定した。

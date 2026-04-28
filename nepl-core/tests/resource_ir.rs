@@ -3,11 +3,12 @@ use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
 use nepl_core::resource::{
-    check_resource_initialized_moves, compare_hir_resource_lowering, lower_hir_module_skeleton,
-    AggregateKind, CellState, EffectOp, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
-    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule,
-    ResourceOp, ResourceTerminator,
+    check_resource_initialized_moves, check_resource_owner_obligations,
+    compare_hir_resource_lowering, lower_hir_module_skeleton, AggregateKind, CellState, EffectOp,
+    OwnerState, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceCallTarget,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCoverageDiagnostic,
+    ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule, ResourceOp,
+    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -761,6 +762,55 @@ fn resource_ir_check_reports_uninitialized_read() {
     )));
 }
 
+#[test]
+fn resource_ir_owner_check_accepts_deallocated_alloc() {
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let module = raw_owner_module(types.unit(), types.i32(), span, 1);
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_owner_obligations(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_owner_check_reports_leaked_alloc() {
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let module = raw_owner_module(types.unit(), types.i32(), span, 0);
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerLeaked {
+            function,
+            place,
+            ..
+        } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "p")
+    )));
+}
+
+#[test]
+fn resource_ir_owner_check_reports_double_dealloc() {
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let module = raw_owner_module(types.unit(), types.i32(), span, 2);
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerUnavailable {
+            function,
+            operation: ResourceOwnerOperation::Read,
+            place,
+            state: OwnerState::Moved,
+            ..
+        } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "p")
+    )));
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
@@ -776,6 +826,83 @@ fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
         },
     );
     (types, owned_ty)
+}
+
+fn raw_owner_module(
+    unit_ty: TypeId,
+    i32_ty: TypeId,
+    span: Span,
+    dealloc_count: usize,
+) -> HirModule {
+    let mut lines = vec![HirLine {
+        expr: HirExpr {
+            ty: unit_ty,
+            kind: HirExprKind::Let {
+                name: "p".to_string(),
+                mutable: false,
+                value: Box::new(HirExpr {
+                    ty: i32_ty,
+                    kind: HirExprKind::Call {
+                        callee: FuncRef::User("alloc_raw".to_string(), vec![], None),
+                        args: vec![HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::LiteralI32(4),
+                            span,
+                        }],
+                    },
+                    span,
+                }),
+            },
+            span,
+        },
+        drop_result: true,
+    }];
+    for _ in 0..dealloc_count {
+        lines.push(HirLine {
+            expr: HirExpr {
+                ty: unit_ty,
+                kind: HirExprKind::Call {
+                    callee: FuncRef::User("dealloc_raw".to_string(), vec![], None),
+                    args: vec![
+                        HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Var("p".to_string()),
+                            span,
+                        },
+                        HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::LiteralI32(4),
+                            span,
+                        },
+                    ],
+                },
+                span,
+            },
+            drop_result: true,
+        });
+    }
+
+    HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(10),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Impure,
+            body: HirBody::Block(HirBlock {
+                lines,
+                ty: unit_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    }
 }
 
 fn non_copy_read_module(
