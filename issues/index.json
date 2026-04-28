@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T21:35:28.583Z",
+  "generated_at": "2026-04-28T21:43:02.956Z",
   "counts": {
-    "total": 319,
-    "open": 9,
-    "resolved": 310,
+    "total": 323,
+    "open": 12,
+    "resolved": 311,
     "by_area": {
       "core": {
-        "total": 150,
-        "open": 3,
+        "total": 151,
+        "open": 4,
         "resolved": 147
       },
       "stdlib": {
-        "total": 97,
-        "open": 5,
+        "total": 98,
+        "open": 6,
         "resolved": 92
       },
       "selfhost": {
-        "total": 35,
-        "open": 1,
-        "resolved": 34
+        "total": 37,
+        "open": 2,
+        "resolved": 35
       },
       "cli": {
         "total": 19,
@@ -95,6 +95,21 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
+      "id": "ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2",
+      "title": "RawMemoryLoadCell gate rejects initialized string backing storage",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -155,6 +170,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A",
+      "title": "std/test aggregate helpers raw-load Vec backing store under RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/std/test.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
       "title": "NEPLg2 self-host compiler が部分実装に留まっている",
       "area": "selfhost",
@@ -168,6 +198,21 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260428T212439976Z-SELF-HOST-TYPE-KIND-LACKS-RUST-PRIMI-43D4589C",
+      "title": "self-host type kind lacks Rust primitive parity",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/ty/ty.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T212439976Z-SELF-HOST-TYPE-KIND-LACKS-RUST-PRIMI-43D4589C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -3948,6 +3993,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T210025111Z-SELF-HOST-NAME-RESOLVER-LOOKUP-CANNO-03EDF726.md"
+    },
+    {
+      "id": "ISS-20260428T212006193Z-SELF-HOST-BUILTINS-PRELUDE-ONLY-EXPO-F337A459",
+      "title": "self-host builtins prelude only exposes marker API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/builtins/prelude.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T212006193Z-SELF-HOST-BUILTINS-PRELUDE-ONLY-EXPO-F337A459.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

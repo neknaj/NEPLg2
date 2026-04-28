@@ -43,6 +43,25 @@
   - temporary `RawMemoryLoadCell` gate + `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\raw-address-summary-literal-arithmetic-gate.json -j 1`: total=110, passed=110, failed=0
 - plan.md は変更していない。
 
+# 2026-04-29 メモ (ISS-20260428T212006193Z self-host builtins/prelude registry)
+
+- `stdlib/neplg2/core/builtins/prelude.nepl` は marker API のままで、Rust 側 `builtins.rs` が持つ `alloc` / `dealloc` / `realloc` の名前、kind、arity、引数型、戻り値型、effect を self-host 側から参照できなかった。
+- `SelfhostBuiltinKind`、`SelfhostBuiltinFunction`、`SelfhostPrimitiveTypeName` を追加し、builtin function registry、primitive canonical name registry、default prelude path を typed API として扱えるようにした。
+- registry lookup は index API として固定した。finite string lookup は `hash32` + `str_eq` で追加する予定だったが、remote main の `RawMemoryLoadCell` gate 有効化後に `alloc/string` の `len(str)` が D3100 になるため、`ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2` として分離し、この issue では string 依存を入れない形にした。
+- 現行 Rust `BuiltinKind` にある `MemLoadI32` / `MemStoreI32` は enum としては表現したが、Rust `builtins()` registry には未登録なので registry index 3 が `None` であることを回帰テストに含めた。
+- 実装中に self-host type layer が Rust 側 primitive surface の `F32` / `Never` などをまだ表現できないことを確認し、`ISS-20260428T212439976Z-SELF-HOST-TYPE-KIND-LACKS-RUST-PRIMI-43D4589C` として分離した。
+- remote main 取り込み後に `std/test` の raw backing-store scan も `RawMemoryLoadCell` gate で落ちることを確認し、`ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A` として分離した。
+- 検証:
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\builtins\prelude.nepl --no-tree -o tmp\selfhost-builtins-registry.json -j 1`: total=1, passed=1
+  - `node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-builtins-registry-neplg2.json -j 2`: total=32, passed=32
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\builtins\prelude.nepl --no-tree -o tmp\selfhost-builtins-registry-after-rebase.json -j 1`: total=1, passed=1
+  - `node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-builtins-registry-neplg2-after-rebase.json -j 2`: total=32, passed=12, failed=20（string/std-test gate regression として分離）
+  - `node nodesrc\issues.js index`: total=323, open=12, resolved=311
+  - `node nodesrc\issues.js check`: pass, files=323
+  - `git diff --check`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T210703348Z streamio/source_text char literal follow-up)
 
 - char literal 移行 issue は fixed だったが、`stdlib/std/streamio.nepl` の scanner whitespace / digit / sign / exponent 判定、`stdlib/neplg2/core/infra/text.nepl` の LF/CR trimming、`stdlib/std/fs.nepl` の host path 禁止文字判定に、文字としての意味を持つ decimal code が残っていた。

@@ -4,23 +4,295 @@
 //: NEPLg2.0 self-host compiler が扱う builtins / intrinsic / prelude 情報を置くモジュールです。
 //:
 //: [目的/もくてき]:
-//: - primitive type、compiler intrinsic、default prelude の登録境界を固定します。
-//: - Stage 0 では `builtins/` の責務境界を marker API で固定します。
+//: - primitive type、compiler builtin、default prelude の登録境界を固定します。
+//: - Rust 側 `builtins.rs` が公開している builtin function の名前、kind、arity、引数型、戻り値型、effect を self-host 側から型付きで参照できるようにします。
+//: - resolver / checker が builtin と primitive の registry 定義を重複実装しないよう、有限集合の index lookup API をここへ集約します。
+//:
+//: [実装/じっそう]:
+//: - builtin kind は enum で表し、関数 registry は小さな Copy record と固定 index lookup で表します。
+//: - 現時点の Rust builtin function は `alloc` / `dealloc` / `realloc` の 3 件です。
+//: - string-based lookup は `str_addr` / `alloc/string` の RawMemoryLoadCell gate 対応後に追加します。現段階では文字列依存を避け、registry の index と typed metadata を先に固定します。
 //:
 //: [注意/ちゅうい]:
-//: - Rust 側の builtin hardcode を移す際は、名前、型、effect、capability を同時に検証します。
+//: - `MemLoadI32` / `MemStoreI32` は Rust 側 `BuiltinKind` には存在しますが、現在の `builtins()` registry には登録されていません。低レベル load/store は stdlib の inline wasm 経由で扱います。
+//: - primitive name registry は `SelfhostTypeKind` が現在表現できる型だけを持ちます。struct / enum / type variable / never / f32 などは type layer の拡張 issue で追加します。
+//: - name からの lookup は `ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2` の解消後に、`str_eq` / `hash32` を使う形で追加します。
+//: - builtin の raw memory effect model は static checker 側の Resource IR と同期する必要があります。ここでは現行 Rust surface の metadata を固定します。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - index lookup は O(1) です。
+//: - registry 比較は O(1) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
 //:| #target core
+//:| #import "core/option" as *
 //:| #import "neplg2/core/builtins/prelude" as *
+//:| #import "neplg2/core/ty/ty" as *
 //: fn main <()->i32> ():
 //:     selfhost_prelude_stage0
 //: ```
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostBuiltinKind: compiler builtin の分類
+//:
+//: [目的/もくてき]:
+//: - builtin function の意味を文字列ではなく enum で表します。
+//: - Rust 側 `BuiltinKind` と同じ分類を self-host 側に置き、後続の resolver / checker / codegen が match で網羅的に扱えるようにします。
+enum SelfhostBuiltinKind:
+    MemAlloc
+    MemDealloc
+    MemRealloc
+    MemLoadI32
+    MemStoreI32
+
+impl Clone for SelfhostBuiltinKind:
+    fn clone <(&SelfhostBuiltinKind)->SelfhostBuiltinKind> (self):
+        *self
+
+impl Copy for SelfhostBuiltinKind:
+    fn copy_mark <(SelfhostBuiltinKind)->SelfhostBuiltinKind> (self):
+        self
+
+//: SelfhostBuiltinFunction: builtin function registry の 1 件
+//:
+//: [目的/もくてき]:
+//: - builtin の名前と signature metadata を小さな Copy record として保持します。
+//:
+//: [注意/ちゅうい]:
+//: - `arg0` から `arg2` までは現行 builtin の最大 arity 3 に合わせた固定 slot です。
+//: - `arg_count` 以上の slot は未使用で、`SelfhostTypeKind::Error` を sentinel として入れます。
+//: - `pure` は現行 Rust builtin registry の effect を固定するための field です。Resource IR 側で effect model が変わった場合はこの registry も同時に更新します。
+struct SelfhostBuiltinFunction:
+    name <str>
+    kind <SelfhostBuiltinKind>
+    arg0 <SelfhostTypeKind>
+    arg1 <SelfhostTypeKind>
+    arg2 <SelfhostTypeKind>
+    arg_count <i32>
+    result <SelfhostTypeKind>
+    pure <bool>
+
+impl Clone for SelfhostBuiltinFunction:
+    fn clone <(&SelfhostBuiltinFunction)->SelfhostBuiltinFunction> (self):
+        *self
+
+impl Copy for SelfhostBuiltinFunction:
+    fn copy_mark <(SelfhostBuiltinFunction)->SelfhostBuiltinFunction> (self):
+        self
+
+//: SelfhostPrimitiveTypeName: primitive type の canonical name
+//:
+//: [目的/もくてき]:
+//: - primitive type の名前解決と表示に使う canonical name を `SelfhostTypeKind` と対応付けます。
+//: - source parser が `()` のような専用 token で扱う型でも、registry 上の canonical name は `unit` として保持します。
+struct SelfhostPrimitiveTypeName:
+    name <str>
+    kind <SelfhostTypeKind>
+
+impl Clone for SelfhostPrimitiveTypeName:
+    fn clone <(&SelfhostPrimitiveTypeName)->SelfhostPrimitiveTypeName> (self):
+        *self
+
+impl Copy for SelfhostPrimitiveTypeName:
+    fn copy_mark <(SelfhostPrimitiveTypeName)->SelfhostPrimitiveTypeName> (self):
+        self
+
+//: selfhost_builtin_kind_tag: builtin kind を比較用 tag に[変換/へんかん]する
+fn selfhost_builtin_kind_tag <(SelfhostBuiltinKind)->i32> (kind):
+    match kind:
+        SelfhostBuiltinKind::MemAlloc:
+            0
+        SelfhostBuiltinKind::MemDealloc:
+            1
+        SelfhostBuiltinKind::MemRealloc:
+            2
+        SelfhostBuiltinKind::MemLoadI32:
+            3
+        SelfhostBuiltinKind::MemStoreI32:
+            4
+
+//: selfhost_builtin_kind_eq: builtin kind が同じ分類か[返/かえ]す
+fn selfhost_builtin_kind_eq <(SelfhostBuiltinKind,SelfhostBuiltinKind)->bool> (a, b):
+    eq selfhost_builtin_kind_tag a selfhost_builtin_kind_tag b
+
+//: selfhost_builtin_function_new: builtin function record を[作/つく]る
+fn selfhost_builtin_function_new <(str,SelfhostBuiltinKind,SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind,i32,SelfhostTypeKind,bool)->SelfhostBuiltinFunction> (name, kind, arg0, arg1, arg2, arg_count, result, pure):
+    SelfhostBuiltinFunction name kind arg0 arg1 arg2 arg_count result pure
+
+//: selfhost_builtin_function_alloc: `alloc(size: i32) -> i32` の metadata を[返/かえ]す
+fn selfhost_builtin_function_alloc <()->SelfhostBuiltinFunction> ():
+    selfhost_builtin_function_new "alloc" SelfhostBuiltinKind::MemAlloc SelfhostTypeKind::I32 SelfhostTypeKind::Error SelfhostTypeKind::Error 1 SelfhostTypeKind::I32 true
+
+//: selfhost_builtin_function_dealloc: `dealloc(ptr: i32, size: i32) -> unit` の metadata を[返/かえ]す
+fn selfhost_builtin_function_dealloc <()->SelfhostBuiltinFunction> ():
+    selfhost_builtin_function_new "dealloc" SelfhostBuiltinKind::MemDealloc SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::Error 2 SelfhostTypeKind::Unit true
+
+//: selfhost_builtin_function_realloc: `realloc(ptr: i32, old: i32, new: i32) -> i32` の metadata を[返/かえ]す
+fn selfhost_builtin_function_realloc <()->SelfhostBuiltinFunction> ():
+    selfhost_builtin_function_new "realloc" SelfhostBuiltinKind::MemRealloc SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 3 SelfhostTypeKind::I32 true
+
+//: selfhost_builtin_function_count: registry に登録された builtin function 数を[返/かえ]す
+fn selfhost_builtin_function_count <()->i32> ():
+    3
+
+//: selfhost_builtin_function_at: registry index から builtin function を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - index は 0 から始まります。範囲外なら `None` です。
+fn selfhost_builtin_function_at <(i32)->Option<SelfhostBuiltinFunction>> (index):
+    match index:
+        0:
+            some<SelfhostBuiltinFunction> selfhost_builtin_function_alloc
+        1:
+            some<SelfhostBuiltinFunction> selfhost_builtin_function_dealloc
+        2:
+            some<SelfhostBuiltinFunction> selfhost_builtin_function_realloc
+        _:
+            none<SelfhostBuiltinFunction>
+
+//: selfhost_builtin_function_arg_count: builtin function の引数数を[返/かえ]す
+fn selfhost_builtin_function_arg_count <(SelfhostBuiltinFunction)->i32> (builtin):
+    builtin.arg_count
+
+//: selfhost_builtin_function_arg_kind: builtin function の指定引数 type kind を[返/かえ]す
+fn selfhost_builtin_function_arg_kind <(SelfhostBuiltinFunction,i32)->Option<SelfhostTypeKind>> (builtin, index):
+    if:
+        or lt index 0 ge index builtin.arg_count
+        then:
+            none<SelfhostTypeKind>
+        else:
+            match index:
+                0:
+                    some<SelfhostTypeKind> builtin.arg0
+                1:
+                    some<SelfhostTypeKind> builtin.arg1
+                2:
+                    some<SelfhostTypeKind> builtin.arg2
+                _:
+                    none<SelfhostTypeKind>
+
+//: selfhost_builtin_function_result_kind: builtin function の戻り値 type kind を[返/かえ]す
+fn selfhost_builtin_function_result_kind <(SelfhostBuiltinFunction)->SelfhostTypeKind> (builtin):
+    builtin.result
+
+//: selfhost_builtin_function_is_pure: builtin function が現行 registry 上 pure か[返/かえ]す
+fn selfhost_builtin_function_is_pure <(SelfhostBuiltinFunction)->bool> (builtin):
+    builtin.pure
+
+//: selfhost_primitive_type_name_new: primitive type name record を[作/つく]る
+fn selfhost_primitive_type_name_new <(str,SelfhostTypeKind)->SelfhostPrimitiveTypeName> (name, kind):
+    SelfhostPrimitiveTypeName name kind
+
+//: selfhost_primitive_type_count: registry に登録された primitive type name 数を[返/かえ]す
+fn selfhost_primitive_type_count <()->i32> ():
+    7
+
+//: selfhost_primitive_type_at: registry index から primitive type name を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - index は 0 から始まります。範囲外なら `None` です。
+fn selfhost_primitive_type_at <(i32)->Option<SelfhostPrimitiveTypeName>> (index):
+    match index:
+        0:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "unit" SelfhostTypeKind::Unit
+        1:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "bool" SelfhostTypeKind::Bool
+        2:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "i32" SelfhostTypeKind::I32
+        3:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "i64" SelfhostTypeKind::I64
+        4:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "u8" SelfhostTypeKind::U8
+        5:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "char" SelfhostTypeKind::Char
+        6:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "str" SelfhostTypeKind::Str
+        _:
+            none<SelfhostPrimitiveTypeName>
+
+//: selfhost_default_prelude_path: Rust loader と同じ default prelude path を[返/かえ]す
+fn selfhost_default_prelude_path <()->str> ():
+    "std/prelude_base"
+
+//: selfhost_prelude_stage0_char_ok: primitive registry に `char` があるか[返/かえ]す
+fn selfhost_prelude_stage0_char_ok <()->bool> ():
+    match selfhost_primitive_type_at 5:
+        Option::Some primitive:
+            selfhost_type_kind_eq primitive.kind SelfhostTypeKind::Char
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_alloc_ok: `alloc` builtin metadata が Rust surface と合うか[返/かえ]す
+fn selfhost_prelude_stage0_alloc_ok <()->bool> ():
+    match selfhost_builtin_function_at 0:
+        Option::Some builtin:
+            if:
+                not selfhost_builtin_kind_eq builtin.kind SelfhostBuiltinKind::MemAlloc
+                then:
+                    false
+                else:
+                    if:
+                        not eq selfhost_builtin_function_arg_count builtin 1
+                        then:
+                            false
+                        else:
+                            match selfhost_builtin_function_arg_kind builtin 0:
+                                Option::Some arg0:
+                                    let arg_ok <bool> selfhost_type_kind_eq arg0 SelfhostTypeKind::I32
+                                    let result_ok <bool> selfhost_type_kind_eq selfhost_builtin_function_result_kind builtin SelfhostTypeKind::I32
+                                    and arg_ok and result_ok selfhost_builtin_function_is_pure builtin
+                                Option::None:
+                                    false
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_realloc_ok: `realloc` builtin metadata が Rust surface と合うか[返/かえ]す
+fn selfhost_prelude_stage0_realloc_ok <()->bool> ():
+    match selfhost_builtin_function_at 2:
+        Option::Some builtin:
+            if:
+                not eq selfhost_builtin_function_arg_count builtin 3
+                then:
+                    false
+                else:
+                    match selfhost_builtin_function_arg_kind builtin 2:
+                        Option::Some arg2:
+                            selfhost_type_kind_eq arg2 SelfhostTypeKind::I32
+                        Option::None:
+                            false
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_no_extra_builtin_ok: 範囲外 index が `None` か[返/かえ]す
+fn selfhost_prelude_stage0_no_extra_builtin_ok <()->bool> ():
+    is_none<SelfhostBuiltinFunction> selfhost_builtin_function_at 3
+
+//: selfhost_prelude_stage0: builtins / prelude registry の最小 sanity check
 fn selfhost_prelude_stage0 <()->i32> ():
-    0
+    if:
+        not eq selfhost_primitive_type_count 7
+        then:
+            1
+        else:
+            if:
+                not eq selfhost_builtin_function_count 3
+                then:
+                    1
+                else:
+                    if:
+                        not selfhost_prelude_stage0_char_ok
+                        then:
+                            1
+                        else:
+                            if:
+                                and selfhost_prelude_stage0_alloc_ok and selfhost_prelude_stage0_realloc_ok selfhost_prelude_stage0_no_extra_builtin_ok
+                                then:
+                                    0
+                                else:
+                                    1
