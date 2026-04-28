@@ -9,6 +9,7 @@ mod block_check;
 mod call_reduction;
 mod call_resolution;
 mod context;
+mod control_apply;
 mod driver;
 mod effect_check;
 mod env;

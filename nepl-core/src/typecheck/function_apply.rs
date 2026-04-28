@@ -12,6 +12,7 @@ use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::function_user_param_specificity;
+use super::control_apply::SpecialApplyResult;
 use super::env::{Binding, BindingKind};
 use super::hir_finalize::{add_i32_offset_expr, raw_aggregate_load_addr_expr};
 use super::signature::{function_signature_string, type_contains_unbound_var};
@@ -62,78 +63,9 @@ impl<'a> BlockChecker<'a> {
             return self.apply_assignment_function(func, args, assign);
         }
 
-        // Special-cased symbols (if / while)
-        match &func.expr.kind {
-            HirExprKind::Var(name) if name == "if" => {
-                if args.len() != 3 {
-                    self.diagnostics.push(
-                        Diagnostic::error("if expects three arguments", func.expr.span)
-                            .with_id(DiagnosticId::TypeIfArityMismatch),
-                    );
-                    return None;
-                }
-                if self.ctx.unify(args[0].ty, self.ctx.bool()).is_err() {
-                    self.diagnostics.push(
-                        Diagnostic::error("if condition must be bool", args[0].expr.span)
-                            .with_id(DiagnosticId::TypeIfConditionTypeMismatch),
-                    );
-                }
-                let branch_ty = self.ctx.unify(args[1].ty, args[2].ty).unwrap_or(args[1].ty);
-                return Some(StackEntry {
-                    ty: branch_ty,
-                    expr: HirExpr {
-                        ty: branch_ty,
-                        kind: HirExprKind::If {
-                            cond: Box::new(args[0].expr.clone()),
-                            then_branch: Box::new(args[1].expr.clone()),
-                            else_branch: Box::new(args[2].expr.clone()),
-                        },
-                        span: func.expr.span,
-                    },
-                    type_args: Vec::new(),
-                    assign: None,
-                    auto_call: true,
-                });
-            }
-            HirExprKind::Var(name) if name == "while" => {
-                if args.len() != 2 {
-                    self.diagnostics.push(
-                        Diagnostic::error("while expects two arguments", func.expr.span)
-                            .with_id(DiagnosticId::TypeWhileArityMismatch),
-                    );
-                    return None;
-                }
-                if self.ctx.unify(args[0].ty, self.ctx.bool()).is_err() {
-                    self.diagnostics.push(
-                        Diagnostic::error("while condition must be bool", args[0].expr.span)
-                            .with_id(DiagnosticId::TypeWhileConditionTypeMismatch),
-                    );
-                }
-                if self.ctx.unify(args[1].ty, self.ctx.unit()).is_err() {
-                    self.diagnostics.push(
-                        Diagnostic::error("while body must be unit", args[1].expr.span)
-                            .with_id(DiagnosticId::TypeWhileBodyTypeMismatch),
-                    );
-                }
-                return Some(StackEntry {
-                    ty: self.ctx.unit(),
-                    expr: HirExpr {
-                        ty: self.ctx.unit(),
-                        kind: HirExprKind::While {
-                            cond: Box::new(args[0].expr.clone()),
-                            body: Box::new(args[1].expr.clone()),
-                        },
-                        span: func.expr.span,
-                    },
-                    type_args: Vec::new(),
-                    assign: None,
-                    auto_call: true,
-                });
-            }
-            HirExprKind::Var(name) if name == "let" || name == "set" => {
-                // handled elsewhere
-            }
-            _ => {}
+        match self.apply_control_special_function(&func, &args) {
+            SpecialApplyResult::Handled(result) => return result,
+            SpecialApplyResult::NotHandled => {}
         }
 
         // General call or let/set

@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck control apply module)
+
+- 状況:
+  - `assignment_apply` 分離後も、`function_apply.rs` には `if` / `while` の control special form lowering が通常 call / overload 適用と同居していた。
+  - control special form は callee lookup ではなく構文上の固定 arity と branch/body type validation を行うため、通常関数適用とは別責務である。
+- 修正:
+  - `nepl-core/src/typecheck/control_apply.rs` を追加し、`if` / `while` lowering を `apply_control_special_function` へ分離した。
+  - `function_apply.rs` は control special form を先に委譲し、未処理の場合だけ通常 call / overload / trait call へ進む構造にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck control apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/control_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test if/block_if_semantics/functions/typeannot/pipe_operator -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/if.n.md -i tests/compiler/block_if_semantics.n.md -i tests/compiler/typeannot.n.md -i tests/compiler/functions.n.md -i tests/compiler/pipe_operator.n.md --no-tree -o tmp/stage1-typecheck-control-apply-focused.json -j 1`: 126/126 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3 CI 再発)
 
 - 状況:
