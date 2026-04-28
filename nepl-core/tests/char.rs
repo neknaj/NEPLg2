@@ -32,7 +32,7 @@ fn compile_with_loader(src: &str) -> Result<(), nepl_core::error::CoreError> {
 
 #[test]
 fn lexer_accepts_char_literals_and_escapes() {
-    let src = "'a' '\\n' '\\'' '\\\\' '\\x41' '\\u{3042}'";
+    let src = "'a' '\\n' '\\b' '\\f' '\\'' '\\\\' '\\x41' '\\u{3042}'";
     let lexed = lexer::lex(FileId(0), src);
     assert!(
         lexed
@@ -52,7 +52,16 @@ fn lexer_accepts_char_literals_and_escapes() {
         .collect();
     assert_eq!(
         chars,
-        vec!['a' as u32, '\n' as u32, '\'' as u32, '\\' as u32, 'A' as u32, 'あ' as u32]
+        vec![
+            'a' as u32,
+            '\n' as u32,
+            '\u{08}' as u32,
+            '\u{0c}' as u32,
+            '\'' as u32,
+            '\\' as u32,
+            'A' as u32,
+            'あ' as u32
+        ]
     );
 }
 
@@ -108,6 +117,18 @@ fn main <()->i32> ():
     add classify_i32 65 classify_u8 '\n'
 "#;
     assert_eq!(run_main_i32(src), 11);
+}
+
+#[test]
+fn backspace_and_form_feed_escapes_lower_to_code_points() {
+    let src = r#"
+#entry main
+fn main <()->i32> ():
+    let b <i32> '\b';
+    let f <i32> '\f';
+    add b f
+"#;
+    assert_eq!(run_main_i32(src), 20);
 }
 
 #[test]

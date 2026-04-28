@@ -233,3 +233,18 @@ fn takes_i32 <(i32)->i32> (x):
 fn main <()->i32> ():
     takes_i32 'A'
 ```
+
+## char_literal_backspace_and_formfeed_escapes_compile
+
+neplg2:test
+ret: 20
+```neplg2
+#target wasm
+#entry main
+#indent 4
+
+fn main <()->i32> ():
+    let b <i32> '\b'
+    let f <i32> '\f'
+    add b f
+```

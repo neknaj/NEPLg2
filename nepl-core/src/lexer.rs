@@ -1042,6 +1042,8 @@ impl LexState {
             b'n' => '\n' as u32,
             b'r' => '\r' as u32,
             b't' => '\t' as u32,
+            b'b' => '\u{08}' as u32,
+            b'f' => '\u{0c}' as u32,
             b'0' => '\0' as u32,
             b'\\' => '\\' as u32,
             b'\'' => '\'' as u32,
