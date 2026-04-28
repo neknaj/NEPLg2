@@ -1445,7 +1445,12 @@ impl ResourceOwnerCheckEngine<'_> {
         args: &[Place],
         span: Span,
     ) {
-        for function in function_aliases.functions(callee) {
+        let functions = function_aliases.functions(callee);
+        if functions.is_empty() {
+            self.apply_unknown_indirect_call_return_owner(owners, output, args, span);
+            return;
+        }
+        for function in functions {
             if let Some(summary) = self
                 .summaries
                 .iter()
@@ -1458,6 +1463,30 @@ impl ResourceOwnerCheckEngine<'_> {
                 {
                     return;
                 }
+            }
+        }
+    }
+
+    fn apply_unknown_indirect_call_return_owner(
+        &mut self,
+        owners: &mut OwnerTable,
+        output: &Place,
+        args: &[Place],
+        span: Span,
+    ) {
+        for arg in args.iter().filter(|arg| arg.ty == output.ty) {
+            if owners
+                .state(arg)
+                .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
+            {
+                self.transfer_owner(
+                    owners,
+                    arg,
+                    output,
+                    ResourceOwnerOperation::ReturnValue,
+                    span,
+                );
+                return;
             }
         }
     }

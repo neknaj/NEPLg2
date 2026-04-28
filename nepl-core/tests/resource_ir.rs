@@ -1908,6 +1908,49 @@ fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
 }
 
 #[test]
+fn resource_ir_owner_check_transfers_owner_returned_by_unknown_callback() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let p = Place::temporary(ResourceId(0), i32_ty);
+    let callee = Place::local("callback".to_string(), i32_ty);
+    let returned = Place::temporary(ResourceId(1), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: p.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::IndirectCall {
+                output: returned.clone(),
+                callee,
+                params: vec![i32_ty],
+                result: i32_ty,
+                args: vec![p],
+                effect: EffectOp::Unknown {
+                    reason: "callback parameter".to_string(),
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(2), unit_ty),
+                args: vec![returned],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_shared_read_until_release() {
     let types = TypeCtx::new();
     let span = Span::dummy();

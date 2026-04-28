@@ -22537,3 +22537,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、first-class function 境界で owner obligation を維持した。
+
+# 2026-04-28 メモ (ISS-20260428T113927369Z unknown callback owner argument return)
+
+- [同期]:
+  - `origin/main` の `d0dcc68 fix(core): propagate owner function values` まで同期した main から `work/stage4-owner-unknown-callback-summary` branch を作成した。
+- [原因]:
+  - direct call と known function value では owner return summary を伝播できるようになったが、callee alias が不明な `ResourceOp::IndirectCall` では owner 引数が戻り値へ返る可能性を扱っていなかった。
+  - callback parameter が同型の owner 引数を返すと、caller では元の引数が live のままで、call output には free obligation が付かない状態になっていた。
+- [修正]:
+  - unknown `IndirectCall` では、output と型が一致する live owner 引数を output へ保守的に transfer するようにした。
+  - known function value alias がある場合は既存の computed owner return summary を優先し、unknown callback の fresh allocation は無条件に仮定しない設計にした。
+  - `nepl-core/tests/resource_ir.rs` に unknown callback owner argument return の正常系を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、unknown callback 境界で既存 owner obligation を維持した。

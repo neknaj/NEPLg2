@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T11:37:38.803Z",
+  "generated_at": "2026-04-28T11:40:48.375Z",
   "counts": {
-    "total": 264,
+    "total": 265,
     "open": 10,
-    "resolved": 254,
+    "resolved": 255,
     "by_area": {
       "core": {
-        "total": 116,
+        "total": 117,
         "open": 4,
-        "resolved": 112
+        "resolved": 113
       },
       "stdlib": {
         "total": 95,
@@ -1848,6 +1848,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T113234640Z-RESOURCE-OWNER-CHECKER-LOSES-OWNER-R-AE831E7E.md"
+    },
+    {
+      "id": "ISS-20260428T113927369Z-RESOURCE-OWNER-CHECKER-LOSES-OWNER-A-4E0D013D",
+      "title": "Resource owner checker loses owner arguments returned by unknown callbacks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T113927369Z-RESOURCE-OWNER-CHECKER-LOSES-OWNER-A-4E0D013D.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
