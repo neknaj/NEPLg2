@@ -13,6 +13,7 @@ mod cell_state;
 mod coverage;
 mod dump;
 mod effect;
+mod effect_check;
 mod effect_identity;
 mod effect_summary;
 mod function_alias;

@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/borrow_check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
+target: "nepl-core/src/resource/borrow_check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_check.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
 ---
 
 # ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4: Resource checker is becoming a new monolithic static-check pass
@@ -284,6 +284,22 @@ HIR から Resource IR へ lower して shadow report を組み立てる `check_
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\owner_check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs nepl-core\src\resource\summary.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Effect boundary engine split
+
+`ResourceEffectBoundaryEngine` と raw identity / pointer alias propagation traversal を `nepl-core/src/resource/effect_check.rs` へ分離した。`effect.rs` は public report 型と `check_resource_effect_boundaries` の assembly に寄せ、Stage 5 effect boundary gate の engine 実装とは別責務にした。
+
+`effect_summary.rs` の raw identity / pointer alias return summary 計算は、新しい `effect_check.rs` の engine を参照するように更新した。これにより effect checker も `effect.rs` ひとつへ traversal、summary、identity table、report 型が集中する状態から外れた。
+
+この分割で `effect.rs` は 632 行から 77 行になり、`effect_check.rs` は 565 行になった。issue はまだ open のままとし、次は責務境界の回帰 guard、または Resource IR 周辺の残り大きい lowering / coverage / dump の整理方針を確認する。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\effect.rs nepl-core\src\resource\effect_check.rs nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\mod.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`

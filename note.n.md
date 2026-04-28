@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T142719860Z Resource effect boundary engine split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceEffectBoundaryEngine` と raw identity / pointer alias propagation traversal を `nepl-core/src/resource/effect_check.rs` へ分離した。
+- `effect.rs` は public report 型と `check_resource_effect_boundaries` の assembly に寄せ、Stage 5 effect boundary gate の engine 実装とは別責務にした。
+- `effect_summary.rs` の raw identity / pointer alias return summary 計算は、新しい `effect_check.rs` の engine を参照するように更新した。
+- `effect.rs` は 632 行から 77 行になり、`effect_check.rs` は 565 行になった。issue はまだ open とし、次は責務境界の回帰 guard、または Resource IR 周辺の残り大きい lowering / coverage / dump の整理方針を確認する。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\effect.rs nepl-core\src\resource\effect_check.rs nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T142719860Z Resource owner checker split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceOwnerCheckEngine` と `check_resource_owner_obligations` を `nepl-core/src/resource/owner_check.rs` へ移動し、旧 `nepl-core/src/resource/check.rs` を削除した。
