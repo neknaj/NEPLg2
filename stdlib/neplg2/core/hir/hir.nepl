@@ -11,7 +11,7 @@
 //: [実装/じっそう]:
 //: - `SelfhostHirModule` は function / param / expr / expr_children の 4 つの Vec を所有します。
 //: - `SelfhostHirFunctionId` と `SelfhostHirExprId` は arena-local index です。別 module の id と混ぜないでください。
-//: - expression record は first_child / child_count で child table 範囲を参照します。初期実装では child を持たない式から始めます。
+//: - expression record は typed child range から作り、first_child / child_count で child table 範囲を参照します。
 //:
 //: [注意/ちゅうい]:
 //: - これは S4 HIR stage の最小 model です。完全な lowering、pattern、drop plan は別 issue で追加します。
@@ -84,6 +84,84 @@
 //:             let shown <Vec<Result<(),str>>> checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/field" as field
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let checks0 <Vec<Result<(),str>>> checks_new
+//:     match selfhost_hir_module_new:
+//:         Result::Ok module0:
+//:             let span <SelfhostSourceSpan> source_span_new 4 20 25
+//:             let result_ty <SelfhostTypeId> selfhost_type_id_new 1
+//:             let child_expr <SelfhostHirExpr> selfhost_hir_expr_leaf SelfhostHirExprKind::Unit result_ty span "" 0 false
+//:             match selfhost_hir_module_add_expr module0 child_expr:
+//:                 Result::Ok child_alloc:
+//:                     let child_id <SelfhostHirExprId> field::get child_alloc "expr_id"
+//:                     let module1 <SelfhostHirModule> field::get child_alloc "module"
+//:                     let child_ids0 <Vec<SelfhostHirExprId>> unwrap_ok v::new<SelfhostHirExprId>
+//:                     let child_ids1 <Vec<SelfhostHirExprId>> unwrap_ok v::push<SelfhostHirExprId> child_ids0 child_id
+//:                     match selfhost_hir_module_add_child_range module1 child_ids1:
+//:                         Result::Ok range_alloc:
+//:                             let child_range <SelfhostHirChildRange> field::get range_alloc "child_range"
+//:                             let module2 <SelfhostHirModule> field::get range_alloc "module"
+//:                             let parent_expr <SelfhostHirExpr> selfhost_hir_expr_with_children SelfhostHirExprKind::Block result_ty span child_range "" 0 false
+//:                             match selfhost_hir_module_add_expr module2 parent_expr:
+//:                                 Result::Ok parent_alloc:
+//:                                     let parent_id <SelfhostHirExprId> field::get parent_alloc "expr_id"
+//:                                     let module3 <SelfhostHirModule> field::get parent_alloc "module"
+//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 1 selfhost_hir_module_child_len &module3
+//:                                     let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 0 selfhost_hir_child_range_first child_range
+//:                                     let checks3 <Vec<Result<(),str>>> checks_push checks2 check_eq_i32 1 selfhost_hir_child_range_count child_range
+//:                                     match selfhost_hir_module_get_child &module3 child_range 0:
+//:                                         Option::Some got_child:
+//:                                             let expected_child_idx <i32> selfhost_hir_expr_id_index child_id
+//:                                             let got_child_idx <i32> selfhost_hir_expr_id_index got_child
+//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 check_eq_i32 expected_child_idx got_child_idx
+//:                                             match selfhost_hir_module_get_expr &module3 parent_id:
+//:                                                 Option::Some got_parent:
+//:                                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 check selfhost_hir_expr_kind_eq got_parent.kind SelfhostHirExprKind::Block
+//:                                                     let checks6 <Vec<Result<(),str>>> checks_push checks5 check_eq_i32 1 got_parent.child_count
+//:                                                     let checks7 <Vec<Result<(),str>>> checks_push checks6 check_eq_i32 0 got_parent.first_child
+//:                                                     selfhost_hir_module_free module3
+//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks7
+//:                                                     checks_exit_code shown
+//:                                                 Option::None:
+//:                                                     selfhost_hir_module_free module3
+//:                                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 Result<(),str>::Err "missing parent expr"
+//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks5
+//:                                                     checks_exit_code shown
+//:                                         Option::None:
+//:                                             selfhost_hir_module_free module3
+//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 Result<(),str>::Err "missing child id"
+//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks4
+//:                                             checks_exit_code shown
+//:                                 Result::Err _e:
+//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "parent expr push failed"
+//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                                     checks_exit_code shown
+//:                         Result::Err _e:
+//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "child range push failed"
+//:                             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                             checks_exit_code shown
+//:                 Result::Err _e:
+//:                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "child expr push failed"
+//:                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
 
 #import "alloc/collections/vec" as v
 #import "core/field" as field
@@ -116,6 +194,19 @@ impl Clone for SelfhostHirExprId:
 
 impl Copy for SelfhostHirExprId:
     fn copy_mark <(SelfhostHirExprId)->SelfhostHirExprId> (self):
+        self
+
+//: SelfhostHirChildRange: expression child table 上の連続範囲
+struct SelfhostHirChildRange:
+    first_child <i32>
+    child_count <i32>
+
+impl Clone for SelfhostHirChildRange:
+    fn clone <(&SelfhostHirChildRange)->SelfhostHirChildRange> (self):
+        *self
+
+impl Copy for SelfhostHirChildRange:
+    fn copy_mark <(SelfhostHirChildRange)->SelfhostHirChildRange> (self):
         self
 
 //: SelfhostHirExprKind: S4 初期段階で扱う HIR expression の分類
@@ -219,6 +310,11 @@ struct SelfhostHirModuleFunctionAlloc:
     module <SelfhostHirModule>
     function_id <SelfhostHirFunctionId>
 
+//: SelfhostHirModuleChildRangeAlloc: child range 追加結果
+struct SelfhostHirModuleChildRangeAlloc:
+    module <SelfhostHirModule>
+    child_range <SelfhostHirChildRange>
+
 //: selfhost_hir_function_id_new: function id を[作/つく]る
 fn selfhost_hir_function_id_new <(i32)->SelfhostHirFunctionId> (index):
     SelfhostHirFunctionId index
@@ -238,6 +334,22 @@ fn selfhost_hir_expr_id_invalid <()->SelfhostHirExprId> ():
 //: selfhost_hir_expr_id_index: expression id の index を[返/かえ]す
 fn selfhost_hir_expr_id_index <(SelfhostHirExprId)->i32> (expr_id):
     expr_id.index
+
+//: selfhost_hir_child_range_new: child table 範囲を[作/つく]る
+fn selfhost_hir_child_range_new <(i32,i32)->SelfhostHirChildRange> (first_child, child_count):
+    SelfhostHirChildRange first_child child_count
+
+//: selfhost_hir_child_range_empty: child を持たない範囲を[返/かえ]す
+fn selfhost_hir_child_range_empty <()->SelfhostHirChildRange> ():
+    selfhost_hir_child_range_new -1 0
+
+//: selfhost_hir_child_range_first: child table の開始 index を[返/かえ]す
+fn selfhost_hir_child_range_first <(SelfhostHirChildRange)->i32> (child_range):
+    child_range.first_child
+
+//: selfhost_hir_child_range_count: child 数を[返/かえ]す
+fn selfhost_hir_child_range_count <(SelfhostHirChildRange)->i32> (child_range):
+    child_range.child_count
 
 //: selfhost_hir_expr_kind_tag: expression kind を比較用 tag に[変換/へんかん]する
 fn selfhost_hir_expr_kind_tag <(SelfhostHirExprKind)->i32> (kind):
@@ -273,9 +385,17 @@ fn selfhost_hir_param_new <(str,SelfhostTypeId,bool,SelfhostSourceSpan)->Selfhos
 fn selfhost_hir_expr_new <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,i32,i32,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, first_child, child_count, name, int_value, bool_value):
     SelfhostHirExpr kind ty span first_child child_count name int_value bool_value
 
+//: selfhost_hir_expr_with_children: child range を持つ expression record を[作/つく]る
+fn selfhost_hir_expr_with_children <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, child_range, name, int_value, bool_value):
+    selfhost_hir_expr_new kind ty span child_range.first_child child_range.child_count name int_value bool_value
+
 //: selfhost_hir_expr_leaf: child を持たない expression record を[作/つく]る
 fn selfhost_hir_expr_leaf <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, name, int_value, bool_value):
-    selfhost_hir_expr_new kind ty span -1 0 name int_value bool_value
+    selfhost_hir_expr_with_children kind ty span selfhost_hir_child_range_empty name int_value bool_value
+
+//: selfhost_hir_expr_child_range: expression record の child 範囲を[返/かえ]す
+fn selfhost_hir_expr_child_range <(SelfhostHirExpr)->SelfhostHirChildRange> (expr):
+    selfhost_hir_child_range_new expr.first_child expr.child_count
 
 //: selfhost_hir_function_new: function record を[作/つく]る
 fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
@@ -342,6 +462,28 @@ fn selfhost_hir_module_add_expr_alloc_new <(SelfhostHirModule,SelfhostHirExprId)
 fn selfhost_hir_module_add_function_alloc_new <(SelfhostHirModule,SelfhostHirFunctionId)*>SelfhostHirModuleFunctionAlloc> (module, function_id):
     SelfhostHirModuleFunctionAlloc module function_id
 
+//: selfhost_hir_module_add_child_range_alloc_new: child range 追加結果を[作/つく]る
+fn selfhost_hir_module_add_child_range_alloc_new <(SelfhostHirModule,SelfhostHirChildRange)*>SelfhostHirModuleChildRangeAlloc> (module, child_range):
+    SelfhostHirModuleChildRangeAlloc module child_range
+
+//: selfhost_hir_module_copy_expr_children: child id 列を expression child table に[複製/ふくせい]する
+fn selfhost_hir_module_copy_expr_children <(Vec<SelfhostHirExprId>,&Vec<SelfhostHirExprId>,i32,i32)*>Result<Vec<SelfhostHirExprId>, StdErrorKind>> (out, children, n, idx):
+    if:
+        ge idx n
+        then:
+            Result<Vec<SelfhostHirExprId>, StdErrorKind>::Ok out
+        else:
+            match v::get_ref<SelfhostHirExprId> children idx:
+                Option::Some expr_id:
+                    match v::push<SelfhostHirExprId> out expr_id:
+                        Result::Ok next_out:
+                            selfhost_hir_module_copy_expr_children next_out children n add idx 1
+                        Result::Err e:
+                            Result<Vec<SelfhostHirExprId>, StdErrorKind>::Err e
+                Option::None:
+                    v::free<SelfhostHirExprId> out
+                    Result<Vec<SelfhostHirExprId>, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+
 //: selfhost_hir_module_add_expr: expression table に record を[追加/ついか]する
 //:
 //: [注意/ちゅうい]:
@@ -380,6 +522,39 @@ fn selfhost_hir_module_add_function <(SelfhostHirModule,SelfhostHirFunction)*>Re
             v::free<SelfhostHirExprId> expr_children
             Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>::Err e
 
+//: selfhost_hir_module_add_child_range: expression child table に child id 列を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - lowering が child table の raw offset を直接作らずに、typed range として parent expression へ渡せるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `children` はこの関数が消費し、成功・失敗どちらでも解放します。
+//: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
+fn selfhost_hir_module_add_child_range <(SelfhostHirModule,Vec<SelfhostHirExprId>)*>Result<SelfhostHirModuleChildRangeAlloc, StdErrorKind>> (module, children):
+    let child_count <i32> v::len_ref<SelfhostHirExprId> &children
+    if:
+        eq child_count 0
+        then:
+            v::free<SelfhostHirExprId> children
+            Result<SelfhostHirModuleChildRangeAlloc, StdErrorKind>::Ok selfhost_hir_module_add_child_range_alloc_new module selfhost_hir_child_range_empty
+        else:
+            let first_child <i32> selfhost_hir_module_child_len &module
+            let functions <Vec<SelfhostHirFunction>> field::get module "functions"
+            let params <Vec<SelfhostHirParam>> field::get module "params"
+            let exprs <Vec<SelfhostHirExpr>> field::get module "exprs"
+            let expr_children <Vec<SelfhostHirExprId>> field::get module "expr_children"
+            match selfhost_hir_module_copy_expr_children expr_children &children child_count 0:
+                Result::Ok next_expr_children:
+                    v::free<SelfhostHirExprId> children
+                    let child_range <SelfhostHirChildRange> selfhost_hir_child_range_new first_child child_count
+                    Result<SelfhostHirModuleChildRangeAlloc, StdErrorKind>::Ok selfhost_hir_module_add_child_range_alloc_new (SelfhostHirModule functions params exprs next_expr_children) child_range
+                Result::Err e:
+                    v::free<SelfhostHirFunction> functions
+                    v::free<SelfhostHirParam> params
+                    v::free<SelfhostHirExpr> exprs
+                    v::free<SelfhostHirExprId> children
+                    Result<SelfhostHirModuleChildRangeAlloc, StdErrorKind>::Err e
+
 //: selfhost_hir_module_get_function: function id の record を[返/かえ]す
 fn selfhost_hir_module_get_function <(&SelfhostHirModule,SelfhostHirFunctionId)->Option<SelfhostHirFunction>> (module, function_id):
     if:
@@ -399,6 +574,21 @@ fn selfhost_hir_module_get_expr <(&SelfhostHirModule,SelfhostHirExprId)->Option<
         else:
             let exprs <&Vec<SelfhostHirExpr>> field::get_ref module "exprs"
             v::get_ref<SelfhostHirExpr> exprs expr_id.index
+
+//: selfhost_hir_module_get_child: child range 内の expression id を[返/かえ]す
+fn selfhost_hir_module_get_child <(&SelfhostHirModule,SelfhostHirChildRange,i32)->Option<SelfhostHirExprId>> (module, child_range, idx):
+    if:
+        or lt idx 0 ge idx child_range.child_count
+        then:
+            none<SelfhostHirExprId>
+        else:
+            if:
+                lt child_range.first_child 0
+                then:
+                    none<SelfhostHirExprId>
+                else:
+                    let expr_children <&Vec<SelfhostHirExprId>> field::get_ref module "expr_children"
+                    v::get_ref<SelfhostHirExprId> expr_children add child_range.first_child idx
 
 //: selfhost_hir_stage0: HIR module の smoke API
 fn selfhost_hir_stage0 <()*>i32> ():

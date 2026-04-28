@@ -23719,3 +23719,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` S4 の HIR / move / borrow / drop stage に向け、marker ではなく最小 HIR table 境界を追加した。
+
+# 2026-04-29 メモ (ISS-20260428T201733657Z self-host HIR child range API)
+
+- [同期]:
+  - `main` は `origin/main` の `4639f79 selfhost(hir): add minimal HIR arena` まで同期済みで、`selfhost/hir-child-ranges` branch を作成して作業した。
+- [原因]:
+  - `SelfhostHirExpr` は `first_child` / `child_count` を持ち、`SelfhostHirModule` も `expr_children` table を所有していたが、child id 列を table に追加して typed range として返す API がなかった。
+  - このままだと `Block` / `Call` / `If` lowering が child table offset を直接管理することになり、HIR arena の不変条件が pass ごとに分散する。
+- [修正]:
+  - `SelfhostHirChildRange` と `SelfhostHirModuleChildRangeAlloc` を追加した。
+  - `selfhost_hir_module_add_child_range` で `Vec<SelfhostHirExprId>` を module の child table にコピーし、empty range は `-1/0` に正規化するようにした。
+  - `selfhost_hir_expr_with_children`、`selfhost_hir_expr_child_range`、`selfhost_hir_module_get_child` を追加し、parent expression が raw offset を直接受け取らなくても child range を保持できるようにした。
+  - doctest で child expr から child range を作り、parent `Block` expression の保存と lookup を確認するようにした。
+- [検証]:
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\hir\hir.nepl --no-tree -o tmp\selfhost-hir-child-ranges.json -j 1`: total=2 passed=2
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` S4 の HIR lowering に向け、leaf expression だけでなく non-leaf expression を arena に載せるための child range 境界を追加した。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:21:16.539Z",
+  "generated_at": "2026-04-28T20:23:51.137Z",
   "counts": {
-    "total": 309,
+    "total": 310,
     "open": 10,
-    "resolved": 299,
+    "resolved": 300,
     "by_area": {
       "core": {
         "total": 148,
@@ -17,9 +17,9 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 28,
+        "total": 29,
         "open": 1,
-        "resolved": 27
+        "resolved": 28
       },
       "cli": {
         "total": 19,
@@ -3813,6 +3813,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T200821555Z-SELF-HOST-HIR-STAGE-ONLY-EXPOSES-M-3C9A4F2E.md"
+    },
+    {
+      "id": "ISS-20260428T201733657Z-SELF-HOST-HIR-ARENA-LACKS-EXPRESSION-B49BDB49",
+      "title": "self-host HIR arena lacks expression child range API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/hir/hir.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T201733657Z-SELF-HOST-HIR-ARENA-LACKS-EXPRESSION-B49BDB49.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
