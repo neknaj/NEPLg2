@@ -2,8 +2,8 @@
 id: ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1
 title: "StringBuilder Vec<str> storage fails under strict move checking"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
@@ -68,3 +68,15 @@ nm parser/html generator、JSON serializer、diagnostic text、self-host の sou
 `main` の CI run `25035206074`（`fix(stdlib): make string builder byte-backed`）で `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` が失敗したため、この issue を再オープンする。Source policy regressions job は `stdlib/alloc/string.nepl must document StringBuilder ownership contract` で失敗しており、byte-backed 実装自体の focused tests ではなく、公開コメントが新しい ownership contract を説明しているかの policy で落ちている。
 
 修正側では `StringBuilder` の内部が `Vec<str>` に戻っていないことに加え、`StringBuilder` / append / build / free 周辺の日本語 nm comment に、builder が owned byte buffer を保持し、append 時に入力 `str` bytes を copy し、build/free 後に builder を再利用しないことを明記する必要がある。
+
+## 2026-04-28 再確認
+
+現在の `stdlib/alloc/string.nepl` には、`StringBuilder` が owned byte buffer を保持すること、append 時に入力 `str` bytes を copy して `str` owner を保持しないこと、build/free 後に builder を再利用しないことを説明する nm comment が入っている。
+
+`nodesrc/test_stdlib_string_no_unsafe_unwraps.js` はこの ownership contract と `Vec<str>` storage 禁止を検査しており、最新 main 同期後に pass した。string focused tests と nm focused tests も pass しているため、CI 再発として開き直したこの issue は解消済みとして閉じる。
+
+## 再確認した検証
+
+- `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+- `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md --no-tree -o tmp/string-builder-policy-reclose.json -j 1`: `total=32`, `passed=32`
+- `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-after-stringbuilder-policy-reclose.json -j 1`: `total=10`, `passed=10`

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T06:34:37.400Z",
+  "generated_at": "2026-04-28T06:40:57.200Z",
   "counts": {
     "total": 247,
-    "open": 19,
-    "resolved": 228,
+    "open": 18,
+    "resolved": 229,
     "by_area": {
       "core": {
         "total": 103,
@@ -23,8 +23,8 @@
       },
       "stdlib": {
         "total": 94,
-        "open": 9,
-        "resolved": 85
+        "open": 8,
+        "resolved": 86
       },
       "cli": {
         "total": 19,
@@ -228,21 +228,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5.md"
-    },
-    {
-      "id": "ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1",
-      "title": "StringBuilder Vec<str> storage fails under strict move checking",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/alloc/string.nepl, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, stdlib/tests/string.n.md, tests/stdlib/nm.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -2463,6 +2448,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T031445330Z-DISJOINT-SET-AND-SEGMENT-TREE-RAW-OW-D2F6ED1A.md"
+    },
+    {
+      "id": "ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1",
+      "title": "StringBuilder Vec<str> storage fails under strict move checking",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/alloc/string.nepl, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, stdlib/tests/string.n.md, tests/stdlib/nm.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

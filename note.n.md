@@ -21806,3 +21806,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - nm は将来 Resource IR で owned AST が安全に扱えるまで、selfhost/docs 生成を止めない strict-move-safe serializer として運用する。
+
+# 2026-04-28 メモ (ISS-20260428T045151813Z StringBuilder policy reclose)
+
+- [同期]:
+  - `origin/main` の `2a4faa1 fix(stdlib): make nm serializers strict-move safe` まで取り込み、`fix/stringbuilder-policy-reclose-20260428` branch を作成して確認した。
+- [確認]:
+  - CI 再発として再オープンされていた `StringBuilder` ownership comment policy は、現在の `stdlib/alloc/string.nepl` では再現しなかった。
+  - `StringBuilder` / `string_builder_free` / `sb_append_result` / `sb_build_result` の nm comment は、owned byte buffer、append 時 byte copy、`str` owner 非保持、build/free 後の非再利用を説明している。
+- [対応]:
+  - 実装変更は不要と判断し、issue に最新 main での再確認結果を追記して `status: fixed` / `resolved: true` に戻した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md --no-tree -o tmp/string-builder-policy-reclose.json -j 1`: 32/32 passed
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-after-stringbuilder-policy-reclose.json -j 1`: 10/10 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の文字列構築基盤は既に byte-backed builder に寄せており、この commit は issue 台帳の再発状態を現在の検証結果へ合わせるもの。
