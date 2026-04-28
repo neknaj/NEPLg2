@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck name lookup module)
+
+- 状況:
+  - Stage 1 の typecheck field access module 化後、`ImportResolution` を参照する qualified / unqualified lookup helper が `BlockChecker` 本体に残っていた。
+  - scope storage は `env.rs` に分離済みだが、import visibility と unqualified lookup name 展開が本体に残ると `resolve` と `type inference` の境界が曖昧になる。
+- 修正:
+  - `nepl-core/src/typecheck/name_lookup.rs` を追加し、qualified alias lookup、unqualified lookup name 展開、import visibility 判定、defined value/callable lookup、未定義 non-mut hoist を許可する read lookup を移動した。
+  - `env.rs` は scope storage と basic lookup、`name_lookup.rs` は module/import 可視性を読む lookup 層、という責務に分けた。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck name lookup 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/name_lookup.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 16/16 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/resolve.n.md -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/shadowing.n.md --no-tree -o tmp/stage1-typecheck-name-lookup-focused.json -j 1`: 106/106 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck field access module)
 
 - 状況:
