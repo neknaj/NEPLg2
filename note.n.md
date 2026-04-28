@@ -23687,3 +23687,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host lexer の keyword classifier が、深い `if` chain ではなく reviewable な `match` table として表現されるようになった。
+
+# 2026-04-29 メモ (ISS-20260428T200821555Z self-host HIR minimal model)
+
+- [同期]:
+  - `main` は `origin/main` の `4eb8560 selfhost(lexer): match keyword classifier` まで同期済みで、`selfhost/hir-minimal-model` branch を作成して作業した。
+- [原因]:
+  - `stdlib/neplg2/core/hir/hir.nepl` は `selfhost_hir_stage0` だけを持つ marker API のままで、S3 type/check から S4 HIR lowering へ値を渡す function / expression table がなかった。
+  - このままだと checker / lowering / backend が AST や TypeArena を直接覗く形になり、self-host compiler の pass 境界が曖昧になる。
+- [修正]:
+  - `SelfhostHirModule` を function / param / expr / expr child table を所有する arena root にした。
+  - `SelfhostHirFunctionId` と `SelfhostHirExprId` を追加し、module-local stable id で function / expression を参照できるようにした。
+  - `SelfhostHirExprKind`、expression / function / parameter record、追加・lookup・free API を追加した。
+  - doctest で module 作成、unit expr 追加、function root 登録、lookup、cleanup を確認するようにした。
+- [検証]:
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\hir\hir.nepl --no-tree -o tmp\selfhost-hir-minimal-model.json -j 1`: total=1 passed=1
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` S4 の HIR / move / borrow / drop stage に向け、marker ではなく最小 HIR table 境界を追加した。

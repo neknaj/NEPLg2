@@ -4,23 +4,408 @@
 //: NEPLg2.0 の解決済み中間表現を置くモジュールです。
 //:
 //: [目的/もくてき]:
-//: - AST と typecheck 結果から backend 前の HIR へ落とす stage の入口にします。
-//: - Stage 0 では `hir/` の責務境界を marker API で固定します。
+//: - AST と typecheck 結果から backend 前の HIR へ落とす stage の受け皿を提供します。
+//: - function / parameter / expression を table に保存し、後続 pass が stable id で参照できるようにします。
+//: - deep HIR traversal を再帰ではなく explicit stack へ移すため、expression child も flat table で保持します。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostHirModule` は function / param / expr / expr_children の 4 つの Vec を所有します。
+//: - `SelfhostHirFunctionId` と `SelfhostHirExprId` は arena-local index です。別 module の id と混ぜないでください。
+//: - expression record は first_child / child_count で child table 範囲を参照します。初期実装では child を持たない式から始めます。
 //:
 //: [注意/ちゅうい]:
-//: - deep HIR traversal は再帰ではなく explicit stack へ移す方針を維持します。
+//: - これは S4 HIR stage の最小 model です。完全な lowering、pattern、drop plan は別 issue で追加します。
+//: - string literal は現時点では `name` field に lexeme / symbol を置く最小表現です。後で string table に分離します。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - record 追加は Vec の償却 O(1)、再確保時 O(n) です。
+//: - id lookup と len は O(1) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
+//:| #import "core/field" as field
+//:| #import "core/option" as *
+//:| #import "core/result" as *
 //:| #import "neplg2/core/hir/hir" as *
-//: fn main <()->i32> ():
-//:     selfhost_hir_stage0
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let checks0 <Vec<Result<(),str>>> checks_new
+//:     match selfhost_hir_module_new:
+//:         Result::Ok module0:
+//:             let span <SelfhostSourceSpan> source_span_new 3 10 14
+//:             let result_ty <SelfhostTypeId> selfhost_type_id_new 1
+//:             let expr <SelfhostHirExpr> selfhost_hir_expr_new SelfhostHirExprKind::Unit result_ty span -1 0 "" 0 false
+//:             match selfhost_hir_module_add_expr module0 expr:
+//:                 Result::Ok expr_alloc:
+//:                     let root <SelfhostHirExprId> field::get expr_alloc "expr_id"
+//:                     let module1 <SelfhostHirModule> field::get expr_alloc "module"
+//:                     let func <SelfhostHirFunction> selfhost_hir_function_new "main" result_ty span root 0 0
+//:                     match selfhost_hir_module_add_function module1 func:
+//:                         Result::Ok func_alloc:
+//:                             let function_id <SelfhostHirFunctionId> field::get func_alloc "function_id"
+//:                             let module2 <SelfhostHirModule> field::get func_alloc "module"
+//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 1 selfhost_hir_module_expr_len &module2
+//:                             let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 1 selfhost_hir_module_function_len &module2
+//:                             let checks3 <Vec<Result<(),str>>> checks_push checks2 check_eq_i32 0 selfhost_hir_expr_id_index root
+//:                             let checks4 <Vec<Result<(),str>>> checks_push checks3 check_eq_i32 0 selfhost_hir_function_id_index function_id
+//:                             match selfhost_hir_module_get_function &module2 function_id:
+//:                                 Option::Some got_func:
+//:                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 check_str_eq "main" got_func.name
+//:                                     match selfhost_hir_module_get_expr &module2 got_func.root:
+//:                                         Option::Some got_expr:
+//:                                             let checks6 <Vec<Result<(),str>>> checks_push checks5 check selfhost_hir_expr_kind_eq got_expr.kind SelfhostHirExprKind::Unit
+//:                                             selfhost_hir_module_free module2
+//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks6
+//:                                             checks_exit_code shown
+//:                                         Option::None:
+//:                                             selfhost_hir_module_free module2
+//:                                             let checks6 <Vec<Result<(),str>>> checks_push checks5 Result<(),str>::Err "missing root expr"
+//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks6
+//:                                             checks_exit_code shown
+//:                                 Option::None:
+//:                                     selfhost_hir_module_free module2
+//:                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 Result<(),str>::Err "missing function"
+//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks5
+//:                                     checks_exit_code shown
+//:                         Result::Err _e:
+//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "function push failed"
+//:                             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                             checks_exit_code shown
+//:                 Result::Err _e:
+//:                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "expr push failed"
+//:                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:             checks_exit_code shown
 //: ```
-fn selfhost_hir_stage0 <()->i32> ():
-    0
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostHirFunctionId: HIR module 内の function table index
+struct SelfhostHirFunctionId:
+    index <i32>
+
+impl Clone for SelfhostHirFunctionId:
+    fn clone <(&SelfhostHirFunctionId)->SelfhostHirFunctionId> (self):
+        *self
+
+impl Copy for SelfhostHirFunctionId:
+    fn copy_mark <(SelfhostHirFunctionId)->SelfhostHirFunctionId> (self):
+        self
+
+//: SelfhostHirExprId: HIR module 内の expression table index
+struct SelfhostHirExprId:
+    index <i32>
+
+impl Clone for SelfhostHirExprId:
+    fn clone <(&SelfhostHirExprId)->SelfhostHirExprId> (self):
+        *self
+
+impl Copy for SelfhostHirExprId:
+    fn copy_mark <(SelfhostHirExprId)->SelfhostHirExprId> (self):
+        self
+
+//: SelfhostHirExprKind: S4 初期段階で扱う HIR expression の分類
+enum SelfhostHirExprKind:
+    Error
+    Unit
+    BoolLiteral
+    I32Literal
+    StrLiteral
+    Var
+    Call
+    Block
+    If
+
+impl Clone for SelfhostHirExprKind:
+    fn clone <(&SelfhostHirExprKind)->SelfhostHirExprKind> (self):
+        *self
+
+impl Copy for SelfhostHirExprKind:
+    fn copy_mark <(SelfhostHirExprKind)->SelfhostHirExprKind> (self):
+        self
+
+//: SelfhostHirParam: HIR function parameter record
+//:
+//: [目的/もくてき]:
+//: - checker が確定した parameter name / type / mutability を function table から参照できるようにします。
+struct SelfhostHirParam:
+    name <str>
+    ty <SelfhostTypeId>
+    mutable <bool>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostHirParam:
+    fn clone <(&SelfhostHirParam)->SelfhostHirParam> (self):
+        *self
+
+impl Copy for SelfhostHirParam:
+    fn copy_mark <(SelfhostHirParam)->SelfhostHirParam> (self):
+        self
+
+//: SelfhostHirExpr: HIR expression record
+//:
+//: [目的/もくてき]:
+//: - expression kind、型、span、child table 範囲、最小 payload を 1 record にまとめます。
+//:
+//: [注意/ちゅうい]:
+//: - `name` は Var / Call / StrLiteral の初期 payload です。後続の symbol table / string table 導入時に分離します。
+//: - `int_value` / `bool_value` は literal 用 payload です。使わない kind では 0 / false を入れます。
+struct SelfhostHirExpr:
+    kind <SelfhostHirExprKind>
+    ty <SelfhostTypeId>
+    span <SelfhostSourceSpan>
+    first_child <i32>
+    child_count <i32>
+    name <str>
+    int_value <i32>
+    bool_value <bool>
+
+impl Clone for SelfhostHirExpr:
+    fn clone <(&SelfhostHirExpr)->SelfhostHirExpr> (self):
+        *self
+
+impl Copy for SelfhostHirExpr:
+    fn copy_mark <(SelfhostHirExpr)->SelfhostHirExpr> (self):
+        self
+
+//: SelfhostHirFunction: HIR function record
+//:
+//: [目的/もくてき]:
+//: - function name、戻り値型、span、root expression、parameter table 範囲を保持します。
+struct SelfhostHirFunction:
+    name <str>
+    result <SelfhostTypeId>
+    span <SelfhostSourceSpan>
+    root <SelfhostHirExprId>
+    first_param <i32>
+    param_count <i32>
+
+impl Clone for SelfhostHirFunction:
+    fn clone <(&SelfhostHirFunction)->SelfhostHirFunction> (self):
+        *self
+
+impl Copy for SelfhostHirFunction:
+    fn copy_mark <(SelfhostHirFunction)->SelfhostHirFunction> (self):
+        self
+
+//: SelfhostHirModule: HIR stage の arena root
+struct SelfhostHirModule:
+    functions <Vec<SelfhostHirFunction>>
+    params <Vec<SelfhostHirParam>>
+    exprs <Vec<SelfhostHirExpr>>
+    expr_children <Vec<SelfhostHirExprId>>
+
+//: SelfhostHirModuleExprAlloc: expression 追加結果
+struct SelfhostHirModuleExprAlloc:
+    module <SelfhostHirModule>
+    expr_id <SelfhostHirExprId>
+
+//: SelfhostHirModuleFunctionAlloc: function 追加結果
+struct SelfhostHirModuleFunctionAlloc:
+    module <SelfhostHirModule>
+    function_id <SelfhostHirFunctionId>
+
+//: selfhost_hir_function_id_new: function id を[作/つく]る
+fn selfhost_hir_function_id_new <(i32)->SelfhostHirFunctionId> (index):
+    SelfhostHirFunctionId index
+
+//: selfhost_hir_function_id_index: function id の index を[返/かえ]す
+fn selfhost_hir_function_id_index <(SelfhostHirFunctionId)->i32> (function_id):
+    function_id.index
+
+//: selfhost_hir_expr_id_new: expression id を[作/つく]る
+fn selfhost_hir_expr_id_new <(i32)->SelfhostHirExprId> (index):
+    SelfhostHirExprId index
+
+//: selfhost_hir_expr_id_invalid: 未設定 root 用の invalid expression id を[返/かえ]す
+fn selfhost_hir_expr_id_invalid <()->SelfhostHirExprId> ():
+    selfhost_hir_expr_id_new -1
+
+//: selfhost_hir_expr_id_index: expression id の index を[返/かえ]す
+fn selfhost_hir_expr_id_index <(SelfhostHirExprId)->i32> (expr_id):
+    expr_id.index
+
+//: selfhost_hir_expr_kind_tag: expression kind を比較用 tag に[変換/へんかん]する
+fn selfhost_hir_expr_kind_tag <(SelfhostHirExprKind)->i32> (kind):
+    match kind:
+        SelfhostHirExprKind::Error:
+            0
+        SelfhostHirExprKind::Unit:
+            1
+        SelfhostHirExprKind::BoolLiteral:
+            2
+        SelfhostHirExprKind::I32Literal:
+            3
+        SelfhostHirExprKind::StrLiteral:
+            4
+        SelfhostHirExprKind::Var:
+            5
+        SelfhostHirExprKind::Call:
+            6
+        SelfhostHirExprKind::Block:
+            7
+        SelfhostHirExprKind::If:
+            8
+
+//: selfhost_hir_expr_kind_eq: expression kind が同じ分類か[返/かえ]す
+fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->bool> (a, b):
+    eq selfhost_hir_expr_kind_tag a selfhost_hir_expr_kind_tag b
+
+//: selfhost_hir_param_new: parameter record を[作/つく]る
+fn selfhost_hir_param_new <(str,SelfhostTypeId,bool,SelfhostSourceSpan)->SelfhostHirParam> (name, ty, mutable, span):
+    SelfhostHirParam name ty mutable span
+
+//: selfhost_hir_expr_new: expression record を[作/つく]る
+fn selfhost_hir_expr_new <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,i32,i32,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, first_child, child_count, name, int_value, bool_value):
+    SelfhostHirExpr kind ty span first_child child_count name int_value bool_value
+
+//: selfhost_hir_expr_leaf: child を持たない expression record を[作/つく]る
+fn selfhost_hir_expr_leaf <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, name, int_value, bool_value):
+    selfhost_hir_expr_new kind ty span -1 0 name int_value bool_value
+
+//: selfhost_hir_function_new: function record を[作/つく]る
+fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
+    SelfhostHirFunction name result span root first_param param_count
+
+//: selfhost_hir_module_new: [空/から]の HIR module を[作/つく]る
+fn selfhost_hir_module_new <()*>Result<SelfhostHirModule, StdErrorKind>> ():
+    match v::new<SelfhostHirFunction>:
+        Result::Ok functions:
+            match v::new<SelfhostHirParam>:
+                Result::Ok params:
+                    match v::new<SelfhostHirExpr>:
+                        Result::Ok exprs:
+                            match v::new<SelfhostHirExprId>:
+                                Result::Ok expr_children:
+                                    Result<SelfhostHirModule, StdErrorKind>::Ok SelfhostHirModule functions params exprs expr_children
+                                Result::Err e:
+                                    v::free<SelfhostHirFunction> functions
+                                    v::free<SelfhostHirParam> params
+                                    v::free<SelfhostHirExpr> exprs
+                                    Result<SelfhostHirModule, StdErrorKind>::Err e
+                        Result::Err e:
+                            v::free<SelfhostHirFunction> functions
+                            v::free<SelfhostHirParam> params
+                            Result<SelfhostHirModule, StdErrorKind>::Err e
+                Result::Err e:
+                    v::free<SelfhostHirFunction> functions
+                    Result<SelfhostHirModule, StdErrorKind>::Err e
+        Result::Err e:
+            Result<SelfhostHirModule, StdErrorKind>::Err e
+
+//: selfhost_hir_module_free: HIR module が所有する table を[解放/かいほう]する
+fn selfhost_hir_module_free <(SelfhostHirModule)*>()> (module):
+    v::free<SelfhostHirFunction> field::get module "functions"
+    v::free<SelfhostHirParam> field::get module "params"
+    v::free<SelfhostHirExpr> field::get module "exprs"
+    v::free<SelfhostHirExprId> field::get module "expr_children"
+
+//: selfhost_hir_module_function_len: function table の要素数を[返/かえ]す
+fn selfhost_hir_module_function_len <(&SelfhostHirModule)->i32> (module):
+    let functions <&Vec<SelfhostHirFunction>> field::get_ref module "functions"
+    v::len_ref<SelfhostHirFunction> functions
+
+//: selfhost_hir_module_param_len: parameter table の要素数を[返/かえ]す
+fn selfhost_hir_module_param_len <(&SelfhostHirModule)->i32> (module):
+    let params <&Vec<SelfhostHirParam>> field::get_ref module "params"
+    v::len_ref<SelfhostHirParam> params
+
+//: selfhost_hir_module_expr_len: expression table の要素数を[返/かえ]す
+fn selfhost_hir_module_expr_len <(&SelfhostHirModule)->i32> (module):
+    let exprs <&Vec<SelfhostHirExpr>> field::get_ref module "exprs"
+    v::len_ref<SelfhostHirExpr> exprs
+
+//: selfhost_hir_module_child_len: expression child table の要素数を[返/かえ]す
+fn selfhost_hir_module_child_len <(&SelfhostHirModule)->i32> (module):
+    let expr_children <&Vec<SelfhostHirExprId>> field::get_ref module "expr_children"
+    v::len_ref<SelfhostHirExprId> expr_children
+
+//: selfhost_hir_module_add_expr_alloc_new: expression 追加結果を[作/つく]る
+fn selfhost_hir_module_add_expr_alloc_new <(SelfhostHirModule,SelfhostHirExprId)*>SelfhostHirModuleExprAlloc> (module, expr_id):
+    SelfhostHirModuleExprAlloc module expr_id
+
+//: selfhost_hir_module_add_function_alloc_new: function 追加結果を[作/つく]る
+fn selfhost_hir_module_add_function_alloc_new <(SelfhostHirModule,SelfhostHirFunctionId)*>SelfhostHirModuleFunctionAlloc> (module, function_id):
+    SelfhostHirModuleFunctionAlloc module function_id
+
+//: selfhost_hir_module_add_expr: expression table に record を[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
+fn selfhost_hir_module_add_expr <(SelfhostHirModule,SelfhostHirExpr)*>Result<SelfhostHirModuleExprAlloc, StdErrorKind>> (module, expr):
+    let expr_id <SelfhostHirExprId> selfhost_hir_expr_id_new selfhost_hir_module_expr_len &module
+    let functions <Vec<SelfhostHirFunction>> field::get module "functions"
+    let params <Vec<SelfhostHirParam>> field::get module "params"
+    let exprs <Vec<SelfhostHirExpr>> field::get module "exprs"
+    let expr_children <Vec<SelfhostHirExprId>> field::get module "expr_children"
+    match v::push<SelfhostHirExpr> exprs expr:
+        Result::Ok next_exprs:
+            Result<SelfhostHirModuleExprAlloc, StdErrorKind>::Ok selfhost_hir_module_add_expr_alloc_new (SelfhostHirModule functions params next_exprs expr_children) expr_id
+        Result::Err e:
+            v::free<SelfhostHirFunction> functions
+            v::free<SelfhostHirParam> params
+            v::free<SelfhostHirExprId> expr_children
+            Result<SelfhostHirModuleExprAlloc, StdErrorKind>::Err e
+
+//: selfhost_hir_module_add_function: function table に record を[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
+fn selfhost_hir_module_add_function <(SelfhostHirModule,SelfhostHirFunction)*>Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>> (module, func):
+    let function_id <SelfhostHirFunctionId> selfhost_hir_function_id_new selfhost_hir_module_function_len &module
+    let functions <Vec<SelfhostHirFunction>> field::get module "functions"
+    let params <Vec<SelfhostHirParam>> field::get module "params"
+    let exprs <Vec<SelfhostHirExpr>> field::get module "exprs"
+    let expr_children <Vec<SelfhostHirExprId>> field::get module "expr_children"
+    match v::push<SelfhostHirFunction> functions func:
+        Result::Ok next_functions:
+            Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>::Ok selfhost_hir_module_add_function_alloc_new (SelfhostHirModule next_functions params exprs expr_children) function_id
+        Result::Err e:
+            v::free<SelfhostHirParam> params
+            v::free<SelfhostHirExpr> exprs
+            v::free<SelfhostHirExprId> expr_children
+            Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>::Err e
+
+//: selfhost_hir_module_get_function: function id の record を[返/かえ]す
+fn selfhost_hir_module_get_function <(&SelfhostHirModule,SelfhostHirFunctionId)->Option<SelfhostHirFunction>> (module, function_id):
+    if:
+        lt function_id.index 0
+        then:
+            none<SelfhostHirFunction>
+        else:
+            let functions <&Vec<SelfhostHirFunction>> field::get_ref module "functions"
+            v::get_ref<SelfhostHirFunction> functions function_id.index
+
+//: selfhost_hir_module_get_expr: expression id の record を[返/かえ]す
+fn selfhost_hir_module_get_expr <(&SelfhostHirModule,SelfhostHirExprId)->Option<SelfhostHirExpr>> (module, expr_id):
+    if:
+        lt expr_id.index 0
+        then:
+            none<SelfhostHirExpr>
+        else:
+            let exprs <&Vec<SelfhostHirExpr>> field::get_ref module "exprs"
+            v::get_ref<SelfhostHirExpr> exprs expr_id.index
+
+//: selfhost_hir_stage0: HIR module の smoke API
+fn selfhost_hir_stage0 <()*>i32> ():
+    match selfhost_hir_module_new:
+        Result::Ok module:
+            let n <i32> selfhost_hir_module_function_len &module
+            selfhost_hir_module_free module
+            n
+        Result::Err _e:
+            1

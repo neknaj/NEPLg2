@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:08:30.726Z",
+  "generated_at": "2026-04-28T20:13:21.281Z",
   "counts": {
-    "total": 307,
+    "total": 308,
     "open": 10,
-    "resolved": 297,
+    "resolved": 298,
     "by_area": {
       "core": {
         "total": 147,
@@ -17,9 +17,9 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 27,
+        "total": 28,
         "open": 1,
-        "resolved": 26
+        "resolved": 27
       },
       "cli": {
         "total": 19,
@@ -3783,6 +3783,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00.md"
+    },
+    {
+      "id": "ISS-20260428T200821555Z-SELF-HOST-HIR-STAGE-ONLY-EXPOSES-M-3C9A4F2E",
+      "title": "self-host HIR stage only exposes marker API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/core/hir/hir.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T200821555Z-SELF-HOST-HIR-STAGE-ONLY-EXPOSES-M-3C9A4F2E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
