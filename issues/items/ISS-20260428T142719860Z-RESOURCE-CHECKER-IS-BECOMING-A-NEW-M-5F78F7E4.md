@@ -108,3 +108,22 @@ After splitting, run the full resource_ir test suite, rustfmt on the resource mo
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
+
+## 2026-04-28 post-BorrowState review
+
+BorrowState table split 後に Resource checker 周辺を再確認した。`check.rs` は 2674 行から 2200 行まで縮小し、`place_utils.rs`、`cell_state.rs`、`owner_state.rs`、`borrow_state.rs` へ state table / merge helper は分離済みである。
+
+ただし issue はまだ完了ではない。`check.rs` には次が残っている。
+
+- `ResourceCheckEngine` / `ResourceOwnerCheckEngine` / `ResourceBorrowCheckEngine` の traversal と diagnostic emission。
+- `BorrowTokenReturnSummary` / `OwnerReturnSummary` / `OwnerProjectionReturnSummary` の function boundary summary。
+- `FunctionAliasTable` と aggregate field alias propagation。
+- shadow report public struct と compiler pipeline 接続用の entry point。
+
+また `effect.rs` は 1273 行で、raw identity / raw pointer / function alias / raw memory identity / pointer alias の state table と summary computation が同居している。Stage 5 の authoritative gate を広げる前に、`check.rs` だけでなく effect boundary checker も同じ分割方針で整理する必要がある。
+
+次の候補:
+
+- `function_summary.rs` を作り、borrow / owner の return summary と `FunctionAliasTable` を `check.rs` から分離する。
+- `effect_identity.rs` / `effect_alias.rs` を作り、`effect.rs` の raw identity table と pointer alias table を分離する。
+- 分割後に source-level responsibility check または doc note を追加し、Resource IR checker が再び単一巨大 pass に戻らないようにする。

@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (静的検査大規模修正 post-BorrowState review)
+
+- `889a1a8` / `2fe878d` 後に `doc/neplg2/static_check_complexity_reduction_plan.md` と `nepl-core/src/resource` を再確認した。
+- Stage 2 Resource IR data model / dump、Stage 3 local / aggregate / branch / raw memory / call / callback lowering、Stage 4 CellState / OwnerState / BorrowState 検査と branch / loop / match merge は実装済み。raw memory load/store/destructive storage op も `address.*` cell state に接続済み。
+- ただし compiler pipeline はまだ旧 `passes::move_check::run` が authoritative で、Resource IR は verbose shadow report と `RawAddressEscapeFromInternalAlloc` の D3025 gate を除いて強制されていない。Stage 4 は実装されたが移行完了ではない。
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` は open のまま継続する。`check.rs` は 2674 行から 2200 行まで縮小したが、engine traversal / function summary / shadow report が残っている。
+- `nepl-core/src/resource/effect.rs` は 1273 行で raw identity summary、raw pointer summary、function alias、raw memory identity table、pointer alias table、branch merge が同居している。Stage 5 gate 拡大前に同じ責務分割が必要。
+- 新規の独立 issue は追加していない。残リスクは既存の P1 issue で追跡されており、次の実装単位は function summary / effect checker table 分割、または Resource IR authoritative gate の切替前条件の明文化。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `node nodesrc/issues.js check`: files=289, pass
+  - `git diff --check`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker BorrowState split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`BorrowTable`、borrow token binding、BorrowState merge helper を `nepl-core/src/resource/borrow_state.rs` へ分離した。
