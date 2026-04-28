@@ -230,6 +230,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 for input in inputs {
                     identities.merge_identity(input, output);
                 }
+                construct_raw_identity_fields(identities, output, kind, inputs);
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
             }
             ResourceOp::Call {
@@ -855,6 +856,18 @@ fn dedupe_functions(functions: Vec<String>) -> Vec<String> {
     out
 }
 
+fn construct_raw_identity_fields(
+    identities: &mut RawIdentityTable,
+    output: &Place,
+    kind: &AggregateKind,
+    inputs: &[Place],
+) {
+    for (index, input) in inputs.iter().enumerate() {
+        let field = construct_field_place(output, kind, index, input);
+        identities.merge_identity(input, &field);
+    }
+}
+
 fn construct_function_alias_fields(
     function_aliases: &mut FunctionAliasTable,
     output: &Place,
@@ -1060,23 +1073,22 @@ impl RawIdentityTable {
         if source == target {
             return;
         }
+        let groups = self.groups_with_replaced_prefix(source, target, true);
         self.clear(target);
-        self.merge_identity(source, target);
+        for group in groups {
+            self.union_group(&group);
+        }
     }
 
     fn merge_identity(&mut self, source: &Place, target: &Place) {
-        if let Some(group) = self.group_for(source) {
-            let mut merged = group.to_vec();
-            if !merged.contains(target) {
-                merged.push(target.clone());
-            }
-            self.union_group(&merged);
+        for group in self.groups_with_replaced_prefix(source, target, false) {
+            self.union_group(&group);
         }
     }
 
     fn clear(&mut self, place: &Place) {
         for group in &mut self.groups {
-            group.retain(|existing| existing != place);
+            group.retain(|existing| !place_has_prefix(existing, place));
         }
         self.groups.retain(|group| !group.is_empty());
     }
@@ -1091,11 +1103,44 @@ impl RawIdentityTable {
         out
     }
 
-    fn group_for(&self, place: &Place) -> Option<&[Place]> {
-        self.groups
-            .iter()
-            .find(|group| group.iter().any(|existing| existing == place))
-            .map(Vec::as_slice)
+    fn groups_with_replaced_prefix(
+        &self,
+        source: &Place,
+        target: &Place,
+        drop_target_prefix: bool,
+    ) -> Vec<Vec<Place>> {
+        let mut out = Vec::new();
+        for group in &self.groups {
+            let mut mapped = Vec::new();
+            let mut mapped_descendant = false;
+            for place in group {
+                if let Some(replacement) = replace_place_prefix(place, source, target) {
+                    if place.projections.len() > source.projections.len() {
+                        mapped_descendant = true;
+                    }
+                    push_unique_place(&mut mapped, replacement);
+                }
+            }
+            if mapped.is_empty() {
+                continue;
+            }
+
+            let mut merged = if drop_target_prefix {
+                group
+                    .iter()
+                    .filter(|place| !place_has_prefix(place, target))
+                    .cloned()
+                    .collect()
+            } else {
+                group.clone()
+            };
+            push_unique_places(&mut merged, &mapped);
+            if mapped_descendant {
+                push_unique_place(&mut merged, target.clone());
+            }
+            out.push(merged);
+        }
+        out
     }
 
     fn union_group(&mut self, group: &[Place]) {
@@ -1115,8 +1160,38 @@ impl RawIdentityTable {
     }
 }
 
+fn replace_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> Option<Place> {
+    if !place_has_prefix(place, prefix) {
+        return None;
+    }
+    let suffix = place.projections[prefix.projections.len()..].to_vec();
+    let mut out = replacement.clone();
+    let suffix_is_empty = suffix.is_empty();
+    out.projections.extend(suffix);
+    if !suffix_is_empty {
+        out.ty = place.ty;
+    }
+    Some(out)
+}
+
+fn place_has_prefix(place: &Place, prefix: &Place) -> bool {
+    place.root == prefix.root
+        && place.projections.len() >= prefix.projections.len()
+        && place
+            .projections
+            .iter()
+            .zip(&prefix.projections)
+            .all(|(projection, prefix_projection)| projection == prefix_projection)
+}
+
 fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
     left.iter().any(|place| right.contains(place))
+}
+
+fn push_unique_place(target: &mut Vec<Place>, place: Place) {
+    if !target.contains(&place) {
+        target.push(place);
+    }
 }
 
 fn push_unique_places(target: &mut Vec<Place>, source: &[Place]) {

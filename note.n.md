@@ -22754,3 +22754,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の public escape diagnostics と function / callback boundary の接続として、aggregate field に格納された callback の effect summary 伝播を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T130545885Z aggregate field raw identity)
+
+- [同期]:
+  - `origin/main` の `256d524 fix(core): propagate effect aggregate function aliases` まで同期した main から `work/stage5-aggregate-field-raw-identity` branch を作成した。
+- [原因]:
+  - `ResourceOp::Construct` は raw identity を aggregate output root へ merge していたが、対応する field projection へ raw identity を付けていなかった。
+  - そのため internal raw allocation を struct / tuple / enum payload に入れてから field projection で読み戻すと、`ResourceOp::Read` が identity を output へ copy できず、pure return escape の false negative になった。
+  - whole aggregate copy 時にも descendant projection identity を target 側 descendant に写す必要があった。
+- [修正]:
+  - aggregate construction 時に raw identity を aggregate root と deterministic field projection の両方へ伝播するようにした。
+  - `RawIdentityTable` の copy / merge を prefix-aware にし、aggregate root copy で field projection identity も target projection へ移るようにした。
+  - target overwrite 時は target 配下の古い identity を消し、stale field identity が残らないようにした。
+  - `nepl-core/tests/resource_ir.rs` に constructed aggregate field read と aggregate copy 後 field read の raw escape 回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の public escape diagnostics と raw identity propagation の補強として、aggregate field projection 上の raw identity を Resource IR 上に固定した。

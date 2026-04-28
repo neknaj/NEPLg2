@@ -307,3 +307,9 @@ borrow checker 周辺は別 agent の作業範囲だが、self-host compiler の
 `ISS-20260428T125920330Z-RESOURCE-EFFECT-CHECKER-LOSES-FUNCTI-6F8443ED` として、Resource IR effect checker の function alias state が aggregate construction で field projection へ伝播しない問題を分離し、修正した。
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 の public escape diagnostics では、known callback と unknown callback の raw identity summary を区別する必要がある。function value を aggregate field に格納したあと field projection 経由で `IndirectCall` する場合も known callee summary を維持し、raw 引数を返さない callback を unknown fallback で過剰に raw escape 扱いしないようにした。
+
+## 2026-04-28 Stage 5 aggregate field raw identity 追記
+
+`ISS-20260428T130545885Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-ID-D9758A4A` として、Resource IR effect checker が constructed aggregate の field projection から raw identity を読み戻す経路を見逃す問題を分離し、修正した。
+
+`ResourceOp::Construct` は aggregate root へ raw identity を集約していたが、field projection へは identity を付けていなかった。そのため `alloc -> struct field -> field read -> return` のような経路が `RawAddressEscapeFromInternalAlloc` から漏れた。今回の修正では construction 時の field identity と、whole aggregate copy 時の descendant projection identity 写像を追加した。

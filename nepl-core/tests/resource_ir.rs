@@ -942,6 +942,180 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_wrapped_in_struct() {
 }
 
 #[test]
+fn resource_ir_effect_check_reports_raw_alloc_escape_read_from_constructed_aggregate_field() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let box_ty = types.register_named(
+        "RawBox".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "RawBox".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let size = Place::temporary(ResourceId(0), i32_ty);
+    let raw = Place::temporary(ResourceId(1), i32_ty);
+    let boxed = Place::temporary(ResourceId(2), box_ty);
+    let field = boxed.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let extracted = Place::temporary(ResourceId(3), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "read_box_field".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![size],
+                        span,
+                    },
+                    ResourceOp::Construct {
+                        output: boxed,
+                        kind: AggregateKind::Struct {
+                            name: "RawBox".to_string(),
+                        },
+                        inputs: vec![raw],
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: field,
+                        output: extracted.clone(),
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(extracted),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "read_box_field"
+    )));
+}
+
+#[test]
+fn resource_ir_effect_check_preserves_raw_identity_fields_across_aggregate_copy() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let box_ty = types.register_named(
+        "RawBox".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "RawBox".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let size = Place::temporary(ResourceId(0), i32_ty);
+    let raw = Place::temporary(ResourceId(1), i32_ty);
+    let boxed = Place::temporary(ResourceId(2), box_ty);
+    let copied_box = Place::temporary(ResourceId(3), box_ty);
+    let copied_field = copied_box.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let extracted = Place::temporary(ResourceId(4), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "read_copied_box_field".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![size],
+                        span,
+                    },
+                    ResourceOp::Construct {
+                        output: boxed.clone(),
+                        kind: AggregateKind::Struct {
+                            name: "RawBox".to_string(),
+                        },
+                        inputs: vec![raw],
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: boxed,
+                        output: copied_box,
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: copied_field,
+                        output: extracted.clone(),
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(extracted),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "read_copied_box_field"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_raw_alloc_escape_through_identity_call() {
     let i32_ty = TypeId(1);
     let span = Span::dummy();

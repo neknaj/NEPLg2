@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T13:01:50.513Z",
+  "generated_at": "2026-04-28T13:09:12.121Z",
   "counts": {
-    "total": 279,
+    "total": 280,
     "open": 10,
-    "resolved": 269,
+    "resolved": 270,
     "by_area": {
       "core": {
-        "total": 129,
+        "total": 130,
         "open": 4,
-        "resolved": 125
+        "resolved": 126
       },
       "stdlib": {
         "total": 95,
@@ -2043,6 +2043,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T125920330Z-RESOURCE-EFFECT-CHECKER-LOSES-FUNCTI-6F8443ED.md"
+    },
+    {
+      "id": "ISS-20260428T130545885Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-ID-D9758A4A",
+      "title": "Resource effect checker loses raw identities read from aggregate fields",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T130545885Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-ID-D9758A4A.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
