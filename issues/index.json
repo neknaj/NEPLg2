@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T16:01:52.091Z",
+  "generated_at": "2026-04-28T16:07:59.654Z",
   "counts": {
     "total": 290,
-    "open": 11,
-    "resolved": 279,
+    "open": 10,
+    "resolved": 280,
     "by_area": {
       "core": {
         "total": 136,
-        "open": 5,
-        "resolved": 131
+        "open": 4,
+        "resolved": 132
       },
       "stdlib": {
         "total": 95,
@@ -49,21 +49,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260425T000000Z-RV-CORE-002-D17C4B3C",
-      "title": "typecheck.rs が巨大化しすぎて責務が分離できていない",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-25",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs",
-      "legacy_id": "RV-CORE-002",
-      "source": "doc/review20260425/core.md#rv-core-002",
-      "file": "items/ISS-20260425T000000Z-RV-CORE-002-D17C4B3C.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -723,6 +708,21 @@
       "legacy_id": "RV-CORE-001",
       "source": "doc/review20260425/core.md#rv-core-001",
       "file": "items/ISS-20260425T000000Z-RV-CORE-001-B3603AB7.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-CORE-002-D17C4B3C",
+      "title": "typecheck.rs が巨大化しすぎて責務が分離できていない",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-25",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/typecheck, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/move_check, nodesrc/test_static_check_boundary_responsibility.js, .github/workflows/ci.yml",
+      "legacy_id": "RV-CORE-002",
+      "source": "doc/review20260425/core.md#rv-core-002",
+      "file": "items/ISS-20260425T000000Z-RV-CORE-002-D17C4B3C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-005-AE5E52FE",

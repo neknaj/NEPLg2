@@ -23242,3 +23242,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_execution_plan.md` S2 の `selfhost/s2-module-graph` に対応し、stdlib map / user root 解決は後続 issue として残した。
+
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 boundary guard)
+
+- [同期]:
+  - `origin/main` の `a24abcb test(core): guard resource checker boundaries` まで同期した main から `work/typecheck-move-check-boundary-guard` branch を作成した。
+- [確認]:
+  - `nepl-core/src/typecheck.rs` は 32 lines で module wiring と public re-export に縮小済み。
+  - `nepl-core/src/passes/move_check.rs` は 143 lines で `MoveCheckContext` と `run` の orchestration に縮小済み。
+  - typecheck 側は env / call reduction / overload selection / trait / match / field / function body / driver が submodule 化されている。
+  - move_check 側は raw memory classifier / raw place / provenance / branch merge / summary build / alias / visitor / context state / raw state が submodule 化されている。
+- [修正]:
+  - `nodesrc/test_static_check_boundary_responsibility.js` を追加し、Stage 1 の typecheck / move_check 境界が再び monolithic file へ戻らないことを source policy として固定した。
+  - CI の Source policy regressions に同 test を接続した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` を fixed / resolved に整理し、意味論移行の残件は `ISS-20260425T000000Z-RV-CORE-009-58589A3F` 側で追跡することを明記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 1 の完了条件を、CI で監視できる責務境界として固定した。
