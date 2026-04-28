@@ -1543,10 +1543,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 .find(|summary| summary.function == function.as_str())
             {
                 self.apply_owner_return_summary(owners, output, args, summary, span);
-                if owners
-                    .state(output)
-                    .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
-                {
+                if owners.has_transferable_owner(output) {
                     return;
                 }
             }
@@ -1561,10 +1558,7 @@ impl ResourceOwnerCheckEngine<'_> {
         span: Span,
     ) {
         for arg in args.iter().filter(|arg| arg.ty == output.ty) {
-            if owners
-                .state(arg)
-                .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
-            {
+            if owners.has_transferable_owner(arg) {
                 self.transfer_owner(
                     owners,
                     arg,
@@ -1591,10 +1585,7 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            if owners
-                .state(arg)
-                .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
-            {
+            if owners.has_transferable_owner(arg) {
                 self.transfer_owner(
                     owners,
                     arg,
@@ -1635,10 +1626,7 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            if owners
-                .state(arg)
-                .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
-            {
+            if owners.has_transferable_owner(arg) {
                 self.transfer_owner(
                     owners,
                     arg,
@@ -2155,6 +2143,15 @@ impl OwnerTable {
             })
             .cloned()
             .collect()
+    }
+
+    fn has_transferable_owner(&self, place: &Place) -> bool {
+        self.state(place)
+            .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
+            || self
+                .descendant_entries(place)
+                .iter()
+                .any(|entry| matches!(entry.state, OwnerState::Live { .. }))
     }
 
     fn merge_paths(paths: &[OwnerTable]) -> Self {

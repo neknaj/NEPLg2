@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T11:56:26.192Z",
+  "generated_at": "2026-04-28T12:02:16.793Z",
   "counts": {
-    "total": 268,
+    "total": 269,
     "open": 10,
-    "resolved": 258,
+    "resolved": 259,
     "by_area": {
       "core": {
-        "total": 120,
+        "total": 121,
         "open": 4,
-        "resolved": 116
+        "resolved": 117
       },
       "stdlib": {
         "total": 95,
@@ -1908,6 +1908,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T115405922Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-DE066CEF.md"
+    },
+    {
+      "id": "ISS-20260428T120003205Z-RESOURCE-OWNER-CHECKER-DOES-NOT-TRAN-C68B3366",
+      "title": "Resource owner checker does not transfer aggregate owner descendants returned by helpers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T120003205Z-RESOURCE-OWNER-CHECKER-DOES-NOT-TRAN-C68B3366.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

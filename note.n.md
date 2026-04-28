@@ -22597,3 +22597,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate owner projection の function boundary transfer を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T120003205Z aggregate parameter return descendant owner transfer)
+
+- [同期]:
+  - `origin/main` の `3986880 fix(core): propagate aggregate owner returns` まで同期した main から `work/stage4-owner-aggregate-param-return` branch を作成した。
+- [原因]:
+  - `transfer_owner` は source prefix 配下の owner projection を移せるようになったが、owner return summary 適用側が exact argument owner の live 状態だけを見ていた。
+  - aggregate 引数は owner を field projection に持つため、`fn id_wrapper(w): w` のような helper で field owner obligation が caller output に移らなかった。
+- [修正]:
+  - `OwnerTable::has_transferable_owner` を追加し、exact place または descendant projection に live owner がある場合に transfer を開始するようにした。
+  - direct / known function value の owner return summary と unknown callback fallback でこの判定を使うようにした。
+  - `nepl-core/tests/resource_ir.rs` に owner 入り wrapper を helper で返し、戻り値 field を dealloc できる正常系を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate parameter return の descendant owner transfer を Resource IR 上に固定した。

@@ -2195,6 +2195,114 @@ fn resource_ir_owner_check_reports_aggregate_owner_return_leak_in_caller() {
 }
 
 #[test]
+fn resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_helper() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let helper_param = Place::local("w".to_string(), wrapper_ty);
+    let p = Place::temporary(ResourceId(0), i32_ty);
+    let wrapper = Place::temporary(ResourceId(1), wrapper_ty);
+    let returned = Place::temporary(ResourceId(2), wrapper_ty);
+    let returned_field = returned.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "id_wrapper".to_string(),
+                params: vec![ResourceLocal {
+                    name: "w".to_string(),
+                    ty: wrapper_ty,
+                    mutable: false,
+                    place: helper_param.clone(),
+                }],
+                result: wrapper_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(helper_param),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: p.clone(),
+                            args: vec![],
+                            span,
+                        },
+                        ResourceOp::Construct {
+                            output: wrapper.clone(),
+                            kind: AggregateKind::Struct {
+                                name: "Wrapper".to_string(),
+                            },
+                            inputs: vec![p],
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: returned,
+                            target: ResourceCallTarget::User {
+                                name: "id_wrapper".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![wrapper],
+                            effect: EffectOp::UserCall {
+                                name: "id_wrapper".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: Place::temporary(ResourceId(3), unit_ty),
+                            args: vec![returned_field],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_owner_obligations(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_shared_read_until_release() {
     let types = TypeCtx::new();
     let span = Span::dummy();
