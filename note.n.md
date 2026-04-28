@@ -20693,3 +20693,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - compiler core の raw ownership effect propagation を保守的にし、曖昧な higher-order function value を安全側に扱うようにした。
+
+# 2026-04-28 メモ (ISS-20260428T000058805Z aggregate function raw effects)
+
+- [同期]:
+  - `82cff7e` を push/pull 済みの `main` から `fix/aggregate-function-raw-effects` branch を作成した。
+- [再現]:
+  - `CallbackHolder` の field に `@clobber_i32` を保存し、`field::get holder "cb"` で取り出した `f` を `f pi` として呼ぶと、`store<LocalToken>` 済み raw place への `store_i32` が D3100 にならず通っていた。
+  - function boundary をまたぐ `call_holder pi holder` でも同じく raw memory effect が caller context に戻らなかった。
+- [原因]:
+  - `move_check` は enum payload の function alias は追跡していたが、struct/tuple field に入った function alias を state / summary に保持していなかった。
+  - `field::get` は typecheck 後に `#intrinsic "load"` に lower されるため、function field load から aggregate field alias を復元する経路が必要だった。
+  - function-typed aggregate field parameter 用の placeholder もなく、helper 関数サマリで `holder.cb` の callback effect を表現できていなかった。
+- [修正]:
+  - aggregate field function alias state を `MoveCheckContext` / `ValueAliasSummary` / `FunctionRawAliasSummary` に追加した。
+  - struct/tuple construction、`let` / `set`、branch merge、function summary instantiation、match bind に aggregate field function alias を接続した。
+  - enum payload 内 aggregate field function alias と `$fnparam_field:*` / `$fnparam_enum_payload_field:*` placeholder を追加し、call site で concrete callback 候補へ展開するようにした。
+  - `#intrinsic "load"` に lower された field load から function alias を復元し、`CallIndirect` の raw memory effect summary へ渡すようにした。
+  - `tests/compiler/move_effect.n.md` に aggregate field callback の D3100 回帰テストを追加した。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/aggregate-function-raw-effects.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - callback を aggregate に格納する self-host/stdlib 形状でも compiler core の raw ownership effect propagation が途切れないようにした。

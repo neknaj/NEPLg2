@@ -1520,6 +1520,43 @@ fn main <()->i32> ():
     0
 ```
 
+## aggregate field に保存した function value raw write も caller の initialized non-Copy place を上書きできない
+
+neplg2:test[compile_fail]
+diag_id: 3100
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct CallbackHolder:
+    cb <(MemPtr<i32>)->()>
+
+fn clobber_i32 <(MemPtr<i32>)->()> (p):
+    let r <Result<(),str>> store_i32 p 0
+    ()
+
+fn call_holder <(MemPtr<i32>, CallbackHolder)->()> (p, holder):
+    let f <(MemPtr<i32>)->()> field::get holder "cb"
+    f p
+
+fn main <()->i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    let holder <CallbackHolder> CallbackHolder @clobber_i32
+    call_holder pi holder
+    0
+```
+
 ## enum payload の function value raw write も caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
