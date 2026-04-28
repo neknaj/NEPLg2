@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T23:26:42.875Z",
+  "generated_at": "2026-04-28T23:38:02.265Z",
   "counts": {
-    "total": 331,
-    "open": 11,
+    "total": 332,
+    "open": 12,
     "resolved": 320,
     "by_area": {
       "core": {
-        "total": 153,
-        "open": 3,
+        "total": 154,
+        "open": 4,
         "resolved": 150
       },
       "selfhost": {
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B",
+      "title": "generic owned aggregate field moves still reject SelfhostOutcome direct Result cleanup",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/passes/move_check.rs, stdlib/neplg2/core/infra/outcome.nepl, tests/stdlib/neplg2_diag_outcome.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B.md"
     },
     {
       "id": "ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB",

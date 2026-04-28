@@ -11,6 +11,19 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (ISS-20260428T233410073Z generic aggregate partial move)
+
+- [発見]:
+  - `SelfhostOutcome<T,E>` の result を直接 owned field 化すると、`stdlib\neplg2\core\infra\outcome.nepl` の i32/str smoke は raw cell D3100 なしで通る。
+  - 一方で `tests\stdlib\neplg2_diag_outcome.n.md::doctest#3` の `DropCounter` payload では、`SelfhostOutcome<DropCounter,str>` から `result` と `diagnostics` を両方 move する時に D3053 になる。
+- [issue]:
+  - これは raw result cell 修正とは別の compiler partial-move generic 回帰として、`ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B` に分離した。
+- [方針]:
+  - 静的検査大規模修正は別 agent 領域なので、この branch では D3053 を回避するために raw pointer workaround へ戻さない。
+  - `SelfhostOutcome` 側は raw result cell を取り除く正しい shape を先に固定し、non-Copy payload cleanup の実行可能化は compiler issue に接続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T230757402Z self-host CLI VecDataLen field move)
 
 - [同期]:
