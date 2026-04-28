@@ -22476,3 +22476,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、borrow token binding を known function value 境界へ伝播した。
+
+# 2026-04-28 メモ (ISS-20260428T112207828Z unknown callback borrow token summary)
+
+- [同期]:
+  - `origin/main` の `34b138b fix(core): propagate borrow token function values` まで同期した main から `work/stage4-borrow-token-unknown-callback` branch を作成した。
+- [原因]:
+  - direct call と known function value では borrow token return summary を伝播できるようになったが、callee alias が不明な `ResourceOp::IndirectCall` は無視されていた。
+  - callback parameter や higher-order helper は任意の同型引数を返し得るため、active borrow token を引数で渡した場合に return escape を隠せていた。
+- [修正]:
+  - unknown `IndirectCall` では、output と型が一致する active borrow token 引数を output へ保守的に伝播するようにした。
+  - known function value alias がある場合は既存の computed summary を優先し、precision を維持した。
+  - `nepl-core/tests/resource_ir.rs` に unknown callback return escape の検出回帰と、戻り値型が異なる場合の正常系を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、callback 境界での borrow token binding を保守的に維持した。

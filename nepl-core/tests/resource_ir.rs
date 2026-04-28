@@ -1942,6 +1942,121 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_function_value() {
 }
 
 #[test]
+fn resource_ir_borrow_check_reports_borrow_token_returned_by_unknown_callback() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), i32_ty);
+    let shared = Place::temporary(ResourceId(0), i32_ty);
+    let callee = Place::local("callback".to_string(), i32_ty);
+    let returned = Place::temporary(ResourceId(1), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Borrow {
+                        source: x,
+                        output: shared.clone(),
+                        kind: BorrowKind::Shared,
+                        span,
+                    },
+                    ResourceOp::IndirectCall {
+                        output: returned.clone(),
+                        callee,
+                        params: vec![i32_ty],
+                        result: i32_ty,
+                        args: vec![shared],
+                        effect: EffectOp::Unknown {
+                            reason: "callback parameter".to_string(),
+                        },
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(returned),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::ReturnValue,
+            active: BorrowState::Shared { .. },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_borrow_check_does_not_return_unknown_callback_token_with_mismatched_result() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), i32_ty);
+    let shared = Place::temporary(ResourceId(0), i32_ty);
+    let callee = Place::local("callback".to_string(), bool_ty);
+    let returned = Place::temporary(ResourceId(1), bool_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: bool_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Borrow {
+                        source: x,
+                        output: shared.clone(),
+                        kind: BorrowKind::Shared,
+                        span,
+                    },
+                    ResourceOp::IndirectCall {
+                        output: returned.clone(),
+                        callee,
+                        params: vec![i32_ty],
+                        result: bool_ty,
+                        args: vec![shared],
+                        effect: EffectOp::Unknown {
+                            reason: "callback parameter".to_string(),
+                        },
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(returned),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_return_after_borrow_release() {
     let types = TypeCtx::new();
     let i32_ty = types.i32();

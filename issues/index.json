@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T11:17:28.198Z",
+  "generated_at": "2026-04-28T11:24:02.102Z",
   "counts": {
-    "total": 261,
+    "total": 262,
     "open": 11,
-    "resolved": 250,
+    "resolved": 251,
     "by_area": {
       "core": {
-        "total": 113,
+        "total": 114,
         "open": 4,
-        "resolved": 109
+        "resolved": 110
       },
       "selfhost": {
         "total": 17,
@@ -1818,6 +1818,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T111459572Z-RESOURCE-BORROW-CHECKER-LOSES-BORROW-E16E4C63.md"
+    },
+    {
+      "id": "ISS-20260428T112207828Z-RESOURCE-BORROW-CHECKER-LOSES-BORROW-A173C06B",
+      "title": "Resource borrow checker loses borrow token returns through unknown callbacks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T112207828Z-RESOURCE-BORROW-CHECKER-LOSES-BORROW-A173C06B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

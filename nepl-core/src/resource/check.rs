@@ -966,7 +966,12 @@ impl ResourceBorrowCheckEngine<'_> {
         callee: &Place,
         args: &[Place],
     ) {
-        for function in function_aliases.functions(callee) {
+        let functions = function_aliases.functions(callee);
+        if functions.is_empty() {
+            self.propagate_unknown_indirect_call_return_token(borrows, output, args);
+            return;
+        }
+        for function in functions {
             if let Some(summary) = self
                 .summaries
                 .iter()
@@ -981,6 +986,19 @@ impl ResourceBorrowCheckEngine<'_> {
                         return;
                     }
                 }
+            }
+        }
+    }
+
+    fn propagate_unknown_indirect_call_return_token(
+        &self,
+        borrows: &mut BorrowTable,
+        output: &Place,
+        args: &[Place],
+    ) {
+        for arg in args.iter().filter(|arg| arg.ty == output.ty) {
+            if borrows.copy_or_move_token(arg, output) {
+                return;
             }
         }
     }
