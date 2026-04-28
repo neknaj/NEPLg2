@@ -59,3 +59,13 @@ generic storage owner は payload を drop せず bytes だけ解放できる。
 ## 検証
 
 owning payload を `store<T>` した region を `dealloc_region` / `dealloc_ptr` だけで解放する code を compile_fail にする。payload を `load<T>` で consume した後、または `drop` した後の storage-only dealloc は通す。Copy buffer / uninitialized allocation の dealloc 正常系も維持する。collection / `SelfhostOutcome` の cleanup tests はこの issue の設計に合わせて更新する。
+
+## 関連ドキュメント
+
+- [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
+
+## 2026-04-28 issue 整理
+
+この issue は Stage 4/6 の initialized cell / drop obligation / storage-only dealloc の境界を追跡する。`dealloc_*` の caller を一つずつ patch するだけでは解決にならない。完了条件は、Resource IR または同等の compiler-owned state が「initialized payload を含む storage」と「payload consume/drop 後の storage-only region」を区別し、後者だけを free できることである。
+
+collection 固有の element cleanup API は `ISS-20260425T000000Z-RV-STDLIB-004-91534828`、owner token と `MemPtr` の型分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に分ける。

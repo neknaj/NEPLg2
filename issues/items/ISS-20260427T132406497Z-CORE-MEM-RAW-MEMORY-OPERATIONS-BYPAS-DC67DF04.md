@@ -189,6 +189,16 @@ raw identity が観測可能な public raw memory operation を pure function �
 
 2026-04-27 の部分対応では、`tests/compiler/move_effect.n.md` に non-Copy raw load の二重 move、raw address alias 経由の二重 move、未 move raw place への store overwrite、load 後の再初期化の回帰テストを追加した。
 
+## 関連ドキュメント
+
+- [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
+
+## 2026-04-28 issue 整理
+
+この issue は静的検査大規模修正の Stage 5、つまり raw memory operation の effect / ownership boundary を追跡する親 issue とする。個別の D3100 / D3025 回帰修正は現行 checker を安全側に保つための child issue として扱い、この issue では最終的な `InternalAlloc` / `UnsafeMemory` / surface fold / Resource IR event 化を追跡する。
+
+今後の修正では、raw memory helper をさらに call name summary で追い続ける方向を最終設計にしない。raw operation は Resource IR の `EffectOp` と storage/cell state の変化として表し、safe public surface から raw identity が漏れない場合だけ internal effect を `Pure` へ fold する。
+
 ## 2026-04-28 core / stdlib 全体レビューでの再発確認
 
 `origin/main` の `8d0c6ab` 取り込み後に `node nodesrc/tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\move-effect-audit-20260428.json -j 1` を実行したところ、`total=95`, `passed=43`, `failed=52` だった。多くは `compile_fail` を期待する raw memory / move effect 回帰テストが compile success になっており、この親 issue の残件である Resource IR / raw provenance / effect boundary がまだ安定していないことを示す。

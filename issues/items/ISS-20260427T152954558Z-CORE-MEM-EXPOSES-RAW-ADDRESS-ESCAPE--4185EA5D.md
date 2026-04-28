@@ -63,3 +63,13 @@ public `core/mem` は checked allocation、typed pointer arithmetic、copy-only 
 ## 検証
 
 safe import だけでは `mem_ptr_addr` / `mem_ptr_wrap` / raw `load<T>` / raw `store<T>` / raw allocator primitive を呼べない compile_fail を追加する。safe wrapper は bounds error を `Result` / `Option` で返す正常系を維持する。raw escape が必要な既存 stdlib は unsafe/internal module へ寄せ、使用箇所を source policy で追跡する。
+
+## 関連ドキュメント
+
+- [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
+
+## 2026-04-28 issue 整理
+
+この issue は Stage 5/6 の stdlib public API 境界を追跡する。compiler 側の raw memory effect / ownership 境界は `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`、`MemPtr` の owner/non-owner 分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に分ける。
+
+完了条件は、safe import から raw address escape を構成できないこと、raw identity が public pure API へ漏れないこと、raw operation が必要な stdlib 実装は internal/unsafe boundary 内へ閉じられていることである。

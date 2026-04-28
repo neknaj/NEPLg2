@@ -131,6 +131,16 @@ raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の
 
 owner token の duplicate / copy / forged token を compile_fail にする。`MemPtr<T>` の copy は non-owning pointer として許可しつつ、free は owner token だけに許可する。raw load/store の move semantics は Resource IR dump snapshot と compile_fail/normal regression の両方で確認する。既存 collection は element owner を drop する path と storage only dealloc path を分けて検証する。
 
+## 関連ドキュメント
+
+- [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
+
+## 2026-04-28 issue 整理
+
+この issue は `MemPtr` / `RegionToken` を安全化しながら拡張し続けるための issue ではなく、役割分割を追跡する設計 issue とする。今後の完了条件は、`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の分離を compiler と stdlib の両方で確認できることである。
+
+raw place alias tracking による既存回帰の防壁は維持するが、追加の container / callback / payload summary は Resource IR 移行前の暫定措置として扱う。owner token と initialized cell の責務は `ISS-20260425T000000Z-RV-CORE-009-58589A3F` と同期し、stdlib public API の移行は `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` へ分ける。
+
 ## 2026-04-28 memory safety 方針レビュー追記
 
 `MemPtr<T>` / `RegionToken<T>` の現方針は、既存 stdlib を壊さないための過渡期としては許容できるが、NEPLG2 の安全なメモリモデルとしては複雑すぎる。特に `MemPtr<T>` が non-owning pointer と owning storage handle の両方に使われ、`RegionToken<T>` が stdlib code から再構成できるため、compiler-issued capability としての意味を持てない。

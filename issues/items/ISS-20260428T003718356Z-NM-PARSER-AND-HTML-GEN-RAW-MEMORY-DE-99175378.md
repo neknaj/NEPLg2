@@ -23,6 +23,10 @@ target: "stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, tests/stdlib/nm.n.md"
 
 - `stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, tests/stdlib/nm.n.md`
 
+## 関連ドキュメント
+
+- [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
+
 ## 根拠
 
 - `node nodesrc/tests.js -i stdlib/nm --no-tree -o tmp/stdlib-nm-after-trunk-20260428.json -j 2`: `total=5`, `passed=2`, `failed=3`
@@ -38,6 +42,8 @@ nm parser / html generator が raw memory detour によって non-Copy aggregate
 `stdlib/nm` の parser / html generation が scoped stdlib test で通らない。stdlib doc は nm 拡張 markdown で書かれるため、selfhost の標準ライブラリ文書生成にも影響する。全体 stdlib 検証も、この D3100 を解消するまで clean と判断しにくい。
 
 ## 修正方針
+
+この issue は `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` の Stage 6 子 issue として扱う。
 
 `nm` parser / html_gen の aggregate raw-memory detour を、安全な owned decomposition または borrowed field projection へ置き換える。必要な compiler operation が不足している場合は、既存の owned aggregate decomposition / borrowed field projection issue に接続し、D3100 の検査を緩めない。修正後は section nesting と HTML rendering の focused regression を追加する。
 
