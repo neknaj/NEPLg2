@@ -8,10 +8,11 @@ use crate::types::TypeCtx;
 
 use super::cell_state::CellTable;
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
-use super::initialized_alias::{
+use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_flow::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
-    expr_kind_preserves_raw_alias, RawCellAddressAliases, RawCellAddressReturnSummary,
+    expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
 };
 use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,

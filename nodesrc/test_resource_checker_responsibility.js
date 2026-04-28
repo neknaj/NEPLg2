@@ -54,6 +54,7 @@ for (const moduleName of [
     'report.rs',
     'shadow.rs',
     'initialized_alias.rs',
+    'initialized_alias_flow.rs',
     'initialized_raw_memory.rs',
 ]) {
     assertFile(moduleName);
@@ -71,6 +72,7 @@ for (const moduleDecl of [
     'mod report;',
     'mod shadow;',
     'mod initialized_alias;',
+    'mod initialized_alias_flow;',
     'mod initialized_raw_memory;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
@@ -106,6 +108,7 @@ const maxLines = new Map([
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
     ['initialized_alias.rs', 550],
+    ['initialized_alias_flow.rs', 550],
     ['initialized_raw_memory.rs', 300],
 ]);
 

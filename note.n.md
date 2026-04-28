@@ -1,3 +1,20 @@
+# 2026-04-29 メモ (ISS-20260428T180803802Z initialized_alias flow split)
+
+- GitHub Actions run `25078350935` の Source policy regressions で `initialized_alias.rs has 557 lines; responsibility split limit is 550` が検出された。
+- 根本原因は、raw alias table / canonicalization と、関数 return summary の fixed-point 計算 / ResourceOp 上の raw alias propagation が `initialized_alias.rs` に同居し、直近の unknown offset alias 改善で責務境界を再び超えたこと。
+- `initialized_alias_flow.rs` を追加し、return summary 計算、alias propagation、call-site summary 適用、aggregate field alias propagation を移した。`initialized_alias.rs` は alias table と canonicalization に戻した。
+- `nodesrc/test_resource_checker_responsibility.js` は新 module の存在と line limit を監視するよう更新した。
+- 検証:
+  - `node nodesrc\test_resource_checker_responsibility.js`: pass
+  - `rustfmt --check nepl-core/src/resource/initialized_alias.rs nepl-core/src/resource/initialized_alias_flow.rs nepl-core/src/resource/initialized.rs nepl-core/src/resource/mod.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir`: 82 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\initialized-alias-flow-split-move-effect.json -j 1`: total=110, passed=110, failed=0
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\initialized-alias-flow-split-move-check.json -j 1`: total=52, passed=52, failed=0
+  - `node nodesrc\issues.js check`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T170745661Z RawMemoryLoadCell compiler gate)
 
 - `RawMemoryLoadCell` gate を一時的に compiler error 化して最新 main 上で再測定し、`move_effect.n.md` 110/110、`move_check.n.md` 52/52 が通ることを確認した。

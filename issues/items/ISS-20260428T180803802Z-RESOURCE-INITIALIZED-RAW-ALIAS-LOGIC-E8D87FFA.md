@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
+target: "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA: Resource initialized raw alias logic reintroduces monolithic checker size
@@ -56,4 +56,22 @@ node nodesrc/test_resource_checker_responsibility.js; cargo test -p nepl-core --
 - `trunk build`: pass
 - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-initialized-split-move-effect.json -j 1`: total=110, passed=110
 - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-initialized-split-move-check.json -j 1`: total=52, passed=52
+- `node nodesrc\issues.js check`: pass
+
+## 2026-04-29 再発防止追記
+
+GitHub Actions run `25078350935` の Source policy regressions で `initialized_alias.rs has 557 lines; responsibility split limit is 550` が検出された。直近の raw address helper summary / unknown offset alias 改善により、`initialized_alias.rs` が alias table と return-summary flow analysis を再び同居させた状態で上限を超えていた。
+
+根本対策として、raw alias table と canonicalization は `initialized_alias.rs` に残し、関数 return summary の fixed-point 計算、ResourceOp 上の raw alias propagation、call-site summary 適用、aggregate field alias propagation を `initialized_alias_flow.rs` へ分離した。`nodesrc/test_resource_checker_responsibility.js` も新 module の存在と line limit を監視するよう更新した。
+
+分割後の行数は `initialized_alias.rs` 209 行、`initialized_alias_flow.rs` 353 行で、既存の 550 行上限内に戻った。
+
+確認:
+
+- `node nodesrc\test_resource_checker_responsibility.js`: pass
+- `cargo test -p nepl-core --test resource_ir`: 82/82 pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\initialized-alias-flow-split-move-effect.json -j 1`: 110/110 pass
+- `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\initialized-alias-flow-split-move-check.json -j 1`: 52/52 pass
 - `node nodesrc\issues.js check`: pass

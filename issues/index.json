@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T21:25:10.910Z",
+  "generated_at": "2026-04-28T21:35:28.583Z",
   "counts": {
     "total": 319,
     "open": 9,
@@ -2219,7 +2219,7 @@
       "type": "architecture",
       "created": "2026-04-28",
       "updated": "2026-04-29",
-      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md"

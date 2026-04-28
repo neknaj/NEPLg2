@@ -19,6 +19,7 @@ mod effect_summary;
 mod function_alias;
 mod initialized;
 mod initialized_alias;
+mod initialized_alias_flow;
 mod initialized_raw_memory;
 mod lower;
 mod model;
