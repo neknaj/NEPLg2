@@ -22986,3 +22986,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の initialized / moved state と Stage 5 raw memory boundary の接続として、raw memory slot の cell state を Resource IR 側へ移した。
+
+# 2026-04-28 メモ (ISS-20260428T141156276Z self-host import spec)
+
+- [同期]:
+  - `origin/main` の `224da69 fix(selfhost): preserve lexer file ids` から `fix/selfhost-import-spec` branch を作成して作業した。
+- [原因]:
+  - module parser は `#import "..." as ...` を `SelfhostModuleItemKind::ImportDirective` として AST item stream に残していたが、module loader / import graph / resolver が使う typed import spec API は存在しなかった。
+  - このままだと raw lexeme を後続 stage が個別に再解析し、wildcard import と alias import の扱い、malformed directive の診断 code/span が分散する。
+- [修正]:
+  - `stdlib/neplg2/core/module/import_spec.nepl` を追加し、`SelfhostImportSpec` に source span、path、alias、wildcard flag を保持する typed boundary を作った。
+  - `selfhost_module_import_specs` で `SelfhostModuleAst` から import directive だけを集め、malformed directive は `SelfhostDiagnostic` として返すようにした。
+  - `tests/stdlib/neplg2_import_spec.n.md` を追加し、wildcard import、alias import、path quote missing、trailing text の回帰を固定した。
+- [追加 issue]:
+  - enum scrutinee に `_` wildcard arm を書くと D3097/D3009 になるため、`ISS-20260428T141727754Z-ENUM-MATCH-WILDCARD-ARM-IS-REJECTED--B1684C75` を追加した。
+  - 静的検査/コンパイラ作業と干渉し得るため、この branch では self-host 側を全 variant 明示列挙で進め、compiler issue は台帳に分離した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_spec.nepl --no-tree -o tmp/neplg2-import-spec-doctest.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/neplg2-import-spec-focused.json -j 1`: total=3 passed=3
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-import-spec-syntax.json -j 1`: total=45 passed=45
+  - remote main の `6e69db4 issues: track resource checker split` まで rebase 後、`trunk build`: pass
+  - rebase 後、`node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-import-spec-syntax-after-rebase.json -j 1`: total=45 passed=45
+  - remote main の `aff994b refactor(core): split resource cell state table` まで rebase 後、`trunk build`: pass
+  - rebase 後、`node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-import-spec-syntax-after-rebase2.json -j 1`: total=45 passed=45
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check HEAD`: whitespace warning only for generated issue index line endings, no diff whitespace error
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` S2 の import graph / stdlib path 解決へ進む前段として、import directive の typed extraction を追加した。
