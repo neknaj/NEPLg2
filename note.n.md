@@ -22612,3 +22612,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate parameter return の descendant owner transfer を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T120507528Z borrow projection overlap)
+
+- [同期]:
+  - `origin/main` の `dffea19 fix(core): transfer aggregate owner descendants` まで同期した main から `work/stage4-borrow-projection-overlap` branch を作成した。
+- [原因]:
+  - `BorrowTable::state` は exact place だけを検索しており、`wrapper.field` と `wrapper` のような overlapping projection を同じ memory region として扱っていなかった。
+  - field borrow 中の aggregate assign / move / drop や、aggregate borrow 中の field mutation が検出されない状態だった。
+- [修正]:
+  - 同一 root かつ projection prefix が重なる place を overlap として判定する helper を追加した。
+  - borrow 作成、read、assign / move / drop の conflict 判定で overlapping active borrow state を見るようにした。
+  - `nepl-core/tests/resource_ir.rs` に field shared borrow 中の aggregate assign が conflict になる回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、projection overlap を borrow/lifetime 検査へ反映した。

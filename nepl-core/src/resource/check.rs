@@ -905,22 +905,16 @@ impl ResourceBorrowCheckEngine<'_> {
         kind: BorrowKind,
         span: Span,
     ) {
-        match (kind, borrows.state(source)) {
-            (BorrowKind::Shared, BorrowState::Unique { .. }) => {
-                self.push_conflict(
-                    ResourceBorrowOperation::SharedBorrow,
-                    source,
-                    borrows.state(source),
-                    span,
-                );
+        let active = borrows.active_state_overlapping(source);
+        match (kind, active) {
+            (BorrowKind::Shared, Some(active @ BorrowState::Unique { .. })) => {
+                self.push_conflict(ResourceBorrowOperation::SharedBorrow, source, active, span);
             }
-            (BorrowKind::Unique, BorrowState::Shared { .. } | BorrowState::Unique { .. }) => {
-                self.push_conflict(
-                    ResourceBorrowOperation::UniqueBorrow,
-                    source,
-                    borrows.state(source),
-                    span,
-                );
+            (
+                BorrowKind::Unique,
+                Some(active @ (BorrowState::Shared { .. } | BorrowState::Unique { .. })),
+            ) => {
+                self.push_conflict(ResourceBorrowOperation::UniqueBorrow, source, active, span);
             }
             (BorrowKind::Shared, _) => borrows.add_shared(source, output),
             (BorrowKind::Unique, _) => borrows.add_unique(source, output),
@@ -928,13 +922,8 @@ impl ResourceBorrowCheckEngine<'_> {
     }
 
     fn check_source_read(&mut self, borrows: &BorrowTable, place: &Place, span: Span) {
-        if let BorrowState::Unique { .. } = borrows.state(place) {
-            self.push_conflict(
-                ResourceBorrowOperation::Read,
-                place,
-                borrows.state(place),
-                span,
-            );
+        if let Some(active @ BorrowState::Unique { .. }) = borrows.unique_state_overlapping(place) {
+            self.push_conflict(ResourceBorrowOperation::Read, place, active, span);
         }
     }
 
@@ -1030,11 +1019,11 @@ impl ResourceBorrowCheckEngine<'_> {
         operation: ResourceBorrowOperation,
         span: Span,
     ) {
-        match borrows.state(place) {
-            BorrowState::Shared { .. } | BorrowState::Unique { .. } => {
-                self.push_conflict(operation, place, borrows.state(place), span);
+        match borrows.active_state_overlapping(place) {
+            Some(active @ (BorrowState::Shared { .. } | BorrowState::Unique { .. })) => {
+                self.push_conflict(operation, place, active, span);
             }
-            BorrowState::Unborrowed | BorrowState::Released => {}
+            Some(BorrowState::Unborrowed | BorrowState::Released) | None => {}
         }
     }
 
@@ -1893,6 +1882,27 @@ impl BorrowTable {
             .unwrap_or(BorrowState::Unborrowed)
     }
 
+    fn active_state_overlapping(&self, place: &Place) -> Option<BorrowState> {
+        self.sources
+            .iter()
+            .filter(|entry| places_overlap(&entry.place, place))
+            .map(|entry| entry.state.clone())
+            .find(|state| {
+                matches!(
+                    state,
+                    BorrowState::Shared { .. } | BorrowState::Unique { .. }
+                )
+            })
+    }
+
+    fn unique_state_overlapping(&self, place: &Place) -> Option<BorrowState> {
+        self.sources
+            .iter()
+            .filter(|entry| places_overlap(&entry.place, place))
+            .map(|entry| entry.state.clone())
+            .find(|state| matches!(state, BorrowState::Unique { .. }))
+    }
+
     fn add_shared(&mut self, source: &Place, token: &Place) {
         let next_count = match self.state(source) {
             BorrowState::Shared { count } => count + 1,
@@ -2222,6 +2232,11 @@ fn construct_owner_field_place(
 fn replace_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> Option<Place> {
     place_suffix_after_prefix(place, prefix)
         .map(|suffix| place_with_suffix(replacement, &suffix, place.ty))
+}
+
+fn places_overlap(left: &Place, right: &Place) -> bool {
+    place_suffix_after_prefix(left, right).is_some()
+        || place_suffix_after_prefix(right, left).is_some()
 }
 
 fn place_suffix_after_prefix(place: &Place, prefix: &Place) -> Option<Vec<PlaceProjection>> {

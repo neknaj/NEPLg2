@@ -2834,6 +2834,62 @@ fn resource_ir_borrow_check_allows_return_after_borrow_release() {
 }
 
 #[test]
+fn resource_ir_borrow_check_rejects_assign_over_borrowed_field_projection() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["value".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let wrapper = Place::local("wrapper".to_string(), wrapper_ty);
+    let field = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let shared = Place::temporary(ResourceId(0), i32_ty);
+    let replacement = Place::temporary(ResourceId(1), wrapper_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Borrow {
+                source: field,
+                output: shared,
+                kind: BorrowKind::Shared,
+                span,
+            },
+            ResourceOp::Assign {
+                target: wrapper,
+                value: replacement,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::Assign,
+            active: BorrowState::Shared { .. },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_shadow_report_combines_lowering_and_resource_checks() {
     let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();

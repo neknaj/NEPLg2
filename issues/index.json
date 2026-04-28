@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:02:16.793Z",
+  "generated_at": "2026-04-28T12:07:22.933Z",
   "counts": {
-    "total": 269,
+    "total": 270,
     "open": 10,
-    "resolved": 259,
+    "resolved": 260,
     "by_area": {
       "core": {
-        "total": 121,
+        "total": 122,
         "open": 4,
-        "resolved": 117
+        "resolved": 118
       },
       "stdlib": {
         "total": 95,
@@ -1923,6 +1923,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T120003205Z-RESOURCE-OWNER-CHECKER-DOES-NOT-TRAN-C68B3366.md"
+    },
+    {
+      "id": "ISS-20260428T120507528Z-RESOURCE-BORROW-CHECKER-IGNORES-OVER-E9E862D3",
+      "title": "Resource borrow checker ignores overlapping place projections",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T120507528Z-RESOURCE-BORROW-CHECKER-IGNORES-OVER-E9E862D3.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
