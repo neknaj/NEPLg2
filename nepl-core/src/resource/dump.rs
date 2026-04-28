@@ -5,8 +5,8 @@ use alloc::string::String;
 use core::fmt::Write;
 
 use super::model::{
-    EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    AggregateKind, EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, ResourceMatchPattern,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 impl ResourceModule {
@@ -38,76 +38,250 @@ impl ResourceModule {
             for block in &function.blocks {
                 let _ = writeln!(out, "  block b{}:", block.id.0);
                 for op in &block.ops {
-                    let _ = writeln!(out, "    {}", dump_op(op));
+                    dump_op(&mut out, op, 4);
                 }
-                let _ = writeln!(out, "    terminator {}", dump_terminator(&block.terminator));
+                write_indent(&mut out, 4);
+                let _ = writeln!(out, "terminator {}", dump_terminator(&block.terminator));
             }
         }
         out
     }
 }
 
-fn dump_op(op: &ResourceOp) -> String {
+fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
+    write_indent(out, indent);
     match op {
-        ResourceOp::Expr { kind, ty, span } => format!(
-            "expr {:?} ty=t{} span={}:{}-{}",
-            kind, ty.0, span.file_id.0, span.start, span.end
-        ),
+        ResourceOp::Expr {
+            kind,
+            output,
+            ty,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "expr {:?} out={} ty=t{} span={}:{}-{}",
+                kind,
+                dump_place(output),
+                ty.0,
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
         ResourceOp::DeclareLocal {
             place,
             mutable,
+            initializer,
             span,
-        } => format!(
-            "declare {} mut={} span={}:{}-{}",
-            dump_place(place),
-            mutable,
-            span.file_id.0,
-            span.start,
-            span.end
-        ),
-        ResourceOp::Read { source, span } => format!(
-            "read {} span={}:{}-{}",
-            dump_place(source),
-            span.file_id.0,
-            span.start,
-            span.end
-        ),
-        ResourceOp::Assign { target, span } => format!(
-            "assign {} span={}:{}-{}",
-            dump_place(target),
-            span.file_id.0,
-            span.start,
-            span.end
-        ),
-        ResourceOp::Borrow { source, kind, span } => format!(
-            "borrow {:?} {} span={}:{}-{}",
+        } => {
+            let init = initializer
+                .as_ref()
+                .map(dump_place)
+                .unwrap_or_else(|| String::from("<none>"));
+            let _ = writeln!(
+                out,
+                "declare {} mut={} init={} span={}:{}-{}",
+                dump_place(place),
+                mutable,
+                init,
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Read {
+            source,
+            output,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "read {} -> {} span={}:{}-{}",
+                dump_place(source),
+                dump_place(output),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Assign {
+            target,
+            value,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "assign {} = {} span={}:{}-{}",
+                dump_place(target),
+                dump_place(value),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Borrow {
+            source,
+            output,
             kind,
-            dump_place(source),
-            span.file_id.0,
-            span.start,
-            span.end
-        ),
-        ResourceOp::Move { source, span } => format!(
-            "move {} span={}:{}-{}",
-            dump_place(source),
-            span.file_id.0,
-            span.start,
-            span.end
-        ),
-        ResourceOp::Drop { place, span } => format!(
-            "drop {} span={}:{}-{}",
-            dump_place(place),
-            span.file_id.0,
-            span.start,
-            span.end
-        ),
-        ResourceOp::CallEffect { effect, span } => format!(
-            "effect {} span={}:{}-{}",
-            dump_effect(effect),
-            span.file_id.0,
-            span.start,
-            span.end
-        ),
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "borrow {:?} {} -> {} span={}:{}-{}",
+                kind,
+                dump_place(source),
+                dump_place(output),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Move {
+            source,
+            output,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "move {} -> {} span={}:{}-{}",
+                dump_place(source),
+                dump_place(output),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Drop { place, span } => {
+            let _ = writeln!(
+                out,
+                "drop {} span={}:{}-{}",
+                dump_place(place),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::CallEffect { effect, span } => {
+            let _ = writeln!(
+                out,
+                "effect {} span={}:{}-{}",
+                dump_effect(effect),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Construct {
+            output,
+            kind,
+            inputs,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "construct {} {} inputs=[{}] span={}:{}-{}",
+                dump_construct_kind(kind),
+                dump_place(output),
+                dump_place_list(inputs),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
+        ResourceOp::Branch {
+            output,
+            condition,
+            then_ops,
+            then_value,
+            else_ops,
+            else_value,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "branch {} cond={} span={}:{}-{}",
+                dump_place(output),
+                dump_place(condition),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+            write_indent(out, indent + 2);
+            let _ = writeln!(out, "then value={}:", dump_place(then_value));
+            for op in then_ops {
+                dump_op(out, op, indent + 4);
+            }
+            write_indent(out, indent + 2);
+            let _ = writeln!(out, "else value={}:", dump_place(else_value));
+            for op in else_ops {
+                dump_op(out, op, indent + 4);
+            }
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            condition,
+            body_ops,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "loop cond={} span={}:{}-{}",
+                dump_place(condition),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+            write_indent(out, indent + 2);
+            let _ = writeln!(out, "condition:");
+            for op in condition_ops {
+                dump_op(out, op, indent + 4);
+            }
+            write_indent(out, indent + 2);
+            let _ = writeln!(out, "body:");
+            for op in body_ops {
+                dump_op(out, op, indent + 4);
+            }
+        }
+        ResourceOp::Match {
+            output,
+            scrutinee,
+            arms,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "match {} scrutinee={} span={}:{}-{}",
+                dump_place(output),
+                dump_place(scrutinee),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+            for arm in arms {
+                write_indent(out, indent + 2);
+                let bind = arm
+                    .bind_local
+                    .as_ref()
+                    .map(dump_place)
+                    .unwrap_or_else(|| String::from("<none>"));
+                let _ = writeln!(
+                    out,
+                    "arm {} bind={} value={}:",
+                    dump_match_pattern(&arm.pattern),
+                    bind,
+                    dump_place(&arm.value)
+                );
+                for op in &arm.ops {
+                    dump_op(out, op, indent + 4);
+                }
+            }
+        }
+    }
+}
+
+fn write_indent(out: &mut String, indent: usize) {
+    for _ in 0..indent {
+        out.push(' ');
     }
 }
 
@@ -160,6 +334,17 @@ fn dump_place(place: &Place) -> String {
     out
 }
 
+fn dump_place_list(places: &[Place]) -> String {
+    let mut out = String::new();
+    for (idx, place) in places.iter().enumerate() {
+        if idx > 0 {
+            out.push_str(", ");
+        }
+        out.push_str(&dump_place(place));
+    }
+    out
+}
+
 fn dump_projection(projection: &PlaceProjection) -> String {
     match projection {
         PlaceProjection::Field {
@@ -187,5 +372,22 @@ fn dump_effect(effect: &EffectOp) -> String {
         EffectOp::UnsafeMemory { operation } => format!("unsafe_memory({})", operation),
         EffectOp::ExternalIo { operation } => format!("external_io({})", operation),
         EffectOp::Unknown { reason } => format!("unknown({})", reason),
+    }
+}
+
+fn dump_construct_kind(kind: &AggregateKind) -> String {
+    match kind {
+        AggregateKind::Enum { name, variant } => format!("enum({}::{})", name, variant),
+        AggregateKind::Struct { name } => format!("struct({})", name),
+        AggregateKind::Tuple => String::from("tuple"),
+    }
+}
+
+fn dump_match_pattern(pattern: &ResourceMatchPattern) -> String {
+    match pattern {
+        ResourceMatchPattern::Variant(name) => format!("variant({})", name),
+        ResourceMatchPattern::IntLiteral(value) => format!("int({})", value),
+        ResourceMatchPattern::BoolLiteral(value) => format!("bool({})", value),
+        ResourceMatchPattern::Wildcard => String::from("_"),
     }
 }

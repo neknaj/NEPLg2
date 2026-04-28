@@ -13,8 +13,9 @@ mod model;
 
 pub use lower::lower_hir_module_skeleton;
 pub use model::{
-    BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp, OwnerState,
-    OwnerStateEntry, Place, PlaceProjection, PlaceRoot, PointerProvenance, RawBodyKind,
+    AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
+    OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot, PointerProvenance, RawBodyKind,
     ResourceBlock, ResourceBlockId, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
-    ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
+    ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOffset, ResourceOp,
+    ResourceState, ResourceTerminator, StorageId,
 };

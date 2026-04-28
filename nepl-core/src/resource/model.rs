@@ -68,29 +68,35 @@ pub enum RawBodyKind {
 pub enum ResourceOp {
     Expr {
         kind: ResourceExprKind,
+        output: Place,
         ty: TypeId,
         span: Span,
     },
     DeclareLocal {
         place: Place,
         mutable: bool,
+        initializer: Option<Place>,
         span: Span,
     },
     Read {
         source: Place,
+        output: Place,
         span: Span,
     },
     Assign {
         target: Place,
+        value: Place,
         span: Span,
     },
     Borrow {
         source: Place,
+        output: Place,
         kind: BorrowKind,
         span: Span,
     },
     Move {
         source: Place,
+        output: Place,
         span: Span,
     },
     Drop {
@@ -99,6 +105,33 @@ pub enum ResourceOp {
     },
     CallEffect {
         effect: EffectOp,
+        span: Span,
+    },
+    Construct {
+        output: Place,
+        kind: AggregateKind,
+        inputs: Vec<Place>,
+        span: Span,
+    },
+    Branch {
+        output: Place,
+        condition: Place,
+        then_ops: Vec<ResourceOp>,
+        then_value: Place,
+        else_ops: Vec<ResourceOp>,
+        else_value: Place,
+        span: Span,
+    },
+    Loop {
+        condition_ops: Vec<ResourceOp>,
+        condition: Place,
+        body_ops: Vec<ResourceOp>,
+        span: Span,
+    },
+    Match {
+        output: Place,
+        scrutinee: Place,
+        arms: Vec<ResourceMatchArm>,
         span: Span,
     },
 }
@@ -121,6 +154,30 @@ pub enum ResourceExprKind {
     Borrow,
     Deref,
     Drop,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AggregateKind {
+    Enum { name: String, variant: String },
+    Struct { name: String },
+    Tuple,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceMatchArm {
+    pub pattern: ResourceMatchPattern,
+    pub bind_local: Option<Place>,
+    pub ops: Vec<ResourceOp>,
+    pub value: Place,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceMatchPattern {
+    Variant(String),
+    IntLiteral(i32),
+    BoolLiteral(bool),
+    Wildcard,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -239,6 +296,14 @@ impl Place {
     pub fn unknown(ty: TypeId) -> Self {
         Self {
             root: PlaceRoot::Unknown,
+            projections: Vec::new(),
+            ty,
+        }
+    }
+
+    pub fn temporary(id: ResourceId, ty: TypeId) -> Self {
+        Self {
+            root: PlaceRoot::Temporary(id),
             projections: Vec::new(),
             ty,
         }
