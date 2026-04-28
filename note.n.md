@@ -1,3 +1,16 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker CellState split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`CellTable`、raw cell obligation helper、CellState merge helper を `nepl-core/src/resource/cell_state.rs` へ分離した。
+- `check.rs` には `ResourceCheckEngine` の traversal / diagnostic emission を残し、projection-aware availability、raw cell under-address 判定、copy-cell relocation は `cell_state.rs` 側へ移した。
+- 行数は `check.rs` 2413 行、`cell_state.rs` 233 行、`place_utils.rs` 49 行。issue はまだ open とし、次は owner obligation / borrow lifetime / function summary の分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\cell_state.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\place_utils.rs`: pass
+  - `node nodesrc/issues.js check`: files=287, pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker place utility split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の最初の実装修正として、`nepl-core/src/resource/check.rs` から共通 `Place` 操作 helper を `nepl-core/src/resource/place_utils.rs` へ切り出した。

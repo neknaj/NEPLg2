@@ -62,7 +62,21 @@ After splitting, run the full resource_ir test suite, rustfmt on the resource mo
 確認:
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\cell_state.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\place_utils.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
 - `rustfmt --check nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\place_utils.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
+
+## 2026-04-28 CellState table split
+
+`CellTable`、raw cell obligation helper、`CellState` merge helper を `nepl-core/src/resource/cell_state.rs` へ分離した。`check.rs` には `ResourceCheckEngine` の traversal / diagnostic emission を残し、cell state storage と projection-aware availability 判定を別 module に移した。
+
+この分割で `check.rs` は 2413 行、`cell_state.rs` は 233 行、`place_utils.rs` は 49 行になった。issue はまだ open のままとし、次は owner obligation / borrow lifetime / function summary の分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
