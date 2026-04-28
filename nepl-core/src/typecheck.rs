@@ -2,6 +2,7 @@ extern crate alloc;
 #[cfg(not(target_os = "none"))]
 extern crate std;
 
+mod binding_rules;
 mod call_resolution;
 mod effect_check;
 mod env;
@@ -31,6 +32,11 @@ use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 
+use binding_rules::{
+    detect_field_accessor_fn, emit_shadow_warning, find_invalid_same_file_overload,
+    find_nonshadow_same_signature_func, find_same_signature_func, function_user_param_specificity,
+    is_callable_binding, shadow_blocked_by_nonshadow,
+};
 use env::{Binding, BindingKind, Env};
 use hir_finalize::{
     add_i32_offset_expr, raw_aggregate_load_addr_expr, resolve_type_ids_in_function,
@@ -6474,196 +6480,6 @@ impl<'a> BlockChecker<'a> {
 // ---------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------
-
-fn is_important_shadow_symbol(name: &str) -> bool {
-    matches!(
-        name,
-        "print"
-            | "println"
-            | "print_i32"
-            | "println_i32"
-            | "add"
-            | "sub"
-            | "mul"
-            | "div"
-            | "eq"
-            | "lt"
-            | "le"
-            | "gt"
-            | "ge"
-    )
-}
-
-fn emit_shadow_warning(
-    diagnostics: &mut Vec<Diagnostic>,
-    env: &Env,
-    name: &str,
-    span: Span,
-    kind: &str,
-) {
-    if let Some(shadowed) = env.lookup_outer_defined(name) {
-        if !is_important_shadow_symbol(name) {
-            return;
-        }
-        let message = format!("important symbol '{}' is shadowed by local {}", name, kind);
-        let mut diag = Diagnostic::warning(message, span);
-        diag = diag.with_secondary_label(
-            shadowed.span,
-            Some(String::from("shadowed definition is here")),
-        );
-        diagnostics.push(diag);
-    } else if is_important_shadow_symbol(name) {
-        diagnostics.push(Diagnostic::warning(
-            format!(
-                "definition '{}' may shadow important stdlib symbol ({})",
-                name, kind
-            ),
-            span,
-        ));
-    }
-}
-
-fn shadow_blocked_by_nonshadow<'a>(env: &'a Env, name: &str) -> Option<&'a Binding> {
-    env.lookup_any(name).and_then(|b| {
-        if b.no_shadow && b.defined {
-            Some(b)
-        } else {
-            None
-        }
-    })
-}
-
-fn is_callable_binding(binding: &Binding) -> bool {
-    matches!(binding.kind, BindingKind::Func { .. })
-}
-
-fn find_same_signature_func<'a>(
-    env: &'a Env,
-    name: &str,
-    ty: TypeId,
-    ctx: &TypeCtx,
-) -> Option<&'a Binding> {
-    env.lookup_all_callables(name).into_iter().find(|b| {
-        matches!(b.kind, BindingKind::Func { .. }) && same_function_signature(ctx, b.ty, ty)
-    })
-}
-
-fn find_nonshadow_same_signature_func<'a>(
-    env: &'a Env,
-    name: &str,
-    ty: TypeId,
-    ctx: &TypeCtx,
-) -> Option<&'a Binding> {
-    env.lookup_all_callables(name).into_iter().find(|b| {
-        b.no_shadow
-            && b.defined
-            && matches!(b.kind, BindingKind::Func { .. })
-            && same_function_signature(ctx, b.ty, ty)
-    })
-}
-
-fn find_invalid_same_file_overload<'a>(
-    env: &'a Env,
-    name: &str,
-    arity: usize,
-    span: Span,
-) -> Option<&'a Binding> {
-    if span.file_id.0 != 0 {
-        return None;
-    }
-    env.lookup_all_callables(name).into_iter().find(|b| {
-        if b.span.file_id != span.file_id {
-            return false;
-        }
-        let BindingKind::Func {
-            arity: existing_arity,
-            ..
-        } = b.kind
-        else {
-            return false;
-        };
-        existing_arity != arity
-    })
-}
-
-fn type_shape_specificity(ctx: &TypeCtx, ty: TypeId) -> usize {
-    match ctx.get(ctx.resolve_id(ty)) {
-        TypeKind::Var(_) => 0,
-        TypeKind::Unit
-        | TypeKind::I32
-        | TypeKind::U8
-        | TypeKind::F32
-        | TypeKind::Bool
-        | TypeKind::Char
-        | TypeKind::Str
-        | TypeKind::Never
-        | TypeKind::Named(_) => 2,
-        TypeKind::Enum { .. } | TypeKind::Struct { .. } => 3,
-        TypeKind::Apply { base, args } => {
-            4 + type_shape_specificity(ctx, base)
-                + args
-                    .iter()
-                    .map(|arg| type_shape_specificity(ctx, *arg))
-                    .sum::<usize>()
-        }
-        TypeKind::Tuple { items } => {
-            1 + items
-                .iter()
-                .map(|item| type_shape_specificity(ctx, *item))
-                .sum::<usize>()
-        }
-        TypeKind::Function { params, result, .. } => {
-            1 + params
-                .iter()
-                .map(|param| type_shape_specificity(ctx, *param))
-                .sum::<usize>()
-                + type_shape_specificity(ctx, result)
-        }
-        TypeKind::Box(inner) | TypeKind::Reference(inner, _) => {
-            1 + type_shape_specificity(ctx, inner)
-        }
-    }
-}
-
-fn function_user_param_specificity(ctx: &TypeCtx, ty: TypeId, user_arity: usize) -> usize {
-    match ctx.get(ctx.resolve_id(ty)) {
-        TypeKind::Function { params, result, .. } => {
-            let capture_len = params.len().saturating_sub(user_arity);
-            let user_params = &params[capture_len..];
-            user_params
-                .iter()
-                .map(|param| type_shape_specificity(ctx, *param))
-                .sum::<usize>()
-                + type_shape_specificity(ctx, result)
-        }
-        _ => 0,
-    }
-}
-
-fn detect_field_accessor_fn(def: &FnDef) -> Option<FieldAccessorKind> {
-    let FnBody::Parsed(block) = &def.body else {
-        return None;
-    };
-    if block.items.len() != 1 {
-        return None;
-    }
-    let expr = match &block.items[0] {
-        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => expr,
-        _ => return None,
-    };
-    match expr.items.as_slice() {
-        [PrefixItem::Intrinsic(intrin, _)] if intrin.name == "get_field" => {
-            Some(FieldAccessorKind::Get)
-        }
-        [PrefixItem::Intrinsic(intrin, _)] if intrin.name == "get_field_ref" => {
-            Some(FieldAccessorKind::GetRef)
-        }
-        [PrefixItem::Intrinsic(intrin, _)] if intrin.name == "set_field" => {
-            Some(FieldAccessorKind::Put)
-        }
-        _ => None,
-    }
-}
 
 fn parse_variant_name(name: &str) -> Option<(&str, &str)> {
     let mut parts = name.splitn(2, "::");

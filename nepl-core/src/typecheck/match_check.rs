@@ -9,8 +9,9 @@ use crate::hir::{HirExpr, HirExprKind, HirMatchArm, HirMatchPattern};
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeId, TypeKind};
 
+use super::binding_rules::emit_shadow_warning;
 use super::env::{Binding, BindingKind};
-use super::{emit_shadow_warning, parse_i32_literal, BlockChecker, ScalarMatchKind};
+use super::{parse_i32_literal, BlockChecker, ScalarMatchKind};
 
 impl<'a> BlockChecker<'a> {
     pub(super) fn check_match_expr(&mut self, m: &MatchExpr) -> Option<(HirExpr, TypeId)> {

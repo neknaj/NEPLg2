@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck binding rules module)
+
+- 状況:
+  - Stage 1 の typecheck HIR finalize module 化後、shadow / no-shadow / overload duplicate / field accessor detection / overload specificity helper が `typecheck.rs` 本体に残っていた。
+  - scope storage は `env.rs` へ分離済みだが、binding rule と overload rule が本体に残ると symbol/env 境界がまだ曖昧になる。
+- 修正:
+  - `nepl-core/src/typecheck/binding_rules.rs` を追加し、重要 stdlib symbol shadow warning、non-shadowable binding の衝突判定、same-signature function lookup、same-file overload arity conflict、function value overload preselection 用 specificity、`get_field` / `get_field_ref` / `set_field` wrapper detection を移動した。
+  - `match_check.rs` は `binding_rules::emit_shadow_warning` を参照する形にし、match binding の shadow warning も同じ rule set に従うことを明示した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck binding rule 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/binding_rules.rs nepl-core/src/typecheck/match_check.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 16/16 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md -i tests/compiler/overload.n.md -i tests/compiler/resolve.n.md -i tests/compiler/functions.n.md -i tests/compiler/overload_nested_generic_push.n.md --no-tree -o tmp/stage1-typecheck-binding-rules-focused.json -j 1`: 108/108 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck HIR finalize module)
 
 - 状況:
