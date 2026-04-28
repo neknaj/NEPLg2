@@ -23755,3 +23755,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` S4 の HIR lowering に向け、parameter 付き function record を arena に載せるための param range 境界を追加した。
+
+# 2026-04-29 メモ (ISS-20260428T203303662Z self-host core options model)
+
+- [同期]:
+  - `main` は `origin/main` の `c9aed70 selfhost(hir): add function param ranges` まで同期済みで、`selfhost/core-options-model` branch を作成して作業した。
+- [原因]:
+  - Rust 側 compiler には `CompileTarget`、`BuildProfile`、`CompileOptions` がある一方、`stdlib/neplg2/core/options.nepl` は marker API だけだった。
+  - CLI parser には target/profile の enum があるが、core pipeline が CLI 構造へ依存すると `doc/neplg2/self_host_plan.md` の core/CLI 分離に反する。
+- [修正]:
+  - `SelfhostCompileTarget`、`SelfhostBuildProfile`、`SelfhostCompileOptions` を追加した。
+  - default/with_target/with_profile/with_verbose helper を追加し、pipeline/check/codegen に渡す pure option value を組み立てられるようにした。
+  - `selfhost_compile_resolve_target` で explicit option target、module target、default `Wasm` の優先順位を Rust 実装に合わせた。
+  - `selfhost_compile_resolve_profile` で explicit profile と呼び出し側 default profile の解決を分離し、self-host core が実行環境判定を抱え込まない形にした。
+- [検証]:
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\options.nepl --no-tree -o tmp\selfhost-core-options.json -j 1`: total=1 passed=1
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の `core/options.nepl # CompileOptions, Target, Profile` に対応し、marker から core-owned option value へ進めた。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:29:37.553Z",
+  "generated_at": "2026-04-28T20:35:38.785Z",
   "counts": {
-    "total": 311,
+    "total": 312,
     "open": 10,
-    "resolved": 301,
+    "resolved": 302,
     "by_area": {
       "core": {
         "total": 148,
@@ -17,9 +17,9 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 30,
+        "total": 31,
         "open": 1,
-        "resolved": 29
+        "resolved": 30
       },
       "cli": {
         "total": 19,
@@ -3843,6 +3843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T202624698Z-SELF-HOST-HIR-ARENA-LACKS-FUNCTION-P-3C47EC35.md"
+    },
+    {
+      "id": "ISS-20260428T203303662Z-SELF-HOST-CORE-OPTIONS-ONLY-EXPOSE-M-C4A0FEAF",
+      "title": "self-host core options only expose marker API",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/options.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T203303662Z-SELF-HOST-CORE-OPTIONS-ONLY-EXPOSE-M-C4A0FEAF.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

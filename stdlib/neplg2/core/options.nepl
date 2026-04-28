@@ -4,11 +4,12 @@
 //: NEPLg2.0 self-host compiler の compile option と target/profile 境界を置くモジュールです。
 //:
 //: [目的/もくてき]:
-//: - Stage 0 では source tree の責務境界を固定するため、実行可能な marker API だけを持ちます。
-//: - 実際の `CompileOptions`、target、profile は後続 issue で現行 Rust 実装と照合しながら追加します。
+//: - CLI や parser から渡される target / profile override を、compiler core の pure value として保持します。
+//: - pipeline、checker、codegen が argv parser に依存せず同じ compile option record を共有できるようにします。
 //:
 //: [注意/ちゅうい]:
-//: - この marker は placeholder の成功判定であり、compiler option 実装済みを意味しません。
+//: - target / profile の文字列 parsing は CLI / syntax parser 側の責務です。この module は解析済み enum 値だけを扱います。
+//: - profile の既定値は実行環境の build mode に依存するため、`selfhost_compile_resolve_profile` の呼び出し側が default profile を渡します。
 //:
 //: [計算量/けいさんりょう]:
 //: - [時間/じかん]: O(1)
@@ -17,10 +18,176 @@
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
 //:| #import "neplg2/core/options" as *
-//: fn main <()->i32> ():
-//:     selfhost_options_stage0
+//: fn main <()*>i32> ():
+//:     let opts0 <SelfhostCompileOptions> selfhost_compile_options_default
+//:     let opts1 <SelfhostCompileOptions> selfhost_compile_options_with_target opts0 SelfhostCompileTarget::Wasm
+//:     let opts2 <SelfhostCompileOptions> selfhost_compile_options_with_profile opts1 SelfhostBuildProfile::Release
+//:     let opts3 <SelfhostCompileOptions> selfhost_compile_options_with_verbose opts2 true
+//:     let target <SelfhostCompileTarget> selfhost_compile_resolve_target opts3 some<SelfhostCompileTarget> SelfhostCompileTarget::Wasi
+//:     let profile <SelfhostBuildProfile> selfhost_compile_resolve_profile opts3 SelfhostBuildProfile::Debug
+//:     let ok <bool> and:
+//:         selfhost_compile_target_is_wasm target
+//:         and:
+//:             selfhost_build_profile_is_release profile
+//:             selfhost_compile_options_verbose opts3
+//:     if ok 0 1
 //: ```
+
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: SelfhostCompileTarget: compiler core が扱う compile target
+//:
+//: [目的/もくてき]:
+//: - Rust 側 `CompileTarget` と同じ target 語彙を core の enum に閉じ込めます。
+//: - CLI 表面の `core` / `std` alias は parser 側で `Wasm` / `Wasi` へ正規化してから渡します。
+pub enum SelfhostCompileTarget:
+    Wasm
+    Wasi
+    Wasix
+    Llvm
+
+impl Clone for SelfhostCompileTarget:
+    fn clone <(&SelfhostCompileTarget)->SelfhostCompileTarget> (self):
+        *self
+
+impl Copy for SelfhostCompileTarget:
+    fn copy_mark <(SelfhostCompileTarget)->SelfhostCompileTarget> (self):
+        self
+
+//: SelfhostBuildProfile: conditional compilation 用の build profile
+pub enum SelfhostBuildProfile:
+    Debug
+    Release
+
+impl Clone for SelfhostBuildProfile:
+    fn clone <(&SelfhostBuildProfile)->SelfhostBuildProfile> (self):
+        *self
+
+impl Copy for SelfhostBuildProfile:
+    fn copy_mark <(SelfhostBuildProfile)->SelfhostBuildProfile> (self):
+        self
+
+//: SelfhostCompileOptions: compiler core に渡す compile option record
+//:
+//: [目的/もくてき]:
+//: - 明示 target override、verbose compiler log、明示 profile override を 1 record にまとめます。
+//:
+//: [注意/ちゅうい]:
+//: - `target = None` は module `#target`、それも無ければ `Wasm` に解決します。
+//: - `profile = None` は呼び出し側が渡す default profile に解決します。
+pub struct SelfhostCompileOptions:
+    target <Option<SelfhostCompileTarget>>
+    verbose <bool>
+    profile <Option<SelfhostBuildProfile>>
+
+impl Clone for SelfhostCompileOptions:
+    fn clone <(&SelfhostCompileOptions)->SelfhostCompileOptions> (self):
+        *self
+
+impl Copy for SelfhostCompileOptions:
+    fn copy_mark <(SelfhostCompileOptions)->SelfhostCompileOptions> (self):
+        self
+
+//: selfhost_compile_options_new: compile option record を[作/つく]る
+fn selfhost_compile_options_new <(Option<SelfhostCompileTarget>,bool,Option<SelfhostBuildProfile>)->SelfhostCompileOptions> (target, verbose, profile):
+    SelfhostCompileOptions target verbose profile
+
+//: selfhost_compile_options_default: 既定の compile option を[返/かえ]す
+pub fn selfhost_compile_options_default <()->SelfhostCompileOptions> ():
+    selfhost_compile_options_new none<SelfhostCompileTarget> false none<SelfhostBuildProfile>
+
+//: selfhost_compile_options_with_target: 明示 target override を[設定/せってい]する
+pub fn selfhost_compile_options_with_target <(SelfhostCompileOptions,SelfhostCompileTarget)->SelfhostCompileOptions> (options, target):
+    selfhost_compile_options_new some<SelfhostCompileTarget> target options.verbose options.profile
+
+//: selfhost_compile_options_with_profile: 明示 profile override を[設定/せってい]する
+pub fn selfhost_compile_options_with_profile <(SelfhostCompileOptions,SelfhostBuildProfile)->SelfhostCompileOptions> (options, profile):
+    selfhost_compile_options_new options.target options.verbose some<SelfhostBuildProfile> profile
+
+//: selfhost_compile_options_with_verbose: verbose flag を[設定/せってい]する
+pub fn selfhost_compile_options_with_verbose <(SelfhostCompileOptions,bool)->SelfhostCompileOptions> (options, verbose):
+    selfhost_compile_options_new options.target verbose options.profile
+
+//: selfhost_compile_options_verbose: verbose flag を[返/かえ]す
+pub fn selfhost_compile_options_verbose <(SelfhostCompileOptions)->bool> (options):
+    options.verbose
+
+//: selfhost_compile_resolve_target: option override / module target / default から有効 target を[決/き]める
+//:
+//: [実装/じっそう]:
+//: - Rust 実装と同じく、明示 option target が最優先です。
+//: - option target が無い場合だけ module `#target` の結果を使い、それも無ければ `Wasm` にします。
+pub fn selfhost_compile_resolve_target <(SelfhostCompileOptions,Option<SelfhostCompileTarget>)->SelfhostCompileTarget> (options, module_target):
+    match options.target:
+        Option::Some target:
+            target
+        Option::None:
+            match module_target:
+                Option::Some target:
+                    target
+                Option::None:
+                    SelfhostCompileTarget::Wasm
+
+//: selfhost_compile_resolve_profile: option override / default から有効 profile を[決/き]める
+pub fn selfhost_compile_resolve_profile <(SelfhostCompileOptions,SelfhostBuildProfile)->SelfhostBuildProfile> (options, default_profile):
+    match options.profile:
+        Option::Some profile:
+            profile
+        Option::None:
+            default_profile
+
+//: selfhost_compile_target_is_wasm: target が Wasm か[返/かえ]す
+pub fn selfhost_compile_target_is_wasm <(SelfhostCompileTarget)->bool> (target):
+    match target:
+        SelfhostCompileTarget::Wasm:
+            true
+        _:
+            false
+
+//: selfhost_compile_target_is_wasi: target が Wasi か[返/かえ]す
+pub fn selfhost_compile_target_is_wasi <(SelfhostCompileTarget)->bool> (target):
+    match target:
+        SelfhostCompileTarget::Wasi:
+            true
+        _:
+            false
+
+//: selfhost_compile_target_is_wasix: target が Wasix か[返/かえ]す
+pub fn selfhost_compile_target_is_wasix <(SelfhostCompileTarget)->bool> (target):
+    match target:
+        SelfhostCompileTarget::Wasix:
+            true
+        _:
+            false
+
+//: selfhost_compile_target_is_llvm: target が Llvm か[返/かえ]す
+pub fn selfhost_compile_target_is_llvm <(SelfhostCompileTarget)->bool> (target):
+    match target:
+        SelfhostCompileTarget::Llvm:
+            true
+        _:
+            false
+
+//: selfhost_build_profile_is_debug: profile が Debug か[返/かえ]す
+pub fn selfhost_build_profile_is_debug <(SelfhostBuildProfile)->bool> (profile):
+    match profile:
+        SelfhostBuildProfile::Debug:
+            true
+        _:
+            false
+
+//: selfhost_build_profile_is_release: profile が Release か[返/かえ]す
+pub fn selfhost_build_profile_is_release <(SelfhostBuildProfile)->bool> (profile):
+    match profile:
+        SelfhostBuildProfile::Release:
+            true
+        _:
+            false
+
 fn selfhost_options_stage0 <()->i32> ():
-    0
+    let options <SelfhostCompileOptions> selfhost_compile_options_default
+    let target <SelfhostCompileTarget> selfhost_compile_resolve_target options none<SelfhostCompileTarget>
+    if selfhost_compile_target_is_wasm target 0 1
