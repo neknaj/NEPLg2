@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck call resolution module)
+
+- 状況:
+  - Stage 1 の typecheck effect module 化後、overload / call arity / pipe target / nested function capture / outer consumer expected type 推論の helper が `BlockChecker` 本体に残っていた。
+  - これらは prefix call reduction の根幹に関わるが、HIR lowering や trait capability 判定とは別責務であり、overload 解決境界として先に分ける必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/call_resolution.rs` を追加し、user-visible arity、nested function capture collection、outer function consumer search、expected argument inference、overloaded callable entry 判定、function signature instantiation、pipe pending segment reduction、mixed arity / mixed purity overload preselection を移動した。
+  - `typecheck.rs` 側は call reduction 本体と BlockChecker の orchestration に近づけた。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck call resolution 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/call_resolution.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test call_reduction -- --nocapture`: 1/1 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `cargo test -p nepl-core --test pipe_operator -- --nocapture`: 24/24 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/pipe_operator.n.md -i tests/compiler/overload_nested_generic_push.n.md --no-tree -o tmp/stage1-typecheck-call-resolution-focused.json -j 1`: 91/91 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck effect module)
 
 - 状況:
