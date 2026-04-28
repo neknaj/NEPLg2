@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::ast::{Effect, Ident};
+use crate::ast::Effect;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::hir::HirExprKind;
@@ -75,48 +75,14 @@ impl<'a> BlockChecker<'a> {
                 );
             }
             let symbol_resolved = matches!(&func.expr.kind, HirExprKind::FnValue(_));
-            let qualified_call = if symbol_resolved {
-                None
-            } else {
-                self.lookup_qualified_bindings(&Ident {
-                    name: name.clone(),
-                    span: func.expr.span,
-                })
-            };
-            let bindings = if symbol_resolved {
-                self.env
-                    .lookup_all_callables_by_symbol(name)
-                    .into_iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
-            } else if let Some((_, qualified)) = &qualified_call {
-                qualified.clone()
-            } else {
-                self.env
-                    .lookup_all_callables(name)
-                    .into_iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
-            };
-            let has_function_value_binding = if symbol_resolved {
-                false
-            } else if qualified_call.is_some() {
-                false
-            } else {
-                self.env
-                    .lookup_value(name)
-                    .map(|b| {
-                        let rty = self.ctx.resolve_id(b.ty);
-                        matches!(self.ctx.get(rty), TypeKind::Function { .. })
-                    })
-                    .unwrap_or(false)
-            };
-            if !bindings.is_empty() && !has_function_value_binding {
+            let callable_lookup =
+                self.lookup_callable_apply_bindings(name, symbol_resolved, func.expr.span);
+            if !callable_lookup.bindings.is_empty() && !callable_lookup.has_function_value_binding {
                 {
                     let explicit_type_args = type_args.clone();
                     let binding = self.select_overload_candidate(
                         name,
-                        &bindings,
+                        &callable_lookup.bindings,
                         &args,
                         &explicit_type_args,
                         expected_ret,

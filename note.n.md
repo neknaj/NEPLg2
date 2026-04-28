@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck call binding lookup module)
+
+- 状況:
+  - `selected_call_apply` 分離後も、`function_apply.rs` には symbol-resolved call、qualified call、unqualified call、function-typed value fallback の lookup 条件が残っていた。
+  - この処理は name/import/env lookup と call application の接点であり、selected callable 適用や indirect call fallback とは別責務である。
+- 修正:
+  - `nepl-core/src/typecheck/call_binding_lookup.rs` を追加し、call apply 用の callable lookup と同名 function-typed value fallback 判定を `lookup_callable_apply_bindings` へ分離した。
+  - `function_apply.rs` は lookup 結果を受け取り、overload selection / selected apply / fallback dispatch を行う形にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck call binding lookup 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/call_binding_lookup.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test overload/functions/generics/pipe_operator -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md -i tests/compiler/overload_nested_generic_push.n.md -i tests/compiler/generics.n.md -i tests/compiler/functions.n.md -i tests/compiler/pipe_operator.n.md --no-tree -o tmp/stage1-typecheck-call-binding-lookup-focused.json -j 1`: 115/115 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck selected call apply module)
 
 - 状況:
