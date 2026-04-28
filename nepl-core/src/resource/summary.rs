@@ -5,12 +5,12 @@ use crate::types::TypeId;
 
 use super::borrow_check::ResourceBorrowCheckEngine;
 use super::borrow_state::BorrowTable;
-use super::check::ResourceOwnerCheckEngine;
 use super::function_alias::FunctionAliasTable;
 use super::model::{
     OwnerState, Place, PlaceProjection, ResourceFunction, ResourceModule, ResourceTerminator,
     StorageId,
 };
+use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_state::OwnerTable;
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
 use super::report::{ResourceBorrowCheckDeferred, ResourceOwnerCheckDeferred};

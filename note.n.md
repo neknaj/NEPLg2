@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T142719860Z Resource owner checker split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceOwnerCheckEngine` と `check_resource_owner_obligations` を `nepl-core/src/resource/owner_check.rs` へ移動し、旧 `nepl-core/src/resource/check.rs` を削除した。
+- `owner_check.rs` は Resource IR の owner obligation / free obligation state を検査する Stage 4 component とし、initialized / borrow checker とは独立した責務にした。
+- `summary.rs` の owner return summary 計算は新しい `owner_check.rs` の engine を参照するように更新した。`shadow.rs` と `resource/mod.rs` は `owner_check.rs` の public entry point を参照するように更新し、外部 API の `check_resource_owner_obligations` export は維持している。
+- Stage 4 の主要 checker は `initialized.rs`、`borrow_check.rs`、`owner_check.rs` に分離された。`owner_check.rs` は 661 行。issue はまだ open とし、次は effect boundary engine の分割または責務境界の回帰 guard を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\owner_check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs nepl-core\src\resource\summary.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T142719860Z Resource borrow checker split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceBorrowCheckEngine` と `check_resource_borrow_lifetimes` を `nepl-core/src/resource/borrow_check.rs` へ分離した。

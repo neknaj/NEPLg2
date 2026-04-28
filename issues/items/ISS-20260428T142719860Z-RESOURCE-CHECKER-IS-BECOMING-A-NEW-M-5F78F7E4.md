@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/borrow_check.rs, nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
+target: "nepl-core/src/resource/borrow_check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
 ---
 
 # ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4: Resource checker is becoming a new monolithic static-check pass
@@ -268,6 +268,22 @@ HIR から Resource IR へ lower して shadow report を組み立てる `check_
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\borrow_check.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs nepl-core\src\resource\summary.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Owner obligation checker split
+
+`ResourceOwnerCheckEngine` と `check_resource_owner_obligations` を `nepl-core/src/resource/owner_check.rs` へ移動し、旧 `nepl-core/src/resource/check.rs` を削除した。これは Resource IR の owner obligation / free obligation state を検査する Stage 4 component であり、initialized / borrow checker とは独立した責務として扱う。
+
+`summary.rs` の owner return summary 計算は、新しい `owner_check.rs` の engine を参照するように更新した。`shadow.rs` と `resource/mod.rs` は `owner_check.rs` の public entry point を参照するように更新し、外部 API の `check_resource_owner_obligations` export は維持した。
+
+これにより Resource IR enforcement の中心だった `check.rs` は消滅し、Stage 4 の主要 checker は `initialized.rs`、`borrow_check.rs`、`owner_check.rs` に分離された。`owner_check.rs` は 661 行で、issue はまだ open のままとし、次は effect boundary engine の分割または責務境界の回帰 guard を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\owner_check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs nepl-core\src\resource\summary.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
