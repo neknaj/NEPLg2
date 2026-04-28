@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T22:34:49.780Z",
+  "generated_at": "2026-04-28T22:40:29.091Z",
   "counts": {
-    "total": 325,
-    "open": 9,
+    "total": 326,
+    "open": 10,
     "resolved": 316,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 149
       },
       "stdlib": {
-        "total": 99,
-        "open": 5,
+        "total": 100,
+        "open": 6,
         "resolved": 94
       },
       "selfhost": {
@@ -153,6 +153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260428T223953830Z-VEC-ELEMENT-LOADS-LOSE-BACKING-STORA-E811458B",
+      "title": "Vec element loads lose backing storage initialization under RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/collections/vec.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T223953830Z-VEC-ELEMENT-LOADS-LOSE-BACKING-STORA-E811458B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

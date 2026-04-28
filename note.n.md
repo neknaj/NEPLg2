@@ -1,3 +1,11 @@
+# 2026-04-29 メモ (ISS-20260428T223953830Z Vec element backing storage)
+
+- `trunk build` 後の最新 main で `stdlib\alloc\collections\vec.nepl` doctest を再実行し、`Vec` header read 修正後は 29/39 pass まで改善した。
+- 残った `Vec` 固有の D3100 は `get` / `get_ref` が `v_data + idx * size_of<T>` から `load<.T>` する箇所で、Resource IR が `push` / `filled` による element 初期化範囲を backing storage へ結び直せないことが原因。
+- この問題を `ISS-20260428T223953830Z-VEC-ELEMENT-LOADS-LOSE-BACKING-STORA-E811458B` として追加した。
+- 修正方針は RawMemoryLoadCell を弱めるのではなく、`Vec` backing storage を initialized element range を持つ storage owner として表現し、`get` / `get_ref` が `.T` の Copy / move 性に応じて安全に読む設計へ移すこと。
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T222332284Z Vec RawMemoryLoadCell blocker)
 
 - self-host primitive type kind parity の検証中、`stdlib\neplg2\core\ty\ty.nepl` の doctest が `alloc/collections/vec.nepl` 側の D3100 で止まることを確認した。
