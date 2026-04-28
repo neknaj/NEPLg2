@@ -1,6 +1,7 @@
 extern crate alloc;
 
 mod raw_memory;
+mod raw_place;
 mod summary;
 
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -18,6 +19,10 @@ use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use raw_memory::{raw_memory_call_kind, raw_memory_helper_name_is_tracked, RawMemoryCallKind};
+use raw_place::{
+    combine_raw_memory_offsets, format_raw_memory_place_key_parts, parse_raw_memory_place_key,
+    raw_place_key_has_unknown_offset, raw_place_ranges_overlap, RawPlaceInfo, RawPlaceState,
+};
 use summary::{
     add_child_raw_memory_effects, extend_unique_raw_memory_effects,
     merge_matching_raw_alias_summaries, value_alias_summary_from_raw_summary,
@@ -62,19 +67,6 @@ struct FieldMovePath {
     owner: String,
     offset: usize,
     field_ty: TypeId,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RawPlaceState {
-    Initialized,
-    Moved,
-    PossiblyMoved,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct RawPlaceInfo {
-    state: RawPlaceState,
-    size: usize,
 }
 
 impl ExprBorrow {
@@ -1518,32 +1510,6 @@ fn field_reference_path_from_addr(
     field_move_path_from_addr(addr, field_ty, tctx)
 }
 
-fn format_raw_memory_place_key(base: &str, offset: i64) -> String {
-    if offset == 0 {
-        base.to_string()
-    } else {
-        alloc::format!("{}+{}", base, offset)
-    }
-}
-
-fn format_raw_memory_unknown_offset_key(base: &str) -> String {
-    alloc::format!("{}+?", base)
-}
-
-fn format_raw_memory_place_key_parts(base: &str, offset: Option<i64>) -> String {
-    match offset {
-        Some(offset) => format_raw_memory_place_key(base, offset),
-        None => format_raw_memory_unknown_offset_key(base),
-    }
-}
-
-fn combine_raw_memory_offsets(base_offset: Option<i64>, offset: Option<i64>) -> Option<i64> {
-    match (base_offset, offset) {
-        (Some(base_offset), Some(offset)) => Some(base_offset.saturating_add(offset)),
-        _ => None,
-    }
-}
-
 fn i32_const_from_value(
     expr: &HirExpr,
     ctx: &MoveCheckContext,
@@ -1626,41 +1592,6 @@ fn negated_i32_const_from_value(
     tctx: &crate::types::TypeCtx,
 ) -> Option<i64> {
     i32_const_from_value(expr, ctx, tctx).map(|value| -value)
-}
-
-fn parse_raw_memory_place_key(key: &str) -> (String, Option<i64>) {
-    let Some((base, offset)) = key.rsplit_once('+') else {
-        return (key.to_string(), Some(0));
-    };
-    if offset == "?" {
-        return (base.to_string(), None);
-    }
-    match offset.parse::<i64>() {
-        Ok(offset) => (base.to_string(), Some(offset)),
-        Err(_) => (key.to_string(), Some(0)),
-    }
-}
-
-fn raw_place_ranges_overlap(
-    left_key: &str,
-    left_size: usize,
-    right_key: &str,
-    right_size: usize,
-) -> bool {
-    if left_size == 0 || right_size == 0 {
-        return false;
-    }
-    let (left_base, left_offset) = parse_raw_memory_place_key(left_key);
-    let (right_base, right_offset) = parse_raw_memory_place_key(right_key);
-    if left_base != right_base {
-        return false;
-    }
-    let (Some(left_offset), Some(right_offset)) = (left_offset, right_offset) else {
-        return true;
-    };
-    let left_end = left_offset.saturating_add(left_size as i64);
-    let right_end = right_offset.saturating_add(right_size as i64);
-    left_offset < right_end && right_offset < left_end
 }
 
 fn raw_memory_place_key(
@@ -2892,10 +2823,6 @@ fn instantiate_known_function_raw_memory_effects(
         remaining_depth,
     )
     .raw_memory_effects
-}
-
-fn raw_place_key_has_unknown_offset(key: &str) -> bool {
-    parse_raw_memory_place_key(key).1.is_none()
 }
 
 fn raw_alias_summary_needs_call_site_specialization(summary: &FunctionRawAliasSummary) -> bool {
