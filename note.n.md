@@ -23551,3 +23551,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib の test support が Resource IR の所有権検査に追従し、self-host stdlib 回帰の前提を一段戻した。
+
+# 2026-04-29 メモ (ISS-20260428T173941917Z self-host type equality)
+
+- [同期]:
+  - `main` は `origin/main` の `a0bd2c0 selfhost(s3): add type arena` まで同期済みで、`selfhost/s3-type-equality` branch を作成して作業した。
+- [原因]:
+  - TypeArena は primitive type と function type を stable id で保持できるようになったが、`selfhost_type_id_eq` は arena index の比較だけだった。
+  - S3 の unify / overload / checker では、別 index に再構築された同形 type を比較する必要があり、各 pass が record を直接覗く形にすると比較規則が分散する。
+- [修正]:
+  - `selfhost_type_arena_types_equal` を追加し、同じ arena 内の valid `TypeId` を構造比較できるようにした。
+  - primitive type は `SelfhostTypeKind`、function type は arity、各引数 TypeId、戻り値 TypeId を再帰的に比較するようにした。
+  - invalid / out-of-range TypeId は、同じ invalid index 同士でも false にした。
+  - `tests/stdlib/neplg2_type_arena.n.md` に、同形 function type と引数型 / arity / 戻り値 / invalid mismatch の回帰を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/neplg2-type-equality-doctest.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg2-type-equality-focused.json -j 1`: total=5 passed=5
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_type_arena.n.md -i tests/stdlib/neplg2_stdlib_map.n.md -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-type-equality-syntax.json -j 1`: total=58 passed=58
+  - `origin/main` `2cdcf45` へ rebase 後、`node nodesrc\tests.js -i stdlib\neplg2\core\ty\ty.nepl --no-tree -o tmp\neplg2-type-equality-doctest-main-rebase.json -j 1`: total=1 passed=1
+  - rebase 後、`node nodesrc\tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\neplg2-type-equality-focused-main-rebase.json -j 1`: total=5 passed=5
+  - rebase 後、`node nodesrc\tests.js -i stdlib\neplg2\core\ty\ty.nepl -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\neplg2-type-equality-ty-focused-main-rebase.json -j 1`: total=6 passed=6
+  - 現在の self-host broad command は `ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326` の wasm codegen stack overflow が別 issue として残るため、type equality の完了判定からは分離した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_execution_plan.md` S3 の unify / subst 入口に進むため、TypeArena の比較境界を追加した。

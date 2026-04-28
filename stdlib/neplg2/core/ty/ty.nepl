@@ -6,6 +6,7 @@
 //: [目的/もくてき]:
 //: - 型 arena、unify、subst、effect、layout が共有する型表現の入口にします。
 //: - TypeId を安定した arena index として扱い、primitive type と function type を同じ table に保持します。
+//: - 同じ arena 内で、別 index に割り当てられた同形の型を構造比較できます。
 //:
 //: [実装/じっそう]:
 //: - `SelfhostTypeArena` は type record table と function argument table を所有します。
@@ -20,6 +21,7 @@
 //: - primitive type の追加は `Vec` push の償却 O(1) です。
 //: - function type の追加は引数数 n に対して O(n) です。
 //: - TypeId lookup は O(1) です。
+//: - 構造比較は比較する function type の引数数と戻り値の深さに比例します。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -293,6 +295,78 @@ fn selfhost_type_arena_function_result <(&SelfhostTypeArena,SelfhostTypeId)->Opt
                     none<SelfhostTypeId>
         Option::None:
             none<SelfhostTypeId>
+
+//: selfhost_type_arena_function_args_equal: function 引数列が構造的に同じか[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - `first_a` / `first_b` は arena 内部の argument table offset です。
+//: - 呼び出し側で function record の `arg_count` が同じであることを確認してから使います。
+fn selfhost_type_arena_function_args_equal <(&SelfhostTypeArena,i32,i32,i32,i32)->bool> (arena, first_a, first_b, n, idx):
+    if:
+        ge idx n
+        then:
+            true
+        else:
+            let function_args <&Vec<SelfhostTypeId>> field::get_ref arena "function_args"
+            match v::get_ref<SelfhostTypeId> function_args add first_a idx:
+                Option::Some arg_a:
+                    match v::get_ref<SelfhostTypeId> function_args add first_b idx:
+                        Option::Some arg_b:
+                            if:
+                                selfhost_type_arena_types_equal arena arg_a arg_b
+                                then:
+                                    selfhost_type_arena_function_args_equal arena first_a first_b n add idx 1
+                                else:
+                                    false
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_type_arena_records_equal: 2 つの型 record が構造的に同じか[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - primitive type は `SelfhostTypeKind` が一致すれば同形とします。
+//: - function type は arity、各引数 TypeId の構造、戻り値 TypeId の構造を比較します。
+fn selfhost_type_arena_records_equal <(&SelfhostTypeArena,SelfhostTypeRecord,SelfhostTypeRecord)->bool> (arena, a, b):
+    if:
+        not selfhost_type_kind_eq a.kind b.kind
+        then:
+            false
+        else:
+            match a.kind:
+                SelfhostTypeKind::Function:
+                    if:
+                        ne a.arg_count b.arg_count
+                        then:
+                            false
+                        else:
+                            and:
+                                selfhost_type_arena_function_args_equal arena a.first_arg b.first_arg a.arg_count 0
+                                selfhost_type_arena_types_equal arena a.result b.result
+                _:
+                    true
+
+//: selfhost_type_arena_types_equal: 同じ arena 内の TypeId が構造的に同じ型か[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - `TypeId` は arena-local なので、別 arena の `TypeId` を混ぜないでください。
+//: - invalid TypeId や範囲外 TypeId は、同じ invalid index 同士でも false です。
+fn selfhost_type_arena_types_equal <(&SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)->bool> (arena, a, b):
+    match selfhost_type_arena_get_record arena a:
+        Option::Some record_a:
+            match selfhost_type_arena_get_record arena b:
+                Option::Some record_b:
+                    if:
+                        selfhost_type_id_eq a b
+                        then:
+                            true
+                        else:
+                            selfhost_type_arena_records_equal arena record_a record_b
+                Option::None:
+                    false
+        Option::None:
+            false
 
 //: selfhost_ty_stage0: TypeArena の smoke API
 fn selfhost_ty_stage0 <()*>i32> ():

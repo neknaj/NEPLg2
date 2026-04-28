@@ -183,3 +183,165 @@ fn main <()*>i32> ():
             let shown <Vec<Result<(),str>>> checks_print_report checks1
             checks_exit_code shown
 ```
+
+## compares_function_type_shapes_structurally
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn add_one_arg_function <(SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, arg_id, result_id):
+    match new<SelfhostTypeId>:
+        Result::Ok params0:
+            match push<SelfhostTypeId> params0 arg_id:
+                Result::Ok params1:
+                    selfhost_type_arena_add_function arena params1 result_id
+                Result::Err e:
+                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+        Result::Err e:
+            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+
+fn main <()*>i32> ():
+    let checks0 <Vec<Result<(),str>>> checks_new
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::I32:
+                Result::Ok alloc1:
+                    let i32_id <SelfhostTypeId> alloc1.type_id
+                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostTypeKind::Bool:
+                        Result::Ok alloc2:
+                            let bool_id <SelfhostTypeId> alloc2.type_id
+                            match add_one_arg_function alloc2.arena i32_id bool_id:
+                                Result::Ok alloc3:
+                                    let fn1_id <SelfhostTypeId> alloc3.type_id
+                                    match add_one_arg_function alloc3.arena i32_id bool_id:
+                                        Result::Ok alloc4:
+                                            let fn2_id <SelfhostTypeId> alloc4.type_id
+                                            let arena4 <SelfhostTypeArena> alloc4.arena
+                                            let checks1 <Vec<Result<(),str>>> checks_push checks0 check not selfhost_type_id_eq fn1_id fn2_id
+                                            let checks2 <Vec<Result<(),str>>> checks_push checks1 check selfhost_type_arena_types_equal &arena4 fn1_id fn2_id
+                                            selfhost_type_arena_free arena4
+                                            let shown <Vec<Result<(),str>>> checks_print_report checks2
+                                            checks_exit_code shown
+                                        Result::Err _e:
+                                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "second function allocation failed"
+                                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "first function allocation failed"
+                                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "bool type allocation failed"
+                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "i32 type allocation failed"
+                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "type arena allocation failed"
+            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            checks_exit_code shown
+```
+
+## rejects_mismatched_function_type_shapes
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn add_one_arg_function <(SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, arg_id, result_id):
+    match new<SelfhostTypeId>:
+        Result::Ok params0:
+            match push<SelfhostTypeId> params0 arg_id:
+                Result::Ok params1:
+                    selfhost_type_arena_add_function arena params1 result_id
+                Result::Err e:
+                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+        Result::Err e:
+            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+
+fn add_zero_arg_function <(SelfhostTypeArena,SelfhostTypeId)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, result_id):
+    match new<SelfhostTypeId>:
+        Result::Ok params:
+            selfhost_type_arena_add_function arena params result_id
+        Result::Err e:
+            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+
+fn main <()*>i32> ():
+    let checks0 <Vec<Result<(),str>>> checks_new
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::I32:
+                Result::Ok alloc1:
+                    let i32_id <SelfhostTypeId> alloc1.type_id
+                    match selfhost_type_arena_add_primitive alloc1.arena SelfhostTypeKind::Bool:
+                        Result::Ok alloc2:
+                            let bool_id <SelfhostTypeId> alloc2.type_id
+                            match add_one_arg_function alloc2.arena i32_id bool_id:
+                                Result::Ok alloc3:
+                                    let fn1_id <SelfhostTypeId> alloc3.type_id
+                                    match add_one_arg_function alloc3.arena bool_id bool_id:
+                                        Result::Ok alloc4:
+                                            let fn_arg_mismatch <SelfhostTypeId> alloc4.type_id
+                                            match add_one_arg_function alloc4.arena i32_id i32_id:
+                                                Result::Ok alloc5:
+                                                    let fn_result_mismatch <SelfhostTypeId> alloc5.type_id
+                                                    match add_zero_arg_function alloc5.arena bool_id:
+                                                        Result::Ok alloc6:
+                                                            let fn_arity_mismatch <SelfhostTypeId> alloc6.type_id
+                                                            let arena6 <SelfhostTypeArena> alloc6.arena
+                                                            let invalid_id <SelfhostTypeId> selfhost_type_id_invalid
+                                                            let checks1 <Vec<Result<(),str>>> checks_push checks0 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_arg_mismatch
+                                                            let checks2 <Vec<Result<(),str>>> checks_push checks1 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_result_mismatch
+                                                            let checks3 <Vec<Result<(),str>>> checks_push checks2 check not selfhost_type_arena_types_equal &arena6 fn1_id fn_arity_mismatch
+                                                            let checks4 <Vec<Result<(),str>>> checks_push checks3 check not selfhost_type_arena_types_equal &arena6 invalid_id invalid_id
+                                                            selfhost_type_arena_free arena6
+                                                            let shown <Vec<Result<(),str>>> checks_print_report checks4
+                                                            checks_exit_code shown
+                                                        Result::Err _e:
+                                                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "arity mismatch function allocation failed"
+                                                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                                            checks_exit_code shown
+                                                Result::Err _e:
+                                                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "result mismatch function allocation failed"
+                                                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                                    checks_exit_code shown
+                                        Result::Err _e:
+                                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "arg mismatch function allocation failed"
+                                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "base function allocation failed"
+                                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "bool type allocation failed"
+                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "i32 type allocation failed"
+                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "type arena allocation failed"
+            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            checks_exit_code shown
+```

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T18:50:12.562Z",
+  "generated_at": "2026-04-28T18:53:57.856Z",
   "counts": {
-    "total": 302,
+    "total": 303,
     "open": 11,
-    "resolved": 291,
+    "resolved": 292,
     "by_area": {
       "core": {
         "total": 144,
@@ -17,9 +17,9 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 25,
+        "total": 26,
         "open": 1,
-        "resolved": 24
+        "resolved": 25
       },
       "cli": {
         "total": 19,
@@ -3708,6 +3708,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T163754109Z-SELF-HOST-TYPE-STAGE-LACKS-TYPEID-AN-5345670C.md"
+    },
+    {
+      "id": "ISS-20260428T173941917Z-SELF-HOST-TYPE-STAGE-LACKS-STRUCTURA-F41EF07F",
+      "title": "self-host type stage lacks structural type equality",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/core/ty/ty.nepl, tests/stdlib/neplg2_type_arena.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T173941917Z-SELF-HOST-TYPE-STAGE-LACKS-STRUCTURA-F41EF07F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
