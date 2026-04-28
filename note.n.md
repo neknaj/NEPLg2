@@ -1,3 +1,20 @@
+# 2026-04-29 メモ (ISS-20260428T174427199Z Resource CellState raw address alias)
+
+- `ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` の残件のうち、helper-returned slot と `MemPtr` / `RegionToken` style wrapper で raw address alias が CellState へ伝播しない問題を `ISS-20260428T174427199Z-RESOURCE-CELLSTATE-RAW-ADDRESS-ALIAS-45DC270E` として分離して修正した。
+- `check_resource_initialized_moves` は Resource IR module ごとに raw address return summary を fixed point 計算し、direct call と known function-value indirect call の戻り値が raw address 引数の alias である場合に canonical raw cell address へ反映する。
+- `Construct` / branch / match result で aggregate field に入った raw address alias と function alias を保持するようにし、`PtrBox.ptr` のような non-owning pointer wrapper から取り出した address で store しても元の slot から load できるようにした。
+- 追加した回帰テスト:
+  - `resource_ir_cell_check_preserves_raw_address_returned_by_helper`
+  - `resource_ir_cell_check_preserves_raw_address_returned_by_function_value`
+  - `resource_ir_cell_check_preserves_raw_address_stored_in_aggregate_field`
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_raw_address -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 73 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-alias-summary-move-effect.json -j 1`: total=110, passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-alias-summary-move-check.json -j 1`: total=52, passed=52
+
 # 2026-04-29 メモ (ISS-20260428T173213551Z Resource CellState raw helper call)
 
 - `ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` の調査中に、direct raw memory helper が Resource IR 上で `ResourceOp::Call` と `ResourceOp::RawMemory` の両方を持つため、CellState checker が `store<T>(ptr, value)` の `value` を generic `CallArgument` として先に moved にしてしまう問題を発見した。

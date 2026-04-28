@@ -53,3 +53,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `RawMemoryLoadCell` gate を一時的に compiler error 化して `tests/compiler/move_effect.n.md` を実行したところ、最初の大きな false positive 群は Resource IR lowering ではなく CellState checker 側の二重消費だった。direct raw memory helper は Resource IR 上で `ResourceOp::Call` と `ResourceOp::RawMemory` の両方を持つため、generic `Call` が先に store value を moved にし、直後の `RawMemory::Store` が pointed cell を initialized にできていなかった。
 
 この前提不備は `ISS-20260428T173213551Z-RESOURCE-CELLSTATE-CHECKER-CONSUMES--DD20A3D7` として分離し、修正済み。修正後に同じ一時 gate 調査を再実行すると、`move_effect.n.md` の失敗は 18 件から 11 件へ減った。残件は helper-returned slot の direct/indirect return summary、`MemPtr` / `RegionToken` の address wrapper、raw aggregate field load の offset/projection CellState に絞られる。
+
+2026-04-29 追記:
+
+`ISS-20260428T174427199Z-RESOURCE-CELLSTATE-RAW-ADDRESS-ALIAS-45DC270E` として、CellState 側の raw address alias が helper return、known function-value indirect call、aggregate field に渡らない問題を分離し、修正済みにした。direct helper / function-value helper / `PtrBox.ptr` style wrapper の Resource IR regression は `RawMemoryLoadCell` 診断なしで通る。
+
+この修正で helper-returned slot と `MemPtr` / `RegionToken` style wrapper の主要な alias loss は CellState に移った。親 issue には、raw memory へ格納した aggregate の field offset/projection と、compiler field projection load と raw linear memory load の区別不足が残る。
