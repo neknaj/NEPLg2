@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:10:09.295Z",
+  "generated_at": "2026-04-28T12:18:32.973Z",
   "counts": {
-    "total": 271,
+    "total": 272,
     "open": 10,
-    "resolved": 261,
+    "resolved": 262,
     "by_area": {
       "core": {
-        "total": 122,
+        "total": 123,
         "open": 4,
-        "resolved": 118
+        "resolved": 119
       },
       "stdlib": {
         "total": 95,
@@ -1938,6 +1938,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T120507528Z-RESOURCE-BORROW-CHECKER-IGNORES-OVER-E9E862D3.md"
+    },
+    {
+      "id": "ISS-20260428T121156309Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-A-C6DF3CB2",
+      "title": "Resource CellState checker ignores aggregate projection state",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T121156309Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-A-C6DF3CB2.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

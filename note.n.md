@@ -22640,3 +22640,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、projection overlap を borrow/lifetime 検査へ反映した。
+
+# 2026-04-28 メモ (ISS-20260428T121156309Z cell projection state)
+
+- [同期]:
+  - `origin/main` の `c3eba60 fix(core): detect overlapping borrow projections` まで同期した main から `work/stage4-cell-projection-state` branch を作成した。
+- [原因]:
+  - `CellTable::state` は exact place のみを検索しており、aggregate root と field projection の initialized / moved / dropped state が相互に反映されていなかった。
+  - そのため constructed aggregate の field read は uninitialized と誤診断される一方で、field move 後の aggregate return や aggregate move 後の旧 field read は見逃される可能性があった。
+- [修正]:
+  - `CellTable::availability_state` を追加し、ancestor / descendant projection の non-initialized state を overlapping place の使用不可として扱うようにした。
+  - ancestor initialized state は descendant projection の initialized state として扱い、aggregate root 再初期化時には古い descendant projection state を消すようにした。
+  - `merge_paths` は exact state ではなく projection-aware availability を合流するようにした。
+  - `nepl-core/tests/resource_ir.rs` に constructed aggregate field read の正常系、field move 後 aggregate return、aggregate move 後旧 field read の回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 1「initialized / moved state」の続きとして、CellState の projection-aware availability を Resource IR 上に固定した。

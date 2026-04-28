@@ -679,14 +679,10 @@ impl ResourceCheckEngine<'_> {
         if !should_track(place) {
             return true;
         }
-        match cells.state(place) {
-            Some(CellState::Initialized(_)) => true,
-            Some(state) => {
+        match cells.availability_state(place) {
+            CellState::Initialized(_) => true,
+            state => {
                 self.push_unavailable(operation, place, state, span);
-                false
-            }
-            None => {
-                self.push_unavailable(operation, place, CellState::Uninit, span);
                 false
             }
         }
@@ -2055,8 +2051,38 @@ impl CellTable {
             .map(|entry| entry.state.clone())
     }
 
+    fn availability_state(&self, place: &Place) -> CellState {
+        if let Some(state) = self.state(place) {
+            if !matches!(state, CellState::Initialized(_)) {
+                return state;
+            }
+        }
+        for entry in self.ancestor_entries(place) {
+            if !matches!(entry.state, CellState::Initialized(_)) {
+                return entry.state;
+            }
+        }
+        for entry in self.descendant_entries(place) {
+            if !matches!(entry.state, CellState::Initialized(_)) {
+                return entry.state;
+            }
+        }
+        if let Some(state @ CellState::Initialized(_)) = self.state(place) {
+            return state;
+        }
+        if self
+            .ancestor_entries(place)
+            .iter()
+            .any(|entry| matches!(entry.state, CellState::Initialized(_)))
+        {
+            return CellState::Initialized(place.ty);
+        }
+        CellState::Uninit
+    }
+
     fn mark_initialized(&mut self, place: &Place) {
         self.set_state(place, CellState::Initialized(place.ty));
+        self.clear_descendants(place);
     }
 
     fn set_state(&mut self, place: &Place, state: CellState) {
@@ -2073,6 +2099,32 @@ impl CellTable {
         }
     }
 
+    fn ancestor_entries(&self, place: &Place) -> Vec<CellStateEntry> {
+        self.cells
+            .iter()
+            .filter(|entry| {
+                entry.place != *place && place_suffix_after_prefix(place, &entry.place).is_some()
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn descendant_entries(&self, prefix: &Place) -> Vec<CellStateEntry> {
+        self.cells
+            .iter()
+            .filter(|entry| {
+                entry.place != *prefix && place_suffix_after_prefix(&entry.place, prefix).is_some()
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn clear_descendants(&mut self, prefix: &Place) {
+        self.cells.retain(|entry| {
+            entry.place == *prefix || place_suffix_after_prefix(&entry.place, prefix).is_none()
+        });
+    }
+
     fn merge_paths(paths: &[CellTable]) -> Self {
         let mut out = CellTable::default();
         let mut places = Vec::new();
@@ -2084,7 +2136,7 @@ impl CellTable {
         for place in places {
             let mut merged = CellState::Uninit;
             for path in paths {
-                let state = path.state(&place).unwrap_or(CellState::Uninit);
+                let state = path.availability_state(&place);
                 merged = merge_cell_states(merged, state);
             }
             out.set_state(&place, merged);

@@ -1527,6 +1527,216 @@ fn resource_ir_check_reports_uninitialized_read() {
 }
 
 #[test]
+fn resource_ir_cell_check_allows_field_read_from_constructed_aggregate() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![owned_ty],
+            field_names: vec!["owned".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let owned = Place::temporary(ResourceId(0), owned_ty);
+    let wrapper = Place::temporary(ResourceId(1), wrapper_ty);
+    let field = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        owned_ty,
+    );
+    let moved_field = Place::temporary(ResourceId(2), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Construct {
+                output: owned.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: wrapper,
+                kind: AggregateKind::Struct {
+                    name: "Wrapper".to_string(),
+                },
+                inputs: vec![owned],
+                span,
+            },
+            ResourceOp::Read {
+                source: field,
+                output: moved_field,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_cell_check_reports_return_after_field_move() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![owned_ty],
+            field_names: vec!["owned".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let owned = Place::temporary(ResourceId(0), owned_ty);
+    let wrapper = Place::temporary(ResourceId(1), wrapper_ty);
+    let field = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        owned_ty,
+    );
+    let moved_field = Place::temporary(ResourceId(2), owned_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: wrapper_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Construct {
+                        output: owned.clone(),
+                        kind: AggregateKind::Struct {
+                            name: "Owned".to_string(),
+                        },
+                        inputs: vec![],
+                        span,
+                    },
+                    ResourceOp::Construct {
+                        output: wrapper.clone(),
+                        kind: AggregateKind::Struct {
+                            name: "Wrapper".to_string(),
+                        },
+                        inputs: vec![owned],
+                        span,
+                    },
+                    ResourceOp::Move {
+                        source: field,
+                        output: moved_field,
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(wrapper.clone()),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::ReturnValue,
+            place,
+            state: CellState::Moved,
+            ..
+        } if function == "main" && place == &wrapper
+    )));
+}
+
+#[test]
+fn resource_ir_cell_check_reports_field_read_after_aggregate_move() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![owned_ty],
+            field_names: vec!["owned".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let owned = Place::temporary(ResourceId(0), owned_ty);
+    let wrapper = Place::temporary(ResourceId(1), wrapper_ty);
+    let moved_wrapper = Place::temporary(ResourceId(2), wrapper_ty);
+    let field = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        owned_ty,
+    );
+    let field_read = Place::temporary(ResourceId(3), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Construct {
+                output: owned.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: wrapper.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Wrapper".to_string(),
+                },
+                inputs: vec![owned],
+                span,
+            },
+            ResourceOp::Move {
+                source: wrapper,
+                output: moved_wrapper,
+                span,
+            },
+            ResourceOp::Read {
+                source: field.clone(),
+                output: field_read,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::Read,
+            place,
+            state: CellState::Moved,
+            ..
+        } if function == "main" && place == &field
+    )));
+}
+
+#[test]
 fn resource_ir_owner_check_accepts_deallocated_alloc() {
     let types = TypeCtx::new();
     let span = Span::dummy();
