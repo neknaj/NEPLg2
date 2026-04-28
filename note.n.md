@@ -1,3 +1,16 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker OwnerState split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`OwnerTable` と owner state merge helper を `nepl-core/src/resource/owner_state.rs` へ分離した。
+- `ResourceOwnerCheckEngine` には traversal / diagnostic emission / function summary application を残し、storage id allocation、live entry lookup、descendant owner transfer、branch merge は owner table module の責務にした。
+- 行数は `check.rs` 2288 行、`cell_state.rs` 233 行、`owner_state.rs` 131 行、`place_utils.rs` 49 行。issue はまだ open とし、次は borrow lifetime table / function summary の分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\owner_state.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc/issues.js check`: files=287, pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker CellState split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`CellTable`、raw cell obligation helper、CellState merge helper を `nepl-core/src/resource/cell_state.rs` へ分離した。

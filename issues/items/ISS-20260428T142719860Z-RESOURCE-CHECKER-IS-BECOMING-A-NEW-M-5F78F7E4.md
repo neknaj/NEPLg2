@@ -62,10 +62,24 @@ After splitting, run the full resource_ir test suite, rustfmt on the resource mo
 確認:
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\owner_state.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
 - `rustfmt --check nepl-core\src\resource\cell_state.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\place_utils.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
+
+## 2026-04-28 OwnerState table split
+
+`OwnerTable` と owner state merge helper を `nepl-core/src/resource/owner_state.rs` へ分離した。`ResourceOwnerCheckEngine` は traversal / diagnostic emission / function summary application に集中し、owner storage id allocation、live entry lookup、descendant owner transfer、branch merge は owner table module の責務にした。
+
+この分割で `check.rs` は 2288 行、`cell_state.rs` は 233 行、`owner_state.rs` は 131 行、`place_utils.rs` は 49 行になった。issue はまだ open のままとし、次は borrow lifetime table / function summary の分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\place_utils.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`

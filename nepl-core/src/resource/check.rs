@@ -19,6 +19,7 @@ use super::model::{
     ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp,
     ResourceTerminator, StorageId,
 };
+use super::owner_state::OwnerTable;
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, places_overlap, push_unique_place,
     push_unique_usize, raw_memory_cell_place, replace_place_prefix, should_track,
@@ -2308,117 +2309,6 @@ impl BorrowTable {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-struct OwnerTable {
-    owners: Vec<OwnerStateEntry>,
-    next_storage: usize,
-}
-
-impl OwnerTable {
-    fn into_entries(self) -> Vec<OwnerStateEntry> {
-        self.owners
-    }
-
-    fn state(&self, place: &Place) -> Option<OwnerState> {
-        self.owners
-            .iter()
-            .find(|entry| entry.place == *place)
-            .map(|entry| entry.state.clone())
-    }
-
-    fn allocate(&mut self, place: &Place) {
-        let storage = StorageId(self.next_storage);
-        self.next_storage += 1;
-        self.set_state(place, OwnerState::Live { storage });
-    }
-
-    fn set_state(&mut self, place: &Place, state: OwnerState) {
-        if !should_track(place) {
-            return;
-        }
-        if let Some(entry) = self.owners.iter_mut().find(|entry| entry.place == *place) {
-            entry.state = state;
-        } else {
-            self.owners.push(OwnerStateEntry {
-                place: place.clone(),
-                state,
-            });
-        }
-    }
-
-    fn live_entries(&self) -> Vec<OwnerStateEntry> {
-        self.owners
-            .iter()
-            .filter(|entry| {
-                matches!(
-                    entry.state,
-                    OwnerState::Live { .. } | OwnerState::MaybeFreed
-                )
-            })
-            .cloned()
-            .collect()
-    }
-
-    fn live_entries_under(&self, prefix: &Place) -> Vec<OwnerStateEntry> {
-        self.owners
-            .iter()
-            .filter(|entry| {
-                (entry.place == *prefix
-                    || place_suffix_after_prefix(&entry.place, prefix).is_some())
-                    && matches!(
-                        entry.state,
-                        OwnerState::Live { .. } | OwnerState::MaybeFreed
-                    )
-            })
-            .cloned()
-            .collect()
-    }
-
-    fn descendant_entries(&self, prefix: &Place) -> Vec<OwnerStateEntry> {
-        self.owners
-            .iter()
-            .filter(|entry| {
-                entry.place != *prefix
-                    && replace_place_prefix(&entry.place, prefix, prefix).is_some()
-            })
-            .cloned()
-            .collect()
-    }
-
-    fn has_transferable_owner(&self, place: &Place) -> bool {
-        self.state(place)
-            .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
-            || self
-                .descendant_entries(place)
-                .iter()
-                .any(|entry| matches!(entry.state, OwnerState::Live { .. }))
-    }
-
-    fn merge_paths(paths: &[OwnerTable]) -> Self {
-        let mut out = OwnerTable::default();
-        out.next_storage = paths
-            .iter()
-            .map(|path| path.next_storage)
-            .max()
-            .unwrap_or_default();
-        let mut places = Vec::new();
-        for path in paths {
-            for entry in &path.owners {
-                push_unique_place(&mut places, &entry.place);
-            }
-        }
-        for place in places {
-            let mut merged = OwnerState::NoFreeObligation;
-            for path in paths {
-                let state = path.state(&place).unwrap_or(OwnerState::NoFreeObligation);
-                merged = merge_owner_states(merged, state);
-            }
-            out.set_state(&place, merged);
-        }
-        out
-    }
-}
-
 fn construct_owner_field_place(
     output: &Place,
     kind: &AggregateKind,
@@ -2464,32 +2354,6 @@ fn construct_function_alias_fields(
     for (index, input) in inputs.iter().enumerate() {
         let field = construct_owner_field_place(output, kind, index, input);
         function_aliases.copy_alias(input, &field);
-    }
-}
-
-fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
-    if left == right {
-        return left;
-    }
-    match (left, right) {
-        (
-            OwnerState::Live {
-                storage: left_storage,
-            },
-            OwnerState::Live {
-                storage: right_storage,
-            },
-        ) if left_storage == right_storage => OwnerState::Live {
-            storage: left_storage,
-        },
-        (OwnerState::NoFreeObligation, OwnerState::Freed)
-        | (OwnerState::Freed, OwnerState::NoFreeObligation) => OwnerState::NoFreeObligation,
-        (OwnerState::NoFreeObligation, OwnerState::NoFreeObligation) => {
-            OwnerState::NoFreeObligation
-        }
-        (OwnerState::Moved, OwnerState::Moved) => OwnerState::Moved,
-        (OwnerState::Freed, OwnerState::Freed) => OwnerState::Freed,
-        _ => OwnerState::MaybeFreed,
     }
 }
 
