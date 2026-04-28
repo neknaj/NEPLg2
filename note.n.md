@@ -1,3 +1,20 @@
+# 2026-04-28 メモ (ISS-20260428T092058380Z self-host lexer indent stack unsafe unwrap)
+
+- 状況:
+  - GitHub Actions の `Source policy regressions` が、remote main の `fix(selfhost): emit lexer offside tokens` 以後、`stdlib/neplg2/core/syntax/lexer.nepl:397` の `unwrap<i32>` 使用で失敗していた。
+  - `lex_stack_top` は indent stack の invariant に依存していたが、失敗時に trap する unsafe helper は self-host stdlib policy に反し、破損 stack を lexer diagnostic として返せない。
+- 修正:
+  - `ISS-20260428T092058380Z-SELF-HOST-LEXER-INDENT-STACK-TOP-USE-78D14CFB` を追加し、同 commit で fixed にした。
+  - `lex_stack_top` を `lex_stack_top_result` に置き換え、空 stack / top 取得失敗を `LexErrorCode::InvalidIndentation` の `Result::Err` にした。
+  - `lex_dedent_to` と `lex_line_start` は stack-top error で token buffer と indent stack を解放して diagnostic を返すようにした。
+- 検証:
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-safe-stack-after-rebase-focused.json -j 1`: total=9, passed=9
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-safe-stack-after-rebase-focused.json -j 1`: total=34, passed=34
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。これは core static check 本体ではなく、直近の remote main を赤くしていた CI source policy failure の修正である。
+
 # 2026-04-28 メモ (ISS-20260427T132406497Z Stage 5 effect boundary shadow check)
 
 - 状況:

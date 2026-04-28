@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T09:24:58.110Z",
+  "generated_at": "2026-04-28T09:27:05.570Z",
   "counts": {
-    "total": 248,
+    "total": 249,
     "open": 12,
-    "resolved": 236,
+    "resolved": 237,
     "by_area": {
       "core": {
         "total": 103,
@@ -17,9 +17,9 @@
         "resolved": 0
       },
       "selfhost": {
-        "total": 15,
+        "total": 16,
         "open": 2,
-        "resolved": 13
+        "resolved": 14
       },
       "stdlib": {
         "total": 94,
@@ -1923,6 +1923,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235.md"
+    },
+    {
+      "id": "ISS-20260428T092058380Z-SELF-HOST-LEXER-INDENT-STACK-TOP-USE-78D14CFB",
+      "title": "self-host lexer indent stack top uses unsafe unwrap",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, nodesrc/test_stdlib_no_unsafe_helpers.js, tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T092058380Z-SELF-HOST-LEXER-INDENT-STACK-TOP-USE-78D14CFB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

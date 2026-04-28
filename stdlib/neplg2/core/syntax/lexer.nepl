@@ -392,9 +392,19 @@ fn lex_indent_directive_unit <(str,i32,i32,i32)->i32> (source, n, content_start,
         else:
             current_unit
 
-//: lex_stack_top: indent stack の末尾を[読/よ]む
-fn lex_stack_top <(&Vec<i32>)->i32> (stack):
-    unwrap<i32> get_ref<i32> stack sub len_ref<i32> stack 1
+//: lex_stack_top_result: indent stack の末尾を[読/よ]む
+fn lex_stack_top_result <(&Vec<i32>,i32)->Result<i32,LexDiagnostic>> (stack, offset):
+    let stack_len <i32> len_ref<i32> stack
+    if:
+        le stack_len 0
+        then:
+            Result<i32,LexDiagnostic>::Err lex_diag_new LexErrorCode::InvalidIndentation source_span_empty 0 offset "lexer indent stack is empty"
+        else:
+            match get_ref<i32> stack sub stack_len 1:
+                Option::Some top:
+                    Result<i32,LexDiagnostic>::Ok top
+                Option::None:
+                    Result<i32,LexDiagnostic>::Err lex_diag_new LexErrorCode::InvalidIndentation source_span_empty 0 offset "lexer indent stack top is unavailable"
 
 //: lex_stack_drop_top: indent stack の末尾 level を[捨/す]てた Vec を[返/かえ]す
 fn lex_stack_drop_top <(Vec<i32>)->Vec<i32>> (stack):
@@ -595,24 +605,29 @@ fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32)*>Result<Vec<SelfhostToken>,
 
 //: lex_dedent_to: current line の indent level に合うまで Dedent を[生成/せいせい]する
 fn lex_dedent_to <(str,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, idx, tokens, stack, indent_unit, target_width, at_line_start):
-    let current <i32> lex_stack_top &stack
-    if:
-        eq current target_width
-        then:
-            lex_all_loop source n idx tokens stack indent_unit at_line_start true
-        else:
+    match lex_stack_top_result &stack idx:
+        Result::Err diag:
+            free<SelfhostToken> tokens
+            free<i32> stack
+            Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
+        Result::Ok current:
             if:
-                lt current target_width
+                eq current target_width
                 then:
-                    lex_fail_indent tokens stack idx "indentation level does not match any previous indent"
+                    lex_all_loop source n idx tokens stack indent_unit at_line_start true
                 else:
-                    let next_stack <Vec<i32>> lex_stack_drop_top stack
-                    match lex_push_structural tokens TokenKind::Dedent idx:
-                        Result::Ok out:
-                            lex_dedent_to source n idx out next_stack indent_unit target_width at_line_start
-                        Result::Err diag:
-                            free<i32> next_stack
-                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
+                    if:
+                        lt current target_width
+                        then:
+                            lex_fail_indent tokens stack idx "indentation level does not match any previous indent"
+                        else:
+                            let next_stack <Vec<i32>> lex_stack_drop_top stack
+                            match lex_push_structural tokens TokenKind::Dedent idx:
+                                Result::Ok out:
+                                    lex_dedent_to source n idx out next_stack indent_unit target_width at_line_start
+                                Result::Err diag:
+                                    free<i32> next_stack
+                                    Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
 
 //: lex_line_start: 行頭の offside rule を[処理/しょり]する
 fn lex_line_start <(str,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, idx, tokens, stack, indent_unit):
@@ -624,33 +639,38 @@ fn lex_line_start <(str,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32)*>Result<Vec<Sel
         else:
             let indent_width <i32> lex_line_indent_width source n idx indent_unit 0
             let next_indent_unit <i32> lex_indent_directive_unit source n content_start indent_unit
-            let current <i32> lex_stack_top &stack
-            if:
-                gt indent_width current
-                then:
+            match lex_stack_top_result &stack idx:
+                Result::Err diag:
+                    free<SelfhostToken> tokens
+                    free<i32> stack
+                    Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
+                Result::Ok current:
                     if:
-                        lex_indent_aligned indent_width next_indent_unit
+                        gt indent_width current
                         then:
-                            match push<i32> stack indent_width:
-                                Result::Ok next_stack:
-                                    match lex_push_structural tokens TokenKind::Indent idx:
-                                        Result::Ok out:
-                                            lex_all_loop source n idx out next_stack next_indent_unit true true
-                                        Result::Err diag:
-                                            free<i32> next_stack
-                                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
-                                Result::Err _e:
-                                    free<SelfhostToken> tokens
-                                    Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory source_span_empty 0 idx "lexer indent stack allocation failed"
+                            if:
+                                lex_indent_aligned indent_width next_indent_unit
+                                then:
+                                    match push<i32> stack indent_width:
+                                        Result::Ok next_stack:
+                                            match lex_push_structural tokens TokenKind::Indent idx:
+                                                Result::Ok out:
+                                                    lex_all_loop source n idx out next_stack next_indent_unit true true
+                                                Result::Err diag:
+                                                    free<i32> next_stack
+                                                    Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
+                                        Result::Err _e:
+                                            free<SelfhostToken> tokens
+                                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory source_span_empty 0 idx "lexer indent stack allocation failed"
+                                else:
+                                    lex_fail_indent tokens stack idx "indentation is not aligned to #indent width"
                         else:
-                            lex_fail_indent tokens stack idx "indentation is not aligned to #indent width"
-                else:
-                    if:
-                        lt indent_width current
-                        then:
-                            lex_dedent_to source n idx tokens stack next_indent_unit indent_width true
-                        else:
-                            lex_all_loop source n idx tokens stack next_indent_unit true true
+                            if:
+                                lt indent_width current
+                                then:
+                                    lex_dedent_to source n idx tokens stack next_indent_unit indent_width true
+                                else:
+                                    lex_all_loop source n idx tokens stack next_indent_unit true true
 
 //: lex_all_loop: EOF まで token を[集/あつ]め、offside structural token を[挿入/そうにゅう]する
 fn lex_all_loop <(str,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, idx, tokens, stack, indent_unit, at_line_start, line_checked):
