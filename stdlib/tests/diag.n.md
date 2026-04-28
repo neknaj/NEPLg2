@@ -33,10 +33,10 @@ fn main <()*>i32> ():
     let d3 <Diag> diag_add_help d2 "doc: std/test";
     let d4 <Diag> diag_with_source d3 "parser";
     let s <str> diag_to_string d4;
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_str_eq "error[Failure]: with source\nat 4:5-6\ncheck input\nhelp: doc: std/test\nsource: parser\n" s
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -66,9 +66,9 @@ fn main <()*>i32> ():
     let ds0 <Diags> diags_one diag_warn "careful";
     let ds1 <Diags> diags_push ds0 diag_info "loaded";
     let s <str> diags_to_string ds1;
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_str_eq "warn[warn]: careful\ninfo[info]: loaded\n" s
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

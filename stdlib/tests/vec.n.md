@@ -16,7 +16,7 @@ ret: 0
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let v0_empty <Vec<i32>> unwrap_ok new<i32>;
     set checks checks_push checks check is_empty<i32> v0_empty;
     let v0_ptr <Vec<i32>> unwrap_ok new<i32>;
@@ -93,7 +93,7 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get<u8> returned None";
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -128,7 +128,7 @@ fn lt_four <(i32)->bool> (x):
     lt x 4
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let mapped_src <Vec<i32>>:
         unwrap_ok new<i32>
@@ -303,6 +303,6 @@ fn main <()*>i32> ():
         |> push 5 |> uwok
     set checks checks_push checks check_eq_i32 2 count<i32> count_src is_even;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

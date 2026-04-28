@@ -32,7 +32,7 @@ fn expect_str_ok <(str,Result<str,str>,str)*>Result<(),str>> (label, got, expect
 
 fn main <()*>i32> ():
     let s <str> "Aあ💯"
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_eq_i32 8 str_byte_len s
         |> checks_push assert_eq_i32 3 str_char_count s
@@ -76,7 +76,7 @@ fn expect_next <(str,Result<CharUtf8Step,str>,i32,i32)*>Result<(),str>> (label, 
 
 fn main <()*>i32> ():
     let s <str> "Aあ"
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_next "next A" str_next_char_result s 0 'A' 1
         |> checks_push expect_next "next hira" str_next_char_result s 1 0x3042 4
@@ -137,7 +137,7 @@ fn main <()*>i32> ():
             Result<(),str>::Err e
         Result::Ok out:
             check_str_eq "Aあ" out
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_str_eq "Aあ!" text
         |> checks_push bytes_check

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T21:43:02.956Z",
+  "generated_at": "2026-04-28T22:11:40.713Z",
   "counts": {
     "total": 323,
-    "open": 12,
-    "resolved": 311,
+    "open": 11,
+    "resolved": 312,
     "by_area": {
       "core": {
         "total": 151,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 98,
-        "open": 6,
-        "resolved": 92
+        "open": 5,
+        "resolved": 93
       },
       "selfhost": {
         "total": 37,
@@ -168,21 +168,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A",
-      "title": "std/test aggregate helpers raw-load Vec backing store under RawMemoryLoadCell gate",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/std/test.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -3303,6 +3288,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T182814629Z-STD-TEST-CHECK-AGGREGATION-TRIPS-RES-86ECD003.md"
+    },
+    {
+      "id": "ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A",
+      "title": "std/test aggregate helpers raw-load Vec backing store under RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/test.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

@@ -30,7 +30,7 @@ fn score <(i32)->i32> (raw):
     clamp_0_10 adjusted
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 0 score -10
         |> checks_push check_eq_i32 8 score 5

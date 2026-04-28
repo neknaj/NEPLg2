@@ -35,7 +35,7 @@ fn expect_err <(Result<i32,str>,str)->Result<(),str>> (got, expected):
             check_str_eq expected msg
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_ok divide_10 2 5
         |> checks_push expect_err divide_10 0 "division by zero"

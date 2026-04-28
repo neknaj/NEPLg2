@@ -16,11 +16,11 @@ neplg2:test
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     set checks checks_push checks check_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456;
     set checks checks_push checks check_eq_i32 hash32_by_trait "abc" hash32_by_trait "abc";
     set checks checks_push checks check ne hash32_by_trait 123456 hash32_by_trait 123457;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -205,7 +205,7 @@ fn must_hmk <(Result<HashMap<ModKey,i32,ModHasher>, Diag>)*>HashMap<ModKey,i32,M
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let hm <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
     let hm <HashMap<i32,i32,DefaultHash32>> must_hm insert hm 10 99;
     match get hm 10:
@@ -229,7 +229,7 @@ fn main <()*>i32> ():
             set checks checks_push checks check_eq_i32 3 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "custom key hashmap get did not return inserted value";
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -302,7 +302,7 @@ fn must_hsk <(Result<HashSet<ModKey,ModHasher>, Diag>)*>HashSet<ModKey,ModHasher
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let hs <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
     let hs <HashSet<i32,DefaultHash32>> must_hs insert hs 42;
@@ -312,6 +312,6 @@ fn main <()*>i32> ():
     let hsk <HashSet<ModKey,ModHasher>> must_hsk insert hsk (ModKey 21);
     set checks checks_push checks check contains hsk (ModKey 21);
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

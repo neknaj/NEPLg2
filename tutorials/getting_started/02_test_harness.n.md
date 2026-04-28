@@ -13,7 +13,7 @@ ret: 0
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 3 add 1 2
         |> checks_push check_str_eq "hello" "hello"

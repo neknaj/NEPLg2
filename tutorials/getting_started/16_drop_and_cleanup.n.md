@@ -18,7 +18,7 @@ fn main <()*>i32> ():
         Result::Err _e:
             checks_exit_code checks_push checks_new Result<(),str>::Err "vec.new failed"
         Result::Ok values:
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push check_eq_i32 0 len_ref<i32> &values
             free<i32> values;

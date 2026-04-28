@@ -92,7 +92,7 @@ fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let m0 <BTreeMap<i32,i32>>:
         new<i32,i32>
         |> must_map
@@ -121,7 +121,7 @@ fn main <()*>i32> ():
         |> insert<i32,i32> 1 10
         |> must_map
     set checks checks_push checks check contains<i32,i32> m2 1;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -146,7 +146,7 @@ fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
@@ -169,7 +169,7 @@ fn main <()*>i32> ():
         |> must_set
         |> remove<i32> 5
     set checks checks_push checks check not contains<i32> s2 5;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -196,7 +196,7 @@ fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,Defa
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let hm0 <HashMap<i32,i32,DefaultHash32>>:
         must_hm new DefaultHash32
         |> insert 7 70
@@ -222,7 +222,7 @@ fn main <()*>i32> ():
         |> insert 9 90
         |> must_hm
     set checks checks_push checks check contains hm2 7;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -251,7 +251,7 @@ fn new_hs <()*>Result<HashSet<i32,DefaultHash32>,Diag>> ():
     new DefaultHash32
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let hs0 <HashSet<i32,DefaultHash32>>:
         new_hs
         |> must_hs
@@ -268,7 +268,7 @@ fn main <()*>i32> ():
         |> insert 8
         |> must_hs
     set checks checks_push checks check contains hs1 8;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 

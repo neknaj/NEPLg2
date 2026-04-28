@@ -21,7 +21,7 @@ fn positive_double <(i32)->Option<i32>> (x):
         else none<i32>
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new
+    let mut checks checks_new
     // Test is_some
     set checks checks_push checks assert is_some<.i32> some<.i32> 42;
     set checks checks_push checks assert_ne true is_none<.i32> some<.i32> 42;

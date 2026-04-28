@@ -24,7 +24,7 @@ fn or_default <.T> <(Option<.T>,.T)->.T> (value, default):
             default
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 42 identity 42
         |> checks_push check_str_eq "nepl" identity "nepl"

@@ -95,7 +95,7 @@ ret: 0
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_str_eq "" tui::line_top 0
         |> checks_push assert_str_eq "┌" tui::line_top 1

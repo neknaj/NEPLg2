@@ -16,7 +16,7 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*> i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let jn1 <JsonValue> json_null
     set checks checks_push checks check json_is_null jn1
@@ -71,6 +71,6 @@ fn main <()*> i32> ():
     let jo1 <JsonValue> json_object obj1
     set checks checks_push checks check is_none<str> json_as_string jo1
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks
+    let shown checks_print_report checks
     checks_exit_code shown
 ```

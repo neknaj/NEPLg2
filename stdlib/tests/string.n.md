@@ -122,7 +122,7 @@ fn expect_find_some <(str,Option<i32>,i32)*>Result<(),str>> (label, got, expecte
             Result<(),str>::Err label
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_find_some "empty" find "abc" "" 0
         |> checks_push expect_find_some "prefix" find "abc" "ab" 0
@@ -195,7 +195,7 @@ fn main <()*>i32> ():
                                         Result<str,str>::Err e
                                     Result::Ok sb3:
                                         sb_build_result sb3
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_str_ok "concat: " concat_result "ab" "cd" "abcd"
         |> checks_push expect_str_ok "slice: " str_slice_result "abcdef" 2 5 "cde"
@@ -222,7 +222,7 @@ ret: 0
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let src <str> "こんにちは";
     match string_from_utf8_mem_result string_data_ptr src len src:
         Result::Ok copied:
@@ -282,7 +282,7 @@ fn expect_f64_err <(str,Result<f64,i32>)*>Result<(),str>> (label, got):
             Result<(),str>::Ok ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let expected_integer <f64> <f64> cast 123;
     let expected_signed_fraction <f64> div <f64> cast -3 <f64> cast 2;
     let expected_leading_fraction <f64> div <f64> cast 1 <f64> cast 2;
@@ -334,7 +334,7 @@ fn expect_slice_err <(str,Result<str,str>)*>Result<(),str>> (label, got):
             Result<(),str>::Ok ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     set checks checks_push checks expect_slice_ok "full: " (str_slice_result "あ" 0 3) "あ";
     set checks checks_push checks expect_slice_ok "second: " (str_slice_result "あい" 3 6) "い";
     set checks checks_push checks expect_slice_err "cut end: " (str_slice_result "あ" 0 1);

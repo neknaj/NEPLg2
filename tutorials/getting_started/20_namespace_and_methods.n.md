@@ -32,7 +32,7 @@ fn main <()*>i32> ():
     let small <Option<i32>> Option<i32>::Some 3
     let large <Option<i32>> Option<i32>::Some 30
     let empty <Option<i32>> Option<i32>::None
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 1 option_code small
         |> checks_push check_eq_i32 2 option_code large

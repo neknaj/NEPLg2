@@ -264,7 +264,7 @@ fn sha256_expected_byte <(i32,i32)->i32> (kind, idx):
         _:
             #intrinsic "unreachable" <> ()
 
-fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,Vec<Result<(),str>>)*>Vec<Result<(),str>>> (digest, kind, idx, checks):
+fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,Checks)*>Checks> (digest, kind, idx, checks):
     if:
         ge idx 32
         then:
@@ -272,20 +272,20 @@ fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,Vec<Result<(),str>>)*>Vec<Result
         else:
             match get_ref<i32> digest idx:
                 Option::None:
-                    let next_checks <Vec<Result<(),str>>> checks_push checks Result<(),str>::Err "sha256 digest missing byte"
+                    let next_checks checks_push checks Result<(),str>::Err "sha256 digest missing byte"
                     sha256_check_digest_loop digest kind add idx 1 next_checks
                 Option::Some actual:
-                    let next_checks <Vec<Result<(),str>>> checks_push checks check_eq_i32 sha256_expected_byte kind idx actual
+                    let next_checks checks_push checks check_eq_i32 sha256_expected_byte kind idx actual
                     sha256_check_digest_loop digest kind add idx 1 next_checks
 
-fn sha256_check_result <(Result<Vec<i32>, StdErrorKind>,i32,Vec<Result<(),str>>)*>Vec<Result<(),str>>> (digest_result, kind, checks):
+fn sha256_check_result <(Result<Vec<i32>, StdErrorKind>,i32,Checks)*>Checks> (digest_result, kind, checks):
     match digest_result:
         Result::Err _e:
             checks_push checks Result<(),str>::Err "sha256 digest returned error"
         Result::Ok digest:
             let digest_len <i32> len_ref<i32> &digest
-            let checks1 <Vec<Result<(),str>>> checks_push checks check_eq_i32 32 digest_len
-            let checks2 <Vec<Result<(),str>>> sha256_check_digest_loop &digest kind 0 checks1
+            let checks1 checks_push checks check_eq_i32 32 digest_len
+            let checks2 sha256_check_digest_loop &digest kind 0 checks1
             free<i32> digest
             checks2
 
@@ -298,14 +298,14 @@ fn main <()*>i32> ():
     let abc_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abc"
     let multi_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
 
-    let checks0 <Vec<Result<(),str>>>:
+    let checks0:
         checks_new
         |> checks_push check_eq_i32 -468965076 result
         |> checks_push check_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456
         |> checks_push check ne hash32_by_trait 123456 hash32_by_trait 123457
-    let checks1 <Vec<Result<(),str>>> sha256_check_result empty_digest 0 checks0
-    let checks2 <Vec<Result<(),str>>> sha256_check_result abc_digest 1 checks1
-    let checks3 <Vec<Result<(),str>>> sha256_check_result multi_digest 2 checks2
-    let shown <Vec<Result<(),str>>> checks_print_report checks3;
+    let checks1 sha256_check_result empty_digest 0 checks0
+    let checks2 sha256_check_result abc_digest 1 checks1
+    let checks3 sha256_check_result multi_digest 2 checks2
+    let shown checks_print_report checks3;
     checks_exit_code shown
 ```

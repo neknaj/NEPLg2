@@ -51,7 +51,7 @@ ret: 0
 
 fn main <()*>i32> ():
     let n <u8> cast 9;
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_str_eq "42" stringify 42
         |> checks_push assert_str_eq "true" stringify true
@@ -71,7 +71,7 @@ ret: 0
 #import "core/traits/debug" as *
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_str_eq "\"abc\"" debug_string "abc"
         |> checks_push assert_str_eq "5" debug_string 5

@@ -71,7 +71,7 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new
+    let mut checks checks_new
     let missing <ReadStream> ReadStream::Fs "__definitely_missing_file__.txt"
     let result0 <Result<str, StdErrorKind>> read missing
     match result0:
@@ -79,7 +79,7 @@ fn main <()*>i32> ():
             set checks checks_push checks Result<(),str>::Err "io fs read unexpectedly succeeded"
         Result::Err kind:
             set checks checks_push checks check_str_eq "IoError" std_error_kind_str kind
-    let shown <Vec<Result<(),str>>> checks_print_report checks
+    let shown checks_print_report checks
     checks_exit_code shown
 ```
 

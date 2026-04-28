@@ -15,7 +15,7 @@ neplg2:test
 #import "core/field" as *
 
 fn test_rand <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new
+    let mut checks checks_new
 
     let rng0 new_xorshift32 42
 
@@ -37,6 +37,6 @@ fn test_rand <()*>i32> ():
     let vz1 get rng_z1 "state"
     set checks checks_push checks check_ne eq vz1 0 true
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks
+    let shown checks_print_report checks
     checks_exit_code shown
 ```

@@ -17,7 +17,7 @@ fn main <()*>i32> ():
     let ok <bool> true
     let text <str> "nepl"
     let unit <()> ()
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 42 add n 2
         |> checks_push check ok

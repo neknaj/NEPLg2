@@ -36,7 +36,7 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     set checks checks_push checks check_str_eq "Failure" std_error_kind_str StdErrorKind::Failure;
     set checks checks_push checks check_str_eq "OutOfMemory" std_error_kind_str StdErrorKind::OutOfMemory;
 
@@ -66,7 +66,7 @@ fn main <()*>i32> ():
     let ds1 <Diags> diags_push ds0 diag_warn "careful";
     set checks checks_push checks check_eq_i32 2 diags_len &ds1;
     set checks checks_push checks check diags_has_errors &ds1;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -99,7 +99,7 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let ok0 <Outcome<i32, StdErrorKind>> outcome_ok<i32, StdErrorKind> 42;
     match outcome_result &ok0:
         Result::Ok v:
@@ -206,7 +206,7 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "expected ParseError";
                 StdErrorKind::Other:
                     set checks checks_push checks Result<(),str>::Err "expected ParseError";
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -234,7 +234,7 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let r0 <Result<i32, StdErrorKind>> Result::Ok 9;
     let o0 <Outcome<i32, StdErrorKind>> into_outcome r0;
     set checks checks_push checks check result_like_is_ok r0;
@@ -259,6 +259,6 @@ fn main <()*>i32> ():
     let o2 <Outcome<i32, StdErrorKind>> into_outcome o1;
     set checks checks_push checks check result_like_is_ok &o2;
     set checks checks_push checks check_eq_i32 1 diags_len outcome_diags_or_empty o2;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

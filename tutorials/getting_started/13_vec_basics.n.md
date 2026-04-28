@@ -45,7 +45,7 @@ fn main <()*>i32> ():
             let len_ok <Result<(),str>> check_eq_i32 2 n
             let item0 <Result<(),str>> expect_item &numbers 0 10
             let item1 <Result<(),str>> expect_item &numbers 1 20
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push len_ok
                 |> checks_push item0

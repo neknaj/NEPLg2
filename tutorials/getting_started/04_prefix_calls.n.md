@@ -24,7 +24,7 @@ fn main <()*>i32> ():
         10
         |> add_five
         |> double
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 30 prefix
         |> checks_push check_eq_i32 30 piped

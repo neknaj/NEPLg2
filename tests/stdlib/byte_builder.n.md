@@ -18,7 +18,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match byte_builder_with_capacity 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "builder alloc failed"
@@ -71,7 +71,7 @@ fn main <()*>i32> ():
                                                                                     set checks checks_push checks check_eq_i32 0 load_u8 add raw 6;
                                                                                     set checks checks_push checks check_eq_i32 0 load_u8 add raw 7;
                                                                                     io_bytebuf_free bytes;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -93,7 +93,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match byte_builder_new:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "builder alloc failed"
@@ -113,7 +113,7 @@ fn main <()*>i32> ():
                             set checks checks_push checks check_eq_i32 142 load_u8 add raw 1;
                             set checks checks_push checks check_eq_i32 38 load_u8 add raw 2;
                             io_bytebuf_free bytes;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -135,7 +135,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match alloc_ptr<u8> 10:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "source alloc failed"
@@ -185,6 +185,6 @@ fn main <()*>i32> ():
                                     set checks checks_push checks check_eq_i32 'E' load_u8 add raw 4;
                                     set checks checks_push checks check_eq_i32 'J' load_u8 add raw 9;
                                     io_bytebuf_free bytes;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

@@ -22,7 +22,7 @@ fn item_at <(&SelfhostModuleAst,i32)->SelfhostModuleItem> (ast, idx):
 fn main <()*>i32> ():
     let source_main <str> "fn main <()->i32> ():\n    0\n"
     let source_helper <str> "//: helper\nfn helper <()->i32> ():\n    1\n"
-    let checks0 <Vec<Result<(),str>>> checks_new
+    let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
             match selfhost_vfs_add vfs0 "main.nepl" source_main:
@@ -37,31 +37,31 @@ fn main <()*>i32> ():
                                     let kind_name <str> selfhost_module_item_kind_name item.kind
                                     let span_file_id <i32> item.span.file_id
                                     let path <str> selfhost_loaded_module_path &loaded
-                                    let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 2 item_len
-                                    let checks2 <Vec<Result<(),str>>> checks_push checks1 check_str_eq "helper.nepl" path
-                                    let checks3 <Vec<Result<(),str>>> checks_push checks2 check_str_eq "FunctionDecl" kind_name
-                                    let checks4 <Vec<Result<(),str>>> checks_push checks3 check_eq_i32 1 span_file_id
-                                    let checks5 <Vec<Result<(),str>>> checks_push checks4 check_eq_i32 2 selfhost_vfs_len &vfs2
+                                    let checks1 checks_push checks0 check_eq_i32 2 item_len
+                                    let checks2 checks_push checks1 check_str_eq "helper.nepl" path
+                                    let checks3 checks_push checks2 check_str_eq "FunctionDecl" kind_name
+                                    let checks4 checks_push checks3 check_eq_i32 1 span_file_id
+                                    let checks5 checks_push checks4 check_eq_i32 2 selfhost_vfs_len &vfs2
                                     selfhost_loaded_module_free loaded
                                     selfhost_vfs_free vfs2
-                                    let shown <Vec<Result<(),str>>> checks_print_report checks5
+                                    let shown checks_print_report checks5
                                     checks_exit_code shown
                                 Result::Err _diag:
                                     selfhost_vfs_free vfs2
-                                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "loader returned Err"
-                                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                    let checks1 checks_push checks0 Result<(),str>::Err "loader returned Err"
+                                    let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "second VFS add failed"
-                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                            let checks1 checks_push checks0 Result<(),str>::Err "second VFS add failed"
+                            let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "first VFS add failed"
-                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                    let checks1 checks_push checks0 Result<(),str>::Err "first VFS add failed"
+                    let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "VFS allocation failed"
-            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            let checks1 checks_push checks0 Result<(),str>::Err "VFS allocation failed"
+            let shown checks_print_report checks1
             checks_exit_code shown
 ```
 
@@ -81,7 +81,7 @@ ret: 0
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
 
-fn check_missing_note <(Vec<Result<(),str>>, Option<str>)*>Vec<Result<(),str>>> (checks, note):
+fn check_missing_note <(Checks, Option<str>)*>Checks> (checks, note):
     match note:
         Option::Some text:
             checks_push checks check_str_eq "missing.nepl" text
@@ -89,24 +89,24 @@ fn check_missing_note <(Vec<Result<(),str>>, Option<str>)*>Vec<Result<(),str>>> 
             checks_push checks Result<(),str>::Err "missing file diagnostic note was absent"
 
 fn main <()*>i32> ():
-    let checks0 <Vec<Result<(),str>>> checks_new
+    let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs:
             match selfhost_load_module &vfs "missing.nepl":
                 Result::Ok loaded:
                     selfhost_loaded_module_free loaded
                     selfhost_vfs_free vfs
-                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "missing file was loaded"
-                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                    let checks1 checks_push checks0 Result<(),str>::Err "missing file was loaded"
+                    let shown checks_print_report checks1
                     checks_exit_code shown
                 Result::Err diag:
-                    let checks1 <Vec<Result<(),str>>> checks_push checks0 check_str_eq "selfhost.loader.file_not_found" diag.code
-                    let checks2 <Vec<Result<(),str>>> check_missing_note checks1 diag.note
+                    let checks1 checks_push checks0 check_str_eq "selfhost.loader.file_not_found" diag.code
+                    let checks2 check_missing_note checks1 diag.note
                     selfhost_vfs_free vfs
-                    let shown <Vec<Result<(),str>>> checks_print_report checks2
+                    let shown checks_print_report checks2
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "VFS allocation failed"
-            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            let checks1 checks_push checks0 Result<(),str>::Err "VFS allocation failed"
+            let shown checks_print_report checks1
             checks_exit_code shown
 ```

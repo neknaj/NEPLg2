@@ -31,7 +31,7 @@ fn fizzbuzz_word <(i32)->str> (n):
                             "Number"
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_str_eq "Number" fizzbuzz_word 1
         |> checks_push check_str_eq "Fizz" fizzbuzz_word 3

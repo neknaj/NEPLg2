@@ -26,7 +26,7 @@ fn main <()*>i32> ():
     let cast_42_bool <bool> cast 42;
     let cast_0_bool <bool> cast 0;
     let b <u8> cast 222;
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_eq_i32 1 bti_true_i32
         |> checks_push assert_eq_i32 0 bti_false_i32
@@ -39,6 +39,6 @@ fn main <()*>i32> ():
         |> checks_push assert cast_42_bool
         |> checks_push assert_ne true cast_0_bool
         |> checks_push assert_eq_i32 222 cast b
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

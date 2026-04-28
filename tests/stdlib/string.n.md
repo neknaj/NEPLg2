@@ -325,7 +325,7 @@ fn main <()* >i32> ():
             set sb sb_append sb "a";
             set i add i 1;
     let out <str> sb_build sb;
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_eq_i32 2000 len out
     checks_exit_code checks

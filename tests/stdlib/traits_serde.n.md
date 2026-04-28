@@ -16,12 +16,12 @@ neplg2:test
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     set checks checks_push checks check_str_eq "true" serialize true;
     set checks checks_push checks check_str_eq "42" serialize 42;
     set checks checks_push checks check_str_eq "9001" serialize <i64> cast 9001;
     set checks checks_push checks check_str_eq "abc" serialize "abc";
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -42,7 +42,7 @@ neplg2:test
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     match deserialize<i32> "42":
         Result::Ok v:
@@ -83,6 +83,6 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "wrong error kind";
                 StdErrorKind::Other:
                     set checks checks_push checks Result<(),str>::Err "wrong error kind";
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

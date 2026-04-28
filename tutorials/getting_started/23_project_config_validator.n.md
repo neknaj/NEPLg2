@@ -44,7 +44,7 @@ fn expect_invalid <(ServerConfig,str)->Result<(),str>> (config, expected):
             check_str_eq expected msg
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_valid ServerConfig 8080 4
         |> checks_push expect_invalid ServerConfig 0 4 "port too small"

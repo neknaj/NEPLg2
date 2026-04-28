@@ -23,7 +23,7 @@ fn point_or_zero <(Option<i32>)->i32> (value):
 fn main <()*>i32> ():
     let a <Option<i32>> some<i32> 42
     let b <Option<i32>> none<i32>
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 42 point_or_zero a
         |> checks_push check_eq_i32 0 point_or_zero b

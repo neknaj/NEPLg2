@@ -3095,7 +3095,7 @@ fn to_f32 <(str)->Result<f32,i32>> (s):
 //:             Result<(),str>::Err label
 //:
 //: fn main <()*>i32> ():
-//:     let checks <Vec<Result<(),str>>>:
+//:     let checks:
 //:         checks_new
 //:         |> checks_push expect_find_some "empty" find "abc" "" 0
 //:         |> checks_push expect_find_some "prefix" find "abc" "ab" 0

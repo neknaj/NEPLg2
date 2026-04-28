@@ -17,7 +17,7 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new
+    let mut checks checks_new
     let span <SelfhostSourceSpan> source_span_new 4 10 14
     let label <SelfhostDiagnosticLabel> selfhost_diag_label_new span "identifier"
     let diag0 <SelfhostDiagnostic> selfhost_diag_error "parse.expected_identifier" "expected identifier"
@@ -56,7 +56,7 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "diagnostics one failed"
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks
+    let shown checks_print_report checks
     checks_exit_code shown
 ```
 
@@ -75,7 +75,7 @@ neplg2:test
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new
+    let mut checks checks_new
 
     match selfhost_outcome_ok<i32,str> 42:
         Result::Ok ok0:
@@ -113,7 +113,7 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "outcome err failed"
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks
+    let shown checks_print_report checks
     checks_exit_code shown
 ```
 

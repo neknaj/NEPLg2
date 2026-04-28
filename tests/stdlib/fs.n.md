@@ -16,13 +16,13 @@ neplg2:test
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match fs_read_to_string "__definitely_missing_file__.txt":
         Result::Ok _s:
             set checks checks_push checks Result<(),str>::Err "fs_read_to_string unexpectedly succeeded"
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Ok ();
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -44,11 +44,11 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let bytes <ByteBuf> io_bytebuf_from_str "fs helper";
     let text <str> fs_bytes_to_string bytes;
     set checks checks_push checks check_str_eq "fs helper" text;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -70,7 +70,7 @@ ret: 0
 
 fn main <()*>i32> ():
     let path <str> "tmp/fs_write_to_string_case.txt"
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match fs_write_to_string path "first-longer":
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "first write failed"
@@ -84,7 +84,7 @@ fn main <()*>i32> ():
                             set checks checks_push checks Result<(),str>::Err "read after write failed"
                         Result::Ok text:
                             set checks checks_push checks check_str_eq "second" text;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -108,7 +108,7 @@ ret: 0
 
 fn main <()*>i32> ():
     let path <str> "tmp/fs_write_to_bytes_case.bin"
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match alloc_ptr<u8> 3:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
@@ -132,7 +132,7 @@ fn main <()*>i32> ():
                             set checks checks_push checks check_eq_i32 0 load_u8 add read_raw 1;
                             set checks checks_push checks check_eq_i32 66 load_u8 add read_raw 2;
                             io_bytebuf_free read_buf;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -153,7 +153,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     set checks checks_push checks check fs_exists "tests/fixtures/fs/read_sample.txt";
     set checks checks_push checks check fs_is_file "tests/fixtures/fs/read_sample.txt";
     set checks checks_push checks check fs_is_dir "tests/fixtures/fs/dirlist";
@@ -163,7 +163,7 @@ fn main <()*>i32> ():
             set checks checks_push checks Result<(),str>::Err "missing path unexpectedly exists"
         else:
             set checks checks_push checks Result<(),str>::Ok ();
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -184,7 +184,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match fs_normalize_relative "tests/fixtures/fs/dirlist/../read_sample.txt":
         Result::Ok path:
             set checks checks_push checks check_str_eq "tests/fixtures/fs/read_sample.txt" path
@@ -200,7 +200,7 @@ fn main <()*>i32> ():
             set checks checks_push checks Result<(),str>::Err "parent escape normalized successfully"
         Result::Err e:
             set checks checks_push checks check_eq_i32 76 e;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -225,7 +225,7 @@ ret: 0
 #import "alloc/string" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match fs_read_dir "tests/fixtures/fs/dirlist":
         Result::Err e:
             set checks checks_push checks Result<(),str>::Err concat "fs_read_dir failed errno=" from_i32 e
@@ -236,6 +236,6 @@ fn main <()*>i32> ():
             set checks checks_push checks check_str_eq "beta.n.md" load<str> add entries_data size_of<str>;
             set checks checks_push checks check_str_eq "zeta.txt" load<str> add entries_data mul 2 size_of<str>;
             v::free<str> entries;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

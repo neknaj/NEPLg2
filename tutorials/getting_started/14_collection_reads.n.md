@@ -31,7 +31,7 @@ fn main <()*>i32> ():
             let has0 <bool> has_at &values 0 7
             let has2 <bool> has_at &values 2 7
             let has3 <bool> has_at &values 3 7
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push len_ok
                 |> checks_push check has0

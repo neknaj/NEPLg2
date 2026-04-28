@@ -21,7 +21,7 @@ fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
@@ -33,7 +33,7 @@ fn main <()*>i32> ():
         |> must_set
     set checks checks_push checks check_eq_i32 3 len<i32> s0;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -58,7 +58,7 @@ fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
@@ -82,7 +82,7 @@ fn main <()*>i32> ():
         |> must_set
     set checks checks_push checks check contains<i32> s0 8;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -107,7 +107,7 @@ fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
@@ -135,7 +135,7 @@ fn main <()*>i32> ():
         |> remove<i32> 1
     set checks checks_push checks check_eq_i32 1 len<i32> s2;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -160,7 +160,7 @@ fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let s0 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
@@ -170,6 +170,6 @@ fn main <()*>i32> ():
         |> must_set
     set checks checks_push checks check_eq_i32 1 len<i32> s0;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

@@ -21,7 +21,7 @@ fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let m0 <BTreeMap<i32,i32>>:
         new<i32,i32>
@@ -34,7 +34,7 @@ fn main <()*>i32> ():
         |> must_map
     set checks checks_push checks check_eq_i32 3 len<i32,i32> m0;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -60,7 +60,7 @@ fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let m0 <BTreeMap<i32,i32>>:
         new<i32,i32>
@@ -89,7 +89,7 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "btreemap grow boundary lost inserted value";
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -115,7 +115,7 @@ fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let m0 <BTreeMap<i32,i32>>:
         new<i32,i32>
@@ -140,7 +140,7 @@ fn main <()*>i32> ():
         |> remove<i32,i32> 1
     set checks checks_push checks check_eq_i32 1 len<i32,i32> m1;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -166,7 +166,7 @@ fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
             #intrinsic "unreachable" <> ()
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let m0 <BTreeMap<i32,i32>>:
         new<i32,i32>
@@ -181,6 +181,6 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "btreemap update did not overwrite value";
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

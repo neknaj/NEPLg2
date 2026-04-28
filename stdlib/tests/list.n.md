@@ -23,7 +23,7 @@ fn mk <()*>List<i32>> ():
     uwok cons<i32> 30 l2
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let l0 <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
     set checks checks_push checks check_eq_i32 0 len<i32> l0;
 
@@ -104,7 +104,7 @@ fn main <()*>i32> ():
 
     let lf <List<i32>> mk;
     free<i32> lf;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -147,7 +147,7 @@ fn gt_two <(i32)->bool> (x):
     gt x 2
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
 
     let mapped_src0 <List<i32>> mk;
     let mapped0 <List<i32>> uwok map<i32,i32> mapped_src0 inc;
@@ -208,6 +208,6 @@ fn main <()*>i32> ():
     let all_src <List<i32>> mk;
     set checks checks_push checks check not all<i32> all_src is_even;
 
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

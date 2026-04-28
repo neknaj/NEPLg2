@@ -24,7 +24,7 @@ fn add_score <.T: Score> <(.T,i32)->i32> (x, bonus):
     add Score::score x bonus
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 15 add_score 10 5
     checks_exit_code checks

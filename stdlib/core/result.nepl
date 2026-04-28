@@ -22,7 +22,7 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     let checks <Vec<Result<(),str>>>:
+//:     let checks:
 //:         checks_new
 //:         |> checks_push assert is_ok ok<i32, str> 1
 //:         |> checks_push assert is_err err<i32, str> "oops"
@@ -61,7 +61,7 @@
 //:     let r1 err<i32,str> "oops";
 //:     let a map<i32,i32,str> r0 inc;
 //:     let b map_err<i32,str,i32> r1 strlen;
-//:     let checks <Vec<Result<(),str>>>:
+//:     let checks:
 //:         checks_new
 //:         |> checks_push assert_eq_i32 10 unwrap_ok a
 //:         |> checks_push assert_eq_i32 4 unwrap_err b
@@ -86,7 +86,7 @@
 //:     let r1 ok<i32,str> -1;
 //:     let a and_then<i32,i32,str> r0 positive_double;
 //:     let b and_then<i32,i32,str> r1 positive_double;
-//:     let checks <Vec<Result<(),str>>>:
+//:     let checks:
 //:         checks_new
 //:         |> checks_push assert_eq_i32 6 unwrap_ok a
 //:         |> checks_push assert_str_eq "non-positive" unwrap_err b

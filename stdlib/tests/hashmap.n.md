@@ -25,7 +25,7 @@ fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,Defa
             #intrinsic "unreachable" <> ()
 
 fn main <()*> i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let hm0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
     set checks checks_push checks check_eq_i32 0 len hm0;
 
@@ -103,6 +103,6 @@ fn main <()*> i32> ():
     let f0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
     let f1 <HashMap<i32,i32,DefaultHash32>> must_hm insert f0 1 1;
     free f1;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

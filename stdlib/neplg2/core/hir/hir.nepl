@@ -34,7 +34,7 @@
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
 //: fn main <()*>i32> ():
-//:     let checks0 <Vec<Result<(),str>>> checks_new
+//:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
 //:             let span <SelfhostSourceSpan> source_span_new 3 10 14
@@ -49,40 +49,40 @@
 //:                         Result::Ok func_alloc:
 //:                             let function_id <SelfhostHirFunctionId> field::get func_alloc "function_id"
 //:                             let module2 <SelfhostHirModule> field::get func_alloc "module"
-//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 1 selfhost_hir_module_expr_len &module2
-//:                             let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 1 selfhost_hir_module_function_len &module2
-//:                             let checks3 <Vec<Result<(),str>>> checks_push checks2 check_eq_i32 0 selfhost_hir_expr_id_index root
-//:                             let checks4 <Vec<Result<(),str>>> checks_push checks3 check_eq_i32 0 selfhost_hir_function_id_index function_id
+//:                             let checks1 checks_push checks0 check_eq_i32 1 selfhost_hir_module_expr_len &module2
+//:                             let checks2 checks_push checks1 check_eq_i32 1 selfhost_hir_module_function_len &module2
+//:                             let checks3 checks_push checks2 check_eq_i32 0 selfhost_hir_expr_id_index root
+//:                             let checks4 checks_push checks3 check_eq_i32 0 selfhost_hir_function_id_index function_id
 //:                             match selfhost_hir_module_get_function &module2 function_id:
 //:                                 Option::Some got_func:
-//:                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 check_str_eq "main" got_func.name
+//:                                     let checks5 checks_push checks4 check_str_eq "main" got_func.name
 //:                                     match selfhost_hir_module_get_expr &module2 got_func.root:
 //:                                         Option::Some got_expr:
-//:                                             let checks6 <Vec<Result<(),str>>> checks_push checks5 check selfhost_hir_expr_kind_eq got_expr.kind SelfhostHirExprKind::Unit
+//:                                             let checks6 checks_push checks5 check selfhost_hir_expr_kind_eq got_expr.kind SelfhostHirExprKind::Unit
 //:                                             selfhost_hir_module_free module2
-//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks6
+//:                                             let shown checks_print_report checks6
 //:                                             checks_exit_code shown
 //:                                         Option::None:
 //:                                             selfhost_hir_module_free module2
-//:                                             let checks6 <Vec<Result<(),str>>> checks_push checks5 Result<(),str>::Err "missing root expr"
-//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks6
+//:                                             let checks6 checks_push checks5 Result<(),str>::Err "missing root expr"
+//:                                             let shown checks_print_report checks6
 //:                                             checks_exit_code shown
 //:                                 Option::None:
 //:                                     selfhost_hir_module_free module2
-//:                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 Result<(),str>::Err "missing function"
-//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks5
+//:                                     let checks5 checks_push checks4 Result<(),str>::Err "missing function"
+//:                                     let shown checks_print_report checks5
 //:                                     checks_exit_code shown
 //:                         Result::Err _e:
-//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "function push failed"
-//:                             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                             let checks1 checks_push checks0 Result<(),str>::Err "function push failed"
+//:                             let shown checks_print_report checks1
 //:                             checks_exit_code shown
 //:                 Result::Err _e:
-//:                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "expr push failed"
-//:                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                     let checks1 checks_push checks0 Result<(),str>::Err "expr push failed"
+//:                     let shown checks_print_report checks1
 //:                     checks_exit_code shown
 //:         Result::Err _e:
-//:             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "module alloc failed"
-//:             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:             let checks1 checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
 //:
@@ -99,7 +99,7 @@
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
 //: fn main <()*>i32> ():
-//:     let checks0 <Vec<Result<(),str>>> checks_new
+//:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
 //:             let span <SelfhostSourceSpan> source_span_new 4 20 25
@@ -120,47 +120,47 @@
 //:                                 Result::Ok parent_alloc:
 //:                                     let parent_id <SelfhostHirExprId> field::get parent_alloc "expr_id"
 //:                                     let module3 <SelfhostHirModule> field::get parent_alloc "module"
-//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 1 selfhost_hir_module_child_len &module3
-//:                                     let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 0 selfhost_hir_child_range_first child_range
-//:                                     let checks3 <Vec<Result<(),str>>> checks_push checks2 check_eq_i32 1 selfhost_hir_child_range_count child_range
+//:                                     let checks1 checks_push checks0 check_eq_i32 1 selfhost_hir_module_child_len &module3
+//:                                     let checks2 checks_push checks1 check_eq_i32 0 selfhost_hir_child_range_first child_range
+//:                                     let checks3 checks_push checks2 check_eq_i32 1 selfhost_hir_child_range_count child_range
 //:                                     match selfhost_hir_module_get_child &module3 child_range 0:
 //:                                         Option::Some got_child:
 //:                                             let expected_child_idx <i32> selfhost_hir_expr_id_index child_id
 //:                                             let got_child_idx <i32> selfhost_hir_expr_id_index got_child
-//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 check_eq_i32 expected_child_idx got_child_idx
+//:                                             let checks4 checks_push checks3 check_eq_i32 expected_child_idx got_child_idx
 //:                                             match selfhost_hir_module_get_expr &module3 parent_id:
 //:                                                 Option::Some got_parent:
-//:                                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 check selfhost_hir_expr_kind_eq got_parent.kind SelfhostHirExprKind::Block
-//:                                                     let checks6 <Vec<Result<(),str>>> checks_push checks5 check_eq_i32 1 got_parent.child_count
-//:                                                     let checks7 <Vec<Result<(),str>>> checks_push checks6 check_eq_i32 0 got_parent.first_child
+//:                                                     let checks5 checks_push checks4 check selfhost_hir_expr_kind_eq got_parent.kind SelfhostHirExprKind::Block
+//:                                                     let checks6 checks_push checks5 check_eq_i32 1 got_parent.child_count
+//:                                                     let checks7 checks_push checks6 check_eq_i32 0 got_parent.first_child
 //:                                                     selfhost_hir_module_free module3
-//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks7
+//:                                                     let shown checks_print_report checks7
 //:                                                     checks_exit_code shown
 //:                                                 Option::None:
 //:                                                     selfhost_hir_module_free module3
-//:                                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 Result<(),str>::Err "missing parent expr"
-//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks5
+//:                                                     let checks5 checks_push checks4 Result<(),str>::Err "missing parent expr"
+//:                                                     let shown checks_print_report checks5
 //:                                                     checks_exit_code shown
 //:                                         Option::None:
 //:                                             selfhost_hir_module_free module3
-//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 Result<(),str>::Err "missing child id"
-//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks4
+//:                                             let checks4 checks_push checks3 Result<(),str>::Err "missing child id"
+//:                                             let shown checks_print_report checks4
 //:                                             checks_exit_code shown
 //:                                 Result::Err _e:
-//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "parent expr push failed"
-//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                                     let checks1 checks_push checks0 Result<(),str>::Err "parent expr push failed"
+//:                                     let shown checks_print_report checks1
 //:                                     checks_exit_code shown
 //:                         Result::Err _e:
-//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "child range push failed"
-//:                             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                             let checks1 checks_push checks0 Result<(),str>::Err "child range push failed"
+//:                             let shown checks_print_report checks1
 //:                             checks_exit_code shown
 //:                 Result::Err _e:
-//:                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "child expr push failed"
-//:                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                     let checks1 checks_push checks0 Result<(),str>::Err "child expr push failed"
+//:                     let shown checks_print_report checks1
 //:                     checks_exit_code shown
 //:         Result::Err _e:
-//:             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "module alloc failed"
-//:             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:             let checks1 checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
 //:
@@ -177,7 +177,7 @@
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
 //: fn main <()*>i32> ():
-//:     let checks0 <Vec<Result<(),str>>> checks_new
+//:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
 //:             let span <SelfhostSourceSpan> source_span_new 5 30 35
@@ -199,46 +199,46 @@
 //:                                 Result::Ok func_alloc:
 //:                                     let function_id <SelfhostHirFunctionId> field::get func_alloc "function_id"
 //:                                     let module3 <SelfhostHirModule> field::get func_alloc "module"
-//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 1 selfhost_hir_module_param_len &module3
-//:                                     let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 0 selfhost_hir_param_range_first param_range
-//:                                     let checks3 <Vec<Result<(),str>>> checks_push checks2 check_eq_i32 1 selfhost_hir_param_range_count param_range
+//:                                     let checks1 checks_push checks0 check_eq_i32 1 selfhost_hir_module_param_len &module3
+//:                                     let checks2 checks_push checks1 check_eq_i32 0 selfhost_hir_param_range_first param_range
+//:                                     let checks3 checks_push checks2 check_eq_i32 1 selfhost_hir_param_range_count param_range
 //:                                     match selfhost_hir_module_get_param &module3 param_range 0:
 //:                                         Option::Some got_param:
-//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 check_str_eq "x" got_param.name
-//:                                             let checks5 <Vec<Result<(),str>>> checks_push checks4 check got_param.mutable
+//:                                             let checks4 checks_push checks3 check_str_eq "x" got_param.name
+//:                                             let checks5 checks_push checks4 check got_param.mutable
 //:                                             match selfhost_hir_module_get_function &module3 function_id:
 //:                                                 Option::Some got_func:
 //:                                                     let got_range <SelfhostHirParamRange> selfhost_hir_function_param_range got_func
-//:                                                     let checks6 <Vec<Result<(),str>>> checks_push checks5 check_eq_i32 0 selfhost_hir_param_range_first got_range
-//:                                                     let checks7 <Vec<Result<(),str>>> checks_push checks6 check_eq_i32 1 selfhost_hir_param_range_count got_range
+//:                                                     let checks6 checks_push checks5 check_eq_i32 0 selfhost_hir_param_range_first got_range
+//:                                                     let checks7 checks_push checks6 check_eq_i32 1 selfhost_hir_param_range_count got_range
 //:                                                     selfhost_hir_module_free module3
-//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks7
+//:                                                     let shown checks_print_report checks7
 //:                                                     checks_exit_code shown
 //:                                                 Option::None:
 //:                                                     selfhost_hir_module_free module3
-//:                                                     let checks6 <Vec<Result<(),str>>> checks_push checks5 Result<(),str>::Err "missing function"
-//:                                                     let shown <Vec<Result<(),str>>> checks_print_report checks6
+//:                                                     let checks6 checks_push checks5 Result<(),str>::Err "missing function"
+//:                                                     let shown checks_print_report checks6
 //:                                                     checks_exit_code shown
 //:                                         Option::None:
 //:                                             selfhost_hir_module_free module3
-//:                                             let checks4 <Vec<Result<(),str>>> checks_push checks3 Result<(),str>::Err "missing param"
-//:                                             let shown <Vec<Result<(),str>>> checks_print_report checks4
+//:                                             let checks4 checks_push checks3 Result<(),str>::Err "missing param"
+//:                                             let shown checks_print_report checks4
 //:                                             checks_exit_code shown
 //:                                 Result::Err _e:
-//:                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "function push failed"
-//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                                     let checks1 checks_push checks0 Result<(),str>::Err "function push failed"
+//:                                     let shown checks_print_report checks1
 //:                                     checks_exit_code shown
 //:                         Result::Err _e:
-//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "root expr push failed"
-//:                             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                             let checks1 checks_push checks0 Result<(),str>::Err "root expr push failed"
+//:                             let shown checks_print_report checks1
 //:                             checks_exit_code shown
 //:                 Result::Err _e:
-//:                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "param range push failed"
-//:                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                     let checks1 checks_push checks0 Result<(),str>::Err "param range push failed"
+//:                     let shown checks_print_report checks1
 //:                     checks_exit_code shown
 //:         Result::Err _e:
-//:             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "module alloc failed"
-//:             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:             let checks1 checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
 

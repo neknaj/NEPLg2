@@ -40,7 +40,7 @@ fn expect_port_error <(i32,str)->Result<(),str>> (input, expected):
             check_str_eq expected msg
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_port 8080 8080
         |> checks_push expect_port_error 0 "port too small"

@@ -19,7 +19,7 @@
 //: fn main <()*>i32> ():
 //:     let a <char> 'A'
 //:     let hira <char> '\u{3042}'
-//:     let checks <Vec<Result<(),str>>>:
+//:     let checks:
 //:         checks_new
 //:         |> checks_push assert_eq_i32 65 char_to_i32 a
 //:         |> checks_push assert char_is_ascii_alpha a

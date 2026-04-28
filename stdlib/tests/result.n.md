@@ -20,7 +20,7 @@ fn positive_double <(i32)->Result<i32,i32>> (x):
         else err<i32,i32> -1
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new
+    let mut checks checks_new
     // Test ok and is_ok
     let r1 <Result<i32,i32>> ok<i32,i32> 5;
     set checks checks_push checks assert is_ok<i32,i32> r1;

@@ -37,7 +37,7 @@ fn escape_code <(char)->i32> (c):
             0
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 0 grade 40
         |> checks_push check_eq_i32 1 grade 70

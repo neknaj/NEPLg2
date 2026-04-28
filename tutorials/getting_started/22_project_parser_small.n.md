@@ -41,7 +41,7 @@ fn first_token <(str)->TinyToken> (source):
                     TinyToken::Other
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 1 token_code first_token "abc"
         |> checks_push check_eq_i32 2 token_code first_token "012"

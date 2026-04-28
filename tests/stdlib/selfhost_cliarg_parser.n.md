@@ -46,7 +46,7 @@ fn main <()*>i32> ():
                     false
             let check_ok <bool> *check_ref
             let emit_ok <bool> selfhost_cli_emit_is_wasm *emit_ref
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push assert check_ok
                 |> checks_push assert emit_ok
@@ -169,7 +169,7 @@ fn main <()*>i32> ():
                     str_eq input "main.nepl"
                 Option::None:
                     false
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push assert target_ok
                 |> checks_push assert input_ok
@@ -292,7 +292,7 @@ fn main <()*>i32> ():
                     eq idx 14
                 Option::None:
                     false
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push assert attach_ok
                 |> checks_push assert lib_ok
@@ -334,7 +334,7 @@ fn main <()*>i32> ():
         Result::Ok opts:
             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
             let emit <SelfhostCliEmitSet> *emit_ref
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push assert selfhost_cli_emit_is_wasm emit
                 |> checks_push assert selfhost_cli_emit_set_has_wat emit
@@ -371,7 +371,7 @@ fn main <()*>i32> ():
         Result::Ok opts:
             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
             let emit <SelfhostCliEmitSet> *emit_ref
-            let checks <Vec<Result<(),str>>>:
+            let checks:
                 checks_new
                 |> checks_push assert selfhost_cli_emit_is_wasm emit
                 |> checks_push assert selfhost_cli_emit_set_has_wat emit

@@ -23930,3 +23930,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` の `pipeline.nepl # compile_* API` に向け、filesystem/stdio 非依存の root load 境界を追加した。
+
+# 2026-04-29 メモ (ISS-20260428T213253278Z std/test Checks accumulator)
+
+- [原因]:
+  - `stdlib/std/test.nepl` の集約 helper は `Vec<Result<(),str>>` に検査結果を積んだあと、`checks_has_err_loop` / `checks_summary_loop` / `checks_print_human_loop` で backing store を `load<Result<(),str>>` していた。
+  - RawMemoryLoadCell gate では raw pointer 経由の aggregate 後読みが初期化済みであることを証明できず、`std/test` を import する doctest が対象 module の検査前に落ちていた。
+- [修正]:
+  - `Checks` value accumulator を追加し、`checks_push` の時点で件数、失敗 flag、machine summary、人間向け report を更新する形にした。
+  - `checks_has_err` / `checks_summary` / `checks_print_report` / `finish_checks` / `checks_exit_code` を `Checks` API に切り替え、`std/test` から `Vec<Result<(),str>>` backing store scan と `load<Result<(),str>>` を削除した。
+  - stdlib doctest、tests、tutorial の call-site から旧 `Vec<Result<(),str>>` 注釈を外し、必要な helper signature だけ `Checks` に更新した。
+- [検証]:
+  - `git diff --check`: pass
+  - `rg -n "load<Result<(),str>>|Vec<Result<(),str>>|checks_has_err_loop|checks_summary_loop|checks_print_human_loop" stdlib/std/test.nepl stdlib tests tutorials`: no match
+  - `node nodesrc\tests.js -i stdlib\std\test.nepl --no-tree -o tmp\std-test-checks-accumulator-final.json -j 1`: total=12 failed=12（既知の `ISS-20260428T213732897Z...` による `alloc/string.nepl` D3100 がブロック）
+  - `node nodesrc\tests.js -i tests\stdlib\std_test_collect.n.md --no-tree -o tmp\std-test-collect-checks-accumulator-final.json -j 1`: total=3 failed=3（同じ既知の raw memory gate ブロッカー）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib test harness は raw memory backed Vec 走査ではなく、self-host 作業を阻害しにくい値集約 API へ移行した。

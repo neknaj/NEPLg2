@@ -15,7 +15,7 @@ ret: 0
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push assert_eq_i32 3 add 1 2
         |> checks_push assert_eq_i32 -1 sub 1 2
@@ -44,6 +44,6 @@ fn main <()*>i32> ():
         |> checks_push assert le 2 2
         |> checks_push assert eq 5 5
         |> checks_push assert ne 5 6
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

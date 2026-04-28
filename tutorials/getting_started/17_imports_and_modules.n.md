@@ -14,7 +14,7 @@ ret: 0
 #import "std/test" as *
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 7 math::add 3 4
         |> checks_push check_eq_i32 12 math::mul 3 4

@@ -18,13 +18,13 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match text_bytebuf_to_utf8_str_result io_bytebuf_from_str "こんにちは":
         Result::Ok text:
             set checks checks_push checks check_str_eq "こんにちは" text
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "valid UTF-8 was rejected";
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -63,7 +63,7 @@ fn main <()*>i32> ():
     let bytes <ByteBuf> io_bytebuf_from_str "Aあ"
     let data <MemPtr<u8>> get bytes "ptr"
     let byte_len <i32> get bytes "len"
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_decoded "decode A" text_utf8_decode_next data byte_len 0 'A' 1
         |> checks_push expect_decoded "decode hira" text_utf8_decode_next data byte_len 1 0x3042 4
@@ -89,7 +89,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new
+    let mut checks checks_new
     match text_utf8_encode_char 'あ':
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "encode failed"
@@ -121,7 +121,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match alloc_ptr<u8> 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
@@ -133,7 +133,7 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "invalid leading byte was accepted"
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -155,7 +155,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match alloc_ptr<u8> 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
@@ -167,7 +167,7 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "invalid ByteBuf was accepted as str"
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -190,7 +190,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match alloc_ptr<u8> 3:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
@@ -204,7 +204,7 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "overlong sequence was accepted"
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -227,7 +227,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let path <str> "tmp/fs_invalid_utf8_checked_case.bin"
     match alloc_ptr<u8> 1:
         Result::Err _e:
@@ -244,7 +244,7 @@ fn main <()*>i32> ():
                             set checks checks_push checks Result<(),str>::Err "invalid UTF-8 file was accepted"
                         Result::Err e:
                             set checks checks_push checks check_eq_i32 84 e;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -267,7 +267,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     let path <str> "tmp/fs_invalid_utf8_default_case.bin"
     match alloc_ptr<u8> 1:
         Result::Err _e:
@@ -284,7 +284,7 @@ fn main <()*>i32> ():
                             set checks checks_push checks Result<(),str>::Err "invalid UTF-8 file was accepted"
                         Result::Err e:
                             set checks checks_push checks check_eq_i32 84 e;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
@@ -308,7 +308,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match alloc_ptr<u8> 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
@@ -322,6 +322,6 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "invalid bytes target was accepted as text"
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

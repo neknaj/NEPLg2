@@ -24,7 +24,7 @@ fn expect_char <(Result<char,str>,i32)->Result<(),str>> (got, expected_code):
 fn main <()*>i32> ():
     let a <char> 'A'
     let hira <char> 'あ'
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 65 char_to_i32 a
         |> checks_push check char_is_ascii_alpha a

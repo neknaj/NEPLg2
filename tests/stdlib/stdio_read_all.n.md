@@ -72,7 +72,7 @@ ret: 0
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let mut checks <Vec<Result<(),str>>> checks_new;
+    let mut checks checks_new;
     match stdio_read_all_bytes_result:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "stdio_read_all_bytes_result failed"
@@ -84,6 +84,6 @@ fn main <()*>i32> ():
             set checks checks_push checks check_eq_i32 98 load_u8 add raw 1;
             set checks checks_push checks check_eq_i32 99 load_u8 add raw 2;
             io_bytebuf_free bytes;
-    let shown <Vec<Result<(),str>>> checks_print_report checks;
+    let shown checks_print_report checks;
     checks_exit_code shown
 ```

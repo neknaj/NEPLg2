@@ -22,7 +22,7 @@ fn expect_str_ok <(Result<str,str>,str)->Result<(),str>> (got, expected):
 
 fn main <()*>i32> ():
     let text <str> "Aあ"
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push check_eq_i32 4 str_byte_len text
         |> checks_push check_eq_i32 2 str_char_count text

@@ -15,10 +15,10 @@ ret: 0
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
 
-fn check_path_result <(Vec<Result<(),str>>,Result<SelfhostResolvedModulePath,SelfhostDiagnostic>,str,bool)*>Vec<Result<(),str>>> (checks, result, expected, expect_stdlib):
+fn check_path_result <(Checks,Result<SelfhostResolvedModulePath,SelfhostDiagnostic>,str,bool)*>Checks> (checks, result, expected, expect_stdlib):
     match result:
         Result::Ok resolved:
-            let checks1 <Vec<Result<(),str>>> checks_push checks check_str_eq expected resolved.path
+            let checks1 checks_push checks check_str_eq expected resolved.path
             if:
                 expect_stdlib
                 then:
@@ -31,12 +31,12 @@ fn check_path_result <(Vec<Result<(),str>>,Result<SelfhostResolvedModulePath,Sel
 fn main <()*>i32> ():
     let map <SelfhostModulePathMap> selfhost_module_path_map_new "user" "stdlib"
     let span <SelfhostSourceSpan> source_span_empty 0 0
-    let checks0 <Vec<Result<(),str>>> checks_new
-    let checks1 <Vec<Result<(),str>>> check_path_result checks0 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "core/result") "stdlib/core/result.nepl" true
-    let checks2 <Vec<Result<(),str>>> check_path_result checks1 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "./util") "user/app/util.nepl" false
-    let checks3 <Vec<Result<(),str>>> check_path_result checks2 (selfhost_module_path_resolve_import &map "user/app/nested/main.nepl" span "../shared") "user/app/shared.nepl" false
-    let checks4 <Vec<Result<(),str>>> check_path_result checks3 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "/stdlib/core/result") "stdlib/core/result.nepl" true
-    let shown <Vec<Result<(),str>>> checks_print_report checks4
+    let checks0 checks_new
+    let checks1 check_path_result checks0 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "core/result") "stdlib/core/result.nepl" true
+    let checks2 check_path_result checks1 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "./util") "user/app/util.nepl" false
+    let checks3 check_path_result checks2 (selfhost_module_path_resolve_import &map "user/app/nested/main.nepl" span "../shared") "user/app/shared.nepl" false
+    let checks4 check_path_result checks3 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "/stdlib/core/result") "stdlib/core/result.nepl" true
+    let shown checks_print_report checks4
     checks_exit_code shown
 ```
 
@@ -65,7 +65,7 @@ fn main <()*>i32> ():
     let util <str> "fn util <()->i32> ():\n    1\n"
     let result_mod <str> "enum Result:\n    Ok\n    Err\n"
     let map <SelfhostModulePathMap> selfhost_module_path_map_new "user" "stdlib"
-    let checks0 <Vec<Result<(),str>>> checks_new
+    let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
             match selfhost_vfs_add vfs0 "user/app/main.nepl" root:
@@ -78,39 +78,39 @@ fn main <()*>i32> ():
                                         Result::Ok graph:
                                             let e0 <SelfhostModuleGraphEdge> edge_at &graph 0
                                             let e1 <SelfhostModuleGraphEdge> edge_at &graph 1
-                                            let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 3 selfhost_module_graph_node_len &graph
-                                            let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 2 selfhost_module_graph_edge_len &graph
-                                            let checks3 <Vec<Result<(),str>>> checks_push checks2 check selfhost_module_graph_has_path &graph "user/app/main.nepl"
-                                            let checks4 <Vec<Result<(),str>>> checks_push checks3 check selfhost_module_graph_has_path &graph "user/app/util.nepl"
-                                            let checks5 <Vec<Result<(),str>>> checks_push checks4 check selfhost_module_graph_has_path &graph "stdlib/core/result.nepl"
-                                            let checks6 <Vec<Result<(),str>>> checks_push checks5 check_str_eq "user/app/main.nepl" e0.from
-                                            let checks7 <Vec<Result<(),str>>> checks_push checks6 check_str_eq "user/app/util.nepl" e0.to
-                                            let checks8 <Vec<Result<(),str>>> checks_push checks7 check_str_eq "user/app/main.nepl" e1.from
-                                            let checks9 <Vec<Result<(),str>>> checks_push checks8 check_str_eq "stdlib/core/result.nepl" e1.to
+                                            let checks1 checks_push checks0 check_eq_i32 3 selfhost_module_graph_node_len &graph
+                                            let checks2 checks_push checks1 check_eq_i32 2 selfhost_module_graph_edge_len &graph
+                                            let checks3 checks_push checks2 check selfhost_module_graph_has_path &graph "user/app/main.nepl"
+                                            let checks4 checks_push checks3 check selfhost_module_graph_has_path &graph "user/app/util.nepl"
+                                            let checks5 checks_push checks4 check selfhost_module_graph_has_path &graph "stdlib/core/result.nepl"
+                                            let checks6 checks_push checks5 check_str_eq "user/app/main.nepl" e0.from
+                                            let checks7 checks_push checks6 check_str_eq "user/app/util.nepl" e0.to
+                                            let checks8 checks_push checks7 check_str_eq "user/app/main.nepl" e1.from
+                                            let checks9 checks_push checks8 check_str_eq "stdlib/core/result.nepl" e1.to
                                             selfhost_module_graph_free graph
                                             selfhost_vfs_free vfs3
-                                            let shown <Vec<Result<(),str>>> checks_print_report checks9
+                                            let shown checks_print_report checks9
                                             checks_exit_code shown
                                         Result::Err _diag:
                                             selfhost_vfs_free vfs3
-                                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "mapped graph returned Err"
-                                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                            let checks1 checks_push checks0 Result<(),str>::Err "mapped graph returned Err"
+                                            let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
-                                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "stdlib VFS add failed"
-                                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                                    let checks1 checks_push checks0 Result<(),str>::Err "stdlib VFS add failed"
+                                    let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "util VFS add failed"
-                            let shown <Vec<Result<(),str>>> checks_print_report checks1
+                            let checks1 checks_push checks0 Result<(),str>::Err "util VFS add failed"
+                            let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "root VFS add failed"
-                    let shown <Vec<Result<(),str>>> checks_print_report checks1
+                    let checks1 checks_push checks0 Result<(),str>::Err "root VFS add failed"
+                    let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "VFS allocation failed"
-            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            let checks1 checks_push checks0 Result<(),str>::Err "VFS allocation failed"
+            let shown checks_print_report checks1
             checks_exit_code shown
 ```
 
@@ -131,14 +131,14 @@ ret: 0
 
 fn main <()*>i32> ():
     let map <SelfhostModulePathMap> selfhost_module_path_map_new "user" "stdlib"
-    let checks0 <Vec<Result<(),str>>> checks_new
+    let checks0 checks_new
     match selfhost_module_path_resolve_import &map "user/main.nepl" source_span_empty 0 0 "../escape":
         Result::Ok _resolved:
-            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "escape above user root was accepted"
-            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            let checks1 checks_push checks0 Result<(),str>::Err "escape above user root was accepted"
+            let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let checks1 <Vec<Result<(),str>>> checks_push checks0 check_str_eq "selfhost.module_path.escape_root" diag.code
-            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            let checks1 checks_push checks0 check_str_eq "selfhost.module_path.escape_root" diag.code
+            let shown checks_print_report checks1
             checks_exit_code shown
 ```

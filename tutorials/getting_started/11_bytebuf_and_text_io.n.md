@@ -32,7 +32,7 @@ fn expect_text <(Result<str,str>,str)->Result<(),str>> (got, expected):
             Result<(),str>::Err msg
 
 fn main <()*>i32> ():
-    let checks <Vec<Result<(),str>>>:
+    let checks:
         checks_new
         |> checks_push expect_text roundtrip_text "NEPL" "NEPL"
         |> checks_push expect_text roundtrip_text "Aあ" "Aあ"
