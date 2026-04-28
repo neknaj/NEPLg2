@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck ascription module)
+
+- 状況:
+  - Stage 1 の binding rules module 化後、type annotation / ascription と char literal context 判定が `typecheck.rs` 本体に残っていた。
+  - char literal は整数 backed codegen と `char` 型安全の境界にあり、`i32` / `u8` context での扱いを typecheck 本体から独立させる必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/ascription.rs` を追加し、`apply_ascription`、char literal value 抽出、char literal が `i32` / `u8` context に適合するかの判定、`u8` 範囲外 diagnostic を移動した。
+  - `typecheck.rs` 本体は ascription helper を呼び出すだけにし、literal lowering と type annotation unification の境界を明確にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck ascription 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/ascription.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test char -- --nocapture`: 11/11 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/char_literals.n.md -i tests/compiler/generics.n.md -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/match_literal_patterns.n.md --no-tree -o tmp/stage1-typecheck-ascription-focused.json -j 1`: 104/104 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck binding rules module)
 
 - 状況:
