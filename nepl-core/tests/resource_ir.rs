@@ -10,9 +10,9 @@ use nepl_core::resource::{
     PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
     ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic,
     ResourceCheckOperation, ResourceCoverageDiagnostic, ResourceCoverageKind,
-    ResourceEffectBoundaryDiagnostic, ResourceFunction, ResourceId, ResourceLocal, ResourceModule,
-    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
-    ResourceTerminator,
+    ResourceEffectBoundaryDiagnostic, ResourceExprKind, ResourceFunction, ResourceId,
+    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -565,6 +565,82 @@ fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
                 ..
             } if function == "main" && *diagnostic_span == span
         )));
+}
+
+#[test]
+fn resource_ir_lowering_returns_concrete_unit_place_for_while() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let bool_ty = types.bool();
+    let span = Span::new(FileId(8), 20, 32);
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(3),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![HirLine {
+                    expr: HirExpr {
+                        ty: unit_ty,
+                        kind: HirExprKind::While {
+                            cond: Box::new(HirExpr {
+                                ty: bool_ty,
+                                kind: HirExprKind::LiteralBool(false),
+                                span,
+                            }),
+                            body: Box::new(HirExpr {
+                                ty: unit_ty,
+                                kind: HirExprKind::Block(HirBlock {
+                                    lines: vec![],
+                                    ty: unit_ty,
+                                    span,
+                                }),
+                                span,
+                            }),
+                        },
+                        span,
+                    },
+                    drop_result: false,
+                }],
+                ty: unit_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module_skeleton(&module);
+    let coverage = compare_hir_resource_lowering(&module, &resource);
+    assert_eq!(coverage.diagnostics, vec![]);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+
+    let ops = &resource.functions[0].blocks[0].ops;
+    assert!(ops.iter().any(|op| matches!(op, ResourceOp::Loop { .. })));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Expr {
+            kind: ResourceExprKind::Loop,
+            output,
+            ..
+        } if !matches!(output.root, PlaceRoot::Unknown)
+    )));
+    assert!(matches!(
+        &resource.functions[0].blocks[0].terminator,
+        ResourceTerminator::Return {
+            value: Some(place),
+            ..
+        } if !matches!(place.root, PlaceRoot::Unknown)
+    ));
+    assert!(!resource.dump_text().contains("unknown:t"));
 }
 
 #[test]

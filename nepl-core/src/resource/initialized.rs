@@ -465,13 +465,13 @@ impl ResourceCheckEngine<'_> {
             | ResourceExprKind::Set
             | ResourceExprKind::Intrinsic
             | ResourceExprKind::Deref
-            | ResourceExprKind::Drop => cells.mark_initialized(output),
+            | ResourceExprKind::Drop
+            | ResourceExprKind::Loop => cells.mark_initialized(output),
             ResourceExprKind::LocalRead
             | ResourceExprKind::FunctionValue
             | ResourceExprKind::Call
             | ResourceExprKind::IndirectCall
             | ResourceExprKind::Branch
-            | ResourceExprKind::Loop
             | ResourceExprKind::Match
             | ResourceExprKind::Construct
             | ResourceExprKind::Borrow => {}

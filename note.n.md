@@ -1,3 +1,20 @@
+# 2026-04-29 メモ (ISS-20260428T171533230Z Resource IR while return coverage)
+
+- `ISS-20260428T171533230Z-RESOURCE-IR-LOWERING-EMITS-UNKNOWN-R-ACE2EF90` として、unit-return function の末尾にある `while` が Resource IR 上で `return unknown:t0` になり、D3101 coverage gate を誤発火させる問題を修正した。
+- `HirExprKind::While` lowering は `ResourceOp::Loop` の後に `ResourceExprKind::Loop` temporary を返すようにし、Stage 3 の lowering completeness と Stage 4 の coverage gate が同じ concrete place を見るようにした。
+- CellState checker は `ResourceExprKind::Loop` output を initialized として扱う。これにより unit の loop result が戻り値に使われても、未初期化値として誤診断しない。
+- `resource_ir_lowering_returns_concrete_unit_place_for_while` を追加し、coverage diagnostic が空であること、initialized/move report が空であること、return value と loop expr output が `PlaceRoot::Unknown` ではないことを固定した。
+- 2026-04-28 の main CI でD3101を出していた代表ケースとして `tests/compiler/list_dot_map.n.md`、`tests/stdlib/adjacency_matrix_collections.n.md`、`tests/stdlib/binary_heap_collections.n.md` を focused 実行し、すべて通過した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_returns_concrete_unit_place_for_while -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 69 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\list_dot_map.n.md --no-tree -o tmp\resource-return-coverage-list-dot-map.json -j 1`: total=4, passed=4
+  - `node nodesrc\tests.js -i tests\stdlib\adjacency_matrix_collections.n.md --no-tree -o tmp\resource-return-coverage-adjacency-matrix.json -j 1`: total=2, passed=2
+  - `node nodesrc\tests.js -i tests\stdlib\binary_heap_collections.n.md --no-tree -o tmp\resource-return-coverage-binary-heap.json -j 1`: total=3, passed=3
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260425T000000Z-RV-CORE-009 raw cell gate)
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 として、Resource IR CellState の destructive raw storage 診断を compiler pipeline の D3100 gate に接続した。

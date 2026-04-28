@@ -367,7 +367,7 @@ fn lower_expr_skeleton(
                 body_ops,
                 span: expr.span,
             });
-            Place::unknown(expr.ty)
+            push_expr(ops, ResourceExprKind::Loop, expr, ctx)
         }
         HirExprKind::Match { scrutinee, arms } => {
             let scrutinee = lower_expr_skeleton(scrutinee, ops, ctx, env);
