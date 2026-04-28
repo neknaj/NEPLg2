@@ -101,6 +101,10 @@ pub enum ResourceCheckOperation {
     MatchScrutinee,
     MatchValue,
     RawMemoryArgument,
+    RawMemoryLoadAddress,
+    RawMemoryLoadCell,
+    RawMemoryStoreAddress,
+    RawMemoryStoreValue,
     IndirectCallee,
 }
 
@@ -488,18 +492,11 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             ResourceOp::RawMemory {
-                output, args, span, ..
-            } => {
-                let args_available = self.ensure_args(
-                    cells,
-                    args,
-                    ResourceCheckOperation::RawMemoryArgument,
-                    *span,
-                );
-                if args_available {
-                    cells.mark_initialized(output);
-                }
-            }
+                operation,
+                output,
+                args,
+                span,
+            } => self.check_raw_memory(cells, operation, output, args, *span),
             ResourceOp::Construct {
                 output,
                 inputs,
@@ -622,6 +619,79 @@ impl ResourceCheckEngine<'_> {
             | ResourceExprKind::Match
             | ResourceExprKind::Construct
             | ResourceExprKind::Borrow => {}
+        }
+    }
+
+    fn check_raw_memory(
+        &mut self,
+        cells: &mut CellTable,
+        operation: &RawMemoryOp,
+        output: &Place,
+        args: &[Place],
+        span: Span,
+    ) {
+        match operation {
+            RawMemoryOp::Load => {
+                let Some(address) = args.first() else {
+                    cells.mark_initialized(output);
+                    return;
+                };
+                let address_available = self.ensure_available(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryLoadAddress,
+                    span,
+                );
+                let cell = raw_memory_cell_place(address, output.ty);
+                let cell_available = self.ensure_available(
+                    cells,
+                    &cell,
+                    ResourceCheckOperation::RawMemoryLoadCell,
+                    span,
+                );
+                if address_available && cell_available {
+                    if !self.types.is_copy(output.ty) {
+                        cells.set_state(&cell, CellState::Moved);
+                    }
+                    cells.mark_initialized(output);
+                }
+            }
+            RawMemoryOp::Store => {
+                let Some(address) = args.first() else {
+                    cells.mark_initialized(output);
+                    return;
+                };
+                let address_available = self.ensure_available(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryStoreAddress,
+                    span,
+                );
+                let value_available = if let Some(value) = args.get(1) {
+                    self.consume_by_value(
+                        cells,
+                        value,
+                        ResourceCheckOperation::RawMemoryStoreValue,
+                        span,
+                    )
+                } else {
+                    true
+                };
+                if address_available && value_available {
+                    if let Some(value) = args.get(1) {
+                        let cell = raw_memory_cell_place(address, value.ty);
+                        cells.mark_initialized(&cell);
+                    }
+                    cells.mark_initialized(output);
+                }
+            }
+            _ => {
+                let args_available =
+                    self.ensure_args(cells, args, ResourceCheckOperation::RawMemoryArgument, span);
+                if args_available {
+                    cells.mark_initialized(output);
+                }
+            }
         }
     }
 
@@ -2114,18 +2184,19 @@ impl CellTable {
             }
         }
         for entry in self.descendant_entries(place) {
-            if !matches!(entry.state, CellState::Initialized(_)) {
+            if !matches!(entry.state, CellState::Initialized(_))
+                && cell_descendant_state_flows(place, &entry.place)
+            {
                 return entry.state;
             }
         }
         if let Some(state @ CellState::Initialized(_)) = self.state(place) {
             return state;
         }
-        if self
-            .ancestor_entries(place)
-            .iter()
-            .any(|entry| matches!(entry.state, CellState::Initialized(_)))
-        {
+        if self.ancestor_entries(place).iter().any(|entry| {
+            matches!(entry.state, CellState::Initialized(_))
+                && cell_initialized_state_flows(&entry.place, place)
+        }) {
             return CellState::Initialized(place.ty);
         }
         CellState::Uninit
@@ -2194,6 +2265,29 @@ impl CellTable {
         }
         out
     }
+}
+
+fn cell_initialized_state_flows(prefix: &Place, place: &Place) -> bool {
+    place_suffix_after_prefix(place, prefix)
+        .map(|suffix| {
+            suffix
+                .iter()
+                .all(|projection| !matches!(projection, PlaceProjection::Deref))
+        })
+        .unwrap_or(false)
+}
+
+fn cell_descendant_state_flows(prefix: &Place, place: &Place) -> bool {
+    place_suffix_after_prefix(place, prefix)
+        .map(|suffix| {
+            suffix.iter().all(|projection| {
+                !matches!(
+                    projection,
+                    PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
+                )
+            })
+        })
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -2309,6 +2403,10 @@ impl OwnerTable {
 
 fn should_track(place: &Place) -> bool {
     !matches!(place.root, PlaceRoot::Unknown)
+}
+
+fn raw_memory_cell_place(address: &Place, ty: TypeId) -> Place {
+    address.clone().with_projection(PlaceProjection::Deref, ty)
 }
 
 fn construct_owner_field_place(

@@ -11,7 +11,8 @@ use nepl_core::resource::{
     ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic,
     ResourceCheckOperation, ResourceCoverageDiagnostic, ResourceCoverageKind,
     ResourceEffectBoundaryDiagnostic, ResourceFunction, ResourceId, ResourceLocal, ResourceModule,
-    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
+    ResourceTerminator,
 };
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -2392,6 +2393,129 @@ fn resource_ir_check_reports_uninitialized_read() {
             state: CellState::Uninit,
             ..
         } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_cell_check_reports_raw_load_before_store() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let offset_ptr = ptr.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        i32_ty,
+    );
+    let loaded = Place::temporary(ResourceId(1), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: nepl_core::resource::ResourceExprKind::Literal,
+                output: ptr.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![offset_ptr],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::RawMemoryLoadCell,
+            place,
+            state: CellState::Uninit,
+            ..
+        } if function == "main"
+            && place.ty == i32_ty
+            && place.projections == vec![
+                PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+                PlaceProjection::Deref,
+            ]
+    )));
+    assert!(!report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            operation: ResourceCheckOperation::RawMemoryLoadAddress,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn resource_ir_cell_check_moves_non_copy_raw_load_cell() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let value = Place::temporary(ResourceId(1), owned_ty);
+    let store_out = Place::temporary(ResourceId(2), unit_ty);
+    let first = Place::temporary(ResourceId(3), owned_ty);
+    let second = Place::temporary(ResourceId(4), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: nepl_core::resource::ResourceExprKind::Literal,
+                output: ptr.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: nepl_core::resource::ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: owned_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_out,
+                args: vec![ptr.clone(), value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: first,
+                args: vec![ptr.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: second,
+                args: vec![ptr],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::RawMemoryLoadCell,
+            place,
+            state: CellState::Moved,
+            ..
+        } if function == "main"
+            && place.ty == owned_ty
+            && place.projections == vec![PlaceProjection::Deref]
     )));
 }
 

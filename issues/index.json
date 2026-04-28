@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T13:32:42.796Z",
+  "generated_at": "2026-04-28T14:01:56.269Z",
   "counts": {
-    "total": 284,
+    "total": 285,
     "open": 11,
-    "resolved": 273,
+    "resolved": 274,
     "by_area": {
       "core": {
-        "total": 132,
+        "total": 133,
         "open": 4,
-        "resolved": 128
+        "resolved": 129
       },
       "selfhost": {
         "total": 20,
@@ -2103,6 +2103,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T132105486Z-RESOURCE-IR-LOWERING-COVERAGE-DOES-N-01BE2923.md"
+    },
+    {
+      "id": "ISS-20260428T135023009Z-RESOURCE-CELLSTATE-CHECKER-TREATS-RA-DA292E10",
+      "title": "Resource CellState checker treats raw memory load and store as ordinary arguments",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T135023009Z-RESOURCE-CELLSTATE-CHECKER-TREATS-RA-DA292E10.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

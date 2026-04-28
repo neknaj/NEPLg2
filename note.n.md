@@ -22859,3 +22859,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 3 の lowering completeness と Stage 4 enforcement 切替前の coverage guard として、Resource IR の projection / unknown place 欠落を test で捕捉できるようにした。
+
+# 2026-04-28 メモ (ISS-20260428T135023009Z raw memory CellState)
+
+- [同期]:
+  - `origin/main` の `3034189 fix(core): guard resource lowering coverage` まで同期した main から `work/stage4-raw-memory-cell-state` branch を作成した。
+- [原因]:
+  - `check_resource_initialized_moves` は `ResourceOp::RawMemory` の operation 種別を見ず、args availability と output initialized だけを処理していた。
+  - そのため raw `store` が pointer の先の cell を initialized にせず、raw `load` も pointer の先の cell を確認しなかった。
+  - さらに `CellTable` の prefix 判定が `Deref` を aggregate field と同じ扱いにしており、pointer value の initialized state が pointee cell へ誤って伝播し得た。
+- [修正]:
+  - raw memory slot を `address.*` の `PlaceProjection::Deref` cell として扱い、`Store` は value を consume して pointee cell を initialized にするようにした。
+  - `Load` は address value と pointee cell を別々に確認し、non-Copy payload の load では pointee cell を `Moved` にするようにした。
+  - CellState の availability で `Deref` を memory boundary として扱い、`StorageOffset` は address value の availability だけを継承し、aggregate field state と pointee cell state を混同しないようにした。
+  - `nepl-core/tests/resource_ir.rs` に未初期化 raw load と non-Copy raw load 二重 move の回帰を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_reports_raw_load_before_store -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_moves_non_copy_raw_load_cell -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の initialized / moved state と Stage 5 raw memory boundary の接続として、raw memory slot の cell state を Resource IR 側へ移した。

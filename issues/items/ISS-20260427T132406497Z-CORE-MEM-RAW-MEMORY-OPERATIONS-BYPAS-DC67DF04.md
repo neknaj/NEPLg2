@@ -319,3 +319,9 @@ borrow checker 周辺は別 agent の作業範囲だが、self-host compiler の
 `ISS-20260428T131233874Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-PO-DB70280C` として、Resource IR effect checker の raw pointer alias state が aggregate field projection を通過すると失われる問題を分離し、修正した。
 
 raw slot payload identity は pointer alias group で key 化しているため、slot pointer を aggregate field に入れて読み戻した後の `store` は元 slot と同じ alias group に入らなければならない。今回の修正では construction 時の field pointer alias 伝播と、whole aggregate copy 時の descendant pointer alias 写像を追加した。
+
+## 2026-04-28 Stage 4 raw memory CellState 追記
+
+`ISS-20260428T135023009Z-RESOURCE-CELLSTATE-CHECKER-TREATS-RA-DA292E10` として、Resource IR の raw load/store が initialized / moved cell state に接続されていない問題を分離し、修正した。
+
+`RawMemoryOp::Store` は store value を by-value consume して `address.*` を initialized にし、`RawMemoryOp::Load` は `address.*` を確認して non-Copy payload なら moved にする。これにより、Resource IR shadow check だけでも raw load before store と non-Copy raw load の二重 move を検出できる。effect / public API migration は引き続きこの親 issue の残件である。
