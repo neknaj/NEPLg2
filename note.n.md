@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource effect FunctionAlias reuse)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`nepl-core/src/resource/effect.rs` に残っていた duplicate `FunctionAliasTable`、function alias entry、dedupe、constructed aggregate field alias propagation を削除し、`function_alias.rs` の共通 module を使うようにした。
+- raw identity field propagation と pointer alias field propagation も `place_utils::construct_aggregate_field_place` を使うようにし、`effect.rs` 側の duplicate aggregate field place builder を削除した。
+- Stage 4 borrow/owner checker と Stage 5 effect checker が同じ function alias state table と aggregate field place construction を共有する。`effect.rs` は 1273 行から 1143 行になった。
+- issue はまだ open とし、次は `effect.rs` の raw identity / raw memory identity / pointer alias table の分割、または owner / borrow return summary computation の分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\effect.rs nepl-core\src\resource\function_alias.rs nepl-core\src\resource\place_utils.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker FunctionAlias split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`FunctionAliasTable`、function alias entry、function list dedupe、constructed aggregate field への alias propagation を `nepl-core/src/resource/function_alias.rs` へ分離した。

@@ -143,3 +143,19 @@ BorrowState table split 後に Resource checker 周辺を再確認した。`chec
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
+
+## 2026-04-28 Effect FunctionAlias reuse
+
+`nepl-core/src/resource/effect.rs` に残っていた duplicate `FunctionAliasTable`、function alias entry、dedupe、constructed aggregate field alias propagation を削除し、`function_alias.rs` の共通 module を使うようにした。
+
+raw identity field propagation と pointer alias field propagation も `place_utils::construct_aggregate_field_place` を使うようにし、`effect.rs` 側の duplicate aggregate field place builder を削除した。これにより Stage 4 borrow/owner checker と Stage 5 effect checker が同じ function alias state table と aggregate field place construction を共有する。
+
+この分割で `effect.rs` は 1273 行から 1143 行になった。issue はまだ open のままとし、次は `effect.rs` の raw identity / raw memory identity / pointer alias table の分割、または owner / borrow return summary computation の分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\effect.rs nepl-core\src\resource\function_alias.rs nepl-core\src\resource\place_utils.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
