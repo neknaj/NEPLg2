@@ -103,9 +103,11 @@ impl RawCellAddressAliases {
         let mut out = Vec::new();
         for group in &self.groups {
             let mut mapped = Vec::new();
+            let mut replaces_group_member = false;
             for place in group {
                 if let Some(replacement) = replace_place_prefix(place, source, target) {
                     push_unique_place(&mut mapped, &replacement);
+                    replaces_group_member = true;
                 }
             }
             if mapped.is_empty() {
@@ -123,6 +125,11 @@ impl RawCellAddressAliases {
                 }
             }
             if mapped.is_empty() {
+                continue;
+            }
+
+            if !replaces_group_member {
+                out.push(mapped);
                 continue;
             }
 

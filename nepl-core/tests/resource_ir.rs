@@ -2813,10 +2813,10 @@ fn resource_ir_cell_check_reports_raw_load_before_store() {
         unit_ty,
         span,
         vec![
-            ResourceOp::Expr {
-                kind: nepl_core::resource::ResourceExprKind::Literal,
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
                 output: ptr.clone(),
-                ty: i32_ty,
+                args: vec![],
                 span,
             },
             ResourceOp::RawMemory {
@@ -2850,6 +2850,119 @@ fn resource_ir_cell_check_reports_raw_load_before_store() {
             operation: ResourceCheckOperation::RawMemoryLoadAddress,
             ..
         }
+    )));
+}
+
+#[test]
+fn resource_ir_cell_check_allows_external_parameter_raw_load() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::local(String::from("p"), i32_ty);
+    let loaded = Place::temporary(ResourceId(0), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![ResourceLocal {
+                name: "p".to_string(),
+                ty: i32_ty,
+                mutable: false,
+                place: ptr.clone(),
+            }],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::RawMemory {
+                    operation: RawMemoryOp::Load,
+                    output: loaded,
+                    args: vec![ptr],
+                    span,
+                }],
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_cell_check_tracks_external_non_copy_raw_load_after_first_move() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let token_ty = types.register_named(
+        "ExternalToken".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "ExternalToken".to_string(),
+            type_params: vec![],
+            fields: vec![types.i32()],
+            field_names: vec!["raw".to_string()],
+        },
+    );
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::local(String::from("p"), i32_ty);
+    let first = Place::temporary(ResourceId(0), token_ty);
+    let second = Place::temporary(ResourceId(1), token_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![ResourceLocal {
+                name: "p".to_string(),
+                ty: i32_ty,
+                mutable: false,
+                place: ptr.clone(),
+            }],
+            result: types.unit(),
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: first,
+                        args: vec![ptr.clone()],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: second,
+                        args: vec![ptr],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::RawMemoryLoadCell,
+            state: CellState::Moved,
+            ..
+        } if function == "main"
     )));
 }
 
@@ -6005,6 +6118,91 @@ fn main <()->i32> ():
         main_diagnostics.is_empty(),
         "RegionToken construction must not break MemPtr raw alias loads: {:#?}\nresource:\n{}",
         main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn string_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+fn read_len <(str)->i32> (s):
+    load_i32 string_addr s
+
+fn main <()->i32> ():
+    read_len "abc"
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let read_len_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "read_len" || function.starts_with("read_len__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        read_len_diagnostics.is_empty(),
+        "str_addr helper must alias initialized string backing storage: {:#?}\nresource:\n{}",
+        read_len_diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.dump_text().contains("raw_address_alias"),
+        "str_addr helper lowering must expose a raw address alias:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_preserves_direct_arithmetic_external_raw_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/result" as *
+
+fn read_check <(i32,i32)->i32> (checks_data, i):
+    let r <Result<(),str>> load<Result<(),str>> add checks_data mul i size_of<Result<(),str>>
+    0
+
+fn main <()->i32> ():
+    read_check 16 0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let read_check_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "read_check" || function.starts_with("read_check__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        read_check_diagnostics.is_empty(),
+        "direct raw address arithmetic must preserve the external storage root: {:#?}\nresource:\n{}",
+        read_check_diagnostics,
         resource.dump_text()
     );
 }

@@ -10,6 +10,8 @@ use super::place_utils::{
 #[derive(Debug, Clone, Default)]
 pub(super) struct CellTable {
     cells: Vec<CellStateEntry>,
+    owned_raw_storage_roots: Vec<Place>,
+    external_raw_storage_roots: Vec<Place>,
 }
 
 impl CellTable {
@@ -66,6 +68,34 @@ impl CellTable {
         }
     }
 
+    pub(super) fn mark_owned_raw_storage_root(&mut self, address: &Place) {
+        push_unique_place(&mut self.owned_raw_storage_roots, address);
+    }
+
+    pub(super) fn mark_external_raw_storage_root(&mut self, address: &Place) {
+        push_unique_place(&mut self.external_raw_storage_roots, address);
+    }
+
+    pub(super) fn release_owned_raw_storage_under(&mut self, address: &Place) {
+        self.owned_raw_storage_roots
+            .retain(|root| !raw_addresses_overlap(root, address));
+    }
+
+    pub(super) fn owns_raw_storage_under(&self, address: &Place) -> bool {
+        self.owned_raw_storage_roots
+            .iter()
+            .any(|root| raw_addresses_overlap(root, address))
+    }
+
+    pub(super) fn raw_cell_is_untracked_external(&self, address: &Place) -> bool {
+        !self.has_raw_cell_entry_under(address)
+            && !self.owns_raw_storage_under(address)
+            && self
+                .external_raw_storage_roots
+                .iter()
+                .any(|root| raw_addresses_overlap(root, address))
+    }
+
     pub(super) fn clear_raw_cells_under(&mut self, address: &Place) {
         self.cells
             .retain(|entry| raw_cell_suffix_after_address(&entry.place, address).is_none());
@@ -95,6 +125,8 @@ impl CellTable {
             false
         });
         self.extend_entries(relocated);
+        rekey_raw_storage_roots(&mut self.owned_raw_storage_roots, source, target);
+        rekey_raw_storage_roots(&mut self.external_raw_storage_roots, source, target);
     }
 
     pub(super) fn live_non_copy_raw_cells_under(
@@ -145,6 +177,12 @@ impl CellTable {
             for entry in &path.cells {
                 push_unique_place(&mut places, &entry.place);
             }
+            for root in &path.owned_raw_storage_roots {
+                push_unique_place(&mut out.owned_raw_storage_roots, root);
+            }
+            for root in &path.external_raw_storage_roots {
+                push_unique_place(&mut out.external_raw_storage_roots, root);
+            }
         }
         for place in places {
             let mut states = paths.iter().map(|path| path.availability_state(&place));
@@ -156,6 +194,12 @@ impl CellTable {
             }
         }
         out
+    }
+
+    fn has_raw_cell_entry_under(&self, address: &Place) -> bool {
+        self.cells
+            .iter()
+            .any(|entry| raw_cell_suffix_after_address(&entry.place, address).is_some())
     }
 
     fn state(&self, place: &Place) -> Option<CellState> {
@@ -232,6 +276,27 @@ fn raw_cell_suffix_after_address(cell: &Place, address: &Place) -> Option<Vec<Pl
         Some(suffix)
     } else {
         None
+    }
+}
+
+fn raw_addresses_overlap(left: &Place, right: &Place) -> bool {
+    place_suffix_after_address_prefix(left, right).is_some()
+        || place_suffix_after_address_prefix(right, left).is_some()
+}
+
+fn rekey_raw_storage_roots(roots: &mut Vec<Place>, source: &Place, target: &Place) {
+    let mut relocated = Vec::new();
+    roots.retain(|root| {
+        if !raw_addresses_overlap(root, source) {
+            return true;
+        }
+        if let Some(place) = replace_place_prefix(root, source, target) {
+            push_unique_place(&mut relocated, &place);
+        }
+        false
+    });
+    for place in relocated {
+        push_unique_place(roots, &place);
     }
 }
 

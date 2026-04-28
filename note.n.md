@@ -23975,3 +23975,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host S3 type layer が `f32` / `f64` / `never` を typed primitive metadata として扱えるようになった。
+
+# 2026-04-29 メモ (ISS-20260428T214527171Z external raw roots)
+
+- [同期]:
+  - `origin/main` の `8ae32eb issues: track vec raw memory gate blocker` へ branch を rebase してから、`RawMemoryLoadCell` の external raw root 修正を戻した。
+- [原因]:
+  - Resource IR の `CellTable` は compiler-owned `alloc_raw` storage と、関数 parameter / 文字列 backing / std/test の raw data pointer のような function-external initialized storage を区別していなかった。
+  - `str_addr` と direct `add checks_data offset` が raw address alias として lowering されず、`RawMemoryLoadCell` が temporary deref を未初期化 raw cell と見ていた。
+  - offset 派生 alias を base alias group に混ぜると、`p` と `p + 8` が同一 raw cell になり、MemPtr disjoint offset の回帰を壊すことも確認した。
+- [修正]:
+  - `CellTable` に owned raw storage root と external raw storage root を分離して追加した。
+  - 関数 parameter は external root、`alloc_raw` / owned `realloc_raw` は owned root として扱い、owned allocation の load-before-store D3100 は維持した。
+  - `str_addr`、direct `add` / `sub` / `mem_ptr_*` / `region_new` を Resource IR の `RawAddressAlias` として下げるようにした。
+  - `RawCellAddressAliases` は `StorageOffset` 派生 alias を base group に混ぜず、offset ごとに別 raw address group として保持するようにした。
+- [検証]:
+  - `rustfmt --check nepl-core\src\resource\cell_state.rs nepl-core\src\resource\initialized.rs nepl-core\src\resource\initialized_alias.rs nepl-core\src\resource\initialized_raw_memory.rs nepl-core\src\resource\lower.rs nepl-core\tests\resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 24 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 86 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tutorials\getting_started\01_hello_world.n.md --no-tree -o tmp\raw-load-cell-hello-world-after-main-sync.json -j 1`: total=1 passed=1
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\raw-load-cell-move-effect-after-main-sync.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\raw-load-cell-move-check-after-main-sync.json -j 1`: total=52 passed=52
+  - `node nodesrc\tests.js -i tutorials --no-tree -o tmp\raw-load-cell-external-roots-after-main-sync-tutorials.json -j 1`: total=24 passed=2 failed=22。`len__str__i32__pure` と `checks_has_err_loop` / `checks_summary_loop` の external raw root false positive は解消し、残りは `RegionToken` / scratch cell / `Vec get_ref` の raw cell moved/uninit 系として既存の MemPtr/RegionToken provenance/owner 分離 issue で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の `initialized / moved state` に対応し、RawMemoryLoadCell gate を形骸化せず、owned allocation と external initialized storage を分離した。

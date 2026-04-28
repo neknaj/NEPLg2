@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T22:24:18.786Z",
+  "generated_at": "2026-04-28T22:31:41.906Z",
   "counts": {
-    "total": 324,
-    "open": 11,
-    "resolved": 313,
+    "total": 325,
+    "open": 10,
+    "resolved": 315,
     "by_area": {
       "core": {
-        "total": 151,
-        "open": 4,
-        "resolved": 147
+        "total": 152,
+        "open": 3,
+        "resolved": 149
       },
       "stdlib": {
         "total": 99,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2",
-      "title": "RawMemoryLoadCell gate rejects initialized string backing storage",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/resource, stdlib/alloc/string.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2375,6 +2360,36 @@
       "file": "items/ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA.md"
     },
     {
+      "id": "ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2",
+      "title": "RawMemoryLoadCell gate rejects initialized string backing storage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2.md"
+    },
+    {
+      "id": "ISS-20260428T214527171Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-T-F609F5AB",
+      "title": "Resource IR RawMemoryLoadCell gate treats external raw parameters as uninitialized",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/cell_state.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/lower.rs, nepl-core/tests/resource_ir.rs, tests/tutorials",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T214527171Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-T-F609F5AB.md"
+    },
+    {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
       "title": "getting_started tutorial needs full rewrite for current NEPLg2",
       "area": "doc",
@@ -3299,7 +3314,7 @@
       "type": "bug",
       "created": "2026-04-28",
       "updated": "2026-04-29",
-      "target": "stdlib/std/test.nepl",
+      "target": "stdlib/std/test.nepl, nepl-core/src/resource/lower.rs, nepl-core/src/resource/cell_state.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T213253278Z-STD-TEST-AGGREGATE-HELPERS-RAW-LOAD--F9E9112A.md"

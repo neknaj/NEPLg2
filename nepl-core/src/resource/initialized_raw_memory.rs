@@ -23,6 +23,7 @@ impl ResourceCheckEngine<'_> {
                     self.ensure_args(cells, args, ResourceCheckOperation::RawMemoryArgument, span);
                 if args_available {
                     cells.mark_initialized(output);
+                    cells.mark_owned_raw_storage_root(output);
                     raw_aliases.mark(output);
                 }
             }
@@ -40,12 +41,13 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
                 let cell = raw_memory_cell_place(&address, output.ty);
-                let cell_available = self.ensure_available(
-                    cells,
-                    &cell,
-                    ResourceCheckOperation::RawMemoryLoadCell,
-                    span,
-                );
+                let cell_available = cells.raw_cell_is_untracked_external(&address)
+                    || self.ensure_available(
+                        cells,
+                        &cell,
+                        ResourceCheckOperation::RawMemoryLoadCell,
+                        span,
+                    );
                 if address_available && cell_available {
                     if !self.types.is_copy(output.ty) {
                         cells.set_state(&cell, CellState::Moved);
@@ -116,6 +118,7 @@ impl ResourceCheckEngine<'_> {
                 );
                 if address_available && cells_released {
                     cells.clear_raw_cells_under(&address);
+                    cells.release_owned_raw_storage_under(&address);
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                 }
@@ -127,6 +130,7 @@ impl ResourceCheckEngine<'_> {
                     return;
                 };
                 let address = raw_aliases.canonicalize(address);
+                let source_owned = cells.owns_raw_storage_under(&address);
                 let address_available = self.ensure_available(
                     cells,
                     &address,
@@ -143,7 +147,11 @@ impl ResourceCheckEngine<'_> {
                     let relocated =
                         cells.copy_initialized_copy_raw_cells(&address, output, self.types);
                     cells.clear_raw_cells_under(&address);
+                    cells.release_owned_raw_storage_under(&address);
                     cells.mark_initialized(output);
+                    if source_owned {
+                        cells.mark_owned_raw_storage_root(output);
+                    }
                     cells.extend_entries(relocated);
                     raw_aliases.clear(&address);
                     raw_aliases.mark(output);

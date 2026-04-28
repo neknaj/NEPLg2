@@ -73,6 +73,7 @@ impl ResourceCheckEngine<'_> {
         let mut function_aliases = FunctionAliasTable::default();
         for param in &function.params {
             cells.mark_initialized(&param.place);
+            cells.mark_external_raw_storage_root(&param.place);
             raw_aliases.mark(&param.place);
         }
         for block in &function.blocks {

@@ -328,6 +328,17 @@ fn lower_expr_skeleton(
                 env,
                 expr.span,
             );
+            if let Some(name) = func_ref_base_name(callee) {
+                push_named_raw_address_semantics(
+                    name,
+                    args,
+                    &arg_places,
+                    &output,
+                    ops,
+                    env,
+                    expr.span,
+                );
+            }
             if let Some(operation) = raw_memory_op_from_callee(callee) {
                 ops.push(ResourceOp::RawMemory {
                     operation,
@@ -602,7 +613,17 @@ fn lower_expr_skeleton(
                 });
                 output
             } else {
-                push_expr(ops, ResourceExprKind::Intrinsic, expr, ctx)
+                let output = push_expr(ops, ResourceExprKind::Intrinsic, expr, ctx);
+                push_named_raw_address_semantics(
+                    helper_base_name(name),
+                    args,
+                    &arg_places,
+                    &output,
+                    ops,
+                    env,
+                    expr.span,
+                );
+                output
             }
         }
         HirExprKind::AddrOf(inner) => {
@@ -884,6 +905,26 @@ fn push_user_raw_address_return_semantics(
     });
 }
 
+fn push_named_raw_address_semantics(
+    name: &str,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    output: &Place,
+    ops: &mut Vec<ResourceOp>,
+    env: &LoweringEnvironment,
+    span: crate::span::Span,
+) {
+    let Some(source) = raw_address_source_from_actual_named_expr(name, hir_args, arg_places, env)
+    else {
+        return;
+    };
+    ops.push(ResourceOp::RawAddressAlias {
+        source: source.place(env.types.i32()),
+        target: raw_address_alias_target(output, env),
+        span,
+    });
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RawAddressSource {
     base: Place,
@@ -1023,14 +1064,11 @@ fn raw_address_source_from_named_call(
                     ))
                 })
                 .or_else(|| {
+                    let offset = i32_const_from_return_expr(&args[0], function, hir_args, env)?;
                     raw_address_source_from_return_expr(
                         &args[1], function, hir_args, arg_places, env,
                     )
-                    .map(|source| {
-                        source.with_added_offset(i32_const_from_return_expr(
-                            &args[0], function, hir_args, env,
-                        ))
-                    })
+                    .map(|source| source.with_added_offset(Some(offset)))
                 })
         }
         "sub" if args.len() == 2 => raw_address_source_from_return_expr(
@@ -1055,6 +1093,16 @@ fn raw_address_source_from_named_call(
                 &args[1], function, hir_args, env,
             ))
         }),
+        "get" | "get_field"
+            if args.len() >= 2
+                && literal_field_name(env, &args[1]) == Some("raw")
+                && is_named_struct_type(env.types, args[0].ty, "MemPtr") =>
+        {
+            raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
+        }
+        "str_addr" if args.len() == 1 => {
+            raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
+        }
         "region_new" if args.len() >= 2 => {
             raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
         }
@@ -1123,6 +1171,58 @@ fn i32_const_from_actual_arg(expr: &HirExpr, env: &LoweringEnvironment) -> Optio
         }
         _ => None,
     }
+}
+
+fn raw_address_source_from_actual_named_expr(
+    name: &str,
+    args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> Option<RawAddressSource> {
+    match helper_base_name(name) {
+        "add" if args.len() == 2 && arg_places.len() == 2 => {
+            if i32_const_from_actual_arg(&args[0], env).is_some()
+                && i32_const_from_actual_arg(&args[1], env).is_none()
+            {
+                raw_address_source_from_actual_arg(1, arg_places, env).map(|source| {
+                    source.with_added_offset(i32_const_from_actual_arg(&args[0], env))
+                })
+            } else {
+                raw_address_source_from_actual_arg(0, arg_places, env).map(|source| {
+                    source.with_added_offset(i32_const_from_actual_arg(&args[1], env))
+                })
+            }
+        }
+        "sub" if args.len() == 2 && arg_places.len() == 2 => {
+            raw_address_source_from_actual_arg(0, arg_places, env).map(|source| {
+                source.with_subtracted_offset(i32_const_from_actual_arg(&args[1], env))
+            })
+        }
+        "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr"
+            if args.len() == 1 && arg_places.len() == 1 =>
+        {
+            raw_address_source_from_actual_arg(0, arg_places, env)
+        }
+        "mem_ptr_add" if args.len() >= 2 && arg_places.len() >= 2 => {
+            raw_address_source_from_actual_arg(0, arg_places, env)
+                .map(|source| source.with_added_offset(i32_const_from_actual_arg(&args[1], env)))
+        }
+        "region_new" if args.len() >= 2 && !arg_places.is_empty() => {
+            raw_address_source_from_actual_arg(0, arg_places, env)
+        }
+        _ => None,
+    }
+}
+
+fn raw_address_source_from_actual_arg(
+    index: usize,
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> Option<RawAddressSource> {
+    Some(RawAddressSource {
+        base: raw_address_place_from_argument(arg_places.get(index)?, env),
+        offset: RawAddressOffset::Known(0),
+    })
 }
 
 fn i32_const_from_return_named_expr(
