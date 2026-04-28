@@ -23152,3 +23152,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` S2 の import graph / stdlib path 解決へ進む前段として、import directive の typed extraction を追加した。
+
+# 2026-04-28 メモ (ISS-20260428T145201247Z self-host module graph)
+
+- [同期]:
+  - `main` は `origin/main` と同期済みで、`selfhost/s2-module-graph` branch を作成して作業した。
+- [原因]:
+  - S2 の VFS loader と typed import spec は揃ったが、root module から import closure を構築する graph API が無かった。
+  - このままだと missing import、重複 load、cycle detection が resolver / pipeline 側へ分散し、S2 と S3 の境界が曖昧になる。
+- [修正]:
+  - `stdlib/neplg2/core/module/graph.nepl` を追加し、`SelfhostModuleGraphNode` / `SelfhostModuleGraphEdge` / `SelfhostModuleGraph` を定義した。
+  - DFS の node 状態を `Visiting` / `Done` enum で表し、active module の再訪問を `selfhost.module_graph.cycle` diagnostic にした。
+  - root path から VFS logical path を辿る `selfhost_build_module_graph` を追加し、missing import は import directive span 付きの `selfhost.module_graph.missing_module` diagnostic にした。
+  - AST は import spec 抽出後に解放し、graph は path / file_id / edge span の軽量データだけを所有する設計にした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree -o tmp/neplg2-module-graph-doctest.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg2-module-graph-focused.json -j 1`: total=3 passed=3
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-module-graph-syntax.json -j 1`: total=49 passed=49
+  - remote main の `fc47035 refactor(core): reuse resource function aliases` まで rebase 後、`trunk build`: pass
+  - rebase 後、`node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-module-graph-syntax-after-rebase.json -j 1`: total=49 passed=49
+  - remote main の `017979d refactor(core): split resource check reports` まで再 rebase 後、`trunk build`: pass
+  - 再 rebase 後、`node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-module-graph-syntax-after-rebase-017979d.json -j 1`: total=49 passed=49
+  - remote main の `1a8c8de refactor(core): split resource return summaries` まで再 rebase 後、`trunk build`: pass
+  - 再 rebase 後、`node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-module-graph-syntax-after-rebase-1a8c8de.json -j 1`: total=49 passed=49
+  - remote main の `4bc7220 refactor(core): split resource shadow entry` まで再 rebase 後、`trunk build`: pass
+  - 再 rebase 後、`node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree -o tmp/neplg2-module-graph-doctest-after-rebase-4bc7220.json -j 1`: total=1 passed=1
+  - 再 rebase 後、`node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg2-module-graph-focused-after-rebase-4bc7220.json -j 1`: total=3 passed=3
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: whitespace warning only for generated issue index / markdown line endings, no diff whitespace error
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_execution_plan.md` S2 の `selfhost/s2-module-graph` に対応し、stdlib map / user root 解決は後続 issue として残した。

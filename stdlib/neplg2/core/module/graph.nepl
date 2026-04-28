@@ -1,0 +1,356 @@
+#indent 4
+
+//: # graph
+//: NEPLg2.0 self-host compiler の import graph を[構築/こうちく]するモジュールです。
+//:
+//: [目的/もくてき]:
+//: - VFS 上の root module から `#import` を[辿/たど]り、module path と import edge の closure を[作/つく]ります。
+//: - missing module と import cycle を `SelfhostDiagnostic` として[返/かえ]し、resolver が loader/parser の内部表現へ直接依存しないようにします。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostModuleGraph` は `Vec<SelfhostModuleGraphNode>` と `Vec<SelfhostModuleGraphEdge>` を所有します。
+//: - node は `Visiting` / `Done` の状態を持ち、DFS 中の再訪問を cycle として検出します。
+//: - module AST は import spec 抽出後すぐ解放し、graph には path、file_id、edge span だけを残します。
+//:
+//: [注意/ちゅうい]:
+//: - graph 内の path は VFS source または caller が渡した path に由来する `str` です。graph 利用中は VFS と root path の lifetime を保ってください。
+//: - import path の正規化と stdlib root 解決は `stdlib_map` stage で追加します。ここでは VFS logical path の完全一致だけを扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - path lookup と visited lookup は現段階では線形探索です。module 数 n、import edge 数 e に対して O(n^2 + e n) です。
+//: - S2 の stdlib map / resolver 要求が固まった段階で HashMap へ移行できます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/module/graph" as *
+//: fn main <()*>i32> ():
+//:     selfhost_module_graph_stage0
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as string
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/import_spec" as *
+#import "neplg2/core/module/loader" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+
+//: SelfhostModuleGraphNodeStatus: DFS 中の module node 状態
+enum SelfhostModuleGraphNodeStatus:
+    Visiting
+    Done
+
+impl Clone for SelfhostModuleGraphNodeStatus:
+    fn clone <(&SelfhostModuleGraphNodeStatus)->SelfhostModuleGraphNodeStatus> (self):
+        *self
+
+impl Copy for SelfhostModuleGraphNodeStatus:
+    fn copy_mark <(SelfhostModuleGraphNodeStatus)->SelfhostModuleGraphNodeStatus> (self):
+        self
+
+//: SelfhostModuleGraphNode: import graph の module node
+//:
+//: [目的/もくてき]:
+//: - logical path、VFS file_id、DFS 状態、直接 import 数を 1 node として[保持/ほじ]します。
+struct SelfhostModuleGraphNode:
+    path <str>
+    file_id <i32>
+    status <SelfhostModuleGraphNodeStatus>
+    import_count <i32>
+
+impl Clone for SelfhostModuleGraphNode:
+    fn clone <(&SelfhostModuleGraphNode)->SelfhostModuleGraphNode> (self):
+        *self
+
+impl Copy for SelfhostModuleGraphNode:
+    fn copy_mark <(SelfhostModuleGraphNode)->SelfhostModuleGraphNode> (self):
+        self
+
+//: SelfhostModuleGraphEdge: `from -> to` の import edge
+//:
+//: [目的/もくてき]:
+//: - import 元 path、import 先 path、元 directive の span を[保持/ほじ]します。
+//: - resolver / diagnostic は edge span から import directive の位置を[参照/さんしょう]できます。
+struct SelfhostModuleGraphEdge:
+    from <str>
+    to <str>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostModuleGraphEdge:
+    fn clone <(&SelfhostModuleGraphEdge)->SelfhostModuleGraphEdge> (self):
+        *self
+
+impl Copy for SelfhostModuleGraphEdge:
+    fn copy_mark <(SelfhostModuleGraphEdge)->SelfhostModuleGraphEdge> (self):
+        self
+
+//: SelfhostModuleGraph: import closure の所有 graph
+struct SelfhostModuleGraph:
+    nodes <Vec<SelfhostModuleGraphNode>>
+    edges <Vec<SelfhostModuleGraphEdge>>
+
+//: selfhost_module_graph_node_new: module graph node を[作/つく]る
+fn selfhost_module_graph_node_new <(str,i32,SelfhostModuleGraphNodeStatus,i32)->SelfhostModuleGraphNode> (path, file_id, status, import_count):
+    SelfhostModuleGraphNode path file_id status import_count
+
+//: selfhost_module_graph_edge_new: import edge を[作/つく]る
+fn selfhost_module_graph_edge_new <(str,str,SelfhostSourceSpan)->SelfhostModuleGraphEdge> (from, to, span):
+    SelfhostModuleGraphEdge from to span
+
+//: selfhost_module_graph_new: [空/から]の module graph を[作/つく]る
+fn selfhost_module_graph_new <()*>Result<SelfhostModuleGraph, StdErrorKind>> ():
+    match v::new<SelfhostModuleGraphNode>:
+        Result::Ok nodes:
+            match v::new<SelfhostModuleGraphEdge>:
+                Result::Ok edges:
+                    Result<SelfhostModuleGraph, StdErrorKind>::Ok SelfhostModuleGraph nodes edges
+                Result::Err e:
+                    v::free<SelfhostModuleGraphNode> nodes
+                    Result<SelfhostModuleGraph, StdErrorKind>::Err e
+        Result::Err e:
+            Result<SelfhostModuleGraph, StdErrorKind>::Err e
+
+//: selfhost_module_graph_free: graph が所有する buffer を[解放/かいほう]する
+fn selfhost_module_graph_free <(SelfhostModuleGraph)*>()> (graph):
+    let nodes <Vec<SelfhostModuleGraphNode>> field::get graph "nodes"
+    let edges <Vec<SelfhostModuleGraphEdge>> field::get graph "edges"
+    v::free<SelfhostModuleGraphNode> nodes
+    v::free<SelfhostModuleGraphEdge> edges
+
+//: selfhost_module_graph_node_len: module node 数を[返/かえ]す
+fn selfhost_module_graph_node_len <(&SelfhostModuleGraph)->i32> (graph):
+    let nodes <&Vec<SelfhostModuleGraphNode>> field::get_ref graph "nodes"
+    v::len_ref<SelfhostModuleGraphNode> nodes
+
+//: selfhost_module_graph_edge_len: import edge 数を[返/かえ]す
+fn selfhost_module_graph_edge_len <(&SelfhostModuleGraph)->i32> (graph):
+    let edges <&Vec<SelfhostModuleGraphEdge>> field::get_ref graph "edges"
+    v::len_ref<SelfhostModuleGraphEdge> edges
+
+//: selfhost_module_graph_node_at: index の module node を[返/かえ]す
+fn selfhost_module_graph_node_at <(&SelfhostModuleGraph,i32)->Option<SelfhostModuleGraphNode>> (graph, idx):
+    let nodes <&Vec<SelfhostModuleGraphNode>> field::get_ref graph "nodes"
+    v::get_ref<SelfhostModuleGraphNode> nodes idx
+
+//: selfhost_module_graph_edge_at: index の import edge を[返/かえ]す
+fn selfhost_module_graph_edge_at <(&SelfhostModuleGraph,i32)->Option<SelfhostModuleGraphEdge>> (graph, idx):
+    let edges <&Vec<SelfhostModuleGraphEdge>> field::get_ref graph "edges"
+    v::get_ref<SelfhostModuleGraphEdge> edges idx
+
+//: selfhost_module_graph_find_node_loop: path に一致する node index を[探/さが]す
+fn selfhost_module_graph_find_node_loop <(&SelfhostModuleGraph,str,i32,i32)->Option<i32>> (graph, path, n, idx):
+    if:
+        ge idx n
+        then:
+            none<i32>
+        else:
+            match selfhost_module_graph_node_at graph idx:
+                Option::Some node:
+                    if:
+                        string::str_eq node.path path
+                        then:
+                            some<i32> idx
+                        else:
+                            selfhost_module_graph_find_node_loop graph path n add idx 1
+                Option::None:
+                    none<i32>
+
+//: selfhost_module_graph_find_node: path に一致する node index を[返/かえ]す
+fn selfhost_module_graph_find_node <(&SelfhostModuleGraph,str)->Option<i32>> (graph, path):
+    selfhost_module_graph_find_node_loop graph path selfhost_module_graph_node_len graph 0
+
+//: selfhost_module_graph_has_path: graph が path を[含/ふく]むか[返/かえ]す
+fn selfhost_module_graph_has_path <(&SelfhostModuleGraph,str)->bool> (graph, path):
+    match selfhost_module_graph_find_node graph path:
+        Option::Some _idx:
+            true
+        Option::None:
+            false
+
+//: selfhost_module_graph_diag: graph diagnostic を[作/つく]る
+fn selfhost_module_graph_diag <(SelfhostSourceSpan,str,str,str,str)->SelfhostDiagnostic> (span, code, message, label, note):
+    let diag <SelfhostDiagnostic> selfhost_diag_error code message
+    let labeled <SelfhostDiagnostic> selfhost_diag_with_primary_label diag selfhost_diag_label_new span label
+    selfhost_diag_with_note labeled note
+
+//: selfhost_module_graph_oom_diag: graph allocation failure diagnostic を[作/つく]る
+fn selfhost_module_graph_oom_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
+    selfhost_module_graph_diag span "selfhost.module_graph.oom" "module graph allocation failed" "allocation failed while building import graph" ""
+
+//: selfhost_module_graph_missing_diag: import 先が VFS に無いことを[報告/ほうこく]する
+fn selfhost_module_graph_missing_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, path):
+    selfhost_module_graph_diag span "selfhost.module_graph.missing_module" "imported module is not registered in self-host VFS" "missing module imported here" path
+
+//: selfhost_module_graph_cycle_diag: import cycle を[報告/ほうこく]する
+fn selfhost_module_graph_cycle_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, path):
+    selfhost_module_graph_diag span "selfhost.module_graph.cycle" "import cycle detected while building self-host module graph" "cycle reaches an active module here" path
+
+//: selfhost_module_graph_internal_diag: graph 内部不整合 diagnostic を[作/つく]る
+fn selfhost_module_graph_internal_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, note):
+    selfhost_module_graph_diag span "selfhost.module_graph.internal" "module graph internal invariant failed" "module graph invariant failed here" note
+
+//: selfhost_module_graph_push_node: node を graph に[追加/ついか]する
+fn selfhost_module_graph_push_node <(SelfhostModuleGraph,SelfhostModuleGraphNode,SelfhostSourceSpan)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (graph, node, span):
+    let nodes <Vec<SelfhostModuleGraphNode>> field::get graph "nodes"
+    let edges <Vec<SelfhostModuleGraphEdge>> field::get graph "edges"
+    match v::push<SelfhostModuleGraphNode> nodes node:
+        Result::Ok next_nodes:
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok SelfhostModuleGraph next_nodes edges
+        Result::Err _e:
+            v::free<SelfhostModuleGraphEdge> edges
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag span
+
+//: selfhost_module_graph_push_edge: edge を graph に[追加/ついか]する
+fn selfhost_module_graph_push_edge <(SelfhostModuleGraph,SelfhostModuleGraphEdge,SelfhostSourceSpan)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (graph, edge, span):
+    let nodes <Vec<SelfhostModuleGraphNode>> field::get graph "nodes"
+    let edges <Vec<SelfhostModuleGraphEdge>> field::get graph "edges"
+    match v::push<SelfhostModuleGraphEdge> edges edge:
+        Result::Ok next_edges:
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok SelfhostModuleGraph nodes next_edges
+        Result::Err _e:
+            v::free<SelfhostModuleGraphNode> nodes
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag span
+
+//: selfhost_module_graph_set_node: node を in-place に[置/お]き[換/か]える
+fn selfhost_module_graph_set_node <(SelfhostModuleGraph,i32,SelfhostModuleGraphNode)*>SelfhostModuleGraph> (graph, idx, node):
+    let nodes <&Vec<SelfhostModuleGraphNode>> field::get_ref &graph "nodes"
+    v::replace_ref<SelfhostModuleGraphNode> nodes idx node
+    graph
+
+//: selfhost_module_graph_set_state: node の状態と import 数を[更新/こうしん]する
+fn selfhost_module_graph_set_state <(SelfhostModuleGraph,i32,SelfhostModuleGraphNodeStatus,i32)*>SelfhostModuleGraph> (graph, idx, status, import_count):
+    match selfhost_module_graph_node_at &graph idx:
+        Option::Some node:
+            selfhost_module_graph_set_node graph idx selfhost_module_graph_node_new node.path node.file_id status import_count
+        Option::None:
+            graph
+
+//: selfhost_module_graph_visit_imports: 1 module の import list を DFS で[辿/たど]る
+fn selfhost_module_graph_visit_imports <(&SelfhostVirtualFileSystem,str,&Vec<SelfhostImportSpec>,i32,i32,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, from_path, imports, n, idx, graph):
+    if:
+        ge idx n
+        then:
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok graph
+        else:
+            match v::get_ref<SelfhostImportSpec> imports idx:
+                Option::Some spec:
+                    let edge <SelfhostModuleGraphEdge> selfhost_module_graph_edge_new from_path spec.path spec.span
+                    match selfhost_module_graph_push_edge graph edge spec.span:
+                        Result::Ok edge_graph:
+                            match selfhost_module_graph_visit vfs spec.path spec.span edge_graph:
+                                Result::Ok next_graph:
+                                    selfhost_module_graph_visit_imports vfs from_path imports n add idx 1 next_graph
+                                Result::Err diag:
+                                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                        Result::Err diag:
+                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                Option::None:
+                    selfhost_module_graph_free graph
+                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import spec index was unavailable"
+
+//: selfhost_module_graph_extract_imports: parse 済み AST から import graph edge を[展開/てんかい]する
+fn selfhost_module_graph_extract_imports <(&SelfhostVirtualFileSystem,str,i32,SelfhostModuleGraph,SelfhostModuleAst)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path, node_idx, graph, ast):
+    match selfhost_module_import_specs &ast:
+        Result::Ok imports:
+            let import_count <i32> v::len_ref<SelfhostImportSpec> &imports
+            let graph_with_count <SelfhostModuleGraph> selfhost_module_graph_set_state graph node_idx SelfhostModuleGraphNodeStatus::Visiting import_count
+            selfhost_module_ast_free ast
+            match selfhost_module_graph_visit_imports vfs path &imports import_count 0 graph_with_count:
+                Result::Ok graph_after_imports:
+                    v::free<SelfhostImportSpec> imports
+                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
+                Result::Err diag:
+                    v::free<SelfhostImportSpec> imports
+                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+        Result::Err diag:
+            selfhost_module_ast_free ast
+            selfhost_module_graph_free graph
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+
+//: selfhost_module_graph_visit_new: 未訪問 module を parse して import を[辿/たど]る
+fn selfhost_module_graph_visit_new <(&SelfhostVirtualFileSystem,str,SelfhostSourceSpan,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path, span, graph):
+    match selfhost_vfs_find vfs path:
+        Option::Some file:
+            match selfhost_parse_module_source_with_file_id file.source file.file_id:
+                Result::Ok ast:
+                    let node_idx <i32> selfhost_module_graph_node_len &graph
+                    let node <SelfhostModuleGraphNode> selfhost_module_graph_node_new file.path file.file_id SelfhostModuleGraphNodeStatus::Visiting 0
+                    match selfhost_module_graph_push_node graph node span:
+                        Result::Ok graph_with_node:
+                            selfhost_module_graph_extract_imports vfs file.path node_idx graph_with_node ast
+                        Result::Err diag:
+                            selfhost_module_ast_free ast
+                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                Result::Err diag:
+                    selfhost_module_graph_free graph
+                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+        Option::None:
+            selfhost_module_graph_free graph
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_missing_diag span path
+
+//: selfhost_module_graph_visit_existing: 既存 node の状態に応じて再訪問を[処理/しょり]する
+fn selfhost_module_graph_visit_existing <(str,SelfhostSourceSpan,SelfhostModuleGraph,i32)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (path, span, graph, idx):
+    match selfhost_module_graph_node_at &graph idx:
+        Option::Some node:
+            match node.status:
+                SelfhostModuleGraphNodeStatus::Visiting:
+                    selfhost_module_graph_free graph
+                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_cycle_diag span path
+                SelfhostModuleGraphNodeStatus::Done:
+                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok graph
+        Option::None:
+            selfhost_module_graph_free graph
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag span "module node index was unavailable"
+
+//: selfhost_module_graph_visit: 1 module path を import graph に[取/と]り[込/こ]む
+fn selfhost_module_graph_visit <(&SelfhostVirtualFileSystem,str,SelfhostSourceSpan,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path, span, graph):
+    match selfhost_module_graph_find_node &graph path:
+        Option::Some idx:
+            selfhost_module_graph_visit_existing path span graph idx
+        Option::None:
+            selfhost_module_graph_visit_new vfs path span graph
+
+//: selfhost_build_module_graph: root path から import graph を[構築/こうちく]する
+//:
+//: [注意/ちゅうい]:
+//: - 成功時の `SelfhostModuleGraph` は caller が `selfhost_module_graph_free` してください。
+fn selfhost_build_module_graph <(&SelfhostVirtualFileSystem,str)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, root_path):
+    match selfhost_module_graph_new:
+        Result::Ok graph:
+            selfhost_module_graph_visit vfs root_path source_span_empty 0 0 graph
+        Result::Err _e:
+            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag source_span_empty 0 0
+
+//: selfhost_module_graph_stage0: VFS から import graph を[作/つく]る smoke API
+fn selfhost_module_graph_stage0 <()*>i32> ():
+    match selfhost_vfs_new:
+        Result::Ok vfs0:
+            match selfhost_vfs_add vfs0 "main.nepl" "#import \"util.nepl\" as util\nfn main <()->i32> ():\n    0\n":
+                Result::Ok vfs1:
+                    match selfhost_vfs_add vfs1 "util.nepl" "fn util <()->i32> ():\n    1\n":
+                        Result::Ok vfs2:
+                            match selfhost_build_module_graph &vfs2 "main.nepl":
+                                Result::Ok graph:
+                                    let n <i32> selfhost_module_graph_node_len &graph
+                                    let e <i32> selfhost_module_graph_edge_len &graph
+                                    selfhost_module_graph_free graph
+                                    selfhost_vfs_free vfs2
+                                    if and eq n 2 eq e 1 0 1
+                                Result::Err _diag:
+                                    selfhost_vfs_free vfs2
+                                    1
+                        Result::Err _e:
+                            1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1

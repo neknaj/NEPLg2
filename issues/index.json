@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T14:39:31.046Z",
+  "generated_at": "2026-04-28T15:13:10.286Z",
   "counts": {
-    "total": 289,
+    "total": 290,
     "open": 12,
-    "resolved": 277,
+    "resolved": 278,
     "by_area": {
       "core": {
         "total": 136,
@@ -17,9 +17,9 @@
         "resolved": 90
       },
       "selfhost": {
-        "total": 21,
+        "total": 22,
         "open": 1,
-        "resolved": 20
+        "resolved": 21
       },
       "cli": {
         "total": 19,
@@ -2523,6 +2523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T141156276Z-SELF-HOST-MODULE-LOADER-LACKS-TYPED--7277C7AB.md"
+    },
+    {
+      "id": "ISS-20260428T145201247Z-SELF-HOST-MODULE-LOADER-LACKS-IMPORT-F2C1CBCA",
+      "title": "self-host module loader lacks import graph and cycle diagnostics",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/module/graph.nepl, stdlib/neplg2/core/module/loader.nepl, tests/stdlib/neplg2_module_graph.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T145201247Z-SELF-HOST-MODULE-LOADER-LACKS-IMPORT-F2C1CBCA.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",
