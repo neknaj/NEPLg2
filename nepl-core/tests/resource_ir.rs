@@ -1951,6 +1951,64 @@ fn resource_ir_owner_check_transfers_owner_returned_by_unknown_callback() {
 }
 
 #[test]
+fn resource_ir_owner_check_moves_owner_into_constructed_aggregate() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let p = Place::temporary(ResourceId(0), i32_ty);
+    let wrapper = Place::temporary(ResourceId(1), wrapper_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: p.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: wrapper,
+                kind: AggregateKind::Struct {
+                    name: "Wrapper".to_string(),
+                },
+                inputs: vec![p.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(2), unit_ty),
+                args: vec![p.clone()],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerUnavailable {
+            function,
+            operation: ResourceOwnerOperation::Dealloc,
+            place,
+            state: OwnerState::Moved,
+            ..
+        } if function == "main" && place == &p
+    )));
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_shared_read_until_release() {
     let types = TypeCtx::new();
     let span = Span::dummy();

@@ -22552,3 +22552,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、unknown callback 境界で既存 owner obligation を維持した。
+
+# 2026-04-28 メモ (ISS-20260428T114547680Z aggregate construct owner transfer)
+
+- [同期]:
+  - `origin/main` の `5792f2b fix(core): propagate owner callback returns` まで同期した main から `work/stage4-owner-construct-transfer` branch を作成した。
+- [原因]:
+  - `ResourceOwnerCheckEngine` は `ResourceOp::Construct` を無視していた。
+  - live owner を aggregate input に使っても owner obligation が元 input place に残るため、構築済み aggregate へ移った後の元 pointer を再度 `Dealloc` / move できる状態だった。
+- [修正]:
+  - `Construct` の各 input owner を output の deterministic projection へ transfer するようにした。
+  - struct は `Field`、tuple は `TupleField`、enum は `EnumPayload` projection を使う。
+  - `nepl-core/tests/resource_ir.rs` に construct 後の元 owner dealloc を `Moved` として検出する回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate construction の owner movement を Resource IR 上に固定した。

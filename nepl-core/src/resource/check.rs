@@ -13,9 +13,10 @@ use super::coverage::{compare_hir_resource_lowering, ResourceLoweringCoverage};
 use super::effect::{check_resource_effect_boundaries, ResourceEffectBoundaryReport};
 use super::lower::lower_hir_module_skeleton;
 use super::model::{
-    BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, OwnerState,
-    OwnerStateEntry, Place, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceCallTarget,
-    ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator, StorageId,
+    AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry,
+    OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock,
+    ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp,
+    ResourceTerminator, StorageId,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,6 +158,7 @@ pub enum ResourceOwnerOperation {
     ReallocInput,
     BranchValue,
     MatchValue,
+    ConstructInput,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1407,11 +1409,36 @@ impl ResourceOwnerCheckEngine<'_> {
                 args,
                 *span,
             ),
+            ResourceOp::Construct {
+                output,
+                kind,
+                inputs,
+                span,
+            } => self.construct_owner_fields(owners, output, kind, inputs, *span),
             ResourceOp::Expr { .. }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
-            | ResourceOp::CallEffect { .. }
-            | ResourceOp::Construct { .. } => {}
+            | ResourceOp::CallEffect { .. } => {}
+        }
+    }
+
+    fn construct_owner_fields(
+        &mut self,
+        owners: &mut OwnerTable,
+        output: &Place,
+        kind: &AggregateKind,
+        inputs: &[Place],
+        span: Span,
+    ) {
+        for (index, input) in inputs.iter().enumerate() {
+            let field = construct_owner_field_place(output, kind, index, input);
+            self.transfer_owner(
+                owners,
+                input,
+                &field,
+                ResourceOwnerOperation::ConstructInput,
+                span,
+            );
         }
     }
 
@@ -2013,6 +2040,42 @@ impl OwnerTable {
 
 fn should_track(place: &Place) -> bool {
     !matches!(place.root, PlaceRoot::Unknown)
+}
+
+fn construct_owner_field_place(
+    output: &Place,
+    kind: &AggregateKind,
+    index: usize,
+    input: &Place,
+) -> Place {
+    let mut place = output.clone();
+    match kind {
+        AggregateKind::Struct { .. } => {
+            place.projections.push(PlaceProjection::Field {
+                index,
+                offset_bytes: 0,
+            });
+        }
+        AggregateKind::Tuple => {
+            place.projections.push(PlaceProjection::TupleField {
+                index,
+                offset_bytes: 0,
+            });
+        }
+        AggregateKind::Enum { variant, .. } => {
+            place.projections.push(PlaceProjection::EnumPayload {
+                variant: variant.clone(),
+            });
+            if index > 0 {
+                place.projections.push(PlaceProjection::TupleField {
+                    index,
+                    offset_bytes: 0,
+                });
+            }
+        }
+    }
+    place.ty = input.ty;
+    place
 }
 
 fn push_unique_place(places: &mut Vec<Place>, place: &Place) {
