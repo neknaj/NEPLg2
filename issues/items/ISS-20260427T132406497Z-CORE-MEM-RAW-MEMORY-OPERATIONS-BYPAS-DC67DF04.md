@@ -246,6 +246,12 @@ Resource IR effect boundary のうち、`InternalAlloc` 由来の raw address id
 
 Resource IR の effect boundary check で `ResourceOp::Construct` の input identity を output へ伝播するようにし、`alloc_raw` 由来 address を aggregate に包んで pure function から返す経路も D3025 で拒否される。これは Stage 5 commit 単位 4 の public escape diagnostics の補強であり、raw memory operation 全体の effect migration や Stage 6 stdlib API 移行は引き続き本 issue の残件として扱う。
 
+## 2026-04-28 Stage 5 call raw identity summary 追記
+
+`ISS-20260428T101126311Z-RESOURCE-EFFECT-GATE-LOSES-RAW-ALLOC-CAE6E35F` として、internal allocation identity を pure helper call に通すと `ResourceOp::Call` で public escape diagnostics から漏れる問題を分離した。
+
+Resource IR effect boundary checker に direct user function の parameter-to-return raw identity summary を追加し、`fn raw_id(p): p` のような helper の戻り値へ caller 側の allocation identity を伝播するようにした。summary 計算では raw allocation 自体を parameter identity と混ぜないため、raw pointer を読んで通常値を返す helper と、raw identity をそのまま返す helper を区別する。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。

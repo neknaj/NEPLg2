@@ -566,6 +566,96 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_wrapped_in_struct() {
 }
 
 #[test]
+fn resource_ir_effect_check_reports_raw_alloc_escape_through_identity_call() {
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let param = Place::local("p".to_string(), i32_ty);
+    let size = Place::temporary(ResourceId(0), i32_ty);
+    let raw = Place::temporary(ResourceId(1), i32_ty);
+    let forwarded = Place::temporary(ResourceId(2), i32_ty);
+    let module = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "raw_id".to_string(),
+                params: vec![nepl_core::resource::ResourceLocal {
+                    name: "p".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: param.clone(),
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(param),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::Literal,
+                            output: size.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: raw.clone(),
+                            args: vec![size],
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: forwarded.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "raw_id".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![raw],
+                            effect: EffectOp::UserCall {
+                                name: "raw_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(forwarded),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();

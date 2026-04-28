@@ -22316,3 +22316,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、aggregate construction 経由の public escape を塞いだ。
+
+# 2026-04-28 メモ (ISS-20260428T101126311Z call raw identity summary)
+
+- [同期]:
+  - `origin/main` の `b22f763 fix(core): track aggregate raw identity escape` まで同期した main から `work/stage5-call-raw-identity-summary` branch を作成した。
+- [原因]:
+  - Stage 5 public escape diagnostics は direct return と aggregate construction には対応したが、`ResourceOp::Call` を identity propagation の対象にしていなかった。
+  - `fn raw_id(p): p` のような pure helper は callee 側では raw allocation を作らないため、caller が `alloc_raw` 由来 address を渡した場合だけ raw identity escape になる。この関数境界を表す summary が不足していた。
+- [修正]:
+  - direct user function について、戻り値がどの引数 identity に由来し得るかを Resource IR 上で固定点計算する summary を追加した。
+  - caller 側の `ResourceOp::Call` で summary 対象引数が internal allocation identity を持つ場合、call output へ identity を伝播するようにした。
+  - summary 計算では `alloc_raw` / `realloc` が作る identity を parameter-derived identity に混ぜず、raw pointer を読んで通常値を返す helper との誤判定を避けた。
+  - `tests/compiler/move_effect.n.md` と `nepl-core/tests/resource_ir.rs` に helper-mediated raw identity escape の回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、direct call 境界の raw identity propagation を追加した。

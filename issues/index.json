@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T10:08:28.879Z",
+  "generated_at": "2026-04-28T10:16:29.950Z",
   "counts": {
-    "total": 251,
+    "total": 252,
     "open": 11,
-    "resolved": 240,
+    "resolved": 241,
     "by_area": {
       "core": {
-        "total": 104,
+        "total": 105,
         "open": 4,
-        "resolved": 100
+        "resolved": 101
       },
       "selfhost": {
         "total": 16,
@@ -1683,6 +1683,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T100333122Z-RESOURCE-EFFECT-GATE-MISSES-RAW-ALLO-0E0A15D1.md"
+    },
+    {
+      "id": "ISS-20260428T101126311Z-RESOURCE-EFFECT-GATE-LOSES-RAW-ALLOC-CAE6E35F",
+      "title": "Resource effect gate loses raw allocation identity through pure helper calls",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, tests/compiler/move_effect.n.md, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T101126311Z-RESOURCE-EFFECT-GATE-LOSES-RAW-ALLOC-CAE6E35F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

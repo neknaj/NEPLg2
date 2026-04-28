@@ -7,8 +7,8 @@ use crate::ast::Effect;
 use crate::span::Span;
 
 use super::model::{
-    EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceFunction, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceCallTarget, ResourceFunction,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,11 +49,14 @@ pub enum ResourceEffectBoundaryDiagnostic {
 pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffectBoundaryReport {
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
+    let summaries = compute_raw_identity_return_summaries(module);
 
     for function in &module.functions {
         let mut engine = ResourceEffectBoundaryEngine {
             function: function.name.as_str(),
             effect: function.effect,
+            summaries: &summaries,
+            track_alloc_identities: true,
             diagnostics: Vec::new(),
             counts: ResourceEffectCounts::default(),
         };
@@ -71,9 +74,17 @@ pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffe
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RawIdentityReturnSummary {
+    function: String,
+    parameter_indices: Vec<usize>,
+}
+
 struct ResourceEffectBoundaryEngine<'a> {
     function: &'a str,
     effect: Effect,
+    summaries: &'a [RawIdentityReturnSummary],
+    track_alloc_identities: bool,
     diagnostics: Vec<ResourceEffectBoundaryDiagnostic>,
     counts: ResourceEffectCounts,
 }
@@ -120,7 +131,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             ResourceOp::RawMemory {
                 operation, output, ..
             } => {
-                if raw_memory_op_produces_identity(operation) {
+                if self.track_alloc_identities && raw_memory_op_produces_identity(operation) {
                     identities.mark(output);
                 }
             }
@@ -141,6 +152,14 @@ impl ResourceEffectBoundaryEngine<'_> {
                 for input in inputs {
                     identities.copy_identity(input, output);
                 }
+            }
+            ResourceOp::Call {
+                output,
+                target,
+                args,
+                ..
+            } => {
+                self.copy_call_return_identity(identities, output, target, args);
             }
             ResourceOp::Branch {
                 output,
@@ -186,8 +205,34 @@ impl ResourceEffectBoundaryEngine<'_> {
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
             | ResourceOp::FunctionValue { .. }
-            | ResourceOp::Call { .. }
             | ResourceOp::IndirectCall { .. } => {}
+        }
+    }
+
+    fn copy_call_return_identity(
+        &self,
+        identities: &mut RawIdentityTable,
+        output: &Place,
+        target: &ResourceCallTarget,
+        args: &[Place],
+    ) {
+        let ResourceCallTarget::User { name, .. } = target else {
+            return;
+        };
+        let Some(summary) = self
+            .summaries
+            .iter()
+            .find(|summary| summary.function == name.as_str())
+        else {
+            return;
+        };
+        if summary
+            .parameter_indices
+            .iter()
+            .filter_map(|index| args.get(*index))
+            .any(|arg| identities.contains(arg))
+        {
+            identities.mark(output);
         }
     }
 
@@ -220,6 +265,61 @@ impl ResourceEffectBoundaryEngine<'_> {
             EffectOp::Pure | EffectOp::UserCall { .. } => {}
         }
     }
+}
+
+fn compute_raw_identity_return_summaries(module: &ResourceModule) -> Vec<RawIdentityReturnSummary> {
+    let mut summaries = Vec::new();
+    for _ in 0..=module.functions.len() {
+        let mut next = Vec::new();
+        for function in &module.functions {
+            let mut parameter_indices = Vec::new();
+            for (index, param) in function.params.iter().enumerate() {
+                let mut identities = RawIdentityTable::default();
+                identities.mark(&param.place);
+                if function_returns_marked_identity(function, identities, &summaries) {
+                    parameter_indices.push(index);
+                }
+            }
+            if !parameter_indices.is_empty() {
+                next.push(RawIdentityReturnSummary {
+                    function: function.name.clone(),
+                    parameter_indices,
+                });
+            }
+        }
+        if next == summaries {
+            return summaries;
+        }
+        summaries = next;
+    }
+    summaries
+}
+
+fn function_returns_marked_identity(
+    function: &ResourceFunction,
+    mut identities: RawIdentityTable,
+    summaries: &[RawIdentityReturnSummary],
+) -> bool {
+    let mut engine = ResourceEffectBoundaryEngine {
+        function: function.name.as_str(),
+        effect: function.effect,
+        summaries,
+        track_alloc_identities: false,
+        diagnostics: Vec::new(),
+        counts: ResourceEffectCounts::default(),
+    };
+    for block in &function.blocks {
+        engine.check_ops(&mut identities, &block.ops);
+        if let ResourceTerminator::Return {
+            value: Some(place), ..
+        } = &block.terminator
+        {
+            if identities.contains(place) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[derive(Debug, Clone, Default)]
