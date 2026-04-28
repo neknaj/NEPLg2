@@ -8,8 +8,8 @@ use crate::ast::Effect;
 use crate::span::Span;
 
 use super::model::{
-    EffectOp, Place, RawMemoryOp, ResourceBlock, ResourceCallTarget, ResourceFunction,
-    ResourceModule, ResourceOp, ResourceTerminator,
+    AggregateKind, EffectOp, Place, PlaceProjection, RawMemoryOp, ResourceBlock,
+    ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -220,11 +220,17 @@ impl ResourceEffectBoundaryEngine<'_> {
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, value, target);
                 function_aliases.copy_alias(value, target);
             }
-            ResourceOp::Construct { output, inputs, .. } => {
+            ResourceOp::Construct {
+                output,
+                kind,
+                inputs,
+                ..
+            } => {
                 identities.clear(output);
                 for input in inputs {
                     identities.merge_identity(input, output);
                 }
+                construct_function_alias_fields(function_aliases, output, kind, inputs);
             }
             ResourceOp::Call {
                 output,
@@ -847,6 +853,54 @@ fn dedupe_functions(functions: Vec<String>) -> Vec<String> {
         }
     }
     out
+}
+
+fn construct_function_alias_fields(
+    function_aliases: &mut FunctionAliasTable,
+    output: &Place,
+    kind: &AggregateKind,
+    inputs: &[Place],
+) {
+    for (index, input) in inputs.iter().enumerate() {
+        let field = construct_field_place(output, kind, index, input);
+        function_aliases.copy_alias(input, &field);
+    }
+}
+
+fn construct_field_place(
+    output: &Place,
+    kind: &AggregateKind,
+    index: usize,
+    input: &Place,
+) -> Place {
+    let mut place = output.clone();
+    match kind {
+        AggregateKind::Struct { .. } => {
+            place.projections.push(PlaceProjection::Field {
+                index,
+                offset_bytes: 0,
+            });
+        }
+        AggregateKind::Tuple => {
+            place.projections.push(PlaceProjection::TupleField {
+                index,
+                offset_bytes: 0,
+            });
+        }
+        AggregateKind::Enum { variant, .. } => {
+            place.projections.push(PlaceProjection::EnumPayload {
+                variant: variant.clone(),
+            });
+            if index > 0 {
+                place.projections.push(PlaceProjection::TupleField {
+                    index,
+                    offset_bytes: 0,
+                });
+            }
+        }
+    }
+    place.ty = input.ty;
+    place
 }
 
 fn copy_pointer_alias(

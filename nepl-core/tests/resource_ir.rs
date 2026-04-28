@@ -1138,6 +1138,132 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
 }
 
 #[test]
+fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let fn_ty = types.function(vec![], vec![i32_ty], i32_ty, Effect::Pure);
+    let wrapper_ty = types.register_named(
+        "CallbackBox".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "CallbackBox".to_string(),
+            type_params: vec![],
+            fields: vec![fn_ty],
+            field_names: vec!["callback".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let helper_param = Place::local("p".to_string(), i32_ty);
+    let helper_zero = Place::temporary(ResourceId(0), i32_ty);
+    let function_value = Place::temporary(ResourceId(1), fn_ty);
+    let wrapper = Place::temporary(ResourceId(2), wrapper_ty);
+    let callee = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        fn_ty,
+    );
+    let size = Place::temporary(ResourceId(3), i32_ty);
+    let raw = Place::temporary(ResourceId(4), i32_ty);
+    let forwarded = Place::temporary(ResourceId(5), i32_ty);
+    let module = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "return_zero".to_string(),
+                params: vec![ResourceLocal {
+                    name: "p".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: helper_param,
+                }],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: helper_zero.clone(),
+                        ty: i32_ty,
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(helper_zero),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::FunctionValue {
+                            output: function_value.clone(),
+                            name: "return_zero".to_string(),
+                            effect: EffectOp::UserCall {
+                                name: "return_zero".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::Construct {
+                            output: wrapper,
+                            kind: AggregateKind::Struct {
+                                name: "CallbackBox".to_string(),
+                            },
+                            inputs: vec![function_value],
+                            span,
+                        },
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::Literal,
+                            output: size.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: raw.clone(),
+                            args: vec![size],
+                            span,
+                        },
+                        ResourceOp::IndirectCall {
+                            output: forwarded.clone(),
+                            callee,
+                            params: vec![i32_ty],
+                            result: i32_ty,
+                            args: vec![raw],
+                            effect: EffectOp::Unknown {
+                                reason: "field-stored callback".to_string(),
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(forwarded),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_effect_check_clears_stale_function_alias_on_assignment() {
     let i32_ty = TypeId(1);
     let fn_ty = TypeId(2);

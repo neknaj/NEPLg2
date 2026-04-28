@@ -301,3 +301,9 @@ Resource IR effect boundary checker に raw pointer parameter-to-return summary 
 この親 issue は、raw memory operation 全体の public API / Resource IR / internal effect boundary を追跡する設計 issue として open のまま残す。個別 regression が通ったことは確認済みだが、safe surface から raw address escape を閉じる設計移行は未完了である。
 
 borrow checker 周辺は別 agent の作業範囲だが、self-host compiler の AST / diagnostic / collection 実装では owner を持つ値を `Result` / `Option` / container / callback 経由で移動するため、ここが未解決のまま S3 以降に進むと所有権不整合を compiler 自身の実装へ持ち込む。S1/S2 の lexer/parser/module loader の純粋データ構造設計は開始できるが、raw memory backed buffer や move-sensitive lowering に依存する実装はこの issue の収束を待つ。
+
+## 2026-04-28 Stage 5 aggregate field function alias 追記
+
+`ISS-20260428T125920330Z-RESOURCE-EFFECT-CHECKER-LOSES-FUNCTI-6F8443ED` として、Resource IR effect checker の function alias state が aggregate construction で field projection へ伝播しない問題を分離し、修正した。
+
+`doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 の public escape diagnostics では、known callback と unknown callback の raw identity summary を区別する必要がある。function value を aggregate field に格納したあと field projection 経由で `IndirectCall` する場合も known callee summary を維持し、raw 引数を返さない callback を unknown fallback で過剰に raw escape 扱いしないようにした。

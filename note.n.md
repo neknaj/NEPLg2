@@ -22739,3 +22739,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の function / callback boundary と owner token / free obligation の続きとして、aggregate field に格納された callback の resource summary 伝播を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T125920330Z effect aggregate field function alias)
+
+- [同期]:
+  - `origin/main` の `6c0b9b6 fix(core): propagate aggregate function aliases` まで同期した main から `work/stage5-effect-function-alias-aggregate-fields` branch を作成した。
+- [原因]:
+  - borrow / owner checker 側の aggregate field function alias は修正したが、effect checker 側の `ResourceOp::Construct` は raw identity を aggregate root へ集約するだけで、function value alias を output field projection へ伝播していなかった。
+  - そのため known callback を struct / tuple / enum payload に格納してから field projection 経由で `IndirectCall` すると unknown callback fallback に落ち、raw 引数を返さない callback でも戻り値を raw identity として扱う false positive が起きた。
+- [修正]:
+  - `nepl-core/src/resource/effect.rs` の `Construct` で、input function alias を deterministic な aggregate field projection へ copy する helper を追加した。
+  - `nepl-core/tests/resource_ir.rs` に、field-stored known callback が raw 引数を無視して通常値を返す場合に `RawAddressEscapeFromInternalAlloc` を出さない回帰を追加した。
+  - 修正前に targeted regression が失敗することを確認し、修正後に同 regression が成功することを確認した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の public escape diagnostics と function / callback boundary の接続として、aggregate field に格納された callback の effect summary 伝播を Resource IR 上に固定した。
