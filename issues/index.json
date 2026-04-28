@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T23:06:40.969Z",
+  "generated_at": "2026-04-28T23:07:57.489Z",
   "counts": {
-    "total": 328,
-    "open": 10,
+    "total": 329,
+    "open": 11,
     "resolved": 318,
     "by_area": {
       "core": {
@@ -11,15 +11,15 @@
         "open": 3,
         "resolved": 149
       },
+      "selfhost": {
+        "total": 39,
+        "open": 2,
+        "resolved": 37
+      },
       "stdlib": {
         "total": 101,
         "open": 6,
         "resolved": 95
-      },
-      "selfhost": {
-        "total": 38,
-        "open": 1,
-        "resolved": 37
       },
       "cli": {
         "total": 19,
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T230757402Z-SELF-HOST-CLI-ARGV-PARSER-MOVES-VECD-AAE3CCAD",
+      "title": "self-host CLI argv parser moves VecDataLen span fields under RawMemoryLoadCell gate",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/cli/args.nepl, tests/stdlib/selfhost_cliarg_parser.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T230757402Z-SELF-HOST-CLI-ARGV-PARSER-MOVES-VECD-AAE3CCAD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
