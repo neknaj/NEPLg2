@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T11:02:11.560Z",
+  "generated_at": "2026-04-28T11:08:51.432Z",
   "counts": {
-    "total": 258,
+    "total": 259,
     "open": 11,
-    "resolved": 247,
+    "resolved": 248,
     "by_area": {
       "core": {
-        "total": 110,
+        "total": 111,
         "open": 4,
-        "resolved": 106
+        "resolved": 107
       },
       "selfhost": {
         "total": 17,
@@ -1773,6 +1773,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T105903144Z-RESOURCE-EFFECT-GATE-LOSES-RAW-SLOT--830E4162.md"
+    },
+    {
+      "id": "ISS-20260428T110657405Z-RESOURCE-BORROW-CHECKER-ALLOWS-BORRO-EC3BEA97",
+      "title": "Resource borrow checker allows borrow tokens to escape through returns",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T110657405Z-RESOURCE-BORROW-CHECKER-ALLOWS-BORRO-EC3BEA97.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

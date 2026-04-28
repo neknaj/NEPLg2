@@ -1713,6 +1713,102 @@ fn resource_ir_borrow_check_releases_shared_before_unique_borrow() {
 }
 
 #[test]
+fn resource_ir_borrow_check_reports_returned_borrow_token() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), i32_ty);
+    let shared = Place::temporary(ResourceId(0), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::Borrow {
+                    source: x,
+                    output: shared.clone(),
+                    kind: BorrowKind::Shared,
+                    span,
+                }],
+                terminator: ResourceTerminator::Return {
+                    value: Some(shared),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::ReturnValue,
+            active: BorrowState::Shared { count: 1 },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_borrow_check_allows_return_after_borrow_release() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), i32_ty);
+    let shared = Place::temporary(ResourceId(0), i32_ty);
+    let value = Place::temporary(ResourceId(1), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Borrow {
+                        source: x.clone(),
+                        output: shared.clone(),
+                        kind: BorrowKind::Shared,
+                        span,
+                    },
+                    ResourceOp::Drop {
+                        place: shared,
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: x,
+                        output: value.clone(),
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(value),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_shadow_report_combines_lowering_and_resource_checks() {
     let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();

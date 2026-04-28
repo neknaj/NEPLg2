@@ -198,6 +198,7 @@ pub enum ResourceBorrowOperation {
     Move,
     Assign,
     Drop,
+    ReturnValue,
 }
 
 pub fn check_resource_initialized_moves(
@@ -689,6 +690,14 @@ impl ResourceBorrowCheckEngine<'_> {
 
     fn check_block(&mut self, borrows: &mut BorrowTable, block: &ResourceBlock) {
         self.check_ops(borrows, &block.ops);
+        match &block.terminator {
+            ResourceTerminator::Return { value, span } => {
+                if let Some(value) = value {
+                    self.check_return_escape(borrows, value, *span);
+                }
+            }
+            ResourceTerminator::Unreachable { .. } | ResourceTerminator::RawBody { .. } => {}
+        }
     }
 
     fn check_ops(&mut self, borrows: &mut BorrowTable, ops: &[ResourceOp]) {
@@ -837,6 +846,18 @@ impl ResourceBorrowCheckEngine<'_> {
                 borrows.state(place),
                 span,
             );
+        }
+    }
+
+    fn check_return_escape(&mut self, borrows: &BorrowTable, place: &Place, span: Span) {
+        if let Some(binding) = borrows.binding(place) {
+            let active = borrows.state(&binding.source);
+            if matches!(
+                active,
+                BorrowState::Shared { .. } | BorrowState::Unique { .. }
+            ) {
+                self.push_conflict(ResourceBorrowOperation::ReturnValue, place, active, span);
+            }
         }
     }
 
@@ -1285,6 +1306,10 @@ impl BorrowTable {
         self.bindings
             .iter()
             .position(|binding| binding.token == *token)
+    }
+
+    fn binding(&self, token: &Place) -> Option<&BorrowBinding> {
+        self.bindings.iter().find(|binding| binding.token == *token)
     }
 
     fn merge_paths(paths: &[BorrowTable]) -> Self {

@@ -22431,3 +22431,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、raw pointer alias を関数境界にも伝播した。
+
+# 2026-04-28 メモ (ISS-20260428T110657405Z borrow return escape)
+
+- [同期]:
+  - `origin/main` の `19c832b fix(core): propagate raw slot pointer returns` まで同期した main から `work/stage4-borrow-return-escape` branch を作成した。
+- [原因]:
+  - `ResourceBorrowCheckEngine::check_block` は `block.ops` だけを検査し、`ResourceTerminator::Return` を確認していなかった。
+  - そのため active borrow token を戻り値として外へ逃がしても、borrow lifetime が function boundary を越える問題を Resource IR shadow check が検出できなかった。
+- [修正]:
+  - `ResourceBorrowOperation::ReturnValue` を追加し、return value が active borrow token binding を持つ場合に `BorrowConflict` を出すようにした。
+  - released token は binding から取り除かれるため、borrow release 後の通常 return は許可される。
+  - `nepl-core/tests/resource_ir.rs` に active borrow token return の回帰と release 後 return の正常系を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、borrow token の return escape を検査対象に追加した。
