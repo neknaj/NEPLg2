@@ -5,22 +5,280 @@
 //:
 //: [目的/もくてき]:
 //: - DefId、scope、hoist、qualified alias、open import の解決をこの stage に集約します。
-//: - Stage 0 では `resolve/` の責務境界を marker API で固定します。
+//: - `SelfhostDefId` と scope binding table を使い、後続 stage が文字列だけで定義を参照しない境界を作ります。
 //:
 //: [注意/ちゅうい]:
+//: - `SelfhostNameScope` は binding table を所有します。使い終わった scope は `selfhost_name_scope_free` で解放してください。
+//: - 現段階の `find` は同一 scope の後勝ち shadowing だけを扱います。親 scope、import、hoist は後続 issue で追加します。
 //: - 型推論や overload 候補選択は `check/` に委譲し、ここでは名前から定義候補への対応を安定化します。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - binding 追加: 償却 O(1)
+//: - binding 取得: O(1)
+//: - 名前検索: O(n)
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
+//:| #import "core/field" as field
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/resolve/name_resolver" as *
-//: fn main <()->i32> ():
-//:     selfhost_name_resolver_stage0
+//: fn main <()*>i32> ():
+//:     let checks0 <Vec<Result<(),str>>> checks_new
+//:     match selfhost_name_scope_new:
+//:         Result::Ok scope0:
+//:             let span <SelfhostSourceSpan> source_span_new 0 1 2
+//:             let first <SelfhostNameBinding> selfhost_name_binding_new "x" selfhost_def_id_invalid SelfhostDefKind::Local span
+//:             match selfhost_name_scope_add_binding scope0 first:
+//:                 Result::Ok add1:
+//:                     let first_id <SelfhostDefId> field::get add1 "def_id"
+//:                     let scope1 <SelfhostNameScope> field::get add1 "scope"
+//:                     let second <SelfhostNameBinding> selfhost_name_binding_new "x" selfhost_def_id_invalid SelfhostDefKind::Param span
+//:                     match selfhost_name_scope_add_binding scope1 second:
+//:                         Result::Ok add2:
+//:                             let second_id <SelfhostDefId> field::get add2 "def_id"
+//:                             let scope2 <SelfhostNameScope> field::get add2 "scope"
+//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 0 selfhost_def_id_index first_id
+//:                             let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 1 selfhost_def_id_index second_id
+//:                             match selfhost_name_scope_find &scope2 "x":
+//:                                 Option::Some binding:
+//:                                     let checks3 <Vec<Result<(),str>>> checks_push checks2 check selfhost_def_id_eq binding.def_id second_id
+//:                                     let checks4 <Vec<Result<(),str>>> checks_push checks3 check selfhost_def_kind_eq binding.kind SelfhostDefKind::Param
+//:                                     let checks5 <Vec<Result<(),str>>> checks_push checks4 check_eq_i32 2 selfhost_name_scope_len &scope2
+//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks5
+//:                                     selfhost_name_scope_free scope2
+//:                                     checks_exit_code shown
+//:                                 Option::None:
+//:                                     let checks3 <Vec<Result<(),str>>> checks_push checks2 Result<(),str>::Err "missing latest binding"
+//:                                     let shown <Vec<Result<(),str>>> checks_print_report checks3
+//:                                     selfhost_name_scope_free scope2
+//:                                     checks_exit_code shown
+//:                         Result::Err _e:
+//:                             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "second binding allocation failed"
+//:                             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                             checks_exit_code shown
+//:                 Result::Err _e:
+//:                     let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "first binding allocation failed"
+//:                     let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "scope allocation failed"
+//:             let shown <Vec<Result<(),str>>> checks_print_report checks1
+//:             checks_exit_code shown
 //: ```
-fn selfhost_name_resolver_stage0 <()->i32> ():
-    0
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as string
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostDefId: 名前解決後の定義 table index
+//:
+//: [目的/もくてき]:
+//: - HIR / check / diagnostic が raw name ではなく安定 id で定義を参照できるようにします。
+struct SelfhostDefId:
+    index <i32>
+
+impl Clone for SelfhostDefId:
+    fn clone <(&SelfhostDefId)->SelfhostDefId> (self):
+        *self
+
+impl Copy for SelfhostDefId:
+    fn copy_mark <(SelfhostDefId)->SelfhostDefId> (self):
+        self
+
+//: SelfhostDefKind: 定義の分類
+//:
+//: [目的/もくてき]:
+//: - 同じ名前で見つかった定義が value / type / trait などどの名前空間に属するかを後続 stage が判定できるようにします。
+enum SelfhostDefKind:
+    Function
+    Struct
+    Enum
+    Trait
+    Impl
+    Local
+    Param
+    Builtin
+
+impl Clone for SelfhostDefKind:
+    fn clone <(&SelfhostDefKind)->SelfhostDefKind> (self):
+        *self
+
+impl Copy for SelfhostDefKind:
+    fn copy_mark <(SelfhostDefKind)->SelfhostDefKind> (self):
+        self
+
+//: SelfhostNameBinding: 1 つの名前と定義 id の対応
+//:
+//: [目的/もくてき]:
+//: - scope 内の宣言順、定義分類、宣言位置を 1 record にまとめます。
+struct SelfhostNameBinding:
+    name <str>
+    def_id <SelfhostDefId>
+    kind <SelfhostDefKind>
+    span <SelfhostSourceSpan>
+
+impl Clone for SelfhostNameBinding:
+    fn clone <(&SelfhostNameBinding)->SelfhostNameBinding> (self):
+        *self
+
+impl Copy for SelfhostNameBinding:
+    fn copy_mark <(SelfhostNameBinding)->SelfhostNameBinding> (self):
+        self
+
+//: SelfhostNameScope: binding table を所有する scope
+//:
+//: [注意/ちゅうい]:
+//: - `bindings` は insertion order で保持され、検索は末尾から行うことで後勝ち shadowing を表します。
+struct SelfhostNameScope:
+    bindings <Vec<SelfhostNameBinding>>
+
+//: SelfhostNameScopeAddResult: binding 追加後の scope と割り当てた DefId
+struct SelfhostNameScopeAddResult:
+    scope <SelfhostNameScope>
+    def_id <SelfhostDefId>
+
+//: selfhost_def_id_new: DefId を[作/つく]る
+fn selfhost_def_id_new <(i32)->SelfhostDefId> (index):
+    SelfhostDefId index
+
+//: selfhost_def_id_invalid: 未解決用の invalid DefId を[返/かえ]す
+fn selfhost_def_id_invalid <()->SelfhostDefId> ():
+    selfhost_def_id_new -1
+
+//: selfhost_def_id_index: DefId の index を[返/かえ]す
+fn selfhost_def_id_index <(SelfhostDefId)->i32> (def_id):
+    def_id.index
+
+//: selfhost_def_id_eq: DefId が同じ index か[返/かえ]す
+fn selfhost_def_id_eq <(SelfhostDefId,SelfhostDefId)->bool> (a, b):
+    eq a.index b.index
+
+//: selfhost_def_kind_tag: DefKind を比較用 tag に[変換/へんかん]する
+fn selfhost_def_kind_tag <(SelfhostDefKind)->i32> (kind):
+    match kind:
+        SelfhostDefKind::Function:
+            0
+        SelfhostDefKind::Struct:
+            1
+        SelfhostDefKind::Enum:
+            2
+        SelfhostDefKind::Trait:
+            3
+        SelfhostDefKind::Impl:
+            4
+        SelfhostDefKind::Local:
+            5
+        SelfhostDefKind::Param:
+            6
+        SelfhostDefKind::Builtin:
+            7
+
+//: selfhost_def_kind_eq: DefKind が同じ分類か[返/かえ]す
+fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
+    eq selfhost_def_kind_tag a selfhost_def_kind_tag b
+
+//: selfhost_name_binding_new: binding record を[作/つく]る
+fn selfhost_name_binding_new <(str,SelfhostDefId,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
+    SelfhostNameBinding name def_id kind span
+
+//: selfhost_name_scope_new: [空/から]の scope を[作/つく]る
+fn selfhost_name_scope_new <()*>Result<SelfhostNameScope, StdErrorKind>> ():
+    match v::new<SelfhostNameBinding>:
+        Result::Ok bindings:
+            Result<SelfhostNameScope, StdErrorKind>::Ok SelfhostNameScope bindings
+        Result::Err e:
+            Result<SelfhostNameScope, StdErrorKind>::Err e
+
+//: selfhost_name_scope_free: scope の binding table を[解放/かいほう]する
+fn selfhost_name_scope_free <(SelfhostNameScope)*>()> (scope):
+    v::free<SelfhostNameBinding> field::get scope "bindings"
+
+//: selfhost_name_scope_len: scope 内の binding 数を[返/かえ]す
+fn selfhost_name_scope_len <(&SelfhostNameScope)->i32> (scope):
+    let bindings <&Vec<SelfhostNameBinding>> field::get_ref scope "bindings"
+    v::len_ref<SelfhostNameBinding> bindings
+
+//: selfhost_name_scope_add_result_new: add result を[作/つく]る
+fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>SelfhostNameScopeAddResult> (scope, def_id):
+    SelfhostNameScopeAddResult scope def_id
+
+//: selfhost_name_scope_add_binding: scope に binding を 1 件[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - 追加位置を `SelfhostDefId` として割り当て、binding 側にも同じ id を保存します。
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時、入力 scope の owner はこの関数が消費します。`Vec::push` の失敗時は入力 buffer が解放済みです。
+fn selfhost_name_scope_add_binding <(SelfhostNameScope,SelfhostNameBinding)*>Result<SelfhostNameScopeAddResult, StdErrorKind>> (scope, binding):
+    let def_id <SelfhostDefId> selfhost_def_id_new selfhost_name_scope_len &scope
+    let bindings <Vec<SelfhostNameBinding>> field::get scope "bindings"
+    let item <SelfhostNameBinding> selfhost_name_binding_new binding.name def_id binding.kind binding.span
+    match v::push<SelfhostNameBinding> bindings item:
+        Result::Ok next_bindings:
+            Result<SelfhostNameScopeAddResult, StdErrorKind>::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
+        Result::Err e:
+            Result<SelfhostNameScopeAddResult, StdErrorKind>::Err e
+
+//: selfhost_name_scope_get: DefId の binding record を[返/かえ]す
+fn selfhost_name_scope_get <(&SelfhostNameScope,SelfhostDefId)->Option<SelfhostNameBinding>> (scope, def_id):
+    if:
+        lt def_id.index 0
+        then:
+            none<SelfhostNameBinding>
+        else:
+            let bindings <&Vec<SelfhostNameBinding>> field::get_ref scope "bindings"
+            v::get_ref<SelfhostNameBinding> bindings def_id.index
+
+//: selfhost_name_scope_find_loop: 指定名の binding を末尾から[探/さが]す
+//:
+//: [実装/じっそう]:
+//: - 同一 scope 内の shadowing は後から追加された binding が優先されるため、末尾から線形探索します。
+fn selfhost_name_scope_find_loop <(&SelfhostNameScope,str,i32)->Option<SelfhostNameBinding>> (scope, name, idx):
+    if:
+        lt idx 0
+        then:
+            none<SelfhostNameBinding>
+        else:
+            match selfhost_name_scope_get scope selfhost_def_id_new idx:
+                Option::Some binding:
+                    match string::str_eq binding.name name:
+                        true:
+                            some<SelfhostNameBinding> binding
+                        false:
+                            selfhost_name_scope_find_loop scope name sub idx 1
+                Option::None:
+                    none<SelfhostNameBinding>
+
+//: selfhost_name_scope_find: 指定名の最新 binding を[返/かえ]す
+fn selfhost_name_scope_find <(&SelfhostNameScope,str)->Option<SelfhostNameBinding>> (scope, name):
+    selfhost_name_scope_find_loop scope name sub selfhost_name_scope_len scope 1
+
+//: selfhost_name_resolver_stage0: Stage 0 marker 互換の smoke API
+//:
+//: [目的/もくてき]:
+//: - 既存の Stage 0 doctest import 経路を[保/たも]ちながら、scope table の最小実装も[確認/かくにん]します。
+fn selfhost_name_resolver_stage0 <()*>i32> ():
+    match selfhost_name_scope_new:
+        Result::Ok scope0:
+            let binding <SelfhostNameBinding> selfhost_name_binding_new "main" selfhost_def_id_invalid SelfhostDefKind::Function source_span_empty 0 0
+            match selfhost_name_scope_add_binding scope0 binding:
+                Result::Ok scope_add:
+                    let def_id <SelfhostDefId> field::get scope_add "def_id"
+                    let scope1 <SelfhostNameScope> field::get scope_add "scope"
+                    let ok <bool> selfhost_def_id_eq def_id selfhost_def_id_new 0
+                    selfhost_name_scope_free scope1
+                    if ok 0 1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1

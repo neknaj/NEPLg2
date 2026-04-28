@@ -1,3 +1,16 @@
+# 2026-04-29 メモ (ISS-20260428T204905577Z self-host name resolver scope)
+
+- `stdlib/neplg2/core/resolve/name_resolver.nepl` は marker API だけで、後続の HIR / check / diagnostic が定義を安定 id で参照するための境界がなかった。
+- `SelfhostDefId`、`SelfhostDefKind`、`SelfhostNameBinding`、`SelfhostNameScope`、`SelfhostNameScopeAddResult` を追加し、scope が所有する binding table に宣言順で binding を保持する形にした。
+- `selfhost_name_scope_add_binding` は追加位置を `DefId` として割り当て、binding 側にも同じ id を保存する。`selfhost_name_scope_get` は `DefId` から O(1) で record を返し、`selfhost_name_scope_find` は末尾から線形探索して同一 scope 内の後勝ち shadowing を固定する。
+- 親 scope、hoist、qualified alias、open import はまだ未実装だが、それらが参照する最小の名前解決データ構造は今回追加した。
+- 回帰テストとして name_resolver の doctest を追加し、2 つの同名 binding で `DefId` が 0/1 と安定し、lookup が最新の `Param` binding を返すことを確認した。
+- 検証:
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\resolve\name_resolver.nepl --no-tree -o tmp\selfhost-name-scope-bindings.json -j 1`: total=1, passed=1
+  - `node nodesrc\issues.js check`: pass, files=317
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T202704426Z Resource IR wrapper alias)
 
 - `RawMemoryLoadCell` gate の残件調査で、`tests/compiler/move_effect.n.md::doctest#23` と `#38` が `mem_ptr_addr p` の戻り値 temporary を store/load 間で別 raw address と見て false D3100 になる原因を確認した。
