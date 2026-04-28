@@ -50,15 +50,15 @@ enum HtmlEscapeKind:
 
 fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
     match ch:
-        38:
+        '&':
             HtmlEscapeKind::Amp
-        60:
+        '<':
             HtmlEscapeKind::Lt
-        62:
+        '>':
             HtmlEscapeKind::Gt
-        34:
+        '"':
             HtmlEscapeKind::Quote
-        39:
+        '\'':
             HtmlEscapeKind::Apostrophe
         _:
             HtmlEscapeKind::Plain

@@ -288,7 +288,7 @@ fn str_display_width <(str)*>i32> (s):
         do:
             let b <i32> str_byte_at s i;
             if:
-                eq b 27
+                eq b '\x1B'
                 then:
                     let i1 <i32> add i 1;
                     if:
@@ -297,7 +297,7 @@ fn str_display_width <(str)*>i32> (s):
                             let n1 <i32> str_byte_at s i1;
                             // CSI: ESC [ ... final(0x40-0x7e)
                             if:
-                                eq n1 91
+                                eq n1 '['
                                 then:
                                     set i add i 2;
                                     let mut done <bool> false;
@@ -315,7 +315,7 @@ fn str_display_width <(str)*>i32> (s):
                                 else:
                                     // OSC: ESC ] ... ESC \
                                     if:
-                                        eq n1 93
+                                        eq n1 ']'
                                         then:
                                             set i add i 2;
                                             let mut done2 <bool> false;
@@ -324,7 +324,7 @@ fn str_display_width <(str)*>i32> (s):
                                                     let c2 <i32> str_byte_at s i;
                                                     let i2 <i32> add i 1;
                                                     let has_next <bool> lt i2 n;
-                                                    let is_esc_br <bool> and eq c2 27 and has_next eq str_byte_at s i2 92;
+                                                    let is_esc_br <bool> and eq c2 '\x1B' and has_next eq str_byte_at s i2 '\\';
                                                     if:
                                                         is_esc_br
                                                         then:
@@ -480,7 +480,7 @@ fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
                 do:
                     let b <i32> str_byte_at text i;
                     if:
-                        eq b 10
+                        eq b '\n'
                         then:
                             let ln <str> str_slice text line_start i;
                             let pushed_out <TuiStrPushRes> tui_push_str out ln;
@@ -589,7 +589,7 @@ fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, heig
                     let row <i32> add start_row row_i;
                     let b0 <i32> str_byte_at text i;
                     if:
-                        eq b0 10
+                        eq b0 '\n'
                         then:
                             let s0 <str> str_slice text line_start i;
                             let s0c <str> line_clip_to_cols s0 cols;
@@ -896,7 +896,7 @@ fn line_has_escape <(str)*>bool> (s):
     while and lt i n not found:
         do:
             if:
-                eq str_byte_at s i 27
+                eq str_byte_at s i '\x1B'
                 then:
                     set found true
                 else:

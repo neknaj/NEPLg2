@@ -92,19 +92,19 @@ enum NmJsonEscapeKind:
 
 fn nm_json_escape_kind <(i32)->NmJsonEscapeKind> (ch):
     match ch:
-        92:
+        '\\':
             NmJsonEscapeKind::Backslash
-        34:
+        '"':
             NmJsonEscapeKind::Quote
-        10:
+        '\n':
             NmJsonEscapeKind::Newline
-        13:
+        '\r':
             NmJsonEscapeKind::CarriageReturn
-        9:
+        '\t':
             NmJsonEscapeKind::Tab
-        8:
+        '\b':
             NmJsonEscapeKind::Backspace
-        12:
+        '\f':
             NmJsonEscapeKind::FormFeed
         _:
             NmJsonEscapeKind::Plain
@@ -343,7 +343,7 @@ fn is_heading_start <(str)->bool> (s):
 //: - `str_split input "\n"` 後に残る Windows 改行の `\r` を取り除きます。
 //:
 //: [実装/じっそう]:
-//: - 最終 byte が 13 なら末尾 1 byte を除いた slice を返し、それ以外は元の文字列を返します。
+//: - 最終 byte が `'\r'` なら末尾 1 byte を除いた slice を返し、それ以外は元の文字列を返します。
 //:
 //: [注意/ちゅうい]:
 //: - 先頭や途中の CR は変更しません。
@@ -358,7 +358,7 @@ fn trim_cr <(str)->str> (s):
         else:
             let last <i32> string_byte_at_unchecked s sub n 1;
             if:
-                eq last 13
+                eq last '\r'
                 then str_slice s 0 sub n 1
                 else s
 
@@ -803,7 +803,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                 else:
                     // Ruby: [base/ruby] (ignore if looks like markdown link: ]( )
                     if:
-                        eq ch 91
+                        eq ch '['
                         then:
                             let mut j <i32> add i 1;
                             let mut slash <i32> -1;
@@ -813,11 +813,11 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                 do:
                                     let cj <i32> string_byte_at_unchecked s j;
                                     if:
-                                        eq cj 93
+                                        eq cj ']'
                                         then set closed true
                                         else:
                                             if:
-                                                and eq cj 47 lt slash 0
+                                                and eq cj '/' lt slash 0
                                                 then set slash j
                                                 else ()
                                             set j add j 1;
@@ -830,7 +830,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                         lt add j 1 n
                                         then:
                                             let nx <i32> string_byte_at_unchecked s add j 1;
-                                            set next_is_paren eq nx 40;
+                                            set next_is_paren eq nx '(';
                                             ()
                                         else ()
 
@@ -878,7 +878,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                         else:
                             // Gloss: {main/sub1/sub2...} (split '/' at top level, ignoring inside [...])
                             if:
-                                eq ch 123
+                                eq ch '{'
                                 then:
                                     let mut j <i32> add i 1;
                                     let mut closed <bool> false;
@@ -886,7 +886,7 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                         do:
                                             let cj <i32> string_byte_at_unchecked s j;
                                             if:
-                                                eq cj 125
+                                                eq cj '}'
                                                 then set closed true
                                                 else set j add j 1
                                     if:
@@ -921,15 +921,15 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
                                                 do:
                                                     let ck <i32> string_byte_at_unchecked s k;
                                                     if:
-                                                        eq ck 91
+                                                        eq ck '['
                                                         then set depth add depth 1
                                                         else:
                                                             if:
-                                                                and eq ck 93 gt depth 0
+                                                                and eq ck ']' gt depth 0
                                                                 then set depth sub depth 1
                                                                 else ()
                                                     if:
-                                                        and eq ck 47 eq depth 0
+                                                        and eq ck '/' eq depth 0
                                                         then:
                                                             let p <str> str_slice s start k;
                                                             let pushed_part <StrPushRes> nm_push_str parts p;

@@ -75,17 +75,17 @@ fn lex_error_code_name <(LexErrorCode)->str> (code):
 
 //: lex_is_digit: ASCII digit か[返/かえ]す
 fn lex_is_digit <(i32)->bool> (ch):
-    and ge ch 48 le ch 57
+    and ge ch '0' le ch '9'
 
 //: lex_is_alpha: ASCII alphabet か[返/かえ]す
 fn lex_is_alpha <(i32)->bool> (ch):
-    let upper <bool> and ge ch 65 le ch 90
-    let lower <bool> and ge ch 97 le ch 122
+    let upper <bool> and ge ch 'A' le ch 'Z'
+    let lower <bool> and ge ch 'a' le ch 'z'
     or upper lower
 
 //: lex_is_ident_start: identifier [先頭/せんとう] byte か[返/かえ]す
 fn lex_is_ident_start <(i32)->bool> (ch):
-    or lex_is_alpha ch eq ch 95
+    or lex_is_alpha ch eq ch '_'
 
 //: lex_is_ident_continue: identifier [継続/けいぞく] byte か[返/かえ]す
 fn lex_is_ident_continue <(i32)->bool> (ch):
@@ -100,7 +100,7 @@ fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
         else:
             let ch <i32> string::string_byte_at_unchecked source idx
             match ch:
-                10:
+                '\n':
                     idx
                 _:
                     lex_skip_line_comment source n add idx 1
@@ -117,19 +117,19 @@ fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
         else:
             let ch <i32> string::string_byte_at_unchecked source idx
             match ch:
-                9:
+                '\t':
                     lex_skip_trivia source n add idx 1
-                13:
+                '\r':
                     lex_skip_trivia source n add idx 1
-                32:
+                ' ':
                     lex_skip_trivia source n add idx 1
-                47:
+                '/':
                     if:
                         lt add idx 1 n
                         then:
                             let next <i32> string::string_byte_at_unchecked source add idx 1
                             if:
-                                eq next 47
+                                eq next '/'
                                 then:
                                     lex_skip_trivia source n lex_skip_line_comment source n add idx 2
                                 else:
@@ -182,9 +182,9 @@ fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
         else:
             let ch <i32> string::string_byte_at_unchecked source idx
             match ch:
-                34:
+                '"':
                     idx
-                92:
+                '\\':
                     if:
                         ge add idx 1 n
                         then:
@@ -208,16 +208,16 @@ fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
         else:
             let ch <i32> string::string_byte_at_unchecked source idx
             match ch:
-                39:
+                '\'':
                     idx
-                92:
+                '\\':
                     if:
                         ge add idx 1 n
                         then:
                             -1
                         else:
                             lex_char_end source n add idx 2
-                10:
+                '\n':
                     -1
                 _:
                     lex_char_end source n add idx 1
@@ -236,53 +236,53 @@ fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
         else:
             let ch <i32> string::string_byte_at_unchecked source start
             match ch:
-                10:
+                '\n':
                     lex_token_slice TokenKind::Newline source start add start 1
-                35:
+                '#':
                     lex_token_slice TokenKind::Hash source start add start 1
-                40:
+                '(':
                     lex_token_slice TokenKind::LParen source start add start 1
-                41:
+                ')':
                     lex_token_slice TokenKind::RParen source start add start 1
-                44:
+                ',':
                     lex_token_slice TokenKind::Comma source start add start 1
-                46:
+                '.':
                     lex_token_slice TokenKind::Dot source start add start 1
-                58:
+                ':':
                     lex_token_slice TokenKind::Colon source start add start 1
-                59:
+                ';':
                     lex_token_slice TokenKind::Semicolon source start add start 1
-                60:
+                '<':
                     lex_token_slice TokenKind::LAngle source start add start 1
-                62:
+                '>':
                     lex_token_slice TokenKind::RAngle source start add start 1
-                42:
+                '*':
                     if:
                         lt add start 1 n
                         then:
                             let next <i32> string::string_byte_at_unchecked source add start 1
                             if:
-                                eq next 62
+                                eq next '>'
                                 then:
                                     lex_token_slice TokenKind::EffectArrow source start add start 2
                                 else:
                                     lex_token_slice TokenKind::Asterisk source start add start 1
                         else:
                             lex_token_slice TokenKind::Asterisk source start add start 1
-                45:
+                '-':
                     if:
                         lt add start 1 n
                         then:
                             let next <i32> string::string_byte_at_unchecked source add start 1
                             if:
-                                eq next 62
+                                eq next '>'
                                 then:
                                     lex_token_slice TokenKind::Arrow source start add start 2
                                 else:
                                     lex_token_slice TokenKind::Unknown source start add start 1
                         else:
                             lex_token_slice TokenKind::Unknown source start add start 1
-                34:
+                '"':
                     let close <i32> lex_string_end source n add start 1
                     if:
                         lt close 0
@@ -290,7 +290,7 @@ fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
                             lex_token_slice TokenKind::UnterminatedString source start n
                         else:
                             lex_token_slice TokenKind::StringLiteral source start add close 1
-                39:
+                '\'':
                     let close <i32> lex_char_end source n add start 1
                     if:
                         lt close 0

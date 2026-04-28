@@ -364,7 +364,7 @@ fn stdio_write_stderr_bytes <(ByteBuf)*>()> (bytes):
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     print_byte 65
+//:     print_byte 'A'
 //: ```
 fn print_byte <(i32)*>()> (b):
     match alloc_ptr<u8> 1:
@@ -708,7 +708,7 @@ fn noshadow read_line <()*>str> ():
                                                         let read_ptr <i32> add out_base len;
                                                         let b <i32> load_u8 read_ptr;
                                                         if:
-                                                            eq b 10
+                                                            eq b '\n'
                                                             then:
                                                                 set done 1;
                                                             else:
@@ -803,7 +803,7 @@ fn noshadow print_i32 <(i32)*>()> (v):
                         ""
                     Result::Ok out0:
                         store_i32 out0 1;
-                        store_u8 add out0 4 48;
+                        store_u8 add out0 4 '0';
                         string_from_addr_unchecked out0
             else:
                 let is_neg <bool> lt v 0;
@@ -824,14 +824,14 @@ fn noshadow print_i32 <(i32)*>()> (v):
                         while lt 0 n:
                             do:
                                 let rem <i32> rem_u n 10;
-                                store_u8 add scratch idx add 48 rem;
+                                store_u8 add scratch idx add '0' rem;
                                 set idx add idx 1;
                                 set n div_u n 10;
 
                         if:
                             is_neg
                             then:
-                                store_u8 add scratch idx 45; // '-' sign
+                                store_u8 add scratch idx '-'; // '-' sign
                                 set idx add idx 1;
                             else:
                                 ();

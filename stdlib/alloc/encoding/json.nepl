@@ -473,19 +473,19 @@ fn json_as_object <(JsonValue)->Option<Vec<JsonMember>>> (v):
 // - O(n)
 fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
     match ch:
-        92:
+        '\\':
             JsonEscapeKind::Backslash
-        34:
+        '"':
             JsonEscapeKind::Quote
-        10:
+        '\n':
             JsonEscapeKind::Newline
-        13:
+        '\r':
             JsonEscapeKind::CarriageReturn
-        9:
+        '\t':
             JsonEscapeKind::Tab
-        8:
+        '\b':
             JsonEscapeKind::Backspace
-        12:
+        '\f':
             JsonEscapeKind::FormFeed
         _:
             JsonEscapeKind::Plain

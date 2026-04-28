@@ -18,6 +18,38 @@
 - plan.md との差異:
   - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
 
+# 2026-04-28 メモ (ISS-20260428T004329925Z stdlib char literal migration)
+
+- 状況:
+  - core の char literal 実装後も、stdlib/selfhost の文字判定に decimal character code が残っていた。
+  - escape classifier、lexer punctuation、string numeric parser、stdio、CLI arg doctest、TUI、byte builder の text magic bytes が、文字なのか size/offset/opcode なのかレビューで判別しにくい状態だった。
+- 修正:
+  - JSON / nm JSON / HTML escape classifier と selfhost lexer の ASCII / punctuation / string / char literal 判定を char literal に置き換えた。
+  - `stdlib/alloc/string.nepl` の `str_is_space` を char literal の `match` に戻し、sign/digit/dot/exponent の text byte 判定も char literal にした。
+  - stdio、CLI arg doctest、WASIX TUI、byte builder の text byte を char literal 化した。
+  - opcode、length、offset、radix、error code、ANSI color offset のような非文字の数値はそのまま残した。
+  - 静的回帰として `nodesrc/test_stdlib_match_decision_trees.js` に char literal arm と `str_is_space` の `match` 維持を追加した。
+- 検証:
+  - `trunk build`: pass
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/char-magic-selfhost-lexer.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/char-magic-byte-builder.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/char-magic-string.json -j 1`: 9/9 passed
+  - `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/char-magic-json.json -j 1`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/char-magic-cliarg.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/char-magic-tui.json -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/char-magic-stdout.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/char-magic-stdin.json -j 1`: 5/5 passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/char-magic-stdio-docs.json -j 1`: 28/28 passed
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/char-magic-cliarg-docs.json -j 1`: 5/5 passed
+  - `node nodesrc/issues.js check`: pass
+- 既知の別 issue:
+  - `tests/stdlib/json_typed_values.n.md` と `tests/stdlib/nm.n.md` は D3100 raw memory/move check で失敗しており、char literal 移行ではなく既存の raw memory detour / strict move checking 追従問題として扱う。
+  - stdlib は今後の issue 選定時にフルレビューを挟み、静的検査の大規模修正へ追従できていない箇所を既存 issue へ接続するか新規 issue 化する。
+- plan.md との差異:
+  - plan.md は変更していない。
+  - char literal の stdlib 展開は `doc/neplg2/char_stdlib_integration_plan.md` に沿って進めた。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck env module)
 
 - 状況:

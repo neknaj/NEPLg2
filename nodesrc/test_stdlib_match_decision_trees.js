@@ -30,7 +30,8 @@ function assertLiteralMatch({ file, name, scrutinee, literals }) {
     assert.match(block, new RegExp(`\\bmatch\\s+${scrutinee}:`), `${name} must dispatch with match`);
     assert.doesNotMatch(block, /^\s+if:\s*$/m, `${name} must not regress to an if decision tree`);
     for (const literal of literals) {
-        assert.match(block, new RegExp(`^\\s*${literal}:\\s*$`, 'm'), `${name} is missing literal arm ${literal}`);
+        const escaped = String(literal).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        assert.match(block, new RegExp(`^\\s*${escaped}:\\s*$`, 'm'), `${name} is missing literal arm ${literal}`);
     }
     assert.match(block, /^\s*_:\s*$/m, `${name} must keep an explicit wildcard/default arm`);
 }
@@ -39,21 +40,21 @@ assertLiteralMatch({
     file: 'stdlib/alloc/encoding/json.nepl',
     name: 'json_escape_kind',
     scrutinee: 'ch',
-    literals: [92, 34, 10, 13, 9, 8, 12],
+    literals: ["'\\\\'", "'\"'", "'\\n'", "'\\r'", "'\\t'", "'\\b'", "'\\f'"],
 });
 
 assertLiteralMatch({
     file: 'stdlib/nm/parser.nepl',
     name: 'nm_json_escape_kind',
     scrutinee: 'ch',
-    literals: [92, 34, 10, 13, 9, 8, 12],
+    literals: ["'\\\\'", "'\"'", "'\\n'", "'\\r'", "'\\t'", "'\\b'", "'\\f'"],
 });
 
 assertLiteralMatch({
     file: 'stdlib/nm/html_gen.nepl',
     name: 'html_escape_kind',
     scrutinee: 'ch',
-    literals: [38, 60, 62, 34, 39],
+    literals: ["'&'", "'<'", "'>'", "'\"'", "'\\''"],
 });
 
 assertLiteralMatch({
@@ -61,6 +62,13 @@ assertLiteralMatch({
     name: 'html_heading_kind',
     scrutinee: 'level',
     literals: [1, 2, 3, 4, 5],
+});
+
+assertLiteralMatch({
+    file: 'stdlib/alloc/string.nepl',
+    name: 'str_is_space',
+    scrutinee: 'b',
+    literals: ["' '", "'\\t'", "'\\n'", "'\\r'"],
 });
 
 console.log('stdlib match decision tree regression passed');

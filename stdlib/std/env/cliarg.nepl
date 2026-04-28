@@ -299,10 +299,10 @@ fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
-//:     unwrap_ok store_u8 mem_ptr_add p 0 110;
-//:     unwrap_ok store_u8 mem_ptr_add p 1 101;
-//:     unwrap_ok store_u8 mem_ptr_add p 2 112;
-//:     unwrap_ok store_u8 mem_ptr_add p 3 0;
+//:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
+//:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
+//:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
+//:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
 //:     let n <i32> cstr_len p;
 //:     match dealloc_ptr<u8> p 4:
 //:         Result::Ok _:
@@ -355,10 +355,10 @@ fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
-//:     unwrap_ok store_u8 mem_ptr_add p 0 110;
-//:     unwrap_ok store_u8 mem_ptr_add p 1 101;
-//:     unwrap_ok store_u8 mem_ptr_add p 2 112;
-//:     unwrap_ok store_u8 mem_ptr_add p 3 0;
+//:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
+//:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
+//:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
+//:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
 //:     let s <str> cstr_to_str p;
 //:     match dealloc_ptr<u8> p 4:
 //:         Result::Ok _:
