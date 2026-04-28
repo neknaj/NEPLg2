@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck env module)
+
+- 状況:
+  - `move_check.rs` 側の Stage 1 分割が進んだ一方で、`typecheck.rs` には symbol/env、overload、trait lookup、effect 判定、HIR lowering 補助が同居したままだった。
+  - 末尾の `Binding` / `BindingKind` / `Scope` / `Env` は名前解決と overload binding の基本状態を持つため、Resource IR 前段の typecheck 責務分離で最初に切り出すべき境界だった。
+- 修正:
+  - `nepl-core/src/typecheck/env.rs` を追加し、binding 型、scope stack、global/local binding 挿入、current/defined/outer lookup、callable lookup、same signature duplicate removal、nested function binding update を移動した。
+  - `typecheck.rs` 側は `env::{Binding, BindingKind, Env}` を import して既存処理を維持した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck env 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/env.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 16/16 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/resolve.n.md -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/shadowing.n.md --no-tree -o tmp/stage1-typecheck-env-focused.json -j 1`: 106/106 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 alias helper module)
 
 - 状況:
