@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T22:42:07.891Z",
+  "generated_at": "2026-04-28T22:52:26.334Z",
   "counts": {
     "total": 327,
-    "open": 11,
-    "resolved": 316,
+    "open": 10,
+    "resolved": 317,
     "by_area": {
       "core": {
-        "total": 153,
-        "open": 4,
+        "total": 152,
+        "open": 3,
         "resolved": 149
       },
       "stdlib": {
-        "total": 100,
+        "total": 101,
         "open": 6,
-        "resolved": 94
+        "resolved": 95
       },
       "selfhost": {
         "total": 37,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9",
-      "title": "String constructors reuse RegionToken storage after RawMemoryLoadCell move",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/string.nepl, nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3348,6 +3333,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T222332284Z-VEC-PUSH-FREE-REJECT-INITIALIZED-HEA-736A6DA9.md"
+    },
+    {
+      "id": "ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9",
+      "title": "String constructors reuse RegionToken storage after RawMemoryLoadCell move",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/string.nepl, nodesrc/test_stdlib_string_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

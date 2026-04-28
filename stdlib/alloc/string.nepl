@@ -70,15 +70,15 @@ fn string_alloc_region <(i32)->Result<RegionToken<u8>,str>> (byte_len):
 //: - 文字列領域の長さヘッダを `MemPtr<i32>` として扱えるようにします。
 //:
 //: [実装/じっそう]:
-//: - `region_ptr_at<u8,i32> region 0` を利用します。
+//: - `RegionToken` の所有権を動かさず、field reference から基底 `MemPtr<u8>` を copy してヘッダポインタに包み直します。
 //:
 //: [注意/ちゅうい]:
 //: - 文字列領域レイアウトを前提とする内部ヘルパです。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_region_len_ptr <(RegionToken<u8>)->MemPtr<i32>> (region):
-    mem_ptr_wrap mem_ptr_addr get region "ptr"
+fn string_region_len_ptr <(&RegionToken<u8>)->MemPtr<i32>> (region):
+    mem_ptr_wrap mem_ptr_addr *get_ref region "ptr"
 
 //: string_region_data_ptr: 文字列本文先頭への型付きポインタを得る
 //:
@@ -86,15 +86,15 @@ fn string_region_len_ptr <(RegionToken<u8>)->MemPtr<i32>> (region):
 //: - 文字列本文の 1 バイト目を `MemPtr<u8>` として扱えるようにします。
 //:
 //: [実装/じっそう]:
-//: - `region_ptr_at<u8,u8> region 4` を利用します。
+//: - `RegionToken` の所有権を動かさず、field reference から基底 `MemPtr<u8>` を copy して 4 バイト進めます。
 //:
 //: [注意/ちゅうい]:
 //: - 先頭 4 バイトが長さヘッダであることを前提にしています。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_region_data_ptr <(RegionToken<u8>)->MemPtr<u8>> (region):
-    mem_ptr_add get region "ptr" 4
+fn string_region_data_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
+    mem_ptr_add *get_ref region "ptr" 4
 
 //: string_addr: `str` の内部アドレスを低レベル処理用に取り出す
 //:
@@ -143,7 +143,7 @@ fn string_data_ptr <(str)->MemPtr<u8>> (s):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
-    let base <MemPtr<u8>> get region "ptr"
+    let base <MemPtr<u8>> *get_ref &region "ptr"
     string_finish_base base byte_len
 
 //: string_from_addr_unchecked: 文字列レイアウト済み領域を `str` として扱う
@@ -205,8 +205,8 @@ fn string_from_mem_unchecked_result <(MemPtr<u8>,i32)->Result<str,str>> (src, by
                 Result::Err e:
                     Result<str,str>::Err e
                 Result::Ok region:
-                    let out_base <MemPtr<u8>> get region "ptr"
-                    let out_data <MemPtr<u8>> string_region_data_ptr region
+                    let out_base <MemPtr<u8>> *get_ref &region "ptr"
+                    let out_data <MemPtr<u8>> string_region_data_ptr &region
                     if:
                         gt byte_len 0
                         then:
@@ -507,7 +507,7 @@ fn byte_at <(str,i32)->Option<i32>> (s, idx):
                 then:
                     none<i32>
                 else:
-                    load_u8 mem_ptr_add string_data_ptr s idx
+                    some<i32> string_byte_at_unchecked s idx
 
 //: string_byte_at_unchecked: 範囲確認なしで `str` の本文 1 バイトを読む
 //:
@@ -549,8 +549,8 @@ fn concat_result <(str,str)->Result<str,str>> (a,b):
         Result::Err e:
             Result<str,str>::Err e
         Result::Ok out_region:
-            let out_base <MemPtr<u8>> get out_region "ptr";
-            let out_data <MemPtr<u8>> string_region_data_ptr out_region;
+            let out_base <MemPtr<u8>> *get_ref &out_region "ptr";
+            let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
             mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr a la;
             mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
             Result<str,str>::Ok string_finish_base out_base total
@@ -982,7 +982,7 @@ fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
                     string_builder_free sb;
                     Result<str,str>::Err e
                 Result::Ok out_region:
-                    let out_base <MemPtr<u8>> get out_region "ptr";
+                    let out_base <MemPtr<u8>> *get_ref &out_region "ptr";
                     let out_data <MemPtr<u8>> mem_ptr_add out_base 4;
                     match mem_copy<u8> out_data get sb "data" len0:
                         Result::Ok _:
@@ -2387,8 +2387,8 @@ fn from_u128 <(u128)->str> (v):
 // - `u128` を 2 / 8 / 10 / 16 進文字列へ変換します。
 //
 // 実装(アルゴリズム):
-// - 小さい基数での `u128_divrem_small` を繰り返し、下位桁から順に取り出します。
-// - 取り出した桁は一時バッファに逆順で積み、最後に反転して確定文字列を作ります。
+// - 小さい基数での `u128_divrem_small` を繰り返し、まず必要な桁数を数えます。
+// - 確保した出力領域を末尾から埋めることで、一時 raw buffer を使わずに確定文字列を作ります。
 //
 // 注意(重要):
 // - 英字桁は小文字です。
@@ -2406,36 +2406,29 @@ fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
                 then:
                     Result::Ok<str,i32> "0"
                 else:
-                    match alloc_ptr<u8> 132:
+                    let mut digit_count <i32> 0;
+                    let mut count_n <u128> v;
+                    while not u128_is_zero count_n:
+                        do:
+                            let qr_count <U128DivRem> u128_divrem_small count_n radix;
+                            set digit_count add digit_count 1;
+                            set count_n get qr_count "quotient";
+                    match string_alloc_region digit_count:
                         Result::Err _e:
                             Result::Err<str,i32> 12
-                        Result::Ok scratch:
-                            let scratch_raw <i32> mem_ptr_addr scratch;
-                            let mut idx <i32> 0;
-                            let mut n <u128> v;
-                            while not u128_is_zero n:
+                        Result::Ok out_region:
+                            let out_base <MemPtr<u8>> *get_ref &out_region "ptr";
+                            let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
+                            let out_raw <i32> mem_ptr_addr out_data;
+                            let mut pos <i32> digit_count;
+                            let mut write_n <u128> v;
+                            while not u128_is_zero write_n:
                                 do:
-                                    let qr <U128DivRem> u128_divrem_small n radix;
-                                    store_u8 add scratch_raw idx digit_to_char_lower get qr "remainder";
-                                    set idx add idx 1;
-                                    set n get qr "quotient";
-                            match string_alloc_region idx:
-                                Result::Err _e:
-                                    dealloc_raw scratch_raw 132
-                                    Result::Err<str,i32> 12
-                                Result::Ok out_region:
-                                    let out_base <MemPtr<u8>> get out_region "ptr";
-                                    let out_data <MemPtr<u8>> string_region_data_ptr out_region;
-                                    let out_raw <i32> mem_ptr_addr out_data;
-                                    let mut i <i32> 0;
-                                    while lt i idx:
-                                        do:
-                                            let rev <i32> sub idx add i 1;
-                                            let ch <i32> load_u8 add scratch_raw rev;
-                                            store_u8 add out_raw i ch;
-                                            set i add i 1;
-                                    dealloc_raw scratch_raw 132
-                                    Result::Ok<str,i32> string_finish_base out_base idx
+                                    let qr_write <U128DivRem> u128_divrem_small write_n radix;
+                                    set pos sub pos 1;
+                                    store_u8 add out_raw pos digit_to_char_lower get qr_write "remainder";
+                                    set write_n get qr_write "quotient";
+                            Result::Ok<str,i32> string_finish_base out_base digit_count
 
 // to_u128: 10 進文字列を u128 に変換する
 //

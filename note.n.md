@@ -1,3 +1,28 @@
+# 2026-04-29 メモ (ISS-20260428T224138753Z String RegionToken ref projection)
+
+- [同期]:
+  - `origin/main` の `806685b issues: track string regiontoken load gate` と同期した `stdlib/string-regiontoken-ref-reads` branch で作業した。
+- [原因]:
+  - `concat_result` / `string_from_mem_unchecked_result` / `sb_build_result` / `from_u128_radix` が `get out_region "ptr"` のように `RegionToken` の field を owned `get` で読み、`RegionToken` owner を pointer projection のためだけに move していた。
+  - `from_u128_radix` は scratch raw buffer へ digit を逆順保存してから読み戻しており、variable offset raw cell merge で `scratch_raw` が `MaybeMoved` になっていた。
+  - `byte_at` は bounds check 後も `MemPtr` temporary deref 経由で `load_u8` しており、string raw backing の temporary cell が `Uninit` と判定されていた。
+- [修正]:
+  - `string_region_len_ptr` / `string_region_data_ptr` を `&RegionToken<u8>` からの projection に変更し、string constructors の base/data pointer read を `get_ref` に統一した。
+  - `byte_at` は bounds check 後に `string_byte_at_unchecked` を使うようにして、既存の raw-address string read helper に寄せた。
+  - `from_u128_radix` は scratch buffer を廃止し、先に桁数を数えてから output region へ末尾から直接書く二段処理に変更した。
+  - `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` に direct `RegionToken` ptr get、by-value region data projection、`from_u128_radix` scratch raw storage の再導入を禁止する regression を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\string-regiontoken-ref-string-2.json -j 1`: total=6 passed=6
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\string-regiontoken-ref-type-arena.json -j 1`: total=5 failed=5。`concat_result` / `scratch_raw` は解消し、残件は既知の `ISS-20260428T223953830Z` Vec element load provenance。
+  - `node nodesrc/tests.js -i stdlib\alloc\collections\vec.nepl --no-tree -o tmp\string-regiontoken-ref-vec.json -j 1`: total=39 passed=29 failed=10。残件は既知の Vec element load provenance。
+  - `node nodesrc/tests.js -i stdlib\neplg2\core\ty\ty.nepl -i stdlib\neplg2\core\builtins\prelude.nepl --no-tree -o tmp\string-regiontoken-ref-ty-prelude.json -j 1`: total=2 passed=2
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host の parser/resolver/diagnostic が依存する `alloc/string` focused doctest は再び通る状態になった。
+
 # 2026-04-29 メモ (ISS-20260428T224138753Z String RegionToken RawMemoryLoadCell)
 
 - `trunk build` 後も `tests\stdlib\neplg2_type_arena.n.md` は 5/5 failed で、全件の top issue は `concat_result` の `out_region` が `RawMemoryLoadCell ... found Moved` になる問題だった。
