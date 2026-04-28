@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck trait check module)
+
+- 状況:
+  - Stage 1 の typecheck trait module 化では trait 型定義と純粋 helper を分離したが、trait bound satisfaction と trait application type argument 推論は `BlockChecker` 本体に残っていた。
+  - Copy / Clone / Drop capability と generic trait bound は memory safety と Resource IR の前提になるため、typecheck 本体から独立した検査境界が必要だった。
+- 修正:
+  - `nepl-core/src/typecheck/trait_check.rs` を追加し、concrete type 判定、type parameter bound ref 照合、impl candidate による trait bound satisfaction、trait ref からの一意 type parameter 推論、trait method call 時の applied trait argument 推論を移動した。
+  - `traits.rs` は trait 型定義と純粋 helper、`trait_check.rs` は `BlockChecker` の環境を読む trait 検査処理、という責務に分けた。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck trait check 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/trait_check.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 16/16 passed
+  - `cargo test -p nepl-core --test drop_overwrite -- --nocapture`: 1/1 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/trait_capability_copy.n.md -i tests/compiler/overload.n.md -i tests/compiler/prelude_copy.n.md -i tests/compiler/drop.n.md --no-tree -o tmp/stage1-typecheck-trait-check-focused.json -j 1`: 80/80 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 と Stage 4 の準備に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck match module)
 
 - 状況:
