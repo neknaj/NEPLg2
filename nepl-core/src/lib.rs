@@ -38,6 +38,7 @@ pub mod nm;
 pub mod parser;
 pub mod passes;
 pub mod resolve;
+pub mod resource;
 pub mod runtime_helpers;
 pub mod source_map;
 pub mod target_gate;

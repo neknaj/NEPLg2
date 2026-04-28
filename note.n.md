@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 2 Resource IR skeleton)
+
+- 状況:
+  - Stage 1 の責務分離は Stage 2 へ進むための境界として十分な状態になったため、`doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 2 に移行した。
+  - Resource IR がないまま HIR 直走査の alias summary を増やすと、move/borrow/drop/raw provenance の責務がさらに分散するため、先に dump 可能な IR 型を作る必要があった。
+- 修正:
+  - `nepl-core/src/resource/` を追加し、`ResourceModule` / `ResourceFunction` / `ResourceBlock` / `ResourceOp` / `Place` / `ResourceState` と、owner/cell/borrow/provenance/effect の最小型を定義した。
+  - HIR から Resource IR へ変換する non-enforcing skeleton を追加し、local read、let/set、borrow、drop、call effect、raw memory intrinsic を粗い op として記録するようにした。
+  - `ResourceModule::dump_text` と `nepl-core/tests/resource_ir.rs` を追加し、Stage 2 の snapshot 境界を固定した。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 2 Resource IR skeleton の進捗と次の Stage 3 方針を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/lib.rs nepl-core/src/resource/mod.rs nepl-core/src/resource/model.rs nepl-core/src/resource/lower.rs nepl-core/src/resource/dump.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage2-resource-ir-types-focused.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+  - `cargo fmt --check -p nepl-core` は、今回触っていない `nepl-core/src/codegen_llvm.rs` と `nepl-core/src/lexer.rs` の既存フォーマット差分を検出するため全体 check としては未通過。
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正は doc/neplg2 の Stage 2 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck driver entry module)
 
 - 状況:

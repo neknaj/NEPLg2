@@ -1,0 +1,20 @@
+//! Resource IR used as the typed input for ownership and lifetime checks.
+//!
+//! This module is intentionally separate from the current HIR move checker.
+//! Stage 2 exposes the data model, a non-enforcing lowering skeleton, and a
+//! deterministic dump so later stages can migrate checks one operation class
+//! at a time.
+
+extern crate alloc;
+
+mod dump;
+mod lower;
+mod model;
+
+pub use lower::lower_hir_module_skeleton;
+pub use model::{
+    BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp, OwnerState,
+    OwnerStateEntry, Place, PlaceProjection, PlaceRoot, PointerProvenance, RawBodyKind,
+    ResourceBlock, ResourceBlockId, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
+    ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
+};
