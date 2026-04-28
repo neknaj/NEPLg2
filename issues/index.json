@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T23:39:24.108Z",
+  "generated_at": "2026-04-28T23:43:25.747Z",
   "counts": {
-    "total": 332,
-    "open": 11,
+    "total": 333,
+    "open": 12,
     "resolved": 321,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 95
       },
       "selfhost": {
-        "total": 40,
-        "open": 1,
+        "total": 41,
+        "open": 2,
         "resolved": 39
       },
       "cli": {
@@ -198,6 +198,21 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260428T234300146Z-SELF-HOST-CLI-ARGS-MIXES-PUBLIC-OPTI-E295567F",
+      "title": "self-host CLI args mixes public option types with parser implementation",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/cli/args.nepl, stdlib/neplg2/cli/args/types.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T234300146Z-SELF-HOST-CLI-ARGS-MIXES-PUBLIC-OPTI-E295567F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",

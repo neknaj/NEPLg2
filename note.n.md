@@ -1,3 +1,16 @@
+# 2026-04-29 メモ (ISS-20260428T234300146Z self-host CLI args type split)
+
+- [同期]:
+  - `origin/main` の `b1fa621 selfhost(outcome): store result without raw cell` まで取り込んだ `issue/selfhost-cli-args-type-split` branch で開始した。
+- [発見]:
+  - `doc/neplg2/self_host_plan.md` の S6 は `cli/args.nepl` を pure parser とし、driver/reporter/file_io と分ける方針だが、現状の `stdlib/neplg2/cli/args.nepl` には public option 型、Copy impl、parser loop、classifier、doctest が同居している。
+  - これは既存 `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の巨大 stdlib file 分割対象でもあるが、全体 issue を一度に閉じるには範囲が広すぎるため、具体作業単位として `ISS-20260428T234300146Z-SELF-HOST-CLI-ARGS-MIXES-PUBLIC-OPTI-E295567F` を追加した。
+- [方針]:
+  - `SelfhostCliTarget` / `SelfhostCliEmit` / `SelfhostCliEmitSet` / `SelfhostCliProfile` / `SelfhostCliErrorKind` / `SelfhostCliOptions` と Copy impl を `stdlib/neplg2/cli/args/types.nepl` へ分ける。
+  - 既存 import path `neplg2/cli/args` は compatibility facade として維持し、`pub #import "./args/types" as *` で再 export する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T232624608Z SelfhostOutcome raw result cell)
 
 - [発見]:
