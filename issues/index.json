@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T08:26:25.595Z",
+  "generated_at": "2026-04-28T09:01:18.688Z",
   "counts": {
-    "total": 247,
+    "total": 248,
     "open": 13,
-    "resolved": 234,
+    "resolved": 235,
     "by_area": {
       "core": {
         "total": 103,
@@ -17,9 +17,9 @@
         "resolved": 0
       },
       "selfhost": {
-        "total": 14,
+        "total": 15,
         "open": 2,
-        "resolved": 12
+        "resolved": 13
       },
       "stdlib": {
         "total": 94,
@@ -125,8 +125,8 @@
       "file": "items/ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2.md"
     },
     {
-      "id": "ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4",
-      "title": "self-host lexer lacks offside tokens and Rust parity fixtures",
+      "id": "ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B",
+      "title": "self-host lexer needs full Rust token JSON parity harness",
       "area": "selfhost",
       "status": "open",
       "resolved": false,
@@ -134,10 +134,10 @@
       "type": "architecture",
       "created": "2026-04-28",
       "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/**, tests/stdlib/neplg2_lexer.n.md",
+      "target": "stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md, nodesrc/analyze_source.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4.md"
+      "file": "items/ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1908,6 +1908,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T174140008Z-NEPLG2-SELFHOST-LACKS-SHARED-DIAGNOS-CD740CFD.md"
+    },
+    {
+      "id": "ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4",
+      "title": "self-host lexer lacks offside tokens and Rust parity fixtures",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/**, tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4.md"
     },
     {
       "id": "ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235",

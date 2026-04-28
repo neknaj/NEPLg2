@@ -5,10 +5,10 @@
 //:
 //: [目的/もくてき]:
 //: - lexer output を `TokenKind` / `SelfhostToken` として[固定/こてい]し、parser が byte offset と lexeme を[失/うしな]わずに[扱/あつか]えるようにします。
-//: - NEPLg2.0 の `#` directive、angle bracket 型注釈、`->` / `*>` 関数型を[表/あらわ]せる最小 token kind を[定義/ていぎ]します。
+//: - NEPLg2.0 の `#` directive、angle bracket 型注釈、`->` / `*>` 関数型、offside rule の block token を[定義/ていぎ]します。
 //:
 //: [注意/ちゅうい]:
-//: - offside rule 用の indent/dedent token は後続 issue で追加します。ここでは byte lexer の基本 token だけを[扱/あつか]います。
+//: - `Indent` / `Dedent` は byte slice を[持/も]たない 0 byte span の structural token です。
 //:
 //: [計算量/けいさんりょう]:
 //: - token の[構築/こうちく]と kind [判定/はんてい]は O(1) です。
@@ -49,6 +49,9 @@ enum TokenKind:
     Arrow
     EffectArrow
     Newline
+    Indent
+    Dedent
+    DirIndentWidth
     EndOfFile
     UnterminatedChar
     UnterminatedString
@@ -120,6 +123,12 @@ fn token_kind_name <(TokenKind)->str> (kind):
             "effect_arrow"
         TokenKind::Newline:
             "newline"
+        TokenKind::Indent:
+            "indent"
+        TokenKind::Dedent:
+            "dedent"
+        TokenKind::DirIndentWidth:
+            "dir_indent_width"
         TokenKind::EndOfFile:
             "eof"
         TokenKind::UnterminatedChar:
@@ -165,6 +174,12 @@ fn selfhost_token_is_eof <(SelfhostToken)->bool> (token):
         TokenKind::EffectArrow:
             false
         TokenKind::Newline:
+            false
+        TokenKind::Indent:
+            false
+        TokenKind::Dedent:
+            false
+        TokenKind::DirIndentWidth:
             false
         TokenKind::EndOfFile:
             true
@@ -212,6 +227,12 @@ fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
             false
         TokenKind::Newline:
             false
+        TokenKind::Indent:
+            false
+        TokenKind::Dedent:
+            false
+        TokenKind::DirIndentWidth:
+            false
         TokenKind::EndOfFile:
             false
         TokenKind::UnterminatedChar:
@@ -220,6 +241,58 @@ fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
             true
         TokenKind::Unknown:
             true
+
+//: selfhost_token_is_newline: newline token か[返/かえ]す
+fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
+    match field::get token "kind":
+        TokenKind::Hash:
+            false
+        TokenKind::Identifier:
+            false
+        TokenKind::IntLiteral:
+            false
+        TokenKind::CharLiteral:
+            false
+        TokenKind::StringLiteral:
+            false
+        TokenKind::LParen:
+            false
+        TokenKind::RParen:
+            false
+        TokenKind::LAngle:
+            false
+        TokenKind::RAngle:
+            false
+        TokenKind::Comma:
+            false
+        TokenKind::Colon:
+            false
+        TokenKind::Semicolon:
+            false
+        TokenKind::Dot:
+            false
+        TokenKind::Asterisk:
+            false
+        TokenKind::Arrow:
+            false
+        TokenKind::EffectArrow:
+            false
+        TokenKind::Newline:
+            true
+        TokenKind::Indent:
+            false
+        TokenKind::Dedent:
+            false
+        TokenKind::DirIndentWidth:
+            false
+        TokenKind::EndOfFile:
+            false
+        TokenKind::UnterminatedChar:
+            false
+        TokenKind::UnterminatedString:
+            false
+        TokenKind::Unknown:
+            false
 
 //: selfhost_token_is_expr_start: prefix expression の[先頭/せんとう]候補か[返/かえ]す
 fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
@@ -257,6 +330,12 @@ fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
         TokenKind::EffectArrow:
             false
         TokenKind::Newline:
+            false
+        TokenKind::Indent:
+            false
+        TokenKind::Dedent:
+            false
+        TokenKind::DirIndentWidth:
             false
         TokenKind::EndOfFile:
             false

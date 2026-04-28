@@ -22140,3 +22140,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host 着手条件の stdlib 側リスクを、現行の静的検査結果として parent issue に集約した。
+
+# 2026-04-28 メモ (ISS-20260428T000125736Z self-host lexer offside tokens)
+
+- [同期]:
+  - `origin/main` の `a001bf5 fix(stdlib): add char string integration APIs` まで同期した main から `fix/selfhost-lexer-offside-20260428` branch を作成した。
+- [原因]:
+  - self-host lexer は byte token を順に返すだけで、行頭 whitespace を block structure に変換する indent stack を持っていなかった。
+  - `#indent` も token stream へは `Hash` / `Identifier` / `IntLiteral` としてしか現れず、後続行の offside 幅へ反映されていなかった。
+- [修正]:
+  - `TokenKind` に `Indent` / `Dedent` / `DirIndentWidth` を追加した。
+  - `lex_all` に indent stack を持たせ、行頭で `Indent` / `Dedent` を生成し、EOF 前に残った indent level を閉じるようにした。
+  - `#indent N` を `DirIndentWidth` として読み、後続行の indent 幅判定へ反映するようにした。
+  - 既存 stack にない indent 幅へ戻る場合は `lex.invalid_indentation` を返すようにした。
+  - Rust lexer JSON との full parity harness は `ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B` に分離した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-fourth.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-focused.json -j 1`: 33/33 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-after-sync.json -j 1`: 8/8 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-after-sync.json -j 1`: 33/33 passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-width-after-sync.json -j 1`: 9/9 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-width-after-sync.json -j 1`: 34/34 passed
+  - `trunk build`: pass after syncing `origin/main` through `6e8dfce`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-after-shadow-gate.json -j 1`: 9/9 passed
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-after-shadow-gate.json -j 1`: 34/34 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - S1 lexer indent のうち offside structural token は利用可能になった。full Rust token JSON parity は別 issue で継続する。

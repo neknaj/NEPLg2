@@ -2,8 +2,8 @@
 id: ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4
 title: "self-host lexer lacks offside tokens and Rust parity fixtures"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-28
@@ -41,4 +41,31 @@ TokenKind に Indent/Dedent と directive に必要な token を追加し、Rust
 
 ## 検証
 
-stdlib/neplg2 lexer focused doctest、Rust lexer JSON parity fixture、S1 parser smoke を実行し、indent/dedent を含む関数・if・match・import source が同じ token stream になることを確認する。
+stdlib/neplg2 lexer focused doctest で、indent/dedent、`#indent` 幅更新、indent mismatch diagnostic を確認する。Rust lexer JSON との full parity fixture は residual を分離した issue で扱う。
+
+## 対応結果
+
+- `TokenKind` に `Indent` / `Dedent` / `DirIndentWidth` を追加し、`token_kind_name` と token 判定 helper を網羅的に更新した。
+- `lex_all` に indent stack を追加し、行頭 whitespace から `Indent` / `Dedent` を生成するようにした。
+- `#indent N` は `DirIndentWidth` token として読み、後続行の offside 幅へ反映するようにした。
+- EOF 前に未閉じ indent level を `Dedent` で閉じるようにした。
+- 既存 indent stack に存在しない幅へ dedent した場合は `lex.invalid_indentation` を返すようにした。
+- nested indent/dedent、`#indent 2`、indent mismatch を `tests/stdlib/neplg2_lexer.n.md` の focused doctest に追加した。
+
+## 残件の分離
+
+Rust lexer JSON との full parity には keyword/directive/doc/raw/mlstr token と比較 harness がさらに必要なため、`ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B` に分離した。
+
+## 実行した検証
+
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-fourth.json -j 1`: 8/8 passed
+- `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-focused.json -j 1`: 33/33 passed
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-after-sync.json -j 1`: 8/8 passed
+- `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-after-sync.json -j 1`: 33/33 passed
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-width-after-sync.json -j 1`: 9/9 passed
+- `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-width-after-sync.json -j 1`: 34/34 passed
+- `trunk build`: pass after syncing `origin/main` through `6e8dfce`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-offside-after-shadow-gate.json -j 1`: 9/9 passed
+- `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-offside-after-shadow-gate.json -j 1`: 34/34 passed
+- `node nodesrc/issues.js check`: pass
