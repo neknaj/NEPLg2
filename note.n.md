@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck field access module)
+
+- 状況:
+  - Stage 1 の typecheck trait check module 化後、struct / tuple / generic apply の field access 型解決と offset 計算が `BlockChecker` 本体に残っていた。
+  - field access は HIR lowering と Resource IR の `Place::Field` / aggregate projection lowering の接点になるため、独立した境界として先に分ける必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/field_access.rs` を追加し、field index/name の解決、generic struct field の type parameter substitution、tuple field index validation、invalid field access diagnostic、layout offset 計算を移動した。
+  - `typecheck.rs` 側は field access の利用箇所から `resolve_field_access` / `resolve_field_access_with_mode` を呼ぶだけにした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck field access 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/field_access.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test tuple_new_syntax -- --nocapture`: 20/20 passed
+  - `cargo test -p nepl-core --test layout -- --nocapture`: 3/3 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/tuple_new_syntax.n.md -i tests/compiler/tuple_old_syntax.n.md -i tests/compiler/overload.n.md --no-tree -o tmp/stage1-typecheck-field-access-focused.json -j 1`: 94/94 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 と Stage 3 の準備に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck trait check module)
 
 - 状況:
