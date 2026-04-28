@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 use crate::effects::{intrinsic_is_raw_memory_effect, raw_callee_is_raw_memory_effect};
 use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirModule};
 
-use super::model::{ResourceModule, ResourceOp};
+use super::model::{Place, PlaceProjection, PlaceRoot, ResourceBlock, ResourceModule, ResourceOp};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceLoweringCoverage {
@@ -28,6 +28,15 @@ pub struct ResourceCoverageCounts {
     pub indirect_calls: usize,
     pub function_values: usize,
     pub raw_memory_ops: usize,
+    pub constructs: usize,
+    pub declares: usize,
+    pub reads: usize,
+    pub moves: usize,
+    pub assigns: usize,
+    pub borrows: usize,
+    pub drops: usize,
+    pub deref_projections: usize,
+    pub unknown_places: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +50,11 @@ pub enum ResourceCoverageDiagnostic {
         hir: usize,
         resource: usize,
     },
+    UnknownPlace {
+        function: String,
+        operation: String,
+        place: Place,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +63,15 @@ pub enum ResourceCoverageKind {
     IndirectCall,
     FunctionValue,
     RawMemory,
+    Construct,
+    Declare,
+    Read,
+    Move,
+    Assign,
+    Borrow,
+    Drop,
+    DerefProjection,
+    UnknownPlace,
 }
 
 pub fn compare_hir_resource_lowering(
@@ -72,7 +95,12 @@ pub fn compare_hir_resource_lowering(
         };
         let mut resource_counts = ResourceCoverageCounts::default();
         for block in &resource_function.blocks {
-            resource_ops_coverage(&block.ops, &mut resource_counts);
+            resource_block_coverage(
+                &function.name,
+                block,
+                &mut resource_counts,
+                &mut diagnostics,
+            );
         }
         push_count_diagnostics(&function.name, &hir, &resource_counts, &mut diagnostics);
         functions.push(ResourceFunctionCoverage {
@@ -108,9 +136,13 @@ fn hir_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
         | HirExprKind::LiteralF32(_)
         | HirExprKind::LiteralBool(_)
         | HirExprKind::LiteralStr(_)
-        | HirExprKind::Unit
-        | HirExprKind::Var(_)
-        | HirExprKind::Drop { .. } => {}
+        | HirExprKind::Unit => {}
+        HirExprKind::Var(_) => {
+            counts.reads += 1;
+        }
+        HirExprKind::Drop { .. } => {
+            counts.drops += 1;
+        }
         HirExprKind::FnValue(_) => {
             counts.function_values += 1;
         }
@@ -150,22 +182,30 @@ fn hir_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
             }
         }
         HirExprKind::EnumConstruct { payload, .. } => {
+            counts.constructs += 1;
             if let Some(payload) = payload {
                 hir_expr_coverage(payload, counts);
             }
         }
         HirExprKind::StructConstruct { fields, .. } => {
+            counts.constructs += 1;
             for field in fields {
                 hir_expr_coverage(field, counts);
             }
         }
         HirExprKind::TupleConstruct { items } => {
+            counts.constructs += 1;
             for item in items {
                 hir_expr_coverage(item, counts);
             }
         }
         HirExprKind::Block(block) => hir_block_coverage(block, counts),
-        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+        HirExprKind::Let { value, .. } => {
+            counts.declares += 1;
+            hir_expr_coverage(value, counts);
+        }
+        HirExprKind::Set { value, .. } => {
+            counts.assigns += 1;
             hir_expr_coverage(value, counts);
         }
         HirExprKind::Intrinsic { name, args, .. } => {
@@ -176,9 +216,32 @@ fn hir_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
                 hir_expr_coverage(arg, counts);
             }
         }
-        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
-            hir_expr_coverage(inner, counts);
+        HirExprKind::AddrOf(inner) => {
+            counts.borrows += 1;
+            hir_place_expr_coverage(inner, counts);
         }
+        HirExprKind::Deref(inner) => {
+            counts.reads += 1;
+            counts.deref_projections += 1;
+            hir_place_expr_coverage(inner, counts);
+        }
+    }
+}
+
+fn hir_place_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
+    match &expr.kind {
+        HirExprKind::Var(_) => {}
+        HirExprKind::Deref(inner) => {
+            counts.deref_projections += 1;
+            hir_place_expr_coverage(inner, counts);
+        }
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
+            hir_place_expr_coverage(&args[0], counts);
+            for arg in args.iter().skip(1) {
+                hir_expr_coverage(arg, counts);
+            }
+        }
+        _ => hir_expr_coverage(expr, counts),
     }
 }
 
@@ -189,42 +252,241 @@ fn callee_is_raw_memory(callee: &FuncRef) -> bool {
     }
 }
 
-fn resource_ops_coverage(ops: &[ResourceOp], counts: &mut ResourceCoverageCounts) {
+fn resource_block_coverage(
+    function: &str,
+    block: &ResourceBlock,
+    counts: &mut ResourceCoverageCounts,
+    diagnostics: &mut Vec<ResourceCoverageDiagnostic>,
+) {
+    resource_ops_coverage(function, &block.ops, counts, diagnostics);
+    if let super::model::ResourceTerminator::Return {
+        value: Some(place), ..
+    } = &block.terminator
+    {
+        resource_place_coverage(function, "return", place, counts, diagnostics);
+    }
+}
+
+fn resource_ops_coverage(
+    function: &str,
+    ops: &[ResourceOp],
+    counts: &mut ResourceCoverageCounts,
+    diagnostics: &mut Vec<ResourceCoverageDiagnostic>,
+) {
     for op in ops {
         match op {
-            ResourceOp::FunctionValue { .. } => counts.function_values += 1,
-            ResourceOp::Call { .. } => counts.direct_calls += 1,
-            ResourceOp::IndirectCall { .. } => counts.indirect_calls += 1,
-            ResourceOp::RawMemory { .. } => counts.raw_memory_ops += 1,
-            ResourceOp::Branch {
-                then_ops, else_ops, ..
+            ResourceOp::FunctionValue { output, .. } => {
+                counts.function_values += 1;
+                resource_place_coverage(
+                    function,
+                    "function_value.output",
+                    output,
+                    counts,
+                    diagnostics,
+                );
+            }
+            ResourceOp::Call { output, args, .. } => {
+                counts.direct_calls += 1;
+                resource_place_coverage(function, "call.output", output, counts, diagnostics);
+                for arg in args {
+                    resource_place_coverage(function, "call.arg", arg, counts, diagnostics);
+                }
+            }
+            ResourceOp::IndirectCall {
+                output,
+                callee,
+                args,
+                ..
             } => {
-                resource_ops_coverage(then_ops, counts);
-                resource_ops_coverage(else_ops, counts);
+                counts.indirect_calls += 1;
+                resource_place_coverage(
+                    function,
+                    "indirect_call.output",
+                    output,
+                    counts,
+                    diagnostics,
+                );
+                resource_place_coverage(
+                    function,
+                    "indirect_call.callee",
+                    callee,
+                    counts,
+                    diagnostics,
+                );
+                for arg in args {
+                    resource_place_coverage(
+                        function,
+                        "indirect_call.arg",
+                        arg,
+                        counts,
+                        diagnostics,
+                    );
+                }
+            }
+            ResourceOp::RawMemory { output, args, .. } => {
+                counts.raw_memory_ops += 1;
+                resource_place_coverage(function, "raw_memory.output", output, counts, diagnostics);
+                for arg in args {
+                    resource_place_coverage(function, "raw_memory.arg", arg, counts, diagnostics);
+                }
+            }
+            ResourceOp::Branch {
+                output,
+                condition,
+                then_ops,
+                then_value,
+                else_ops,
+                else_value,
+                ..
+            } => {
+                resource_place_coverage(function, "branch.output", output, counts, diagnostics);
+                resource_place_coverage(
+                    function,
+                    "branch.condition",
+                    condition,
+                    counts,
+                    diagnostics,
+                );
+                resource_ops_coverage(function, then_ops, counts, diagnostics);
+                resource_place_coverage(
+                    function,
+                    "branch.then_value",
+                    then_value,
+                    counts,
+                    diagnostics,
+                );
+                resource_ops_coverage(function, else_ops, counts, diagnostics);
+                resource_place_coverage(
+                    function,
+                    "branch.else_value",
+                    else_value,
+                    counts,
+                    diagnostics,
+                );
             }
             ResourceOp::Loop {
                 condition_ops,
+                condition,
                 body_ops,
                 ..
             } => {
-                resource_ops_coverage(condition_ops, counts);
-                resource_ops_coverage(body_ops, counts);
+                resource_ops_coverage(function, condition_ops, counts, diagnostics);
+                resource_place_coverage(function, "loop.condition", condition, counts, diagnostics);
+                resource_ops_coverage(function, body_ops, counts, diagnostics);
             }
-            ResourceOp::Match { arms, .. } => {
+            ResourceOp::Match {
+                output,
+                scrutinee,
+                arms,
+                ..
+            } => {
+                resource_place_coverage(function, "match.output", output, counts, diagnostics);
+                resource_place_coverage(
+                    function,
+                    "match.scrutinee",
+                    scrutinee,
+                    counts,
+                    diagnostics,
+                );
                 for arm in arms {
-                    resource_ops_coverage(&arm.ops, counts);
+                    if let Some(bind_local) = &arm.bind_local {
+                        resource_place_coverage(
+                            function,
+                            "match.bind_local",
+                            bind_local,
+                            counts,
+                            diagnostics,
+                        );
+                    }
+                    resource_ops_coverage(function, &arm.ops, counts, diagnostics);
+                    resource_place_coverage(
+                        function,
+                        "match.arm_value",
+                        &arm.value,
+                        counts,
+                        diagnostics,
+                    );
                 }
             }
-            ResourceOp::Expr { .. }
-            | ResourceOp::DeclareLocal { .. }
-            | ResourceOp::Read { .. }
-            | ResourceOp::Assign { .. }
-            | ResourceOp::Borrow { .. }
-            | ResourceOp::Move { .. }
-            | ResourceOp::Drop { .. }
-            | ResourceOp::CallEffect { .. }
-            | ResourceOp::Construct { .. } => {}
+            ResourceOp::Expr { output, .. } => {
+                resource_place_coverage(function, "expr.output", output, counts, diagnostics);
+            }
+            ResourceOp::DeclareLocal {
+                place, initializer, ..
+            } => {
+                counts.declares += 1;
+                resource_place_coverage(function, "declare.place", place, counts, diagnostics);
+                if let Some(initializer) = initializer {
+                    resource_place_coverage(
+                        function,
+                        "declare.initializer",
+                        initializer,
+                        counts,
+                        diagnostics,
+                    );
+                }
+            }
+            ResourceOp::Read { source, output, .. } => {
+                counts.reads += 1;
+                resource_place_coverage(function, "read.source", source, counts, diagnostics);
+                resource_place_coverage(function, "read.output", output, counts, diagnostics);
+            }
+            ResourceOp::Move { source, output, .. } => {
+                counts.moves += 1;
+                resource_place_coverage(function, "move.source", source, counts, diagnostics);
+                resource_place_coverage(function, "move.output", output, counts, diagnostics);
+            }
+            ResourceOp::Assign { target, value, .. } => {
+                counts.assigns += 1;
+                resource_place_coverage(function, "assign.target", target, counts, diagnostics);
+                resource_place_coverage(function, "assign.value", value, counts, diagnostics);
+            }
+            ResourceOp::Borrow { source, output, .. } => {
+                counts.borrows += 1;
+                resource_place_coverage(function, "borrow.source", source, counts, diagnostics);
+                resource_place_coverage(function, "borrow.output", output, counts, diagnostics);
+            }
+            ResourceOp::Drop { place, .. } => {
+                counts.drops += 1;
+                resource_place_coverage(function, "drop.place", place, counts, diagnostics);
+            }
+            ResourceOp::Construct { output, inputs, .. } => {
+                counts.constructs += 1;
+                resource_place_coverage(function, "construct.output", output, counts, diagnostics);
+                for input in inputs {
+                    resource_place_coverage(
+                        function,
+                        "construct.input",
+                        input,
+                        counts,
+                        diagnostics,
+                    );
+                }
+            }
+            ResourceOp::CallEffect { .. } => {}
         }
+    }
+}
+
+fn resource_place_coverage(
+    function: &str,
+    operation: &str,
+    place: &Place,
+    counts: &mut ResourceCoverageCounts,
+    diagnostics: &mut Vec<ResourceCoverageDiagnostic>,
+) {
+    counts.deref_projections += place
+        .projections
+        .iter()
+        .filter(|projection| matches!(projection, PlaceProjection::Deref))
+        .count();
+    if matches!(place.root, PlaceRoot::Unknown) {
+        counts.unknown_places += 1;
+        diagnostics.push(ResourceCoverageDiagnostic::UnknownPlace {
+            function: String::from(function),
+            operation: String::from(operation),
+            place: place.clone(),
+        });
     }
 }
 
@@ -260,6 +522,69 @@ fn push_count_diagnostics(
         ResourceCoverageKind::RawMemory,
         hir.raw_memory_ops,
         resource.raw_memory_ops,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::Construct,
+        hir.constructs,
+        resource.constructs,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::Declare,
+        hir.declares,
+        resource.declares,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::Read,
+        hir.reads,
+        resource.reads,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::Move,
+        hir.moves,
+        resource.moves,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::Assign,
+        hir.assigns,
+        resource.assigns,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::Borrow,
+        hir.borrows,
+        resource.borrows,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::Drop,
+        hir.drops,
+        resource.drops,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::DerefProjection,
+        hir.deref_projections,
+        resource.deref_projections,
+        diagnostics,
+    );
+    push_count_diagnostic(
+        function,
+        ResourceCoverageKind::UnknownPlace,
+        hir.unknown_places,
+        resource.unknown_places,
         diagnostics,
     );
 }

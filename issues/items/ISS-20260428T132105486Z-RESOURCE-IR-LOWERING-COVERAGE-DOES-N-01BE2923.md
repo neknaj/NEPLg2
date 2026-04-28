@@ -2,8 +2,8 @@
 id: ISS-20260428T132105486Z-RESOURCE-IR-LOWERING-COVERAGE-DOES-N-01BE2923
 title: "Resource IR lowering coverage does not guard projection and borrow place completeness"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
@@ -43,6 +43,16 @@ Resource checks can remain shadow-clean while the Resource IR has lost the place
 
 Extend Resource IR lowering to represent addressable field, tuple, enum payload, deref, and storage-offset projections as Place projections, then extend ResourceLoweringCoverage with counts or diagnostics for unknown places, borrow ops, construct ops, read/move/assign ops, and projection-producing expressions.
 
+## 修正内容
+
+- `AddrOf` lowering は addressable expression の `Place` skeleton を優先し、未知 place に落ちる場合だけ inner expression lowering の出力 temp を borrow source にするようにした。
+- `Deref` lowering は generic `Expr` のみではなく、source place に `PlaceProjection::Deref` を付けた `Read` を生成してから deref expr output を保持するようにした。
+- `place_from_expr_skeleton` は nested deref と `add(base, offset)` の storage offset projection を扱い、Resource IR 上の pointer / storage projection を失わないようにした。
+- `ResourceLoweringCoverage` は construct / declare / read / move / assign / borrow / drop / deref projection / unknown place を比較し、Resource IR 側に `Place::unknown` が残った場合は operation 名付きで `UnknownPlace` diagnostic を出すようにした。
+- `resource_ir_lowering_coverage_guards_borrow_and_deref_places` を追加し、borrow source と deref read source が `PlaceProjection::Deref` を持つこと、壊れた Resource IR では unknown place diagnostic と count mismatch が出ることを固定した。
+
 ## 検証
 
-Add resource_ir lowering tests that fail if AddrOf/Deref/field accessor expressions lower to Place::unknown or generic Expr-only operations, and run cargo test -p nepl-core --test resource_ir plus node nodesrc/issues.js check.
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- commit 前に `trunk build`、`node nodesrc/issues.js check`、`rustfmt --check`、`git diff --check` を実行する。

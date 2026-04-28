@@ -517,9 +517,9 @@ fn lower_expr_skeleton(
             }
         }
         HirExprKind::AddrOf(inner) => {
-            let source = place_from_expr_skeleton(inner, ctx);
+            let mut source = place_from_expr_skeleton(inner, ctx);
             if matches!(&source.root, super::model::PlaceRoot::Unknown) {
-                lower_expr_skeleton(inner, ops, ctx, env);
+                source = lower_expr_skeleton(inner, ops, ctx, env);
             }
             let output = ctx.temporary(expr.ty);
             ops.push(ResourceOp::Borrow {
@@ -537,8 +537,24 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Deref(inner) => {
-            lower_expr_skeleton(inner, ops, ctx, env);
-            push_expr(ops, ResourceExprKind::Deref, expr, ctx)
+            let mut source = place_from_expr_skeleton(inner, ctx);
+            if matches!(&source.root, super::model::PlaceRoot::Unknown) {
+                source = lower_expr_skeleton(inner, ops, ctx, env);
+            }
+            let source = source.with_projection(super::model::PlaceProjection::Deref, expr.ty);
+            let output = ctx.temporary(expr.ty);
+            ops.push(ResourceOp::Read {
+                source,
+                output: output.clone(),
+                span: expr.span,
+            });
+            ops.push(ResourceOp::Expr {
+                kind: ResourceExprKind::Deref,
+                output: output.clone(),
+                ty: expr.ty,
+                span: expr.span,
+            });
+            output
         }
         HirExprKind::Drop { name } => {
             ops.push(ResourceOp::Drop {
@@ -719,6 +735,30 @@ fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
 fn place_from_expr_skeleton(expr: &HirExpr, ctx: &LoweringContext) -> Place {
     match &expr.kind {
         HirExprKind::Var(name) => ctx.local_place(name, expr.ty),
+        HirExprKind::Deref(inner) => {
+            let source = place_from_expr_skeleton(inner, ctx);
+            if matches!(&source.root, super::model::PlaceRoot::Unknown) {
+                Place::unknown(expr.ty)
+            } else {
+                source.with_projection(super::model::PlaceProjection::Deref, expr.ty)
+            }
+        }
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
+            let source = place_from_expr_skeleton(&args[0], ctx);
+            if matches!(&source.root, super::model::PlaceRoot::Unknown) {
+                return Place::unknown(expr.ty);
+            }
+            let bytes = args.get(1).and_then(|offset| match &offset.kind {
+                HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
+                _ => None,
+            });
+            source.with_projection(
+                super::model::PlaceProjection::StorageOffset(super::model::ResourceOffset {
+                    bytes,
+                }),
+                expr.ty,
+            )
+        }
         _ => Place::unknown(expr.ty),
     }
 }

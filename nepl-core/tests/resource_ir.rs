@@ -452,6 +452,117 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
 }
 
 #[test]
+fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
+    let ref_ty = TypeId(0);
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(2),
+            params: vec![HirParam {
+                name: "p".to_string(),
+                ty: ref_ty,
+                mutable: false,
+            }],
+            result: i32_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![
+                    HirLine {
+                        expr: HirExpr {
+                            ty: TypeId(3),
+                            kind: HirExprKind::AddrOf(Box::new(HirExpr {
+                                ty: i32_ty,
+                                kind: HirExprKind::Deref(Box::new(HirExpr {
+                                    ty: ref_ty,
+                                    kind: HirExprKind::Var("p".to_string()),
+                                    span,
+                                })),
+                                span,
+                            })),
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                    HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Deref(Box::new(HirExpr {
+                                ty: ref_ty,
+                                kind: HirExprKind::Var("p".to_string()),
+                                span,
+                            })),
+                            span,
+                        },
+                        drop_result: false,
+                    },
+                ],
+                ty: i32_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module_skeleton(&module);
+    let coverage = compare_hir_resource_lowering(&module, &resource);
+    assert_eq!(coverage.diagnostics, vec![]);
+
+    let ops = &resource.functions[0].blocks[0].ops;
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Borrow { source, .. }
+            if source.projections == vec![PlaceProjection::Deref]
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Read { source, .. }
+            if source.projections == vec![PlaceProjection::Deref]
+    )));
+    assert!(!resource.dump_text().contains("unknown:t"));
+
+    let mut broken = resource.clone();
+    if let Some(ResourceOp::Borrow { source, .. }) = broken.functions[0].blocks[0]
+        .ops
+        .iter_mut()
+        .find(|op| matches!(op, ResourceOp::Borrow { .. }))
+    {
+        *source = Place::unknown(i32_ty);
+    }
+    let broken_coverage = compare_hir_resource_lowering(&module, &broken);
+    assert!(broken_coverage
+        .diagnostics
+        .iter()
+        .any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCoverageDiagnostic::UnknownPlace {
+                function,
+                operation,
+                ..
+            } if function == "main" && operation == "borrow.source"
+        )));
+    assert!(broken_coverage
+        .diagnostics
+        .iter()
+        .any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCoverageDiagnostic::CountMismatch {
+                function,
+                kind: ResourceCoverageKind::UnknownPlace,
+                hir: 0,
+                resource: 1,
+            } if function == "main"
+        )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_raw_alloc_return_escape() {
     let types = TypeCtx::new();
     let i32_ty = types.i32();

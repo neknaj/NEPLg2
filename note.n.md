@@ -22839,3 +22839,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 3/4 の進捗レビューとして、Resource IR lowering completeness と coverage の不足を issue に分離した。
+
+# 2026-04-28 メモ (ISS-20260428T132105486Z Resource IR lowering coverage)
+
+- [同期]:
+  - `origin/main` の `dbdfa74 docs(core): review static check migration progress` まで同期した main から `work/stage3-resource-lowering-coverage` branch を作成した。
+- [原因]:
+  - `AddrOf` は inner が `Var` 以外の場合に `Place::unknown` を borrow source に残し得た。
+  - `Deref` は inner を下げるだけで `PlaceProjection::Deref` を持つ `Read` を生成せず、Resource IR の place transition と coverage が分離していた。
+  - lowering coverage は call / function value / raw memory op だけを比較しており、borrow source、read source、projection、unknown place の欠落を検出できなかった。
+- [修正]:
+  - `AddrOf` と `Deref` の lowering を addressable place skeleton 優先に変更し、deref は `Read` と `PlaceProjection::Deref` を明示するようにした。
+  - nested deref と `add(base, offset)` storage offset projection を `place_from_expr_skeleton` で扱うようにした。
+  - `ResourceLoweringCoverage` に construct / declare / read / move / assign / borrow / drop / deref projection / unknown place の比較と `UnknownPlace` diagnostic を追加した。
+  - `nepl-core/tests/resource_ir.rs` に borrow / deref source projection と coverage guard の回帰を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 3 の lowering completeness と Stage 4 enforcement 切替前の coverage guard として、Resource IR の projection / unknown place 欠落を test で捕捉できるようにした。
