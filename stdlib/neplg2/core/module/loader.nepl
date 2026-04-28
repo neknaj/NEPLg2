@@ -15,7 +15,7 @@
 //: [注意/ちゅうい]:
 //: - core は `std/fs` や `std/stdio` に依存しません。実 filesystem との接続は CLI 側の責務です。
 //: - 返された `SelfhostLoadedModule` は AST buffer を所有するため、使用後に `selfhost_loaded_module_free` を呼びます。
-//: - 現時点の lexer/parser は span の `file_id` を single-source 互換の `0` として扱います。multi-file file_id は別 issue で entry point を拡張します。
+//: - VFS に追加した順番を `file_id` とし、lexer/parser の span へ渡します。path の安定 ID 仕様は import graph 実装時に拡張します。
 //:
 //: [計算量/けいさんりょう]:
 //: - VFS への追加は `Vec` push の償却 O(1) です。
@@ -48,6 +48,7 @@
 //: - filesystem path ではなく、core [層/そう]に[渡/わた]された logical path と source [本文/ほんぶん]を[組/く]みにします。
 //: - import resolver はこの path を key として module source を[探/さが]します。
 struct SelfhostVirtualFile:
+    file_id <i32>
     path <str>
     source <str>
 
@@ -75,8 +76,8 @@ struct SelfhostLoadedModule:
     ast <SelfhostModuleAst>
 
 //: selfhost_vfs_file_new: VFS entry を[作/つく]る
-fn selfhost_vfs_file_new <(str,str)->SelfhostVirtualFile> (path, source):
-    SelfhostVirtualFile path source
+fn selfhost_vfs_file_new <(i32,str,str)->SelfhostVirtualFile> (file_id, path, source):
+    SelfhostVirtualFile file_id path source
 
 //: selfhost_vfs_new: [空/から]の VFS を[作/つく]る
 fn selfhost_vfs_new <()*>Result<SelfhostVirtualFileSystem, StdErrorKind>> ():
@@ -91,7 +92,8 @@ fn selfhost_vfs_new <()*>Result<SelfhostVirtualFileSystem, StdErrorKind>> ():
 //: [注意/ちゅうい]:
 //: - 同じ path の重複検査は import resolver の仕様確定後に追加します。現段階では先に見つかった entry を使います。
 fn selfhost_vfs_add <(SelfhostVirtualFileSystem,str,str)*>Result<SelfhostVirtualFileSystem, StdErrorKind>> (vfs, path, source):
-    let file <SelfhostVirtualFile> selfhost_vfs_file_new path source
+    let file_id <i32> selfhost_vfs_len &vfs
+    let file <SelfhostVirtualFile> selfhost_vfs_file_new file_id path source
     match v::push<SelfhostVirtualFile> field::get vfs "files" file:
         Result::Ok files:
             Result<SelfhostVirtualFileSystem, StdErrorKind>::Ok SelfhostVirtualFileSystem files
@@ -147,7 +149,7 @@ fn selfhost_loader_file_not_found_diag <(str)->SelfhostDiagnostic> (path):
 fn selfhost_load_module <(&SelfhostVirtualFileSystem,str)*>Result<SelfhostLoadedModule, SelfhostDiagnostic>> (vfs, path):
     match selfhost_vfs_find vfs path:
         Option::Some file:
-            match selfhost_parse_module_source file.source:
+            match selfhost_parse_module_source_with_file_id file.source file.file_id:
                 Result::Ok ast:
                     Result<SelfhostLoadedModule, SelfhostDiagnostic>::Ok SelfhostLoadedModule file.path ast
                 Result::Err diag:

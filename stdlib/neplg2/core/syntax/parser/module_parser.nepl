@@ -353,12 +353,12 @@ fn selfhost_parse_module_tokens <(&Vec<SelfhostToken>)*>Result<SelfhostModuleAst
         Result::Err _e:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
 
-//: selfhost_parse_module_source: source text を lex して module AST を[作/つく]る
+//: selfhost_parse_module_source_with_file_id: file_id 付き source text を lex して module AST を[作/つく]る
 //:
 //: [注意/ちゅうい]:
 //: - 返された AST の item lexeme は source text の slice です。呼び出し側は source text の lifetime を AST 利用中に保つ必要があります。
-fn selfhost_parse_module_source <(str)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source):
-    match lex_all source:
+fn selfhost_parse_module_source_with_file_id <(str,i32)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, file_id):
+    match lex_all_with_file_id source file_id:
         Result::Ok tokens:
             match selfhost_parse_module_tokens &tokens:
                 Result::Ok ast:
@@ -369,6 +369,13 @@ fn selfhost_parse_module_source <(str)*>Result<SelfhostModuleAst, SelfhostDiagno
                     Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
         Result::Err lex_diag:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_diag_from_lex lex_diag
+
+//: selfhost_parse_module_source: source text を lex して module AST を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - single-source 互換の wrapper です。複数 file loader からは `selfhost_parse_module_source_with_file_id` を[使/つか]ってください。
+fn selfhost_parse_module_source <(str)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source):
+    selfhost_parse_module_source_with_file_id source 0
 
 //: selfhost_module_parser_stage0: parser 入口の smoke API
 fn selfhost_module_parser_stage0 <()*>i32> ():

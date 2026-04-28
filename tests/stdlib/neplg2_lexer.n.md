@@ -106,6 +106,52 @@ fn main <()*>i32> ():
             checks_exit_code shown
 ```
 
+## lex_all_with_file_id_sets_token_and_error_spans
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "std/test" as *
+
+fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+
+fn main <()*>i32> ():
+    let checks0 <Vec<Result<(),str>>> checks_new
+    match lex_all_with_file_id "#entry main\n" 7:
+        Result::Ok tokens:
+            let token <SelfhostToken> token_at &tokens 0
+            let span <SelfhostSourceSpan> field::get token "span"
+            let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 7 field::get span "file_id"
+            free<SelfhostToken> tokens
+            match lex_all_with_file_id "a:\n   b\n" 11:
+                Result::Ok bad_tokens:
+                    free<SelfhostToken> bad_tokens
+                    let checks2 <Vec<Result<(),str>>> checks_push checks1 Result<(),str>::Err "invalid indentation was accepted"
+                    let shown <Vec<Result<(),str>>> checks_print_report checks2
+                    checks_exit_code shown
+                Result::Err diag:
+                    let err_span <SelfhostSourceSpan> field::get diag "span"
+                    let checks2 <Vec<Result<(),str>>> checks_push checks1 check_eq_i32 11 field::get err_span "file_id"
+                    let shown <Vec<Result<(),str>>> checks_print_report checks2
+                    checks_exit_code shown
+        Result::Err _diag:
+            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "file_id lexer returned Err"
+            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## honors_indent_directive_width
 
 neplg2:test

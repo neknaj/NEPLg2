@@ -35,14 +35,16 @@ fn main <()*>i32> ():
                                     let item_len <i32> selfhost_module_ast_len ast_ref
                                     let item <SelfhostModuleItem> item_at ast_ref 1
                                     let kind_name <str> selfhost_module_item_kind_name item.kind
+                                    let span_file_id <i32> item.span.file_id
                                     let path <str> selfhost_loaded_module_path &loaded
                                     let checks1 <Vec<Result<(),str>>> checks_push checks0 check_eq_i32 2 item_len
                                     let checks2 <Vec<Result<(),str>>> checks_push checks1 check_str_eq "helper.nepl" path
                                     let checks3 <Vec<Result<(),str>>> checks_push checks2 check_str_eq "FunctionDecl" kind_name
-                                    let checks4 <Vec<Result<(),str>>> checks_push checks3 check_eq_i32 2 selfhost_vfs_len &vfs2
+                                    let checks4 <Vec<Result<(),str>>> checks_push checks3 check_eq_i32 1 span_file_id
+                                    let checks5 <Vec<Result<(),str>>> checks_push checks4 check_eq_i32 2 selfhost_vfs_len &vfs2
                                     selfhost_loaded_module_free loaded
                                     selfhost_vfs_free vfs2
-                                    let shown <Vec<Result<(),str>>> checks_print_report checks4
+                                    let shown <Vec<Result<(),str>>> checks_print_report checks5
                                     checks_exit_code shown
                                 Result::Err _diag:
                                     selfhost_vfs_free vfs2

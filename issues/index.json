@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T14:01:56.269Z",
+  "generated_at": "2026-04-28T14:05:08.531Z",
   "counts": {
     "total": 285,
-    "open": 11,
-    "resolved": 274,
+    "open": 10,
+    "resolved": 275,
     "by_area": {
       "core": {
         "total": 133,
         "open": 4,
         "resolved": 129
       },
-      "selfhost": {
-        "total": 20,
-        "open": 2,
-        "resolved": 18
-      },
       "stdlib": {
         "total": 95,
         "open": 5,
         "resolved": 90
+      },
+      "selfhost": {
+        "total": 20,
+        "open": 1,
+        "resolved": 19
       },
       "cli": {
         "total": 19,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74",
-      "title": "self-host lexer hardcodes source file id in spans",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2463,6 +2448,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T123612100Z-SELF-HOST-MODULE-LOADER-LACKS-IN-MEM-7C7A197A.md"
+    },
+    {
+      "id": "ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74",
+      "title": "self-host lexer hardcodes source file id in spans",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

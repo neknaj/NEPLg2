@@ -1,3 +1,27 @@
+# 2026-04-28 メモ (ISS-20260428T123810929Z self-host lexer/parser file_id)
+
+- `ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74` を修正した。
+- `stdlib/neplg2/core/syntax/lexer.nepl` に `lex_all_with_file_id source file_id` を追加し、token と lexer diagnostic の `SelfhostSourceSpan.file_id` に caller から渡された file_id を通すようにした。
+- 既存 `lex_all source` は single-source 互換 wrapper として残し、`file_id = 0` で `lex_all_with_file_id` を呼ぶ形にした。
+- `stdlib/neplg2/core/syntax/parser/module_parser.nepl` に `selfhost_parse_module_source_with_file_id` を追加し、既存 `selfhost_parse_module_source` は wrapper として残した。
+- `stdlib/neplg2/core/module/loader.nepl` の `SelfhostVirtualFile` に `file_id` を追加し、VFS 追加順の file_id を loader から parser へ渡すようにした。
+- `tests/stdlib/neplg2_lexer.n.md` に token span と error diagnostic span が指定 file_id を保持する回帰を追加した。
+- `tests/stdlib/neplg2_module_loader.n.md` に、2 番目の VFS entry `helper.nepl` の loaded AST item span が `file_id = 1` になる回帰を追加した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-file-id-focused.json -j 1`: total=13, passed=13
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-module-loader-file-id-focused.json -j 1`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-file-id-with-syntax.json -j 1`: total=41, passed=41
+  - `node nodesrc/issues.js check`: files=284, pass
+  - `git diff --check HEAD`: pass
+  - `trunk build`: pass
+  - remote main `3034189` へ rebase 後の `trunk build`: pass
+  - remote main `3034189` へ rebase 後の `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-module-loader-file-id-after-rebase-focused.json -j 1`: total=2, passed=2
+  - remote main `3034189` へ rebase 後の `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-file-id-after-rebase-focused-2.json -j 1`: total=13, passed=13
+  - remote main `3034189` へ rebase 後の `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-file-id-with-syntax-after-rebase.json -j 1`: total=41, passed=41
+  - remote main `3034189` へ rebase 後の `node nodesrc/issues.js check`: files=284, pass
+  - remote main `3034189` へ rebase 後の `git diff --check HEAD`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T123612100Z self-host module loader VFS)
 
 - remote main を `79d2200` まで fast-forward し、別 agent の resource/borrow 系変更を取り込んだ。
