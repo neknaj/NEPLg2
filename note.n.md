@@ -23600,3 +23600,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host broad validation のブロッカーを、stdlib 側の表面回避ではなく wasm codegen の else-if chain lowering で取り除いた。
+
+# 2026-04-29 メモ (ISS-20260428T192326177Z self-host lexer keyword classifier issue追加)
+
+- [調査]:
+  - `ISS-20260428T184502533Z` の原因調査中に、self-host lexer の `lex_keyword_kind` が固定 keyword table を深い `if` / `else-if` chain として持っていることを確認した。
+  - 既存の `ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907` は json/nm/html 等の classifier を対象にしており、self-host lexer keyword classifier は静的回帰に含まれていなかった。
+- [追加issue]:
+  - `ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00` を追加し、Discordへ報告した。
+  - 今回の codegen 修正で stack overflow は解消したが、stdlib/selfhost 側の match-first 方針から見ると有限分岐の不自然な書き方が残るため、別 issue として追跡する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

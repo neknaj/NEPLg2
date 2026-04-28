@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T19:21:03.436Z",
+  "generated_at": "2026-04-28T19:24:05.551Z",
   "counts": {
-    "total": 303,
-    "open": 10,
+    "total": 304,
+    "open": 11,
     "resolved": 293,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 26,
-        "open": 1,
+        "total": 27,
+        "open": 2,
         "resolved": 25
       },
       "cli": {
@@ -183,6 +183,21 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00",
+      "title": "self-host lexer keyword classifier remains nested if decision tree",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl; nodesrc/test_stdlib_match_decision_trees.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
