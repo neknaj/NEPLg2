@@ -2,7 +2,6 @@ use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
-use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident};
@@ -12,6 +11,7 @@ use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::function_user_param_specificity;
+use super::constructor_apply::ConstructorApplyResult;
 use super::control_apply::SpecialApplyResult;
 use super::env::{Binding, BindingKind};
 use super::field_apply::FieldAccessorApplyResult;
@@ -717,131 +717,17 @@ impl<'a> BlockChecker<'a> {
                         }
                     }
 
-                    // Enum constructors
-                    if let Some((enm, var)) = parse_variant_name(name) {
-                        if let Some(info) = self.enums.get(enm) {
-                            if let Some(_vinfo) = info.variants.iter().find(|v| v.name == var) {
-                                if crate::log::is_verbose() && enm == "Result" && var == "Ok" {
-                                    function_apply_log!(
-                                        "enum ctor debug: name={} resolved_args=[{}] user_params=[{}] arg_tys=[{}] c_result={}",
-                                        name,
-                                        resolved_args
-                                            .iter()
-                                            .map(|ty| self.ctx.type_to_string(*ty))
-                                            .collect::<Vec<_>>()
-                                            .join(", "),
-                                        user_params
-                                            .iter()
-                                            .map(|ty| self.ctx.type_to_string(*ty))
-                                            .collect::<Vec<_>>()
-                                            .join(", "),
-                                        args.iter()
-                                            .map(|arg| self.ctx.type_to_string(arg.ty))
-                                            .collect::<Vec<_>>()
-                                            .join(", "),
-                                        self.ctx.type_to_string(c_result)
-                                    );
-                                }
-                                if c_params.len() == 1 && args.len() != 1 {
-                                    self.diagnostics.push(
-                                        Diagnostic::error(
-                                            "constructor expects one argument",
-                                            func.expr.span,
-                                        )
-                                        .with_id(DiagnosticId::TypeArgumentArityMismatch),
-                                    );
-                                    return None;
-                                }
-                                if c_params.is_empty() && !args.is_empty() {
-                                    self.diagnostics.push(
-                                        Diagnostic::error(
-                                            "constructor takes no arguments",
-                                            func.expr.span,
-                                        )
-                                        .with_id(DiagnosticId::TypeArgumentArityMismatch),
-                                    );
-                                    return None;
-                                }
-                                let payload_expr = if c_params.len() == 1 {
-                                    if let Some(a0) = args.first() {
-                                        Some(Box::new(a0.expr.clone()))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                };
-                                let applied_ty = if resolved_args.is_empty() {
-                                    info.ty
-                                } else {
-                                    self.ctx.apply(info.ty, resolved_args.clone())
-                                };
-                                return Some(StackEntry {
-                                    ty: applied_ty,
-                                    expr: HirExpr {
-                                        ty: applied_ty,
-                                        kind: HirExprKind::EnumConstruct {
-                                            name: enm.to_string(),
-                                            variant: var.to_string(),
-                                            type_args: resolved_args.clone(),
-                                            payload: payload_expr,
-                                        },
-                                        span: func.expr.span,
-                                    },
-                                    type_args: Vec::new(),
-                                    assign: None,
-                                    auto_call: true,
-                                });
-                            }
-                        }
-                    }
-                    if let Some(s) = self.structs.get(name) {
-                        if args.len() != c_params.len() {
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "struct constructor arity mismatch",
-                                    func.expr.span,
-                                )
-                                .with_id(DiagnosticId::TypeArgumentArityMismatch),
-                            );
-                            return None;
-                        }
-                        let is_tag_unit_struct = s.fields.len() == 1
-                            && s.field_names.len() == 1
-                            && s.field_names[0] == "tag"
-                            && matches!(
-                                self.ctx.get(self.ctx.resolve_id(s.fields[0])),
-                                TypeKind::Unit
-                            );
-                        let applied_ty = if resolved_args.is_empty() {
-                            s.ty
-                        } else {
-                            self.ctx.apply(s.ty, resolved_args.clone())
-                        };
-                        let fields = if is_tag_unit_struct && args.is_empty() {
-                            vec![HirExpr {
-                                ty: self.ctx.unit(),
-                                kind: HirExprKind::Unit,
-                                span: func.expr.span,
-                            }]
-                        } else {
-                            args.into_iter().map(|a| a.expr).collect()
-                        };
-                        return Some(StackEntry {
-                            ty: applied_ty,
-                            expr: HirExpr {
-                                ty: applied_ty,
-                                kind: HirExprKind::StructConstruct {
-                                    name: name.clone(),
-                                    type_args: resolved_args.clone(),
-                                    fields,
-                                },
-                                span: func.expr.span,
-                            },
-                            type_args: Vec::new(),
-                            assign: None,
-                            auto_call: true,
-                        });
+                    match self.apply_constructor_function(
+                        name,
+                        &args,
+                        &c_params,
+                        &resolved_args,
+                        user_params,
+                        c_result,
+                        func.expr.span,
+                    ) {
+                        ConstructorApplyResult::Handled(result) => return result,
+                        ConstructorApplyResult::NotHandled => {}
                     }
 
                     let mut trait_callee: Option<FuncRef> = None;

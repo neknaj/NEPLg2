@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck constructor apply module)
+
+- 状況:
+  - `field_apply` 分離後も、`function_apply.rs` には enum / struct constructor lowering が通常 call / trait call と同居していた。
+  - constructor は callee symbol から HIR `EnumConstruct` / `StructConstruct` を作る処理であり、trait method call や indirect call とは別責務である。
+- 修正:
+  - `nepl-core/src/typecheck/constructor_apply.rs` を追加し、enum / struct constructor lowering を `apply_constructor_function` へ分離した。
+  - `function_apply.rs` は field accessor の次に constructor を委譲し、未処理の場合だけ trait call / normal call / indirect call へ進む構造にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck constructor apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/constructor_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics/overload/functions/pipe_operator -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/pipe_operator.n.md -i tests/compiler/tuple_new_syntax.n.md --no-tree -o tmp/stage1-typecheck-constructor-apply-focused.json -j 1`: 133/133 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1 CI 再発)
 
 - 状況:
