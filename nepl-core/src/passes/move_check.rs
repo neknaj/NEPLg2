@@ -2,6 +2,7 @@ extern crate alloc;
 
 mod raw_memory;
 mod raw_place;
+mod state;
 mod summary;
 
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -23,63 +24,15 @@ use raw_place::{
     combine_raw_memory_offsets, format_raw_memory_place_key_parts, parse_raw_memory_place_key,
     raw_place_key_has_unknown_offset, raw_place_ranges_overlap, RawPlaceInfo, RawPlaceState,
 };
+use state::{
+    BorrowBinding, BorrowCount, BorrowKind, ExprBorrow, FieldMove, FieldMovePath,
+    ResourceStateSnapshot, VarState,
+};
 use summary::{
     add_child_raw_memory_effects, extend_unique_raw_memory_effects,
     merge_matching_raw_alias_summaries, value_alias_summary_from_raw_summary,
     FunctionRawAliasSummary, RawMemoryEffectSummary, ValueAliasSummary,
 };
-
-/// Tracks ownership state of variables.
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-enum VarState {
-    Valid,
-    BorrowedShared,
-    BorrowedUnique,
-    Moved,
-    PossiblyMoved,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BorrowKind {
-    Shared,
-    Unique,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct BorrowBinding {
-    source: String,
-    kind: BorrowKind,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ExprBorrow {
-    binding: BorrowBinding,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct FieldMove {
-    offset: usize,
-    ty: TypeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct FieldMovePath {
-    owner: String,
-    offset: usize,
-    field_ty: TypeId,
-}
-
-impl ExprBorrow {
-    fn needs_retain(binding: BorrowBinding) -> Self {
-        Self { binding }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-struct BorrowCount {
-    shared: usize,
-    unique: usize,
-}
 
 struct MoveCheckContext<'m> {
     /// String literals referenced by HIR field selector expressions.
@@ -131,27 +84,6 @@ struct MoveCheckContext<'m> {
     scopes: Vec<BTreeSet<String>>,
     /// Active raw alias specializations, used to stop recursive call-site expansion.
     raw_alias_specialization_stack: Vec<String>,
-}
-
-#[derive(Clone)]
-struct ResourceStateSnapshot {
-    var_stacks: BTreeMap<String, Vec<VarState>>,
-    var_depth_stacks: BTreeMap<String, Vec<usize>>,
-    borrow_stacks: BTreeMap<String, Vec<Vec<BorrowBinding>>>,
-    field_move_stacks: BTreeMap<String, Vec<BTreeSet<FieldMove>>>,
-    raw_addr_alias_stacks: BTreeMap<String, Vec<Option<String>>>,
-    i32_const_stacks: BTreeMap<String, Vec<Option<i64>>>,
-    enum_payload_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, String>>>,
-    aggregate_field_raw_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, String>>>,
-    aggregate_field_function_alias_stacks: BTreeMap<String, Vec<BTreeMap<usize, BTreeSet<String>>>>,
-    enum_payload_aggregate_field_raw_alias_stacks:
-        BTreeMap<String, Vec<BTreeMap<String, BTreeMap<usize, String>>>>,
-    enum_payload_aggregate_field_function_alias_stacks:
-        BTreeMap<String, Vec<BTreeMap<String, BTreeMap<usize, BTreeSet<String>>>>>,
-    enum_payload_function_alias_stacks: BTreeMap<String, Vec<BTreeMap<String, BTreeSet<String>>>>,
-    function_value_alias_stacks: BTreeMap<String, Vec<BTreeSet<String>>>,
-    raw_place_states: BTreeMap<String, RawPlaceInfo>,
-    borrow_counts: BTreeMap<String, BorrowCount>,
 }
 
 impl<'m> MoveCheckContext<'m> {
