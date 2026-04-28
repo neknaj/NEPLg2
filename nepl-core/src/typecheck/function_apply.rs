@@ -1,6 +1,6 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident};
@@ -16,10 +16,8 @@ use super::env::{Binding, BindingKind};
 use super::field_apply::FieldAccessorApplyResult;
 use super::indirect_apply::apply_indirect_function_call;
 use super::signature::{function_signature_string, type_contains_unbound_var};
-use super::syntax_helpers::parse_variant_name;
-use super::traits::{
-    infer_instantiated_type_arg, insert_substitution_mapping, trait_application_matches,
-};
+use super::trait_call_apply::TraitMethodApplyResult;
+use super::traits::{infer_instantiated_type_arg, insert_substitution_mapping};
 use super::{BlockChecker, FieldAccessorKind, StackEntry};
 
 macro_rules! function_apply_log {
@@ -652,88 +650,14 @@ impl<'a> BlockChecker<'a> {
                         ConstructorApplyResult::NotHandled => {}
                     }
 
-                    let mut trait_callee: Option<FuncRef> = None;
-                    if let Some((trait_name, method_name)) = parse_variant_name(name) {
-                        if let Some(trait_info) = self.traits.get(trait_name) {
-                            if let Some(sig) = trait_info.methods.get(method_name) {
-                                let applied_trait_args = self.infer_trait_application_args(
-                                    trait_info,
-                                    *sig,
-                                    &args,
-                                    expected_ret,
-                                );
-                                let mut inferred_self_ty = None;
-                                if let (Some(self_hint), Some(first_param), Some(arg)) = (
-                                    type_args.first().copied(),
-                                    user_params.first().copied(),
-                                    args.first(),
-                                ) {
-                                    if self.ctx.same_type(first_param, self_hint) {
-                                        let candidate = self.ctx.resolve_id(arg.ty);
-                                        let candidate_ok = self.type_param_has_bound_ref(
-                                            candidate,
-                                            trait_name,
-                                            &applied_trait_args,
-                                        ) || self.impls.iter().any(|imp| {
-                                            imp.trait_base_name.as_deref() == Some(trait_name)
-                                                && imp.trait_args.len() == applied_trait_args.len()
-                                                && trait_application_matches(
-                                                    self.ctx,
-                                                    trait_name,
-                                                    &applied_trait_args,
-                                                    trait_name,
-                                                    &imp.trait_args,
-                                                )
-                                                && self
-                                                    .ctx
-                                                    .type_pattern_matches(imp.target_ty, candidate)
-                                        });
-                                        if candidate_ok {
-                                            inferred_self_ty = Some(candidate);
-                                        }
-                                    }
-                                }
-                                if inferred_self_ty.is_none() {
-                                    if let Some(self_hint) = type_args.first().copied() {
-                                        if let Some(expected) = expected_ret {
-                                            let _ = self.ctx.unify(result, expected);
-                                        }
-                                        let resolved_hint = self.ctx.resolve_id(self_hint);
-                                        inferred_self_ty = self
-                                            .infer_unique_type_param_for_trait_ref(
-                                                trait_name,
-                                                &applied_trait_args,
-                                            )
-                                            .or_else(|| {
-                                                if self.type_param_has_bound_ref(
-                                                    resolved_hint,
-                                                    trait_name,
-                                                    &applied_trait_args,
-                                                ) {
-                                                    Some(resolved_hint)
-                                                } else {
-                                                    None
-                                                }
-                                            })
-                                            .or(Some(resolved_hint));
-                                    }
-                                }
-                                if inferred_self_ty.is_none() {
-                                    if let Some(first) = args.first() {
-                                        inferred_self_ty = Some(self.ctx.resolve_id(first.ty));
-                                    }
-                                }
-                                if let Some(self_ty) = inferred_self_ty {
-                                    trait_callee = Some(FuncRef::Trait {
-                                        trait_name: trait_name.to_string(),
-                                        trait_args: applied_trait_args,
-                                        method: method_name.to_string(),
-                                        self_ty,
-                                    });
-                                }
-                            }
-                        }
-                    }
+                    let trait_callee = self.infer_selected_trait_method_callee(
+                        name,
+                        &args,
+                        user_params,
+                        &type_args,
+                        result,
+                        expected_ret,
+                    );
                     let callee = if selected_builtin.is_some() {
                         FuncRef::Builtin(selected_symbol.clone())
                     } else if let Some(tc) = trait_callee {
@@ -840,148 +764,18 @@ impl<'a> BlockChecker<'a> {
 
         if let HirExprKind::Var(name) = &func.expr.kind {
             if self.env.lookup_all_callables(name).is_empty() {
-                if let Some((trait_name, method_name)) = parse_variant_name(name) {
-                    if let Some(trait_info) = self.traits.get(trait_name) {
-                        if let Some(sig) = trait_info.methods.get(method_name) {
-                            let applied_trait_name = self.infer_trait_application_name(
-                                trait_name,
-                                trait_info,
-                                *sig,
-                                &args,
-                                expected_ret,
-                            );
-                            let applied_trait_args = self.infer_trait_application_args(
-                                trait_info,
-                                *sig,
-                                &args,
-                                expected_ret,
-                            );
-                            let mut inferred_self_ty = None;
-                            if let (Some(self_hint), Some(first_param), Some(arg)) = (
-                                type_args.first().copied(),
-                                params.first().copied(),
-                                args.first(),
-                            ) {
-                                if self.ctx.same_type(first_param, self_hint) {
-                                    let candidate = self.ctx.resolve_id(arg.ty);
-                                    let candidate_ok = self.type_param_has_bound_ref(
-                                        candidate,
-                                        trait_name,
-                                        &applied_trait_args,
-                                    ) || self.impls.iter().any(|imp| {
-                                        imp.trait_base_name.as_deref() == Some(trait_name)
-                                            && imp.trait_args.len() == applied_trait_args.len()
-                                            && trait_application_matches(
-                                                self.ctx,
-                                                trait_name,
-                                                &applied_trait_args,
-                                                trait_name,
-                                                &imp.trait_args,
-                                            )
-                                            && self
-                                                .ctx
-                                                .type_pattern_matches(imp.target_ty, candidate)
-                                    });
-                                    if candidate_ok {
-                                        inferred_self_ty = Some(candidate);
-                                    }
-                                }
-                            }
-                            if inferred_self_ty.is_none() {
-                                if let Some(self_hint) = type_args.first().copied() {
-                                    if let Some(expected) = expected_ret {
-                                        let _ = self.ctx.unify(result, expected);
-                                    }
-                                    let resolved_hint = self.ctx.resolve_id(self_hint);
-                                    inferred_self_ty = self
-                                        .infer_unique_type_param_for_trait_ref(
-                                            trait_name,
-                                            &applied_trait_args,
-                                        )
-                                        .or_else(|| {
-                                            if self.type_param_has_bound_ref(
-                                                resolved_hint,
-                                                trait_name,
-                                                &applied_trait_args,
-                                            ) {
-                                                Some(resolved_hint)
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                        .or(Some(resolved_hint));
-                                }
-                            }
-                            let Some(self_ty) = inferred_self_ty else {
-                                self.diagnostics.push(Diagnostic::error(
-                                    "trait method call requires receiver argument or expected self type",
-                                    func.expr.span,
-                                ).with_id(DiagnosticId::TypeTraitBoundUnsatisfied));
-                                return None;
-                            };
-                            let trait_ok = self.type_param_has_bound_ref(
-                                self_ty,
-                                trait_name,
-                                &applied_trait_args,
-                            ) || self.impls.iter().any(|imp| {
-                                imp.trait_base_name.as_deref() == Some(trait_name)
-                                    && imp.trait_args.len() == applied_trait_args.len()
-                                    && trait_application_matches(
-                                        self.ctx,
-                                        trait_name,
-                                        &applied_trait_args,
-                                        trait_name,
-                                        &imp.trait_args,
-                                    )
-                                    && self.ctx.type_pattern_matches(imp.target_ty, self_ty)
-                            });
-                            if !trait_ok {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
-                                            "type does not satisfy trait bound '{}'",
-                                            applied_trait_name
-                                        ),
-                                        func.expr.span,
-                                    )
-                                    .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
-                                );
-                                return None;
-                            }
-                            if matches!(self.current_effect, Effect::Pure)
-                                && matches!(effect, Effect::Impure)
-                            {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        "pure context cannot call impure function",
-                                        func.expr.span,
-                                    )
-                                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
-                                );
-                                return None;
-                            }
-                            let resolved_result = self.ctx.resolve_id(result);
-                            return Some(StackEntry {
-                                ty: resolved_result,
-                                expr: HirExpr {
-                                    ty: resolved_result,
-                                    kind: HirExprKind::Call {
-                                        callee: FuncRef::Trait {
-                                            trait_name: trait_name.to_string(),
-                                            trait_args: applied_trait_args,
-                                            method: method_name.to_string(),
-                                            self_ty,
-                                        },
-                                        args: args.into_iter().map(|a| a.expr).collect(),
-                                    },
-                                    span: func.expr.span,
-                                },
-                                type_args: Vec::new(),
-                                assign: None,
-                                auto_call: true,
-                            });
-                        }
-                    }
+                match self.apply_unbound_trait_method_call(
+                    name,
+                    &params,
+                    result,
+                    effect,
+                    &args,
+                    &type_args,
+                    expected_ret,
+                    func.expr.span,
+                ) {
+                    TraitMethodApplyResult::Handled(result) => return result,
+                    TraitMethodApplyResult::NotHandled => {}
                 }
             } else if self.env.lookup_value(name).is_some() {
                 if !matches!(self.ctx.get(func.ty), TypeKind::Function { .. }) {

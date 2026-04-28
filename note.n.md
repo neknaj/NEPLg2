@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck trait call apply module)
+
+- 状況:
+  - `trait_bound_apply` 分離後も、`function_apply.rs` には `Trait::method` call の self type 推論、impl / bound satisfaction、pure context 診断が通常 call assembly と同居していた。
+  - trait method call は generic bound、impl matching、effect check が交差するため、通常 function call 生成から独立した境界が必要である。
+- 修正:
+  - `nepl-core/src/typecheck/trait_call_apply.rs` を追加し、選択済み callable 経路の `FuncRef::Trait` 推論と、unbound trait method 経路の trait call lowering を分離した。
+  - 共通の trait application satisfaction 判定を同 module 内に置き、`function_apply.rs` から `trait_application_matches` 依存を外した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck trait call apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/trait_call_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics/overload/functions/effects -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/trait_capability_copy.n.md -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-typecheck-trait-call-apply-focused.json -j 1`: 191/191 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck trait bound apply module)
 
 - 状況:

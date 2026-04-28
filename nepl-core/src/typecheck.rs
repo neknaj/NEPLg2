@@ -27,6 +27,7 @@ mod prefix_check;
 mod signature;
 mod syntax_helpers;
 mod trait_bound_apply;
+mod trait_call_apply;
 mod trait_check;
 mod traits;
 mod type_expr;
