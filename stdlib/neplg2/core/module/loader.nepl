@@ -4,23 +4,186 @@
 //: NEPLg2.0 self-host compiler の module loading 境界を置くモジュールです。
 //:
 //: [目的/もくてき]:
-//: - `#import`、stdlib root、user input file、cycle detection を扱う module stage の入口にします。
-//: - Stage 0 では filesystem に依存しない core 側 loader 境界だけを固定します。
+//: - CLI [層/そう]が[読/よ]んだ source を filesystem 非依存の VFS として core [層/そう]へ[渡/わた]します。
+//: - `path -> source -> SelfhostModuleAst` の入口を固定し、import graph や stdlib map が parser に直接依存しすぎないようにします。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostVirtualFileSystem` は `Vec<SelfhostVirtualFile>` を所有します。
+//: - path lookup は初期段階では線形探索です。S2 で import graph の要求が固まったら HashMap に移行できます。
+//: - loader は見つかった source を `selfhost_parse_module_source` へ渡し、成功時は AST を所有する `SelfhostLoadedModule` を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 実 filesystem は CLI 層が `VirtualFileSystem` として渡します。core は path から source への map だけを扱います。
+//: - core は `std/fs` や `std/stdio` に依存しません。実 filesystem との接続は CLI 側の責務です。
+//: - 返された `SelfhostLoadedModule` は AST buffer を所有するため、使用後に `selfhost_loaded_module_free` を呼びます。
+//: - 現時点の lexer/parser は span の `file_id` を single-source 互換の `0` として扱います。multi-file file_id は別 issue で entry point を拡張します。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - VFS への追加は `Vec` push の償却 O(1) です。
+//: - path lookup は登録 file 数 n に対して O(n) です。
+//: - parse は source byte 数 m に対して O(m) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
+//:| #import "core/result" as *
 //:| #import "neplg2/core/module/loader" as *
-//: fn main <()->i32> ():
+//: fn main <()*>i32> ():
 //:     selfhost_loader_stage0
 //: ```
-fn selfhost_loader_stage0 <()->i32> ():
-    0
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as string
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+
+//: SelfhostVirtualFile: core loader が[扱/あつか]う 1 source
+//:
+//: [目的/もくてき]:
+//: - filesystem path ではなく、core [層/そう]に[渡/わた]された logical path と source [本文/ほんぶん]を[組/く]みにします。
+//: - import resolver はこの path を key として module source を[探/さが]します。
+struct SelfhostVirtualFile:
+    path <str>
+    source <str>
+
+impl Clone for SelfhostVirtualFile:
+    fn clone <(&SelfhostVirtualFile)->SelfhostVirtualFile> (self):
+        *self
+
+impl Copy for SelfhostVirtualFile:
+    fn copy_mark <(SelfhostVirtualFile)->SelfhostVirtualFile> (self):
+        self
+
+//: SelfhostVirtualFileSystem: core [層/そう]の in-memory source set
+//:
+//: [注意/ちゅうい]:
+//: - `files` の Vec buffer を所有します。使用後は `selfhost_vfs_free` で[解放/かいほう]します。
+struct SelfhostVirtualFileSystem:
+    files <Vec<SelfhostVirtualFile>>
+
+//: SelfhostLoadedModule: parse 済み module と logical path
+//:
+//: [注意/ちゅうい]:
+//: - `ast` の item buffer を所有するため、使用後は `selfhost_loaded_module_free` を[呼/よ]びます。
+struct SelfhostLoadedModule:
+    path <str>
+    ast <SelfhostModuleAst>
+
+//: selfhost_vfs_file_new: VFS entry を[作/つく]る
+fn selfhost_vfs_file_new <(str,str)->SelfhostVirtualFile> (path, source):
+    SelfhostVirtualFile path source
+
+//: selfhost_vfs_new: [空/から]の VFS を[作/つく]る
+fn selfhost_vfs_new <()*>Result<SelfhostVirtualFileSystem, StdErrorKind>> ():
+    match v::new<SelfhostVirtualFile>:
+        Result::Ok files:
+            Result<SelfhostVirtualFileSystem, StdErrorKind>::Ok SelfhostVirtualFileSystem files
+        Result::Err e:
+            Result<SelfhostVirtualFileSystem, StdErrorKind>::Err e
+
+//: selfhost_vfs_add: source file を VFS に[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - 同じ path の重複検査は import resolver の仕様確定後に追加します。現段階では先に見つかった entry を使います。
+fn selfhost_vfs_add <(SelfhostVirtualFileSystem,str,str)*>Result<SelfhostVirtualFileSystem, StdErrorKind>> (vfs, path, source):
+    let file <SelfhostVirtualFile> selfhost_vfs_file_new path source
+    match v::push<SelfhostVirtualFile> field::get vfs "files" file:
+        Result::Ok files:
+            Result<SelfhostVirtualFileSystem, StdErrorKind>::Ok SelfhostVirtualFileSystem files
+        Result::Err e:
+            Result<SelfhostVirtualFileSystem, StdErrorKind>::Err e
+
+//: selfhost_vfs_len: VFS に[登録/とうろく]された file 数を[返/かえ]す
+fn selfhost_vfs_len <(&SelfhostVirtualFileSystem)->i32> (vfs):
+    let files <&Vec<SelfhostVirtualFile>> field::get_ref vfs "files"
+    v::len_ref<SelfhostVirtualFile> files
+
+//: selfhost_vfs_get: index の VFS entry を[返/かえ]す
+fn selfhost_vfs_get <(&SelfhostVirtualFileSystem,i32)->Option<SelfhostVirtualFile>> (vfs, idx):
+    let files <&Vec<SelfhostVirtualFile>> field::get_ref vfs "files"
+    v::get_ref<SelfhostVirtualFile> files idx
+
+//: selfhost_vfs_find_loop: path が[一致/いっち]する entry を線形探索する
+fn selfhost_vfs_find_loop <(&SelfhostVirtualFileSystem,str,i32,i32)->Option<SelfhostVirtualFile>> (vfs, path, n, idx):
+    if:
+        ge idx n
+        then:
+            none<SelfhostVirtualFile>
+        else:
+            match selfhost_vfs_get vfs idx:
+                Option::Some file:
+                    if:
+                        string::str_eq file.path path
+                        then:
+                            some<SelfhostVirtualFile> file
+                        else:
+                            selfhost_vfs_find_loop vfs path n add idx 1
+                Option::None:
+                    none<SelfhostVirtualFile>
+
+//: selfhost_vfs_find: path が[一致/いっち]する entry を[返/かえ]す
+fn selfhost_vfs_find <(&SelfhostVirtualFileSystem,str)->Option<SelfhostVirtualFile>> (vfs, path):
+    selfhost_vfs_find_loop vfs path selfhost_vfs_len vfs 0
+
+//: selfhost_vfs_free: VFS の file entry buffer を[解放/かいほう]する
+fn selfhost_vfs_free <(SelfhostVirtualFileSystem)*>()> (vfs):
+    v::free<SelfhostVirtualFile> field::get vfs "files"
+
+//: selfhost_loader_file_not_found_diag: VFS lookup 失敗 diagnostic を[作/つく]る
+fn selfhost_loader_file_not_found_diag <(str)->SelfhostDiagnostic> (path):
+    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.loader.file_not_found" "source file is not registered in self-host VFS"
+    selfhost_diag_with_note diag path
+
+//: selfhost_load_module: VFS の path を parse 済み module として[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - module loading stage の基本単位として、logical path を AST に変換します。
+//: - filesystem error、missing source、parser error をすべて diagnostic として扱えるようにします。
+fn selfhost_load_module <(&SelfhostVirtualFileSystem,str)*>Result<SelfhostLoadedModule, SelfhostDiagnostic>> (vfs, path):
+    match selfhost_vfs_find vfs path:
+        Option::Some file:
+            match selfhost_parse_module_source file.source:
+                Result::Ok ast:
+                    Result<SelfhostLoadedModule, SelfhostDiagnostic>::Ok SelfhostLoadedModule file.path ast
+                Result::Err diag:
+                    Result<SelfhostLoadedModule, SelfhostDiagnostic>::Err diag
+        Option::None:
+            Result<SelfhostLoadedModule, SelfhostDiagnostic>::Err selfhost_loader_file_not_found_diag path
+
+//: selfhost_loaded_module_ast: loaded module の AST を[参照/さんしょう]する
+fn selfhost_loaded_module_ast <(&SelfhostLoadedModule)->&SelfhostModuleAst> (module):
+    field::get_ref module "ast"
+
+//: selfhost_loaded_module_path: loaded module の logical path を[返/かえ]す
+fn selfhost_loaded_module_path <(&SelfhostLoadedModule)->str> (module):
+    *field::get_ref module "path"
+
+//: selfhost_loaded_module_free: loaded module が所有する AST buffer を[解放/かいほう]する
+fn selfhost_loaded_module_free <(SelfhostLoadedModule)*>()> (module):
+    selfhost_module_ast_free field::get module "ast"
+
+//: selfhost_loader_stage0: VFS から parser までの smoke API
+fn selfhost_loader_stage0 <()*>i32> ():
+    match selfhost_vfs_new:
+        Result::Ok vfs0:
+            match selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> ():\n    0\n":
+                Result::Ok vfs1:
+                    match selfhost_load_module &vfs1 "main.nepl":
+                        Result::Ok loaded:
+                            let ast_ref <&SelfhostModuleAst> selfhost_loaded_module_ast &loaded
+                            let n <i32> selfhost_module_ast_len ast_ref
+                            selfhost_loaded_module_free loaded
+                            selfhost_vfs_free vfs1
+                            if eq n 1 0 1
+                        Result::Err _diag:
+                            selfhost_vfs_free vfs1
+                            1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1

@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T13:22:10.350Z",
+  "generated_at": "2026-04-28T13:26:12.469Z",
   "counts": {
-    "total": 282,
-    "open": 11,
-    "resolved": 271,
+    "total": 284,
+    "open": 12,
+    "resolved": 272,
     "by_area": {
       "core": {
         "total": 132,
         "open": 5,
         "resolved": 127
       },
+      "selfhost": {
+        "total": 20,
+        "open": 2,
+        "resolved": 18
+      },
       "stdlib": {
         "total": 95,
         "open": 5,
         "resolved": 90
-      },
-      "selfhost": {
-        "total": 18,
-        "open": 1,
-        "resolved": 17
       },
       "cli": {
         "total": 19,
@@ -123,6 +123,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T132105486Z-RESOURCE-IR-LOWERING-COVERAGE-DOES-N-01BE2923.md"
+    },
+    {
+      "id": "ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74",
+      "title": "self-host lexer hardcodes source file id in spans",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2418,6 +2433,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T113729911Z-SELF-HOST-PARSER-LACKS-EXECUTABLE-MO-4FA5B962.md"
+    },
+    {
+      "id": "ISS-20260428T123612100Z-SELF-HOST-MODULE-LOADER-LACKS-IN-MEM-7C7A197A",
+      "title": "self-host module loader lacks in-memory VFS parse entry",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/module/loader.nepl, tests/stdlib/neplg2_module_loader.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T123612100Z-SELF-HOST-MODULE-LOADER-LACKS-IN-MEM-7C7A197A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

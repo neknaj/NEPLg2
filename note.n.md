@@ -1,3 +1,35 @@
+# 2026-04-28 メモ (ISS-20260428T123612100Z self-host module loader VFS)
+
+- remote main を `79d2200` まで fast-forward し、別 agent の resource/borrow 系変更を取り込んだ。
+- `ISS-20260428T123612100Z-SELF-HOST-MODULE-LOADER-LACKS-IN-MEM-7C7A197A` を追加し、追加時点で Discord に Markdown 本文を直接送った。
+- `stdlib/neplg2/core/module/loader.nepl` を Stage 0 marker から in-memory VFS 実装へ進めた。
+  - `SelfhostVirtualFileSystem` / `SelfhostVirtualFile` / `SelfhostLoadedModule` を追加した。
+  - `selfhost_vfs_add` / `selfhost_vfs_find` / `selfhost_load_module` / `selfhost_loaded_module_free` を追加し、`path -> source -> SelfhostModuleAst` の core 境界を固定した。
+  - missing file は `selfhost.loader.file_not_found` diagnostic として返し、path を note に保持する。
+- `tests/stdlib/neplg2_module_loader.n.md` を追加し、VFS から helper module を load する経路と missing file diagnostic を回帰テスト化した。
+- 実装中に lexer が span の `file_id` を常に `0` に固定している問題を見つけ、`ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74` として追加し、Discord に報告した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-module-loader-focused.json -j 1`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-selfhost-loader-final.json -j 1`: total=27, passed=27
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-loader-with-syntax-regressions.json -j 1`: total=40, passed=40
+  - `trunk build`: pass
+  - remote main `5270999` へ rebase 後の `trunk build`: pass
+  - remote main `5270999` へ rebase 後の `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-module-loader-focused-after-rebase.json -j 1`: total=2, passed=2
+  - remote main `5270999` へ rebase 後の `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-loader-with-syntax-after-rebase.json -j 1`: total=40, passed=40
+  - remote main `6c0b9b6` へ rebase 後の `trunk build`: pass
+  - remote main `6c0b9b6` へ rebase 後の `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-module-loader-focused-after-second-rebase.json -j 1`: total=2, passed=2
+  - remote main `6c0b9b6` へ rebase 後の `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-loader-with-syntax-after-second-rebase.json -j 1`: total=40, passed=40
+  - remote main `8ce052f` へ rebase 後の `trunk build`: pass
+  - remote main `8ce052f` へ rebase 後の `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-module-loader-focused-after-8ce052f.json -j 1`: total=2, passed=2
+  - remote main `8ce052f` へ rebase 後の `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-loader-with-syntax-after-8ce052f.json -j 1`: total=40, passed=40
+  - remote main `8ce052f` へ rebase 後の `node nodesrc/issues.js check`: files=282, pass
+  - remote main `8ce052f` へ rebase 後の `git diff --check HEAD`: pass
+  - remote main `dbdfa74` へ rebase 後の `trunk build`: pass
+  - remote main `dbdfa74` へ rebase 後の `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg2-module-loader-focused-after-dbdfa74.json -j 1`: total=2, passed=2
+  - remote main `dbdfa74` へ rebase 後の `node nodesrc/issues.js check`: files=284, pass
+  - remote main `dbdfa74` へ rebase 後の `git diff --check HEAD`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T121641554Z nodesrc test case timeout)
 
 - selfhost parser doctest は `NEPL_TEST_CASE_TIMEOUT_MS=60000` では成功するが、従来既定の 20000ms では timeout することを確認した。
