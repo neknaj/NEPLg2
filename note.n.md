@@ -1,3 +1,18 @@
+# 2026-04-28 メモ (ISS-20260428T045151813Z StringBuilder doc policy expectation)
+
+- 状況:
+  - `c2e8f70` push 後の GitHub Actions run `25038139819` は Source policy regressions で失敗した。
+  - 失敗内容は `stdlib/alloc/string.nepl must document StringBuilder ownership contract` だったが、`stdlib/alloc/string.nepl` には byte buffer owner、append 時 copy、raw storage に `u8` のみを置く説明が既に入っていた。
+  - 根本原因は `nodesrc/test_stdlib_string_doc_no_boilerplate.js` が byte-backed 化前の「str 片を保持する」旧契約文言をまだ必須としていたことだった。
+- 修正:
+  - source policy の required phrase を、`StringBuilder` が `str` owner を保持する説明ではなく、byte buffer へ追加する説明、non-Copy owner 契約、raw storage は `u8` のみという現行契約へ更新した。
+  - `ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1` に CI run `25038139819` の再発原因と追加対応を追記した。
+- 検証:
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。CI source policy と issue 整合性だけの修正。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 2 Resource IR skeleton)
 
 - 状況:

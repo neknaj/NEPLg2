@@ -80,3 +80,9 @@ nm parser/html generator、JSON serializer、diagnostic text、self-host の sou
 - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
 - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md --no-tree -o tmp/string-builder-policy-reclose.json -j 1`: `total=32`, `passed=32`
 - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-after-stringbuilder-policy-reclose.json -j 1`: `total=10`, `passed=10`
+
+## 2026-04-28 doc policy expectation 再発
+
+`main` の CI run `25038139819`（`refactor(core): add resource ir skeleton`）でも Source policy regressions が `stdlib/alloc/string.nepl must document StringBuilder ownership contract` で失敗した。今回の原因は `stdlib/alloc/string.nepl` のコメント不足ではなく、`nodesrc/test_stdlib_string_doc_no_boilerplate.js` が byte-backed 化前の「`StringBuilder` が str 片を保持する」文言を要求していたことである。
+
+現在の設計では `StringBuilder` は `str` owner を保持せず、owned `u8` byte buffer に copy して最後に `str` を新規確保する。このため source policy は旧 `Vec<str>` 的な説明を要求してはならない。policy の required phrase を byte buffer 追加、non-Copy owner、raw storage は `u8` のみ、という現行 ownership contract に合わせて更新した。
