@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T00:49:03.800Z",
+  "generated_at": "2026-04-28T00:55:27.618Z",
   "counts": {
-    "total": 242,
-    "open": 19,
+    "total": 243,
+    "open": 20,
     "resolved": 223,
     "by_area": {
       "core": {
         "total": 102,
         "open": 5,
         "resolved": 97
+      },
+      "doc": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
       },
       "selfhost": {
         "total": 14,
@@ -118,6 +123,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838.md"
+    },
+    {
+      "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
+      "title": "getting_started tutorial needs full rewrite for current NEPLg2",
+      "area": "doc",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "doc/neplg2/tutorial_rewrite_plan.md, tutorials/getting_started/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2.md"
     },
     {
       "id": "ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4",
