@@ -9,7 +9,7 @@ use crate::diagnostic_ids::DiagnosticId;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-use super::{type_from_expr, LabelEnv};
+use super::type_expr::{type_from_expr, LabelEnv};
 
 #[derive(Debug, Clone)]
 pub(super) struct TraitInfo {

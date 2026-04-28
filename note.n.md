@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck type expr module)
+
+- 状況:
+  - Stage 1 の typecheck name lookup module 化後、`TypeExpr` から `TypeCtx` への lowering、`LabelEnv`、`StringTable` が `typecheck.rs` 本体末尾に残っていた。
+  - trait bound collection も `type_from_expr` を使うため、型式 lowering を独立 module として扱う必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/type_expr.rs` を追加し、`LabelEnv`、`StringTable`、primitive / named / apply / label / function / tuple / boxed / reference type expression の `TypeId` 変換を移動した。
+  - `traits.rs` は `type_expr` module から `type_from_expr` と `LabelEnv` を参照する形に変更し、trait bound collection と type expression lowering の依存を明示した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck type expr 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/type_expr.rs nepl-core/src/typecheck/traits.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 16/16 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/resolve.n.md -i tests/compiler/functions.n.md -i tests/compiler/overload.n.md --no-tree -o tmp/stage1-typecheck-type-expr-focused.json -j 1`: 105/105 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck name lookup module)
 
 - 状況:
