@@ -253,6 +253,55 @@ fn main <()->i32> ():
     raw_slot_id slot p
 ```
 
+## helper から返った raw slot pointer 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn slot_id <(i32)->i32> (slot):
+    slot
+
+fn leak_via_returned_slot <(i32)->i32> (slot):
+    let alias <i32> slot_id slot
+    let p <i32> alloc_raw 4
+    store_i32 alias p
+    load_i32 slot
+
+fn main <()->i32> ():
+    let slot <i32> alloc_raw 4
+    leak_via_returned_slot slot
+```
+
+## function value から返った raw slot pointer 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn slot_id2 <(i32)->i32> (slot):
+    slot
+
+fn leak_via_indirect_returned_slot <(i32)->i32> (slot):
+    let f <(i32)->i32> @slot_id2
+    let alias <i32> f slot
+    let p <i32> alloc_raw 4
+    store_i32 alias p
+    load_i32 slot
+
+fn main <()->i32> ():
+    let slot <i32> alloc_raw 4
+    leak_via_indirect_returned_slot slot
+```
+
 ## pure から raw load intrinsic を直接呼べない
 
 neplg2:test[compile_fail]

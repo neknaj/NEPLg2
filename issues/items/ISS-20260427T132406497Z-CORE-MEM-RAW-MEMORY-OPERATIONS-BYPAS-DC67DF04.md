@@ -276,6 +276,12 @@ Resource IR effect boundary checker に raw memory identity payload table を追
 
 Resource IR effect boundary checker に `RawPointerAliasTable` を追加し、raw allocation identity value と raw memory slot pointer alias を分けて扱うようにした。これにより、caller-provided / parameter-derived slot に internal allocation identity を store してから load / return する経路も D3025 で拒否される。
 
+## 2026-04-28 Stage 5 raw pointer return summary 追記
+
+`ISS-20260428T105903144Z-RESOURCE-EFFECT-GATE-LOSES-RAW-SLOT--830E4162` として、raw slot pointer alias が helper の戻り値で途切れ、`slot_id(slot)` の結果を raw slot key にすると payload table が元 slot と同一視できない問題を分離した。
+
+Resource IR effect boundary checker に raw pointer parameter-to-return summary を追加し、direct call と known function value の indirect call で pointer alias を戻り値へ伝播するようにした。unknown indirect call は保守的に output を全引数と alias させる。これにより、pointer-returning helper / callback を挟む raw slot laundering も D3025 で拒否される。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。

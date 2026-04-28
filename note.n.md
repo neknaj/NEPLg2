@@ -22415,3 +22415,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、raw memory slot key を identity group から pointer alias group へ分離した。
+
+# 2026-04-28 メモ (ISS-20260428T105903144Z raw pointer return summary)
+
+- [同期]:
+  - `origin/main` の `2091860 fix(core): key raw slots by pointer aliases` まで同期した main から `work/stage5-raw-slot-pointer-return-summary` branch を作成した。
+- [原因]:
+  - `RawPointerAliasTable` は local copy と branch / match では raw slot pointer alias を保持できるが、`ResourceOp::Call` / `IndirectCall` の戻り値へ parameter-derived pointer alias を伝播していなかった。
+  - `fn slot_id(p): p` の戻り値を raw slot key として使うと、実行時には元 slot と同じ address でも payload table は別 key と見なしていた。
+- [修正]:
+  - direct user function の raw pointer parameter-to-return summary を固定点で計算し、caller 側の `ResourceOp::Call` で戻り値 alias を復元するようにした。
+  - known function value の `IndirectCall` でも同じ summary を適用し、unknown indirect call は callback が任意引数を返す可能性を保守的に扱うようにした。
+  - `tests/compiler/move_effect.n.md` に direct helper / function value 経由の returned slot laundering 回帰を追加した。
+  - `nepl-core/tests/resource_ir.rs` に direct helper return の Resource IR 単体回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、raw pointer alias を関数境界にも伝播した。

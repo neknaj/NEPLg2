@@ -50,13 +50,15 @@ pub enum ResourceEffectBoundaryDiagnostic {
 pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffectBoundaryReport {
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
-    let summaries = compute_raw_identity_return_summaries(module);
+    let pointer_summaries = compute_raw_pointer_return_summaries(module);
+    let summaries = compute_raw_identity_return_summaries(module, &pointer_summaries);
 
     for function in &module.functions {
         let mut engine = ResourceEffectBoundaryEngine {
             function: function.name.as_str(),
             effect: function.effect,
             summaries: &summaries,
+            pointer_summaries: &pointer_summaries,
             track_alloc_identities: true,
             diagnostics: Vec::new(),
             counts: ResourceEffectCounts::default(),
@@ -81,10 +83,17 @@ struct RawIdentityReturnSummary {
     parameter_indices: Vec<usize>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RawPointerReturnSummary {
+    function: String,
+    parameter_indices: Vec<usize>,
+}
+
 struct ResourceEffectBoundaryEngine<'a> {
     function: &'a str,
     effect: Effect,
     summaries: &'a [RawIdentityReturnSummary],
+    pointer_summaries: &'a [RawPointerReturnSummary],
     track_alloc_identities: bool,
     diagnostics: Vec<ResourceEffectBoundaryDiagnostic>,
     counts: ResourceEffectCounts,
@@ -223,6 +232,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 ..
             } => {
                 self.copy_call_return_identity(identities, output, target, args);
+                self.copy_call_return_pointer_alias(pointer_aliases, output, target, args);
             }
             ResourceOp::IndirectCall {
                 output,
@@ -236,6 +246,13 @@ impl ResourceEffectBoundaryEngine<'_> {
                     output,
                     callee,
                     args,
+                );
+                self.copy_indirect_call_return_pointer_alias(
+                    pointer_aliases,
+                    output,
+                    callee,
+                    args,
+                    function_aliases,
                 );
             }
             ResourceOp::Branch {
@@ -431,6 +448,64 @@ impl ResourceEffectBoundaryEngine<'_> {
         }
     }
 
+    fn copy_call_return_pointer_alias(
+        &self,
+        pointer_aliases: &mut RawPointerAliasTable,
+        output: &Place,
+        target: &ResourceCallTarget,
+        args: &[Place],
+    ) {
+        let ResourceCallTarget::User { name, .. } = target else {
+            return;
+        };
+        let Some(summary) = self
+            .pointer_summaries
+            .iter()
+            .find(|summary| summary.function == name.as_str())
+        else {
+            return;
+        };
+        for arg in summary
+            .parameter_indices
+            .iter()
+            .filter_map(|index| args.get(*index))
+        {
+            pointer_aliases.copy_alias(arg, output);
+        }
+    }
+
+    fn copy_indirect_call_return_pointer_alias(
+        &self,
+        pointer_aliases: &mut RawPointerAliasTable,
+        output: &Place,
+        callee: &Place,
+        args: &[Place],
+        function_aliases: &FunctionAliasTable,
+    ) {
+        let functions = function_aliases.functions(callee);
+        if functions.is_empty() {
+            for arg in args {
+                pointer_aliases.copy_alias(arg, output);
+            }
+            return;
+        }
+        for function in functions {
+            if let Some(summary) = self
+                .pointer_summaries
+                .iter()
+                .find(|summary| summary.function == function.as_str())
+            {
+                for arg in summary
+                    .parameter_indices
+                    .iter()
+                    .filter_map(|index| args.get(*index))
+                {
+                    pointer_aliases.copy_alias(arg, output);
+                }
+            }
+        }
+    }
+
     fn apply_raw_memory_identity_effect(
         &self,
         identities: &mut RawIdentityTable,
@@ -520,7 +595,10 @@ impl ResourceEffectBoundaryEngine<'_> {
     }
 }
 
-fn compute_raw_identity_return_summaries(module: &ResourceModule) -> Vec<RawIdentityReturnSummary> {
+fn compute_raw_identity_return_summaries(
+    module: &ResourceModule,
+    pointer_summaries: &[RawPointerReturnSummary],
+) -> Vec<RawIdentityReturnSummary> {
     let mut summaries = Vec::new();
     for _ in 0..=module.functions.len() {
         let mut next = Vec::new();
@@ -529,7 +607,12 @@ fn compute_raw_identity_return_summaries(module: &ResourceModule) -> Vec<RawIden
             for (index, param) in function.params.iter().enumerate() {
                 let mut identities = RawIdentityTable::default();
                 identities.mark(&param.place);
-                if function_returns_marked_identity(function, identities, &summaries) {
+                if function_returns_marked_identity(
+                    function,
+                    identities,
+                    &summaries,
+                    pointer_summaries,
+                ) {
                     parameter_indices.push(index);
                 }
             }
@@ -552,11 +635,13 @@ fn function_returns_marked_identity(
     function: &ResourceFunction,
     mut identities: RawIdentityTable,
     summaries: &[RawIdentityReturnSummary],
+    pointer_summaries: &[RawPointerReturnSummary],
 ) -> bool {
     let mut engine = ResourceEffectBoundaryEngine {
         function: function.name.as_str(),
         effect: function.effect,
         summaries,
+        pointer_summaries,
         track_alloc_identities: false,
         diagnostics: Vec::new(),
         counts: ResourceEffectCounts::default(),
@@ -577,6 +662,77 @@ fn function_returns_marked_identity(
         } = &block.terminator
         {
             if identities.contains(place) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn compute_raw_pointer_return_summaries(module: &ResourceModule) -> Vec<RawPointerReturnSummary> {
+    let mut summaries = Vec::new();
+    for _ in 0..=module.functions.len() {
+        let mut next = Vec::new();
+        for function in &module.functions {
+            let mut parameter_indices = Vec::new();
+            for (index, param) in function.params.iter().enumerate() {
+                let mut pointer_aliases = RawPointerAliasTable::default();
+                pointer_aliases.mark(&param.place);
+                if function_returns_pointer_alias(
+                    function,
+                    &param.place,
+                    pointer_aliases,
+                    &summaries,
+                ) {
+                    parameter_indices.push(index);
+                }
+            }
+            if !parameter_indices.is_empty() {
+                next.push(RawPointerReturnSummary {
+                    function: function.name.clone(),
+                    parameter_indices,
+                });
+            }
+        }
+        if next == summaries {
+            return summaries;
+        }
+        summaries = next;
+    }
+    summaries
+}
+
+fn function_returns_pointer_alias(
+    function: &ResourceFunction,
+    parameter: &Place,
+    mut pointer_aliases: RawPointerAliasTable,
+    pointer_summaries: &[RawPointerReturnSummary],
+) -> bool {
+    let mut engine = ResourceEffectBoundaryEngine {
+        function: function.name.as_str(),
+        effect: function.effect,
+        summaries: &[],
+        pointer_summaries,
+        track_alloc_identities: false,
+        diagnostics: Vec::new(),
+        counts: ResourceEffectCounts::default(),
+    };
+    let mut identities = RawIdentityTable::default();
+    let mut function_aliases = FunctionAliasTable::default();
+    let mut raw_memory_identities = RawMemoryIdentityTable::default();
+    for block in &function.blocks {
+        engine.check_ops(
+            &mut identities,
+            &mut pointer_aliases,
+            &mut function_aliases,
+            &mut raw_memory_identities,
+            &block.ops,
+        );
+        if let ResourceTerminator::Return {
+            value: Some(place), ..
+        } = &block.terminator
+        {
+            if pointer_aliases.aliases(place, parameter) {
                 return true;
             }
         }
@@ -738,6 +894,12 @@ impl RawPointerAliasTable {
             }
         }
         out
+    }
+
+    fn aliases(&self, left: &Place, right: &Place) -> bool {
+        let left_group = self.group_for_or_singleton(left);
+        let right_group = self.group_for_or_singleton(right);
+        groups_overlap(&left_group, &right_group)
     }
 
     fn group_for_or_singleton(&self, place: &Place) -> Vec<Place> {

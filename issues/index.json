@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T10:55:39.443Z",
+  "generated_at": "2026-04-28T11:02:11.560Z",
   "counts": {
-    "total": 257,
+    "total": 258,
     "open": 11,
-    "resolved": 246,
+    "resolved": 247,
     "by_area": {
       "core": {
-        "total": 109,
+        "total": 110,
         "open": 4,
-        "resolved": 105
+        "resolved": 106
       },
       "selfhost": {
         "total": 17,
@@ -1758,6 +1758,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T105154736Z-RESOURCE-EFFECT-GATE-KEYS-RAW-SLOT-P-9A800C94.md"
+    },
+    {
+      "id": "ISS-20260428T105903144Z-RESOURCE-EFFECT-GATE-LOSES-RAW-SLOT--830E4162",
+      "title": "Resource effect gate loses raw slot pointer aliases returned by helpers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, tests/compiler/move_effect.n.md, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T105903144Z-RESOURCE-EFFECT-GATE-LOSES-RAW-SLOT--830E4162.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
