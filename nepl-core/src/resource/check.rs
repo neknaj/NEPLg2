@@ -101,6 +101,11 @@ pub enum ResourceOwnerDiagnostic {
         storage: StorageId,
         span: Span,
     },
+    OwnerMaybeLeaked {
+        function: String,
+        place: Place,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -433,7 +438,6 @@ impl ResourceCheckEngine<'_> {
                 else_value,
                 span,
             } => {
-                self.deferred.branch_merges += 1;
                 let condition_available = self.consume_by_value(
                     cells,
                     condition,
@@ -456,6 +460,7 @@ impl ResourceCheckEngine<'_> {
                     ResourceCheckOperation::BranchValue,
                     *span,
                 );
+                *cells = CellTable::merge_paths(&[then_cells, else_cells]);
                 if condition_available && then_available && else_available {
                     cells.mark_initialized(output);
                 }
@@ -466,7 +471,6 @@ impl ResourceCheckEngine<'_> {
                 body_ops,
                 span,
             } => {
-                self.deferred.loop_merges += 1;
                 let mut condition_cells = cells.clone();
                 self.check_ops(&mut condition_cells, condition_ops);
                 self.consume_by_value(
@@ -475,8 +479,9 @@ impl ResourceCheckEngine<'_> {
                     ResourceCheckOperation::LoopCondition,
                     *span,
                 );
-                let mut body_cells = cells.clone();
+                let mut body_cells = condition_cells.clone();
                 self.check_ops(&mut body_cells, body_ops);
+                *cells = CellTable::merge_paths(&[condition_cells, body_cells]);
             }
             ResourceOp::Match {
                 output,
@@ -484,7 +489,6 @@ impl ResourceCheckEngine<'_> {
                 arms,
                 span,
             } => {
-                self.deferred.match_merges += 1;
                 let scrutinee_available = self.consume_by_value(
                     cells,
                     scrutinee,
@@ -492,6 +496,7 @@ impl ResourceCheckEngine<'_> {
                     *span,
                 );
                 let mut arms_available = true;
+                let mut arm_paths = Vec::new();
                 for arm in arms {
                     let mut arm_cells = cells.clone();
                     if let Some(bind_local) = &arm.bind_local {
@@ -504,6 +509,10 @@ impl ResourceCheckEngine<'_> {
                         ResourceCheckOperation::MatchValue,
                         arm.span,
                     );
+                    arm_paths.push(arm_cells);
+                }
+                if !arm_paths.is_empty() {
+                    *cells = CellTable::merge_paths(&arm_paths);
                 }
                 if scrutinee_available && arms_available {
                     cells.mark_initialized(output);
@@ -701,28 +710,32 @@ impl ResourceBorrowCheckEngine<'_> {
             ResourceOp::Branch {
                 then_ops, else_ops, ..
             } => {
-                self.deferred.branch_merges += 1;
                 let mut then_borrows = borrows.clone();
                 let mut else_borrows = borrows.clone();
                 self.check_ops(&mut then_borrows, then_ops);
                 self.check_ops(&mut else_borrows, else_ops);
+                *borrows = BorrowTable::merge_paths(&[then_borrows, else_borrows]);
             }
             ResourceOp::Loop {
                 condition_ops,
                 body_ops,
                 ..
             } => {
-                self.deferred.loop_merges += 1;
                 let mut condition_borrows = borrows.clone();
                 self.check_ops(&mut condition_borrows, condition_ops);
-                let mut body_borrows = borrows.clone();
+                let mut body_borrows = condition_borrows.clone();
                 self.check_ops(&mut body_borrows, body_ops);
+                *borrows = BorrowTable::merge_paths(&[condition_borrows, body_borrows]);
             }
             ResourceOp::Match { arms, .. } => {
-                self.deferred.match_merges += 1;
+                let mut arm_paths = Vec::new();
                 for arm in arms {
                     let mut arm_borrows = borrows.clone();
                     self.check_ops(&mut arm_borrows, &arm.ops);
+                    arm_paths.push(arm_borrows);
+                }
+                if !arm_paths.is_empty() {
+                    *borrows = BorrowTable::merge_paths(&arm_paths);
                 }
             }
             ResourceOp::Expr { .. }
@@ -926,7 +939,6 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
                 ..
             } => {
-                self.deferred.branch_merges += 1;
                 let mut then_owners = owners.clone();
                 let mut else_owners = owners.clone();
                 self.check_ops(&mut then_owners, then_ops);
@@ -945,22 +957,23 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::BranchValue,
                     *span,
                 );
+                *owners = OwnerTable::merge_paths(&[then_owners, else_owners]);
             }
             ResourceOp::Loop {
                 condition_ops,
                 body_ops,
                 ..
             } => {
-                self.deferred.loop_merges += 1;
                 let mut condition_owners = owners.clone();
                 self.check_ops(&mut condition_owners, condition_ops);
-                let mut body_owners = owners.clone();
+                let mut body_owners = condition_owners.clone();
                 self.check_ops(&mut body_owners, body_ops);
+                *owners = OwnerTable::merge_paths(&[condition_owners, body_owners]);
             }
             ResourceOp::Match {
                 output, arms, span, ..
             } => {
-                self.deferred.match_merges += 1;
+                let mut arm_paths = Vec::new();
                 for arm in arms {
                     let mut arm_owners = owners.clone();
                     self.check_ops(&mut arm_owners, &arm.ops);
@@ -971,6 +984,10 @@ impl ResourceOwnerCheckEngine<'_> {
                         ResourceOwnerOperation::MatchValue,
                         *span,
                     );
+                    arm_paths.push(arm_owners);
+                }
+                if !arm_paths.is_empty() {
+                    *owners = OwnerTable::merge_paths(&arm_paths);
                 }
             }
             ResourceOp::Expr { .. }
@@ -1060,13 +1077,24 @@ impl ResourceOwnerCheckEngine<'_> {
 
     fn push_live_owner_diagnostics(&mut self, owners: &OwnerTable, span: Span) {
         for entry in owners.live_entries() {
-            if let OwnerState::Live { storage } = entry.state {
-                self.diagnostics.push(ResourceOwnerDiagnostic::OwnerLeaked {
-                    function: String::from(self.function),
-                    place: entry.place,
-                    storage,
-                    span,
-                });
+            match entry.state {
+                OwnerState::Live { storage } => {
+                    self.diagnostics.push(ResourceOwnerDiagnostic::OwnerLeaked {
+                        function: String::from(self.function),
+                        place: entry.place,
+                        storage,
+                        span,
+                    });
+                }
+                OwnerState::MaybeFreed => {
+                    self.diagnostics
+                        .push(ResourceOwnerDiagnostic::OwnerMaybeLeaked {
+                            function: String::from(self.function),
+                            place: entry.place,
+                            span,
+                        });
+                }
+                OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => {}
             }
         }
     }
@@ -1207,6 +1235,43 @@ impl BorrowTable {
             .iter()
             .position(|binding| binding.token == *token)
     }
+
+    fn merge_paths(paths: &[BorrowTable]) -> Self {
+        let mut out = BorrowTable::default();
+        let mut places = Vec::new();
+        for path in paths {
+            for entry in &path.sources {
+                push_unique_place(&mut places, &entry.place);
+            }
+        }
+        for place in places {
+            let mut merged = BorrowState::Unborrowed;
+            for path in paths {
+                merged = merge_borrow_states(merged, path.state(&place));
+            }
+            out.set_source(&place, merged);
+        }
+        for path in paths {
+            for binding in &path.bindings {
+                if out.binding_index(&binding.token).is_none() {
+                    out.bindings.push(binding.clone());
+                }
+            }
+        }
+        let sources = out.sources.clone();
+        out.bindings.retain(|binding| {
+            let state = sources
+                .iter()
+                .find(|entry| entry.place == binding.source)
+                .map(|entry| entry.state.clone())
+                .unwrap_or(BorrowState::Unborrowed);
+            matches!(
+                state,
+                BorrowState::Shared { .. } | BorrowState::Unique { .. }
+            )
+        });
+        out
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1242,6 +1307,25 @@ impl CellTable {
                 state,
             });
         }
+    }
+
+    fn merge_paths(paths: &[CellTable]) -> Self {
+        let mut out = CellTable::default();
+        let mut places = Vec::new();
+        for path in paths {
+            for entry in &path.cells {
+                push_unique_place(&mut places, &entry.place);
+            }
+        }
+        for place in places {
+            let mut merged = CellState::Uninit;
+            for path in paths {
+                let state = path.state(&place).unwrap_or(CellState::Uninit);
+                merged = merge_cell_states(merged, state);
+            }
+            out.set_state(&place, merged);
+        }
+        out
     }
 }
 
@@ -1286,14 +1370,116 @@ impl OwnerTable {
     fn live_entries(&self) -> Vec<OwnerStateEntry> {
         self.owners
             .iter()
-            .filter(|entry| matches!(entry.state, OwnerState::Live { .. }))
+            .filter(|entry| {
+                matches!(
+                    entry.state,
+                    OwnerState::Live { .. } | OwnerState::MaybeFreed
+                )
+            })
             .cloned()
             .collect()
+    }
+
+    fn merge_paths(paths: &[OwnerTable]) -> Self {
+        let mut out = OwnerTable::default();
+        out.next_storage = paths
+            .iter()
+            .map(|path| path.next_storage)
+            .max()
+            .unwrap_or_default();
+        let mut places = Vec::new();
+        for path in paths {
+            for entry in &path.owners {
+                push_unique_place(&mut places, &entry.place);
+            }
+        }
+        for place in places {
+            let mut merged = OwnerState::NoFreeObligation;
+            for path in paths {
+                let state = path.state(&place).unwrap_or(OwnerState::NoFreeObligation);
+                merged = merge_owner_states(merged, state);
+            }
+            out.set_state(&place, merged);
+        }
+        out
     }
 }
 
 fn should_track(place: &Place) -> bool {
     !matches!(place.root, PlaceRoot::Unknown)
+}
+
+fn push_unique_place(places: &mut Vec<Place>, place: &Place) {
+    if !places.iter().any(|existing| existing == place) {
+        places.push(place.clone());
+    }
+}
+
+fn merge_cell_states(left: CellState, right: CellState) -> CellState {
+    if left == right {
+        return left;
+    }
+    match (left, right) {
+        (CellState::Initialized(left_ty), CellState::Initialized(right_ty))
+            if left_ty == right_ty =>
+        {
+            CellState::Initialized(left_ty)
+        }
+        (CellState::Uninit, CellState::Uninit) => CellState::Uninit,
+        (CellState::Moved, CellState::Moved) => CellState::Moved,
+        (CellState::Dropped, CellState::Dropped) => CellState::Dropped,
+        _ => CellState::MaybeMoved,
+    }
+}
+
+fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
+    if left == right {
+        return left;
+    }
+    match (left, right) {
+        (
+            OwnerState::Live {
+                storage: left_storage,
+            },
+            OwnerState::Live {
+                storage: right_storage,
+            },
+        ) if left_storage == right_storage => OwnerState::Live {
+            storage: left_storage,
+        },
+        (OwnerState::NoFreeObligation, OwnerState::Freed)
+        | (OwnerState::Freed, OwnerState::NoFreeObligation) => OwnerState::NoFreeObligation,
+        (OwnerState::NoFreeObligation, OwnerState::NoFreeObligation) => {
+            OwnerState::NoFreeObligation
+        }
+        (OwnerState::Moved, OwnerState::Moved) => OwnerState::Moved,
+        (OwnerState::Freed, OwnerState::Freed) => OwnerState::Freed,
+        _ => OwnerState::MaybeFreed,
+    }
+}
+
+fn merge_borrow_states(left: BorrowState, right: BorrowState) -> BorrowState {
+    if left == right {
+        return left;
+    }
+    match (left, right) {
+        (BorrowState::Unique { source }, _) | (_, BorrowState::Unique { source }) => {
+            BorrowState::Unique { source }
+        }
+        (BorrowState::Shared { count: left_count }, BorrowState::Shared { count: right_count }) => {
+            BorrowState::Shared {
+                count: left_count.max(right_count),
+            }
+        }
+        (BorrowState::Shared { count }, BorrowState::Unborrowed)
+        | (BorrowState::Unborrowed, BorrowState::Shared { count })
+        | (BorrowState::Shared { count }, BorrowState::Released)
+        | (BorrowState::Released, BorrowState::Shared { count }) => BorrowState::Shared { count },
+        (BorrowState::Released, BorrowState::Unborrowed)
+        | (BorrowState::Unborrowed, BorrowState::Released)
+        | (BorrowState::Released, BorrowState::Released) => BorrowState::Released,
+        (BorrowState::Unborrowed, BorrowState::Unborrowed) => BorrowState::Unborrowed,
+    }
 }
 
 fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDeferred) {

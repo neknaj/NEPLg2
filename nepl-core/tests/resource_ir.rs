@@ -949,6 +949,270 @@ fn resource_ir_borrow_check_releases_shared_before_unique_borrow() {
     assert_eq!(report.diagnostics, vec![]);
 }
 
+#[test]
+fn resource_ir_cell_merge_reports_moved_on_one_branch() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.bool());
+    let unit_ty = types.unit();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), owned_ty);
+    let init = Place::temporary(ResourceId(0), owned_ty);
+    let cond = Place::temporary(ResourceId(1), bool_ty);
+    let then_value = Place::temporary(ResourceId(2), unit_ty);
+    let else_value = Place::temporary(ResourceId(3), unit_ty);
+    let branch_output = Place::temporary(ResourceId(4), unit_ty);
+    let moved = Place::temporary(ResourceId(5), owned_ty);
+    let after = Place::temporary(ResourceId(6), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Construct {
+                output: init.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::DeclareLocal {
+                place: x.clone(),
+                mutable: false,
+                initializer: Some(init),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: nepl_core::resource::ResourceExprKind::Literal,
+                output: cond.clone(),
+                ty: bool_ty,
+                span,
+            },
+            ResourceOp::Branch {
+                output: branch_output,
+                condition: cond,
+                then_ops: vec![
+                    ResourceOp::Read {
+                        source: x.clone(),
+                        output: moved,
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: then_value.clone(),
+                        ty: unit_ty,
+                        span,
+                    },
+                ],
+                then_value,
+                else_ops: vec![ResourceOp::Expr {
+                    kind: nepl_core::resource::ResourceExprKind::Literal,
+                    output: else_value.clone(),
+                    ty: unit_ty,
+                    span,
+                }],
+                else_value,
+                span,
+            },
+            ResourceOp::Read {
+                source: x,
+                output: after,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::Read,
+            state: CellState::MaybeMoved,
+            ..
+        } if function == "main"
+    )));
+    assert_eq!(report.deferred.branch_merges, 0);
+}
+
+#[test]
+fn resource_ir_cell_merge_reports_moved_after_loop_body() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.bool());
+    let unit_ty = types.unit();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), owned_ty);
+    let init = Place::temporary(ResourceId(0), owned_ty);
+    let cond = Place::temporary(ResourceId(1), bool_ty);
+    let moved = Place::temporary(ResourceId(2), owned_ty);
+    let after = Place::temporary(ResourceId(3), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Construct {
+                output: init.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::DeclareLocal {
+                place: x.clone(),
+                mutable: false,
+                initializer: Some(init),
+                span,
+            },
+            ResourceOp::Loop {
+                condition_ops: vec![ResourceOp::Expr {
+                    kind: nepl_core::resource::ResourceExprKind::Literal,
+                    output: cond.clone(),
+                    ty: bool_ty,
+                    span,
+                }],
+                condition: cond,
+                body_ops: vec![ResourceOp::Read {
+                    source: x.clone(),
+                    output: moved,
+                    span,
+                }],
+                span,
+            },
+            ResourceOp::Read {
+                source: x,
+                output: after,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::Read,
+            state: CellState::MaybeMoved,
+            ..
+        } if function == "main"
+    )));
+    assert_eq!(report.deferred.loop_merges, 0);
+}
+
+#[test]
+fn resource_ir_owner_merge_rejects_dealloc_after_conditional_dealloc() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let p = Place::local("p".to_string(), i32_ty);
+    let cond = Place::temporary(ResourceId(0), bool_ty);
+    let branch_output = Place::temporary(ResourceId(1), unit_ty);
+    let then_value = Place::temporary(ResourceId(2), unit_ty);
+    let else_value = Place::temporary(ResourceId(3), unit_ty);
+    let size = Place::temporary(ResourceId(4), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: p.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Branch {
+                output: branch_output,
+                condition: cond,
+                then_ops: vec![ResourceOp::RawMemory {
+                    operation: RawMemoryOp::Dealloc,
+                    output: Place::temporary(ResourceId(5), unit_ty),
+                    args: vec![p.clone(), size.clone()],
+                    span,
+                }],
+                then_value,
+                else_ops: vec![],
+                else_value,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(6), unit_ty),
+                args: vec![p, size],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerUnavailable {
+            function,
+            operation: ResourceOwnerOperation::Dealloc,
+            state: OwnerState::MaybeFreed,
+            ..
+        } if function == "main"
+    )));
+    assert_eq!(report.deferred.branch_merges, 0);
+}
+
+#[test]
+fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), i32_ty);
+    let cond = Place::temporary(ResourceId(0), bool_ty);
+    let branch_output = Place::temporary(ResourceId(1), unit_ty);
+    let then_value = Place::temporary(ResourceId(2), unit_ty);
+    let else_value = Place::temporary(ResourceId(3), unit_ty);
+    let shared = Place::temporary(ResourceId(4), i32_ty);
+    let value = Place::temporary(ResourceId(5), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Branch {
+                output: branch_output,
+                condition: cond,
+                then_ops: vec![ResourceOp::Borrow {
+                    source: x.clone(),
+                    output: shared,
+                    kind: BorrowKind::Shared,
+                    span,
+                }],
+                then_value,
+                else_ops: vec![],
+                else_value,
+                span,
+            },
+            ResourceOp::Assign {
+                target: x,
+                value,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::Assign,
+            active: BorrowState::Shared { count: 1 },
+            ..
+        } if function == "main"
+    )));
+    assert_eq!(report.deferred.branch_merges, 0);
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 4 branch / loop merge)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4 commit 単位 4 として、Resource IR 上の state merge を実装した。
+  - Stage 4 commit 単位 1-3 では branch / loop / match の state 合流を deferred count として残していたため、分岐片側だけの move / dealloc / borrow が後続操作に反映されていなかった。
+- 修正:
+  - `CellState` は branch / loop / match 後に合流し、片側だけ move / drop / uninit の経路を `MaybeMoved` として後続 read で拒否するようにした。
+  - `OwnerState` は conditional dealloc / live owner の差を `MaybeFreed` に合流し、後続 dealloc を拒否し、関数終了時には maybe leak として診断するようにした。
+  - `BorrowState` は片側だけ active な shared / unique borrow も active として合流し、後続 mutation / move / drop を安全側に拒否するようにした。
+  - loop は condition 評価後 state と body 後 state を合流し、match は arm ごとの state を合流する。
+  - `nepl-core/tests/resource_ir.rs` に branch 片側 move、loop body move、条件付き dealloc、branch 片側 shared borrow の regression を追加した。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 4 branch / loop merge の到達点を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/check.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 20 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage4-resource-ir-state-merge-focused.json -j 1`: total=97, passed=97
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。compiler pipeline への切り替えは Stage 4 commit 単位 5 の old checker gating で扱う。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 4 borrow / lifetime)
 
 - 状況:
