@@ -236,7 +236,8 @@ impl ResourceBorrowCheckEngine<'_> {
             ),
             ResourceOp::Expr { .. }
             | ResourceOp::CallEffect { .. }
-            | ResourceOp::RawMemory { .. } => {}
+            | ResourceOp::RawMemory { .. }
+            | ResourceOp::RawAddressAlias { .. } => {}
             ResourceOp::Construct {
                 output,
                 kind,

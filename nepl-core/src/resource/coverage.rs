@@ -866,6 +866,28 @@ fn resource_ops_coverage(
                     );
                 }
             }
+            ResourceOp::RawAddressAlias {
+                source,
+                target,
+                span,
+            } => {
+                resource_place_coverage(
+                    function,
+                    "raw_address_alias.source",
+                    source,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+                resource_place_coverage(
+                    function,
+                    "raw_address_alias.target",
+                    target,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+            }
             ResourceOp::CallEffect { .. } => {}
         }
     }

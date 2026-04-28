@@ -89,3 +89,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `ISS-20260428T201631358Z-RESOURCE-CELLSTATE-RAW-CELLS-DO-NOT--72A5D076` として、raw address alias の canonical key が temporary から local へ変わったときに CellTable の raw cell entry が旧 key のまま残る問題を修正した。`realloc_raw` の output temporary へ transfer された `tmp.deref` は、`let grown = tmp` により canonical が `grown` へ変わるため、以後の `load_i32 grown` が `grown.deref` を探して false D3100 になっていた。
 
 `ResourceCheckEngine` の alias transfer を `copy_raw_alias_and_rekey_cells` へ統一し、`CellTable::rekey_raw_cells` で raw cell state を旧 canonical から新 canonical へ移すようにした。一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 106/110 から 107/110 に改善し、realloc slot 系 `#8` は本来の D3025 へ戻った。残件は 3 件で、`MemPtr` / `RegionToken` wrapper address summary と literal helper address summary に絞られる。
+
+2026-04-29 追記 7:
+
+`ISS-20260428T202704426Z-RESOURCE-IR-LOWERING-DOES-NOT-EXPOSE-0104A160` として、`MemPtr` / `RegionToken` wrapper helper が opaque call として下がり、`MemPtr.raw` / `RegionToken.ptr.raw` の structural alias が CellState に渡らない問題を修正した。`ResourceOp::RawAddressAlias` を追加し、call/effect coverage count を変えずに raw address alias だけを Resource IR に表現する。
+
+一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 107/110 から 109/110 に改善し、`doctest#23` の `mem_ptr_add` literal disjoint offset と `doctest#38` の RegionToken load-then-dealloc 前 load は通るようになった。残件 `doctest#30` は `ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA` として、literal arithmetic helper return summary の問題に分離した。

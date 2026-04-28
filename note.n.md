@@ -1,3 +1,22 @@
+# 2026-04-29 メモ (ISS-20260428T202704426Z Resource IR wrapper alias)
+
+- `RawMemoryLoadCell` gate の残件調査で、`tests/compiler/move_effect.n.md::doctest#23` と `#38` が `mem_ptr_addr p` の戻り値 temporary を store/load 間で別 raw address と見て false D3100 になる原因を確認した。
+- 根本原因は、Resource IR lowering が `mem_ptr_wrap` / `mem_ptr_addr` / `mem_ptr_add` / `region_new` を opaque call として扱い、`MemPtr.raw` と `RegionToken.ptr.raw` の structural projection alias を CellState に渡していなかったこと。
+- `ResourceOp::RawAddressAlias` を追加し、call/effect coverage count を変えずに raw address alias だけを Resource checker へ渡せるようにした。`lower.rs` では core/mem の pointer wrapper helper をこの op に下げる。
+- whole wrapper copy/read で `CellTable::rekey_raw_cells` が wrapper root 配下の raw cell を temporary 側へ移す副作用も確認したため、rekey は exact raw address alias を追跡している場合に限定した。
+- `resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets` と `resource_ir_cell_check_preserves_mem_ptr_alias_after_region_token` を追加した。
+- temporary `RawMemoryLoadCell` gate で `tests/compiler/move_effect.n.md` は 107/110 から 109/110 に改善した。残件 `doctest#30` は `ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA` として分離した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_mem_ptr_alias_after_region_token -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir`: 80 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - temporary `RawMemoryLoadCell` gate + `trunk build`: pass
+  - temporary `RawMemoryLoadCell` gate + `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-load-cell-wrapper-summary-gate.json -j 1`: total=110, passed=109, failed=1
+  - normal gate + `trunk build`: pass
+  - normal gate + `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-load-cell-wrapper-summary-final-move-effect.json -j 1`: total=110, passed=110, failed=0
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T201631358Z Resource CellState raw cell rekey)
 
 - `RawMemoryLoadCell` gate の残件調査で、`tests/compiler/move_effect.n.md::doctest#8` の realloc 後 raw slot load が D3025 ではなく false D3100 になる原因を確認した。

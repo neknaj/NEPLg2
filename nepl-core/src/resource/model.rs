@@ -135,6 +135,11 @@ pub enum ResourceOp {
         args: Vec<Place>,
         span: Span,
     },
+    RawAddressAlias {
+        source: Place,
+        target: Place,
+        span: Span,
+    },
     Construct {
         output: Place,
         kind: AggregateKind,

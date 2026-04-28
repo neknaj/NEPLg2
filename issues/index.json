@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:46:23.636Z",
+  "generated_at": "2026-04-28T20:48:50.027Z",
   "counts": {
-    "total": 314,
-    "open": 10,
-    "resolved": 304,
+    "total": 316,
+    "open": 11,
+    "resolved": 305,
     "by_area": {
       "core": {
-        "total": 148,
-        "open": 4,
-        "resolved": 144
+        "total": 150,
+        "open": 5,
+        "resolved": 145
       },
       "stdlib": {
         "total": 96,
@@ -108,6 +108,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E.md"
+    },
+    {
+      "id": "ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA",
+      "title": "Resource IR raw address summaries do not evaluate literal arithmetic helper returns",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/lower.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2313,6 +2328,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T201631358Z-RESOURCE-CELLSTATE-RAW-CELLS-DO-NOT--72A5D076.md"
+    },
+    {
+      "id": "ISS-20260428T202704426Z-RESOURCE-IR-LOWERING-DOES-NOT-EXPOSE-0104A160",
+      "title": "Resource IR lowering does not expose MemPtr and RegionToken wrapper aliases",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/initialized_alias.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T202704426Z-RESOURCE-IR-LOWERING-DOES-NOT-EXPOSE-0104A160.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

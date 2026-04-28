@@ -265,6 +265,9 @@ impl ResourceCheckEngine<'_> {
                 args,
                 span,
             } => self.check_raw_memory(cells, raw_aliases, operation, output, args, *span),
+            ResourceOp::RawAddressAlias { source, target, .. } => {
+                self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, target);
+            }
             ResourceOp::Construct {
                 output,
                 kind,
@@ -499,10 +502,13 @@ impl ResourceCheckEngine<'_> {
         source: &Place,
         target: &Place,
     ) {
+        let source_tracks_raw_address = raw_aliases.contains_exact(source);
         let source_canonical = raw_aliases.canonicalize(source);
         raw_aliases.copy_alias_or_seed(source, target);
         let target_canonical = raw_aliases.canonicalize(target);
-        cells.rekey_raw_cells(&source_canonical, &target_canonical);
+        if source_tracks_raw_address || source_canonical != *source {
+            cells.rekey_raw_cells(&source_canonical, &target_canonical);
+        }
     }
 
     fn check_expr(

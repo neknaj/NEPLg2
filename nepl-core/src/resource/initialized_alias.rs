@@ -62,6 +62,12 @@ impl RawCellAddressAliases {
         place.clone()
     }
 
+    pub(super) fn contains_exact(&self, place: &Place) -> bool {
+        self.groups
+            .iter()
+            .any(|group| group.iter().any(|alias| alias == place))
+    }
+
     pub(super) fn clear(&mut self, place: &Place) {
         for group in &mut self.groups {
             group.retain(|existing| place_suffix_after_prefix(existing, place).is_none());
@@ -109,12 +115,8 @@ impl RawCellAddressAliases {
         let mut out = Vec::new();
         for group in &self.groups {
             let mut mapped = Vec::new();
-            let mut mapped_descendant = false;
             for place in group {
                 if let Some(replacement) = replace_place_prefix(place, source, target) {
-                    if place.projections.len() > source.projections.len() {
-                        mapped_descendant = true;
-                    }
                     push_unique_place(&mut mapped, &replacement);
                 }
             }
@@ -129,9 +131,6 @@ impl RawCellAddressAliases {
                 .collect();
             for place in &mapped {
                 push_unique_place(&mut merged, place);
-            }
-            if mapped_descendant {
-                push_unique_place(&mut merged, target);
             }
             out.push(merged);
         }
@@ -170,16 +169,30 @@ fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
 }
 
 fn prefer_stable_canonical(group: &mut Vec<Place>) {
-    let Some((index, _)) = group
-        .iter()
-        .enumerate()
-        .min_by_key(|(_, place)| (canonical_place_rank(place), place.projections.len()))
-    else {
+    let Some((index, _)) = group.iter().enumerate().min_by_key(|(_, place)| {
+        (
+            canonical_place_projection_rank(place),
+            canonical_place_rank(place),
+            place.projections.len(),
+        )
+    }) else {
         return;
     };
     if index != 0 {
         let place = group.remove(index);
         group.insert(0, place);
+    }
+}
+
+fn canonical_place_projection_rank(place: &Place) -> u8 {
+    if place
+        .projections
+        .iter()
+        .any(|projection| matches!(projection, super::model::PlaceProjection::StorageOffset(_)))
+    {
+        0
+    } else {
+        1
     }
 }
 
@@ -310,6 +323,9 @@ fn propagate_raw_address_alias_op(
             | RawMemoryOp::Fill
             | RawMemoryOp::Other { .. } => {}
         },
+        ResourceOp::RawAddressAlias { source, target, .. } => {
+            raw_aliases.copy_alias_or_seed(source, target);
+        }
         ResourceOp::Construct {
             output,
             kind,

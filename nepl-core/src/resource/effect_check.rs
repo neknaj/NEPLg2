@@ -145,6 +145,10 @@ impl ResourceEffectBoundaryEngine<'_> {
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
                 function_aliases.copy_alias(source, output);
             }
+            ResourceOp::RawAddressAlias { source, target, .. } => {
+                identities.copy_identity(source, target);
+                copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
+            }
             ResourceOp::Assign { target, value, .. } => {
                 identities.copy_identity(value, target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, value, target);

@@ -22,8 +22,8 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, PlaceProjection, RawBodyKind, RawMemoryOp,
     ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind, ResourceFunction,
-    ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule,
+    ResourceOffset, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::raw_memory_cell_place;
 
@@ -302,6 +302,15 @@ fn lower_expr_skeleton(
                 effect: effect.clone(),
                 span: expr.span,
             });
+            push_core_mem_wrapper_semantics(
+                callee,
+                args,
+                &arg_places,
+                &output,
+                ops,
+                env,
+                expr.span,
+            );
             if let Some(operation) = raw_memory_op_from_callee(callee) {
                 ops.push(ResourceOp::RawMemory {
                     operation,
@@ -752,6 +761,103 @@ fn lower_call_target(callee: &FuncRef) -> ResourceCallTarget {
             method: method.clone(),
             self_ty: *self_ty,
         },
+    }
+}
+
+fn push_core_mem_wrapper_semantics(
+    callee: &FuncRef,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    output: &Place,
+    ops: &mut Vec<ResourceOp>,
+    env: &LoweringEnvironment,
+    span: crate::span::Span,
+) {
+    match func_ref_base_name(callee) {
+        Some("mem_ptr_wrap") => {
+            let Some(raw) = arg_places.first() else {
+                return;
+            };
+            ops.push(ResourceOp::RawAddressAlias {
+                source: raw.clone(),
+                target: mem_ptr_raw_field_place(output, env.types.i32()),
+                span,
+            });
+        }
+        Some("mem_ptr_addr") => {
+            let Some(ptr) = arg_places.first() else {
+                return;
+            };
+            ops.push(ResourceOp::RawAddressAlias {
+                source: mem_ptr_raw_field_place(ptr, output.ty),
+                target: output.clone(),
+                span,
+            });
+        }
+        Some("mem_ptr_add") => {
+            let Some(ptr) = arg_places.first() else {
+                return;
+            };
+            let mut raw = mem_ptr_raw_field_place(ptr, env.types.i32());
+            match hir_args.get(1).and_then(non_negative_i32_literal_bytes) {
+                Some(0) => {}
+                Some(bytes) => {
+                    raw = raw.with_projection(
+                        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }),
+                        env.types.i32(),
+                    );
+                }
+                None => {
+                    raw = raw.with_projection(
+                        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+                        env.types.i32(),
+                    );
+                }
+            }
+            ops.push(ResourceOp::RawAddressAlias {
+                source: raw,
+                target: mem_ptr_raw_field_place(output, env.types.i32()),
+                span,
+            });
+        }
+        Some("region_new") => {
+            let Some(ptr) = arg_places.first() else {
+                return;
+            };
+            ops.push(ResourceOp::RawAddressAlias {
+                source: ptr.clone(),
+                target: region_token_ptr_field_place(output, ptr.ty),
+                span,
+            });
+        }
+        _ => {}
+    }
+}
+
+fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
+    ptr.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        raw_ty,
+    )
+}
+
+fn region_token_ptr_field_place(token: &Place, ptr_ty: TypeId) -> Place {
+    token.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        ptr_ty,
+    )
+}
+
+fn non_negative_i32_literal_bytes(expr: &HirExpr) -> Option<usize> {
+    match &expr.kind {
+        HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
+        _ => None,
     }
 }
 

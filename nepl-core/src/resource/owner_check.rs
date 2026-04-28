@@ -305,7 +305,8 @@ impl ResourceOwnerCheckEngine<'_> {
             ResourceOp::Expr { .. }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
-            | ResourceOp::CallEffect { .. } => {}
+            | ResourceOp::CallEffect { .. }
+            | ResourceOp::RawAddressAlias { .. } => {}
         }
     }
 
