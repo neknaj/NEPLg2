@@ -1,3 +1,16 @@
+# 2026-04-29 メモ (ISS-20260428T142719860Z Resource return summary split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`BorrowTokenReturnSummary`、`OwnerReturnSummary`、`OwnerProjectionReturnSummary` と、それらを固定点で計算する owner / borrow return summary logic を `nepl-core/src/resource/summary.rs` へ分離した。
+- `check.rs` 側には Resource IR traversal、diagnostic emission、summary application を残し、`summary.rs` は既存の owner / borrow checker engine を使って関数境界の戻り値 summary を計算する責務に限定した。
+- `check.rs` は 1875 行から 1676 行になり、`summary.rs` は 219 行になった。issue はまだ open とし、次は engine traversal の分割、または `effect.rs` の return summary / boundary engine の責務整理を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\summary.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource report type split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceSafetyShadowReport`、Cell / Owner / Borrow check report、deferred counter、diagnostic enum、operation enum を `nepl-core/src/resource/report.rs` へ分離した。

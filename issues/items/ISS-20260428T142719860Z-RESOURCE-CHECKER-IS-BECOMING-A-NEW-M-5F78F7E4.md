@@ -7,8 +7,8 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-28
-updated: 2026-04-28
-target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/mod.rs"
+updated: 2026-04-29
+target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/summary.rs"
 ---
 
 # ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4: Resource checker is becoming a new monolithic static-check pass
@@ -188,6 +188,22 @@ raw identity field propagation と pointer alias field propagation も `place_ut
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\report.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Function return summary split
+
+`BorrowTokenReturnSummary`、`OwnerReturnSummary`、`OwnerProjectionReturnSummary` と、それらを固定点で計算する owner / borrow return summary logic を `nepl-core/src/resource/summary.rs` へ分離した。
+
+`check.rs` 側には Resource IR traversal、diagnostic emission、summary application を残した。`summary.rs` は既存の owner / borrow checker engine を使って関数境界の戻り値 summary だけを計算する責務に限定し、summary state が `check.rs` の middle section に埋もれ続けないようにした。
+
+この分割で `check.rs` は 1875 行から 1676 行になり、`summary.rs` は 219 行になった。issue はまだ open のままとし、次は engine traversal の分割、または `effect.rs` の return summary / boundary engine の責務整理を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\summary.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`

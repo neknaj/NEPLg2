@@ -20,6 +20,7 @@ mod model;
 mod owner_state;
 mod place_utils;
 mod report;
+mod summary;
 
 pub use check::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
