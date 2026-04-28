@@ -6,6 +6,7 @@ mod call_resolution;
 mod effect_check;
 mod env;
 mod field_access;
+mod hir_finalize;
 mod match_check;
 mod name_lookup;
 mod signature;
@@ -25,13 +26,15 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_ids::DiagnosticId;
 use crate::effects::intrinsic_effect;
 use crate::hir::*;
-use crate::layout::is_aggregate_storage_type;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 
 use env::{Binding, BindingKind, Env};
+use hir_finalize::{
+    add_i32_offset_expr, raw_aggregate_load_addr_expr, resolve_type_ids_in_function,
+};
 use signature::{
     contains_same_type, function_signature_string, mangle_function_symbol, mangle_impl_method,
     push_unique_type, same_function_signature, type_contains_unbound_var,
@@ -6465,185 +6468,6 @@ impl<'a> BlockChecker<'a> {
             assign: None,
             auto_call: true,
         })
-    }
-}
-
-fn resolve_type_ids_in_function(ctx: &TypeCtx, function: &mut HirFunction) {
-    function.func_ty = ctx.resolve_id(function.func_ty);
-    function.result = ctx.resolve_id(function.result);
-    for param in &mut function.params {
-        param.ty = ctx.resolve_id(param.ty);
-    }
-    match &mut function.body {
-        HirBody::Block(block) => resolve_type_ids_in_block(ctx, block),
-        HirBody::Wasm(_) | HirBody::LlvmIr(_) => {}
-    }
-}
-
-fn resolve_type_ids_in_block(ctx: &TypeCtx, block: &mut HirBlock) {
-    block.ty = ctx.resolve_id(block.ty);
-    for line in &mut block.lines {
-        resolve_type_ids_in_expr(ctx, &mut line.expr);
-    }
-}
-
-fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
-    let mut pending = Vec::new();
-    pending.push(expr);
-    while let Some(expr) = pending.pop() {
-        expr.ty = ctx.resolve_id(expr.ty);
-        match &mut expr.kind {
-            HirExprKind::Call { callee, args } => {
-                match callee {
-                    FuncRef::User(_, type_args, _) => {
-                        for ty in type_args {
-                            *ty = ctx.resolve_id(*ty);
-                        }
-                    }
-                    FuncRef::Trait {
-                        trait_args,
-                        self_ty,
-                        ..
-                    } => {
-                        for ty in trait_args {
-                            *ty = ctx.resolve_id(*ty);
-                        }
-                        *self_ty = ctx.resolve_id(*self_ty);
-                    }
-                    FuncRef::Builtin(_) => {}
-                }
-                for arg in args {
-                    pending.push(arg);
-                }
-            }
-            HirExprKind::CallIndirect {
-                callee,
-                params,
-                result,
-                args,
-            } => {
-                pending.push(callee);
-                for ty in params {
-                    *ty = ctx.resolve_id(*ty);
-                }
-                *result = ctx.resolve_id(*result);
-                for arg in args {
-                    pending.push(arg);
-                }
-            }
-            HirExprKind::If {
-                cond,
-                then_branch,
-                else_branch,
-            } => {
-                pending.push(cond);
-                pending.push(then_branch);
-                pending.push(else_branch);
-            }
-            HirExprKind::While { cond, body } => {
-                pending.push(cond);
-                pending.push(body);
-            }
-            HirExprKind::Match { scrutinee, arms } => {
-                pending.push(scrutinee);
-                for arm in arms {
-                    pending.push(&mut arm.body);
-                }
-            }
-            HirExprKind::Block(block) => {
-                block.ty = ctx.resolve_id(block.ty);
-                for line in &mut block.lines {
-                    pending.push(&mut line.expr);
-                }
-            }
-            HirExprKind::Let { value, .. }
-            | HirExprKind::Set { value, .. }
-            | HirExprKind::AddrOf(value)
-            | HirExprKind::Deref(value) => pending.push(value),
-            HirExprKind::TupleConstruct { items } | HirExprKind::Intrinsic { args: items, .. } => {
-                for item in items {
-                    pending.push(item);
-                }
-            }
-            HirExprKind::EnumConstruct {
-                type_args, payload, ..
-            } => {
-                for ty in type_args {
-                    *ty = ctx.resolve_id(*ty);
-                }
-                if let Some(payload) = payload {
-                    pending.push(payload);
-                }
-            }
-            HirExprKind::StructConstruct {
-                type_args, fields, ..
-            } => {
-                for ty in type_args {
-                    *ty = ctx.resolve_id(*ty);
-                }
-                for field in fields {
-                    pending.push(field);
-                }
-            }
-            HirExprKind::FnValue(_)
-            | HirExprKind::Var(_)
-            | HirExprKind::Unit
-            | HirExprKind::LiteralI32(_)
-            | HirExprKind::LiteralF32(_)
-            | HirExprKind::LiteralBool(_)
-            | HirExprKind::LiteralStr(_)
-            | HirExprKind::Drop { .. } => {}
-        }
-    }
-}
-
-fn is_raw_memory_load_name(name: &str) -> bool {
-    name == "load" || name.starts_with("load_")
-}
-
-fn raw_aggregate_load_addr_expr(expr: &HirExpr, ctx: &TypeCtx) -> Option<HirExpr> {
-    if !is_aggregate_storage_type(ctx, expr.ty) {
-        return None;
-    }
-    match &expr.kind {
-        HirExprKind::Call { callee, args } if args.len() == 1 => match callee {
-            FuncRef::User(name, _, _) | FuncRef::Builtin(name) if is_raw_memory_load_name(name) => {
-                Some(args[0].clone())
-            }
-            _ => None,
-        },
-        HirExprKind::Intrinsic { name, args, .. } if name == "load" && args.len() == 1 => {
-            Some(args[0].clone())
-        }
-        _ => None,
-    }
-}
-
-fn add_i32_offset_expr(
-    base: HirExpr,
-    offset: usize,
-    offset_span: Span,
-    span: Span,
-    i32_ty: TypeId,
-) -> HirExpr {
-    if offset == 0 {
-        return base;
-    }
-    HirExpr {
-        ty: i32_ty,
-        kind: HirExprKind::Intrinsic {
-            name: "add".to_string(),
-            type_args: vec![i32_ty],
-            args: vec![
-                base,
-                HirExpr {
-                    ty: i32_ty,
-                    kind: HirExprKind::LiteralI32(offset as i32),
-                    span: offset_span,
-                },
-            ],
-        },
-        span,
     }
 }
 

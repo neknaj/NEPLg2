@@ -1,3 +1,25 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck HIR finalize module)
+
+- 状況:
+  - Stage 1 の typecheck signature module 化後、HIR type id 正規化と raw aggregate load 補助が `typecheck.rs` 本体に残っていた。
+  - raw aggregate load address の復元は将来の Resource IR `Place` / projection lowering へ置き換える対象なので、HIR 後処理境界として先に分ける必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/hir_finalize.rs` を追加し、`resolve_type_ids_in_function` / `resolve_type_ids_in_block` / `resolve_type_ids_in_expr`、raw memory load name 判定、aggregate storage load から address expression を復元する補助、field offset を i32 add expression へ変換する補助を移動した。
+  - `typecheck.rs` 本体は HIR finalize helper を呼び出すだけにし、型検査結果の安定化処理と raw aggregate lowering 暫定処理を明示的な module 境界へ出した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck HIR finalize 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/hir_finalize.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test intrinsic -- --nocapture`: 4/4 passed
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 3/3 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md -i tests/compiler/codegen_diagnostics.n.md -i tests/compiler/reference_codegen.n.md -i tests/compiler/generics.n.md -i tests/compiler/functions.n.md --no-tree -o tmp/stage1-typecheck-hir-finalize-focused.json -j 1`: 59/59 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 と Stage 3 の準備に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck signature module)
 
 - 状況:
