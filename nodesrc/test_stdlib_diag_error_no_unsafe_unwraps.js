@@ -26,13 +26,14 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
-assert.match(code, /fn\s+diag_empty_str_vec\s+<\(\)->Vec<str>>\s+\(\):\s+v::Vec<str>\s+0\s+0\s+mem_ptr_wrap\s+0/, 'Diag string Vec allocation fallback must use an empty sentinel');
+assert.match(code, /struct\s+Diag:[\s\S]*notes\s+<str>[\s\S]*help\s+<str>/, 'Diag notes/help must use string fields in the current compact diagnostic layout');
+assert.doesNotMatch(code, /struct\s+Diag:[\s\S]*notes\s+<Vec<str>>/, 'Diag notes must not silently reintroduce Vec<str> storage without a checked fallback policy');
+assert.doesNotMatch(code, /struct\s+Diag:[\s\S]*help\s+<Vec<str>>/, 'Diag help must not silently reintroduce Vec<str> storage without a checked fallback policy');
 assert.match(code, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+v::Vec<Diag>\s+0\s+0\s+mem_ptr_wrap\s+0/, 'Diags allocation fallback must use an empty sentinel');
-assert.match(code, /fn\s+diag_push_str_vec\s+<\(Vec<str>,str\)->StrVecPushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<str>\s+items\s+item:[\s\S]*Result::Err\s+_e:[\s\S]*StrVecPushRes\s+diag_empty_str_vec\s+false/, 'Diag note/help push must convert grow failure to ok=false');
-assert.match(code, /fn\s+diag_push_diag_vec\s+<\(Vec<Diag>,Diag\)->DiagVecPushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<Diag>\s+items\s+item:[\s\S]*Result::Err\s+_e:[\s\S]*DiagVecPushRes\s+diag_empty_diag_vec\s+false/, 'Diags push must convert grow failure to ok=false');
-assert.match(code, /fn\s+diag_new\s+<\(DiagKind,str\)\*>Diag>\s+\(kind,\s*message\):[\s\S]*match\s+v::new<str>:[\s\S]*Result::Err\s+_e:[\s\S]*\(\)[\s\S]*Diag\s+kind\s+message\s+none<Span>\s+notes\s+help\s+none<str>/, 'diag_new must handle notes/help allocation failure without trapping');
-assert.match(code, /fn\s+diag_add_note\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*note\):[\s\S]*diag_push_str_vec\s+get\s+load<Diag>\s+d_mem\s+"notes"\s+note/, 'diag_add_note must use checked note push');
-assert.match(code, /fn\s+diag_add_help\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*help_item\):[\s\S]*diag_push_str_vec\s+get\s+load<Diag>\s+d_mem\s+"help"\s+help_item/, 'diag_add_help must use checked help push');
-assert.match(code, /fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*diag_push_diag_vec\s+get\s+ds\s+"items"\s+d/, 'diags_push must use checked Diag push');
+assert.match(code, /fn\s+diag_new\s+<\(DiagKind,str\)\*>Diag>\s+\(kind,\s*message\):\s+Diag\s+kind\s+message\s+none<Span>\s+""\s+""\s+none<str>/, 'diag_new must initialize note/help text without allocating Vec<str>');
+assert.match(code, /fn\s+diag_add_note\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*note\):[\s\S]*let\s+notes1\s+<str>\s+concat\s+notes0\s+note;[\s\S]*let\s+notes2\s+<str>\s+concat\s+notes1\s+"\\n";[\s\S]*Diag[\s\S]*notes2/, 'diag_add_note must append to note text without Vec<str> push unwraps');
+assert.match(code, /fn\s+diag_add_help\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*help_item\):[\s\S]*let\s+help1\s+<str>\s+concat\s+help0\s+"help: ";[\s\S]*let\s+help3\s+<str>\s+concat\s+help2\s+"\\n";[\s\S]*Diag[\s\S]*help3/, 'diag_add_help must append to help text without Vec<str> push unwraps');
+assert.match(code, /fn\s+diags_one\s+<\(Diag\)\*>Diags>\s+\(d\):[\s\S]*match\s+v::push<Diag>\s+items0\s+d:[\s\S]*Result::Err\s+_e:[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_one must convert push failure to an empty Diags sentinel');
+assert.match(code, /fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*match\s+v::push<Diag>\s+field::get\s+ds\s+"items"\s+d:[\s\S]*Result::Err\s+_e:[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_push must convert grow failure to an empty Diags sentinel');
 
 console.log('stdlib diag error unsafe unwrap regression passed');

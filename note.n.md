@@ -21859,3 +21859,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host の文字列構築基盤は既に byte-backed builder に寄せており、この commit は issue 台帳の再発状態を現在の検証結果へ合わせるもの。
+
+# 2026-04-28 メモ (ISS-20260427T053811590Z diag/error policy current layout)
+
+- [同期]:
+  - `origin/main` の `8313df8 fix(nodesrc): align string builder doc policy` まで取り込み、`fix/diag-error-policy-current-layout-20260428` branch の変更を main 上で rebase して確認した。
+- [再現]:
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` は `Diag string Vec allocation fallback must use an empty sentinel` で失敗した。
+- [原因]:
+  - 現在の `Diag` は `notes <str>` / `help <str>` の compact layout へ移行済みで、旧 `Vec<str>` notes/help storage は存在しない。
+  - source policy が旧 layout の `diag_empty_str_vec` / `diag_push_str_vec` を要求し続けていたため、正しい現行実装を回帰として扱っていた。
+- [修正]:
+  - `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` を現行 layout に合わせ、`notes/help` が `str` field であること、`Vec<str>` notes/help を再導入しないこと、`Diags` の `Vec<Diag>` failure は `diag_empty_diag_vec` sentinel へ丸めることを検査するようにした。
+  - issue に再確認結果を追記し、`status: fixed` / `resolved: true` に戻した。
+- [検証]:
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/diag/error.nepl --no-tree -o tmp/diag-error-policy-current-layout-after-resource-ir-docs.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/tests/error.n.md --no-tree -o tmp/diag-error-policy-current-layout-after-resource-ir-focused.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md -i stdlib/alloc/diag/error.nepl -i stdlib/alloc/diag/diag.nepl --no-tree -o tmp/diag-error-policy-current-layout-after-resource-ir-all.json -j 1`: 7/7 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host diagnostics では compact text notes/help を当面維持し、Resource IR 前に non-Copy `Vec<str>` diagnostic storage を戻さない方針とした。

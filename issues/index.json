@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T06:40:57.200Z",
+  "generated_at": "2026-04-28T06:49:17.299Z",
   "counts": {
     "total": 247,
-    "open": 18,
-    "resolved": 229,
+    "open": 17,
+    "resolved": 230,
     "by_area": {
       "core": {
         "total": 103,
@@ -23,8 +23,8 @@
       },
       "stdlib": {
         "total": 94,
-        "open": 8,
-        "resolved": 86
+        "open": 7,
+        "resolved": 87
       },
       "cli": {
         "total": 19,
@@ -74,7 +74,7 @@
       "type": "architecture",
       "created": "2026-04-25",
       "updated": "2026-04-28",
-      "target": "nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
+      "target": "nepl-core/src/resource, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
@@ -303,21 +303,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
-    },
-    {
-      "id": "ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3",
-      "title": "alloc/diag/error が Vec allocation failure を unwrap_ok で trap する",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "stdlib/alloc/diag/error.nepl, stdlib/tests/error.n.md, nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -3498,6 +3483,21 @@
       "legacy_id": "",
       "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
       "file": "items/ISS-20260427T052030799Z-NM-BLOCK-PARSER-VEC-NODE-ALLOCATION--10EE8F1D.md"
+    },
+    {
+      "id": "ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3",
+      "title": "alloc/diag/error が Vec allocation failure を unwrap_ok で trap する",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/alloc/diag/error.nepl, stdlib/tests/error.n.md, nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3.md"
     },
     {
       "id": "ISS-20260427T054706120Z-STD-TEST-CHECKS-NEW-CHECKS-PUSH-VEC--DA0F691F",

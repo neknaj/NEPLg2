@@ -2,8 +2,8 @@
 id: ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3
 title: "alloc/diag/error が Vec allocation failure を unwrap_ok で trap する"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: bug
 created: 2026-04-27
@@ -62,3 +62,16 @@ Replace implementation unwrap_ok use with explicit Result matches. Keep existing
 `main` の CI で `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` が再度失敗しているため、この issue を再オープンする。確認した run は `25034413035`（`refactor(core): split typecheck function check`）と `25034624930`（`refactor(core): split typecheck context`）で、どちらも Source policy regressions job が `Diag string Vec allocation fallback must use an empty sentinel` により失敗した。
 
 失敗ログでは `stdlib/alloc/diag/error.nepl` に `diag_empty_diag_vec` は残っているが、policy が期待する `diag_empty_str_vec <()->Vec<str>>` の sentinel 定義が見つからない。これは今回の Rust typecheck module 分割とは独立した stdlib source policy 再発であり、修正は stdlib 側で `Vec<str>` allocation failure fallback を再導入し、同 policy と focused stdlib diag tests を通す必要がある。
+
+## 2026-04-28 再確認と追加対応
+
+最新の `stdlib/alloc/diag/error.nepl` では `Diag.notes` / `Diag.help` が `Vec<str>` ではなく compact な `str` field に変わっており、`diag_add_note` / `diag_add_help` は `concat` で text を更新する。したがって `diag_empty_str_vec` を戻すと、解消済みの `Vec<str>` raw storage を再導入する方向になる。
+
+根本原因は実装再発ではなく、`nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` が旧 `Vec<str>` notes/help layout を要求し続けていた点だった。source policy を現行 layout に合わせ、`Diag` が `notes <str>` / `help <str>` を使うこと、`Vec<str>` notes/help を再導入しないこと、`Diags` 側の `Vec<Diag>` allocation failure は `diag_empty_diag_vec` sentinel へ丸めることを検査する形へ更新した。
+
+## 追加で実施した検証
+
+- `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+- `node nodesrc/tests.js -i stdlib/alloc/diag/error.nepl --no-tree -o tmp/diag-error-policy-current-layout-after-resource-ir-docs.json -j 1`: `total=2`, `passed=2`
+- `node nodesrc/tests.js -i stdlib/tests/error.n.md --no-tree -o tmp/diag-error-policy-current-layout-after-resource-ir-focused.json -j 1`: `total=3`, `passed=3`
+- `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md -i stdlib/alloc/diag/error.nepl -i stdlib/alloc/diag/diag.nepl --no-tree -o tmp/diag-error-policy-current-layout-after-resource-ir-all.json -j 1`: `total=7`, `passed=7`
