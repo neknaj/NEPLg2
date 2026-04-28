@@ -239,15 +239,30 @@ fn place_suffix_after_address_prefix(
     place: &Place,
     prefix: &Place,
 ) -> Option<Vec<PlaceProjection>> {
-    if place.root != prefix.root || place.projections.len() < prefix.projections.len() {
+    if place.root != prefix.root {
         return None;
     }
-    for (place_projection, prefix_projection) in place.projections.iter().zip(&prefix.projections) {
+    let mut place_index = 0;
+    for prefix_projection in &prefix.projections {
+        if matches!(
+            prefix_projection,
+            PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: None })
+        ) {
+            if matches!(
+                place.projections.get(place_index),
+                Some(PlaceProjection::StorageOffset(_))
+            ) {
+                place_index += 1;
+            }
+            continue;
+        }
+        let place_projection = place.projections.get(place_index)?;
         if !address_projection_matches(place_projection, prefix_projection) {
             return None;
         }
+        place_index += 1;
     }
-    Some(place.projections[prefix.projections.len()..].to_vec())
+    Some(place.projections[place_index..].to_vec())
 }
 
 fn address_projection_matches(place: &PlaceProjection, prefix: &PlaceProjection) -> bool {

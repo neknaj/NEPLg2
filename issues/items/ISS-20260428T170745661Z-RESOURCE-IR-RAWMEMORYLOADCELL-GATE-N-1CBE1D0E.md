@@ -95,3 +95,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `ISS-20260428T202704426Z-RESOURCE-IR-LOWERING-DOES-NOT-EXPOSE-0104A160` として、`MemPtr` / `RegionToken` wrapper helper が opaque call として下がり、`MemPtr.raw` / `RegionToken.ptr.raw` の structural alias が CellState に渡らない問題を修正した。`ResourceOp::RawAddressAlias` を追加し、call/effect coverage count を変えずに raw address alias だけを Resource IR に表現する。
 
 一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 107/110 から 109/110 に改善し、`doctest#23` の `mem_ptr_add` literal disjoint offset と `doctest#38` の RegionToken load-then-dealloc 前 load は通るようになった。残件 `doctest#30` は `ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA` として、literal arithmetic helper return summary の問題に分離した。
+
+2026-04-29 追記 8:
+
+`ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA` として、literal argument で確定する raw address helper return と unknown offset overlap の問題を修正した。lowering は `slot_ptr(base, 0)` のような user helper return を call-site で `base + 0` として特殊化し、`ResourceOp::RawAddressAlias` に落とす。literal で確定しない offset は `StorageOffset(None)` として保持し、CellState は unknown offset を offset なしの base raw cell とも重なる prefix として扱う。
+
+一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 109/110 から 110/110 に改善し、既知の false D3100 は解消した。親 issue はまだ compiler gate 常時有効化を含んでいないため open のままとし、次の確認では `move_check.n.md` など関連範囲を含めて `RawMemoryLoadCell` を正式 gate に入れられるか判断する。

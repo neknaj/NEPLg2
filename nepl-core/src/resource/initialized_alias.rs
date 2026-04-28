@@ -121,6 +121,20 @@ impl RawCellAddressAliases {
                 }
             }
             if mapped.is_empty() {
+                for alias in group {
+                    if let Some(suffix) = place_suffix_after_prefix(source, alias) {
+                        for group_alias in group {
+                            push_unique_place(
+                                &mut mapped,
+                                &place_with_suffix(group_alias, &suffix, source.ty),
+                            );
+                        }
+                        push_unique_place(&mut mapped, target);
+                        break;
+                    }
+                }
+            }
+            if mapped.is_empty() {
                 continue;
             }
 

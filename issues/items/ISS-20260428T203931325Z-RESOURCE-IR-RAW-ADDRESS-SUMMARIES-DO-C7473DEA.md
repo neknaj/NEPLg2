@@ -2,13 +2,13 @@
 id: ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA
 title: "Resource IR raw address summaries do not evaluate literal arithmetic helper returns"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/lower.rs"
+target: "nepl-core/src/resource/lower.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/cell_state.rs"
 ---
 
 # ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA: Resource IR raw address summaries do not evaluate literal arithmetic helper returns
@@ -43,3 +43,20 @@ Represent raw address return summaries as address expressions with parameter ref
 ## 検証
 
 Add resource_ir regression for slot_ptr(base, 0) and confirm temporary RawMemoryLoadCell gate passes tests/compiler/move_effect.n.md.
+
+## 2026-04-29 解決
+
+`nepl-core/src/resource/lower.rs` に user helper return の call-site specialized raw address analysis を追加した。`slot_ptr(base, 0)` のような return expression を `base + 0` として評価し、`ResourceOp::RawAddressAlias` に落とす。`add` / `sub` / `mul` / `size_of` の小さな i32 const 評価を持たせ、literal で確定しない offset は `StorageOffset(None)` として保守的に扱う。
+
+実装中に、`StorageOffset(None)` が `p` の live raw cell と重ならない別の同根問題も確認した。`initialized_alias.rs` の alias propagation は `tmp[+?]` から `p[+?]` を展開するようにし、`cell_state.rs` は unknown offset prefix を明示 offset と offset なしの両方に重なる address prefix として扱うようにした。これにより non-literal helper offset は正しく保守的な D3100 になる。
+
+追加した回帰テスト:
+
+- `resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset`
+- `resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative`
+
+確認結果:
+
+- `cargo test -p nepl-core --test resource_ir` 82/82 pass
+- 一時 `RawMemoryLoadCell` gate 有効化後、`trunk build` pass
+- 一時 `RawMemoryLoadCell` gate 有効化後、`node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -j 1` 110/110 pass

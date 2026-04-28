@@ -6009,6 +6009,104 @@ fn main <()->i32> ():
     );
 }
 
+#[test]
+fn resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
+    add base mul idx add size_of<.T> size_of<.V>
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
+    store_i32 add p size_of<LocalToken> 123
+    let a <LocalToken> load<LocalToken> p
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "literal zero raw address helper offset must alias the base address: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 size_of<LocalToken>
+
+fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
+    add base mul idx add size_of<.T> size_of<.V>
+
+fn main <()->i32> ():
+    let p <i32> 16
+    let off <i32> choose_offset true
+    store<LocalToken> p LocalToken @token_id
+    store<LocalToken> slot_ptr<LocalToken,i32> p off LocalToken @token_id
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        !main_diagnostics.is_empty(),
+        "non-literal raw address helper offset must remain conservative:\nresource:\n{}",
+        resource.dump_text()
+    );
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

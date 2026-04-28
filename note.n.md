@@ -1,3 +1,19 @@
+# 2026-04-29 メモ (ISS-20260428T203931325Z Resource IR raw address arithmetic summary)
+
+- `RawMemoryLoadCell` gate の最後の残件として、`tests/compiler/move_effect.n.md::doctest#30` の `slot_ptr(base, 0)` が `base` と同じ raw address であるにもかかわらず false D3100 になる原因を確認した。
+- 根本原因は、Resource IR 側の raw address summary が「戻り値が param と同一aliasか」だけを表現し、`base + idx * size` のような helper return を call-site literal で特殊化できなかったこと。
+- `lower.rs` に user helper return の小さな raw address expression 解析を追加し、`add` / `sub` / `mul` / `size_of` と literal 引数から確定できる offset を `ResourceOp::RawAddressAlias` として下げるようにした。literal で確定しない offset は `StorageOffset(None)` にする。
+- 実装中に、`StorageOffset(None)` が `p` の live raw cell と重ならない問題も確認したため、`initialized_alias.rs` は `tmp[+?]` から `p[+?]` を alias group に展開し、`cell_state.rs` は unknown offset prefix を offset あり/なしの両方と重なるものとして扱うようにした。
+- `resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset` と `resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative` を追加した。
+- temporary `RawMemoryLoadCell` gate で `tests/compiler/move_effect.n.md` は 109/110 から 110/110 に改善した。gate 常時有効化は親 issue `ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` 側で、追加範囲を確認して別commitにする。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir`: 82 passed
+  - temporary `RawMemoryLoadCell` gate + `trunk build`: pass
+  - temporary `RawMemoryLoadCell` gate + `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\raw-address-summary-literal-arithmetic-gate.json -j 1`: total=110, passed=110, failed=0
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T210703348Z streamio/source_text char literal follow-up)
 
 - char literal 移行 issue は fixed だったが、`stdlib/std/streamio.nepl` の scanner whitespace / digit / sign / exponent 判定、`stdlib/neplg2/core/infra/text.nepl` の LF/CR trimming、`stdlib/std/fs.nepl` の host path 禁止文字判定に、文字としての意味を持つ decimal code が残っていた。
