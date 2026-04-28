@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 raw state module)
+
+- 状況:
+  - Stage 1 の visitor module 化に続き、`MoveCheckContext` に残っていた raw memory ownership state 更新を分離した。
+  - raw place の表現、HIR からの provenance 復元、D3100 diagnostic を出す state update が同じ context impl に混在していた。
+- 修正:
+  - `nepl-core/src/passes/move_check/raw_state.rs` を追加し、non-Copy raw place の load/store/dealloc/realloc/byte write/bulk copy 検査、overlap 判定、partial load 時の `PossiblyMoved` 更新を移動した。
+  - visitor から呼ぶ D3100 系検査 API は `pub(super)` に留め、crate 外の API は増やしていない。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 raw state 境界の記録を追記した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-raw-state-module-move-effect.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 visitor module)
 
 - 状況:
