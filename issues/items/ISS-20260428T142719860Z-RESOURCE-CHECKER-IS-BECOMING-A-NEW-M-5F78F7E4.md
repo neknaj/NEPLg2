@@ -159,3 +159,19 @@ raw identity field propagation と pointer alias field propagation も `place_ut
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
+
+## 2026-04-28 Effect identity state split
+
+`effect.rs` から raw identity table、raw memory identity table、raw pointer alias table、raw memory identity propagation helper、aggregate field propagation helper を `nepl-core/src/resource/effect_identity.rs` へ分離した。
+
+`ResourceEffectBoundaryEngine` は traversal、summary application、diagnostic emission を担当し、raw identity / pointer alias の state storage と merge / prefix replacement は `effect_identity.rs` の責務にした。Stage 5 の raw address escape gate は同じ state table を使い続けるため、検査意味論は変更していない。
+
+この分割で `effect.rs` は 1143 行から 785 行になり、`effect_identity.rs` は 366 行になった。issue はまだ open のままとし、次は owner / borrow return summary computation、effect return summary computation、または shadow report entry point の分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\effect_identity.rs nepl-core\src\resource\effect.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`

@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource effect identity state split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`effect.rs` から raw identity table、raw memory identity table、raw pointer alias table、raw memory identity propagation helper、aggregate field propagation helper を `nepl-core/src/resource/effect_identity.rs` へ分離した。
+- `ResourceEffectBoundaryEngine` は traversal、summary application、diagnostic emission を担当し、raw identity / pointer alias の state storage と merge / prefix replacement は `effect_identity.rs` の責務にした。
+- Stage 5 の raw address escape gate は同じ state table を使い続けるため、検査意味論は変更していない。`effect.rs` は 1143 行から 785 行になり、`effect_identity.rs` は 366 行になった。
+- issue はまだ open とし、次は owner / borrow return summary computation、effect return summary computation、または shadow report entry point の分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\effect_identity.rs nepl-core\src\resource\effect.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource effect FunctionAlias reuse)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`nepl-core/src/resource/effect.rs` に残っていた duplicate `FunctionAliasTable`、function alias entry、dedupe、constructed aggregate field alias propagation を削除し、`function_alias.rs` の共通 module を使うようにした。
