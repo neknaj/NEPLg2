@@ -1,3 +1,10 @@
+# 2026-04-29 メモ (ISS-20260428T224138753Z String RegionToken RawMemoryLoadCell)
+
+- `trunk build` 後も `tests\stdlib\neplg2_type_arena.n.md` は 5/5 failed で、全件の top issue は `concat_result` の `out_region` が `RawMemoryLoadCell ... found Moved` になる問題だった。
+- `ISS-20260428T213732897Z` の `str_addr` external backing storage 修正では、parameter 由来の `str` load は改善したが、string を新規構築する `RegionToken` / scratch allocation の owner projection はまだ Resource IR に正しく表現されていない。
+- `ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9` を追加し、`concat_result` / `from_u128_radix` の RegionToken-derived storage Moved / MaybeMoved を別件として追跡する。
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T223953830Z Vec element backing storage)
 
 - `trunk build` 後の最新 main で `stdlib\alloc\collections\vec.nepl` doctest を再実行し、`Vec` header read 修正後は 29/39 pass まで改善した。

@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T22:40:29.091Z",
+  "generated_at": "2026-04-28T22:42:07.891Z",
   "counts": {
-    "total": 326,
-    "open": 10,
+    "total": 327,
+    "open": 11,
     "resolved": 316,
     "by_area": {
       "core": {
-        "total": 152,
-        "open": 3,
+        "total": 153,
+        "open": 4,
         "resolved": 149
       },
       "stdlib": {
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9",
+      "title": "String constructors reuse RegionToken storage after RawMemoryLoadCell move",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/string.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
