@@ -743,8 +743,8 @@ fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Opt
 //: ```
 pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args):
     let span <VecDataLen<str>> v::data_len_ref<str> args;
-    let data <i32> mem_ptr_addr get span "data";
-    let count <i32> get span "len";
+    let data <i32> mem_ptr_addr *get_ref &span "data";
+    let count <i32> *get_ref &span "len";
     selfhost_cli_parse_loop data count 0 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
 
 //: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
@@ -793,8 +793,8 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //: ```
 pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (argv):
     let span <VecDataLen<str>> v::data_len_ref<str> argv;
-    let data <i32> mem_ptr_addr get span "data";
-    let count <i32> get span "len";
+    let data <i32> mem_ptr_addr *get_ref &span "data";
+    let count <i32> *get_ref &span "len";
     selfhost_cli_parse_loop data count 1 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
 
 //: selfhost_cli_target_is_wasm: target が Wasm か判定する

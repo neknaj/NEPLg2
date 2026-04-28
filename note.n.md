@@ -1,3 +1,25 @@
+# 2026-04-29 メモ (ISS-20260428T230757402Z self-host CLI VecDataLen field move)
+
+- [同期]:
+  - `origin/main` の `eebb659 fix(core): separate region token raw cell state` まで取り込んだ `selfhost/cli-vecdatalen-ref-read` branch で作業した。
+- [原因]:
+  - `selfhost_cli_parse_args` / `selfhost_cli_parse_argv` は `v::data_len_ref<str>` で得た `VecDataLen<str>` を `span` に保持した後、`get span "data"` と `get span "len"` を順に呼んでいた。
+  - `data` / `len` は Copy field だが、owned `get` は aggregate owner の `span` を消費するため、RawMemoryLoadCell gate では 2 回目の field read が `Local("span") ... found Moved` になっていた。
+- [修正]:
+  - `data` / `len` を `*get_ref &span "..."` で読むように変更し、span owner を動かさず Copy field だけを取り出す形にした。
+  - `nodesrc/test_selfhost_cli_args_no_owner_field_reads.js` を追加し、direct `get span "data|len"` の再導入を禁止した。
+  - `doc/testing.md` の source policy regression 一覧へ追加した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: pass
+  - `node nodesrc/tests.js -i stdlib\neplg2\cli\args.nepl --no-tree -o tmp\selfhost-cli-vecdatalen-ref-args-after-rebase.json -j 1`: total=5 passed=5
+  - `node nodesrc/tests.js -i tests\stdlib\selfhost_cliarg_parser.n.md --no-tree -o tmp\selfhost-cli-vecdatalen-ref-fixture-after-rebase.json -j 1`: total=10 passed=10
+  - `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-vecdatalen-ref-neplg2-after-rebase.json -j 1`: total=32 passed=22 failed=10。CLI args の span D3100 は解消し、残件は既知の Vec element provenance と SelfhostOutcome raw cell 系。
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host CLI parser の focused doctest と external fixture が RawMemoryLoadCell gate 下でも通る状態に戻った。
+
 # 2026-04-29 メモ (ISS-20260428T225903679Z self-host mono instance key)
 
 - [同期]:
