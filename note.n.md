@@ -1,3 +1,19 @@
+# 2026-04-28 メモ (ISS-20260427T132406497Z Stage 5 raw identity escape gate)
+
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5 commit 単位 4「public escape diagnostics」として、Resource IR shadow check の `RawAddressEscapeFromInternalAlloc` を compiler pipeline の D3025 へ接続した。
+- 今回 error 化したのは、pure user function が `alloc_raw` / `realloc_raw` 由来の raw address identity を戻り値として public surface へ返す経路だけである。
+- `UnsafeMemoryInPureFunction` は現行 stdlib の Stage 6 migration と衝突しやすいため、まだ shadow report に留めている。`stdlib/core/mem.nepl` の SourceMap raw memory boundary も互換のため今回 gate から除外した。
+- 既存の D3100 raw ownership violation がある場合は旧 `move_check` を先に返す順序にし、live non-Copy payload の `realloc_raw` などでは D3100 が維持されるようにした。
+- `tests/compiler/move_effect.n.md` に `pure から alloc_raw の raw address を返せない` を追加し、`diag_id: 3025` を固定した。
+- 検証:
+  - `rustfmt --check nepl-core/src/compiler.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 23 passed
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 21 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage5-raw-identity-escape-focused.json -j 1`: total=98, passed=98
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T094334365Z kpsearch Vec wrapper raw scratch)
 
 - GitHub Actions run `25045198144` の `tutorials-test` で、`tutorials/getting_started/23_competitive_sort_and_search.n.md::doctest#2` が `stdlib/kp/kpsearch.nepl` の `v_mem` に対する `D3100 use of moved raw memory place` で失敗していた。

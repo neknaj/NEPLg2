@@ -242,13 +242,54 @@ fn run_move_check(
     hir_module: &crate::hir::HirModule,
     types: &crate::types::TypeCtx,
     diagnostics: &mut Vec<Diagnostic>,
+    source_map: Option<&SourceMap>,
 ) -> Result<(), CoreError> {
     run_resource_shadow_check(hir_module, types);
     let move_errors = passes::move_check::run(hir_module, types);
-    if move_errors.is_empty() {
+    if !move_errors.is_empty() {
+        diagnostics.extend(move_errors);
+        return Err(CoreError::from_diagnostics(diagnostics.clone()));
+    }
+    run_resource_effect_boundary_gate(hir_module, diagnostics, source_map)
+}
+
+fn run_resource_effect_boundary_gate(
+    hir_module: &crate::hir::HirModule,
+    diagnostics: &mut Vec<Diagnostic>,
+    source_map: Option<&SourceMap>,
+) -> Result<(), CoreError> {
+    let resource = crate::resource::lower_hir_module_skeleton(hir_module);
+    let report = crate::resource::check_resource_effect_boundaries(&resource);
+    let mut effect_errors = Vec::new();
+    for diagnostic in report.diagnostics {
+        if let crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            span,
+            ..
+        } = diagnostic
+        {
+            if source_map
+                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            effect_errors.push(
+                Diagnostic::error(
+                    format!(
+                        "pure function '{}' returns raw address identity from internal allocation",
+                        function
+                    ),
+                    span,
+                )
+                .with_id(DiagnosticId::TypePureCallsImpureFunction),
+            );
+        }
+    }
+    if effect_errors.is_empty() {
         return Ok(());
     }
-    diagnostics.extend(move_errors);
+    diagnostics.extend(effect_errors);
     Err(CoreError::from_diagnostics(diagnostics.clone()))
 }
 
@@ -318,7 +359,7 @@ pub fn prepare_module_for_codegen_with_source_map(
         }));
         return Err(CoreError::from_diagnostics(diagnostics));
     }
-    run_move_check(&hir_module, &types, &mut diagnostics)?;
+    run_move_check(&hir_module, &types, &mut diagnostics, source_map)?;
     Ok(PreparedProgram {
         types,
         hir_module,

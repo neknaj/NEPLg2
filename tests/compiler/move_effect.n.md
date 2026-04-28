@@ -23,6 +23,23 @@ fn main <()->i32> ():
     compute
 ```
 
+## pure から alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn leak_raw <()->i32> ():
+    alloc_raw 4
+
+fn main <()->i32> ():
+    leak_raw
+```
+
 ## pure から raw load intrinsic を直接呼べない
 
 neplg2:test[compile_fail]

@@ -219,6 +219,27 @@ Stage 5 commit 単位 4 の public escape diagnostics へ進む前段として�
 
 回帰テストでは、pure function が `alloc_raw` の raw address を返すケースと、pure function 内で raw `store` intrinsic を実行するケースを `nepl-core/tests/resource_ir.rs` に固定した。
 
+## 2026-04-28 Stage 5 raw identity escape gate 追記
+
+Resource IR effect boundary のうち、`InternalAlloc` 由来の raw address identity が pure user function の戻り値として public surface へ漏れる経路を compiler pipeline の D3025 に接続した。これは `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5 commit 単位 4「public escape diagnostics」の最小 enforcement である。
+
+今回 compiler error 化したのは `RawAddressEscapeFromInternalAlloc` だけである。`UnsafeMemoryInPureFunction` は現行 stdlib の raw-memory-backed API 移行と衝突しやすいため、引き続き shadow report に残す。`stdlib/core/mem.nepl` の compiler-owned raw memory boundary では raw identity を扱う互換 API が残るため、SourceMap capability を持つ file は今回の gate から除外する。
+
+また、既存の D3100 raw ownership violation がある場合は旧 `move_check` の診断を先に返すようにした。例えば live non-Copy payload を `realloc_raw` で byte move するケースでは、raw identity escape より D3100 の方が根本原因を正確に示すためである。
+
+回帰テスト:
+
+- `tests/compiler/move_effect.n.md` に `pure から alloc_raw の raw address を返せない` を追加し、`diag_id: 3025` を固定した。
+
+検証:
+
+- `rustfmt --check nepl-core/src/compiler.rs`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 23 passed
+- `cargo test -p nepl-core --test effects -- --nocapture`: 21 passed
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage5-raw-identity-escape-focused.json -j 1`: total=98, passed=98
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。
