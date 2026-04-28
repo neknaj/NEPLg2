@@ -1748,6 +1748,146 @@ fn resource_ir_owner_check_accepts_deallocated_alloc() {
 }
 
 #[test]
+fn resource_ir_owner_check_reports_assign_over_live_owner_leak() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let old_ptr = Place::temporary(ResourceId(0), i32_ty);
+    let p = Place::local("p".to_string(), i32_ty);
+    let new_ptr = Place::temporary(ResourceId(1), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: old_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::DeclareLocal {
+                place: p.clone(),
+                mutable: true,
+                initializer: Some(old_ptr),
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: new_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Assign {
+                target: p.clone(),
+                value: new_ptr,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(2), unit_ty),
+                args: vec![p.clone()],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerLeaked {
+            function,
+            place,
+            ..
+        } if function == "main" && place == &p
+    )));
+}
+
+#[test]
+fn resource_ir_owner_check_reports_assign_over_aggregate_field_owner_leak() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let old_ptr = Place::temporary(ResourceId(0), i32_ty);
+    let wrapper = Place::local("wrapper".to_string(), wrapper_ty);
+    let wrapper_field = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let new_ptr = Place::temporary(ResourceId(1), i32_ty);
+    let replacement = Place::temporary(ResourceId(2), wrapper_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: old_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: wrapper.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Wrapper".to_string(),
+                },
+                inputs: vec![old_ptr],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: new_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: replacement.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Wrapper".to_string(),
+                },
+                inputs: vec![new_ptr],
+                span,
+            },
+            ResourceOp::Assign {
+                target: wrapper,
+                value: replacement,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(3), unit_ty),
+                args: vec![wrapper_field.clone()],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerLeaked {
+            function,
+            place,
+            ..
+        } if function == "main" && place == &wrapper_field
+    )));
+}
+
+#[test]
 fn resource_ir_owner_check_reports_leaked_alloc() {
     let types = TypeCtx::new();
     let span = Span::dummy();

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:18:32.973Z",
+  "generated_at": "2026-04-28T12:25:37.470Z",
   "counts": {
-    "total": 272,
+    "total": 273,
     "open": 10,
-    "resolved": 262,
+    "resolved": 263,
     "by_area": {
       "core": {
-        "total": 123,
+        "total": 124,
         "open": 4,
-        "resolved": 119
+        "resolved": 120
       },
       "stdlib": {
         "total": 95,
@@ -1953,6 +1953,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T121156309Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-A-C6DF3CB2.md"
+    },
+    {
+      "id": "ISS-20260428T122245127Z-RESOURCE-OWNER-CHECKER-OVERWRITES-LI-209EA97B",
+      "title": "Resource owner checker overwrites live owners on assignment",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T122245127Z-RESOURCE-OWNER-CHECKER-OVERWRITES-LI-209EA97B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

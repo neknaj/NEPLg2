@@ -1297,6 +1297,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 value,
                 span,
             } => {
+                self.report_overwritten_owners(owners, target, value, *span);
                 self.transfer_owner(
                     owners,
                     value,
@@ -1625,6 +1626,40 @@ impl ResourceOwnerCheckEngine<'_> {
         }
         if summary.returns_fresh_owner && !transferred {
             owners.allocate(output);
+        }
+    }
+
+    fn report_overwritten_owners(
+        &mut self,
+        owners: &mut OwnerTable,
+        target: &Place,
+        value: &Place,
+        span: Span,
+    ) {
+        for entry in owners.live_entries_under(target) {
+            if places_overlap(&entry.place, value) {
+                continue;
+            }
+            match entry.state {
+                OwnerState::Live { storage } => {
+                    self.diagnostics.push(ResourceOwnerDiagnostic::OwnerLeaked {
+                        function: String::from(self.function),
+                        place: entry.place.clone(),
+                        storage,
+                        span,
+                    });
+                }
+                OwnerState::MaybeFreed => {
+                    self.diagnostics
+                        .push(ResourceOwnerDiagnostic::OwnerMaybeLeaked {
+                            function: String::from(self.function),
+                            place: entry.place.clone(),
+                            span,
+                        });
+                }
+                OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => {}
+            }
+            owners.set_state(&entry.place, OwnerState::Moved);
         }
     }
 
@@ -2191,6 +2226,21 @@ impl OwnerTable {
                     entry.state,
                     OwnerState::Live { .. } | OwnerState::MaybeFreed
                 )
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn live_entries_under(&self, prefix: &Place) -> Vec<OwnerStateEntry> {
+        self.owners
+            .iter()
+            .filter(|entry| {
+                (entry.place == *prefix
+                    || place_suffix_after_prefix(&entry.place, prefix).is_some())
+                    && matches!(
+                        entry.state,
+                        OwnerState::Live { .. } | OwnerState::MaybeFreed
+                    )
             })
             .cloned()
             .collect()

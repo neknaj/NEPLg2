@@ -22656,3 +22656,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 1「initialized / moved state」の続きとして、CellState の projection-aware availability を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T122245127Z owner assignment overwrite)
+
+- [同期]:
+  - `origin/main` の `e81c509 fix(core): track cell projection availability` まで同期した main から `work/stage4-owner-assign-overwrite` branch を作成した。
+- [原因]:
+  - `ResourceOwnerCheckEngine` の `Assign` は `transfer_owner(value, target)` だけを行い、target 側の既存 live owner/free obligation を確認していなかった。
+  - `OwnerTable::set_state` は同じ place の owner state を更新するため、raw pointer local や aggregate field owner を新しい owner で上書きすると、古い storage id が table から消えて leak を見逃す可能性があった。
+- [修正]:
+  - assign 前に target exact place と descendant projection 配下の live / maybe-freed owner を列挙し、value と overlap しない既存 owner を `OwnerLeaked` / `OwnerMaybeLeaked` として診断するようにした。
+  - 診断した stale owner state は `Moved` にして、新しい owner transfer と古い obligation が混ざらないようにした。
+  - `nepl-core/tests/resource_ir.rs` に exact owner assignment overwrite と aggregate field owner overwrite の回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、assignment overwrite 時の free obligation loss を Resource IR 上で検出するようにした。
