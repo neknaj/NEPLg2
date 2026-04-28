@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T09:41:22.384Z",
+  "generated_at": "2026-04-28T09:45:15.652Z",
   "counts": {
-    "total": 249,
+    "total": 250,
     "open": 12,
-    "resolved": 237,
+    "resolved": 238,
     "by_area": {
       "core": {
         "total": 103,
@@ -22,9 +22,9 @@
         "resolved": 14
       },
       "stdlib": {
-        "total": 94,
+        "total": 95,
         "open": 5,
-        "resolved": 89
+        "resolved": 90
       },
       "cli": {
         "total": 19,
@@ -2433,6 +2433,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1.md"
+    },
+    {
+      "id": "ISS-20260428T094334365Z-KPSEARCH-VEC-WRAPPERS-USE-RAW-AGGREG-BDDC0E20",
+      "title": "kpsearch Vec wrappers use raw aggregate scratch cells under strict move checking",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/kp/kpsearch.nepl, tutorials/getting_started/23_competitive_sort_and_search.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T094334365Z-KPSEARCH-VEC-WRAPPERS-USE-RAW-AGGREG-BDDC0E20.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

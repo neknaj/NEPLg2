@@ -1,3 +1,13 @@
+# 2026-04-28 メモ (ISS-20260428T094334365Z kpsearch Vec wrapper raw scratch)
+
+- GitHub Actions run `25045198144` の `tutorials-test` で、`tutorials/getting_started/23_competitive_sort_and_search.n.md::doctest#2` が `stdlib/kp/kpsearch.nepl` の `v_mem` に対する `D3100 use of moved raw memory place` で失敗していた。
+- 根本原因は tutorial ではなく、`lower_bound_vec_i32` / `upper_bound_vec_i32` / `contains_vec_i32` / `count_equal_range_vec_i32` が `Vec<i32>` 所有値を raw scratch cell に退避して `data` / `len` を読む実装だった。
+- wrapper 4 関数を `data_ptr_ref<i32> &v` と `len_ref<i32> &v` で Copy field を借用読みする実装に変更し、raw-array helper 呼び出し後に `free<i32> v` で受け取った owner を明示的に解放するようにした。
+- `ISS-20260428T094334365Z-KPSEARCH-VEC-WRAPPERS-USE-RAW-AGGREG-BDDC0E20` を追加し、同 commit で fixed にした。D3100 は緩めていない。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/kp/kpsearch.nepl -i tutorials/getting_started/23_competitive_sort_and_search.n.md --no-tree -o tmp/kpsearch-vec-wrapper-borrowed-fields.json -j 1`: total=5, passed=5
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T005509048Z tutorial read overload clarity)
 
 - GitHub Actions run `25045198144` の `tutorials-test` で、`tutorials/getting_started/22_competitive_io_and_arith.n.md::doctest#1/#2` が `D3005 ambiguous overload` になっていた。

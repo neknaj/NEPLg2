@@ -204,40 +204,32 @@ fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
 
 //: lower_bound_vec_i32: Vec<i32> を対象に lower_bound を返す
 fn lower_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
-    let v_mem <i32> alloc_raw size_of<Vec<i32>>;
-    store<Vec<i32>> v_mem v;
-    let data <i32> data_ptr<i32> load<Vec<i32>> v_mem;
-    let len <i32> len<i32> load<Vec<i32>> v_mem;
-    let out <i32> lower_bound_i32 data len x;
-    dealloc_raw v_mem size_of<Vec<i32>>;
+    let data <i32> data_ptr_ref<i32> &v;
+    let n <i32> len_ref<i32> &v;
+    let out <i32> lower_bound_i32 data n x;
+    free<i32> v;
     out
 
 //: upper_bound_vec_i32: Vec<i32> を対象に upper_bound を返す
 fn upper_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
-    let v_mem <i32> alloc_raw size_of<Vec<i32>>;
-    store<Vec<i32>> v_mem v;
-    let data <i32> data_ptr<i32> load<Vec<i32>> v_mem;
-    let len <i32> len<i32> load<Vec<i32>> v_mem;
-    let out <i32> upper_bound_i32 data len x;
-    dealloc_raw v_mem size_of<Vec<i32>>;
+    let data <i32> data_ptr_ref<i32> &v;
+    let n <i32> len_ref<i32> &v;
+    let out <i32> upper_bound_i32 data n x;
+    free<i32> v;
     out
 
 //: contains_vec_i32: Vec<i32> に値 x が存在するか判定する
 fn contains_vec_i32 <(Vec<i32>,i32)*>bool> (v, x):
-    let v_mem <i32> alloc_raw size_of<Vec<i32>>;
-    store<Vec<i32>> v_mem v;
-    let data <i32> data_ptr<i32> load<Vec<i32>> v_mem;
-    let len <i32> len<i32> load<Vec<i32>> v_mem;
-    let out <bool> contains_i32 data len x;
-    dealloc_raw v_mem size_of<Vec<i32>>;
+    let data <i32> data_ptr_ref<i32> &v;
+    let n <i32> len_ref<i32> &v;
+    let out <bool> contains_i32 data n x;
+    free<i32> v;
     out
 
 //: count_equal_range_vec_i32: Vec<i32> における x の個数を返す
 fn count_equal_range_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
-    let v_mem <i32> alloc_raw size_of<Vec<i32>>;
-    store<Vec<i32>> v_mem v;
-    let data <i32> data_ptr<i32> load<Vec<i32>> v_mem;
-    let len <i32> len<i32> load<Vec<i32>> v_mem;
-    let out <i32> count_equal_range_i32 data len x;
-    dealloc_raw v_mem size_of<Vec<i32>>;
+    let data <i32> data_ptr_ref<i32> &v;
+    let n <i32> len_ref<i32> &v;
+    let out <i32> count_equal_range_i32 data n x;
+    free<i32> v;
     out
