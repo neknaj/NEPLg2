@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
-use super::model::{Place, PlaceProjection, PlaceRoot};
+use super::model::{AggregateKind, Place, PlaceProjection, PlaceRoot};
 
 pub(super) fn should_track(place: &Place) -> bool {
     !matches!(place.root, PlaceRoot::Unknown)
@@ -10,6 +10,42 @@ pub(super) fn should_track(place: &Place) -> bool {
 
 pub(super) fn raw_memory_cell_place(address: &Place, ty: TypeId) -> Place {
     address.clone().with_projection(PlaceProjection::Deref, ty)
+}
+
+pub(super) fn construct_aggregate_field_place(
+    output: &Place,
+    kind: &AggregateKind,
+    index: usize,
+    input: &Place,
+) -> Place {
+    let mut place = output.clone();
+    match kind {
+        AggregateKind::Struct { .. } => {
+            place.projections.push(PlaceProjection::Field {
+                index,
+                offset_bytes: 0,
+            });
+        }
+        AggregateKind::Tuple => {
+            place.projections.push(PlaceProjection::TupleField {
+                index,
+                offset_bytes: 0,
+            });
+        }
+        AggregateKind::Enum { variant, .. } => {
+            place.projections.push(PlaceProjection::EnumPayload {
+                variant: variant.clone(),
+            });
+            if index > 0 {
+                place.projections.push(PlaceProjection::TupleField {
+                    index,
+                    offset_bytes: 0,
+                });
+            }
+        }
+    }
+    place.ty = input.ty;
+    place
 }
 
 pub(super) fn replace_place_prefix(

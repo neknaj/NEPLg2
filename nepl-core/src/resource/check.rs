@@ -1,7 +1,6 @@
 extern crate alloc;
 
 use alloc::string::String;
-use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::hir::HirModule;
@@ -12,6 +11,7 @@ use super::borrow_state::BorrowTable;
 use super::cell_state::CellTable;
 use super::coverage::{compare_hir_resource_lowering, ResourceLoweringCoverage};
 use super::effect::{check_resource_effect_boundaries, ResourceEffectBoundaryReport};
+use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::lower::lower_hir_module_skeleton;
 use super::model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry,
@@ -21,8 +21,8 @@ use super::model::{
 };
 use super::owner_state::OwnerTable;
 use super::place_utils::{
-    place_suffix_after_prefix, place_with_suffix, places_overlap, push_unique_usize,
-    raw_memory_cell_place, replace_place_prefix, should_track,
+    construct_aggregate_field_place, place_suffix_after_prefix, place_with_suffix, places_overlap,
+    push_unique_usize, raw_memory_cell_place, replace_place_prefix, should_track,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1710,7 +1710,7 @@ impl ResourceOwnerCheckEngine<'_> {
         span: Span,
     ) {
         for (index, input) in inputs.iter().enumerate() {
-            let field = construct_owner_field_place(output, kind, index, input);
+            let field = construct_aggregate_field_place(output, kind, index, input);
             self.transfer_owner(
                 owners,
                 input,
@@ -2040,138 +2040,6 @@ impl ResourceOwnerCheckEngine<'_> {
                 state,
                 span,
             });
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-struct FunctionAliasTable {
-    entries: Vec<FunctionAliasEntry>,
-}
-
-#[derive(Debug, Clone)]
-struct FunctionAliasEntry {
-    place: Place,
-    functions: Vec<String>,
-}
-
-impl FunctionAliasTable {
-    fn functions(&self, place: &Place) -> &[String] {
-        self.entries
-            .iter()
-            .find(|entry| entry.place == *place)
-            .map(|entry| entry.functions.as_slice())
-            .unwrap_or(&[])
-    }
-
-    fn set_alias(&mut self, place: &Place, function: String) {
-        self.set_functions(place, vec![function]);
-    }
-
-    fn copy_alias(&mut self, source: &Place, target: &Place) {
-        let functions = self.functions(source).to_vec();
-        if !functions.is_empty() {
-            self.set_functions(target, functions);
-        } else {
-            self.clear_alias(target);
-        }
-    }
-
-    fn set_functions(&mut self, place: &Place, functions: Vec<String>) {
-        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.place == *place) {
-            entry.functions = dedupe_functions(functions);
-            return;
-        }
-        self.entries.push(FunctionAliasEntry {
-            place: place.clone(),
-            functions: dedupe_functions(functions),
-        });
-    }
-
-    fn clear_alias(&mut self, place: &Place) {
-        self.entries.retain(|entry| entry.place != *place);
-    }
-
-    fn merge_paths(paths: &[FunctionAliasTable]) -> Self {
-        let mut out = FunctionAliasTable::default();
-        for path in paths {
-            for entry in &path.entries {
-                out.union_functions(&entry.place, entry.functions.iter().cloned());
-            }
-        }
-        out
-    }
-
-    fn union_functions<I>(&mut self, place: &Place, functions: I)
-    where
-        I: IntoIterator<Item = String>,
-    {
-        let mut merged = self.functions(place).to_vec();
-        for function in functions {
-            if !merged.contains(&function) {
-                merged.push(function);
-            }
-        }
-        if !merged.is_empty() {
-            self.set_functions(place, merged);
-        }
-    }
-}
-
-fn dedupe_functions(functions: Vec<String>) -> Vec<String> {
-    let mut out = Vec::new();
-    for function in functions {
-        if !out.contains(&function) {
-            out.push(function);
-        }
-    }
-    out
-}
-
-fn construct_owner_field_place(
-    output: &Place,
-    kind: &AggregateKind,
-    index: usize,
-    input: &Place,
-) -> Place {
-    let mut place = output.clone();
-    match kind {
-        AggregateKind::Struct { .. } => {
-            place.projections.push(PlaceProjection::Field {
-                index,
-                offset_bytes: 0,
-            });
-        }
-        AggregateKind::Tuple => {
-            place.projections.push(PlaceProjection::TupleField {
-                index,
-                offset_bytes: 0,
-            });
-        }
-        AggregateKind::Enum { variant, .. } => {
-            place.projections.push(PlaceProjection::EnumPayload {
-                variant: variant.clone(),
-            });
-            if index > 0 {
-                place.projections.push(PlaceProjection::TupleField {
-                    index,
-                    offset_bytes: 0,
-                });
-            }
-        }
-    }
-    place.ty = input.ty;
-    place
-}
-
-fn construct_function_alias_fields(
-    function_aliases: &mut FunctionAliasTable,
-    output: &Place,
-    kind: &AggregateKind,
-    inputs: &[Place],
-) {
-    for (index, input) in inputs.iter().enumerate() {
-        let field = construct_owner_field_place(output, kind, index, input);
-        function_aliases.copy_alias(input, &field);
     }
 }
 

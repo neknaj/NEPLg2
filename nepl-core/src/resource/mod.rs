@@ -13,6 +13,7 @@ mod check;
 mod coverage;
 mod dump;
 mod effect;
+mod function_alias;
 mod lower;
 mod model;
 mod owner_state;

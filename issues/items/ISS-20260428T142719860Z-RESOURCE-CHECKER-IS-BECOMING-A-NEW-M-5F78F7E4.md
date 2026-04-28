@@ -127,3 +127,19 @@ BorrowState table split 後に Resource checker 周辺を再確認した。`chec
 - `function_summary.rs` を作り、borrow / owner の return summary と `FunctionAliasTable` を `check.rs` から分離する。
 - `effect_identity.rs` / `effect_alias.rs` を作り、`effect.rs` の raw identity table と pointer alias table を分離する。
 - 分割後に source-level responsibility check または doc note を追加し、Resource IR checker が再び単一巨大 pass に戻らないようにする。
+
+## 2026-04-28 FunctionAlias table split
+
+`FunctionAliasTable`、function alias entry、function list dedupe、constructed aggregate field への alias propagation を `nepl-core/src/resource/function_alias.rs` へ分離した。borrow / owner checker は traversal と diagnostic emission を続けて担当し、function value alias state と aggregate field alias propagation は専用 module に閉じた。
+
+あわせて owner field transfer と function alias propagation が共有していた aggregate field place 構築を `place_utils::construct_aggregate_field_place` に移した。これにより function alias module は `check.rs` の private helper に依存せず、owner checker 側も同じ helper を使う。
+
+この分割で `check.rs` は 2068 行、`function_alias.rs` は 102 行、`place_utils.rs` は 95 行になった。issue はまだ open のままとし、次は owner / borrow return summary computation、または `effect.rs` の raw identity / pointer alias table 分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\function_alias.rs nepl-core\src\resource\place_utils.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`

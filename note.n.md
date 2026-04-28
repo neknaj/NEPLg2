@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker FunctionAlias split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`FunctionAliasTable`、function alias entry、function list dedupe、constructed aggregate field への alias propagation を `nepl-core/src/resource/function_alias.rs` へ分離した。
+- borrow / owner checker には traversal と diagnostic emission を残し、function value alias state と aggregate field alias propagation は専用 module の責務にした。
+- owner field transfer と function alias propagation が共有していた aggregate field place 構築を `place_utils::construct_aggregate_field_place` に移した。これにより function alias module が `check.rs` の private helper に依存しない。
+- 行数は `check.rs` 2068 行、`function_alias.rs` 102 行、`place_utils.rs` 95 行。issue はまだ open とし、次は owner / borrow return summary computation、または `effect.rs` の raw identity / pointer alias table 分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\function_alias.rs nepl-core\src\resource\place_utils.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (静的検査大規模修正 post-BorrowState review)
 
 - `889a1a8` / `2fe878d` 後に `doc/neplg2/static_check_complexity_reduction_plan.md` と `nepl-core/src/resource` を再確認した。
