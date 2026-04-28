@@ -1,3 +1,28 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck function apply module)
+
+- 状況:
+  - Stage 1 の syntax helper module 化後、`apply_function` が `typecheck.rs` 本体に残っていた。
+  - この method は assignment operator、`if` / `while` special form、overload selection、field accessor、constructor、trait method、indirect call をまとめて扱っており、`check_prefix` の stack reduction と呼び出し適用の責務が同居していた。
+- 修正:
+  - `nepl-core/src/typecheck/function_apply.rs` を追加し、`apply_function` を移動した。
+  - `typecheck.rs` は `check_prefix` と block checking の orchestration を持ち、`function_apply.rs` は stack 上の callee と args を HIR call / construct / assignment に適用する境界にした。
+  - verbose log / `NEPL_DUMP_HIR` dump は module 内の local macro にして、親 module の macro へ密結合しない形にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck function apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 20/20 passed
+  - `cargo test -p nepl-core --test pipe_operator -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test if -- --nocapture`: 42/42 passed
+  - `cargo test -p nepl-core --test layout -- --nocapture`: 3/3 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -i tests/compiler/overload.n.md -i tests/compiler/overload_nested_generic_push.n.md -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/pipe_operator.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/if.n.md -i tests/compiler/block_if_semantics.n.md -i tests/compiler/trait_capability_copy.n.md --no-tree -o tmp/stage1-typecheck-function-apply-focused.json -j 1`: 282/282 passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck syntax helpers module)
 
 - 状況:
