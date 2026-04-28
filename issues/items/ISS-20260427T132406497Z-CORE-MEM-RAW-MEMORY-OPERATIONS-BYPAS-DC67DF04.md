@@ -313,3 +313,9 @@ borrow checker 周辺は別 agent の作業範囲だが、self-host compiler の
 `ISS-20260428T130545885Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-ID-D9758A4A` として、Resource IR effect checker が constructed aggregate の field projection から raw identity を読み戻す経路を見逃す問題を分離し、修正した。
 
 `ResourceOp::Construct` は aggregate root へ raw identity を集約していたが、field projection へは identity を付けていなかった。そのため `alloc -> struct field -> field read -> return` のような経路が `RawAddressEscapeFromInternalAlloc` から漏れた。今回の修正では construction 時の field identity と、whole aggregate copy 時の descendant projection identity 写像を追加した。
+
+## 2026-04-28 Stage 5 aggregate field pointer alias 追記
+
+`ISS-20260428T131233874Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-PO-DB70280C` として、Resource IR effect checker の raw pointer alias state が aggregate field projection を通過すると失われる問題を分離し、修正した。
+
+raw slot payload identity は pointer alias group で key 化しているため、slot pointer を aggregate field に入れて読み戻した後の `store` は元 slot と同じ alias group に入らなければならない。今回の修正では construction 時の field pointer alias 伝播と、whole aggregate copy 時の descendant pointer alias 写像を追加した。

@@ -231,6 +231,13 @@ impl ResourceEffectBoundaryEngine<'_> {
                     identities.merge_identity(input, output);
                 }
                 construct_raw_identity_fields(identities, output, kind, inputs);
+                construct_pointer_alias_fields(
+                    pointer_aliases,
+                    raw_memory_identities,
+                    output,
+                    kind,
+                    inputs,
+                );
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
             }
             ResourceOp::Call {
@@ -868,6 +875,19 @@ fn construct_raw_identity_fields(
     }
 }
 
+fn construct_pointer_alias_fields(
+    pointer_aliases: &mut RawPointerAliasTable,
+    raw_memory_identities: &mut RawMemoryIdentityTable,
+    output: &Place,
+    kind: &AggregateKind,
+    inputs: &[Place],
+) {
+    for (index, input) in inputs.iter().enumerate() {
+        let field = construct_field_place(output, kind, index, input);
+        copy_pointer_alias(pointer_aliases, raw_memory_identities, input, &field);
+    }
+}
+
 fn construct_function_alias_fields(
     function_aliases: &mut FunctionAliasTable,
     output: &Place,
@@ -951,7 +971,7 @@ impl RawMemoryIdentityTable {
 
     fn remove_place(&mut self, place: &Place) {
         for group in &mut self.pointer_groups {
-            group.retain(|existing| existing != place);
+            group.retain(|existing| !place_has_prefix(existing, place));
         }
         self.pointer_groups.retain(|group| !group.is_empty());
     }
@@ -997,12 +1017,11 @@ impl RawPointerAliasTable {
         if source == target {
             return;
         }
+        let groups = self.groups_with_replaced_prefix_or_singleton(source, target, true);
         self.remove_place(target);
-        let mut merged = self.group_for_or_singleton(source);
-        if !merged.contains(target) {
-            merged.push(target.clone());
+        for group in groups {
+            self.union_group(&group);
         }
-        self.union_group(&merged);
     }
 
     fn merge_paths(paths: &[RawPointerAliasTable]) -> Self {
@@ -1031,9 +1050,56 @@ impl RawPointerAliasTable {
 
     fn remove_place(&mut self, place: &Place) {
         for group in &mut self.groups {
-            group.retain(|existing| existing != place);
+            group.retain(|existing| !place_has_prefix(existing, place));
         }
         self.groups.retain(|group| !group.is_empty());
+    }
+
+    fn groups_with_replaced_prefix_or_singleton(
+        &self,
+        source: &Place,
+        target: &Place,
+        drop_target_prefix: bool,
+    ) -> Vec<Vec<Place>> {
+        let mut out = Vec::new();
+        for group in &self.groups {
+            let mut mapped = Vec::new();
+            let mut mapped_descendant = false;
+            for place in group {
+                if let Some(replacement) = replace_place_prefix(place, source, target) {
+                    if place.projections.len() > source.projections.len() {
+                        mapped_descendant = true;
+                    }
+                    push_unique_place(&mut mapped, replacement);
+                }
+            }
+            if mapped.is_empty() {
+                continue;
+            }
+
+            let mut merged = if drop_target_prefix {
+                group
+                    .iter()
+                    .filter(|place| !place_has_prefix(place, target))
+                    .cloned()
+                    .collect()
+            } else {
+                group.clone()
+            };
+            push_unique_places(&mut merged, &mapped);
+            if mapped_descendant {
+                push_unique_place(&mut merged, target.clone());
+            }
+            out.push(merged);
+        }
+
+        if out.is_empty() {
+            let mut group = Vec::new();
+            push_unique_place(&mut group, source.clone());
+            push_unique_place(&mut group, target.clone());
+            out.push(group);
+        }
+        out
     }
 
     fn union_group(&mut self, group: &[Place]) {

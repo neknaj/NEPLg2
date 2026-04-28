@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T13:09:12.121Z",
+  "generated_at": "2026-04-28T13:17:02.979Z",
   "counts": {
-    "total": 280,
+    "total": 281,
     "open": 10,
-    "resolved": 270,
+    "resolved": 271,
     "by_area": {
       "core": {
-        "total": 130,
+        "total": 131,
         "open": 4,
-        "resolved": 126
+        "resolved": 127
       },
       "stdlib": {
         "total": 95,
@@ -2058,6 +2058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T130545885Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-ID-D9758A4A.md"
+    },
+    {
+      "id": "ISS-20260428T131233874Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-PO-DB70280C",
+      "title": "Resource effect checker loses raw pointer aliases stored in aggregate fields",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T131233874Z-RESOURCE-EFFECT-CHECKER-LOSES-RAW-PO-DB70280C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

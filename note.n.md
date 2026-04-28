@@ -22771,3 +22771,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の public escape diagnostics と raw identity propagation の補強として、aggregate field projection 上の raw identity を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T131233874Z aggregate field pointer alias)
+
+- [同期]:
+  - `origin/main` の `8ce052f fix(core): preserve aggregate raw identity fields` まで同期した main から `work/stage5-aggregate-field-pointer-alias` branch を作成した。
+- [原因]:
+  - `RawMemoryIdentityTable` は pointer alias group 単位で raw slot payload identity を保持するが、`ResourceOp::Construct` は input pointer alias を aggregate field projection へ伝播していなかった。
+  - slot pointer を struct / tuple / enum payload に格納してから field projection で読み戻すと、読み戻した pointer と元 slot が同じ alias group にならず、その pointer 経由の `store` が元 slot の payload identity として記録されなかった。
+  - whole aggregate copy 時にも descendant pointer alias を target descendant へ写す必要があった。
+- [修正]:
+  - aggregate construction 時に deterministic field projection へ raw pointer alias を copy するようにした。
+  - `RawPointerAliasTable` の copy/remove と `RawMemoryIdentityTable::remove_place` を prefix-aware にし、aggregate root copy/overwrite で descendant pointer alias と slot payload identity が一貫するようにした。
+  - `nepl-core/tests/resource_ir.rs` に aggregate field に保存した slot pointer 経由の store/load と、aggregate copy 後 field pointer 経由の store/load の回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の pointer provenance / raw slot identity 追跡として、aggregate field projection 上の pointer alias を Resource IR 上に固定した。

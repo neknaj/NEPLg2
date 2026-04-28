@@ -583,6 +583,236 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_raw_slot() {
 }
 
 #[test]
+fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_stored_in_aggregate_field() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "PtrBox".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "PtrBox".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let slot_size = Place::temporary(ResourceId(0), i32_ty);
+    let slot = Place::temporary(ResourceId(1), i32_ty);
+    let wrapper = Place::temporary(ResourceId(2), wrapper_ty);
+    let field = wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let field_ptr = Place::temporary(ResourceId(3), i32_ty);
+    let raw_size = Place::temporary(ResourceId(4), i32_ty);
+    let raw = Place::temporary(ResourceId(5), i32_ty);
+    let loaded = Place::temporary(ResourceId(6), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: slot_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: slot.clone(),
+                        args: vec![slot_size],
+                        span,
+                    },
+                    ResourceOp::Construct {
+                        output: wrapper,
+                        kind: AggregateKind::Struct {
+                            name: "PtrBox".to_string(),
+                        },
+                        inputs: vec![slot.clone()],
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: field,
+                        output: field_ptr.clone(),
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: raw_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![raw_size],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Store,
+                        output: Place::temporary(ResourceId(7), unit_ty),
+                        args: vec![field_ptr, raw],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded.clone(),
+                        args: vec![slot],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(loaded),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_fields_across_aggregate_copy() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "PtrBox".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "PtrBox".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let slot_size = Place::temporary(ResourceId(0), i32_ty);
+    let slot = Place::temporary(ResourceId(1), i32_ty);
+    let wrapper = Place::temporary(ResourceId(2), wrapper_ty);
+    let copied_wrapper = Place::temporary(ResourceId(3), wrapper_ty);
+    let copied_field = copied_wrapper.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let copied_field_ptr = Place::temporary(ResourceId(4), i32_ty);
+    let raw_size = Place::temporary(ResourceId(5), i32_ty);
+    let raw = Place::temporary(ResourceId(6), i32_ty);
+    let loaded = Place::temporary(ResourceId(7), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: slot_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: slot.clone(),
+                        args: vec![slot_size],
+                        span,
+                    },
+                    ResourceOp::Construct {
+                        output: wrapper.clone(),
+                        kind: AggregateKind::Struct {
+                            name: "PtrBox".to_string(),
+                        },
+                        inputs: vec![slot.clone()],
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: wrapper,
+                        output: copied_wrapper,
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: copied_field,
+                        output: copied_field_ptr.clone(),
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: raw_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![raw_size],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Store,
+                        output: Place::temporary(ResourceId(8), unit_ty),
+                        args: vec![copied_field_ptr, raw],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded.clone(),
+                        args: vec![slot],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(loaded),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_preserves_raw_slot_identity_after_pointer_reassignment() {
     let unit_ty = TypeId(0);
     let i32_ty = TypeId(1);
