@@ -22348,3 +22348,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、known function value の indirect call 境界を補強した。
+
+# 2026-04-28 メモ (ISS-20260428T102710761Z higher-order raw identity summary)
+
+- [同期]:
+  - `origin/main` の `b84a4ee fix(core): propagate raw identity through function values` まで同期した main から `work/stage5-higher-order-raw-identity-summary` branch を作成した。
+- [原因]:
+  - direct call と known function value call は raw identity summary を適用できるが、`fn apply(p, f): f p` のような higher-order helper を summary 化すると、callee が function-typed parameter のため known alias を持たない。
+  - その結果、caller が `apply p @raw_id` と concrete callback を渡していても、`apply` の戻り値が p identity に由来し得ることを direct call summary が表現できなかった。
+- [修正]:
+  - known alias のない `ResourceOp::IndirectCall` に tracked raw identity 引数が渡された場合、callback が同じ identity を返す可能性を保守的に扱い、output へ identity を伝播するようにした。
+  - この挙動を direct user function の raw identity return summary 計算にも適用し、higher-order helper の戻り値 summary が caller 側の D3025 gate へつながるようにした。
+  - `tests/compiler/move_effect.n.md` と `nepl-core/tests/resource_ir.rs` に `apply_raw p @raw_id` 経由の raw identity escape 回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、unknown callback を保守的に扱う入口を追加した。

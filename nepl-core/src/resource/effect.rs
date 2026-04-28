@@ -300,7 +300,14 @@ impl ResourceEffectBoundaryEngine<'_> {
         callee: &Place,
         args: &[Place],
     ) {
-        for function in function_aliases.functions(callee) {
+        let functions = function_aliases.functions(callee);
+        if functions.is_empty() {
+            if args.iter().any(|arg| identities.contains(arg)) {
+                identities.mark(output);
+            }
+            return;
+        }
+        for function in functions {
             if self
                 .summaries
                 .iter()

@@ -258,6 +258,12 @@ Resource IR effect boundary checker に direct user function の parameter-to-re
 
 Resource IR effect boundary checker に function value alias table を追加し、`ResourceOp::FunctionValue` で得た関数名を local copy / branch / match を通して保持するようにした。`ResourceOp::IndirectCall` の callee が known alias を持つ場合は、direct call と同じ parameter-to-return raw identity summary を適用する。これにより `let f @raw_id; f p` のような first-class function value 経由でも raw identity escape が D3025 で拒否される。
 
+## 2026-04-28 Stage 5 higher-order callback raw identity summary 追記
+
+`ISS-20260428T102710761Z-RESOURCE-EFFECT-GATE-LOSES-RAW-ALLOC-27306BA7` として、function-typed parameter を持つ higher-order helper の summary 計算で raw identity が途切れる問題を分離した。
+
+`fn apply(p, f): f p` のような helper では、helper 内の `IndirectCall` callee は known function value alias ではなく parameter である。この場合、callback が raw identity 引数をそのまま返す可能性を保守的に扱い、indirect call output へ identity を伝播するようにした。これにより `apply p @raw_id` のような caller で concrete callback を渡す経路も、`apply` の direct call summary を通じて D3025 になる。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。

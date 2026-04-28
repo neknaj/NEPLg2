@@ -105,6 +105,30 @@ fn main <()->i32> ():
     leak_via_function_value
 ```
 
+## higher-order helper 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn raw_id <(i32)->i32> (p):
+    p
+
+fn apply_raw <(i32, (i32)->i32)->i32> (p, f):
+    f p
+
+fn leak_via_higher_order <()->i32> ():
+    let p <i32> alloc_raw 4
+    apply_raw p @raw_id
+
+fn main <()->i32> ():
+    leak_via_higher_order
+```
+
 ## pure から raw load intrinsic を直接呼べない
 
 neplg2:test[compile_fail]

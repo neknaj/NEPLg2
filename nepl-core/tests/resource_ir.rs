@@ -762,6 +762,127 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
 }
 
 #[test]
+fn resource_ir_effect_check_reports_raw_alloc_escape_through_higher_order_helper() {
+    let i32_ty = TypeId(1);
+    let fn_ty = TypeId(2);
+    let span = Span::dummy();
+    let apply_p = Place::local("p".to_string(), i32_ty);
+    let apply_f = Place::local("f".to_string(), fn_ty);
+    let apply_result = Place::temporary(ResourceId(0), i32_ty);
+    let size = Place::temporary(ResourceId(1), i32_ty);
+    let raw = Place::temporary(ResourceId(2), i32_ty);
+    let function_value = Place::temporary(ResourceId(3), fn_ty);
+    let forwarded = Place::temporary(ResourceId(4), i32_ty);
+    let module = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "apply".to_string(),
+                params: vec![
+                    nepl_core::resource::ResourceLocal {
+                        name: "p".to_string(),
+                        ty: i32_ty,
+                        mutable: false,
+                        place: apply_p.clone(),
+                    },
+                    nepl_core::resource::ResourceLocal {
+                        name: "f".to_string(),
+                        ty: fn_ty,
+                        mutable: false,
+                        place: apply_f.clone(),
+                    },
+                ],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::IndirectCall {
+                        output: apply_result.clone(),
+                        callee: apply_f,
+                        params: vec![i32_ty],
+                        result: i32_ty,
+                        args: vec![apply_p],
+                        effect: EffectOp::Unknown {
+                            reason: "function parameter".to_string(),
+                        },
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(apply_result),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: i32_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::Literal,
+                            output: size.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: raw.clone(),
+                            args: vec![size],
+                            span,
+                        },
+                        ResourceOp::FunctionValue {
+                            output: function_value.clone(),
+                            name: "raw_id".to_string(),
+                            effect: EffectOp::UserCall {
+                                name: "raw_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: forwarded.clone(),
+                            target: ResourceCallTarget::User {
+                                name: "apply".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![raw, function_value],
+                            effect: EffectOp::UserCall {
+                                name: "apply".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(forwarded),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();
