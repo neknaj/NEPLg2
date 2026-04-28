@@ -47,3 +47,9 @@ Rewrite the tutorial according to doc/neplg2/tutorial_rewrite_plan.md. Rebuild t
 ## 検証
 
 Run node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite.json -j 4 and focused runs per rewritten chapter. Check markdown links by rg or a link checker if available.
+
+## 2026-04-28 CI ambiguity 部分対応
+
+GitHub Actions run `25045198144` の `tutorials-test` で、`tutorials/getting_started/22_competitive_io_and_arith.n.md::doctest#1/#2` が `D3005 ambiguous overload` になった。原因は `add read sc read sc` の形で `read(StreamScanner)` の戻り値 overload を `add` の期待型だけから解決しようとしていた点である。
+
+今回の対応では、2 つの入力をそれぞれ `let a <i32> read sc` / `let b <i32> read sc`、および `i64` 版の型付き local に分けた。tutorial 本文としても現在の overload 解決規則に沿い、入力値の型を読み取り時点で明示する形へ修正した。

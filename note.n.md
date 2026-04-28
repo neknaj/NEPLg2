@@ -1,3 +1,10 @@
+# 2026-04-28 メモ (ISS-20260428T005509048Z tutorial read overload clarity)
+
+- GitHub Actions run `25045198144` の `tutorials-test` で、`tutorials/getting_started/22_competitive_io_and_arith.n.md::doctest#1/#2` が `D3005 ambiguous overload` になっていた。
+- `add read sc read sc` は戻り値側の `i32` / `i64` だけでは `read(StreamScanner)` overload を十分に絞れないため、各入力を `let a <i32> read sc` / `let b <i32> read sc`、`i64` 版も同じく型付き local に分けた。
+- tutorial の例としても、現在の overload 解決では入力値の型を読み取り時点で明示するほうが安定する。
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T092058380Z self-host lexer indent stack unsafe unwrap)
 
 - 状況:

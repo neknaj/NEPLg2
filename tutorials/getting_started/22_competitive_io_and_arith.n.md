@@ -18,9 +18,11 @@ stdout: "7\n"
 #import "std/iotarget" as *
 
 fn main <()*> ()> ():
-    // scanner で読んだ値を即座に合成し、writer へ流します。
+    // scanner で読む数値を型付き local に受け、writer へ流します。
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let ans <i32> add read sc read sc;
+    let a <i32> read sc;
+    let b <i32> read sc;
+    let ans <i32> add a b;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln ans
@@ -46,9 +48,11 @@ stdout: "1000000000007\n"
 #import "std/iotarget" as *
 
 fn main <()*> ()> ():
-    // 型だけ i64 に広げ、入出力の流れは同じ形で保ちます。
+    // 型だけ i64 に広げ、読み取り値の型も明示します。
     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let ans <i64> add read sc read sc;
+    let a <i64> read sc;
+    let b <i64> read sc;
+    let ans <i64> add a b;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln ans
