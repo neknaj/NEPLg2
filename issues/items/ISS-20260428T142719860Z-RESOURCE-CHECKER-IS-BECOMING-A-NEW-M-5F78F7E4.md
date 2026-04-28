@@ -2,8 +2,8 @@
 id: ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4
 title: "Resource checker is becoming a new monolithic static-check pass"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-28
@@ -301,5 +301,21 @@ HIR から Resource IR へ lower して shadow report を組み立てる `check_
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\effect.rs nepl-core\src\resource\effect_check.rs nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\mod.rs`
 - `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Responsibility boundary regression guard
+
+`nodesrc/test_resource_checker_responsibility.js` を追加し、CI の Source policy regressions に接続した。guard は旧 `nepl-core/src/resource/check.rs` の再導入、`resource/mod.rs` の `mod check;` 復活、`effect.rs` への `ResourceEffectBoundaryEngine` 再混入、summary module が old monolithic module を参照する退行、各 checker module の責務分割上限超過を検出する。
+
+この時点で Resource IR checker の巨大 pass 化は、`initialized.rs`、`borrow_check.rs`、`owner_check.rs`、`summary.rs`、`effect_check.rs`、`effect_summary.rs`、`effect_identity.rs`、`report.rs`、`shadow.rs` に分割済みであり、`check.rs` は削除済みである。source-level guard も入ったため、この issue は fixed / resolved とする。
+
+確認:
+
+- `node nodesrc/test_resource_checker_responsibility.js`
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\effect.rs nepl-core\src\resource\effect_check.rs nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `node nodesrc/issues.js index`
 - `git diff --check`
 - `trunk build`

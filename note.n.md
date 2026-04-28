@@ -1,3 +1,19 @@
+# 2026-04-29 メモ (ISS-20260428T142719860Z Resource checker responsibility guard)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の完了条件として、`nodesrc/test_resource_checker_responsibility.js` を追加し、CI の Source policy regressions に接続した。
+- guard は旧 `nepl-core/src/resource/check.rs` の再導入、`resource/mod.rs` の `mod check;` 復活、`effect.rs` への `ResourceEffectBoundaryEngine` 再混入、summary module が old monolithic module を参照する退行、各 checker module の責務分割上限超過を検出する。
+- Resource IR checker の巨大 pass 化は、`initialized.rs`、`borrow_check.rs`、`owner_check.rs`、`summary.rs`、`effect_check.rs`、`effect_summary.rs`、`effect_identity.rs`、`report.rs`、`shadow.rs` へ分割済みであり、`check.rs` は削除済みである。
+- issue は fixed / resolved に更新し、`node nodesrc/issues.js index` で index を同期した。
+- 検証:
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\effect.rs nepl-core\src\resource\effect_check.rs nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `node nodesrc\issues.js index`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T142719860Z Resource effect boundary engine split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceEffectBoundaryEngine` と raw identity / pointer alias propagation traversal を `nepl-core/src/resource/effect_check.rs` へ分離した。

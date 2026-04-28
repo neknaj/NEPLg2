@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T15:13:10.286Z",
+  "generated_at": "2026-04-28T16:01:52.091Z",
   "counts": {
     "total": 290,
-    "open": 12,
-    "resolved": 278,
+    "open": 11,
+    "resolved": 279,
     "by_area": {
       "core": {
         "total": 136,
-        "open": 6,
-        "resolved": 130
+        "open": 5,
+        "resolved": 131
       },
       "stdlib": {
         "total": 95,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4",
-      "title": "Resource checker is becoming a new monolithic static-check pass",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/mod.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2148,6 +2133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T141745924Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-D-40CECA56.md"
+    },
+    {
+      "id": "ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4",
+      "title": "Resource checker is becoming a new monolithic static-check pass",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/borrow_check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_check.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
