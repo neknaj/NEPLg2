@@ -3,8 +3,8 @@ use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
 use nepl_core::resource::{
-    lower_hir_module_skeleton, AggregateKind, EffectOp, PlaceRoot, RawMemoryOp, ResourceCallTarget,
-    ResourceOp,
+    compare_hir_resource_lowering, lower_hir_module_skeleton, AggregateKind, EffectOp, PlaceRoot,
+    RawMemoryOp, ResourceCallTarget, ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceOp,
 };
 use nepl_core::span::Span;
 use nepl_core::types::TypeId;
@@ -202,6 +202,9 @@ fn resource_ir_lowering_preserves_aggregate_and_branch_structure() {
     };
 
     let resource = lower_hir_module_skeleton(&module);
+    let coverage = compare_hir_resource_lowering(&module, &resource);
+    assert_eq!(coverage.diagnostics, vec![]);
+
     let ops = &resource.functions[0].blocks[0].ops;
     assert!(ops.iter().any(|op| matches!(
         op,
@@ -385,6 +388,9 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
     };
 
     let resource = lower_hir_module_skeleton(&module);
+    let coverage = compare_hir_resource_lowering(&module, &resource);
+    assert_eq!(coverage.diagnostics, vec![]);
+
     let ops = &resource.functions[0].blocks[0].ops;
     assert!(ops.iter().any(|op| matches!(
         op,
@@ -416,6 +422,24 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
     assert!(dump.contains("raw_memory alloc"));
     assert!(dump.contains("raw_memory store"));
     assert!(dump.contains("raw_memory load"));
+
+    let mut broken = resource.clone();
+    broken.functions[0].blocks[0]
+        .ops
+        .retain(|op| !matches!(op, ResourceOp::RawMemory { .. }));
+    let broken_coverage = compare_hir_resource_lowering(&module, &broken);
+    assert!(broken_coverage
+        .diagnostics
+        .iter()
+        .any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCoverageDiagnostic::CountMismatch {
+                function,
+                kind: ResourceCoverageKind::RawMemory,
+                hir: 3,
+                resource: 0,
+            } if function == "main"
+        )));
 }
 
 #[test]
@@ -530,6 +554,9 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
     };
 
     let resource = lower_hir_module_skeleton(&module);
+    let coverage = compare_hir_resource_lowering(&module, &resource);
+    assert_eq!(coverage.diagnostics, vec![]);
+
     let ops = &resource.functions[0].blocks[0].ops;
     assert!(ops.iter().any(|op| matches!(
         op,

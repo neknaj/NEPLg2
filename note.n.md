@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 3 lowering coverage comparison)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 4 として、old checker へ移行する前の comparison diagnostics 境界を追加した。
+  - Resource IR lowering が HIR の direct call、indirect call、function value、raw memory operation を落としても、これまでは dump を人手で見ない限り検出しにくかった。
+- 修正:
+  - `nepl-core/src/resource/coverage.rs` を追加し、`compare_hir_resource_lowering` で HIR coverage と Resource IR coverage を関数単位に比較できるようにした。
+  - coverage は direct call、indirect call、function value、raw memory operation の件数を比較し、`ResourceCoverageDiagnostic` に `MissingFunction` / `CountMismatch` を返す。
+  - `nepl-core/tests/resource_ir.rs` で正常 lowering の diagnostic が空になることと、`RawMemory` op を意図的に落とした場合に raw memory count mismatch が出ることを固定した。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 3 lowering coverage comparison の到達点と Stage 4 への接続方針を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/model.rs nepl-core/src/resource/lower.rs nepl-core/src/resource/dump.rs nepl-core/src/resource/coverage.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 5 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage3-resource-ir-coverage-focused.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正は doc/neplg2 の Stage 3 から Stage 4 へ進むための比較境界を追加している。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 3 function call / callback effect lowering)
 
 - 状況:

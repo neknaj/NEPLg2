@@ -7,10 +7,15 @@
 
 extern crate alloc;
 
+mod coverage;
 mod dump;
 mod lower;
 mod model;
 
+pub use coverage::{
+    compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
+    ResourceCoverageKind, ResourceFunctionCoverage, ResourceLoweringCoverage,
+};
 pub use lower::lower_hir_module_skeleton;
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
