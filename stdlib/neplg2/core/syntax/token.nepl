@@ -5,10 +5,11 @@
 //:
 //: [目的/もくてき]:
 //: - lexer output を `TokenKind` / `SelfhostToken` として[固定/こてい]し、parser が byte offset と lexeme を[失/うしな]わずに[扱/あつか]えるようにします。
-//: - NEPLg2.0 の `#` directive、angle bracket 型注釈、`->` / `*>` 関数型、offside rule の block token を[定義/ていぎ]します。
+//: - `token_kind_name` は Rust `analyze_lex` JSON の `kind` と同じ名前を[返/かえ]し、self-host lexer と Rust lexer の比較を単純にします。
 //:
 //: [注意/ちゅうい]:
-//: - `Indent` / `Dedent` は byte slice を[持/も]たない 0 byte span の structural token です。
+//: - `Indent` / `Dedent` / `Eof` は byte slice を[持/も]たない structural token です。
+//: - payload を持つ Rust token は、self-host 側では `SelfhostToken.lexeme` と span から必要な値を復元します。
 //:
 //: [計算量/けいさんりょう]:
 //: - token の[構築/こうちく]と kind [判定/はんてい]は O(1) です。
@@ -22,8 +23,8 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/token" as *
 //: fn main <()->i32> ():
-//:     let token <SelfhostToken> selfhost_token_new TokenKind::Identifier source_span_new 0 0 2 "fn"
-//:     if and selfhost_token_is_expr_start token string::str_eq "identifier" token_kind_name field::get token "kind" 0 1
+//:     let token <SelfhostToken> selfhost_token_new TokenKind::Ident source_span_new 0 0 2 "fn"
+//:     if and selfhost_token_is_expr_start token string::str_eq "Ident" token_kind_name field::get token "kind" 0 1
 //: ```
 
 #import "core/field" as field
@@ -31,28 +32,78 @@
 #import "neplg2/core/infra/span" as *
 
 //: TokenKind: NEPLg2.0 lexer が[生成/せいせい]する token [種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - Rust `nepl-core::lexer::TokenKind` の公開 JSON kind と同じ分類を self-host 側へ持ちます。
+//: - `Unterminated*` / `Unknown` は self-host lexer 内部の diagnostic 化用 token です。
 enum TokenKind:
-    Hash
-    Identifier
-    IntLiteral
-    CharLiteral
-    StringLiteral
-    LParen
-    RParen
-    LAngle
-    RAngle
-    Comma
-    Colon
-    Semicolon
-    Dot
-    Asterisk
-    Arrow
-    EffectArrow
-    Newline
     Indent
     Dedent
+    Newline
+    Eof
+    Colon
+    Semicolon
+    Pipe
+    LParen
+    RParen
+    Comma
+    LAngle
+    RAngle
+    Arrow
+    PathSep
+    At
+    Dot
+    Ampersand
+    Star
+    Minus
+    Equals
+    Ident
+    IntLiteral
+    FloatLiteral
+    BoolLiteral
+    CharLiteral
+    StringLiteral
+    UnitLiteral
+    KwFn
+    KwLet
+    KwMut
+    KwNoShadow
+    KwSet
+    KwIf
+    KwWhile
+    KwCond
+    KwThen
+    KwElse
+    KwDo
+    KwStruct
+    KwEnum
+    KwMatch
+    KwTrait
+    KwImpl
+    KwFor
+    KwPub
+    KwBlock
+    KwTuple
+    KwMlstr
+    DirEntry
+    DirTarget
+    DirImport
+    DirUse
+    DirIfTarget
+    DirIfProfile
+    DirCapability
+    DirWasm
+    DirLlvmIr
     DirIndentWidth
-    EndOfFile
+    DirInclude
+    DirExtern
+    DirIntrinsic
+    DirPrelude
+    DirNoPrelude
+    WasmText
+    LlvmIrText
+    MlstrLine
+    DocComment
     UnterminatedChar
     UnterminatedString
     Unknown
@@ -86,103 +137,287 @@ impl Copy for SelfhostToken:
 fn selfhost_token_new <(TokenKind,SelfhostSourceSpan,str)->SelfhostToken> (kind, span, lexeme):
     SelfhostToken kind span lexeme
 
-//: token_kind_name: token kind の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
+//: token_kind_name: Rust `analyze_lex` JSON と同じ token kind [名/めい]を[返/かえ]す
 fn token_kind_name <(TokenKind)->str> (kind):
     match kind:
-        TokenKind::Hash:
-            "hash"
-        TokenKind::Identifier:
-            "identifier"
-        TokenKind::IntLiteral:
-            "int_literal"
-        TokenKind::CharLiteral:
-            "char_literal"
-        TokenKind::StringLiteral:
-            "string_literal"
-        TokenKind::LParen:
-            "l_paren"
-        TokenKind::RParen:
-            "r_paren"
-        TokenKind::LAngle:
-            "l_angle"
-        TokenKind::RAngle:
-            "r_angle"
-        TokenKind::Comma:
-            "comma"
-        TokenKind::Colon:
-            "colon"
-        TokenKind::Semicolon:
-            "semicolon"
-        TokenKind::Dot:
-            "dot"
-        TokenKind::Asterisk:
-            "asterisk"
-        TokenKind::Arrow:
-            "arrow"
-        TokenKind::EffectArrow:
-            "effect_arrow"
-        TokenKind::Newline:
-            "newline"
         TokenKind::Indent:
-            "indent"
+            "Indent"
         TokenKind::Dedent:
-            "dedent"
+            "Dedent"
+        TokenKind::Newline:
+            "Newline"
+        TokenKind::Eof:
+            "Eof"
+        TokenKind::Colon:
+            "Colon"
+        TokenKind::Semicolon:
+            "Semicolon"
+        TokenKind::Pipe:
+            "Pipe"
+        TokenKind::LParen:
+            "LParen"
+        TokenKind::RParen:
+            "RParen"
+        TokenKind::Comma:
+            "Comma"
+        TokenKind::LAngle:
+            "LAngle"
+        TokenKind::RAngle:
+            "RAngle"
+        TokenKind::Arrow:
+            "Arrow"
+        TokenKind::PathSep:
+            "PathSep"
+        TokenKind::At:
+            "At"
+        TokenKind::Dot:
+            "Dot"
+        TokenKind::Ampersand:
+            "Ampersand"
+        TokenKind::Star:
+            "Star"
+        TokenKind::Minus:
+            "Minus"
+        TokenKind::Equals:
+            "Equals"
+        TokenKind::Ident:
+            "Ident"
+        TokenKind::IntLiteral:
+            "IntLiteral"
+        TokenKind::FloatLiteral:
+            "FloatLiteral"
+        TokenKind::BoolLiteral:
+            "BoolLiteral"
+        TokenKind::CharLiteral:
+            "CharLiteral"
+        TokenKind::StringLiteral:
+            "StringLiteral"
+        TokenKind::UnitLiteral:
+            "UnitLiteral"
+        TokenKind::KwFn:
+            "KwFn"
+        TokenKind::KwLet:
+            "KwLet"
+        TokenKind::KwMut:
+            "KwMut"
+        TokenKind::KwNoShadow:
+            "KwNoShadow"
+        TokenKind::KwSet:
+            "KwSet"
+        TokenKind::KwIf:
+            "KwIf"
+        TokenKind::KwWhile:
+            "KwWhile"
+        TokenKind::KwCond:
+            "KwCond"
+        TokenKind::KwThen:
+            "KwThen"
+        TokenKind::KwElse:
+            "KwElse"
+        TokenKind::KwDo:
+            "KwDo"
+        TokenKind::KwStruct:
+            "KwStruct"
+        TokenKind::KwEnum:
+            "KwEnum"
+        TokenKind::KwMatch:
+            "KwMatch"
+        TokenKind::KwTrait:
+            "KwTrait"
+        TokenKind::KwImpl:
+            "KwImpl"
+        TokenKind::KwFor:
+            "KwFor"
+        TokenKind::KwPub:
+            "KwPub"
+        TokenKind::KwBlock:
+            "KwBlock"
+        TokenKind::KwTuple:
+            "KwTuple"
+        TokenKind::KwMlstr:
+            "KwMlstr"
+        TokenKind::DirEntry:
+            "DirEntry"
+        TokenKind::DirTarget:
+            "DirTarget"
+        TokenKind::DirImport:
+            "DirImport"
+        TokenKind::DirUse:
+            "DirUse"
+        TokenKind::DirIfTarget:
+            "DirIfTarget"
+        TokenKind::DirIfProfile:
+            "DirIfProfile"
+        TokenKind::DirCapability:
+            "DirCapability"
+        TokenKind::DirWasm:
+            "DirWasm"
+        TokenKind::DirLlvmIr:
+            "DirLlvmIr"
         TokenKind::DirIndentWidth:
-            "dir_indent_width"
-        TokenKind::EndOfFile:
-            "eof"
+            "DirIndentWidth"
+        TokenKind::DirInclude:
+            "DirInclude"
+        TokenKind::DirExtern:
+            "DirExtern"
+        TokenKind::DirIntrinsic:
+            "DirIntrinsic"
+        TokenKind::DirPrelude:
+            "DirPrelude"
+        TokenKind::DirNoPrelude:
+            "DirNoPrelude"
+        TokenKind::WasmText:
+            "WasmText"
+        TokenKind::LlvmIrText:
+            "LlvmIrText"
+        TokenKind::MlstrLine:
+            "MlstrLine"
+        TokenKind::DocComment:
+            "DocComment"
         TokenKind::UnterminatedChar:
-            "unterminated_char"
+            "UnterminatedChar"
         TokenKind::UnterminatedString:
-            "unterminated_string"
+            "UnterminatedString"
         TokenKind::Unknown:
-            "unknown"
+            "Unknown"
 
 //: selfhost_token_is_eof: EOF token か[返/かえ]す
 fn selfhost_token_is_eof <(SelfhostToken)->bool> (token):
     match field::get token "kind":
-        TokenKind::Hash:
+        TokenKind::Indent:
             false
-        TokenKind::Identifier:
+        TokenKind::Dedent:
             false
-        TokenKind::IntLiteral:
+        TokenKind::Newline:
             false
-        TokenKind::CharLiteral:
+        TokenKind::Eof:
+            true
+        TokenKind::Colon:
             false
-        TokenKind::StringLiteral:
+        TokenKind::Semicolon:
+            false
+        TokenKind::Pipe:
             false
         TokenKind::LParen:
             false
         TokenKind::RParen:
             false
+        TokenKind::Comma:
+            false
         TokenKind::LAngle:
             false
         TokenKind::RAngle:
             false
-        TokenKind::Comma:
+        TokenKind::Arrow:
             false
-        TokenKind::Colon:
+        TokenKind::PathSep:
             false
-        TokenKind::Semicolon:
+        TokenKind::At:
             false
         TokenKind::Dot:
             false
-        TokenKind::Asterisk:
+        TokenKind::Ampersand:
             false
-        TokenKind::Arrow:
+        TokenKind::Star:
             false
-        TokenKind::EffectArrow:
+        TokenKind::Minus:
             false
-        TokenKind::Newline:
+        TokenKind::Equals:
             false
-        TokenKind::Indent:
+        TokenKind::Ident:
             false
-        TokenKind::Dedent:
+        TokenKind::IntLiteral:
+            false
+        TokenKind::FloatLiteral:
+            false
+        TokenKind::BoolLiteral:
+            false
+        TokenKind::CharLiteral:
+            false
+        TokenKind::StringLiteral:
+            false
+        TokenKind::UnitLiteral:
+            false
+        TokenKind::KwFn:
+            false
+        TokenKind::KwLet:
+            false
+        TokenKind::KwMut:
+            false
+        TokenKind::KwNoShadow:
+            false
+        TokenKind::KwSet:
+            false
+        TokenKind::KwIf:
+            false
+        TokenKind::KwWhile:
+            false
+        TokenKind::KwCond:
+            false
+        TokenKind::KwThen:
+            false
+        TokenKind::KwElse:
+            false
+        TokenKind::KwDo:
+            false
+        TokenKind::KwStruct:
+            false
+        TokenKind::KwEnum:
+            false
+        TokenKind::KwMatch:
+            false
+        TokenKind::KwTrait:
+            false
+        TokenKind::KwImpl:
+            false
+        TokenKind::KwFor:
+            false
+        TokenKind::KwPub:
+            false
+        TokenKind::KwBlock:
+            false
+        TokenKind::KwTuple:
+            false
+        TokenKind::KwMlstr:
+            false
+        TokenKind::DirEntry:
+            false
+        TokenKind::DirTarget:
+            false
+        TokenKind::DirImport:
+            false
+        TokenKind::DirUse:
+            false
+        TokenKind::DirIfTarget:
+            false
+        TokenKind::DirIfProfile:
+            false
+        TokenKind::DirCapability:
+            false
+        TokenKind::DirWasm:
+            false
+        TokenKind::DirLlvmIr:
             false
         TokenKind::DirIndentWidth:
             false
-        TokenKind::EndOfFile:
-            true
+        TokenKind::DirInclude:
+            false
+        TokenKind::DirExtern:
+            false
+        TokenKind::DirIntrinsic:
+            false
+        TokenKind::DirPrelude:
+            false
+        TokenKind::DirNoPrelude:
+            false
+        TokenKind::WasmText:
+            false
+        TokenKind::LlvmIrText:
+            false
+        TokenKind::MlstrLine:
+            false
+        TokenKind::DocComment:
+            false
         TokenKind::UnterminatedChar:
             false
         TokenKind::UnterminatedString:
@@ -193,47 +428,139 @@ fn selfhost_token_is_eof <(SelfhostToken)->bool> (token):
 //: selfhost_token_is_error: lexical error token か[返/かえ]す
 fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
     match field::get token "kind":
-        TokenKind::Hash:
+        TokenKind::Indent:
             false
-        TokenKind::Identifier:
+        TokenKind::Dedent:
             false
-        TokenKind::IntLiteral:
+        TokenKind::Newline:
             false
-        TokenKind::CharLiteral:
-            false
-        TokenKind::StringLiteral:
-            false
-        TokenKind::LParen:
-            false
-        TokenKind::RParen:
-            false
-        TokenKind::LAngle:
-            false
-        TokenKind::RAngle:
-            false
-        TokenKind::Comma:
+        TokenKind::Eof:
             false
         TokenKind::Colon:
             false
         TokenKind::Semicolon:
             false
-        TokenKind::Dot:
+        TokenKind::Pipe:
             false
-        TokenKind::Asterisk:
+        TokenKind::LParen:
+            false
+        TokenKind::RParen:
+            false
+        TokenKind::Comma:
+            false
+        TokenKind::LAngle:
+            false
+        TokenKind::RAngle:
             false
         TokenKind::Arrow:
             false
-        TokenKind::EffectArrow:
+        TokenKind::PathSep:
             false
-        TokenKind::Newline:
+        TokenKind::At:
             false
-        TokenKind::Indent:
+        TokenKind::Dot:
             false
-        TokenKind::Dedent:
+        TokenKind::Ampersand:
+            false
+        TokenKind::Star:
+            false
+        TokenKind::Minus:
+            false
+        TokenKind::Equals:
+            false
+        TokenKind::Ident:
+            false
+        TokenKind::IntLiteral:
+            false
+        TokenKind::FloatLiteral:
+            false
+        TokenKind::BoolLiteral:
+            false
+        TokenKind::CharLiteral:
+            false
+        TokenKind::StringLiteral:
+            false
+        TokenKind::UnitLiteral:
+            false
+        TokenKind::KwFn:
+            false
+        TokenKind::KwLet:
+            false
+        TokenKind::KwMut:
+            false
+        TokenKind::KwNoShadow:
+            false
+        TokenKind::KwSet:
+            false
+        TokenKind::KwIf:
+            false
+        TokenKind::KwWhile:
+            false
+        TokenKind::KwCond:
+            false
+        TokenKind::KwThen:
+            false
+        TokenKind::KwElse:
+            false
+        TokenKind::KwDo:
+            false
+        TokenKind::KwStruct:
+            false
+        TokenKind::KwEnum:
+            false
+        TokenKind::KwMatch:
+            false
+        TokenKind::KwTrait:
+            false
+        TokenKind::KwImpl:
+            false
+        TokenKind::KwFor:
+            false
+        TokenKind::KwPub:
+            false
+        TokenKind::KwBlock:
+            false
+        TokenKind::KwTuple:
+            false
+        TokenKind::KwMlstr:
+            false
+        TokenKind::DirEntry:
+            false
+        TokenKind::DirTarget:
+            false
+        TokenKind::DirImport:
+            false
+        TokenKind::DirUse:
+            false
+        TokenKind::DirIfTarget:
+            false
+        TokenKind::DirIfProfile:
+            false
+        TokenKind::DirCapability:
+            false
+        TokenKind::DirWasm:
+            false
+        TokenKind::DirLlvmIr:
             false
         TokenKind::DirIndentWidth:
             false
-        TokenKind::EndOfFile:
+        TokenKind::DirInclude:
+            false
+        TokenKind::DirExtern:
+            false
+        TokenKind::DirIntrinsic:
+            false
+        TokenKind::DirPrelude:
+            false
+        TokenKind::DirNoPrelude:
+            false
+        TokenKind::WasmText:
+            false
+        TokenKind::LlvmIrText:
+            false
+        TokenKind::MlstrLine:
+            false
+        TokenKind::DocComment:
             false
         TokenKind::UnterminatedChar:
             true
@@ -245,47 +572,139 @@ fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
 //: selfhost_token_is_newline: newline token か[返/かえ]す
 fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
     match field::get token "kind":
-        TokenKind::Hash:
+        TokenKind::Indent:
             false
-        TokenKind::Identifier:
+        TokenKind::Dedent:
             false
-        TokenKind::IntLiteral:
-            false
-        TokenKind::CharLiteral:
-            false
-        TokenKind::StringLiteral:
-            false
-        TokenKind::LParen:
-            false
-        TokenKind::RParen:
-            false
-        TokenKind::LAngle:
-            false
-        TokenKind::RAngle:
-            false
-        TokenKind::Comma:
+        TokenKind::Newline:
+            true
+        TokenKind::Eof:
             false
         TokenKind::Colon:
             false
         TokenKind::Semicolon:
             false
-        TokenKind::Dot:
+        TokenKind::Pipe:
             false
-        TokenKind::Asterisk:
+        TokenKind::LParen:
+            false
+        TokenKind::RParen:
+            false
+        TokenKind::Comma:
+            false
+        TokenKind::LAngle:
+            false
+        TokenKind::RAngle:
             false
         TokenKind::Arrow:
             false
-        TokenKind::EffectArrow:
+        TokenKind::PathSep:
             false
-        TokenKind::Newline:
-            true
-        TokenKind::Indent:
+        TokenKind::At:
             false
-        TokenKind::Dedent:
+        TokenKind::Dot:
+            false
+        TokenKind::Ampersand:
+            false
+        TokenKind::Star:
+            false
+        TokenKind::Minus:
+            false
+        TokenKind::Equals:
+            false
+        TokenKind::Ident:
+            false
+        TokenKind::IntLiteral:
+            false
+        TokenKind::FloatLiteral:
+            false
+        TokenKind::BoolLiteral:
+            false
+        TokenKind::CharLiteral:
+            false
+        TokenKind::StringLiteral:
+            false
+        TokenKind::UnitLiteral:
+            false
+        TokenKind::KwFn:
+            false
+        TokenKind::KwLet:
+            false
+        TokenKind::KwMut:
+            false
+        TokenKind::KwNoShadow:
+            false
+        TokenKind::KwSet:
+            false
+        TokenKind::KwIf:
+            false
+        TokenKind::KwWhile:
+            false
+        TokenKind::KwCond:
+            false
+        TokenKind::KwThen:
+            false
+        TokenKind::KwElse:
+            false
+        TokenKind::KwDo:
+            false
+        TokenKind::KwStruct:
+            false
+        TokenKind::KwEnum:
+            false
+        TokenKind::KwMatch:
+            false
+        TokenKind::KwTrait:
+            false
+        TokenKind::KwImpl:
+            false
+        TokenKind::KwFor:
+            false
+        TokenKind::KwPub:
+            false
+        TokenKind::KwBlock:
+            false
+        TokenKind::KwTuple:
+            false
+        TokenKind::KwMlstr:
+            false
+        TokenKind::DirEntry:
+            false
+        TokenKind::DirTarget:
+            false
+        TokenKind::DirImport:
+            false
+        TokenKind::DirUse:
+            false
+        TokenKind::DirIfTarget:
+            false
+        TokenKind::DirIfProfile:
+            false
+        TokenKind::DirCapability:
+            false
+        TokenKind::DirWasm:
+            false
+        TokenKind::DirLlvmIr:
             false
         TokenKind::DirIndentWidth:
             false
-        TokenKind::EndOfFile:
+        TokenKind::DirInclude:
+            false
+        TokenKind::DirExtern:
+            false
+        TokenKind::DirIntrinsic:
+            false
+        TokenKind::DirPrelude:
+            false
+        TokenKind::DirNoPrelude:
+            false
+        TokenKind::WasmText:
+            false
+        TokenKind::LlvmIrText:
+            false
+        TokenKind::MlstrLine:
+            false
+        TokenKind::DocComment:
             false
         TokenKind::UnterminatedChar:
             false
@@ -297,47 +716,139 @@ fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
 //: selfhost_token_is_expr_start: prefix expression の[先頭/せんとう]候補か[返/かえ]す
 fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
     match field::get token "kind":
-        TokenKind::Hash:
+        TokenKind::Indent:
             false
-        TokenKind::Identifier:
-            true
-        TokenKind::IntLiteral:
-            true
-        TokenKind::CharLiteral:
-            true
-        TokenKind::StringLiteral:
-            true
-        TokenKind::LParen:
-            true
-        TokenKind::RParen:
+        TokenKind::Dedent:
             false
-        TokenKind::LAngle:
+        TokenKind::Newline:
             false
-        TokenKind::RAngle:
-            false
-        TokenKind::Comma:
+        TokenKind::Eof:
             false
         TokenKind::Colon:
             false
         TokenKind::Semicolon:
             false
-        TokenKind::Dot:
+        TokenKind::Pipe:
             false
-        TokenKind::Asterisk:
+        TokenKind::LParen:
+            true
+        TokenKind::RParen:
+            false
+        TokenKind::Comma:
+            false
+        TokenKind::LAngle:
+            false
+        TokenKind::RAngle:
             false
         TokenKind::Arrow:
             false
-        TokenKind::EffectArrow:
+        TokenKind::PathSep:
             false
-        TokenKind::Newline:
+        TokenKind::At:
+            true
+        TokenKind::Dot:
             false
-        TokenKind::Indent:
+        TokenKind::Ampersand:
+            true
+        TokenKind::Star:
+            true
+        TokenKind::Minus:
             false
-        TokenKind::Dedent:
+        TokenKind::Equals:
+            false
+        TokenKind::Ident:
+            true
+        TokenKind::IntLiteral:
+            true
+        TokenKind::FloatLiteral:
+            true
+        TokenKind::BoolLiteral:
+            true
+        TokenKind::CharLiteral:
+            true
+        TokenKind::StringLiteral:
+            true
+        TokenKind::UnitLiteral:
+            true
+        TokenKind::KwFn:
+            false
+        TokenKind::KwLet:
+            true
+        TokenKind::KwMut:
+            false
+        TokenKind::KwNoShadow:
+            false
+        TokenKind::KwSet:
+            true
+        TokenKind::KwIf:
+            true
+        TokenKind::KwWhile:
+            true
+        TokenKind::KwCond:
+            true
+        TokenKind::KwThen:
+            true
+        TokenKind::KwElse:
+            true
+        TokenKind::KwDo:
+            true
+        TokenKind::KwStruct:
+            false
+        TokenKind::KwEnum:
+            false
+        TokenKind::KwBlock:
+            true
+        TokenKind::KwMatch:
+            true
+        TokenKind::KwTrait:
+            false
+        TokenKind::KwImpl:
+            false
+        TokenKind::KwFor:
+            false
+        TokenKind::KwPub:
+            false
+        TokenKind::KwTuple:
+            false
+        TokenKind::KwMlstr:
+            false
+        TokenKind::DirEntry:
+            false
+        TokenKind::DirTarget:
+            false
+        TokenKind::DirImport:
+            false
+        TokenKind::DirUse:
+            false
+        TokenKind::DirIfTarget:
+            false
+        TokenKind::DirIfProfile:
+            false
+        TokenKind::DirCapability:
+            false
+        TokenKind::DirWasm:
+            false
+        TokenKind::DirLlvmIr:
             false
         TokenKind::DirIndentWidth:
             false
-        TokenKind::EndOfFile:
+        TokenKind::DirInclude:
+            false
+        TokenKind::DirExtern:
+            false
+        TokenKind::DirIntrinsic:
+            false
+        TokenKind::DirPrelude:
+            false
+        TokenKind::DirNoPrelude:
+            false
+        TokenKind::WasmText:
+            false
+        TokenKind::LlvmIrText:
+            false
+        TokenKind::MlstrLine:
+            false
+        TokenKind::DocComment:
             false
         TokenKind::UnterminatedChar:
             false
@@ -353,5 +864,5 @@ fn selfhost_token_end <(SelfhostToken)->i32> (token):
 
 //: selfhost_token_stage0: Stage 0 marker 互換の smoke API
 fn selfhost_token_stage0 <()->i32> ():
-    let token <SelfhostToken> selfhost_token_new TokenKind::Identifier source_span_new 0 0 2 "fn"
+    let token <SelfhostToken> selfhost_token_new TokenKind::Ident source_span_new 0 0 2 "fn"
     if selfhost_token_is_expr_start token 0 1

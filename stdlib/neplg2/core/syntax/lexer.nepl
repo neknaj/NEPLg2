@@ -110,10 +110,38 @@ fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
                 _:
                     lex_skip_line_comment source n add idx 1
 
+//: lex_is_doc_comment_at: doc comment prefix が指定 offset にあるか[返/かえ]す
+fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
+    if:
+        lt n add idx 3
+        then:
+            false
+        else:
+            let c0 <i32> string::string_byte_at_unchecked source idx
+            let c1 <i32> string::string_byte_at_unchecked source add idx 1
+            let c2 <i32> string::string_byte_at_unchecked source add idx 2
+            if:
+                and eq c0 '/' and eq c1 '/' eq c2 ':'
+                then:
+                    true
+                else:
+                    if:
+                        and eq c0 '/' and eq c1 '/' eq c2 '/'
+                        then:
+                            if:
+                                lt add idx 3 n
+                                then:
+                                    not eq string::string_byte_at_unchecked source add idx 3 '/'
+                                else:
+                                    true
+                        else:
+                            false
+
 //: lex_skip_trivia: horizontal whitespace と line comment を[読/よ]み[飛/と]ばす
 //:
 //: [注意/ちゅうい]:
 //: - newline は token として[残/のこ]すため、ここでは[飛/と]ばしません。
+//: - doc comment は token として[残/のこ]すため、通常 comment とは分けます。
 fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
@@ -136,7 +164,12 @@ fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
                             if:
                                 eq next '/'
                                 then:
-                                    lex_skip_trivia source n lex_skip_line_comment source n add idx 2
+                                    if:
+                                        lex_is_doc_comment_at source n idx
+                                        then:
+                                            idx
+                                        else:
+                                            lex_skip_trivia source n lex_skip_line_comment source n add idx 2
                                 else:
                                     idx
                         else:
@@ -159,8 +192,30 @@ fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
                 else:
                     idx
 
-//: lex_int_end: integer literal の end offset を[返/かえ]す
-fn lex_int_end <(str,i32,i32)->i32> (source, n, idx):
+//: lex_is_hex_digit: ASCII hexadecimal digit か[返/かえ]す
+fn lex_is_hex_digit <(i32)->bool> (ch):
+    let digit <bool> lex_is_digit ch
+    let lower <bool> and ge ch 'a' le ch 'f'
+    let upper <bool> and ge ch 'A' le ch 'F'
+    or digit or lower upper
+
+//: lex_hex_int_end: hexadecimal integer literal の end offset を[返/かえ]す
+fn lex_hex_int_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            if:
+                lex_is_hex_digit ch
+                then:
+                    lex_hex_int_end source n add idx 1
+                else:
+                    idx
+
+//: lex_number_end_loop: decimal integer / float literal の end offset を[返/かえ]す
+fn lex_number_end_loop <(str,i32,i32,bool)->i32> (source, n, idx, seen_dot):
     if:
         ge idx n
         then:
@@ -170,9 +225,33 @@ fn lex_int_end <(str,i32,i32)->i32> (source, n, idx):
             if:
                 lex_is_digit ch
                 then:
-                    lex_int_end source n add idx 1
+                    lex_number_end_loop source n add idx 1 seen_dot
                 else:
-                    idx
+                    match ch:
+                        '.':
+                            if:
+                                seen_dot
+                                then:
+                                    idx
+                                else:
+                                    lex_number_end_loop source n add idx 1 true
+                        _:
+                            idx
+
+//: lex_range_has_dot: byte range に `.` が含まれるか[返/かえ]す
+fn lex_range_has_dot <(str,i32,i32)->bool> (source, idx, end):
+    if:
+        ge idx end
+        then:
+            false
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            if:
+                eq ch '.'
+                then:
+                    true
+                else:
+                    lex_range_has_dot source add idx 1 end
 
 //: lex_string_end: closing quote の offset を[返/かえ]す
 //:
@@ -323,6 +402,8 @@ fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
                     true
                 '\n':
                     true
+                ':':
+                    true
                 _:
                     false
 
@@ -422,25 +503,289 @@ fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):
         else:
             eq rem_s indent_width indent_unit 0
 
+//: lex_directive_word_at: 指定位置から directive word が始まり、後続が directive 境界か[返/かえ]す
+fn lex_directive_word_at <(str,i32,i32,str)->bool> (source, n, start, word):
+    let word_len <i32> string::len word
+    if:
+        lt n add start word_len
+        then:
+            false
+        else:
+            and string::str_eq_at source word start word_len 0 lex_directive_boundary source n add start word_len
+
+//: lex_directive_arg_start: directive 名の後ろの argument 開始 offset を[返/かえ]す
+fn lex_directive_arg_start <(str,i32,i32,i32)->i32> (source, n, start, name_len):
+    lex_skip_horizontal source n add start name_len
+
+//: lex_hash_bracket_end: `#if[...]` directive の `]` 直後 offset を[返/かえ]す
+fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            match ch:
+                ']':
+                    add idx 1
+                '\n':
+                    idx
+                _:
+                    lex_hash_bracket_end source n add idx 1
+
+//: lex_directive_token: `#` から始まる directive token を[読/よ]む
+fn lex_directive_token <(str,i32,i32)->SelfhostToken> (source, n, start):
+    let line_end <i32> lex_line_end source n start
+    if:
+        lex_directive_word_at source n start "#entry"
+        then:
+            let value_start <i32> lex_directive_arg_start source n start 6
+            lex_token_slice TokenKind::DirEntry source value_start line_end
+        else:
+            if:
+                lex_directive_word_at source n start "#indent"
+                then:
+                    lex_token_slice TokenKind::DirIndentWidth source start line_end
+                else:
+                    if:
+                        lex_directive_word_at source n start "#target"
+                        then:
+                            lex_token_slice TokenKind::DirTarget source start line_end
+                        else:
+                            if:
+                                lex_directive_word_at source n start "#import"
+                                then:
+                                    lex_token_slice TokenKind::DirImport source start line_end
+                                else:
+                                    if:
+                                        lex_directive_word_at source n start "#use"
+                                        then:
+                                            lex_token_slice TokenKind::DirUse source start line_end
+                                        else:
+                                            if:
+                                                lex_directive_word_at source n start "#capability"
+                                                then:
+                                                    lex_token_slice TokenKind::DirCapability source start line_end
+                                                else:
+                                                    if:
+                                                        lex_directive_word_at source n start "#wasm"
+                                                        then:
+                                                            lex_token_slice TokenKind::DirWasm source start line_end
+                                                        else:
+                                                            if:
+                                                                lex_directive_word_at source n start "#llvmir"
+                                                                then:
+                                                                    lex_token_slice TokenKind::DirLlvmIr source start line_end
+                                                                else:
+                                                                    if:
+                                                                        lex_directive_word_at source n start "#include"
+                                                                        then:
+                                                                            lex_token_slice TokenKind::DirInclude source start line_end
+                                                                        else:
+                                                                            if:
+                                                                                lex_directive_word_at source n start "#extern"
+                                                                                then:
+                                                                                    lex_token_slice TokenKind::DirExtern source start line_end
+                                                                                else:
+                                                                                    if:
+                                                                                        lex_directive_word_at source n start "#intrinsic"
+                                                                                        then:
+                                                                                            lex_token_slice TokenKind::DirIntrinsic source start add start 10
+                                                                                        else:
+                                                                                            if:
+                                                                                                lex_directive_word_at source n start "#prelude"
+                                                                                                then:
+                                                                                                    lex_token_slice TokenKind::DirPrelude source start line_end
+                                                                                                else:
+                                                                                                    if:
+                                                                                                        lex_directive_word_at source n start "#no_prelude"
+                                                                                                        then:
+                                                                                                            lex_token_slice TokenKind::DirNoPrelude source start line_end
+                                                                                                        else:
+                                                                                                            if:
+                                                                                                                ge n add start 11
+                                                                                                                then:
+                                                                                                                    if:
+                                                                                                                        string::str_eq_at source "#if[target=" start 11 0
+                                                                                                                        then:
+                                                                                                                            lex_token_slice TokenKind::DirIfTarget source start lex_hash_bracket_end source n start
+                                                                                                                        else:
+                                                                                                                            if:
+                                                                                                                                ge n add start 12
+                                                                                                                                then:
+                                                                                                                                    if:
+                                                                                                                                        string::str_eq_at source "#if[profile=" start 12 0
+                                                                                                                                        then:
+                                                                                                                                            lex_token_slice TokenKind::DirIfProfile source start lex_hash_bracket_end source n start
+                                                                                                                                        else:
+                                                                                                                                            lex_token_slice TokenKind::Unknown source start add start 1
+                                                                                                                                else:
+                                                                                                                                    lex_token_slice TokenKind::Unknown source start add start 1
+                                                                                                                else:
+                                                                                                                    if:
+                                                                                                                        ge n add start 12
+                                                                                                                        then:
+                                                                                                                            if:
+                                                                                                                                string::str_eq_at source "#if[profile=" start 12 0
+                                                                                                                                then:
+                                                                                                                                    lex_token_slice TokenKind::DirIfProfile source start lex_hash_bracket_end source n start
+                                                                                                                                else:
+                                                                                                                                    lex_token_slice TokenKind::Unknown source start add start 1
+                                                                                                                        else:
+                                                                                                                            lex_token_slice TokenKind::Unknown source start add start 1
+
+//: lex_mlstr_token: `##:` line を token 化する
+fn lex_mlstr_token <(str,i32,i32)->SelfhostToken> (source, n, start):
+    lex_token_slice TokenKind::MlstrLine source start lex_line_end source n start
+
+//: lex_doc_comment_token: doc comment line を token 化する
+fn lex_doc_comment_token <(str,i32,i32)->SelfhostToken> (source, n, start):
+    lex_token_slice TokenKind::DocComment source start lex_line_end source n start
+
+//: lex_keyword_kind: identifier lexeme が keyword なら token kind を[返/かえ]す
+fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
+    if:
+        string::str_eq lexeme "fn"
+        then:
+            Option<TokenKind>::Some TokenKind::KwFn
+        else:
+            if:
+                string::str_eq lexeme "let"
+                then:
+                    Option<TokenKind>::Some TokenKind::KwLet
+                else:
+                    if:
+                        string::str_eq lexeme "mut"
+                        then:
+                            Option<TokenKind>::Some TokenKind::KwMut
+                        else:
+                            if:
+                                string::str_eq lexeme "noshadow"
+                                then:
+                                    Option<TokenKind>::Some TokenKind::KwNoShadow
+                                else:
+                                    if:
+                                        string::str_eq lexeme "set"
+                                        then:
+                                            Option<TokenKind>::Some TokenKind::KwSet
+                                        else:
+                                            if:
+                                                string::str_eq lexeme "if"
+                                                then:
+                                                    Option<TokenKind>::Some TokenKind::KwIf
+                                                else:
+                                                    if:
+                                                        string::str_eq lexeme "while"
+                                                        then:
+                                                            Option<TokenKind>::Some TokenKind::KwWhile
+                                                        else:
+                                                            if:
+                                                                string::str_eq lexeme "cond"
+                                                                then:
+                                                                    Option<TokenKind>::Some TokenKind::KwCond
+                                                                else:
+                                                                    if:
+                                                                        string::str_eq lexeme "then"
+                                                                        then:
+                                                                            Option<TokenKind>::Some TokenKind::KwThen
+                                                                        else:
+                                                                            if:
+                                                                                string::str_eq lexeme "else"
+                                                                                then:
+                                                                                    Option<TokenKind>::Some TokenKind::KwElse
+                                                                                else:
+                                                                                    if:
+                                                                                        string::str_eq lexeme "do"
+                                                                                        then:
+                                                                                            Option<TokenKind>::Some TokenKind::KwDo
+                                                                                        else:
+                                                                                            if:
+                                                                                                string::str_eq lexeme "struct"
+                                                                                                then:
+                                                                                                    Option<TokenKind>::Some TokenKind::KwStruct
+                                                                                                else:
+                                                                                                    if:
+                                                                                                        string::str_eq lexeme "enum"
+                                                                                                        then:
+                                                                                                            Option<TokenKind>::Some TokenKind::KwEnum
+                                                                                                        else:
+                                                                                                            if:
+                                                                                                                string::str_eq lexeme "match"
+                                                                                                                then:
+                                                                                                                    Option<TokenKind>::Some TokenKind::KwMatch
+                                                                                                                else:
+                                                                                                                    if:
+                                                                                                                        string::str_eq lexeme "trait"
+                                                                                                                        then:
+                                                                                                                            Option<TokenKind>::Some TokenKind::KwTrait
+                                                                                                                        else:
+                                                                                                                            if:
+                                                                                                                                string::str_eq lexeme "impl"
+                                                                                                                                then:
+                                                                                                                                    Option<TokenKind>::Some TokenKind::KwImpl
+                                                                                                                                else:
+                                                                                                                                    if:
+                                                                                                                                        string::str_eq lexeme "for"
+                                                                                                                                        then:
+                                                                                                                                            Option<TokenKind>::Some TokenKind::KwFor
+                                                                                                                                        else:
+                                                                                                                                            if:
+                                                                                                                                                string::str_eq lexeme "pub"
+                                                                                                                                                then:
+                                                                                                                                                    Option<TokenKind>::Some TokenKind::KwPub
+                                                                                                                                                else:
+                                                                                                                                                    if:
+                                                                                                                                                        string::str_eq lexeme "block"
+                                                                                                                                                        then:
+                                                                                                                                                            Option<TokenKind>::Some TokenKind::KwBlock
+                                                                                                                                                        else:
+                                                                                                                                                            if:
+                                                                                                                                                                string::str_eq lexeme "Tuple"
+                                                                                                                                                                then:
+                                                                                                                                                                    Option<TokenKind>::Some TokenKind::KwTuple
+                                                                                                                                                                else:
+                                                                                                                                                                    if:
+                                                                                                                                                                        string::str_eq lexeme "mlstr"
+                                                                                                                                                                        then:
+                                                                                                                                                                            Option<TokenKind>::Some TokenKind::KwMlstr
+                                                                                                                                                                        else:
+                                                                                                                                                                            if:
+                                                                                                                                                                                string::str_eq lexeme "true"
+                                                                                                                                                                                then:
+                                                                                                                                                                                    Option<TokenKind>::Some TokenKind::BoolLiteral
+                                                                                                                                                                                else:
+                                                                                                                                                                                    if:
+                                                                                                                                                                                        string::str_eq lexeme "false"
+                                                                                                                                                                                        then:
+                                                                                                                                                                                            Option<TokenKind>::Some TokenKind::BoolLiteral
+                                                                                                                                                                                        else:
+                                                                                                                                                                                            Option<TokenKind>::None
+
 //: lex_next: 指定 offset 以降の 1 token を[返/かえ]す
 fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
     let start <i32> lex_skip_trivia source n idx
     if:
         ge start n
         then:
-            selfhost_token_new TokenKind::EndOfFile source_span_empty 0 start ""
+            selfhost_token_new TokenKind::Eof source_span_empty 0 start ""
         else:
             let ch <i32> string::string_byte_at_unchecked source start
             match ch:
                 '\n':
-                    lex_token_slice TokenKind::Newline source start add start 1
+                    lex_structural_token TokenKind::Newline start
                 '#':
                     if:
-                        lex_starts_with_indent_directive source n start
+                        lt add start 2 n
                         then:
-                            lex_token_slice TokenKind::DirIndentWidth source start lex_line_end source n start
+                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            if:
+                                and eq next '#' eq string::string_byte_at_unchecked source add start 2 ':'
+                                then:
+                                    lex_mlstr_token source n start
+                                else:
+                                    lex_directive_token source n start
                         else:
-                            lex_token_slice TokenKind::Hash source start add start 1
+                            lex_directive_token source n start
                 '(':
                     lex_token_slice TokenKind::LParen source start add start 1
                 ')':
@@ -450,37 +795,74 @@ fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
                 '.':
                     lex_token_slice TokenKind::Dot source start add start 1
                 ':':
-                    lex_token_slice TokenKind::Colon source start add start 1
+                    if:
+                        lt add start 1 n
+                        then:
+                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            if:
+                                eq next ':'
+                                then:
+                                    lex_token_slice TokenKind::PathSep source start add start 2
+                                else:
+                                    lex_token_slice TokenKind::Colon source start add start 1
+                        else:
+                            lex_token_slice TokenKind::Colon source start add start 1
                 ';':
                     lex_token_slice TokenKind::Semicolon source start add start 1
+                '|':
+                    if:
+                        lt add start 1 n
+                        then:
+                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            if:
+                                eq next '>'
+                                then:
+                                    lex_token_slice TokenKind::Pipe source start add start 2
+                                else:
+                                    lex_token_slice TokenKind::Unknown source start add start 1
+                        else:
+                            lex_token_slice TokenKind::Unknown source start add start 1
+                '@':
+                    lex_token_slice TokenKind::At source start add start 1
+                '&':
+                    lex_token_slice TokenKind::Ampersand source start add start 1
+                '=':
+                    lex_token_slice TokenKind::Equals source start add start 1
                 '<':
                     lex_token_slice TokenKind::LAngle source start add start 1
                 '>':
                     lex_token_slice TokenKind::RAngle source start add start 1
                 '*':
+                    let arrow_end <i32> lex_skip_horizontal source n add start 1
                     if:
-                        lt add start 1 n
+                        lt arrow_end n
                         then:
-                            let next <i32> string::string_byte_at_unchecked source add start 1
                             if:
-                                eq next '>'
+                                eq string::string_byte_at_unchecked source arrow_end '>'
                                 then:
-                                    lex_token_slice TokenKind::EffectArrow source start add start 2
+                                    lex_token_slice TokenKind::Arrow source start add arrow_end 1
                                 else:
-                                    lex_token_slice TokenKind::Asterisk source start add start 1
+                                    lex_token_slice TokenKind::Star source start add start 1
                         else:
-                            lex_token_slice TokenKind::Asterisk source start add start 1
+                            lex_token_slice TokenKind::Star source start add start 1
                 '-':
+                    let arrow_end <i32> lex_skip_horizontal source n add start 1
                     if:
-                        lt add start 1 n
+                        lt arrow_end n
                         then:
-                            let next <i32> string::string_byte_at_unchecked source add start 1
                             if:
-                                eq next '>'
+                                eq string::string_byte_at_unchecked source arrow_end '>'
                                 then:
-                                    lex_token_slice TokenKind::Arrow source start add start 2
+                                    lex_token_slice TokenKind::Arrow source start add arrow_end 1
                                 else:
-                                    lex_token_slice TokenKind::Unknown source start add start 1
+                                    lex_token_slice TokenKind::Minus source start add start 1
+                        else:
+                            lex_token_slice TokenKind::Minus source start add start 1
+                '/':
+                    if:
+                        lex_is_doc_comment_at source n start
+                        then:
+                            lex_doc_comment_token source n start
                         else:
                             lex_token_slice TokenKind::Unknown source start add start 1
                 '"':
@@ -504,13 +886,41 @@ fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
                         lex_is_ident_start ch
                         then:
                             let end <i32> lex_ident_end source n add start 1
-                            lex_token_slice TokenKind::Identifier source start end
+                            let lexeme <str> string::str_slice source start end
+                            match lex_keyword_kind lexeme:
+                                Option::Some kind:
+                                    lex_token_slice kind source start end
+                                Option::None:
+                                    lex_token_slice TokenKind::Ident source start end
                         else:
                             if:
                                 lex_is_digit ch
                                 then:
-                                    let end <i32> lex_int_end source n add start 1
-                                    lex_token_slice TokenKind::IntLiteral source start end
+                                    if:
+                                        and eq ch '0' lt add start 1 n
+                                        then:
+                                            let next <i32> string::string_byte_at_unchecked source add start 1
+                                            if:
+                                                or eq next 'x' eq next 'X'
+                                                then:
+                                                    let end <i32> lex_hex_int_end source n add start 2
+                                                    lex_token_slice TokenKind::IntLiteral source start end
+                                                else:
+                                                    let end <i32> lex_number_end_loop source n add start 1 false
+                                                    if:
+                                                        lex_range_has_dot source start end
+                                                        then:
+                                                            lex_token_slice TokenKind::FloatLiteral source start end
+                                                        else:
+                                                            lex_token_slice TokenKind::IntLiteral source start end
+                                        else:
+                                            let end <i32> lex_number_end_loop source n add start 1 false
+                                            if:
+                                                lex_range_has_dot source start end
+                                                then:
+                                                    lex_token_slice TokenKind::FloatLiteral source start end
+                                                else:
+                                                    lex_token_slice TokenKind::IntLiteral source start end
                                 else:
                                     lex_token_slice TokenKind::Unknown source start add start 1
 
@@ -518,47 +928,139 @@ fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
 fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
     let span <SelfhostSourceSpan> field::get token "span"
     match field::get token "kind":
-        TokenKind::Hash:
+        TokenKind::Indent:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::Identifier:
+        TokenKind::Dedent:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::IntLiteral:
+        TokenKind::Newline:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::CharLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::StringLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::LParen:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::RParen:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::LAngle:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::RAngle:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::Comma:
+        TokenKind::Eof:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::Colon:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::Semicolon:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::Dot:
+        TokenKind::Pipe:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::Asterisk:
+        TokenKind::LParen:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::RParen:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Comma:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::LAngle:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::RAngle:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::Arrow:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::EffectArrow:
+        TokenKind::PathSep:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::Newline:
+        TokenKind::At:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::Indent:
+        TokenKind::Dot:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::Dedent:
+        TokenKind::Ampersand:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Star:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Minus:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Equals:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::Ident:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::IntLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::FloatLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::BoolLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::CharLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::StringLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::UnitLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwFn:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwLet:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwMut:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwNoShadow:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwSet:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwIf:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwWhile:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwCond:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwThen:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwElse:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwDo:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwStruct:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwEnum:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwMatch:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwTrait:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwImpl:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwFor:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwPub:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwBlock:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwTuple:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::KwMlstr:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirEntry:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirTarget:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirImport:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirUse:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirIfTarget:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirIfProfile:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirCapability:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirWasm:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirLlvmIr:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::DirIndentWidth:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
-        TokenKind::EndOfFile:
+        TokenKind::DirInclude:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirExtern:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirIntrinsic:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirPrelude:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DirNoPrelude:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::WasmText:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::LlvmIrText:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::MlstrLine:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::DocComment:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::UnterminatedChar:
             lex_diag_new LexErrorCode::UnterminatedChar span "unterminated char literal"
@@ -601,7 +1103,7 @@ fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32)*>Result<Vec<SelfhostToken>,
                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
         else:
             free<i32> stack
-            lex_push_structural tokens TokenKind::EndOfFile offset
+            lex_push_structural tokens TokenKind::Eof offset
 
 //: lex_dedent_to: current line の indent level に合うまで Dedent を[生成/せいせい]する
 fn lex_dedent_to <(str,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, idx, tokens, stack, indent_unit, target_width, at_line_start):
@@ -702,7 +1204,7 @@ fn lex_all_loop <(str,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool)*>Result
                                             if:
                                                 selfhost_token_is_newline token
                                                 then:
-                                                    lex_all_loop source n selfhost_token_end token out stack indent_unit true false
+                                                    lex_all_loop source n add selfhost_token_end token 1 out stack indent_unit true false
                                                 else:
                                                     lex_all_loop source n selfhost_token_end token out stack indent_unit false false
                                         Result::Err diag:

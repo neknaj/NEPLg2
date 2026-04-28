@@ -2,8 +2,8 @@
 id: ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B
 title: "self-host lexer needs full Rust token JSON parity harness"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-28
@@ -42,3 +42,27 @@ self-host TokenKind を Rust lexer token set へ段階的に合わせ、Rust ana
 ## 検証
 
 Rust analyze_lex JSON と self-host lexer output の normalized token stream 比較を、#entry/#target/#import/#indent、keyword、literal、doc/raw/mlstr、nested block source で実行する。
+
+## 対応結果
+
+- `TokenKind` を Rust `analyze_lex` JSON の kind 名へ合わせ、`Ident` / `Eof` / `Star` / `Arrow` / keyword / directive / doc / mlstr / raw text token を self-host 側へ追加した。
+- `token_kind_name` は `KwFn`、`DirEntry`、`DocComment` など Rust JSON と同じ表記を返すようにした。
+- `lex_next` に keyword 分類、`#entry` / `#target` / `#import` / `#use` / `#if[...]` / `#capability` / `#prelude` / `#no_prelude` / `#intrinsic` などの directive 分類、`DocComment`、`MlstrLine`、`Pipe`、`PathSep`、`At`、`Ampersand`、`Equals`、`Minus`、float / bool / hex int literal を追加した。
+- `Newline` span を Rust lexer と同じ 0 byte span に寄せ、走査の次 offset は `lex_all_loop` 側で進めるようにした。
+- `tests/stdlib/neplg2_lexer.n.md` の lexer 回帰テストへ `ret: 0` を追加し、チェック失敗が runner で検知されるようにした。
+- directive / keyword / literal / doc / mlstr の self-host lexer focused doctest を追加した。
+- `nodesrc/test_selfhost_lexer_rust_parity.js` を追加し、Rust `analyze_lex` JSON の normalized token stream を directive / keyword / literal / doc / mlstr / raw block fixture で固定した。
+
+## 残件の分離
+
+- `#wasm:` / `#llvmir:` 後の raw block 本文を self-host lexer が `WasmText` / `LlvmIrText` として生成するには、token kind 追加とは別に pending raw mode と base indent state が必要である。
+- この stateful raw block 対応は `ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2` に分離した。
+
+## 実行した検証
+
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-after-rebase-final.json -j 1`: 11/11 passed
+- `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-lexer-parity-after-rebase-final.json -j 1`: 36/36 passed
+- `node nodesrc/test_selfhost_lexer_rust_parity.js`: pass（2 fixtures / 79 tokens）
+- `node nodesrc/issues.js check`: pass（files=251）
+- `git diff --check HEAD`: pass（CRLF warning only）

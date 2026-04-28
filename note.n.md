@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260428T084929443Z self-host lexer Rust token parity)
+
+- self-host lexer の token kind を Rust `analyze_lex` JSON の kind 名へ合わせた。
+  - `Identifier` / `EndOfFile` / `Asterisk` / `EffectArrow` などの独自名を `Ident` / `Eof` / `Star` / `Arrow` へ寄せた。
+  - keyword、directive、doc comment、mlstr、raw text token の kind を `TokenKind` に追加した。
+- `lex_next` に keyword 分類、主要 directive 分類、`PathSep` / `Pipe` / `At` / `Ampersand` / `Equals` / `Minus`、float / bool / hex int literal を追加した。
+- `Newline` は Rust lexer と同じ 0 byte span にし、次 offset だけ `lex_all_loop` で進めるようにした。
+- `tests/stdlib/neplg2_lexer.n.md` の各 doctest に `ret: 0` を追加し、集約 check の失敗が runner で検知されるようにした。
+- Rust `analyze_lex` JSON の正規化 harness として `nodesrc/test_selfhost_lexer_rust_parity.js` を追加した。
+- `#wasm:` / `#llvmir:` 後の raw block 本文は stateful lexer 対応が必要なので、`ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2` に分離した。
+- 検証:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-after-rebase-final.json -j 1`: total=11, passed=11
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-lexer-parity-after-rebase-final.json -j 1`: total=36, passed=36
+  - `node nodesrc/test_selfhost_lexer_rust_parity.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check HEAD`: pass（CRLF warning only）
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260427T132406497Z Stage 5 raw identity escape gate)
 
 - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5 commit 単位 4「public escape diagnostics」として、Resource IR shadow check の `RawAddressEscapeFromInternalAlloc` を compiler pipeline の D3025 へ接続した。

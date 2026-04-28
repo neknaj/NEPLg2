@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T10:30:27.311Z",
+  "generated_at": "2026-04-28T10:38:12.458Z",
   "counts": {
-    "total": 254,
+    "total": 255,
     "open": 11,
-    "resolved": 243,
+    "resolved": 244,
     "by_area": {
       "core": {
         "total": 107,
@@ -12,9 +12,9 @@
         "resolved": 103
       },
       "selfhost": {
-        "total": 16,
+        "total": 17,
         "open": 2,
-        "resolved": 14
+        "resolved": 15
       },
       "stdlib": {
         "total": 95,
@@ -110,8 +110,8 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
-      "id": "ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B",
-      "title": "self-host lexer needs full Rust token JSON parity harness",
+      "id": "ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2",
+      "title": "self-host lexer raw block state is missing",
       "area": "selfhost",
       "status": "open",
       "resolved": false,
@@ -119,10 +119,10 @@
       "type": "architecture",
       "created": "2026-04-28",
       "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md, nodesrc/analyze_source.js",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B.md"
+      "file": "items/ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -1983,6 +1983,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235.md"
+    },
+    {
+      "id": "ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B",
+      "title": "self-host lexer needs full Rust token JSON parity harness",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md, nodesrc/analyze_source.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B.md"
     },
     {
       "id": "ISS-20260428T092058380Z-SELF-HOST-LEXER-INDENT-STACK-TOP-USE-78D14CFB",
