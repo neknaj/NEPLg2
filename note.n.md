@@ -23611,3 +23611,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 今回の codegen 修正で stack overflow は解消したが、stdlib/selfhost 側の match-first 方針から見ると有限分岐の不自然な書き方が残るため、別 issue として追跡する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-04-29 メモ (ISS-20260428T193442835Z wasm codegen block-wrapped else-if chain)
+
+- [同期]:
+  - `main` は `origin/main` の `1de7ee1 docs(issue): track selfhost lexer keyword classifier` まで同期済みで、`fix/codegen-block-wrapped-else-if` branch を作成して作業した。
+- [原因]:
+  - `lex_keyword_kind` を `match` based classifier に直す途中で、通常 Node stack の wasm compiler が `RangeError: Maximum call stack size exceeded` になった。
+  - `node --stack_size=32768` では同じ入力が pass したため、入力の意味論ではなく wasm-host 上の codegen traversal stack 消費が原因だった。
+  - 既存の `gen_if_else_chain` は直接の else-if chain だけを loop 化しており、`match` lowering などが作る「else branch が単一式 block、その中身が If」の形を direct chain として扱えていなかった。
+- [修正]:
+  - `nepl-core/src/codegen_wasm.rs` に `block_wrapped_if` を追加し、単一非 drop 行の block が `If` だけを包んでいる場合に限って wrapper を剥がすようにした。
+  - block scope や drop semantics を変えない形だけを対象にし、`gen_if_else_chain` の loop に合流させた。
+- [検証]:
+  - `rustfmt --check nepl-core\src\codegen_wasm.rs`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\syntax\lexer.nepl -i tests\stdlib\neplg2_lexer.n.md --no-tree -o tmp\selfhost-lexer-keyword-match.json -j 1`: total=13 passed=13
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の finite classifier を `match` に戻せるよう、wasm codegen の block-wrapped conditional chain lowering を補強した。

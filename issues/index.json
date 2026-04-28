@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T19:24:05.551Z",
+  "generated_at": "2026-04-28T19:46:13.637Z",
   "counts": {
-    "total": 304,
+    "total": 305,
     "open": 11,
-    "resolved": 293,
+    "resolved": 294,
     "by_area": {
       "core": {
-        "total": 144,
+        "total": 145,
         "open": 4,
-        "resolved": 140
+        "resolved": 141
       },
       "stdlib": {
         "total": 96,
@@ -2268,6 +2268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326.md"
+    },
+    {
+      "id": "ISS-20260428T193442835Z-WASM-CODEGEN-BLOCK-WRAPPED-ELSE-IF-CH-5C1BA9D4",
+      "title": "wasm codegen stack overflows on block-wrapped else-if chains",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/codegen_wasm.rs; stdlib/neplg2/core/syntax/lexer.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T193442835Z-WASM-CODEGEN-BLOCK-WRAPPED-ELSE-IF-CH-5C1BA9D4.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

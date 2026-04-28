@@ -921,6 +921,22 @@ fn gen_simple_expr_iteratively(
     Ok(valtype(&ctx.get(expr.ty)))
 }
 
+fn block_wrapped_if(expr: &HirExpr) -> Option<&HirExpr> {
+    let HirExprKind::Block(block) = &expr.kind else {
+        return None;
+    };
+    let [line] = block.lines.as_slice() else {
+        return None;
+    };
+    if line.drop_result {
+        return None;
+    }
+    match &line.expr.kind {
+        HirExprKind::If { .. } => Some(&line.expr),
+        _ => None,
+    }
+}
+
 // Lower else-if decision trees without consuming one Rust/WASM call frame per arm.
 fn gen_if_else_chain(
     ctx: &TypeCtx,
@@ -935,6 +951,10 @@ fn gen_if_else_chain(
     let mut current = expr;
     let mut pending_ends = 0usize;
     loop {
+        while let Some(inner) = block_wrapped_if(current) {
+            current = inner;
+        }
+
         let HirExprKind::If {
             cond,
             then_branch,
