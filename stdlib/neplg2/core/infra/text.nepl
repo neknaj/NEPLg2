@@ -229,7 +229,7 @@ fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
             let last_idx <i32> sub raw_end 1
             let last <i32> string::string_byte_at_unchecked source last_idx
             match last:
-                10:
+                '\n':
                     if:
                         le last_idx start
                         then:
@@ -238,11 +238,11 @@ fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
                             let prev_idx <i32> sub last_idx 1
                             let prev <i32> string::string_byte_at_unchecked source prev_idx
                             match prev:
-                                13:
+                                '\r':
                                     prev_idx
                                 _:
                                     last_idx
-                13:
+                '\r':
                     last_idx
                 _:
                     raw_end

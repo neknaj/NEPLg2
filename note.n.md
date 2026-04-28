@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T210703348Z streamio/source_text char literal follow-up)
+
+- char literal 移行 issue は fixed だったが、`stdlib/std/streamio.nepl` の scanner whitespace / digit / sign / exponent 判定、`stdlib/neplg2/core/infra/text.nepl` の LF/CR trimming、`stdlib/std/fs.nepl` の host path 禁止文字判定に、文字としての意味を持つ decimal code が残っていた。
+- `stream_scanner_is_leading_skip_byte`、`stream_scanner_is_token_separator`、`stream_scanner_is_ascii_digit`、`stream_scanner_digit_value`、`stream_scanner_is_exponent_marker` を追加し、scanner の分岐を char literal ベースの helper に寄せた。
+- SourceText の newline match arm と fs の `\` / `:` 判定、streamio writer の digit 出力も char literal に置き換えた。binary format や table index としての数値は対象外にしている。
+- `nodesrc/test_stdlib_match_decision_trees.js` を拡張し、streamio の空白・指数 classifier と SourceText の newline arm が decimal code に戻らないようにした。
+- 検証:
+  - `node nodesrc\test_stdlib_match_decision_trees.js`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\infra\text.nepl --no-tree -o tmp\char-magic-source-text.json -j 1`: total=1, passed=1
+  - `node nodesrc\tests.js -i tests\stdlib\streamio.n.md --no-tree -o tmp\char-magic-streamio.json -j 1`: total=14, passed=14
+  - `node nodesrc\tests.js -i stdlib\std\fs.nepl --no-tree -o tmp\char-magic-fs.json -j 1`: total=7, passed=7
+  - `node nodesrc\issues.js check`: pass, files=319
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T210025111Z self-host name resolver kind lookup)
 
 - `selfhost_name_scope_find` は名前だけで最新 binding を返すため、同じ文字列を持つ value / type / trait 系の定義を caller が安全に分ける API がなかった。

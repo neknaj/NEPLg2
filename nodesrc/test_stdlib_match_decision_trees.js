@@ -36,6 +36,16 @@ function assertLiteralMatch({ file, name, scrutinee, literals }) {
     assert.match(block, /^\s*_:\s*$/m, `${name} must keep an explicit wildcard/default arm`);
 }
 
+function assertHasLiteralMatch({ file, name, scrutinee, literals }) {
+    const block = functionBlock(file, name);
+    assert.match(block, new RegExp(`\\bmatch\\s+${scrutinee}:`), `${name} must dispatch with match`);
+    for (const literal of literals) {
+        const escaped = String(literal).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        assert.match(block, new RegExp(`^\\s*${escaped}:\\s*$`, 'm'), `${name} is missing literal arm ${literal}`);
+    }
+    assert.match(block, /^\s*_:\s*$/m, `${name} must keep an explicit wildcard/default arm`);
+}
+
 function assertScalarKeyMatch({ file, name, scrutinee, literals }) {
     const block = functionBlock(file, name);
     assert.match(block, scrutinee, `${name} must dispatch through a scalar match key`);
@@ -79,6 +89,34 @@ assertLiteralMatch({
     name: 'str_is_space',
     scrutinee: 'b',
     literals: ["' '", "'\\t'", "'\\n'", "'\\r'"],
+});
+
+assertLiteralMatch({
+    file: 'stdlib/std/streamio.nepl',
+    name: 'stream_scanner_is_leading_skip_byte',
+    scrutinee: 'byte',
+    literals: ["'\\0'", "' '", "'\\n'", "'\\r'", "'\\t'"],
+});
+
+assertLiteralMatch({
+    file: 'stdlib/std/streamio.nepl',
+    name: 'stream_scanner_is_token_separator',
+    scrutinee: 'byte',
+    literals: ["' '", "'\\n'", "'\\r'", "'\\t'"],
+});
+
+assertLiteralMatch({
+    file: 'stdlib/std/streamio.nepl',
+    name: 'stream_scanner_is_exponent_marker',
+    scrutinee: 'byte',
+    literals: ["'e'", "'E'"],
+});
+
+assertHasLiteralMatch({
+    file: 'stdlib/neplg2/core/infra/text.nepl',
+    name: 'source_text_trim_line_end',
+    scrutinee: 'last',
+    literals: ["'\\n'", "'\\r'"],
 });
 
 assertLiteralMatch({

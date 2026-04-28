@@ -307,6 +307,57 @@ fn stream_writer_new_header <(StreamWriterTargetKind)*>Result<MemPtr<u8>,str>> (
 fn stream_scanner_wrap <(MemPtr<u8>)->StreamScanner> (raw):
     StreamScanner raw
 
+//: stream_scanner_is_leading_skip_byte: scanner 先頭で読み飛ばす byte か判定する
+//:
+//: [目的/もくてき]:
+//: - BOM 後の NUL と ASCII 空白を、decimal code ではなく文字として明示します。
+fn stream_scanner_is_leading_skip_byte <(i32)->bool> (byte):
+    match byte:
+        '\0':
+            true
+        ' ':
+            true
+        '\n':
+            true
+        '\r':
+            true
+        '\t':
+            true
+        _:
+            false
+
+//: stream_scanner_is_token_separator: token を区切る ASCII 空白か判定する
+fn stream_scanner_is_token_separator <(i32)->bool> (byte):
+    match byte:
+        ' ':
+            true
+        '\n':
+            true
+        '\r':
+            true
+        '\t':
+            true
+        _:
+            false
+
+//: stream_scanner_is_ascii_digit: ASCII digit か判定する
+fn stream_scanner_is_ascii_digit <(i32)->bool> (byte):
+    and ge byte '0' le byte '9'
+
+//: stream_scanner_digit_value: ASCII digit byte を 0..9 の値へ変換する
+fn stream_scanner_digit_value <(i32)->i32> (byte):
+    sub byte '0'
+
+//: stream_scanner_is_exponent_marker: 浮動小数点 token の指数 marker か判定する
+fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
+    match byte:
+        'e':
+            true
+        'E':
+            true
+        _:
+            false
+
 fn stream_scanner_header_off <(StreamScannerHeaderField)->i32> (field):
     match field:
         StreamScannerHeaderField::BufPtr:
@@ -542,31 +593,11 @@ fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
             then:
                 let byte <i32> load_u8 add buf p;
                 if:
-                    eq byte 0
+                    stream_scanner_is_leading_skip_byte byte
                     then:
                         set p add p 1;
                     else:
-                        if:
-                            eq byte 32
-                            then:
-                                set p add p 1;
-                            else:
-                                if:
-                                    eq byte 10
-                                    then:
-                                        set p add p 1;
-                                    else:
-                                        if:
-                                            eq byte 13
-                                            then:
-                                                set p add p 1;
-                                            else:
-                                                if:
-                                                    eq byte 9
-                                                    then:
-                                                        set p add p 1;
-                                                    else:
-                                                        set done 1;
+                        set done 1;
             else:
                 set done 1;
 
@@ -600,7 +631,7 @@ fn skip <(StreamScanner)*>()> (sc):
             then:
                 let byte <i32> load_u8 add buf p;
                 if:
-                    or or eq byte 32 eq byte 10 or eq byte 13 eq byte 9
+                    stream_scanner_is_token_separator byte
                     then:
                         set done 1;
                     else:
@@ -626,7 +657,7 @@ fn scan_token_impl <(StreamScanner)*>str> (sc):
             then:
                 let byte <i32> load_u8 add buf p;
                 if:
-                    or or eq byte 32 eq byte 10 or eq byte 13 eq byte 9
+                    stream_scanner_is_token_separator byte
                     then:
                         set done 1;
                     else:
@@ -669,7 +700,7 @@ fn scan_i32_impl <(StreamScanner)*>i32> (sc):
             let mut sign <i32> 1;
             let b0 <i32> load_u8 add buf p;
             if:
-                eq b0 45
+                eq b0 '-'
                 then:
                     set sign -1;
                     set p add p 1;
@@ -688,15 +719,10 @@ fn scan_i32_impl <(StreamScanner)*>i32> (sc):
                                 set p add p 1;
                             else:
                                 if:
-                                    ge byte 48
+                                    stream_scanner_is_ascii_digit byte
                                     then:
-                                        if:
-                                            le byte 57
-                                            then:
-                                                set val add mul val 10 sub byte 48;
-                                                set p add p 1;
-                                            else:
-                                                set done 1;
+                                        set val add mul val 10 stream_scanner_digit_value byte;
+                                        set p add p 1;
                                     else:
                                         set done 1;
                     else:
@@ -718,7 +744,7 @@ fn scan_u32_impl <(StreamScanner)*>u32> (sc):
             <u32> cast 0
         else:
             if:
-                eq load_u8 add buf p 43
+                eq load_u8 add buf p '+'
                 then:
                     set p add p 1;
                 else:
@@ -736,9 +762,9 @@ fn scan_u32_impl <(StreamScanner)*>u32> (sc):
                                 set p add p 1;
                             else:
                                 if:
-                                    and ge byte 48 le byte 57
+                                    stream_scanner_is_ascii_digit byte
                                     then:
-                                        let digit <i32> sub byte 48;
+                                        let digit <i32> stream_scanner_digit_value byte;
                                         let scaled <i32> mul val 10;
                                         set val add scaled digit;
                                         set p add p 1;
@@ -764,7 +790,7 @@ fn scan_u64_impl <(StreamScanner)*>u64> (sc):
             <u64> cast zero64
         else:
             if:
-                eq load_u8 add buf p 43
+                eq load_u8 add buf p '+'
                 then:
                     set p add p 1;
                 else:
@@ -782,9 +808,9 @@ fn scan_u64_impl <(StreamScanner)*>u64> (sc):
                                 set p add p 1;
                             else:
                                 if:
-                                    and ge byte 48 le byte 57
+                                    stream_scanner_is_ascii_digit byte
                                     then:
-                                        let digit32 <i32> sub byte 48;
+                                        let digit32 <i32> stream_scanner_digit_value byte;
                                         let digit <i64> cast digit32;
                                         let scaled <i64> mul val <i64> cast 10;
                                         set val add scaled digit;
@@ -812,13 +838,13 @@ fn scan_i64_impl <(StreamScanner)*>i64> (sc):
             let mut is_neg <i32> 0;
             let b0 <i32> load_u8 add buf p;
             if:
-                eq b0 45
+                eq b0 '-'
                 then:
                     set is_neg 1;
                     set p add p 1;
                 else:
                     if:
-                        eq b0 43
+                        eq b0 '+'
                         then:
                             set p add p 1;
                         else:
@@ -836,9 +862,9 @@ fn scan_i64_impl <(StreamScanner)*>i64> (sc):
                                 set p add p 1;
                             else:
                                 if:
-                                    and ge byte 48 le byte 57
+                                    stream_scanner_is_ascii_digit byte
                                     then:
-                                        let digit32 <i32> sub byte 48;
+                                        let digit32 <i32> stream_scanner_digit_value byte;
                                         let digit <i64> cast digit32;
                                         let scaled <i64> mul val <i64> cast 10;
                                         set val add scaled digit;
@@ -871,13 +897,13 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
             let mut is_neg <i32> 0;
             let b0 <i32> load_u8 add buf p;
             if:
-                eq b0 45
+                eq b0 '-'
                 then:
                     set is_neg 1;
                     set p add p 1;
                 else:
                     if:
-                        eq b0 43
+                        eq b0 '+'
                         then:
                             set p add p 1;
                         else:
@@ -892,9 +918,9 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
                     then:
                         let byte <i32> load_u8 add buf p;
                         if:
-                            and ge byte 48 le byte 57
+                            stream_scanner_is_ascii_digit byte
                             then:
-                                let d <f64> cast sub byte 48;
+                                let d <f64> cast stream_scanner_digit_value byte;
                                 set val add mul val ten d;
                                 set p add p 1;
                                 set any_digit 1;
@@ -907,7 +933,7 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
                 lt p buf_len
                 then:
                     if:
-                        eq load_u8 add buf p 46
+                        eq load_u8 add buf p '.'
                         then set has_dot 1
                         else ()
                 else:
@@ -925,9 +951,9 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
                             then:
                                 let byte <i32> load_u8 add buf p;
                                 if:
-                                    and ge byte 48 le byte 57
+                                    stream_scanner_is_ascii_digit byte
                                     then:
-                                        let d <f64> cast sub byte 48;
+                                        let d <f64> cast stream_scanner_digit_value byte;
                                         set val add val mul d place;
                                         set place div place ten;
                                         set p add p 1;
@@ -944,7 +970,7 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
                 then:
                     let ec <i32> load_u8 add buf p;
                     if:
-                        or eq ec 101 eq ec 69
+                        stream_scanner_is_exponent_marker ec
                         then set has_exp 1
                         else ()
                 else:
@@ -959,13 +985,13 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
                         then:
                             let eb <i32> load_u8 add buf p;
                             if:
-                                eq eb 45
+                                eq eb '-'
                                 then:
                                     set exp_neg 1;
                                     set p add p 1;
                                 else:
                                     if:
-                                        eq eb 43
+                                        eq eb '+'
                                         then:
                                             set p add p 1;
                                         else:
@@ -980,9 +1006,9 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
                             then:
                                 let byte <i32> load_u8 add buf p;
                                 if:
-                                    and ge byte 48 le byte 57
+                                    stream_scanner_is_ascii_digit byte
                                     then:
-                                        set exp_val add mul exp_val 10 sub byte 48;
+                                        set exp_val add mul exp_val 10 stream_scanner_digit_value byte;
                                         set p add p 1;
                                     else:
                                         set done_exp 1;
@@ -1257,9 +1283,9 @@ fn append_i32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
         then:
             let w1 <StreamWriter> append_i32_digits_impl w div_s x 10;
             let digit <i32> mod_s x 10;
-            push_u8_impl w1 add 48 digit
+            push_u8_impl w1 add '0' digit
         else:
-            push_u8_impl w add 48 x
+            push_u8_impl w add '0' x
 
 //: ## append_u32_digits_impl
 //: `u32` 表現の `i32` を符号なし 10 [進/しん] digit として[追記/ついき]する
@@ -1269,9 +1295,9 @@ fn append_u32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
         then:
             let w1 <StreamWriter> append_u32_digits_impl w div_u x 10;
             let digit <i32> rem_u x 10;
-            push_u8_impl w1 add 48 digit
+            push_u8_impl w1 add '0' digit
         else:
-            push_u8_impl w add 48 x
+            push_u8_impl w add '0' x
 
 //: ## append_u64_digits_impl
 //: `u64` 表現の `i64` を符号なし 10 [進/しん] digit として[追記/ついき]する
@@ -1282,10 +1308,10 @@ fn append_u64_digits_impl <(StreamWriter,i64)*>StreamWriter> (w, x):
         then:
             let w1 <StreamWriter> append_u64_digits_impl w div_u x ten;
             let rem <i32> cast rem_u x ten;
-            push_u8_impl w1 add 48 rem
+            push_u8_impl w1 add '0' rem
         else:
             let digit <i32> cast x;
-            push_u8_impl w add 48 digit
+            push_u8_impl w add '0' digit
 
 //: ## append_i32_impl
 //: `i32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
@@ -1395,7 +1421,7 @@ fn append_f64_fixed_impl <(StreamWriter,f64,i32)*>StreamWriter> (w, v, precision
                     let frac10 <f64> mul frac ten;
                     set frac frac10;
                     let digit <i32> cast frac;
-                    set ww push_u8_impl ww add 48 digit;
+                    set ww push_u8_impl ww add '0' digit;
                     let digit_f <f64> cast digit;
                     let next_frac <f64> sub frac digit_f;
                     set frac next_frac;

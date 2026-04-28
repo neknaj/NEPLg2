@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T21:03:18.088Z",
+  "generated_at": "2026-04-28T21:15:12.199Z",
   "counts": {
-    "total": 318,
+    "total": 319,
     "open": 11,
-    "resolved": 307,
+    "resolved": 308,
     "by_area": {
       "core": {
         "total": 150,
@@ -12,9 +12,9 @@
         "resolved": 145
       },
       "stdlib": {
-        "total": 96,
+        "total": 97,
         "open": 5,
-        "resolved": 91
+        "resolved": 92
       },
       "selfhost": {
         "total": 35,
@@ -4683,6 +4683,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T004329925Z-STDLIB-AND-SELFHOST-SHOULD-REPLACE-C-CD0357FB.md"
+    },
+    {
+      "id": "ISS-20260428T210703348Z-STREAMIO-AND-SELF-HOST-TEXT-STILL-US-B53BD33B",
+      "title": "streamio and self-host text still use decimal character codes",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/std/streamio.nepl, stdlib/std/fs.nepl, stdlib/neplg2/core/infra/text.nepl, nodesrc/test_stdlib_match_decision_trees.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T210703348Z-STREAMIO-AND-SELF-HOST-TEXT-STILL-US-B53BD33B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",
