@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 
 use crate::hir::HirModule;
 use crate::span::Span;
-use crate::types::TypeCtx;
+use crate::types::{TypeCtx, TypeId};
 
 use super::coverage::{compare_hir_resource_lowering, ResourceLoweringCoverage};
 use super::effect::{check_resource_effect_boundaries, ResourceEffectBoundaryReport};
@@ -340,6 +340,15 @@ struct BorrowTokenReturnSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct OwnerReturnSummary {
     function: String,
+    parameter_indices: Vec<usize>,
+    returns_fresh_owner: bool,
+    projection_returns: Vec<OwnerProjectionReturnSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OwnerProjectionReturnSummary {
+    suffix: Vec<PlaceProjection>,
+    ty: TypeId,
     parameter_indices: Vec<usize>,
     returns_fresh_owner: bool,
 }
@@ -1110,7 +1119,10 @@ fn compute_owner_return_summaries(module: &ResourceModule) -> Vec<OwnerReturnSum
         let mut next = Vec::new();
         for function in &module.functions {
             let summary = function_owner_return_summary(function, &summaries);
-            if summary.returns_fresh_owner || !summary.parameter_indices.is_empty() {
+            if summary.returns_fresh_owner
+                || !summary.parameter_indices.is_empty()
+                || !summary.projection_returns.is_empty()
+            {
                 next.push(summary);
             }
         }
@@ -1143,6 +1155,7 @@ fn function_owner_return_summary(
 
     let mut parameter_indices = Vec::new();
     let mut returns_fresh_owner = false;
+    let mut projection_returns = Vec::new();
     let mut function_aliases = FunctionAliasTable::default();
     for block in &function.blocks {
         engine.check_ops(&mut owners, &mut function_aliases, &block.ops);
@@ -1167,6 +1180,19 @@ fn function_owner_return_summary(
                 Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed)
                 | None => {}
             }
+            for entry in owners.descendant_entries(value) {
+                if let OwnerState::Live { storage } = entry.state {
+                    if let Some(suffix) = place_suffix_after_prefix(&entry.place, value) {
+                        record_projection_owner_return(
+                            &mut projection_returns,
+                            suffix,
+                            entry.place.ty,
+                            storage,
+                            &parameter_storages,
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -1174,6 +1200,39 @@ fn function_owner_return_summary(
         function: function.name.clone(),
         parameter_indices,
         returns_fresh_owner,
+        projection_returns,
+    }
+}
+
+fn record_projection_owner_return(
+    projection_returns: &mut Vec<OwnerProjectionReturnSummary>,
+    suffix: Vec<PlaceProjection>,
+    ty: TypeId,
+    storage: StorageId,
+    parameter_storages: &[StorageId],
+) {
+    let entry_index = projection_returns
+        .iter()
+        .position(|entry| entry.suffix == suffix && entry.ty == ty)
+        .unwrap_or_else(|| {
+            projection_returns.push(OwnerProjectionReturnSummary {
+                suffix: suffix.clone(),
+                ty,
+                parameter_indices: Vec::new(),
+                returns_fresh_owner: false,
+            });
+            projection_returns.len() - 1
+        });
+    if let Some(parameter_index) = parameter_storages
+        .iter()
+        .position(|parameter_storage| *parameter_storage == storage)
+    {
+        push_unique_usize(
+            &mut projection_returns[entry_index].parameter_indices,
+            parameter_index,
+        );
+    } else {
+        projection_returns[entry_index].returns_fresh_owner = true;
     }
 }
 
@@ -1550,6 +1609,50 @@ impl ResourceOwnerCheckEngine<'_> {
         if summary.returns_fresh_owner && !transferred {
             owners.allocate(output);
         }
+        for projection in &summary.projection_returns {
+            let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
+            self.apply_owner_projection_return_summary(
+                owners,
+                &output_projection,
+                args,
+                projection,
+                span,
+            );
+        }
+    }
+
+    fn apply_owner_projection_return_summary(
+        &mut self,
+        owners: &mut OwnerTable,
+        output: &Place,
+        args: &[Place],
+        summary: &OwnerProjectionReturnSummary,
+        span: Span,
+    ) {
+        let mut transferred = false;
+        for arg in summary
+            .parameter_indices
+            .iter()
+            .filter_map(|index| args.get(*index))
+        {
+            if owners
+                .state(arg)
+                .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
+            {
+                self.transfer_owner(
+                    owners,
+                    arg,
+                    output,
+                    ResourceOwnerOperation::ReturnValue,
+                    span,
+                );
+                transferred = true;
+                break;
+            }
+        }
+        if summary.returns_fresh_owner && !transferred {
+            owners.allocate(output);
+        }
     }
 
     fn transfer_owner(
@@ -1606,6 +1709,7 @@ impl ResourceOwnerCheckEngine<'_> {
         if !should_track(place) {
             return;
         }
+        let descendants = owners.descendant_entries(place);
         match owners.state(place) {
             Some(OwnerState::Live { .. }) => {
                 owners.set_state(place, OwnerState::Moved);
@@ -1615,6 +1719,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 self.push_unavailable(operation, place, state, span);
             }
             Some(OwnerState::NoFreeObligation) | None => {}
+        }
+        for entry in descendants {
+            match entry.state {
+                OwnerState::Live { .. } => {
+                    owners.set_state(&entry.place, OwnerState::Moved);
+                }
+                OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {
+                    self.push_unavailable(operation, &entry.place, entry.state, span);
+                }
+                OwnerState::NoFreeObligation => {}
+            }
         }
     }
 
@@ -2108,17 +2223,25 @@ fn construct_owner_field_place(
 }
 
 fn replace_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> Option<Place> {
+    place_suffix_after_prefix(place, prefix)
+        .map(|suffix| place_with_suffix(replacement, &suffix, place.ty))
+}
+
+fn place_suffix_after_prefix(place: &Place, prefix: &Place) -> Option<Vec<PlaceProjection>> {
     if place.root != prefix.root || place.projections.len() < prefix.projections.len() {
         return None;
     }
     if place.projections[..prefix.projections.len()] != prefix.projections[..] {
         return None;
     }
-    let mut out = replacement.clone();
-    out.projections
-        .extend_from_slice(&place.projections[prefix.projections.len()..]);
-    out.ty = place.ty;
-    Some(out)
+    Some(place.projections[prefix.projections.len()..].to_vec())
+}
+
+fn place_with_suffix(base: &Place, suffix: &[PlaceProjection], ty: TypeId) -> Place {
+    let mut out = base.clone();
+    out.projections.extend_from_slice(suffix);
+    out.ty = ty;
+    out
 }
 
 fn push_unique_place(places: &mut Vec<Place>, place: &Place) {

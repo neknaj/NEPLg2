@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T11:51:18.888Z",
+  "generated_at": "2026-04-28T11:56:26.192Z",
   "counts": {
-    "total": 267,
+    "total": 268,
     "open": 10,
-    "resolved": 257,
+    "resolved": 258,
     "by_area": {
       "core": {
-        "total": 119,
+        "total": 120,
         "open": 4,
-        "resolved": 115
+        "resolved": 116
       },
       "stdlib": {
         "total": 95,
@@ -1893,6 +1893,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T114942018Z-RESOURCE-OWNER-CHECKER-DOES-NOT-MOVE-B551A456.md"
+    },
+    {
+      "id": "ISS-20260428T115405922Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-DE066CEF",
+      "title": "Resource owner checker loses aggregate owner projections returned by helpers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T115405922Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-DE066CEF.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

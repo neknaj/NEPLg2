@@ -22582,3 +22582,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate projection owner の value movement 追従を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (ISS-20260428T115405922Z aggregate owner return summary)
+
+- [同期]:
+  - `origin/main` の `76bfe53 fix(core): move aggregate owner projections` まで同期した main から `work/stage4-owner-aggregate-return-summary` branch を作成した。
+- [原因]:
+  - owner は aggregate projection に入り、aggregate value movement にも追従するようになったが、function return summary は exact return owner しか表現していなかった。
+  - helper が owner を field に入れた aggregate を返す場合、callee 側 leak と caller 側 obligation 欠落のどちらかが残る構造だった。
+- [修正]:
+  - `OwnerReturnSummary` に projection owner summary を追加した。
+  - return value 配下の descendant owner は callee で move-out し、caller output の同じ projection suffix へ obligation を付けるようにした。
+  - `nepl-core/tests/resource_ir.rs` に helper が owner 入り struct を返し、caller が解放しない場合に caller output field leak として報告される回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、aggregate owner projection の function boundary transfer を Resource IR 上に固定した。
