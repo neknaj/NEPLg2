@@ -1091,6 +1091,7 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::IntLiteral(_) => "IntLiteral",
         TokenKind::FloatLiteral(_) => "FloatLiteral",
         TokenKind::BoolLiteral(_) => "BoolLiteral",
+        TokenKind::CharLiteral(_) => "CharLiteral",
         TokenKind::StringLiteral(_) => "StringLiteral",
         TokenKind::UnitLiteral => "UnitLiteral",
         TokenKind::KwFn => "KwFn",
@@ -1156,6 +1157,7 @@ fn token_value(kind: &TokenKind) -> Option<String> {
         | TokenKind::MlstrLine(value)
         | TokenKind::DocComment(value) => Some(value.clone()),
         TokenKind::BoolLiteral(value) => Some(value.to_string()),
+        TokenKind::CharLiteral(value) => Some(value.to_string()),
         TokenKind::Arrow(effect) => Some(format!("{:?}", effect)),
         TokenKind::DirIndentWidth(value) => Some(value.to_string()),
         TokenKind::DirExtern {

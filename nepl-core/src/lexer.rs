@@ -43,6 +43,7 @@ pub enum TokenKind {
     IntLiteral(String),
     FloatLiteral(String),
     BoolLiteral(bool),
+    CharLiteral(u32),
     StringLiteral(String),
     UnitLiteral,
 
@@ -894,6 +895,9 @@ impl LexState {
                         );
                     }
                 }
+                b'\'' => {
+                    i = self.lex_char_literal(text, bytes, i, offset);
+                }
                 b'0'..=b'9' => {
                     let start = i;
                     if bytes[i] == b'0'
@@ -966,11 +970,162 @@ impl LexState {
         }
     }
 
+    fn lex_char_literal(&mut self, text: &str, bytes: &[u8], start: usize, offset: usize) -> usize {
+        let mut i = start + 1;
+        if i >= bytes.len() {
+            self.invalid_char_literal(start, i, offset, "unterminated char literal");
+            return i;
+        }
+
+        let Some(value) = self.read_char_literal_body(text, bytes, &mut i, offset) else {
+            while i < bytes.len() && bytes[i] != b'\'' {
+                i += 1;
+            }
+            if i < bytes.len() {
+                i += 1;
+            }
+            return i;
+        };
+
+        if i >= bytes.len() || bytes[i] != b'\'' {
+            self.invalid_char_literal(start, i, offset, "unterminated char literal");
+            while i < bytes.len() && bytes[i] != b'\'' {
+                i += 1;
+            }
+            if i < bytes.len() {
+                i += 1;
+            }
+            return i;
+        }
+
+        i += 1;
+        self.push_token(TokenKind::CharLiteral(value), offset + start, offset + i);
+        i
+    }
+
+    fn read_char_literal_body(
+        &mut self,
+        text: &str,
+        bytes: &[u8],
+        i: &mut usize,
+        offset: usize,
+    ) -> Option<u32> {
+        if *i >= bytes.len() || bytes[*i] == b'\'' {
+            self.invalid_char_literal(*i, *i + 1, offset, "empty char literal");
+            return None;
+        }
+        if bytes[*i] == b'\\' {
+            return self.read_char_escape(bytes, i, offset);
+        }
+        let Some(ch) = text[*i..].chars().next() else {
+            self.invalid_char_literal(*i, *i + 1, offset, "invalid char literal");
+            return None;
+        };
+        *i += ch.len_utf8();
+        if *i < bytes.len() && bytes[*i] != b'\'' {
+            self.invalid_char_literal(*i, *i + 1, offset, "char literal must contain one character");
+            return None;
+        }
+        Some(ch as u32)
+    }
+
+    fn read_char_escape(&mut self, bytes: &[u8], i: &mut usize, offset: usize) -> Option<u32> {
+        let start = *i;
+        *i += 1;
+        if *i >= bytes.len() {
+            self.invalid_char_literal(start, *i, offset, "unterminated char escape");
+            return None;
+        }
+        let esc = bytes[*i];
+        *i += 1;
+        let value = match esc {
+            b'n' => '\n' as u32,
+            b'r' => '\r' as u32,
+            b't' => '\t' as u32,
+            b'0' => '\0' as u32,
+            b'\\' => '\\' as u32,
+            b'\'' => '\'' as u32,
+            b'"' => '"' as u32,
+            b'x' => {
+                if *i + 1 >= bytes.len() {
+                    self.invalid_char_literal(start, *i, offset, "invalid hex char escape");
+                    return None;
+                }
+                let Some(h1) = hex_val(bytes[*i]) else {
+                    self.invalid_char_literal(start, *i + 1, offset, "invalid hex char escape");
+                    return None;
+                };
+                let Some(h2) = hex_val(bytes[*i + 1]) else {
+                    self.invalid_char_literal(start, *i + 2, offset, "invalid hex char escape");
+                    return None;
+                };
+                *i += 2;
+                ((h1 << 4) | h2) as u32
+            }
+            b'u' => return self.read_unicode_char_escape(bytes, i, start, offset),
+            _ => {
+                self.invalid_char_literal(start, *i, offset, "invalid escape in char literal");
+                return None;
+            }
+        };
+        Some(value)
+    }
+
+    fn read_unicode_char_escape(
+        &mut self,
+        bytes: &[u8],
+        i: &mut usize,
+        start: usize,
+        offset: usize,
+    ) -> Option<u32> {
+        if *i >= bytes.len() || bytes[*i] != b'{' {
+            self.invalid_char_literal(start, *i, offset, "invalid unicode char escape");
+            return None;
+        }
+        *i += 1;
+        let digits_start = *i;
+        let mut value = 0u32;
+        let mut digits = 0usize;
+        while *i < bytes.len() && bytes[*i] != b'}' {
+            let Some(hex) = hex_val(bytes[*i]) else {
+                self.invalid_char_literal(start, *i + 1, offset, "invalid unicode char escape");
+                return None;
+            };
+            digits += 1;
+            if digits > 6 {
+                self.invalid_char_literal(start, *i + 1, offset, "unicode char escape is too large");
+                return None;
+            }
+            value = value.saturating_mul(16).saturating_add(hex as u32);
+            *i += 1;
+        }
+        if digits == 0 || *i >= bytes.len() || bytes[*i] != b'}' {
+            self.invalid_char_literal(start, *i, offset, "invalid unicode char escape");
+            return None;
+        }
+        *i += 1;
+        if digits_start == *i || char::from_u32(value).is_none() {
+            self.invalid_char_literal(start, *i, offset, "unicode char escape is not a scalar value");
+            return None;
+        }
+        Some(value)
+    }
+
     fn push_token(&mut self, kind: TokenKind, start: usize, end: usize) {
         self.tokens.push(Token {
             kind,
             span: Span::new(self.file_id, start as u32, end as u32),
         });
+    }
+
+    fn invalid_char_literal(&mut self, start: usize, end: usize, offset: usize, message: &str) {
+        self.diagnostics.push(
+            Diagnostic::error(
+                message,
+                Span::new(self.file_id, (offset + start) as u32, (offset + end) as u32),
+            )
+            .with_id(DiagnosticId::LexerInvalidCharLiteral),
+        );
     }
 
     fn unknown(&mut self, start: usize, end: usize) {

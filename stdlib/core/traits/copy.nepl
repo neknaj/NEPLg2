@@ -50,6 +50,19 @@ impl Copy for bool:
     fn copy_mark <(bool)->bool> (x):
         x
 
+//: char は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
+//:
+//: [目的/もくてき]:
+//: - `char` は Unicode scalar value を i32 幅で[表現/ひょうげん]する[値/あたい]型です。
+//: - [所有権/しょゆうけん]を[持/も]たないため、move ではなく copy として[扱/あつか]えます。
+impl Clone for char:
+    fn clone <(&char)->char> (x):
+        *x
+
+impl Copy for char:
+    fn copy_mark <(char)->char> (x):
+        x
+
 //: i32 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
 impl Clone for i32:
     fn clone <(&i32)->i32> (x):

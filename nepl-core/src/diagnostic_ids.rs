@@ -37,6 +37,8 @@ pub enum DiagnosticId {
     LexerInvalidStringEscape = 1208,
     /// 文字列リテラルが未終端。
     LexerUnterminatedStringLiteral = 1209,
+    /// char リテラルが不正。
+    LexerInvalidCharLiteral = 1210,
     /// パーサでトークン期待に失敗。
     ParserExpectedToken = 2001,
     /// パーサで予期しないトークン。
@@ -306,6 +308,7 @@ impl DiagnosticId {
             1207 => Some(DiagnosticId::LexerIndentLevelMismatch),
             1208 => Some(DiagnosticId::LexerInvalidStringEscape),
             1209 => Some(DiagnosticId::LexerUnterminatedStringLiteral),
+            1210 => Some(DiagnosticId::LexerInvalidCharLiteral),
             2001 => Some(DiagnosticId::ParserExpectedToken),
             2002 => Some(DiagnosticId::ParserUnexpectedToken),
             2003 => Some(DiagnosticId::ParserExpectedIdentifier),
@@ -455,6 +458,7 @@ impl DiagnosticId {
             }
             DiagnosticId::LexerInvalidStringEscape => "invalid escape in string literal",
             DiagnosticId::LexerUnterminatedStringLiteral => "unterminated string literal",
+            DiagnosticId::LexerInvalidCharLiteral => "invalid char literal",
             DiagnosticId::ParserExpectedToken => "expected token",
             DiagnosticId::ParserUnexpectedToken => "unexpected token",
             DiagnosticId::ParserExpectedIdentifier => "expected identifier",

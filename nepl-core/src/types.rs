@@ -34,6 +34,7 @@ pub enum TypeKind {
     U8,
     F32,
     Bool,
+    Char,
     Str,
     Never,
     Named(String),
@@ -98,6 +99,7 @@ pub struct TypeCtx {
     u8_ty: TypeId,
     f32_ty: TypeId,
     bool_ty: TypeId,
+    char_ty: TypeId,
     str_ty: TypeId,
     never_ty: TypeId,
     named: alloc::collections::BTreeMap<alloc::string::String, TypeId>,
@@ -139,6 +141,7 @@ impl Clone for TypeCtx {
             u8_ty: self.u8_ty,
             f32_ty: self.f32_ty,
             bool_ty: self.bool_ty,
+            char_ty: self.char_ty,
             str_ty: self.str_ty,
             never_ty: self.never_ty,
             named: self.named.clone(),
@@ -173,6 +176,8 @@ impl TypeCtx {
         arena.push(TypeKind::F32);
         let bool_ty = TypeId(arena.len());
         arena.push(TypeKind::Bool);
+        let char_ty = TypeId(arena.len());
+        arena.push(TypeKind::Char);
         let str_ty = TypeId(arena.len());
         arena.push(TypeKind::Str);
         let never_ty = TypeId(arena.len());
@@ -185,6 +190,7 @@ impl TypeCtx {
             u8_ty,
             f32_ty,
             bool_ty,
+            char_ty,
             str_ty,
             never_ty,
             named: alloc::collections::BTreeMap::new(),
@@ -270,6 +276,9 @@ impl TypeCtx {
     pub fn bool(&self) -> TypeId {
         self.bool_ty
     }
+    pub fn char(&self) -> TypeId {
+        self.char_ty
+    }
     pub fn str(&self) -> TypeId {
         self.str_ty
     }
@@ -341,6 +350,7 @@ impl TypeCtx {
             | TypeKind::U8
             | TypeKind::F32
             | TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::Str
             | TypeKind::Never
             | TypeKind::Named(_) => {}
@@ -657,6 +667,7 @@ impl TypeCtx {
             | (TypeKind::U8, TypeKind::U8)
             | (TypeKind::F32, TypeKind::F32)
             | (TypeKind::Bool, TypeKind::Bool)
+            | (TypeKind::Char, TypeKind::Char)
             | (TypeKind::Str, TypeKind::Str)
             | (TypeKind::Never, TypeKind::Never) => true,
             (TypeKind::Named(a), TypeKind::Named(b)) => a == b,
@@ -823,6 +834,7 @@ impl TypeCtx {
             | TypeKind::U8
             | TypeKind::F32
             | TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::Str => self.has_copy_impl_target(resolved),
             TypeKind::Named(name)
                 if matches!(name.as_str(), "i64" | "i128" | "u64" | "u128" | "f64") =>
@@ -854,6 +866,7 @@ impl TypeCtx {
             | TypeKind::U8
             | TypeKind::F32
             | TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::Str => self.has_drop_impl_target(resolved),
             TypeKind::Named(_) => self.has_drop_impl_target(resolved),
             TypeKind::Tuple { items } => {
@@ -886,6 +899,7 @@ impl TypeCtx {
             | TypeKind::U8
             | TypeKind::F32
             | TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::Str
             | TypeKind::Never => true,
             TypeKind::Reference(_, is_mut) => !*is_mut,
@@ -1007,6 +1021,7 @@ impl TypeCtx {
             | (TypeKind::U8, TypeKind::U8)
             | (TypeKind::F32, TypeKind::F32)
             | (TypeKind::Bool, TypeKind::Bool)
+            | (TypeKind::Char, TypeKind::Char)
             | (TypeKind::Str, TypeKind::Str)
             | (TypeKind::Never, TypeKind::Never) => true,
             (TypeKind::Named(na), TypeKind::Named(nb)) => na == nb,
@@ -1239,6 +1254,7 @@ impl TypeCtx {
             (TypeKind::U8, TypeKind::U8) => Ok(self.u8_ty),
             (TypeKind::F32, TypeKind::F32) => Ok(self.f32_ty),
             (TypeKind::Bool, TypeKind::Bool) => Ok(self.bool_ty),
+            (TypeKind::Char, TypeKind::Char) => Ok(self.char_ty),
             (TypeKind::Str, TypeKind::Str) => Ok(self.str_ty),
             (TypeKind::Never, _) => Ok(b),
             (_, TypeKind::Never) => Ok(a),
@@ -1598,6 +1614,7 @@ impl TypeCtx {
             | TypeKind::U8
             | TypeKind::F32
             | TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::Str
             | TypeKind::Never => ty,
             TypeKind::Named(_) => ty,
@@ -1849,6 +1866,7 @@ impl TypeCtx {
             TypeKind::U8 => String::from("u8"),
             TypeKind::F32 => String::from("f32"),
             TypeKind::Bool => String::from("bool"),
+            TypeKind::Char => String::from("char"),
             TypeKind::Str => String::from("str"),
             TypeKind::Never => String::from("never"),
             TypeKind::Named(name) => name.clone(),
@@ -1987,6 +2005,7 @@ impl TypeCtx {
             | TypeKind::U8
             | TypeKind::F32
             | TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::Str
             | TypeKind::Never
             | TypeKind::Named(_) => false,

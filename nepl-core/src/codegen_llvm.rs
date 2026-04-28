@@ -338,7 +338,9 @@ fn ast_fn_signature_llty(sig: &TypeExpr) -> Option<(Vec<LlTy>, LlTy)> {
 fn llty_for_type_expr(ty: &TypeExpr) -> Option<LlTy> {
     match ty.as_unspanned() {
         TypeExpr::Unit | TypeExpr::Never => Some(LlTy::Void),
-        TypeExpr::I32 | TypeExpr::U8 | TypeExpr::Bool | TypeExpr::Str => Some(LlTy::I32),
+        TypeExpr::I32 | TypeExpr::U8 | TypeExpr::Bool | TypeExpr::Char | TypeExpr::Str => {
+            Some(LlTy::I32)
+        }
         TypeExpr::F32 => Some(LlTy::F32),
         TypeExpr::Named(name) if name == "i64" || name == "u64" => Some(LlTy::I64),
         TypeExpr::Named(name) if name == "f64" => Some(LlTy::F64),
@@ -3601,7 +3603,9 @@ fn lower_hir_string_literal(
 fn llty_for_type(types: &TypeCtx, ty: TypeId) -> LlTy {
     match types.get(types.resolve_id(ty)) {
         TypeKind::Unit | TypeKind::Never => LlTy::Void,
-        TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Str => LlTy::I32,
+        TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Char | TypeKind::Str => {
+            LlTy::I32
+        }
         TypeKind::F32 => LlTy::F32,
         TypeKind::Named(name) if name == "i64" || name == "u64" => LlTy::I64,
         TypeKind::Named(name) if name == "f64" => LlTy::F64,

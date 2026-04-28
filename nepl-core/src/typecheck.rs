@@ -64,6 +64,7 @@ enum ScalarMatchKind {
     I32,
     U8,
     Bool,
+    Char,
 }
 
 #[cfg(not(target_os = "none"))]
@@ -416,6 +417,7 @@ fn parse_trait_ref_name(name: &str, ctx: &TypeCtx) -> Option<(String, Vec<TypeId
             "u8" => Some(ctx.u8()),
             "f32" => Some(ctx.f32()),
             "bool" => Some(ctx.bool()),
+            "char" => Some(ctx.char()),
             "str" => Some(ctx.str()),
             _ => None,
         }?;
@@ -4373,6 +4375,18 @@ impl<'a> BlockChecker<'a> {
                             (self.ctx.f32(), HirExprKind::LiteralF32(v))
                         }
                         Literal::Bool(b) => (self.ctx.bool(), HirExprKind::LiteralBool(*b)),
+                        Literal::Char(c) => {
+                            let value = if *c <= i32::MAX as u32 {
+                                *c as i32
+                            } else {
+                                self.diagnostics.push(Diagnostic::error(
+                                    "char literal is outside current i32-backed codegen range",
+                                    *span,
+                                ));
+                                0
+                            };
+                            (self.ctx.char(), HirExprKind::LiteralI32(value))
+                        }
                         Literal::Str(s) => {
                             let id = self.string_table.intern(s.clone());
                             (self.ctx.str(), HirExprKind::LiteralStr(id))
@@ -6172,6 +6186,21 @@ impl<'a> BlockChecker<'a> {
 
     fn apply_ascription(&mut self, stack: &mut [StackEntry], target: TypeId, span: Span) {
         if let Some(top) = stack.last_mut() {
+            match self.char_literal_context_type(top, target) {
+                Some(Ok(resolved)) => {
+                    top.ty = resolved;
+                    top.expr.ty = resolved;
+                    return;
+                }
+                Some(Err(())) => {
+                    self.diagnostics.push(
+                        Diagnostic::error("char literal does not fit in u8", span)
+                            .with_id(DiagnosticId::TypeAnnotationMismatch),
+                    );
+                    return;
+                }
+                None => {}
+            }
             if let Err(_) = self.ctx.unify(top.ty, target) {
                 let actual_ty = self.ctx.type_to_string(top.ty);
                 let expected_ty = self.ctx.type_to_string(target);
@@ -6191,6 +6220,40 @@ impl<'a> BlockChecker<'a> {
                 top.expr.ty = resolved;
             }
         }
+    }
+
+    fn char_literal_value(&self, entry: &StackEntry) -> Option<i32> {
+        if !self.ctx.same_type(entry.ty, self.ctx.char()) {
+            return None;
+        }
+        match &entry.expr.kind {
+            HirExprKind::LiteralI32(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    fn char_literal_context_type(
+        &self,
+        entry: &StackEntry,
+        target: TypeId,
+    ) -> Option<Result<TypeId, ()>> {
+        let value = self.char_literal_value(entry)?;
+        if self.ctx.same_type(target, self.ctx.i32()) {
+            return Some(Ok(self.ctx.resolve_id(target)));
+        }
+        if self.ctx.same_type(target, self.ctx.u8()) {
+            return Some(
+                (0..=255)
+                    .contains(&value)
+                    .then(|| self.ctx.resolve_id(target))
+                    .ok_or(()),
+            );
+        }
+        None
+    }
+
+    fn char_literal_matches_context(&self, entry: &StackEntry, target: TypeId) -> bool {
+        matches!(self.char_literal_context_type(entry, target), Some(Ok(_)))
     }
 
     fn stack_entry_is_open_call(&mut self, entry: &StackEntry) -> bool {
@@ -6633,13 +6696,14 @@ impl<'a> BlockChecker<'a> {
                 TypeKind::I32 => Some(ScalarMatchKind::I32),
                 TypeKind::U8 => Some(ScalarMatchKind::U8),
                 TypeKind::Bool => Some(ScalarMatchKind::Bool),
+                TypeKind::Char => Some(ScalarMatchKind::Char),
                 _ => None,
             };
             if let Some(kind) = scalar {
                 return self.check_scalar_match_expr(m, scrut_expr, kind);
             }
             self.diagnostics.push(
-                Diagnostic::error("match scrutinee must be an enum, bool, i32, or u8", m.span)
+                Diagnostic::error("match scrutinee must be an enum, bool, char, i32, or u8", m.span)
                     .with_id(DiagnosticId::TypeMatchScrutineeMustBeEnum),
             );
         }
@@ -6873,7 +6937,7 @@ impl<'a> BlockChecker<'a> {
 
         let exhaustive = match kind {
             ScalarMatchKind::Bool => saw_wildcard || (seen_true && seen_false),
-            ScalarMatchKind::I32 | ScalarMatchKind::U8 => saw_wildcard,
+            ScalarMatchKind::I32 | ScalarMatchKind::U8 | ScalarMatchKind::Char => saw_wildcard,
         };
         if !exhaustive {
             self.diagnostics.push(
@@ -6910,6 +6974,13 @@ impl<'a> BlockChecker<'a> {
                     );
                     return None;
                 }
+                if kind == ScalarMatchKind::Char {
+                    self.diagnostics.push(
+                        Diagnostic::error("integer literal match arm cannot match char", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                }
                 let Some(value) = parse_i32_literal(text) else {
                     self.diagnostics.push(
                         Diagnostic::error("invalid integer literal in match arm", *span)
@@ -6929,12 +7000,36 @@ impl<'a> BlockChecker<'a> {
             MatchPattern::BoolLiteral { value, span } => {
                 if kind != ScalarMatchKind::Bool {
                     self.diagnostics.push(
-                        Diagnostic::error("bool literal match arm cannot match integer", *span)
+                        Diagnostic::error("bool literal match arm cannot match this scrutinee type", *span)
                             .with_id(DiagnosticId::TypeMatchPatternUnsupported),
                     );
                     return None;
                 }
                 Some(HirMatchPattern::BoolLiteral(*value))
+            }
+            MatchPattern::CharLiteral { value, span } => {
+                if kind == ScalarMatchKind::Bool {
+                    self.diagnostics.push(
+                        Diagnostic::error("char literal match arm cannot match this scrutinee type", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                }
+                if *value > i32::MAX as u32 {
+                    self.diagnostics.push(
+                        Diagnostic::error("char literal is outside current i32-backed codegen range", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                }
+                if kind == ScalarMatchKind::U8 && *value > 255 {
+                    self.diagnostics.push(
+                        Diagnostic::error("char literal match arm does not fit in u8", *span)
+                            .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    return None;
+                }
+                Some(HirMatchPattern::IntLiteral(*value as i32))
             }
             MatchPattern::Wildcard { span } => {
                 if !is_last {
@@ -6968,6 +7063,15 @@ impl<'a> BlockChecker<'a> {
                             None
                         }
                     }
+                } else if kind == ScalarMatchKind::Char {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            "char match arms must be char literals or _",
+                            name.span,
+                        )
+                        .with_id(DiagnosticId::TypeMatchPatternUnsupported),
+                    );
+                    None
                 } else {
                     self.diagnostics.push(
                         Diagnostic::error(
@@ -7430,7 +7534,9 @@ impl<'a> BlockChecker<'a> {
                         }
                         let mut ok = true;
                         for (arg, pty) in args.iter().zip(user_params.iter()) {
-                            if self.ctx.unify(arg.ty, *pty).is_err() {
+                            if !self.char_literal_matches_context(arg, *pty)
+                                && self.ctx.unify(arg.ty, *pty).is_err()
+                            {
                                 if crate::log::is_verbose() {
                                     typecheck_log!(
                                         "overload debug: skip '{}' candidate {} reason=unify arg={} param={}",
@@ -7733,7 +7839,22 @@ impl<'a> BlockChecker<'a> {
                         );
                         return None;
                     }
-                    for (arg, param_ty) in args.iter().zip(user_params.iter()) {
+                    for (arg, param_ty) in args.iter_mut().zip(user_params.iter()) {
+                        match self.char_literal_context_type(arg, *param_ty) {
+                            Some(Ok(resolved)) => {
+                                arg.ty = resolved;
+                                arg.expr.ty = resolved;
+                                continue;
+                            }
+                            Some(Err(())) => {
+                                self.diagnostics.push(
+                                    Diagnostic::error("argument type mismatch", arg.expr.span)
+                                        .with_id(DiagnosticId::TypeArgumentTypeMismatch),
+                                );
+                                continue;
+                            }
+                            None => {}
+                        }
                         if self.ctx.unify(arg.ty, *param_ty).is_err() {
                             self.diagnostics.push(
                                 Diagnostic::error("argument type mismatch", arg.expr.span)
@@ -9177,6 +9298,7 @@ fn type_shape_specificity(ctx: &TypeCtx, ty: TypeId) -> usize {
         | TypeKind::U8
         | TypeKind::F32
         | TypeKind::Bool
+        | TypeKind::Char
         | TypeKind::Str
         | TypeKind::Never
         | TypeKind::Named(_) => 2,
@@ -9290,6 +9412,7 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
         TypeExpr::U8 => ctx.u8(),
         TypeExpr::F32 => ctx.f32(),
         TypeExpr::Bool => ctx.bool(),
+        TypeExpr::Char => ctx.char(),
         TypeExpr::Str => ctx.str(),
         TypeExpr::Never => ctx.never(),
         TypeExpr::Named(name) => match name.as_str() {
@@ -9297,6 +9420,7 @@ fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeExpr) -> Typ
             "u8" => ctx.u8(),
             "f32" => ctx.f32(),
             "bool" => ctx.bool(),
+            "char" => ctx.char(),
             "str" => ctx.str(),
             "never" => ctx.never(),
             _ => {
@@ -9521,6 +9645,7 @@ fn same_type_with_signature_generics(
         | (TypeKind::U8, TypeKind::U8)
         | (TypeKind::F32, TypeKind::F32)
         | (TypeKind::Bool, TypeKind::Bool)
+        | (TypeKind::Char, TypeKind::Char)
         | (TypeKind::Str, TypeKind::Str)
         | (TypeKind::Never, TypeKind::Never) => true,
         (TypeKind::Named(na), TypeKind::Named(nb)) => na == nb,
@@ -9668,6 +9793,7 @@ fn signature_type_string(ctx: &TypeCtx, ty: TypeId, generics: &BTreeMap<TypeId, 
         TypeKind::U8 => String::from("u8"),
         TypeKind::F32 => String::from("f32"),
         TypeKind::Bool => String::from("bool"),
+        TypeKind::Char => String::from("char"),
         TypeKind::Str => String::from("str"),
         TypeKind::Never => String::from("never"),
         TypeKind::Named(name) => name,
@@ -9788,6 +9914,7 @@ fn type_contains_unbound_var(ctx: &TypeCtx, ty: TypeId) -> bool {
         | TypeKind::U8
         | TypeKind::F32
         | TypeKind::Bool
+        | TypeKind::Char
         | TypeKind::Str
         | TypeKind::Never
         | TypeKind::Named(_) => false,

@@ -152,6 +152,7 @@ fn type_contains_reference(tctx: &crate::types::TypeCtx, ty: TypeId) -> bool {
             | TypeKind::U8
             | TypeKind::F32
             | TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::Str
             | TypeKind::Never
             | TypeKind::Named(_)

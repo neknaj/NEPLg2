@@ -121,3 +121,78 @@ fn main <()*>i32> ():
             let shown <Vec<Result<(),str>>> checks_print_report checks1
             checks_exit_code shown
 ```
+
+## lexes_char_literal
+
+neplg2:test
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "std/test" as *
+
+fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+
+fn main <()*>i32> ():
+    let checks0 <Vec<Result<(),str>>> checks_new
+    match lex_all "'\\n' 'a'":
+        Result::Ok tokens:
+            let t0 <SelfhostToken> token_at &tokens 0
+            let t1 <SelfhostToken> token_at &tokens 1
+            let checks1 <Vec<Result<(),str>>>:
+                checks0
+                |> checks_push check_str_eq "char_literal" token_kind_name field::get t0 "kind"
+                |> checks_push check_str_eq "'\\n'" field::get t0 "lexeme"
+                |> checks_push check_str_eq "char_literal" token_kind_name field::get t1 "kind"
+                |> checks_push check_str_eq "'a'" field::get t1 "lexeme"
+            free<SelfhostToken> tokens
+            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            checks_exit_code shown
+        Result::Err diag:
+            let _msg <str> field::get diag "message"
+            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            checks_exit_code shown
+```
+
+## reports_unterminated_char
+
+neplg2:test
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let checks0 <Vec<Result<(),str>>> checks_new
+    match lex_all "'abc":
+        Result::Ok tokens:
+            free<SelfhostToken> tokens
+            let checks1 <Vec<Result<(),str>>> checks_push checks0 Result<(),str>::Err "unterminated char was accepted"
+            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            checks_exit_code shown
+        Result::Err diag:
+            let code_name <str> lex_error_code_name field::get diag "code"
+            let span <SelfhostSourceSpan> field::get diag "span"
+            let checks1 <Vec<Result<(),str>>>:
+                checks0
+                |> checks_push check_str_eq "lex.unterminated_char" code_name
+                |> checks_push check_eq_i32 0 field::get span "start"
+                |> checks_push check_eq_i32 4 field::get span "end"
+            let shown <Vec<Result<(),str>>> checks_print_report checks1
+            checks_exit_code shown
+```

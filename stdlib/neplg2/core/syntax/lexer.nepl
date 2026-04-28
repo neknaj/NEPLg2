@@ -31,6 +31,7 @@
 //: LexErrorCode: lexer が[返/かえ]す error [分類/ぶんるい]
 enum LexErrorCode:
     UnexpectedChar
+    UnterminatedChar
     UnterminatedString
     OutOfMemory
 
@@ -65,6 +66,8 @@ fn lex_error_code_name <(LexErrorCode)->str> (code):
     match code:
         LexErrorCode::UnexpectedChar:
             "lex.unexpected_char"
+        LexErrorCode::UnterminatedChar:
+            "lex.unterminated_char"
         LexErrorCode::UnterminatedString:
             "lex.unterminated_string"
         LexErrorCode::OutOfMemory:
@@ -191,6 +194,34 @@ fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
                 _:
                     lex_string_end source n add idx 1
 
+//: lex_char_end: char literal の closing quote offset を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - 見つからない場合は -1 を[返/かえ]します。
+//: - `\'` は char 内の escaped quote として[扱/あつか]います。
+//: - 1 scalar かどうかの検査は parser / literal lowering の責務です。
+fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
+    if:
+        ge idx n
+        then:
+            -1
+        else:
+            let ch <i32> string::string_byte_at_unchecked source idx
+            match ch:
+                39:
+                    idx
+                92:
+                    if:
+                        ge add idx 1 n
+                        then:
+                            -1
+                        else:
+                            lex_char_end source n add idx 2
+                10:
+                    -1
+                _:
+                    lex_char_end source n add idx 1
+
 //: lex_token_slice: source slice を lexeme とする token を[作/つく]る
 fn lex_token_slice <(TokenKind,str,i32,i32)->SelfhostToken> (kind, source, start, end):
     selfhost_token_new kind source_span_new 0 start end string::str_slice source start end
@@ -259,6 +290,14 @@ fn lex_next <(str,i32,i32)->SelfhostToken> (source, n, idx):
                             lex_token_slice TokenKind::UnterminatedString source start n
                         else:
                             lex_token_slice TokenKind::StringLiteral source start add close 1
+                39:
+                    let close <i32> lex_char_end source n add start 1
+                    if:
+                        lt close 0
+                        then:
+                            lex_token_slice TokenKind::UnterminatedChar source start n
+                        else:
+                            lex_token_slice TokenKind::CharLiteral source start add close 1
                 _:
                     if:
                         lex_is_ident_start ch
@@ -283,6 +322,8 @@ fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
         TokenKind::Identifier:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::IntLiteral:
+            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::CharLiteral:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::StringLiteral:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
@@ -312,6 +353,8 @@ fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
         TokenKind::EndOfFile:
             lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+        TokenKind::UnterminatedChar:
+            lex_diag_new LexErrorCode::UnterminatedChar span "unterminated char literal"
         TokenKind::UnterminatedString:
             lex_diag_new LexErrorCode::UnterminatedString span "unterminated string literal"
         TokenKind::Unknown:

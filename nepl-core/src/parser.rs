@@ -1563,12 +1563,14 @@ impl Parser {
                 | TokenKind::FloatLiteral(_)
                 | TokenKind::BoolLiteral(_)
                 | TokenKind::UnitLiteral
+                | TokenKind::CharLiteral(_)
                 | TokenKind::StringLiteral(_) => {
                     let tok = self.next().unwrap();
                     let lit = match tok.kind {
                         TokenKind::IntLiteral(v) => Literal::Int(v),
                         TokenKind::FloatLiteral(v) => Literal::Float(v),
                         TokenKind::BoolLiteral(b) => Literal::Bool(b),
+                        TokenKind::CharLiteral(c) => Literal::Char(c),
                         TokenKind::StringLiteral(s) => Literal::Str(s),
                         TokenKind::UnitLiteral => Literal::Unit,
                         _ => unreachable!(),
@@ -2077,12 +2079,14 @@ impl Parser {
                 | TokenKind::FloatLiteral(_)
                 | TokenKind::BoolLiteral(_)
                 | TokenKind::UnitLiteral
+                | TokenKind::CharLiteral(_)
                 | TokenKind::StringLiteral(_) => {
                     let tok = self.next().unwrap();
                     let lit = match tok.kind {
                         TokenKind::IntLiteral(v) => Literal::Int(v),
                         TokenKind::FloatLiteral(v) => Literal::Float(v),
                         TokenKind::BoolLiteral(b) => Literal::Bool(b),
+                        TokenKind::CharLiteral(c) => Literal::Char(c),
                         TokenKind::StringLiteral(s) => Literal::Str(s),
                         TokenKind::UnitLiteral => Literal::Unit,
                         _ => unreachable!(),
@@ -2310,12 +2314,14 @@ impl Parser {
                 | TokenKind::FloatLiteral(_)
                 | TokenKind::BoolLiteral(_)
                 | TokenKind::UnitLiteral
+                | TokenKind::CharLiteral(_)
                 | TokenKind::StringLiteral(_) => {
                     let tok = self.next().unwrap();
                     let lit = match tok.kind {
                         TokenKind::IntLiteral(v) => Literal::Int(v),
                         TokenKind::FloatLiteral(v) => Literal::Float(v),
                         TokenKind::BoolLiteral(b) => Literal::Bool(b),
+                        TokenKind::CharLiteral(c) => Literal::Char(c),
                         TokenKind::StringLiteral(s) => Literal::Str(s),
                         TokenKind::UnitLiteral => Literal::Unit,
                         _ => unreachable!(),
@@ -3168,6 +3174,7 @@ impl Parser {
                 MatchPattern::Variant { name, .. } => name.span,
                 MatchPattern::IntLiteral { span, .. }
                 | MatchPattern::BoolLiteral { span, .. }
+                | MatchPattern::CharLiteral { span, .. }
                 | MatchPattern::Wildcard { span } => *span,
             };
             arms.push(MatchArm {
@@ -3197,6 +3204,17 @@ impl Parser {
                 let tok = self.next()?;
                 if let TokenKind::BoolLiteral(value) = tok.kind {
                     Some(MatchPattern::BoolLiteral {
+                        value,
+                        span: tok.span,
+                    })
+                } else {
+                    None
+                }
+            }
+            TokenKind::CharLiteral(_) => {
+                let tok = self.next()?;
+                if let TokenKind::CharLiteral(value) = tok.kind {
+                    Some(MatchPattern::CharLiteral {
                         value,
                         span: tok.span,
                     })
@@ -3397,6 +3415,7 @@ impl Parser {
                     "u8" => TypeExpr::U8,
                     "f32" => TypeExpr::F32,
                     "bool" => TypeExpr::Bool,
+                    "char" => TypeExpr::Char,
                     "never" => TypeExpr::Never,
                     "str" => TypeExpr::Str,
                     "Box" => {
@@ -3877,6 +3896,7 @@ impl Parser {
                             | TokenKind::FloatLiteral(_)
                             | TokenKind::BoolLiteral(_)
                             | TokenKind::UnitLiteral
+                            | TokenKind::CharLiteral(_)
                             | TokenKind::StringLiteral(_)
                     )
                 ) {
@@ -3901,6 +3921,7 @@ impl Parser {
                             TokenKind::IntLiteral(v) => Literal::Int(v),
                             TokenKind::FloatLiteral(v) => Literal::Float(v),
                             TokenKind::BoolLiteral(b) => Literal::Bool(b),
+                            TokenKind::CharLiteral(c) => Literal::Char(c),
                             TokenKind::StringLiteral(s) => Literal::Str(s),
                             TokenKind::UnitLiteral => Literal::Unit,
                             _ => unreachable!(),
@@ -4159,6 +4180,7 @@ fn simple_type_atom(t: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Option<
         "i64" => TypeExpr::Named("i64".to_string()),
         "f64" => TypeExpr::Named("f64".to_string()),
         "bool" => TypeExpr::Bool,
+        "char" => TypeExpr::Char,
         "never" => TypeExpr::Never,
         "str" => TypeExpr::Str,
         "()" => TypeExpr::Unit,

@@ -2,13 +2,13 @@
 id: ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838
 title: "language lacks char type and single-quoted char literals"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-28
-target: "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/ast.rs, nepl-core/src/types.rs, nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/compiler/char_literals.n.md"
+target: "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/ast.rs, nepl-core/src/types.rs, nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-language/src/lib.rs, nepl-web/src/lib.rs, stdlib/core/traits/copy.nepl, stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, nepl-core/tests/char.rs, tests/compiler/match_literal_patterns.n.md, tests/stdlib/neplg2_lexer.n.md"
 ---
 
 # ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838: language lacks char type and single-quoted char literals
@@ -47,3 +47,28 @@ Define and implement char support as a language feature. Proposed spec: add a pr
 ## 検証
 
 Add tests/compiler/char_literals.n.md covering char variable binding, contextual u8/i32 literals, escapes, invalid literals, match arms, duplicate arms, and no implicit char-to-i32 variable coercion. Run cargo test -p nepl-core, trunk build, focused compiler tests, and stdlib/selfhost lexer tests.
+
+## 解決
+
+- `char` を primitive `Copy` 型として `TypeKind` / type atom / backend layout に追加し、WASM/LLVM では Unicode scalar value を `i32` 互換表現で扱うようにした。
+- single-quoted char literal を lexer/parser/AST/typecheck に追加し、通常文字、`'\n'` / `'\r'` / `'\t'` / `'\0'` / `'\\'` / `'\''` / `'\"'` / `'\xNN'` / `'\u{...}'` を 1 Unicode scalar として検証するようにした。
+- 空 literal、複数 scalar、未終端、invalid escape、surrogate/out-of-range を lexer diagnostic として拒否するようにした。
+- char literal の型は既定で `char` とし、明示型注釈または関数引数の期待型が `i32` / `u8` の場合に literal だけ code point へ文脈解決するようにした。`char` 変数から整数への暗黙変換は許可しない。
+- char literal match arm を追加し、`char` subject では char literal と wildcard のみを有効な scalar pattern として扱うようにした。
+- playground/language/web の token 表示と selfhost lexer/token model に `CharLiteral` / `UnterminatedChar` を追加した。
+- `stdlib/core/traits/copy.nepl` に `char` の `Clone` / `Copy` 実装を追加した。
+
+## 検証結果
+
+- `cargo test -p nepl-core --test char`
+- `cargo test -p nepl-core`
+- `cargo check`
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-char.json`
+- `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md --no-tree -o tmp/char-match-literal-patterns.json -j 1`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/char-selfhost-lexer.json -j 1`
+
+## 残作業
+
+- stdlib の char API と string 連携は `ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5` で扱う。
+- 既存 stdlib/selfhost の character-code magic number 置換は `ISS-20260428T004329925Z-STDLIB-AND-SELFHOST-SHOULD-REPLACE-C-CD0357FB` で扱う。

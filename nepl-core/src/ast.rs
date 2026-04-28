@@ -21,6 +21,7 @@ pub enum TypeExpr {
     U8,
     F32,
     Bool,
+    Char,
     Never,
     Str,
     Label(Option<String>), // . or .label
@@ -89,6 +90,7 @@ pub enum Literal {
     Int(String),
     Float(String),
     Bool(bool),
+    Char(u32),
     Str(String),
     Unit,
 }
@@ -377,6 +379,7 @@ pub enum MatchPattern {
     Variant { name: Ident, bind: Option<Ident> },
     IntLiteral { text: String, span: Span },
     BoolLiteral { value: bool, span: Span },
+    CharLiteral { value: u32, span: Span },
     Wildcard { span: Span },
 }
 

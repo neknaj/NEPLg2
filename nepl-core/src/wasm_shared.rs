@@ -15,7 +15,9 @@ use wasm_encoder::{Instruction, MemArg, ValType};
 fn valtype(kind: &TypeKind) -> Option<ValType> {
     match kind {
         TypeKind::Unit => None,
-        TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Str => Some(ValType::I32),
+        TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Char | TypeKind::Str => {
+            Some(ValType::I32)
+        }
         TypeKind::F32 => Some(ValType::F32),
         TypeKind::Enum { .. } | TypeKind::Struct { .. } | TypeKind::Tuple { .. } => {
             Some(ValType::I32)

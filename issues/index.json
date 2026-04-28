@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T01:11:53.823Z",
+  "generated_at": "2026-04-28T01:35:27.139Z",
   "counts": {
     "total": 243,
-    "open": 20,
-    "resolved": 223,
+    "open": 19,
+    "resolved": 224,
     "by_area": {
       "core": {
         "total": 102,
-        "open": 5,
-        "resolved": 97
+        "open": 4,
+        "resolved": 98
       },
       "doc": {
         "total": 1,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838",
-      "title": "language lacks char type and single-quoted char literals",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/ast.rs, nepl-core/src/types.rs, nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/compiler/char_literals.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
@@ -1773,6 +1758,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T000058805Z-MOVE-CHECK-DROPS-RAW-EFFECTS-THROUGH-F9FD5C67.md"
+    },
+    {
+      "id": "ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838",
+      "title": "language lacks char type and single-quoted char literals",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/ast.rs, nepl-core/src/types.rs, nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-language/src/lib.rs, nepl-web/src/lib.rs, stdlib/core/traits/copy.nepl, stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, nepl-core/tests/char.rs, tests/compiler/match_literal_patterns.n.md, tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
