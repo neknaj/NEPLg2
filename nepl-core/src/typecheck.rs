@@ -3,6 +3,7 @@ extern crate alloc;
 extern crate std;
 
 mod ascription;
+mod assignment_apply;
 mod binding_rules;
 mod block_check;
 mod call_reduction;

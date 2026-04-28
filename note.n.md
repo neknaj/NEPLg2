@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck assignment apply module)
+
+- 状況:
+  - `BlockChecker` context 分離後も、`function_apply.rs` の `apply_function` 先頭に assignment operator lowering が残っていた。
+  - `let` / `set` / address-of / deref は overload や trait method call と違い、環境 state と参照型生成を直接更新する special form である。
+- 修正:
+  - `nepl-core/src/typecheck/assignment_apply.rs` を追加し、assignment operator lowering を `apply_assignment_function` へ分離した。
+  - `function_apply.rs` は通常呼び出し、overload、field accessor、trait call、indirect call の適用処理へ近づけた。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck assignment apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/assignment_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test functions/effects/typeannot/block_if_semantics/overload/move_check/call_reduction/if/pipe_operator -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -i tests/compiler/typeannot.n.md -i tests/compiler/overload.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/block_if_semantics.n.md -i tests/compiler/pipe_operator.n.md --no-tree -o tmp/stage1-typecheck-assignment-apply-focused.json -j 1`: 206/206 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck context module)
 
 - 状況:

@@ -20,18 +20,7 @@ use super::traits::{
     format_trait_ref_name, infer_instantiated_type_arg, insert_substitution_mapping,
     trait_application_matches, TraitBoundRef,
 };
-use super::{AssignKind, BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
-
-fn function_apply_dump_enabled() -> bool {
-    #[cfg(target_os = "none")]
-    {
-        false
-    }
-    #[cfg(not(target_os = "none"))]
-    {
-        std::env::var("NEPL_DUMP_HIR").is_ok()
-    }
-}
+use super::{BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
 
 macro_rules! function_apply_log {
     ($($arg:tt)*) => {{
@@ -44,14 +33,6 @@ macro_rules! function_apply_log {
             std::eprintln!($($arg)*);
         }
     }};
-}
-
-macro_rules! function_apply_dump {
-    ($($arg:tt)*) => {
-        if function_apply_dump_enabled() {
-            function_apply_log!($($arg)*);
-        }
-    };
 }
 
 impl<'a> BlockChecker<'a> {
@@ -77,150 +58,8 @@ impl<'a> BlockChecker<'a> {
             return None;
         }
 
-        // Assignment operators
         if let Some(assign) = func.assign {
-            if args.len() != 1 {
-                self.diagnostics.push(
-                    Diagnostic::error("assignment expects one argument", func.expr.span)
-                        .with_id(DiagnosticId::TypeAssignmentArityMismatch),
-                );
-                return None;
-            }
-            if let AssignKind::AddrOf(mutable) = assign {
-                if args.len() != 1 {
-                    return None;
-                }
-                if crate::log::is_verbose() {
-                    function_apply_log!(
-                        "apply_function: Reducing AddrOf, inner={:?}",
-                        args[0].expr.kind
-                    );
-                }
-                let inner_ty = args[0].ty;
-                let res_ty = self.ctx.reference(inner_ty, mutable);
-                return Some(StackEntry {
-                    ty: res_ty,
-                    expr: HirExpr {
-                        ty: res_ty,
-                        kind: HirExprKind::AddrOf(Box::new(args[0].expr.clone())),
-                        span: func.expr.span,
-                    },
-                    type_args: Vec::new(),
-                    assign: None,
-                    auto_call: true,
-                });
-            } else if matches!(assign, AssignKind::Deref) {
-                if args.len() != 1 {
-                    return None;
-                }
-                let arg_ty = self.ctx.resolve(args[0].ty);
-                let inner_ty = match self.ctx.get(arg_ty) {
-                    TypeKind::Reference(inner, _) => inner,
-                    _ => {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                format!(
-                                    "cannot dereference non-reference type: {}",
-                                    self.ctx.type_to_string(arg_ty)
-                                ),
-                                args[0].expr.span,
-                            )
-                            .with_id(DiagnosticId::TypeInvalidDeref),
-                        );
-                        self.ctx.never()
-                    }
-                };
-                return Some(StackEntry {
-                    ty: inner_ty,
-                    expr: HirExpr {
-                        ty: inner_ty,
-                        kind: HirExprKind::Deref(Box::new(args[0].expr.clone())),
-                        span: func.expr.span,
-                    },
-                    type_args: Vec::new(),
-                    assign: None,
-                    auto_call: true,
-                });
-            }
-
-            let name = match &func.expr.kind {
-                HirExprKind::Var(n) => n.clone(),
-                _ => "_".to_string(),
-            };
-            // For assignments we must find hoisted (possibly undefined)
-            // bindings as well, so use a mutable lookup that returns
-            // bindings regardless of `defined` state.
-            if let Some(b) = self.env.lookup_mut(&name) {
-                let b_ty = b.ty;
-                let b_mut = b.mutable;
-                let b_defined = b.defined;
-                if let Err(_) = self.ctx.unify(b_ty, args[0].ty) {
-                    self.diagnostics.push(
-                        Diagnostic::error("type mismatch in assignment", func.expr.span)
-                            .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
-                    );
-                }
-                match assign {
-                    AssignKind::Let => {
-                        b.defined = true;
-                        b.ty = b_ty;
-                        function_apply_dump!("typecheck: marking binding defined {}", name);
-                        return Some(StackEntry {
-                            ty: self.ctx.unit(),
-                            expr: HirExpr {
-                                ty: self.ctx.unit(),
-                                kind: HirExprKind::Let {
-                                    name: name.clone(),
-                                    mutable: b_mut,
-                                    value: Box::new(args[0].expr.clone()),
-                                },
-                                span: func.expr.span,
-                            },
-                            type_args: Vec::new(),
-                            assign: None,
-                            auto_call: true,
-                        });
-                    }
-                    AssignKind::Set => {
-                        if !b_defined {
-                            self.diagnostics.push(
-                                Diagnostic::error("cannot set undefined variable", func.expr.span)
-                                    .with_id(DiagnosticId::TypeUndefinedVariable),
-                            );
-                        }
-                        if !b_mut {
-                            self.diagnostics.push(
-                                Diagnostic::error("variable is not mutable", func.expr.span)
-                                    .with_id(DiagnosticId::TypeImmutableMutation),
-                            );
-                        }
-                        return Some(StackEntry {
-                            ty: self.ctx.unit(),
-                            expr: HirExpr {
-                                ty: self.ctx.unit(),
-                                kind: HirExprKind::Set {
-                                    name: name.clone(),
-                                    value: Box::new(args[0].expr.clone()),
-                                },
-                                span: func.expr.span,
-                            },
-                            type_args: Vec::new(),
-                            assign: None,
-                            auto_call: true,
-                        });
-                    }
-                    _ => unreachable!(),
-                }
-            } else {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        format!("undefined variable for assignment: {}", name),
-                        func.expr.span,
-                    )
-                    .with_id(DiagnosticId::TypeAssignmentUndefinedVariable),
-                );
-                return None;
-            }
+            return self.apply_assignment_function(func, args, assign);
         }
 
         // Special-cased symbols (if / while)
