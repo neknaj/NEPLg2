@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260427T132406497Z Stage 3 raw memory operation lowering)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR に残す作業を進めた。
+  - Stage 2-3 の現状では `load` / `store` intrinsic 以外の `alloc_raw`、`dealloc_raw`、`realloc_raw`、`mem_copy`、`mem_move` などが Resource IR 上の memory event として見えず、旧 `move_check` の call name summary へ依存したままだった。
+- 修正:
+  - `ResourceOp::RawMemory` と `RawMemoryOp` を追加し、raw memory helper call / intrinsic を dedicated event として dump に出すようにした。
+  - `FuncRef::Builtin` だけでなく `FuncRef::User` でも `raw_callee_is_raw_memory_effect` を使い、stdlib wrapper や mangled helper 名も `EffectOp::UnsafeMemory` と Resource IR event に分類するようにした。
+  - `nepl-core/tests/resource_ir.rs` に alloc/store/load が `RawMemory` として残る regression を追加した。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 3 raw memory operation lowering の到達点と残作業を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/model.rs nepl-core/src/resource/lower.rs nepl-core/src/resource/dump.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 4 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage3-resource-ir-raw-memory-focused.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査大規模修正は doc/neplg2 の Stage 3 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 3 local / aggregate / branch lowering)
 
 - 状況:

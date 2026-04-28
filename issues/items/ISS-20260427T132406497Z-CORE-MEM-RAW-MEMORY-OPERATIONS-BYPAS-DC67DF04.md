@@ -199,6 +199,14 @@ raw identity が観測可能な public raw memory operation を pure function �
 
 今後の修正では、raw memory helper をさらに call name summary で追い続ける方向を最終設計にしない。raw operation は Resource IR の `EffectOp` と storage/cell state の変化として表し、safe public surface から raw identity が漏れない場合だけ internal effect を `Pure` へ fold する。
 
+## 2026-04-28 Stage 3 raw memory operation lowering 追記
+
+`doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。
+
+今回の変更では、`ResourceOp::RawMemory` と `RawMemoryOp` を追加し、`alloc_raw` / `dealloc_raw` / `realloc_raw` / runtime ABI helper、`load` / `store`、`mem_copy` / `mem_move`、`mem_size` / `mem_grow` / `mem_fill` を call name summary だけでなく Resource IR dump に残る operation として表すようにした。`FuncRef::Builtin` だけでなく `FuncRef::User` でも `raw_callee_is_raw_memory_effect` を使うため、stdlib wrapper や mangled helper 名を経由しても `EffectOp::UnsafeMemory` と Resource IR event の両方に分類される。
+
+この段階では storage owner、initialized cell、byte range overlap の enforcement はまだ旧 `move_check` 側が担う。Stage 4 以降で `RawMemoryOp` を `StorageId`、`CellState`、`PointerProvenance` の遷移へ接続し、現在の raw memory summary を Resource IR summary へ移行する。
+
 ## 2026-04-28 core / stdlib 全体レビューでの再発確認
 
 `origin/main` の `8d0c6ab` 取り込み後に `node nodesrc/tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\move-effect-audit-20260428.json -j 1` を実行したところ、`total=95`, `passed=43`, `failed=52` だった。多くは `compile_fail` を期待する raw memory / move effect 回帰テストが compile success になっており、この親 issue の残件である Resource IR / raw provenance / effect boundary がまだ安定していないことを示す。

@@ -107,6 +107,12 @@ pub enum ResourceOp {
         effect: EffectOp,
         span: Span,
     },
+    RawMemory {
+        operation: RawMemoryOp,
+        output: Place,
+        args: Vec<Place>,
+        span: Span,
+    },
     Construct {
         output: Place,
         kind: AggregateKind,
@@ -154,6 +160,21 @@ pub enum ResourceExprKind {
     Borrow,
     Deref,
     Drop,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RawMemoryOp {
+    Alloc,
+    Dealloc,
+    Realloc,
+    Load,
+    Store,
+    BulkCopy,
+    BulkMove,
+    MemorySize,
+    MemoryGrow,
+    Fill,
+    Other { name: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

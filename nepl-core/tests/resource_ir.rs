@@ -1,8 +1,10 @@
 use nepl_core::ast::Effect;
 use nepl_core::hir::{
-    HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
+    FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
-use nepl_core::resource::{lower_hir_module_skeleton, AggregateKind, PlaceRoot, ResourceOp};
+use nepl_core::resource::{
+    lower_hir_module_skeleton, AggregateKind, PlaceRoot, RawMemoryOp, ResourceOp,
+};
 use nepl_core::span::Span;
 use nepl_core::types::TypeId;
 
@@ -285,4 +287,132 @@ fn resource_ir_lowering_uses_declared_local_type_for_drop() {
     let dump = lower_hir_module_skeleton(&module).dump_text();
     assert!(dump.contains("drop %x:t1 span=0:0-0"));
     assert!(!dump.contains("drop %x:t0 span=0:0-0"));
+}
+
+#[test]
+fn resource_ir_lowering_preserves_raw_memory_operations() {
+    let unit_ty = TypeId(0);
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(2),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Impure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![
+                    HirLine {
+                        expr: HirExpr {
+                            ty: unit_ty,
+                            kind: HirExprKind::Let {
+                                name: "p".to_string(),
+                                mutable: false,
+                                value: Box::new(HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::Call {
+                                        callee: FuncRef::User(
+                                            "alloc_raw".to_string(),
+                                            vec![],
+                                            None,
+                                        ),
+                                        args: vec![HirExpr {
+                                            ty: i32_ty,
+                                            kind: HirExprKind::LiteralI32(4),
+                                            span,
+                                        }],
+                                    },
+                                    span,
+                                }),
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                    HirLine {
+                        expr: HirExpr {
+                            ty: unit_ty,
+                            kind: HirExprKind::Intrinsic {
+                                name: "store".to_string(),
+                                type_args: vec![i32_ty],
+                                args: vec![
+                                    HirExpr {
+                                        ty: i32_ty,
+                                        kind: HirExprKind::Var("p".to_string()),
+                                        span,
+                                    },
+                                    HirExpr {
+                                        ty: i32_ty,
+                                        kind: HirExprKind::LiteralI32(7),
+                                        span,
+                                    },
+                                ],
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                    HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Intrinsic {
+                                name: "load".to_string(),
+                                type_args: vec![i32_ty],
+                                args: vec![HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::Var("p".to_string()),
+                                    span,
+                                }],
+                            },
+                            span,
+                        },
+                        drop_result: false,
+                    },
+                ],
+                ty: i32_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module_skeleton(&module);
+    let ops = &resource.functions[0].blocks[0].ops;
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Alloc,
+            args,
+            ..
+        } if args.len() == 1
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Store,
+            args,
+            ..
+        } if args.len() == 2
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Load,
+            args,
+            ..
+        } if args.len() == 1
+    )));
+
+    let dump = resource.dump_text();
+    assert!(dump.contains("effect unsafe_memory(alloc_raw)"));
+    assert!(dump.contains("raw_memory alloc"));
+    assert!(dump.contains("raw_memory store"));
+    assert!(dump.contains("raw_memory load"));
 }

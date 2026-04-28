@@ -5,16 +5,20 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
+use crate::effects::{intrinsic_is_raw_memory_effect, raw_callee_is_raw_memory_effect};
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
     HirParam,
 };
+use crate::runtime_helpers::{
+    helper_base_name, ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI,
+};
 use crate::types::TypeId;
 
 use super::model::{
-    AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, ResourceBlock, ResourceBlockId,
-    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm,
-    ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
+    AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, RawMemoryOp, ResourceBlock,
+    ResourceBlockId, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
+    ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
@@ -189,14 +193,29 @@ fn lower_expr_skeleton(
         }
         HirExprKind::FnValue(_) => push_expr(ops, ResourceExprKind::FunctionValue, expr, ctx),
         HirExprKind::Call { callee, args } => {
-            for arg in args {
-                lower_expr_skeleton(arg, ops, ctx);
-            }
+            let arg_places = lower_args_skeleton(args, ops, ctx);
             ops.push(ResourceOp::CallEffect {
                 effect: call_effect_skeleton(callee),
                 span: expr.span,
             });
-            push_expr(ops, ResourceExprKind::Call, expr, ctx)
+            if let Some(operation) = raw_memory_op_from_callee(callee) {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::RawMemory {
+                    operation,
+                    output: output.clone(),
+                    args: arg_places,
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Call,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                output
+            } else {
+                push_expr(ops, ResourceExprKind::Call, expr, ctx)
+            }
         }
         HirExprKind::CallIndirect { callee, args, .. } => {
             lower_expr_skeleton(callee, ops, ctx);
@@ -371,10 +390,9 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Intrinsic { name, args, .. } => {
-            for arg in args {
-                lower_expr_skeleton(arg, ops, ctx);
-            }
-            if name == "load" || name == "store" {
+            let arg_places = lower_args_skeleton(args, ops, ctx);
+            let raw_operation = raw_memory_op_from_intrinsic(name);
+            if raw_operation.is_some() {
                 ops.push(ResourceOp::CallEffect {
                     effect: EffectOp::UnsafeMemory {
                         operation: name.clone(),
@@ -382,7 +400,24 @@ fn lower_expr_skeleton(
                     span: expr.span,
                 });
             }
-            push_expr(ops, ResourceExprKind::Intrinsic, expr, ctx)
+            if let Some(operation) = raw_operation {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::RawMemory {
+                    operation,
+                    output: output.clone(),
+                    args: arg_places,
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Intrinsic,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                output
+            } else {
+                push_expr(ops, ResourceExprKind::Intrinsic, expr, ctx)
+            }
         }
         HirExprKind::AddrOf(inner) => {
             let source = place_from_expr_skeleton(inner, ctx);
@@ -451,6 +486,16 @@ fn push_construct(
     output
 }
 
+fn lower_args_skeleton(
+    args: &[HirExpr],
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+) -> Vec<Place> {
+    args.iter()
+        .map(|arg| lower_expr_skeleton(arg, ops, ctx))
+        .collect()
+}
+
 fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
     match pattern {
         HirMatchPattern::Variant(name) => ResourceMatchPattern::Variant(name.clone()),
@@ -462,9 +507,13 @@ fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
 
 fn call_effect_skeleton(callee: &FuncRef) -> EffectOp {
     match callee {
-        FuncRef::Builtin(name) if raw_memory_name(name.as_str()) => EffectOp::UnsafeMemory {
-            operation: name.clone(),
-        },
+        FuncRef::Builtin(name) | FuncRef::User(name, _, _)
+            if raw_callee_is_raw_memory_effect(name.as_str()) =>
+        {
+            EffectOp::UnsafeMemory {
+                operation: String::from(helper_base_name(name.as_str())),
+            }
+        }
         FuncRef::Builtin(name) => EffectOp::UserCall {
             name: name.clone(),
             effect: Effect::Pure,
@@ -482,11 +531,44 @@ fn call_effect_skeleton(callee: &FuncRef) -> EffectOp {
     }
 }
 
-fn raw_memory_name(name: &str) -> bool {
-    matches!(
-        name,
-        "load" | "store" | "alloc_raw" | "dealloc_raw" | "realloc_raw" | "mem_copy" | "mem_move"
-    )
+fn raw_memory_op_from_callee(callee: &FuncRef) -> Option<RawMemoryOp> {
+    match callee {
+        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => raw_memory_op_from_name(name),
+        FuncRef::Trait { .. } => None,
+    }
+}
+
+fn raw_memory_op_from_intrinsic(name: &str) -> Option<RawMemoryOp> {
+    if intrinsic_is_raw_memory_effect(name) {
+        raw_memory_op_from_name(name)
+    } else {
+        None
+    }
+}
+
+fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
+    if !raw_callee_is_raw_memory_effect(name) && !intrinsic_is_raw_memory_effect(name) {
+        return None;
+    }
+    let base = helper_base_name(name);
+    let operation = match base {
+        ALLOC_RUNTIME_ABI | "alloc_raw" | "alloc" => RawMemoryOp::Alloc,
+        DEALLOC_RUNTIME_ABI | "dealloc_raw" | "dealloc" => RawMemoryOp::Dealloc,
+        REALLOC_RUNTIME_ABI | "realloc_raw" | "realloc" => RawMemoryOp::Realloc,
+        "load" => RawMemoryOp::Load,
+        "store" => RawMemoryOp::Store,
+        "mem_copy" => RawMemoryOp::BulkCopy,
+        "mem_move" => RawMemoryOp::BulkMove,
+        "mem_size" => RawMemoryOp::MemorySize,
+        "mem_grow" => RawMemoryOp::MemoryGrow,
+        "mem_fill" => RawMemoryOp::Fill,
+        other if other.starts_with("load_") => RawMemoryOp::Load,
+        other if other.starts_with("store_") => RawMemoryOp::Store,
+        other => RawMemoryOp::Other {
+            name: String::from(other),
+        },
+    };
+    Some(operation)
 }
 
 fn place_from_expr_skeleton(expr: &HirExpr, ctx: &LoweringContext) -> Place {
