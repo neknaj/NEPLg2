@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 function summary module)
+
+- 状況:
+  - Stage 1 の raw memory classifier module 化に続き、`move_check.rs` に残っている function raw alias summary の型と merge/dedupe 処理を分離した。
+  - 現行 summary は Resource IR 導入までの暫定防壁だが、型と合流処理が HIR 走査本体と混ざっており、後で Resource IR summary へ置き換えにくい状態だった。
+- 修正:
+  - `nepl-core/src/passes/move_check/summary.rs` を追加し、`ValueAliasSummary`、`RawMemoryEffectSummary`、`FunctionRawAliasSummary` を移動した。
+  - raw memory effect の dedupe、branch/match 合流時の alias merge、child summary の raw effect 集約を `summary.rs` に移した。
+  - `move_check.rs` には HIR / context 依存の summary 生成だけを残し、挙動は変更していない。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 function summary 境界の記録を追記した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `NO_COLOR=true trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-summary-module-move-effect.json -j 1`: 97/97 passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 raw memory classifier module)
 
 - 状況:
