@@ -193,6 +193,10 @@ raw identity が観測可能な public raw memory operation を pure function �
 
 `origin/main` の `8d0c6ab` 取り込み後に `node nodesrc/tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\move-effect-audit-20260428.json -j 1` を実行したところ、`total=95`, `passed=43`, `failed=52` だった。多くは `compile_fail` を期待する raw memory / move effect 回帰テストが compile success になっており、この親 issue の残件である Resource IR / raw provenance / effect boundary がまだ安定していないことを示す。
 
-その後 `origin/main` の `2ccb013` を merge した状態では、remote 側で追加された 2 件を含めて `node nodesrc/tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\move-effect-after-merge-20260428.json -j 1` が `total=97`, `passed=43`, `failed=54` になっている。追加修正後も根本の raw memory / move effect boundary は未収束である。
+その後 `origin/main` の `2ccb013` を merge した直後、`trunk build` 前の古い `web/dist` では remote 側で追加された 2 件を含めて `node nodesrc/tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\move-effect-after-merge-20260428.json -j 1` が `total=97`, `passed=43`, `failed=54` になっていた。
+
+ただしこれは build 未更新による古い compiler での確認だった。`trunk build` 後に `node nodesrc/tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\move-effect-after-trunk-20260428.json -j 1` を実行すると、`total=97`, `passed=97`, `failed=0` になった。したがって、今回 remote main に入った borrow/raw memory 修正は回帰テスト上は有効である。
+
+この親 issue は、raw memory operation 全体の public API / Resource IR / internal effect boundary を追跡する設計 issue として open のまま残す。個別 regression が通ったことは確認済みだが、safe surface から raw address escape を閉じる設計移行は未完了である。
 
 borrow checker 周辺は別 agent の作業範囲だが、self-host compiler の AST / diagnostic / collection 実装では owner を持つ値を `Result` / `Option` / container / callback 経由で移動するため、ここが未解決のまま S3 以降に進むと所有権不整合を compiler 自身の実装へ持ち込む。S1/S2 の lexer/parser/module loader の純粋データ構造設計は開始できるが、raw memory backed buffer や move-sensitive lowering に依存する実装はこの issue の収束を待つ。

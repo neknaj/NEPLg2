@@ -2,8 +2,8 @@
 id: ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069
 title: "std/test raw temp ownership and Result Copy regression"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
@@ -87,3 +87,12 @@ stdlib 修正後に `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --n
 この doctest は `Result<T,E>` の `impl<T: Copy,E: Copy> Copy` 追加時に、non-Copy payload では `Result` 全体も non-Copy のままであることを監視する目的で入れたもの。現状では `LocalToken` fixture の Copy 判定前提が compiler 側変更で変わった可能性と、generic `Copy` impl の適用条件が広すぎる可能性の両方があるため、表面上 doctest を緩めず、`Result<LocalToken,str>` が本当に Copy でよい型なのかを `is_copy_impl_eligible` / trait bound 解決 / function pointer field の仕様から確認する。
 
 同時に `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-audit-20260428.json -j 4` でも `total=422`, `passed=421`, `failed=1` としてこの 1 件だけが stdlib 全体の失敗になっている。self-host compiler の AST / diagnostic / collection は `Result` を大量に使うため、payload の線形性が崩れると selfhost 着手後の所有権バグを検出できなくなる。
+
+## 2026-04-28 trunk build 後の訂正
+
+上記の再オープン判断は、remote main の compiler 修正を取り込んだ後に `trunk build` を実行していない古い `web/dist` で確認していたための誤検出だった。
+
+- `trunk build`: 成功
+- `node nodesrc/tests.js -i stdlib\core\result.nepl --no-tree -o tmp\result-after-trunk-20260428.json -j 1`: `total=7`, `passed=7`, `failed=0`
+
+したがって `Result<LocalToken,str>` の non-Copy 回帰テストは、最新 build では再発していない。この issue は再度 fixed / resolved とする。今後 Rust 側の `nepl-core` を merge した後は、stdlib doctest を判定する前に `trunk build` を必ず挟む。

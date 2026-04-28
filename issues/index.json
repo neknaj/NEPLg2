@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T00:19:20.787Z",
+  "generated_at": "2026-04-28T00:24:08.649Z",
   "counts": {
     "total": 238,
-    "open": 16,
-    "resolved": 222,
+    "open": 15,
+    "resolved": 223,
     "by_area": {
       "core": {
         "total": 101,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 88,
-        "open": 7,
-        "resolved": 81
+        "open": 6,
+        "resolved": 82
       },
       "cli": {
         "total": 19,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
-    },
-    {
-      "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",
-      "title": "std/test raw temp ownership and Result Copy regression",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "stdlib/std/test.nepl, stdlib/core/result.nepl, nepl-core/src/typecheck.rs, nepl-core/src/types.rs, tests/stdlib/byte_builder.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
     },
     {
       "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
@@ -2308,6 +2293,21 @@
       "legacy_id": "",
       "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
       "file": "items/ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8.md"
+    },
+    {
+      "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",
+      "title": "std/test raw temp ownership and Result Copy regression",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/std/test.nepl, stdlib/core/result.nepl, nepl-core/src/typecheck.rs, nepl-core/src/types.rs, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
     },
     {
       "id": "ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7",
