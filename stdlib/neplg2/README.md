@@ -27,6 +27,10 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 `core/mono/mono.nepl` は generic instance の元定義を表す `SelfhostMonoDefId`、type argument table の範囲を表す `SelfhostMonoTypeArgRange`、cache lookup 用の `SelfhostMonoInstanceKey`、instance table index の `SelfhostMonoInstanceId` を提供します。`selfhost_mono_instance_key_seed` は name mangling / cache bucket 用の deterministic seed を返します。実際の cache storage、trait impl lookup、HIR 複製は後続 issue で追加します。
 
+## S6 CLI Boundary
+
+`cli/args/types.nepl` は CLI driver / reporter / parser が共有する `SelfhostCliTarget`、`SelfhostCliEmitSet`、`SelfhostCliOptions` などの public option 型を提供します。`cli/args.nepl` は既存 import path の compatibility facade と pure argv parser を兼ね、`args/types` を `pub #import` で再 export します。filesystem、stdio、artifact 書き出しは後続の `cli/file_io.nepl`、`cli/reporter.nepl`、`cli/driver.nepl` に分けます。
+
 ## 検証
 
 ```powershell

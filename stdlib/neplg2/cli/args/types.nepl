@@ -1,0 +1,144 @@
+#indent 4
+
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: # args/types
+//: NEPLg2.0 self-host CLI の public option [型/かた]を[集/あつ]める module です。
+//:
+//: [目的/もくてき]:
+//: - argv parser、driver、reporter が[共有/きょうゆう]する CLI option model を parser 実装から[分離/ぶんり]します。
+//: - `neplg2/cli/args` は compatibility facade としてこの module を再 export します。
+//:
+//: [注意/ちゅうい]:
+//: - parser 固有の分類 enum や string matching helper は `neplg2/cli/args` 側に残します。
+//: - ここに置く型は filesystem / stdio に依存しない pure value です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/field" as *
+//:| #import "neplg2/cli/args/types" as *
+//: fn main <()*>i32> ():
+//:     let emit <SelfhostCliEmitSet> SelfhostCliEmitSet true false false true false;
+//:     let ok <bool> and get emit "wasm" get emit "llvm";
+//:     if ok 0 1
+//: ```
+
+//: SelfhostCliTarget: self-host compiler が受け付ける compile target
+//:
+//: [目的/もくてき]:
+//: - Rust CLI の `--target` 表面と同じ語彙を enum に閉じ込めます。
+//: - `core` / `std` は互換 alias として parser で正規化します。
+//:
+//: [注意/ちゅうい]:
+//: - `Core` と `Std` は enum variant にはせず、それぞれ `Wasm` / `Wasi` に正規化します。
+pub enum SelfhostCliTarget:
+    Wasm
+    Wasi
+    Wasix
+    Llvm
+
+impl Clone for SelfhostCliTarget:
+    fn clone <(&SelfhostCliTarget)->SelfhostCliTarget> (self):
+        *self
+
+impl Copy for SelfhostCliTarget:
+    fn copy_mark <(SelfhostCliTarget)->SelfhostCliTarget> (self):
+        self
+
+//: SelfhostCliEmit: self-host compiler の出力形式
+//:
+//: [目的/もくてき]:
+//: - `--emit` の 1 要素を enum として扱い、comma 区切り parser と後続 driver が文字列比較を繰り返さずに分岐できるようにします。
+//: - `All` は parser 内で `SelfhostCliEmitSet` の全 artifact に展開します。
+pub enum SelfhostCliEmit:
+    Wasm
+    Wat
+    WatMin
+    Llvm
+    LlvmMin
+    All
+
+impl Clone for SelfhostCliEmit:
+    fn clone <(&SelfhostCliEmit)->SelfhostCliEmit> (self):
+        *self
+
+impl Copy for SelfhostCliEmit:
+    fn copy_mark <(SelfhostCliEmit)->SelfhostCliEmit> (self):
+        self
+
+//: SelfhostCliEmitSet: self-host compiler が 1 回の実行で出力する artifact set
+//:
+//: [目的/もくてき]:
+//: - `--emit wasm,wat,llvm-min` のような複数指定を、所有権付き collection ではなく固定 bool field で表します。
+//: - 重複指定は同じ field を `true` にするだけなので、parser state は O(1) のまま保てます。
+//:
+//: [注意/ちゅうい]:
+//: - output path と複数 artifact の具体的な file naming は artifact writer 側で決めます。
+pub struct SelfhostCliEmitSet:
+    wasm <bool>
+    wat <bool>
+    wat_min <bool>
+    llvm <bool>
+    llvm_min <bool>
+
+impl Clone for SelfhostCliEmitSet:
+    fn clone <(&SelfhostCliEmitSet)->SelfhostCliEmitSet> (self):
+        *self
+
+impl Copy for SelfhostCliEmitSet:
+    fn copy_mark <(SelfhostCliEmitSet)->SelfhostCliEmitSet> (self):
+        self
+
+//: SelfhostCliProfile: compile profile の指定
+pub enum SelfhostCliProfile:
+    Debug
+    Release
+
+impl Clone for SelfhostCliProfile:
+    fn clone <(&SelfhostCliProfile)->SelfhostCliProfile> (self):
+        *self
+
+impl Copy for SelfhostCliProfile:
+    fn copy_mark <(SelfhostCliProfile)->SelfhostCliProfile> (self):
+        self
+
+//: SelfhostCliErrorKind: CLI parser が返す usage error の分類
+//:
+//: [目的/もくてき]:
+//: - compiler diagnostic と CLI usage error を混ぜず、exit code と message を driver 側で決められるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - どの option が原因かを含む詳細 diagnostic は `cli/reporter.nepl` の段階で追加します。
+pub enum SelfhostCliErrorKind:
+    UnknownOption
+    MissingValue
+    MultipleInput
+    InvalidTarget
+    InvalidEmit
+    InvalidProfile
+
+//: SelfhostCliOptions: pure parser が返す CLI option set
+//:
+//: [目的/もくてき]:
+//: - self-host CLI driver が必要とする compile/run option をまとめます。
+//: - raw argv 取得、filesystem 読み込み、artifact 書き出しとは独立した純粋値にします。
+//:
+//: [注意/ちゅうい]:
+//: - `run_args_start` は parser に渡した引数列の index です。`selfhost_cli_parse_argv` の場合は argv[0] を含む index になります。
+//: - `input` は `-i/--input` と positional input のどちらから来ても同じ field に格納します。
+pub struct SelfhostCliOptions:
+    check <bool>
+    run <bool>
+    attach_source <bool>
+    lib <bool>
+    verbose <bool>
+    emit <SelfhostCliEmitSet>
+    target <Option<SelfhostCliTarget>>
+    profile <Option<SelfhostCliProfile>>
+    stdlib_root <Option<str>>
+    output <Option<str>>
+    input <Option<str>>
+    run_args_start <Option<i32>>

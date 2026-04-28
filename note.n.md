@@ -8,6 +8,18 @@
 - [方針]:
   - `SelfhostCliTarget` / `SelfhostCliEmit` / `SelfhostCliEmitSet` / `SelfhostCliProfile` / `SelfhostCliErrorKind` / `SelfhostCliOptions` と Copy impl を `stdlib/neplg2/cli/args/types.nepl` へ分ける。
   - 既存 import path `neplg2/cli/args` は compatibility facade として維持し、`pub #import "./args/types" as *` で再 export する。
+- [修正]:
+  - `stdlib/neplg2/cli/args/types.nepl` を追加し、public CLI option 型と Copy / Clone impl を parser 実装から分離した。
+  - `stdlib/neplg2/cli/args.nepl` は `pub #import "./args/types" as *` で型 module を再 export し、parser 固有の `SelfhostCliArgKind` / classifier / parse loop を保持した。
+  - `nodesrc/test_selfhost_cli_args_types_split.js` を追加し、public option 型が `args/types.nepl` 側にあることを source policy にした。
+  - `stdlib/neplg2/README.md` に S6 CLI boundary と `cli/args/types.nepl` の役割を追記した。
+- [検証]:
+  - `node nodesrc/test_selfhost_cli_args_types_split.js`: pass
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: pass
+  - `node nodesrc/tests.js -i stdlib\neplg2\cli\args\types.nepl --no-tree -o tmp\selfhost-cli-args-types-split-types.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i stdlib\neplg2\cli\args.nepl --no-tree -o tmp\selfhost-cli-args-types-split-args.json -j 1`: total=5 passed=5
+  - `node nodesrc/tests.js -i tests\stdlib\selfhost_cliarg_parser.n.md --no-tree -o tmp\selfhost-cli-args-types-split-fixture.json -j 1`: total=10 passed=10
+  - `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-args-types-split-neplg2.json -j 1`: total=33 passed=24 failed=9。追加した `args/types` doctest と `args.nepl` は pass。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

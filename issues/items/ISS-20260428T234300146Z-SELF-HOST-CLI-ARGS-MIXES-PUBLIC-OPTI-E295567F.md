@@ -2,8 +2,8 @@
 id: ISS-20260428T234300146Z-SELF-HOST-CLI-ARGS-MIXES-PUBLIC-OPTI-E295567F
 title: "self-host CLI args mixes public option types with parser implementation"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: architecture
 created: 2026-04-28
@@ -42,3 +42,21 @@ Create a focused cli/args/types.nepl module for public CLI option enums/structs 
 ## 検証
 
 Run self-host CLI args focused doctests, tests/stdlib/selfhost_cliarg_parser.n.md, the source policy regressions for CLI args/outcome, node nodesrc/issues.js check, and git diff --check.
+
+## 修正内容
+
+- `stdlib/neplg2/cli/args/types.nepl` を追加し、`SelfhostCliTarget`、`SelfhostCliEmit`、`SelfhostCliEmitSet`、`SelfhostCliProfile`、`SelfhostCliErrorKind`、`SelfhostCliOptions` と Copy / Clone impl を parser 実装から分離した。
+- `stdlib/neplg2/cli/args.nepl` は `pub #import "./args/types" as *` により既存 import path を保つ compatibility facade とし、parser 固有の `SelfhostCliArgKind` / classifier / parse loop を残した。
+- `nodesrc/test_selfhost_cli_args_types_split.js` を追加し、public option 型が `args/types.nepl` にあり、`args.nepl` へ戻らないことを固定した。
+- `stdlib/neplg2/README.md` に S6 CLI boundary と `cli/args/types.nepl` の役割を追記した。
+
+## 検証結果
+
+- `node nodesrc/test_selfhost_cli_args_types_split.js`: pass
+- `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`: pass
+- `node nodesrc/tests.js -i stdlib\neplg2\cli\args\types.nepl --no-tree -o tmp\selfhost-cli-args-types-split-types.json -j 1`: total=1, passed=1
+- `node nodesrc/tests.js -i stdlib\neplg2\cli\args.nepl --no-tree -o tmp\selfhost-cli-args-types-split-args.json -j 1`: total=5, passed=5
+- `node nodesrc/tests.js -i tests\stdlib\selfhost_cliarg_parser.n.md --no-tree -o tmp\selfhost-cli-args-types-split-fixture.json -j 1`: total=10, passed=10
+- `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-args-types-split-neplg2.json -j 1`: total=33, passed=24, failed=9。追加した `args/types` doctest と `args.nepl` は pass。残件は既知の Vec element provenance 系。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
