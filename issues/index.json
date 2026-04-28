@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T11:30:21.410Z",
+  "generated_at": "2026-04-28T11:34:33.089Z",
   "counts": {
     "total": 263,
-    "open": 11,
-    "resolved": 252,
+    "open": 10,
+    "resolved": 253,
     "by_area": {
       "core": {
         "total": 115,
         "open": 4,
         "resolved": 111
       },
-      "selfhost": {
-        "total": 17,
-        "open": 2,
-        "resolved": 15
-      },
       "stdlib": {
         "total": 95,
         "open": 5,
         "resolved": 90
+      },
+      "selfhost": {
+        "total": 17,
+        "open": 1,
+        "resolved": 16
       },
       "cli": {
         "total": 19,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2",
-      "title": "self-host lexer raw block state is missing",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2133,6 +2118,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T092058380Z-SELF-HOST-LEXER-INDENT-STACK-TOP-USE-78D14CFB.md"
+    },
+    {
+      "id": "ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2",
+      "title": "self-host lexer raw block state is missing",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

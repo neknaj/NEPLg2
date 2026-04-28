@@ -1,3 +1,18 @@
+# 2026-04-28 メモ (ISS-20260428T102223821Z self-host lexer raw block state)
+
+- self-host lexer の `#wasm:` / `#llvmir:` raw block 本文対応を実装した。
+- `DirWasm` / `DirLlvmIr` を読んだ次行から pending raw mode を開始し、現在 indent + `#indent` 幅を raw block base として `Indent` を生成する。
+- raw mode 中は base 以上の行を `WasmText` / `LlvmIrText` として token 化し、base 未満への dedent で raw mode を終了して通常 lexer に戻る。
+- `tests/stdlib/neplg2_lexer.n.md` に doc / mlstr / raw wasm / raw llvmir の focused regression を追加した。
+- 検証:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-raw-block-after-build.json -j 1`: total=12, passed=12
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-selfhost-raw-block-final.json -j 1`: total=37, passed=37
+  - `node nodesrc/test_selfhost_lexer_rust_parity.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check HEAD`: pass（CRLF warning only）
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T084929443Z self-host lexer Rust token parity)
 
 - self-host lexer の token kind を Rust `analyze_lex` JSON の kind 名へ合わせた。
