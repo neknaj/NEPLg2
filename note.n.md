@@ -1,3 +1,16 @@
+# 2026-04-28 メモ (ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3 CI 再発)
+
+- 状況:
+  - `main` の CI run `25034413035` と `25034624930` で `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` が失敗していた。
+  - 失敗内容は `Diag string Vec allocation fallback must use an empty sentinel` で、`diag_empty_str_vec <()->Vec<str>>` の source policy が再発している。
+- 対応:
+  - `ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3` を `status: open` / `resolved: false` に戻し、CI 再発の run ID と失敗内容を追記した。
+  - stdlib 実装は別対応中のため、この commit では issue 管理だけ更新した。
+- 検証:
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。これは CI 失敗に対応する issue 状態更新であり、静的検査 module 分割の実装変更ではない。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck assignment apply module)
 
 - 状況:
