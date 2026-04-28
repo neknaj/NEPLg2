@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T142719860Z Resource initialized checker split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceCheckEngine` と `check_resource_initialized_moves` を `nepl-core/src/resource/initialized.rs` へ分離した。
+- `initialized.rs` は Resource IR の `InitializedCell` / moved / dropped state を検査する Stage 4 component とし、owner obligation / borrow lifetime checker とは独立した責務にした。
+- `shadow.rs` と `resource/mod.rs` は `initialized.rs` の public entry point を参照するように更新した。外部 API の `check_resource_initialized_moves` export は維持している。
+- `check.rs` は 1658 行から 1054 行になり、`initialized.rs` は 619 行になった。issue はまだ open とし、次は owner / borrow checker engine の分割、または effect boundary engine の分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\initialized.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T142719860Z Resource shadow entry split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、HIR から Resource IR へ lower して shadow report を組み立てる `check_hir_resource_safety_shadow` を `nepl-core/src/resource/shadow.rs` へ分離した。

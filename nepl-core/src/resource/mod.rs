@@ -16,6 +16,7 @@ mod effect;
 mod effect_identity;
 mod effect_summary;
 mod function_alias;
+mod initialized;
 mod lower;
 mod model;
 mod owner_state;
@@ -24,10 +25,7 @@ mod report;
 mod shadow;
 mod summary;
 
-pub use check::{
-    check_resource_borrow_lifetimes, check_resource_initialized_moves,
-    check_resource_owner_obligations,
-};
+pub use check::{check_resource_borrow_lifetimes, check_resource_owner_obligations};
 pub use coverage::{
     compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
     ResourceCoverageKind, ResourceFunctionCoverage, ResourceLoweringCoverage,
@@ -36,6 +34,7 @@ pub use effect::{
     check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
     ResourceEffectBoundaryReport, ResourceEffectCounts, ResourceEffectFunctionCheck,
 };
+pub use initialized::check_resource_initialized_moves;
 pub use lower::lower_hir_module_skeleton;
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,

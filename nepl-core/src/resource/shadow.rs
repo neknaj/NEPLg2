@@ -1,12 +1,10 @@
 use crate::hir::HirModule;
 use crate::types::TypeCtx;
 
-use super::check::{
-    check_resource_borrow_lifetimes, check_resource_initialized_moves,
-    check_resource_owner_obligations,
-};
+use super::check::{check_resource_borrow_lifetimes, check_resource_owner_obligations};
 use super::coverage::compare_hir_resource_lowering;
 use super::effect::check_resource_effect_boundaries;
+use super::initialized::check_resource_initialized_moves;
 use super::lower::lower_hir_module_skeleton;
 use super::report::ResourceSafetyShadowReport;
 

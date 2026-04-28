@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
+target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
 ---
 
 # ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4: Resource checker is becoming a new monolithic static-check pass
@@ -236,6 +236,22 @@ HIR から Resource IR へ lower して shadow report を組み立てる `check_
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\shadow.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Initialized move checker split
+
+`ResourceCheckEngine` と `check_resource_initialized_moves` を `nepl-core/src/resource/initialized.rs` へ分離した。これは Resource IR の `InitializedCell` / moved / dropped state を検査する Stage 4 component であり、owner obligation / borrow lifetime checker とは独立した責務として扱う。
+
+`check.rs` 側には owner obligation と borrow lifetime の engine / entry point を残した。`shadow.rs` と `resource/mod.rs` は `initialized.rs` の public entry point を参照するように更新し、外部 API の `check_resource_initialized_moves` export は維持した。
+
+この分割で `check.rs` は 1658 行から 1054 行になり、`initialized.rs` は 619 行になった。issue はまだ open のままとし、次は owner / borrow checker engine の分割、または effect boundary engine の分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\initialized.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
