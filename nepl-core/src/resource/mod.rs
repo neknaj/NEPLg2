@@ -14,10 +14,12 @@ mod lower;
 mod model;
 
 pub use check::{
-    check_resource_initialized_moves, check_resource_owner_obligations, ResourceCheckDeferred,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceFunctionCheck,
-    ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
-    ResourceOwnerFunctionCheck, ResourceOwnerOperation,
+    check_resource_borrow_lifetimes, check_resource_initialized_moves,
+    check_resource_owner_obligations, ResourceBorrowCheckDeferred, ResourceBorrowCheckReport,
+    ResourceBorrowDiagnostic, ResourceBorrowFunctionCheck, ResourceBorrowOperation,
+    ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
+    ResourceFunctionCheck, ResourceOwnerCheckDeferred, ResourceOwnerCheckReport,
+    ResourceOwnerDiagnostic, ResourceOwnerFunctionCheck, ResourceOwnerOperation,
 };
 pub use coverage::{
     compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,

@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -7,9 +8,9 @@ use crate::span::Span;
 use crate::types::TypeCtx;
 
 use super::model::{
-    CellState, CellStateEntry, OwnerState, OwnerStateEntry, Place, PlaceRoot, RawMemoryOp,
-    ResourceBlock, ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp,
-    ResourceTerminator, StorageId,
+    BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, OwnerState,
+    OwnerStateEntry, Place, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceExprKind,
+    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator, StorageId,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -115,6 +116,48 @@ pub enum ResourceOwnerOperation {
     MatchValue,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceBorrowCheckReport {
+    pub functions: Vec<ResourceBorrowFunctionCheck>,
+    pub diagnostics: Vec<ResourceBorrowDiagnostic>,
+    pub deferred: ResourceBorrowCheckDeferred,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceBorrowFunctionCheck {
+    pub name: String,
+    pub final_borrows: Vec<BorrowStateEntry>,
+    pub deferred: ResourceBorrowCheckDeferred,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ResourceBorrowCheckDeferred {
+    pub branch_merges: usize,
+    pub loop_merges: usize,
+    pub match_merges: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceBorrowDiagnostic {
+    BorrowConflict {
+        function: String,
+        operation: ResourceBorrowOperation,
+        place: Place,
+        active: BorrowState,
+        span: Span,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceBorrowOperation {
+    SharedBorrow,
+    UniqueBorrow,
+    Read,
+    Move,
+    Assign,
+    Drop,
+}
+
 pub fn check_resource_initialized_moves(
     module: &ResourceModule,
     types: &TypeCtx,
@@ -175,6 +218,34 @@ pub fn check_resource_owner_obligations(module: &ResourceModule) -> ResourceOwne
     }
 }
 
+pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorrowCheckReport {
+    let mut functions = Vec::new();
+    let mut diagnostics = Vec::new();
+    let mut deferred = ResourceBorrowCheckDeferred::default();
+
+    for function in &module.functions {
+        let mut engine = ResourceBorrowCheckEngine {
+            function: function.name.as_str(),
+            diagnostics: Vec::new(),
+            deferred: ResourceBorrowCheckDeferred::default(),
+        };
+        let final_borrows = engine.check_function(function);
+        merge_borrow_deferred(&mut deferred, engine.deferred);
+        diagnostics.extend(engine.diagnostics);
+        functions.push(ResourceBorrowFunctionCheck {
+            name: function.name.clone(),
+            final_borrows,
+            deferred: engine.deferred,
+        });
+    }
+
+    ResourceBorrowCheckReport {
+        functions,
+        diagnostics,
+        deferred,
+    }
+}
+
 struct ResourceCheckEngine<'a> {
     function: &'a str,
     types: &'a TypeCtx,
@@ -186,6 +257,12 @@ struct ResourceOwnerCheckEngine<'a> {
     function: &'a str,
     diagnostics: Vec<ResourceOwnerDiagnostic>,
     deferred: ResourceOwnerCheckDeferred,
+}
+
+struct ResourceBorrowCheckEngine<'a> {
+    function: &'a str,
+    diagnostics: Vec<ResourceBorrowDiagnostic>,
+    deferred: ResourceBorrowCheckDeferred,
 }
 
 impl ResourceCheckEngine<'_> {
@@ -541,6 +618,197 @@ impl ResourceCheckEngine<'_> {
     }
 }
 
+impl ResourceBorrowCheckEngine<'_> {
+    fn check_function(&mut self, function: &ResourceFunction) -> Vec<BorrowStateEntry> {
+        let mut borrows = BorrowTable::default();
+        for block in &function.blocks {
+            self.check_block(&mut borrows, block);
+        }
+        borrows.into_entries()
+    }
+
+    fn check_block(&mut self, borrows: &mut BorrowTable, block: &ResourceBlock) {
+        self.check_ops(borrows, &block.ops);
+    }
+
+    fn check_ops(&mut self, borrows: &mut BorrowTable, ops: &[ResourceOp]) {
+        for op in ops {
+            self.check_op(borrows, op);
+        }
+    }
+
+    fn check_op(&mut self, borrows: &mut BorrowTable, op: &ResourceOp) {
+        match op {
+            ResourceOp::DeclareLocal {
+                place, initializer, ..
+            } => {
+                if let Some(initializer) = initializer {
+                    borrows.transfer_token(initializer, place);
+                }
+            }
+            ResourceOp::Read {
+                source,
+                output,
+                span,
+            } => {
+                if !borrows.copy_or_move_token(source, output) {
+                    self.check_source_read(borrows, source, *span);
+                }
+            }
+            ResourceOp::Assign {
+                target,
+                value,
+                span,
+            } => {
+                self.check_source_exclusive(
+                    borrows,
+                    target,
+                    ResourceBorrowOperation::Assign,
+                    *span,
+                );
+                borrows.transfer_token(value, target);
+            }
+            ResourceOp::Borrow {
+                source,
+                output,
+                kind,
+                span,
+            } => self.start_borrow(borrows, source, output, *kind, *span),
+            ResourceOp::Move {
+                source,
+                output,
+                span,
+            } => {
+                if !borrows.transfer_token(source, output) {
+                    self.check_source_exclusive(
+                        borrows,
+                        source,
+                        ResourceBorrowOperation::Move,
+                        *span,
+                    );
+                }
+            }
+            ResourceOp::Drop { place, span } => {
+                if !borrows.release_token(place) {
+                    self.check_source_exclusive(
+                        borrows,
+                        place,
+                        ResourceBorrowOperation::Drop,
+                        *span,
+                    );
+                }
+            }
+            ResourceOp::Branch {
+                then_ops, else_ops, ..
+            } => {
+                self.deferred.branch_merges += 1;
+                let mut then_borrows = borrows.clone();
+                let mut else_borrows = borrows.clone();
+                self.check_ops(&mut then_borrows, then_ops);
+                self.check_ops(&mut else_borrows, else_ops);
+            }
+            ResourceOp::Loop {
+                condition_ops,
+                body_ops,
+                ..
+            } => {
+                self.deferred.loop_merges += 1;
+                let mut condition_borrows = borrows.clone();
+                self.check_ops(&mut condition_borrows, condition_ops);
+                let mut body_borrows = borrows.clone();
+                self.check_ops(&mut body_borrows, body_ops);
+            }
+            ResourceOp::Match { arms, .. } => {
+                self.deferred.match_merges += 1;
+                for arm in arms {
+                    let mut arm_borrows = borrows.clone();
+                    self.check_ops(&mut arm_borrows, &arm.ops);
+                }
+            }
+            ResourceOp::Expr { .. }
+            | ResourceOp::CallEffect { .. }
+            | ResourceOp::FunctionValue { .. }
+            | ResourceOp::Call { .. }
+            | ResourceOp::IndirectCall { .. }
+            | ResourceOp::RawMemory { .. }
+            | ResourceOp::Construct { .. } => {}
+        }
+    }
+
+    fn start_borrow(
+        &mut self,
+        borrows: &mut BorrowTable,
+        source: &Place,
+        output: &Place,
+        kind: BorrowKind,
+        span: Span,
+    ) {
+        match (kind, borrows.state(source)) {
+            (BorrowKind::Shared, BorrowState::Unique { .. }) => {
+                self.push_conflict(
+                    ResourceBorrowOperation::SharedBorrow,
+                    source,
+                    borrows.state(source),
+                    span,
+                );
+            }
+            (BorrowKind::Unique, BorrowState::Shared { .. } | BorrowState::Unique { .. }) => {
+                self.push_conflict(
+                    ResourceBorrowOperation::UniqueBorrow,
+                    source,
+                    borrows.state(source),
+                    span,
+                );
+            }
+            (BorrowKind::Shared, _) => borrows.add_shared(source, output),
+            (BorrowKind::Unique, _) => borrows.add_unique(source, output),
+        }
+    }
+
+    fn check_source_read(&mut self, borrows: &BorrowTable, place: &Place, span: Span) {
+        if let BorrowState::Unique { .. } = borrows.state(place) {
+            self.push_conflict(
+                ResourceBorrowOperation::Read,
+                place,
+                borrows.state(place),
+                span,
+            );
+        }
+    }
+
+    fn check_source_exclusive(
+        &mut self,
+        borrows: &BorrowTable,
+        place: &Place,
+        operation: ResourceBorrowOperation,
+        span: Span,
+    ) {
+        match borrows.state(place) {
+            BorrowState::Shared { .. } | BorrowState::Unique { .. } => {
+                self.push_conflict(operation, place, borrows.state(place), span);
+            }
+            BorrowState::Unborrowed | BorrowState::Released => {}
+        }
+    }
+
+    fn push_conflict(
+        &mut self,
+        operation: ResourceBorrowOperation,
+        place: &Place,
+        active: BorrowState,
+        span: Span,
+    ) {
+        self.diagnostics
+            .push(ResourceBorrowDiagnostic::BorrowConflict {
+                function: String::from(self.function),
+                operation,
+                place: place.clone(),
+                active,
+                span,
+            });
+    }
+}
+
 impl ResourceOwnerCheckEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) -> Vec<OwnerStateEntry> {
         let mut owners = OwnerTable::default();
@@ -821,6 +1089,126 @@ impl ResourceOwnerCheckEngine<'_> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BorrowBinding {
+    token: Place,
+    source: Place,
+    kind: BorrowKind,
+}
+
+#[derive(Debug, Clone, Default)]
+struct BorrowTable {
+    sources: Vec<BorrowStateEntry>,
+    bindings: Vec<BorrowBinding>,
+}
+
+impl BorrowTable {
+    fn into_entries(self) -> Vec<BorrowStateEntry> {
+        self.sources
+    }
+
+    fn state(&self, place: &Place) -> BorrowState {
+        self.sources
+            .iter()
+            .find(|entry| entry.place == *place)
+            .map(|entry| entry.state.clone())
+            .unwrap_or(BorrowState::Unborrowed)
+    }
+
+    fn add_shared(&mut self, source: &Place, token: &Place) {
+        let next_count = match self.state(source) {
+            BorrowState::Shared { count } => count + 1,
+            _ => 1,
+        };
+        self.set_source(source, BorrowState::Shared { count: next_count });
+        self.bindings.push(BorrowBinding {
+            token: token.clone(),
+            source: source.clone(),
+            kind: BorrowKind::Shared,
+        });
+    }
+
+    fn add_unique(&mut self, source: &Place, token: &Place) {
+        self.set_source(
+            source,
+            BorrowState::Unique {
+                source: Box::new(source.clone()),
+            },
+        );
+        self.bindings.push(BorrowBinding {
+            token: token.clone(),
+            source: source.clone(),
+            kind: BorrowKind::Unique,
+        });
+    }
+
+    fn copy_or_move_token(&mut self, source: &Place, output: &Place) -> bool {
+        let Some(index) = self.binding_index(source) else {
+            return false;
+        };
+        let binding = self.bindings[index].clone();
+        match binding.kind {
+            BorrowKind::Shared => {
+                self.add_shared(&binding.source, output);
+            }
+            BorrowKind::Unique => {
+                self.bindings[index].token = output.clone();
+            }
+        }
+        true
+    }
+
+    fn transfer_token(&mut self, source: &Place, target: &Place) -> bool {
+        let Some(index) = self.binding_index(source) else {
+            return false;
+        };
+        self.bindings[index].token = target.clone();
+        true
+    }
+
+    fn release_token(&mut self, token: &Place) -> bool {
+        let Some(index) = self.binding_index(token) else {
+            return false;
+        };
+        let binding = self.bindings.remove(index);
+        self.release_source(&binding.source, binding.kind);
+        true
+    }
+
+    fn release_source(&mut self, source: &Place, kind: BorrowKind) {
+        match (kind, self.state(source)) {
+            (BorrowKind::Shared, BorrowState::Shared { count }) if count > 1 => {
+                self.set_source(source, BorrowState::Shared { count: count - 1 });
+            }
+            (BorrowKind::Shared, BorrowState::Shared { .. })
+            | (BorrowKind::Unique, BorrowState::Unique { .. }) => {
+                self.set_source(source, BorrowState::Released);
+            }
+            _ => {}
+        }
+    }
+
+    fn set_source(&mut self, place: &Place, state: BorrowState) {
+        if !should_track(place) {
+            return;
+        }
+        if let Some(entry) = self.sources.iter_mut().find(|entry| entry.place == *place) {
+            entry.state = state;
+        } else {
+            self.sources.push(BorrowStateEntry {
+                place: place.clone(),
+                state,
+            });
+        }
+    }
+
+    fn binding_index(&self, token: &Place) -> Option<usize> {
+        self.bindings
+            .iter()
+            .position(|binding| binding.token == *token)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 struct CellTable {
     cells: Vec<CellStateEntry>,
@@ -917,6 +1305,15 @@ fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDefer
 fn merge_owner_deferred(
     target: &mut ResourceOwnerCheckDeferred,
     source: ResourceOwnerCheckDeferred,
+) {
+    target.branch_merges += source.branch_merges;
+    target.loop_merges += source.loop_merges;
+    target.match_merges += source.match_merges;
+}
+
+fn merge_borrow_deferred(
+    target: &mut ResourceBorrowCheckDeferred,
+    source: ResourceBorrowCheckDeferred,
 ) {
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;

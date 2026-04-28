@@ -3,12 +3,13 @@ use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
 use nepl_core::resource::{
-    check_resource_initialized_moves, check_resource_owner_obligations,
-    compare_hir_resource_lowering, lower_hir_module_skeleton, AggregateKind, CellState, EffectOp,
-    OwnerState, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceCallTarget,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCoverageDiagnostic,
-    ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule, ResourceOp,
-    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    check_resource_borrow_lifetimes, check_resource_initialized_moves,
+    check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module_skeleton,
+    AggregateKind, BorrowKind, BorrowState, CellState, EffectOp, OwnerState, Place, PlaceRoot,
+    RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation,
+    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule,
+    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -811,6 +812,143 @@ fn resource_ir_owner_check_reports_double_dealloc() {
     )));
 }
 
+#[test]
+fn resource_ir_borrow_check_allows_shared_read_until_release() {
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), types.i32());
+    let borrow = Place::temporary(ResourceId(0), types.i32());
+    let value = Place::temporary(ResourceId(1), types.i32());
+    let resource = manual_resource_module(
+        types.unit(),
+        span,
+        vec![
+            ResourceOp::Borrow {
+                source: x.clone(),
+                output: borrow.clone(),
+                kind: BorrowKind::Shared,
+                span,
+            },
+            ResourceOp::Read {
+                source: x,
+                output: value,
+                span,
+            },
+            ResourceOp::Drop {
+                place: borrow,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_borrow_check_reports_read_during_unique_borrow() {
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), types.i32());
+    let resource = manual_resource_module(
+        types.unit(),
+        span,
+        vec![
+            ResourceOp::Borrow {
+                source: x.clone(),
+                output: Place::temporary(ResourceId(0), types.i32()),
+                kind: BorrowKind::Unique,
+                span,
+            },
+            ResourceOp::Read {
+                source: x,
+                output: Place::temporary(ResourceId(1), types.i32()),
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::Read,
+            active: BorrowState::Unique { .. },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_borrow_check_reports_unique_conflict_with_shared_borrow() {
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), types.i32());
+    let resource = manual_resource_module(
+        types.unit(),
+        span,
+        vec![
+            ResourceOp::Borrow {
+                source: x.clone(),
+                output: Place::temporary(ResourceId(0), types.i32()),
+                kind: BorrowKind::Shared,
+                span,
+            },
+            ResourceOp::Borrow {
+                source: x,
+                output: Place::temporary(ResourceId(1), types.i32()),
+                kind: BorrowKind::Unique,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::UniqueBorrow,
+            active: BorrowState::Shared { count: 1 },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_borrow_check_releases_shared_before_unique_borrow() {
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), types.i32());
+    let shared = Place::temporary(ResourceId(0), types.i32());
+    let resource = manual_resource_module(
+        types.unit(),
+        span,
+        vec![
+            ResourceOp::Borrow {
+                source: x.clone(),
+                output: shared.clone(),
+                kind: BorrowKind::Shared,
+                span,
+            },
+            ResourceOp::Drop {
+                place: shared,
+                span,
+            },
+            ResourceOp::Borrow {
+                source: x,
+                output: Place::temporary(ResourceId(1), types.i32()),
+                kind: BorrowKind::Unique,
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
@@ -826,6 +964,27 @@ fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
         },
     );
     (types, owned_ty)
+}
+
+fn manual_resource_module(unit_ty: TypeId, span: Span, ops: Vec<ResourceOp>) -> ResourceModule {
+    ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops,
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    }
 }
 
 fn raw_owner_module(
