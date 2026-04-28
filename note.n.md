@@ -1,3 +1,18 @@
+# 2026-04-28 メモ (静的検査の複雑化解消計画)
+
+- 状況:
+  - remote main の memory model 方針を踏まえ、`MemPtr` を拡張し続けるのではなく、`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` に分ける大規模修正の計画が必要になった。
+  - 既存 issue は raw memory / borrow / function effect の個別回帰修正が多く、親 issue と実装段階の対応関係が見えにくくなっていた。
+- 対応:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` を追加し、静的検査の層、Resource IR の最小モデル、effect model、`MemPtr` / `Storage` / `InitializedCell` の責務分割、Stage 0-7 の実装計画を整理した。
+  - `doc/neplg2/README.md` に新規ドキュメントへのリンクを追加した。
+  - 関連 issue 8件へ新規 doc へのリンクと、整理後の位置づけ・完了条件を追記した。
+- 検証:
+  - `node nodesrc/issues.js index`: 成功
+  - `node nodesrc/issues.js check`: 成功
+- plan.md との差異:
+  - plan.md は変更していない。現行 Rust compiler の静的検査を、NEPLg2 self-host の S3 以降でも移植可能な Resource IR 중심の構造へ移すための保守ドキュメントを追加した。
+
 # 2026-04-28 メモ (ISS-20260427T233905940Z signed raw offset provenance)
 
 - 状況:
