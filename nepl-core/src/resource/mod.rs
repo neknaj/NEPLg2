@@ -7,6 +7,7 @@
 
 extern crate alloc;
 
+mod borrow_state;
 mod cell_state;
 mod check;
 mod coverage;

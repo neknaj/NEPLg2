@@ -1,3 +1,16 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker BorrowState split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`BorrowTable`、borrow token binding、BorrowState merge helper を `nepl-core/src/resource/borrow_state.rs` へ分離した。
+- `ResourceBorrowCheckEngine` には traversal / diagnostic emission / function alias application を残し、borrow token の複製・移動・解放、source state merge、branch/loop/match 後の binding retain は borrow table module の責務にした。
+- 行数は `check.rs` 2200 行、`borrow_state.rs` 211 行、`cell_state.rs` 256 行、`owner_state.rs` 143 行、`place_utils.rs` 59 行。issue はまだ open とし、次は function summary / engine traversal の分割、または責務境界を固定する check を追加する。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\borrow_state.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker OwnerState split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`OwnerTable` と owner state merge helper を `nepl-core/src/resource/owner_state.rs` へ分離した。
