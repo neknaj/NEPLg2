@@ -43,3 +43,26 @@ Split resource checking by responsibility before enabling broader authoritative 
 ## 検証
 
 After splitting, run the full resource_ir test suite, rustfmt on the resource modules, node nodesrc/issues.js check, and trunk build. Add a source-level check or documentation note so Resource IR check responsibilities do not collapse back into one file.
+
+## 2026-04-28 place utility split
+
+最初の分割として、Resource checker 内で CellState / OwnerState / BorrowState が共有している `Place` 操作 helper を `nepl-core/src/resource/place_utils.rs` へ切り出した。
+
+- `should_track`
+- `raw_memory_cell_place`
+- `place_suffix_after_prefix`
+- `replace_place_prefix`
+- `place_with_suffix`
+- `places_overlap`
+- `push_unique_place`
+- `push_unique_usize`
+
+この commit は behavior を変えず、次に `cell_state` / `owner_obligation` / `borrow_lifetime` を分けるための共通依存を先に作る。issue はまだ open のままとし、`check.rs` から engine と table をさらに分割する。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\place_utils.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`

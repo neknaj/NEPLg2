@@ -13,6 +13,7 @@ mod dump;
 mod effect;
 mod lower;
 mod model;
+mod place_utils;
 
 pub use check::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,

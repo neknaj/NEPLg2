@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource checker place utility split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の最初の実装修正として、`nepl-core/src/resource/check.rs` から共通 `Place` 操作 helper を `nepl-core/src/resource/place_utils.rs` へ切り出した。
+- 移動した helper は `should_track`、`raw_memory_cell_place`、`place_suffix_after_prefix`、`replace_place_prefix`、`place_with_suffix`、`places_overlap`、`push_unique_place`、`push_unique_usize`。
+- 今回は behavior を変えない module split とし、CellState / OwnerState / BorrowState の engine/table 分割前に共通依存を作った。
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` はまだ open。次は `cell_state` / `owner_obligation` / `borrow_lifetime` のいずれかを check.rs から分離する。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\place_utils.rs`: pass
+  - `node nodesrc/issues.js check`: files=287, pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (静的検査大規模修正 全体レビュー)
 
 - `9c9ef1b` の commit 後に `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 2-5 と現行 `nepl-core/src/resource` を再確認した。

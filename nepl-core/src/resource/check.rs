@@ -14,9 +14,13 @@ use super::effect::{check_resource_effect_boundaries, ResourceEffectBoundaryRepo
 use super::lower::lower_hir_module_skeleton;
 use super::model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry,
-    OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock,
+    OwnerState, OwnerStateEntry, Place, PlaceProjection, RawMemoryOp, ResourceBlock,
     ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp,
     ResourceTerminator, StorageId,
+};
+use super::place_utils::{
+    place_suffix_after_prefix, place_with_suffix, places_overlap, push_unique_place,
+    push_unique_usize, raw_memory_cell_place, replace_place_prefix, should_track,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2645,14 +2649,6 @@ impl OwnerTable {
     }
 }
 
-fn should_track(place: &Place) -> bool {
-    !matches!(place.root, PlaceRoot::Unknown)
-}
-
-fn raw_memory_cell_place(address: &Place, ty: TypeId) -> Place {
-    address.clone().with_projection(PlaceProjection::Deref, ty)
-}
-
 fn construct_owner_field_place(
     output: &Place,
     kind: &AggregateKind,
@@ -2698,45 +2694,6 @@ fn construct_function_alias_fields(
     for (index, input) in inputs.iter().enumerate() {
         let field = construct_owner_field_place(output, kind, index, input);
         function_aliases.copy_alias(input, &field);
-    }
-}
-
-fn replace_place_prefix(place: &Place, prefix: &Place, replacement: &Place) -> Option<Place> {
-    place_suffix_after_prefix(place, prefix)
-        .map(|suffix| place_with_suffix(replacement, &suffix, place.ty))
-}
-
-fn places_overlap(left: &Place, right: &Place) -> bool {
-    place_suffix_after_prefix(left, right).is_some()
-        || place_suffix_after_prefix(right, left).is_some()
-}
-
-fn place_suffix_after_prefix(place: &Place, prefix: &Place) -> Option<Vec<PlaceProjection>> {
-    if place.root != prefix.root || place.projections.len() < prefix.projections.len() {
-        return None;
-    }
-    if place.projections[..prefix.projections.len()] != prefix.projections[..] {
-        return None;
-    }
-    Some(place.projections[prefix.projections.len()..].to_vec())
-}
-
-fn place_with_suffix(base: &Place, suffix: &[PlaceProjection], ty: TypeId) -> Place {
-    let mut out = base.clone();
-    out.projections.extend_from_slice(suffix);
-    out.ty = ty;
-    out
-}
-
-fn push_unique_place(places: &mut Vec<Place>, place: &Place) {
-    if !places.iter().any(|existing| existing == place) {
-        places.push(place.clone());
-    }
-}
-
-fn push_unique_usize(values: &mut Vec<usize>, value: usize) {
-    if !values.contains(&value) {
-        values.push(value);
     }
 }
 
