@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 alias helper module)
+
+- 状況:
+  - Stage 1 の context state module 化後、`move_check.rs` には value alias / raw alias / function raw alias summary helper が大きく残っていた。
+  - HIR alias 推測、function parameter placeholder、call-site specialization、match/field projection alias が `run` と同じ file に同居しており、Resource IR lowering へ置換する境界が読み取りにくかった。
+- 修正:
+  - `nepl-core/src/passes/move_check/alias.rs` を追加し、function value alias、aggregate field alias、enum payload alias、raw alias instantiation、function raw alias summary specialization、match binding alias、field projection alias の helper を移動した。
+  - `move_check.rs` は context 定義と `run` の orchestration に近い形へ縮小した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 alias helper 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/passes/move_check.rs nepl-core/src/passes/move_check/alias.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-alias-helper-module-move-effect.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 context state module)
 
 - 状況:
