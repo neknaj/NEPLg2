@@ -77,3 +77,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `ISS-20260428T185304640Z-RESOURCE-IR-LOWERING-FORCES-WHOLE-RA-C9E6E941` として、raw memory に格納した aggregate の field access が whole raw aggregate load に潰れる問題を修正した。typecheck は `get load<Holder> p "ptr"` を `load(add(p, offset))` へ早期変換せず、Resource IR lowering は source-level `get` / `get_field` を `p.*.field` の `ResourceOp::Read` として扱う。old `move_check` も同じ preserved 形を field projection として扱い、Copy field read では raw place 全体を move しない。
 
 一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 101/110 から 105/110 に改善し、raw aggregate Copy field read 系 `#76` - `#79` は解消した。残件は 5 件で、helper-returned slot / `MemPtr` wrapper 由来の raw pointer summary と load-cell gate 順序に絞られる。
+
+2026-04-29 追記 5:
+
+`ISS-20260428T200446882Z-RESOURCE-CELLSTATE-MERGE-STARTS-FROM-C81C0269` として、`CellTable::merge_paths` が synthetic `Uninit` を畳み込み初期値にしていたため、全 path で `Initialized(T)` のままの local / raw cell まで `MaybeMoved` になる問題を修正した。実 path の最初の `availability_state` から fold するようにし、片方の path にしか存在しない place は従来どおり `Uninit` と合流して `MaybeMoved` になる。
+
+一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 105/110 から 106/110 に改善し、loop が raw place を触っていない `#80` の false D3100 は解消した。残件は 4 件で、realloc 後の raw slot transfer、`MemPtr` / `RegionToken` wrapper address summary、literal helper address summary に絞られる。

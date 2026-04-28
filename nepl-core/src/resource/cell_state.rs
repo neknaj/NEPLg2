@@ -127,12 +127,13 @@ impl CellTable {
             }
         }
         for place in places {
-            let mut merged = CellState::Uninit;
-            for path in paths {
-                let state = path.availability_state(&place);
-                merged = merge_cell_states(merged, state);
+            let mut states = paths.iter().map(|path| path.availability_state(&place));
+            if let Some(mut merged) = states.next() {
+                for state in states {
+                    merged = merge_cell_states(merged, state);
+                }
+                out.set_state(&place, merged);
             }
-            out.set_state(&place, merged);
         }
         out
     }

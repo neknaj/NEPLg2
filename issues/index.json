@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T19:59:04.355Z",
+  "generated_at": "2026-04-28T20:08:30.726Z",
   "counts": {
-    "total": 306,
+    "total": 307,
     "open": 10,
-    "resolved": 296,
+    "resolved": 297,
     "by_area": {
       "core": {
-        "total": 146,
+        "total": 147,
         "open": 4,
-        "resolved": 142
+        "resolved": 143
       },
       "stdlib": {
         "total": 96,
@@ -2283,6 +2283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T193442835Z-WASM-CODEGEN-BLOCK-WRAPPED-ELSE-IF-CH-5C1BA9D4.md"
+    },
+    {
+      "id": "ISS-20260428T200446882Z-RESOURCE-CELLSTATE-MERGE-STARTS-FROM-C81C0269",
+      "title": "Resource CellState merge starts from synthetic Uninit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/cell_state.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T200446882Z-RESOURCE-CELLSTATE-MERGE-STARTS-FROM-C81C0269.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

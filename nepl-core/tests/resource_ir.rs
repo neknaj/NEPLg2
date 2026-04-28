@@ -5829,6 +5829,54 @@ fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
     assert_eq!(report.deferred.branch_merges, 0);
 }
 
+#[test]
+fn resource_ir_cell_check_preserves_raw_cell_across_untouched_loop() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<LocalToken> p LocalToken @token_id
+    let mut i <i32> 0
+    while lt i 2:
+        do:
+            set i add i 1
+    let out <LocalToken> load<LocalToken> p
+    i
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "loop must preserve untouched raw cell diagnostics: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

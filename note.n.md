@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T200446882Z Resource CellState merge)
+
+- `RawMemoryLoadCell` gate の残件調査で、loop body が raw place を触っていない `tests/compiler/move_effect.n.md::doctest#80` が false D3100 になる原因を確認した。
+- 根本原因は `CellTable::merge_paths` が synthetic `Uninit` を畳み込み初期値としていたこと。これにより、全経路で `Initialized(T)` の place も `MaybeMoved` になり、loop / branch / match 後の CellState が過剰に壊れていた。
+- merge は最初の実 path の `availability_state` から開始し、残りの実 path だけを畳み込むように変更した。片方の path にしか存在しない place は、もう片方の `availability_state` が `Uninit` になるため、従来通り `MaybeMoved` として保守的に扱う。
+- `resource_ir_cell_check_preserves_raw_cell_across_untouched_loop` を追加し、typechecked source から lowered Resource IR を作って main function の CellState diagnostics が出ないことを固定した。
+- temporary `RawMemoryLoadCell` gate で `tests/compiler/move_effect.n.md` は 105/110 から 106/110 に改善し、doctest#80 の false D3100 は解消した。gate はまだ本 commit では有効化しない。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_raw_cell_across_untouched_loop -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir`: 77 passed
+  - temporary `RawMemoryLoadCell` gate + `trunk build`: pass
+  - temporary `RawMemoryLoadCell` gate + `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-load-cell-followup-gate-after-loop-merge.json -j 1`: total=110, passed=106, failed=4
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T175617166Z Resource CellState expression marker)
 
 - `RawMemoryLoadCell` gate を一時的に有効化して再測定したところ、`ISS-20260428T174427199Z` の手動 ResourceOp regression は通る一方、実際の HIR lowering では `ResourceOp::Call` / `Construct` の直後に出る `ResourceOp::Expr { kind: Call/Construct }` marker が raw address alias を消していた。
