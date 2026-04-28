@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T14:28:14.130Z",
+  "generated_at": "2026-04-28T14:39:31.046Z",
   "counts": {
-    "total": 287,
-    "open": 11,
-    "resolved": 276,
+    "total": 289,
+    "open": 12,
+    "resolved": 277,
     "by_area": {
       "core": {
-        "total": 135,
-        "open": 5,
+        "total": 136,
+        "open": 6,
         "resolved": 130
       },
       "stdlib": {
@@ -17,9 +17,9 @@
         "resolved": 90
       },
       "selfhost": {
-        "total": 20,
+        "total": 21,
         "open": 1,
-        "resolved": 19
+        "resolved": 20
       },
       "cli": {
         "total": 19,
@@ -183,6 +183,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260428T141727754Z-ENUM-MATCH-WILDCARD-ARM-IS-REJECTED--B1684C75",
+      "title": "enum match wildcard arm is rejected as unsupported pattern",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/typecheck/match_check.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, tests/compiler/match_enum_wildcard_patterns.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T141727754Z-ENUM-MATCH-WILDCARD-ARM-IS-REJECTED--B1684C75.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -2493,6 +2508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74.md"
+    },
+    {
+      "id": "ISS-20260428T141156276Z-SELF-HOST-MODULE-LOADER-LACKS-TYPED--7277C7AB",
+      "title": "self-host module loader lacks typed import spec extraction",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/module/import_spec.nepl, stdlib/neplg2/core/syntax/ast/module_ast.nepl, tests/stdlib/neplg2_import_spec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T141156276Z-SELF-HOST-MODULE-LOADER-LACKS-TYPED--7277C7AB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",
