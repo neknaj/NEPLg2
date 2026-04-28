@@ -129,6 +129,69 @@ fn main <()->i32> ():
     leak_via_higher_order
 ```
 
+## raw slot 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn leak_via_raw_slot <()->i32> ():
+    let p <i32> alloc_raw 4
+    let slot <i32> alloc_raw 4
+    store_i32 slot p
+    load_i32 slot
+
+fn main <()->i32> ():
+    leak_via_raw_slot
+```
+
+## realloc 後の raw slot 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn leak_via_realloc_slot <()->i32> ():
+    let p <i32> alloc_raw 4
+    let slot <i32> alloc_raw 4
+    store_i32 slot p
+    let grown <i32> realloc_raw slot 4 8
+    load_i32 grown
+
+fn main <()->i32> ():
+    leak_via_realloc_slot
+```
+
+## mem_copy 後の raw slot 経由でも alloc_raw の raw address を返せない
+
+neplg2:test[compile_fail]
+diag_id: 3025
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn leak_via_copied_slot <()->i32> ():
+    let p <i32> alloc_raw 4
+    let src <i32> alloc_raw 4
+    let dst <i32> alloc_raw 4
+    store_i32 src p
+    mem_copy dst src 4
+    load_i32 dst
+
+fn main <()->i32> ():
+    leak_via_copied_slot
+```
+
 ## pure から raw load intrinsic を直接呼べない
 
 neplg2:test[compile_fail]

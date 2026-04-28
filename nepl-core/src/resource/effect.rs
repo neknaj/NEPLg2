@@ -94,8 +94,14 @@ impl ResourceEffectBoundaryEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) {
         let mut identities = RawIdentityTable::default();
         let mut function_aliases = FunctionAliasTable::default();
+        let mut raw_memory_identities = RawMemoryIdentityTable::default();
         for block in &function.blocks {
-            self.check_block(&mut identities, &mut function_aliases, block);
+            self.check_block(
+                &mut identities,
+                &mut function_aliases,
+                &mut raw_memory_identities,
+                block,
+            );
         }
     }
 
@@ -103,9 +109,15 @@ impl ResourceEffectBoundaryEngine<'_> {
         &mut self,
         identities: &mut RawIdentityTable,
         function_aliases: &mut FunctionAliasTable,
+        raw_memory_identities: &mut RawMemoryIdentityTable,
         block: &ResourceBlock,
     ) {
-        self.check_ops(identities, function_aliases, &block.ops);
+        self.check_ops(
+            identities,
+            function_aliases,
+            raw_memory_identities,
+            &block.ops,
+        );
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if matches!(self.effect, Effect::Pure) {
@@ -130,10 +142,11 @@ impl ResourceEffectBoundaryEngine<'_> {
         &mut self,
         identities: &mut RawIdentityTable,
         function_aliases: &mut FunctionAliasTable,
+        raw_memory_identities: &mut RawMemoryIdentityTable,
         ops: &[ResourceOp],
     ) {
         for op in ops {
-            self.check_op(identities, function_aliases, op);
+            self.check_op(identities, function_aliases, raw_memory_identities, op);
         }
     }
 
@@ -141,16 +154,27 @@ impl ResourceEffectBoundaryEngine<'_> {
         &mut self,
         identities: &mut RawIdentityTable,
         function_aliases: &mut FunctionAliasTable,
+        raw_memory_identities: &mut RawMemoryIdentityTable,
         op: &ResourceOp,
     ) {
         match op {
             ResourceOp::CallEffect { effect, span } => self.check_effect(effect, *span),
             ResourceOp::RawMemory {
-                operation, output, ..
+                operation,
+                output,
+                args,
+                ..
             } => {
                 if self.track_alloc_identities && raw_memory_op_produces_identity(operation) {
                     identities.mark(output);
                 }
+                self.apply_raw_memory_identity_effect(
+                    identities,
+                    raw_memory_identities,
+                    operation,
+                    output,
+                    args,
+                );
             }
             ResourceOp::DeclareLocal {
                 place, initializer, ..
@@ -207,8 +231,20 @@ impl ResourceEffectBoundaryEngine<'_> {
                 let mut else_identities = identities.clone();
                 let mut then_function_aliases = function_aliases.clone();
                 let mut else_function_aliases = function_aliases.clone();
-                self.check_ops(&mut then_identities, &mut then_function_aliases, then_ops);
-                self.check_ops(&mut else_identities, &mut else_function_aliases, else_ops);
+                let mut then_raw_memory_identities = raw_memory_identities.clone();
+                let mut else_raw_memory_identities = raw_memory_identities.clone();
+                self.check_ops(
+                    &mut then_identities,
+                    &mut then_function_aliases,
+                    &mut then_raw_memory_identities,
+                    then_ops,
+                );
+                self.check_ops(
+                    &mut else_identities,
+                    &mut else_function_aliases,
+                    &mut else_raw_memory_identities,
+                    else_ops,
+                );
                 then_identities.copy_identity(then_value, output);
                 else_identities.copy_identity(else_value, output);
                 then_function_aliases.copy_alias(then_value, output);
@@ -218,6 +254,10 @@ impl ResourceEffectBoundaryEngine<'_> {
                     then_function_aliases,
                     else_function_aliases,
                 ]);
+                *raw_memory_identities = RawMemoryIdentityTable::merge_paths(&[
+                    then_raw_memory_identities,
+                    else_raw_memory_identities,
+                ]);
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -226,36 +266,58 @@ impl ResourceEffectBoundaryEngine<'_> {
             } => {
                 let mut condition_identities = identities.clone();
                 let mut condition_function_aliases = function_aliases.clone();
+                let mut condition_raw_memory_identities = raw_memory_identities.clone();
                 self.check_ops(
                     &mut condition_identities,
                     &mut condition_function_aliases,
+                    &mut condition_raw_memory_identities,
                     condition_ops,
                 );
                 let mut body_identities = condition_identities.clone();
                 let mut body_function_aliases = condition_function_aliases.clone();
-                self.check_ops(&mut body_identities, &mut body_function_aliases, body_ops);
+                let mut body_raw_memory_identities = condition_raw_memory_identities.clone();
+                self.check_ops(
+                    &mut body_identities,
+                    &mut body_function_aliases,
+                    &mut body_raw_memory_identities,
+                    body_ops,
+                );
                 *identities =
                     RawIdentityTable::merge_paths(&[condition_identities, body_identities]);
                 *function_aliases = FunctionAliasTable::merge_paths(&[
                     condition_function_aliases,
                     body_function_aliases,
                 ]);
+                *raw_memory_identities = RawMemoryIdentityTable::merge_paths(&[
+                    condition_raw_memory_identities,
+                    body_raw_memory_identities,
+                ]);
             }
             ResourceOp::Match { output, arms, .. } => {
                 let mut arm_paths = Vec::new();
                 let mut function_alias_paths = Vec::new();
+                let mut raw_memory_identity_paths = Vec::new();
                 for arm in arms {
                     let mut arm_identities = identities.clone();
                     let mut arm_function_aliases = function_aliases.clone();
-                    self.check_ops(&mut arm_identities, &mut arm_function_aliases, &arm.ops);
+                    let mut arm_raw_memory_identities = raw_memory_identities.clone();
+                    self.check_ops(
+                        &mut arm_identities,
+                        &mut arm_function_aliases,
+                        &mut arm_raw_memory_identities,
+                        &arm.ops,
+                    );
                     arm_identities.copy_identity(&arm.value, output);
                     arm_function_aliases.copy_alias(&arm.value, output);
                     arm_paths.push(arm_identities);
                     function_alias_paths.push(arm_function_aliases);
+                    raw_memory_identity_paths.push(arm_raw_memory_identities);
                 }
                 if !arm_paths.is_empty() {
                     *identities = RawIdentityTable::merge_paths(&arm_paths);
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
+                    *raw_memory_identities =
+                        RawMemoryIdentityTable::merge_paths(&raw_memory_identity_paths);
                 }
             }
             ResourceOp::FunctionValue { output, name, .. } => {
@@ -323,6 +385,63 @@ impl ResourceEffectBoundaryEngine<'_> {
                 identities.mark(output);
                 return;
             }
+        }
+    }
+
+    fn apply_raw_memory_identity_effect(
+        &self,
+        identities: &mut RawIdentityTable,
+        raw_memory_identities: &mut RawMemoryIdentityTable,
+        operation: &RawMemoryOp,
+        output: &Place,
+        args: &[Place],
+    ) {
+        match operation {
+            RawMemoryOp::Load => {
+                if args
+                    .first()
+                    .is_some_and(|ptr| raw_memory_identities.contains(identities, ptr))
+                {
+                    identities.mark(output);
+                }
+            }
+            RawMemoryOp::Store => {
+                if let Some(ptr) = args.first() {
+                    if args.get(1).is_some_and(|value| identities.contains(value)) {
+                        raw_memory_identities.mark(identities, ptr);
+                    } else {
+                        raw_memory_identities.clear(identities, ptr);
+                    }
+                }
+            }
+            RawMemoryOp::Realloc => {
+                let carries_payload = args
+                    .first()
+                    .is_some_and(|ptr| raw_memory_identities.contains(identities, ptr));
+                if let Some(ptr) = args.first() {
+                    raw_memory_identities.clear(identities, ptr);
+                }
+                if carries_payload {
+                    raw_memory_identities.mark(identities, output);
+                }
+            }
+            RawMemoryOp::Dealloc => {
+                if let Some(ptr) = args.first() {
+                    raw_memory_identities.clear(identities, ptr);
+                }
+            }
+            RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
+                if let (Some(dst), Some(src)) = (args.first(), args.get(1)) {
+                    if raw_memory_identities.contains(identities, src) {
+                        raw_memory_identities.mark(identities, dst);
+                    }
+                }
+            }
+            RawMemoryOp::Alloc
+            | RawMemoryOp::MemorySize
+            | RawMemoryOp::MemoryGrow
+            | RawMemoryOp::Fill
+            | RawMemoryOp::Other { .. } => {}
         }
     }
 
@@ -399,8 +518,14 @@ fn function_returns_marked_identity(
         counts: ResourceEffectCounts::default(),
     };
     let mut function_aliases = FunctionAliasTable::default();
+    let mut raw_memory_identities = RawMemoryIdentityTable::default();
     for block in &function.blocks {
-        engine.check_ops(&mut identities, &mut function_aliases, &block.ops);
+        engine.check_ops(
+            &mut identities,
+            &mut function_aliases,
+            &mut raw_memory_identities,
+            &block.ops,
+        );
         if let ResourceTerminator::Return {
             value: Some(place), ..
         } = &block.terminator
@@ -492,35 +617,128 @@ fn dedupe_functions(functions: Vec<String>) -> Vec<String> {
 }
 
 #[derive(Debug, Clone, Default)]
+struct RawMemoryIdentityTable {
+    pointer_groups: Vec<Vec<Place>>,
+}
+
+impl RawMemoryIdentityTable {
+    fn contains(&self, identities: &RawIdentityTable, place: &Place) -> bool {
+        identities.group_for(place).is_some_and(|group| {
+            self.pointer_groups
+                .iter()
+                .any(|stored| groups_overlap(stored, group))
+        })
+    }
+
+    fn mark(&mut self, identities: &RawIdentityTable, place: &Place) {
+        if let Some(group) = identities.group_for(place) {
+            self.union_group(group);
+        }
+    }
+
+    fn clear(&mut self, identities: &RawIdentityTable, place: &Place) {
+        if let Some(group) = identities.group_for(place) {
+            self.pointer_groups
+                .retain(|stored| !groups_overlap(stored, group));
+        }
+    }
+
+    fn merge_paths(paths: &[RawMemoryIdentityTable]) -> Self {
+        let mut out = RawMemoryIdentityTable::default();
+        for path in paths {
+            for group in &path.pointer_groups {
+                out.union_group(group);
+            }
+        }
+        out
+    }
+
+    fn union_group(&mut self, group: &[Place]) {
+        let mut merged = group.to_vec();
+        let mut retained = Vec::new();
+        for existing in self.pointer_groups.drain(..) {
+            if groups_overlap(&existing, &merged) {
+                push_unique_places(&mut merged, &existing);
+            } else {
+                retained.push(existing);
+            }
+        }
+        if !merged.is_empty() {
+            retained.push(merged);
+        }
+        self.pointer_groups = retained;
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 struct RawIdentityTable {
-    places: Vec<Place>,
+    groups: Vec<Vec<Place>>,
 }
 
 impl RawIdentityTable {
     fn contains(&self, place: &Place) -> bool {
-        self.places.iter().any(|existing| existing == place)
+        self.groups
+            .iter()
+            .any(|group| group.iter().any(|existing| existing == place))
     }
 
     fn mark(&mut self, place: &Place) {
-        if !self.contains(place) {
-            self.places.push(place.clone());
-        }
+        self.union_group(core::slice::from_ref(place));
     }
 
     fn copy_identity(&mut self, source: &Place, target: &Place) {
-        if self.contains(source) {
-            self.mark(target);
+        if let Some(group) = self.group_for(source) {
+            let mut merged = group.to_vec();
+            if !merged.contains(target) {
+                merged.push(target.clone());
+            }
+            self.union_group(&merged);
         }
     }
 
     fn merge_paths(paths: &[RawIdentityTable]) -> Self {
         let mut out = RawIdentityTable::default();
         for path in paths {
-            for place in &path.places {
-                out.mark(place);
+            for group in &path.groups {
+                out.union_group(group);
             }
         }
         out
+    }
+
+    fn group_for(&self, place: &Place) -> Option<&[Place]> {
+        self.groups
+            .iter()
+            .find(|group| group.iter().any(|existing| existing == place))
+            .map(Vec::as_slice)
+    }
+
+    fn union_group(&mut self, group: &[Place]) {
+        let mut merged = group.to_vec();
+        let mut retained = Vec::new();
+        for existing in self.groups.drain(..) {
+            if groups_overlap(&existing, &merged) {
+                push_unique_places(&mut merged, &existing);
+            } else {
+                retained.push(existing);
+            }
+        }
+        if !merged.is_empty() {
+            retained.push(merged);
+        }
+        self.groups = retained;
+    }
+}
+
+fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
+    left.iter().any(|place| right.contains(place))
+}
+
+fn push_unique_places(target: &mut Vec<Place>, source: &[Place]) {
+    for place in source {
+        if !target.contains(place) {
+            target.push(place.clone());
+        }
     }
 }
 

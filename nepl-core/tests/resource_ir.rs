@@ -505,6 +505,84 @@ fn resource_ir_effect_check_reports_raw_alloc_return_escape() {
 }
 
 #[test]
+fn resource_ir_effect_check_reports_raw_alloc_escape_through_raw_slot() {
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let size = Place::temporary(ResourceId(0), i32_ty);
+    let raw = Place::temporary(ResourceId(1), i32_ty);
+    let slot_size = Place::temporary(ResourceId(2), i32_ty);
+    let slot = Place::temporary(ResourceId(3), i32_ty);
+    let loaded = Place::temporary(ResourceId(4), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: raw.clone(),
+                        args: vec![size],
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: nepl_core::resource::ResourceExprKind::Literal,
+                        output: slot_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: slot.clone(),
+                        args: vec![slot_size],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Store,
+                        output: Place::temporary(ResourceId(5), TypeId(0)),
+                        args: vec![slot.clone(), raw],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded.clone(),
+                        args: vec![slot],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(loaded),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_effect_check_reports_raw_alloc_escape_wrapped_in_struct() {
     let i32_ty = TypeId(1);
     let box_ty = TypeId(2);

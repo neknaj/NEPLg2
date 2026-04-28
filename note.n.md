@@ -22382,3 +22382,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、unknown callback を保守的に扱う入口を追加した。
+
+# 2026-04-28 メモ (ISS-20260428T103216940Z raw slot identity payload)
+
+- [同期]:
+  - `origin/main` の `f6c3282 fix(core): propagate raw identity through callbacks` まで同期した main から `work/stage5-raw-slot-identity-escape` branch を作成した。
+- [原因]:
+  - Stage 5 public escape diagnostics は raw identity の local/call/callback 伝播を扱うようになったが、`store_i32 slot p` のように raw memory slot へ identity value を保存した後、`load_i32 slot` で取り出す経路を追跡していなかった。
+  - `UnsafeMemoryInPureFunction` は Stage 6 の stdlib migration 前なので通常 error にしておらず、raw memory operation 全体を禁止せずに raw identity payload だけを追う必要があった。
+- [修正]:
+  - Resource IR effect boundary checker に raw memory identity payload table を追加した。
+  - `Store` が tracked raw identity value を slot に書いた場合は slot を記録し、同じ slot からの `Load` output へ identity を伝播するようにした。
+  - `Realloc` は slot 内 payload を新 output へ移し、`BulkCopy` / `BulkMove` は source slot から destination slot へ payload を伝播するようにした。
+  - 通常の数値 store は slot の identity payload を clear するため、既存の numeric store/load は維持される。
+  - `tests/compiler/move_effect.n.md` と `nepl-core/tests/resource_ir.rs` に raw slot laundering 回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、raw memory slot 内の identity payload を補足した。

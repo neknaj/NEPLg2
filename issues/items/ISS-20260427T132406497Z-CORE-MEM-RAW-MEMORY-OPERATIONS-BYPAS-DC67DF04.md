@@ -264,6 +264,12 @@ Resource IR effect boundary checker に function value alias table を追加し�
 
 `fn apply(p, f): f p` のような helper では、helper 内の `IndirectCall` callee は known function value alias ではなく parameter である。この場合、callback が raw identity 引数をそのまま返す可能性を保守的に扱い、indirect call output へ identity を伝播するようにした。これにより `apply p @raw_id` のような caller で concrete callback を渡す経路も、`apply` の direct call summary を通じて D3025 になる。
 
+## 2026-04-28 Stage 5 raw slot identity payload 追記
+
+`ISS-20260428T103216940Z-RESOURCE-EFFECT-GATE-LOSES-RAW-ALLOC-DC80BAD0` として、internal allocation identity を raw memory slot に store してから load すると public escape diagnostics から漏れる問題を分離した。
+
+Resource IR effect boundary checker に raw memory identity payload table を追加し、`Store` が tracked raw identity value を slot に書いた場合は、その slot からの後続 `Load` output へ identity を伝播するようにした。`Realloc` は旧 slot の payload を新 output へ移し、`BulkCopy` / `BulkMove` は source slot の payload を destination slot へ伝播する。通常の数値 store は identity payload を clear するため、既存の pure internal numeric store/load は維持される。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。
