@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck trait module)
+
+- 状況:
+  - Stage 1 の typecheck env module 化後、trait capability / trait bound / impl matching の型と helper が `typecheck.rs` 本体に残っていた。
+  - Copy / Clone / Drop capability と generic trait bound 推論は、memory safety や Resource IR の検査前提にも関わるため、typecheck 本体から独立した境界が必要だった。
+- 修正:
+  - `nepl-core/src/typecheck/traits.rs` を追加し、`TraitInfo`、`TraitSemantics`、`ImplInfo`、`TraitBoundRef`、`TraitCapability`、type parameter bound collection、trait ref format/parse、trait application matching、type parameter instantiation inference、substitution mapping を移動した。
+  - `typecheck.rs` 側は trait helper を明示 import し、既存の generic / trait capability 判定を維持した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck trait 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/traits.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/trait_capability_copy.n.md -i tests/compiler/overload.n.md --no-tree -o tmp/stage1-typecheck-traits-focused.json -j 1`: 72/72 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck env module)
 
 - 状況:
