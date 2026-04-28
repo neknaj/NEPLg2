@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 branch merge module)
+
+- 状況:
+  - Stage 1 の state 型境界に続き、`move_check.rs` に残っていた branch/loop/match 合流処理を分離した。
+  - 分岐合流は `VarState`、field move、borrow binding、raw memory place、raw address alias、i32 const、function value alias、enum payload alias、aggregate field alias を同時に扱っており、Resource IR の state merge へ置き換える対象が読みにくかった。
+- 修正:
+  - `nepl-core/src/passes/move_check/branch_merge.rs` を追加し、`BranchStateSnapshot`、`snapshot_top_state`、`changed_state_names`、各種 alias stack merge、borrow stack merge、`merge_continuing_branch_states` を移動した。
+  - `move_check.rs` には HIR 走査本体と raw provenance 復元を残し、合流規則そのものは変更していない。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 branch merge 境界の記録を追記した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-branch-merge-module-move-effect.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 state module)
 
 - 状況:
