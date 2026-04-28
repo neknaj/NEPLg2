@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck effect module)
+
+- 状況:
+  - Stage 1 の typecheck trait module 化後、raw body / raw memory helper / purity effect validation が `BlockChecker` 本体に残っていた。
+  - Stage 5 で internal effect と surface fold を導入するには、現行の `Pure` / `Impure` と raw memory boundary の暫定検査を先に独立させる必要があった。
+- 修正:
+  - `nepl-core/src/typecheck/effect_check.rs` を追加し、pure raw body の raw memory instruction 検査、compiler-owned raw memory boundary 判定、raw memory intrinsic 許可判定、raw callee の impure 判定、target gate で有効な raw body selection を移動した。
+  - `typecheck.rs` 側は `BlockChecker` 本体から raw body/effect validation の詳細を外し、Stage 5 の effect model 拡張で置換する対象を明確にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck effect 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck/effect_check.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 20/20 passed
+  - `cargo test -p nepl-core --test intrinsic -- --nocapture`: 4/4 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/raw_body_precheck.n.md -i tests/compiler/intrinsic.n.md -i tests/compiler/codegen_diagnostics.n.md --no-tree -o tmp/stage1-typecheck-effect-focused.json -j 1`: 18/18 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 と Stage 5 の準備に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck trait module)
 
 - 状況:
