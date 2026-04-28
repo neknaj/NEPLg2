@@ -22787,3 +22787,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の pointer provenance / raw slot identity 追跡として、aggregate field projection 上の pointer alias を Resource IR 上に固定した。
+
+# 2026-04-28 メモ (静的検査大規模修正 全体レビュー)
+
+- [同期]:
+  - `origin/main` の `b820c44 fix(core): preserve aggregate pointer aliases` まで同期した main でレビューした。
+- [進捗]:
+  - Stage 1 は `typecheck` / `move_check` の module 分割がかなり進み、旧 HIR checker の責務境界は明示されている。
+  - Stage 2 は `nepl-core/src/resource/` の data model、dump、shadow report が存在する。
+  - Stage 3 は call、indirect call、function value、branch/loop/match、aggregate construction、raw memory op の skeleton lowering が入っている。
+  - Stage 4 は CellState / OwnerState / BorrowState と branch/loop/match merge、aggregate projection、function/callback owner/borrow propagation の regression が増えている。
+  - Stage 5 は internal effect、raw identity escape gate、function/callback/raw slot/pointer alias の Resource IR checks が進んでいる。
+- [残件]:
+  - Resource IR は `RawAddressEscapeFromInternalAlloc` の gate と verbose shadow report を除き、旧 `move_check` の authoritative replacement にはなっていない。
+  - `lower.rs` は `place_from_expr_skeleton` が `Var` 以外を `Place::unknown` にし、`Deref` も resource place transition になっていないため、Stage 3/4 enforcement 前の blocker が残る。
+  - `coverage.rs` は call/raw op count だけを見ており、projection / borrow / read / assign / unknown place の lowering 欠落を検出できない。
+- [追加 issue]:
+  - `ISS-20260428T132105486Z-RESOURCE-IR-LOWERING-COVERAGE-DOES-N-01BE2923` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 3/4 の進捗レビューとして、Resource IR lowering completeness と coverage の不足を issue に分離した。

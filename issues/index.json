@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T13:17:02.979Z",
+  "generated_at": "2026-04-28T13:22:10.350Z",
   "counts": {
-    "total": 281,
-    "open": 10,
+    "total": 282,
+    "open": 11,
     "resolved": 271,
     "by_area": {
       "core": {
-        "total": 131,
-        "open": 4,
+        "total": 132,
+        "open": 5,
         "resolved": 127
       },
       "stdlib": {
@@ -108,6 +108,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T132105486Z-RESOURCE-IR-LOWERING-COVERAGE-DOES-N-01BE2923",
+      "title": "Resource IR lowering coverage does not guard projection and borrow place completeness",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T132105486Z-RESOURCE-IR-LOWERING-COVERAGE-DOES-N-01BE2923.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
