@@ -1,3 +1,16 @@
+# 2026-04-29 メモ (ISS-20260428T232624608Z SelfhostOutcome raw result cell)
+
+- [発見]:
+  - `node nodesrc/tests.js -i stdlib\neplg2\core\infra\outcome.nepl --no-tree -o tmp\outcome-current-after-cli-merge.json -j 1` で `selfhost_outcome_result<i32,str>` が D3100 になった。
+  - `SelfhostOutcome<T,E>` は `Result<T,E>` を 1 cell の `MemPtr` に保存し、その pointer を struct field 経由で取り出してから `load<Result<T,E>>` している。
+  - RawMemoryLoadCell gate はこの field 経由の pointer を initialized result cell として復元できず、`result_ptr` を Uninit として扱っている。
+- [issue]:
+  - 具体修正単位として `ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB` を追加した。
+- [次の方針]:
+  - raw pointer cell ではなく `SelfhostOutcome` が `Result<T,E>` を直接 owned field として持つ形へ戻し、diagnostics と result の読み出し・free・payload cleanup を raw memory なしで表現する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T230757402Z self-host CLI VecDataLen field move)
 
 - [同期]:

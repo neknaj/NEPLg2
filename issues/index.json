@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T23:22:33.870Z",
+  "generated_at": "2026-04-28T23:26:42.875Z",
   "counts": {
-    "total": 330,
-    "open": 10,
+    "total": 331,
+    "open": 11,
     "resolved": 320,
     "by_area": {
       "core": {
@@ -11,15 +11,15 @@
         "open": 3,
         "resolved": 150
       },
+      "selfhost": {
+        "total": 40,
+        "open": 2,
+        "resolved": 38
+      },
       "stdlib": {
         "total": 101,
         "open": 6,
         "resolved": 95
-      },
-      "selfhost": {
-        "total": 39,
-        "open": 1,
-        "resolved": 38
       },
       "cli": {
         "total": 19,
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB",
+      "title": "SelfhostOutcome stores Result in raw pointer cell rejected by RawMemoryLoadCell",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/infra/outcome.nepl, tests/stdlib/neplg2_diag_outcome.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
