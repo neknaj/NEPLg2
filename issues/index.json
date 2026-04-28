@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T16:35:43.405Z",
+  "generated_at": "2026-04-28T16:41:34.198Z",
   "counts": {
     "total": 292,
     "open": 9,
@@ -58,7 +58,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-28",
+      "updated": "2026-04-29",
       "target": "nepl-core/src/resource, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",

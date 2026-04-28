@@ -23331,3 +23331,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - compiler fix に追従し、self-host S2 の import spec 実装から古い workaround を外した。
+
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-CORE-009 Resource IR coverage gate)
+
+- [同期]:
+  - `main` が `origin/main` と同期済みであることを確認し、`work/resource-lowering-coverage-gate` branch を作成して作業した。
+- [原因]:
+  - Resource IR の coverage comparison は unit test と verbose shadow report に留まり、通常の compiler pipeline では lowering 欠落を通過させていた。
+  - Stage 4/5 の CellState / OwnerState / BorrowState / effect boundary を authoritative に広げるには、まず Resource IR lowering が HIR の静的検査入力を失っていないことを compile 時に強制する必要がある。
+- [修正]:
+  - `ResourceCoverageDiagnostic` に span を保持させ、function 欠落、count mismatch、unknown place を compiler diagnostic に変換できるようにした。
+  - `DiagnosticId::TypeResourceLoweringIncomplete` (`D3101`) を追加した。
+  - 旧 `move_check` 通過後に Resource IR lowering coverage gate を実行し、coverage 欠落を `D3101` として compile error にした。
+  - 既存の raw identity escape gateは、同じ Resource IR lowering から得た effect boundary report を受け取る形に整理した。
+- [検証]:
+  - `rustfmt --check nepl-core\src\compiler.rs nepl-core\src\resource\coverage.rs nepl-core\src\diagnostic_ids.rs nepl-core\tests\resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-lowering-gate-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-lowering-gate-move-check.json -j 1`: total=52 passed=52
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4/5 の authoritative gate 拡大前提として、Resource IR lowering completeness を compiler pipeline で強制するようにした。

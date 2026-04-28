@@ -14,7 +14,7 @@ use nepl_core::resource::{
     ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
     ResourceTerminator,
 };
-use nepl_core::span::Span;
+use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
 
 #[test]
@@ -448,6 +448,7 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
                 kind: ResourceCoverageKind::RawMemory,
                 hir: 3,
                 resource: 0,
+                ..
             } if function == "main"
         )));
 }
@@ -456,7 +457,7 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
 fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
     let ref_ty = TypeId(0);
     let i32_ty = TypeId(1);
-    let span = Span::dummy();
+    let span = Span::new(FileId(7), 11, 17);
     let module = HirModule {
         functions: vec![HirFunction {
             doc: None,
@@ -546,8 +547,9 @@ fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
             ResourceCoverageDiagnostic::UnknownPlace {
                 function,
                 operation,
+                span: diagnostic_span,
                 ..
-            } if function == "main" && operation == "borrow.source"
+            } if function == "main" && operation == "borrow.source" && *diagnostic_span == span
         )));
     assert!(broken_coverage
         .diagnostics
@@ -559,7 +561,9 @@ fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
                 kind: ResourceCoverageKind::UnknownPlace,
                 hir: 0,
                 resource: 1,
-            } if function == "main"
+                span: diagnostic_span,
+                ..
+            } if function == "main" && *diagnostic_span == span
         )));
 }
 

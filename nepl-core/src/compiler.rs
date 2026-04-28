@@ -250,22 +250,78 @@ fn run_move_check(
         diagnostics.extend(move_errors);
         return Err(CoreError::from_diagnostics(diagnostics.clone()));
     }
-    run_resource_effect_boundary_gate(hir_module, diagnostics, source_map)
+    let resource = crate::resource::lower_hir_module_skeleton(hir_module);
+    let lowering_coverage = crate::resource::compare_hir_resource_lowering(hir_module, &resource);
+    run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
+    let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
+    run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)
+}
+
+fn run_resource_lowering_coverage_gate(
+    coverage: &crate::resource::ResourceLoweringCoverage,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CoreError> {
+    let mut coverage_errors = Vec::new();
+    for diagnostic in &coverage.diagnostics {
+        coverage_errors.push(resource_coverage_diagnostic_to_error(diagnostic));
+    }
+    if coverage_errors.is_empty() {
+        return Ok(());
+    }
+    diagnostics.extend(coverage_errors);
+    Err(CoreError::from_diagnostics(diagnostics.clone()))
+}
+
+fn resource_coverage_diagnostic_to_error(
+    diagnostic: &crate::resource::ResourceCoverageDiagnostic,
+) -> Diagnostic {
+    match diagnostic {
+        crate::resource::ResourceCoverageDiagnostic::MissingFunction { name, span } => {
+            Diagnostic::error(
+                format!("resource ir lowering did not produce function '{}'", name),
+                *span,
+            )
+            .with_id(DiagnosticId::TypeResourceLoweringIncomplete)
+        }
+        crate::resource::ResourceCoverageDiagnostic::CountMismatch {
+            function,
+            kind,
+            hir,
+            resource,
+            span,
+        } => Diagnostic::error(
+            format!(
+                "resource ir lowering lost {:?} coverage in function '{}' (HIR={}, ResourceIR={})",
+                kind, function, hir, resource
+            ),
+            *span,
+        )
+        .with_id(DiagnosticId::TypeResourceLoweringIncomplete),
+        crate::resource::ResourceCoverageDiagnostic::UnknownPlace {
+            function,
+            operation,
+            place,
+            span,
+        } => Diagnostic::error(
+            format!(
+                "resource ir lowering produced unknown place for {} in function '{}': {:?}",
+                operation, function, place
+            ),
+            *span,
+        )
+        .with_id(DiagnosticId::TypeResourceLoweringIncomplete),
+    }
 }
 
 fn run_resource_effect_boundary_gate(
-    hir_module: &crate::hir::HirModule,
+    report: &crate::resource::ResourceEffectBoundaryReport,
     diagnostics: &mut Vec<Diagnostic>,
     source_map: Option<&SourceMap>,
 ) -> Result<(), CoreError> {
-    let resource = crate::resource::lower_hir_module_skeleton(hir_module);
-    let report = crate::resource::check_resource_effect_boundaries(&resource);
     let mut effect_errors = Vec::new();
-    for diagnostic in report.diagnostics {
+    for diagnostic in &report.diagnostics {
         if let crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
-            function,
-            span,
-            ..
+            function, span, ..
         } = diagnostic
         {
             if source_map
@@ -280,7 +336,7 @@ fn run_resource_effect_boundary_gate(
                         "pure function '{}' returns raw address identity from internal allocation",
                         function
                     ),
-                    span,
+                    *span,
                 )
                 .with_id(DiagnosticId::TypePureCallsImpureFunction),
             );
