@@ -238,10 +238,12 @@ pub fn check_resource_owner_obligations(module: &ResourceModule) -> ResourceOwne
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceOwnerCheckDeferred::default();
+    let summaries = compute_owner_return_summaries(module);
 
     for function in &module.functions {
         let mut engine = ResourceOwnerCheckEngine {
             function: function.name.as_str(),
+            summaries: &summaries,
             diagnostics: Vec::new(),
             deferred: ResourceOwnerCheckDeferred::default(),
         };
@@ -315,6 +317,7 @@ struct ResourceCheckEngine<'a> {
 
 struct ResourceOwnerCheckEngine<'a> {
     function: &'a str,
+    summaries: &'a [OwnerReturnSummary],
     diagnostics: Vec<ResourceOwnerDiagnostic>,
     deferred: ResourceOwnerCheckDeferred,
 }
@@ -330,6 +333,13 @@ struct ResourceBorrowCheckEngine<'a> {
 struct BorrowTokenReturnSummary {
     function: String,
     parameter_indices: Vec<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OwnerReturnSummary {
+    function: String,
+    parameter_indices: Vec<usize>,
+    returns_fresh_owner: bool,
 }
 
 impl ResourceCheckEngine<'_> {
@@ -1093,6 +1103,78 @@ fn function_returns_borrow_token(
     false
 }
 
+fn compute_owner_return_summaries(module: &ResourceModule) -> Vec<OwnerReturnSummary> {
+    let mut summaries = Vec::new();
+    for _ in 0..=module.functions.len() {
+        let mut next = Vec::new();
+        for function in &module.functions {
+            let summary = function_owner_return_summary(function, &summaries);
+            if summary.returns_fresh_owner || !summary.parameter_indices.is_empty() {
+                next.push(summary);
+            }
+        }
+        if next == summaries {
+            return summaries;
+        }
+        summaries = next;
+    }
+    summaries
+}
+
+fn function_owner_return_summary(
+    function: &ResourceFunction,
+    summaries: &[OwnerReturnSummary],
+) -> OwnerReturnSummary {
+    let mut engine = ResourceOwnerCheckEngine {
+        function: function.name.as_str(),
+        summaries,
+        diagnostics: Vec::new(),
+        deferred: ResourceOwnerCheckDeferred::default(),
+    };
+    let mut owners = OwnerTable::default();
+    let mut parameter_storages = Vec::new();
+    for param in &function.params {
+        owners.allocate(&param.place);
+        if let Some(OwnerState::Live { storage }) = owners.state(&param.place) {
+            parameter_storages.push(storage);
+        }
+    }
+
+    let mut parameter_indices = Vec::new();
+    let mut returns_fresh_owner = false;
+    for block in &function.blocks {
+        engine.check_ops(&mut owners, &block.ops);
+        if let ResourceTerminator::Return {
+            value: Some(value), ..
+        } = &block.terminator
+        {
+            match owners.state(value) {
+                Some(OwnerState::Live { storage }) => {
+                    if let Some(index) = parameter_storages
+                        .iter()
+                        .position(|parameter_storage| *parameter_storage == storage)
+                    {
+                        push_unique_usize(&mut parameter_indices, index);
+                    } else {
+                        returns_fresh_owner = true;
+                    }
+                }
+                Some(OwnerState::MaybeFreed) => {
+                    returns_fresh_owner = true;
+                }
+                Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed)
+                | None => {}
+            }
+        }
+    }
+
+    OwnerReturnSummary {
+        function: function.name.clone(),
+        parameter_indices,
+        returns_fresh_owner,
+    }
+}
+
 impl ResourceOwnerCheckEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) -> Vec<OwnerStateEntry> {
         let mut owners = OwnerTable::default();
@@ -1261,14 +1343,64 @@ impl ResourceOwnerCheckEngine<'_> {
                     *owners = OwnerTable::merge_paths(&arm_paths);
                 }
             }
+            ResourceOp::Call {
+                output,
+                target,
+                args,
+                span,
+                ..
+            } => self.apply_call_return_owner(owners, output, target, args, *span),
             ResourceOp::Expr { .. }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
             | ResourceOp::CallEffect { .. }
             | ResourceOp::FunctionValue { .. }
-            | ResourceOp::Call { .. }
             | ResourceOp::IndirectCall { .. }
             | ResourceOp::Construct { .. } => {}
+        }
+    }
+
+    fn apply_call_return_owner(
+        &mut self,
+        owners: &mut OwnerTable,
+        output: &Place,
+        target: &ResourceCallTarget,
+        args: &[Place],
+        span: Span,
+    ) {
+        let ResourceCallTarget::User { name, .. } = target else {
+            return;
+        };
+        let Some(summary) = self
+            .summaries
+            .iter()
+            .find(|summary| summary.function == name.as_str())
+        else {
+            return;
+        };
+        let mut transferred = false;
+        for arg in summary
+            .parameter_indices
+            .iter()
+            .filter_map(|index| args.get(*index))
+        {
+            if owners
+                .state(arg)
+                .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
+            {
+                self.transfer_owner(
+                    owners,
+                    arg,
+                    output,
+                    ResourceOwnerOperation::ReturnValue,
+                    span,
+                );
+                transferred = true;
+                break;
+            }
+        }
+        if summary.returns_fresh_owner && !transferred {
+            owners.allocate(output);
         }
     }
 
@@ -1765,6 +1897,12 @@ fn should_track(place: &Place) -> bool {
 fn push_unique_place(places: &mut Vec<Place>, place: &Place) {
     if !places.iter().any(|existing| existing == place) {
         places.push(place.clone());
+    }
+}
+
+fn push_unique_usize(values: &mut Vec<usize>, value: usize) {
+    if !values.contains(&value) {
+        values.push(value);
     }
 }
 

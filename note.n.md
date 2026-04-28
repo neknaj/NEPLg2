@@ -22491,3 +22491,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、callback 境界での borrow token binding を保守的に維持した。
+
+# 2026-04-28 メモ (ISS-20260428T112744824Z owner return summary)
+
+- [同期]:
+  - `origin/main` の `95275c7 fix(core): propagate borrow tokens from unknown callbacks` まで同期した main から `work/stage4-owner-return-summary` branch を作成した。
+- [原因]:
+  - `ResourceOwnerCheckEngine` は同一関数内の `RawMemory::Alloc` / `Dealloc` を追跡していたが、`ResourceOp::Call` を owner 境界として扱っていなかった。
+  - helper が fresh owner を返す場合、callee 側では `Return` により owner が move-out される一方で、caller の call output には free obligation が付かず leak を検出できなかった。
+  - helper が owner 引数を返す場合も、caller 側で引数から戻り値への owner transfer が行われなかった。
+- [修正]:
+  - direct user function の owner return summary を固定点で計算するようにした。
+  - summary は fresh owner return と parameter-to-return owner transfer を区別し、`ResourceOp::Call` で caller の `OwnerTable` へ反映する。
+  - `nepl-core/tests/resource_ir.rs` に helper allocation return leak の検出回帰と、owner argument return transfer の正常系を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、direct function boundary で owner obligation を維持した。
