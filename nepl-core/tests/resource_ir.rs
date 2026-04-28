@@ -2897,6 +2897,132 @@ fn resource_ir_cell_check_allows_external_parameter_raw_load() {
 }
 
 #[test]
+fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let i32_ty = types.i32();
+    let mem_ptr_ty = types.register_named(
+        "MemPtr".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "MemPtr".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["raw".to_string()],
+        },
+    );
+    let vec_ty = types.register_named(
+        "VecLike".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "VecLike".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty, i32_ty, mem_ptr_ty],
+            field_names: vec!["len".to_string(), "cap".to_string(), "data".to_string()],
+        },
+    );
+    let vec_ref_ty = types.reference(vec_ty, false);
+    let data_ref_ty = types.reference(mem_ptr_ty, false);
+    let span = Span::dummy();
+    let vec_param = Place::local("v".to_string(), vec_ty);
+    let vec_ref = Place::temporary(ResourceId(0), vec_ref_ty);
+    let data_ref_address = vec_ref.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(8) }),
+        i32_ty,
+    );
+    let data_ref = Place::temporary(ResourceId(1), data_ref_ty);
+    let data_from_ref = Place::temporary(ResourceId(2), mem_ptr_ty);
+    let data_local = Place::local("v_data".to_string(), mem_ptr_ty);
+    let data_value = Place::temporary(ResourceId(3), mem_ptr_ty);
+    let data_raw = data_value.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let raw_addr = Place::temporary(ResourceId(4), i32_ty);
+    let element_addr = raw_addr.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+        i32_ty,
+    );
+    let loaded = Place::temporary(ResourceId(5), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![ResourceLocal {
+                name: "v".to_string(),
+                ty: vec_ty,
+                mutable: false,
+                place: vec_param.clone(),
+            }],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Borrow {
+                        source: vec_param.clone(),
+                        output: vec_ref,
+                        kind: BorrowKind::Shared,
+                        span,
+                    },
+                    ResourceOp::RawAddressAlias {
+                        source: data_ref_address,
+                        target: data_ref.clone(),
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: data_ref.with_projection(PlaceProjection::Deref, mem_ptr_ty),
+                        output: data_from_ref.clone(),
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Deref,
+                        output: data_from_ref.clone(),
+                        ty: mem_ptr_ty,
+                        span,
+                    },
+                    ResourceOp::DeclareLocal {
+                        place: data_local.clone(),
+                        mutable: false,
+                        initializer: Some(data_from_ref),
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: data_local,
+                        output: data_value,
+                        span,
+                    },
+                    ResourceOp::RawAddressAlias {
+                        source: data_raw,
+                        target: raw_addr.clone(),
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded,
+                        args: vec![element_addr],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_cell_check_tracks_external_non_copy_raw_load_after_first_move() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

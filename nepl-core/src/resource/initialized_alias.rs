@@ -56,6 +56,19 @@ impl RawCellAddressAliases {
             .any(|group| group.iter().any(|alias| alias == place))
     }
 
+    pub(super) fn aliases_for(&self, place: &Place) -> Vec<Place> {
+        let mut out = Vec::new();
+        for group in self.alias_groups_for(place) {
+            for alias in group {
+                push_unique_place(&mut out, &alias);
+            }
+        }
+        if out.is_empty() {
+            push_unique_place(&mut out, place);
+        }
+        out
+    }
+
     pub(super) fn clear(&mut self, place: &Place) {
         for group in &mut self.groups {
             group.retain(|existing| place_suffix_after_prefix(existing, place).is_none());

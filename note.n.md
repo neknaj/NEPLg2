@@ -86,7 +86,30 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host CLI parser の focused doctest と external fixture が RawMemoryLoadCell gate 下でも通る状態に戻った。
+# 2026-04-29 メモ (ISS-20260428T223953830Z Vec external backing raw cell)
 
+- [同期]:
+  - `origin/main` と同期済みの `work/vec-external-backing-raw-root` branch で作業した。
+- [原因]:
+  - `Vec` parameter の `data` field は `field::get_ref &v "data"` で参照経由に統一済みだったが、Resource IR が `RawAddressAlias` を通常の value copy と同じ扱いにしていた。
+  - そのため `&v.data` から読み出した `MemPtr` の raw address alias が `Deref` expression と local read を通過すると失われ、`v_data + idx * size_of<T>` の `RawMemoryLoadCell` が parameter 由来の external backing storage と結び直せなかった。
+  - `Borrow` で常に参照 output を external raw root にする案は広すぎたため採用せず、parameter 由来の external root だけが alias コピーで伝播する形に絞った。
+- [修正]:
+  - `RawAddressAlias` を force raw-address mode で処理し、raw address として明示的に作られた alias は canonical cell/root の rekey 対象にした。
+  - `Deref` expression が `MemPtr` / `RegionToken` を返す場合だけ raw alias を維持し、それ以外の deref では従来どおり alias を消すようにした。
+  - `RawMemoryLoadCell` は canonical address だけでなく alias group 内の address が external raw storage root に重なるかを確認するようにした。
+  - 回帰テスト `resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load` を追加し、`Vec` の `field::get_ref &v "data"` 相当の経路を Resource IR 単体で固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 26 passed
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i stdlib\alloc\collections\vec.nepl --no-tree -o tmp\agent1-vec-external-backing-main-after-pick.json -j 1`: total=39 passed=39 failed=0
+  - `cargo check -p nepl-core --tests`: pass
+  - `rustfmt --check nepl-core\src\resource\cell_state.rs nepl-core\src\resource\initialized.rs nepl-core\src\resource\initialized_alias.rs nepl-core\src\resource\initialized_raw_memory.rs nepl-core\tests\resource_ir.rs`: pass
+  - `node nodesrc\test_resource_checker_responsibility.js`: pass
+  - `node nodesrc\issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4 resource check 移行に沿って、`RawMemoryLoadCell` gate を弱めずに external aggregate raw alias の伝播を Resource IR 側へ寄せた。
 # 2026-04-29 メモ (ISS-20260428T225903679Z self-host mono instance key)
 
 - [同期]:

@@ -1,9 +1,9 @@
 ---
 id: ISS-20260428T223953830Z-VEC-ELEMENT-LOADS-LOSE-BACKING-STORA-E811458B
 title: "Vec element loads lose backing storage initialization under RawMemoryLoadCell gate"
-area: stdlib
-status: open
-resolved: false
+area: core
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
@@ -39,8 +39,24 @@ Vec doctests remain partially blocked (after trunk build, vec.nepl is 29/39 pass
 
 ## 修正方針
 
-Represent Vec backing storage as an initialized element range owned by the Vec storage token, or introduce a compiler-owned Storage/InitializedCell model that push/filled/store initialize and get/get_ref consume or copy according to T. Do not silence RawMemoryLoadCell globally; preserve load-before-store diagnostics for compiler-owned raw allocations.
+`RawMemoryLoadCell` を弱めず、Resource IR の raw address alias / external raw root 伝播を修正する。
+
+`field::get_ref &v "data"` は、function parameter として渡された `Vec` aggregate の field reference から `MemPtr` を読み、その `MemPtr.raw + offset` を raw load address にする。この経路で `RawAddressAlias` が「raw address を作る operation」であることを明示せず、`Deref` expression 後の `MemPtr` alias も消していたため、最終的な raw load cell が parameter 由来の external backing storage と結び直せなかった。
+
+修正では `RawAddressAlias` を force raw-address mode で扱い、`Deref` が `MemPtr` / `RegionToken` を返す場合だけ raw alias を維持する。また、canonical address だけでなく同一 alias group 内の address が external raw storage に重なるかを見て `RawMemoryLoadCell` の外部 parameter load を許可する。compiler-owned allocation については owned raw root を優先し、load-before-store diagnostic を維持する。
+
+関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)
 
 ## 検証
 
-After trunk build, run vec focused doctests, a small Vec<i32> push/get/get_ref regression, self-host type arena tests, node nodesrc/issues.js check, and git diff --check.
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 26 passed
+- `trunk build`: pass
+- `node nodesrc\tests.js -i stdlib\alloc\collections\vec.nepl --no-tree -o tmp\agent1-vec-external-backing-main-after-pick.json -j 1`: total=39, passed=39, failed=0
+- `cargo check -p nepl-core --tests`: pass
+- `rustfmt --check nepl-core\src\resource\cell_state.rs nepl-core\src\resource\initialized.rs nepl-core\src\resource\initialized_alias.rs nepl-core\src\resource\initialized_raw_memory.rs nepl-core\tests\resource_ir.rs`: pass
+- `node nodesrc\test_resource_checker_responsibility.js`: pass
+- `node nodesrc\issues.js check`: pass
+
+## 対応結果
+
+`Vec` element load の D3100 は、stdlib 側の header read ではなく core Resource IR の external aggregate raw address alias 伝播不足が根本原因だった。`Vec` parameter の backing storage は caller-owned な external storage として扱う一方、`RawMemoryLoadCell` gate 自体は維持したため、compiler-owned raw allocation の未初期化 load を隠す修正にはしていない。

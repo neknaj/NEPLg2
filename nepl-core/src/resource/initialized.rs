@@ -4,7 +4,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::span::Span;
-use crate::types::TypeCtx;
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
@@ -183,7 +183,7 @@ impl ResourceCheckEngine<'_> {
             } => {
                 if self.ensure_available(cells, source, ResourceCheckOperation::Borrow, *span) {
                     cells.mark_initialized(output);
-                    raw_aliases.clear(output);
+                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                 }
             }
             ResourceOp::Move {
@@ -268,7 +268,7 @@ impl ResourceCheckEngine<'_> {
                 span,
             } => self.check_raw_memory(cells, raw_aliases, operation, output, args, *span),
             ResourceOp::RawAddressAlias { source, target, .. } => {
-                self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, target);
+                self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
             }
             ResourceOp::Construct {
                 output,
@@ -504,11 +504,48 @@ impl ResourceCheckEngine<'_> {
         source: &Place,
         target: &Place,
     ) {
+        self.copy_raw_alias_and_rekey_cells_with_mode(cells, raw_aliases, source, target, false);
+    }
+
+    fn copy_raw_address_alias_and_rekey_cells(
+        &self,
+        cells: &mut CellTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        source: &Place,
+        target: &Place,
+    ) {
+        self.copy_raw_alias_and_rekey_cells_with_mode(cells, raw_aliases, source, target, true);
+    }
+
+    fn copy_raw_alias_and_rekey_cells_with_mode(
+        &self,
+        cells: &mut CellTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        source: &Place,
+        target: &Place,
+        force_raw_address: bool,
+    ) {
         let source_tracks_raw_address = raw_aliases.contains_exact(source);
         let source_canonical = raw_aliases.canonicalize(source);
+        let source_aliases = raw_aliases.aliases_for(source);
+        let source_is_known_raw_address = force_raw_address
+            || source_tracks_raw_address
+            || source_canonical != *source
+            || source_aliases.len() > 1;
+        let source_is_external_raw_storage = source_is_known_raw_address
+            && source_aliases
+                .iter()
+                .any(|alias| cells.external_raw_storage_overlaps(alias));
         raw_aliases.copy_alias_or_seed(source, target);
         let target_canonical = raw_aliases.canonicalize(target);
-        if source_tracks_raw_address || source_canonical != *source {
+        if source_is_external_raw_storage {
+            for alias in &source_aliases {
+                cells.mark_external_raw_storage_root(alias);
+            }
+            cells.mark_external_raw_storage_root(target);
+            cells.mark_external_raw_storage_root(&target_canonical);
+        }
+        if source_is_known_raw_address {
             cells.rekey_raw_cells(&source_canonical, &target_canonical);
         }
     }
@@ -538,7 +575,10 @@ impl ResourceCheckEngine<'_> {
             | ResourceExprKind::Construct
             | ResourceExprKind::Borrow => {}
         }
-        if !expr_kind_preserves_raw_alias(kind) {
+        if !expr_kind_preserves_raw_alias(kind)
+            && !(matches!(kind, ResourceExprKind::Deref)
+                && type_preserves_raw_address_alias(self.types, output.ty))
+        {
             raw_aliases.clear(output);
         }
     }
@@ -642,4 +682,19 @@ fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDefer
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;
     target.match_merges += source.match_merges;
+}
+
+fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { name, .. } => name == "MemPtr" || name == "RegionToken",
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(
+                types.get_ref(base),
+                TypeKind::Struct { name, .. } if name == "MemPtr" || name == "RegionToken"
+            )
+        }
+        _ => false,
+    }
 }

@@ -41,7 +41,10 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
                 let cell = raw_memory_cell_place(&address, output.ty);
-                let cell_available = cells.raw_cell_is_untracked_external(&address)
+                let cell_available = raw_aliases
+                    .aliases_for(&address)
+                    .iter()
+                    .any(|alias| cells.raw_cell_is_untracked_external(alias))
                     || self.ensure_available(
                         cells,
                         &cell,

@@ -48,6 +48,9 @@ impl CellTable {
         }) {
             return CellState::Initialized(place.ty);
         }
+        if self.raw_cell_place_is_untracked_external(place) {
+            return CellState::Initialized(place.ty);
+        }
         CellState::Uninit
     }
 
@@ -96,6 +99,12 @@ impl CellTable {
                 .external_raw_storage_roots
                 .iter()
                 .any(|root| raw_addresses_overlap(root, address))
+    }
+
+    pub(super) fn external_raw_storage_overlaps(&self, address: &Place) -> bool {
+        self.external_raw_storage_roots
+            .iter()
+            .any(|root| raw_addresses_overlap(root, address))
     }
 
     pub(super) fn clear_raw_cells_under(&mut self, address: &Place) {
@@ -204,6 +213,18 @@ impl CellTable {
             .any(|entry| raw_cell_suffix_after_address(&entry.place, address).is_some())
     }
 
+    fn raw_cell_place_is_untracked_external(&self, place: &Place) -> bool {
+        self.cells.iter().all(|entry| entry.place != *place)
+            && self
+                .owned_raw_storage_roots
+                .iter()
+                .all(|root| raw_cell_suffix_after_address(place, root).is_none())
+            && self
+                .external_raw_storage_roots
+                .iter()
+                .any(|root| raw_cell_suffix_after_address(place, root).is_some())
+    }
+
     fn state(&self, place: &Place) -> Option<CellState> {
         self.cells
             .iter()
@@ -294,12 +315,21 @@ fn rekey_raw_storage_roots(roots: &mut Vec<Place>, source: &Place, target: &Plac
         }
         if let Some(place) = replace_place_prefix(root, source, target) {
             push_unique_place(&mut relocated, &place);
+            return false;
         }
-        false
+        if raw_address_covers(root, source) {
+            push_unique_place(&mut relocated, target);
+            return true;
+        }
+        true
     });
     for place in relocated {
         push_unique_place(roots, &place);
     }
+}
+
+fn raw_address_covers(root: &Place, address: &Place) -> bool {
+    place_suffix_after_address_prefix(address, root).is_some()
 }
 
 fn place_suffix_after_address_prefix(
