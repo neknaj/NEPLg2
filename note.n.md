@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck driver entry module)
+
+- 状況:
+  - `driver.rs` には top-level module assembly の末尾で `#entry` 解決、LLVM raw block fallback、entry missing / ambiguous diagnostic が混在していた。
+  - entry 解決は directive/env lookup/backend fallback の接点であり、top-level registration や final HIR assembly とは別責務である。
+- 修正:
+  - `nepl-core/src/typecheck/driver_entry.rs` を追加し、entry 解決を `resolve_entry_function` へ分離した。
+  - `driver.rs` は final HIR assembly 前に entry module へ委譲する形にし、LLVM raw block entry fallback も同 module に閉じた。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck driver entry 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/driver.rs nepl-core/src/typecheck/driver_entry.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test functions/effects/generics -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -i tests/compiler/generics.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-typecheck-driver-entry-focused.json -j 1`: 143/143 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck call binding lookup module)
 
 - 状況:

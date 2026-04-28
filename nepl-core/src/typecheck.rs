@@ -13,6 +13,7 @@ mod constructor_apply;
 mod context;
 mod control_apply;
 mod driver;
+mod driver_entry;
 mod effect_check;
 mod env;
 mod field_access;
