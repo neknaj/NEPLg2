@@ -119,6 +119,15 @@ enum StdErrorKind:
     IoError
     Other
 
+//: StdErrorKind は payload を[持/も]たない[軽量/けいりょう] enum なので Copy として[扱/あつか]う
+impl Clone for StdErrorKind:
+    fn clone <(&StdErrorKind)->StdErrorKind> (x):
+        *x
+
+impl Copy for StdErrorKind:
+    fn copy_mark <(StdErrorKind)->StdErrorKind> (x):
+        x
+
 //: Result: 成功(Ok)か失敗(Err)を表す
 //:
 //: 目的:

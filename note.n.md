@@ -21451,3 +21451,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - callback を aggregate に格納する self-host/stdlib 形状でも compiler core の raw ownership effect propagation が途切れないようにした。
+
+# 2026-04-28 メモ (ISS-20260428T031445156Z diag/error raw aggregate detours)
+
+- [同期]:
+  - `main` 同期後の `fix/stdlib-diag-error-raw-detours-20260428` branch で作業した。
+- [再現]:
+  - `stdlib/tests/diag.n.md` と `stdlib/tests/error.n.md` が、`Diag` / `Diags` / `Outcome` / `Result` を raw memory に退避して同じ place から複数回 `load` するため D3100 になっていた。
+  - `alloc/diag/diag.nepl` と `alloc/diag/error.nepl` にも同じ raw aggregate detour が残っていた。
+- [原因]:
+  - `Diag` が `Vec<str>` の notes/help を所有しており、`Vec<Diag>` へ入れる時点でも non-Copy owner を raw storage 上で再配置・再読込する形になっていた。
+  - テスト fixture も raw memory を観察用一時置き場として使っており、最新の strict move checking と矛盾していた。
+- [修正]:
+  - `StdErrorKind` / `DiagLevel` / `Span` / `DiagKind` / `Diag` に Copy/Clone capability を明示した。
+  - `Diag.notes` / `Diag.help` は owning `Vec<str>` ではなく、改行済み text block として保持する形へ変更した。
+  - `diag_with_span` / `diag_with_source` / `diag_add_note` / `diag_add_help` / `diag_to_string` / `diags_to_string` / `diags_len` / `diags_has_errors` を raw aggregate detour なしの実装へ変更した。
+  - `Outcome` / `Diag` の観察用に参照 overload を追加し、`stdlib/tests/error.n.md` から raw temp fixture を削除した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md -i stdlib/alloc/diag/error.nepl -i stdlib/alloc/diag/diag.nepl --no-tree -o tmp/diag-all-after-dead-helper-removal.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/result-after-stderrorkind-copy.json -j 1`: 7/7 passed
+  - `node nodesrc/tests.js -i stdlib/tests --no-tree -o tmp/stdlib-tests-diag-error-after-fix-j4.json -j 4`: 80/80 passed
+  - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-all-diag-error-after-fix.json -j 4`: 15 分で timeout、partial JSON は 0/422 completed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Diag` の現在実装は、将来の structured notes/help と矛盾しないよう、内部表現を一時的に Copy 可能な text block へ寄せた。

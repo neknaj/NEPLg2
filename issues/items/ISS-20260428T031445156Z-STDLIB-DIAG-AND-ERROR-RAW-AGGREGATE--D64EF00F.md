@@ -2,13 +2,13 @@
 id: ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F
 title: "stdlib diag and error raw aggregate detours fail under strict move checking"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
 updated: 2026-04-28
-target: "stdlib/alloc/diag/error.nepl, stdlib/tests/diag.n.md, stdlib/tests/error.n.md"
+target: "stdlib/alloc/diag/error.nepl, stdlib/alloc/diag/diag.nepl, stdlib/core/result.nepl, stdlib/tests/diag.n.md, stdlib/tests/error.n.md"
 ---
 
 # ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F: stdlib diag and error raw aggregate detours fail under strict move checking
@@ -39,6 +39,21 @@ stdlib diagnostic helpers are part of error reporting and self-host infrastructu
 
 Replace raw aggregate detours with borrowed field projection or owned decomposition that does not repeatedly load non-Copy aggregates from raw memory. Keep the move checker strict and add focused diag/error doctest regressions.
 
+## 対応結果
+
+- `StdErrorKind` / `DiagLevel` / `Span` / `DiagKind` / `Diag` に Copy/Clone capability を明示し、診断値本体を `Vec<Diag>` の要素として安全に観察できる軽量値へ寄せた。
+- `Diag.notes` / `Diag.help` は owning `Vec<str>` ではなく、改行済み text block として保持する形へ変更した。これにより `Diag` 本体を non-Copy owner の集合体にせず、`Diags` の backing store 走査でも D3100 を誘発しない。
+- `diag_with_span` / `diag_with_source` / `diag_add_note` / `diag_add_help` / `diag_to_string` / `diags_to_string` / `diags_len` / `diags_has_errors` から raw aggregate detour を削除し、`field::get_ref` と Copy field read に置き換えた。
+- `Outcome` / `Diag` の観察用参照 overload を追加し、`stdlib/tests/error.n.md` の raw temp fixture を通常 API 呼び出しに置き換えた。
+
 ## 検証
 
 Run node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md --no-tree -o tmp/stdlib-diag-error-after-fix.json -j 1 and node nodesrc/issues.js check.
+
+## 実施した検証
+
+- `trunk build`: pass
+- `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md -i stdlib/alloc/diag/error.nepl -i stdlib/alloc/diag/diag.nepl --no-tree -o tmp/diag-all-after-dead-helper-removal.json -j 1`: `total=7`, `passed=7`
+- `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/result-after-stderrorkind-copy.json -j 1`: `total=7`, `passed=7`
+- `node nodesrc/tests.js -i stdlib/tests --no-tree -o tmp/stdlib-tests-diag-error-after-fix-j4.json -j 4`: `total=80`, `passed=80`
+- `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-all-diag-error-after-fix.json -j 4`: 15 分で timeout。partial JSON は `completed_results=0/422` のため、完走結果は得られていない。

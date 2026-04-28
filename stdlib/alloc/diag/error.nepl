@@ -5,7 +5,7 @@
 //: - `Result<T, E>` の[軽量/けいりょう]な[失敗/しっぱい][制御/せいぎょ]と、`Diag` による[構造化/こうぞうか][診断/しんだん]を[分離/ぶんり]します。
 //:
 //: [実装/じっそう]:
-//: - `Diag` は `kind/message/span/notes/help/source` を[持/も]つ struct です。
+//: - `Diag` は `kind/message/span/notes/help/source` を[持/も]つ Copy [可能/かのう]な struct です。
 //: - `Diags` は `Vec<Diag>` を[包/つつ]む struct とし、[順序/じゅんじょ][付/づ]きで[複数/ふくすう]の[診断/しんだん]を[保持/ほじ]します。
 //: - `Outcome<T, E>` は `result` と `diags` を[持/も]ち、[値/あたい]の[成否/せいひ]と[診断/しんだん]を[別軸/べつじく]で[運/はこ]びます。
 //:
@@ -20,6 +20,7 @@
 
 #indent 4
 
+#import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/option" as *
@@ -43,6 +44,14 @@ enum DiagLevel:
     Warn
     Error
 
+impl Clone for DiagLevel:
+    fn clone <(&DiagLevel)->DiagLevel> (level):
+        *level
+
+impl Copy for DiagLevel:
+    fn copy_mark <(DiagLevel)->DiagLevel> (level):
+        level
+
 //: Span: [診断/しんだん][位置/いち]
 //:
 //: [目的/もくてき]:
@@ -57,6 +66,14 @@ struct Span:
     file_id <i32>
     start <i32>
     end <i32>
+
+impl Clone for Span:
+    fn clone <(&Span)->Span> (sp):
+        *sp
+
+impl Copy for Span:
+    fn copy_mark <(Span)->Span> (sp):
+        sp
 
 //: DiagKind: [診断/しんだん]の[分類/ぶんるい]
 //:
@@ -74,13 +91,21 @@ struct DiagKind:
     std_error <Option<StdErrorKind>>
     local_kind <Option<str>>
 
+impl Clone for DiagKind:
+    fn clone <(&DiagKind)->DiagKind> (kind):
+        *kind
+
+impl Copy for DiagKind:
+    fn copy_mark <(DiagKind)->DiagKind> (kind):
+        kind
+
 //: Diag: [単一/たんいつ]の[診断/しんだん]
 //:
 //: [目的/もくてき]:
 //: - [診断/しんだん] 1 [件/けん]ぶんの[分類/ぶんるい]・[本文/ほんぶん]・[補足/ほそく][情報/じょうほう]をまとめます。
 //:
 //: [実装/じっそう]:
-//: - `notes` と `help` は `Vec<str>` で[保持/ほじ]します。
+//: - `notes` と `help` は[整形/せいけい][済/ず]みの[改行/かいぎょう][区切/くぎ]り text block として[保持/ほじ]します。
 //: - `source` は[由来/ゆらい]の[記述/きじゅつ]を[指/さ]す[任意/にんい]の[文字列/もじれつ]です。
 //:
 //: [注意/ちゅうい]:
@@ -92,9 +117,17 @@ struct Diag:
     kind <DiagKind>
     message <str>
     span <Option<Span>>
-    notes <Vec<str>>
-    help <Vec<str>>
+    notes <str>
+    help <str>
     source <Option<str>>
+
+impl Clone for Diag:
+    fn clone <(&Diag)->Diag> (d):
+        *d
+
+impl Copy for Diag:
+    fn copy_mark <(Diag)->Diag> (d):
+        d
 
 //: Diags: [複数/ふくすう]の[診断/しんだん]を[順序/じゅんじょ][付/づ]きで[保持/ほじ]する struct
 //:
@@ -124,51 +157,12 @@ struct Outcome<.T, .E>:
     result <Result<.T, .E>>
     diags <Option<Diags>>
 
-//: StrVecPushRes: `Vec<str>` push の[結果/けっか]
-//:
-//: [目的/もくてき]:
-//: - `Diag.notes` / `Diag.help` の push [後/ご]の owner と[成否/せいひ]を[同時/どうじ]に[返/かえ]します。
-struct StrVecPushRes:
-    items <Vec<str>>
-    ok <bool>
-
-//: DiagVecPushRes: `Vec<Diag>` push の[結果/けっか]
-//:
-//: [目的/もくてき]:
-//: - `Diags.items` の push [後/ご]の owner と[成否/せいひ]を[同時/どうじ]に[返/かえ]します。
-struct DiagVecPushRes:
-    items <Vec<Diag>>
-    ok <bool>
-
-//: diag_empty_str_vec: [空/から]の `Vec<str>` sentinel を[作/つく]る
-//:
-//: [目的/もくてき]:
-//: - allocation failure [時/じ]に consumed owner を[再利用/さいりよう]せず、[空/から]の[失敗/しっぱい][値/あたい]へ[切/き]り[替/か]えます。
-fn diag_empty_str_vec <()->Vec<str>> ():
-    v::Vec<str> 0 0 mem_ptr_wrap 0
-
 //: diag_empty_diag_vec: [空/から]の `Vec<Diag>` sentinel を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
 fn diag_empty_diag_vec <()->Vec<Diag>> ():
     v::Vec<Diag> 0 0 mem_ptr_wrap 0
-
-//: diag_push_str_vec: `Vec<str>` push を trap せず[結果/けっか]へ[変換/へんかん]する
-fn diag_push_str_vec <(Vec<str>,str)->StrVecPushRes> (items, item):
-    match v::push<str> items item:
-        Result::Ok next:
-            StrVecPushRes next true
-        Result::Err _e:
-            StrVecPushRes diag_empty_str_vec false
-
-//: diag_push_diag_vec: `Vec<Diag>` push を trap せず[結果/けっか]へ[変換/へんかん]する
-fn diag_push_diag_vec <(Vec<Diag>,Diag)->DiagVecPushRes> (items, item):
-    match v::push<Diag> items item:
-        Result::Ok next:
-            DiagVecPushRes next true
-        Result::Err _e:
-            DiagVecPushRes diag_empty_diag_vec false
 
 //: diag_kind_new: `DiagKind` を[構築/こうちく]する
 fn diag_kind_new <(DiagLevel,Option<StdErrorKind>,Option<str>)->DiagKind> (level, std_error, local_kind):
@@ -192,19 +186,7 @@ fn warn_diag_kind <(str)->DiagKind> (local_kind):
 
 //: diag_new: [診断/しんだん] 1 [件/けん]を[構築/こうちく]する
 fn diag_new <(DiagKind,str)*>Diag> (kind, message):
-    let mut notes <Vec<str>> diag_empty_str_vec;
-    let mut help <Vec<str>> diag_empty_str_vec;
-    match v::new<str>:
-        Result::Ok notes0:
-            set notes notes0
-        Result::Err _e:
-            ()
-    match v::new<str>:
-        Result::Ok help0:
-            set help help0
-        Result::Err _e:
-            ()
-    Diag kind message none<Span> notes help none<str>
+    Diag kind message none<Span> "" "" none<str>
 
 //: diag_log: log [診断/しんだん]を[作/つく]る
 fn diag_log <(str)*>Diag> (message):
@@ -228,49 +210,51 @@ fn diag_error <(StdErrorKind,str)*>Diag> (kind, message):
 
 //: diag_with_span: [位置/いち][情報/じょうほう]を[付与/ふよ]する
 fn diag_with_span <(Diag,Span)->Diag> (d, sp):
-    let d_mem <i32> alloc_raw size_of<Diag>;
-    store<Diag> d_mem d;
-    let out <Diag> Diag get load<Diag> d_mem "kind" get load<Diag> d_mem "message" some<Span> sp get load<Diag> d_mem "notes" get load<Diag> d_mem "help" get load<Diag> d_mem "source";
-    dealloc_raw d_mem size_of<Diag>;
-    out
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" some<Span> sp *field::get_ref &d "notes" *field::get_ref &d "help" *field::get_ref &d "source"
 
 //: diag_with_source: [由来/ゆらい][情報/じょうほう]を[付与/ふよ]する
 fn diag_with_source <(Diag,str)->Diag> (d, src):
-    let d_mem <i32> alloc_raw size_of<Diag>;
-    store<Diag> d_mem d;
-    let out <Diag> Diag get load<Diag> d_mem "kind" get load<Diag> d_mem "message" get load<Diag> d_mem "span" get load<Diag> d_mem "notes" get load<Diag> d_mem "help" some<str> src;
-    dealloc_raw d_mem size_of<Diag>;
-    out
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" *field::get_ref &d "help" some<str> src
 
 //: diag_add_note: note を 1 [件/けん][追加/ついか]する
 fn diag_add_note <(Diag,str)*>Diag> (d, note):
-    let d_mem <i32> alloc_raw size_of<Diag>;
-    store<Diag> d_mem d;
-    let pushed_notes <StrVecPushRes> diag_push_str_vec get load<Diag> d_mem "notes" note;
-    let notes1 <Vec<str>> get pushed_notes "items";
-    let out <Diag> Diag get load<Diag> d_mem "kind" get load<Diag> d_mem "message" get load<Diag> d_mem "span" notes1 get load<Diag> d_mem "help" get load<Diag> d_mem "source";
-    dealloc_raw d_mem size_of<Diag>;
-    out
+    let notes0 <str> *field::get_ref &d "notes";
+    let notes1 <str> concat notes0 note;
+    let notes2 <str> concat notes1 "\n";
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" notes2 *field::get_ref &d "help" *field::get_ref &d "source"
 
 //: diag_add_help: help を 1 [件/けん][追加/ついか]する
 fn diag_add_help <(Diag,str)*>Diag> (d, help_item):
-    let d_mem <i32> alloc_raw size_of<Diag>;
-    store<Diag> d_mem d;
-    let pushed_help <StrVecPushRes> diag_push_str_vec get load<Diag> d_mem "help" help_item;
-    let help1 <Vec<str>> get pushed_help "items";
-    let out <Diag> Diag get load<Diag> d_mem "kind" get load<Diag> d_mem "message" get load<Diag> d_mem "span" get load<Diag> d_mem "notes" help1 get load<Diag> d_mem "source";
-    dealloc_raw d_mem size_of<Diag>;
-    out
+    let help0 <str> *field::get_ref &d "help";
+    let help1 <str> concat help0 "help: ";
+    let help2 <str> concat help1 help_item;
+    let help3 <str> concat help2 "\n";
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" help3 *field::get_ref &d "source"
 
 //: diag_level: [重大度/じゅうだいど]を[取/と]り[出/だ]す
+fn diag_level <(&Diag)->DiagLevel> (d):
+    let kind <&DiagKind> field::get_ref d "kind";
+    *field::get_ref kind "level"
+
 fn diag_level <(Diag)->DiagLevel> (d):
-    get get d "kind" "level"
+    diag_level &d
 
 //: diag_std_error_kind: `StdErrorKind` を[取/と]り[出/だ]す
+fn diag_std_error_kind <(&Diag)->Option<StdErrorKind>> (d):
+    let kind <&DiagKind> field::get_ref d "kind";
+    *field::get_ref kind "std_error"
+
 fn diag_std_error_kind <(Diag)->Option<StdErrorKind>> (d):
-    get get d "kind" "std_error"
+    diag_std_error_kind &d
 
 //: diag_std_error_kind_str: `StdErrorKind` の[文字列/もじれつ][名/めい]を[取/と]り[出/だ]す
+fn diag_std_error_kind_str <(&Diag)->str> (d):
+    match diag_std_error_kind d:
+        Option::Some k:
+            std_error_kind_str k
+        Option::None:
+            "None"
+
 fn diag_std_error_kind_str <(Diag)->str> (d):
     match diag_std_error_kind d:
         Option::Some k:
@@ -316,30 +300,40 @@ fn diags_new <()*>Diags> ():
 fn diags_one <(Diag)*>Diags> (d):
     match v::new<Diag>:
         Result::Ok items0:
-            let pushed_items <DiagVecPushRes> diag_push_diag_vec items0 d;
-            Diags get pushed_items "items"
+            match v::push<Diag> items0 d:
+                Result::Ok items:
+                    Diags items
+                Result::Err _e:
+                    Diags diag_empty_diag_vec
         Result::Err _e:
             Diags diag_empty_diag_vec
 
 //: diags_push: `Diags` に `Diag` を 1 [件/けん][追加/ついか]する
 fn diags_push <(Diags,Diag)*>Diags> (ds, d):
-    let pushed_items <DiagVecPushRes> diag_push_diag_vec get ds "items" d;
-    Diags get pushed_items "items"
+    match v::push<Diag> field::get ds "items" d:
+        Result::Ok items:
+            Diags items
+        Result::Err _e:
+            Diags diag_empty_diag_vec
 
 //: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す
+fn diags_len <(&Diags)->i32> (ds):
+    let items <&Vec<Diag>> field::get_ref ds "items";
+    v::len_ref<Diag> items
+
 fn diags_len <(Diags)->i32> (ds):
-    v::len<Diag> get ds "items"
+    diags_len &ds
 
 //: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
+fn diags_has_errors <(&Diags)->bool> (ds):
+    let items <&Vec<Diag>> field::get_ref ds "items";
+    let view <VecDataLen<Diag>> v::data_len_ref<Diag> items;
+    let items_len <i32> field::get view "len";
+    let items_data <i32> mem_ptr_addr field::get view "data";
+    diags_has_errors_loop items_data items_len 0
+
 fn diags_has_errors <(Diags)->bool> (ds):
-    let items <Vec<Diag>> get ds "items";
-    let items_mem <i32> alloc_raw size_of<Vec<Diag>>;
-    store<Vec<Diag>> items_mem items;
-    let items_len <i32> get load<Vec<Diag>> items_mem "len";
-    let items_data <i32> mem_ptr_addr get load<Vec<Diag>> items_mem "data";
-    let out <bool> diags_has_errors_loop items_data items_len 0;
-    dealloc_raw items_mem size_of<Vec<Diag>>;
-    out
+    diags_has_errors &ds
 
 fn diags_has_errors_loop <(i32,i32,i32)->bool> (items_data, n, i):
     if:
@@ -370,7 +364,7 @@ fn outcome_err <.T, .E> <(.E)->Outcome<.T, .E>> (e):
 
 //: outcome_with_diags: [診断/しんだん][群/ぐん]を[付与/ふよ]する
 fn outcome_with_diags <.T, .E> <(Outcome<.T, .E>,Diags)->Outcome<.T, .E>> (o, ds):
-    Outcome get o "result" some<Diags> ds
+    Outcome field::get o "result" some<Diags> ds
 
 //: result_to_outcome: `Result` を[診断/しんだん]なし `Outcome` に[昇格/しょうかく]する
 fn result_to_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
@@ -451,6 +445,10 @@ fn result_like_result <.T, .E> <(Result<.T, .E>)->Result<.T, .E>> (r):
 fn result_like_result <.T, .E> <(Outcome<.T, .E>)->Result<.T, .E>> (o):
     outcome_result o
 
+//: result_like_result: `Outcome` [参照/さんしょう]から `Result` を Copy [値/あたい]として[読/よ]み[出/だ]す
+fn result_like_result <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->Result<.T, .E>> (o):
+    outcome_result o
+
 //: result_like_is_ok: `Result` の[成功/せいこう]を[判定/はんてい]する
 fn result_like_is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
     is_ok r
@@ -459,12 +457,20 @@ fn result_like_is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
 fn result_like_is_ok <.T, .E> <(Outcome<.T, .E>)->bool> (o):
     outcome_is_ok o
 
+//: result_like_is_ok: `Outcome` [参照/さんしょう]の[成功/せいこう]を[判定/はんてい]する
+fn result_like_is_ok <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
+    outcome_is_ok o
+
 //: result_like_is_err: `Result` の[失敗/しっぱい]を[判定/はんてい]する
 fn result_like_is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
     is_err r
 
 //: result_like_is_err: `Outcome` の[失敗/しっぱい]を[判定/はんてい]する
 fn result_like_is_err <.T, .E> <(Outcome<.T, .E>)->bool> (o):
+    outcome_is_err o
+
+//: result_like_is_err: `Outcome` [参照/さんしょう]の[失敗/しっぱい]を[判定/はんてい]する
+fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
     outcome_is_err o
 
 //: outcome_result: `Outcome` [内部/ないぶ]の `Result` を[取/と]り[出/だ]す
@@ -500,7 +506,11 @@ fn result_like_is_err <.T, .E> <(Outcome<.T, .E>)->bool> (o):
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
 fn outcome_result <.T, .E> <(Outcome<.T, .E>)->Result<.T, .E>> (o):
-    get o "result"
+    field::get o "result"
+
+//: outcome_result: `Outcome` [参照/さんしょう]から Copy [可能/かのう]な `Result` を[読/よ]み[出/だ]す
+fn outcome_result <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->Result<.T, .E>> (o):
+    *field::get_ref o "result"
 
 //: outcome_is_ok: `Outcome.result` が `Ok` か[判定/はんてい]する
 //:
@@ -524,6 +534,14 @@ fn outcome_is_ok <.T, .E> <(Outcome<.T, .E>)->bool> (o):
         Result::Err _e:
             false
 
+//: outcome_is_ok: `Outcome` [参照/さんしょう]の `Result` が `Ok` か[判定/はんてい]する
+fn outcome_is_ok <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
+    match outcome_result o:
+        Result::Ok _v:
+            true
+        Result::Err _e:
+            false
+
 //: outcome_is_err: `Outcome.result` が `Err` か[判定/はんてい]する
 //:
 //: [目的/もくてき]:
@@ -541,6 +559,10 @@ fn outcome_is_ok <.T, .E> <(Outcome<.T, .E>)->bool> (o):
 fn outcome_is_err <.T, .E> <(Outcome<.T, .E>)->bool> (o):
     not outcome_is_ok o
 
+//: outcome_is_err: `Outcome` [参照/さんしょう]の `Result` が `Err` か[判定/はんてい]する
+fn outcome_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
+    not outcome_is_ok o
+
 //: outcome_diags_or_empty: `Outcome` の[診断/しんだん][群/ぐん]を[空/から]なら[空/から]の `Diags` に[置/お]き[換/か]えて[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -556,7 +578,7 @@ fn outcome_is_err <.T, .E> <(Outcome<.T, .E>)->bool> (o):
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
 fn outcome_diags_or_empty <.T, .E> <(Outcome<.T, .E>)*>Diags> (o):
-    match get o "diags":
+    match field::get o "diags":
         Option::Some ds:
             ds
         Option::None:
@@ -578,7 +600,7 @@ fn outcome_diags_or_empty <.T, .E> <(Outcome<.T, .E>)*>Diags> (o):
 //: - [時間/じかん]: O(n)
 //: - [空間/くうかん]: O(n)（[再帰/さいき]ぶん）
 fn outcome_has_errors <.T, .E> <(Outcome<.T, .E>)->bool> (o):
-    match get o "diags":
+    match field::get o "diags":
         Option::Some ds:
             diags_has_errors ds
         Option::None:

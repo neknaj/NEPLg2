@@ -17,6 +17,7 @@
 #indent 4
 
 #import "alloc/diag/error" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/option" as *
@@ -27,30 +28,26 @@
 #import "std/stdio" as *
 
 //: kind_str: `Diag` の kind を[人間/にんげん]向けの[短/みじか]い[識別子/しきべつし]へ[変換/へんかん]する
-fn kind_str <(Diag)->str> (d):
-    let d_mem <i32> alloc_raw size_of<Diag>;
-    store<Diag> d_mem d;
-    let k <DiagKind> get load<Diag> d_mem "kind";
-    let k_mem <i32> alloc_raw size_of<DiagKind>;
-    store<DiagKind> k_mem k;
-    let level_name <str> diag_level_str get load<DiagKind> k_mem "level";
-    let out <str> match get load<DiagKind> k_mem "std_error":
+fn kind_str <(&Diag)->str> (d):
+    let k <&DiagKind> field::get_ref d "kind";
+    let level_name <str> diag_level_str *field::get_ref k "level";
+    match *field::get_ref k "std_error":
         Option::Some stdk:
             let std_name <str> std_error_kind_str stdk;
             let l1 <str> concat level_name "[";
             let l2 <str> concat l1 std_name;
             concat l2 "]"
         Option::None:
-            match get load<DiagKind> k_mem "local_kind":
+            match *field::get_ref k "local_kind":
                 Option::Some local:
                     let l1 <str> concat level_name "[";
                     let l2 <str> concat l1 local;
                     concat l2 "]"
                 Option::None:
                     level_name
-    dealloc_raw k_mem size_of<DiagKind>;
-    dealloc_raw d_mem size_of<Diag>;
-    out
+
+fn kind_str <(Diag)->str> (d):
+    kind_str &d
 
 //: span_to_string: `Span` を `file:start-end` へ[整形/せいけい]する
 fn span_to_string <(Span)->str> (sp):
@@ -62,27 +59,15 @@ fn span_to_string <(Span)->str> (sp):
     let t2 <str> concat t1 "-";
     concat t2 e
 
-fn diag_lines_loop <(i32,i32,i32,str)->str> (lines_data, n, i, acc):
-    if:
-        ge i n
-        then acc
-        else:
-            let line <str> load<str> add lines_data mul i size_of<str>;
-            let next <str> concat acc line;
-            let next2 <str> concat next "\n";
-            diag_lines_loop lines_data n add i 1 next2
-
 //: diag_to_string: `Diag` を[表示/ひょうじ]しやすい[文字列/もじれつ]へ[変換/へんかん]する
-fn diag_to_string <(Diag)->str> (d):
-    let d_mem <i32> alloc_raw size_of<Diag>;
-    store<Diag> d_mem d;
-    let ks <str> kind_str load<Diag> d_mem;
+fn diag_to_string <(&Diag)->str> (d):
+    let ks <str> kind_str d;
     let h0 <str> concat ks ": ";
-    let message <str> get load<Diag> d_mem "message";
+    let message <str> *field::get_ref d "message";
     let mut out <str> concat h0 message;
     set out concat out "\n";
 
-    match get load<Diag> d_mem "span":
+    match *field::get_ref d "span":
         Option::Some sp:
             let sp_s <str> span_to_string sp;
             let l0 <str> concat "at " sp_s;
@@ -91,53 +76,31 @@ fn diag_to_string <(Diag)->str> (d):
         Option::None:
             ()
 
-    let notes <Vec<str>> get load<Diag> d_mem "notes";
-    let notes_mem <i32> alloc_raw size_of<Vec<str>>;
-    store<Vec<str>> notes_mem notes;
-    let notes_len <i32> get load<Vec<str>> notes_mem "len";
-    let notes_data <i32> mem_ptr_addr get load<Vec<str>> notes_mem "data";
-    set out diag_lines_loop notes_data notes_len 0 out;
-    dealloc_raw notes_mem size_of<Vec<str>>;
+    let notes <str> *field::get_ref d "notes";
+    set out concat out notes;
 
-    let help <Vec<str>> get load<Diag> d_mem "help";
-    let help_mem <i32> alloc_raw size_of<Vec<str>>;
-    store<Vec<str>> help_mem help;
-    let help_len <i32> get load<Vec<str>> help_mem "len";
-    let help_data <i32> mem_ptr_addr get load<Vec<str>> help_mem "data";
-    set out diag_help_loop help_data help_len 0 out;
-    dealloc_raw help_mem size_of<Vec<str>>;
+    let help <str> *field::get_ref d "help";
+    set out concat out help;
 
-    let out2 <str> match get load<Diag> d_mem "source":
+    match *field::get_ref d "source":
         Option::Some src:
             let s0 <str> concat out "source: ";
             let s1 <str> concat s0 src;
             concat s1 "\n"
         Option::None:
             out
-    dealloc_raw d_mem size_of<Diag>;
-    out2
-
-fn diag_help_loop <(i32,i32,i32,str)->str> (items_data, n, i, acc):
-    if:
-        ge i n
-        then acc
-        else:
-            let item <str> load<str> add items_data mul i size_of<str>;
-            let p0 <str> concat acc "help: ";
-            let p1 <str> concat p0 item;
-            let p2 <str> concat p1 "\n";
-            diag_help_loop items_data n add i 1 p2
-
+fn diag_to_string <(Diag)->str> (d):
+    diag_to_string &d
 //: diags_to_string: `Diags` を[改行/かいぎょう][区切/くぎ]りで[連結/れんけつ]する
+fn diags_to_string <(&Diags)->str> (ds):
+    let items <&Vec<Diag>> field::get_ref ds "items";
+    let items_view <VecDataLen<Diag>> data_len_ref<Diag> items;
+    let items_len <i32> field::get items_view "len";
+    let items_data <i32> mem_ptr_addr field::get items_view "data";
+    diags_to_string_loop items_data items_len 0 ""
+
 fn diags_to_string <(Diags)->str> (ds):
-    let items <Vec<Diag>> get ds "items";
-    let items_mem <i32> alloc_raw size_of<Vec<Diag>>;
-    store<Vec<Diag>> items_mem items;
-    let items_len <i32> get load<Vec<Diag>> items_mem "len";
-    let items_data <i32> mem_ptr_addr get load<Vec<Diag>> items_mem "data";
-    let out <str> diags_to_string_loop items_data items_len 0 "";
-    dealloc_raw items_mem size_of<Vec<Diag>>;
-    out
+    diags_to_string &ds
 
 fn diags_to_string_loop <(i32,i32,i32,str)->str> (items_data, n, i, acc):
     if:

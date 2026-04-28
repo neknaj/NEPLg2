@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T03:47:26.902Z",
+  "generated_at": "2026-04-28T04:34:44.909Z",
   "counts": {
     "total": 246,
-    "open": 19,
-    "resolved": 227,
+    "open": 18,
+    "resolved": 228,
     "by_area": {
       "core": {
         "total": 103,
@@ -23,8 +23,8 @@
       },
       "stdlib": {
         "total": 93,
-        "open": 9,
-        "resolved": 84
+        "open": 8,
+        "resolved": 85
       },
       "cli": {
         "total": 19,
@@ -243,21 +243,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5.md"
-    },
-    {
-      "id": "ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F",
-      "title": "stdlib diag and error raw aggregate detours fail under strict move checking",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/alloc/diag/error.nepl, stdlib/tests/diag.n.md, stdlib/tests/error.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -2418,6 +2403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7.md"
+    },
+    {
+      "id": "ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F",
+      "title": "stdlib diag and error raw aggregate detours fail under strict move checking",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/alloc/diag/error.nepl, stdlib/alloc/diag/diag.nepl, stdlib/core/result.nepl, stdlib/tests/diag.n.md, stdlib/tests/error.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F.md"
     },
     {
       "id": "ISS-20260428T031445330Z-DISJOINT-SET-AND-SEGMENT-TREE-RAW-OW-D2F6ED1A",
