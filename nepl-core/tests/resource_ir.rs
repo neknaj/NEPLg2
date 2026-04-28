@@ -3,13 +3,14 @@ use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
 use nepl_core::resource::{
-    check_resource_borrow_lifetimes, check_resource_initialized_moves,
-    check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module_skeleton,
-    AggregateKind, BorrowKind, BorrowState, CellState, EffectOp, OwnerState, Place, PlaceRoot,
-    RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation,
-    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule,
-    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
+    check_resource_initialized_moves, check_resource_owner_obligations,
+    compare_hir_resource_lowering, lower_hir_module_skeleton, AggregateKind, BorrowKind,
+    BorrowState, CellState, EffectOp, OwnerState, Place, PlaceRoot, RawMemoryOp, ResourceBlock,
+    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCoverageDiagnostic,
+    ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule, ResourceOp,
+    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -947,6 +948,35 @@ fn resource_ir_borrow_check_releases_shared_before_unique_borrow() {
 
     let report = check_resource_borrow_lifetimes(&resource);
     assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_shadow_report_combines_lowering_and_resource_checks() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let module = non_copy_read_module(unit_ty, owned_ty, span, false);
+
+    let report = check_hir_resource_safety_shadow(&module, &types);
+
+    assert!(!report.has_lowering_diagnostics());
+    assert!(report.has_resource_diagnostics());
+    assert_eq!(report.resource_diagnostic_count(), 1);
+    assert!(report
+        .initialized_moves
+        .diagnostics
+        .iter()
+        .any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::Read,
+                state: CellState::Moved,
+                ..
+            } if function == "main"
+        )));
+    assert_eq!(report.owner_obligations.diagnostics, vec![]);
+    assert_eq!(report.borrow_lifetimes.diagnostics, vec![]);
 }
 
 #[test]

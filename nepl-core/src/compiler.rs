@@ -243,6 +243,7 @@ fn run_move_check(
     types: &crate::types::TypeCtx,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<(), CoreError> {
+    run_resource_shadow_check(hir_module, types);
     let move_errors = passes::move_check::run(hir_module, types);
     if move_errors.is_empty() {
         return Ok(());
@@ -250,6 +251,29 @@ fn run_move_check(
     diagnostics.extend(move_errors);
     Err(CoreError::from_diagnostics(diagnostics.clone()))
 }
+
+fn run_resource_shadow_check(hir_module: &crate::hir::HirModule, types: &crate::types::TypeCtx) {
+    if !crate::log::is_verbose() {
+        return;
+    }
+    let report = crate::resource::check_hir_resource_safety_shadow(hir_module, types);
+    emit_resource_shadow_report(&report);
+}
+
+#[cfg(not(target_os = "none"))]
+fn emit_resource_shadow_report(report: &crate::resource::ResourceSafetyShadowReport) {
+    std::eprintln!(
+        "[resource-check-shadow] lowering={} cell={} owner={} borrow={} resource_total={}",
+        report.lowering_diagnostic_count(),
+        report.initialized_moves.diagnostics.len(),
+        report.owner_obligations.diagnostics.len(),
+        report.borrow_lifetimes.diagnostics.len(),
+        report.resource_diagnostic_count()
+    );
+}
+
+#[cfg(target_os = "none")]
+fn emit_resource_shadow_report(_report: &crate::resource::ResourceSafetyShadowReport) {}
 
 pub fn prepare_module_for_codegen(
     module: &ast::Module,

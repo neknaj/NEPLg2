@@ -4,14 +4,47 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::hir::HirModule;
 use crate::span::Span;
 use crate::types::TypeCtx;
 
+use super::coverage::{compare_hir_resource_lowering, ResourceLoweringCoverage};
+use super::lower::lower_hir_module_skeleton;
 use super::model::{
     BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, OwnerState,
     OwnerStateEntry, Place, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceExprKind,
     ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator, StorageId,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceSafetyShadowReport {
+    pub lowering_coverage: ResourceLoweringCoverage,
+    pub initialized_moves: ResourceCheckReport,
+    pub owner_obligations: ResourceOwnerCheckReport,
+    pub borrow_lifetimes: ResourceBorrowCheckReport,
+}
+
+impl ResourceSafetyShadowReport {
+    pub fn lowering_diagnostic_count(&self) -> usize {
+        self.lowering_coverage.diagnostics.len()
+    }
+
+    pub fn resource_diagnostic_count(&self) -> usize {
+        self.initialized_moves.diagnostics.len()
+            + self.owner_obligations.diagnostics.len()
+            + self.borrow_lifetimes.diagnostics.len()
+    }
+
+    pub fn has_lowering_diagnostics(&self) -> bool {
+        !self.lowering_coverage.diagnostics.is_empty()
+    }
+
+    pub fn has_resource_diagnostics(&self) -> bool {
+        !self.initialized_moves.diagnostics.is_empty()
+            || !self.owner_obligations.diagnostics.is_empty()
+            || !self.borrow_lifetimes.diagnostics.is_empty()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceCheckReport {
@@ -248,6 +281,19 @@ pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorro
         functions,
         diagnostics,
         deferred,
+    }
+}
+
+pub fn check_hir_resource_safety_shadow(
+    module: &HirModule,
+    types: &TypeCtx,
+) -> ResourceSafetyShadowReport {
+    let resource = lower_hir_module_skeleton(module);
+    ResourceSafetyShadowReport {
+        lowering_coverage: compare_hir_resource_lowering(module, &resource),
+        initialized_moves: check_resource_initialized_moves(&resource, types),
+        owner_obligations: check_resource_owner_obligations(&resource),
+        borrow_lifetimes: check_resource_borrow_lifetimes(&resource),
     }
 }
 

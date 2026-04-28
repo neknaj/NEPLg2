@@ -1,3 +1,24 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 4 old checker shadow gate)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4 commit 単位 5 として、旧 `move_check` と Resource IR 検査を同じ compiler pipeline 入口から観測できる接続を追加した。
+  - Resource IR 側は initialized / moved、owner obligation、borrow lifetime、branch / loop merge まで実装済みだが、function resource summary、aggregate owner decomposition、borrow escape lifetime、raw provenance の関数境界伝播はまだ未完了である。
+- 修正:
+  - `check_hir_resource_safety_shadow` と `ResourceSafetyShadowReport` を追加し、HIR lowering coverage、cell check、owner check、borrow check を 1 つの report にまとめた。
+  - `compiler.rs` の `run_move_check` から verbose mode のときだけ Resource IR shadow check を実行し、lowering / cell / owner / borrow の診断件数をログへ出すようにした。
+  - 通常の compile 成否と diagnostic は旧 `move_check` が authoritative のままとし、未完成の Resource IR 検査を即時エラー化しないようにした。
+  - `nepl-core/tests/resource_ir.rs` に shadow report が non-Copy use-after-move を `CellState::Moved` として検出し、owner / borrow 側に余計な診断を出さないことを固定する regression を追加した。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 4 old checker shadow gate の到達点と、enforcement を保留する理由を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/check.rs nepl-core/src/compiler.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 21 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage4-resource-ir-shadow-gate-focused.json -j 1`: total=97, passed=97
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。Stage 4 commit 単位 5 は「旧 checker との gating 切り替え」だが、現時点では安全性を下げないため enforcement switch ではなく shadow gate として接続した。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 4 branch / loop merge)
 
 - 状況:
