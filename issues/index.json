@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T00:40:30.551Z",
+  "generated_at": "2026-04-28T00:44:04.733Z",
   "counts": {
-    "total": 239,
-    "open": 16,
+    "total": 241,
+    "open": 18,
     "resolved": 223,
     "by_area": {
       "core": {
-        "total": 101,
-        "open": 4,
+        "total": 102,
+        "open": 5,
         "resolved": 97
       },
       "selfhost": {
@@ -17,8 +17,8 @@
         "resolved": 9
       },
       "stdlib": {
-        "total": 89,
-        "open": 7,
+        "total": 90,
+        "open": 8,
         "resolved": 82
       },
       "cli": {
@@ -103,6 +103,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838",
+      "title": "language lacks char type and single-quoted char literals",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/ast.rs, nepl-core/src/types.rs, nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/compiler/char_literals.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T004316513Z-LANGUAGE-LACKS-CHAR-TYPE-AND-SINGLE--63768838.md"
     },
     {
       "id": "ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4",
@@ -283,6 +298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
+    },
+    {
+      "id": "ISS-20260428T004329925Z-STDLIB-AND-SELFHOST-SHOULD-REPLACE-C-CD0357FB",
+      "title": "stdlib and selfhost should replace character code magic numbers with char literals",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/alloc/string.nepl, stdlib/alloc/encoding/json.nepl, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, stdlib/std/stdio.nepl, stdlib/std/env/cliarg.nepl, stdlib/alloc/io.nepl, stdlib/platforms/wasix/tui.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib, tests/compiler/char_literals.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T004329925Z-STDLIB-AND-SELFHOST-SHOULD-REPLACE-C-CD0357FB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
