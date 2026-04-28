@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T09:01:18.688Z",
+  "generated_at": "2026-04-28T09:24:58.110Z",
   "counts": {
     "total": 248,
-    "open": 13,
-    "resolved": 235,
+    "open": 12,
+    "resolved": 236,
     "by_area": {
       "core": {
         "total": 103,
@@ -23,8 +23,8 @@
       },
       "stdlib": {
         "total": 94,
-        "open": 6,
-        "resolved": 88
+        "open": 5,
+        "resolved": 89
       },
       "cli": {
         "total": 19,
@@ -228,21 +228,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
-      "title": "stdlib doc comments still contain generated boilerplate",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "doc",
-      "created": "2026-04-26",
-      "updated": "2026-04-28",
-      "target": "stdlib/core/field.nepl, stdlib/nm/html_gen.nepl, stdlib/core/rand/xorshift32.nepl, stdlib/alloc/hash/fnv1a32.nepl, stdlib/alloc/collections/vec/sort.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -3048,6 +3033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060333140Z-TUI-BOX-HELPERS-RELY-ON-CALLERS-TO-A-2F61EDB2.md"
+    },
+    {
+      "id": "ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1",
+      "title": "stdlib doc comments still contain generated boilerplate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "doc",
+      "created": "2026-04-26",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/field.nepl, stdlib/nm/html_gen.nepl, stdlib/core/rand/xorshift32.nepl, stdlib/alloc/hash/fnv1a32.nepl, stdlib/alloc/collections/vec/sort.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
     },
     {
       "id": "ISS-20260426T073020449Z-STDLIB-HAS-NESTED-IF-DECISION-TREES--8ADF5907",

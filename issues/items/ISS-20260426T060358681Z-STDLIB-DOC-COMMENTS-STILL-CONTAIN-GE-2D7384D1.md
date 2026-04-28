@@ -2,8 +2,8 @@
 id: ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1
 title: "stdlib doc comments still contain generated boilerplate"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: doc
 created: 2026-04-26
@@ -52,3 +52,25 @@ doc/stdlib_doc_comment_policy.md は手書きで具体的な説明を書く方�
 - `stdlib/alloc/collections/vec/sort.nepl`: sort family が algorithm 別の安定性、計算量、in-place 条件を説明しない boilerplate のまま。
 
 self-host 用 stdlib review では、hash/table、parser/htmlgen、sort/collection は仕様説明の不足がそのまま実装判断の不足になる。単なる文言置換ではなく、各 API の契約・失敗条件・計算量・doctest を具体化する。
+
+## 2026-04-28 対応結果
+
+- `stdlib/core/field.nepl` の `get` / `put` を、所有値の取り出し、borrowed field access、field overwrite の契約として説明し直した。
+- `stdlib/nm/html_gen.nepl` の HTML escape、inline serializer、source serializer に、escape scope、sanitizer ではない制約、direct serializer 方針、code fence の扱いを追記した。
+- `stdlib/core/rand/xorshift32.nepl` の module / struct / constructor / next を、seed 0 の固定点、非暗号用途、Xorshift32 の更新式、state の受け渡し契約として説明し直した。
+- `stdlib/alloc/hash/fnv1a32.nepl` の module / struct / constructor / update / finalize を、offset basis、update rule、32-bit bit pattern、collision/security caveat として説明し直した。
+- `stdlib/alloc/collections/vec/sort.nepl` の sort family コメントを、algorithm ごとの安定性、計算量、in-place 条件、raw helper の境界保証へ置き換えた。
+- `nodesrc/test_stdlib_doc_comments_no_boilerplate.js` を追加し、今回対象ファイルの boilerplate marker 再発と主要契約文言の欠落を検出するようにした。
+
+## 実行した検証
+
+- `node nodesrc/test_stdlib_doc_comments_no_boilerplate.js`: pass
+- `node nodesrc/test_stdlib_cast_doc_no_boilerplate.js`: pass
+- `node nodesrc/test_stdlib_json_doc_no_boilerplate.js`: pass
+- `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: pass
+- `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+- `node nodesrc/tests.js -i stdlib/core/field.nepl -i stdlib/nm/html_gen.nepl -i stdlib/core/rand/xorshift32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/stdlib-doc-comments-focused-after-policy.json -j 1`: 7/7 passed
+- `trunk build`: pass
+- `node nodesrc/tests.js -i stdlib/core/field.nepl -i stdlib/nm/html_gen.nepl -i stdlib/core/rand/xorshift32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/stdlib-doc-comments-after-resource-effect-boundaries.json -j 1`: 7/7 passed
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

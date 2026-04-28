@@ -1,11 +1,13 @@
-//: sort: alloc/sort.nepl に関する機能を提供するライブラリ
+//: sort: `Vec` と raw slice の in-place sort algorithms
 //:
 //: [目的/もくてき]:
-//: - このモジュールの公開 API を提供します。
-//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//: - `Ord` を持つ `Vec<.T>` を昇順へ並べ替える複数の in-place sort algorithm を提供します。
+//: - 小規模・教育用の insertion / selection / bubble 系、汎用の quick / heap、安定 sort が必要な merge を同じ比較規約で扱います。
 //:
 //: [注意/ちゅうい]:
-//: - 利用時は各関数の「目的」「注意」「計算量」を確認してください。
+//: - 多くの内部 helper は raw data pointer と unchecked index を使います。公開 API は `Vec` の `len` から範囲を作り、helper へ渡します。
+//: - `sort_quick` / `sort_heap` / `sort` は追加確保なしで in-place に変更します。`sort_merge` は O(n) の作業 buffer を確保します。
+//: - 現在の `Vec` raw storage model では、所有権を持つ non-Copy payload の扱いは Resource IR 移行 issue の制約を受けます。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -59,130 +61,95 @@
 #import "alloc/diag/error" as *
 
 
-// sort: Vec の in-place ソート集
-//
-// 目的:
-// - Vec<.T> を「同じバッファのまま」並べ替える関数群を提供します。
-// - 比較は trait Ord の lt (strict less-than) だけに依存します。
-//
-// 注意(重要):
-// - 破壊的(in-place)です。v の要素が並べ替えられます。
-// - 比較は昇順のみです(降順が欲しい場合は Ord を反転して実装します)。
-// - 安全性のための範囲チェックを省き、v.len と v.data を直接使います。
-//   (stdlib/alloc の他モジュール同様、「正しい index で呼ぶ」前提です)
-//
-// 計算量:
-// - 各アルゴリズムごとのコメントを参照してください。
-
-
-// sort_lt: a < b
-//: sort_lt: 主な用途
+//: sort_lt: sort 内部の strict less-than predicate
 //:
 //: [目的/もくてき]:
-//: - sort_lt の主な用途と呼び出し方を示します。
+//: - `Ord` の `<` 判定を sort algorithm から呼びやすい名前で提供します。
+//: - quick / heap / insertion などの比較規約を 1 箇所にそろえます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `ord_lt` に委譲します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `Ord` 実装が全順序であることを前提にします。矛盾した比較は sort 結果を不安定にします。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn sort_lt <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_lt a b
 
-// sort_le: a <= b  (not (b < a))
-//: sort_le: 主な用途
+//: sort_le: sort 内部の less-or-equal predicate
 //:
 //: [目的/もくてき]:
-//: - sort_le の主な用途と呼び出し方を示します。
+//: - partition や stable merge で「右より大きくない」ことを判定します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
-//:
-//: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `ord_le` に委譲します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn sort_le <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_le a b
 
-// sort_gt: a > b  (b < a)
-//: sort_gt: 主な用途
+//: sort_gt: sort 内部の greater-than predicate
 //:
 //: [目的/もくてき]:
-//: - sort_gt の主な用途と呼び出し方を示します。
+//: - 降順側の比較や heap 条件の説明で使える `>` 判定を提供します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
-//:
-//: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `ord_gt` に委譲します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn sort_gt <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_gt a b
 
-// sort_ge: a >= b (not (a < b))
-//: sort_ge: 主な用途
+//: sort_ge: sort 内部の greater-or-equal predicate
 //:
 //: [目的/もくてき]:
-//: - sort_ge の主な用途と呼び出し方を示します。
+//: - 境界条件の比較を `Ord` の名前空間へそろえます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
-//:
-//: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `ord_ge` に委譲します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_ge a b
 
 
-// sort_get_unchecked: 範囲チェックなしの要素取得
-//
-// 注意(重要):
-// - 0 <= idx < v.len を満たすこと。
-//: sort_get_unchecked: 主な用途
+//: sort_get_unchecked: `Vec` storage から index を検査せずに読む
 //:
 //: [目的/もくてき]:
-//: - sort_get_unchecked の主な用途と呼び出し方を示します。
+//: - sort loop 内で `Vec` の `data` から `.T` を高速に読み出します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `data_ptr(v) + idx * size_of<.T>` を typed `load<.T>` します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `0 <= idx < len(v)` を呼び出し側が保証する内部 helper です。
+//: - 所有権を持つ payload の typed load は Resource IR 移行の制約を受けます。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn sort_get_unchecked <.T> <(Vec<.T>,i32)->.T> (v, idx):
     let data <i32> data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
     load<.T> add data off
 
-// sort_set_unchecked: 範囲チェックなしの要素設定
-//
-// 注意(重要):
-// - 0 <= idx < v.len を満たすこと。
-//: sort_set_unchecked: 主な用途
+//: sort_set_unchecked: `Vec` storage へ index を検査せずに書く
 //:
 //: [目的/もくてき]:
-//: - sort_set_unchecked の主な用途と呼び出し方を示します。
+//: - sort loop 内で `.T` を指定 index へ書き戻します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `data_ptr(v) + idx * size_of<.T>` を typed `store<.T>` します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `0 <= idx < len(v)` と上書き時の drop 義務を呼び出し側が保証する内部 helper です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn sort_set_unchecked <.T> <(Vec<.T>,i32,.T)->()> (v, idx, val):
     let data <i32> data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
@@ -213,20 +180,20 @@ fn sort_swap_data <.T> <(i32,i32,i32)->()> (data_ptr, i, j):
             ()
 
 
- // sort_swap: v[i] と v[j] を交換
-//: sort_swap: 主な用途
+//: sort_swap: `Vec` の 2 要素を入れ替える
 //:
 //: [目的/もくてき]:
-//: - sort_swap の主な用途と呼び出し方を示します。
+//: - sort algorithm が見つけた 2 つの index の値を交換します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 2 要素を unchecked load で読み、逆順に unchecked store します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `i` と `j` が同じ場合は何もしません。
+//: - 両 index は `Vec` の範囲内である必要があります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn sort_swap <.T> <(Vec<.T>,i32,i32)->()> (v, i, j):
     if:
         eq i j
@@ -238,23 +205,20 @@ fn sort_swap <.T> <(Vec<.T>,i32,i32)->()> (v, i, j):
             sort_set_unchecked<.T> v j a;
             ()
 
-// sort_is_sorted: 昇順にソート済みか
-//
-// 注意(重要):
-// - strict lt を使うため、隣り合う要素で「右 < 左」があれば未ソート。
-//: sort_is_sorted: 主な用途
+//: sort_is_sorted: `Vec` が昇順か確認する
 //:
 //: [目的/もくてき]:
-//: - sort_is_sorted の主な用途と呼び出し方を示します。
+//: - 隣接要素を左から右へ比較し、昇順に並んでいるかを返します。
+//: - sort doctest と caller-side assertion のための軽量 verifier です。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `right < left` になる隣接 pair が 1 つでもあれば `false` を返します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - equal element は昇順として許可されます。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n)
 fn sort_is_sorted <.T: Ord> <(Vec<.T>)->bool> (v):
     let n <i32> get v "len"
     let data_ptr <i32> mem_ptr_addr get v "data"
@@ -279,19 +243,19 @@ fn sort_is_sorted <.T: Ord> <(Vec<.T>)->bool> (v):
 // -----------------------------------------------------------------------------
 // 1) Insertion sort
 // -----------------------------------------------------------------------------
-//: sort_insertion: 主な用途
+//: sort_insertion: insertion sort で in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_insertion の主な用途と呼び出し方を示します。
+//: - 小さい `Vec` やほぼ整列済みの入力を単純な in-place algorithm で昇順にします。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 左側を整列済み prefix とみなし、現在要素を左へずらしながら挿入位置へ移動します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 追加 allocation はありません。実装上は equal element を追い越さないため stable です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 平均 / 最悪 O(n^2)、ほぼ整列済みでは O(n) に近づきます。
 fn sort_insertion <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
@@ -322,19 +286,19 @@ fn sort_insertion <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 2) Selection sort
 // -----------------------------------------------------------------------------
-//: sort_selection: 主な用途
+//: sort_selection: selection sort で in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_selection の主な用途と呼び出し方を示します。
+//: - 未整列 suffix から最小要素を選び、先頭へ交換しながら昇順にします。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 各位置 `i` について `[i, n)` の最小 index を探し、`i` と交換します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - 交換で equal element の相対順が崩れるため stable ではありません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 比較 O(n^2)、追加領域 O(1)
 fn sort_selection <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
@@ -363,19 +327,19 @@ fn sort_selection <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 3) Bubble sort
 // -----------------------------------------------------------------------------
-//: sort_bubble: 主な用途
+//: sort_bubble: bubble sort で in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_bubble の主な用途と呼び出し方を示します。
+//: - 隣接交換だけで大きい要素を右端へ送る単純な sort を提供します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `[0, end]` を走査し、右要素が左要素より小さい pair を交換して `end` を縮めます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - equal element は交換しないため stable です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n^2)
 fn sort_bubble <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
@@ -402,19 +366,20 @@ fn sort_bubble <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 4) Cocktail shaker sort
 // -----------------------------------------------------------------------------
-//: sort_cocktail: 主な用途
+//: sort_cocktail: cocktail shaker sort で in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_cocktail の主な用途と呼び出し方を示します。
+//: - 左右両方向の bubble pass で、小さい要素と大きい要素を同時に端へ寄せます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - forward pass で最大側を右へ、backward pass で最小側を左へ送ります。
+//: - 交換が起きなければ残り区間は整列済みとして終了します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - equal element は交換しないため stable です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 平均 / 最悪 O(n^2)
 fn sort_cocktail <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
@@ -474,19 +439,19 @@ fn sort_cocktail <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 5) Gnome sort
 // -----------------------------------------------------------------------------
-//: sort_gnome: 主な用途
+//: sort_gnome: gnome sort で in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_gnome の主な用途と呼び出し方を示します。
+//: - 隣接要素を見ながら、逆順 pair を交換して左へ戻る単純な insertion 系 sort を提供します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 現在位置が正しい順序なら右へ進み、逆順なら隣接交換して左へ 1 つ戻ります。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - equal element は `sort_le` で通過するため stable です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 平均 / 最悪 O(n^2)
 fn sort_gnome <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
@@ -509,19 +474,20 @@ fn sort_gnome <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 6) Shell sort
 // -----------------------------------------------------------------------------
-//: sort_shell: 主な用途
+//: sort_shell: shell sort で in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_shell の主な用途と呼び出し方を示します。
+//: - gap insertion sort を繰り返し、単純 insertion sort より少ない移動で広い逆転を先に解消します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - gap を `n / 2` から始め、各 pass 後に半分へ縮めます。
+//: - 各 gap pass は gap ごとの insertion sort として動きます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - gap 越しの移動で equal element の相対順が崩れるため stable ではありません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
 fn sort_shell <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
@@ -558,19 +524,19 @@ fn sort_shell <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 7) Comb sort
 // -----------------------------------------------------------------------------
-//: sort_comb: 主な用途
+//: sort_comb: comb sort で in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_comb の主な用途と呼び出し方を示します。
+//: - bubble sort の gap を広げた variant として、遠い逆転を先に解消します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - gap を `gap * 10 / 13` で縮め、gap 1 で交換がなくなるまで走査します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - gap 越しに交換するため stable ではありません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
 fn sort_comb <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
@@ -622,19 +588,21 @@ fn sort_comb <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 8) Quick sort (Lomuto partition)
 // -----------------------------------------------------------------------------
-//: sort_quick_partition: 主な用途
+//: sort_quick_partition_data: Lomuto partition で pivot 位置を決める
 //:
 //: [目的/もくてき]:
-//: - sort_quick_partition の主な用途と呼び出し方を示します。
+//: - raw data pointer 上の `[lo, hi]` 区間を pivot 以下 / pivot より大きい要素へ分割します。
+//: - partition 後の pivot index を返し、quick sort の再帰境界に使います。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 末尾 `hi` の値を pivot とし、`sort_le(x, pivot)` を満たす値を左側へ交換します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `lo <= hi` と区間が有効な raw storage 内にあることを呼び出し側が保証します。
+//: - Lomuto partition なので equal element が多い入力では分割が偏ることがあります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(hi - lo + 1)
 fn sort_quick_partition_data <.T: Ord> <(i32,i32,i32)->i32> (data_ptr, lo, hi):
     let pivot <.T> sort_get_unchecked_data<.T> data_ptr hi
     let mut i <i32> lo;
@@ -655,19 +623,19 @@ fn sort_quick_partition_data <.T: Ord> <(i32,i32,i32)->i32> (data_ptr, lo, hi):
     sort_swap_data<.T> data_ptr i hi;
     i
 
-//: sort_quick_range: 主な用途
+//: sort_quick_range_data: raw slice 区間を quick sort する
 //:
 //: [目的/もくてき]:
-//: - sort_quick_range の主な用途と呼び出し方を示します。
+//: - raw data pointer 上の `[lo, hi]` 区間を Lomuto quick sort で昇順にします。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `sort_quick_partition_data` で pivot を確定し、左右区間へ再帰します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - recursion depth は pivot の偏りに依存します。整列済みや equal-heavy な入力では深くなります。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 平均 O(n log n)、最悪 O(n^2)
 fn sort_quick_range_data <.T: Ord> <(i32,i32,i32)->()> (data_ptr, lo, hi):
     if:
         lt lo hi
@@ -678,19 +646,20 @@ fn sort_quick_range_data <.T: Ord> <(i32,i32,i32)->()> (data_ptr, lo, hi):
             ()
         else ()
 
-//: sort_quick: 主な用途
+//: sort_quick: quick sort で `Vec` を in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_quick の主な用途と呼び出し方を示します。
+//: - 追加 allocation なしの既定候補として `Vec` を昇順に並べ替えます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `Vec` の `data` と `len` から raw slice 区間を作り、`sort_quick_range_data` を呼びます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - stable ではありません。
+//: - 最悪 O(n^2) と recursion depth の偏りがあるため、入力分布が悪い場合は `sort_heap` や `sort_merge` を検討します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - 平均 O(n log n)、最悪 O(n^2)、追加領域は recursion stack です。
 fn sort_quick <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> get v "len"
     let data_ptr <i32> mem_ptr_addr get v "data"
@@ -705,19 +674,19 @@ fn sort_quick <.T: Ord> <(Vec<.T>)->()> (v):
 // -----------------------------------------------------------------------------
 // 9) Heap sort (max-heap)
 // -----------------------------------------------------------------------------
-//: sort_heap_sift_down: 主な用途
+//: sort_heap_sift_down_data: max-heap の root を下へ沈める
 //:
 //: [目的/もくてき]:
-//: - sort_heap_sift_down の主な用途と呼び出し方を示します。
+//: - heap sort の heapify と extraction 後の復元で、`start` から `end` までの heap 条件を回復します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - root と左右 child を比較し、最大 child と交換しながら下へ進みます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `[0, end)` が有効な raw storage 内にあることを呼び出し側が保証します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(log n)
 fn sort_heap_sift_down_data <.T: Ord> <(i32,i32,i32)->()> (data_ptr, start, end):
     let mut root <i32> start;
     let mut done <i32> 0;
@@ -763,19 +732,19 @@ fn sort_heap_sift_down_data <.T: Ord> <(i32,i32,i32)->()> (data_ptr, start, end)
 
     ()
 
-//: sort_heap: 主な用途
+//: sort_heap: heap sort で `Vec` を in-place 整列する
 //:
 //: [目的/もくてき]:
-//: - sort_heap の主な用途と呼び出し方を示します。
+//: - 追加 allocation なしで O(n log n) の最悪計算量を持つ昇順 sort を提供します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - まず max-heap を構築し、最大値を末尾へ交換して heap 範囲を縮めます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - stable ではありません。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(n log n)、追加領域 O(1)
 fn sort_heap <.T: Ord> <(Vec<.T>)->()> (v):
     let n <i32> get v "len"
     let data_ptr <i32> mem_ptr_addr get v "data"
@@ -983,7 +952,7 @@ fn sort_merge <.T: Ord> <(Vec<.T>)*>Result<(), StdErrorKind>> (v):
 //: - `data_ptr` から始まる長さ `len` の連続領域を in-place で昇順ソートします。
 //:
 //: [実装/じっそう]:
-//: - `sort_quick_range_data` を直接呼び出す薄いラッパです。
+//: - `sort_quick_range_data` へ raw slice の開始位置と長さを渡す小さな adapter です。
 //:
 //: [注意/ちゅうい]:
 //: - `data_ptr` は `.T` の `len` 要素ぶん有効である必要があります。
@@ -1109,19 +1078,20 @@ fn sort_merge_ret <.T: Ord> <(Vec<.T>)*>Result<Vec<.T>, StdErrorKind>> (v):
                     Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap data_ptr
 
 
-// sort: デフォルトは quick sort
-//: sort: 主な用途
+//: sort: default sort として quick sort を実行する
 //:
 //: [目的/もくてき]:
-//: - sort の主な用途と呼び出し方を示します。
+//: - 追加 allocation なしの一般用途 default として `sort_quick` を呼びます。
+//: - 安定性や worst-case bound が必要ない caller に短い API を提供します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - 現在の default は Lomuto quick sort です。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - stable sort が必要なら `sort_merge` を使います。
+//: - worst-case O(n log n) を優先するなら `sort_heap` を使います。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - `sort_quick` と同じです。
 fn sort <.T: Ord> <(Vec<.T>)->()> (v):
     sort_quick<.T> v

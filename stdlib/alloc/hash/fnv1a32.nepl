@@ -19,23 +19,26 @@
 #indent 4
 #import "core/math" as *
 
-//: Fnv1a32: 構造体の概要
+//: Fnv1a32: FNV-1a 32-bit hash state
 //:
 //: [目的/もくてき]:
-//: - Fnv1a32 の主な用途と呼び出し方を示します。
+//: - 逐次 update する 32-bit FNV-1a hash の現在値を保持します。
+//: - `new_fnv1a32` で offset basis から始め、入力 byte ごとに `fnv1a32_update` で state を作り直します。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - `hash` field は FNV-1a の内部 accumulator です。
+//: - NEPL の `i32` は bit pattern として扱い、符号付き値に見えても 32-bit wraparound hash として解釈します。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - collision resistance や DoS 耐性はありません。公開入力の security boundary には使わないでください。
+//: - protocol 固定 fingerprint ではなく、stdlib 内部の軽量分散用です。
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
 struct Fnv1a32:
     hash <i32>
 
-//: new_fnv1a32: 主な用途
+//: new_fnv1a32: FNV-1a offset basis で state を作る
 //:
 //: [目的/もくてき]:
 //: - オフセット基底値で初期化された `Fnv1a32` を[返/かえ]します。
@@ -48,13 +51,17 @@ struct Fnv1a32:
 fn new_fnv1a32 <()->Fnv1a32> ():
     Fnv1a32 -2128831035
 
-//: fnv1a32_update: 主な用途
+//: fnv1a32_update: 1 byte を FNV-1a state に混ぜる
 //:
 //: [目的/もくてき]:
 //: - byte を 1 [個/こ][混合/こんごう]した新しい state を[返/かえ]します。
 //:
 //: [実装/じっそう]:
 //: - `(hash xor byte) * 16777619` を[計算/けいさん]します。
+//: - 乗算は i32 の wraparound として下位 32-bit を残します。
+//:
+//: [注意/ちゅうい]:
+//: - `byte` は 0 から 255 の範囲を想定します。呼び出し側で byte 値へ正規化してください。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
@@ -65,10 +72,13 @@ fn fnv1a32_update <(Fnv1a32, i32)->Fnv1a32> (h, byte):
     let next <i32> mul x prime
     Fnv1a32 next
 
-//: fnv1a32_finalize: 主な用途
+//: fnv1a32_finalize: 現在の 32-bit hash 値を取り出す
 //:
 //: [目的/もくてき]:
 //: - [現在/げんざい]の 32-bit hash [値/あたい]を[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は signed `i32` ですが、hash としては 32-bit unsigned bit pattern として扱います。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)

@@ -22191,3 +22191,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - S1 lexer indent のうち offside structural token は利用可能になった。full Rust token JSON parity は別 issue で継続する。
+
+# 2026-04-28 メモ (ISS-20260426T060358681Z stdlib doc boilerplate)
+
+- [同期]:
+  - `origin/main` の `8844123 fix(selfhost): emit lexer offside tokens` まで同期した main から `fix/stdlib-doc-comments-20260428` branch を作成した。
+- [原因]:
+  - `stdlib/core/field.nepl`, `stdlib/core/rand/xorshift32.nepl`, `stdlib/alloc/hash/fnv1a32.nepl`, `stdlib/alloc/collections/vec/sort.nepl` に、API 固有の契約ではなく生成 boilerplate の「主な用途」「薄いラッパ」系コメントが残っていた。
+  - `stdlib/nm/html_gen.nepl` は boilerplate marker は消えていたが、escape / direct serializer の制約を self-host 利用者が判断できるほど明示していなかった。
+- [修正]:
+  - field access は owned move / borrow / overwrite の違いを doc comment で説明した。
+  - FNV-1a は offset basis、update rule、32-bit bit pattern、collision/security caveat を明記した。
+  - Xorshift32 は seed 0 の固定点、非暗号用途、更新式、state handoff を明記した。
+  - NM HTML serializer は escape scope、sanitizer ではない制約、source view からの direct serialize、code fence の扱いを追記した。
+  - Vec sort family は algorithm ごとの安定性、計算量、in-place 条件、unchecked helper の境界保証へ置き換えた。
+  - `nodesrc/test_stdlib_doc_comments_no_boilerplate.js` を追加し、対象ファイルの boilerplate marker 再発と主要契約文言の欠落を検出するようにした。
+- [検証]:
+  - `node nodesrc/test_stdlib_doc_comments_no_boilerplate.js`: pass
+  - `node nodesrc/test_stdlib_cast_doc_no_boilerplate.js`: pass
+  - `node nodesrc/test_stdlib_json_doc_no_boilerplate.js`: pass
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: pass
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: pass
+  - `node nodesrc/tests.js -i stdlib/core/field.nepl -i stdlib/nm/html_gen.nepl -i stdlib/core/rand/xorshift32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/stdlib-doc-comments-focused-after-policy.json -j 1`: 7/7 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/core/field.nepl -i stdlib/nm/html_gen.nepl -i stdlib/core/rand/xorshift32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/stdlib-doc-comments-after-resource-effect-boundaries.json -j 1`: 7/7 passed
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host で使う hash / renderer / sort / field access の仕様判断を、stdlib doc comment 側でも読める状態に近づけた。

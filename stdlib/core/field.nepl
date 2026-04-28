@@ -1,11 +1,12 @@
-//: field: core/field.nepl に関する機能を提供するライブラリ
+//: field: aggregate field access intrinsic の安全な入口
 //:
 //: [目的/もくてき]:
-//: - このモジュールの公開 API を提供します。
-//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//: - struct / tuple field を名前または index で取得・設定する compiler intrinsic を公開します。
+//: - owned value を取り出す `get`、borrow のまま見る `get_ref`、field を書き換える `put` を分け、所有権の移動を呼び出し側で明示できるようにします。
 //:
 //: [注意/ちゅうい]:
-//: - 利用時は各関数の「目的」「注意」「計算量」を確認してください。
+//: - field selector の妥当性は型検査が解決します。存在しない field や tuple index は compile error です。
+//: - `get` は field value を移動します。非 Copy field を読むだけなら `get_ref` を使います。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -18,20 +19,22 @@
 
 #import "core/mem" as *
 
-// get: フィールドの値を取得します
-//: get: 主な用途
+//: get: field value を所有値として取り出す
 //:
 //: [目的/もくてき]:
-//: - get の主な用途と呼び出し方を示します。
+//: - `obj` の field selector `idx` に対応する field を所有値として返します。
+//: - tuple では `"0"` / `"1"` のような文字列 index、struct では field 名を selector にできます。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - compiler intrinsic `get_field` が型情報から field offset と result 型を解決します。
+//: - 非 Copy field の場合、field value は `obj` から移動したものとして扱われます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - field を読むだけで owner を保持したい場合は `get_ref` を使います。
+//: - field を取り出した後の aggregate 全体の再利用可否は borrow / move checker の判定に従います。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
     #intrinsic "get_field" <> (obj,idx)
 
@@ -55,19 +58,20 @@ fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
 fn get_ref <.T,.I,.R> <(&.T,.I)->&.R> (obj,idx):
     #intrinsic "get_field_ref" <> (obj,idx)
 
-// put: フィールドの値を設定します
-//: put: 主な用途
+//: put: aggregate field を書き換える
 //:
 //: [目的/もくてき]:
-//: - put の主な用途と呼び出し方を示します。
+//: - `obj` の field selector `idx` に `val` を代入します。
+//: - mutable aggregate の一部だけを更新するための低レベル API です。
 //:
 //: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
+//: - compiler intrinsic `set_field` が field offset を解決し、対象 field の storage へ `val` を書き込みます。
 //:
 //: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - `val` は field へ移動します。古い field value の drop / overwrite 規則は compiler の所有権検査に従います。
+//: - selector が存在しない場合や型が合わない場合は compile error です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
+//: - O(1)
 fn put <.T,.I,.V> <(.T,.I,.V)->()> (obj,idx,val):
     #intrinsic "set_field" <> (obj,idx,val)

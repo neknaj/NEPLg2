@@ -66,9 +66,14 @@ fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
 //:
 //: [目的/もくてき]:
 //: - text node と attribute value に入る `&` / `<` / `>` / `"` / `'` を entity へ変換します。
+//: - NM の通常 text、heading text、code fence info string、code body を安全に HTML fragment へ埋め込むための共通 escape です。
 //:
 //: [実装/じっそう]:
 //: - byte を 1 つずつ読み、`HtmlEscapeKind` の match で対応する entity または元 byte を追加します。
+//: - UTF-8 の byte 列はそのまま通し、HTML 構文として意味を持つ ASCII byte だけを置換します。
+//:
+//: [注意/ちゅうい]:
+//: - URL sanitizer や CSS sanitizer ではありません。属性値として使う場合も、呼び出し側は属性名と文脈を固定してください。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
@@ -176,10 +181,15 @@ fn nm_append_heading_close <(StringBuilder,i32)->StringBuilder> (sb, level):
 //:
 //: [目的/もくてき]:
 //: - 1 行分の inline markup を HTML fragment へ直接変換します。
+//: - ruby `[base/ruby]`、gloss `{main/sub...}`、inline math `$...$` / `$$...$$` を HTML へ写します。
 //:
 //: [実装/じっそう]:
 //: - pending text を marker の直前で flush し、ruby/gloss/math を直接 HTML として追加します。
 //: - gloss の main/sub は再帰的に inline 変換し、ruby を内側でも使えるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - math segment は元の delimiter を含めて通します。数式 renderer への semantic validation はここでは行いません。
+//: - marker が閉じていない場合は通常 text として扱い、部分的な HTML tag は生成しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + m)
@@ -301,10 +311,16 @@ fn nm_inline_to_html <(str)->str> (s):
 //: nm_render_source_html: source を HTML fragment に変換する
 //:
 //: [目的/もくてき]:
-//: - Document source を block 単位で走査し、section/paragraph/code/hr を HTML にします。
+//: - Document source を block 単位で走査し、section / heading / paragraph / code fence / horizontal rule を HTML にします。
+//: - `Vec<Node>` を構築せず、parser の source view から直接 serializer output を作ります。
 //:
 //: [実装/じっそう]:
 //: - section close は `</section>` を direct に追加し、stack state は Copy bool と current level だけで持ちます。
+//: - paragraph は次の block boundary まで複数行を束ね、inline markup は `nm_inline_to_html` で変換します。
+//:
+//: [注意/ちゅうい]:
+//: - heading level 1 から 6 だけを section stack として扱います。より深い heading は parser helper 側で h6 相当に丸めます。
+//: - code fence body は inline 変換せず、`escape_html` だけを通します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + m)
