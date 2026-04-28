@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1 CI 再発)
+
+- 状況:
+  - `main` の CI run `25035206074` で `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` が失敗していた。
+  - 失敗内容は `stdlib/alloc/string.nepl must document StringBuilder ownership contract` で、byte-backed StringBuilder 実装後の source policy がコメント不足を検出している。
+- 対応:
+  - `ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1` を `status: open` / `resolved: false` に戻し、CI 再発の run ID と必要な修正文脈を追記した。
+  - stdlib 実装とコメント修正は別対応中のため、この commit では issue 管理だけ更新した。
+- 検証:
+  - `gh run view 25035206074 --log-failed`: source policy failure を確認
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。これは CI 失敗に対応する issue 状態更新であり、静的検査 module 分割の実装変更ではない。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck field apply module)
 
 - 状況:

@@ -2,8 +2,8 @@
 id: ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1
 title: "StringBuilder Vec<str> storage fails under strict move checking"
 area: stdlib
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-04-28
@@ -62,3 +62,9 @@ nm parser/html generator、JSON serializer、diagnostic text、self-host の sou
 ## 残件
 
 `StringBuilder` 由来の `Vec<str>` raw storage は解消したが、nm parser/html_gen 全体の D3100 はこの issue では閉じない。`Vec<Inline>` / `Vec<Node>` の generic raw storage と `ParaRes` の non-Copy field decomposition は `ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378` の継続対象として扱い、D3100 を緩めずに AST container / owned aggregate decomposition の設計で解消する。
+
+## 2026-04-28 CI 再発
+
+`main` の CI run `25035206074`（`fix(stdlib): make string builder byte-backed`）で `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` が失敗したため、この issue を再オープンする。Source policy regressions job は `stdlib/alloc/string.nepl must document StringBuilder ownership contract` で失敗しており、byte-backed 実装自体の focused tests ではなく、公開コメントが新しい ownership contract を説明しているかの policy で落ちている。
+
+修正側では `StringBuilder` の内部が `Vec<str>` に戻っていないことに加え、`StringBuilder` / append / build / free 周辺の日本語 nm comment に、builder が owned byte buffer を保持し、append 時に入力 `str` bytes を copy し、build/free 後に builder を再利用しないことを明記する必要がある。
