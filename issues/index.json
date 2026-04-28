@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T04:34:44.909Z",
+  "generated_at": "2026-04-28T05:09:08.197Z",
   "counts": {
-    "total": 246,
-    "open": 18,
+    "total": 247,
+    "open": 19,
     "resolved": 228,
     "by_area": {
       "core": {
@@ -22,8 +22,8 @@
         "resolved": 9
       },
       "stdlib": {
-        "total": 93,
-        "open": 8,
+        "total": 94,
+        "open": 9,
         "resolved": 85
       },
       "cli": {
@@ -318,6 +318,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
+    },
+    {
+      "id": "ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3",
+      "title": "alloc/diag/error が Vec allocation failure を unwrap_ok で trap する",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/alloc/diag/error.nepl, stdlib/tests/error.n.md, nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -2435,6 +2450,21 @@
       "file": "items/ISS-20260428T031445330Z-DISJOINT-SET-AND-SEGMENT-TREE-RAW-OW-D2F6ED1A.md"
     },
     {
+      "id": "ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1",
+      "title": "StringBuilder Vec<str> storage fails under strict move checking",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/alloc/string.nepl, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, stdlib/tests/string.n.md, tests/stdlib/nm.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T045151813Z-STRINGBUILDER-VEC-STR-STORAGE-D3100--B8C4A9D1.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
       "title": "stdlib root がビルド時パスに固定されている",
       "area": "cli",
@@ -3468,21 +3498,6 @@
       "legacy_id": "",
       "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
       "file": "items/ISS-20260427T052030799Z-NM-BLOCK-PARSER-VEC-NODE-ALLOCATION--10EE8F1D.md"
-    },
-    {
-      "id": "ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3",
-      "title": "alloc/diag/error が Vec allocation failure を unwrap_ok で trap する",
-      "area": "stdlib",
-      "status": "verified",
-      "resolved": true,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-27",
-      "target": "stdlib/alloc/diag/error.nepl, stdlib/tests/error.n.md, nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T053811590Z-ALLOC-DIAG-ERROR-VEC-ALLOCATION-FAIL-EC8A77B3.md"
     },
     {
       "id": "ISS-20260427T054706120Z-STD-TEST-CHECKS-NEW-CHECKS-PUSH-VEC--DA0F691F",

@@ -570,34 +570,198 @@ fn concat3 <(str,str,str)->str> (a,b,c):
     let ab <str> concat a b;
     concat ab c
 
-//: StringBuilder: 複数の str 片を保持して最後に 1 つへまとめる
+//: StringBuilder: 複数の str 片を byte buffer に追加して最後に 1 つへまとめる
 //:
 //: [目的/もくてき]:
 //: - lexer/parser/diagnostics のように小さな文字列片を段階的に集め、最後に 1 つの `str` として出力します。
 //:
 //: [実装/じっそう]:
-//: - 内部では `Vec<str>` に各 part を保存します。
-//: - `sb_build_result` は合計 byte 長を先に計算し、出力領域を 1 回だけ確保してから順に copy します。
+//: - 内部では所有権を持つ `u8` buffer を 2 倍 growth し、append 時点で入力 `str` の byte 列を copy します。
+//: - `sb_build_result` は確定用の `str` 領域を確保し、builder buffer の byte 列を 1 回 copy して `str` に変換します。
 //:
 //: [注意/ちゅうい]:
-//: - builder は part の `str` owner を保持するだけで、append 時には byte copy しません。
+//: - builder は `Copy` / `Clone` ではありません。`sb_append_result` / `sb_build_result` は builder owner を消費します。
+//: - raw storage には `u8` だけを置き、`str` のような non-Copy payload を置きません。
 //: - allocation failure を扱う処理では `_result` suffix の API を使ってください。
 //:
 //: [計算量/けいさんりょう]:
-//: - append は `Vec` push に従い、build は O(total_bytes + part_count) です。
+//: - append はならし O(len(s))、build は O(total_bytes) です。
 struct StringBuilder:
-    parts <Vec<str>>
+    data <MemPtr<u8>>
+    len <i32>
+    cap <i32>
 
+//: string_builder_empty: allocation を持たない空 builder を作る
+//:
+//: [目的/もくてき]:
+//: - allocation failure 時の fallback や、capacity 0 の内部状態として使う空 builder を作ります。
+//:
+//: [実装/じっそう]:
+//: - data は null 相当の `MemPtr<u8>`、len/cap は 0 にします。
+//:
+//: [注意/ちゅうい]:
+//: - この builder に append する場合は `string_builder_reserve_result` が初回 allocation を行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 fn string_builder_empty <()->StringBuilder> ():
-    StringBuilder v::Vec<str> 0 0 mem_ptr_wrap 0
+    StringBuilder mem_ptr_wrap 0 0 0
+
+//: string_builder_free: builder が保持する byte buffer を解放する
+//:
+//: [目的/もくてき]:
+//: - `StringBuilder` owner を消費し、内部 buffer があれば allocator へ返します。
+//:
+//: [実装/じっそう]:
+//: - cap が 0 より大きい場合だけ `dealloc_ptr<u8>` を呼びます。
+//:
+//: [注意/ちゅうい]:
+//: - cleanup 用 helper なので、dealloc failure は戻り値にせず破棄します。
+//: - 呼び出し後の builder は再利用しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - allocator に依存します。
+fn string_builder_free <(StringBuilder)->()> (sb):
+    let cap0 <i32> get sb "cap";
+    if:
+        gt cap0 0
+        then:
+            match dealloc_ptr<u8> get sb "data" cap0:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+        else:
+            ()
+
+//: string_builder_next_capacity: append に必要な次 capacity を計算する
+//:
+//: [目的/もくてき]:
+//: - 現在 capacity と必要 byte 数から、2 倍 growth 後の capacity を求めます。
+//:
+//: [実装/じっそう]:
+//: - 最小 capacity を 64 とし、needed 以上になるまで倍増します。
+//: - overflow で値が増えなくなった場合は `Result::Err` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - byte 数を扱う helper であり、UTF-8 境界の検証は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(log needed)
+fn string_builder_next_capacity <(i32,i32)->Result<i32,str>> (cap, needed):
+    let mut next <i32>:
+        if:
+            le cap 0
+            then 64
+            else cap
+    let mut failed <bool> false;
+    while and lt next needed not failed:
+        do:
+            let doubled <i32> mul next 2;
+            if:
+                le doubled next
+                then set failed true
+                else set next doubled
+    if:
+        failed
+        then Result<i32,str>::Err "string.builder capacity exceeded"
+        else Result<i32,str>::Ok next
+
+//: string_builder_with_capacity_result: 指定 capacity の builder を作る
+//:
+//: [目的/もくてき]:
+//: - 呼び出し側が初期 capacity を選べる形で `StringBuilder` を初期化します。
+//:
+//: [実装/じっそう]:
+//: - capacity が 0 の場合は allocation しない空 builder を返します。
+//: - 正の capacity では `alloc_ptr<u8>` で byte buffer を確保します。
+//:
+//: [注意/ちゅうい]:
+//: - capacity は byte 数です。負数は `Result::Err` になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - allocator に依存します。
+fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (capacity):
+    if:
+        lt capacity 0
+        then:
+            Result<StringBuilder,str>::Err "string.builder invalid capacity"
+        else:
+            if:
+                eq capacity 0
+                then:
+                    Result<StringBuilder,str>::Ok string_builder_empty
+                else:
+                    match alloc_ptr<u8> capacity:
+                        Result::Ok data:
+                            Result<StringBuilder,str>::Ok StringBuilder data 0 capacity
+                        Result::Err _e:
+                            Result<StringBuilder,str>::Err "string.builder allocation failed"
+
+//: string_builder_reserve_result: append 前に必要 byte capacity を確保する
+//:
+//: [目的/もくてき]:
+//: - 追加予定 byte 数を受け取り、builder buffer が `len + additional` 以上の capacity を持つようにします。
+//:
+//: [実装/じっそう]:
+//: - capacity が足りていれば builder をそのまま返します。
+//: - 不足時は `string_builder_next_capacity` で次 capacity を計算し、未確保なら `alloc_ptr<u8>`、既存 buffer があれば `realloc_ptr<u8>` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - error を返す場合、保持済み buffer は可能な範囲で解放して owner を残しません。
+//: - この helper は byte buffer の確保だけを行い、内容の copy は `sb_append_result` が行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - grow なしなら O(1)、grow ありなら allocator / realloc に依存します。
+fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, additional):
+    let len0 <i32> get sb "len";
+    let cap0 <i32> get sb "cap";
+    if:
+        lt additional 0
+        then:
+            string_builder_free sb;
+            Result<StringBuilder,str>::Err "string.builder invalid reserve"
+        else:
+            let needed <i32> add len0 additional;
+            if:
+                lt needed len0
+                then:
+                    string_builder_free sb;
+                    Result<StringBuilder,str>::Err "string.builder capacity exceeded"
+                else:
+                    if:
+                        le needed cap0
+                        then:
+                            Result<StringBuilder,str>::Ok sb
+                        else:
+                            match string_builder_next_capacity cap0 needed:
+                                Result::Err e:
+                                    string_builder_free sb;
+                                    Result<StringBuilder,str>::Err e
+                                Result::Ok next_cap:
+                                    if:
+                                        le cap0 0
+                                        then:
+                                            match alloc_ptr<u8> next_cap:
+                                                Result::Ok data:
+                                                    Result<StringBuilder,str>::Ok StringBuilder data len0 next_cap
+                                                Result::Err _e:
+                                                    Result<StringBuilder,str>::Err "string.builder allocation failed"
+                                        else:
+                                            match realloc_ptr<u8> get sb "data" cap0 next_cap:
+                                                Result::Ok data:
+                                                    Result<StringBuilder,str>::Ok StringBuilder data len0 next_cap
+                                                Result::Err _e:
+                                                    string_builder_free sb;
+                                                    Result<StringBuilder,str>::Err "string.builder allocation failed"
 
 //: string_builder_new_result: 空の StringBuilder を作る
 //:
 //: [目的/もくてき]:
-//: - 空の `Vec<str>` を持つ builder を初期化します。
+//: - 既定 capacity の byte buffer を持つ builder を初期化します。
 //:
 //: [実装/じっそう]:
-//: - `v::new<str>` の結果を `StringBuilder` に包みます。
+//: - `string_builder_with_capacity_result 64` を呼び、最初の小さな append で realloc しないようにします。
 //:
 //: [注意/ちゅうい]:
 //: - `string_builder_new` は失敗時に空 builder fallback を返します。
@@ -606,11 +770,7 @@ fn string_builder_empty <()->StringBuilder> ():
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_builder_new_result <()->Result<StringBuilder,str>> ():
-    match v::new<str>:
-        Result::Ok parts:
-            Result<StringBuilder,str>::Ok StringBuilder parts
-        Result::Err _e:
-            Result<StringBuilder,str>::Err "string.builder allocation failed"
+    string_builder_with_capacity_result 64
 
 fn string_builder_new <()->StringBuilder> ():
     match string_builder_new_result:
@@ -622,23 +782,35 @@ fn string_builder_new <()->StringBuilder> ():
 //: sb_append_result: builder に文字列片を追加する
 //:
 //: [目的/もくてき]:
-//: - `s` を builder の末尾 part として追加し、更新後の builder を返します。
+//: - `s` の byte 列を builder の末尾へ copy し、更新後の builder を返します。
 //:
 //: [実装/じっそう]:
-//: - 内部の `Vec<str>` へ `push` します。byte 列の copy は `sb_build_result` まで遅延します。
+//: - `string_builder_reserve_result` で capacity を確保し、`mem_copy<u8>` で本文 byte を追加します。
 //:
 //: [注意/ちゅうい]:
-//: - `s` の owner は builder に移ります。
+//: - `s` は source として参照されるだけで、builder は `str` owner を保持しません。
 //: - `sb_append` は失敗時に空 builder fallback を返す互換 API です。
 //:
 //: [計算量/けいさんりょう]:
-//: - `Vec` push に従い、通常はならし O(1) です。
+//: - O(len(s))。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
 fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s):
-    match v::push<str> get sb "parts" s:
-        Result::Ok parts:
-            Result<StringBuilder,str>::Ok StringBuilder parts
-        Result::Err _e:
-            Result<StringBuilder,str>::Err "string.builder append allocation failed"
+    let s_len <i32> len s;
+    if:
+        eq s_len 0
+        then:
+            Result<StringBuilder,str>::Ok sb
+        else:
+            match string_builder_reserve_result sb s_len:
+                Result::Err e:
+                    Result<StringBuilder,str>::Err e
+                Result::Ok reserved:
+                    let dst <MemPtr<u8>> mem_ptr_add get reserved "data" get reserved "len";
+                    match mem_copy<u8> dst string_data_ptr s s_len:
+                        Result::Ok _:
+                            Result<StringBuilder,str>::Ok StringBuilder get reserved "data" add get reserved "len" s_len get reserved "cap"
+                        Result::Err _e:
+                            string_builder_free reserved;
+                            Result<StringBuilder,str>::Err "string.builder append copy failed"
 
 fn sb_append <(StringBuilder,str)->StringBuilder> (sb, s):
     match sb_append_result sb s:
@@ -681,42 +853,36 @@ fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
 //: - builder に蓄積した part を、連続した byte 列を持つ新しい `str` として返します。
 //:
 //: [実装/じっそう]:
-//: - まず全 part の byte 長を合計します。
-//: - 合計長で出力領域を 1 回だけ確保し、各 part を先頭から順に copy します。
+//: - builder の byte 長で出力領域を 1 回確保し、buffer 全体を copy して `str` として確定します。
 //:
 //: [注意/ちゅうい]:
-//: - 出力は新規確保された文字列です。part 自体はここでは解放しません。
+//: - 出力は新規確保された文字列です。build 後、builder buffer は解放されます。
 //: - `sb_build` は失敗時に空文字列 fallback を返す互換 API です。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(total_bytes + part_count)
+//: - O(total_bytes)
 fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
-    let parts_vec <Vec<str>> get sb "parts";
-    let n <i32> get parts_vec "len";
-    let parts_data <i32> mem_ptr_addr get parts_vec "data";
-    let mut total <i32> 0;
-    let mut idx0 <i32> 0;
-    while lt idx0 n:
-        do:
-            let part <str> load<str> add parts_data mul idx0 size_of<str>;
-            set total add total len part;
-            set idx0 add idx0 1;
-    match string_alloc_region total:
-        Result::Err e:
-            Result<str,str>::Err e
-        Result::Ok out_region:
-            let out_base <MemPtr<u8>> get out_region "ptr";
-            let out_data <MemPtr<u8>> string_region_data_ptr out_region;
-            let mut idx <i32> 0;
-            let mut dst <i32> 0;
-            while lt idx n:
-                do:
-                    let part <str> load<str> add parts_data mul idx size_of<str>;
-                    let plen <i32> len part;
-                    mem_copy add mem_ptr_addr out_data dst mem_ptr_addr string_data_ptr part plen;
-                    set dst add dst plen;
-                    set idx add idx 1;
-            Result<str,str>::Ok string_finish_base out_base total
+    let len0 <i32> get sb "len";
+    if:
+        le len0 0
+        then:
+            string_builder_free sb;
+            Result<str,str>::Ok ""
+        else:
+            match string_alloc_region len0:
+                Result::Err e:
+                    string_builder_free sb;
+                    Result<str,str>::Err e
+                Result::Ok out_region:
+                    let out_base <MemPtr<u8>> get out_region "ptr";
+                    let out_data <MemPtr<u8>> mem_ptr_add out_base 4;
+                    match mem_copy<u8> out_data get sb "data" len0:
+                        Result::Ok _:
+                            string_builder_free sb;
+                            Result<str,str>::Ok string_finish_base out_base len0
+                        Result::Err _e:
+                            string_builder_free sb;
+                            Result<str,str>::Err "string.builder build copy failed"
 
 fn sb_build <(StringBuilder)->str> (sb):
     match sb_build_result sb:

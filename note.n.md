@@ -21565,3 +21565,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `Diag` の現在実装は、将来の structured notes/help と矛盾しないよう、内部表現を一時的に Copy 可能な text block へ寄せた。
+
+# 2026-04-28 メモ (ISS-20260428T045151813Z StringBuilder byte storage)
+
+- [同期]:
+  - `origin/main` の `2118978 refactor(core): split typecheck control apply` まで取り込み、`fix/nm-raw-aggregate-detours-20260428` branch を rebase してから作業した。
+- [再現]:
+  - `stdlib/nm/parser.nepl` / `stdlib/nm/html_gen.nepl` の focused tests が D3100 で失敗し、`parse_inlines` / `json_escape` / `render_nodes` など通常の `StringBuilder` call site から raw memory ownership violation が出ていた。
+  - 調査すると `StringBuilder` が `Vec<str>` に part を保持しており、strict move checking では builder 内部の grow/realloc/overwrite が raw storage 上の `str` payload 操作として扱われていた。
+- [原因]:
+  - `StringBuilder` は最後にまとめて copy するために `str` part list を所有していたが、latest static check では raw storage に non-Copy payload を残したまま realloc/dealloc する形を許容しない。
+  - call site 側は builder を通常 API として使っているだけなので、parser/htmlgen 個別の回避ではなく builder の内部表現を変える必要があった。
+- [修正]:
+  - `StringBuilder` を `Vec<str>` ではなく `MemPtr<u8>` / `len` / `cap` の owned byte buffer に再実装した。
+  - `sb_append_result` は入力 `str` の byte 列を append 時点で copy し、`sb_build_result` は builder buffer から確定用 `str` 領域へ copy してから builder buffer を解放するようにした。
+  - `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` に `StringBuilder` が `Vec<str>` storage へ戻らない source policy を追加した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md --no-tree -o tmp/string-builder-byte-storage-after-second-rebase.json -j 1`: 32/32 passed
+  - `node nodesrc/issues.js check`: pass
+- [残件]:
+  - nm parser/html_gen 全体の D3100 は `ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378` で継続する。`Vec<Inline>` / `Vec<Node>` generic raw storage と `ParaRes` owned field decomposition は StringBuilder とは別に設計する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - StringBuilder は self-host の parser/report builder 基盤なので、静的検査を緩めず stdlib 側の内部表現を安全な byte owner に寄せた。
