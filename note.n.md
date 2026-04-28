@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T142719860Z Resource shadow entry split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、HIR から Resource IR へ lower して shadow report を組み立てる `check_hir_resource_safety_shadow` を `nepl-core/src/resource/shadow.rs` へ分離した。
+- `check.rs` 側には `ResourceModule` に対する initialized move / owner obligation / borrow lifetime checker の entry point と engine implementation を残した。
+- HIR lowering coverage、effect boundary checker、shadow report assembly への依存が `check.rs` から外れた。`check.rs` は 1676 行から 1658 行になり、`shadow.rs` は 25 行になった。
+- issue はまだ open とし、次は `check.rs` の engine traversal 分割、または `effect.rs` の boundary engine 分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\shadow.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T142719860Z Resource effect return summary split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`RawIdentityReturnSummary`、`RawPointerReturnSummary` と、それらを固定点で計算する raw identity / pointer alias return summary logic を `nepl-core/src/resource/effect_summary.rs` へ分離した。

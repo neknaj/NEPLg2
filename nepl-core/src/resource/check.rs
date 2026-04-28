@@ -3,16 +3,12 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::hir::HirModule;
 use crate::span::Span;
 use crate::types::TypeCtx;
 
 use super::borrow_state::BorrowTable;
 use super::cell_state::CellTable;
-use super::coverage::compare_hir_resource_lowering;
-use super::effect::check_resource_effect_boundaries;
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
-use super::lower::lower_hir_module_skeleton;
 use super::model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry,
     OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock, ResourceCallTarget,
@@ -28,7 +24,7 @@ use super::report::{
     ResourceBorrowFunctionCheck, ResourceBorrowOperation, ResourceCheckDeferred,
     ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceFunctionCheck,
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
-    ResourceOwnerFunctionCheck, ResourceOwnerOperation, ResourceSafetyShadowReport,
+    ResourceOwnerFunctionCheck, ResourceOwnerOperation,
 };
 use super::summary::{
     compute_borrow_token_return_summaries, compute_owner_return_summaries,
@@ -124,20 +120,6 @@ pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorro
         functions,
         diagnostics,
         deferred,
-    }
-}
-
-pub fn check_hir_resource_safety_shadow(
-    module: &HirModule,
-    types: &TypeCtx,
-) -> ResourceSafetyShadowReport {
-    let resource = lower_hir_module_skeleton(module);
-    ResourceSafetyShadowReport {
-        lowering_coverage: compare_hir_resource_lowering(module, &resource),
-        initialized_moves: check_resource_initialized_moves(&resource, types),
-        owner_obligations: check_resource_owner_obligations(&resource),
-        borrow_lifetimes: check_resource_borrow_lifetimes(&resource),
-        effect_boundaries: check_resource_effect_boundaries(&resource),
     }
 }
 

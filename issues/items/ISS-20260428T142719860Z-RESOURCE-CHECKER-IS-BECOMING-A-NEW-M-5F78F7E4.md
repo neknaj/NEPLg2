@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/summary.rs"
+target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
 ---
 
 # ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4: Resource checker is becoming a new monolithic static-check pass
@@ -220,6 +220,22 @@ raw identity field propagation と pointer alias field propagation も `place_ut
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\effect.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Shadow entry point split
+
+HIR から Resource IR へ lower して shadow report を組み立てる `check_hir_resource_safety_shadow` を `nepl-core/src/resource/shadow.rs` へ分離した。
+
+`check.rs` 側には `ResourceModule` に対する initialized move / owner obligation / borrow lifetime checker の entry point と engine implementation を残した。これにより HIR lowering coverage、effect boundary checker、shadow report assembly への依存が `check.rs` から外れ、ResourceModule checker と compiler pipeline 接続部の責務境界が明確になった。
+
+この分割で `check.rs` は 1676 行から 1658 行になり、`shadow.rs` は 25 行になった。issue はまだ open のままとし、次は `check.rs` の engine traversal 分割、または `effect.rs` の boundary engine 分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\shadow.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`

@@ -21,11 +21,12 @@ mod model;
 mod owner_state;
 mod place_utils;
 mod report;
+mod shadow;
 mod summary;
 
 pub use check::{
-    check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
-    check_resource_initialized_moves, check_resource_owner_obligations,
+    check_resource_borrow_lifetimes, check_resource_initialized_moves,
+    check_resource_owner_obligations,
 };
 pub use coverage::{
     compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
@@ -50,3 +51,4 @@ pub use report::{
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
     ResourceOwnerFunctionCheck, ResourceOwnerOperation, ResourceSafetyShadowReport,
 };
+pub use shadow::check_hir_resource_safety_shadow;
