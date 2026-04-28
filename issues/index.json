@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T22:52:26.334Z",
+  "generated_at": "2026-04-28T22:59:03.765Z",
   "counts": {
-    "total": 327,
-    "open": 10,
+    "total": 328,
+    "open": 11,
     "resolved": 317,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 95
       },
       "selfhost": {
-        "total": 37,
-        "open": 1,
+        "total": 38,
+        "open": 2,
         "resolved": 36
       },
       "cli": {
@@ -183,6 +183,21 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260428T225903679Z-SELF-HOST-MONO-STAGE-ONLY-EXPOSES-MA-FC3889CC",
+      "title": "self-host mono stage only exposes marker API and lacks instance key model",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/mono/mono.nepl, tests/stdlib/neplg2_mono.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T225903679Z-SELF-HOST-MONO-STAGE-ONLY-EXPOSES-MA-FC3889CC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
