@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T18:01:22.953Z",
+  "generated_at": "2026-04-28T18:17:13.528Z",
   "counts": {
-    "total": 298,
+    "total": 299,
     "open": 10,
-    "resolved": 288,
+    "resolved": 289,
     "by_area": {
       "core": {
-        "total": 141,
+        "total": 142,
         "open": 4,
-        "resolved": 137
+        "resolved": 138
       },
       "stdlib": {
         "total": 95,
@@ -2208,6 +2208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T175617166Z-RESOURCE-CELLSTATE-EXPRESSION-MARKER-26479BD3.md"
+    },
+    {
+      "id": "ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA",
+      "title": "Resource initialized raw alias logic reintroduces monolithic checker size",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

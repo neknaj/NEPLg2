@@ -319,3 +319,9 @@ HIR から Resource IR へ lower して shadow report を組み立てる `check_
 - `node nodesrc/issues.js index`
 - `git diff --check`
 - `trunk build`
+
+## 2026-04-29 initialized raw alias regression follow-up
+
+`ee39c3f` / `98b1fd1` の raw address alias 修正で、`initialized.rs` に raw alias table、raw address return summary、aggregate field propagation、raw memory op handling が再集中し、main の CI で `initialized.rs has 1323 lines; responsibility split limit is 750` が検出された。
+
+この退行は [ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA](./ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md) として追跡し、`initialized_alias.rs` と `initialized_raw_memory.rs` へ分離して解消した。`nodesrc/test_resource_checker_responsibility.js` も新 module の存在と line limit を確認するよう更新したため、この親 issue の fixed 判定は維持する。

@@ -18,6 +18,8 @@ mod effect_identity;
 mod effect_summary;
 mod function_alias;
 mod initialized;
+mod initialized_alias;
+mod initialized_raw_memory;
 mod lower;
 mod model;
 mod owner_check;

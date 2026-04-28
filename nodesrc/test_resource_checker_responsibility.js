@@ -53,6 +53,8 @@ for (const moduleName of [
     'effect_identity.rs',
     'report.rs',
     'shadow.rs',
+    'initialized_alias.rs',
+    'initialized_raw_memory.rs',
 ]) {
     assertFile(moduleName);
 }
@@ -68,6 +70,8 @@ for (const moduleDecl of [
     'mod effect_identity;',
     'mod report;',
     'mod shadow;',
+    'mod initialized_alias;',
+    'mod initialized_raw_memory;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
 }
@@ -101,6 +105,8 @@ const maxLines = new Map([
     ['effect_check.rs', 700],
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
+    ['initialized_alias.rs', 550],
+    ['initialized_raw_memory.rs', 300],
 ]);
 
 for (const [name, limit] of maxLines) {

@@ -23363,6 +23363,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - self-host import spec で `_` fallback を使えるようにする compiler 側の型検査 / backend gap を解消した。
 
+# 2026-04-29 メモ (ISS-20260428T180803802Z Resource initialized raw alias split)
+
+- [同期]:
+  - `main` / `origin/main` は `98b1fd1 fix(core): preserve raw aliases across expr markers` で一致していることを確認し、`work/resource-initialized-summary-split` branch で作業した。
+- [原因]:
+  - `ee39c3f` / `98b1fd1` の raw address alias 修正は CellState の正しい意味論を補強したが、raw alias table、raw address return summary、aggregate field propagation、raw memory op handling が `initialized.rs` に集中した。
+  - その結果 `initialized.rs` は 1322 行になり、main の GitHub Actions run `25069432337` の Source policy regressions で `initialized.rs has 1323 lines; responsibility split limit is 750` として失敗した。
+- [修正]:
+  - `RawCellAddressAliases`、raw address return summary の固定点計算、call / indirect call summary 適用、aggregate field alias propagation を `nepl-core/src/resource/initialized_alias.rs` へ分離した。
+  - raw memory operation の CellState 処理を `nepl-core/src/resource/initialized_raw_memory.rs` へ分離した。
+  - `initialized.rs` は Resource IR traversal、diagnostic emission、通常 ResourceOp の initialized / moved state 更新に集中させた。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在確認と line limit を追加し、同じ責務集中退行を CI で検出できるようにした。
+  - 分割後の行数は `initialized.rs` 609 行、`initialized_alias.rs` 501 行、`initialized_raw_memory.rs` 237 行。
+- [検証]:
+  - `rustfmt --check nepl-core\src\resource\initialized.rs nepl-core\src\resource\initialized_alias.rs nepl-core\src\resource\initialized_raw_memory.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\test_resource_checker_responsibility.js`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 73 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-initialized-split-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-initialized-split-move-check.json -j 1`: total=52 passed=52
+  - `node nodesrc\issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR checker 責務分割に沿って、CellState checker 内で再発した raw alias / raw memory の集中を解消した。
+
 # 2026-04-28 メモ (ISS-20260428T155038303Z self-host stdlib map)
 
 - [同期]:
