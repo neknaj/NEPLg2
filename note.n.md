@@ -1,3 +1,21 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck function check module)
+
+- 状況:
+  - Stage 1 の driver module 化後、`check_function` が `typecheck.rs` 本体に残っていた。
+  - `check_function` は function type snapshot、parameter scope registration、raw body effect validation、`BlockChecker` 起動、pending trait bound check、HIR function assembly をまとめて扱っていた。
+- 修正:
+  - `nepl-core/src/typecheck/function_check.rs` を追加し、`check_function` と function type parameter snapshot helper を移動した。
+  - `driver.rs` は module / top-level orchestration、`function_check.rs` は 1 関数の body checking、`block_check.rs` 以下は block / prefix / call lowering という境界にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck function check 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_check.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test functions/effects/generics/overload/block_if_semantics/resolve -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -i tests/compiler/generics.n.md -i tests/compiler/overload.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/block_if_semantics.n.md -i tests/compiler/resolve.n.md --no-tree -o tmp/stage1-typecheck-function-check-focused.json -j 1`: 205/205 passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck driver module)
 
 - 状況:
