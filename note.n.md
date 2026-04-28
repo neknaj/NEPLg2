@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck context module)
+
+- 状況:
+  - Stage 1 の function check module 化後、`BlockChecker` context 定義だけが `typecheck.rs` 本体に残っていた。
+  - `BlockChecker` は checker 全体の状態を束ねる context であり、親 file に残すと module wiring と検査 state 定義が同居したままになる。
+- 修正:
+  - `nepl-core/src/typecheck/context.rs` を追加し、`BlockChecker` を移動した。
+  - field visibility は `pub(super)` に留め、typecheck submodule からの既存アクセスは維持しつつ crate 外 API には出さない境界にした。
+  - `typecheck.rs` は module 宣言、submodule 用の限定 import、public `typecheck` re-export のみに縮小した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck context 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/context.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test functions/effects/generics/overload -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -i tests/compiler/generics.n.md -i tests/compiler/overload.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-typecheck-context-focused.json -j 1`: 188/188 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck function check module)
 
 - 状況:
