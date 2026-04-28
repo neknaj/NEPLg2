@@ -210,3 +210,110 @@ fn main <()*>i32> ():
                 Option::None:
                     1
 ```
+
+## selfhost_cliarg_parser_accepts_aliases_and_profile
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "neplg2/cli/args" as *
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
+#import "core/field" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let args <Vec<str>>:
+        unwrap_ok v::new<str>
+        |> v::push<str> "--attach-source" |> uwok
+        |> v::push<str> "--lib" |> uwok
+        |> v::push<str> "-v" |> uwok
+        |> v::push<str> "--target" |> uwok
+        |> v::push<str> "core" |> uwok
+        |> v::push<str> "--emit" |> uwok
+        |> v::push<str> "llvm-min" |> uwok
+        |> v::push<str> "--profile" |> uwok
+        |> v::push<str> "release" |> uwok
+        |> v::push<str> "--stdlib-root" |> uwok
+        |> v::push<str> "stdlib" |> uwok
+        |> v::push<str> "-i" |> uwok
+        |> v::push<str> "main.nepl" |> uwok
+        |> v::push<str> "--" |> uwok
+        |> v::push<str> "--program-flag" |> uwok
+    match selfhost_cli_parse_args &args:
+        Result::Err _e:
+            1
+        Result::Ok opts:
+            let attach_ref <&bool> get_ref &opts "attach_source"
+            let lib_ref <&bool> get_ref &opts "lib"
+            let verbose_ref <&bool> get_ref &opts "verbose"
+            let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
+            let emit_ref <&SelfhostCliEmit> get_ref &opts "emit"
+            let profile_ref <&Option<SelfhostCliProfile>> get_ref &opts "profile"
+            let stdlib_root_ref <&Option<str>> get_ref &opts "stdlib_root"
+            let input_ref <&Option<str>> get_ref &opts "input"
+            let run_args_start_ref <&Option<i32>> get_ref &opts "run_args_start"
+            let attach_ok <bool> *attach_ref
+            let lib_ok <bool> *lib_ref
+            let verbose_ok <bool> *verbose_ref
+            let target_ok <bool> match *target_ref:
+                Option::Some target:
+                    selfhost_cli_target_is_wasm target
+                Option::None:
+                    false
+            let emit_ok <bool> match *emit_ref:
+                SelfhostCliEmit::Wasm:
+                    false
+                SelfhostCliEmit::Wat:
+                    false
+                SelfhostCliEmit::WatMin:
+                    false
+                SelfhostCliEmit::Llvm:
+                    false
+                SelfhostCliEmit::LlvmMin:
+                    true
+                SelfhostCliEmit::All:
+                    false
+            let profile_ok <bool> match *profile_ref:
+                Option::Some profile:
+                    match profile:
+                        SelfhostCliProfile::Debug:
+                            false
+                        SelfhostCliProfile::Release:
+                            true
+                Option::None:
+                    false
+            let stdlib_root_ok <bool> match *stdlib_root_ref:
+                Option::Some root:
+                    str_eq root "stdlib"
+                Option::None:
+                    false
+            let input_ok <bool> match *input_ref:
+                Option::Some input:
+                    str_eq input "main.nepl"
+                Option::None:
+                    false
+            let run_args_start_ok <bool> match *run_args_start_ref:
+                Option::Some idx:
+                    eq idx 14
+                Option::None:
+                    false
+            let checks <Vec<Result<(),str>>>:
+                checks_new
+                |> checks_push assert attach_ok
+                |> checks_push assert lib_ok
+                |> checks_push assert verbose_ok
+                |> checks_push assert target_ok
+                |> checks_push assert emit_ok
+                |> checks_push assert profile_ok
+                |> checks_push assert stdlib_root_ok
+                |> checks_push assert input_ok
+                |> checks_push assert run_args_start_ok
+            checks_exit_code checks
+```

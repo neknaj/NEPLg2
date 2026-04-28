@@ -2,8 +2,8 @@
 id: ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7
 title: "self-host CLI arg classifiers use nested if instead of match"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: maintenance
 created: 2026-04-28
@@ -42,3 +42,17 @@ option 追加時の抜け漏れや順序依存をレビューしにくく、comp
 ## 検証
 
 nodesrc/test_stdlib_match_decision_trees.js を selfhost CLI classifier まで拡張し、該当関数に if decision tree が戻らないことを確認する。stdlib/neplg2 CLI args doctest も通す。
+
+## 解決
+
+- `selfhost_cli_arg_kind`、`selfhost_cli_parse_target_value`、`selfhost_cli_parse_emit_value`、`selfhost_cli_parse_profile_value` を、nested `if` ではなく scalar key の `match` で dispatch する形へ変更した。
+- NEPLg2 の `match` は `str` pattern を直接扱わないため、`hash32` を 31-bit key に正規化し、各 arm で `str_eq` による実文字列検証を必ず行う設計にした。これにより hash 衝突時も未知 option/value として fallback し、誤分類しない。
+- `--verbose` / `-v`、`--output` / `-o`、`--input` / `-i`、`core` / `std` alias などを arm 単位で見える形に整理した。
+- `nodesrc/test_stdlib_match_decision_trees.js` に selfhost CLI classifier の再発防止を追加し、対象関数が scalar key `match` と wildcard arm を維持し、`if:` decision tree に戻らないことを検査するようにした。
+- `tests/stdlib/selfhost_cliarg_parser.n.md` に alias、profile、stdlib-root、run args separator をまとめて通す回帰 test を追加した。
+
+## 検証結果
+
+- `node nodesrc/test_stdlib_match_decision_trees.js`
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/selfhost-cli-arg-match-dispatch.json -j 1`
+- `node nodesrc/tests.js -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/selfhost-cli-args-docs-match-dispatch.json -j 1`

@@ -36,6 +36,16 @@ function assertLiteralMatch({ file, name, scrutinee, literals }) {
     assert.match(block, /^\s*_:\s*$/m, `${name} must keep an explicit wildcard/default arm`);
 }
 
+function assertScalarKeyMatch({ file, name, scrutinee, literals }) {
+    const block = functionBlock(file, name);
+    assert.match(block, scrutinee, `${name} must dispatch through a scalar match key`);
+    assert.doesNotMatch(block, /^\s+if:\s*$/m, `${name} must not regress to an if decision tree`);
+    for (const literal of literals) {
+        assert.match(block, new RegExp(`^\\s*${literal}:\\s*$`, 'm'), `${name} is missing key arm ${literal}`);
+    }
+    assert.match(block, /^\s*_:\s*$/m, `${name} must keep an explicit wildcard/default arm`);
+}
+
 assertLiteralMatch({
     file: 'stdlib/alloc/encoding/json.nepl',
     name: 'json_escape_kind',
@@ -69,6 +79,38 @@ assertLiteralMatch({
     name: 'str_is_space',
     scrutinee: 'b',
     literals: ["' '", "'\\t'", "'\\n'", "'\\r'"],
+});
+
+assertScalarKeyMatch({
+    file: 'stdlib/neplg2/cli/args.nepl',
+    name: 'selfhost_cli_arg_kind',
+    scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+arg:/,
+    literals: [
+        1105069866, 236190827, 1825648204, 1059669684, 829133248,
+        1018434800, 1600605192, 559754234, 1262805978, 1216879227,
+        1726806915, 296239959, 390736299, 163286432, 1353831004,
+    ],
+});
+
+assertScalarKeyMatch({
+    file: 'stdlib/neplg2/cli/args.nepl',
+    name: 'selfhost_cli_parse_target_value',
+    scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+value:/,
+    literals: [1210069335, 495192238, 53171433, 1580422520, 37322532, 343592226],
+});
+
+assertScalarKeyMatch({
+    file: 'stdlib/neplg2/cli/args.nepl',
+    name: 'selfhost_cli_parse_emit_value',
+    scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+value:/,
+    literals: [1210069335, 139754043, 149843404, 343592226, 1495051790, 688645933],
+});
+
+assertScalarKeyMatch({
+    file: 'stdlib/neplg2/cli/args.nepl',
+    name: 'selfhost_cli_parse_profile_value',
+    scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+value:/,
+    literals: [97528863, 322158401],
 });
 
 console.log('stdlib match decision tree regression passed');

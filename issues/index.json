@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T07:08:49.707Z",
+  "generated_at": "2026-04-28T07:20:07.419Z",
   "counts": {
     "total": 247,
-    "open": 17,
-    "resolved": 230,
+    "open": 16,
+    "resolved": 231,
     "by_area": {
       "core": {
         "total": 103,
@@ -18,8 +18,8 @@
       },
       "selfhost": {
         "total": 14,
-        "open": 5,
-        "resolved": 9
+        "open": 4,
+        "resolved": 10
       },
       "stdlib": {
         "total": 94,
@@ -243,21 +243,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7",
-      "title": "self-host CLI arg classifiers use nested if instead of match",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "maintenance",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/cli/args.nepl, nodesrc/test_stdlib_match_decision_trees.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7.md"
     },
     {
       "id": "ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D",
@@ -2913,6 +2898,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/self_host_plan.md",
       "file": "items/ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229.md"
+    },
+    {
+      "id": "ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7",
+      "title": "self-host CLI arg classifiers use nested if instead of match",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/cli/args.nepl, nodesrc/test_stdlib_match_decision_trees.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
