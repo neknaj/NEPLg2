@@ -18,8 +18,7 @@ use super::indirect_apply::apply_indirect_function_call;
 use super::signature::{function_signature_string, type_contains_unbound_var};
 use super::syntax_helpers::parse_variant_name;
 use super::traits::{
-    format_trait_ref_name, infer_instantiated_type_arg, insert_substitution_mapping,
-    trait_application_matches, TraitBoundRef,
+    infer_instantiated_type_arg, insert_substitution_mapping, trait_application_matches,
 };
 use super::{BlockChecker, FieldAccessorKind, StackEntry};
 
@@ -475,6 +474,12 @@ impl<'a> BlockChecker<'a> {
                         BindingKind::Func { def_id, .. } => *def_id,
                         _ => None,
                     };
+                    let selected_type_param_bounds = match &binding.kind {
+                        BindingKind::Func {
+                            type_param_bounds, ..
+                        } => type_param_bounds.clone(),
+                        _ => BTreeMap::new(),
+                    };
                     let selected_type_snapshot = (!explicit_type_args.is_empty())
                         .then(|| self.ctx.snapshot_type_var_bindings(binding.ty));
                     let (inst_ty, mut resolved_args, type_arg_mapping) =
@@ -612,98 +617,15 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.restore_type_var_bindings(snapshot);
                     }
 
-                    if let BindingKind::Func {
-                        type_param_bounds, ..
-                    } = &binding.kind
-                    {
-                        if !type_param_bounds.is_empty() {
-                            for (tp, bounds) in type_param_bounds.iter() {
-                                let Some(raw_arg) = type_arg_mapping.get(tp) else {
-                                    continue;
-                                };
-                                let resolved_arg = self.ctx.resolve_id(*raw_arg);
-                                for b in bounds {
-                                    let substituted_trait_args = b
-                                        .trait_args
-                                        .iter()
-                                        .map(|arg| self.ctx.substitute(*arg, &type_arg_mapping))
-                                        .collect::<Vec<_>>();
-                                    let substituted_bound = TraitBoundRef {
-                                        name: format_trait_ref_name(
-                                            &b.trait_base_name,
-                                            &substituted_trait_args,
-                                            self.ctx,
-                                        ),
-                                        trait_base_name: b.trait_base_name.clone(),
-                                        trait_args: substituted_trait_args,
-                                        trait_self_ty: self
-                                            .ctx
-                                            .substitute(b.trait_self_ty, &type_arg_mapping),
-                                    };
-                                    if crate::log::is_verbose() {
-                                        function_apply_log!(
-                                            "trait-bound debug: callee='{}' tp={} raw_arg={} resolved_arg={} bound={} current_bounds={}",
-                                            name,
-                                            self.ctx.type_to_string(*tp),
-                                            self.ctx.type_to_string(*raw_arg),
-                                            self.ctx.type_to_string(resolved_arg),
-                                            substituted_bound.name,
-                                            self.type_param_bounds
-                                                .iter()
-                                                .map(|(bound_tp, bs)| {
-                                                    format!(
-                                                        "{}:[{}]",
-                                                        self.ctx.type_to_string(*bound_tp),
-                                                        bs.iter()
-                                                            .map(|bb| bb.name.clone())
-                                                            .collect::<Vec<_>>()
-                                                            .join("|")
-                                                    )
-                                                })
-                                                .collect::<Vec<_>>()
-                                                .join(", ")
-                                        );
-                                    }
-                                    if self
-                                        .trait_bound_satisfied_by_ref(&substituted_bound, *raw_arg)
-                                        || self.trait_bound_satisfied_by_ref(
-                                            &substituted_bound,
-                                            resolved_arg,
-                                        )
-                                    {
-                                        continue;
-                                    }
-                                    let inferred_arg = infer_instantiated_type_arg(
-                                        self.ctx, binding.ty, inst_ty, *tp,
-                                    )
-                                    .unwrap_or(resolved_arg);
-                                    if self.trait_bound_satisfied_by_ref(
-                                        &substituted_bound,
-                                        inferred_arg,
-                                    ) {
-                                        continue;
-                                    }
-                                    if self.is_concrete_type(inferred_arg) {
-                                        self.diagnostics.push(
-                                            Diagnostic::error(
-                                                format!(
-                                                    "type does not satisfy trait bound '{}'",
-                                                    substituted_bound.name
-                                                ),
-                                                func.expr.span,
-                                            )
-                                            .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
-                                        );
-                                    } else {
-                                        self.pending_trait_bound_checks.push((
-                                            substituted_bound,
-                                            inferred_arg,
-                                            func.expr.span,
-                                        ));
-                                    }
-                                }
-                            }
-                        }
+                    if !selected_type_param_bounds.is_empty() {
+                        self.check_selected_function_trait_bounds(
+                            name,
+                            binding.ty,
+                            inst_ty,
+                            &selected_type_param_bounds,
+                            &type_arg_mapping,
+                            func.expr.span,
+                        );
                     }
 
                     if let Some(field_accessor) = selected_field_accessor {

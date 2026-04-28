@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck trait bound apply module)
+
+- 状況:
+  - `indirect_apply` 分離後も、`function_apply.rs` の選択済み関数適用経路に generic trait bound の substitution / satisfaction check が残っていた。
+  - これは HIR call assembly ではなく、type parameter capability を実引数型へ適用して `TypeTraitBoundUnsatisfied` または pending bound check を生成する責務である。
+- 修正:
+  - `nepl-core/src/typecheck/trait_bound_apply.rs` を追加し、選択済み関数の trait bound 適用検査を `check_selected_function_trait_bounds` へ分離した。
+  - `function_apply.rs` は callable selection と type argument instantiation 後、clone した `type_param_bounds` を trait bound apply module に渡す形にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck trait bound apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/trait_bound_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test generics/overload/functions/effects/pipe_operator -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-typecheck-trait-bound-apply-focused.json -j 1`: 190/190 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck indirect apply module)
 
 - 状況:
