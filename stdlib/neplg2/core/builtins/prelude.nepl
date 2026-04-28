@@ -15,7 +15,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `MemLoadI32` / `MemStoreI32` は Rust 側 `BuiltinKind` には存在しますが、現在の `builtins()` registry には登録されていません。低レベル load/store は stdlib の inline wasm 経由で扱います。
-//: - primitive name registry は `SelfhostTypeKind` が現在表現できる型だけを持ちます。struct / enum / type variable / never / f32 などは type layer の拡張 issue で追加します。
+//: - primitive name registry は `SelfhostTypeKind` が現在表現できる primitive と named numeric alias を持ちます。struct / enum / type variable などは type layer の後続 issue で追加します。
 //: - name からの lookup は `ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2` の解消後に、`str_eq` / `hash32` を使う形で追加します。
 //: - builtin の raw memory effect model は static checker 側の Resource IR と同期する必要があります。ここでは現行 Rust surface の metadata を固定します。
 //:
@@ -191,7 +191,7 @@ fn selfhost_primitive_type_name_new <(str,SelfhostTypeKind)->SelfhostPrimitiveTy
 
 //: selfhost_primitive_type_count: registry に登録された primitive type name 数を[返/かえ]す
 fn selfhost_primitive_type_count <()->i32> ():
-    7
+    10
 
 //: selfhost_primitive_type_at: registry index から primitive type name を[返/かえ]す
 //:
@@ -213,6 +213,12 @@ fn selfhost_primitive_type_at <(i32)->Option<SelfhostPrimitiveTypeName>> (index)
             some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "char" SelfhostTypeKind::Char
         6:
             some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "str" SelfhostTypeKind::Str
+        7:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "f32" SelfhostTypeKind::F32
+        8:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "f64" SelfhostTypeKind::F64
+        9:
+            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "never" SelfhostTypeKind::Never
         _:
             none<SelfhostPrimitiveTypeName>
 
@@ -225,6 +231,25 @@ fn selfhost_prelude_stage0_char_ok <()->bool> ():
     match selfhost_primitive_type_at 5:
         Option::Some primitive:
             selfhost_type_kind_eq primitive.kind SelfhostTypeKind::Char
+        Option::None:
+            false
+
+//: selfhost_prelude_stage0_float_never_ok: primitive registry に floating / never type があるか[返/かえ]す
+fn selfhost_prelude_stage0_float_never_ok <()->bool> ():
+    match selfhost_primitive_type_at 7:
+        Option::Some f32_primitive:
+            match selfhost_primitive_type_at 8:
+                Option::Some f64_primitive:
+                    match selfhost_primitive_type_at 9:
+                        Option::Some never_primitive:
+                            let f32_ok <bool> selfhost_type_kind_eq f32_primitive.kind SelfhostTypeKind::F32
+                            let f64_ok <bool> selfhost_type_kind_eq f64_primitive.kind SelfhostTypeKind::F64
+                            let never_ok <bool> selfhost_type_kind_eq never_primitive.kind SelfhostTypeKind::Never
+                            and f32_ok and f64_ok never_ok
+                        Option::None:
+                            false
+                Option::None:
+                    false
         Option::None:
             false
 
@@ -276,7 +301,7 @@ fn selfhost_prelude_stage0_no_extra_builtin_ok <()->bool> ():
 //: selfhost_prelude_stage0: builtins / prelude registry の最小 sanity check
 fn selfhost_prelude_stage0 <()->i32> ():
     if:
-        not eq selfhost_primitive_type_count 7
+        not eq selfhost_primitive_type_count 10
         then:
             1
         else:
@@ -290,8 +315,11 @@ fn selfhost_prelude_stage0 <()->i32> ():
                         then:
                             1
                         else:
+                            let primitive_ok <bool> selfhost_prelude_stage0_float_never_ok
+                            let builtin_ok <bool> and selfhost_prelude_stage0_alloc_ok selfhost_prelude_stage0_realloc_ok
+                            let registry_ok <bool> and builtin_ok selfhost_prelude_stage0_no_extra_builtin_ok
                             if:
-                                and selfhost_prelude_stage0_alloc_ok and selfhost_prelude_stage0_realloc_ok selfhost_prelude_stage0_no_extra_builtin_ok
+                                and primitive_ok registry_ok
                                 then:
                                     0
                                 else:

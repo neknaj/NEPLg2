@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T22:11:40.713Z",
+  "generated_at": "2026-04-28T22:19:28.300Z",
   "counts": {
     "total": 323,
-    "open": 11,
-    "resolved": 312,
+    "open": 10,
+    "resolved": 313,
     "by_area": {
       "core": {
         "total": 151,
@@ -18,8 +18,8 @@
       },
       "selfhost": {
         "total": 37,
-        "open": 2,
-        "resolved": 35
+        "open": 1,
+        "resolved": 36
       },
       "cli": {
         "total": 19,
@@ -183,21 +183,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260428T212439976Z-SELF-HOST-TYPE-KIND-LACKS-RUST-PRIMI-43D4589C",
-      "title": "self-host type kind lacks Rust primitive parity",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/ty/ty.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T212439976Z-SELF-HOST-TYPE-KIND-LACKS-RUST-PRIMI-43D4589C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -4008,6 +3993,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T212006193Z-SELF-HOST-BUILTINS-PRELUDE-ONLY-EXPO-F337A459.md"
+    },
+    {
+      "id": "ISS-20260428T212439976Z-SELF-HOST-TYPE-KIND-LACKS-RUST-PRIMI-43D4589C",
+      "title": "self-host type kind lacks Rust primitive parity",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/core/ty/ty.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T212439976Z-SELF-HOST-TYPE-KIND-LACKS-RUST-PRIMI-43D4589C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

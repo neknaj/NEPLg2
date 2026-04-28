@@ -5,7 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - 型 arena、unify、subst、effect、layout が共有する型表現の入口にします。
-//: - TypeId を安定した arena index として扱い、primitive type と function type を同じ table に保持します。
+//: - TypeId を安定した arena index として扱い、primitive type、named numeric primitive、function type を同じ table に保持します。
 //: - 同じ arena 内で、別 index に割り当てられた同形の型を構造比較できます。
 //:
 //: [実装/じっそう]:
@@ -15,6 +15,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - これは S3 の最小 type model です。struct / enum / type variable / effect などは、Rust 実装との parity fixture を作りながら別 issue で追加します。
+//: - `I64` / `F64` は現行 Rust parser では named type として入る numeric primitive ですが、self-host 側では後続 stage が文字列比較なしで扱えるよう `SelfhostTypeKind` に載せます。
 //: - `SelfhostTypeId` は arena-local です。別 arena の TypeId と混ぜないでください。
 //:
 //: [計算量/けいさんりょう]:
@@ -62,6 +63,9 @@ enum SelfhostTypeKind:
     U8
     Char
     Str
+    F32
+    F64
+    Never
     Function
 
 impl Clone for SelfhostTypeKind:
@@ -136,12 +140,54 @@ fn selfhost_type_kind_tag <(SelfhostTypeKind)->i32> (kind):
             6
         SelfhostTypeKind::Str:
             7
-        SelfhostTypeKind::Function:
+        SelfhostTypeKind::F32:
             8
+        SelfhostTypeKind::F64:
+            9
+        SelfhostTypeKind::Never:
+            10
+        SelfhostTypeKind::Function:
+            11
 
 //: selfhost_type_kind_eq: TypeKind が同じ分類か[返/かえ]す
 fn selfhost_type_kind_eq <(SelfhostTypeKind,SelfhostTypeKind)->bool> (a, b):
     eq selfhost_type_kind_tag a selfhost_type_kind_tag b
+
+//: selfhost_type_kind_canonical_name: primitive TypeKind の canonical name を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - type 表示、prelude registry、diagnostic が同じ primitive spelling を使えるようにします。
+//: - source 上の `()` は type model では `unit`、発散型は `never` として正規化します。
+//: - Rust parser が named type として扱う `i64` / `f64` も、self-host の primitive registry ではこの canonical name で扱います。
+//:
+//: [注意/ちゅうい]:
+//: - `Error` と `Function` は primitive name を持たないため `None` を返します。
+fn selfhost_type_kind_canonical_name <(SelfhostTypeKind)->Option<str>> (kind):
+    match kind:
+        SelfhostTypeKind::Error:
+            none<str>
+        SelfhostTypeKind::Unit:
+            some<str> "unit"
+        SelfhostTypeKind::Bool:
+            some<str> "bool"
+        SelfhostTypeKind::I32:
+            some<str> "i32"
+        SelfhostTypeKind::I64:
+            some<str> "i64"
+        SelfhostTypeKind::U8:
+            some<str> "u8"
+        SelfhostTypeKind::Char:
+            some<str> "char"
+        SelfhostTypeKind::Str:
+            some<str> "str"
+        SelfhostTypeKind::F32:
+            some<str> "f32"
+        SelfhostTypeKind::F64:
+            some<str> "f64"
+        SelfhostTypeKind::Never:
+            some<str> "never"
+        SelfhostTypeKind::Function:
+            none<str>
 
 //: selfhost_type_record_new: 型 record を[作/つく]る
 fn selfhost_type_record_new <(SelfhostTypeKind,i32,i32,SelfhostTypeId)->SelfhostTypeRecord> (kind, first_arg, arg_count, result):

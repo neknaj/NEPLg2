@@ -32,15 +32,42 @@ fn main <()*>i32> ():
                     match selfhost_type_arena_add_primitive alloc1.arena SelfhostTypeKind::Bool:
                         Result::Ok alloc2:
                             let bool_id <SelfhostTypeId> alloc2.type_id
-                            let arena2 <SelfhostTypeArena> alloc2.arena
-                            let checks1 checks_push checks0 check_eq_i32 0 selfhost_type_id_index unit_id
-                            let checks2 checks_push checks1 check_eq_i32 1 selfhost_type_id_index bool_id
-                            let checks3 checks_push checks2 check_eq_i32 2 selfhost_type_arena_len &arena2
-                            let checks4 check_kind checks3 (selfhost_type_arena_get_kind &arena2 unit_id) SelfhostTypeKind::Unit
-                            let checks5 check_kind checks4 (selfhost_type_arena_get_kind &arena2 bool_id) SelfhostTypeKind::Bool
-                            selfhost_type_arena_free arena2
-                            let shown checks_print_report checks5
-                            checks_exit_code shown
+                            match selfhost_type_arena_add_primitive alloc2.arena SelfhostTypeKind::F32:
+                                Result::Ok alloc3:
+                                    let f32_id <SelfhostTypeId> alloc3.type_id
+                                    match selfhost_type_arena_add_primitive alloc3.arena SelfhostTypeKind::F64:
+                                        Result::Ok alloc4:
+                                            let f64_id <SelfhostTypeId> alloc4.type_id
+                                            match selfhost_type_arena_add_primitive alloc4.arena SelfhostTypeKind::Never:
+                                                Result::Ok alloc5:
+                                                    let never_id <SelfhostTypeId> alloc5.type_id
+                                                    let arena5 <SelfhostTypeArena> alloc5.arena
+                                                    let checks1 checks_push checks0 check_eq_i32 0 selfhost_type_id_index unit_id
+                                                    let checks2 checks_push checks1 check_eq_i32 1 selfhost_type_id_index bool_id
+                                                    let checks3 checks_push checks2 check_eq_i32 2 selfhost_type_id_index f32_id
+                                                    let checks4 checks_push checks3 check_eq_i32 3 selfhost_type_id_index f64_id
+                                                    let checks5 checks_push checks4 check_eq_i32 4 selfhost_type_id_index never_id
+                                                    let checks6 checks_push checks5 check_eq_i32 5 selfhost_type_arena_len &arena5
+                                                    let checks7 check_kind checks6 (selfhost_type_arena_get_kind &arena5 unit_id) SelfhostTypeKind::Unit
+                                                    let checks8 check_kind checks7 (selfhost_type_arena_get_kind &arena5 bool_id) SelfhostTypeKind::Bool
+                                                    let checks9 check_kind checks8 (selfhost_type_arena_get_kind &arena5 f32_id) SelfhostTypeKind::F32
+                                                    let checks10 check_kind checks9 (selfhost_type_arena_get_kind &arena5 f64_id) SelfhostTypeKind::F64
+                                                    let checks11 check_kind checks10 (selfhost_type_arena_get_kind &arena5 never_id) SelfhostTypeKind::Never
+                                                    selfhost_type_arena_free arena5
+                                                    let shown checks_print_report checks11
+                                                    checks_exit_code shown
+                                                Result::Err _e:
+                                                    let checks1 checks_push checks0 Result<(),str>::Err "never type allocation failed"
+                                                    let shown checks_print_report checks1
+                                                    checks_exit_code shown
+                                        Result::Err _e:
+                                            let checks1 checks_push checks0 Result<(),str>::Err "f64 type allocation failed"
+                                            let shown checks_print_report checks1
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    let checks1 checks_push checks0 Result<(),str>::Err "f32 type allocation failed"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
                         Result::Err _e:
                             let checks1 checks_push checks0 Result<(),str>::Err "bool type allocation failed"
                             let shown checks_print_report checks1

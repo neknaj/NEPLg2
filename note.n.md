@@ -23948,3 +23948,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib test harness は raw memory backed Vec 走査ではなく、self-host 作業を阻害しにくい値集約 API へ移行した。
+
+# 2026-04-29 メモ (ISS-20260428T212439976Z self-host type primitive parity)
+
+- [原因]:
+  - Rust 側 `TypeExpr` / `TypeKind` は `f32` と `never` を専用 primitive として扱う一方、self-host の `SelfhostTypeKind` はそれらを表現できなかった。
+  - Rust parser/codegen/layout は `i64` / `f64` を named numeric として特別扱いするが、self-host primitive registry には `f64` がなく、後続 checker が文字列分岐を増やす原因になっていた。
+- [修正]:
+  - `SelfhostTypeKind` に `F32` / `F64` / `Never` を追加し、tag / canonical name の match arm を明示した。
+  - `neplg2/core/builtins/prelude.nepl` の primitive registry を 10 件に拡張し、`f32` / `f64` / `never` を typed metadata として返すようにした。
+  - `tests/stdlib/neplg2_type_arena.n.md` の primitive arena regression に `F32` / `F64` / `Never` の stable id と kind lookup を追加した。
+- [検証]:
+  - `git diff --check`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\builtins\prelude.nepl --no-tree -o tmp\selfhost-type-kind-primitives-prelude.json -j 1`: total=1 passed=1
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\ty\ty.nepl -i stdlib\neplg2\core\builtins\prelude.nepl --no-tree -o tmp\selfhost-type-kind-primitives.json -j 1`: total=2 passed=1 failed=1（既知の `stdlib/alloc/collections/vec.nepl` raw-memory gate）
+  - `node nodesrc\tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\selfhost-type-kind-primitives-arena.json -j 1`: total=5 failed=5（既知の `alloc/string.nepl` `concat_result` D3100）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host S3 type layer が `f32` / `f64` / `never` を typed primitive metadata として扱えるようになった。

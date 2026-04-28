@@ -21,7 +21,7 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 ## S3 Type Layer
 
-`core/ty/ty.nepl` は `SelfhostTypeId`、`SelfhostTypeKind`、`SelfhostTypeArena` を提供します。primitive type と function type を arena-local stable id として登録し、function type の引数列は arena の argument table に集約します。`selfhost_type_arena_types_equal` は同じ arena 内の valid `TypeId` を構造比較し、unify / overload / checker が record inspection を重複実装しないための入口です。struct / enum / type variable / effect / layout は、Rust 実装との parity fixture を作りながら後続 issue で追加します。
+`core/ty/ty.nepl` は `SelfhostTypeId`、`SelfhostTypeKind`、`SelfhostTypeArena` を提供します。primitive type、`i64` / `f64` の named numeric primitive、function type を arena-local stable id として登録し、function type の引数列は arena の argument table に集約します。`selfhost_type_arena_types_equal` は同じ arena 内の valid `TypeId` を構造比較し、unify / overload / checker が record inspection を重複実装しないための入口です。struct / enum / type variable / effect / layout は、Rust 実装との parity fixture を作りながら後続 issue で追加します。
 
 ## 検証
 
