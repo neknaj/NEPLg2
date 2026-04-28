@@ -1,3 +1,26 @@
+# 2026-04-28 メモ (ISS-20260428T141745924Z Resource CellState raw storage destructive ops)
+
+- `origin/main` を `224da69` まで fast-forward し、別 agent の self-host lexer file_id 修正を取り込んだ。
+- GH Actions run `25057923991` は `jetli/trunk-action` の Trunk release download が HTTP 502 で失敗しており、compiler / stdlib の回帰ではなく CI infrastructure の一時的な外部取得失敗として切り分けた。
+- `ISS-20260428T141745924Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-D-40CECA56` を追加し、`doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の raw storage destructive operation 欠落として修正した。
+- `check_resource_initialized_moves` で raw `Store` / `Dealloc` / `Realloc` / `Fill` / `BulkCopy` / `BulkMove` を address value と `address.*` cell obligation に分けて検査するようにした。
+- live non-Copy または maybe-moved の raw cell が残る storage-only dealloc/realloc/fill、bulk source shallow copy、bulk destination overwrite、store overwrite を `ResourceCheckDiagnostic::CellUnavailable` として検出する。
+- non-Copy `Load` で payload を consume 済みの raw cell は storage-only dealloc を許可し、Copy initialized raw cell は realloc / bulk copy の destination に引き継ぐ。
+- `ISS-20260425T000000Z-RV-CORE-009-58589A3F`、`ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`、`ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` に Stage 4 の進捗としてリンクを追記した。
+- 追加した回帰:
+  - `resource_ir_cell_check_reports_store_over_live_raw_cell`
+  - `resource_ir_cell_check_allows_dealloc_after_non_copy_raw_load`
+  - `resource_ir_cell_check_reports_destructive_raw_storage_ops_over_live_cell`
+  - `resource_ir_cell_check_reports_bulk_copy_of_live_non_copy_raw_cells`
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_ -- --nocapture`: 9 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\check.rs nepl-core\tests\resource_ir.rs`: pass
+  - `node nodesrc/issues.js check`: files=286, pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T123810929Z self-host lexer/parser file_id)
 
 - `ISS-20260428T123810929Z-SELF-HOST-LEXER-HARDCODES-SOURCE-FIL-B72A7A74` を修正した。

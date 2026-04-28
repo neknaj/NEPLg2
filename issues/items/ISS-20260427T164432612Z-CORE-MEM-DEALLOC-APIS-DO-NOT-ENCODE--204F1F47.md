@@ -78,4 +78,10 @@ collection 固有の element cleanup API は `ISS-20260425T000000Z-RV-STDLIB-004
 
 この実装は `MemPtr` を owner として拡張するものではなく、free obligation を Resource IR の owner table として分離するための最初の足場である。現時点では compiler pipeline へ接続せず、function summary、aggregate owner、branch / loop merge、RegionToken capability 化は後続 Stage に残す。既存の D3100 防壁は維持しつつ、Resource IR 側で storage owner と initialized cell を分ける方向へ移行する。
 
+## 2026-04-28 Resource IR raw storage op 追記
+
+`ISS-20260428T141745924Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-D-40CECA56` として、Resource IR CellState checker でも storage-only raw operation が initialized non-Copy cell を消せないようにした。`Dealloc` / `Realloc` は `address.*` 配下の live non-Copy / maybe-moved cell を拒否し、non-Copy `Load` で payload を consume 済みの storage-only dealloc は許可する。
+
+これはこの issue の完了条件である `Storage<T>` / `OwnedRegion<T>` / `InitializedCell<T>` の API 分離そのものではないが、Resource IR 側で「payload obligation が残る region」と「storage-only region」を区別するための Stage 4 実装である。stdlib public API と owner token 化は引き続きこの issue の残件として扱う。
+
 回帰テストでは、`alloc_raw` 後に `dealloc_raw` する正常系、未解放 allocation の leak、二重 dealloc の owner moved 診断を `nepl-core/tests/resource_ir.rs` に固定した。

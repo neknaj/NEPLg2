@@ -105,6 +105,17 @@ pub enum ResourceCheckOperation {
     RawMemoryLoadCell,
     RawMemoryStoreAddress,
     RawMemoryStoreValue,
+    RawMemoryStoreCell,
+    RawMemoryDeallocAddress,
+    RawMemoryDeallocCell,
+    RawMemoryReallocAddress,
+    RawMemoryReallocCell,
+    RawMemoryFillAddress,
+    RawMemoryFillCell,
+    RawMemoryBulkDestinationAddress,
+    RawMemoryBulkDestinationCell,
+    RawMemoryBulkSourceAddress,
+    RawMemoryBulkSourceCell,
     IndirectCallee,
 }
 
@@ -667,21 +678,144 @@ impl ResourceCheckEngine<'_> {
                     ResourceCheckOperation::RawMemoryStoreAddress,
                     span,
                 );
-                let value_available = if let Some(value) = args.get(1) {
-                    self.consume_by_value(
-                        cells,
-                        value,
-                        ResourceCheckOperation::RawMemoryStoreValue,
-                        span,
-                    )
+                let cell_available = self.ensure_no_live_non_copy_raw_cells(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryStoreCell,
+                    span,
+                );
+                let value_available = if address_available && cell_available {
+                    args.get(1).is_none_or(|value| {
+                        self.consume_by_value(
+                            cells,
+                            value,
+                            ResourceCheckOperation::RawMemoryStoreValue,
+                            span,
+                        )
+                    })
                 } else {
-                    true
+                    false
                 };
-                if address_available && value_available {
+                if address_available && cell_available && value_available {
                     if let Some(value) = args.get(1) {
                         let cell = raw_memory_cell_place(address, value.ty);
+                        cells.clear_raw_cells_under(address);
                         cells.mark_initialized(&cell);
                     }
+                    cells.mark_initialized(output);
+                }
+            }
+            RawMemoryOp::Dealloc => {
+                let Some(address) = args.first() else {
+                    cells.mark_initialized(output);
+                    return;
+                };
+                let address_available = self.ensure_available(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryDeallocAddress,
+                    span,
+                );
+                let cells_released = self.ensure_no_live_non_copy_raw_cells(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryDeallocCell,
+                    span,
+                );
+                if address_available && cells_released {
+                    cells.clear_raw_cells_under(address);
+                    cells.mark_initialized(output);
+                }
+            }
+            RawMemoryOp::Realloc => {
+                let Some(address) = args.first() else {
+                    cells.mark_initialized(output);
+                    return;
+                };
+                let address_available = self.ensure_available(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryReallocAddress,
+                    span,
+                );
+                let cells_released = self.ensure_no_live_non_copy_raw_cells(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryReallocCell,
+                    span,
+                );
+                if address_available && cells_released {
+                    let relocated =
+                        cells.copy_initialized_copy_raw_cells(address, output, self.types);
+                    cells.clear_raw_cells_under(address);
+                    cells.mark_initialized(output);
+                    cells.extend_entries(relocated);
+                }
+            }
+            RawMemoryOp::Fill => {
+                let Some(address) = args.first() else {
+                    cells.mark_initialized(output);
+                    return;
+                };
+                let address_available = self.ensure_available(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryFillAddress,
+                    span,
+                );
+                let cells_released = self.ensure_no_live_non_copy_raw_cells(
+                    cells,
+                    address,
+                    ResourceCheckOperation::RawMemoryFillCell,
+                    span,
+                );
+                if address_available && cells_released {
+                    cells.clear_raw_cells_under(address);
+                    cells.mark_initialized(output);
+                }
+            }
+            RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
+                let Some(destination) = args.first() else {
+                    cells.mark_initialized(output);
+                    return;
+                };
+                let Some(source) = args.get(1) else {
+                    cells.mark_initialized(output);
+                    return;
+                };
+                let destination_available = self.ensure_available(
+                    cells,
+                    destination,
+                    ResourceCheckOperation::RawMemoryBulkDestinationAddress,
+                    span,
+                );
+                let source_available = self.ensure_available(
+                    cells,
+                    source,
+                    ResourceCheckOperation::RawMemoryBulkSourceAddress,
+                    span,
+                );
+                let destination_cells_released = self.ensure_no_live_non_copy_raw_cells(
+                    cells,
+                    destination,
+                    ResourceCheckOperation::RawMemoryBulkDestinationCell,
+                    span,
+                );
+                let source_cells_copyable = self.ensure_no_live_non_copy_raw_cells(
+                    cells,
+                    source,
+                    ResourceCheckOperation::RawMemoryBulkSourceCell,
+                    span,
+                );
+                if destination_available
+                    && source_available
+                    && destination_cells_released
+                    && source_cells_copyable
+                {
+                    let copied =
+                        cells.copy_initialized_copy_raw_cells(source, destination, self.types);
+                    cells.clear_raw_cells_under(destination);
+                    cells.extend_entries(copied);
                     cells.mark_initialized(output);
                 }
             }
@@ -693,6 +827,20 @@ impl ResourceCheckEngine<'_> {
                 }
             }
         }
+    }
+
+    fn ensure_no_live_non_copy_raw_cells(
+        &mut self,
+        cells: &CellTable,
+        address: &Place,
+        operation: ResourceCheckOperation,
+        span: Span,
+    ) -> bool {
+        let conflicts = cells.live_non_copy_raw_cells_under(address, self.types);
+        for conflict in &conflicts {
+            self.push_unavailable(operation, &conflict.place, conflict.state.clone(), span);
+        }
+        conflicts.is_empty()
     }
 
     fn ensure_args(
@@ -2247,6 +2395,58 @@ impl CellTable {
         });
     }
 
+    fn clear_raw_cells_under(&mut self, address: &Place) {
+        self.cells
+            .retain(|entry| raw_cell_suffix_after_address(&entry.place, address).is_none());
+    }
+
+    fn extend_entries(&mut self, entries: Vec<CellStateEntry>) {
+        for entry in entries {
+            self.set_state(&entry.place, entry.state);
+        }
+    }
+
+    fn live_non_copy_raw_cells_under(
+        &self,
+        address: &Place,
+        types: &TypeCtx,
+    ) -> Vec<CellStateEntry> {
+        self.cells
+            .iter()
+            .filter(|entry| {
+                raw_cell_suffix_after_address(&entry.place, address).is_some()
+                    && raw_cell_state_has_live_non_copy_obligation(entry, types)
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn copy_initialized_copy_raw_cells(
+        &self,
+        source: &Place,
+        destination: &Place,
+        types: &TypeCtx,
+    ) -> Vec<CellStateEntry> {
+        self.cells
+            .iter()
+            .filter_map(|entry| {
+                raw_cell_suffix_after_address(&entry.place, source)?;
+                let CellState::Initialized(ty) = entry.state else {
+                    return None;
+                };
+                if !types.is_copy(ty) {
+                    return None;
+                }
+                replace_place_prefix(&entry.place, source, destination).map(|place| {
+                    CellStateEntry {
+                        place,
+                        state: entry.state.clone(),
+                    }
+                })
+            })
+            .collect()
+    }
+
     fn merge_paths(paths: &[CellTable]) -> Self {
         let mut out = CellTable::default();
         let mut places = Vec::new();
@@ -2288,6 +2488,50 @@ fn cell_descendant_state_flows(prefix: &Place, place: &Place) -> bool {
             })
         })
         .unwrap_or(false)
+}
+
+fn raw_cell_state_has_live_non_copy_obligation(entry: &CellStateEntry, types: &TypeCtx) -> bool {
+    match entry.state {
+        CellState::Initialized(ty) => !types.is_copy(ty),
+        CellState::MaybeMoved => !types.is_copy(entry.place.ty),
+        CellState::Uninit | CellState::Moved | CellState::Dropped => false,
+    }
+}
+
+fn raw_cell_suffix_after_address(cell: &Place, address: &Place) -> Option<Vec<PlaceProjection>> {
+    let suffix = place_suffix_after_address_prefix(cell, address)?;
+    if suffix
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::Deref))
+    {
+        Some(suffix)
+    } else {
+        None
+    }
+}
+
+fn place_suffix_after_address_prefix(
+    place: &Place,
+    prefix: &Place,
+) -> Option<Vec<PlaceProjection>> {
+    if place.root != prefix.root || place.projections.len() < prefix.projections.len() {
+        return None;
+    }
+    for (place_projection, prefix_projection) in place.projections.iter().zip(&prefix.projections) {
+        if !address_projection_matches(place_projection, prefix_projection) {
+            return None;
+        }
+    }
+    Some(place.projections[prefix.projections.len()..].to_vec())
+}
+
+fn address_projection_matches(place: &PlaceProjection, prefix: &PlaceProjection) -> bool {
+    match (place, prefix) {
+        (PlaceProjection::StorageOffset(left), PlaceProjection::StorageOffset(right)) => {
+            left.bytes == right.bytes || left.bytes.is_none() || right.bytes.is_none()
+        }
+        _ => place == prefix,
+    }
 }
 
 #[derive(Debug, Clone, Default)]

@@ -324,4 +324,6 @@ raw slot payload identity は pointer alias group で key 化しているため�
 
 `ISS-20260428T135023009Z-RESOURCE-CELLSTATE-CHECKER-TREATS-RA-DA292E10` として、Resource IR の raw load/store が initialized / moved cell state に接続されていない問題を分離し、修正した。
 
+`ISS-20260428T141745924Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-D-40CECA56` として、Resource IR の raw dealloc/realloc/fill/bulk copy/bulk move が initialized cell state を見ずに storage operation として通る問題を分離し、修正した。Stage 5 の raw memory effect / ownership boundary へ進む前提として、raw operation は call name summary ではなく Resource IR の `address.*` cell transition として検査される必要がある。
+
 `RawMemoryOp::Store` は store value を by-value consume して `address.*` を initialized にし、`RawMemoryOp::Load` は `address.*` を確認して non-Copy payload なら moved にする。これにより、Resource IR shadow check だけでも raw load before store と non-Copy raw load の二重 move を検出できる。effect / public API migration は引き続きこの親 issue の残件である。
