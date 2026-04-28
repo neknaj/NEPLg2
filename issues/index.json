@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T20:35:38.785Z",
+  "generated_at": "2026-04-28T20:40:35.318Z",
   "counts": {
-    "total": 312,
+    "total": 313,
     "open": 10,
-    "resolved": 302,
+    "resolved": 303,
     "by_area": {
       "core": {
         "total": 148,
@@ -17,9 +17,9 @@
         "resolved": 91
       },
       "selfhost": {
-        "total": 31,
+        "total": 32,
         "open": 1,
-        "resolved": 30
+        "resolved": 31
       },
       "cli": {
         "total": 19,
@@ -3858,6 +3858,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T203303662Z-SELF-HOST-CORE-OPTIONS-ONLY-EXPOSE-M-C4A0FEAF.md"
+    },
+    {
+      "id": "ISS-20260428T203749997Z-SELF-HOST-CLI-OPTIONS-DO-NOT-CONVERT-065062E7",
+      "title": "self-host CLI options do not convert to core compile options",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/cli/args.nepl, stdlib/neplg2/core/options.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T203749997Z-SELF-HOST-CLI-OPTIONS-DO-NOT-CONVERT-065062E7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

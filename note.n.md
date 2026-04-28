@@ -23773,3 +23773,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` の `core/options.nepl # CompileOptions, Target, Profile` に対応し、marker から core-owned option value へ進めた。
+
+# 2026-04-29 メモ (ISS-20260428T203749997Z self-host CLI to core options bridge)
+
+- [同期]:
+  - `main` は `origin/main` の `f4e4b50 selfhost(core): add compile options model` まで同期済みで、`selfhost/cli-core-options-bridge` branch を作成して作業した。
+- [原因]:
+  - `SelfhostCliOptions` は parsed target/profile/verbose を持ち、core 側にも `SelfhostCompileOptions` ができたが、両者をつなぐ変換 API がなかった。
+  - このままだと driver/pipeline が CLI struct の内部 field を直接読むか、target/profile/verbose を ad hoc に渡すことになる。
+- [修正]:
+  - `selfhost_cli_target_to_compile_target` と `selfhost_cli_profile_to_build_profile` を追加した。
+  - `selfhost_cli_options_to_compile_options` で CLI options の target/profile/verbose だけを core compile options に変換するようにした。
+  - emit、input、output、run は CLI/driver 層の責務として残し、core option が artifact writer や実行制御を持たない境界を維持した。
+  - doctest で `--target std --profile release --verbose` の parse 結果が core options では `Wasi` / `Release` / verbose true になることを固定した。
+- [検証]:
+  - `node nodesrc\tests.js -i stdlib\neplg2\cli\args.nepl --no-tree -o tmp\selfhost-cli-core-options.json -j 1`: total=5 passed=5
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の core/CLI 分離に合わせ、CLI parser と core pipeline の option 境界を明示した。
