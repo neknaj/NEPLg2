@@ -921,6 +921,46 @@ fn gen_simple_expr_iteratively(
     Ok(valtype(&ctx.get(expr.ty)))
 }
 
+// Lower else-if decision trees without consuming one Rust/WASM call frame per arm.
+fn gen_if_else_chain(
+    ctx: &TypeCtx,
+    expr: &HirExpr,
+    name_map: &BTreeMap<String, u32>,
+    sig_map: &BTreeMap<(Vec<ValType>, Vec<ValType>), u32>,
+    strings: &StringLower,
+    locals: &mut LocalMap,
+    insts: &mut Vec<Instruction<'static>>,
+) -> LowerResult<Option<ValType>> {
+    let result_ty = valtype(&ctx.get(expr.ty));
+    let mut current = expr;
+    let mut pending_ends = 0usize;
+    loop {
+        let HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } = &current.kind
+        else {
+            gen_expr(ctx, current, name_map, sig_map, strings, locals, insts)?;
+            break;
+        };
+
+        gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts)?;
+        match result_ty {
+            Some(vt) => insts.push(Instruction::If(wasm_encoder::BlockType::Result(vt))),
+            None => insts.push(Instruction::If(wasm_encoder::BlockType::Empty)),
+        }
+        pending_ends += 1;
+        gen_expr(ctx, then_branch, name_map, sig_map, strings, locals, insts)?;
+        insts.push(Instruction::Else);
+        current = else_branch;
+    }
+    for _ in 0..pending_ends {
+        insts.push(Instruction::End);
+    }
+    Ok(result_ty)
+}
+
 fn gen_expr(
     ctx: &TypeCtx,
     expr: &HirExpr,
@@ -1030,22 +1070,8 @@ fn gen_expr(
             }
             valtype(&ctx.get(expr.ty))
         }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            gen_expr(ctx, cond, name_map, sig_map, strings, locals, insts)?;
-            let result_ty = valtype(&ctx.get(expr.ty));
-            match result_ty {
-                Some(vt) => insts.push(Instruction::If(wasm_encoder::BlockType::Result(vt))),
-                None => insts.push(Instruction::If(wasm_encoder::BlockType::Empty)),
-            }
-            gen_expr(ctx, then_branch, name_map, sig_map, strings, locals, insts)?;
-            insts.push(Instruction::Else);
-            gen_expr(ctx, else_branch, name_map, sig_map, strings, locals, insts)?;
-            insts.push(Instruction::End);
-            result_ty
+        HirExprKind::If { .. } => {
+            gen_if_else_chain(ctx, expr, name_map, sig_map, strings, locals, insts)?
         }
         HirExprKind::While { cond, body } => {
             // while cond body:

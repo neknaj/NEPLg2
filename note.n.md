@@ -23576,3 +23576,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_execution_plan.md` S3 の unify / subst 入口に進むため、TypeArena の比較境界を追加した。
+
+# 2026-04-29 メモ (ISS-20260428T184502533Z self-host import_spec wasm codegen stack)
+
+- [同期]:
+  - `main` は `origin/main` の `064443b selfhost(s3): add type equality` まで同期済みで、`fix/codegen-wasm-import-spec-stack` branch を作成して作業した。
+- [原因]:
+  - `std/test` の D3100 回帰が直ったことで、`tests/stdlib/neplg2_import_spec.n.md::doctest#1` が wasm codegen まで進み、通常 Node stack で `RangeError: Maximum call stack size exceeded` になっていた。
+  - native CLI は同じ入力を wasm 生成でき、`node --stack_size=32768` でも pass したため、入力の意味論ではなく wasm-host 上の compiler stack 消費が原因だった。
+  - HIR の深い箇所は self-host lexer の `lex_keyword_kind` などにある else-if decision tree で、`gen_expr` が `If` の else chain を再帰的に下げていた。
+- [修正]:
+  - `nepl-core/src/codegen_wasm.rs` に `gen_if_else_chain` を追加し、else branch がさらに `If` の場合は loop で同じ wasm `if` / `else` / `end` instruction 列を生成するようにした。
+  - `HirExprKind::If` の lowering はこの helper に集約し、stdlib 側の keyword classifier を浅く書き換える回避ではなく、同種の decision tree に効く compiler 側の修正にした。
+- [検証]:
+  - `target\debug\nepl-cli.exe -i tmp\selfhost_import_spec_case1.nepl --target std -o tmp\selfhost_import_spec_case1_direct --emit wasm`: pass（調査用一時入力、約 21 秒）
+  - `node --stack_size=32768 nodesrc\tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\selfhost-import-spec-stack-size-probe.json -j 1`: total=3 passed=3
+  - `rustfmt --check nepl-core\src\codegen_wasm.rs`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\selfhost-import-spec-codegen-stack-after-if-chain.json -j 1`: total=3 passed=3
+  - `node nodesrc\tests.js -i stdlib\neplg2 -i tests\stdlib\neplg2_type_arena.n.md -i tests\stdlib\neplg2_stdlib_map.n.md -i tests\stdlib\neplg2_module_graph.n.md -i tests\stdlib\neplg2_module_loader.n.md -i tests\stdlib\neplg2_import_spec.n.md -i tests\stdlib\neplg2_parser.n.md -i tests\stdlib\neplg2_lexer.n.md --no-tree -o tmp\selfhost-broad-after-if-chain-codegen.json -j 1`: total=58 passed=58
+  - `cargo fmt --all --check`: 未変更の `nepl-core/src/lexer.rs` の既存 formatting drift で fail。今回触った `codegen_wasm.rs` は `rustfmt --check` 済み。
+  - `cargo test -p nepl-core --test check_pipeline compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow -- --nocapture`: remote main 由来の既存 native stack overflow が残るため fail。本 issue の import_spec/web stack overflow とは分離。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host broad validation のブロッカーを、stdlib 側の表面回避ではなく wasm codegen の else-if chain lowering で取り除いた。

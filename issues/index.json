@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T18:53:57.856Z",
+  "generated_at": "2026-04-28T19:21:03.436Z",
   "counts": {
     "total": 303,
-    "open": 11,
-    "resolved": 292,
+    "open": 10,
+    "resolved": 293,
     "by_area": {
       "core": {
         "total": 144,
-        "open": 5,
-        "resolved": 139
+        "open": 4,
+        "resolved": 140
       },
       "stdlib": {
         "total": 96,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E.md"
-    },
-    {
-      "id": "ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326",
-      "title": "self-host import_spec test overflows wasm codegen stack",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/codegen_wasm.rs; tests/stdlib/neplg2_import_spec.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2253,6 +2238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T182913710Z-RESOURCE-IR-LOWERING-MISCLASSIFIES-C-A1508C51.md"
+    },
+    {
+      "id": "ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326",
+      "title": "self-host import_spec test overflows wasm codegen stack",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/codegen_wasm.rs; tests/stdlib/neplg2_import_spec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
