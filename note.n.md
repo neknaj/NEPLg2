@@ -1,3 +1,24 @@
+# 2026-04-29 メモ (ISS-20260428T225903679Z self-host mono instance key)
+
+- [同期]:
+  - `origin/main` の `6dbb82d issues: track selfhost mono instance key` まで取り込んだ `selfhost/mono-instance-key-model` branch で作業した。
+- [原因]:
+  - `stdlib/neplg2/core/mono/mono.nepl` は Stage 0 marker のみで、S4 monomorphize が必要とする generic function instance の typed key と deterministic symbol identity を持っていなかった。
+  - このまま cache / codegen を進めると、module index、function index、type argument range、mangle seed が別々の ad hoc 値として散らばる。
+- [修正]:
+  - `SelfhostMonoDefId`、`SelfhostMonoTypeArgRange`、`SelfhostMonoInstanceKey`、`SelfhostMonoInstanceId` を追加した。
+  - constructor、validity check、key equality、deterministic seed helper を追加した。
+  - `selfhost_mono_stage0` を marker return ではなく key identity / seed / id の smoke check に更新した。
+  - `tests/stdlib/neplg2_mono.n.md` と `stdlib/neplg2/README.md` の focused 検証コマンドを追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib\neplg2\core\mono\mono.nepl --no-tree -o tmp\selfhost-mono-instance-key-mono-2.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_mono.n.md --no-tree -o tmp\selfhost-mono-instance-key-tests.json -j 1`: total=2 passed=2
+  - `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-mono-instance-key-neplg2.json -j 1`: total=32 passed=19 failed=13。mono doctest は pass。残件は既知の Vec element provenance と、別 issue 化する CLI args `VecDataLen` field move D3100。
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の S4 `mono/` instance cache / name mangling の前段として、typed key と seed の足場を追加した。
+
 # 2026-04-29 メモ (ISS-20260428T224138753Z String RegionToken ref projection)
 
 - [同期]:

@@ -2,8 +2,8 @@
 id: ISS-20260428T225903679Z-SELF-HOST-MONO-STAGE-ONLY-EXPOSES-MA-FC3889CC
 title: "self-host mono stage only exposes marker API and lacks instance key model"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: architecture
 created: 2026-04-28
@@ -39,6 +39,18 @@ S4 monomorphize work would otherwise spread ad hoc module/function/type-argument
 
 Add a small Copy instance key model with module/function/type-argument range fields, equality, validity checks, and a deterministic mangle seed helper. Keep cache storage and trait impl lookup for later issues.
 
+## 修正内容
+
+- `SelfhostMonoDefId`、`SelfhostMonoTypeArgRange`、`SelfhostMonoInstanceKey`、`SelfhostMonoInstanceId` を追加し、generic instance identity を typed value として表せるようにした。
+- key / range / id の constructor、validity check、key equality を追加した。
+- `selfhost_mono_instance_key_seed` を追加し、name mangling / cache bucket に使える deterministic non-crypto seed を key から作れるようにした。
+- `selfhost_mono_stage0` を marker return ではなく key identity / seed / id の smoke check に更新した。
+- `tests/stdlib/neplg2_mono.n.md` と `stdlib/neplg2/README.md` の検証コマンドを追加した。
+
 ## 検証
 
-Run mono focused doctests, self-host focused tests that depend on mono, node nodesrc/issues.js check, and git diff --check.
+- `node nodesrc/tests.js -i stdlib\neplg2\core\mono\mono.nepl --no-tree -o tmp\selfhost-mono-instance-key-mono-2.json -j 1`: total=1, passed=1
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_mono.n.md --no-tree -o tmp\selfhost-mono-instance-key-tests.json -j 1`: total=2, passed=2
+- `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-mono-instance-key-neplg2.json -j 1`: total=32, passed=19, failed=13。mono doctest は pass。失敗は既存の Vec element provenance と、別途 issue 化する `selfhost_cli_parse_args` / `selfhost_cli_parse_argv` の `VecDataLen` field move D3100。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

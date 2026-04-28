@@ -23,6 +23,10 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 `core/ty/ty.nepl` は `SelfhostTypeId`、`SelfhostTypeKind`、`SelfhostTypeArena` を提供します。primitive type、`i64` / `f64` の named numeric primitive、function type を arena-local stable id として登録し、function type の引数列は arena の argument table に集約します。`selfhost_type_arena_types_equal` は同じ arena 内の valid `TypeId` を構造比較し、unify / overload / checker が record inspection を重複実装しないための入口です。struct / enum / type variable / effect / layout は、Rust 実装との parity fixture を作りながら後続 issue で追加します。
 
+## S4 Mono Foundation
+
+`core/mono/mono.nepl` は generic instance の元定義を表す `SelfhostMonoDefId`、type argument table の範囲を表す `SelfhostMonoTypeArgRange`、cache lookup 用の `SelfhostMonoInstanceKey`、instance table index の `SelfhostMonoInstanceId` を提供します。`selfhost_mono_instance_key_seed` は name mangling / cache bucket 用の deterministic seed を返します。実際の cache storage、trait impl lookup、HIR 複製は後続 issue で追加します。
+
 ## 検証
 
 ```powershell
@@ -33,4 +37,5 @@ node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_diag_outcome.n.md 
 node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg2-module-graph-focused.json -j 1
 node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg2-stdlib-map-focused.json -j 1
 node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg2-type-arena-focused.json -j 1
+node nodesrc/tests.js -i tests/stdlib/neplg2_mono.n.md --no-tree -o tmp/neplg2-mono-focused.json -j 1
 ```
