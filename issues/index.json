@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T18:41:37.701Z",
+  "generated_at": "2026-04-28T18:50:12.562Z",
   "counts": {
-    "total": 300,
-    "open": 10,
-    "resolved": 290,
+    "total": 302,
+    "open": 11,
+    "resolved": 291,
     "by_area": {
       "core": {
-        "total": 143,
-        "open": 4,
+        "total": 144,
+        "open": 5,
         "resolved": 139
       },
       "stdlib": {
-        "total": 95,
+        "total": 96,
         "open": 5,
-        "resolved": 90
+        "resolved": 91
       },
       "selfhost": {
         "total": 25,
@@ -108,6 +108,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E.md"
+    },
+    {
+      "id": "ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326",
+      "title": "self-host import_spec test overflows wasm codegen stack",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/codegen_wasm.rs; tests/stdlib/neplg2_import_spec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3138,6 +3153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T094334365Z-KPSEARCH-VEC-WRAPPERS-USE-RAW-AGGREG-BDDC0E20.md"
+    },
+    {
+      "id": "ISS-20260428T182814629Z-STD-TEST-CHECK-AGGREGATION-TRIPS-RES-86ECD003",
+      "title": "std/test check aggregation trips Resource IR raw dealloc gate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/test.nepl; tests/stdlib/neplg2_type_arena.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T182814629Z-STD-TEST-CHECK-AGGREGATION-TRIPS-RES-86ECD003.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

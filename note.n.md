@@ -23519,3 +23519,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_execution_plan.md` S3 の `selfhost/s3-type-arena` に対応し、struct / enum / type variable / effect / layout は後続 issue で追加する。
+
+# 2026-04-29 メモ (ISS-20260428T182814629Z std/test Resource IR raw dealloc gate)
+
+- [同期]:
+  - `main` を `origin/main` の `ba56490 fix(core): split initialized raw alias responsibilities` まで fast-forward し、`stdlib/std-test-resource-gate` branch を作成して作業した。
+- [原因]:
+  - remote main の Resource IR raw alias 強化により、raw temporary cell に残った初期化済み非 Copy owner が `RawMemoryDeallocCell` で検出されるようになった。
+  - `std/test` の `checks_has_err` / `checks_summary` / `checks_print_human` / `checks_print_machine` / `finish_checks` は、`Vec<Result<(),str>>` の len/data を読むために owner 全体を raw memory へ退避していた。
+  - これは Resource IR を弱めて回避すべき問題ではなく、`std/test` 側が所有者を raw cell へ移さず参照で観測すべき問題だった。
+- [修正]:
+  - check 集約 helper から raw temporary owner 退避を削除した。
+  - `&checks` から `v::len_ref` / `v::data_ptr_ref` で len/data pointer を取得し、観測後は元の owner をそのまま返すか `v::free` する線形な実装へ変更した。
+  - コメントも raw temporary storage 前提から参照観測と線形 owner 処理の説明へ更新した。
+- [検証]:
+  - 再現: `node nodesrc\tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\std-test-resource-gate-repro.json -j 1`: total=3 failed=3, D3100 `checks_print_human`。
+  - `node nodesrc\tests.js -i stdlib\std\test.nepl --no-tree -o tmp\std-test-resource-gate-after.json -j 1`: total=12 passed=12
+  - `node nodesrc\tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\std-test-resource-gate-focused.json -j 1`: total=3 passed=3
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i stdlib\std\test.nepl --no-tree -o tmp\std-test-resource-gate-after-trunk.json -j 1`: total=12 passed=12
+  - `node nodesrc\tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\std-test-resource-gate-focused-after-trunk.json -j 1`: total=3 passed=3
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\ty\ty.nepl -i stdlib\neplg2\core\source\source.nepl -i stdlib\neplg2\core\diag\diag.nepl --no-tree -o tmp\std-test-resource-gate-selfhost-subset-c.json -j 1`: total=1 passed=1
+  - `NEPL_TEST_CASE_TIMEOUT_MS=30000 node nodesrc\tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\selfhost-import-spec-timeout-probe.json -j 1`: D3100 は再発せず、別 issue `ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326` の codegen stack overflow まで進むことを確認した。
+  - `origin/main` `9e74c6e` まで rebase 後、`trunk build`: pass
+  - rebase 後、`node nodesrc\tests.js -i stdlib\std\test.nepl --no-tree -o tmp\std-test-resource-gate-after-rebase.json -j 1`: total=12 passed=12
+  - rebase 後、`node nodesrc\tests.js -i tests\stdlib\neplg2_type_arena.n.md --no-tree -o tmp\std-test-resource-gate-focused-after-rebase.json -j 1`: total=3 passed=3
+  - rebase 後、`NEPL_TEST_CASE_TIMEOUT_MS=30000 node nodesrc\tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\selfhost-import-spec-timeout-probe-after-rebase.json -j 1`: total=3 passed=2 failed=1、同じ codegen stack overflow が残る。
+- [追加issue]:
+  - `ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326` を追加し、Discordへ報告した。
+  - これは `std/test` の raw temporary owner 問題ではなく、`codegen_wasm::gen_expr` / `gen_block` の再帰 traversal が host stack に依存する別問題として扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の test support が Resource IR の所有権検査に追従し、self-host stdlib 回帰の前提を一段戻した。
