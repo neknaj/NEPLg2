@@ -7,6 +7,7 @@
 
 extern crate alloc;
 
+mod borrow_check;
 mod borrow_state;
 mod cell_state;
 mod check;
@@ -25,7 +26,8 @@ mod report;
 mod shadow;
 mod summary;
 
-pub use check::{check_resource_borrow_lifetimes, check_resource_owner_obligations};
+pub use borrow_check::check_resource_borrow_lifetimes;
+pub use check::check_resource_owner_obligations;
 pub use coverage::{
     compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
     ResourceCoverageKind, ResourceFunctionCoverage, ResourceLoweringCoverage,

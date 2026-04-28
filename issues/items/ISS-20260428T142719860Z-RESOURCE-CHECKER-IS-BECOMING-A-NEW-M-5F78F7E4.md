@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
+target: "nepl-core/src/resource/borrow_check.rs, nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/summary.rs"
 ---
 
 # ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4: Resource checker is becoming a new monolithic static-check pass
@@ -252,6 +252,22 @@ HIR から Resource IR へ lower して shadow report を組み立てる `check_
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\initialized.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Borrow lifetime checker split
+
+`ResourceBorrowCheckEngine` と `check_resource_borrow_lifetimes` を `nepl-core/src/resource/borrow_check.rs` へ分離した。これは Resource IR の borrow token / borrow lifetime state を検査する Stage 4 component であり、owner obligation checker とは独立した責務として扱う。
+
+`summary.rs` の borrow token return summary 計算は、新しい `borrow_check.rs` の engine を参照するように更新した。`shadow.rs` と `resource/mod.rs` は `borrow_check.rs` の public entry point を参照するように更新し、外部 API の `check_resource_borrow_lifetimes` export は維持した。
+
+この分割で `check.rs` は 1054 行から 661 行になり、`borrow_check.rs` は 406 行になった。issue はまだ open のままとし、次は owner checker engine の分離、または effect boundary engine の分離を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\borrow_check.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\shadow.rs nepl-core\src\resource\summary.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`

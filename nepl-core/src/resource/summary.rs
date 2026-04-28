@@ -3,8 +3,9 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
+use super::borrow_check::ResourceBorrowCheckEngine;
 use super::borrow_state::BorrowTable;
-use super::check::{ResourceBorrowCheckEngine, ResourceOwnerCheckEngine};
+use super::check::ResourceOwnerCheckEngine;
 use super::function_alias::FunctionAliasTable;
 use super::model::{
     OwnerState, Place, PlaceProjection, ResourceFunction, ResourceModule, ResourceTerminator,
