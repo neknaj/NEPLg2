@@ -1,7 +1,7 @@
 use crate::hir::{FuncRef, HirExpr};
 use crate::types::TypeId;
 
-use super::{is_mem_ptr_type, is_region_token_type};
+use super::provenance::{is_mem_ptr_type, is_region_token_type};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RawMemoryCallKind {

@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 raw provenance module)
+
+- 状況:
+  - Stage 1 の branch merge module 化に続き、`move_check.rs` に残っていた raw provenance 復元 helper を分離した。
+  - raw memory ownership 検査は `MemPtr`、`RegionToken`、raw i32 address、aggregate field load、function raw alias summary から canonical raw place key を復元しており、HIR 走査本体と D3100 判定が密結合していた。
+- 修正:
+  - `nepl-core/src/passes/move_check/provenance.rs` を追加し、field address から field path を復元する処理、i32 offset 定数評価、raw memory place key 復元、raw write/dealloc size helper を移動した。
+  - `raw_memory.rs` は `provenance` module の MemPtr / RegionToken 型判定 helper を参照するようにし、親 `move_check.rs` への逆依存を減らした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 raw provenance 境界の記録を追記した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-raw-provenance-module-move-effect.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 branch merge module)
 
 - 状況:
