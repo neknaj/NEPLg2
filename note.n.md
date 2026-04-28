@@ -1,3 +1,21 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck model module)
+
+- 状況:
+  - Stage 1 の block check module 化後、submodule 間で共有する小さな型定義が `typecheck.rs` 本体に残っていた。
+  - `ScalarMatchKind`、`FieldIdx`、`FieldAccessorKind`、`AssignKind`、`StackEntry` などは match / field / prefix / apply の各 module から共有される model であり、top-level orchestration と同じ file に置く必要がなかった。
+- 修正:
+  - `nepl-core/src/typecheck/model.rs` を追加し、`ScalarMatchKind`、`CheckedFunction`、`EnumInfo`、`StructInfo`、`FieldIdx`、`FieldAccessorKind`、`AssignKind`、`StackEntry` を移動した。
+  - 共有型の field visibility は sibling module が従来どおり構築・参照できる `pub(super)` にし、外部 API には出さない境界を維持した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck model 型境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/model.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test functions/overload/generics/pipe_operator/char -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -i tests/compiler/overload.n.md -i tests/compiler/generics.n.md -i tests/compiler/pipe_operator.n.md -i tests/compiler/char_literals.n.md --no-tree -o tmp/stage1-typecheck-model-types-focused.json -j 1`: 113/113 passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck block check module)
 
 - 状況:

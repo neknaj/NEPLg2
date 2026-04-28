@@ -13,6 +13,7 @@ mod field_access;
 mod function_apply;
 mod hir_finalize;
 mod match_check;
+mod model;
 mod name_lookup;
 mod prefix_check;
 mod signature;
@@ -42,6 +43,10 @@ use binding_rules::{
 };
 use env::{Binding, BindingKind, Env};
 use hir_finalize::resolve_type_ids_in_function;
+use model::{
+    AssignKind, CheckedFunction, EnumInfo, FieldAccessorKind, FieldIdx, ScalarMatchKind,
+    StackEntry, StructInfo,
+};
 use signature::{
     contains_same_type, function_signature_string, mangle_function_symbol, mangle_impl_method,
     push_unique_type, same_function_signature, type_contains_unbound_var,
@@ -65,14 +70,6 @@ macro_rules! typecheck_log {
             std::eprintln!($($arg)*);
         }
     }};
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ScalarMatchKind {
-    I32,
-    U8,
-    Bool,
-    Char,
 }
 
 #[cfg(not(target_os = "none"))]
@@ -118,40 +115,6 @@ pub struct TypeCheckResult {
     pub module: Option<HirModule>,
     pub diagnostics: Vec<Diagnostic>,
     pub types: TypeCtx,
-}
-
-#[derive(Debug)]
-struct CheckedFunction {
-    function: HirFunction,
-    diagnostics: Vec<Diagnostic>,
-}
-
-#[derive(Debug, Clone)]
-struct EnumInfo {
-    ty: TypeId,
-    type_params: Vec<TypeId>,
-    variants: Vec<EnumVariantInfo>,
-}
-
-#[derive(Debug, Clone)]
-struct StructInfo {
-    ty: TypeId,
-    type_params: Vec<TypeId>,
-    fields: Vec<TypeId>,
-    field_names: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-enum FieldIdx {
-    Index(usize),
-    Name(String),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FieldAccessorKind {
-    Get,
-    GetRef,
-    Put,
 }
 
 pub fn typecheck(
@@ -1952,27 +1915,4 @@ struct BlockChecker<'a> {
     target: CompileTarget,
     profile: BuildProfile,
     source_map: Option<&'a SourceMap>,
-}
-
-impl<'a> BlockChecker<'a> {}
-
-// ---------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-enum AssignKind {
-    Let,
-    Set,
-    AddrOf(bool),
-    Deref,
-}
-
-#[derive(Debug, Clone)]
-struct StackEntry {
-    ty: TypeId,
-    expr: HirExpr,
-    type_args: Vec<TypeId>,
-    assign: Option<AssignKind>,
-    auto_call: bool,
 }
