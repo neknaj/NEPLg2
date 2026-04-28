@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T00:24:08.649Z",
+  "generated_at": "2026-04-28T00:38:26.455Z",
   "counts": {
-    "total": 238,
-    "open": 15,
+    "total": 239,
+    "open": 16,
     "resolved": 223,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 9
       },
       "stdlib": {
-        "total": 88,
-        "open": 6,
+        "total": 89,
+        "open": 7,
         "resolved": 82
       },
       "cli": {
@@ -193,6 +193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378",
+      "title": "nm parser and html_gen raw memory detours fail under strict move checking",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, tests/stdlib/nm.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
