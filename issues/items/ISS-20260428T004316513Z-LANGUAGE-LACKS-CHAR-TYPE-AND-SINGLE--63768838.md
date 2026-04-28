@@ -21,6 +21,10 @@ NEPLg2 currently has string, integer, float, bool literals but no single-quoted 
 
 - `nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/ast.rs, nepl-core/src/types.rs, nepl-core/src/typecheck.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/compiler/char_literals.n.md`
 
+## 関連ドキュメント
+
+- [NEPLg2 stdlib char 整備計画](../../doc/neplg2/char_stdlib_integration_plan.md)
+
 ## 根拠
 
 - `nepl-core/src/lexer.rs` の `TokenKind` は `FloatLiteral` / `BoolLiteral` / `StringLiteral` を持つが、`CharLiteral` を持たない。

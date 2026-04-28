@@ -21,6 +21,10 @@ Many existing stdlib and selfhost modules classify ASCII/control bytes with deci
 
 - `stdlib/alloc/string.nepl, stdlib/alloc/encoding/json.nepl, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, stdlib/std/stdio.nepl, stdlib/std/env/cliarg.nepl, stdlib/alloc/io.nepl, stdlib/platforms/wasix/tui.nepl, stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib, tests/compiler/char_literals.n.md`
 
+## 関連ドキュメント
+
+- [NEPLg2 stdlib char 整備計画](../../doc/neplg2/char_stdlib_integration_plan.md)
+
 ## 根拠
 
 - `stdlib/nm/parser.nepl` は JSON escape classifier で `match ch:` に `92` / `34` / `10` / `13` / `9` / `8` / `12` を使っている。

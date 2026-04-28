@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T00:44:04.733Z",
+  "generated_at": "2026-04-28T00:47:11.761Z",
   "counts": {
-    "total": 241,
-    "open": 18,
+    "total": 242,
+    "open": 19,
     "resolved": 223,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 9
       },
       "stdlib": {
-        "total": 90,
-        "open": 8,
+        "total": 91,
+        "open": 9,
         "resolved": 82
       },
       "cli": {
@@ -223,6 +223,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378.md"
+    },
+    {
+      "id": "ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5",
+      "title": "stdlib needs char API and string integration plan",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "doc/neplg2/char_stdlib_integration_plan.md, stdlib/core/char.nepl, stdlib/alloc/string.nepl, stdlib/std/text.nepl, stdlib/alloc/io.nepl, tests/stdlib/string_char.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
