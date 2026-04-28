@@ -25,6 +25,15 @@ Run focused doctests and test files with JSON output:
 node nodesrc/tests.js -i tests/compiler -i tests/stdlib --no-tree -o /tmp/tests.json -j 15
 ```
 
+`nodesrc/tests.js` uses a 60 second default timeout per doctest case. This is
+intended to cover heavier self-host parser / stdlib cases while still catching
+real hangs. Override it with `NEPL_TEST_CASE_TIMEOUT_MS` when a local run needs a
+stricter or looser bound:
+
+```bash
+NEPL_TEST_CASE_TIMEOUT_MS=20000 node nodesrc/tests.js -i tests/stdlib --no-tree -o /tmp/tests.json -j 4
+```
+
 Run only the executable examples and inspect the aggregated JSON:
 
 ```bash

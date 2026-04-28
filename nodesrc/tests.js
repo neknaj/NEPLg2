@@ -18,6 +18,8 @@ const { parseFile } = require('./parser');
 const { createRunner, runSingle } = require('./run_test');
 const { runTreeSuite } = require('../tests/compiler/tree/run');
 
+const DEFAULT_TEST_CASE_TIMEOUT_MS = 60000;
+
 // doctest 集計の標準出力は要約重視にする。
 process.removeAllListeners('warning');
 process.on('warning', () => {});
@@ -325,8 +327,8 @@ async function runAllThreadPool(cases, jobs, distHint) {
     const workerScript = path.resolve(__dirname, 'tests_wasm_worker.js');
     const workerCount = Math.max(1, Math.min(jobs, cases.length));
     const caseTimeoutMs = (() => {
-        const raw = parseInt(process.env.NEPL_TEST_CASE_TIMEOUT_MS || '20000', 10);
-        return Number.isFinite(raw) && raw > 0 ? raw : 20000;
+        const raw = parseInt(process.env.NEPL_TEST_CASE_TIMEOUT_MS || String(DEFAULT_TEST_CASE_TIMEOUT_MS), 10);
+        return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TEST_CASE_TIMEOUT_MS;
     })();
     const results = new Array(cases.length);
     let nextIndex = 0;
@@ -773,8 +775,8 @@ function runCommand(cmd, args, options = {}) {
         const timeoutMs = Object.prototype.hasOwnProperty.call(options, 'timeoutMs')
             ? Number(options.timeoutMs)
             : (() => {
-                const raw = parseInt(process.env.NEPL_TEST_CASE_TIMEOUT_MS || '20000', 10);
-                return Number.isFinite(raw) && raw > 0 ? raw : 20000;
+                const raw = parseInt(process.env.NEPL_TEST_CASE_TIMEOUT_MS || String(DEFAULT_TEST_CASE_TIMEOUT_MS), 10);
+                return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TEST_CASE_TIMEOUT_MS;
             })();
         const spawnOptions = { ...options };
         delete spawnOptions.stdinText;

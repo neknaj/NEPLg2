@@ -1,3 +1,11 @@
+# 2026-04-28 メモ (ISS-20260428T121641554Z nodesrc test case timeout)
+
+- selfhost parser doctest は `NEPL_TEST_CASE_TIMEOUT_MS=60000` では成功するが、従来既定の 20000ms では timeout することを確認した。
+- `nodesrc/tests.js` に `DEFAULT_TEST_CASE_TIMEOUT_MS = 60000` を追加し、thread pool runner と subprocess runner の既定 timeout を統一した。
+- 環境変数 `NEPL_TEST_CASE_TIMEOUT_MS` は従来通り優先されるため、短い timeout が必要なローカル検証では override できる。
+- `doc/testing.md` に既定 timeout と override 例を追記した。
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T113729911Z self-host parser ModuleAst/raw block)
 
 - `module_ast.nepl` を Stage 0 marker から実行可能な `SelfhostModuleAst` / `SelfhostModuleItem` / `SelfhostModuleItemKind` に進めた。

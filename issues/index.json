@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:25:37.470Z",
+  "generated_at": "2026-04-28T12:28:53.031Z",
   "counts": {
-    "total": 273,
+    "total": 274,
     "open": 10,
-    "resolved": 263,
+    "resolved": 264,
     "by_area": {
       "core": {
         "total": 124,
@@ -36,15 +36,15 @@
         "open": 0,
         "resolved": 13
       },
+      "nodesrc": {
+        "total": 3,
+        "open": 0,
+        "resolved": 3
+      },
       "compiler": {
         "total": 1,
         "open": 0,
         "resolved": 1
-      },
-      "nodesrc": {
-        "total": 2,
-        "open": 0,
-        "resolved": 2
       }
     }
   },
@@ -2073,6 +2073,21 @@
       "legacy_id": "RV-EXAMPLE-011",
       "source": "doc/review20260425/examples.md#rv-example-011",
       "file": "items/ISS-20260425T000000Z-RV-EXAMPLE-011-8A10DEED.md"
+    },
+    {
+      "id": "ISS-20260428T121641554Z-NODESRC-TESTS-DEFAULT-CASE-TIMEOUT-I-089ABC53",
+      "title": "nodesrc tests default case timeout is too short for selfhost parser doctests",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nodesrc/tests.js, doc/testing.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T121641554Z-NODESRC-TESTS-DEFAULT-CASE-TIMEOUT-I-089ABC53.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
