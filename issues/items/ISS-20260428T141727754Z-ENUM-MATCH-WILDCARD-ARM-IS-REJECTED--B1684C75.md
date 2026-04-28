@@ -2,12 +2,12 @@
 id: ISS-20260428T141727754Z-ENUM-MATCH-WILDCARD-ARM-IS-REJECTED--B1684C75
 title: "enum match wildcard arm is rejected as unsupported pattern"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: bug
 created: 2026-04-28
-updated: 2026-04-28
+updated: 2026-04-29
 target: "nepl-core/src/typecheck/match_check.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, tests/compiler/match_enum_wildcard_patterns.n.md"
 ---
 
@@ -42,3 +42,11 @@ enum match の typecheck で Wildcard pattern を enum scrutinee の網羅 arm �
 ## 検証
 
 tests/compiler/match_enum_wildcard_patterns.n.md に enum wildcard が default armとして動作するケース、wildcard 非末尾が D3098 になるケース、重複 wildcard が診断されるケースを追加する。
+
+## 2026-04-29 修正
+
+`nepl-core/src/typecheck/match_check.rs` の enum match 検査で `MatchPattern::Wildcard` を受理し、`_` を網羅 arm として扱うようにした。wildcard が末尾でない場合は既存の `D3098`、重複 wildcard は `D3008` を出す。variant arm の payload bind と arm result type unify は従来どおり維持し、wildcard arm は bind なしの default branch として HIR に `HirMatchPattern::Wildcard` を残す。
+
+`nepl-core/src/codegen_wasm.rs` と `nepl-core/src/codegen_llvm.rs` では、scrutinee が enum 型で、arm が variant または wildcard だけの場合を enum tag dispatch として扱うようにした。WASM は variant arm を nested `if`、wildcard arm を final default body として生成する。LLVM は enum tag の `switch` default を wildcard arm label へ向ける。単に arm が wildcard だけの scalar match を enum dispatch と誤判定しないよう、scrutinee 型が enum かどうかも確認している。
+
+`tests/compiler/match_enum_wildcard_patterns.n.md` を追加し、default variant、payload variant fallback、wildcard 非末尾、重複 wildcard を固定した。既存 scalar wildcard lowering の回帰確認として `tests/compiler/match_literal_patterns.n.md` も focused 実行済み。

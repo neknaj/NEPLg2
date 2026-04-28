@@ -99,11 +99,44 @@ impl<'a> BlockChecker<'a> {
         variants: Vec<EnumVariantInfo>,
     ) -> Option<(HirExpr, TypeId)> {
         let mut seen = alloc::collections::BTreeSet::new();
+        let mut saw_wildcard = false;
         let mut arms_hir = Vec::new();
         let mut result_ty: Option<TypeId> = None;
-        for arm in &m.arms {
+        for (idx, arm) in m.arms.iter().enumerate() {
             let (variant, bind) = match &arm.pattern {
                 MatchPattern::Variant { name, bind } => (name, bind),
+                MatchPattern::Wildcard { span } => {
+                    if idx + 1 != m.arms.len() {
+                        self.diagnostics.push(
+                            Diagnostic::error("wildcard match arm must be last", *span)
+                                .with_id(DiagnosticId::TypeMatchWildcardMustBeLast),
+                        );
+                    }
+                    if saw_wildcard {
+                        self.diagnostics.push(
+                            Diagnostic::error("duplicate match arm", *span)
+                                .with_id(DiagnosticId::TypeDuplicateMatchArm),
+                        );
+                        continue;
+                    }
+                    saw_wildcard = true;
+                    self.env.push_scope();
+                    let (blk, val_ty) = self.check_block(&arm.body, 0, false, None)?;
+                    self.env.pop_scope();
+                    let body_ty = val_ty.unwrap_or(self.ctx.unit());
+                    self.check_match_arm_result_type(&mut result_ty, body_ty, arm.span);
+                    arms_hir.push(HirMatchArm {
+                        pattern: HirMatchPattern::Wildcard,
+                        bind_local: None,
+                        bind_ty: None,
+                        body: HirExpr {
+                            ty: body_ty,
+                            kind: HirExprKind::Block(blk),
+                            span: arm.span,
+                        },
+                    });
+                    continue;
+                }
                 _ => {
                     self.diagnostics.push(
                         Diagnostic::error("unsupported match pattern for enum scrutinee", arm.span)
@@ -178,13 +211,15 @@ impl<'a> BlockChecker<'a> {
                 },
             });
         }
-        for v in variants {
-            if !seen.contains(&v.name) {
-                self.diagnostics.push(
-                    Diagnostic::error("non-exhaustive match", m.span)
-                        .with_id(DiagnosticId::TypeNonExhaustiveMatch),
-                );
-                break;
+        if !saw_wildcard {
+            for v in variants {
+                if !seen.contains(&v.name) {
+                    self.diagnostics.push(
+                        Diagnostic::error("non-exhaustive match", m.span)
+                            .with_id(DiagnosticId::TypeNonExhaustiveMatch),
+                    );
+                    break;
+                }
             }
         }
         let rty = result_ty.unwrap_or(self.ctx.unit());

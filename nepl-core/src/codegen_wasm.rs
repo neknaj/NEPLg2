@@ -1980,9 +1980,13 @@ fn gen_expr(
             Some(ValType::I32)
         }
         HirExprKind::Match { scrutinee, arms } => {
-            let is_enum_match = arms
-                .iter()
-                .all(|arm| matches!(arm.pattern, HirMatchPattern::Variant(_)));
+            let is_enum_match = is_enum_type(ctx, scrutinee.ty)
+                && arms.iter().all(|arm| {
+                    matches!(
+                        arm.pattern,
+                        HirMatchPattern::Variant(_) | HirMatchPattern::Wildcard
+                    )
+                });
             gen_expr(ctx, scrutinee, name_map, sig_map, strings, locals, insts)?;
             let scrut_local = locals.alloc_temp(ValType::I32);
             insts.push(Instruction::LocalSet(scrut_local));
@@ -2007,22 +2011,26 @@ fn gen_expr(
                 }));
                 insts.push(Instruction::LocalSet(tag_local));
 
-                for (idx, arm) in arms.iter().enumerate() {
-                    let is_last = idx + 1 == arms.len();
-                    let variant = match &arm.pattern {
-                        HirMatchPattern::Variant(v) => v.as_str(),
-                        _ => unreachable!(),
+                let mut pending_ifs = 0usize;
+                let mut saw_wildcard = false;
+                for arm in arms {
+                    let variant = if let HirMatchPattern::Variant(v) = &arm.pattern {
+                        let tag = enum_variant_tag(ctx, scrutinee.ty, v.as_str());
+                        insts.push(Instruction::LocalGet(tag_local));
+                        insts.push(Instruction::I32Const(tag as i32));
+                        insts.push(Instruction::I32Eq);
+                        insts.push(Instruction::If(match result_ty {
+                            Some(vt) => wasm_encoder::BlockType::Result(vt),
+                            None => wasm_encoder::BlockType::Empty,
+                        }));
+                        pending_ifs += 1;
+                        Some(v.as_str())
+                    } else {
+                        saw_wildcard = true;
+                        None
                     };
-                    let tag = enum_variant_tag(ctx, scrutinee.ty, variant);
-                    insts.push(Instruction::LocalGet(tag_local));
-                    insts.push(Instruction::I32Const(tag as i32));
-                    insts.push(Instruction::I32Eq);
-                    insts.push(Instruction::If(match result_ty {
-                        Some(vt) => wasm_encoder::BlockType::Result(vt),
-                        None => wasm_encoder::BlockType::Empty,
-                    }));
                     locals.begin_scope();
-                    if let Some(bind) = &arm.bind_local {
+                    if let (Some(variant), Some(bind)) = (variant, &arm.bind_local) {
                         if let Some(payload_ty) = enum_variant_payload(ctx, scrutinee.ty, variant) {
                             let lidx = locals.ensure_local(bind.clone(), payload_ty, ctx);
                             let payload_offset = enum_payload_offset_bytes() as i32;
@@ -2079,16 +2087,15 @@ fn gen_expr(
                     }
                     gen_expr(ctx, &arm.body, name_map, sig_map, strings, locals, insts)?;
                     locals.end_scope();
-                    if is_last {
-                        insts.push(Instruction::Else);
-                        insts.push(Instruction::Unreachable);
-                        insts.push(Instruction::End);
-                    } else {
+                    if !matches!(&arm.pattern, HirMatchPattern::Wildcard) {
                         insts.push(Instruction::Else);
                     }
                 }
 
-                for _ in 0..(arms.len() - 1) {
+                if !saw_wildcard {
+                    insts.push(Instruction::Unreachable);
+                }
+                for _ in 0..pending_ifs {
                     insts.push(Instruction::End);
                 }
             } else {
@@ -2416,6 +2423,20 @@ fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> u32 {
             .unwrap_or(0),
         TypeKind::Apply { base, .. } => enum_variant_tag(ctx, base, name),
         _ => 0,
+    }
+}
+
+fn is_enum_type(ctx: &TypeCtx, ty: TypeId) -> bool {
+    let ty = ctx.resolve_named_type_id(ty);
+    match ctx.get(ty) {
+        TypeKind::Enum { .. } => true,
+        TypeKind::Apply { base, .. } => {
+            matches!(
+                ctx.get(ctx.resolve_named_type_id(base)),
+                TypeKind::Enum { .. }
+            )
+        }
+        _ => false,
     }
 }
 

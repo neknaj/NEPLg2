@@ -2478,9 +2478,13 @@ fn lower_hir_expr(
                 );
             }
 
-            let is_enum_match = arms
-                .iter()
-                .all(|arm| matches!(arm.pattern, HirMatchPattern::Variant(_)));
+            let is_enum_match = is_enum_type(types, scrutinee.ty)
+                && arms.iter().all(|arm| {
+                    matches!(
+                        arm.pattern,
+                        HirMatchPattern::Variant(_) | HirMatchPattern::Wildcard
+                    )
+                });
             let selector = if is_enum_match {
                 let scr_ptr = ctx.linear_typed_ptr_from_i32(scr_v.repr.as_str(), LlTy::I32);
                 let tag = ctx.next_tmp();
@@ -2505,12 +2509,9 @@ fn lower_hir_expr(
                 arm_labels.push(ctx.next_label("match_arm"));
             }
 
-            let wildcard_idx = if is_enum_match {
-                None
-            } else {
-                arms.iter()
-                    .position(|arm| matches!(arm.pattern, HirMatchPattern::Wildcard))
-            };
+            let wildcard_idx = arms
+                .iter()
+                .position(|arm| matches!(arm.pattern, HirMatchPattern::Wildcard));
             let switch_default = wildcard_idx
                 .map(|idx| arm_labels[idx].clone())
                 .unwrap_or_else(|| default_label.clone());
@@ -2542,11 +2543,9 @@ fn lower_hir_expr(
                 ctx.push_line(&format!("{}:", arm_labels[idx]));
                 ctx.begin_scope();
                 if is_enum_match {
-                    let variant = match &arm.pattern {
-                        HirMatchPattern::Variant(variant) => variant.as_str(),
-                        _ => unreachable!(),
-                    };
-                    if let Some(bind) = &arm.bind_local {
+                    if let (HirMatchPattern::Variant(variant), Some(bind)) =
+                        (&arm.pattern, &arm.bind_local)
+                    {
                         if let Some(payload_ty) = enum_variant_payload(types, scrutinee.ty, variant)
                         {
                             let payload_ll = llty_for_type(types, payload_ty);
@@ -3628,9 +3627,7 @@ fn lower_hir_string_literal(
 fn llty_for_type(types: &TypeCtx, ty: TypeId) -> LlTy {
     match types.get(types.resolve_id(ty)) {
         TypeKind::Unit | TypeKind::Never => LlTy::Void,
-        TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Char | TypeKind::Str => {
-            LlTy::I32
-        }
+        TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Char | TypeKind::Str => LlTy::I32,
         TypeKind::F32 => LlTy::F32,
         TypeKind::Named(name) if name == "i64" || name == "u64" => LlTy::I64,
         TypeKind::Named(name) if name == "f64" => LlTy::F64,
@@ -3757,6 +3754,20 @@ fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> i32 {
         }
         TypeKind::Apply { base, .. } => enum_variant_tag(ctx, base, name),
         _ => 0,
+    }
+}
+
+fn is_enum_type(ctx: &TypeCtx, ty: TypeId) -> bool {
+    let ty = ctx.resolve_named_type_id(ty);
+    match ctx.get(ty) {
+        TypeKind::Enum { .. } => true,
+        TypeKind::Apply { base, .. } => {
+            matches!(
+                ctx.get(ctx.resolve_named_type_id(base)),
+                TypeKind::Enum { .. }
+            )
+        }
+        _ => false,
     }
 }
 

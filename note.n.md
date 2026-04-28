@@ -23259,3 +23259,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 1 の完了条件を、CI で監視できる責務境界として固定した。
+
+# 2026-04-29 メモ (ISS-20260428T141727754Z enum match wildcard)
+
+- [同期]:
+  - `origin/main` の `da742a8 test(core): guard static check boundaries` まで同期した main から `work/enum-match-wildcard` branch を作成した。
+- [原因]:
+  - enum match の typecheck は `MatchPattern::Variant` 以外を unsupported としていたため、`_` wildcard arm が `D3097` になっていた。
+  - WASM / LLVM backend も「全 arm が Variant」の場合だけ enum tag dispatch に入り、wildcard を含む enum match を scalar match と誤分類する構造だった。
+- [修正]:
+  - typecheck で enum match の `_` を default arm として受理し、wildcard 非末尾は `D3098`、重複 wildcard は `D3008` にした。
+  - WASM は enum tag dispatch の nested if chain で wildcard arm を default body として生成するようにした。
+  - LLVM は enum tag `switch` の default label を wildcard arm に向けるようにした。
+  - scalar match の wildcard-only case を enum dispatch と誤認しないよう、backend 側で scrutinee 型が enum かも確認するようにした。
+  - `tests/compiler/match_enum_wildcard_patterns.n.md` を追加した。
+- [検証]:
+  - `rustfmt --check nepl-core\src\typecheck\match_check.rs nepl-core\src\codegen_wasm.rs nepl-core\src\codegen_llvm.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\match_enum_wildcard_patterns.n.md --no-tree -o tmp\match-enum-wildcard-focused.json -j 1`: total=4 passed=4
+  - `node nodesrc\tests.js -i tests\compiler\match_literal_patterns.n.md --no-tree -o tmp\match-literal-focused.json -j 1`: total=13 passed=13
+  - LLVM focused run は、この file に `llvm_cli` doctest が無いため no runnable doctests になった。LLVM の構文・型検査は `cargo check` で確認し、全体挙動は GH Actions の dual backend で確認する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host import spec で `_` fallback を使えるようにする compiler 側の型検査 / backend gap を解消した。
