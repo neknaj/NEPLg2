@@ -3,11 +3,14 @@ use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
 use nepl_core::resource::{
-    compare_hir_resource_lowering, lower_hir_module_skeleton, AggregateKind, EffectOp, PlaceRoot,
-    RawMemoryOp, ResourceCallTarget, ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceOp,
+    check_resource_initialized_moves, compare_hir_resource_lowering, lower_hir_module_skeleton,
+    AggregateKind, CellState, EffectOp, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
+    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunction, ResourceId, ResourceModule,
+    ResourceOp, ResourceTerminator,
 };
 use nepl_core::span::Span;
-use nepl_core::types::TypeId;
+use nepl_core::types::{TypeCtx, TypeId, TypeKind};
 
 #[test]
 fn resource_ir_lowering_skeleton_tracks_locals_and_dump() {
@@ -596,4 +599,261 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
     assert!(dump.contains("call user(callee<>)"));
     assert!(dump.contains("effect=call(callee,Impure)"));
     assert!(dump.contains("indirect_call"));
+}
+
+#[test]
+fn resource_ir_check_allows_repeated_copy_reads() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(8),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![
+                    HirLine {
+                        expr: HirExpr {
+                            ty: unit_ty,
+                            kind: HirExprKind::Let {
+                                name: "x".to_string(),
+                                mutable: false,
+                                value: Box::new(HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::LiteralI32(1),
+                                    span,
+                                }),
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                    HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Var("x".to_string()),
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                    HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Var("x".to_string()),
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                ],
+                ty: unit_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_check_reports_non_copy_use_after_move() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let module = non_copy_read_module(unit_ty, owned_ty, span, false);
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::Read,
+            place,
+            state: CellState::Moved,
+            ..
+        } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "x")
+    )));
+}
+
+#[test]
+fn resource_ir_check_reports_read_after_drop() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let module = non_copy_read_module(unit_ty, owned_ty, span, true);
+
+    let resource = lower_hir_module_skeleton(&module);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::Read,
+            place,
+            state: CellState::Dropped,
+            ..
+        } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "x")
+    )));
+}
+
+#[test]
+fn resource_ir_check_reports_uninitialized_read() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let x = nepl_core::resource::Place::local("x".to_string(), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::DeclareLocal {
+                        place: x.clone(),
+                        mutable: false,
+                        initializer: None,
+                        span,
+                    },
+                    ResourceOp::Read {
+                        source: x,
+                        output: nepl_core::resource::Place::temporary(ResourceId(0), i32_ty),
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceCheckDiagnostic::CellUnavailable {
+            function,
+            operation: ResourceCheckOperation::Read,
+            state: CellState::Uninit,
+            ..
+        } if function == "main"
+    )));
+}
+
+fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    let owned_ty = types.register_named(
+        "Owned".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Owned".to_string(),
+            type_params: vec![],
+            fields: vec![],
+            field_names: vec![],
+        },
+    );
+    (types, owned_ty)
+}
+
+fn non_copy_read_module(
+    unit_ty: TypeId,
+    owned_ty: TypeId,
+    span: Span,
+    drop_before_second_read: bool,
+) -> HirModule {
+    let mut lines = vec![HirLine {
+        expr: HirExpr {
+            ty: unit_ty,
+            kind: HirExprKind::Let {
+                name: "x".to_string(),
+                mutable: false,
+                value: Box::new(HirExpr {
+                    ty: owned_ty,
+                    kind: HirExprKind::StructConstruct {
+                        name: "Owned".to_string(),
+                        type_args: vec![],
+                        fields: vec![],
+                    },
+                    span,
+                }),
+            },
+            span,
+        },
+        drop_result: true,
+    }];
+    if !drop_before_second_read {
+        lines.push(HirLine {
+            expr: HirExpr {
+                ty: owned_ty,
+                kind: HirExprKind::Var("x".to_string()),
+                span,
+            },
+            drop_result: true,
+        });
+    }
+    if drop_before_second_read {
+        lines.push(HirLine {
+            expr: HirExpr {
+                ty: unit_ty,
+                kind: HirExprKind::Drop {
+                    name: "x".to_string(),
+                },
+                span,
+            },
+            drop_result: true,
+        });
+    }
+    lines.push(HirLine {
+        expr: HirExpr {
+            ty: owned_ty,
+            kind: HirExprKind::Var("x".to_string()),
+            span,
+        },
+        drop_result: true,
+    });
+
+    HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(9),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines,
+                ty: unit_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    }
 }

@@ -7,11 +7,16 @@
 
 extern crate alloc;
 
+mod check;
 mod coverage;
 mod dump;
 mod lower;
 mod model;
 
+pub use check::{
+    check_resource_initialized_moves, ResourceCheckDeferred, ResourceCheckDiagnostic,
+    ResourceCheckOperation, ResourceCheckReport, ResourceFunctionCheck,
+};
 pub use coverage::{
     compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
     ResourceCoverageKind, ResourceFunctionCoverage, ResourceLoweringCoverage,
