@@ -13,20 +13,26 @@ use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
     HirParam,
 };
+use crate::layout::aggregate_fields_with_offsets;
 use crate::runtime_helpers::{
     helper_base_name, ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI,
 };
-use crate::types::TypeId;
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{
-    AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, RawMemoryOp, ResourceBlock,
-    ResourceBlockId, ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId,
-    ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp,
+    AggregateKind, BorrowKind, EffectOp, Place, PlaceProjection, RawBodyKind, RawMemoryOp,
+    ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind, ResourceFunction,
+    ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp,
     ResourceTerminator,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
-    let env = LoweringEnvironment::new(module);
+    let types = TypeCtx::new();
+    lower_hir_module(module, &types)
+}
+
+pub fn lower_hir_module(module: &HirModule, types: &TypeCtx) -> ResourceModule {
+    let env = LoweringEnvironment::new(module, types);
     ResourceModule {
         functions: module
             .functions
@@ -38,12 +44,13 @@ pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
     }
 }
 
-struct LoweringEnvironment {
+struct LoweringEnvironment<'a> {
     function_effects: BTreeMap<String, Effect>,
+    types: &'a TypeCtx,
 }
 
-impl LoweringEnvironment {
-    fn new(module: &HirModule) -> Self {
+impl<'a> LoweringEnvironment<'a> {
+    fn new(module: &HirModule, types: &'a TypeCtx) -> Self {
         let mut function_effects = BTreeMap::new();
         for function in &module.functions {
             insert_effect(
@@ -59,7 +66,10 @@ impl LoweringEnvironment {
                 extern_fn.effect,
             );
         }
-        Self { function_effects }
+        Self {
+            function_effects,
+            types,
+        }
     }
 
     fn function_effect(&self, name: &str) -> Effect {
@@ -488,6 +498,23 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Intrinsic { name, args, .. } => {
+            if let Some(source) =
+                lower_compiler_field_load_source(name, args, expr.ty, ops, ctx, env)
+            {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::Read {
+                    source,
+                    output: output.clone(),
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Intrinsic,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                return output;
+            }
             let arg_places = lower_args_skeleton(args, ops, ctx, env);
             let raw_operation = raw_memory_op_from_intrinsic(name);
             let internal_effect = intrinsic_internal_effect(name);
@@ -730,6 +757,87 @@ fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
         },
     };
     Some(operation)
+}
+
+fn lower_compiler_field_load_source(
+    name: &str,
+    args: &[HirExpr],
+    field_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if !matches!(raw_memory_op_from_name(name), Some(RawMemoryOp::Load)) {
+        return None;
+    }
+    let address = args.first()?;
+    let (base_expr, offset_bytes) = compiler_field_address_base_and_offset(address)?;
+    let projection = aggregate_field_projection(env.types, base_expr.ty, offset_bytes, field_ty)?;
+    let mut base = place_from_expr_skeleton(base_expr, ctx);
+    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
+        base = lower_expr_skeleton(base_expr, ops, ctx, env);
+    }
+    Some(base.with_projection(projection, field_ty))
+}
+
+fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, usize)> {
+    match &expr.kind {
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() == 2 => {
+            let offset = match args[1].kind {
+                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
+                _ => return None,
+            };
+            Some((&args[0], offset))
+        }
+        _ => Some((expr, 0)),
+    }
+}
+
+fn aggregate_field_projection(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    offset_bytes: usize,
+    field_ty: TypeId,
+) -> Option<PlaceProjection> {
+    let kind = aggregate_projection_kind(types, owner_ty)?;
+    let fields = aggregate_fields_with_offsets(types, owner_ty);
+    let (index, _) = fields
+        .iter()
+        .enumerate()
+        .find(|(_, field)| field.offset == offset_bytes && types.same_type(field.ty, field_ty))?;
+    Some(match kind {
+        AggregateProjectionKind::Struct => PlaceProjection::Field {
+            index,
+            offset_bytes,
+        },
+        AggregateProjectionKind::Tuple => PlaceProjection::TupleField {
+            index,
+            offset_bytes,
+        },
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AggregateProjectionKind {
+    Struct,
+    Tuple,
+}
+
+fn aggregate_projection_kind(types: &TypeCtx, ty: TypeId) -> Option<AggregateProjectionKind> {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { .. } => Some(AggregateProjectionKind::Struct),
+        TypeKind::Tuple { .. } => Some(AggregateProjectionKind::Tuple),
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            match types.get_ref(base) {
+                TypeKind::Struct { .. } => Some(AggregateProjectionKind::Struct),
+                TypeKind::Tuple { .. } => Some(AggregateProjectionKind::Tuple),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
 }
 
 fn place_from_expr_skeleton(expr: &HirExpr, ctx: &LoweringContext) -> Place {

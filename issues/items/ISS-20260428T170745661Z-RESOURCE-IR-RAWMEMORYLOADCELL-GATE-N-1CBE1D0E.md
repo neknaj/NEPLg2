@@ -65,3 +65,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `ISS-20260428T175617166Z-RESOURCE-CELLSTATE-EXPRESSION-MARKER-26479BD3` として、HIR lowering が semantic `ResourceOp` の直後に出す `ResourceExprKind` marker で raw address alias を消していた問題を修正した。temporary `RawMemoryLoadCell` gate で `move_effect.n.md` は 99/110 から 101/110 へ改善し、doctest#13/#14 の helper-returned slot false D3100 は解消した。
 
 残件は主に `MemPtr` / `RegionToken` address wrapper の raw cell initialization transfer、raw aggregate stored value の field offset/projection、通常 aggregate field projection load と raw linear memory load の分類不足である。
+
+2026-04-29 追記 3:
+
+`ISS-20260428T182913710Z-RESOURCE-IR-LOWERING-MISCLASSIFIES-C-A1508C51` として、通常 aggregate field access の compiler-generated `load` を Resource IR で raw memory load と誤分類していた問題を修正した。Resource IR lowering と coverage comparison の両方に `TypeCtx` 付き分類を追加し、aggregate pseudo-address からの field read は `PlaceProjection::Field` / `TupleField` の `ResourceOp::Read` へ下げる。
+
+一時 `RawMemoryLoadCell` gate では `move_check.n.md` が 51/52 から 52/52 に改善し、`move_effect.n.md` は 101/110 から 104/110 に改善した。通常 Copy aggregate field read の false D3100 / D3101 は解消済みである。残件は 6 件で、`MemPtr` / `RegionToken` address wrapper の raw cell initialization transfer と raw memory に格納した aggregate の field offset/projection に絞られる。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T18:17:13.528Z",
+  "generated_at": "2026-04-28T18:41:37.701Z",
   "counts": {
-    "total": 299,
+    "total": 300,
     "open": 10,
-    "resolved": 289,
+    "resolved": 290,
     "by_area": {
       "core": {
-        "total": 142,
+        "total": 143,
         "open": 4,
-        "resolved": 138
+        "resolved": 139
       },
       "stdlib": {
         "total": 95,
@@ -2223,6 +2223,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md"
+    },
+    {
+      "id": "ISS-20260428T182913710Z-RESOURCE-IR-LOWERING-MISCLASSIFIES-C-A1508C51",
+      "title": "Resource IR lowering misclassifies compiler field reads as raw memory loads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage.rs, nepl-core/src/compiler.rs, nepl-core/src/resource/shadow.rs, nepl-core/src/resource/mod.rs, nepl-core/tests/resource_ir.rs, tests/compiler/move_check.n.md, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T182913710Z-RESOURCE-IR-LOWERING-MISCLASSIFIES-C-A1508C51.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

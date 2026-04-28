@@ -5,9 +5,9 @@ use nepl_core::hir::{
 use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_effect_boundaries, check_resource_initialized_moves,
-    check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module_skeleton,
-    AggregateKind, BorrowKind, BorrowState, CellState, EffectOp, OwnerState, Place,
-    PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
+    check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module,
+    lower_hir_module_skeleton, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
+    OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
     ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic,
     ResourceCheckOperation, ResourceCoverageDiagnostic, ResourceCoverageKind,
     ResourceEffectBoundaryDiagnostic, ResourceExprKind, ResourceFunction, ResourceId,
@@ -2157,6 +2157,118 @@ fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
             operation,
             ..
         } if function == "main" && operation == "store"
+    )));
+}
+
+#[test]
+fn resource_ir_lowering_treats_compiler_field_load_as_field_read() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let pair_ty = types.register_named(
+        "Pair".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Pair".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty, i32_ty],
+            field_names: vec!["left".to_string(), "right".to_string()],
+        },
+    );
+    let func_ty = types.function(vec![], vec![pair_ty], i32_ty, Effect::Pure);
+    let span = Span::dummy();
+    let pair_param = HirParam {
+        name: "p".to_string(),
+        ty: pair_ty,
+        mutable: false,
+    };
+    let pair_var = || HirExpr {
+        ty: pair_ty,
+        kind: HirExprKind::Var("p".to_string()),
+        span,
+    };
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty,
+            params: vec![pair_param],
+            result: i32_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![
+                    HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Intrinsic {
+                                name: "load".to_string(),
+                                type_args: vec![i32_ty],
+                                args: vec![pair_var()],
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    },
+                    HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Intrinsic {
+                                name: "load".to_string(),
+                                type_args: vec![i32_ty],
+                                args: vec![HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::Intrinsic {
+                                        name: "add".to_string(),
+                                        type_args: vec![i32_ty],
+                                        args: vec![
+                                            pair_var(),
+                                            HirExpr {
+                                                ty: i32_ty,
+                                                kind: HirExprKind::LiteralI32(4),
+                                                span,
+                                            },
+                                        ],
+                                    },
+                                    span,
+                                }],
+                            },
+                            span,
+                        },
+                        drop_result: false,
+                    },
+                ],
+                ty: i32_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module(&module, &types);
+    let ops = &resource.functions[0].blocks[0].ops;
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Read { source, .. }
+            if matches!(&source.root, PlaceRoot::Local(name) if name == "p")
+                && source.projections == [PlaceProjection::Field { index: 0, offset_bytes: 0 }]
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Read { source, .. }
+            if matches!(&source.root, PlaceRoot::Local(name) if name == "p")
+                && source.projections == [PlaceProjection::Field { index: 1, offset_bytes: 4 }]
+    )));
+    assert!(!ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Load,
+            ..
+        }
     )));
 }
 

@@ -23363,6 +23363,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - self-host import spec で `_` fallback を使えるようにする compiler 側の型検査 / backend gap を解消した。
 
+# 2026-04-29 メモ (ISS-20260428T182913710Z Resource field load lowering)
+
+- [同期]:
+  - `main` / `origin/main` は `ba56490 fix(core): split initialized raw alias responsibilities` で一致していることを確認し、`work/resource-raw-load-cell-gate-followup` branch で作業した。
+- [原因]:
+  - typecheck 後の `core/field::get` は compiler-generated `load` として表現される。
+  - Resource IR lowering はすべての `load` intrinsic を `RawMemoryOp::Load` として扱っていたため、通常 aggregate field read が raw linear memory load に見え、一時 `RawMemoryLoadCell` gate で `field::get p "left"` のような安全な field move/read が D3100 / D3101 になっていた。
+  - lowering を直すだけでは coverage comparison が HIR 側の pseudo-load を raw memory と数え続け、D3101 を出すため、lowering と coverage の分類を同じ TypeCtx 付き規則に揃える必要があった。
+- [修正]:
+  - `lower_hir_module` を追加し、compiler pipeline / shadow report では `TypeCtx` を渡した Resource IR lowering を使うようにした。互換用の `lower_hir_module_skeleton` は残している。
+  - `load(base)` / `load(add(base, literal_offset))` の base が aggregate value で、offset と result 型が field layout に一致する場合、`RawMemoryOp::Load` ではなく `ResourceOp::Read` from `PlaceProjection::Field` / `TupleField` に下げるようにした。
+  - lowering coverage も同じ TypeCtx 付き分類を使い、compiler-generated field load を raw memory coverage と数えないようにした。
+  - `resource_ir_lowering_treats_compiler_field_load_as_field_read` を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_treats_compiler_field_load_as_field_read -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 74 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-field-lowering-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-field-lowering-move-check.json -j 1`: total=52 passed=52
+  - `node nodesrc\test_resource_checker_responsibility.js`: pass
+  - `node nodesrc\issues.js check`: pass
+  - 一時 `RawMemoryLoadCell` gate + `tests/compiler/move_check.n.md`: 51/52 から 52/52 に改善
+  - 一時 `RawMemoryLoadCell` gate + `tests/compiler/move_effect.n.md`: 101/110 から 104/110 に改善し、通常 field access 系 #86-#88 は解消した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR lowering / CellState 移行に沿って、field projection と raw memory load の境界を Resource IR 側で区別できるようにした。
+
 # 2026-04-29 メモ (ISS-20260428T180803802Z Resource initialized raw alias split)
 
 - [同期]:

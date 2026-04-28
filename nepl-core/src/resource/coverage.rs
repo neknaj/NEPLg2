@@ -6,7 +6,9 @@ use alloc::vec::Vec;
 
 use crate::effects::{intrinsic_is_raw_memory_effect, raw_callee_is_raw_memory_effect};
 use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirModule};
+use crate::layout::aggregate_fields_with_offsets;
 use crate::span::Span;
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection, PlaceRoot, ResourceBlock, ResourceModule, ResourceOp};
 
@@ -82,6 +84,15 @@ pub fn compare_hir_resource_lowering(
     module: &HirModule,
     resource: &ResourceModule,
 ) -> ResourceLoweringCoverage {
+    let types = TypeCtx::new();
+    compare_hir_resource_lowering_typed(module, resource, &types)
+}
+
+pub fn compare_hir_resource_lowering_typed(
+    module: &HirModule,
+    resource: &ResourceModule,
+    types: &TypeCtx,
+) -> ResourceLoweringCoverage {
     let mut resource_functions = BTreeMap::new();
     for function in &resource.functions {
         resource_functions.insert(function.name.as_str(), function);
@@ -90,7 +101,7 @@ pub fn compare_hir_resource_lowering(
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     for function in &module.functions {
-        let hir = hir_body_coverage(&function.body);
+        let hir = hir_body_coverage(&function.body, types);
         let Some(resource_function) = resource_functions.get(function.name.as_str()) else {
             diagnostics.push(ResourceCoverageDiagnostic::MissingFunction {
                 name: function.name.clone(),
@@ -127,21 +138,21 @@ pub fn compare_hir_resource_lowering(
     }
 }
 
-fn hir_body_coverage(body: &HirBody) -> ResourceCoverageCounts {
+fn hir_body_coverage(body: &HirBody, types: &TypeCtx) -> ResourceCoverageCounts {
     let mut counts = ResourceCoverageCounts::default();
     if let HirBody::Block(block) = body {
-        hir_block_coverage(block, &mut counts);
+        hir_block_coverage(block, &mut counts, types);
     }
     counts
 }
 
-fn hir_block_coverage(block: &HirBlock, counts: &mut ResourceCoverageCounts) {
+fn hir_block_coverage(block: &HirBlock, counts: &mut ResourceCoverageCounts, types: &TypeCtx) {
     for line in &block.lines {
-        hir_expr_coverage(&line.expr, counts);
+        hir_expr_coverage(&line.expr, counts, types);
     }
 }
 
-fn hir_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
+fn hir_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts, types: &TypeCtx) {
     match &expr.kind {
         HirExprKind::LiteralI32(_)
         | HirExprKind::LiteralF32(_)
@@ -163,14 +174,14 @@ fn hir_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
                 counts.raw_memory_ops += 1;
             }
             for arg in args {
-                hir_expr_coverage(arg, counts);
+                hir_expr_coverage(arg, counts, types);
             }
         }
         HirExprKind::CallIndirect { callee, args, .. } => {
             counts.indirect_calls += 1;
-            hir_expr_coverage(callee, counts);
+            hir_expr_coverage(callee, counts, types);
             for arg in args {
-                hir_expr_coverage(arg, counts);
+                hir_expr_coverage(arg, counts, types);
             }
         }
         HirExprKind::If {
@@ -178,81 +189,143 @@ fn hir_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
             then_branch,
             else_branch,
         } => {
-            hir_expr_coverage(cond, counts);
-            hir_expr_coverage(then_branch, counts);
-            hir_expr_coverage(else_branch, counts);
+            hir_expr_coverage(cond, counts, types);
+            hir_expr_coverage(then_branch, counts, types);
+            hir_expr_coverage(else_branch, counts, types);
         }
         HirExprKind::While { cond, body } => {
-            hir_expr_coverage(cond, counts);
-            hir_expr_coverage(body, counts);
+            hir_expr_coverage(cond, counts, types);
+            hir_expr_coverage(body, counts, types);
         }
         HirExprKind::Match { scrutinee, arms } => {
-            hir_expr_coverage(scrutinee, counts);
+            hir_expr_coverage(scrutinee, counts, types);
             for arm in arms {
-                hir_expr_coverage(&arm.body, counts);
+                hir_expr_coverage(&arm.body, counts, types);
             }
         }
         HirExprKind::EnumConstruct { payload, .. } => {
             counts.constructs += 1;
             if let Some(payload) = payload {
-                hir_expr_coverage(payload, counts);
+                hir_expr_coverage(payload, counts, types);
             }
         }
         HirExprKind::StructConstruct { fields, .. } => {
             counts.constructs += 1;
             for field in fields {
-                hir_expr_coverage(field, counts);
+                hir_expr_coverage(field, counts, types);
             }
         }
         HirExprKind::TupleConstruct { items } => {
             counts.constructs += 1;
             for item in items {
-                hir_expr_coverage(item, counts);
+                hir_expr_coverage(item, counts, types);
             }
         }
-        HirExprKind::Block(block) => hir_block_coverage(block, counts),
+        HirExprKind::Block(block) => hir_block_coverage(block, counts, types),
         HirExprKind::Let { value, .. } => {
             counts.declares += 1;
-            hir_expr_coverage(value, counts);
+            hir_expr_coverage(value, counts, types);
         }
         HirExprKind::Set { value, .. } => {
             counts.assigns += 1;
-            hir_expr_coverage(value, counts);
+            hir_expr_coverage(value, counts, types);
         }
         HirExprKind::Intrinsic { name, args, .. } => {
+            if let Some((base, _)) = compiler_field_load_base_and_offset(name, args, expr.ty, types)
+            {
+                counts.reads += 1;
+                hir_place_expr_coverage(base, counts, types);
+                return;
+            }
             if intrinsic_is_raw_memory_effect(name) {
                 counts.raw_memory_ops += 1;
             }
             for arg in args {
-                hir_expr_coverage(arg, counts);
+                hir_expr_coverage(arg, counts, types);
             }
         }
         HirExprKind::AddrOf(inner) => {
             counts.borrows += 1;
-            hir_place_expr_coverage(inner, counts);
+            hir_place_expr_coverage(inner, counts, types);
         }
         HirExprKind::Deref(inner) => {
             counts.reads += 1;
             counts.deref_projections += 1;
-            hir_place_expr_coverage(inner, counts);
+            hir_place_expr_coverage(inner, counts, types);
         }
     }
 }
 
-fn hir_place_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts) {
+fn hir_place_expr_coverage(expr: &HirExpr, counts: &mut ResourceCoverageCounts, types: &TypeCtx) {
     match &expr.kind {
         HirExprKind::Var(_) => {}
         HirExprKind::Deref(inner) => {
             counts.deref_projections += 1;
-            hir_place_expr_coverage(inner, counts);
+            hir_place_expr_coverage(inner, counts, types);
         }
         HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
-            hir_place_expr_coverage(&args[0], counts);
+            hir_place_expr_coverage(&args[0], counts, types);
             for arg in args.iter().skip(1) {
-                hir_expr_coverage(arg, counts);
+                hir_expr_coverage(arg, counts, types);
             }
         }
-        _ => hir_expr_coverage(expr, counts),
+        _ => hir_expr_coverage(expr, counts, types),
+    }
+}
+
+fn compiler_field_load_base_and_offset<'a>(
+    name: &str,
+    args: &'a [HirExpr],
+    field_ty: TypeId,
+    types: &TypeCtx,
+) -> Option<(&'a HirExpr, usize)> {
+    if name != "load" {
+        return None;
+    }
+    let address = args.first()?;
+    let (base, offset) = compiler_field_address_base_and_offset(address)?;
+    aggregate_field_exists(types, base.ty, offset, field_ty).then_some((base, offset))
+}
+
+fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, usize)> {
+    match &expr.kind {
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() == 2 => {
+            let offset = match args[1].kind {
+                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
+                _ => return None,
+            };
+            Some((&args[0], offset))
+        }
+        _ => Some((expr, 0)),
+    }
+}
+
+fn aggregate_field_exists(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    offset: usize,
+    field_ty: TypeId,
+) -> bool {
+    if !is_aggregate_projection_owner(types, owner_ty) {
+        return false;
+    }
+    aggregate_fields_with_offsets(types, owner_ty)
+        .iter()
+        .any(|field| field.offset == offset && types.same_type(field.ty, field_ty))
+}
+
+fn is_aggregate_projection_owner(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { .. } | TypeKind::Tuple { .. } => true,
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(
+                types.get_ref(base),
+                TypeKind::Struct { .. } | TypeKind::Tuple { .. }
+            )
+        }
+        _ => false,
     }
 }
 

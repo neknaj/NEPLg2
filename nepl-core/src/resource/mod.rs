@@ -31,15 +31,16 @@ mod summary;
 
 pub use borrow_check::check_resource_borrow_lifetimes;
 pub use coverage::{
-    compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
-    ResourceCoverageKind, ResourceFunctionCoverage, ResourceLoweringCoverage,
+    compare_hir_resource_lowering, compare_hir_resource_lowering_typed, ResourceCoverageCounts,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunctionCoverage,
+    ResourceLoweringCoverage,
 };
 pub use effect::{
     check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
     ResourceEffectBoundaryReport, ResourceEffectCounts, ResourceEffectFunctionCheck,
 };
 pub use initialized::check_resource_initialized_moves;
-pub use lower::lower_hir_module_skeleton;
+pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
     OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot, PointerProvenance, RawBodyKind,

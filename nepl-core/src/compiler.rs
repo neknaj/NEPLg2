@@ -250,8 +250,9 @@ fn run_move_check(
         diagnostics.extend(move_errors);
         return Err(CoreError::from_diagnostics(diagnostics.clone()));
     }
-    let resource = crate::resource::lower_hir_module_skeleton(hir_module);
-    let lowering_coverage = crate::resource::compare_hir_resource_lowering(hir_module, &resource);
+    let resource = crate::resource::lower_hir_module(hir_module, types);
+    let lowering_coverage =
+        crate::resource::compare_hir_resource_lowering_typed(hir_module, &resource, types);
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
     run_resource_raw_cell_gate(&initialized_moves, diagnostics, source_map)?;
