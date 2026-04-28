@@ -1844,6 +1844,8 @@ impl FunctionAliasTable {
         let functions = self.functions(source).to_vec();
         if !functions.is_empty() {
             self.set_functions(target, functions);
+        } else {
+            self.clear_alias(target);
         }
     }
 
@@ -1856,6 +1858,10 @@ impl FunctionAliasTable {
             place: place.clone(),
             functions: dedupe_functions(functions),
         });
+    }
+
+    fn clear_alias(&mut self, place: &Place) {
+        self.entries.retain(|entry| entry.place != *place);
     }
 
     fn merge_paths(paths: &[FunctionAliasTable]) -> Self {

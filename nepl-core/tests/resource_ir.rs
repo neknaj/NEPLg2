@@ -3134,6 +3134,87 @@ fn resource_ir_borrow_check_does_not_return_unknown_callback_token_with_mismatch
 }
 
 #[test]
+fn resource_ir_borrow_check_clears_stale_function_alias_on_assignment() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let fn_ty = types.function(vec![], vec![i32_ty], i32_ty, Effect::Pure);
+    let span = Span::dummy();
+    let x = Place::local("x".to_string(), i32_ty);
+    let shared = Place::temporary(ResourceId(0), i32_ty);
+    let known_function = Place::temporary(ResourceId(1), fn_ty);
+    let f = Place::local("f".to_string(), fn_ty);
+    let unknown_function = Place::temporary(ResourceId(2), fn_ty);
+    let returned = Place::temporary(ResourceId(3), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Borrow {
+                        source: x,
+                        output: shared.clone(),
+                        kind: BorrowKind::Shared,
+                        span,
+                    },
+                    ResourceOp::FunctionValue {
+                        output: known_function.clone(),
+                        name: "known_no_token_return".to_string(),
+                        effect: EffectOp::Pure,
+                        span,
+                    },
+                    ResourceOp::DeclareLocal {
+                        place: f.clone(),
+                        mutable: true,
+                        initializer: Some(known_function),
+                        span,
+                    },
+                    ResourceOp::Assign {
+                        target: f.clone(),
+                        value: unknown_function,
+                        span,
+                    },
+                    ResourceOp::IndirectCall {
+                        output: returned.clone(),
+                        callee: f,
+                        params: vec![i32_ty],
+                        result: i32_ty,
+                        args: vec![shared],
+                        effect: EffectOp::Unknown {
+                            reason: "assigned unknown callback".to_string(),
+                        },
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(returned),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::ReturnValue,
+            active: BorrowState::Shared { .. },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_return_after_borrow_release() {
     let types = TypeCtx::new();
     let i32_ty = types.i32();

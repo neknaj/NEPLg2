@@ -22679,3 +22679,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 2「owner token / free obligation」の続きとして、assignment overwrite 時の free obligation loss を Resource IR 上で検出するようにした。
+
+# 2026-04-28 メモ (ISS-20260428T122920913Z function alias clear)
+
+- [同期]:
+  - `origin/main` の `5d4dcba fix(core): report owner overwrite leaks` まで同期した main から `work/stage4-function-alias-clear` branch を作成した。
+- [原因]:
+  - `FunctionAliasTable::copy_alias` は source に known function alias がある場合だけ target を更新し、source に alias がない場合は target の古い alias を残していた。
+  - known function value を保持していた local に unknown function value を assign すると、後続の `IndirectCall` が stale known callee として扱われ、unknown callback fallback が使われなかった。
+- [修正]:
+  - `copy_alias` を target alias state の上書き操作に変更し、source に known alias がない場合は target の alias entry を消すようにした。
+  - `nepl-core/tests/resource_ir.rs` に known alias を unknown function value で上書きした後、unknown callback fallback により borrow token return escape が検出される回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の function / callback boundary の続きとして、function alias stale state による borrow/owner propagation 抜けを塞いだ。
