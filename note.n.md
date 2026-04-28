@@ -22446,3 +22446,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、borrow token の return escape を検査対象に追加した。
+
+# 2026-04-28 メモ (ISS-20260428T111052658Z borrow token return summary)
+
+- [同期]:
+  - `origin/main` の `d318832 fix(core): reject escaping borrow tokens` まで同期した main から `work/stage4-borrow-token-return-summary` branch を作成した。
+- [原因]:
+  - active borrow token の direct return は拒否できるようになったが、`ResourceOp::Call` は borrow checker で無視されていた。
+  - `fn borrow_id(t): t` のような helper が token を戻すと、caller 側の call output に token binding が復元されず、return escape 検査が見逃していた。
+- [修正]:
+  - direct user function の borrow token parameter-to-return summary を固定点で計算するようにした。
+  - `ResourceOp::Call` で summary 対象の引数が active borrow token binding を持つ場合、call output へ token binding を伝播するようにした。
+  - `nepl-core/tests/resource_ir.rs` に helper-mediated borrow token return escape の回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 commit 単位 3「borrow / lifetime」の続きとして、borrow token binding を direct function boundary へ伝播した。

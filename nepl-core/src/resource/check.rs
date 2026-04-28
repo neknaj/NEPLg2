@@ -13,8 +13,8 @@ use super::effect::{check_resource_effect_boundaries, ResourceEffectBoundaryRepo
 use super::lower::lower_hir_module_skeleton;
 use super::model::{
     BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, OwnerState,
-    OwnerStateEntry, Place, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceExprKind,
-    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator, StorageId,
+    OwnerStateEntry, Place, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceCallTarget,
+    ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator, StorageId,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -265,10 +265,12 @@ pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorro
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceBorrowCheckDeferred::default();
+    let summaries = compute_borrow_token_return_summaries(module);
 
     for function in &module.functions {
         let mut engine = ResourceBorrowCheckEngine {
             function: function.name.as_str(),
+            summaries: &summaries,
             diagnostics: Vec::new(),
             deferred: ResourceBorrowCheckDeferred::default(),
         };
@@ -318,8 +320,15 @@ struct ResourceOwnerCheckEngine<'a> {
 
 struct ResourceBorrowCheckEngine<'a> {
     function: &'a str,
+    summaries: &'a [BorrowTokenReturnSummary],
     diagnostics: Vec<ResourceBorrowDiagnostic>,
     deferred: ResourceBorrowCheckDeferred,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BorrowTokenReturnSummary {
+    function: String,
+    parameter_indices: Vec<usize>,
 }
 
 impl ResourceCheckEngine<'_> {
@@ -798,10 +807,15 @@ impl ResourceBorrowCheckEngine<'_> {
                     *borrows = BorrowTable::merge_paths(&arm_paths);
                 }
             }
+            ResourceOp::Call {
+                output,
+                target,
+                args,
+                ..
+            } => self.propagate_call_return_token(borrows, output, target, args),
             ResourceOp::Expr { .. }
             | ResourceOp::CallEffect { .. }
             | ResourceOp::FunctionValue { .. }
-            | ResourceOp::Call { .. }
             | ResourceOp::IndirectCall { .. }
             | ResourceOp::RawMemory { .. }
             | ResourceOp::Construct { .. } => {}
@@ -861,6 +875,34 @@ impl ResourceBorrowCheckEngine<'_> {
         }
     }
 
+    fn propagate_call_return_token(
+        &self,
+        borrows: &mut BorrowTable,
+        output: &Place,
+        target: &ResourceCallTarget,
+        args: &[Place],
+    ) {
+        let ResourceCallTarget::User { name, .. } = target else {
+            return;
+        };
+        let Some(summary) = self
+            .summaries
+            .iter()
+            .find(|summary| summary.function == name.as_str())
+        else {
+            return;
+        };
+        for arg in summary
+            .parameter_indices
+            .iter()
+            .filter_map(|index| args.get(*index))
+        {
+            if borrows.copy_or_move_token(arg, output) {
+                return;
+            }
+        }
+    }
+
     fn check_source_exclusive(
         &mut self,
         borrows: &BorrowTable,
@@ -892,6 +934,62 @@ impl ResourceBorrowCheckEngine<'_> {
                 span,
             });
     }
+}
+
+fn compute_borrow_token_return_summaries(module: &ResourceModule) -> Vec<BorrowTokenReturnSummary> {
+    let mut summaries = Vec::new();
+    for _ in 0..=module.functions.len() {
+        let mut next = Vec::new();
+        for function in &module.functions {
+            let mut parameter_indices = Vec::new();
+            for (index, param) in function.params.iter().enumerate() {
+                if function_returns_borrow_token(function, &param.place, &summaries) {
+                    parameter_indices.push(index);
+                }
+            }
+            if !parameter_indices.is_empty() {
+                next.push(BorrowTokenReturnSummary {
+                    function: function.name.clone(),
+                    parameter_indices,
+                });
+            }
+        }
+        if next == summaries {
+            return summaries;
+        }
+        summaries = next;
+    }
+    summaries
+}
+
+fn function_returns_borrow_token(
+    function: &ResourceFunction,
+    parameter: &Place,
+    summaries: &[BorrowTokenReturnSummary],
+) -> bool {
+    let mut engine = ResourceBorrowCheckEngine {
+        function: function.name.as_str(),
+        summaries,
+        diagnostics: Vec::new(),
+        deferred: ResourceBorrowCheckDeferred::default(),
+    };
+    let mut borrows = BorrowTable::default();
+    borrows.add_shared(parameter, parameter);
+    for block in &function.blocks {
+        engine.check_ops(&mut borrows, &block.ops);
+        if let ResourceTerminator::Return {
+            value: Some(value), ..
+        } = &block.terminator
+        {
+            if borrows
+                .binding(value)
+                .is_some_and(|binding| binding.source == *parameter)
+            {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 impl ResourceOwnerCheckEngine<'_> {

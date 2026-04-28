@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T11:08:51.432Z",
+  "generated_at": "2026-04-28T11:13:09.300Z",
   "counts": {
-    "total": 259,
+    "total": 260,
     "open": 11,
-    "resolved": 248,
+    "resolved": 249,
     "by_area": {
       "core": {
-        "total": 111,
+        "total": 112,
         "open": 4,
-        "resolved": 107
+        "resolved": 108
       },
       "selfhost": {
         "total": 17,
@@ -1788,6 +1788,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T110657405Z-RESOURCE-BORROW-CHECKER-ALLOWS-BORRO-EC3BEA97.md"
+    },
+    {
+      "id": "ISS-20260428T111052658Z-RESOURCE-BORROW-CHECKER-LOSES-BORROW-F9979F31",
+      "title": "Resource borrow checker loses borrow token bindings returned by helpers",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T111052658Z-RESOURCE-BORROW-CHECKER-LOSES-BORROW-F9979F31.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
