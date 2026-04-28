@@ -130,3 +130,16 @@ raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の
 ## 検証
 
 owner token の duplicate / copy / forged token を compile_fail にする。`MemPtr<T>` の copy は non-owning pointer として許可しつつ、free は owner token だけに許可する。raw load/store の move semantics は Resource IR dump snapshot と compile_fail/normal regression の両方で確認する。既存 collection は element owner を drop する path と storage only dealloc path を分けて検証する。
+
+## 2026-04-28 memory safety 方針レビュー追記
+
+`MemPtr<T>` / `RegionToken<T>` の現方針は、既存 stdlib を壊さないための過渡期としては許容できるが、NEPLG2 の安全なメモリモデルとしては複雑すぎる。特に `MemPtr<T>` が non-owning pointer と owning storage handle の両方に使われ、`RegionToken<T>` が stdlib code から再構成できるため、compiler-issued capability としての意味を持てない。
+
+今後の基本方針は、`MemPtr<T>` を安全化して全用途を抱え込ませることではなく、役割を分割することに置く。
+
+- `MemPtr<T>`: copy 可能な non-owning pointer / projection。
+- `OwnedRegion<T>` または `Storage<T>`: free obligation を持つ owner token。
+- `InitializedCell<T>` または Resource IR 上の cell state: 値が入っているか、move 済みか、drop obligation が残っているかを表す。
+- `RegionToken<T>`: stdlib が勝手に forge できない compiler-issued wrapper へ移行する。
+
+この分割が入らないまま self-host の AST / token stream / diagnostic buffer を増やすと、stdlib 側に raw pointer discipline が広がり、memory safety を compiler で証明するという方針から外れる。

@@ -188,3 +188,9 @@ function value / higher-order helper の raw memory effect は伝播するよう
 raw identity が観測可能な public raw memory operation を pure function から呼ぶ compile_fail を追加する。同じ raw place から non-Copy 値を繰り返し `load` する case も、将来の明示 unsafe escape がない限り拒否する ownership test を追加する。`MemPtr` safe overload の正常系は別途維持する。
 
 2026-04-27 の部分対応では、`tests/compiler/move_effect.n.md` に non-Copy raw load の二重 move、raw address alias 経由の二重 move、未 move raw place への store overwrite、load 後の再初期化の回帰テストを追加した。
+
+## 2026-04-28 core / stdlib 全体レビューでの再発確認
+
+`origin/main` の `8d0c6ab` 取り込み後に `node nodesrc/tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\move-effect-audit-20260428.json -j 1` を実行したところ、`total=95`, `passed=43`, `failed=52` だった。多くは `compile_fail` を期待する raw memory / move effect 回帰テストが compile success になっており、この親 issue の残件である Resource IR / raw provenance / effect boundary がまだ安定していないことを示す。
+
+borrow checker 周辺は別 agent の作業範囲だが、self-host compiler の AST / diagnostic / collection 実装では owner を持つ値を `Result` / `Option` / container / callback 経由で移動するため、ここが未解決のまま S3 以降に進むと所有権不整合を compiler 自身の実装へ持ち込む。S1/S2 の lexer/parser/module loader の純粋データ構造設計は開始できるが、raw memory backed buffer や move-sensitive lowering に依存する実装はこの issue の収束を待つ。

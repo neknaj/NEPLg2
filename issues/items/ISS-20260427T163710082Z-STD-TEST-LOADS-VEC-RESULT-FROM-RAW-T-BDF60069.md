@@ -1,17 +1,17 @@
 ---
 id: ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069
-title: "std/test loads Vec<Result> from raw temp multiple times"
+title: "std/test raw temp ownership and Result Copy regression"
 area: stdlib
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-04-27
 updated: 2026-04-28
-target: "stdlib/std/test.nepl, stdlib/core/result.nepl, tests/stdlib/byte_builder.n.md"
+target: "stdlib/std/test.nepl, stdlib/core/result.nepl, nepl-core/src/typecheck.rs, nepl-core/src/types.rs, tests/stdlib/byte_builder.n.md"
 ---
 
-# ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069: std/test loads Vec<Result> from raw temp multiple times
+# ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069: std/test raw temp ownership and Result Copy regression
 
 ## 概要
 
@@ -74,3 +74,16 @@ stdlib 修正後に `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --n
 - 追加確認: `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/std-test-checks-mem-regression-after.json -j 1`: `total=3`, `passed=3`
 - 追加確認: `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-checks-mem-stdlib-test-after.json -j 1`: `total=12`, `passed=12`
 - 追加確認: `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-collect-checks-mem-after.json -j 1`: `total=3`, `passed=3`
+
+## 2026-04-28 core / stdlib 全体レビューでの再オープン
+
+`origin/main` の `8d0c6ab` 取り込み後に `stdlib/core/result.nepl` の回帰テストを再実行したところ、この issue で追加した non-Copy payload の `Result<LocalToken,str>` 二重利用 compile_fail が再び成功していた。
+
+- 再現: `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/result-audit-20260428.json -j 1`
+- 結果: `total=7`, `passed=6`, `failed=1`
+- 失敗: `stdlib\core\result.nepl::doctest#6`
+- エラー: `expected compile_fail, but compiled successfully`
+
+この doctest は `Result<T,E>` の `impl<T: Copy,E: Copy> Copy` 追加時に、non-Copy payload では `Result` 全体も non-Copy のままであることを監視する目的で入れたもの。現状では `LocalToken` fixture の Copy 判定前提が compiler 側変更で変わった可能性と、generic `Copy` impl の適用条件が広すぎる可能性の両方があるため、表面上 doctest を緩めず、`Result<LocalToken,str>` が本当に Copy でよい型なのかを `is_copy_impl_eligible` / trait bound 解決 / function pointer field の仕様から確認する。
+
+同時に `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-audit-20260428.json -j 4` でも `total=422`, `passed=421`, `failed=1` としてこの 1 件だけが stdlib 全体の失敗になっている。self-host compiler の AST / diagnostic / collection は `Result` を大量に使うため、payload の線形性が崩れると selfhost 着手後の所有権バグを検出できなくなる。

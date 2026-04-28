@@ -1,20 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-27T23:42:52.969Z",
+  "generated_at": "2026-04-28T00:17:26.636Z",
   "counts": {
-    "total": 232,
-    "open": 10,
-    "resolved": 222,
+    "total": 236,
+    "open": 16,
+    "resolved": 220,
     "by_area": {
       "core": {
         "total": 99,
-        "open": 3,
-        "resolved": 96
+        "open": 4,
+        "resolved": 95
+      },
+      "selfhost": {
+        "total": 14,
+        "open": 5,
+        "resolved": 9
       },
       "stdlib": {
-        "total": 89,
+        "total": 88,
         "open": 7,
-        "resolved": 82
+        "resolved": 81
       },
       "cli": {
         "total": 19,
@@ -25,11 +30,6 @@
         "total": 13,
         "open": 0,
         "resolved": 13
-      },
-      "selfhost": {
-        "total": 9,
-        "open": 0,
-        "resolved": 9
       },
       "compiler": {
         "total": 1,
@@ -44,6 +44,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260425T000000Z-RV-CORE-002-D17C4B3C",
+      "title": "typecheck.rs が巨大化しすぎて責務が分離できていない",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-25",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs",
+      "legacy_id": "RV-CORE-002",
+      "source": "doc/review20260425/core.md#rv-core-002",
+      "file": "items/ISS-20260425T000000Z-RV-CORE-002-D17C4B3C.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -90,6 +105,36 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
+      "id": "ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4",
+      "title": "self-host lexer lacks offside tokens and Rust parity fixtures",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/token.nepl, stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/**, tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000125736Z-SELF-HOST-LEXER-LACKS-OFFSIDE-TOKENS-3BD65FA4.md"
+    },
+    {
+      "id": "ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235",
+      "title": "self-host SourceText builds line maps with per-byte recursion",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/infra/text.nepl, tests/stdlib/neplg2_text.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000139506Z-SELF-HOST-SOURCETEXT-BUILDS-LINE-MAP-A6115235.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -118,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
+    },
+    {
+      "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",
+      "title": "std/test raw temp ownership and Result Copy regression",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-04-28",
+      "target": "stdlib/std/test.nepl, stdlib/core/result.nepl, nepl-core/src/typecheck.rs, nepl-core/src/types.rs, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
     },
     {
       "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
@@ -151,18 +211,48 @@
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
-      "title": "self-host compiler がプレースホルダのまま",
-      "area": "stdlib",
+      "title": "NEPLg2 self-host compiler が部分実装に留まっている",
+      "area": "selfhost",
       "status": "open",
       "resolved": false,
       "priority": "P2",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/neplg3/**",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/**, doc/neplg2/self_host_plan.md",
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7",
+      "title": "self-host CLI arg classifiers use nested if instead of match",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/cli/args.nepl, nodesrc/test_stdlib_match_decision_trees.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7.md"
+    },
+    {
+      "id": "ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D",
+      "title": "self-host CLI emit option cannot represent multiple artifacts",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/cli/args.nepl, stdlib/neplg2/cli/driver.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -173,8 +263,8 @@
       "priority": "P2",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "stdlib/core/math.nepl, stdlib/alloc/string.nepl, stdlib/std/stdio.nepl, stdlib/alloc/collections/vec.nepl",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/math.nepl, stdlib/alloc/string.nepl, stdlib/alloc/collections/vec.nepl, stdlib/std/streamio.nepl, stdlib/std/stdio.nepl, stdlib/std/fs.nepl, stdlib/nm/parser.nepl, stdlib/core/mem.nepl, stdlib/neplg2/cli/args.nepl",
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
@@ -188,8 +278,8 @@
       "priority": "P2",
       "type": "doc",
       "created": "2026-04-26",
-      "updated": "2026-04-26",
-      "target": "stdlib/alloc/string.nepl, stdlib/alloc/encoding/json.nepl, stdlib/nm/parser.nepl, stdlib/alloc/collections/vec/sort.nepl, stdlib/core/cast.nepl",
+      "updated": "2026-04-28",
+      "target": "stdlib/core/field.nepl, stdlib/nm/html_gen.nepl, stdlib/core/rand/xorshift32.nepl, stdlib/alloc/hash/fnv1a32.nepl, stdlib/alloc/collections/vec/sort.nepl",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1.md"
@@ -703,21 +793,6 @@
       "legacy_id": "RV-CORE-001",
       "source": "doc/review20260425/core.md#rv-core-001",
       "file": "items/ISS-20260425T000000Z-RV-CORE-001-B3603AB7.md"
-    },
-    {
-      "id": "ISS-20260425T000000Z-RV-CORE-002-D17C4B3C",
-      "title": "typecheck.rs が巨大化しすぎて責務が分離できていない",
-      "area": "core",
-      "status": "verified",
-      "resolved": true,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-25",
-      "updated": "2026-04-26",
-      "target": "nepl-core/src/typecheck.rs",
-      "legacy_id": "RV-CORE-002",
-      "source": "doc/review20260425/core.md#rv-core-002",
-      "file": "items/ISS-20260425T000000Z-RV-CORE-002-D17C4B3C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-005-AE5E52FE",
@@ -2203,21 +2278,6 @@
       "legacy_id": "",
       "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
       "file": "items/ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8.md"
-    },
-    {
-      "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",
-      "title": "std/test loads Vec<Result> from raw temp multiple times",
-      "area": "stdlib",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "stdlib/std/test.nepl, stdlib/core/result.nepl, tests/stdlib/byte_builder.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069.md"
     },
     {
       "id": "ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7",
