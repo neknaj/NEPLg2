@@ -1,3 +1,23 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 visitor module)
+
+- 状況:
+  - Stage 1 の summary build module 化に続き、`move_check.rs` に残っていた実検査 visitor 本体を分離した。
+  - HIR を歩く処理、borrow/reference argument handling、raw memory call visit、function raw memory effect 適用、branch/loop/match の実検査が context state 操作と同じ file に残っていた。
+- 修正:
+  - `nepl-core/src/passes/move_check/visitor.rs` を追加し、variable use collection、borrow source / reference argument handling、iterative visit fast path、raw memory call visit、function raw memory effect 適用、`visit_expr_with_escape`、`visit_block_with_escape`、temporary borrow / field move source handling を移動した。
+  - `summary_build.rs` から参照する `is_never_type` は `visitor` module に置き、既存の branch/match summary 判定を維持した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 visitor 境界の記録を追記した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-visitor-module-move-effect.json -j 1`: 97/97 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 summary build module)
 
 - 状況:

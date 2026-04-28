@@ -21,6 +21,7 @@ use super::summary::{
     merge_matching_raw_alias_summaries, value_alias_summary_from_raw_summary,
     FunctionRawAliasSummary, RawMemoryEffectSummary,
 };
+use super::visitor::is_never_type;
 use super::{
     aggregate_field_function_placeholder_aliases, aggregate_field_placeholder_aliases,
     enum_variants_for_type, function_call_raw_alias_summary,
@@ -29,7 +30,7 @@ use super::{
     function_param_enum_payload_function_alias_key, function_param_enum_payload_raw_alias_key,
     function_param_field_function_alias_key, function_param_field_raw_alias_key,
     function_param_function_alias_key, function_param_raw_alias_key,
-    instantiate_function_raw_alias_summary_from_value_summaries, is_function_type, is_never_type,
+    instantiate_function_raw_alias_summary_from_value_summaries, is_function_type,
     match_bind_aggregate_field_function_aliases, match_bind_aggregate_field_raw_aliases,
     match_bind_function_value_aliases, match_bind_raw_addr_alias,
     raw_alias_summary_needs_call_site_specialization, singleton_function_alias,
