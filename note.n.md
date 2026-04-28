@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260428T175617166Z Resource CellState expression marker)
+
+- `RawMemoryLoadCell` gate を一時的に有効化して再測定したところ、`ISS-20260428T174427199Z` の手動 ResourceOp regression は通る一方、実際の HIR lowering では `ResourceOp::Call` / `Construct` の直後に出る `ResourceOp::Expr { kind: Call/Construct }` marker が raw address alias を消していた。
+- この marker は semantic op の結果を表すための境界であり、CellState の raw address alias を再初期化する責務を持たせるべきではない。`Call` / `IndirectCall` / `Construct` / `Branch` / `Match` marker は raw alias を保持するようにし、raw alias summary 計算側も同じ規則にした。
+- 既存の helper-returned raw address / function-value returned raw address / aggregate field raw address regression に、実 lowering と同じ `Expr` marker を追加した。
+- temporary `RawMemoryLoadCell` gate で `tests/compiler/move_effect.n.md` は 99/110 から 101/110 に改善し、doctest#13/#14 の helper-returned slot false D3100 は解消した。gate はまだ本 commit では有効化しない。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_raw_address -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 73 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-marker-production-move-effect.json -j 1`: total=110, passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-marker-production-move-check.json -j 1`: total=52, passed=52
+
 # 2026-04-29 メモ (ISS-20260428T174427199Z Resource CellState raw address alias)
 
 - `ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` の残件のうち、helper-returned slot と `MemPtr` / `RegionToken` style wrapper で raw address alias が CellState へ伝播しない問題を `ISS-20260428T174427199Z-RESOURCE-CELLSTATE-RAW-ADDRESS-ALIAS-45DC270E` として分離して修正した。

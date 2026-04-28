@@ -219,6 +219,18 @@ fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
     left.iter().any(|place| right.contains(place))
 }
 
+fn expr_kind_preserves_raw_alias(kind: ResourceExprKind) -> bool {
+    matches!(
+        kind,
+        ResourceExprKind::LocalRead
+            | ResourceExprKind::Call
+            | ResourceExprKind::IndirectCall
+            | ResourceExprKind::Branch
+            | ResourceExprKind::Match
+            | ResourceExprKind::Construct
+    )
+}
+
 fn compute_raw_cell_address_return_summaries(
     module: &ResourceModule,
 ) -> Vec<RawCellAddressReturnSummary> {
@@ -459,7 +471,7 @@ fn propagate_raw_address_alias_op(
             }
         }
         ResourceOp::Expr { output, kind, .. } => {
-            if !matches!(kind, ResourceExprKind::LocalRead) {
+            if !expr_kind_preserves_raw_alias(*kind) {
                 raw_aliases.clear(output);
             }
         }
@@ -976,7 +988,7 @@ impl ResourceCheckEngine<'_> {
             | ResourceExprKind::Construct
             | ResourceExprKind::Borrow => {}
         }
-        if !matches!(kind, ResourceExprKind::LocalRead) {
+        if !expr_kind_preserves_raw_alias(kind) {
             raw_aliases.clear(output);
         }
     }

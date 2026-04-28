@@ -2675,6 +2675,12 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_helper() {
                             },
                             span,
                         },
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Call,
+                            output: returned.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
                         ResourceOp::RawMemory {
                             operation: RawMemoryOp::Store,
                             output: store_out,
@@ -2785,6 +2791,12 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
                             },
                             span,
                         },
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::IndirectCall,
+                            output: returned.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
                         ResourceOp::RawMemory {
                             operation: RawMemoryOp::Store,
                             output: store_out,
@@ -2855,11 +2867,17 @@ fn resource_ir_cell_check_preserves_raw_address_stored_in_aggregate_field() {
                 span,
             },
             ResourceOp::Construct {
-                output: wrapper,
+                output: wrapper.clone(),
                 kind: AggregateKind::Struct {
                     name: "PtrBox".to_string(),
                 },
                 inputs: vec![ptr.clone()],
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Construct,
+                output: wrapper,
+                ty: wrapper_ty,
                 span,
             },
             ResourceOp::Read {

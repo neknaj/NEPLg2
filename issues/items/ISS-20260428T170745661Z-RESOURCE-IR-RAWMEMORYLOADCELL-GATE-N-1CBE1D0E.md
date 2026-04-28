@@ -59,3 +59,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `ISS-20260428T174427199Z-RESOURCE-CELLSTATE-RAW-ADDRESS-ALIAS-45DC270E` として、CellState 側の raw address alias が helper return、known function-value indirect call、aggregate field に渡らない問題を分離し、修正済みにした。direct helper / function-value helper / `PtrBox.ptr` style wrapper の Resource IR regression は `RawMemoryLoadCell` 診断なしで通る。
 
 この修正で helper-returned slot と `MemPtr` / `RegionToken` style wrapper の主要な alias loss は CellState に移った。親 issue には、raw memory へ格納した aggregate の field offset/projection と、compiler field projection load と raw linear memory load の区別不足が残る。
+
+2026-04-29 追記 2:
+
+`ISS-20260428T175617166Z-RESOURCE-CELLSTATE-EXPRESSION-MARKER-26479BD3` として、HIR lowering が semantic `ResourceOp` の直後に出す `ResourceExprKind` marker で raw address alias を消していた問題を修正した。temporary `RawMemoryLoadCell` gate で `move_effect.n.md` は 99/110 から 101/110 へ改善し、doctest#13/#14 の helper-returned slot false D3100 は解消した。
+
+残件は主に `MemPtr` / `RegionToken` address wrapper の raw cell initialization transfer、raw aggregate stored value の field offset/projection、通常 aggregate field projection load と raw linear memory load の分類不足である。

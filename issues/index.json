@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T17:52:23.383Z",
+  "generated_at": "2026-04-28T18:01:22.953Z",
   "counts": {
-    "total": 297,
+    "total": 298,
     "open": 10,
-    "resolved": 287,
+    "resolved": 288,
     "by_area": {
       "core": {
-        "total": 140,
+        "total": 141,
         "open": 4,
-        "resolved": 136
+        "resolved": 137
       },
       "stdlib": {
         "total": 95,
@@ -2193,6 +2193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T174427199Z-RESOURCE-CELLSTATE-RAW-ADDRESS-ALIAS-45DC270E.md"
+    },
+    {
+      "id": "ISS-20260428T175617166Z-RESOURCE-CELLSTATE-EXPRESSION-MARKER-26479BD3",
+      "title": "Resource CellState expression markers clear call and aggregate raw aliases",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/initialized.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T175617166Z-RESOURCE-CELLSTATE-EXPRESSION-MARKER-26479BD3.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
