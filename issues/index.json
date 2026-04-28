@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T14:23:56.459Z",
+  "generated_at": "2026-04-28T14:28:14.130Z",
   "counts": {
-    "total": 286,
-    "open": 10,
+    "total": 287,
+    "open": 11,
     "resolved": 276,
     "by_area": {
       "core": {
-        "total": 134,
-        "open": 4,
+        "total": 135,
+        "open": 5,
         "resolved": 130
       },
       "stdlib": {
@@ -108,6 +108,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4",
+      "title": "Resource checker is becoming a new monolithic static-check pass",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/mod.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

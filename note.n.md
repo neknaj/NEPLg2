@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (静的検査大規模修正 全体レビュー)
+
+- `9c9ef1b` の commit 後に `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 2-5 と現行 `nepl-core/src/resource` を再確認した。
+- Stage 2-4 の進捗:
+  - Resource IR data model / dump / lowering skeleton は実装済み。
+  - call / callback / raw memory lowering と lowering coverage は実装済み。
+  - CellState / OwnerState / BorrowState の shadow check、branch / loop / match merge、raw memory load/store/destructive storage op の cell state 接続は実装済み。
+  - compiler pipeline では旧 `move_check` が引き続き authoritative で、Resource IR は verbose shadow report と `RawAddressEscapeFromInternalAlloc` gate を除き未強制。
+- Stage 5 の進捗:
+  - `EffectOp::InternalAlloc` / `UnsafeMemory` / `ExternalIo` / `Nondet` / `Unknown` と raw identity escape gate は実装済み。
+  - broader authoritative gate、stdlib internal boundary、owner token / public raw API の整理は未完了。
+- 新規問題として、`nepl-core/src/resource/check.rs` が 2674 行になり、CellState / OwnerState / BorrowState / function summary / raw cell helper / merge helper / shadow report が同居していることを確認した。
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` を追加し、Resource checker 自体が新しい巨大 static-check pass になる問題を追跡する。
+- `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に全体レビュー結果と新規 issue へのリンクを追記した。
+- 検証:
+  - `node nodesrc/issues.js check`: files=287, pass
+  - `git diff --check`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T141745924Z Resource CellState raw storage destructive ops)
 
 - `origin/main` を `224da69` まで fast-forward し、別 agent の self-host lexer file_id 修正を取り込んだ。
