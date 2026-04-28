@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T16:25:46.352Z",
+  "generated_at": "2026-04-28T16:35:43.405Z",
   "counts": {
-    "total": 291,
+    "total": 292,
     "open": 9,
-    "resolved": 282,
+    "resolved": 283,
     "by_area": {
       "core": {
         "total": 136,
@@ -17,9 +17,9 @@
         "resolved": 90
       },
       "selfhost": {
-        "total": 23,
+        "total": 24,
         "open": 1,
-        "resolved": 22
+        "resolved": 23
       },
       "cli": {
         "total": 19,
@@ -4413,6 +4413,21 @@
       "legacy_id": "RV-EXAMPLE-013",
       "source": "doc/review20260425/examples.md#rv-example-013",
       "file": "items/ISS-20260425T000000Z-RV-EXAMPLE-013-725D0E70.md"
+    },
+    {
+      "id": "ISS-20260428T163153838Z-SELF-HOST-IMPORT-ITEM-CLASSIFIER-STI-A3A4A6E8",
+      "title": "self-host import item classifier still carries enum wildcard workaround",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P3",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/module/import_spec.nepl, tests/stdlib/neplg2_import_spec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T163153838Z-SELF-HOST-IMPORT-ITEM-CLASSIFIER-STI-A3A4A6E8.md"
     }
   ]
 }

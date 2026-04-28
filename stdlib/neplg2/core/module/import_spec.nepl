@@ -74,51 +74,13 @@ fn selfhost_import_spec_is_wildcard <(SelfhostImportSpec)->bool> (spec):
 //: selfhost_module_item_kind_is_import_directive: module item kind が import directive か[判定/はんてい]する
 //:
 //: [目的/もくてき]:
-//: - `SelfhostModuleItemKind` の全 variant を明示的に[扱/あつか]い、item kind 追加時にこの分類表も見直せるようにします。
-//: - import directive だけを集める判定を module 層の共有 helper として固定します。
+//: - import directive だけを true にし、それ以外の item kind を false にします。
+//: - non-import variant は `_` arm にまとめ、item kind が増えても import ではないものを default false として扱う意図を明確にします。
 fn selfhost_module_item_kind_is_import_directive <(SelfhostModuleItemKind)->bool> (kind):
     match kind:
-        SelfhostModuleItemKind::DocComment:
-            false
-        SelfhostModuleItemKind::MlstrLine:
-            false
-        SelfhostModuleItemKind::EntryDirective:
-            false
-        SelfhostModuleItemKind::TargetDirective:
-            false
         SelfhostModuleItemKind::ImportDirective:
             true
-        SelfhostModuleItemKind::UseDirective:
-            false
-        SelfhostModuleItemKind::IfTargetDirective:
-            false
-        SelfhostModuleItemKind::IfProfileDirective:
-            false
-        SelfhostModuleItemKind::CapabilityDirective:
-            false
-        SelfhostModuleItemKind::PreludeDirective:
-            false
-        SelfhostModuleItemKind::NoPreludeDirective:
-            false
-        SelfhostModuleItemKind::IntrinsicDirective:
-            false
-        SelfhostModuleItemKind::WasmBlock:
-            false
-        SelfhostModuleItemKind::LlvmIrBlock:
-            false
-        SelfhostModuleItemKind::WasmText:
-            false
-        SelfhostModuleItemKind::LlvmIrText:
-            false
-        SelfhostModuleItemKind::FunctionDecl:
-            false
-        SelfhostModuleItemKind::StructDecl:
-            false
-        SelfhostModuleItemKind::EnumDecl:
-            false
-        SelfhostModuleItemKind::TraitDecl:
-            false
-        SelfhostModuleItemKind::ImplDecl:
+        _:
             false
 
 //: selfhost_import_diag: import directive diagnostic を[作/つく]る

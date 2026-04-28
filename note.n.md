@@ -23311,3 +23311,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_execution_plan.md` S2 の `selfhost/s2-stdlib-map` に対応し、core 層を filesystem 非依存に保ったまま stdlib/user root mapping を追加した。
+
+# 2026-04-28 メモ (ISS-20260428T163153838Z self-host import kind wildcard)
+
+- [同期]:
+  - `main` は `origin/main` の `e51a558 fix(selfhost): map stdlib module paths` まで同期済みで、`selfhost/s2-import-kind-wildcard` branch を作成して作業した。
+- [原因]:
+  - core 側の `ISS-20260428T141727754Z-ENUM-MATCH-WILDCARD-ARM-IS-REJECTED--B1684C75` は `1166ee3 fix(core): support enum match wildcard arms` で fixed になった。
+  - `selfhost_module_item_kind_is_import_directive` には、その bug を避けるための全 non-import variant 列挙が残っていた。
+- [修正]:
+  - `selfhost_module_item_kind_is_import_directive` を `ImportDirective: true` / `_: false` の match に戻した。
+  - コメントも、non-import variant を default false として扱う意図が分かる説明へ更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_spec.nepl --no-tree -o tmp/neplg2-import-spec-wildcard-doctest.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/neplg2-import-spec-wildcard-focused.json -j 1`: total=3 passed=3
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_spec.nepl --no-tree -o tmp/neplg2-import-spec-wildcard-doctest-after-build.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/neplg2-import-spec-wildcard-focused-after-build.json -j 1`: total=3 passed=3
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - compiler fix に追従し、self-host S2 の import spec 実装から古い workaround を外した。
