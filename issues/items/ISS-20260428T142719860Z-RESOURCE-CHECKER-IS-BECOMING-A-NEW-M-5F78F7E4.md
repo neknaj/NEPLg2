@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/summary.rs"
+target: "nepl-core/src/resource/check.rs, nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_summary.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/summary.rs"
 ---
 
 # ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4: Resource checker is becoming a new monolithic static-check pass
@@ -204,6 +204,22 @@ raw identity field propagation と pointer alias field propagation も `place_ut
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`
 - `rustfmt --check nepl-core\src\resource\summary.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`
+
+## 2026-04-29 Effect return summary split
+
+`RawIdentityReturnSummary`、`RawPointerReturnSummary` と、それらを固定点で計算する raw identity / pointer alias return summary logic を `nepl-core/src/resource/effect_summary.rs` へ分離した。
+
+`effect.rs` 側には boundary traversal、effect count、diagnostic emission、summary application を残した。`effect_summary.rs` は既存の `ResourceEffectBoundaryEngine` を使って関数境界の raw identity / pointer alias propagation summary だけを計算する責務に限定した。
+
+この分割で `effect.rs` は 785 行から 632 行になり、`effect_summary.rs` は 166 行になった。issue はまだ open のままとし、次は effect boundary engine traversal の分割、または `check.rs` 側の engine traversal / shadow report entry point の責務整理を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\effect.rs nepl-core\src\resource\mod.rs`
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`

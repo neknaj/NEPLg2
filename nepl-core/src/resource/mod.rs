@@ -14,6 +14,7 @@ mod coverage;
 mod dump;
 mod effect;
 mod effect_identity;
+mod effect_summary;
 mod function_alias;
 mod lower;
 mod model;

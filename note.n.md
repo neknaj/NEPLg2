@@ -1,3 +1,16 @@
+# 2026-04-29 メモ (ISS-20260428T142719860Z Resource effect return summary split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`RawIdentityReturnSummary`、`RawPointerReturnSummary` と、それらを固定点で計算する raw identity / pointer alias return summary logic を `nepl-core/src/resource/effect_summary.rs` へ分離した。
+- `effect.rs` 側には boundary traversal、effect count、diagnostic emission、summary application を残し、`effect_summary.rs` は既存の `ResourceEffectBoundaryEngine` を使って関数境界 summary を計算する責務に限定した。
+- `effect.rs` は 785 行から 632 行になり、`effect_summary.rs` は 166 行になった。issue はまだ open とし、次は effect boundary engine traversal の分割、または `check.rs` 側の engine traversal / shadow report entry point の責務整理を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\effect_summary.rs nepl-core\src\resource\effect.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T142719860Z Resource return summary split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`BorrowTokenReturnSummary`、`OwnerReturnSummary`、`OwnerProjectionReturnSummary` と、それらを固定点で計算する owner / borrow return summary logic を `nepl-core/src/resource/summary.rs` へ分離した。
