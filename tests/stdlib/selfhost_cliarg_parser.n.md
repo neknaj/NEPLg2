@@ -33,7 +33,7 @@ fn main <()*>i32> ():
             let output_ref <&Option<str>> get_ref &opts "output"
             let input_ref <&Option<str>> get_ref &opts "input"
             let check_ref <&bool> get_ref &opts "check"
-            let emit_ref <&SelfhostCliEmit> get_ref &opts "emit"
+            let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
             let output_ok <bool> match *output_ref:
                 Option::Some output:
                     str_eq output "out.wasm"
@@ -254,7 +254,7 @@ fn main <()*>i32> ():
             let lib_ref <&bool> get_ref &opts "lib"
             let verbose_ref <&bool> get_ref &opts "verbose"
             let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
-            let emit_ref <&SelfhostCliEmit> get_ref &opts "emit"
+            let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
             let profile_ref <&Option<SelfhostCliProfile>> get_ref &opts "profile"
             let stdlib_root_ref <&Option<str>> get_ref &opts "stdlib_root"
             let input_ref <&Option<str>> get_ref &opts "input"
@@ -267,19 +267,7 @@ fn main <()*>i32> ():
                     selfhost_cli_target_is_wasm target
                 Option::None:
                     false
-            let emit_ok <bool> match *emit_ref:
-                SelfhostCliEmit::Wasm:
-                    false
-                SelfhostCliEmit::Wat:
-                    false
-                SelfhostCliEmit::WatMin:
-                    false
-                SelfhostCliEmit::Llvm:
-                    false
-                SelfhostCliEmit::LlvmMin:
-                    true
-                SelfhostCliEmit::All:
-                    false
+            let emit_ok <bool> selfhost_cli_emit_set_has_llvm_min *emit_ref
             let profile_ok <bool> match *profile_ref:
                 Option::Some profile:
                     match profile:
@@ -316,4 +304,104 @@ fn main <()*>i32> ():
                 |> checks_push assert input_ok
                 |> checks_push assert run_args_start_ok
             checks_exit_code checks
+```
+
+## selfhost_cliarg_parser_accepts_emit_list_and_deduplicates
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "neplg2/cli/args" as *
+#import "alloc/collections/vec" as v
+#import "core/field" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let args <Vec<str>>:
+        unwrap_ok v::new<str>
+        |> v::push<str> "--emit" |> uwok
+        |> v::push<str> "wasm,wat,llvm-min,wasm" |> uwok
+        |> v::push<str> "main.nepl" |> uwok
+    match selfhost_cli_parse_args &args:
+        Result::Err _e:
+            1
+        Result::Ok opts:
+            let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
+            let emit <SelfhostCliEmitSet> *emit_ref
+            let checks <Vec<Result<(),str>>>:
+                checks_new
+                |> checks_push assert selfhost_cli_emit_is_wasm emit
+                |> checks_push assert selfhost_cli_emit_set_has_wat emit
+                |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
+                |> checks_push assert not selfhost_cli_emit_set_has_wat_min emit
+                |> checks_push assert not selfhost_cli_emit_set_has_llvm emit
+            checks_exit_code checks
+```
+
+## selfhost_cliarg_parser_accepts_emit_all
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "neplg2/cli/args" as *
+#import "alloc/collections/vec" as v
+#import "core/field" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let args <Vec<str>>:
+        unwrap_ok v::new<str>
+        |> v::push<str> "--emit" |> uwok
+        |> v::push<str> "all" |> uwok
+        |> v::push<str> "main.nepl" |> uwok
+    match selfhost_cli_parse_args &args:
+        Result::Err _e:
+            1
+        Result::Ok opts:
+            let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
+            let emit <SelfhostCliEmitSet> *emit_ref
+            let checks <Vec<Result<(),str>>>:
+                checks_new
+                |> checks_push assert selfhost_cli_emit_is_wasm emit
+                |> checks_push assert selfhost_cli_emit_set_has_wat emit
+                |> checks_push assert selfhost_cli_emit_set_has_wat_min emit
+                |> checks_push assert selfhost_cli_emit_set_has_llvm emit
+                |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
+            checks_exit_code checks
+```
+
+## selfhost_cliarg_parser_rejects_invalid_emit_member
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "neplg2/cli/args" as *
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let args <Vec<str>>:
+        unwrap_ok v::new<str>
+        |> v::push<str> "--emit" |> uwok
+        |> v::push<str> "wasm,,wat" |> uwok
+    match selfhost_cli_parse_args &args:
+        Result::Ok _opts:
+            1
+        Result::Err e:
+            if selfhost_cli_error_is_invalid_emit e 0 1
 ```

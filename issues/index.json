@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T07:28:54.352Z",
+  "generated_at": "2026-04-28T07:37:36.356Z",
   "counts": {
     "total": 247,
-    "open": 15,
-    "resolved": 232,
+    "open": 14,
+    "resolved": 233,
     "by_area": {
       "core": {
         "total": 103,
@@ -18,8 +18,8 @@
       },
       "selfhost": {
         "total": 14,
-        "open": 3,
-        "resolved": 11
+        "open": 2,
+        "resolved": 12
       },
       "stdlib": {
         "total": 94,
@@ -228,21 +228,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D",
-      "title": "self-host CLI emit option cannot represent multiple artifacts",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/cli/args.nepl, stdlib/neplg2/cli/driver.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -2913,6 +2898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T000149871Z-SELF-HOST-CLI-ARG-CLASSIFIERS-USE-NE-25938DB7.md"
+    },
+    {
+      "id": "ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D",
+      "title": "self-host CLI emit option cannot represent multiple artifacts",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/cli/args.nepl, tests/stdlib/selfhost_cliarg_parser.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

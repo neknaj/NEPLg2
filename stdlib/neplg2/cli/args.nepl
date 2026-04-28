@@ -65,10 +65,8 @@ impl Copy for SelfhostCliTarget:
 //: self-host compiler の出力形式です。
 //:
 //: [目的/もくてき]:
-//: - `--emit` の値を enum として扱い、後続 driver が文字列比較を繰り返さずに分岐できるようにします。
-//:
-//: [注意/ちゅうい]:
-//: - Rust CLI の comma 区切り複数指定は、後続の artifact writer issue で `Vec<SelfhostCliEmit>` へ拡張します。
+//: - `--emit` の 1 要素を enum として扱い、comma 区切り parser と後続 driver が文字列比較を繰り返さずに分岐できるようにします。
+//: - `All` は parser 内で `SelfhostCliEmitSet` の全 artifact に展開します。
 pub enum SelfhostCliEmit:
     Wasm
     Wat
@@ -84,6 +82,57 @@ impl Clone for SelfhostCliEmit:
 impl Copy for SelfhostCliEmit:
     fn copy_mark <(SelfhostCliEmit)->SelfhostCliEmit> (self):
         self
+
+//: ## SelfhostCliEmitSet
+//: self-host compiler が 1 回の実行で出力する artifact set です。
+//:
+//: [目的/もくてき]:
+//: - `--emit wasm,wat,llvm-min` のような複数指定を、所有権付き collection ではなく固定 bool field で表します。
+//: - 重複指定は同じ field を `true` にするだけなので、parser state は O(1) のまま保てます。
+//:
+//: [注意/ちゅうい]:
+//: - output path と複数 artifact の具体的な file naming は artifact writer 側で決めます。
+pub struct SelfhostCliEmitSet:
+    wasm <bool>
+    wat <bool>
+    wat_min <bool>
+    llvm <bool>
+    llvm_min <bool>
+
+impl Clone for SelfhostCliEmitSet:
+    fn clone <(&SelfhostCliEmitSet)->SelfhostCliEmitSet> (self):
+        *self
+
+impl Copy for SelfhostCliEmitSet:
+    fn copy_mark <(SelfhostCliEmitSet)->SelfhostCliEmitSet> (self):
+        self
+
+fn selfhost_cli_emit_set_new <(bool,bool,bool,bool,bool)->SelfhostCliEmitSet> (wasm, wat, wat_min, llvm, llvm_min):
+    SelfhostCliEmitSet wasm wat wat_min llvm llvm_min
+
+fn selfhost_cli_emit_set_default <()->SelfhostCliEmitSet> ():
+    selfhost_cli_emit_set_new true false false false false
+
+fn selfhost_cli_emit_set_empty <()->SelfhostCliEmitSet> ():
+    selfhost_cli_emit_set_new false false false false false
+
+fn selfhost_cli_emit_set_all <()->SelfhostCliEmitSet> ():
+    selfhost_cli_emit_set_new true true true true true
+
+fn selfhost_cli_emit_set_add <(SelfhostCliEmitSet,SelfhostCliEmit)->SelfhostCliEmitSet> (emit_set, emit):
+    match emit:
+        SelfhostCliEmit::Wasm:
+            selfhost_cli_emit_set_new true get emit_set "wat" get emit_set "wat_min" get emit_set "llvm" get emit_set "llvm_min"
+        SelfhostCliEmit::Wat:
+            selfhost_cli_emit_set_new get emit_set "wasm" true get emit_set "wat_min" get emit_set "llvm" get emit_set "llvm_min"
+        SelfhostCliEmit::WatMin:
+            selfhost_cli_emit_set_new get emit_set "wasm" get emit_set "wat" true get emit_set "llvm" get emit_set "llvm_min"
+        SelfhostCliEmit::Llvm:
+            selfhost_cli_emit_set_new get emit_set "wasm" get emit_set "wat" get emit_set "wat_min" true get emit_set "llvm_min"
+        SelfhostCliEmit::LlvmMin:
+            selfhost_cli_emit_set_new get emit_set "wasm" get emit_set "wat" get emit_set "wat_min" get emit_set "llvm" true
+        SelfhostCliEmit::All:
+            selfhost_cli_emit_set_all
 
 //: ## SelfhostCliProfile
 //: compile profile の指定です。
@@ -152,7 +201,7 @@ pub struct SelfhostCliOptions:
     attach_source <bool>
     lib <bool>
     verbose <bool>
-    emit <SelfhostCliEmit>
+    emit <SelfhostCliEmitSet>
     target <Option<SelfhostCliTarget>>
     profile <Option<SelfhostCliProfile>>
     stdlib_root <Option<str>>
@@ -170,7 +219,7 @@ pub struct SelfhostCliOptions:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn selfhost_cli_options_new <(bool,bool,bool,bool,bool,SelfhostCliEmit,Option<SelfhostCliTarget>,Option<SelfhostCliProfile>,Option<str>,Option<str>,Option<str>,Option<i32>)->SelfhostCliOptions> (check, run, attach_source, lib, verbose, emit, target, profile, stdlib_root, output, input, run_args_start):
+fn selfhost_cli_options_new <(bool,bool,bool,bool,bool,SelfhostCliEmitSet,Option<SelfhostCliTarget>,Option<SelfhostCliProfile>,Option<str>,Option<str>,Option<str>,Option<i32>)->SelfhostCliOptions> (check, run, attach_source, lib, verbose, emit, target, profile, stdlib_root, output, input, run_args_start):
     SelfhostCliOptions check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
 
 //: selfhost_cli_default_options: 既定の option set を返す
@@ -192,7 +241,7 @@ fn selfhost_cli_options_new <(bool,bool,bool,bool,bool,SelfhostCliEmit,Option<Se
 //:     if selfhost_cli_emit_is_wasm get opts "emit" 0 1
 //: ```
 pub fn selfhost_cli_default_options <()->SelfhostCliOptions> ():
-    selfhost_cli_options_new false false false false false SelfhostCliEmit::Wasm none<SelfhostCliTarget> none<SelfhostCliProfile> none<str> none<str> none<str> none<i32>
+    selfhost_cli_options_new false false false false false selfhost_cli_emit_set_default none<SelfhostCliTarget> none<SelfhostCliProfile> none<str> none<str> none<str> none<i32>
 
 //: selfhost_cli_arg_at: argv data/len から index 指定で文字列を読む
 //:
@@ -341,9 +390,6 @@ fn selfhost_cli_parse_emit_if_eq <(str,str,SelfhostCliEmit)->Result<SelfhostCliE
 //: [目的/もくてき]:
 //: - artifact writer が扱う出力種別を enum へ閉じ込めます。
 //: - 出力種別の有限集合を `match` arm として固定し、nested `if` の順序依存を避けます。
-//:
-//: [注意/ちゅうい]:
-//: - comma 区切り複数 emit は後続 issue で `Vec<SelfhostCliEmit>` 化します。
 pub fn selfhost_cli_parse_emit_value <(str)->Result<SelfhostCliEmit,SelfhostCliErrorKind>> (value):
     match selfhost_cli_string_match_key value:
         1210069335:
@@ -360,6 +406,74 @@ pub fn selfhost_cli_parse_emit_value <(str)->Result<SelfhostCliEmit,SelfhostCliE
             selfhost_cli_parse_emit_if_eq value "all" SelfhostCliEmit::All
         _:
             err<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+
+//: selfhost_cli_parse_emit_part: 1 要素の emit を set に追加する
+//:
+//: [目的/もくてき]:
+//: - comma 区切り parser から呼び、`all` は全 artifact set へ展開します。
+fn selfhost_cli_parse_emit_part <(SelfhostCliEmitSet,str)->Result<SelfhostCliEmitSet,SelfhostCliErrorKind>> (emit_set, part):
+    match selfhost_cli_parse_emit_value part:
+        Result::Err e:
+            err<SelfhostCliEmitSet,SelfhostCliErrorKind> e
+        Result::Ok emit:
+            ok<SelfhostCliEmitSet,SelfhostCliErrorKind> selfhost_cli_emit_set_add emit_set emit
+
+//: selfhost_cli_parse_emit_set_value: `--emit` の comma 区切り値を artifact set へ変換する
+//:
+//: [目的/もくてき]:
+//: - `wasm,wat` のような複数 artifact 指定を `SelfhostCliEmitSet` に畳み込みます。
+//: - 重複指定は同じ field を true にするだけで無害に処理します。
+//:
+//: [注意/ちゅうい]:
+//: - 空文字列、空要素、未知要素は `InvalidEmit` です。
+pub fn selfhost_cli_parse_emit_set_value <(str)->Result<SelfhostCliEmitSet,SelfhostCliErrorKind>> (value):
+    let n <i32> len value
+    if:
+        eq n 0
+        then:
+            err<SelfhostCliEmitSet,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+        else:
+            let mut start <i32> 0
+            let mut i <i32> 0
+            let mut emit_set <SelfhostCliEmitSet> selfhost_cli_emit_set_empty
+            let mut failed <bool> false
+            while and le i n not failed:
+                do:
+                    let at_end <bool> eq i n
+                    let split <bool>:
+                        if:
+                            at_end
+                            then:
+                                true
+                            else:
+                                eq string_byte_at_unchecked value i ','
+                    if:
+                        split
+                        then:
+                            if:
+                                eq start i
+                                then:
+                                    set failed true
+                                else:
+                                    match str_slice_result value start i:
+                                        Result::Err _e:
+                                            set failed true
+                                        Result::Ok part:
+                                            match selfhost_cli_parse_emit_part emit_set part:
+                                                Result::Err _e:
+                                                    set failed true
+                                                Result::Ok next_emit_set:
+                                                    set emit_set next_emit_set
+                            set start add i 1
+                        else:
+                            ()
+                    set i add i 1
+            if:
+                failed
+                then:
+                    err<SelfhostCliEmitSet,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+                else:
+                    ok<SelfhostCliEmitSet,SelfhostCliErrorKind> emit_set
 
 //: selfhost_cli_parse_profile_if_eq: profile hash arm の候補を実文字列で検証する
 fn selfhost_cli_parse_profile_if_eq <(str,str,SelfhostCliProfile)->Result<SelfhostCliProfile,SelfhostCliErrorKind>> (value, expected, profile):
@@ -405,7 +519,7 @@ fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCliErro
             ok<Option<str>,SelfhostCliErrorKind> some<str> value
 
 //: selfhost_cli_finish: 走査済み state を success result にする
-fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmit,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool,Option<i32>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose, run_args_start):
+fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool,Option<i32>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose, run_args_start):
     ok<SelfhostCliOptions,SelfhostCliErrorKind> selfhost_cli_options_new check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
 
 //: selfhost_cli_parse_loop: argv parser の本体
@@ -419,7 +533,7 @@ fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliT
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmit,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (data, count, i, input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose):
+fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (data, count, i, input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose):
     if:
         le count i
         then:
@@ -455,7 +569,7 @@ fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Opt
                                 Result::Err e:
                                     err<SelfhostCliOptions,SelfhostCliErrorKind> e
                                 Result::Ok value:
-                                    match selfhost_cli_parse_emit_value value:
+                                    match selfhost_cli_parse_emit_set_value value:
                                         Result::Err e:
                                             err<SelfhostCliOptions,SelfhostCliErrorKind> e
                                         Result::Ok parsed:
@@ -537,7 +651,7 @@ fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Opt
 //:             let output_ref <&Option<str>> get_ref &opts "output"
 //:             let input_ref <&Option<str>> get_ref &opts "input"
 //:             let check_ref <&bool> get_ref &opts "check"
-//:             let emit_ref <&SelfhostCliEmit> get_ref &opts "emit"
+//:             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
 //:             let output_ok <bool> match *output_ref:
 //:                 Option::Some out:
 //:                     str_eq out "out.wasm"
@@ -556,7 +670,7 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
     let span <VecDataLen<str>> v::data_len_ref<str> args;
     let data <i32> mem_ptr_addr get span "data";
     let count <i32> get span "len";
-    selfhost_cli_parse_loop data count 0 none<str> none<str> none<str> none<SelfhostCliTarget> SelfhostCliEmit::Wasm none<SelfhostCliProfile> false false false false false
+    selfhost_cli_parse_loop data count 0 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
 
 //: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
 //:
@@ -606,7 +720,7 @@ pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
     let span <VecDataLen<str>> v::data_len_ref<str> argv;
     let data <i32> mem_ptr_addr get span "data";
     let count <i32> get span "len";
-    selfhost_cli_parse_loop data count 1 none<str> none<str> none<str> none<SelfhostCliTarget> SelfhostCliEmit::Wasm none<SelfhostCliProfile> false false false false false
+    selfhost_cli_parse_loop data count 1 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
 
 //: selfhost_cli_target_is_wasm: target が Wasm か判定する
 pub fn selfhost_cli_target_is_wasm <(SelfhostCliTarget)->bool> (target):
@@ -647,6 +761,26 @@ pub fn selfhost_cli_emit_is_wasm <(SelfhostCliEmit)->bool> (emit):
             false
         SelfhostCliEmit::All:
             false
+
+//: selfhost_cli_emit_is_wasm: emit set が Wasm を含むか判定する
+pub fn selfhost_cli_emit_is_wasm <(SelfhostCliEmitSet)->bool> (emit):
+    get emit "wasm"
+
+//: selfhost_cli_emit_set_has_wat: emit set が Wat を含むか判定する
+pub fn selfhost_cli_emit_set_has_wat <(SelfhostCliEmitSet)->bool> (emit):
+    get emit "wat"
+
+//: selfhost_cli_emit_set_has_wat_min: emit set が WatMin を含むか判定する
+pub fn selfhost_cli_emit_set_has_wat_min <(SelfhostCliEmitSet)->bool> (emit):
+    get emit "wat_min"
+
+//: selfhost_cli_emit_set_has_llvm: emit set が Llvm を含むか判定する
+pub fn selfhost_cli_emit_set_has_llvm <(SelfhostCliEmitSet)->bool> (emit):
+    get emit "llvm"
+
+//: selfhost_cli_emit_set_has_llvm_min: emit set が LlvmMin を含むか判定する
+pub fn selfhost_cli_emit_set_has_llvm_min <(SelfhostCliEmitSet)->bool> (emit):
+    get emit "llvm_min"
 
 //: selfhost_cli_error_is_unknown_option: error kind が unknown option か判定する
 pub fn selfhost_cli_error_is_unknown_option <(SelfhostCliErrorKind)->bool> (kind):
@@ -693,5 +827,21 @@ pub fn selfhost_cli_error_is_multiple_input <(SelfhostCliErrorKind)->bool> (kind
             false
         SelfhostCliErrorKind::InvalidEmit:
             false
+        SelfhostCliErrorKind::InvalidProfile:
+            false
+
+//: selfhost_cli_error_is_invalid_emit: error kind が invalid emit か判定する
+pub fn selfhost_cli_error_is_invalid_emit <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            false
+        SelfhostCliErrorKind::MissingValue:
+            false
+        SelfhostCliErrorKind::MultipleInput:
+            false
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            true
         SelfhostCliErrorKind::InvalidProfile:
             false

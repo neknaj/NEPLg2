@@ -2,13 +2,13 @@
 id: ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D
 title: "self-host CLI emit option cannot represent multiple artifacts"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: architecture
 created: 2026-04-28
 updated: 2026-04-28
-target: "stdlib/neplg2/cli/args.nepl, stdlib/neplg2/cli/driver.nepl"
+target: "stdlib/neplg2/cli/args.nepl, tests/stdlib/selfhost_cliarg_parser.n.md"
 ---
 
 # ISS-20260428T000208719Z-SELF-HOST-CLI-EMIT-OPTION-CANNOT-REP-FC7EB52D: self-host CLI emit option cannot represent multiple artifacts
@@ -42,3 +42,18 @@ emit を Vec<SelfhostCliEmit> または small set 表現へ変更し、comma sep
 ## 検証
 
 selfhost CLI args doctest と driver smoke で emit wasm,wat、emit all、重複指定、不正要素、-o との組み合わせを確認する。
+
+## 解決
+
+- `SelfhostCliOptions.emit` を単一 `SelfhostCliEmit` から固定 bool field の `SelfhostCliEmitSet` へ変更した。
+- `--emit wasm,wat,llvm-min` の comma separated value を `selfhost_cli_parse_emit_set_value` で解析し、重複指定は同じ field を `true` にするだけの O(1) state として扱うようにした。
+- `all` は parser 内で全 artifact set に展開する。空文字列、空要素、未知要素は `InvalidEmit` として返す。
+- `selfhost_cli_emit_is_wasm` を emit set でも使えるよう overload し、`wat` / `wat-min` / `llvm` / `llvm-min` の確認 helper を追加した。
+- 現時点では `stdlib/neplg2/cli/driver.nepl` がまだ存在しないため、driver 実装へ渡す args contract を先に複数 artifact 対応へ固定した。output path と複数 artifact の file naming は artifact writer 側の責務として `SelfhostCliEmitSet` comment に明記した。
+- `tests/stdlib/selfhost_cliarg_parser.n.md` に emit list、`all` 展開、重複排除、不正空要素を確認する回帰 test を追加した。
+
+## 検証結果
+
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/selfhost-cli-emit-set.json -j 1`
+- `node nodesrc/tests.js -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/selfhost-cli-emit-set-docs.json -j 1`
+- `node nodesrc/test_stdlib_match_decision_trees.js`
