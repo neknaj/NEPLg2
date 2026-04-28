@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck indirect apply module)
+
+- 状況:
+  - `constructor_apply` 分離後も、`function_apply.rs` の末尾に function value / indirect call fallback が残っていた。
+  - indirect call は resolved callable binding ではなく function-typed value を `CallIndirect` に lower する経路で、capture を含む function value の拒否診断も通常 call と別責務である。
+- 修正:
+  - `nepl-core/src/typecheck/indirect_apply.rs` を追加し、function value / indirect call fallback を `apply_indirect_function_call` へ分離した。
+  - `function_apply.rs` は overload / constructor / trait / normal user call を処理した後、最後に indirect apply module へ委譲する形にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck indirect apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/indirect_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test functions/call_reduction/overload/pipe_operator/effects -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -i tests/compiler/overload.n.md -i tests/compiler/pipe_operator.n.md -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-typecheck-indirect-apply-focused.json -j 1`: 186/186 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck constructor apply module)
 
 - 状況:

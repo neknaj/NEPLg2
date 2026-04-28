@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -15,6 +14,7 @@ use super::constructor_apply::ConstructorApplyResult;
 use super::control_apply::SpecialApplyResult;
 use super::env::{Binding, BindingKind};
 use super::field_apply::FieldAccessorApplyResult;
+use super::indirect_apply::apply_indirect_function_call;
 use super::signature::{function_signature_string, type_contains_unbound_var};
 use super::syntax_helpers::parse_variant_name;
 use super::traits::{
@@ -1072,83 +1072,6 @@ impl<'a> BlockChecker<'a> {
             }
         }
 
-        // Fallback: function value call (`call_indirect` in wasm backend)
-        // This path is limited to actual function-typed values (including explicit `@fn`).
-        let allow_indirect = match &func.expr.kind {
-            HirExprKind::FnValue(name) => {
-                let has_capture = self
-                    .env
-                    .lookup_all_callables_by_symbol(name)
-                    .iter()
-                    .any(|b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()));
-                if has_capture {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "capturing function cannot be used as a function value yet",
-                            func.expr.span,
-                        )
-                        .with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported),
-                    );
-                    false
-                } else {
-                    true
-                }
-            }
-            HirExprKind::Var(name) => {
-                if !matches!(self.ctx.get(func.ty), TypeKind::Function { .. }) {
-                    false
-                } else {
-                    let has_capture = self
-                        .env
-                        .lookup_all_callables(name)
-                        .iter()
-                        .any(|b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()));
-                    if has_capture {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                "capturing function cannot be passed as a function value yet",
-                                func.expr.span,
-                            )
-                            .with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported),
-                        );
-                        false
-                    } else {
-                        true
-                    }
-                }
-            }
-            _ => matches!(self.ctx.get(func.ty), TypeKind::Function { .. }),
-        };
-        if !allow_indirect {
-            self.diagnostics.push(
-                Diagnostic::error("indirect call requires a function value", func.expr.span)
-                    .with_id(DiagnosticId::TypeIndirectCallRequiresFunctionValue),
-            );
-            return None;
-        }
-
-        let resolved_params: Vec<TypeId> = args.iter().map(|a| self.ctx.resolve_id(a.ty)).collect();
-        let mut resolved_result = self.ctx.resolve_id(result);
-        if let Some(expected) = expected_ret {
-            if self.ctx.unify(resolved_result, expected).is_ok() {
-                resolved_result = self.ctx.resolve_id(expected);
-            }
-        }
-        Some(StackEntry {
-            ty: resolved_result,
-            expr: HirExpr {
-                ty: resolved_result,
-                kind: HirExprKind::CallIndirect {
-                    callee: Box::new(func.expr.clone()),
-                    params: resolved_params,
-                    result: resolved_result,
-                    args: args.into_iter().map(|a| a.expr).collect(),
-                },
-                span: func.expr.span,
-            },
-            type_args: Vec::new(),
-            assign: None,
-            auto_call: true,
-        })
+        apply_indirect_function_call(self, func, args, result, expected_ret)
     }
 }

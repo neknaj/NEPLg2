@@ -19,6 +19,7 @@ mod field_apply;
 mod function_apply;
 mod function_check;
 mod hir_finalize;
+mod indirect_apply;
 mod match_check;
 mod model;
 mod name_lookup;
