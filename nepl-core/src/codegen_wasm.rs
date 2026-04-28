@@ -1648,6 +1648,9 @@ fn gen_expr(
             } else if name == "u8_to_i32" {
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 Some(ValType::I32)
+            } else if name == "char_to_i32" || name == "i32_to_char" {
+                gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
+                Some(ValType::I32)
             } else if name == "u32_to_i32" {
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
                 Some(ValType::I32)

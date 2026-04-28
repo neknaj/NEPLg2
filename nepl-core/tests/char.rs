@@ -5,7 +5,7 @@ use nepl_core::diagnostic::Severity;
 use nepl_core::lexer::{self, TokenKind};
 use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
-use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
+use nepl_core::{compile_module_with_source_map, BuildProfile, CompileOptions, CompileTarget};
 
 fn stdlib_root() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -28,6 +28,20 @@ fn compile_with_loader(src: &str) -> Result<(), nepl_core::error::CoreError> {
         },
     )
     .map(|_| ())
+}
+
+fn emit_llvm_with_loader(src: &str) -> Result<String, nepl_core::codegen_llvm::LlvmCodegenError> {
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline("char_llvm_test.nepl".into(), src.to_string())
+        .expect("load");
+    nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
+        &loaded.module,
+        CompileTarget::Llvm,
+        BuildProfile::Debug,
+        false,
+        Some(&loaded.source_map),
+    )
 }
 
 #[test]
@@ -191,6 +205,29 @@ fn main <()->i32> ():
     n
 "#;
     assert!(compile_with_loader(src).is_err());
+}
+
+#[test]
+fn char_cast_intrinsics_emit_llvm_as_i32_noops() {
+    let src = r#"
+#entry main
+#target llvm
+fn from_code_raw <(i32)->char> (v):
+    #intrinsic "i32_to_char" <> (v)
+
+fn to_code_raw <(char)->i32> (c):
+    #intrinsic "char_to_i32" <> (c)
+
+fn main <()->i32> ():
+    let c <char> from_code_raw 65;
+    to_code_raw c
+"#;
+    let ll = emit_llvm_with_loader(src).expect("char cast intrinsics should emit LLVM IR");
+    assert!(ll.contains("define i32"));
+    assert!(ll.contains("from_code_raw"));
+    assert!(ll.contains("to_code_raw"));
+    assert!(!ll.contains("char_to_i32"));
+    assert!(!ll.contains("i32_to_char"));
 }
 
 #[test]

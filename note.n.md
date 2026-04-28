@@ -42,6 +42,28 @@
 - plan.md との差異:
   - plan.md は変更していない。静的検査大規模修正は doc/neplg2 の Stage 4 に入っており、旧 checker を弱めずに Resource IR 検査を先に固定している。
 
+# 2026-04-28 メモ (ISS-20260428T004640143Z stdlib char API / string integration)
+
+- 状況:
+  - 言語側の `char` literal は入っていたが、stdlib には code point 変換、ASCII 分類、UTF-8 encode/decode、`str` の char index API、builder 連携が揃っていなかった。
+  - `len` / `str_slice_result` は既存 WASI I/O と binary 境界のため byte API として維持し、char API は明示名で分離する必要があった。
+- 修正:
+  - `core/cast` と codegen/typecheck に `char_to_i32` / `i32_to_char` intrinsic を追加し、`core/char` に scalar 検証、`CharUtf8Step`、ASCII 分類、UTF-8 byte helper を追加した。
+  - `alloc/string` に `str_byte_len`、`str_next_char_result`、`str_char_count`、`str_char_at_result`、`str_slice_chars_result`、`str_starts_with_char`、`str_contains_char`、`sb_append_char(_result)`、`sb_append_ascii(_result)` を追加した。
+  - `alloc/io` / `std/text` に char の UTF-8 `ByteBuf` encode と raw byte decode API を追加し、旧 tuple 型ではなく `CharUtf8Step { value, next }` を返す仕様に整理した。
+- 検証:
+  - `cargo check`: pass
+  - `cargo test -p nepl-core --test char`: 12/12 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/char_cast.n.md --no-tree -o tmp/char-cast-after-rebase.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i stdlib/core/char.nepl --no-tree -o tmp/core-char-docs-after-rebase.json -j 1`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/string-char-after-rebase.json -j 1`: 3/3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text-utf8-char-after-rebase.json -j 1`: 9/9 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/alloc-io-char-docs-after-rebase.json -j 1`: 1/1 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/alloc-string-char-docs-after-rebase.json -j 1`: 6/6 passed
+- plan.md との差異:
+  - plan.md は変更していない。char stdlib 整備は `doc/neplg2/char_stdlib_integration_plan.md` に沿って進めた。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-009 Stage 3 lowering coverage comparison)
 
 - 状況:

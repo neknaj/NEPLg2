@@ -28,6 +28,80 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
+## text_utf8_decode_next_reads_char_offsets
+
+`text_utf8_decode_next` が raw bytes から char と次 byte offset を返し、byte length と char count を混同しないことを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/text" as *
+#import "std/test" as *
+#import "alloc/io" as *
+#import "core/char" as *
+#import "core/field" as *
+#import "core/result" as *
+
+fn expect_decoded <(str,Result<CharUtf8Step,StdErrorKind>,i32,i32)*>Result<(),str>> (label, got, expected_code, expected_next):
+    match got:
+        Result::Err _e:
+            Result<(),str>::Err label
+        Result::Ok item:
+            let c <char> get item "value"
+            let next <i32> get item "next"
+            match check_eq_i32 expected_code char_to_i32 c:
+                Result::Err e:
+                    Result<(),str>::Err e
+                Result::Ok _:
+                    check_eq_i32 expected_next next
+
+fn main <()*>i32> ():
+    let bytes <ByteBuf> io_bytebuf_from_str "Aあ"
+    let data <MemPtr<u8>> get bytes "ptr"
+    let byte_len <i32> get bytes "len"
+    let checks <Vec<Result<(),str>>>:
+        checks_new
+        |> checks_push expect_decoded "decode A" text_utf8_decode_next data byte_len 0 'A' 1
+        |> checks_push expect_decoded "decode hira" text_utf8_decode_next data byte_len 1 0x3042 4
+        |> checks_push assert is_err<CharUtf8Step,StdErrorKind> text_utf8_decode_next data byte_len 4
+    io_bytebuf_free bytes
+    checks_exit_code checks
+```
+
+## text_utf8_encode_char_returns_bytebuf
+
+`text_utf8_encode_char` が `char` を UTF-8 `ByteBuf` として返し、既存 checked conversion と接続できることを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/text" as *
+#import "std/test" as *
+#import "alloc/io" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let mut checks <Vec<Result<(),str>>> checks_new
+    match text_utf8_encode_char 'あ':
+        Result::Err _e:
+            set checks checks_push checks Result<(),str>::Err "encode failed"
+        Result::Ok bytes:
+            match text_bytebuf_to_utf8_str_result bytes:
+                Result::Err _e:
+                    set checks checks_push checks Result<(),str>::Err "encoded bytes rejected"
+                Result::Ok text:
+                    set checks checks_push checks check_str_eq "あ" text
+    checks_exit_code checks
+```
+
 ## bytebuf_to_utf8_str_rejects_invalid_leading_byte
 
 このケースは、continuation byte 単体を `str` に変換しないことを確認します。

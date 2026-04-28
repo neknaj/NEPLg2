@@ -1155,6 +1155,10 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.i32()
                     } else if intrin.name == "u8_to_i32" {
                         self.ctx.i32()
+                    } else if intrin.name == "char_to_i32" {
+                        self.ctx.i32()
+                    } else if intrin.name == "i32_to_char" {
+                        self.ctx.char()
                     } else if intrin.name == "u32_to_i32" {
                         self.ctx.i32()
                     } else if intrin.name == "i64_to_u64" {
@@ -1397,6 +1401,7 @@ impl<'a> BlockChecker<'a> {
                         || intrin.name == "reinterpret_i32_f32"
                         || intrin.name == "i32_to_u8"
                         || intrin.name == "i32_to_u32"
+                        || intrin.name == "i32_to_char"
                     {
                         if args.len() != 1 {
                             self.diagnostics.push(
@@ -1407,6 +1412,21 @@ impl<'a> BlockChecker<'a> {
                             self.diagnostics.push(
                                 Diagnostic::error(
                                     "intrinsic argument type mismatch (expected i32)",
+                                    *sp,
+                                )
+                                .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                            );
+                        }
+                    } else if intrin.name == "char_to_i32" {
+                        if args.len() != 1 {
+                            self.diagnostics.push(
+                                Diagnostic::error("intrinsic expects 1 argument", *sp)
+                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                            );
+                        } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.char()) {
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    "intrinsic argument type mismatch (expected char)",
                                     *sp,
                                 )
                                 .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),

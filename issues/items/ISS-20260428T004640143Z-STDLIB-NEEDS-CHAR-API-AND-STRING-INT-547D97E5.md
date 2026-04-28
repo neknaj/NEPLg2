@@ -2,13 +2,13 @@
 id: ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5
 title: "stdlib needs char API and string integration plan"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-04-28
-target: "doc/neplg2/char_stdlib_integration_plan.md, stdlib/core/char.nepl, stdlib/alloc/string.nepl, stdlib/std/text.nepl, stdlib/alloc/io.nepl, tests/stdlib/string_char.n.md"
+target: "doc/neplg2/char_stdlib_integration_plan.md, nepl-core/src/typecheck/prefix_check.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/char.rs, stdlib/core/cast.nepl, stdlib/core/char.nepl, stdlib/alloc/string.nepl, stdlib/std/text.nepl, stdlib/alloc/io.nepl, tests/compiler/char_cast.n.md, tests/stdlib/string_char.n.md, tests/stdlib/text_utf8.n.md"
 ---
 
 # ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5: stdlib needs char API and string integration plan
@@ -44,6 +44,24 @@ If char lands without stdlib integration, string and parser code will either kee
 
 Implement doc/neplg2/char_stdlib_integration_plan.md. Add stdlib/core/char.nepl with conversion and ASCII classifier APIs; add string char APIs such as str_byte_len, str_char_count, str_char_at_result, str_next_char_result, str_slice_chars_result; add StringBuilder and ByteBuilder char append helpers; share UTF-8 decode/encode logic with std/text; then migrate existing classifiers and lexer/parser punctuation to char literals where the value denotes a character.
 
+## 解決
+
+- `core/cast` に `char -> i32` と `i32 -> char` の明示変換を追加し、WASM / LLVM codegen と typecheck の intrinsic 対応を追加した。
+- `stdlib/core/char.nepl` を追加し、Unicode scalar 検証、`CharUtf8Step`、ASCII 分類、UTF-8 encode 用 byte helper を `alloc` 非依存で提供した。
+- `alloc/string` に `str_byte_len`、`str_next_char_result`、`str_char_count`、`str_char_at_result`、`str_slice_chars_result`、`str_starts_with_char`、`str_contains_char`、`sb_append_char(_result)`、`sb_append_ascii(_result)` を追加した。
+- `alloc/io` と `std/text` に `char` を UTF-8 `ByteBuf` へ encode する API と raw byte から 1 char を decode する API を追加した。
+- 旧 tuple 型は使わず、decode step は `CharUtf8Step { value, next }` で返す仕様として計画書にも反映した。
+
 ## 検証
 
 Add doctests for core/char, tests/stdlib/string_char.n.md, text UTF-8 encode/decode tests, and static regression tests for classifier functions. Run focused string/text/json/nm/html/cliarg/byte_builder/selfhost lexer tests and issue checks.
+
+- `cargo check`: pass
+- `cargo test -p nepl-core --test char`: 12/12 passed
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/char_cast.n.md --no-tree -o tmp/char-cast-after-rebase.json -j 1`: 2/2 passed
+- `node nodesrc/tests.js -i stdlib/core/char.nepl --no-tree -o tmp/core-char-docs-after-rebase.json -j 1`: 1/1 passed
+- `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/string-char-after-rebase.json -j 1`: 3/3 passed
+- `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text-utf8-char-after-rebase.json -j 1`: 9/9 passed
+- `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/alloc-io-char-docs-after-rebase.json -j 1`: 1/1 passed
+- `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/alloc-string-char-docs-after-rebase.json -j 1`: 6/6 passed

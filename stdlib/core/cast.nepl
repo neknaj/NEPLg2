@@ -137,6 +137,32 @@ fn cast <(i32)->u8> (v):
 fn cast <(u8)->i32> (v):
     #intrinsic "u8_to_i32" <> (v)
 
+//: cast: char を Unicode scalar value の i32 code point へ変換する
+//:
+//: [目的/もくてき]:
+//: - `char` 変数を byte / UTF-8 / parser code で扱うため、明示的に code point として取り出します。
+//:
+//: [注意/ちゅうい]:
+//: - char literal の文脈型変換とは別の明示 API です。`char` 変数は暗黙には整数へ変換されません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn cast <(char)->i32> (v):
+    #intrinsic "char_to_i32" <> (v)
+
+//: cast: i32 code point を char へ変換する
+//:
+//: [目的/もくてき]:
+//: - UTF-8 decoder などが検証済み code point を `char` 値へ戻せるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - 範囲検査は行いません。通常は `core/char` の `char_from_i32_result` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn cast <(i32)->char> (v):
+    #intrinsic "i32_to_char" <> (v)
+
 //: bitcast_i32_to_f32: i32 のビット列を f32 として再解釈する
 //:
 //: [目的/もくてき]:

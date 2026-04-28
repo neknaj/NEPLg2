@@ -472,6 +472,8 @@ pub(crate) fn is_supported_wasm_intrinsic(name: &str) -> bool {
             | "i32_to_u32"
             | "f32_to_i32"
             | "u8_to_i32"
+            | "char_to_i32"
+            | "i32_to_char"
             | "u32_to_i32"
             | "i64_to_u64"
             | "u64_to_i64"

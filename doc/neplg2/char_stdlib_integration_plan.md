@@ -46,7 +46,9 @@ NEPLg2 に `'a'` 形式の char literal と `char` primitive type を追加す�
 | `char_is_ascii_alnum(c) -> bool` | digit or alpha。 |
 | `char_is_ascii_whitespace(c) -> bool` | `' '` / `'\t'` / `'\n'` / `'\r'` など。 |
 | `char_utf8_len(c) -> i32` | UTF-8 encode 時の byte count。 |
-| `char_encode_utf8_result(c) -> Result<ByteBuf,str>` | char を UTF-8 bytes へ encode する。 |
+| `char_utf8_byte0..3(c) -> i32` | `char_utf8_len` と組み合わせて UTF-8 encode 用 byte を得る。 |
+
+`core/char` は `alloc` に依存しない純粋 API とする。`char` と i32 code point の相互変換は `core/cast` の明示変換を経由し、未検証 code point から `char` を作る公開入口は `char_from_i32_result` に限定する。
 
 `char` の分類は、`match` と range predicate を組み合わせて実装する。単一文字の有限分岐では char literal を使い、decimal code を避ける。
 
@@ -62,7 +64,7 @@ NEPLg2 に `'a'` 形式の char literal と `char` primitive type を追加す�
 | `str_char_count(s) -> i32` | UTF-8 を走査し、Unicode scalar 数を数える。O(byte_len)。 |
 | `str_char_at_result(s, char_index) -> Result<char,str>` | char index で 1 scalar を読む。O(byte_len)。 |
 | `str_char_byte_index_result(s, char_index) -> Result<i32,str>` | char index から byte offset を得る。 |
-| `str_next_char_result(s, byte_index) -> Result<(char,i32),str>` | byte offset から次 char と次 byte offset を返す。iterator の基礎。 |
+| `str_next_char_result(s, byte_index) -> Result<CharUtf8Step,str>` | byte offset から次 char と次 byte offset を返す。iterator の基礎。 |
 | `str_slice_chars_result(s, start_char, end_char) -> Result<str,str>` | char index 範囲を byte boundary に変換して slice する。 |
 | `str_starts_with_char(s, c) -> bool` | 先頭 char 判定。 |
 | `str_contains_char(s, c) -> bool` | char 単位の contains。 |
@@ -73,6 +75,7 @@ NEPLg2 に `'a'` 形式の char literal と `char` primitive type を追加す�
 - `str_slice_result` は byte index API のままとする。
 - `str_utf8_is_boundary` は `str_slice_chars_result` の下位 API として維持する。
 - 既存 `string_byte_at_unchecked` などの byte API は binary / low-level 用として残すが、doc に「文字ではなく byte」と明記する。
+- NEPLg2 の旧 tuple type は廃止済みなので、decode step は `(char,i32)` ではなく `CharUtf8Step { value, next }` の名前付き struct で返す。
 
 ## `StringBuilder` / `ByteBuilder` 連携
 
@@ -84,6 +87,7 @@ NEPLg2 に `'a'` 形式の char literal と `char` primitive type を追加す�
 | `sb_append_ascii_result(sb, c) -> Result<StringBuilder,str>` | ASCII char だけを 1 byte として append。 |
 | `byte_builder_push_char_utf8(builder, c)` | UTF-8 bytes を `ByteBuilder` へ追加。 |
 | `byte_builder_push_ascii(builder, c)` | ASCII char だけを 1 byte 追加。 |
+| `io_bytebuf_from_char_utf8_result(c)` | char 1 つを所有 `ByteBuf` へ encode。 |
 
 WASM binary emitter のような binary format では、text magic 以外の byte は `u8` / integer のままにする。`'\0'` や `'a'` のように意味が文字である箇所だけ char literal に置き換える。
 
@@ -93,7 +97,7 @@ WASM binary emitter のような binary format では、text magic 以外の byt
 
 追加候補:
 
-- `text_utf8_decode_next(data, byte_len, i) -> Result<(char,i32), StdErrorKind>`
+- `text_utf8_decode_next(data, byte_len, i) -> Result<CharUtf8Step, StdErrorKind>`
 - `text_utf8_encode_char(c) -> Result<ByteBuf, StdErrorKind>`
 - `text_is_valid_scalar(code) -> bool`
 
@@ -133,7 +137,7 @@ char support 実装後、次の順で decimal character code を char literal �
 
 ### Stage 2: UTF-8 encode / decode
 
-- `char_utf8_len` と UTF-8 encode helper を追加する。
+- `char_utf8_len` と UTF-8 encode helper を追加する。所有 `ByteBuf` を返す helper は `alloc/io` / `std/text` 側に置き、`core/char` から `alloc` へ依存しない。
 - `str_next_char_result` を実装し、UTF-8 decoder を `string` / `std/text` で共有できる形へ整理する。
 
 ### Stage 3: `string` char API

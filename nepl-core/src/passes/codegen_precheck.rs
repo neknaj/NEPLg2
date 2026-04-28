@@ -26,6 +26,8 @@ const LLVM_SUPPORTED_INTRINSICS: &[&str] = &[
     "i32_to_u8",
     "i32_to_u32",
     "u8_to_i32",
+    "char_to_i32",
+    "i32_to_char",
     "u32_to_i32",
     "i64_to_u64",
     "u64_to_i64",

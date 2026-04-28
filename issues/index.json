@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T07:37:36.356Z",
+  "generated_at": "2026-04-28T08:26:25.595Z",
   "counts": {
     "total": 247,
-    "open": 14,
-    "resolved": 233,
+    "open": 13,
+    "resolved": 234,
     "by_area": {
       "core": {
         "total": 103,
@@ -23,8 +23,8 @@
       },
       "stdlib": {
         "total": 94,
-        "open": 7,
-        "resolved": 87
+        "open": 6,
+        "resolved": 88
       },
       "cli": {
         "total": 19,
@@ -198,21 +198,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5",
-      "title": "stdlib needs char API and string integration plan",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "doc/neplg2/char_stdlib_integration_plan.md, stdlib/core/char.nepl, stdlib/alloc/string.nepl, stdlib/std/text.nepl, stdlib/alloc/io.nepl, tests/stdlib/string_char.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -2373,6 +2358,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378.md"
+    },
+    {
+      "id": "ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5",
+      "title": "stdlib needs char API and string integration plan",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "doc/neplg2/char_stdlib_integration_plan.md, nepl-core/src/typecheck/prefix_check.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/tests/char.rs, stdlib/core/cast.nepl, stdlib/core/char.nepl, stdlib/alloc/string.nepl, stdlib/std/text.nepl, stdlib/alloc/io.nepl, tests/compiler/char_cast.n.md, tests/stdlib/string_char.n.md, tests/stdlib/text_utf8.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T004640143Z-STDLIB-NEEDS-CHAR-API-AND-STRING-INT-547D97E5.md"
     },
     {
       "id": "ISS-20260428T031445156Z-STDLIB-DIAG-AND-ERROR-RAW-AGGREGATE--D64EF00F",

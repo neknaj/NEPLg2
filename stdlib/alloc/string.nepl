@@ -23,6 +23,7 @@
 #import "core/option" as *
 #import "core/math" as *
 #import "core/cast" as *
+#import "core/char" as *
 #import "alloc/collections/vec" as v
 #import "core/field" as *
 
@@ -448,6 +449,16 @@ fn string_from_utf8_mem_result <(MemPtr<u8>,i32)->Result<str,str>> (src, byte_le
 fn len <(str)->i32> (s):
     load_i32 string_addr s
 
+//: str_byte_len: `str` の byte 長を明示名で返す
+//:
+//: [目的/もくてき]:
+//: - `len` が Unicode scalar count ではなく byte length であることを、呼び出し側の名前で明確にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_byte_len <(str)->i32> (s):
+    len s
+
 //: byte_at: 文字列の指定 byte を読む
 //:
 //: [目的/もくてき]:
@@ -812,6 +823,103 @@ fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s):
                             string_builder_free reserved;
                             Result<StringBuilder,str>::Err "string.builder append copy failed"
 
+fn sb_finish_char_append <(StringBuilder,i32)->Result<StringBuilder,str>> (reserved, count):
+    Result<StringBuilder,str>::Ok StringBuilder get reserved "data" add get reserved "len" count get reserved "cap"
+
+//: sb_append_char_result: builder に char を UTF-8 として追加する
+//:
+//: [目的/もくてき]:
+//: - 1 つの `char` を UTF-8 bytes に encode し、builder の末尾へ追加します。
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時は入力 builder の内部 buffer を解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
+fn sb_append_char_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb, c):
+    let count <i32> char_utf8_len c
+    match string_builder_reserve_result sb count:
+        Result::Err e:
+            Result<StringBuilder,str>::Err e
+        Result::Ok reserved:
+            let dst <MemPtr<u8>> mem_ptr_add get reserved "data" get reserved "len"
+            match store_u8 dst char_utf8_byte0 c:
+                Result::Err _e:
+                    string_builder_free reserved
+                    Result<StringBuilder,str>::Err "string.builder append char failed"
+                Result::Ok _:
+                    if:
+                        eq count 1
+                        then:
+                            sb_finish_char_append reserved count
+                        else:
+                            match store_u8 mem_ptr_add dst 1 char_utf8_byte1 c:
+                                Result::Err _e:
+                                    string_builder_free reserved
+                                    Result<StringBuilder,str>::Err "string.builder append char failed"
+                                Result::Ok _:
+                                    if:
+                                        eq count 2
+                                        then:
+                                            sb_finish_char_append reserved count
+                                        else:
+                                            match store_u8 mem_ptr_add dst 2 char_utf8_byte2 c:
+                                                Result::Err _e:
+                                                    string_builder_free reserved
+                                                    Result<StringBuilder,str>::Err "string.builder append char failed"
+                                                Result::Ok _:
+                                                    if:
+                                                        eq count 3
+                                                        then:
+                                                            sb_finish_char_append reserved count
+                                                        else:
+                                                            match store_u8 mem_ptr_add dst 3 char_utf8_byte3 c:
+                                                                Result::Err _e:
+                                                                    string_builder_free reserved
+                                                                    Result<StringBuilder,str>::Err "string.builder append char failed"
+                                                                Result::Ok _:
+                                                                    sb_finish_char_append reserved count
+
+//: sb_append_ascii_result: builder に ASCII char を 1 byte として追加する
+//:
+//: [目的/もくてき]:
+//: - protocol marker や lexer punctuation のように ASCII として決まっている文字だけを追加します。
+//:
+//: [注意/ちゅうい]:
+//: - 非 ASCII char は `Err` です。入力 builder は失敗時に解放されます。
+fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb, c):
+    if:
+        char_is_ascii c
+        then:
+            match string_builder_reserve_result sb 1:
+                Result::Err e:
+                    Result<StringBuilder,str>::Err e
+                Result::Ok reserved:
+                    let dst <MemPtr<u8>> mem_ptr_add get reserved "data" get reserved "len"
+                    match store_u8 dst char_to_i32 c:
+                        Result::Ok _:
+                            sb_finish_char_append reserved 1
+                        Result::Err _e:
+                            string_builder_free reserved
+                            Result<StringBuilder,str>::Err "string.builder append ascii failed"
+        else:
+            string_builder_free sb
+            Result<StringBuilder,str>::Err "string.builder non-ascii char"
+
+fn sb_append_char <(StringBuilder,char)->StringBuilder> (sb, c):
+    match sb_append_char_result sb c:
+        Result::Ok next:
+            next
+        Result::Err _e:
+            string_builder_empty
+
+fn sb_append_ascii <(StringBuilder,char)->StringBuilder> (sb, c):
+    match sb_append_ascii_result sb c:
+        Result::Ok next:
+            next
+        Result::Err _e:
+            string_builder_empty
+
 fn sb_append <(StringBuilder,str)->StringBuilder> (sb, s):
     match sb_append_result sb s:
         Result::Ok next:
@@ -1118,6 +1226,277 @@ fn str_slice <(str,i32,i32)->str> (s, start, end):
             out
         Result::Err _e:
             ""
+
+fn str_next_char_ok <(char,i32)->Result<CharUtf8Step,str>> (c, next_byte_index):
+    Result<CharUtf8Step,str>::Ok char_utf8_step_new c next_byte_index
+
+fn str_decode_char_result <(i32,i32)->Result<CharUtf8Step,str>> (code, next_byte_index):
+    match char_from_i32_result code:
+        Result::Err _e:
+            Result<CharUtf8Step,str>::Err "string.char invalid scalar"
+        Result::Ok c:
+            str_next_char_ok c next_byte_index
+
+//: str_next_char_result: byte offset から次の char と次 byte offset を読む
+//:
+//: [目的/もくてき]:
+//: - `str` を byte index で保持したまま、UTF-8 の 1 scalar value だけを安全に decode します。
+//:
+//: [注意/ちゅうい]:
+//: - `byte_index` は UTF-8 文字境界でなければなりません。
+//: - 戻り値の `CharUtf8Step.value` が `char`、`CharUtf8Step.next` が次の byte offset です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index):
+    let n <i32> len s
+    if:
+        or lt byte_index 0 le n byte_index
+        then:
+            Result<CharUtf8Step,str>::Err "string.char index out of bounds"
+        else:
+            if:
+                not str_utf8_is_boundary s byte_index
+                then:
+                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 boundary"
+                else:
+                    let b0 <i32> string_byte_at_unchecked s byte_index
+                    if:
+                        le b0 0x7F
+                        then:
+                            str_decode_char_result b0 add byte_index 1
+                        else:
+                            match string_utf8_lead_kind b0:
+                                StringUtf8LeadKind::Ascii:
+                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 leading byte"
+                                StringUtf8LeadKind::Two:
+                                    if:
+                                        le n add byte_index 1
+                                        then:
+                                            Result<CharUtf8Step,str>::Err "string.char truncated utf8"
+                                        else:
+                                            let b1 <i32> string_byte_at_unchecked s add byte_index 1
+                                            if:
+                                                string_utf8_is_continuation b1
+                                                then:
+                                                    let hi <i32> shl and b0 0x1F 6
+                                                    let lo <i32> and b1 0x3F
+                                                    str_decode_char_result or hi lo add byte_index 2
+                                                else:
+                                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 continuation"
+                                StringUtf8LeadKind::Three:
+                                    if:
+                                        le n add byte_index 2
+                                        then:
+                                            Result<CharUtf8Step,str>::Err "string.char truncated utf8"
+                                        else:
+                                            let b1 <i32> string_byte_at_unchecked s add byte_index 1
+                                            let b2 <i32> string_byte_at_unchecked s add byte_index 2
+                                            let first_ok <bool>:
+                                                if:
+                                                    eq b0 0xE0
+                                                    then:
+                                                        string_utf8_in_range b1 0xA0 0xBF
+                                                    else:
+                                                        if:
+                                                            eq b0 0xED
+                                                            then:
+                                                                string_utf8_in_range b1 0x80 0x9F
+                                                            else:
+                                                                string_utf8_is_continuation b1
+                                            if:
+                                                and first_ok string_utf8_is_continuation b2
+                                                then:
+                                                    let part0 <i32> shl and b0 0x0F 12
+                                                    let part1 <i32> shl and b1 0x3F 6
+                                                    let part2 <i32> and b2 0x3F
+                                                    str_decode_char_result or part0 or part1 part2 add byte_index 3
+                                                else:
+                                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 three-byte sequence"
+                                StringUtf8LeadKind::Four:
+                                    if:
+                                        le n add byte_index 3
+                                        then:
+                                            Result<CharUtf8Step,str>::Err "string.char truncated utf8"
+                                        else:
+                                            let b1 <i32> string_byte_at_unchecked s add byte_index 1
+                                            let b2 <i32> string_byte_at_unchecked s add byte_index 2
+                                            let b3 <i32> string_byte_at_unchecked s add byte_index 3
+                                            let first_ok <bool>:
+                                                if:
+                                                    eq b0 0xF0
+                                                    then:
+                                                        string_utf8_in_range b1 0x90 0xBF
+                                                    else:
+                                                        if:
+                                                            eq b0 0xF4
+                                                            then:
+                                                                string_utf8_in_range b1 0x80 0x8F
+                                                            else:
+                                                                string_utf8_is_continuation b1
+                                            if:
+                                                and first_ok and string_utf8_is_continuation b2 string_utf8_is_continuation b3
+                                                then:
+                                                    let part0 <i32> shl and b0 0x07 18
+                                                    let part1 <i32> shl and b1 0x3F 12
+                                                    let part2 <i32> shl and b2 0x3F 6
+                                                    let part3 <i32> and b3 0x3F
+                                                    str_decode_char_result or part0 or part1 or part2 part3 add byte_index 4
+                                                else:
+                                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 four-byte sequence"
+                                StringUtf8LeadKind::Invalid:
+                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 leading byte"
+
+//: str_char_count: `str` に含まれる Unicode scalar value 数を数える
+//:
+//: [注意/ちゅうい]:
+//: - byte length ではありません。byte length が必要な場合は `str_byte_len` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn str_char_count <(str)->i32> (s):
+    let n <i32> len s
+    let mut byte_i <i32> 0
+    let mut char_count <i32> 0
+    let mut done <bool> false
+    while and lt byte_i n not done:
+        do:
+            match str_next_char_result s byte_i:
+                Result::Err _e:
+                    set done true
+                Result::Ok item:
+                    let next <i32> get item "next";
+                    set byte_i next;
+                    let next_count <i32> add char_count 1;
+                    set char_count next_count
+    char_count
+
+//: str_char_byte_index_result: char index を byte offset へ変換する
+//:
+//: [目的/もくてき]:
+//: - char 単位 API の入口で、byte-oriented `str_slice_result` へ渡す offset を求めます。
+//:
+//: [注意/ちゅうい]:
+//: - `char_index == str_char_count s` のときは末尾 byte offset を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn str_char_byte_index_result <(str,i32)->Result<i32,str>> (s, char_index):
+    if:
+        lt char_index 0
+        then:
+            Result<i32,str>::Err "string.char index out of bounds"
+        else:
+            let n <i32> len s
+            let mut byte_i <i32> 0
+            let mut char_i <i32> 0
+            let mut failed <bool> false
+            while and lt char_i char_index not failed:
+                do:
+                    if:
+                        le n byte_i
+                        then:
+                            set failed true
+                        else:
+                            match str_next_char_result s byte_i:
+                                Result::Err _e:
+                                    set failed true
+                                Result::Ok item:
+                                    let next <i32> get item "next";
+                                    set byte_i next;
+                                    let next_char_i <i32> add char_i 1;
+                                    set char_i next_char_i
+            if:
+                failed
+                then:
+                    Result<i32,str>::Err "string.char index out of bounds"
+                else:
+                    Result<i32,str>::Ok byte_i
+
+//: str_char_at_result: char index で 1 つの char を読む
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn str_char_at_result <(str,i32)->Result<char,str>> (s, char_index):
+    match str_char_byte_index_result s char_index:
+        Result::Err e:
+            Result<char,str>::Err e
+        Result::Ok byte_i:
+            if:
+                le len s byte_i
+                then:
+                    Result<char,str>::Err "string.char index out of bounds"
+                else:
+                    match str_next_char_result s byte_i:
+                        Result::Err e:
+                            Result<char,str>::Err e
+                        Result::Ok item:
+                            let c <char> get item "value"
+                            Result<char,str>::Ok c
+
+//: str_slice_chars_result: char index 範囲を切り出す
+//:
+//: [目的/もくてき]:
+//: - char index の半開区間 `[start_char, end_char)` を byte boundary へ変換し、新しい `str` として返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len + slice_byte_len)
+fn str_slice_chars_result <(str,i32,i32)->Result<str,str>> (s, start_char, end_char):
+    if:
+        or lt start_char 0 lt end_char start_char
+        then:
+            Result<str,str>::Err "string.char invalid slice range"
+        else:
+            match str_char_byte_index_result s start_char:
+                Result::Err e:
+                    Result<str,str>::Err e
+                Result::Ok start_byte:
+                    match str_char_byte_index_result s end_char:
+                        Result::Err e:
+                            Result<str,str>::Err e
+                        Result::Ok end_byte:
+                            str_slice_result s start_byte end_byte
+
+//: str_starts_with_char: `str` が指定 char で始まるか判定する
+fn str_starts_with_char <(str,char)->bool> (s, c):
+    if:
+        eq len s 0
+        then:
+            false
+        else:
+            match str_next_char_result s 0:
+                Result::Err _e:
+                    false
+                Result::Ok item:
+                    let first <char> get item "value"
+                    eq char_to_i32 first char_to_i32 c
+
+//: str_contains_char: `str` が指定 char を含むか char 単位で判定する
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn str_contains_char <(str,char)->bool> (s, c):
+    let target <i32> char_to_i32 c
+    let n <i32> len s
+    let mut byte_i <i32> 0
+    let mut found <bool> false
+    let mut done <bool> false
+    while and lt byte_i n not done:
+        do:
+            match str_next_char_result s byte_i:
+                Result::Err _e:
+                    set done true
+                Result::Ok item:
+                    let current <char> get item "value"
+                    if:
+                        eq char_to_i32 current target
+                        then:
+                            set found true;
+                            set done true
+                        else:
+                            let next <i32> get item "next"
+                            set byte_i next
+    found
 
 //: str_trim: 前後の ASCII 空白を取り除く
 //:

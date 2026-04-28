@@ -37,6 +37,7 @@
 
 #import "alloc/diag/error" as *
 #import "alloc/string" as *
+#import "core/char" as *
 #import "core/mem" as *
 #import "core/result" as *
 
@@ -336,6 +337,63 @@ fn byte_builder_push_u8 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (
                     byte_builder_free reserved
                     Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
+//: byte_builder_push_ascii: ASCII char を 1 byte として[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - text magic や delimiter など、意味が文字である byte を `char` として受け取ります。
+//:
+//: [注意/ちゅうい]:
+//: - 非 ASCII char は `InvalidOperation` です。失敗時は builder を[解放/かいほう]します。
+fn byte_builder_push_ascii <(ByteBuilder,char)*>Result<ByteBuilder, StdErrorKind>> (builder, c):
+    if:
+        char_is_ascii c
+        then:
+            byte_builder_push_u8 builder char_to_i32 c
+        else:
+            byte_builder_free builder
+            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+fn byte_builder_push_utf8_tail <(ByteBuilder,char,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, c, count):
+    if:
+        eq count 1
+        then:
+            Result<ByteBuilder, StdErrorKind>::Ok builder
+        else:
+            match byte_builder_push_u8 builder char_utf8_byte1 c:
+                Result::Err e:
+                    Result<ByteBuilder, StdErrorKind>::Err e
+                Result::Ok b1:
+                    if:
+                        eq count 2
+                        then:
+                            Result<ByteBuilder, StdErrorKind>::Ok b1
+                        else:
+                            match byte_builder_push_u8 b1 char_utf8_byte2 c:
+                                Result::Err e:
+                                    Result<ByteBuilder, StdErrorKind>::Err e
+                                Result::Ok b2:
+                                    if:
+                                        eq count 3
+                                        then:
+                                            Result<ByteBuilder, StdErrorKind>::Ok b2
+                                        else:
+                                            byte_builder_push_u8 b2 char_utf8_byte3 c
+
+//: byte_builder_push_char_utf8: char を UTF-8 bytes として[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `StringBuilder` ではなく binary `ByteBuilder` に text character を追加したい場合の共通入口です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
+fn byte_builder_push_char_utf8 <(ByteBuilder,char)*>Result<ByteBuilder, StdErrorKind>> (builder, c):
+    let count <i32> char_utf8_len c
+    match byte_builder_push_u8 builder char_utf8_byte0 c:
+        Result::Err e:
+            Result<ByteBuilder, StdErrorKind>::Err e
+        Result::Ok b0:
+            byte_builder_push_utf8_tail b0 c count
+
 //: byte_builder_push_bytes_ref: 参照 byte [列/れつ]を[末尾/まつび]へ[複製/ふくせい]する
 //:
 //: [目的/もくてき]:
@@ -430,6 +488,24 @@ fn byte_builder_finish <(ByteBuilder)*>Result<ByteBuf, StdErrorKind>> (builder):
                         Result::Err _e:
                             byte_builder_free builder
                             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: io_bytebuf_from_char_utf8_result: char 1 つを UTF-8 `ByteBuf` へ encode する
+//:
+//: [目的/もくてき]:
+//: - `char` を I/O や `std/text` の byte 境界へ渡すため、所有権付き `ByteBuf` として返します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った `ByteBuf` は呼び出し側が `io_bytebuf_free` で解放してください。
+fn io_bytebuf_from_char_utf8_result <(char)*>Result<ByteBuf, StdErrorKind>> (c):
+    match byte_builder_with_capacity char_utf8_len c:
+        Result::Err e:
+            Result<ByteBuf, StdErrorKind>::Err e
+        Result::Ok builder:
+            match byte_builder_push_char_utf8 builder c:
+                Result::Err e:
+                    Result<ByteBuf, StdErrorKind>::Err e
+                Result::Ok filled:
+                    byte_builder_finish filled
 
 //: ## ByteReader
 //: [生/なま]の[バイト列/ばいとれつ]を[読/よ]み[出/だ]す[能力/のうりょく]
