@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T09:45:15.652Z",
+  "generated_at": "2026-04-28T09:50:46.227Z",
   "counts": {
     "total": 250,
-    "open": 12,
-    "resolved": 238,
+    "open": 11,
+    "resolved": 239,
     "by_area": {
       "core": {
         "total": 103,
         "open": 4,
         "resolved": 99
-      },
-      "doc": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
       },
       "selfhost": {
         "total": 16,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "doc": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "examples": {
         "total": 13,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
-      "title": "getting_started tutorial needs full rewrite for current NEPLg2",
-      "area": "doc",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "doc",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "doc/neplg2/tutorial_rewrite_plan.md, tutorials/getting_started/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2.md"
     },
     {
       "id": "ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B",
@@ -1683,6 +1668,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T021121770Z-CHAR-LITERAL-ESCAPES-MISS-BACKSPACE--EB703EFF.md"
+    },
+    {
+      "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
+      "title": "getting_started tutorial needs full rewrite for current NEPLg2",
+      "area": "doc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "doc/neplg2/tutorial_rewrite_plan.md, tutorials/getting_started/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

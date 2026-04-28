@@ -94,7 +94,7 @@ fn main <()->()> ():
 12. `11_bytebuf_and_text_io.n.md`: `ByteBuf`、checked UTF-8 conversion、binary と text の区別。
 13. `12_char_and_ascii.n.md`: `char` 実装後に追加。char literal、ASCII classifier、`str_char_*`。
 
-`char` が実装されるまでは、12 章は計画章として index に載せず、実装後に追加する。
+`char` 実装後の current tutorial では、12 章を index に載せ、`char` literal と `str_char_*` API の実行例を含める。
 
 ### Part 4: collection と所有権
 
@@ -196,3 +196,12 @@ raw memory、`MemPtr`、`alloc_raw` は通常 tutorial では扱わない。必�
 4. `Result` / `Option` / `match` / collection ownership / string byte-vs-char の説明が一貫している。
 5. char 実装後、char literal と stdlib char API を使う章が追加されている。
 6. `tutorials/getting_started` の doctest が通る。
+
+## 2026-04-28 実装結果
+
+- `tutorials/getting_started/` をこの計画の章立てへ更新した。
+- 旧 `02`〜`27` 章は削除し、入門本文を `02_test_harness`〜`24_project_byte_output` へ再構成した。
+- 競技プログラミング向けの内容は `90` 以降の Advanced track へ分離した。
+- `char` は実装済みのため、`12_char_and_ascii.n.md` に char literal、ASCII classifier、`str_char_at_result` の runnable example を追加した。
+- raw memory / old spaced impure-unit signature / panic helper が tutorial example に戻らないよう、`nodesrc/test_tutorial_getting_started_current_style.js` を追加した。
+- `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite.json -j 4`: 24/24 passed。

@@ -1,0 +1,57 @@
+# Vec の基本
+
+`Vec<T>` は所有権を持つ growable collection です。作成や追加は失敗しうるため、`Result` を `match` して扱います。
+
+neplg2:test
+ret: 0
+```neplg2
+| #entry main
+| #indent 4
+| #target std
+|
+#import "alloc/collections/vec" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn build_numbers <()*>Result<Vec<i32>,str>> ():
+    match new<i32>:
+        Result::Err _e:
+            Result<Vec<i32>,str>::Err "vec.new failed"
+        Result::Ok v0:
+            match push<i32> v0 10:
+                Result::Err _e:
+                    Result<Vec<i32>,str>::Err "vec.push 10 failed"
+                Result::Ok v1:
+                    match push<i32> v1 20:
+                        Result::Err _e:
+                            Result<Vec<i32>,str>::Err "vec.push 20 failed"
+                        Result::Ok v2:
+                            Result<Vec<i32>,str>::Ok v2
+
+fn expect_item <(&Vec<i32>,i32,i32)->Result<(),str>> (v, idx, expected):
+    match get_ref<i32> v idx:
+        Option::Some value:
+            check_eq_i32 expected value
+        Option::None:
+            Result<(),str>::Err "missing vec item"
+
+fn main <()*>i32> ():
+    match build_numbers:
+        Result::Err msg:
+            checks_exit_code checks_push checks_new Result<(),str>::Err msg
+        Result::Ok numbers:
+            let n <i32> len_ref<i32> &numbers
+            let len_ok <Result<(),str>> check_eq_i32 2 n
+            let item0 <Result<(),str>> expect_item &numbers 0 10
+            let item1 <Result<(),str>> expect_item &numbers 1 20
+            let checks <Vec<Result<(),str>>>:
+                checks_new
+                |> checks_push len_ok
+                |> checks_push item0
+                |> checks_push item1
+            free<i32> numbers;
+            checks_exit_code checks
+```
+
+`Vec` の owner は最後に `free` します。読み取りだけなら `&numbers` を渡す `*_ref` API を使い、collection 本体を消費しないようにします。

@@ -2,8 +2,8 @@
 id: ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2
 title: "getting_started tutorial needs full rewrite for current NEPLg2"
 area: doc
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: doc
 created: 2026-04-28
@@ -53,3 +53,27 @@ Run node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorial
 GitHub Actions run `25045198144` の `tutorials-test` で、`tutorials/getting_started/22_competitive_io_and_arith.n.md::doctest#1/#2` が `D3005 ambiguous overload` になった。原因は `add read sc read sc` の形で `read(StreamScanner)` の戻り値 overload を `add` の期待型だけから解決しようとしていた点である。
 
 今回の対応では、2 つの入力をそれぞれ `let a <i32> read sc` / `let b <i32> read sc`、および `i64` 版の型付き local に分けた。tutorial 本文としても現在の overload 解決規則に沿い、入力値の型を読み取り時点で明示する形へ修正した。
+
+この旧 22 章は全面 rewrite で入門本文から削除し、競技プログラミング向けの内容は `90` 以降の Advanced track へ移した。そのため、この ambiguity は旧章の局所修正ではなく、current tutorial の再構成に吸収した。
+
+## 対応結果
+
+- `tutorials/getting_started/00_index.n.md` を current NEPLg2 向けの章立てへ更新した。
+- 古い `02`〜`27` 章を削除し、`02_test_harness`〜`24_project_byte_output`、`90` 以降の Advanced track、`99_migration_notes` へ再構成した。
+- 本文の runnable example を `std/test` / `Result` / `Option` / `match` / `char` / `str_char_*` / `Vec` の current API に合わせた。
+- 競技プログラミング catalog は入門本文から外し、Advanced track の設計メモへ分離した。
+- `alloc_raw` / `MemPtr` / `unwrap_ok` / `uwok` / old spaced impure-unit signature が runnable example に戻らないよう `nodesrc/test_tutorial_getting_started_current_style.js` を追加した。
+- `doc/neplg2/tutorial_rewrite_plan.md` に char 実装後の扱いと実装結果を追記した。
+
+## 修正後の検証
+
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tutorials/getting_started/11_bytebuf_and_text_io.n.md -i tutorials/getting_started/13_vec_basics.n.md -i tutorials/getting_started/14_collection_reads.n.md --no-tree -o tmp/tutorials-rewrite-focused-fixes.json -j 3`: 3/3 passed
+- `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite.json -j 4`: 24/24 passed
+- `trunk build`: pass after rebase onto `17ca4b2`
+- `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite-after-rebase.json -j 4`: 24/24 passed
+- `trunk build`: pass after rebase onto `0165fa0`
+- `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite-after-second-rebase.json -j 4`: 24/24 passed
+- `node nodesrc/test_tutorial_getting_started_current_style.js`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

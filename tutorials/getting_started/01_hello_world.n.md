@@ -1,9 +1,6 @@
 # Hello World
 
-NEPLg2 で実行可能な最小プログラムです。
-標準ライブラリを使う最小プログラムでは `#target std` と `#entry main` を指定し、`fn main <()*> ()> ():` を定義します。
-
-ここでは `std/stdio` の `println` で 1 行出力します。
+`std/stdio` を使う最小プログラムです。`#entry main` で入口を指定し、`#target std` で標準入出力を使う target を選びます。
 
 neplg2:test[stdio, normalize_newlines]
 stdout: "Hello, NEPL!\n"
@@ -14,22 +11,15 @@ stdout: "Hello, NEPL!\n"
 
 #import "std/stdio" as *
 
-// 標準出力へ 1 行だけ表示する最小構成です。
-fn main <()*> ()> ():
+// 標準出力へ 1 行だけ書きます。
+fn main <()*>()> ():
     println "Hello, NEPL!";
 ```
 
-`stdout`として示されている内容が、そのサンプルコードを実行したときに期待される結果です。
-このサンプルコードでは、`Hello, NEPL!`が標準出力に表示されることが期待されます。
+`println` は外部 I/O なので、`main` は `()*` の関数として書きます。戻り値が不要な program では `()` を返し、テストの終了 code を返したい program では `i32` を返します。
 
-上に示されているサンプルコードの枠の中に、`▶ Run`と書かれたボタンがあります。
-このボタンを押すと、ポップアップが開いて、そこで実行することができます。
-サンプルコードを編集し、`Hello World!`など、他の文字列もプリントできることを確認してみてください。
+## 最初に固定するもの
 
-## 最初につまずきやすい点
-
-- `#target std` がないと、`std/stdio` の入出力が使えません。
-- `#entry main` がないと、どの関数を実行するか決まりません。
-- `#indent` の幅と実際のインデントがずれると、パースエラーになります。
-
-まずはこの 3 つを固定してから、本文のロジックだけを編集する運用が安全です。
+- `#indent 4`: この tutorial の block indent は 4 spaces です。
+- `#target std`: 入出力や `std/test` を使う章で指定します。
+- `#entry main`: runner が呼ぶ関数を明示します。

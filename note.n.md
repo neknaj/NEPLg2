@@ -22134,6 +22134,36 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - nm は将来 Resource IR で owned AST が安全に扱えるまで、selfhost/docs 生成を止めない strict-move-safe serializer として運用する。
 
+# 2026-04-28 メモ (ISS-20260428T005509048Z getting_started tutorial rewrite)
+
+- [同期]:
+  - `origin/main` の `1365c4e docs(stdlib): replace generated API boilerplate` まで同期した main から `fix/getting-started-tutorial-current-neplg2` branch を作成した。
+  - 作業中に remote main が `17ca4b2 docs(tutorial): clarify scanner read overloads`、続いて `0165fa0 fix(stdlib): remove kpsearch Vec raw scratch` まで進んだため、commit 後に rebase して取り込んだ。旧 22 章は全面 rewrite で削除し、内容は Advanced track 方針へ吸収した。
+- [原因]:
+  - 旧 `tutorials/getting_started` は入門章と競技プログラミング catalog が混在し、古い signature 説明、`std/test` pattern の揺れ、raw memory / panic helper 前提の例が残っていた。
+  - current NEPLg2 で重要な `Result` / `Option` / `match` / `char` / UTF-8 byte-vs-char / collection ownership の流れが体系化されていなかった。
+- [修正]:
+  - `00_index.n.md` を current tutorial の章立てに更新した。
+  - 旧 `02`〜`27` 章を削除し、`02_test_harness`〜`24_project_byte_output` と `90` 以降の Advanced track へ再構成した。
+  - 本編の runnable example を `std/test`、`Result`、`Option`、`match`、`char`、`str_char_*`、`Vec` の current API で書き直した。
+  - 競技プログラミング内容は入門本文から外し、Advanced track の設計メモへ分離した。
+  - `nodesrc/test_tutorial_getting_started_current_style.js` を追加し、旧章残存、古い signature、raw memory、panic helper の再発を検出するようにした。
+  - `doc/neplg2/tutorial_rewrite_plan.md` に char 実装後の扱いと実装結果を追記した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tutorials/getting_started/11_bytebuf_and_text_io.n.md -i tutorials/getting_started/13_vec_basics.n.md -i tutorials/getting_started/14_collection_reads.n.md --no-tree -o tmp/tutorials-rewrite-focused-fixes.json -j 3`: 3/3 passed
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite.json -j 4`: 24/24 passed
+  - `trunk build`: pass after rebase onto `17ca4b2`
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite-after-rebase.json -j 4`: 24/24 passed
+  - `trunk build`: pass after rebase onto `0165fa0`
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-rewrite-after-second-rebase.json -j 4`: 24/24 passed
+  - `node nodesrc/test_tutorial_getting_started_current_style.js`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - tutorial rewrite plan の current 実装結果を `doc/neplg2/tutorial_rewrite_plan.md` に追記した。
+
 # 2026-04-28 メモ (ISS-20260428T045151813Z StringBuilder policy reclose)
 
 - [同期]:

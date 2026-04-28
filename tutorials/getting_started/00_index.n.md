@@ -1,71 +1,66 @@
-# NEPLg2 [入門/にゅうもん] - Getting Started
+# NEPLg2 Getting Started
 
-このチュートリアルは、NEPLg2 を[初/はじ]めて[触/さわ]る[人/ひと][向/む]けに「[仕様/しよう]どおりに[動/うご]く[最小/さいしょう]コード」を[段階的/だんかいてき]に[学/まな]ぶための[資料/しりょう]です。
-それぞれのページに「その[場/ば]で[実行可能/じっこうかのう]な」サンプルコードが[提供/ていきょう]されており、[実際/じっさい]に[実行/じっこう]して[試/ため]すことができます。
+この tutorial は、現在の NEPLg2 で通常のアプリケーションと self-host 用の基礎コードを書くための入門です。古い章に残っていた競技プログラミング catalog、raw memory 依存、panic helper 前提の例は本文から外し、`Result` / `Option` / `match` / `char` / byte と text の区別 / collection ownership を順に扱います。
 
-[章立/しょうだ]ては「[概念章/がいねんしょう]」と「[実践章/じっせんしょう]」を[交互/こうご]に[置/お]く[方針/ほうしん]で[構成/こうせい]しています。
-[短/みじか]い[章/しょう]で[前提/ぜんてい]を[積/つ]み[上/あ]げ、[途中/とちゅう]で[小/ちい]さな[実践章/じっせんしょう]を[挟/はさ]んで[手/て]を[動/うご]かしながら[進/すす]みます。
-[後半/こうはん]は「[関数/かんすう][中心/ちゅうしん]」「[型/かた]で[仕様/しよう]を[表/あらわ]す」[流/なが]れを[重視/じゅうし]した[構成/こうせい]にしています。
+コード例は原則として `neplg2:test` で実行できます。入門本文では `alloc_raw`、`MemPtr`、`unwrap_ok` のような内部寄り・panic 寄りの入口を推奨しません。失敗しうる処理は `Result` を返し、呼び出し側で `match` して扱います。
 
-NEPLg2 の[中核/ちゅうかく]は[次/つぎ]の 5 つです。
+## Part 0: 実行環境と最小構成
 
-- マルチプラットフォーム[対応/たいおう]: Webブラウザを[含/ふく]む[様々/さまざま]な[環境/かんきょう]で[実行/じっこう]することができます。
-- [式指向/しきしこう]: `if` や `match` など[様々/さまざま]な[要素/ようそ]が[式/しき]として[値/あたい]を[返/かえ]します。
-- [前置/ぜんち][記法/きほう]: `add 1 2` のように[関数/かんすう]を[前/まえ]に[書/か]きます。
-- オフサイドルール: インデントでブロックや[複数行/ふくすうぎょう][引数/ひきすう]を[表現/ひょうげん]します。
-- [括弧/かっこ]の[排除/はいじょ]: [前置記法/ぜんちきほう]とオフサイドルールを[用/もち]いて、[評価/ひょうか]の[優先順位/ゆうせんじゅんい]に[括弧/かっこ]を[使用/しよう]しません。
-
-[各/かく]ページに `neplg2:test` のコード[例/れい]を[埋/う]め[込/こ]み、コード[末尾/まつび]の`run`ボタンを[押/お]すと、テスト[実行/じっこう]のためのポップアップが[開/ひら]き、そこでソースコードを[編集/へんしゅう]したり`stdin`を[変更/へんこう]したりしながら[実際/じっさい]にコードを[実行/じっこう]し、[試/ため]すことができます。
-また、[Web Playground](https://neknaj.github.io/NEPLg2/)も[存在/そんざい]するので、こちらで[試/ため]すこともできます。
-
-[埋/う]め[込/こ]みサンプルのコードコメントは、examples と[同/おな]じく[日本語/にほんご]で[書/か]き、[行単位/ぎょうたんい]の[実況/じっきょう]ではなく「その[処理/しょり]は[何/なに]のためにあるか」「どの[流/なが]れを[固定/こてい]しているか」を[短/みじか]く[説明/せつめい]します。
-
-## 学び方（[推奨/すいしょう]）
-
-1. Part 1 を通して「[前置/ぜんち][記法/きほう]」「[式指向/しきしこう]」「インデント[規則/きそく]」に[慣/な]れる。
-2. Part 2 で `if` / `while` / `import` の[書式/しょしき][差/さ]を[整理/せいり]する。
-3. Part 3 で[小/ちい]さな[課題/かだい]を[実装/じっそう]し、`neplg2:test` で[回帰/かいき][確認/かくにん]する。
-4. Part 4〜5 で[再利用/さいりよう]しやすい[関数/かんすう][設計/せっけい]へ[寄/よ]せる。
-5. Part 6 で[競技/きょうぎ]プログラミング[向/む]けの[定石/じょうせき]パターンを[繰/く]り[返/かえ]す。
-
-## [学習/がくしゅう]ロードマップ
-
-### Part 1: [基礎/きそ]（[概念章/がいねんしょう]）
 - [01 Hello World](01_hello_world.n.md)
-- [02 数値と変数（前置記法と型注釈）](02_numbers_and_variables.n.md)
-- [02b 型変換と文字列表現](02b_type_conversion_and_textual_conversion.n.md)
-- [03 関数と if（inline と block）](03_functions.n.md)
-- [04 文字列と標準入出力](04_strings_and_stdio.n.md)
-- [05 Option（値がある/ない）](05_option.n.md)
-- [06 Result（成功/失敗）](06_result.n.md)
+- [02 test harness](02_test_harness.n.md)
 
-### Part 2: [制御/せいぎょ][構文/こうぶん]と[構造化/こうぞうか]（[概念章/がいねんしょう]）
-- [07 while と block（オフサイドルール）](07_while_and_block.n.md)
-- [08 if の書式バリエーション](08_if_layouts.n.md)
-- [09 import と小さな分割](09_import_and_structure.n.md)
+## Part 1: 値、式、関数
 
-### Part 3: [実践/じっせん]（[小/しょう]プロジェクト[章/しょう]）
-- [10 ミニプロジェクト: FizzBuzz](10_project_fizzbuzz.n.md)
-- [11 テスト駆動で関数を固める](11_testing_workflow.n.md)
+- [03 値と型](03_values_and_types.n.md)
+- [04 前置呼び出しと pipe](04_prefix_calls.n.md)
+- [05 関数、block、末尾式](05_functions_and_blocks.n.md)
+- [06 if と match](06_if_and_match.n.md)
 
-### Part 4: [関数型/かんすうがた]・[型/かた][駆動/くどう]スタイル
-- [12 純粋関数の合成（状態を持たない変換）](12_pure_function_pipeline.n.md)
-- [13 型で失敗を表す（Option / Result の徹底）](13_type_driven_error_modeling.n.md)
-- [14 等式的リファクタと回帰テスト](14_refactor_with_properties.n.md)
+## Part 2: 失敗を型で扱う
 
-### Part 5: [実装/じっそう]で[頻出/ひんしゅつ]の[書/か]き[方/かた]
-- [15 match で分岐を明示する](15_match_patterns.n.md)
-- [16 デバッグ出力と ANSI カラー](16_debug_and_ansi.n.md)
-- [17 名前空間と `::` 呼び出し](17_namespace_and_alias.n.md)
-- [18 再帰と停止条件](18_recursion_and_termination.n.md)
-- [19 パイプ演算子 `|>`](19_pipe_operator.n.md)
-- [20 ジェネリクスの基本](20_generics_basics.n.md)
-- [21 trait 制約の基本](21_trait_bounds_basics.n.md)
+- [07 Option](07_option.n.md)
+- [08 Result](08_result.n.md)
+- [09 小さな検証 project](09_validation_project.n.md)
 
-### Part 6: [競技/きょうぎ]プログラミング[実践/じっせん]
-- [22 競プロ向け I/O と演算](22_competitive_io_and_arith.n.md)
-- [23 sort と二分探索の型](23_competitive_sort_and_search.n.md)
-- [24 DP の基本パターン](24_competitive_dp_basics.n.md)
-- [25 prefix sum と two pointers](25_competitive_prefixsum_twopointers.n.md)
-- [26 グラフ探索（BFS）](26_competitive_graph_bfs.n.md)
-- [27 競プロ定番 20 サンプル集](27_competitive_algorithms_catalog.n.md)
+## Part 3: 文字列、byte、char
+
+- [10 文字列と text](10_string_and_text.n.md)
+- [11 ByteBuf と text I/O](11_bytebuf_and_text_io.n.md)
+- [12 char と ASCII](12_char_and_ascii.n.md)
+
+## Part 4: collection と所有権
+
+- [13 Vec の基本](13_vec_basics.n.md)
+- [14 collection の読み取り](14_collection_reads.n.md)
+- [15 move と borrow](15_move_and_borrow.n.md)
+- [16 cleanup と Drop 方針](16_drop_and_cleanup.n.md)
+
+## Part 5: module、generic、trait
+
+- [17 import と module](17_imports_and_modules.n.md)
+- [18 generics](18_generics.n.md)
+- [19 trait と bound](19_traits_and_bounds.n.md)
+- [20 namespace と method 呼び出し](20_namespace_and_methods.n.md)
+
+## Part 6: 実践 project
+
+- [21 FizzBuzz](21_project_fizzbuzz.n.md)
+- [22 小さな parser](22_project_parser_small.n.md)
+- [23 config validator](23_project_config_validator.n.md)
+- [24 byte output](24_project_byte_output.n.md)
+
+## Advanced / Appendix
+
+- [90 競技プログラミング導入](90_competitive_programming_intro.n.md)
+- [91 sort / search / prefix sum](91_sort_search_prefixsum.n.md)
+- [92 graph / BFS / DP](92_graph_bfs_dp.n.md)
+- [95 target と WASI notes](95_target_and_wasi_notes.n.md)
+- [99 旧 tutorial からの移行](99_migration_notes.n.md)
+
+## 推奨する読み方
+
+1. Part 0 で `#entry`、`#target`、`std/test` の形を固定します。
+2. Part 1 で式、関数、`match` の書き方を先に覚えます。
+3. Part 2 以降は、失敗や欠損を panic ではなく値として返す書き方を基本にします。
+4. Part 3 と Part 4 は self-host の lexer / parser / stdlib を読むための前提です。
+5. Advanced は入門本文を終えてから、必要な用途だけ参照します。

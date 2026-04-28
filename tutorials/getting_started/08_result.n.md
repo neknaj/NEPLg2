@@ -1,0 +1,45 @@
+# Result
+
+`Result<T,E>` は「成功値 / 失敗理由」を型で表します。失敗しうる関数は `Result` を返し、呼び出し側が `match` で成功と失敗を分けます。
+
+neplg2:test
+ret: 0
+```neplg2
+| #entry main
+| #indent 4
+| #target std
+|
+#import "core/result" as *
+#import "std/test" as *
+
+fn divide_10 <(i32)->Result<i32,str>> (x):
+    if:
+        eq x 0
+        then:
+            Result<i32,str>::Err "division by zero"
+        else:
+            Result<i32,str>::Ok div_s 10 x
+
+fn expect_ok <(Result<i32,str>,i32)->Result<(),str>> (got, expected):
+    match got:
+        Result::Ok value:
+            check_eq_i32 expected value
+        Result::Err msg:
+            Result<(),str>::Err msg
+
+fn expect_err <(Result<i32,str>,str)->Result<(),str>> (got, expected):
+    match got:
+        Result::Ok value:
+            Result<(),str>::Err "expected Err"
+        Result::Err msg:
+            check_str_eq expected msg
+
+fn main <()*>i32> ():
+    let checks <Vec<Result<(),str>>>:
+        checks_new
+        |> checks_push expect_ok divide_10 2 5
+        |> checks_push expect_err divide_10 0 "division by zero"
+    checks_exit_code checks
+```
+
+`Result` の中身を取り出す関数を小さく分けると、正常系と異常系の扱いをテストしやすくなります。

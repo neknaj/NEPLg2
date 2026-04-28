@@ -1,0 +1,28 @@
+# cleanup と Drop 方針
+
+現在の stdlib では、所有権を持つ collection や buffer は明示的に解放する API を持っています。将来の Drop elaboration と Resource IR では、compiler が安全な解放経路を広げていく計画です。
+
+neplg2:test
+ret: 0
+```neplg2
+| #entry main
+| #indent 4
+| #target std
+|
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    match new<i32>:
+        Result::Err _e:
+            checks_exit_code checks_push checks_new Result<(),str>::Err "vec.new failed"
+        Result::Ok values:
+            let checks <Vec<Result<(),str>>>:
+                checks_new
+                |> checks_push check_eq_i32 0 len_ref<i32> &values
+            free<i32> values;
+            checks_exit_code checks
+```
+
+raw memory の確保や pointer 計算は通常の tutorial では扱いません。public API だけで書けない場合は、stdlib 側の抽象 API が不足している可能性があります。
