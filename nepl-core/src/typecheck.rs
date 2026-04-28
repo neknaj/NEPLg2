@@ -23,6 +23,7 @@ mod indirect_apply;
 mod match_check;
 mod model;
 mod name_lookup;
+mod overload_selection;
 mod prefix_check;
 mod signature;
 mod syntax_helpers;
