@@ -14,14 +14,14 @@ use crate::types::{TypeId, TypeKind};
 use super::binding_rules::function_user_param_specificity;
 use super::control_apply::SpecialApplyResult;
 use super::env::{Binding, BindingKind};
-use super::hir_finalize::{add_i32_offset_expr, raw_aggregate_load_addr_expr};
+use super::field_apply::FieldAccessorApplyResult;
 use super::signature::{function_signature_string, type_contains_unbound_var};
 use super::syntax_helpers::parse_variant_name;
 use super::traits::{
     format_trait_ref_name, infer_instantiated_type_arg, insert_substitution_mapping,
     trait_application_matches, TraitBoundRef,
 };
-use super::{BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
+use super::{BlockChecker, FieldAccessorKind, StackEntry};
 
 macro_rules! function_apply_log {
     ($($arg:tt)*) => {{
@@ -707,160 +707,13 @@ impl<'a> BlockChecker<'a> {
                     }
 
                     if let Some(field_accessor) = selected_field_accessor {
-                        if args.len() >= 2 {
-                            let obj = args[0].expr.clone();
-                            let idx = &args[1].expr;
-                            let field_idx = match &idx.kind {
-                                HirExprKind::LiteralI32(v) => Some(FieldIdx::Index(*v as usize)),
-                                HirExprKind::LiteralStr(sid) => {
-                                    let name = self.string_table.get(*sid).unwrap().clone();
-                                    Some(FieldIdx::Name(name))
-                                }
-                                _ => None,
-                            };
-                            if let Some(f_idx) = field_idx {
-                                let access_base_ty = if field_accessor == FieldAccessorKind::GetRef
-                                {
-                                    let resolved_obj_ty = self.ctx.resolve(obj.ty);
-                                    match self.ctx.get(resolved_obj_ty) {
-                                        TypeKind::Reference(inner, _) => inner,
-                                        _ => {
-                                            self.diagnostics.push(
-                                                Diagnostic::error(
-                                                    "get_ref expects a reference to a composite value",
-                                                    obj.span,
-                                                )
-                                                .with_id(DiagnosticId::TypeInvalidFieldAccess),
-                                            );
-                                            self.ctx.never()
-                                        }
-                                    }
-                                } else {
-                                    obj.ty
-                                };
-                                if let Some((f_ty, offset)) = self.resolve_field_access_with_mode(
-                                    access_base_ty,
-                                    f_idx,
-                                    func.expr.span,
-                                    false,
-                                ) {
-                                    if field_accessor == FieldAccessorKind::Get && args.len() == 2 {
-                                        let addr_expr = if let Some(raw_addr) =
-                                            raw_aggregate_load_addr_expr(&obj, &self.ctx)
-                                        {
-                                            add_i32_offset_expr(
-                                                raw_addr,
-                                                offset,
-                                                idx.span,
-                                                func.expr.span,
-                                                self.ctx.i32(),
-                                            )
-                                        } else {
-                                            add_i32_offset_expr(
-                                                obj,
-                                                offset,
-                                                idx.span,
-                                                func.expr.span,
-                                                self.ctx.i32(),
-                                            )
-                                        };
-                                        return Some(StackEntry {
-                                            ty: f_ty,
-                                            expr: HirExpr {
-                                                ty: f_ty,
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "load".to_string(),
-                                                    type_args: vec![f_ty],
-                                                    args: vec![addr_expr],
-                                                },
-                                                span: func.expr.span,
-                                            },
-                                            type_args: Vec::new(),
-                                            assign: None,
-                                            auto_call: true,
-                                        });
-                                    } else if field_accessor == FieldAccessorKind::GetRef
-                                        && args.len() == 2
-                                    {
-                                        let ref_ty = self.ctx.reference(f_ty, false);
-                                        let addr_expr = if offset == 0 {
-                                            HirExpr {
-                                                ty: ref_ty,
-                                                kind: obj.kind,
-                                                span: func.expr.span,
-                                            }
-                                        } else {
-                                            HirExpr {
-                                                ty: ref_ty,
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "add".to_string(),
-                                                    type_args: vec![self.ctx.i32()],
-                                                    args: vec![
-                                                        obj,
-                                                        HirExpr {
-                                                            ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(
-                                                                offset as i32,
-                                                            ),
-                                                            span: idx.span,
-                                                        },
-                                                    ],
-                                                },
-                                                span: func.expr.span,
-                                            }
-                                        };
-                                        return Some(StackEntry {
-                                            ty: ref_ty,
-                                            expr: addr_expr,
-                                            type_args: Vec::new(),
-                                            assign: None,
-                                            auto_call: true,
-                                        });
-                                    } else if field_accessor == FieldAccessorKind::Put
-                                        && args.len() == 3
-                                    {
-                                        let val = args[2].expr.clone();
-                                        let _ = self.ctx.unify(val.ty, f_ty);
-                                        let addr_expr = if offset == 0 {
-                                            obj
-                                        } else {
-                                            HirExpr {
-                                                ty: self.ctx.i32(),
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "add".to_string(),
-                                                    type_args: vec![self.ctx.i32()],
-                                                    args: vec![
-                                                        obj,
-                                                        HirExpr {
-                                                            ty: self.ctx.i32(),
-                                                            kind: HirExprKind::LiteralI32(
-                                                                offset as i32,
-                                                            ),
-                                                            span: idx.span,
-                                                        },
-                                                    ],
-                                                },
-                                                span: func.expr.span,
-                                            }
-                                        };
-                                        return Some(StackEntry {
-                                            ty: self.ctx.unit(),
-                                            expr: HirExpr {
-                                                ty: self.ctx.unit(),
-                                                kind: HirExprKind::Intrinsic {
-                                                    name: "store".to_string(),
-                                                    type_args: vec![f_ty],
-                                                    args: vec![addr_expr, val],
-                                                },
-                                                span: func.expr.span,
-                                            },
-                                            type_args: Vec::new(),
-                                            assign: None,
-                                            auto_call: true,
-                                        });
-                                    }
-                                }
-                            }
+                        match self.apply_field_accessor_function(
+                            field_accessor,
+                            &args,
+                            func.expr.span,
+                        ) {
+                            FieldAccessorApplyResult::Handled(result) => return result,
+                            FieldAccessorApplyResult::NotHandled => {}
                         }
                     }
 

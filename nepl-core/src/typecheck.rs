@@ -14,6 +14,7 @@ mod driver;
 mod effect_check;
 mod env;
 mod field_access;
+mod field_apply;
 mod function_apply;
 mod function_check;
 mod hir_finalize;
