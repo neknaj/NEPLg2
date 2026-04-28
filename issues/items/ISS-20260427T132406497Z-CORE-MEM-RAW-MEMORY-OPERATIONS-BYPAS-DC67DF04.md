@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-28
+updated: 2026-04-29
 target: "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md"
 ---
 
@@ -327,3 +327,9 @@ raw slot payload identity は pointer alias group で key 化しているため�
 `ISS-20260428T141745924Z-RESOURCE-CELLSTATE-CHECKER-IGNORES-D-40CECA56` として、Resource IR の raw dealloc/realloc/fill/bulk copy/bulk move が initialized cell state を見ずに storage operation として通る問題を分離し、修正した。Stage 5 の raw memory effect / ownership boundary へ進む前提として、raw operation は call name summary ではなく Resource IR の `address.*` cell transition として検査される必要がある。
 
 `RawMemoryOp::Store` は store value を by-value consume して `address.*` を initialized にし、`RawMemoryOp::Load` は `address.*` を確認して non-Copy payload なら moved にする。これにより、Resource IR shadow check だけでも raw load before store と non-Copy raw load の二重 move を検出できる。effect / public API migration は引き続きこの親 issue の残件である。
+
+## 2026-04-29 Stage 4 destructive raw cell gate 追記
+
+`ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 として、Resource IR CellState の destructive raw storage diagnostics を compiler pipeline の D3100 gate に接続した。`store` / `dealloc` / `realloc` / `fill` / bulk copy/move が live non-Copy raw cell を上書き・解放・byte move する場合は、Resource IR 側の state からも error 化される。
+
+一方、`RawMemoryLoadCell` の authoritative 化はまだ保留した。helper-returned raw slot、`MemPtr` wrapper、field projection 経由の raw load では Resource IR CellState の raw pointer summary が不足し、full gate では false D3100 が出る。残件は `ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` に分離した。

@@ -2460,6 +2460,73 @@ fn resource_ir_cell_check_reports_raw_load_before_store() {
 }
 
 #[test]
+fn resource_ir_cell_check_canonicalizes_raw_address_local_reads() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr_value = Place::temporary(ResourceId(0), i32_ty);
+    let ptr_local = Place::local(String::from("p"), i32_ty);
+    let first_address = Place::temporary(ResourceId(1), i32_ty);
+    let value = Place::temporary(ResourceId(2), i32_ty);
+    let store_out = Place::temporary(ResourceId(3), unit_ty);
+    let second_address = Place::temporary(ResourceId(4), i32_ty);
+    let loaded = Place::temporary(ResourceId(5), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: nepl_core::resource::ResourceExprKind::Literal,
+                output: ptr_value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::DeclareLocal {
+                place: ptr_local.clone(),
+                mutable: false,
+                initializer: Some(ptr_value),
+                span,
+            },
+            ResourceOp::Read {
+                source: ptr_local.clone(),
+                output: first_address.clone(),
+                span,
+            },
+            ResourceOp::Expr {
+                kind: nepl_core::resource::ResourceExprKind::Literal,
+                output: value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_out,
+                args: vec![first_address, value],
+                span,
+            },
+            ResourceOp::Read {
+                source: ptr_local,
+                output: second_address.clone(),
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![second_address],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_cell_check_moves_non_copy_raw_load_cell() {
     let (mut types, owned_ty) = types_with_non_copy_owned();
     types.register_copy_impl_target(types.i32());

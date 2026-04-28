@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T16:41:34.198Z",
+  "generated_at": "2026-04-28T17:09:21.777Z",
   "counts": {
-    "total": 292,
-    "open": 9,
+    "total": 293,
+    "open": 10,
     "resolved": 283,
     "by_area": {
       "core": {
-        "total": 136,
-        "open": 3,
+        "total": 137,
+        "open": 4,
         "resolved": 133
       },
       "stdlib": {
@@ -73,7 +73,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-04-28",
+      "updated": "2026-04-29",
       "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
       "legacy_id": "",
       "source": "",
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E",
+      "title": "Resource IR RawMemoryLoadCell gate needs raw pointer summaries",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/compiler.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

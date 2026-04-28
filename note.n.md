@@ -1,3 +1,19 @@
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-CORE-009 raw cell gate)
+
+- `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 として、Resource IR CellState の destructive raw storage 診断を compiler pipeline の D3100 gate に接続した。
+- gate は `RawMemoryStoreCell` / `RawMemoryDeallocCell` / `RawMemoryReallocCell` / `RawMemoryFillCell` / bulk destination/source cell に限定した。`RawMemoryLoadCell` は関数戻り値、MemPtr wrapper、projection 経由の raw pointer summary がまだ不足し、full gate では false D3100 が出るため、`ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` として分離した。
+- `check_resource_initialized_moves` に raw address alias table を追加し、local read / let / assign / move / raw alloc / realloc で同じ raw address を同じ cell key に正規化した。これにより `let p = ...; store p; load p` のような基本形で temporary ごとに別 cell と見なす問題を防ぐ。
+- compiler-owned `core/mem` raw boundary 内部は既存の raw identity gate と同じく SourceMap capability で除外する。allocator metadata の内部 raw load/store は Stage 6 の stdlib memory API 移行まで public user code と同じ基準では扱わない。
+- 検証:
+  - `rustfmt --check nepl-core\src\compiler.rs nepl-core\src\resource\initialized.rs nepl-core\tests\resource_ir.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core compiler::tests::resource_raw_cell_gate -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_canonicalizes_raw_address_local_reads -- --nocapture`: 1 passed
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-raw-cell-gate-move-effect-after-load-skip.json -j 1`: total=110, passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\resource-raw-cell-gate-move-check-after-load-skip.json -j 1`: total=52, passed=52
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T142719860Z Resource checker responsibility guard)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の完了条件として、`nodesrc/test_resource_checker_responsibility.js` を追加し、CI の Source policy regressions に接続した。
