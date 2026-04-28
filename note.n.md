@@ -23655,3 +23655,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の CellState authoritative 化に向け、raw aggregate field read を Resource IR の field projection として扱うようにした。
+
+# 2026-04-29 メモ (ISS-20260428T192326177Z self-host lexer keyword classifier 修正)
+
+- [同期]:
+  - `main` は `origin/main` の `f38b178 fix(core): lower block-wrapped else-if chains` まで同期済みで、`issue/selfhost-lexer-keyword-classifier` branch を fast-forward して作業を継続した。
+- [原因]:
+  - `stdlib/neplg2/core/syntax/lexer.nepl` の `lex_keyword_kind` は固定 keyword table を深い `if` / `else-if` chain として持っていた。
+  - compiler 側の stack overflow は先行して `ISS-20260428T193442835Z...` で直したが、stdlib/selfhost の match-first 方針から見ると、不自然な有限分岐が残っていた。
+- [修正]:
+  - `lex_keyword_kind` を `string::len lexeme` の length bucket `match` に置き換えた。
+  - 各 length bucket は先頭 2 byte key の scalar `match` を使い、arm body では `lex_keyword_kind_if_eq` で実文字列を検証するようにした。
+  - `nodesrc/test_stdlib_match_decision_trees.js` に self-host lexer keyword classifier の静的回帰を追加し、`if` decision tree へ戻った場合に落ちるようにした。
+- [検証]:
+  - `node nodesrc\test_stdlib_match_decision_trees.js`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\core\syntax\lexer.nepl -i tests\stdlib\neplg2_lexer.n.md --no-tree -o tmp\selfhost-lexer-keyword-match.json -j 1`: total=13 passed=13
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host lexer の keyword classifier が、深い `if` chain ではなく reviewable な `match` table として表現されるようになった。

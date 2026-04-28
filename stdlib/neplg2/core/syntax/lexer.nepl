@@ -643,124 +643,164 @@ fn lex_mlstr_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start
 fn lex_doc_comment_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
     lex_token_slice TokenKind::DocComment source file_id start lex_line_end source n start
 
+//: lex_keyword_match_key: keyword 候補の先頭 2 byte を scalar `match` 用の key にする
+//:
+//: [目的/もくてき]:
+//: - NEPLg2 の `match` は現時点で `str` pattern を直接扱わないため、identifier lexeme を i32 key に正規化します。
+//: - 呼び出し側は key の arm で候補を選んだあと、必ず `str_eq` で実文字列を検証してから分類します。
+//:
+//: [注意/ちゅうい]:
+//: - 先に byte length bucket で 2 byte 以上の候補に絞ってから呼びます。
+//: - key 値は lexer の内部実装です。同じ prefix の非 keyword は equality check で `None` に戻します。
+fn lex_keyword_match_key <(str)->i32> (lexeme):
+    let first <i32> string::string_byte_at_unchecked lexeme 0
+    let second <i32> string::string_byte_at_unchecked lexeme 1
+    add mul first 256 second
+
+//: lex_keyword_kind_if_eq: key arm の keyword 候補を実文字列で検証する
+//:
+//: [目的/もくてき]:
+//: - key の衝突で別 identifier が同じ arm に入っても、`str_eq` が一致した場合だけ keyword として扱います。
+fn lex_keyword_kind_if_eq <(str,str,TokenKind)->Option<TokenKind>> (lexeme, expected, kind):
+    match string::str_eq lexeme expected:
+        true:
+            Option<TokenKind>::Some kind
+        false:
+            Option<TokenKind>::None
+
+//: lex_keyword_kind_len2: 2 byte keyword の分類
+//:
+//: [実装/じっそう]:
+//: - `lex_keyword_kind` で長さ 2 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
+//: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
+fn lex_keyword_kind_len2 <(str)->Option<TokenKind>> (lexeme):
+    match lex_keyword_match_key lexeme:
+        26222:
+            lex_keyword_kind_if_eq lexeme "fn" TokenKind::KwFn
+        26982:
+            lex_keyword_kind_if_eq lexeme "if" TokenKind::KwIf
+        25711:
+            lex_keyword_kind_if_eq lexeme "do" TokenKind::KwDo
+        _:
+            Option<TokenKind>::None
+
+//: lex_keyword_kind_len3: 3 byte keyword の分類
+//:
+//: [実装/じっそう]:
+//: - `lex_keyword_kind` で長さ 3 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
+//: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
+fn lex_keyword_kind_len3 <(str)->Option<TokenKind>> (lexeme):
+    match lex_keyword_match_key lexeme:
+        27749:
+            lex_keyword_kind_if_eq lexeme "let" TokenKind::KwLet
+        28021:
+            lex_keyword_kind_if_eq lexeme "mut" TokenKind::KwMut
+        29541:
+            lex_keyword_kind_if_eq lexeme "set" TokenKind::KwSet
+        26223:
+            lex_keyword_kind_if_eq lexeme "for" TokenKind::KwFor
+        28789:
+            lex_keyword_kind_if_eq lexeme "pub" TokenKind::KwPub
+        _:
+            Option<TokenKind>::None
+
+//: lex_keyword_kind_len4: 4 byte keyword の分類
+//:
+//: [実装/じっそう]:
+//: - `lex_keyword_kind` で長さ 4 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
+//: - `else` と `enum`、`then` と `true` のような同じ長さの prefix 近接候補も、実文字列検証で最終判定します。
+fn lex_keyword_kind_len4 <(str)->Option<TokenKind>> (lexeme):
+    match lex_keyword_match_key lexeme:
+        25455:
+            lex_keyword_kind_if_eq lexeme "cond" TokenKind::KwCond
+        29800:
+            lex_keyword_kind_if_eq lexeme "then" TokenKind::KwThen
+        25964:
+            lex_keyword_kind_if_eq lexeme "else" TokenKind::KwElse
+        25966:
+            lex_keyword_kind_if_eq lexeme "enum" TokenKind::KwEnum
+        26989:
+            lex_keyword_kind_if_eq lexeme "impl" TokenKind::KwImpl
+        29810:
+            lex_keyword_kind_if_eq lexeme "true" TokenKind::BoolLiteral
+        _:
+            Option<TokenKind>::None
+
+//: lex_keyword_kind_len5: 5 byte keyword の分類
+//:
+//: [実装/じっそう]:
+//: - `lex_keyword_kind` で長さ 5 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
+//: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
+fn lex_keyword_kind_len5 <(str)->Option<TokenKind>> (lexeme):
+    match lex_keyword_match_key lexeme:
+        30568:
+            lex_keyword_kind_if_eq lexeme "while" TokenKind::KwWhile
+        28001:
+            lex_keyword_kind_if_eq lexeme "match" TokenKind::KwMatch
+        25196:
+            lex_keyword_kind_if_eq lexeme "block" TokenKind::KwBlock
+        21621:
+            lex_keyword_kind_if_eq lexeme "Tuple" TokenKind::KwTuple
+        28012:
+            lex_keyword_kind_if_eq lexeme "mlstr" TokenKind::KwMlstr
+        26209:
+            lex_keyword_kind_if_eq lexeme "false" TokenKind::BoolLiteral
+        _:
+            Option<TokenKind>::None
+
+//: lex_keyword_kind_len6: 6 byte keyword の分類
+//:
+//: [実装/じっそう]:
+//: - `lex_keyword_kind` で長さ 6 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
+//: - `struct` / `trait` は token kind が異なるため、key arm 単位で実文字列を検証します。
+fn lex_keyword_kind_len6 <(str)->Option<TokenKind>> (lexeme):
+    match lex_keyword_match_key lexeme:
+        29556:
+            lex_keyword_kind_if_eq lexeme "struct" TokenKind::KwStruct
+        29810:
+            lex_keyword_kind_if_eq lexeme "trait" TokenKind::KwTrait
+        _:
+            Option<TokenKind>::None
+
+//: lex_keyword_kind_len8: 8 byte keyword の分類
+//:
+//: [実装/じっそう]:
+//: - `lex_keyword_kind` で長さ 8 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
+//: - 現在は `noshadow` のみですが、他の 8 byte keyword を追加する場合も arm 単位で増やします。
+fn lex_keyword_kind_len8 <(str)->Option<TokenKind>> (lexeme):
+    match lex_keyword_match_key lexeme:
+        28271:
+            lex_keyword_kind_if_eq lexeme "noshadow" TokenKind::KwNoShadow
+        _:
+            Option<TokenKind>::None
+
 //: lex_keyword_kind: identifier lexeme が keyword なら token kind を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 固定 keyword table を `match` の arm として表し、追加や削除を table 単位でレビューしやすくします。
+//:
+//: [実装/じっそう]:
+//: - まず byte length で候補を絞り、各 bucket で `lex_keyword_match_key` による scalar `match` を行います。
+//: - 各 arm で `lex_keyword_kind_if_eq` により key 衝突を除外します。
+//:
+//: [計算量/けいさんりょう]:
+//: - lexeme 長を n として O(n) 時間、追加領域は O(1) です。
 fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
-    if:
-        string::str_eq lexeme "fn"
-        then:
-            Option<TokenKind>::Some TokenKind::KwFn
-        else:
-            if:
-                string::str_eq lexeme "let"
-                then:
-                    Option<TokenKind>::Some TokenKind::KwLet
-                else:
-                    if:
-                        string::str_eq lexeme "mut"
-                        then:
-                            Option<TokenKind>::Some TokenKind::KwMut
-                        else:
-                            if:
-                                string::str_eq lexeme "noshadow"
-                                then:
-                                    Option<TokenKind>::Some TokenKind::KwNoShadow
-                                else:
-                                    if:
-                                        string::str_eq lexeme "set"
-                                        then:
-                                            Option<TokenKind>::Some TokenKind::KwSet
-                                        else:
-                                            if:
-                                                string::str_eq lexeme "if"
-                                                then:
-                                                    Option<TokenKind>::Some TokenKind::KwIf
-                                                else:
-                                                    if:
-                                                        string::str_eq lexeme "while"
-                                                        then:
-                                                            Option<TokenKind>::Some TokenKind::KwWhile
-                                                        else:
-                                                            if:
-                                                                string::str_eq lexeme "cond"
-                                                                then:
-                                                                    Option<TokenKind>::Some TokenKind::KwCond
-                                                                else:
-                                                                    if:
-                                                                        string::str_eq lexeme "then"
-                                                                        then:
-                                                                            Option<TokenKind>::Some TokenKind::KwThen
-                                                                        else:
-                                                                            if:
-                                                                                string::str_eq lexeme "else"
-                                                                                then:
-                                                                                    Option<TokenKind>::Some TokenKind::KwElse
-                                                                                else:
-                                                                                    if:
-                                                                                        string::str_eq lexeme "do"
-                                                                                        then:
-                                                                                            Option<TokenKind>::Some TokenKind::KwDo
-                                                                                        else:
-                                                                                            if:
-                                                                                                string::str_eq lexeme "struct"
-                                                                                                then:
-                                                                                                    Option<TokenKind>::Some TokenKind::KwStruct
-                                                                                                else:
-                                                                                                    if:
-                                                                                                        string::str_eq lexeme "enum"
-                                                                                                        then:
-                                                                                                            Option<TokenKind>::Some TokenKind::KwEnum
-                                                                                                        else:
-                                                                                                            if:
-                                                                                                                string::str_eq lexeme "match"
-                                                                                                                then:
-                                                                                                                    Option<TokenKind>::Some TokenKind::KwMatch
-                                                                                                                else:
-                                                                                                                    if:
-                                                                                                                        string::str_eq lexeme "trait"
-                                                                                                                        then:
-                                                                                                                            Option<TokenKind>::Some TokenKind::KwTrait
-                                                                                                                        else:
-                                                                                                                            if:
-                                                                                                                                string::str_eq lexeme "impl"
-                                                                                                                                then:
-                                                                                                                                    Option<TokenKind>::Some TokenKind::KwImpl
-                                                                                                                                else:
-                                                                                                                                    if:
-                                                                                                                                        string::str_eq lexeme "for"
-                                                                                                                                        then:
-                                                                                                                                            Option<TokenKind>::Some TokenKind::KwFor
-                                                                                                                                        else:
-                                                                                                                                            if:
-                                                                                                                                                string::str_eq lexeme "pub"
-                                                                                                                                                then:
-                                                                                                                                                    Option<TokenKind>::Some TokenKind::KwPub
-                                                                                                                                                else:
-                                                                                                                                                    if:
-                                                                                                                                                        string::str_eq lexeme "block"
-                                                                                                                                                        then:
-                                                                                                                                                            Option<TokenKind>::Some TokenKind::KwBlock
-                                                                                                                                                        else:
-                                                                                                                                                            if:
-                                                                                                                                                                string::str_eq lexeme "Tuple"
-                                                                                                                                                                then:
-                                                                                                                                                                    Option<TokenKind>::Some TokenKind::KwTuple
-                                                                                                                                                                else:
-                                                                                                                                                                    if:
-                                                                                                                                                                        string::str_eq lexeme "mlstr"
-                                                                                                                                                                        then:
-                                                                                                                                                                            Option<TokenKind>::Some TokenKind::KwMlstr
-                                                                                                                                                                        else:
-                                                                                                                                                                            if:
-                                                                                                                                                                                string::str_eq lexeme "true"
-                                                                                                                                                                                then:
-                                                                                                                                                                                    Option<TokenKind>::Some TokenKind::BoolLiteral
-                                                                                                                                                                                else:
-                                                                                                                                                                                    if:
-                                                                                                                                                                                        string::str_eq lexeme "false"
-                                                                                                                                                                                        then:
-                                                                                                                                                                                            Option<TokenKind>::Some TokenKind::BoolLiteral
-                                                                                                                                                                                        else:
-                                                                                                                                                                                            Option<TokenKind>::None
+    match string::len lexeme:
+        2:
+            lex_keyword_kind_len2 lexeme
+        3:
+            lex_keyword_kind_len3 lexeme
+        4:
+            lex_keyword_kind_len4 lexeme
+        5:
+            lex_keyword_kind_len5 lexeme
+        6:
+            lex_keyword_kind_len6 lexeme
+        8:
+            lex_keyword_kind_len8 lexeme
+        _:
+            Option<TokenKind>::None
 
 //: lex_next: 指定 offset 以降の 1 token を[返/かえ]す
 fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):

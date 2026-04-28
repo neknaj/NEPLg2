@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T19:49:14.630Z",
+  "generated_at": "2026-04-28T19:59:04.355Z",
   "counts": {
     "total": 306,
-    "open": 11,
-    "resolved": 295,
+    "open": 10,
+    "resolved": 296,
     "by_area": {
       "core": {
         "total": 146,
@@ -18,8 +18,8 @@
       },
       "selfhost": {
         "total": 27,
-        "open": 2,
-        "resolved": 25
+        "open": 1,
+        "resolved": 26
       },
       "cli": {
         "total": 19,
@@ -183,21 +183,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00",
-      "title": "self-host lexer keyword classifier remains nested if decision tree",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "maintenance",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/syntax/lexer.nepl; nodesrc/test_stdlib_match_decision_trees.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -3768,6 +3753,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T173941917Z-SELF-HOST-TYPE-STAGE-LACKS-STRUCTURA-F41EF07F.md"
+    },
+    {
+      "id": "ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00",
+      "title": "self-host lexer keyword classifier remains nested if decision tree",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl; nodesrc/test_stdlib_match_decision_trees.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T192326177Z-SELF-HOST-LEXER-KEYWORD-CLASSIFIER-R-67015A00.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
