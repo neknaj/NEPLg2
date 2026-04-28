@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:07:22.933Z",
+  "generated_at": "2026-04-28T12:10:09.295Z",
   "counts": {
-    "total": 270,
+    "total": 271,
     "open": 10,
-    "resolved": 260,
+    "resolved": 261,
     "by_area": {
       "core": {
         "total": 122,
@@ -17,9 +17,9 @@
         "resolved": 90
       },
       "selfhost": {
-        "total": 17,
+        "total": 18,
         "open": 1,
-        "resolved": 16
+        "resolved": 17
       },
       "cli": {
         "total": 19,
@@ -2238,6 +2238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T102223821Z-SELF-HOST-LEXER-RAW-BLOCK-STATE-IS-M-6F637EE2.md"
+    },
+    {
+      "id": "ISS-20260428T113729911Z-SELF-HOST-PARSER-LACKS-EXECUTABLE-MO-4FA5B962",
+      "title": "self-host parser lacks executable ModuleAst and raw block items",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/syntax/ast/module_ast.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, tests/stdlib/neplg2_parser.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T113729911Z-SELF-HOST-PARSER-LACKS-EXECUTABLE-MO-4FA5B962.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

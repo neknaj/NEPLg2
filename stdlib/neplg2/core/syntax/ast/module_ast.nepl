@@ -4,23 +4,194 @@
 //: NEPLg2.0 のファイル単位 AST を置くモジュールです。
 //:
 //: [目的/もくてき]:
-//: - top-level item、entry、target gate、import directive の構文表現をここに集約します。
-//: - Stage 0 では `syntax/ast/` の責務境界を marker API で固定します。
+//: - lexer token stream から parser が最初に作る、module item [列/れつ]の安定した受け皿を提供します。
+//: - full AST へ進む前の S1 では、top-level 宣言、directive、doc comment、raw backend block の本文を失わずに保持します。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostModuleAst` は `Vec<SelfhostModuleItem>` を所有します。
+//: - `SelfhostModuleItem` は kind / span / lexeme だけを持つ軽量 item です。raw block の本文は `WasmText` / `LlvmIrText` item として行ごとに保持します。
 //:
 //: [注意/ちゅうい]:
-//: - AST は未解決構造を保持し、名前解決や overload 解決は `resolve/` と `check/` に委譲します。
+//: - ここでは名前解決済みの構造や式木は持ちません。後続の item / expr parser が、同じ item stream をより細かい AST に展開します。
+//: - raw block の indent 検証は `module_parser` が行い、この module は構造体と所有 buffer 操作だけを担当します。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - item 追加は Vec の償却 O(1)、再確保時 O(n) です。
+//: - len / get は O(1) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//: fn main <()->i32> ():
-//:     selfhost_module_ast_stage0
+//: fn main <()*>i32> ():
+//:     match selfhost_module_ast_new:
+//:         Result::Ok ast0:
+//:             let item <SelfhostModuleItem> selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl source_span_new 0 0 2 "fn"
+//:             match selfhost_module_ast_push ast0 item:
+//:                 Result::Ok ast1:
+//:                     let n <i32> selfhost_module_ast_len &ast1
+//:                     selfhost_module_ast_free ast1
+//:                     if eq n 1 0 1
+//:                 Result::Err _e:
+//:                     1
+//:         Result::Err _e:
+//:             1
 //: ```
-fn selfhost_module_ast_stage0 <()->i32> ():
-    0
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostModuleItemKind: module parser が最初に保持する item [種別/しゅべつ]
+//:
+//: [目的/もくてき]:
+//: - self-host parser の初期段階で、宣言開始 token と compiler directive を安定した enum に写します。
+//: - raw backend body は開始 directive と本文行を別 item にし、後続 parser が block として再構成できるようにします。
+enum SelfhostModuleItemKind:
+    DocComment
+    MlstrLine
+    EntryDirective
+    TargetDirective
+    ImportDirective
+    UseDirective
+    IfTargetDirective
+    IfProfileDirective
+    CapabilityDirective
+    PreludeDirective
+    NoPreludeDirective
+    IntrinsicDirective
+    WasmBlock
+    LlvmIrBlock
+    WasmText
+    LlvmIrText
+    FunctionDecl
+    StructDecl
+    EnumDecl
+    TraitDecl
+    ImplDecl
+
+impl Clone for SelfhostModuleItemKind:
+    fn clone <(&SelfhostModuleItemKind)->SelfhostModuleItemKind> (self):
+        *self
+
+impl Copy for SelfhostModuleItemKind:
+    fn copy_mark <(SelfhostModuleItemKind)->SelfhostModuleItemKind> (self):
+        self
+
+//: SelfhostModuleItem: module parser の 1 item
+//:
+//: [目的/もくてき]:
+//: - item kind、source span、元 lexeme をまとめて保持します。
+//: - raw text 行も通常 item と同じ形にして、AST JSON parity の比較を単純にします。
+struct SelfhostModuleItem:
+    kind <SelfhostModuleItemKind>
+    span <SelfhostSourceSpan>
+    lexeme <str>
+
+impl Clone for SelfhostModuleItem:
+    fn clone <(&SelfhostModuleItem)->SelfhostModuleItem> (self):
+        *self
+
+impl Copy for SelfhostModuleItem:
+    fn copy_mark <(SelfhostModuleItem)->SelfhostModuleItem> (self):
+        self
+
+//: SelfhostModuleAst: module item [列/れつ]を所有する AST root
+struct SelfhostModuleAst:
+    items <Vec<SelfhostModuleItem>>
+
+//: selfhost_module_item_new: module item を[構築/こうちく]する
+fn selfhost_module_item_new <(SelfhostModuleItemKind,SelfhostSourceSpan,str)->SelfhostModuleItem> (kind, span, lexeme):
+    SelfhostModuleItem kind span lexeme
+
+//: selfhost_module_item_kind_name: item kind の安定名を[返/かえ]す
+fn selfhost_module_item_kind_name <(SelfhostModuleItemKind)->str> (kind):
+    match kind:
+        SelfhostModuleItemKind::DocComment:
+            "DocComment"
+        SelfhostModuleItemKind::MlstrLine:
+            "MlstrLine"
+        SelfhostModuleItemKind::EntryDirective:
+            "EntryDirective"
+        SelfhostModuleItemKind::TargetDirective:
+            "TargetDirective"
+        SelfhostModuleItemKind::ImportDirective:
+            "ImportDirective"
+        SelfhostModuleItemKind::UseDirective:
+            "UseDirective"
+        SelfhostModuleItemKind::IfTargetDirective:
+            "IfTargetDirective"
+        SelfhostModuleItemKind::IfProfileDirective:
+            "IfProfileDirective"
+        SelfhostModuleItemKind::CapabilityDirective:
+            "CapabilityDirective"
+        SelfhostModuleItemKind::PreludeDirective:
+            "PreludeDirective"
+        SelfhostModuleItemKind::NoPreludeDirective:
+            "NoPreludeDirective"
+        SelfhostModuleItemKind::IntrinsicDirective:
+            "IntrinsicDirective"
+        SelfhostModuleItemKind::WasmBlock:
+            "WasmBlock"
+        SelfhostModuleItemKind::LlvmIrBlock:
+            "LlvmIrBlock"
+        SelfhostModuleItemKind::WasmText:
+            "WasmText"
+        SelfhostModuleItemKind::LlvmIrText:
+            "LlvmIrText"
+        SelfhostModuleItemKind::FunctionDecl:
+            "FunctionDecl"
+        SelfhostModuleItemKind::StructDecl:
+            "StructDecl"
+        SelfhostModuleItemKind::EnumDecl:
+            "EnumDecl"
+        SelfhostModuleItemKind::TraitDecl:
+            "TraitDecl"
+        SelfhostModuleItemKind::ImplDecl:
+            "ImplDecl"
+
+//: selfhost_module_ast_new: [空/から]の module AST を[作/つく]る
+fn selfhost_module_ast_new <()*>Result<SelfhostModuleAst, StdErrorKind>> ():
+    match v::new<SelfhostModuleItem>:
+        Result::Ok items:
+            Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
+        Result::Err e:
+            Result<SelfhostModuleAst, StdErrorKind>::Err e
+
+//: selfhost_module_ast_push: module item を 1 件[追加/ついか]する
+fn selfhost_module_ast_push <(SelfhostModuleAst,SelfhostModuleItem)*>Result<SelfhostModuleAst, StdErrorKind>> (ast, item):
+    match v::push<SelfhostModuleItem> field::get ast "items" item:
+        Result::Ok items:
+            Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
+        Result::Err e:
+            Result<SelfhostModuleAst, StdErrorKind>::Err e
+
+//: selfhost_module_ast_len: module item [数/すう]を[返/かえ]す
+fn selfhost_module_ast_len <(&SelfhostModuleAst)->i32> (ast):
+    let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
+    v::len_ref<SelfhostModuleItem> items
+
+//: selfhost_module_ast_get: index の module item を[返/かえ]す
+fn selfhost_module_ast_get <(&SelfhostModuleAst,i32)->Option<SelfhostModuleItem>> (ast, idx):
+    let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
+    v::get_ref<SelfhostModuleItem> items idx
+
+//: selfhost_module_ast_free: module AST が所有する item buffer を[解放/かいほう]する
+fn selfhost_module_ast_free <(SelfhostModuleAst)*>()> (ast):
+    v::free<SelfhostModuleItem> field::get ast "items"
+
+//: selfhost_module_ast_stage0: AST root の smoke API
+fn selfhost_module_ast_stage0 <()*>i32> ():
+    match selfhost_module_ast_new:
+        Result::Ok ast:
+            let n <i32> selfhost_module_ast_len &ast
+            selfhost_module_ast_free ast
+            n
+        Result::Err _e:
+            1

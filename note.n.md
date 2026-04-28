@@ -1,3 +1,16 @@
+# 2026-04-28 メモ (ISS-20260428T113729911Z self-host parser ModuleAst/raw block)
+
+- `module_ast.nepl` を Stage 0 marker から実行可能な `SelfhostModuleAst` / `SelfhostModuleItem` / `SelfhostModuleItemKind` に進めた。
+- `module_parser.nepl` に `selfhost_parse_module_tokens` / `selfhost_parse_module_source` を追加し、lexer token stream から module item stream を作れるようにした。
+- parser は通常 block depth と raw backend block mode を分けて追跡する。`#wasm:` / `#llvmir:` 後は pending raw mode に入り、対応する `Indent` から `WasmText` / `LlvmIrText` を受け付け、raw block の `Dedent` で通常 mode に戻る。
+- `tests/stdlib/neplg2_parser.n.md` を追加し、関数本体内の `#if[target=wasm]` / `#wasm:` と `#if[target=llvm]` / `#llvmir:` が `WasmBlock` / `WasmText` / `LlvmIrBlock` / `LlvmIrText` として AST item stream に残ることを確認した。
+- parser doctest は compiler + wasm 実行が 20 秒既定 timeout を超えるため、focused 検証では `NEPL_TEST_CASE_TIMEOUT_MS=60000` を指定した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/ast/module_ast.nepl --no-tree -o tmp/neplg2-module-ast-smoke.json -j 1`: total=1, passed=1
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree -o tmp/neplg2-parser-module-smoke-final.json -j 1`: total=1, passed=1
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/neplg2-parser-raw-block-focused-final.json -j 1`: total=1, passed=1
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T102223821Z self-host lexer raw block state)
 
 - self-host lexer の `#wasm:` / `#llvmir:` raw block 本文対応を実装した。
