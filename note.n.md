@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck selected call apply module)
+
+- 状況:
+  - `overload_selection` 分離後も、`function_apply.rs` には selected callable の instantiation、argument unification、field / constructor / trait call 委譲、normal HIR call assembly がまとまって残っていた。
+  - selected callable apply は type argument、effect、trait bound、constructor/field lowering、capture 引数 assembly が交差するため、binding lookup / overload selection とは別責務である。
+- 修正:
+  - `nepl-core/src/typecheck/selected_call_apply.rs` を追加し、overload 選択後の selected binding 適用処理を `apply_selected_callable_function` へ分離した。
+  - `function_apply.rs` は call entry point、qualified/unqualified binding lookup、function value fallback、unbound trait dispatch、indirect call fallback の orchestration に縮小した。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck selected call apply 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/selected_call_apply.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test overload/generics/functions/pipe_operator/effects -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md -i tests/compiler/overload_nested_generic_push.n.md -i tests/compiler/generics.n.md -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/functions.n.md -i tests/compiler/trait_capability_copy.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/pipe_operator.n.md --no-tree -o tmp/stage1-typecheck-selected-call-apply-focused.json -j 1`: 215/215 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck overload selection module)
 
 - 状況:

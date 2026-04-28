@@ -25,6 +25,7 @@ mod model;
 mod name_lookup;
 mod overload_selection;
 mod prefix_check;
+mod selected_call_apply;
 mod signature;
 mod syntax_helpers;
 mod trait_bound_apply;
