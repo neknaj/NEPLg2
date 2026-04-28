@@ -24,6 +24,22 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (ISS-20260428T232624608Z SelfhostOutcome direct result)
+
+- [修正]:
+  - `SelfhostOutcome<T,E>` の `result` field を `MemPtr<Result<T,E>>` から直接 owned `Result<T,E>` へ変更した。
+  - `selfhost_outcome_new` は result cell allocation / raw store を行わず、result と diagnostics をそのまま outcome に格納する。
+  - `selfhost_outcome_result` / `selfhost_outcome_free` / diagnostics push failure cleanup から result cell の raw load/dealloc を削除した。
+  - `nodesrc/test_selfhost_outcome_no_raw_result_cell.js` を追加し、raw result cell の再導入を source policy で禁止した。
+- [検証]:
+  - `node nodesrc/test_selfhost_outcome_no_raw_result_cell.js`: pass
+  - `node nodesrc/tests.js -i stdlib\neplg2\core\infra\outcome.nepl --no-tree -o tmp\outcome-direct-result-focused-2.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\outcome-direct-result-neplg2.json -j 1`: total=32 passed=23 failed=9。`core/infra/outcome.nepl` は pass。
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_diag_outcome.n.md --no-tree -o tmp\outcome-direct-result-fixture-4.json -j 1`: total=3 failed=3。#1/#2 は既知の Vec element provenance、#3 は `ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B` に分離した。
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T230757402Z self-host CLI VecDataLen field move)
 
 - [同期]:

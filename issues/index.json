@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T23:38:02.265Z",
+  "generated_at": "2026-04-28T23:39:24.108Z",
   "counts": {
     "total": 332,
-    "open": 12,
-    "resolved": 320,
+    "open": 11,
+    "resolved": 321,
     "by_area": {
       "core": {
         "total": 154,
         "open": 4,
         "resolved": 150
       },
-      "selfhost": {
-        "total": 40,
-        "open": 2,
-        "resolved": 38
-      },
       "stdlib": {
         "total": 101,
         "open": 6,
         "resolved": 95
+      },
+      "selfhost": {
+        "total": 40,
+        "open": 1,
+        "resolved": 39
       },
       "cli": {
         "total": 19,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B.md"
-    },
-    {
-      "id": "ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB",
-      "title": "SelfhostOutcome stores Result in raw pointer cell rejected by RawMemoryLoadCell",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/core/infra/outcome.nepl, tests/stdlib/neplg2_diag_outcome.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2838,6 +2823,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T230757402Z-SELF-HOST-CLI-ARGV-PARSER-MOVES-VECD-AAE3CCAD.md"
+    },
+    {
+      "id": "ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB",
+      "title": "SelfhostOutcome stores Result in raw pointer cell rejected by RawMemoryLoadCell",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/infra/outcome.nepl, tests/stdlib/neplg2_diag_outcome.n.md, nodesrc/test_selfhost_outcome_no_raw_result_cell.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

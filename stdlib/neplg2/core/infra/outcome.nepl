@@ -8,8 +8,8 @@
 //: - `Result<T,E>` と `SelfhostDiagnostics` を[分離/ぶんり]して[保持/ほじ]し、error 以外の warning / info も[失/うしな]わずに[運/はこ]びます。
 //:
 //: [実装/じっそう]:
-//: - `SelfhostOutcome<T,E>` は result を 1 [要素/ようそ]の typed pointer として[所有/しょゆう]し、diagnostics と[分離/ぶんり]して[保持/ほじ]します。
-//: - empty diagnostics を[作/つく]る API は allocation failure を `Result::Err StdErrorKind::OutOfMemory` で[返/かえ]します。
+//: - `SelfhostOutcome<T,E>` は result を owned field として[保持/ほじ]し、diagnostics と[分離/ぶんり]して[運/はこ]びます。
+//: - empty diagnostics を[作/つく]る API は diagnostics buffer の allocation failure を `Result::Err StdErrorKind::OutOfMemory` で[返/かえ]します。
 //:
 //: [注意/ちゅうい]:
 //: - `selfhost_outcome_result` は outcome を[消費/しょうひ]し、diagnostics buffer を[解放/かいほう]してから result を[返/かえ]します。
@@ -38,37 +38,26 @@
 //: ```
 
 #import "core/field" as field
-#import "core/math" as *
-#import "core/mem" as *
 #import "core/result" as *
 #import "neplg2/core/infra/diag" as *
 
 //: SelfhostOutcome: Result と diagnostic collection を[一緒/いっしょ]に[運/はこ]ぶ値
 struct SelfhostOutcome<.T, .E>:
-    result <MemPtr<Result<.T, .E>>>
+    result <Result<.T, .E>>
     diagnostics <SelfhostDiagnostics>
 
-//: selfhost_outcome_dealloc_result_ptr: result pointer を[解放/かいほう]する
-fn selfhost_outcome_dealloc_result_ptr <.T, .E> <(MemPtr<Result<.T, .E>>)*>()> (result_ptr):
-    match dealloc_ptr<Result<.T, .E>> result_ptr size_of<Result<.T, .E>>:
-        Result::Ok _:
-            ()
-        Result::Err _e:
-            ()
-
-//: selfhost_outcome_drop_result_payload: result cell の payload cleanup callback を[実行/じっこう]する
+//: selfhost_outcome_drop_result_payload: result payload cleanup callback を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
 //: - outcome を result として[取/と]り[出/だ]さずに[捨/す]てる[経路/けいろ]で、Ok / Err payload を caller 指定の cleanup に[渡/わた]します。
 //:
 //: [実装/じっそう]:
-//: - heap cell から `Result<T,E>` を 1 [回/かい]だけ load し、match arm の payload binding として[所有権/しょゆうけん]を[受/う]けます。
+//: - owned field の `Result<T,E>` を match し、payload binding として[所有権/しょゆうけん]を[受/う]けます。
 //: - Ok payload には `drop_ok`、Err payload には `drop_err` を[呼/よ]びます。callback は payload を[消費/しょうひ]します。
 //:
 //: [注意/ちゅうい]:
-//: - この関数の[後/あと]に同じ result cell から value を[読/よ]んではいけません。呼び[出/だ]し[側/がわ]は storage 解放だけを[続/つづ]けます。
-fn selfhost_outcome_drop_result_payload <.T, .E> <(MemPtr<Result<.T, .E>>, (.T)*>(), (.E)*>())*>()> (result_ptr, drop_ok, drop_err):
-    let result <Result<.T, .E>> load<Result<.T, .E>> mem_ptr_addr result_ptr
+//: - この関数は result を[消費/しょうひ]します。呼び[出/だ]し[側/がわ]は同じ result を[返/かえ]してはいけません。
+fn selfhost_outcome_drop_result_payload <.T, .E> <(Result<.T, .E>, (.T)*>(), (.E)*>())*>()> (result, drop_ok, drop_err):
     match result:
         Result::Ok value:
             drop_ok value
@@ -85,13 +74,7 @@ fn selfhost_outcome_ignore_str <(str)*>()> (value):
 
 //: selfhost_outcome_new: result と diagnostics から outcome を[作/つく]る
 fn selfhost_outcome_new <.T, .E> <(Result<.T, .E>,SelfhostDiagnostics)->Result<SelfhostOutcome<.T, .E>, StdErrorKind>> (result, diagnostics):
-    match alloc_ptr<Result<.T, .E>> size_of<Result<.T, .E>>:
-        Result::Ok result_ptr:
-            store<Result<.T, .E>> mem_ptr_addr result_ptr result
-            Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Ok SelfhostOutcome<.T, .E> result_ptr diagnostics
-        Result::Err _e:
-            selfhost_diagnostics_free diagnostics
-            Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+    Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Ok SelfhostOutcome<.T, .E> result diagnostics
 
 //: selfhost_outcome_from_result: Result に empty diagnostics を[付/つ]けて outcome へ[昇格/しょうかく]する
 fn selfhost_outcome_from_result <.T, .E> <(Result<.T, .E>)->Result<SelfhostOutcome<.T, .E>, StdErrorKind>> (result):
@@ -114,21 +97,20 @@ fn selfhost_outcome_err <.T, .E> <(.E)->Result<SelfhostOutcome<.T, .E>, StdError
 //: [注意/ちゅうい]:
 //: - 古い diagnostics buffer はこの関数が[解放/かいほう]します。
 fn selfhost_outcome_with_diagnostics <.T, .E> <(SelfhostOutcome<.T, .E>,SelfhostDiagnostics)*>SelfhostOutcome<.T, .E>> (outcome, diagnostics):
-    let result_ptr <MemPtr<Result<.T, .E>>> field::get outcome "result"
+    let result <Result<.T, .E>> field::get outcome "result"
     let old_diagnostics <SelfhostDiagnostics> field::get outcome "diagnostics"
     selfhost_diagnostics_free old_diagnostics
-    SelfhostOutcome<.T, .E> result_ptr diagnostics
+    SelfhostOutcome<.T, .E> result diagnostics
 
 //: selfhost_outcome_push_diagnostic: outcome の diagnostics に 1 [件/けん][追加/ついか]する
 fn selfhost_outcome_push_diagnostic <.T, .E> <(SelfhostOutcome<.T, .E>,SelfhostDiagnostic, (.T)*>(), (.E)*>())*>Result<SelfhostOutcome<.T, .E>, StdErrorKind>> (outcome, diag, drop_ok, drop_err):
-    let result_ptr <MemPtr<Result<.T, .E>>> field::get outcome "result"
+    let result <Result<.T, .E>> field::get outcome "result"
     let diagnostics <SelfhostDiagnostics> field::get outcome "diagnostics"
     match selfhost_diagnostics_push diagnostics diag:
         Result::Ok next_diagnostics:
-            Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Ok SelfhostOutcome<.T, .E> result_ptr next_diagnostics
+            Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Ok SelfhostOutcome<.T, .E> result next_diagnostics
         Result::Err e:
-            selfhost_outcome_drop_result_payload<.T, .E> result_ptr drop_ok drop_err
-            selfhost_outcome_dealloc_result_ptr<.T, .E> result_ptr
+            selfhost_outcome_drop_result_payload<.T, .E> result drop_ok drop_err
             Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Err e
 
 //: selfhost_outcome_diagnostics_len: outcome が[保持/ほじ]する diagnostic [件数/けんすう]を[返/かえ]す
@@ -143,19 +125,15 @@ fn selfhost_outcome_has_errors <.T, .E> <(&SelfhostOutcome<.T, .E>)->bool> (outc
 
 //: selfhost_outcome_result: diagnostics を[解放/かいほう]し、Result を[取/と]り[出/だ]す
 fn selfhost_outcome_result <.T, .E> <(SelfhostOutcome<.T, .E>)*>Result<.T, .E>> (outcome):
-    let result_ptr <MemPtr<Result<.T, .E>>> field::get outcome "result"
+    let result <Result<.T, .E>> field::get outcome "result"
     let diagnostics <SelfhostDiagnostics> field::get outcome "diagnostics"
-    let result <Result<.T, .E>> load<Result<.T, .E>> mem_ptr_addr result_ptr
-    selfhost_outcome_dealloc_result_ptr<.T, .E> result_ptr
     selfhost_diagnostics_free diagnostics
     result
 
 //: selfhost_outcome_free: result payload と diagnostics を[解放/かいほう]する
 fn selfhost_outcome_free <.T, .E> <(SelfhostOutcome<.T, .E>, (.T)*>(), (.E)*>())*>()> (outcome, drop_ok, drop_err):
-    let result_ptr <MemPtr<Result<.T, .E>>> field::get outcome "result"
-    selfhost_outcome_drop_result_payload<.T, .E> result_ptr drop_ok drop_err
-    selfhost_outcome_dealloc_result_ptr<.T, .E> result_ptr
-    selfhost_diagnostics_free field::get outcome "diagnostics"
+    let result <Result<.T, .E>> selfhost_outcome_result<.T, .E> outcome
+    selfhost_outcome_drop_result_payload<.T, .E> result drop_ok drop_err
 
 //: selfhost_outcome_stage0: outcome [基盤/きばん]の smoke API
 fn selfhost_outcome_stage0 <()*>i32> ():
