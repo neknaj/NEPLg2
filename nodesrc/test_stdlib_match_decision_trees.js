@@ -45,7 +45,7 @@ assertLiteralMatch({
 
 assertLiteralMatch({
     file: 'stdlib/nm/parser.nepl',
-    name: 'nm_json_escape_kind',
+    name: 'json_escape',
     scrutinee: 'ch',
     literals: ["'\\\\'", "'\"'", "'\\n'", "'\\r'", "'\\t'", "'\\b'", "'\\f'"],
 });

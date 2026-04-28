@@ -21775,3 +21775,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - StringBuilder は self-host の parser/report builder 基盤なので、静的検査を緩めず stdlib 側の内部表現を安全な byte owner に寄せた。
+
+# 2026-04-28 メモ (ISS-20260428T003718356Z nm direct serializer)
+
+- [同期]:
+  - `origin/main` の `3db2d42 refactor(core): split typecheck driver entry` まで取り込み、最新の静的検査分割後の main 上に branch を rebase してから継続した。
+- [再現]:
+  - `stdlib/nm/parser.nepl` / `stdlib/nm/html_gen.nepl` / `tests/stdlib/nm.n.md` の focused tests は 10 件中 8 件が D3100 で失敗していた。
+  - StringBuilder byte storage 化後も、`Vec<Inline>` / `Vec<Node>` / `Vec<str>` の generic raw storage、`NestSection` / `Heading` / `ParaRes` の raw aggregate detour が残り、strict move checking に追従できていなかった。
+- [原因]:
+  - nm の旧実装は AST を `Vec<Inline>` / `Vec<Node>` として raw storage に構築し、後段の JSON/HTML serializer が `load<Inline>` / `load<Node>` で取り出す設計だった。
+  - 現在の compiler は Resource IR 前の段階で non-Copy AST の grow/realloc/drop を安全に表現できないため、stdlib 側で non-Copy AST raw storage を作らない構造にする必要があった。
+- [修正]:
+  - `Document` を `source <str>` の Copy source view に変更し、`parse_markdown` は source view を返す O(1) API にした。
+  - `document_to_json` と `render_document` は source を再走査する direct serializer に変更した。
+  - inline 変換は `nm_inline_to_json` / `nm_inline_to_html` で string-backed にし、ruby/gloss/math を `StringBuilder` へ直接出力するようにした。
+  - section stack は最大 heading level 6 の Copy bool state と current level だけで管理し、`NestSection` owner を raw memory に退避しないようにした。
+  - `stdlib/nm/README.n.md` を source view / direct serializer 方針へ更新した。
+- [検証]:
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: pass
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: pass
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: pass
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-direct-serializer-after-driver-entry-sync.json -j 1`: 10/10 passed
+  - `node nodesrc/tests.js -i stdlib/nm --no-tree -o tmp/stdlib-nm-direct-serializer-after-driver-entry-sync.json -j 1`: 5/5 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/tests --no-tree -o tmp/stdlib-tests-nm-direct-serializer-after-driver-entry-sync.json -j 4`: 80/80 passed
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - nm は将来 Resource IR で owned AST が安全に扱えるまで、selfhost/docs 生成を止めない strict-move-safe serializer として運用する。

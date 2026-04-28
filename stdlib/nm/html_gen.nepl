@@ -1,11 +1,17 @@
-//: html_gen: nm/html_gen.nepl に関する機能を提供するライブラリ
+//: nm/html_gen: Gloss/Nest Markdown の HTML serializer
 //:
 //: [目的/もくてき]:
-//: - このモジュールの公開 API を提供します。
-//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//: - `nm/parser` の `Document` source view を HTML へ変換します。
+//:
+//: [実装/じっそう]:
+//: - parser と同じく source を direct に再走査し、`Vec<Node>` / `Vec<Inline>` の non-Copy AST raw storage を作りません。
+//: - section stack は最大 heading level 6 の Copy state で管理し、HTML tag は close 時に直接出力します。
 //:
 //: [注意/ちゅうい]:
-//: - 利用時は各関数の「目的」「注意」「計算量」を確認してください。
+//: - 生成 HTML は最小限の escape を行います。属性値・text の両方で `escape_html` を通します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `render_document` は入力 size と出力 size に対して O(n + m) です。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -19,24 +25,17 @@
 #indent 4
 
 #import "alloc/string" as *
-#import "alloc/collections/vec" as *
-#import "core/option" as *
-#import "core/mem" as *
 #import "core/math" as *
-#import "core/field" as *
 
 #import "./parser" as *
 
 //: HtmlEscapeKind: HTML text escape の分類
 //:
 //: [目的/もくてき]:
-//: - HTML text 内で escape が必要な byte を分類します。
+//: - HTML text / attribute 内で escape が必要な byte を分類します。
 //:
 //: [実装/じっそう]:
 //: - `html_escape_kind` で byte を分類し、`escape_html` は match で出力文字列を選びます。
-//:
-//: [注意/ちゅうい]:
-//: - `&` / `<` / `>` / `"` / `'` を変換します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
@@ -63,16 +62,46 @@ fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
         _:
             HtmlEscapeKind::Plain
 
+//: escape_html: HTML 用に文字列を escape する
+//:
+//: [目的/もくてき]:
+//: - text node と attribute value に入る `&` / `<` / `>` / `"` / `'` を entity へ変換します。
+//:
+//: [実装/じっそう]:
+//: - byte を 1 つずつ読み、`HtmlEscapeKind` の match で対応する entity または元 byte を追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn escape_html <(str)->str> (s):
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> len s;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> string_byte_at_unchecked s i;
+            match html_escape_kind ch:
+                HtmlEscapeKind::Amp:
+                    set sb sb_append sb "&amp;"
+                HtmlEscapeKind::Lt:
+                    set sb sb_append sb "&lt;"
+                HtmlEscapeKind::Gt:
+                    set sb sb_append sb "&gt;"
+                HtmlEscapeKind::Quote:
+                    set sb sb_append sb "&quot;"
+                HtmlEscapeKind::Apostrophe:
+                    set sb sb_append sb "&#39;"
+                HtmlEscapeKind::Plain:
+                    set sb sb_append sb str_slice s i add i 1;
+            set i add i 1;
+    sb_build sb
+
 //: HtmlHeadingKind: HTML heading tag の分類
 //:
 //: [目的/もくてき]:
 //: - NM heading level を HTML の h1 から h6 に対応させます。
 //:
-//: [実装/じっそう]:
-//: - 1 から 5 は個別 variant、その他は H6 として分類します。
-//:
 //: [注意/ちゅうい]:
-//: - parser 側が通常 1 から 6 を作りますが、範囲外は従来どおり h6 として扱います。
+//: - 範囲外 level は h6 として扱います。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
@@ -99,202 +128,378 @@ fn html_heading_kind <(i32)->HtmlHeadingKind> (level):
         _:
             HtmlHeadingKind::H6
 
-//: escape_html: 主な用途
+//: nm_append_heading_open: heading 開始 tag を追加する
 //:
 //: [目的/もくてき]:
-//: - escape_html の主な用途と呼び出し方を示します。
-//:
-//: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
-//:
-//: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
+//: - level に応じた `<h1>` から `<h6>` を builder へ追加します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
-fn escape_html <(str)->str> (s):
+//: - O(1)
+fn nm_append_heading_open <(StringBuilder,i32)->StringBuilder> (sb, level):
+    match html_heading_kind level:
+        HtmlHeadingKind::H1:
+            sb_append sb "<h1>"
+        HtmlHeadingKind::H2:
+            sb_append sb "<h2>"
+        HtmlHeadingKind::H3:
+            sb_append sb "<h3>"
+        HtmlHeadingKind::H4:
+            sb_append sb "<h4>"
+        HtmlHeadingKind::H5:
+            sb_append sb "<h5>"
+        HtmlHeadingKind::H6:
+            sb_append sb "<h6>"
+
+//: nm_append_heading_close: heading 終了 tag を追加する
+//:
+//: [目的/もくてき]:
+//: - level に応じた `</h1>` から `</h6>` を builder へ追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn nm_append_heading_close <(StringBuilder,i32)->StringBuilder> (sb, level):
+    match html_heading_kind level:
+        HtmlHeadingKind::H1:
+            sb_append sb "</h1>"
+        HtmlHeadingKind::H2:
+            sb_append sb "</h2>"
+        HtmlHeadingKind::H3:
+            sb_append sb "</h3>"
+        HtmlHeadingKind::H4:
+            sb_append sb "</h4>"
+        HtmlHeadingKind::H5:
+            sb_append sb "</h5>"
+        HtmlHeadingKind::H6:
+            sb_append sb "</h6>"
+
+//: nm_inline_to_html: inline markup を HTML fragment に変換する
+//:
+//: [目的/もくてき]:
+//: - 1 行分の inline markup を HTML fragment へ直接変換します。
+//:
+//: [実装/じっそう]:
+//: - pending text を marker の直前で flush し、ruby/gloss/math を直接 HTML として追加します。
+//: - gloss の main/sub は再帰的に inline 変換し、ruby を内側でも使えるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n + m)
+fn nm_inline_to_html <(str)->str> (s):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len s;
     let mut i <i32> 0;
+    let mut text_start <i32> 0;
     while lt i n:
         do:
             let ch <i32> string_byte_at_unchecked s i;
-            match html_escape_kind ch:
-                HtmlEscapeKind::Amp:
-                    set sb sb_append sb "&amp;"
-                HtmlEscapeKind::Lt:
-                    set sb sb_append sb "&lt;"
-                HtmlEscapeKind::Gt:
-                    set sb sb_append sb "&gt;"
-                HtmlEscapeKind::Quote:
-                    set sb sb_append sb "&quot;"
-                HtmlEscapeKind::Apostrophe:
-                    set sb sb_append sb "&#39;"
-                HtmlEscapeKind::Plain:
-                    set sb sb_append sb str_slice s i add i 1;
-            set i add i 1;
-    sb_build sb
-
-//: render_inlines: 主な用途
-//:
-//: [目的/もくてき]:
-//: - render_inlines の主な用途と呼び出し方を示します。
-//:
-//: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
-//:
-//: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
-//:
-//: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
-fn render_inlines <(Vec<Inline>)->str> (v):
-    let mut sb <StringBuilder> string_builder_new;
-    let n <i32> get v "len";
-    let v_data <i32> mem_ptr_addr get v "data";
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            let it <Inline> load<Inline> add v_data mul i size_of<Inline>;
-            match it:
-                Inline::Text s:
-                    set sb sb_append sb escape_html s;
-                Inline::Math m:
-                    // Keep delimiters as-is for KaTeX/MathJax.
-                    set sb sb_append sb m;
-                Inline::Ruby r:
-                    set sb sb_append sb "<ruby class=\"nm-ruby\"><rb>";
-                    set sb sb_append sb escape_html (get r "base");
-                    set sb sb_append sb "</rb><rt>";
-                    set sb sb_append sb escape_html (get r "ruby");
-                    set sb sb_append sb "</rt></ruby>";
-                Inline::Gloss g:
-                    // Re-parse to allow ruby inside gloss segments.
-                    set sb sb_append sb "<ruby class=\"nm-anno\"><rb>";
-                    set sb sb_append sb render_inlines parse_inlines get g "main";
-                    set sb sb_append sb "</rb><rt>";
-                    let subs <Vec<str>> get g "subs";
-                    let m <i32> get subs "len";
-                    let subs_data <i32> mem_ptr_addr get subs "data";
-                    let mut j <i32> 0;
-                    while lt j m:
-                        do:
-                            let ss <str> load<str> add subs_data mul j size_of<str>;
-                            set sb sb_append sb "<span class=\"nm-anno-note\">";
-                            set sb sb_append sb render_inlines parse_inlines ss;
-                            set sb sb_append sb "</span>";
-                            set j add j 1;
-                    set sb sb_append sb "</rt></ruby>";
-            set i add i 1;
-    sb_build sb
-
-//: render_nodes: 主な用途
-//:
-//: [目的/もくてき]:
-//: - render_nodes の主な用途と呼び出し方を示します。
-//:
-//: [実装/じっそう]:
-//: - 定義済み処理をそのまま呼び出す薄いラッパで構成されています。
-//:
-//: [注意/ちゅうい]:
-//: - 引数の値は関数呼び出しで移動するため、再利用時は束縛し直してください。
-//:
-//: [計算量/けいさんりょう]:
-//: - 本体処理に準じます。
-fn render_nodes <(Vec<Node>)->str> (nodes):
-    let mut sb <StringBuilder> string_builder_new;
-    let n <i32> get nodes "len";
-    let nodes_data <i32> mem_ptr_addr get nodes "data";
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            let nd <Node> load<Node> add nodes_data mul i size_of<Node>;
-            match nd:
-                Node::Hr:
-                    set sb sb_append sb "<hr/>";
-                Node::Paragraph inl:
-                    set sb sb_append sb "<p>";
-                    set sb sb_append sb render_inlines inl;
-                    set sb sb_append sb "</p>";
-                Node::CodeBlock cb:
-                    set sb sb_append sb "<pre><code";
+            match ch:
+                '$':
+                    let mut delim <i32> 1;
                     if:
-                        gt len get cb "info" 0
-                        then:
-                            set sb sb_append sb " class=\"language-";
-                            set sb sb_append sb escape_html get cb "info";
-                            set sb sb_append sb "\"";
-                            ()
+                        and lt add i 1 n eq string_byte_at_unchecked s add i 1 '$'
+                        then set delim 2
                         else ()
-                    set sb sb_append sb ">";
-                    set sb sb_append sb escape_html get cb "code";
-                    set sb sb_append sb "</code></pre>";
-                Node::Section sec:
-                    let sec_mem <i32> alloc_raw size_of<NestSection>;
-                    store<NestSection> sec_mem sec;
-                    let sec_level <i32> get load<NestSection> sec_mem "level";
-                    let sec_heading <Heading> get load<NestSection> sec_mem "heading";
-                    let sec_children <Vec<Node>> get load<NestSection> sec_mem "children";
-                    let heading_mem <i32> alloc_raw size_of<Heading>;
-                    store<Heading> heading_mem sec_heading;
-                    let heading_level <i32> get load<Heading> heading_mem "level";
-                    let heading_inlines <Vec<Inline>> get load<Heading> heading_mem "inlines";
-                    set sb sb_append sb "<section class=\"nm-sec level-";
-                    set sb sb_append_i32 sb sec_level;
-                    set sb sb_append sb "\">";
-
-                    match html_heading_kind heading_level:
-                        HtmlHeadingKind::H1:
-                            set sb sb_append sb "<h1>";
-                            set sb sb_append sb render_inlines heading_inlines;
-                            set sb sb_append sb "</h1>";
-                            ()
-                        HtmlHeadingKind::H2:
-                            set sb sb_append sb "<h2>";
-                            set sb sb_append sb render_inlines heading_inlines;
-                            set sb sb_append sb "</h2>";
-                            ()
-                        HtmlHeadingKind::H3:
-                            set sb sb_append sb "<h3>";
-                            set sb sb_append sb render_inlines heading_inlines;
-                            set sb sb_append sb "</h3>";
-                            ()
-                        HtmlHeadingKind::H4:
-                            set sb sb_append sb "<h4>";
-                            set sb sb_append sb render_inlines heading_inlines;
-                            set sb sb_append sb "</h4>";
-                            ()
-                        HtmlHeadingKind::H5:
-                            set sb sb_append sb "<h5>";
-                            set sb sb_append sb render_inlines heading_inlines;
-                            set sb sb_append sb "</h5>";
-                            ()
-                        HtmlHeadingKind::H6:
-                            set sb sb_append sb "<h6>";
-                            set sb sb_append sb render_inlines heading_inlines;
-                            set sb sb_append sb "</h6>";
-                            ()
-
-                    set sb sb_append sb render_nodes sec_children;
-                    set sb sb_append sb "</section>";
-            set i add i 1;
+                    let math_end <i32> nm_find_math_end s add i delim delim;
+                    if:
+                        ge math_end 0
+                        then:
+                            let seg <str> str_slice s text_start i;
+                            if:
+                                gt len seg 0
+                                then set sb sb_append sb escape_html seg
+                                else ()
+                            let endpos <i32> add math_end delim;
+                            set sb sb_append sb str_slice s i endpos;
+                            set i endpos;
+                            set text_start endpos
+                        else:
+                            set i add i 1
+                '[':
+                    let close <i32> nm_find_byte s add i 1 n ']';
+                    let slash <i32>:
+                        if:
+                            ge close 0
+                            then nm_find_byte s add i 1 close '/'
+                            else -1
+                    let mut next_is_paren <bool> false;
+                    if:
+                        and ge close 0 lt add close 1 n
+                        then set next_is_paren eq string_byte_at_unchecked s add close 1 '('
+                        else ()
+                    if:
+                        and ge close 0 and ge slash 0 not next_is_paren
+                        then:
+                            let seg <str> str_slice s text_start i;
+                            if:
+                                gt len seg 0
+                                then set sb sb_append sb escape_html seg
+                                else ()
+                            let base <str> str_slice s add i 1 slash;
+                            let rub <str> str_slice s add slash 1 close;
+                            set sb sb_append sb "<ruby class=\"nm-ruby\"><rb>";
+                            set sb sb_append sb escape_html base;
+                            set sb sb_append sb "</rb><rt>";
+                            set sb sb_append sb escape_html rub;
+                            set sb sb_append sb "</rt></ruby>";
+                            set i add close 1;
+                            set text_start i
+                        else:
+                            set i add i 1
+                '{':
+                    let close <i32> nm_find_byte s add i 1 n '}';
+                    let first_slash <i32>:
+                        if:
+                            ge close 0
+                            then nm_find_gloss_slash s add i 1 close
+                            else -1
+                    if:
+                        and ge close 0 ge first_slash 0
+                        then:
+                            let seg <str> str_slice s text_start i;
+                            if:
+                                gt len seg 0
+                                then set sb sb_append sb escape_html seg
+                                else ()
+                            let main <str> str_slice s add i 1 first_slash;
+                            set sb sb_append sb "<ruby class=\"nm-anno\"><rb>";
+                            set sb sb_append sb nm_inline_to_html main;
+                            set sb sb_append sb "</rb><rt>";
+                            let mut sub_start <i32> add first_slash 1;
+                            let mut k <i32> sub_start;
+                            while lt k close:
+                                do:
+                                    let next_slash <i32> nm_find_gloss_slash s k close;
+                                    let part_end <i32>:
+                                        if:
+                                            ge next_slash 0
+                                            then next_slash
+                                            else close
+                                    let part <str> str_slice s sub_start part_end;
+                                    set sb sb_append sb "<span class=\"nm-anno-note\">";
+                                    set sb sb_append sb nm_inline_to_html part;
+                                    set sb sb_append sb "</span>";
+                                    if:
+                                        ge next_slash 0
+                                        then:
+                                            set sub_start add next_slash 1;
+                                            set k sub_start
+                                        else:
+                                            set k close
+                            set sb sb_append sb "</rt></ruby>";
+                            set i add close 1;
+                            set text_start i
+                        else:
+                            set i add i 1
+                _:
+                    set i add i 1
+    let tail <str> str_slice s text_start n;
+    if:
+        gt len tail 0
+        then set sb sb_append sb escape_html tail
+        else ()
     sb_build sb
 
-//: render_document: `Document` AST を HTML 文字列へ変換する
+//: nm_render_source_html: source を HTML fragment に変換する
 //:
 //: [目的/もくてき]:
-//: - nm/parser が返した AST をブラウザ表示可能な HTML へ変換します。
+//: - Document source を block 単位で走査し、section/paragraph/code/hr を HTML にします。
+//:
+//: [実装/じっそう]:
+//: - section close は `</section>` を direct に追加し、stack state は Copy bool と current level だけで持ちます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n + m)
+fn nm_render_source_html <(str)->str> (src):
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> len src;
+    let mut pos <i32> 0;
+    let mut current_level <i32> 0;
+    let mut open1 <bool> false;
+    let mut open2 <bool> false;
+    let mut open3 <bool> false;
+    let mut open4 <bool> false;
+    let mut open5 <bool> false;
+    let mut open6 <bool> false;
+
+    while lt pos n:
+        do:
+            let line_end <i32> nm_line_end src pos;
+            let raw <str> trim_cr str_slice src pos line_end;
+            let t <str> str_trim raw;
+            set pos nm_next_line_pos src line_end;
+            if:
+                eq len t 0
+                then:
+                    ()
+                else:
+                    if:
+                        is_section_break t
+                        then:
+                            if:
+                                gt current_level 0
+                                then:
+                                    set sb sb_append sb "</section>";
+                                    match current_level:
+                                        1:
+                                            set open1 false
+                                        2:
+                                            set open2 false
+                                        3:
+                                            set open3 false
+                                        4:
+                                            set open4 false
+                                        5:
+                                            set open5 false
+                                        _:
+                                            set open6 false
+                                    set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                else ()
+                        else:
+                            if:
+                                is_hr t
+                                then:
+                                    set sb sb_append sb "<hr/>";
+                                    if:
+                                        gt current_level 0
+                                        then:
+                                            set sb sb_append sb "</section>";
+                                            match current_level:
+                                                1:
+                                                    set open1 false
+                                                2:
+                                                    set open2 false
+                                                3:
+                                                    set open3 false
+                                                4:
+                                                    set open4 false
+                                                5:
+                                                    set open5 false
+                                                _:
+                                                    set open6 false
+                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                        else ()
+                                else:
+                                    if:
+                                        is_fence_start t
+                                        then:
+                                            let info <str> str_trim str_slice t 3 len t;
+                                            let mut code_sb <StringBuilder> string_builder_new;
+                                            let mut done <bool> false;
+                                            while and lt pos n not done:
+                                                do:
+                                                    let cend <i32> nm_line_end src pos;
+                                                    let craw <str> trim_cr str_slice src pos cend;
+                                                    let ct <str> str_trim craw;
+                                                    set pos nm_next_line_pos src cend;
+                                                    if:
+                                                        is_fence_start ct
+                                                        then set done true
+                                                        else:
+                                                            set code_sb sb_append code_sb craw;
+                                                            set code_sb sb_append code_sb "\n"
+                                            set sb sb_append sb "<pre><code";
+                                            if:
+                                                gt len info 0
+                                                then:
+                                                    set sb sb_append sb " class=\"language-";
+                                                    set sb sb_append sb escape_html info;
+                                                    set sb sb_append sb "\""
+                                                else ()
+                                            set sb sb_append sb ">";
+                                            set sb sb_append sb escape_html sb_build code_sb;
+                                            set sb sb_append sb "</code></pre>"
+                                        else:
+                                            let hlevel <i32> nm_heading_level t;
+                                            if:
+                                                gt hlevel 0
+                                                then:
+                                                    while ge current_level hlevel:
+                                                        do:
+                                                            set sb sb_append sb "</section>";
+                                                            match current_level:
+                                                                1:
+                                                                    set open1 false
+                                                                2:
+                                                                    set open2 false
+                                                                3:
+                                                                    set open3 false
+                                                                4:
+                                                                    set open4 false
+                                                                5:
+                                                                    set open5 false
+                                                                _:
+                                                                    set open6 false
+                                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                                    let htext <str> nm_heading_text t hlevel;
+                                                    set sb sb_append sb "<section class=\"nm-sec level-";
+                                                    set sb sb_append_i32 sb hlevel;
+                                                    set sb sb_append sb "\">";
+                                                    set sb nm_append_heading_open sb hlevel;
+                                                    set sb sb_append sb nm_inline_to_html htext;
+                                                    set sb nm_append_heading_close sb hlevel;
+                                                    match hlevel:
+                                                        1:
+                                                            set open1 true
+                                                        2:
+                                                            set open2 true
+                                                        3:
+                                                            set open3 true
+                                                        4:
+                                                            set open4 true
+                                                        5:
+                                                            set open5 true
+                                                        _:
+                                                            set open6 true
+                                                    set current_level hlevel
+                                                else:
+                                                    let mut para_sb <StringBuilder> string_builder_new;
+                                                    set para_sb sb_append para_sb raw;
+                                                    let mut done <bool> false;
+                                                    while and lt pos n not done:
+                                                        do:
+                                                            let pend <i32> nm_line_end src pos;
+                                                            let praw <str> trim_cr str_slice src pos pend;
+                                                            let pt <str> str_trim praw;
+                                                            if:
+                                                                nm_is_block_boundary pt
+                                                                then set done true
+                                                                else:
+                                                                    set para_sb sb_append para_sb "\n";
+                                                                    set para_sb sb_append para_sb praw;
+                                                                    set pos nm_next_line_pos src pend
+                                                    set sb sb_append sb "<p>";
+                                                    set sb sb_append sb nm_inline_to_html sb_build para_sb;
+                                                    set sb sb_append sb "</p>"
+
+    while gt current_level 0:
+        do:
+            set sb sb_append sb "</section>";
+            match current_level:
+                1:
+                    set open1 false
+                2:
+                    set open2 false
+                3:
+                    set open3 false
+                4:
+                    set open4 false
+                5:
+                    set open5 false
+                _:
+                    set open6 false
+            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+    sb_build sb
+
+//: render_document: `Document` source view を HTML 文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - nm/parser が返した Document をブラウザ表示可能な HTML へ変換します。
 //: - CLI の `--html` 出力や docs 生成で使用する最終段 API です。
 //:
 //: [実装/じっそう]:
-//: - `render_nodes` / `render_inlines` でノード種別ごとに再帰展開します。
-//: - 文字列部分は `escape_html` でエスケープし、math は `$...$` をそのまま保持します。
-//:
-//: [注意/ちゅうい]:
-//: - 生成 HTML は安全側の最小エスケープ実装です。属性ホワイトリスト等は今後拡張します。
+//: - `Document.source` を `nm_render_source_html` で direct serialize します。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(m)（m は出力 HTML バイト数）。
+//: - O(n + m)
 //:
 //: neplg2:test
 //: ```neplg2
@@ -309,4 +514,4 @@ fn render_nodes <(Vec<Node>)->str> (nodes):
 //:     if and str_starts_with h "<section" str_ends_with h "</section>" 0 1
 //: ```
 pub fn render_document <(Document)->str> (doc):
-    render_nodes get doc "nodes"
+    nm_render_source_html get doc "source"

@@ -20,14 +20,13 @@ for (const [label, phrase] of forbiddenPhrases) {
 }
 
 const requiredPhrases = [
-    ['fence parser return contract', 'FenceRes: fenced code block parser \u306e\u623b\u308a\u5024'],
-    ['paragraph parser return contract', 'ParaRes: paragraph parser \u306e\u623b\u308a\u5024'],
-    ['heading predicate contract', 'is_heading_start: ATX heading \u884c\u3092\u5224\u5b9a\u3059\u308b'],
-    ['section close contract', 'close_one_section: \u958b\u3044\u3066\u3044\u308b section \u3092 1 \u3064\u9589\u3058\u308b'],
-    ['fenced block parser contract', 'parse_fence: fenced code block \u3092\u8aad\u307f\u53d6\u308b'],
-    ['paragraph parser contract', 'parse_paragraph: paragraph block \u3092\u8aad\u307f\u53d6\u308b'],
+    ['Document source-view contract', 'Document: NM document \u306e source view'],
+    ['line scanner contract', 'nm_line_end: 1 \u884c\u306e\u7d42\u7aef byte index \u3092\u63a2\u3059'],
+    ['heading level contract', 'nm_heading_level: ATX heading \u306e level \u3092\u5224\u5b9a\u3059\u308b'],
+    ['block boundary contract', 'nm_is_block_boundary: paragraph \u3092\u6b62\u3081\u308b\u884c\u304b\u5224\u5b9a\u3059\u308b'],
     ['JSON escape contract', 'json_escape: JSON \u6587\u5b57\u5217\u7528\u306b byte \u3092 escape \u3059\u308b'],
-    ['inline JSON contract', 'inlines_to_json: inline AST \u5217\u3092 JSON \u914d\u5217\u306b\u5909\u63db\u3059\u308b'],
+    ['inline JSON contract', 'nm_inline_to_json: inline markup \u3092 JSON array \u306b\u5909\u63db\u3059\u308b'],
+    ['document JSON contract', 'document_to_json: `Document` \u3092 JSON \u6587\u5b57\u5217\u3078\u5909\u63db\u3059\u308b'],
 ];
 
 for (const [label, phrase] of requiredPhrases) {

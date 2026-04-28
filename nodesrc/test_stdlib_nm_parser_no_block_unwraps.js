@@ -5,13 +5,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/nm/parser.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const parserPath = 'stdlib/nm/parser.nepl';
+const htmlPath = 'stdlib/nm/html_gen.nepl';
+const parserSrc = fs.readFileSync(path.join(repoRoot, parserPath), 'utf8');
+const htmlSrc = fs.readFileSync(path.join(repoRoot, htmlPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+function implementationSource(src) {
+    return src
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}
+
+const parser = implementationSource(parserSrc);
+const html = implementationSource(htmlSrc);
+const combined = `${parser}\n${html}`;
 
 const forbidden = [
     /\bunwrap\b/,
@@ -20,25 +28,22 @@ const forbidden = [
     /\buwok\b/,
     /\buwerr\b/,
     /#intrinsic\s+"unreachable"/,
+    /Vec<Node>/,
+    /v::push<Node>/,
+    /struct\s+NodePushRes/,
+    /alloc_raw\s+size_of<NestSection>/,
+    /store<NestSection>/,
+    /load<NestSection>/,
 ];
 
 for (const pattern of forbidden) {
-    assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(combined, pattern, 'nm block serializers must not use unsafe unwraps or non-Copy Vec-backed block AST');
 }
 
-const parseStart = code.indexOf('pub fn parse_markdown <(str)->Document> (input):');
-const parseEnd = code.indexOf('fn json_escape <(str)->str> (s):', parseStart);
-assert.notEqual(parseStart, -1, 'parse_markdown must exist');
-assert.notEqual(parseEnd, -1, 'parse_markdown section boundary must exist');
-const parseMarkdown = code.slice(parseStart, parseEnd);
-
-assert.match(code, /struct\s+NodePushRes:[\s\S]*items\s+<Vec<Node>>[\s\S]*ok\s+<bool>/, 'Node push result must carry Vec and status');
-assert.match(code, /fn\s+nm_node_empty_vec\s+<\(\)->Vec<Node>>\s+\(\):\s+v::Vec<Node>\s+0\s+0\s+mem_ptr_wrap\s+0/, 'block allocation failure must use an empty Node Vec sentinel');
-assert.match(code, /fn\s+nm_push_node\s+<\(Vec<Node>, Node\)->NodePushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<Node>\s+items\s+item:[\s\S]*Result::Err\s+_e:[\s\S]*NodePushRes\s+nm_node_empty_vec\s+false/, 'Node pushes must convert grow failure to ok=false');
-assert.match(code, /fn\s+nest_stack_push_from_hdr_result\s+<\(MemPtr<u8>,NestSection\)->Result<\(\),str>>\s+\(hdr,\s*item\):[\s\S]*match\s+realloc_ptr<NestSection>[\s\S]*Result::Err\s+_e:[\s\S]*Result<\(\),str>::Err\s+"nm\.parser nest stack grow failed"/, 'nest section stack grow must return Result instead of trapping');
-assert.match(parseMarkdown, /match\s+v::new<Node>:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+failed\s+true/, 'parse_markdown must handle root Vec allocation failure');
-assert.match(parseMarkdown, /let\s+pushed_root\s+<NodePushRes>\s+nm_push_node\s+root\s+Node::Hr/, 'horizontal rule accumulation must go through checked Node push');
-assert.match(parseMarkdown, /let\s+pushed_kids\s+<NodePushRes>\s+nm_push_node\s+kids\s+Node::Paragraph\s+pr_inlines/, 'section child accumulation must go through checked Node push');
-assert.match(parseMarkdown, /while\s+and\s+lt\s+i\s+nlines\s+not\s+failed:/, 'parse_markdown must stop scanning after allocation failure');
+assert.match(parser, /pub\s+struct\s+Document:[\s\S]*source\s+<str>/, 'Document must be a Copy source view');
+assert.match(parser, /pub\s+fn\s+parse_markdown\s+<\(str\)->Document>\s+\(input\):\s+Document\s+input/, 'parse_markdown must not allocate a non-Copy block AST');
+assert.match(parser, /pub\s+fn\s+document_to_json\s+<\(Document\)->str>\s+\(doc\):[\s\S]*let\s+src\s+<str>\s+get\s+doc\s+"source"/, 'document_to_json must direct-serialize from source');
+assert.match(html, /fn\s+nm_render_source_html\s+<\(str\)->str>\s+\(src\):[\s\S]*while\s+lt\s+pos\s+n:/, 'HTML renderer must direct-scan source lines');
+assert.match(parser, /fn\s+nm_deepest_level\s+<\(bool,bool,bool,bool,bool,bool\)->i32>/, 'section stack must remain Copy bool state');
 
 console.log('stdlib nm parser block unsafe unwrap regression passed');

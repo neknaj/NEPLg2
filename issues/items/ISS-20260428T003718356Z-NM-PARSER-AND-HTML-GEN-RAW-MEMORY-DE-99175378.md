@@ -2,8 +2,8 @@
 id: ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378
 title: "nm parser and html_gen raw memory detours fail under strict move checking"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
@@ -51,3 +51,25 @@ nm parser / html generator が raw memory detour によって non-Copy aggregate
 
 - `node nodesrc/tests.js -i stdlib/nm --no-tree -o tmp/stdlib-nm-after-fix.json -j 2`
 - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-focused-after-fix.json -j 1`
+
+## 対応結果
+
+- `Document` を `Vec<Node>` owner ではなく `source <str>` の Copy source view に変更した。
+- `document_to_json` と `render_document` は source を再走査する direct serializer に変更し、`Vec<Inline>` / `Vec<Node>` / `Vec<str>` の non-Copy AST raw storage を作らない実装にした。
+- inline parser は `nm_inline_to_json` / `nm_inline_to_html` の string-backed serializer に分け、ruby/gloss/math を `StringBuilder` で直接出力するようにした。
+- section stack は最大 heading level 6 の Copy bool state と current level で管理し、`NestSection` owner を raw memory に退避しない形にした。
+- `stdlib/nm/README.n.md` を現在の source view / direct serializer 方針に更新した。
+- source policy tests を更新し、non-Copy AST Vec、raw aggregate detour、unsafe unwrap の再混入を検出するようにした。
+
+## 実施した検証
+
+- `node nodesrc/test_stdlib_match_decision_trees.js`: pass
+- `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: pass
+- `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: pass
+- `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: pass
+- `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: pass
+- `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-direct-serializer-after-driver-entry-sync.json -j 1`: `total=10`, `passed=10`
+- `node nodesrc/tests.js -i stdlib/nm --no-tree -o tmp/stdlib-nm-direct-serializer-after-driver-entry-sync.json -j 1`: `total=5`, `passed=5`
+- `trunk build`: pass
+- `node nodesrc/tests.js -i stdlib/tests --no-tree -o tmp/stdlib-tests-nm-direct-serializer-after-driver-entry-sync.json -j 4`: `total=80`, `passed=80`
+- `node nodesrc/issues.js check`: pass

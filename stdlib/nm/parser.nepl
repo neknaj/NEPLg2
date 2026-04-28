@@ -1,11 +1,21 @@
-//: parser: nm/parser.nepl に関する機能を提供するライブラリ
+//: nm/parser: Gloss/Nest Markdown の source view と JSON serializer
 //:
 //: [目的/もくてき]:
-//: - このモジュールの公開 API を提供します。
-//: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//: - `.n.md` 用の Gloss/Nest Markdown を読み、`Document` と JSON 出力 API を提供します。
+//: - `Document` は source view を保持し、JSON/HTML 変換時に direct serializer が再走査します。
+//:
+//: [実装/じっそう]:
+//: - strict move checking に合わせ、`Vec<Inline>` / `Vec<Node>` のような non-Copy AST raw storage を使いません。
+//: - block parser は入力文字列を byte index で走査し、section stack は最大 heading level 6 の Copy state として管理します。
+//: - inline parser は JSON/HTML 文字列を直接構築し、ruby/gloss/math を必要箇所だけ再帰処理します。
 //:
 //: [注意/ちゅうい]:
-//: - 利用時は各関数の「目的」「注意」「計算量」を確認してください。
+//: - JSON schema は開発中です。selfhost/doc 生成で必要な安定 API は `parse_markdown` / `document_to_json` / `render_document` です。
+//: - UTF-8 境界は stdlib/string の slice API に従います。ここでは Markdown marker を ASCII byte として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - `parse_markdown` は O(1) です。
+//: - `document_to_json` は入力 size と出力 size に対して O(n + m) です。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -19,1027 +29,529 @@
 #indent 4
 
 #import "alloc/string" as *
-#import "alloc/collections/vec" as v
-#import "core/option" as *
-#import "core/mem" as *
 #import "core/math" as *
-#import "alloc/collections/stack" as *
-#import "core/field" as *
-#import "core/result" as *
+#import "core/option" as *
 
-// -----------------------------
-// AST
-// -----------------------------
-
-pub struct Document:
-    nodes <Vec<Node>>
-
-pub struct Heading:
-    level <i32>
-    inlines <Vec<Inline>>
-
-pub struct NestSection:
-    level <i32>
-    heading <Heading>
-    children <Vec<Node>>
-
-pub struct RubyInfo:
-    base <str>
-    ruby <str>
-
-pub struct GlossInfo:
-    main <str>
-    subs <Vec<str>>
-
-pub struct CodeBlockInfo:
-    info <str>
-    code <str>
-
-pub enum Inline:
-    Text <str>
-    Ruby <RubyInfo>
-    Gloss <GlossInfo>
-    Math <str>
-
-pub enum Node:
-    Section <NestSection>
-    Paragraph <Vec<Inline>>
-    Hr
-    CodeBlock <CodeBlockInfo>
-
-//: NmJsonEscapeKind: NM JSON 出力用の escape 分類
+//: Document: NM document の source view
 //:
 //: [目的/もくてき]:
-//: - JSON 文字列に入れる byte のうち、escape が必要なものを分類します。
+//: - parse 済み document を公開 API の値として運びます。
 //:
 //: [実装/じっそう]:
-//: - `nm_json_escape_kind` で byte を分類し、`json_escape` は match で出力文字列を選びます。
+//: - 現在は source `str` だけを持つ Copy 可能な view です。
+//: - JSON/HTML は `document_to_json` / `render_document` が source を再走査して生成します。
 //:
 //: [注意/ちゅうい]:
-//: - parser の AST JSON 出力で必要な代表的 JSON escape を扱います。
+//: - non-Copy AST container を内部に持たないため、strict move checking の raw storage 制約に抵触しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+pub struct Document:
+    source <str>
+
+impl Clone for Document:
+    fn clone <(&Document)->Document> (doc):
+        *doc
+
+impl Copy for Document:
+    fn copy_mark <(Document)->Document> (doc):
+        doc
+
+//: nm_line_end: 1 行の終端 byte index を探す
+//:
+//: [目的/もくてき]:
+//: - `start` から次の LF 直前、または入力末尾までを 1 行として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(line_length)
+fn nm_line_end <(str,i32)->i32> (s, start):
+    let n <i32> len s;
+    let mut i <i32> start;
+    let mut done <bool> false;
+    while and lt i n not done:
+        do:
+            if:
+                eq string_byte_at_unchecked s i '\n'
+                then set done true
+                else set i add i 1
+    i
+
+//: nm_next_line_pos: 行終端から次行の開始位置を得る
+//:
+//: [目的/もくてき]:
+//: - `nm_line_end` が返した index から、次に読む byte index を計算します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-enum NmJsonEscapeKind:
-    Backslash
-    Quote
-    Newline
-    CarriageReturn
-    Tab
-    Backspace
-    FormFeed
-    Plain
-
-fn nm_json_escape_kind <(i32)->NmJsonEscapeKind> (ch):
-    match ch:
-        '\\':
-            NmJsonEscapeKind::Backslash
-        '"':
-            NmJsonEscapeKind::Quote
-        '\n':
-            NmJsonEscapeKind::Newline
-        '\r':
-            NmJsonEscapeKind::CarriageReturn
-        '\t':
-            NmJsonEscapeKind::Tab
-        '\b':
-            NmJsonEscapeKind::Backspace
-        '\f':
-            NmJsonEscapeKind::FormFeed
-        _:
-            NmJsonEscapeKind::Plain
-
-// Multi-return helpers (no tuple destructuring)
-//: FenceRes: fenced code block parser の戻り値
-//:
-//: [目的/もくてき]:
-//: - `parse_fence` が読み取った code block 情報と、次に読むべき行 index をまとめて返します。
-//:
-//: [実装/じっそう]:
-//: - tuple destructuring を使わず、`cb` と `next_i` を名前付き field として保持します。
-//:
-//: [注意/ちゅうい]:
-//: - `next_i` は閉じ fence の次の行、または入力末尾を指します。
-//:
-//: [計算量/けいさんりょう]:
-//: - 定義そのものは O(1) です。
-struct FenceRes:
-    cb <CodeBlockInfo>
-    next_i <i32>
-
-//: ParaRes: paragraph parser の戻り値
-//:
-//: [目的/もくてき]:
-//: - `parse_paragraph` が生成した inline 列と、paragraph の直後に続く行 index をまとめて返します。
-//:
-//: [実装/じっそう]:
-//: - block parser が paragraph 本文と走査位置を同時に受け取れるよう、`inlines` と `next_i` を保持します。
-//:
-//: [注意/ちゅうい]:
-//: - `inlines` は `parse_inlines` の結果なので、inline parser の allocation failure 時は空 Vec sentinel になる可能性があります。
-//:
-//: [計算量/けいさんりょう]:
-//: - 定義そのものは O(1) です。
-struct ParaRes:
-    inlines <Vec<Inline>>
-    next_i <i32>
-
-//: InlinePushRes: `Inline` push の結果
-//:
-//: [目的/もくてき]:
-//: - push 後の Vec owner と、push が成功したかを同時に返します。
-struct InlinePushRes:
-    items <Vec<Inline>>
-    ok <bool>
-
-//: StrPushRes: `str` push の結果
-//:
-//: [目的/もくてき]:
-//: - Gloss parts/subs の push 後 Vec owner と、push が成功したかを同時に返します。
-struct StrPushRes:
-    items <Vec<str>>
-    ok <bool>
-
-//: NodePushRes: `Node` push の結果
-//:
-//: [目的/もくてき]:
-//: - block parser の root/children push 後 Vec owner と、push が成功したかを同時に返します。
-struct NodePushRes:
-    items <Vec<Node>>
-    ok <bool>
-
-// -----------------------------
-// Small helpers
-// -----------------------------
-
-fn nest_stack_len_from_hdr <(MemPtr<u8>)->i32> (hdr):
-    load_i32 mem_ptr_addr hdr
-
-fn nest_stack_cap_ptr_from_hdr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add mem_ptr_addr hdr 4
-
-fn nest_stack_data_ptr_ptr_from_hdr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add mem_ptr_addr hdr 8
-
-fn nest_stack_data_from_hdr <(MemPtr<u8>)->MemPtr<NestSection>> (hdr):
-    mem_ptr_wrap load_i32 mem_ptr_addr nest_stack_data_ptr_ptr_from_hdr hdr
-
-//: nm_node_empty_vec: 空の `Node` Vec sentinel を作る
-//:
-//: [目的/もくてき]:
-//: - block parser の allocation failure 時に、consumed owner を再利用せず空の失敗値へ切り替えます。
-fn nm_node_empty_vec <()->Vec<Node>> ():
-    v::Vec<Node> 0 0 mem_ptr_wrap 0
-
-//: nm_push_node: `Node` Vec への push を trap せず結果化する
-//:
-//: [目的/もくてき]:
-//: - `v::push` の grow failure を `unwrap_ok` で trap させず、`ok=false` と空 Vec sentinel へ変換します。
-fn nm_push_node <(Vec<Node>, Node)->NodePushRes> (items, item):
-    match v::push<Node> items item:
-        Result::Ok next:
-            NodePushRes next true
-        Result::Err _e:
-            NodePushRes nm_node_empty_vec false
-
-fn nest_stack_peek_from_hdr <(MemPtr<u8>)->Option<NestSection>> (hdr):
-    let len <i32> nest_stack_len_from_hdr hdr;
+fn nm_next_line_pos <(str,i32)->i32> (s, line_end):
     if:
-        eq len 0
-        then none<NestSection>
-        else:
-            let data <MemPtr<NestSection>> nest_stack_data_from_hdr hdr;
-            let off <i32> mul sub len 1 size_of<NestSection>;
-            some<NestSection> load<NestSection> add mem_ptr_addr data off
+        lt line_end len s
+        then add line_end 1
+        else len s
 
-fn nest_stack_pop_from_hdr <(MemPtr<u8>)->Option<NestSection>> (hdr):
-    let len <i32> nest_stack_len_from_hdr hdr;
-    if:
-        eq len 0
-        then none<NestSection>
-        else:
-            let new_len <i32> sub len 1;
-            let data <MemPtr<NestSection>> nest_stack_data_from_hdr hdr;
-            let off <i32> mul new_len size_of<NestSection>;
-            let item <NestSection> load<NestSection> add mem_ptr_addr data off;
-            store_i32 mem_ptr_addr hdr new_len;
-            some<NestSection> item
-
-fn nest_stack_push_from_hdr_result <(MemPtr<u8>,NestSection)->Result<(),str>> (hdr, item):
-    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr;
-    let cap_ptr <MemPtr<i32>> nest_stack_cap_ptr_from_hdr hdr;
-    let data_ptr_ptr <MemPtr<i32>> nest_stack_data_ptr_ptr_from_hdr hdr;
-    let len <i32> load_i32 mem_ptr_addr len_ptr;
-    let cap <i32> load_i32 mem_ptr_addr cap_ptr;
-    let data <MemPtr<NestSection>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr;
-    if:
-        eq len cap
-        then:
-            let new_cap <i32> if eq cap 0 1 mul cap 2;
-            match realloc_ptr<NestSection> data mul cap size_of<NestSection> mul new_cap size_of<NestSection>:
-                Result::Ok new_data:
-                    let off <i32> mul len size_of<NestSection>;
-                    store<NestSection> add mem_ptr_addr new_data off item;
-                    store_i32 mem_ptr_addr cap_ptr new_cap;
-                    store_i32 mem_ptr_addr data_ptr_ptr mem_ptr_addr new_data;
-                    store_i32 mem_ptr_addr len_ptr add len 1;
-                    Result<(),str>::Ok ()
-                Result::Err _e:
-                    Result<(),str>::Err "nm.parser nest stack grow failed"
-        else:
-            let off <i32> mul len size_of<NestSection>;
-            store<NestSection> add mem_ptr_addr data off item;
-            store_i32 mem_ptr_addr len_ptr add len 1;
-            Result<(),str>::Ok ()
-
-//: is_empty_line: 空行を判定する
+//: trim_cr: CRLF 入力の CR を 1 byte だけ取り除く
 //:
 //: [目的/もくてき]:
-//: - trim 後の行が空かどうかを返します。
-//:
-//: [実装/じっそう]:
-//: - `str_trim` 後の byte length が 0 かを調べます。
-//:
-//: [注意/ちゅうい]:
-//: - 空白だけの行も空行として扱います。
+//: - Windows style の `\r\n` 行末を parser 内部で `\n` と同じ扱いにします。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n)（n は行の byte 数）。
-fn is_empty_line <(str)->bool> (s):
-    let t <str> str_trim s;
-    eq len t 0
-
-//: is_hr_line: 水平線行を判定する
-//:
-//: [目的/もくてき]:
-//: - trim 後の行が NM の水平線 `---` かどうかを返します。
-//:
-//: [実装/じっそう]:
-//: - `str_trim` 後に `---` と完全一致するかを調べます。
-//:
-//: [注意/ちゅうい]:
-//: - markdown の他の水平線記法はここでは扱いません。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)（n は行の byte 数）。
-fn is_hr_line <(str)->bool> (s):
-    let t <str> str_trim s;
-    str_eq t "---"
-
-//: is_nest_break_line: section nest break 行を判定する
-//:
-//: [目的/もくてき]:
-//: - trim 後の行が section nest を明示的に区切る `;;;` かどうかを返します。
-//:
-//: [実装/じっそう]:
-//: - `str_trim` 後に `;;;` と完全一致するかを調べます。
-//:
-//: [注意/ちゅうい]:
-//: - 現在の block parser では `;;;` 自体を出力ノードにせず、区切りとして読み飛ばします。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)（n は行の byte 数）。
-fn is_nest_break_line <(str)->bool> (s):
-    let t <str> str_trim s;
-    str_eq t ";;;"
-
-//: is_fence_start: fenced code block の開始行を判定する
-//:
-//: [目的/もくてき]:
-//: - trim 後の行が triple-backtick fence で始まるかどうかを返します。
-//:
-//: [実装/じっそう]:
-//: - `str_trim` 後に `str_starts_with t "```"` を調べます。
-//:
-//: [注意/ちゅうい]:
-//: - fence info string は `parse_fence` が先頭 3 byte より後ろを trim して取り出します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)（n は行の byte 数）。
-fn is_fence_start <(str)->bool> (s):
-    let t <str> str_trim s;
-    str_starts_with t "```"
-
-//: is_heading_start: ATX heading 行を判定する
-//:
-//: [目的/もくてき]:
-//: - trim 後の行が `# ` から `###### ` までの heading marker で始まるかどうかを返します。
-//:
-//: [実装/じっそう]:
-//: - level 1 から 6 の prefix を順に `str_starts_with` で調べます。
-//:
-//: [注意/ちゅうい]:
-//: - marker 後の space を必須にします。`#title` は heading として扱いません。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)（n は行の byte 数）。
-fn is_heading_start <(str)->bool> (s):
-    let t <str> str_trim s;
-    or str_starts_with t "# " or str_starts_with t "## " or str_starts_with t "### " or str_starts_with t "#### " or str_starts_with t "##### " str_starts_with t "###### "
-
-//: trim_cr: 行末 CR を 1 byte だけ落とす
-//:
-//: [目的/もくてき]:
-//: - `str_split input "\n"` 後に残る Windows 改行の `\r` を取り除きます。
-//:
-//: [実装/じっそう]:
-//: - 最終 byte が `'\r'` なら末尾 1 byte を除いた slice を返し、それ以外は元の文字列を返します。
-//:
-//: [注意/ちゅうい]:
-//: - 先頭や途中の CR は変更しません。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)（slice 生成を含む）。
+//: - O(1)
 fn trim_cr <(str)->str> (s):
     let n <i32> len s;
     if:
-        le n 0
-        then s
-        else:
-            let last <i32> string_byte_at_unchecked s sub n 1;
-            if:
-                eq last '\r'
-                then str_slice s 0 sub n 1
-                else s
+        and gt n 0 eq string_byte_at_unchecked s sub n 1 '\r'
+        then str_slice s 0 sub n 1
+        else s
 
-//: safe_line: 行 Vec から範囲外に強い形で 1 行読む
+//: nm_read_line: 入力から 1 行を切り出す
 //:
 //: [目的/もくてき]:
-//: - `lines_mem` に置いた `Vec<str>` から index `i` の行を読み、存在しなければ空文字列を返します。
-//:
-//: [実装/じっそう]:
-//: - `v::get` の `Option` を match し、取得できた行には `trim_cr` を適用します。
-//:
-//: [注意/ちゅうい]:
-//: - parser の lookahead で範囲外 access を通常の空行扱いに寄せるための helper です。
+//: - byte index `pos` から LF までを切り出し、末尾 CR を取り除きます。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n)（n は返す行の byte 数）。
-fn safe_line <(i32, i32)->str> (lines_mem, i):
-    let lines <Vec<str>> load<Vec<str>> lines_mem;
-    match v::get<str> lines i:
-        Option::Some s:
-            trim_cr s
-        Option::None:
-            ""
+//: - O(line_length)
+fn nm_read_line <(str,i32)->str> (s, pos):
+    trim_cr str_slice s pos nm_line_end s pos
 
-//: close_one_section: 開いている section を 1 つ閉じる
+//: nm_heading_level: ATX heading の level を判定する
 //:
 //: [目的/もくてき]:
-//: - nest stack の最上位 section を `Node::Section` に変換し、親 section または root node 列へ追加します。
+//: - `# ` から `###### ` までを 1..6 として返し、それ以外は 0 を返します。
 //:
 //: [実装/じっそう]:
-//: - stack から子 section を pop し、親があれば親の children に push して戻し、親がなければ root に push します。
-//: - push / stack grow が失敗した場合は trap せず、現在の root を返します。
-//:
-//: [注意/ちゅうい]:
-//: - 失敗状態を戻り値で表せない既存 API のため、allocation failure 時は追加を諦める conservative fallback です。
+//: - 先頭の `#` 個数を数え、直後が空白である場合だけ heading とします。
 //:
 //: [計算量/けいさんりょう]:
-//: - 通常 O(1)。Vec grow が発生すると要素数に応じた再確保コストがかかります。
-fn close_one_section <(Stack<NestSection>, Vec<Node>)*>Vec<Node>> (stk, root):
-    let hdr <MemPtr<u8>> get stk "hdr";
-    match nest_stack_pop_from_hdr hdr:
-        Option::Some sec:
-            let node <Node> Node::Section sec;
-            match nest_stack_peek_from_hdr hdr:
-                Option::Some top:
-                    let parent_level <i32> get top "level";
-                    let parent_heading <Heading> get top "heading";
-                    match nest_stack_pop_from_hdr hdr:
-                        Option::Some parent:
-                            let pushed_kids <NodePushRes> nm_push_node get parent "children" node;
-                            let pushed_kids_ok <bool> get pushed_kids "ok";
-                            let kids <Vec<Node>> get pushed_kids "items";
-                            if:
-                                pushed_kids_ok
-                                then:
-                                    let parent2 <NestSection> NestSection parent_level parent_heading kids;
-                                    match nest_stack_push_from_hdr_result hdr parent2:
-                                        Result::Ok _:
-                                            root
-                                        Result::Err _e:
-                                            root
-                                else:
-                                    root
-                        Option::None:
-                            let pushed_root <NodePushRes> nm_push_node root node;
-                            get pushed_root "items"
-                Option::None:
-                    let pushed_root <NodePushRes> nm_push_node root node;
-                    get pushed_root "items"
-        Option::None:
-            root
-
-//: close_to_level: 指定 level 以上の section を閉じる
-//:
-//: [目的/もくてき]:
-//: - 新しい heading を読む前に、stack 上の `level >= new_level` な section をすべて閉じます。
-//:
-//: [実装/じっそう]:
-//: - stack top を peek し、条件を満たす間 `close_one_section` を繰り返します。
-//:
-//: [注意/ちゅうい]:
-//: - 現在の block parser では section を即時 root に入れる経路が残っており、この helper は nest-stack 経路用の互換部品です。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(k)（k は閉じる section 数）。各 close は通常 O(1) です。
-fn close_to_level <(Stack<NestSection>, Vec<Node>, i32)*>Vec<Node>> (stk, root, new_level):
-    // Close while top.level >= new_level
-    let hdr <MemPtr<u8>> get stk "hdr";
-    let mut r <Vec<Node>> root;
-    let mut done <bool> false;
-    while not done:
+//: - O(1)。最大 6 byte だけを確認します。
+fn nm_heading_level <(str)->i32> (line):
+    let n <i32> len line;
+    let mut i <i32> 0;
+    while and lt i n and lt i 6 eq string_byte_at_unchecked line i '#':
         do:
-            match nest_stack_peek_from_hdr hdr:
-                Option::Some top:
-                    if:
-                        ge get top "level" new_level
-                        then:
-                            set r close_one_section (Stack hdr) r;
-                            ()
-                        else:
-                            set done true;
-                            ()
-                Option::None:
-                    set done true;
-                    ()
-    r
-
-//: close_all_sections: 開いている section をすべて閉じる
-//:
-//: [目的/もくてき]:
-//: - 入力末尾などで stack に残った section を root へ畳み込みます。
-//:
-//: [実装/じっそう]:
-//: - stack が空になるまで `close_one_section` を繰り返します。
-//:
-//: [注意/ちゅうい]:
-//: - `close_one_section` と同じく、allocation failure は trap させず現在の root を保ちます。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(k)（k は stack に残っている section 数）。
-fn close_all_sections <(Stack<NestSection>, Vec<Node>)*>Vec<Node>> (stk, root):
-    let hdr <MemPtr<u8>> get stk "hdr";
-    let mut r <Vec<Node>> root;
-    let mut done <bool> false;
-    while not done:
-        do:
-            match nest_stack_peek_from_hdr hdr:
-                Option::Some _:
-                    set r close_one_section (Stack hdr) r;
-                    ()
-                Option::None:
-                    set done true;
-                    ()
-    r
-
-//: parse_heading: heading 行を `Heading` AST に変換する
-//:
-//: [目的/もくてき]:
-//: - `# ` から `###### ` までの heading 行を level と inline 列へ分解します。
-//:
-//: [実装/じっそう]:
-//: - 長い marker から順に prefix を調べ、marker より後ろの text を `parse_inlines` に渡します。
-//:
-//: [注意/ちゅうい]:
-//: - heading でない行は `Option::None` を返します。inline parser の失敗は空 inline Vec として伝播します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)（n は heading text の byte 数）。
-fn parse_heading <(str)->Option<Heading>> (line):
-    let t <str> str_trim line;
-
+            set i add i 1
     if:
-        str_starts_with t "###### "
+        and gt i 0 lt i n
         then:
-            let txt <str> str_slice t 7 len t;
-            Option::Some Heading 6 parse_inlines txt
+            if:
+                eq string_byte_at_unchecked line i ' '
+                then i
+                else 0
+        else:
+            0
+
+//: nm_heading_text: heading marker の後ろの text を返す
+//:
+//: [目的/もくてき]:
+//: - `level` 個の `#` と続く空白を除いた heading 本文を取り出します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(text_length)
+fn nm_heading_text <(str,i32)->str> (line, level):
+    str_trim str_slice line add level 1 len line
+
+//: is_fence_start: fenced code block 開始行を判定する
+//:
+//: [目的/もくてき]:
+//: - trim 済み行が triple backtick で始まるか判定します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn is_fence_start <(str)->bool> (line):
+    str_starts_with line "```"
+
+//: is_hr: horizontal rule 行を判定する
+//:
+//: [目的/もくてき]:
+//: - Nest では `---` を水平線かつ 1 段 close として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn is_hr <(str)->bool> (line):
+    str_eq line "---"
+
+//: is_section_break: section break 行を判定する
+//:
+//: [目的/もくてき]:
+//: - `;;;` を表示なしの 1 段 close として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn is_section_break <(str)->bool> (line):
+    str_eq line ";;;"
+
+//: nm_is_block_boundary: paragraph を止める行か判定する
+//:
+//: [目的/もくてき]:
+//: - paragraph lookahead で、空行・heading・fence・horizontal rule・section break を境界として検出します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(line_length)
+fn nm_is_block_boundary <(str)->bool> (trimmed):
+    if:
+        eq len trimmed 0
+        then true
         else:
             if:
-                str_starts_with t "##### "
-                then:
-                    let txt <str> str_slice t 6 len t;
-                    Option::Some Heading 5 parse_inlines txt
+                gt nm_heading_level trimmed 0
+                then true
                 else:
                     if:
-                        str_starts_with t "#### "
-                        then:
-                            let txt <str> str_slice t 5 len t;
-                            Option::Some Heading 4 parse_inlines txt
+                        is_fence_start trimmed
+                        then true
                         else:
                             if:
-                                str_starts_with t "### "
-                                then:
-                                    let txt <str> str_slice t 4 len t;
-                                    Option::Some Heading 3 parse_inlines txt
+                                is_hr trimmed
+                                then true
+                                else is_section_break trimmed
+
+//: nm_deepest_level: open section の最深 level を返す
+//:
+//: [目的/もくてき]:
+//: - 最大 6 段の heading stack を Copy bool だけで管理するため、現在の最深 section を計算します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn nm_deepest_level <(bool,bool,bool,bool,bool,bool)->i32> (open1, open2, open3, open4, open5, open6):
+    if:
+        open6
+        then 6
+        else:
+            if:
+                open5
+                then 5
+                else:
+                    if:
+                        open4
+                        then 4
+                        else:
+                            if:
+                                open3
+                                then 3
                                 else:
                                     if:
-                                        str_starts_with t "## "
-                                        then:
-                                            let txt <str> str_slice t 3 len t;
-                                            Option::Some Heading 2 parse_inlines txt
+                                        open2
+                                        then 2
                                         else:
                                             if:
-                                                str_starts_with t "# "
-                                                then:
-                                                    let txt <str> str_slice t 2 len t;
-                                                    Option::Some Heading 1 parse_inlines txt
-                                                else:
-                                                    Option::None
+                                                open1
+                                                then 1
+                                                else 0
 
-//: parse_fence: fenced code block を読み取る
+//: json_escape: JSON 文字列用に byte を escape する
 //:
 //: [目的/もくてき]:
-//: - `i0` の fence 開始行から code block info と本文を読み、次に処理する行 index を返します。
+//: - JSON string literal に入る `"` / `\` / control character を escape します。
 //:
 //: [実装/じっそう]:
-//: - 開始行の backtick 3 byte より後ろを info string とし、閉じ fence または入力末尾まで本文を StringBuilder に追加します。
-//:
-//: [注意/ちゅうい]:
-//: - 本文行は trim せず、元の行内容と `\n` を保存します。閉じ fence 自体は code へ含めません。
+//: - char literal の `match` で escape 種別を直接分類します。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n)（n は code block 本文の byte 数）。
-fn parse_fence <(i32, i32, i32)->FenceRes> (lines_mem, nlines, i0):
-    let t0 <str> str_trim safe_line lines_mem i0;
-    let info0 <str> str_slice t0 3 len t0;
-    let info <str> str_trim info0;
-
+//: - O(n)
+fn json_escape <(str)->str> (s):
     let mut sb <StringBuilder> string_builder_new;
-    let mut i <i32> add i0 1;
-
-    let mut done <bool> false;
-    while not done:
+    let n <i32> len s;
+    let mut i <i32> 0;
+    while lt i n:
         do:
-            if:
-                ge i nlines
-                then:
-                    set done true;
-                    ()
-                else:
-                    let li <str> str_trim safe_line lines_mem i;
-                    if:
-                        str_starts_with li "```"
-                        then:
-                            set i add i 1;
-                            set done true;
-                            ()
-                        else:
-                            set sb sb_append sb safe_line lines_mem i;
-                            set sb sb_append sb "\n";
-                            set i add i 1;
-                            ()
-    let code <str> sb_build sb;
-    let cb <CodeBlockInfo> CodeBlockInfo info code;
-    FenceRes cb i
+            let ch <i32> string_byte_at_unchecked s i;
+            match ch:
+                '\\':
+                    set sb sb_append sb "\\\\"
+                '"':
+                    set sb sb_append sb "\\\""
+                '\n':
+                    set sb sb_append sb "\\n"
+                '\r':
+                    set sb sb_append sb "\\r"
+                '\t':
+                    set sb sb_append sb "\\t"
+                '\b':
+                    set sb sb_append sb "\\b"
+                '\f':
+                    set sb sb_append sb "\\f"
+                _:
+                    set sb sb_append sb str_slice s i add i 1;
+            set i add i 1;
+    sb_build sb
 
-//: parse_paragraph: paragraph block を読み取る
+//: nm_find_math_end: math delimiter の閉じ位置を探す
 //:
 //: [目的/もくてき]:
-//: - 現在行から続く paragraph 行をまとめ、inline AST と次の block 開始行 index を返します。
-//:
-//: [実装/じっそう]:
-//: - 空行、heading、horizontal rule、nest break、fence 開始に当たるまで行を連結し、行間に `\n` を挟んでから `parse_inlines` します。
-//:
-//: [注意/ちゅうい]:
-//: - paragraph 内の元の行は trim せず保持します。終端 block marker は消費しません。
+//: - `$...$` と `$$...$$` の閉じ delimiter 開始位置を返します。見つからなければ -1 です。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n)（n は paragraph 本文の byte 数）。
-fn parse_paragraph <(i32, i32, i32)->ParaRes> (lines_mem, nlines, i0):
-    let mut sb <StringBuilder> string_builder_new;
-    let mut i <i32> i0;
-    let mut first <bool> true;
-
-    let mut done <bool> false;
-    while not done:
+//: - O(n)
+fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
+    let n <i32> len s;
+    let mut j <i32> start;
+    let mut found <i32> -1;
+    while and lt j n lt found 0:
         do:
+            let c0 <i32> string_byte_at_unchecked s j;
             if:
-                ge i nlines
+                eq delim 1
                 then:
-                    set done true;
-                    ()
-                else:
-                    let raw <str> safe_line lines_mem i;
-                    let t <str> str_trim raw;
-
                     if:
-                        eq len t 0
+                        eq c0 '$'
+                        then set found j
+                        else set j add j 1
+                else:
+                    if:
+                        and eq c0 '$' lt add j 1 n
                         then:
-                            set done true;
-                            ()
-                        else:
+                            let c1 <i32> string_byte_at_unchecked s add j 1;
                             if:
-                                or is_heading_start t or is_hr_line t or is_nest_break_line t is_fence_start t
-                                then:
-                                    set done true;
-                                    ()
-                                else:
-                                    if:
-                                        first
-                                        then:
-                                            set first false;
-                                            ()
-                                        else:
-                                            set sb sb_append sb "\n";
-                                    set sb sb_append sb raw;
-                                    set i add i 1;
-                                    ()
-    let text <str> sb_build sb;
-    let inl <Vec<Inline>> parse_inlines text;
-    ParaRes inl i
+                                eq c1 '$'
+                                then set found j
+                                else set j add j 1
+                        else:
+                            set j add j 1
+    found
 
-// -----------------------------
-// Inline parser: Ruby / Gloss / Math
-// -----------------------------
-
-//: nm_inline_empty_vec: 空の `Inline` Vec sentinel を作る
+//: nm_find_byte: 指定 byte の位置を探す
 //:
 //: [目的/もくてき]:
-//: - inline parser の allocation failure 時に、consumed owner を再利用せず空の失敗値へ切り替えます。
-fn nm_inline_empty_vec <()->Vec<Inline>> ():
-    v::Vec<Inline> 0 0 mem_ptr_wrap 0
-
-//: nm_str_empty_vec: 空の `str` Vec sentinel を作る
-//:
-//: [目的/もくてき]:
-//: - Gloss parts / subs の allocation failure 時に、consumed owner を再利用せず空の失敗値へ切り替えます。
-fn nm_str_empty_vec <()->Vec<str>> ():
-    v::Vec<str> 0 0 mem_ptr_wrap 0
-
-//: nm_push_inline: `Inline` Vec への push を trap せず結果化する
-//:
-//: [目的/もくてき]:
-//: - `v::push` の grow failure を `unwrap_ok` で trap させず、`ok=false` と空 Vec sentinel へ変換します。
-fn nm_push_inline <(Vec<Inline>, Inline)->InlinePushRes> (items, item):
-    match v::push<Inline> items item:
-        Result::Ok next:
-            InlinePushRes next true
-        Result::Err _e:
-            InlinePushRes nm_inline_empty_vec false
-
-//: nm_push_str: `str` Vec への push を trap せず結果化する
-//:
-//: [目的/もくてき]:
-//: - Gloss 分割中の `v::push` grow failure を `unwrap_ok` で trap させず、`ok=false` と空 Vec sentinel へ変換します。
-fn nm_push_str <(Vec<str>, str)->StrPushRes> (items, item):
-    match v::push<str> items item:
-        Result::Ok next:
-            StrPushRes next true
-        Result::Err _e:
-            StrPushRes nm_str_empty_vec false
-
-//: parse_inlines: 1 行分の NM inline markup を AST に変換する
-//:
-//: [目的/もくてき]:
-//: - 通常 text、Ruby `[base/ruby]`、Gloss `{main/sub...}`、Math `$...$` / `$$...$$` を `Inline` の列へ変換します。
-//:
-//: [実装/じっそう]:
-//: - 入力を byte index で 1 度だけ走査し、special marker を見つけた時点で直前の text を flush します。
-//: - `Vec` の確保・push 失敗は trap させず、空 Vec sentinel に切り替えて解析を中断します。
-//:
-//: [注意/ちゅうい]:
-//: - 既存 API 互換のため `Result` ではなく `Vec<Inline>` を返します。失敗を区別する API は今後の `parse_markdown_result` 側で扱います。
+//: - `start <= i < end` の範囲で最初に `target` が現れる位置を返します。見つからなければ -1 です。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n)（n は入力 byte 数）。
-fn parse_inlines <(str)->Vec<Inline>> (s):
-    let mut out <Vec<Inline>> nm_inline_empty_vec;
-    let mut failed <bool> false;
-    match v::new<Inline>:
-        Result::Ok out0:
-            set out out0
-        Result::Err _e:
-            set failed true;
+//: - O(end - start)
+fn nm_find_byte <(str,i32,i32,i32)->i32> (s, start, end, target):
+    let mut i <i32> start;
+    let mut found <i32> -1;
+    while and lt i end lt found 0:
+        do:
+            if:
+                eq string_byte_at_unchecked s i target
+                then set found i
+                else set i add i 1
+    found
+
+//: nm_find_gloss_slash: gloss body の top-level slash を探す
+//:
+//: [目的/もくてき]:
+//: - `{main/sub}` の `/` を探します。`[base/ruby]` 内の slash は無視します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+fn nm_find_gloss_slash <(str,i32,i32)->i32> (s, start, end):
+    let mut i <i32> start;
+    let mut depth <i32> 0;
+    let mut found <i32> -1;
+    while and lt i end lt found 0:
+        do:
+            let ch <i32> string_byte_at_unchecked s i;
+            match ch:
+                '[':
+                    set depth add depth 1
+                ']':
+                    if:
+                        gt depth 0
+                        then set depth sub depth 1
+                        else ()
+                '/':
+                    if:
+                        eq depth 0
+                        then set found i
+                        else ()
+                _:
+                    ()
+            set i add i 1;
+    found
+
+//: nm_inline_to_json: inline markup を JSON array に変換する
+//:
+//: [目的/もくてき]:
+//: - 1 行分の inline markup を `[{...}]` 形式の JSON array へ直接変換します。
+//:
+//: [実装/じっそう]:
+//: - pending text を marker の直前で flush し、ruby/gloss/math を object として追加します。
+//: - raw storage に inline AST を置かないため、strict move checking と衝突しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n + m)
+fn nm_inline_to_json <(str)->str> (s):
+    let mut sb <StringBuilder> string_builder_new;
+    set sb sb_append sb "[";
     let n <i32> len s;
     let mut i <i32> 0;
     let mut text_start <i32> 0;
-
-    while and lt i n not failed:
+    let mut has <bool> false;
+    while lt i n:
         do:
             let ch <i32> string_byte_at_unchecked s i;
-
-            // Math ($ or $$): keep delimiters, do not parse inside
-            if:
-                eq ch 36
-                then:
-                    // Flush pending text
-                    let seg <str> str_slice s text_start i;
-                    if:
-                        gt len seg 0
-                        then:
-                            let pushed_text <InlinePushRes> nm_push_inline out Inline::Text seg;
-                            let pushed_text_ok <bool> get pushed_text "ok";
-                            set out get pushed_text "items";
-                            if:
-                                pushed_text_ok
-                                then ()
-                                else set failed true
-                        else ()
-
+            match ch:
+                '$':
                     let mut delim <i32> 1;
                     if:
-                        lt add i 1 n
-                        then:
-                            let ch2 <i32> string_byte_at_unchecked s add i 1;
-                            if:
-                                eq ch2 36
-                                then set delim 2
-                                else ()
+                        and lt add i 1 n eq string_byte_at_unchecked s add i 1 '$'
+                        then set delim 2
                         else ()
-
-                    let mut j <i32> add i delim;
-                    let mut found <bool> false;
-
-                    while and lt j n not found:
-                        do:
-                            let c0 <i32> string_byte_at_unchecked s j;
-                            if:
-                                eq delim 1
-                                then:
-                                    if:
-                                        eq c0 36
-                                        then set found true
-                                        else set j add j 1
-                                else:
-                                    if:
-                                        and eq c0 36 lt add j 1 n
-                                        then:
-                                            let c1 <i32> string_byte_at_unchecked s add j 1;
-                                            if:
-                                                eq c1 36
-                                                then set found true
-                                                else set j add j 1
-                                        else:
-                                            set j add j 1
-
+                    let math_end <i32> nm_find_math_end s add i delim delim;
                     if:
-                        found
+                        ge math_end 0
                         then:
-                            let endpos <i32> add j delim;
-                            let m <str> str_slice s i endpos;
+                            let seg <str> str_slice s text_start i;
                             if:
-                                not failed
+                                gt len seg 0
                                 then:
-                                    let pushed_math <InlinePushRes> nm_push_inline out Inline::Math m;
-                                    let pushed_math_ok <bool> get pushed_math "ok";
-                                    set out get pushed_math "items";
-                                    if:
-                                        pushed_math_ok
-                                        then:
-                                            set i endpos;
-                                            set text_start endpos;
-                                            ()
-                                        else:
-                                            set failed true;
-                                            ()
+                                    if has then set sb sb_append sb "," else ()
+                                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
+                                    set sb sb_append sb json_escape seg;
+                                    set sb sb_append sb "\"}";
+                                    set has true
                                 else ()
+                            let endpos <i32> add math_end delim;
+                            let m <str> str_slice s i endpos;
+                            if has then set sb sb_append sb "," else ()
+                            set sb sb_append sb "{\"t\":\"math\",\"s\":\"";
+                            set sb sb_append sb json_escape m;
+                            set sb sb_append sb "\"}";
+                            set has true;
+                            set i endpos;
+                            set text_start endpos
                         else:
-                            // No closing delimiter -> treat '$' as normal text
-                            set i add i 1;
-                            set text_start text_start;
-                            ()
-                else:
-                    // Ruby: [base/ruby] (ignore if looks like markdown link: ]( )
+                            set i add i 1
+                '[':
+                    let close <i32> nm_find_byte s add i 1 n ']';
+                    let slash <i32>:
+                        if:
+                            ge close 0
+                            then nm_find_byte s add i 1 close '/'
+                            else -1
+                    let mut next_is_paren <bool> false;
                     if:
-                        eq ch '['
+                        and ge close 0 lt add close 1 n
+                        then set next_is_paren eq string_byte_at_unchecked s add close 1 '('
+                        else ()
+                    if:
+                        and ge close 0 and ge slash 0 not next_is_paren
                         then:
-                            let mut j <i32> add i 1;
-                            let mut slash <i32> -1;
-                            let mut closed <bool> false;
-
-                            while and lt j n not closed:
-                                do:
-                                    let cj <i32> string_byte_at_unchecked s j;
-                                    if:
-                                        eq cj ']'
-                                        then set closed true
-                                        else:
-                                            if:
-                                                and eq cj '/' lt slash 0
-                                                then set slash j
-                                                else ()
-                                            set j add j 1;
-                                            ()
+                            let seg <str> str_slice s text_start i;
                             if:
-                                and closed ge slash 0
+                                gt len seg 0
                                 then:
-                                    let mut next_is_paren <bool> false;
-                                    if:
-                                        lt add j 1 n
-                                        then:
-                                            let nx <i32> string_byte_at_unchecked s add j 1;
-                                            set next_is_paren eq nx '(';
-                                            ()
-                                        else ()
-
-                                    if:
-                                        next_is_paren
-                                        then:
-                                            set i add i 1;
-                                            ()
-                                        else:
-                                            let seg <str> str_slice s text_start i;
-                                            if:
-                                                gt len seg 0
-                                                then:
-                                                    let pushed_text <InlinePushRes> nm_push_inline out Inline::Text seg;
-                                                    let pushed_text_ok <bool> get pushed_text "ok";
-                                                    set out get pushed_text "items";
-                                                    if:
-                                                        pushed_text_ok
-                                                        then ()
-                                                        else set failed true
-                                                else ()
-
-                                            if:
-                                                not failed
-                                                then:
-                                                    let base <str> str_slice s add i 1 slash;
-                                                    let rub <str> str_slice s add slash 1 j;
-                                                    let r <RubyInfo> RubyInfo base rub;
-                                                    let pushed_ruby <InlinePushRes> nm_push_inline out Inline::Ruby r;
-                                                    let pushed_ruby_ok <bool> get pushed_ruby "ok";
-                                                    set out get pushed_ruby "items";
-                                                    if:
-                                                        pushed_ruby_ok
-                                                        then:
-                                                            set i add j 1;
-                                                            set text_start i;
-                                                            ()
-                                                        else:
-                                                            set failed true;
-                                                            ()
-                                                else ()
-                                else:
-                                    set i add i 1;
-                                    ()
+                                    if has then set sb sb_append sb "," else ()
+                                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
+                                    set sb sb_append sb json_escape seg;
+                                    set sb sb_append sb "\"}";
+                                    set has true
+                                else ()
+                            let base <str> str_slice s add i 1 slash;
+                            let rub <str> str_slice s add slash 1 close;
+                            if has then set sb sb_append sb "," else ()
+                            set sb sb_append sb "{\"t\":\"ruby\",\"base\":\"";
+                            set sb sb_append sb json_escape base;
+                            set sb sb_append sb "\",\"ruby\":\"";
+                            set sb sb_append sb json_escape rub;
+                            set sb sb_append sb "\"}";
+                            set has true;
+                            set i add close 1;
+                            set text_start i
                         else:
-                            // Gloss: {main/sub1/sub2...} (split '/' at top level, ignoring inside [...])
+                            set i add i 1
+                '{':
+                    let close <i32> nm_find_byte s add i 1 n '}';
+                    let first_slash <i32>:
+                        if:
+                            ge close 0
+                            then nm_find_gloss_slash s add i 1 close
+                            else -1
+                    if:
+                        and ge close 0 ge first_slash 0
+                        then:
+                            let seg <str> str_slice s text_start i;
                             if:
-                                eq ch '{'
+                                gt len seg 0
                                 then:
-                                    let mut j <i32> add i 1;
-                                    let mut closed <bool> false;
-                                    while and lt j n not closed:
-                                        do:
-                                            let cj <i32> string_byte_at_unchecked s j;
-                                            if:
-                                                eq cj '}'
-                                                then set closed true
-                                                else set j add j 1
+                                    if has then set sb sb_append sb "," else ()
+                                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
+                                    set sb sb_append sb json_escape seg;
+                                    set sb sb_append sb "\"}";
+                                    set has true
+                                else ()
+                            let main <str> str_slice s add i 1 first_slash;
+                            if has then set sb sb_append sb "," else ()
+                            set sb sb_append sb "{\"t\":\"gloss\",\"main\":\"";
+                            set sb sb_append sb json_escape main;
+                            set sb sb_append sb "\",\"subs\":[";
+                            let mut sub_start <i32> add first_slash 1;
+                            let mut k <i32> sub_start;
+                            let mut sub_has <bool> false;
+                            while lt k close:
+                                do:
+                                    let next_slash <i32> nm_find_gloss_slash s k close;
+                                    let part_end <i32>:
+                                        if:
+                                            ge next_slash 0
+                                            then next_slash
+                                            else close
+                                    let part <str> str_slice s sub_start part_end;
+                                    if sub_has then set sb sb_append sb "," else ()
+                                    set sb sb_append sb "\"";
+                                    set sb sb_append sb json_escape part;
+                                    set sb sb_append sb "\"";
+                                    set sub_has true;
                                     if:
-                                        closed
+                                        ge next_slash 0
                                         then:
-                                            // Flush pending text
-                                            let seg <str> str_slice s text_start i;
-                                            if:
-                                                gt len seg 0
-                                                then:
-                                                    let pushed_text <InlinePushRes> nm_push_inline out Inline::Text seg;
-                                                    let pushed_text_ok <bool> get pushed_text "ok";
-                                                    set out get pushed_text "items";
-                                                    if:
-                                                        pushed_text_ok
-                                                        then ()
-                                                        else set failed true
-                                                else ()
-
-                                            // Collect parts
-                                            let mut parts <Vec<str>> nm_str_empty_vec;
-                                            match v::new<str>:
-                                                Result::Ok parts0:
-                                                    set parts parts0
-                                                Result::Err _e:
-                                                    set failed true;
-                                            let mut k <i32> add i 1;
-                                            let mut start <i32> k;
-                                            let mut depth <i32> 0;
-
-                                            while and lt k j not failed:
-                                                do:
-                                                    let ck <i32> string_byte_at_unchecked s k;
-                                                    if:
-                                                        eq ck '['
-                                                        then set depth add depth 1
-                                                        else:
-                                                            if:
-                                                                and eq ck ']' gt depth 0
-                                                                then set depth sub depth 1
-                                                                else ()
-                                                    if:
-                                                        and eq ck '/' eq depth 0
-                                                        then:
-                                                            let p <str> str_slice s start k;
-                                                            let pushed_part <StrPushRes> nm_push_str parts p;
-                                                            let pushed_part_ok <bool> get pushed_part "ok";
-                                                            set parts get pushed_part "items";
-                                                            if:
-                                                                pushed_part_ok
-                                                                then:
-                                                                    set start add k 1;
-                                                                    set k add k 1;
-                                                                    ()
-                                                                else:
-                                                                    set failed true;
-                                                                    ()
-                                                        else:
-                                                            set k add k 1;
-                                                            ()
-                                            if:
-                                                not failed
-                                                then:
-                                                    let plast <str> str_slice s start j;
-                                                    let pushed_last_part <StrPushRes> nm_push_str parts plast;
-                                                    let pushed_last_part_ok <bool> get pushed_last_part "ok";
-                                                    set parts get pushed_last_part "items";
-                                                    if:
-                                                        pushed_last_part_ok
-                                                        then ()
-                                                        else set failed true
-                                                else ()
-
-                                            let parts_span <VecDataLen<str>> v::data_len<str> parts;
-                                            let parts_len <i32> get parts_span "len";
-                                            if:
-                                                and not failed ge parts_len 2
-                                                then:
-                                                    let parts_data <i32> mem_ptr_addr get parts_span "data";
-                                                    let main <str> load<str> parts_data;
-                                                    let mut subs <Vec<str>> nm_str_empty_vec;
-                                                    match v::new<str>:
-                                                        Result::Ok subs0:
-                                                            set subs subs0
-                                                        Result::Err _e:
-                                                            set failed true;
-                                                    let mut idx <i32> 1;
-                                                    while and lt idx parts_len not failed:
-                                                        do:
-                                                            let p <str> load<str> add parts_data mul idx size_of<str>;
-                                                            let pushed_sub <StrPushRes> nm_push_str subs p;
-                                                            let pushed_sub_ok <bool> get pushed_sub "ok";
-                                                            set subs get pushed_sub "items";
-                                                            if:
-                                                                pushed_sub_ok
-                                                                then set idx add idx 1
-                                                                else set failed true
-                                                    if:
-                                                        not failed
-                                                        then:
-                                                            let g <GlossInfo> GlossInfo main subs;
-                                                            let pushed_gloss <InlinePushRes> nm_push_inline out Inline::Gloss g;
-                                                            let pushed_gloss_ok <bool> get pushed_gloss "ok";
-                                                            set out get pushed_gloss "items";
-                                                            if:
-                                                                pushed_gloss_ok
-                                                                then:
-                                                                    set i add j 1;
-                                                                    set text_start i;
-                                                                    ()
-                                                                else:
-                                                                    set failed true;
-                                                                    ()
-                                                        else ()
-                                                else:
-                                                    // Not actually gloss -> keep as text
-                                                    set i add i 1;
-                                                    ()
+                                            set sub_start add next_slash 1;
+                                            set k sub_start
                                         else:
-                                            set i add i 1;
-                                            ()
-                                else:
-                                    set i add i 1;
-                                    ()
-
-    // Flush tail text
+                                            set k close
+                            set sb sb_append sb "]}";
+                            set has true;
+                            set i add close 1;
+                            set text_start i
+                        else:
+                            set i add i 1
+                _:
+                    set i add i 1
     let tail <str> str_slice s text_start n;
     if:
-        and not failed gt len tail 0
+        gt len tail 0
         then:
-            let pushed_tail <InlinePushRes> nm_push_inline out Inline::Text tail;
-            get pushed_tail "items"
-        else out
+            if has then set sb sb_append sb "," else ()
+            set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
+            set sb sb_append sb json_escape tail;
+            set sb sb_append sb "\"}"
+        else ()
+    set sb sb_append sb "]";
+    sb_build sb
 
-// -----------------------------
-// Main block parser + Nest builder
-// -----------------------------
-
-//: parse_markdown: 拡張 Markdown 文字列を `Document` AST に変換する
+//: nm_json_begin_node: 現在 container に JSON node を追加する前処理を行う
 //:
 //: [目的/もくてき]:
-//: - 見出し Nest / 段落 / 水平線 / コードフェンスを解析し、後段処理で使える AST を生成します。
-//: - nm 系 API の入口として、HTML 変換・JSON 変換の双方から利用します。
-//:
-//: [実装/じっそう]:
-//: - 行単位で走査し、section stack で入れ子構造を管理します。
-//: - 行内要素（ruby/gloss/math）は `parse_inlines` に委譲します。
-//:
-//: [注意/ちゅうい]:
-//: - 現状は `Result` ではなく AST を直接返す設計です。診断回復は今後の拡張対象です。
+//: - root または現在 section children の comma が必要かどうかを判定します。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n)（n は入力サイズ）。
+//: - O(1)
+fn nm_json_needs_comma <(i32,bool,bool,bool,bool,bool,bool,bool)->bool> (current_level, root_has, has1, has2, has3, has4, has5, has6):
+    match current_level:
+        0:
+            root_has
+        1:
+            has1
+        2:
+            has2
+        3:
+            has3
+        4:
+            has4
+        5:
+            has5
+        _:
+            has6
+
+//: parse_markdown: 拡張 Markdown 文字列を `Document` source view にする
+//:
+//: [目的/もくてき]:
+//: - nm 系 API の入口として、後段 serializer が再走査できる document 値を返します。
+//:
+//: [実装/じっそう]:
+//: - AST raw storage は作らず、source `str` を Copy view として保持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 //:
 //: neplg2:test
 //: ```neplg2
@@ -1053,368 +565,22 @@ fn parse_inlines <(str)->Vec<Inline>> (s):
 //:     if and str_starts_with j "{\"t\":\"doc\"" gt len j 0 0 1
 //: ```
 pub fn parse_markdown <(str)->Document> (input):
-    let lines <Vec<str>> str_split input "\n";
-    let lines_mem <i32> alloc_raw size_of<Vec<str>>;
-    store<Vec<str>> lines_mem lines;
-    let nlines <i32> get load<Vec<str>> lines_mem "len";
+    Document input
 
-    let mut root <Vec<Node>> nm_node_empty_vec;
-    let mut failed <bool> false;
-    match v::new<Node>:
-        Result::Ok root0:
-            set root root0
-        Result::Err _e:
-            set failed true;
-    let mut i <i32> 0;
-
-    while and lt i nlines not failed:
-        do:
-            let line <str> safe_line lines_mem i;
-            let t <str> str_trim line;
-
-            if:
-                eq len t 0
-                then set i add i 1
-                else:
-                    if:
-                        is_nest_break_line t
-                        then:
-                            set i add i 1;
-                            ()
-                        else:
-                            if:
-                                is_hr_line t
-                                then:
-                                    let pushed_root <NodePushRes> nm_push_node root Node::Hr;
-                                    let pushed_root_ok <bool> get pushed_root "ok";
-                                    set root get pushed_root "items";
-                                    if:
-                                        pushed_root_ok
-                                        then:
-                                            set i add i 1;
-                                            ()
-                                        else:
-                                            set failed true;
-                                            ()
-                                else:
-                                    if:
-                                        is_fence_start t
-                                        then:
-                                            let fr <FenceRes> parse_fence lines_mem nlines i;
-                                            let fr_next_i <i32> get fr "next_i";
-                                            let fr_cb <CodeBlockInfo> get fr "cb";
-                                            let node <Node> Node::CodeBlock fr_cb;
-                                            let pushed_root <NodePushRes> nm_push_node root node;
-                                            let pushed_root_ok <bool> get pushed_root "ok";
-                                            set root get pushed_root "items";
-                                            if:
-                                                pushed_root_ok
-                                                then:
-                                                    set i fr_next_i;
-                                                    ()
-                                                else:
-                                                    set failed true;
-                                                    ()
-                                        else:
-                                            match parse_heading t:
-                                                Option::Some h:
-                                                    let mut kids <Vec<Node>> nm_node_empty_vec;
-                                                    match v::new<Node>:
-                                                        Result::Ok kids0:
-                                                            set kids kids0
-                                                        Result::Err _e:
-                                                            set failed true;
-                                                    let mut j <i32> add i 1;
-                                                    let mut done <bool> false;
-                                                    while and not done not failed:
-                                                        do:
-                                                            if:
-                                                                ge j nlines
-                                                                then:
-                                                                    set done true;
-                                                                    ()
-                                                                else:
-                                                                    let li <str> safe_line lines_mem j;
-                                                                    let tj <str> str_trim li;
-                                                                    if:
-                                                                        eq len tj 0
-                                                                        then:
-                                                                            set j add j 1;
-                                                                            ()
-                                                                        else:
-                                                                            if:
-                                                                                or is_heading_start tj or is_nest_break_line tj or is_hr_line tj is_fence_start tj
-                                                                                then:
-                                                                                    set done true;
-                                                                                    ()
-                                                                                else:
-                                                                                    let pr <ParaRes> parse_paragraph lines_mem nlines j;
-                                                                                    let pr_mem <i32> alloc_raw size_of<ParaRes>;
-                                                                                    store<ParaRes> pr_mem pr;
-                                                                                    let pr_inlines <Vec<Inline>> get load<ParaRes> pr_mem "inlines";
-                                                                                    let pr_next_i <i32> get load<ParaRes> pr_mem "next_i";
-                                                                                    let pushed_kids <NodePushRes> nm_push_node kids Node::Paragraph pr_inlines;
-                                                                                    let pushed_kids_ok <bool> get pushed_kids "ok";
-                                                                                    set kids get pushed_kids "items";
-                                                                                    if:
-                                                                                        pushed_kids_ok
-                                                                                        then:
-                                                                                            set j pr_next_i;
-                                                                                            ()
-                                                                                        else:
-                                                                                            set failed true;
-                                                                                            ()
-                                                    let sec <NestSection> NestSection get h "level" h kids;
-                                                    if:
-                                                        not failed
-                                                        then:
-                                                            let pushed_root <NodePushRes> nm_push_node root Node::Section sec;
-                                                            let pushed_root_ok <bool> get pushed_root "ok";
-                                                            set root get pushed_root "items";
-                                                            if:
-                                                                pushed_root_ok
-                                                                then:
-                                                                    set i j;
-                                                                    ()
-                                                                else:
-                                                                    set failed true;
-                                                                    ()
-                                                        else ()
-                                                Option::None:
-                                                    // Paragraph
-                                                    let pr <ParaRes> parse_paragraph lines_mem nlines i;
-                                                    let pr_mem <i32> alloc_raw size_of<ParaRes>;
-                                                    store<ParaRes> pr_mem pr;
-                                                    let pr_inlines <Vec<Inline>> get load<ParaRes> pr_mem "inlines";
-                                                    let pr_next_i <i32> get load<ParaRes> pr_mem "next_i";
-                                                    let pnode <Node> Node::Paragraph pr_inlines;
-                                                    let pushed_root <NodePushRes> nm_push_node root pnode;
-                                                    let pushed_root_ok <bool> get pushed_root "ok";
-                                                    set root get pushed_root "items";
-                                                    if:
-                                                        pushed_root_ok
-                                                        then:
-                                                            set i pr_next_i;
-                                                            ()
-                                                        else:
-                                                            set failed true;
-                                                            ()
-
-    Document root
-
-// -----------------------------
-// AST -> JSON (simple)
-// -----------------------------
-
-//: json_escape: JSON 文字列用に byte を escape する
+//: document_to_json: `Document` を JSON 文字列へ変換する
 //:
 //: [目的/もくてき]:
-//: - AST 内の `str` を JSON string literal の中へ安全に埋め込める形へ変換します。
+//: - Document source を再走査し、block / inline 構造を JSON へ直接出力します。
 //:
 //: [実装/じっそう]:
-//: - 入力 byte を 1 byte ずつ走査し、`NmJsonEscapeKind` の match で escape sequence か元の 1 byte slice を追加します。
+//: - section stack は bool と current level で保持し、JSON の children array は section close 時に閉じます。
+//: - `Vec<Node>` / `Vec<Inline>` は使わず、StringBuilder だけで出力します。
 //:
 //: [注意/ちゅうい]:
-//: - この parser の JSON 出力に必要な代表的 escape を扱います。Unicode escape への正規化は行いません。
+//: - `---` は `hr` node を出力した後、現在 section を 1 段閉じます。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n)（n は入力 byte 数）。
-fn json_escape <(str)->str> (s):
-    let mut sb <StringBuilder> string_builder_new;
-    let n <i32> len s;
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            let ch <i32> string_byte_at_unchecked s i;
-            match nm_json_escape_kind ch:
-                NmJsonEscapeKind::Backslash:
-                    set sb sb_append sb "\\\\"
-                NmJsonEscapeKind::Quote:
-                    set sb sb_append sb "\\\""
-                NmJsonEscapeKind::Newline:
-                    set sb sb_append sb "\\n"
-                NmJsonEscapeKind::CarriageReturn:
-                    set sb sb_append sb "\\r"
-                NmJsonEscapeKind::Tab:
-                    set sb sb_append sb "\\t"
-                NmJsonEscapeKind::Backspace:
-                    set sb sb_append sb "\\b"
-                NmJsonEscapeKind::FormFeed:
-                    set sb sb_append sb "\\f"
-                NmJsonEscapeKind::Plain:
-                    set sb sb_append sb str_slice s i add i 1;
-            set i add i 1;
-    sb_build sb
-
-//: inlines_to_json: inline AST 列を JSON 配列に変換する
-//:
-//: [目的/もくてき]:
-//: - `Inline::Text` / `Math` / `Ruby` / `Gloss` を、`t` field を持つ JSON object の配列へ変換します。
-//:
-//: [実装/じっそう]:
-//: - `VecDataLen` で raw data と length を取り、各 inline を match して object 文字列を StringBuilder に追加します。
-//: - Gloss の subs は内部の `Vec<str>` をさらに配列として出力します。
-//:
-//: [注意/ちゅうい]:
-//: - 文字列 field は必ず `json_escape` を通します。JSON schema は `document_to_json` と揃えます。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n + m)（n は inline 数、m は出力文字列の byte 数）。
-fn inlines_to_json <(Vec<Inline>)->str> (v):
-    let mut sb <StringBuilder> string_builder_new;
-    set sb sb_append sb "[";
-    let span <VecDataLen<Inline>> v::data_len<Inline> v;
-    let n <i32> get span "len";
-    let v_data <i32> mem_ptr_addr get span "data";
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            if:
-                gt i 0
-                then set sb sb_append sb ","
-                else ()
-            let it <Inline> load<Inline> add v_data mul i size_of<Inline>;
-            match it:
-                Inline::Text s:
-                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-                    set sb sb_append sb json_escape s;
-                    set sb sb_append sb "\"}";
-                Inline::Math m:
-                    set sb sb_append sb "{\"t\":\"math\",\"s\":\"";
-                    set sb sb_append sb json_escape m;
-                    set sb sb_append sb "\"}";
-                Inline::Ruby r:
-                    set sb sb_append sb "{\"t\":\"ruby\",\"base\":\"";
-                    set sb sb_append sb json_escape get r "base";
-                    set sb sb_append sb "\",\"ruby\":\"";
-                    set sb sb_append sb json_escape get r "ruby";
-                    set sb sb_append sb "\"}";
-                Inline::Gloss g:
-                    set sb sb_append sb "{\"t\":\"gloss\",\"main\":\"";
-                    set sb sb_append sb json_escape get g "main";
-                    set sb sb_append sb "\",\"subs\":[";
-                    let subs <Vec<str>> get g "subs";
-                    let subs_span <VecDataLen<str>> v::data_len<str> subs;
-                    let m <i32> get subs_span "len";
-                    let subs_data <i32> mem_ptr_addr get subs_span "data";
-                    let mut j <i32> 0;
-                    while lt j m:
-                        do:
-                            if:
-                                gt j 0
-                                then set sb sb_append sb ","
-                                else ()
-                            let ss <str> load<str> add subs_data mul j size_of<str>;
-                            set sb sb_append sb "\"";
-                            set sb sb_append sb json_escape ss;
-                            set sb sb_append sb "\"";
-                            set j add j 1;
-                    set sb sb_append sb "]}";
-            set i add i 1;
-    set sb sb_append sb "]";
-    sb_build sb
-
-//: node_to_json: block AST node を JSON object に変換する
-//:
-//: [目的/もくてき]:
-//: - `Node` の各 variant を JSON object へ変換し、document 出力の構成要素にします。
-//:
-//: [実装/じっそう]:
-//: - variant を match し、paragraph / section の inline や children は helper で再帰的にシリアライズします。
-//:
-//: [注意/ちゅうい]:
-//: - `Section` では heading と children を両方出力します。文字列 field は `json_escape` を通します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(m)（m は出力 JSON byte 数）。
-fn node_to_json <(Node)->str> (node):
-    let mut sb <StringBuilder> string_builder_new;
-    match node:
-        Node::Hr:
-            sb_build sb_append sb "{\"t\":\"hr\"}"
-        Node::CodeBlock cb:
-            let cb_info <str> get cb "info";
-            let cb_code <str> get cb "code";
-            set sb sb_append sb "{\"t\":\"code\",\"info\":\"";
-            set sb sb_append sb json_escape cb_info;
-            set sb sb_append sb "\",\"code\":\"";
-            set sb sb_append sb json_escape cb_code;
-            set sb sb_append sb "\"}";
-            sb_build sb
-        Node::Paragraph inl:
-            set sb sb_append sb "{\"t\":\"p\",\"inl\":";
-            set sb sb_append sb inlines_to_json inl;
-            set sb sb_append sb "}";
-            sb_build sb
-        Node::Section sec:
-            let sec_mem <i32> alloc_raw size_of<NestSection>;
-            store<NestSection> sec_mem sec;
-            let sec_level <i32> get load<NestSection> sec_mem "level";
-            let sec_heading <Heading> get load<NestSection> sec_mem "heading";
-            let sec_children <Vec<Node>> get load<NestSection> sec_mem "children";
-            let heading_mem <i32> alloc_raw size_of<Heading>;
-            store<Heading> heading_mem sec_heading;
-            let heading_level <i32> get load<Heading> heading_mem "level";
-            let heading_inlines <Vec<Inline>> get load<Heading> heading_mem "inlines";
-            set sb sb_append sb "{\"t\":\"section\",\"level\":";
-            set sb sb_append_i32 sb sec_level;
-            set sb sb_append sb ",\"heading\":";
-            set sb sb_append sb "{\"level\":";
-            set sb sb_append_i32 sb heading_level;
-            set sb sb_append sb ",\"inl\":";
-            set sb sb_append sb inlines_to_json heading_inlines;
-            set sb sb_append sb "}";
-            set sb sb_append sb ",\"children\":";
-            set sb sb_append sb nodes_to_json sec_children;
-            set sb sb_append sb "}";
-            sb_build sb
-
-//: nodes_to_json: block AST node 列を JSON 配列に変換する
-//:
-//: [目的/もくてき]:
-//: - root や section children の `Vec<Node>` を JSON 配列へ変換します。
-//:
-//: [実装/じっそう]:
-//: - `VecDataLen` で raw data と length を取り、各 node を `node_to_json` に渡して comma 区切りで追加します。
-//:
-//: [注意/ちゅうい]:
-//: - 空 Vec は `[]` を返します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n + m)（n は node 数、m は出力 JSON byte 数）。
-fn nodes_to_json <(Vec<Node>)->str> (nodes):
-    let mut sb <StringBuilder> string_builder_new;
-    set sb sb_append sb "[";
-    let nodes_span <VecDataLen<Node>> v::data_len<Node> nodes;
-    let n <i32> get nodes_span "len";
-    let nodes_data <i32> mem_ptr_addr get nodes_span "data";
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            if:
-                gt i 0
-                then set sb sb_append sb ","
-                else ()
-            let nd <Node> load<Node> add nodes_data mul i size_of<Node>;
-            set sb sb_append sb node_to_json nd;
-            set i add i 1;
-    set sb sb_append sb "]";
-    sb_build sb
-
-//: document_to_json: `Document` AST を JSON 文字列へ変換する
-//:
-//: [目的/もくてき]:
-//: - AST の内部構造を機械可読な JSON に変換して、デバッグ・テスト・CLI 出力に利用します。
-//:
-//: [実装/じっそう]:
-//: - ノード種別を `t` フィールドで表現し、子要素は再帰的にシリアライズします。
-//: - 文字列は `json_escape` で JSON 文字列用の代表的なエスケープを適用します。
-//:
-//: [注意/ちゅうい]:
-//: - JSON スキーマは開発中であり、将来変更される可能性があります。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(m)（m は出力 JSON バイト数）。
+//: - O(n + m)
 //:
 //: neplg2:test
 //: ```neplg2
@@ -1428,8 +594,251 @@ fn nodes_to_json <(Vec<Node>)->str> (nodes):
 //:     if str_starts_with j "{\"t\":\"doc\"" 0 1
 //: ```
 pub fn document_to_json <(Document)->str> (doc):
+    let src <str> get doc "source";
     let mut sb <StringBuilder> string_builder_new;
-    set sb sb_append sb "{\"t\":\"doc\",\"nodes\":";
-    set sb sb_append sb nodes_to_json get doc "nodes";
-    set sb sb_append sb "}";
+    set sb sb_append sb "{\"t\":\"doc\",\"nodes\":[";
+    let n <i32> len src;
+    let mut pos <i32> 0;
+    let mut current_level <i32> 0;
+    let mut open1 <bool> false;
+    let mut open2 <bool> false;
+    let mut open3 <bool> false;
+    let mut open4 <bool> false;
+    let mut open5 <bool> false;
+    let mut open6 <bool> false;
+    let mut root_has <bool> false;
+    let mut has1 <bool> false;
+    let mut has2 <bool> false;
+    let mut has3 <bool> false;
+    let mut has4 <bool> false;
+    let mut has5 <bool> false;
+    let mut has6 <bool> false;
+
+    while lt pos n:
+        do:
+            let line_end <i32> nm_line_end src pos;
+            let raw <str> trim_cr str_slice src pos line_end;
+            let t <str> str_trim raw;
+            set pos nm_next_line_pos src line_end;
+            if:
+                eq len t 0
+                then:
+                    ()
+                else:
+                    if:
+                        is_section_break t
+                        then:
+                            if:
+                                gt current_level 0
+                                then:
+                                    set sb sb_append sb "]}";
+                                    match current_level:
+                                        1:
+                                            set open1 false
+                                        2:
+                                            set open2 false
+                                        3:
+                                            set open3 false
+                                        4:
+                                            set open4 false
+                                        5:
+                                            set open5 false
+                                        _:
+                                            set open6 false
+                                    set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                else ()
+                        else:
+                            if:
+                                is_hr t
+                                then:
+                                    if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
+                                    match current_level:
+                                        0:
+                                            set root_has true
+                                        1:
+                                            set has1 true
+                                        2:
+                                            set has2 true
+                                        3:
+                                            set has3 true
+                                        4:
+                                            set has4 true
+                                        5:
+                                            set has5 true
+                                        _:
+                                            set has6 true
+                                    set sb sb_append sb "{\"t\":\"hr\"}";
+                                    if:
+                                        gt current_level 0
+                                        then:
+                                            set sb sb_append sb "]}";
+                                            match current_level:
+                                                1:
+                                                    set open1 false
+                                                2:
+                                                    set open2 false
+                                                3:
+                                                    set open3 false
+                                                4:
+                                                    set open4 false
+                                                5:
+                                                    set open5 false
+                                                _:
+                                                    set open6 false
+                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                        else ()
+                                else:
+                                    if:
+                                        is_fence_start t
+                                        then:
+                                            let info <str> str_trim str_slice t 3 len t;
+                                            let mut code_sb <StringBuilder> string_builder_new;
+                                            let mut done <bool> false;
+                                            while and lt pos n not done:
+                                                do:
+                                                    let cend <i32> nm_line_end src pos;
+                                                    let craw <str> trim_cr str_slice src pos cend;
+                                                    let ct <str> str_trim craw;
+                                                    set pos nm_next_line_pos src cend;
+                                                    if:
+                                                        is_fence_start ct
+                                                        then set done true
+                                                        else:
+                                                            set code_sb sb_append code_sb craw;
+                                                            set code_sb sb_append code_sb "\n"
+                                            if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
+                                            match current_level:
+                                                0:
+                                                    set root_has true
+                                                1:
+                                                    set has1 true
+                                                2:
+                                                    set has2 true
+                                                3:
+                                                    set has3 true
+                                                4:
+                                                    set has4 true
+                                                5:
+                                                    set has5 true
+                                                _:
+                                                    set has6 true
+                                            set sb sb_append sb "{\"t\":\"code\",\"info\":\"";
+                                            set sb sb_append sb json_escape info;
+                                            set sb sb_append sb "\",\"code\":\"";
+                                            set sb sb_append sb json_escape sb_build code_sb;
+                                            set sb sb_append sb "\"}"
+                                        else:
+                                            let hlevel <i32> nm_heading_level t;
+                                            if:
+                                                gt hlevel 0
+                                                then:
+                                                    while ge current_level hlevel:
+                                                        do:
+                                                            set sb sb_append sb "]}";
+                                                            match current_level:
+                                                                1:
+                                                                    set open1 false
+                                                                2:
+                                                                    set open2 false
+                                                                3:
+                                                                    set open3 false
+                                                                4:
+                                                                    set open4 false
+                                                                5:
+                                                                    set open5 false
+                                                                _:
+                                                                    set open6 false
+                                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                                    if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
+                                                    match current_level:
+                                                        0:
+                                                            set root_has true
+                                                        1:
+                                                            set has1 true
+                                                        2:
+                                                            set has2 true
+                                                        3:
+                                                            set has3 true
+                                                        4:
+                                                            set has4 true
+                                                        5:
+                                                            set has5 true
+                                                        _:
+                                                            set has6 true
+                                                    let htext <str> nm_heading_text t hlevel;
+                                                    set sb sb_append sb "{\"t\":\"section\",\"level\":";
+                                                    set sb sb_append_i32 sb hlevel;
+                                                    set sb sb_append sb ",\"heading\":{\"level\":";
+                                                    set sb sb_append_i32 sb hlevel;
+                                                    set sb sb_append sb ",\"inl\":";
+                                                    set sb sb_append sb nm_inline_to_json htext;
+                                                    set sb sb_append sb "},\"children\":[";
+                                                    match hlevel:
+                                                        1:
+                                                            set open1 true; set has1 false
+                                                        2:
+                                                            set open2 true; set has2 false
+                                                        3:
+                                                            set open3 true; set has3 false
+                                                        4:
+                                                            set open4 true; set has4 false
+                                                        5:
+                                                            set open5 true; set has5 false
+                                                        _:
+                                                            set open6 true; set has6 false
+                                                    set current_level hlevel
+                                                else:
+                                                    let mut para_sb <StringBuilder> string_builder_new;
+                                                    set para_sb sb_append para_sb raw;
+                                                    let mut done <bool> false;
+                                                    while and lt pos n not done:
+                                                        do:
+                                                            let pend <i32> nm_line_end src pos;
+                                                            let praw <str> trim_cr str_slice src pos pend;
+                                                            let pt <str> str_trim praw;
+                                                            if:
+                                                                nm_is_block_boundary pt
+                                                                then set done true
+                                                                else:
+                                                                    set para_sb sb_append para_sb "\n";
+                                                                    set para_sb sb_append para_sb praw;
+                                                                    set pos nm_next_line_pos src pend
+                                                    if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
+                                                    match current_level:
+                                                        0:
+                                                            set root_has true
+                                                        1:
+                                                            set has1 true
+                                                        2:
+                                                            set has2 true
+                                                        3:
+                                                            set has3 true
+                                                        4:
+                                                            set has4 true
+                                                        5:
+                                                            set has5 true
+                                                        _:
+                                                            set has6 true
+                                                    set sb sb_append sb "{\"t\":\"p\",\"inl\":";
+                                                    set sb sb_append sb nm_inline_to_json sb_build para_sb;
+                                                    set sb sb_append sb "}"
+
+    while gt current_level 0:
+        do:
+            set sb sb_append sb "]}";
+            match current_level:
+                1:
+                    set open1 false
+                2:
+                    set open2 false
+                3:
+                    set open3 false
+                4:
+                    set open4 false
+                5:
+                    set open5 false
+                _:
+                    set open6 false
+            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+    set sb sb_append sb "]}";
     sb_build sb
