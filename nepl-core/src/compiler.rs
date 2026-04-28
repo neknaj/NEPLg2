@@ -371,6 +371,7 @@ fn resource_check_operation_is_raw_memory_cell(
     matches!(
         operation,
         crate::resource::ResourceCheckOperation::RawMemoryStoreCell
+            | crate::resource::ResourceCheckOperation::RawMemoryLoadCell
             | crate::resource::ResourceCheckOperation::RawMemoryDeallocCell
             | crate::resource::ResourceCheckOperation::RawMemoryReallocCell
             | crate::resource::ResourceCheckOperation::RawMemoryFillCell
@@ -389,25 +390,30 @@ mod tests {
     #[test]
     fn resource_raw_cell_gate_maps_raw_cell_diagnostic_to_d3100() {
         let types = crate::types::TypeCtx::new();
-        let place = Place::temporary(ResourceId(0), types.i32());
-        let diagnostic = ResourceCheckDiagnostic::CellUnavailable {
-            function: String::from("main"),
-            operation: ResourceCheckOperation::RawMemoryDeallocCell,
-            place,
-            state: CellState::Moved,
-            span: Span::dummy(),
-        };
+        for operation in [
+            ResourceCheckOperation::RawMemoryLoadCell,
+            ResourceCheckOperation::RawMemoryDeallocCell,
+        ] {
+            let place = Place::temporary(ResourceId(0), types.i32());
+            let diagnostic = ResourceCheckDiagnostic::CellUnavailable {
+                function: String::from("main"),
+                operation,
+                place,
+                state: CellState::Moved,
+                span: Span::dummy(),
+            };
 
-        let error = resource_raw_cell_diagnostic_to_error(&diagnostic)
-            .expect("raw memory cell diagnostic should become a compiler error");
+            let error = resource_raw_cell_diagnostic_to_error(&diagnostic)
+                .expect("raw memory cell diagnostic should become a compiler error");
 
-        assert_eq!(
-            error.id,
-            Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
-        );
-        assert!(error
-            .message
-            .contains("resource ir raw memory cell ownership violation"));
+            assert_eq!(
+                error.id,
+                Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+            );
+            assert!(error
+                .message
+                .contains("resource ir raw memory cell ownership violation"));
+        }
     }
 
     #[test]

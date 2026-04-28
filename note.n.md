@@ -1,3 +1,15 @@
+# 2026-04-29 メモ (ISS-20260428T170745661Z RawMemoryLoadCell compiler gate)
+
+- `RawMemoryLoadCell` gate を一時的に compiler error 化して最新 main 上で再測定し、`move_effect.n.md` 110/110、`move_check.n.md` 52/52 が通ることを確認した。
+- これまで分離して修正した raw address alias、wrapper summary、literal arithmetic summary、unknown offset overlap により、既知の false D3100 は解消済みと判断した。
+- `resource_check_operation_is_raw_memory_cell` に `RawMemoryLoadCell` を正式追加し、raw memory load 対象 cell の未初期化 / moved 状態を compiler diagnostic `D3100` へ昇格する。
+- compiler unit test は `RawMemoryLoadCell` と `RawMemoryDeallocCell` の両方が raw-cell gate に入ることを確認する形に拡張した。
+- 検証:
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\raw-memory-load-cell-gate-move-effect.json -j 1`: total=110, passed=110, failed=0
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\raw-memory-load-cell-gate-move-check.json -j 1`: total=52, passed=52, failed=0
+- plan.md は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T203931325Z Resource IR raw address arithmetic summary)
 
 - `RawMemoryLoadCell` gate の最後の残件として、`tests/compiler/move_effect.n.md::doctest#30` の `slot_ptr(base, 0)` が `base` と同じ raw address であるにもかかわらず false D3100 になる原因を確認した。

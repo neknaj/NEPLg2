@@ -2,13 +2,13 @@
 id: ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E
 title: "Resource IR RawMemoryLoadCell gate needs raw pointer summaries"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-28
 updated: 2026-04-29
-target: "nepl-core/src/resource/initialized.rs, nepl-core/src/compiler.rs"
+target: "nepl-core/src/resource/initialized.rs, nepl-core/src/compiler.rs, nepl-core/tests/resource_ir.rs"
 ---
 
 # ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E: Resource IR RawMemoryLoadCell gate needs raw pointer summaries
@@ -101,3 +101,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `ISS-20260428T203931325Z-RESOURCE-IR-RAW-ADDRESS-SUMMARIES-DO-C7473DEA` として、literal argument で確定する raw address helper return と unknown offset overlap の問題を修正した。lowering は `slot_ptr(base, 0)` のような user helper return を call-site で `base + 0` として特殊化し、`ResourceOp::RawAddressAlias` に落とす。literal で確定しない offset は `StorageOffset(None)` として保持し、CellState は unknown offset を offset なしの base raw cell とも重なる prefix として扱う。
 
 一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 109/110 から 110/110 に改善し、既知の false D3100 は解消した。親 issue はまだ compiler gate 常時有効化を含んでいないため open のままとし、次の確認では `move_check.n.md` など関連範囲を含めて `RawMemoryLoadCell` を正式 gate に入れられるか判断する。
+
+2026-04-29 解決:
+
+最新 main 上で `RawMemoryLoadCell` を compiler gate に追加して再測定した。`trunk build` は pass、`tests/compiler/move_effect.n.md` は 110/110 pass、`tests/compiler/move_check.n.md` は 52/52 pass で、これまでの false positive は再発しなかった。
+
+`nepl-core/src/compiler.rs` の `resource_check_operation_is_raw_memory_cell` に `RawMemoryLoadCell` を追加し、raw memory から未初期化 / moved cell を load する違反を compiler diagnostic `D3100` として昇格する。既存の compiler unit test は `RawMemoryLoadCell` と `RawMemoryDeallocCell` の両方が raw-cell gate に入ることを確認する形に拡張した。
