@@ -175,3 +175,19 @@ raw identity field propagation と pointer alias field propagation も `place_ut
 - `node nodesrc/issues.js check`
 - `git diff --check`
 - `trunk build`
+
+## 2026-04-28 Report type split
+
+`ResourceSafetyShadowReport`、Cell / Owner / Borrow check report、deferred counter、diagnostic enum、operation enum を `nepl-core/src/resource/report.rs` へ分離した。
+
+`check.rs` は Resource IR traversal と diagnostic emission の実装を担当し、public report shape と compiler / test 向けの diagnostic data structure は `report.rs` の責務にした。`resource/mod.rs` の public export は維持しているため、外部 API は変えていない。
+
+この分割で `check.rs` は 2068 行から 1875 行になり、`report.rs` は 211 行になった。issue はまだ open のままとし、次は owner / borrow return summary computation、effect return summary computation、または checker engine traversal の分割を続ける。
+
+確認:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+- `rustfmt --check nepl-core\src\resource\report.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `trunk build`

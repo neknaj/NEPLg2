@@ -19,15 +19,11 @@ mod lower;
 mod model;
 mod owner_state;
 mod place_utils;
+mod report;
 
 pub use check::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_initialized_moves, check_resource_owner_obligations,
-    ResourceBorrowCheckDeferred, ResourceBorrowCheckReport, ResourceBorrowDiagnostic,
-    ResourceBorrowFunctionCheck, ResourceBorrowOperation, ResourceCheckDeferred,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceFunctionCheck,
-    ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
-    ResourceOwnerFunctionCheck, ResourceOwnerOperation, ResourceSafetyShadowReport,
 };
 pub use coverage::{
     compare_hir_resource_lowering, ResourceCoverageCounts, ResourceCoverageDiagnostic,
@@ -44,4 +40,11 @@ pub use model::{
     RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind,
     ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
     ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
+};
+pub use report::{
+    ResourceBorrowCheckDeferred, ResourceBorrowCheckReport, ResourceBorrowDiagnostic,
+    ResourceBorrowFunctionCheck, ResourceBorrowOperation, ResourceCheckDeferred,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport, ResourceFunctionCheck,
+    ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
+    ResourceOwnerFunctionCheck, ResourceOwnerOperation, ResourceSafetyShadowReport,
 };

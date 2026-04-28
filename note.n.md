@@ -1,3 +1,17 @@
+# 2026-04-28 メモ (ISS-20260428T142719860Z Resource report type split)
+
+- `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`ResourceSafetyShadowReport`、Cell / Owner / Borrow check report、deferred counter、diagnostic enum、operation enum を `nepl-core/src/resource/report.rs` へ分離した。
+- `check.rs` は Resource IR traversal と diagnostic emission の実装を担当し、public report shape と compiler / test 向けの diagnostic data structure は `report.rs` の責務にした。
+- `resource/mod.rs` の public export は維持しているため、外部 API は変えていない。`check.rs` は 2068 行から 1875 行になり、`report.rs` は 211 行になった。
+- issue はまだ open とし、次は owner / borrow return summary computation、effect return summary computation、または checker engine traversal の分割を続ける。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 67 passed
+  - `rustfmt --check nepl-core\src\resource\report.rs nepl-core\src\resource\check.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+  - `trunk build`: pass
+- plan.md は変更していない。
+
 # 2026-04-28 メモ (ISS-20260428T142719860Z Resource effect identity state split)
 
 - `ISS-20260428T142719860Z-RESOURCE-CHECKER-IS-BECOMING-A-NEW-M-5F78F7E4` の続きとして、`effect.rs` から raw identity table、raw memory identity table、raw pointer alias table、raw memory identity propagation helper、aggregate field propagation helper を `nepl-core/src/resource/effect_identity.rs` へ分離した。
