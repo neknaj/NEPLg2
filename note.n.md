@@ -1,3 +1,22 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 raw memory classifier module)
+
+- 状況:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の実装開始として、Stage 1「module 境界の切り出し」から着手した。
+  - `move_check.rs` は raw memory helper 名の分類、raw memory call kind 判定、raw place state 更新、function raw effect summary を同じ file に持っており、Resource IR 前の境界が読みにくかった。
+- 修正:
+  - `nepl-core/src/passes/move_check/raw_memory.rs` を追加し、`RawMemoryCallKind`、raw memory helper 名の分類、raw memory call kind 判定を移動した。
+  - `move_check.rs` は `raw_memory_call_kind` と `raw_memory_helper_name_is_tracked` を呼ぶ構成にし、挙動は変更していない。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 実装開始の記録を追記した。
+- 検証:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 51/51 passed
+  - `cargo test -p nepl-core --test check_pipeline move_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: pass
+  - `NO_COLOR=true trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/stage1-raw-memory-classifier-move-effect.json -j 1`: 97/97 passed
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の実装計画に沿って開始した。
+
 # 2026-04-28 メモ (静的検査の複雑化解消計画)
 
 - 状況:
