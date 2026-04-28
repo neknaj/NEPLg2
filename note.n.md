@@ -22332,3 +22332,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、direct call 境界の raw identity propagation を追加した。
+
+# 2026-04-28 メモ (ISS-20260428T101959179Z function value raw identity summary)
+
+- [同期]:
+  - `origin/main` の `33da4ed fix(core): propagate raw identity through calls` まで同期した main から `work/stage5-indirect-raw-identity-summary` branch を作成した。
+- [原因]:
+  - direct user call では parameter-to-return raw identity summary を適用できるようになったが、`let f @raw_id; f p` は Resource IR 上では `FunctionValue` と `IndirectCall` になり、`ResourceOp::Call` の summary 経路を通らない。
+  - function value alias を effect boundary checker が保持していなかったため、known function value 経由でも internal allocation identity が public return へ漏れる可能性があった。
+- [修正]:
+  - `ResourceOp::FunctionValue` の output place と関数名を紐づける alias table を追加した。
+  - local copy / assignment / branch / loop / match で function value alias を保持し、known callee の `IndirectCall` では direct call と同じ raw identity return summary を適用するようにした。
+  - unknown callback は今回の範囲では一括拒否せず、known function value の false negative を塞ぐ修正に限定した。
+  - `tests/compiler/move_effect.n.md` と `nepl-core/tests/resource_ir.rs` に function value 経由の raw identity escape 回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 commit 単位 4「public escape diagnostics」の続きとして、known function value の indirect call 境界を補強した。

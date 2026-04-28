@@ -252,6 +252,12 @@ Resource IR の effect boundary check で `ResourceOp::Construct` の input iden
 
 Resource IR effect boundary checker に direct user function の parameter-to-return raw identity summary を追加し、`fn raw_id(p): p` のような helper の戻り値へ caller 側の allocation identity を伝播するようにした。summary 計算では raw allocation 自体を parameter identity と混ぜないため、raw pointer を読んで通常値を返す helper と、raw identity をそのまま返す helper を区別する。
 
+## 2026-04-28 Stage 5 function value raw identity summary 追記
+
+`ISS-20260428T101959179Z-RESOURCE-EFFECT-GATE-LOSES-RAW-ALLOC-1B0FA4ED` として、known function value 経由の indirect call で internal allocation identity が途切れる問題を分離した。
+
+Resource IR effect boundary checker に function value alias table を追加し、`ResourceOp::FunctionValue` で得た関数名を local copy / branch / match を通して保持するようにした。`ResourceOp::IndirectCall` の callee が known alias を持つ場合は、direct call と同じ parameter-to-return raw identity summary を適用する。これにより `let f @raw_id; f p` のような first-class function value 経由でも raw identity escape が D3025 で拒否される。
+
 ## 2026-04-28 Stage 3 raw memory operation lowering 追記
 
 `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3 commit 単位 2 として、raw memory operation を Resource IR event として下げる入口を追加した。
