@@ -29,6 +29,7 @@ mod place_utils;
 mod report;
 mod shadow;
 mod summary;
+mod type_pattern;
 
 pub use borrow_check::check_resource_borrow_lifetimes;
 pub use coverage::{

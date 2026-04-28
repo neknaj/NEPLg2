@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T23:07:57.489Z",
+  "generated_at": "2026-04-28T23:11:15.251Z",
   "counts": {
-    "total": 329,
+    "total": 330,
     "open": 11,
-    "resolved": 318,
+    "resolved": 319,
     "by_area": {
       "core": {
-        "total": 152,
+        "total": 153,
         "open": 3,
-        "resolved": 149
+        "resolved": 150
       },
       "selfhost": {
         "total": 39,
@@ -2403,6 +2403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T214527171Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-T-F609F5AB.md"
+    },
+    {
+      "id": "ISS-20260428T223917440Z-RESOURCE-CELLSTATE-LETS-MOVED-REGION-D9FDA87D",
+      "title": "Resource CellState lets moved RegionToken poison dereferenced raw cells",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/cell_state.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage.rs, nepl-core/src/resource/type_pattern.rs, nepl-core/tests/resource_ir.rs, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T223917440Z-RESOURCE-CELLSTATE-LETS-MOVED-REGION-D9FDA87D.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

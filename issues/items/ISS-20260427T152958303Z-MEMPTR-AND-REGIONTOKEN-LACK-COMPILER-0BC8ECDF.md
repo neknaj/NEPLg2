@@ -123,6 +123,12 @@ raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の
 
 今回の対応では、enum payload function alias を `MoveCheckContext` と関数サマリに保持し、`match` payload bind で function value alias を復元する。これにより、`MemPtr` を渡す callback を `Option::Some` などに包んでも raw ownership state は D3100 検査へ伝播する。ただし、callback、enum payload、pointer provenance を型・Resource IR で一貫表現する根本設計は引き続きこの親 issue の残件である。
 
+## 2026-04-29 Resource IR RegionToken ptr.raw 部分対応
+
+`RegionToken<T>` の value move state と `token.ptr.raw` が指す pointee cell state が混ざり、`get token "ptr"` helper 経由の `MemPtr<T>` load が `RawMemoryLoadCell` `Moved` / `Uninit` になり得る問題を `ISS-20260428T223917440Z-RESOURCE-CELLSTATE-LETS-MOVED-REGION-D9FDA87D` として修正した。
+
+今回の対応では、Resource IR lowering の `region_new` / `get token "ptr"` / typecheck 後の `load token` を `token.ptr.raw` alias として扱い、`CellState` は `Deref` / `StorageOffset` の先へ aggregate value move state を流さないようにした。これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の initialized / moved state 分離の一部であり、compiler-issued owner token への大規模移行は引き続きこの親 issue の残件である。
+
 ## 修正方針
 
 `MemPtr<T>` は borrowed/non-owning pointer、`OwnedRegion<T>` または `Storage<T>` は free 責務を持つ owner、`InitializedCell<T>` は initialized state を持つ place、のように役割を分ける。compiler Resource IR では allocator が発行した resource token と pointer projection を扱い、raw address expression ではなく resource id / offset / initialized state / borrow state を共有する。stdlib の `RegionToken<T>` はこの compiler-owned model の safe wrapper として再設計する。

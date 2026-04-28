@@ -24065,3 +24065,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の `initialized / moved state` に対応し、RawMemoryLoadCell gate を形骸化せず、owned allocation と external initialized storage を分離した。
+
+# 2026-04-29 メモ (ISS-20260428T223917440Z RegionToken ptr raw cell separation)
+
+- [原因]:
+  - Resource IR の `CellState` は aggregate value の move state を ancestor から descendant へ伝播する際、`Deref` / `StorageOffset` 境界も同じ value projection として扱っていた。
+  - そのため `RegionToken` value が helper call で消費された後、`token.ptr.raw.Deref` の pointee cell まで `Moved` 扱いになり得た。
+  - さらに `get token "ptr"` は typecheck 後に `load token` へ下がるため、lowering 側で generic field pattern `MemPtr<.T>` と実体 `MemPtr<LocalToken>` を照合できないと `RegionToken.ptr.raw` alias が復元できなかった。
+- [修正]:
+  - `CellTable::availability_state` で non-initialized state の ancestor/descendant 伝播を `Deref` / `StorageOffset` の手前に制限した。
+  - `region_new` の alias を `ptr.raw -> token.ptr.raw` として記録し、`RegionToken` value 全体を raw address alias target にしないようにした。
+  - helper return summary と typecheck 後の `load token` の両方で `RegionToken.ptr.raw` を raw address source として復元するようにした。
+  - lower / coverage 側の field projection 復元では、typecheck 済み generic field pattern を実 result type と照合できるようにした。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_region_token_ptr_helper_alias_after_token_move -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 25 passed
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\region-token-raw-cell-move-effect-rebased-final.json -j 1`: 110 passed
+  - `node nodesrc\tests.js -i tutorials\getting_started\01_hello_world.n.md --no-tree -o tmp\region-token-raw-cell-hello-world-rebased-final.json -j 1`: 1 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の initialized / moved state 分離として、`RegionToken` value state と pointee raw cell state の境界を明確化した。

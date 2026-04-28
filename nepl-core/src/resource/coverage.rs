@@ -12,6 +12,7 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection, PlaceRoot, ResourceBlock, ResourceModule, ResourceOp};
+use super::type_pattern::field_type_matches_result;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceLoweringCoverage {
@@ -416,7 +417,7 @@ fn aggregate_field_exists(
     }
     aggregate_fields_with_offsets(types, owner_ty)
         .iter()
-        .any(|field| field.offset == offset && types.same_type(field.ty, field_ty))
+        .any(|field| field.offset == offset && field_type_matches_result(types, field.ty, field_ty))
 }
 
 fn aggregate_field_exists_by_name(
@@ -430,7 +431,7 @@ fn aggregate_field_exists_by_name(
     };
     aggregate_fields_with_offsets(types, owner_ty)
         .get(index)
-        .is_some_and(|field| types.same_type(field.ty, field_ty))
+        .is_some_and(|field| field_type_matches_result(types, field.ty, field_ty))
 }
 
 fn aggregate_field_index(types: &TypeCtx, owner_ty: TypeId, field_name: &str) -> Option<usize> {

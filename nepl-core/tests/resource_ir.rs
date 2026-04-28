@@ -6123,6 +6123,59 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_region_token_ptr_helper_alias_after_token_move() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn token_ptr <(RegionToken<LocalToken>)->MemPtr<LocalToken>> (token):
+    get token "ptr"
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    store<LocalToken> mem_ptr_addr p LocalToken @token_id
+    let q <MemPtr<LocalToken>> token_ptr token
+    let a <LocalToken> load<LocalToken> mem_ptr_addr q
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "RegionToken helper-derived MemPtr must keep pointee cell state separate from token value moves: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.dump_text().contains("raw_address_alias"),
+        "RegionToken ptr helper must expose raw address alias:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load() {
     let source = r#"
 #entry main

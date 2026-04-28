@@ -26,7 +26,9 @@ impl CellTable {
             }
         }
         for entry in self.ancestor_entries(place) {
-            if !matches!(entry.state, CellState::Initialized(_)) {
+            if !matches!(entry.state, CellState::Initialized(_))
+                && cell_descendant_state_flows(&entry.place, place)
+            {
                 return entry.state;
             }
         }

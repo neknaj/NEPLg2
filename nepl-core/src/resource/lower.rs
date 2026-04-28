@@ -26,6 +26,7 @@ use super::model::{
     ResourceOffset, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::raw_memory_cell_place;
+use super::type_pattern::field_type_matches_result;
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
     let types = TypeCtx::new();
@@ -863,8 +864,8 @@ fn push_core_mem_wrapper_semantics(
                 return;
             };
             ops.push(ResourceOp::RawAddressAlias {
-                source: ptr.clone(),
-                target: region_token_ptr_field_place(output, ptr.ty),
+                source: mem_ptr_raw_field_place(ptr, env.types.i32()),
+                target: region_token_raw_field_place(output, env.types.i32()),
                 span,
             });
         }
@@ -1021,6 +1022,7 @@ fn raw_address_source_from_return_expr(
         HirExprKind::Call { callee, args } => raw_address_source_from_named_call(
             func_ref_base_name(callee)?,
             args,
+            expr.ty,
             function,
             hir_args,
             arg_places,
@@ -1029,6 +1031,7 @@ fn raw_address_source_from_return_expr(
         HirExprKind::Intrinsic { name, args, .. } => raw_address_source_from_named_call(
             helper_base_name(name),
             args,
+            expr.ty,
             function,
             hir_args,
             arg_places,
@@ -1050,6 +1053,7 @@ fn raw_address_source_from_return_expr(
 fn raw_address_source_from_named_call(
     name: &str,
     args: &[HirExpr],
+    return_ty: TypeId,
     function: &HirFunction,
     hir_args: &[HirExpr],
     arg_places: &[Place],
@@ -1100,6 +1104,28 @@ fn raw_address_source_from_named_call(
         {
             raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
         }
+        "get" | "get_field"
+            if args.len() >= 2
+                && is_named_struct_type(env.types, args[0].ty, "RegionToken")
+                && is_named_struct_type(env.types, return_ty, "MemPtr")
+                && literal_field_name(env, &args[1])
+                    .map(|field_name| field_name == "ptr")
+                    .unwrap_or(true) =>
+        {
+            raw_address_source_from_region_token_ptr_expr(
+                &args[0], return_ty, function, hir_args, arg_places, env,
+            )
+        }
+        other
+            if matches!(raw_memory_op_from_name(other), Some(RawMemoryOp::Load))
+                && args.len() == 1
+                && is_named_struct_type(env.types, args[0].ty, "RegionToken")
+                && is_named_struct_type(env.types, return_ty, "MemPtr") =>
+        {
+            raw_address_source_from_region_token_ptr_expr(
+                &args[0], return_ty, function, hir_args, arg_places, env,
+            )
+        }
         "str_addr" if args.len() == 1 => {
             raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
         }
@@ -1146,6 +1172,35 @@ fn i32_const_from_return_expr(
                     env,
                 )
             }
+        }
+        _ => None,
+    }
+}
+
+fn raw_address_source_from_region_token_ptr_expr(
+    expr: &HirExpr,
+    _ptr_ty: TypeId,
+    function: &HirFunction,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> Option<RawAddressSource> {
+    match &expr.kind {
+        HirExprKind::Var(name) => {
+            let index = function_param_index(function, name)?;
+            let token = arg_places.get(index)?;
+            Some(RawAddressSource {
+                base: region_token_raw_field_place(token, env.types.i32()),
+                offset: RawAddressOffset::Known(0),
+            })
+        }
+        HirExprKind::Call { callee, args }
+            if matches!(func_ref_base_name(callee), Some("region_new")) =>
+        {
+            raw_address_source_from_return_expr(args.first()?, function, hir_args, arg_places, env)
+        }
+        HirExprKind::Intrinsic { name, args, .. } if helper_base_name(name) == "region_new" => {
+            raw_address_source_from_return_expr(args.first()?, function, hir_args, arg_places, env)
         }
         _ => None,
     }
@@ -1331,6 +1386,8 @@ fn raw_address_place_from_argument(place: &Place, env: &LoweringEnvironment) -> 
 fn raw_address_alias_target(output: &Place, env: &LoweringEnvironment) -> Place {
     if is_named_struct_type(env.types, output.ty, "MemPtr") {
         mem_ptr_raw_field_place(output, env.types.i32())
+    } else if is_named_struct_type(env.types, output.ty, "RegionToken") {
+        region_token_raw_field_place(output, env.types.i32())
     } else {
         output.clone()
     }
@@ -1366,6 +1423,10 @@ fn region_token_ptr_field_place(token: &Place, ptr_ty: TypeId) -> Place {
         },
         ptr_ty,
     )
+}
+
+fn region_token_raw_field_place(token: &Place, raw_ty: TypeId) -> Place {
+    mem_ptr_raw_field_place(&region_token_ptr_field_place(token, token.ty), raw_ty)
 }
 
 fn non_negative_i32_literal_bytes(expr: &HirExpr) -> Option<usize> {
@@ -1479,8 +1540,19 @@ fn lower_get_field_intrinsic_source(
         return None;
     }
     let owner = args.first()?;
-    let field_name = literal_field_name(env, args.get(1)?)?;
-    let projection = aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?;
+    let projection =
+        if let Some(field_name) = args.get(1).and_then(|arg| literal_field_name(env, arg)) {
+            aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?
+        } else if is_named_struct_type(env.types, owner.ty, "RegionToken")
+            && is_named_struct_type(env.types, field_ty, "MemPtr")
+        {
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }
+        } else {
+            return None;
+        };
     if let Some(source) =
         lower_raw_aggregate_field_source(owner, projection.clone(), field_ty, ops, ctx, env)
     {
@@ -1571,10 +1643,9 @@ fn aggregate_field_projection(
 ) -> Option<PlaceProjection> {
     let kind = aggregate_projection_kind(types, owner_ty)?;
     let fields = aggregate_fields_with_offsets(types, owner_ty);
-    let (index, _) = fields
-        .iter()
-        .enumerate()
-        .find(|(_, field)| field.offset == offset_bytes && types.same_type(field.ty, field_ty))?;
+    let (index, _) = fields.iter().enumerate().find(|(_, field)| {
+        field.offset == offset_bytes && field_type_matches_result(types, field.ty, field_ty)
+    })?;
     Some(match kind {
         AggregateProjectionKind::Struct => PlaceProjection::Field {
             index,
@@ -1602,7 +1673,7 @@ fn aggregate_field_projection_by_name(
         AggregateProjectionKind::Tuple => field_name.parse::<usize>().ok()?,
     };
     let field = fields.get(index)?;
-    if !types.same_type(field.ty, field_ty) {
+    if !field_type_matches_result(types, field.ty, field_ty) {
         return None;
     }
     Some(match kind {
