@@ -1,3 +1,27 @@
+# 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck call reduction module)
+
+- 状況:
+  - Stage 1 の ascription module 化後、prefix expression の call reduction state 管理が `typecheck.rs` 本体に残っていた。
+  - 既存の `call_resolution.rs` は overload candidate / expected argument inference / pipe segment reduction の補助を持つが、実際の stack reduction orchestration はまだ `check_prefix` 周辺に同居していた。
+- 修正:
+  - `nepl-core/src/typecheck/call_reduction.rs` を追加し、open-call stack の rebuild / next reducible search / reduction 後 index 更新、call reduction no-progress guard、`reduce_calls` / `reduce_calls_guarded`、dotted field symbol lowering、match arm から scrutinee 期待型を推論する helper を移動した。
+  - verbose log / `NEPL_DUMP_HIR` dump は module 内の local macro にして、挙動を変えずに `typecheck.rs` の macro へ密結合しない形にした。
+  - `ISS-20260425T000000Z-RV-CORE-002-D17C4B3C` に Stage 1 typecheck call reduction 境界の記録を追記した。
+- 検証:
+  - `rustfmt --check nepl-core/src/typecheck.rs nepl-core/src/typecheck/call_reduction.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test call_reduction -- --nocapture`: 1/1 passed
+  - `cargo test -p nepl-core --test functions -- --nocapture`: 13/13 passed
+  - `cargo test -p nepl-core --test pipe_operator -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24/24 passed
+  - `cargo test -p nepl-core --test char -- --nocapture`: 11/11 passed
+  - `$env:NO_COLOR='true'; trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md -i tests/compiler/functions.n.md -i tests/compiler/pipe_operator.n.md -i tests/compiler/overload_nested_generic_push.n.md -i tests/compiler/match_literal_patterns.n.md -i tests/compiler/char_literals.n.md --no-tree -o tmp/stage1-typecheck-call-reduction-focused.json -j 1`: 104/104 passed
+  - `node nodesrc/issues.js check`: pass
+- plan.md との差異:
+  - plan.md は変更していない。静的検査の責務分離は doc/neplg2 の Stage 1 に沿って進めている。
+
 # 2026-04-28 メモ (ISS-20260425T000000Z-RV-CORE-002 Stage 1 typecheck ascription module)
 
 - 状況:
