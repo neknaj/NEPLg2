@@ -23387,3 +23387,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4/5 の authoritative gate 拡大前提として、Resource IR lowering completeness を compiler pipeline で強制するようにした。
+
+# 2026-04-29 メモ (ISS-20260428T163754109Z self-host type arena)
+
+- [同期]:
+  - `main` は `origin/main` と同期済みで、`selfhost/s3-type-arena` branch を作成して作業した。
+  - commit 後に `origin/main` の `1099d02 fix(core): gate incomplete resource lowering` まで rebase し、他 agent の resource lowering gate 変更を取り込んだ。
+  - push 前に `origin/main` の `f372221 fix(core): lower while returns for resource coverage` まで再 rebase し、while return lowering の resource coverage 変更を取り込んだ。
+- [原因]:
+  - S3 の type/check stage に入るための `TypeId` / `TypeKind` / `TypeArena` がまだ marker API だけだった。
+  - このままだと parser 以降の型情報を stable id として保持できず、unify / subst / resolver / checker が直接値を持つ設計へ流れる。
+- [修正]:
+  - `SelfhostTypeId`、`SelfhostTypeKind`、`SelfhostTypeRecord`、`SelfhostTypeArena` を追加した。
+  - function type の引数列は arena の `function_args` table に集約し、record は `first_arg` / `arg_count` / `result` の小さい Copy 値だけを持つ設計にした。
+  - primitive type 登録、function type 登録、kind lookup、function arity / argument / result access を追加した。
+  - function 引数列の複製中に範囲外が起きた場合も、所有中の argument buffer を解放してから `IndexOutOfBounds` を返すようにした。
+  - `tests/stdlib/neplg2_type_arena.n.md` に primitive stable id、function argument/result lookup、invalid/non-function access の回帰を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/neplg2-type-arena-doctest.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg2-type-arena-focused.json -j 1`: total=3 passed=3
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_type_arena.n.md -i tests/stdlib/neplg2_stdlib_map.n.md -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-type-arena-syntax.json -j 1`: total=56 passed=56
+  - rebase 後、`trunk build`: pass
+  - rebase 後、`node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/neplg2-type-arena-doctest-after-rebase.json -j 1`: total=1 passed=1
+  - rebase 後、`node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg2-type-arena-focused-after-rebase.json -j 1`: total=3 passed=3
+  - rebase 後、`node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_type_arena.n.md -i tests/stdlib/neplg2_stdlib_map.n.md -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-type-arena-syntax-after-rebase.json -j 1`: total=56 passed=56
+  - `f372221` まで再 rebase 後、`trunk build`: pass
+  - `f372221` まで再 rebase 後、`node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/neplg2-type-arena-doctest-after-rebase-f372221.json -j 1`: total=1 passed=1
+  - `f372221` まで再 rebase 後、`node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg2-type-arena-focused-after-rebase-f372221.json -j 1`: total=3 passed=3
+  - `f372221` まで再 rebase 後、`node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_type_arena.n.md -i tests/stdlib/neplg2_stdlib_map.n.md -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-type-arena-syntax-after-rebase-f372221.json -j 1`: total=56 passed=56
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_execution_plan.md` S3 の `selfhost/s3-type-arena` に対応し、struct / enum / type variable / effect / layout は後続 issue で追加する。

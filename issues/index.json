@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T17:19:23.707Z",
+  "generated_at": "2026-04-28T17:36:59.959Z",
   "counts": {
-    "total": 294,
+    "total": 295,
     "open": 10,
-    "resolved": 284,
+    "resolved": 285,
     "by_area": {
       "core": {
         "total": 138,
@@ -17,9 +17,9 @@
         "resolved": 90
       },
       "selfhost": {
-        "total": 24,
+        "total": 25,
         "open": 1,
-        "resolved": 23
+        "resolved": 24
       },
       "cli": {
         "total": 19,
@@ -3588,6 +3588,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T155038303Z-SELF-HOST-MODULE-LOADER-LACKS-STDLIB-B3D12B30.md"
+    },
+    {
+      "id": "ISS-20260428T163754109Z-SELF-HOST-TYPE-STAGE-LACKS-TYPEID-AN-5345670C",
+      "title": "self-host type stage lacks TypeId and TypeArena",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "stdlib/neplg2/core/ty/ty.nepl, tests/stdlib/neplg2_type_arena.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T163754109Z-SELF-HOST-TYPE-STAGE-LACKS-TYPEID-AN-5345670C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

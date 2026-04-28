@@ -19,6 +19,10 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 `core/module/loader.nepl` は filesystem 非依存の in-memory VFS と single-module load entry を提供します。`core/module/import_spec.nepl` は parser が保持した import directive を `SelfhostImportSpec` に変換し、`core/module/stdlib_map.nepl` は stdlib root / user root から VFS logical path を解決します。`core/module/graph.nepl` は root module から import closure を構築して missing module と cycle を `SelfhostDiagnostic` として返し、`selfhost_build_module_graph_with_path_map` では `core/result` と `./util` のような import を同じ graph に載せます。
 
+## S3 Type Layer
+
+`core/ty/ty.nepl` は `SelfhostTypeId`、`SelfhostTypeKind`、`SelfhostTypeArena` を提供します。primitive type と function type を arena-local stable id として登録し、function type の引数列は arena の argument table に集約します。struct / enum / type variable / effect / layout は、Rust 実装との parity fixture を作りながら後続 issue で追加します。
+
 ## 検証
 
 ```powershell
@@ -28,4 +32,5 @@ node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_text.n.md --no-tre
 node nodesrc/tests.js -i stdlib/neplg2 -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/neplg2-diag-outcome-focused.json -j 1
 node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg2-module-graph-focused.json -j 1
 node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg2-stdlib-map-focused.json -j 1
+node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg2-type-arena-focused.json -j 1
 ```

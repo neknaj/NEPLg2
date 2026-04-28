@@ -5,22 +5,307 @@
 //:
 //: [目的/もくてき]:
 //: - 型 arena、unify、subst、effect、layout が共有する型表現の入口にします。
-//: - Stage 0 では `ty/` の責務境界を marker API で固定します。
+//: - TypeId を安定した arena index として扱い、primitive type と function type を同じ table に保持します。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostTypeArena` は type record table と function argument table を所有します。
+//: - function type record は引数列を直接所有せず、argument table の開始 index と長さ、戻り値 TypeId だけを持ちます。
+//: - record を Copy 可能な小さい値に保つことで、lookup と後続の unify/subst が arena の所有権を奪わずに進められます。
 //:
 //: [注意/ちゅうい]:
-//: - 現行 Rust `types.rs` の意味論と診断を照合しながら移植します。単なる別名定義だけを先に増やしません。
+//: - これは S3 の最小 type model です。struct / enum / type variable / effect などは、Rust 実装との parity fixture を作りながら別 issue で追加します。
+//: - `SelfhostTypeId` は arena-local です。別 arena の TypeId と混ぜないでください。
 //:
 //: [計算量/けいさんりょう]:
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
+//: - primitive type の追加は `Vec` push の償却 O(1) です。
+//: - function type の追加は引数数 n に対して O(n) です。
+//: - TypeId lookup は O(1) です。
 //:
 //: neplg2:test
 //: ```neplg2
 //:| #entry main
-//:| #target core
+//:| #target std
+//:| #import "core/result" as *
 //:| #import "neplg2/core/ty/ty" as *
-//: fn main <()->i32> ():
+//: fn main <()*>i32> ():
 //:     selfhost_ty_stage0
 //: ```
-fn selfhost_ty_stage0 <()->i32> ():
-    0
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: SelfhostTypeId: type arena 内の stable index
+struct SelfhostTypeId:
+    index <i32>
+
+impl Clone for SelfhostTypeId:
+    fn clone <(&SelfhostTypeId)->SelfhostTypeId> (self):
+        *self
+
+impl Copy for SelfhostTypeId:
+    fn copy_mark <(SelfhostTypeId)->SelfhostTypeId> (self):
+        self
+
+//: SelfhostTypeKind: S3 初期段階で扱う型の分類
+enum SelfhostTypeKind:
+    Error
+    Unit
+    Bool
+    I32
+    I64
+    U8
+    Char
+    Str
+    Function
+
+impl Clone for SelfhostTypeKind:
+    fn clone <(&SelfhostTypeKind)->SelfhostTypeKind> (self):
+        *self
+
+impl Copy for SelfhostTypeKind:
+    fn copy_mark <(SelfhostTypeKind)->SelfhostTypeKind> (self):
+        self
+
+//: SelfhostTypeRecord: arena に保存する型 record
+//:
+//: [注意/ちゅうい]:
+//: - primitive type では `first_arg = -1`, `arg_count = 0`, `result = invalid TypeId` です。
+//: - function type では `first_arg` と `arg_count` が arena の argument table 範囲を指し、`result` が戻り値 TypeId です。
+struct SelfhostTypeRecord:
+    kind <SelfhostTypeKind>
+    first_arg <i32>
+    arg_count <i32>
+    result <SelfhostTypeId>
+
+impl Clone for SelfhostTypeRecord:
+    fn clone <(&SelfhostTypeRecord)->SelfhostTypeRecord> (self):
+        *self
+
+impl Copy for SelfhostTypeRecord:
+    fn copy_mark <(SelfhostTypeRecord)->SelfhostTypeRecord> (self):
+        self
+
+//: SelfhostTypeArena: self-host type stage の型 table
+struct SelfhostTypeArena:
+    records <Vec<SelfhostTypeRecord>>
+    function_args <Vec<SelfhostTypeId>>
+
+//: SelfhostTypeArenaAlloc: 型追加後の arena と新しい TypeId
+struct SelfhostTypeArenaAlloc:
+    arena <SelfhostTypeArena>
+    type_id <SelfhostTypeId>
+
+//: selfhost_type_id_new: TypeId を[作/つく]る
+fn selfhost_type_id_new <(i32)->SelfhostTypeId> (index):
+    SelfhostTypeId index
+
+//: selfhost_type_id_invalid: 未使用 slot 用の invalid TypeId を[返/かえ]す
+fn selfhost_type_id_invalid <()->SelfhostTypeId> ():
+    selfhost_type_id_new -1
+
+//: selfhost_type_id_index: TypeId の arena index を[返/かえ]す
+fn selfhost_type_id_index <(SelfhostTypeId)->i32> (type_id):
+    type_id.index
+
+//: selfhost_type_id_eq: TypeId が同じ arena index か[返/かえ]す
+fn selfhost_type_id_eq <(SelfhostTypeId,SelfhostTypeId)->bool> (a, b):
+    eq a.index b.index
+
+//: selfhost_type_kind_tag: TypeKind を比較用 tag に[変換/へんかん]する
+fn selfhost_type_kind_tag <(SelfhostTypeKind)->i32> (kind):
+    match kind:
+        SelfhostTypeKind::Error:
+            0
+        SelfhostTypeKind::Unit:
+            1
+        SelfhostTypeKind::Bool:
+            2
+        SelfhostTypeKind::I32:
+            3
+        SelfhostTypeKind::I64:
+            4
+        SelfhostTypeKind::U8:
+            5
+        SelfhostTypeKind::Char:
+            6
+        SelfhostTypeKind::Str:
+            7
+        SelfhostTypeKind::Function:
+            8
+
+//: selfhost_type_kind_eq: TypeKind が同じ分類か[返/かえ]す
+fn selfhost_type_kind_eq <(SelfhostTypeKind,SelfhostTypeKind)->bool> (a, b):
+    eq selfhost_type_kind_tag a selfhost_type_kind_tag b
+
+//: selfhost_type_record_new: 型 record を[作/つく]る
+fn selfhost_type_record_new <(SelfhostTypeKind,i32,i32,SelfhostTypeId)->SelfhostTypeRecord> (kind, first_arg, arg_count, result):
+    SelfhostTypeRecord kind first_arg arg_count result
+
+//: selfhost_type_record_primitive: primitive type record を[作/つく]る
+fn selfhost_type_record_primitive <(SelfhostTypeKind)->SelfhostTypeRecord> (kind):
+    selfhost_type_record_new kind -1 0 selfhost_type_id_invalid
+
+//: selfhost_type_arena_new: [空/から]の TypeArena を[作/つく]る
+fn selfhost_type_arena_new <()*>Result<SelfhostTypeArena, StdErrorKind>> ():
+    match v::new<SelfhostTypeRecord>:
+        Result::Ok records:
+            match v::new<SelfhostTypeId>:
+                Result::Ok function_args:
+                    Result<SelfhostTypeArena, StdErrorKind>::Ok SelfhostTypeArena records function_args
+                Result::Err e:
+                    v::free<SelfhostTypeRecord> records
+                    Result<SelfhostTypeArena, StdErrorKind>::Err e
+        Result::Err e:
+            Result<SelfhostTypeArena, StdErrorKind>::Err e
+
+//: selfhost_type_arena_free: TypeArena が所有する buffer を[解放/かいほう]する
+fn selfhost_type_arena_free <(SelfhostTypeArena)*>()> (arena):
+    v::free<SelfhostTypeRecord> field::get arena "records"
+    v::free<SelfhostTypeId> field::get arena "function_args"
+
+//: selfhost_type_arena_len: arena に登録された型数を[返/かえ]す
+fn selfhost_type_arena_len <(&SelfhostTypeArena)->i32> (arena):
+    let records <&Vec<SelfhostTypeRecord>> field::get_ref arena "records"
+    v::len_ref<SelfhostTypeRecord> records
+
+//: selfhost_type_arena_function_arg_len: function argument table の長さを[返/かえ]す
+fn selfhost_type_arena_function_arg_len <(&SelfhostTypeArena)->i32> (arena):
+    let function_args <&Vec<SelfhostTypeId>> field::get_ref arena "function_args"
+    v::len_ref<SelfhostTypeId> function_args
+
+//: selfhost_type_arena_alloc_new: 型追加結果を[作/つく]る
+fn selfhost_type_arena_alloc_new <(SelfhostTypeArena,SelfhostTypeId)*>SelfhostTypeArenaAlloc> (arena, type_id):
+    SelfhostTypeArenaAlloc arena type_id
+
+//: selfhost_type_arena_push_record: record を arena に[追加/ついか]する
+fn selfhost_type_arena_push_record <(SelfhostTypeArena,SelfhostTypeRecord)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, record):
+    let type_id <SelfhostTypeId> selfhost_type_id_new selfhost_type_arena_len &arena
+    let records <Vec<SelfhostTypeRecord>> field::get arena "records"
+    let function_args <Vec<SelfhostTypeId>> field::get arena "function_args"
+    match v::push<SelfhostTypeRecord> records record:
+        Result::Ok next_records:
+            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Ok selfhost_type_arena_alloc_new (SelfhostTypeArena next_records function_args) type_id
+        Result::Err e:
+            v::free<SelfhostTypeId> function_args
+            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+
+//: selfhost_type_arena_add_primitive: primitive type を arena に[追加/ついか]する
+fn selfhost_type_arena_add_primitive <(SelfhostTypeArena,SelfhostTypeKind)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, kind):
+    selfhost_type_arena_push_record arena selfhost_type_record_primitive kind
+
+//: selfhost_type_arena_copy_function_args: function 引数 TypeId を arena argument table に[複製/ふくせい]する
+fn selfhost_type_arena_copy_function_args <(Vec<SelfhostTypeId>,&Vec<SelfhostTypeId>,i32,i32)*>Result<Vec<SelfhostTypeId>, StdErrorKind>> (out, params, n, idx):
+    if:
+        ge idx n
+        then:
+            Result<Vec<SelfhostTypeId>, StdErrorKind>::Ok out
+        else:
+            match v::get_ref<SelfhostTypeId> params idx:
+                Option::Some type_id:
+                    match v::push<SelfhostTypeId> out type_id:
+                        Result::Ok next_out:
+                            selfhost_type_arena_copy_function_args next_out params n add idx 1
+                        Result::Err e:
+                            Result<Vec<SelfhostTypeId>, StdErrorKind>::Err e
+                Option::None:
+                    v::free<SelfhostTypeId> out
+                    Result<Vec<SelfhostTypeId>, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+
+//: selfhost_type_arena_add_function: function type を arena に[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - `params` はこの関数が消費し、成功・失敗どちらでも解放します。
+fn selfhost_type_arena_add_function <(SelfhostTypeArena,Vec<SelfhostTypeId>,SelfhostTypeId)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, params, result):
+    let first_arg <i32> selfhost_type_arena_function_arg_len &arena
+    let arg_count <i32> v::len_ref<SelfhostTypeId> &params
+    let records <Vec<SelfhostTypeRecord>> field::get arena "records"
+    let function_args <Vec<SelfhostTypeId>> field::get arena "function_args"
+    match selfhost_type_arena_copy_function_args function_args &params arg_count 0:
+        Result::Ok next_args:
+            v::free<SelfhostTypeId> params
+            let record <SelfhostTypeRecord> selfhost_type_record_new SelfhostTypeKind::Function first_arg arg_count result
+            selfhost_type_arena_push_record (SelfhostTypeArena records next_args) record
+        Result::Err e:
+            v::free<SelfhostTypeRecord> records
+            v::free<SelfhostTypeId> params
+            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+
+//: selfhost_type_arena_get_record: TypeId の record を[返/かえ]す
+fn selfhost_type_arena_get_record <(&SelfhostTypeArena,SelfhostTypeId)->Option<SelfhostTypeRecord>> (arena, type_id):
+    if:
+        lt type_id.index 0
+        then:
+            none<SelfhostTypeRecord>
+        else:
+            let records <&Vec<SelfhostTypeRecord>> field::get_ref arena "records"
+            v::get_ref<SelfhostTypeRecord> records type_id.index
+
+//: selfhost_type_arena_get_kind: TypeId の TypeKind を[返/かえ]す
+fn selfhost_type_arena_get_kind <(&SelfhostTypeArena,SelfhostTypeId)->Option<SelfhostTypeKind>> (arena, type_id):
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            some<SelfhostTypeKind> record.kind
+        Option::None:
+            none<SelfhostTypeKind>
+
+//: selfhost_type_arena_function_arg_count: function type の引数数を[返/かえ]す
+fn selfhost_type_arena_function_arg_count <(&SelfhostTypeArena,SelfhostTypeId)->Option<i32>> (arena, type_id):
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record.kind:
+                SelfhostTypeKind::Function:
+                    some<i32> record.arg_count
+                _:
+                    none<i32>
+        Option::None:
+            none<i32>
+
+//: selfhost_type_arena_function_arg: function type の指定引数 TypeId を[返/かえ]す
+fn selfhost_type_arena_function_arg <(&SelfhostTypeArena,SelfhostTypeId,i32)->Option<SelfhostTypeId>> (arena, type_id, arg_idx):
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record.kind:
+                SelfhostTypeKind::Function:
+                    if:
+                        or lt arg_idx 0 ge arg_idx record.arg_count
+                        then:
+                            none<SelfhostTypeId>
+                        else:
+                            let function_args <&Vec<SelfhostTypeId>> field::get_ref arena "function_args"
+                            v::get_ref<SelfhostTypeId> function_args add record.first_arg arg_idx
+                _:
+                    none<SelfhostTypeId>
+        Option::None:
+            none<SelfhostTypeId>
+
+//: selfhost_type_arena_function_result: function type の戻り値 TypeId を[返/かえ]す
+fn selfhost_type_arena_function_result <(&SelfhostTypeArena,SelfhostTypeId)->Option<SelfhostTypeId>> (arena, type_id):
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record.kind:
+                SelfhostTypeKind::Function:
+                    some<SelfhostTypeId> record.result
+                _:
+                    none<SelfhostTypeId>
+        Option::None:
+            none<SelfhostTypeId>
+
+//: selfhost_ty_stage0: TypeArena の smoke API
+fn selfhost_ty_stage0 <()*>i32> ():
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::Unit:
+                Result::Ok allocated:
+                    let unit_id <SelfhostTypeId> field::get allocated "type_id"
+                    let arena1 <SelfhostTypeArena> field::get allocated "arena"
+                    let ok <bool> and eq selfhost_type_id_index unit_id 0 eq selfhost_type_arena_len &arena1 1
+                    selfhost_type_arena_free arena1
+                    if ok 0 1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1
