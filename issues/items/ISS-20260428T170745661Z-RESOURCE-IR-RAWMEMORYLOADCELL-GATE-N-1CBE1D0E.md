@@ -71,3 +71,9 @@ Add Resource IR unit tests for helper-returned raw slot load, MemPtr wrapper raw
 `ISS-20260428T182913710Z-RESOURCE-IR-LOWERING-MISCLASSIFIES-C-A1508C51` として、通常 aggregate field access の compiler-generated `load` を Resource IR で raw memory load と誤分類していた問題を修正した。Resource IR lowering と coverage comparison の両方に `TypeCtx` 付き分類を追加し、aggregate pseudo-address からの field read は `PlaceProjection::Field` / `TupleField` の `ResourceOp::Read` へ下げる。
 
 一時 `RawMemoryLoadCell` gate では `move_check.n.md` が 51/52 から 52/52 に改善し、`move_effect.n.md` は 101/110 から 104/110 に改善した。通常 Copy aggregate field read の false D3100 / D3101 は解消済みである。残件は 6 件で、`MemPtr` / `RegionToken` address wrapper の raw cell initialization transfer と raw memory に格納した aggregate の field offset/projection に絞られる。
+
+2026-04-29 追記 4:
+
+`ISS-20260428T185304640Z-RESOURCE-IR-LOWERING-FORCES-WHOLE-RA-C9E6E941` として、raw memory に格納した aggregate の field access が whole raw aggregate load に潰れる問題を修正した。typecheck は `get load<Holder> p "ptr"` を `load(add(p, offset))` へ早期変換せず、Resource IR lowering は source-level `get` / `get_field` を `p.*.field` の `ResourceOp::Read` として扱う。old `move_check` も同じ preserved 形を field projection として扱い、Copy field read では raw place 全体を move しない。
+
+一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 101/110 から 105/110 に改善し、raw aggregate Copy field read 系 `#76` - `#79` は解消した。残件は 5 件で、helper-returned slot / `MemPtr` wrapper 由来の raw pointer summary と load-cell gate 順序に絞られる。

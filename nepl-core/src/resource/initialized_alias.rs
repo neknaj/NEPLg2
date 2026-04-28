@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    AggregateKind, EffectOp, Place, RawMemoryOp, ResourceCallTarget, ResourceExprKind,
+    AggregateKind, EffectOp, Place, PlaceRoot, RawMemoryOp, ResourceCallTarget, ResourceExprKind,
     ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
@@ -158,6 +158,7 @@ impl RawCellAddressAliases {
             }
         }
         if !merged.is_empty() {
+            prefer_stable_canonical(&mut merged);
             retained.push(merged);
         }
         self.groups = retained;
@@ -166,6 +167,30 @@ impl RawCellAddressAliases {
 
 fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
     left.iter().any(|place| right.contains(place))
+}
+
+fn prefer_stable_canonical(group: &mut Vec<Place>) {
+    let Some((index, _)) = group
+        .iter()
+        .enumerate()
+        .min_by_key(|(_, place)| (canonical_place_rank(place), place.projections.len()))
+    else {
+        return;
+    };
+    if index != 0 {
+        let place = group.remove(index);
+        group.insert(0, place);
+    }
+}
+
+fn canonical_place_rank(place: &Place) -> u8 {
+    match place.root {
+        PlaceRoot::Local(_) => 0,
+        PlaceRoot::Return => 1,
+        PlaceRoot::Storage(_) => 2,
+        PlaceRoot::Temporary(_) => 3,
+        PlaceRoot::Unknown => 4,
+    }
 }
 
 pub(super) fn expr_kind_preserves_raw_alias(kind: ResourceExprKind) -> bool {

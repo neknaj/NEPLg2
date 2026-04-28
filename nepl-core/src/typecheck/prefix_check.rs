@@ -14,6 +14,7 @@ use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
 use super::env::{Binding, BindingKind};
+use super::hir_finalize::raw_aggregate_load_addr_expr;
 use super::syntax_helpers::{parse_i32_literal, parse_variant_name};
 use super::type_expr::type_from_expr;
 use super::{AssignKind, BlockChecker, FieldIdx, StackEntry};
@@ -1215,6 +1216,27 @@ impl<'a> BlockChecker<'a> {
                         if let Some((f_ty, offset)) = res {
                             // Unify our determined ty (fresh var) with the actual field type
                             let _ = self.ctx.unify(ty, f_ty);
+
+                            if raw_aggregate_load_addr_expr(&obj, &self.ctx).is_some() {
+                                let hexpr = HirExpr {
+                                    ty: f_ty,
+                                    kind: HirExprKind::Intrinsic {
+                                        name: "get_field".to_string(),
+                                        type_args: Vec::new(),
+                                        args: vec![obj, idx.clone()],
+                                    },
+                                    span: *sp,
+                                };
+                                stack.push(StackEntry {
+                                    ty: f_ty,
+                                    expr: hexpr.clone(),
+                                    type_args: Vec::new(),
+                                    assign: None,
+                                    auto_call: true,
+                                });
+                                last_expr = Some(hexpr);
+                                continue;
+                            }
 
                             // Lower to load(add(obj, offset))
                             let addr_expr = if offset == 0 {

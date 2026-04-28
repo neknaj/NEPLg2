@@ -25,6 +25,7 @@ use super::model::{
     ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp,
     ResourceTerminator,
 };
+use super::place_utils::raw_memory_cell_place;
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
     let types = TypeCtx::new();
@@ -47,10 +48,11 @@ pub fn lower_hir_module(module: &HirModule, types: &TypeCtx) -> ResourceModule {
 struct LoweringEnvironment<'a> {
     function_effects: BTreeMap<String, Effect>,
     types: &'a TypeCtx,
+    string_literals: &'a [String],
 }
 
 impl<'a> LoweringEnvironment<'a> {
-    fn new(module: &HirModule, types: &'a TypeCtx) -> Self {
+    fn new(module: &'a HirModule, types: &'a TypeCtx) -> Self {
         let mut function_effects = BTreeMap::new();
         for function in &module.functions {
             insert_effect(
@@ -69,6 +71,7 @@ impl<'a> LoweringEnvironment<'a> {
         Self {
             function_effects,
             types,
+            string_literals: &module.string_literals,
         }
     }
 
@@ -269,6 +272,22 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Call { callee, args } => {
+            if let Some(source) = lower_field_get_call_source(callee, args, expr.ty, ops, ctx, env)
+            {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::Read {
+                    source,
+                    output: output.clone(),
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Call,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                return output;
+            }
             let arg_places = lower_args_skeleton(args, ops, ctx, env);
             let effect = call_effect_skeleton(callee, env);
             ops.push(ResourceOp::CallEffect {
@@ -498,6 +517,23 @@ fn lower_expr_skeleton(
             output
         }
         HirExprKind::Intrinsic { name, args, .. } => {
+            if let Some(source) =
+                lower_get_field_intrinsic_source(name, args, expr.ty, ops, ctx, env)
+            {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::Read {
+                    source,
+                    output: output.clone(),
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Intrinsic,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                return output;
+            }
             if let Some(source) =
                 lower_compiler_field_load_source(name, args, expr.ty, ops, ctx, env)
             {
@@ -773,6 +809,11 @@ fn lower_compiler_field_load_source(
     let address = args.first()?;
     let (base_expr, offset_bytes) = compiler_field_address_base_and_offset(address)?;
     let projection = aggregate_field_projection(env.types, base_expr.ty, offset_bytes, field_ty)?;
+    if let Some(source) =
+        lower_raw_aggregate_field_source(base_expr, projection.clone(), field_ty, ops, ctx, env)
+    {
+        return Some(source);
+    }
     let mut base = place_from_expr_skeleton(base_expr, ctx);
     if matches!(&base.root, super::model::PlaceRoot::Unknown) {
         base = lower_expr_skeleton(base_expr, ops, ctx, env);
@@ -780,9 +821,118 @@ fn lower_compiler_field_load_source(
     Some(base.with_projection(projection, field_ty))
 }
 
+fn lower_field_get_call_source(
+    callee: &FuncRef,
+    args: &[HirExpr],
+    field_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if func_ref_base_name(callee)? != "get" {
+        return None;
+    }
+    let owner = args.first()?;
+    let field_name = literal_field_name(env, args.get(1)?)?;
+    let projection = aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?;
+    if let Some(source) =
+        lower_raw_aggregate_field_source(owner, projection.clone(), field_ty, ops, ctx, env)
+    {
+        return Some(source);
+    }
+    let mut base = place_from_expr_skeleton(owner, ctx);
+    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
+        base = lower_expr_skeleton(owner, ops, ctx, env);
+    }
+    Some(base.with_projection(projection, field_ty))
+}
+
+fn lower_get_field_intrinsic_source(
+    name: &str,
+    args: &[HirExpr],
+    field_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if helper_base_name(name) != "get_field" {
+        return None;
+    }
+    let owner = args.first()?;
+    let field_name = literal_field_name(env, args.get(1)?)?;
+    let projection = aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?;
+    if let Some(source) =
+        lower_raw_aggregate_field_source(owner, projection.clone(), field_ty, ops, ctx, env)
+    {
+        return Some(source);
+    }
+    let mut base = place_from_expr_skeleton(owner, ctx);
+    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
+        base = lower_expr_skeleton(owner, ops, ctx, env);
+    }
+    Some(base.with_projection(projection, field_ty))
+}
+
+fn func_ref_base_name(callee: &FuncRef) -> Option<&str> {
+    match callee {
+        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
+        FuncRef::Trait { .. } => None,
+    }
+}
+
+fn literal_field_name<'a>(env: &'a LoweringEnvironment, expr: &HirExpr) -> Option<&'a str> {
+    match &expr.kind {
+        HirExprKind::LiteralStr(index) => {
+            env.string_literals.get(*index as usize).map(String::as_str)
+        }
+        _ => None,
+    }
+}
+
+fn lower_raw_aggregate_field_source(
+    base_expr: &HirExpr,
+    projection: PlaceProjection,
+    field_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    let address = raw_load_address_expr(base_expr)?;
+    let mut address_place = place_from_expr_skeleton(address, ctx);
+    if matches!(&address_place.root, super::model::PlaceRoot::Unknown) {
+        address_place = lower_expr_skeleton(address, ops, ctx, env);
+    }
+    Some(raw_memory_cell_place(&address_place, base_expr.ty).with_projection(projection, field_ty))
+}
+
+fn raw_load_address_expr(expr: &HirExpr) -> Option<&HirExpr> {
+    match &expr.kind {
+        HirExprKind::Intrinsic { name, args, .. }
+            if matches!(raw_memory_op_from_intrinsic(name), Some(RawMemoryOp::Load)) =>
+        {
+            args.first()
+        }
+        HirExprKind::Call { callee, args }
+            if matches!(raw_memory_op_from_callee(callee), Some(RawMemoryOp::Load)) =>
+        {
+            args.first()
+        }
+        _ => None,
+    }
+}
+
 fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, usize)> {
     match &expr.kind {
         HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() == 2 => {
+            let offset = match args[1].kind {
+                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
+                _ => return None,
+            };
+            Some((&args[0], offset))
+        }
+        HirExprKind::Call { callee, args }
+            if matches!(func_ref_base_name(callee), Some("add")) && args.len() == 2 =>
+        {
             let offset = match args[1].kind {
                 HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
                 _ => return None,
@@ -815,6 +965,51 @@ fn aggregate_field_projection(
             offset_bytes,
         },
     })
+}
+
+fn aggregate_field_projection_by_name(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    field_name: &str,
+    field_ty: TypeId,
+) -> Option<PlaceProjection> {
+    let kind = aggregate_projection_kind(types, owner_ty)?;
+    let fields = aggregate_fields_with_offsets(types, owner_ty);
+    let index = match kind {
+        AggregateProjectionKind::Struct => aggregate_struct_field_names(types, owner_ty)?
+            .iter()
+            .position(|name| name == field_name)?,
+        AggregateProjectionKind::Tuple => field_name.parse::<usize>().ok()?,
+    };
+    let field = fields.get(index)?;
+    if !types.same_type(field.ty, field_ty) {
+        return None;
+    }
+    Some(match kind {
+        AggregateProjectionKind::Struct => PlaceProjection::Field {
+            index,
+            offset_bytes: field.offset,
+        },
+        AggregateProjectionKind::Tuple => PlaceProjection::TupleField {
+            index,
+            offset_bytes: field.offset,
+        },
+    })
+}
+
+fn aggregate_struct_field_names(types: &TypeCtx, ty: TypeId) -> Option<&Vec<String>> {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { field_names, .. } => Some(field_names),
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            match types.get_ref(base) {
+                TypeKind::Struct { field_names, .. } => Some(field_names),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

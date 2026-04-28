@@ -2,6 +2,7 @@ use nepl_core::ast::Effect;
 use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
+use nepl_core::loader::Loader;
 use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_effect_boundaries, check_resource_initialized_moves,
@@ -16,6 +17,33 @@ use nepl_core::resource::{
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
+use nepl_core::{BuildProfile, CompileTarget};
+use std::path::PathBuf;
+
+fn stdlib_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("stdlib")
+}
+
+fn typecheck_resource_source(source: &str) -> (HirModule, TypeCtx) {
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline(PathBuf::from("resource_ir_test.nepl"), source.to_string())
+        .expect("load source with stdlib");
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked.diagnostics.is_empty(),
+        "typecheck diagnostics: {:#?}",
+        checked.diagnostics
+    );
+    (checked.module.expect("typechecked module"), checked.types)
+}
 
 #[test]
 fn resource_ir_lowering_skeleton_tracks_locals_and_dump() {
@@ -2270,6 +2298,184 @@ fn resource_ir_lowering_treats_compiler_field_load_as_field_read() {
             ..
         }
     )));
+}
+
+#[test]
+fn resource_ir_lowering_projects_raw_aggregate_field_without_whole_load() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let holder_ty = types.register_named(
+        "Holder".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Holder".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty, i32_ty],
+            field_names: vec!["count".to_string(), "raw".to_string()],
+        },
+    );
+    let func_ty = types.function(vec![], vec![i32_ty], i32_ty, Effect::Pure);
+    let span = Span::dummy();
+    let raw_param = HirParam {
+        name: "p".to_string(),
+        ty: i32_ty,
+        mutable: false,
+    };
+    let raw_var = || HirExpr {
+        ty: i32_ty,
+        kind: HirExprKind::Var("p".to_string()),
+        span,
+    };
+    let raw_holder_load = HirExpr {
+        ty: holder_ty,
+        kind: HirExprKind::Intrinsic {
+            name: "load".to_string(),
+            type_args: vec![holder_ty],
+            args: vec![raw_var()],
+        },
+        span,
+    };
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty,
+            params: vec![raw_param],
+            result: i32_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![HirLine {
+                    expr: HirExpr {
+                        ty: i32_ty,
+                        kind: HirExprKind::Intrinsic {
+                            name: "get_field".to_string(),
+                            type_args: vec![],
+                            args: vec![
+                                raw_holder_load,
+                                HirExpr {
+                                    ty: types.str(),
+                                    kind: HirExprKind::LiteralStr(0),
+                                    span,
+                                },
+                            ],
+                        },
+                        span,
+                    },
+                    drop_result: false,
+                }],
+                ty: i32_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec!["count".to_string()],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module(&module, &types);
+    let ops = &resource.functions[0].blocks[0].ops;
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Read { source, .. }
+            if matches!(&source.root, PlaceRoot::Local(name) if name == "p")
+                && source.projections == [
+                    PlaceProjection::Deref,
+                    PlaceProjection::Field { index: 0, offset_bytes: 0 },
+                ]
+    )));
+    assert!(!ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Load,
+            output,
+            ..
+        } if output.ty == holder_ty
+    )));
+}
+
+#[test]
+fn resource_ir_typechecked_get_preserves_raw_aggregate_field_projection() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    ptr <MemPtr<u8>>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
+    let ptr <MemPtr<u8>> get load<Holder> p "ptr"
+    let raw <i32> mem_ptr_addr ptr
+    let h <Holder> load<Holder> p
+    add raw sub 14 64
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.name == "main" || function.name.starts_with("main__"))
+        .expect("main resource function");
+    let ops = &main.blocks[0].ops;
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Read { source, .. }
+            if matches!(&source.root, PlaceRoot::Local(name) if name == "p")
+                && source.projections == [
+                    PlaceProjection::Deref,
+                    PlaceProjection::Field { index: 1, offset_bytes: 4 },
+                ]
+    )));
+    let holder_raw_loads = ops
+        .iter()
+        .filter(|op| {
+            matches!(
+                op,
+                ResourceOp::RawMemory {
+                    operation: RawMemoryOp::Load,
+                    output,
+                    ..
+                } if types.type_to_string(output.ty).starts_with("Holder")
+            )
+        })
+        .count();
+    assert_eq!(holder_raw_loads, 1);
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "raw aggregate field projection must not produce main CellState diagnostics: {:#?}",
+        main_diagnostics
+    );
 }
 
 #[test]

@@ -890,6 +890,69 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn move_raw_aggregate_copy_field_read_keeps_whole_place_available() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+#import "core/field" as field
+#import "core/math" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()*>()> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 LocalToken @token_id
+    let a <i32> field::get load<Holder> p "count"
+    let b <i32> field::get load<Holder> p "count"
+    let h <Holder> load<Holder> p
+    ()
+"#;
+    compile_move_test(source).expect("copy raw aggregate field reads should not move the owner");
+}
+
+#[test]
+fn move_raw_aggregate_non_copy_field_move_blocks_whole_load() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/mem" as *
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct Holder:
+    count <i32>
+    token <LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()*>()> ():
+    let p <i32> 16
+    store<Holder> p Holder 7 LocalToken @token_id
+    let token <LocalToken> field::get load<Holder> p "token"
+    let h <Holder> load<Holder> p
+    ()
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs.iter().any(|d| {
+        d.message.contains("use of moved raw memory place")
+            || d.message
+                .contains("resource ir raw memory cell ownership violation")
+    }));
+}
+
+#[test]
 fn move_field_from_borrowed_owner_rejected() {
     let source = r#"
 #target wasi

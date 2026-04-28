@@ -14,9 +14,10 @@ use super::branch_merge::{
 };
 use super::provenance::{
     field_move_path_from_addr, field_reference_path_from_addr, i32_const_from_value,
-    raw_addr_alias_from_value, raw_bulk_copy_size_arg_bytes, raw_byte_write_size_arg_bytes,
-    raw_dealloc_place_key, raw_dealloc_size_arg_bytes, raw_memory_place_key,
-    raw_store_write_size_bytes,
+    raw_addr_alias_from_value, raw_aggregate_field_projection_from_get_call,
+    raw_aggregate_field_projection_from_get_field, raw_bulk_copy_size_arg_bytes,
+    raw_byte_write_size_arg_bytes, raw_dealloc_place_key, raw_dealloc_size_arg_bytes,
+    raw_memory_place_key, raw_store_write_size_bytes, RawAggregateFieldProjection,
 };
 use super::raw_memory::{raw_memory_call_kind, RawMemoryCallKind};
 use super::state::{BorrowBinding, BorrowKind, ExprBorrow, VarState};
@@ -634,6 +635,21 @@ fn visit_raw_memory_call(
     }
 }
 
+fn visit_raw_aggregate_field_projection(
+    projection: RawAggregateFieldProjection<'_>,
+    expr: &HirExpr,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Vec<ExprBorrow> {
+    if tctx.is_copy(projection.field_ty) {
+        visit_temporary_borrow(projection.addr, ctx, BorrowKind::Shared);
+    } else {
+        visit_expr(projection.addr, ctx, tctx);
+        ctx.check_raw_non_copy_load(projection.place.as_str(), projection.size, expr.span);
+    }
+    Vec::new()
+}
+
 fn apply_raw_memory_effect_summary(
     effect: &RawMemoryEffectSummary,
     span: Span,
@@ -743,6 +759,11 @@ fn visit_expr_with_escape(
             if let Some(kind) = raw_memory_call_kind(callee, args, expr.ty, tctx) {
                 visit_raw_memory_call(kind, callee, expr, args, ctx, tctx);
                 return Vec::new();
+            }
+            if let Some(projection) =
+                raw_aggregate_field_projection_from_get_call(callee, args, expr.ty, ctx, tctx)
+            {
+                return visit_raw_aggregate_field_projection(projection, expr, ctx, tctx);
             }
             match callee {
                 FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "get" => {
@@ -1190,6 +1211,26 @@ fn visit_expr_with_escape(
                     }
                 }
                 Vec::new()
+            }
+            "get_field" => {
+                if let Some(projection) =
+                    raw_aggregate_field_projection_from_get_field(expr, ctx, tctx)
+                {
+                    visit_raw_aggregate_field_projection(projection, expr, ctx, tctx)
+                } else {
+                    let mut result_borrows = Vec::new();
+                    for arg in args {
+                        result_borrows.extend(visit_expr(arg, ctx, tctx));
+                    }
+                    if type_contains_reference(tctx, expr.ty) {
+                        if let Some(depth) = escape_depth {
+                            ctx.check_expr_borrows_escape(&result_borrows, expr.span, depth);
+                        }
+                        result_borrows
+                    } else {
+                        Vec::new()
+                    }
+                }
             }
             _ => {
                 let mut result_borrows = Vec::new();

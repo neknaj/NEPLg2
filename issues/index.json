@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T19:46:13.637Z",
+  "generated_at": "2026-04-28T19:49:14.630Z",
   "counts": {
-    "total": 305,
+    "total": 306,
     "open": 11,
-    "resolved": 294,
+    "resolved": 295,
     "by_area": {
       "core": {
-        "total": 145,
+        "total": 146,
         "open": 4,
-        "resolved": 141
+        "resolved": 142
       },
       "stdlib": {
         "total": 96,
@@ -2268,6 +2268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T184502533Z-SELF-HOST-IMPORT-SPEC-TEST-OVERFLOWS-BDC6F326.md"
+    },
+    {
+      "id": "ISS-20260428T185304640Z-RESOURCE-IR-LOWERING-FORCES-WHOLE-RA-C9E6E941",
+      "title": "Resource IR lowering forces whole raw aggregate loads before field projection",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/typecheck/field_apply.rs, nepl-core/src/typecheck/prefix_check.rs, nepl-core/src/passes/move_check/provenance.rs, nepl-core/src/passes/move_check/visitor.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/move_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T185304640Z-RESOURCE-IR-LOWERING-FORCES-WHOLE-RA-C9E6E941.md"
     },
     {
       "id": "ISS-20260428T193442835Z-WASM-CODEGEN-BLOCK-WRAPPED-ELSE-IF-CH-5C1BA9D4",

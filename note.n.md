@@ -23630,3 +23630,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib の finite classifier を `match` に戻せるよう、wasm codegen の block-wrapped conditional chain lowering を補強した。
+# 2026-04-29 メモ (ISS-20260428T185304640Z raw aggregate field projection)
+
+- [同期]:
+  - `work/resource-load-cell-wrapper-projection` branch で、`origin/main` の `9e74c6e fix(core): lower field pseudo-loads as resource reads` を起点に作業した。
+- [原因]:
+  - typecheck が `get load<Holder> p "field"` を `load(add(p, offset))` へ早期 lowering していたため、Resource IR lowering が「raw aggregate の field read」という構造を失っていた。
+  - その結果、一時的に `RawMemoryLoadCell` gate を有効化すると Copy field read でも whole `load<Holder> p` とみなされ、`tests/compiler/move_effect.n.md::doctest#76` - `#79` が D3100 になっていた。
+  - preserved `get_field(load<Aggregate> ...)` 形を old `move_check` が知らず、fallback で base の raw aggregate load を全体 move として訪問していた。
+- [修正]:
+  - raw aggregate load への field get は typecheck で `get_field(load<Aggregate> addr, selector)` として保持するようにした。
+  - Resource IR lowering / coverage は source-level `get` / `get_field` を `raw_addr.Deref.Field` の read として扱い、whole aggregate `RawMemoryOp::Load` を出さないようにした。
+  - CellState の raw alias canonical は temporary より stable local / return / storage を優先し、store と field read の representative が割れないようにした。
+  - old `move_check` は raw aggregate field projection を直接解決し、Copy field read は whole raw place を move せず、non-Copy field は offset 付き raw place だけを move するようにした。
+  - `nepl-core/tests/resource_ir.rs` と `nepl-core/tests/move_check.rs` に回帰テストを追加した。
+- [検証]:
+  - `rustfmt --check nepl-core/src/passes/move_check/provenance.rs nepl-core/src/passes/move_check/visitor.rs nepl-core/src/resource/coverage.rs nepl-core/src/resource/lower.rs nepl-core/src/resource/initialized_alias.rs nepl-core/src/typecheck/field_apply.rs nepl-core/src/typecheck/prefix_check.rs nepl-core/tests/move_check.rs nepl-core/tests/resource_ir.rs`: pass
+  - `cargo test -p nepl-core --test move_check move_raw_aggregate -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 76 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\resource-raw-aggregate-field-final-move-effect.json -j 1`: total=110 passed=110
+  - 一時 `RawMemoryLoadCell` gate では `move_effect.n.md` が 101/110 から 105/110 へ改善し、raw aggregate field projection 系 `#76` - `#79` が解消した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の CellState authoritative 化に向け、raw aggregate field read を Resource IR の field projection として扱うようにした。

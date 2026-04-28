@@ -9,9 +9,16 @@ use super::raw_place::{
 };
 use super::state::FieldMovePath;
 use super::{
-    aggregate_field_raw_aliases_from_value, field_get_projection, function_call_raw_alias_summary,
-    MoveCheckContext,
+    aggregate_field_layout_from_selector, aggregate_field_raw_aliases_from_value,
+    field_get_projection, function_call_raw_alias_summary, MoveCheckContext,
 };
+
+pub(super) struct RawAggregateFieldProjection<'a> {
+    pub(super) addr: &'a HirExpr,
+    pub(super) field_ty: TypeId,
+    pub(super) place: String,
+    pub(super) size: usize,
+}
 
 pub(super) fn field_move_path_from_addr(
     addr: &HirExpr,
@@ -57,6 +64,89 @@ pub(super) fn field_reference_path_from_addr(
         _ => return None,
     };
     field_move_path_from_addr(addr, field_ty, tctx)
+}
+
+fn raw_aggregate_load_addr<'a>(
+    expr: &'a HirExpr,
+    tctx: &crate::types::TypeCtx,
+) -> Option<&'a HirExpr> {
+    if aggregate_fields_with_offsets(tctx, expr.ty).is_empty() {
+        return None;
+    }
+    match &expr.kind {
+        HirExprKind::Intrinsic { name, args, .. }
+            if name == "load" && args.len() == 1 && tctx.same_type(args[0].ty, tctx.i32()) =>
+        {
+            Some(&args[0])
+        }
+        HirExprKind::Call { callee, args }
+            if args.len() == 1 && tctx.same_type(args[0].ty, tctx.i32()) =>
+        {
+            let name = func_ref_name(callee)?;
+            if name == "load" || name.starts_with("load_") {
+                Some(&args[0])
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+pub(super) fn raw_aggregate_field_projection_from_get_field<'a>(
+    expr: &'a HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<RawAggregateFieldProjection<'a>> {
+    let HirExprKind::Intrinsic { name, args, .. } = &expr.kind else {
+        return None;
+    };
+    if name != "get_field" || args.len() != 2 {
+        return None;
+    }
+    raw_aggregate_field_projection_from_owner_selector(&args[0], &args[1], expr.ty, ctx, tctx)
+}
+
+pub(super) fn raw_aggregate_field_projection_from_get_call<'a>(
+    callee: &FuncRef,
+    args: &'a [HirExpr],
+    result_ty: TypeId,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<RawAggregateFieldProjection<'a>> {
+    let name = func_ref_name(callee)?;
+    if !is_field_get_name(name) || args.len() < 2 {
+        return None;
+    }
+    raw_aggregate_field_projection_from_owner_selector(&args[0], &args[1], result_ty, ctx, tctx)
+}
+
+fn raw_aggregate_field_projection_from_owner_selector<'a>(
+    owner: &'a HirExpr,
+    selector: &HirExpr,
+    result_ty: TypeId,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<RawAggregateFieldProjection<'a>> {
+    let addr = raw_aggregate_load_addr(owner, tctx)?;
+    let (field_offset, field_ty) =
+        aggregate_field_layout_from_selector(owner.ty, selector, ctx, tctx)?;
+    if !tctx.same_type(field_ty, result_ty) {
+        return None;
+    }
+    let base_key = raw_memory_place_key(addr, ctx, tctx)?;
+    let (base, base_offset) = parse_raw_memory_place_key(base_key.as_str());
+    let field_offset = i64::try_from(field_offset).ok()?;
+    let place = format_raw_memory_place_key_parts(
+        base.as_str(),
+        combine_raw_memory_offsets(base_offset, Some(field_offset)),
+    );
+    Some(RawAggregateFieldProjection {
+        addr,
+        field_ty,
+        place,
+        size: storage_size_bytes(tctx, field_ty),
+    })
 }
 
 pub(super) fn i32_const_from_value(
