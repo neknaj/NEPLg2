@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T12:33:56.011Z",
+  "generated_at": "2026-04-28T12:39:36.166Z",
   "counts": {
-    "total": 275,
+    "total": 276,
     "open": 10,
-    "resolved": 265,
+    "resolved": 266,
     "by_area": {
       "core": {
-        "total": 125,
+        "total": 126,
         "open": 4,
-        "resolved": 121
+        "resolved": 122
       },
       "stdlib": {
         "total": 95,
@@ -1983,6 +1983,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T122920913Z-RESOURCE-FUNCTION-ALIAS-TABLE-KEEPS--6208EF78.md"
+    },
+    {
+      "id": "ISS-20260428T123750146Z-RESOURCE-EFFECT-CHECKER-KEEPS-STALE--0C4747E0",
+      "title": "Resource effect checker keeps stale function aliases after assignment",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-28",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T123750146Z-RESOURCE-EFFECT-CHECKER-KEEPS-STALE--0C4747E0.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

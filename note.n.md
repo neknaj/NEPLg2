@@ -22693,3 +22693,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の function / callback boundary の続きとして、function alias stale state による borrow/owner propagation 抜けを塞いだ。
+
+# 2026-04-28 メモ (ISS-20260428T123750146Z effect function alias clear)
+
+- [同期]:
+  - `origin/main` の `79d2200 fix(core): clear stale function aliases` まで同期した main から `work/stage4-effect-alias-clear` branch を作成した。
+- [原因]:
+  - borrow / owner checker 側の stale function alias は解消したが、effect checker 側にも独立した `FunctionAliasTable` があり、source に known alias がない copy で target の古い alias を残していた。
+  - known safe function alias を unknown callback で上書きした後の `IndirectCall` が stale known callee として扱われ、unknown callback fallback による raw identity propagation が抜ける可能性があった。
+- [修正]:
+  - `nepl-core/src/resource/effect.rs` の `FunctionAliasTable::copy_alias` も target state の上書きに変更し、source に known alias がなければ target alias を消すようにした。
+  - `nepl-core/tests/resource_ir.rs` に known safe alias を unknown callback で上書きした後、raw allocation が indirect call 経由で return されると `RawAddressEscapeFromInternalAlloc` になる回帰を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5「effect model の拡張」の public escape diagnostics に向けて、effect checker の unknown callback raw identity propagation を stale alias で迂回しないようにした。
