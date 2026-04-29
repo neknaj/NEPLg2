@@ -103,9 +103,13 @@
   - `nodesrc/test_stdlib_byte_scanner_helpers_boundary.js` を追加し、local scanner helper の再導入を検出する。
 - [検証]:
   - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: pass
-  - `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-final2.json -j 1`: total=8 passed=8
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-unskip.json -j 1`: total=8 passed=8
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\byte-scanner-import-spec-final.json -j 1`: total=3 passed=3
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_lexer.n.md --no-tree -o tmp\byte-scanner-lexer-final.json -j 1`: total=13 passed=13
+  - `node nodesrc/tests.js -i tests\stdlib\nm.n.md --no-tree -o tmp\byte-scanner-nm-rebased.json -j 1`: total=5 passed=5
   - `node nodesrc/issues.js check`: pass
-  - remote main の Resource owner summary 修正後、`tests/stdlib/nm.n.md` は D3100 なしで 5/5 pass する。
+  - `git diff --check`: pass
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

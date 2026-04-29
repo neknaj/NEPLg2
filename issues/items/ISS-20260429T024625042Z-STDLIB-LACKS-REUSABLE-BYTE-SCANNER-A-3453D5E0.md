@@ -51,8 +51,10 @@ Design a small stdlib scanner layer: byte range find, line end/next line helpers
 ## 検証
 
 - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
-- `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-final2.json -j 1`: total=8 passed=8
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-unskip.json -j 1`: total=8 passed=8
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\byte-scanner-import-spec-final.json -j 1`: total=3 passed=3
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_lexer.n.md --no-tree -o tmp\byte-scanner-lexer-final.json -j 1`: total=13 passed=13
+- `node nodesrc/tests.js -i tests\stdlib\nm.n.md --no-tree -o tmp\byte-scanner-nm-rebased.json -j 1`: total=5 passed=5
 - `node nodesrc/issues.js check`: passed
 - `git diff --check`: passed（CRLF warning のみ）
-- `node nodesrc/tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\byte-scanner-import-spec.json -j 1`: known D3100 で failed。`ISS-20260429T024412130Z-RESOURCE-OWNER-GATE-REPORTS-D3100-IN-7A19FECC` / `ISS-20260429T021254285Z-RESOURCE-OWNER-GATE-LEAKS-OBLIGATION-8F3BD354` で追跡。
-- `node nodesrc/tests.js -i tests\stdlib\nm.n.md --no-tree -o tmp\byte-scanner-nm.json -j 1`: known D3100 で failed。`ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0` で追跡。
