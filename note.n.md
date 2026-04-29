@@ -1,3 +1,29 @@
+# 2026-04-30 メモ (ISS-20260429T171742927Z Vec storage owner transfer)
+
+- [同期]:
+  - `main` を `origin/main` と同期した状態から、`stdlib/vec-owner-transfer-contract` branch で作業した。
+- [原因]:
+  - `Vec::push` は consuming API だが、`data` owner を `field::get_ref &v "data"` で copy 的に読み、その alias を戻り値の `Vec` へ包み直していた。
+  - `Vec::map` / `filter` / `partition` / `take_while` / `drop_while` は、入力 storage と確保済み出力 storage の owner transfer を借用読み alias に依存しており、ResourceIR が入力 owner と戻り値 owner の一回限りの移動を証明できなかった。
+  - transform 系には `alloc_r` / `alloc_left` / `alloc_right` の中間 owner local も残っており、以前の compiler 制約を避けるための不自然な書き方が owner obligation を増やしていた。
+- [修正]:
+  - `push` / `pop` / `clear` / `free` は `len` / `cap` を `field::get_ref` で読み、`data` owner は `field::get` で取り出して戻り値または dealloc/realloc へ渡すようにした。
+  - `map` / `filter` / `partition` / `take_while` / `drop_while` は入力 Vec の `cap` / `data` を保持し、出力確保失敗 path と成功 path の両方で入力 storage を `dealloc_raw` するようにした。
+  - transform 系の `with_capacity` は不要な中間変数を外し、直接 `match with_capacity` へ戻した。
+  - Vec source policy は `len` / `cap` の direct move を禁止しつつ、`data` owner transfer が明示されていることを確認する形へ更新した。
+  - `tests/compiler/list_dot_map.n.md`、`overload.n.md`、`overload_nested_generic_push.n.md` の Vec fixture は `len_ref` / `get_ref` と `free` を使う所有権安全な形へ直した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md --no-tree -o tmp/vec-owner-transfer-list-dot-map-after-fixtures.json -j 1 --dist web/dist`: total=4, passed=3, failed=1。残りは既存の List owner issue。
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md -i tests/compiler/overload_nested_generic_push.n.md --no-tree -o tmp/vec-owner-transfer-overload-after-fixtures.json -j 1 --dist web/dist`: total=47, passed=43, failed=4。Vec 起因 failure は解消。
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-after-vec-owner-transfer.json -j 4 --dist web/dist`: total=649, passed=643, failed=6。修正前の total=649, passed=637, failed=12 から Vec owner transfer 起因の 6 件が解消。
+- [残件]:
+  - `stdlib/alloc/collections/vec.nepl` doctest は、今回の修正により by-value observation API / fixture の owner leak が表面化する。これは既存 `RV-STDLIB-004` の collection API / element cleanup 設計として扱う。
+  - full compiler 残り 6 件は List/HashMap owner contract、tuple field owner obligation、Stack owner contract の既存別 issue 領域。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T162554932Z generics/shadowing fixture cleanup)
 
 - [同期]:

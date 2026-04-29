@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T17:09:33.448Z",
+  "generated_at": "2026-04-29T17:30:15.221Z",
   "counts": {
-    "total": 390,
+    "total": 391,
     "open": 14,
-    "resolved": 376,
+    "resolved": 377,
     "by_area": {
       "core": {
         "total": 180,
@@ -12,9 +12,9 @@
         "resolved": 175
       },
       "stdlib": {
-        "total": 117,
+        "total": 118,
         "open": 7,
-        "resolved": 110
+        "resolved": 111
       },
       "TEST": {
         "total": 6,
@@ -4143,6 +4143,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T160211032Z-STD-TEST-REPORT-AGGREGATES-RELY-ON-S-D01462BB.md"
+    },
+    {
+      "id": "ISS-20260429T171742927Z-VEC-CONSUMING-HELPERS-COPY-STORAGE-O-CA186B8E",
+      "title": "Vec consuming helpers copy storage owner instead of transferring it",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/collections/vec.nepl, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, tests/compiler/list_dot_map.n.md, tests/compiler/overload.n.md, tests/compiler/overload_nested_generic_push.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T171742927Z-VEC-CONSUMING-HELPERS-COPY-STORAGE-O-CA186B8E.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
