@@ -1,0 +1,292 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/field" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "./classify" as *
+#import "./emit" as *
+#import "./options" as *
+#import "./types" as *
+
+//: # args/parse
+//: NEPLg2.0 self-host CLI の argv parser state machine を[置/お]く module です。
+//:
+//: [目的/もくてき]:
+//: - raw argv provider と pure option parser を分離し、self-host CLI parity test の入口にします。
+//: - `--target` / `--emit` / `--stdlib-root` / `-o` / `-i` / input path を、filesystem や stdio に依存せず解釈します。
+//: - `std/env/cliarg` は argv の取得だけを担い、このモジュールは渡された `Vec<str>` を読むだけにします。
+//:
+//: [実装/じっそう]:
+//: - argv token / option value の分類は `args/classify` に委譲します。
+//: - emit artifact set の合成は `args/emit` に委譲します。
+//: - 最終的な `SelfhostCliOptions` 構築は `args/options` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - `selfhost_cli_parse_args` は argv[0] を含まない引数列を、`selfhost_cli_parse_argv` は argv[0] を含む raw argv を受け取ります。
+//: - `--` 以降の実行時引数はこの段階では内容をコピーせず、開始 index だけを `run_args_start` に保存します。
+//: - 返る `str` は入力 argv の文字列値を参照する軽量値です。文字列本体は呼び出し側の argv と同じ寿命を前提にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(n)
+//: - [空間/くうかん]: O(1)
+
+//: selfhost_cli_arg_at: argv data/len から index 指定で文字列を読む
+//:
+//: [目的/もくてき]:
+//: - `Vec<str>` を消費せず、parser 内部で index access します。
+//:
+//: [実装/じっそう]:
+//: - `VecDataLen<str>` から取り出した data address と len を使って境界検査後に `load<str>` します。
+//:
+//: [注意/ちゅうい]:
+//: - `data` は呼び出し元の Vec の内部 pointer なので、parser 中に Vec を変更してはいけません。
+fn selfhost_cli_arg_at <(i32,i32,i32)->Option<str>> (data, count, idx):
+    if:
+        lt idx 0
+        then:
+            none<str>
+        else:
+            if:
+                le count idx
+                then:
+                    none<str>
+                else:
+                    some<str> load<str> add data mul idx size_of<str>
+
+//: selfhost_cli_next_value: 値を必要とする option の次 token を読む
+//:
+//: [目的/もくてき]:
+//: - `--target` や `-o` の値欠落を `MissingValue` として返します。
+//:
+//: [注意/ちゅうい]:
+//: - 値が `-` で始まるかどうかはここでは判定しません。path や値として許可する余地を残します。
+fn selfhost_cli_next_value <(i32,i32,i32)->Result<str,SelfhostCliErrorKind>> (data, count, i):
+    match selfhost_cli_arg_at data count add i 1:
+        Option::Some value:
+            ok<str,SelfhostCliErrorKind> value
+        Option::None:
+            err<str,SelfhostCliErrorKind> SelfhostCliErrorKind::MissingValue
+
+//: selfhost_cli_set_input: input path を重複検査つきで設定する
+//:
+//: [目的/もくてき]:
+//: - positional input と `-i/--input` を同じ重複規則で処理します。
+fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCliErrorKind>> (current, value):
+    match current:
+        Option::Some _old:
+            err<Option<str>,SelfhostCliErrorKind> SelfhostCliErrorKind::MultipleInput
+        Option::None:
+            ok<Option<str>,SelfhostCliErrorKind> some<str> value
+
+//: selfhost_cli_finish: 走査済み state を success result にする
+fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool,Option<i32>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose, run_args_start):
+    ok<SelfhostCliOptions,SelfhostCliErrorKind> selfhost_cli_options_new check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
+
+//: selfhost_cli_parse_loop: argv parser の本体
+//:
+//: [目的/もくてき]:
+//: - index を進めながら option state を更新し、usage error を `Result::Err` にします。
+//:
+//: [実装/じっそう]:
+//: - 各 token を `SelfhostCliArgKind` に分類し、enum `match` で処理を選びます。
+//: - 値付き option は `selfhost_cli_next_value` で次 token を取り、成功時だけ index を 2 進めます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (data, count, i, input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose):
+    if:
+        le count i
+        then:
+            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none<i32>
+        else:
+            match selfhost_cli_arg_at data count i:
+                Option::None:
+                    selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none<i32>
+                Option::Some arg:
+                    match selfhost_cli_arg_kind arg:
+                        SelfhostCliArgKind::Check:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile true run attach_source lib verbose
+                        SelfhostCliArgKind::Run:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check true attach_source lib verbose
+                        SelfhostCliArgKind::AttachSource:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check run true lib verbose
+                        SelfhostCliArgKind::Lib:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check run attach_source true verbose
+                        SelfhostCliArgKind::Verbose:
+                            selfhost_cli_parse_loop data count add i 1 input output stdlib_root target emit profile check run attach_source lib true
+                        SelfhostCliArgKind::Target:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_parse_target_value value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok parsed:
+                                            selfhost_cli_parse_loop data count add i 2 input output stdlib_root some<SelfhostCliTarget> parsed emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Emit:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_parse_emit_set_value value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok parsed:
+                                            selfhost_cli_parse_loop data count add i 2 input output stdlib_root target parsed profile check run attach_source lib verbose
+                        SelfhostCliArgKind::StdlibRoot:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    selfhost_cli_parse_loop data count add i 2 input output some<str> value target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Output:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    selfhost_cli_parse_loop data count add i 2 input some<str> value stdlib_root target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Input:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_set_input input value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok next_input:
+                                            selfhost_cli_parse_loop data count add i 2 next_input output stdlib_root target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::Profile:
+                            match selfhost_cli_next_value data count i:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok value:
+                                    match selfhost_cli_parse_profile_value value:
+                                        Result::Err e:
+                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                        Result::Ok parsed:
+                                            selfhost_cli_parse_loop data count add i 2 input output stdlib_root target emit some<SelfhostCliProfile> parsed check run attach_source lib verbose
+                        SelfhostCliArgKind::Separator:
+                            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose some<i32> add i 1
+                        SelfhostCliArgKind::Positional:
+                            match selfhost_cli_set_input input arg:
+                                Result::Err e:
+                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                Result::Ok next_input:
+                                    selfhost_cli_parse_loop data count add i 1 next_input output stdlib_root target emit profile check run attach_source lib verbose
+                        SelfhostCliArgKind::UnknownOption:
+                            err<SelfhostCliOptions,SelfhostCliErrorKind> SelfhostCliErrorKind::UnknownOption
+
+//: selfhost_cli_parse_args: argv[0] を含まない引数列を解析する
+//:
+//: [目的/もくてき]:
+//: - test fixture や driver 内部から、program name を除いた CLI args を pure に解析します。
+//:
+//: [実装/じっそう]:
+//: - `Vec<str>` を borrow して `VecDataLen` にし、index 0 から `selfhost_cli_parse_loop` へ渡します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "alloc/string" as *
+//:| #import "core/field" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/cli/args/emit" as *
+//:| #import "neplg2/cli/args/parse" as *
+//:| #import "neplg2/cli/args/types" as *
+//: fn main <()*>i32> ():
+//:     let args <Vec<str>>:
+//:         unwrap_ok v::new<str>
+//:         |> v::push<str> "--check" |> uwok
+//:         |> v::push<str> "--emit" |> uwok
+//:         |> v::push<str> "wasm" |> uwok
+//:         |> v::push<str> "-o" |> uwok
+//:         |> v::push<str> "out.wasm" |> uwok
+//:         |> v::push<str> "main.nepl" |> uwok
+//:     match selfhost_cli_parse_args &args:
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok opts:
+//:             let output_ref <&Option<str>> get_ref &opts "output"
+//:             let input_ref <&Option<str>> get_ref &opts "input"
+//:             let check_ref <&bool> get_ref &opts "check"
+//:             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
+//:             let output_ok <bool> match *output_ref:
+//:                 Option::Some out:
+//:                     str_eq out "out.wasm"
+//:                 Option::None:
+//:                     false
+//:             let input_ok <bool> match *input_ref:
+//:                 Option::Some input:
+//:                     str_eq input "main.nepl"
+//:                 Option::None:
+//:                     false
+//:             let check_ok <bool> *check_ref
+//:             let emit_ok <bool> selfhost_cli_emit_is_wasm *emit_ref
+//:             if and check_ok and emit_ok and output_ok input_ok 0 1
+//: ```
+pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args):
+    let span <VecDataLen<str>> v::data_len_ref<str> args;
+    let data <i32> mem_ptr_addr *get_ref &span "data";
+    let count <i32> *get_ref &span "len";
+    selfhost_cli_parse_loop data count 0 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
+
+//: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
+//:
+//: [目的/もくてき]:
+//: - `std/env/cliarg` から集めた raw argv をそのまま渡せる入口です。
+//:
+//: [実装/じっそう]:
+//: - argv[0] は program name として扱い、index 1 から option parsing を始めます。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "alloc/string" as *
+//:| #import "core/field" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/cli/args/parse" as *
+//:| #import "neplg2/cli/args/predicates" as *
+//:| #import "neplg2/cli/args/types" as *
+//: fn main <()*>i32> ():
+//:     let argv <Vec<str>>:
+//:         unwrap_ok v::new<str>
+//:         |> v::push<str> "neplg2" |> uwok
+//:         |> v::push<str> "--target" |> uwok
+//:         |> v::push<str> "std" |> uwok
+//:         |> v::push<str> "-i" |> uwok
+//:         |> v::push<str> "main.nepl" |> uwok
+//:     match selfhost_cli_parse_argv &argv:
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok opts:
+//:             let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
+//:             let input_ref <&Option<str>> get_ref &opts "input"
+//:             let target_ok <bool> match *target_ref:
+//:                 Option::Some target:
+//:                     selfhost_cli_target_is_wasi target
+//:                 Option::None:
+//:                     false
+//:             let input_ok <bool> match *input_ref:
+//:                 Option::Some input:
+//:                     str_eq input "main.nepl"
+//:                 Option::None:
+//:                     false
+//:             if and target_ok input_ok 0 1
+//: ```
+pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (argv):
+    let span <VecDataLen<str>> v::data_len_ref<str> argv;
+    let data <i32> mem_ptr_addr *get_ref &span "data";
+    let count <i32> *get_ref &span "len";
+    selfhost_cli_parse_loop data count 1 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false

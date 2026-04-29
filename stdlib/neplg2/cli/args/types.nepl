@@ -14,6 +14,7 @@
 //: - parser 固有の分類 enum や string matching helper は `neplg2/cli/args/classify` に分離します。
 //: - emit artifact set の合成や判定 helper は `neplg2/cli/args/emit` に分離します。
 //: - CLI option value の構築と core compile option への変換は `neplg2/cli/args/options` に分離します。
+//: - argv parser state machine は `neplg2/cli/args/parse` に、enum predicate helper は `neplg2/cli/args/predicates` に分離します。
 //: - ここに置く型は filesystem / stdio に依存しない pure value です。
 //:
 //: neplg2:test

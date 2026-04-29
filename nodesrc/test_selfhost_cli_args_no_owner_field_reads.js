@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/neplg2/cli/args.nepl';
+const relPath = 'stdlib/neplg2/cli/args/parse.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 
 const code = src

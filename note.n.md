@@ -25430,3 +25430,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix pipe boundary 移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-STDLIB-009 selfhost CLI args parse/predicate split)
+
+- [同期]:
+  - `d0c4b4d` まで反映した `main` を `origin/main` と同期し、`stdlib/cli-args-parse-split` branch で作業した。
+- [原因]:
+  - `stdlib/neplg2/cli/args.nepl` は options 分離後も argv index 走査、usage error state machine、target/error predicate helper を保持していた。
+  - parser 本体が残ることで `args.nepl` が parser-private `classify` に直接依存し、public facade と実装 state machine の境界が曖昧なままだった。
+- [修正]:
+  - `stdlib/neplg2/cli/args/parse.nepl` を追加し、argv data/len access、値付き option の次 token 取得、input 重複検査、parse loop、`selfhost_cli_parse_args` / `selfhost_cli_parse_argv` を移した。
+  - `stdlib/neplg2/cli/args/predicates.nepl` を追加し、target/error enum predicate を移した。
+  - `args.nepl` は `types` / `emit` / `options` / `parse` / `predicates` の re-export facade に縮小し、`nodesrc/test_selfhost_cli_args_types_split.js` で parser/predicate helper が戻らないことを固定した。
+  - `nodesrc/test_selfhost_cli_args_no_owner_field_reads.js` を `args/parse.nepl` の実装境界に追従させた。
+- [検証]:
+  - `trunk build`
+  - `node nodesrc/test_selfhost_cli_args_types_split.js`
+  - `node nodesrc/test_selfhost_cli_driver_boundary.js`
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
+  - `node nodesrc/test_stdlib_match_decision_trees.js`
+  - `node nodesrc/issues.js check`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/types.nepl --no-tree -o tmp/cli-args-types-parse-split-rebased14.json -j 1`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/parse.nepl --no-tree -o tmp/cli-args-parse-direct-rebased14.json -j 1`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/predicates.nepl --no-tree -o tmp/cli-args-predicates-direct-rebased14.json -j 1`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/cli-args-parse-facade-rebased14.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/cli-args-parse-parser-rebased14.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/cli-args-parse-driver-rebased14.json -j 1`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host CLI args の分割は `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として扱う。この issue は他の巨大 stdlib file が残るため open のまま。

@@ -1,0 +1,111 @@
+#indent 4
+
+#import "./types" as *
+
+//: # args/predicates
+//: NEPLg2.0 self-host CLI の public enum predicate helper を[集/あつ]める module です。
+//:
+//: [目的/もくてき]:
+//: - driver、reporter、tests が使う単純判定を parser state machine から分離します。
+//: - enum に対する分岐を `match` で書き、variant 追加時に網羅性検査が効く形にします。
+//:
+//: [注意/ちゅうい]:
+//: - ここには文字列分類や argv index 走査を置きません。CLI 入力の解析は `args/classify` と `args/parse` が担当します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/args/predicates" as *
+//:| #import "neplg2/cli/args/types" as *
+//: fn main <()->i32> ():
+//:     if selfhost_cli_error_is_invalid_emit SelfhostCliErrorKind::InvalidEmit 0 1
+//: ```
+
+//: selfhost_cli_target_is_wasm: target が Wasm か判定する
+pub fn selfhost_cli_target_is_wasm <(SelfhostCliTarget)->bool> (target):
+    match target:
+        SelfhostCliTarget::Wasm:
+            true
+        SelfhostCliTarget::Wasi:
+            false
+        SelfhostCliTarget::Wasix:
+            false
+        SelfhostCliTarget::Llvm:
+            false
+
+//: selfhost_cli_target_is_wasi: target が Wasi か判定する
+pub fn selfhost_cli_target_is_wasi <(SelfhostCliTarget)->bool> (target):
+    match target:
+        SelfhostCliTarget::Wasm:
+            false
+        SelfhostCliTarget::Wasi:
+            true
+        SelfhostCliTarget::Wasix:
+            false
+        SelfhostCliTarget::Llvm:
+            false
+
+//: selfhost_cli_error_is_unknown_option: error kind が unknown option か判定する
+pub fn selfhost_cli_error_is_unknown_option <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            true
+        SelfhostCliErrorKind::MissingValue:
+            false
+        SelfhostCliErrorKind::MultipleInput:
+            false
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            false
+        SelfhostCliErrorKind::InvalidProfile:
+            false
+
+//: selfhost_cli_error_is_missing_value: error kind が missing value か判定する
+pub fn selfhost_cli_error_is_missing_value <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            false
+        SelfhostCliErrorKind::MissingValue:
+            true
+        SelfhostCliErrorKind::MultipleInput:
+            false
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            false
+        SelfhostCliErrorKind::InvalidProfile:
+            false
+
+//: selfhost_cli_error_is_multiple_input: error kind が multiple input か判定する
+pub fn selfhost_cli_error_is_multiple_input <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            false
+        SelfhostCliErrorKind::MissingValue:
+            false
+        SelfhostCliErrorKind::MultipleInput:
+            true
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            false
+        SelfhostCliErrorKind::InvalidProfile:
+            false
+
+//: selfhost_cli_error_is_invalid_emit: error kind が invalid emit か判定する
+pub fn selfhost_cli_error_is_invalid_emit <(SelfhostCliErrorKind)->bool> (kind):
+    match kind:
+        SelfhostCliErrorKind::UnknownOption:
+            false
+        SelfhostCliErrorKind::MissingValue:
+            false
+        SelfhostCliErrorKind::MultipleInput:
+            false
+        SelfhostCliErrorKind::InvalidTarget:
+            false
+        SelfhostCliErrorKind::InvalidEmit:
+            true
+        SelfhostCliErrorKind::InvalidProfile:
+            false
