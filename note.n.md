@@ -1,3 +1,24 @@
+# 2026-04-30 メモ (stdlib collection/mem/string と静的検査の安全設計)
+
+- [同期]:
+  - `main` を `origin/main` と同期し、`stdlib/builder-owner-boundary` の merge/push 後に `doc/stdlib-static-safety-design` branch で設計レビューを行った。
+- [調査]:
+  - `core/mem` は `MemPtr<T>` / `RegionToken<T>` / raw `i32` API / typed wrapper が同居しており、Resource IR の防壁は増えているが、owner token と non-owning pointer projection の分離はまだ未完である。
+  - `ByteBuf` / `ByteBuilder` / `StringBuilder` は `Option<MemPtr<u8>>` 化により空 storage と owning storage を型に出す方向へ進んでいる。
+  - `Vec`、`Stack`、`BinaryHeap`、`HashMap`、`HashSet` など collection は、裸 `MemPtr` owner field、null `MemPtr` sentinel、raw header、`0/1/2` bucket status を使う古い storage discipline が残っている。
+  - Resource IR は `CellState` / `OwnerState` / `BorrowState` / `StorageOrigin` を持つ方向へ進んでいるが、stdlib の曖昧な所有権表現を補う alias 特例がまだ多い。
+- [設計]:
+  - `MemPtr<T>` は non-owning pointer に固定し、storage owner は `OwnedRegion<T>` / `OwnedBytes` / `OwnedBuffer<T>` のような Copy 不可 token へ分離する方針に整理した。
+  - null pointer や数値 status ではなく、`StorageState` / `BucketState` / fallible update result enum を使い、`match` の網羅性検査が効く形へ移す。
+  - collection API は Copy read、borrow read、move-out、replace、drop/free、fallible update に分け、allocation failure 時に collection/item owner を失わない型へする。
+  - self-host は ByteBuf / builder / Copy-only Vec から開始可能だが、typecheck / ResourceIR の中核に raw collection discipline を持ち込まない。
+- [Issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` を追加し、collection の numeric/null storage state を enum owner state へ移す作業を追跡する。
+- [doc]:
+  - `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に現状設計、現状実装、理想設計、静的検査要求、移行計画、self-host 開始可否をまとめた。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T142213822Z ByteBuilder/StringBuilder owner boundary)
 
 - [同期]:
