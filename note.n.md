@@ -26066,6 +26066,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
   - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
 
+# 2026-04-29 メモ (ISS-20260429T124935636Z stdio read buffer owner boundary)
+
+- [同期]:
+  - `origin/main` の `c621a7f` まで同期した main から `work/stdio-read-buffer-owner-boundary` branch を作成した。
+- [確認]:
+  - `stdio_finish_read_buffer` の `BranchValue ... MaybeFreed` は、Resource IR owner state が `MaybeFreed` を movable conditional owner として扱う修正により解消済みだった。
+  - `stdlib/std/stdio.nepl` の focused doctest は全件通過した。
+  - `tests/stdlib/stdin.n.md` の残り 1 件は `fs_open_with_flags` の `RawMemoryLoadCell ... found Uninit` であり、stdio read buffer owner leak ではない。
+- [修正]:
+  - issue を fixed に更新し、解消根拠と残件の分離先を記録した。
+  - stdlib 実装は変更していない。`stdio_finish_read_buffer` の invalid/empty/error path が buffer を解放し、success path が exact-size `ByteBuf` へ owner を渡す設計は現状で Resource IR に通る。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-owner-before.json -j 1 --dist web/dist`: `total=28`, `passed=28`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdin-before-stdio-owner.json -j 1 --dist web/dist`: `total=5`, `passed=4`, `failed=1`。残りは `ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D`。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の Resource owner check 修正により、本 issue の false positive は解消済みであることを確認した。
+
 # 2026-04-29 メモ (ISS-20260429T125126519Z io_bytebuf_from_str_result owner transfer)
 
 - [同期]:
