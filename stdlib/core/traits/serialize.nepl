@@ -44,9 +44,11 @@ trait Serialize:
 //:| #import "std/test" as *
 //:| #import "core/traits/serialize" as *
 //:| fn main <()*>i32> ():
-//:     assert_str_eq "42" serialize 42;
-//:     assert_str_eq "false" serialize false;
-//:     0
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_str_eq "42" serialize 42
+//:         |> checks_push assert_str_eq "false" serialize false
+//:     checks_exit_code checks
 //: ```
 //:
 //: ### [実装/じっそう]

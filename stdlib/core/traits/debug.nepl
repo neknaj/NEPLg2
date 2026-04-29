@@ -29,9 +29,11 @@ trait Debug:
 //:| #import "std/test" as *
 //:| #import "core/traits/debug" as *
 //:| fn main <()*>i32> ():
-//:     assert_str_eq "\"hi\"" debug_string "hi";
-//:     assert_str_eq "7" debug_string 7;
-//:     0
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_str_eq "\"hi\"" debug_string "hi"
+//:         |> checks_push assert_str_eq "7" debug_string 7
+//:     checks_exit_code checks
 //: ```
 //:
 //: [目的/もくてき]:

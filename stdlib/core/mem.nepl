@@ -851,12 +851,15 @@ fn mem_move <(i32,i32,i32)->()> (dst, src, len):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
-//: fn main <()*>()> ():
+//: fn main <()*>i32> ():
 //:     let p <i32> alloc_raw 8;
 //:     memset_u8 p 8 65;
-//:     assert_eq_i32 65 load_u8 add p 0;
-//:     assert_eq_i32 65 load_u8 add p 7;
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_eq_i32 65 load_u8 add p 0
+//:         |> checks_push assert_eq_i32 65 load_u8 add p 7
 //:     dealloc_raw p 8;
+//:     checks_exit_code checks
 //: ```
 fn memset_u8 <(i32,i32,i32)->()> (ptr, len, value):
     let mut i <i32> 0;
@@ -902,12 +905,15 @@ fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
-//: fn main <()*>()> ():
+//: fn main <()*>i32> ():
 //:     let p <i32> alloc_raw 16;
 //:     fill_i32 p 4 42;
-//:     assert_eq_i32 42 load_i32 add p 0;
-//:     assert_eq_i32 42 load_i32 add p 12;
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_eq_i32 42 load_i32 add p 0
+//:         |> checks_push assert_eq_i32 42 load_i32 add p 12
 //:     dealloc_raw p 16;
+//:     checks_exit_code checks
 //: ```
 fn fill_i32 <(i32,i32,i32)->()> (ptr, count, value):
     let mut i <i32> 0;

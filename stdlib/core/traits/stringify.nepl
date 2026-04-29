@@ -39,9 +39,11 @@ trait Stringify:
 //:| #import "std/test" as *
 //:| #import "core/traits/stringify" as *
 //:| fn main <()*>i32> ():
-//:     assert_str_eq "42" stringify 42;
-//:     assert_str_eq "true" stringify true;
-//:     0
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_str_eq "42" stringify 42
+//:         |> checks_push assert_str_eq "true" stringify true
+//:     checks_exit_code checks
 //: ```
 //:
 //: [実装/じっそう]:

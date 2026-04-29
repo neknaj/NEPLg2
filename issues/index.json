@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T23:34:28.289Z",
+  "generated_at": "2026-04-29T23:38:50.193Z",
   "counts": {
-    "total": 410,
-    "open": 12,
-    "resolved": 398,
+    "total": 412,
+    "open": 13,
+    "resolved": 399,
     "by_area": {
       "core": {
-        "total": 188,
-        "open": 4,
+        "total": 189,
+        "open": 5,
         "resolved": 184
       },
       "stdlib": {
@@ -17,9 +17,9 @@
         "resolved": 120
       },
       "TEST": {
-        "total": 6,
+        "total": 7,
         "open": 1,
-        "resolved": 5
+        "resolved": 6
       },
       "selfhost": {
         "total": 44,
@@ -128,6 +128,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939",
+      "title": "Resource IR does not summarize raw fill helpers as initialized cell writes",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4478,6 +4493,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T215616519Z-STRINGBUILDER-SOURCE-POLICY-KEEPS-ST-256D72FD.md"
+    },
+    {
+      "id": "ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736",
+      "title": "std/test assertion discard source policy is missing",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nodesrc/test_doctest_std_test_assertion_report_contract.js, .github/workflows/ci.yml, stdlib/**/*.nepl, issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

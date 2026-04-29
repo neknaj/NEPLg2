@@ -1983,17 +1983,19 @@ fn from_bool <(bool)->str> (b):
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/string" as *
-//: fn main <()*>()> ():
-//:     match to_bool "true":
+//: fn main <()*>i32> ():
+//:     let checks0 checks_new
+//:     let checks1 match to_bool "true":
 //:         Result::Ok v:
-//:             assert_eq_i32 1 cast v;
+//:             checks_push checks0 assert_eq_i32 1 cast v
 //:         Result::Err _:
-//:             assert_eq_i32 1 0;
-//:     match to_bool "false":
+//:             checks_push checks0 assert_eq_i32 1 0
+//:     let checks2 match to_bool "false":
 //:         Result::Ok v:
-//:             assert_eq_i32 0 cast v;
+//:             checks_push checks1 assert_eq_i32 0 cast v
 //:         Result::Err _:
-//:             assert_eq_i32 1 0;
+//:             checks_push checks1 assert_eq_i32 1 0
+//:     checks_exit_code checks2
 //: ```
 fn to_bool <(str)->Result<bool,i32>> (s):
     if:
@@ -3325,7 +3327,7 @@ fn to_f32 <(str)->Result<f32,i32>> (s):
 //: fn expect_find_some <(str,Option<i32>,i32)*>Result<(),str>> (label, got, expected):
 //:     match got:
 //:         Option::Some actual:
-//:             assert_eq_i32 expected actual
+//:             check_eq_i32 expected actual
 //:         Option::None:
 //:             Result<(),str>::Err label
 //:

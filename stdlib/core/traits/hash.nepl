@@ -24,9 +24,11 @@
 //:| #import "std/test" as *
 //:| #import "core/traits/hash" as *
 //: fn main <()*>i32> ():
-//:     assert_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456;
-//:     assert ne hash32_by_trait 123456 hash32_by_trait 123457;
-//:     0
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456
+//:         |> checks_push assert ne hash32_by_trait 123456 hash32_by_trait 123457
+//:     checks_exit_code checks
 //: ```
 
 #indent 4

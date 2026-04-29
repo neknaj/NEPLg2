@@ -297,8 +297,8 @@ fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| fn main <()*>i32> ():
-//:     assert_eq_i32 1 uwok ok<i32, str> 1;
-//:     0
+//:     let checks checks_push checks_new assert_eq_i32 1 uwok ok<i32, str> 1
+//:     checks_exit_code checks
 //: ```
 //:
 //: ### [実装/じっそう]

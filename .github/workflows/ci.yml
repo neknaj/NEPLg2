@@ -83,6 +83,7 @@ jobs:
                   node nodesrc/test_editor_diagnostic_code_contract.js
                   node nodesrc/test_doctest_diag_code_metadata.js
                   node nodesrc/test_doctest_exit_code_metadata.js
+                  node nodesrc/test_doctest_std_test_assertion_report_contract.js
                   node nodesrc/test_llvm_runner_return_value.js
                   node nodesrc/test_stdlib_builder_owner_boundary.js
                   node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js

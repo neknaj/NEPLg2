@@ -1,3 +1,43 @@
+# 2026-04-30 メモ (ISS-20260429T231611047Z std/test assertion report policy)
+
+- [同期]:
+  - `main` の `8f9aecf5` から `work/std-test-assertion-report-policy` branch を作成して作業した。
+  - 作業開始前に `git pull --ff-only origin main` で remote main と同期済みであることを確認した。
+- [原因]:
+  - `std/test` の `assert_*` / `check_*` は `TestAssertion` owner を返し、`checks_push` / `test_report_add` / `checks_print_report` へ渡して report 化するための API である。
+  - doctest 内で `assert_eq_i32 ...;` のように semicolon で戻り値を捨てると、テストの書き方の誤りが report policy ではなく owner diagnostic として表面化し、`.n.md` の stdout report への移行方針を監視できない。
+- [修正]:
+  - `nodesrc/test_doctest_std_test_assertion_report_contract.js` を追加し、`tests` / `tutorials` / `stdlib` / `examples` の `.n.md` と NEPL doc-comment doctest を走査する source policy を追加した。
+  - `#import "std/test" as ...` を含む doctest だけを対象に、semicolon で終わる bare `assert*` / `check*` statement を禁止する。
+  - helper 関数が assertion を末尾式として返し、caller が `checks_push` へ渡す書き方は許可する。
+  - policy で検出された既存の stdlib doc-comment doctest 23 箇所を `checks_new` / `checks_push` / `checks_exit_code` 形式へ移行した。
+  - `stdlib/alloc/string.nepl` の helper doctest で、`Result<(),str>` を返す関数が `assert_eq_i32` の `TestAssertion` を返していた既存の型不整合を検出し、`check_eq_i32` へ修正した。
+  - CI の Source policy regressions にこの policy を追加した。
+- [issue]:
+  - `ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736` を追加し、対応後に fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` へ direct discard subcase の対応結果を追記した。親 issue は stdout report + `exit_code:` への広い移行残件があるため open のまま維持する。
+  - focused doctest 実行中、`stdlib/core/mem.nepl` の `memset_u8` / `fill_i32` doctest が report 形式とは別に `resource.cell.uninit` で失敗することを確認した。raw fill helper の caller-visible initialized cell summary 不足として `ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939` を追加した。
+- [検証]:
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+  - `node nodesrc/test_doctest_diag_code_metadata.js`: passed
+  - `node nodesrc/test_doctest_exit_code_metadata.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/diag/error.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/diag/error.nepl -n 2 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 6 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 8 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/result.nepl -n 7 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/traits/debug.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/traits/hash.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/traits/serialize.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/traits/stringify.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 5 --dist web/dist`: failed。`RawMemoryLoadCell ... found Uninit`。新規 core issue に分離。
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 6 --dist web/dist`: failed。`RawMemoryLoadCell ... found Uninit`。新規 core issue に分離。
+  - `node nodesrc/issues.js check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - test runner / doctest authoring policy の補強であり、compiler の静的検査は弱めていない。
+
 # 2026-04-30 メモ (ISS-20260429T230100004Z getting_started generics Copy boundary)
 
 - [同期]:
