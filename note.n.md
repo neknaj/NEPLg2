@@ -1,3 +1,19 @@
+# 2026-04-29 メモ (ISS-20260429T021254285Z Resource owner obligation leak in self-host)
+
+- [同期]:
+  - `origin/main` の `684ec23 selfhost(cli): add filesystem file io boundary` まで取り込んだ。
+- [発見]:
+  - `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-file-io-neplg2-final2.json -j 2` で、36 件中 19 passed / 17 failed になった。
+  - 主な失敗は `hash32__str__i32__pure` の `h1` と、`selfhost_cli_render_diagnostic_json__SelfhostDiagnostic__str__pure` の `sb` に対する `D3100 resource ir owner obligation leak`。
+  - file_io boundary の focused test は通っており、filesystem boundary ではなく Resource IR owner gate と string/hash/StringBuilder 系 ownership flow の問題として切り分ける。
+- [issue]:
+  - `ISS-20260429T021254285Z-RESOURCE-OWNER-GATE-LEAKS-OBLIGATION-8F3BD354` を追加した。
+- [次の方針]:
+  - D3100 を弱めず、`hash32(str)` の local ownership と `StringBuilder` 返却・解放義務の流れを Resource IR 側で追えるようにする。
+  - 静的検査大規模修正は別 agent が進めているため、こちらは issue 化と再現条件の固定に留め、stdlib API 整備へ進む。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T004144320Z Resource owner pointer read separation)
 
 - [同期]:
