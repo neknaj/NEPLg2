@@ -53,6 +53,7 @@ Keep the owner gate strict, but classify owner leaves more accurately. Non-ownin
 - `sb_build_result` の `mem_copy<u8>` 失敗 path で `out_region` を `dealloc_region<u8>` するようにした。
 - `sb_append_byte(_result)` と `json_escape_into` / `json_escape_builder_into` / `nm_inline_to_json_into` を追加し、NM JSON 出力で不要な中間 `str` を作らず builder へ直接追加できる境界を作った。
 - `str_slice_trim_suffix_cr` を追加し、`str_trim_suffix_cr str_slice ...` の不要な中間行文字列を避けた。
+- CI source policy の `json_escape` match 検査を、現在の責務分割に合わせて `json_escape_byte_into` の match 検査へ移した。公開 `json_escape` / `json_escape_into` / `json_escape_mem_into` は builder/byte-range helper へ委譲することも同じ policy で固定した。
 
 ## 検証
 
@@ -61,4 +62,5 @@ Keep the owner gate strict, but classify owner leaves more accurately. Non-ownin
 - `cargo check -p nepl-core --tests`: passed
 - `trunk build`: passed
 - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-owner-boundary.json -j 1 --dist web/dist`: total=3, passed=3
+- `node nodesrc/test_stdlib_match_decision_trees.js`: passed
 - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-owner-boundary.json -j 1 --dist web/dist`: unrelated existing failures remain in checks owner leak / doctest type mismatch; this run is not used as this issue's pass condition.

@@ -26483,3 +26483,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Stage 4 Resource owner summary の owner leaf 分類を、non-owning scalar と raw owner を混同しない方向へ修正した。
+
+# 2026-04-29 メモ (ISS-20260429T144908106Z nm json escape source policy follow-up)
+
+- [同期]:
+  - `main` の `8b64120` で CI が `nodesrc/test_stdlib_match_decision_trees.js` の source policy により停止していることを確認し、`work/nm-json-escape-source-policy` branch を作成した。
+- [原因]:
+  - `json_escape` は前回修正で公開 wrapper になり、実際の byte escape 判定は `json_escape_byte_into` に一元化された。
+  - 旧 source policy は `json_escape` 関数本体に `match ch` がある設計を前提にしていたため、現在の builder 直書き設計を誤って regression と判定していた。
+- [修正]:
+  - `nodesrc/test_stdlib_match_decision_trees.js` を現在の責務分割に合わせ、`json_escape_byte_into` が `match ch` と escape literal arm を持つことを検査するようにした。
+  - 同時に `json_escape` / `json_escape_into` / `json_escape_mem_into` が builder boundary から byte-range boundary、byte escape boundaryへ委譲することを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 実装ではなく、NM JSON serializer の責務分割に source policy を追従させた。
