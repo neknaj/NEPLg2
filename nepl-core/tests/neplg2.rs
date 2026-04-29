@@ -1465,6 +1465,41 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn trait_unknown_capability_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait BadCap:
+    #capability cpoy
+    fn f <(Self)->Self> (x):
+        x
+
+fn main <()->()> ():
+    ()
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitCapabilityUnknown);
+}
+
+#[test]
+fn trait_method_type_params_have_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Boxy:
+    fn get <.T> <(Self)->.T> (x):
+        x
+
+fn main <()->()> ():
+    ()
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitMethodTypeParamsUnsupported);
+}
+
+#[test]
 fn generic_trait_impl_method_resolves_by_trait_args() {
     let src = r#"
 #entry main

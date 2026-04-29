@@ -1,3 +1,28 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z driver trait diagnostic code-first)
+
+- [同期]:
+  - `ae0f75f` まで反映した `main` を `origin/main` と同期し、`work/typecheck-driver-trait-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/driver.rs` の trait declaration 境界に、unknown capability と trait method type parameters unsupported の `Diagnostic::error(...).with_code(...)` が残っていた。
+  - trait capability と trait method shape は trait safety と impl validation の前提なので、diagnostic code を後付けにしない。
+- [修正]:
+  - `TraitCapabilityUnknown` と `TraitMethodTypeParamsUnsupported` を `type_error(...)` helper 経由へ移行した。
+  - Rust regression と `tests/compiler/driver_trait_diagnostics.n.md` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_unknown_capability_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_method_type_params_have_type_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/driver_trait_diagnostics.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/driver_trait_diagnostics.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の driver trait declaration boundary 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z driver extern/declaration diagnostic code-first)
 
 - [同期]:

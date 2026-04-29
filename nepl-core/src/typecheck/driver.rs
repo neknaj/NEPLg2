@@ -480,15 +480,11 @@ pub fn typecheck(
                             }
                         }
                         crate::ast::TraitCapability::Unknown(name) => {
-                            diagnostics.push(
-                                Diagnostic::error(
-                                    format!("unknown trait capability '{}'", name.trim()),
-                                    t.name.span,
-                                )
-                                .with_code(DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::TraitCapabilityUnknown,
-                                )),
-                            );
+                            diagnostics.push(type_error(
+                                TypeDiagnosticCode::TraitCapabilityUnknown,
+                                format!("unknown trait capability '{}'", name.trim()),
+                                t.name.span,
+                            ));
                         }
                     }
                 }
@@ -510,13 +506,11 @@ pub fn typecheck(
                 let mut methods = BTreeMap::new();
                 for m in &t.methods {
                     if !m.type_params.is_empty() {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                "trait methods cannot have type parameters yet",
-                                m.name.span,
-                            )
-                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodTypeParamsUnsupported)),
-                        );
+                        diagnostics.push(type_error(
+                            TypeDiagnosticCode::TraitMethodTypeParamsUnsupported,
+                            "trait methods cannot have type parameters yet",
+                            m.name.span,
+                        ));
                         continue;
                     }
                     let sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
