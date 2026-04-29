@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T23:07:48.002Z",
+  "generated_at": "2026-04-29T23:18:50.871Z",
   "counts": {
-    "total": 408,
+    "total": 409,
     "open": 12,
-    "resolved": 396,
+    "resolved": 397,
     "by_area": {
       "core": {
-        "total": 186,
+        "total": 187,
         "open": 4,
-        "resolved": 182
+        "resolved": 183
       },
       "stdlib": {
         "total": 126,
@@ -2903,6 +2903,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T223654297Z-RESOURCE-IR-NON-COPY-REGRESSION-TEST-8F153A57.md"
+    },
+    {
+      "id": "ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5",
+      "title": "auto drop skips remaining struct field after partial move",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/tests/drop.rs, nepl-core/src/passes/drop_insertion.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

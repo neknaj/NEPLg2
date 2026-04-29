@@ -50,16 +50,18 @@ struct DropPlan {
 struct DropInsertionContext<'a> {
     types: &'a mut TypeCtx,
     plan: &'a DropPlan,
+    string_literals: &'a [String],
     var_stacks: BTreeMap<String, Vec<VarInfo>>,
     scopes: Vec<Vec<String>>,
     next_temp_id: usize,
 }
 
 impl<'a> DropInsertionContext<'a> {
-    fn new(types: &'a mut TypeCtx, plan: &'a DropPlan) -> Self {
+    fn new(types: &'a mut TypeCtx, plan: &'a DropPlan, string_literals: &'a [String]) -> Self {
         Self {
             types,
             plan,
+            string_literals,
             var_stacks: BTreeMap::new(),
             scopes: Vec::new(),
             next_temp_id: 0,
@@ -540,9 +542,10 @@ pub fn insert_drops(module: &mut HirModule, types: &mut TypeCtx) {
     let Some(plan) = find_drop_plan(module, types.unit()) else {
         return;
     };
+    let string_literals = &module.string_literals;
     for func in &mut module.functions {
         if let crate::hir::HirBody::Block(ref mut block) = func.body {
-            let mut ctx = DropInsertionContext::new(types, &plan);
+            let mut ctx = DropInsertionContext::new(types, &plan, string_literals);
             ctx.push_scope();
             for param in &func.params {
                 ctx.declare_var(param.name.clone(), param.ty);
@@ -840,6 +843,27 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
             type_args,
             args,
         } => match name.as_str() {
+            "get_field" => {
+                if !ctx.types.is_copy(expr.ty) {
+                    if let Some(path) =
+                        field_move_path_from_selector(args, expr.ty, ctx.types, ctx.string_literals)
+                    {
+                        ctx.mark_field_moved(&path);
+                    } else if let Some(base) = args.get_mut(0) {
+                        insert_drops_in_expr(base, ctx);
+                    }
+                } else if args
+                    .get(0)
+                    .is_some_and(|base| !field_projection_base_is_local_place(base))
+                {
+                    if let Some(base) = args.get_mut(0) {
+                        insert_drops_in_expr(base, ctx);
+                    }
+                }
+                for arg in args.iter_mut().skip(1) {
+                    insert_drops_in_expr(arg, ctx);
+                }
+            }
             "load" => {
                 let is_copy_load = type_args
                     .get(0)
@@ -1003,21 +1027,6 @@ fn field_move_path_from_addr(
     field_ty: TypeId,
     types: &TypeCtx,
 ) -> Option<FieldMovePath> {
-    fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
-        match &expr.kind {
-            HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
-            HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
-                let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
-                let offset = match &args[1].kind {
-                    HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
-                    _ => return None,
-                };
-                Some((owner, owner_ty, base_offset + offset))
-            }
-            _ => None,
-        }
-    }
-
     let (owner, owner_ty, offset) = base_owner(addr)?;
     let field_ty = types.resolve_id(field_ty);
     let is_declared_field = aggregate_fields_with_offsets(types, owner_ty)
@@ -1031,6 +1040,93 @@ fn field_move_path_from_addr(
         })
     } else {
         None
+    }
+}
+
+fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
+    match &expr.kind {
+        HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
+            let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
+            let offset = match &args[1].kind {
+                HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
+                _ => return None,
+            };
+            Some((owner, owner_ty, base_offset + offset))
+        }
+        _ => None,
+    }
+}
+
+fn field_move_path_from_selector(
+    args: &[HirExpr],
+    result_ty: TypeId,
+    types: &TypeCtx,
+    string_literals: &[String],
+) -> Option<FieldMovePath> {
+    if args.len() != 2 {
+        return None;
+    }
+    let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
+    let (_field_index, field_offset, field_ty) =
+        aggregate_field_index_layout_from_selector(owner_ty, &args[1], types, string_literals)?;
+    if !types.same_type(field_ty, result_ty) {
+        return None;
+    }
+    Some(FieldMovePath {
+        owner: owner.to_string(),
+        offset: base_offset + field_offset,
+        field_ty: result_ty,
+    })
+}
+
+fn field_projection_base_is_local_place(expr: &HirExpr) -> bool {
+    base_owner(expr).is_some()
+}
+
+fn aggregate_field_index_layout_from_selector(
+    owner_ty: TypeId,
+    selector: &HirExpr,
+    types: &TypeCtx,
+    string_literals: &[String],
+) -> Option<(usize, usize, TypeId)> {
+    let index = match &selector.kind {
+        HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
+        HirExprKind::LiteralStr(id) => {
+            let field_name = string_literals.get(*id as usize)?;
+            aggregate_field_index_by_name(types, owner_ty, field_name)
+        }
+        _ => None,
+    }?;
+    aggregate_fields_with_offsets(types, owner_ty)
+        .get(index)
+        .map(|field| (index, field.offset, field.ty))
+}
+
+fn aggregate_field_index_by_name(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    field_name: &str,
+) -> Option<usize> {
+    match types.get_ref(types.resolve_named_type_id(owner_ty)) {
+        TypeKind::Struct { field_names, .. } => {
+            field_names.iter().position(|name| name == field_name)
+        }
+        TypeKind::Tuple { items } => field_name
+            .parse::<usize>()
+            .ok()
+            .filter(|index| *index < items.len()),
+        TypeKind::Apply { base, .. } => match types.get_ref(types.resolve_named_type_id(*base)) {
+            TypeKind::Struct { field_names, .. } => {
+                field_names.iter().position(|name| name == field_name)
+            }
+            TypeKind::Tuple { items } => field_name
+                .parse::<usize>()
+                .ok()
+                .filter(|index| *index < items.len()),
+            _ => None,
+        },
+        _ => None,
     }
 }
 

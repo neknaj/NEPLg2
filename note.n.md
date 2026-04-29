@@ -27658,3 +27658,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib doc の妥当な更新を parser regression と誤判定しないよう、test の不変条件を修正した。
+
+# 2026-04-30 メモ (ISS-20260429T231116550Z auto drop partial field move)
+
+- [同期]:
+  - Resource IR deep call tree lowering 修正の全体検証中に、最新 main `af1742e` でも `drop::auto_drop_partially_moved_struct_drops_remaining_fields` が失敗することを確認した。
+  - Resource IR lowering 差分を stash した状態でも再現したため、独立した drop insertion 回帰として切り分けた。
+- [原因]:
+  - `field::get p "left"` は typecheck 後に `get_field` intrinsic になる。
+  - `drop_insertion` は `get_field` を field projection として特別扱いしておらず、default intrinsic traversal で base variable `p` を通常の非 Copy `Var` として訪問し、owner 全体を moved にしていた。
+  - その結果、scope end で `p` の残り field `right` が auto drop 対象から消え、move 先の `left` だけが drop されていた。
+  - 同じ root cause で、Copy field read でも非 Copy owner 全体が move 済みになり、残り droppable field の auto drop が消える。
+- [修正]:
+  - `DropInsertionContext` に module の string literal table を渡し、`get_field` intrinsic の static selector を解決できるようにした。
+  - static selector 付き `get_field` の非 Copy field read は owner 全体ではなく該当 field offset だけを moved field として記録するようにした。
+  - Copy field read では owner 全体を move 済みにしないようにした。
+  - `auto_drop_copy_field_read_keeps_struct_owner_alive` を追加し、Copy field read 後の owner drop を回帰テストにした。
+- [検証]:
+  - `cargo test -p nepl-core --test drop auto_drop_partially_moved_struct_drops_remaining_fields -- --nocapture`: reproduced before fix
+  - `cargo test -p nepl-core --test drop -- --nocapture`: `17 passed`
+  - `rustfmt nepl-core/src/passes/drop_insertion.rs nepl-core/tests/drop.rs`: passed
+- [issue]:
+  - `ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5` を追加し、verified/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 型安全・メモリ安全の必達方針に合わせ、partial move 後の残存 owner field が自動解放されるよう drop insertion の field projection semantics を修正した。

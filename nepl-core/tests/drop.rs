@@ -440,6 +440,36 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn auto_drop_copy_field_read_keeps_struct_owner_alive() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/field" as field
+#import "core/traits/drop" as *
+#extern "env" "tick" fn tick <(i32)*>()>
+
+struct Guard:
+    dummy <i32>
+struct Boxed:
+    count <i32>
+    guard <Guard>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        tick 3;
+        ()
+
+fn main <()->i32> ():
+    let boxed <Boxed> Boxed 7 (Guard 0);
+    let count <i32> field::get boxed "count";
+    count
+"#;
+    assert_eq!(run_drop_trace(source), vec![3]);
+}
+
+#[test]
 fn auto_drop_only_runs_taken_branch_locals() {
     let source = r#"
 #target wasm
