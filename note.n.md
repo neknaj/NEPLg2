@@ -1,3 +1,30 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z codegen precheck diagnostic code-first)
+
+- [同期]:
+  - `460b4c3` まで反映した `main` を `origin/main` と同期し、`work/codegen-precheck-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `passes/codegen_precheck.rs` に wasm backend precheck と LLVM precheck の `Diagnostic::error(...).with_code(...)` が残っていた。
+  - backend precheck は target-specific な診断が多いため、`WasmDiagnosticCode` と `TypeDiagnosticCode` を message 後付けではなく生成時点で確定する必要がある。
+- [修正]:
+  - module-local `wasm_error(...)` / `type_error(...)` helper を追加した。
+  - wasm extern/function signature、return value missing、LLVM IR body unsupported、indirect call signature、unknown wasm intrinsic を code-first constructor へ移行した。
+  - LLVM precheck の return mismatch と unknown intrinsic も `TypeDiagnosticCode` を生成時点で確定するようにした。
+  - `codegen_diagnostics.rs` に precheck 直接の enum code regression を追加した。
+  - `IndirectSignatureMissing` は現行 `collect_wasm_signature_set` が indirect signature を前段で追加するため公開 precheck 経路から到達しにくいことが分かり、`ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/passes/codegen_precheck.rs`: no matches
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の codegen precheck diagnostics 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z move visitor diagnostic code-first)
 
 - [同期]:

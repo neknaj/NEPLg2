@@ -15,6 +15,7 @@ NEPLg2 の Rust compiler diagnostic を、現在の型検査、effect 検査、R
 - [ISS-20260425T000000Z-RV-CORE-009-58589A3F](../../issues/items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md): Resource IR 上の move / borrow / drop 検査。
 - [ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04](../../issues/items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md): raw memory effect / ownership boundary。
 - [ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF](../../issues/items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md): `MemPtr` / owner token / initialized cell の分離。
+- [ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB](../../issues/items/ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB.md): wasm indirect signature missing diagnostic の到達可能性。
 - [NEPLg2 静的検査の複雑化解消計画](./static_check_complexity_reduction_plan.md): Stage 4/5 の Resource IR authoritative gate。
 
 ## 現状の問題
@@ -189,6 +190,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `passes/move_check/raw_state.rs` の raw memory ownership diagnostics を code-first helper へ移行した。non-Copy raw load / store / dealloc / realloc / byte write / bulk copy の violation は、後付け `.with_code(...)` ではなく生成時点で `ResourceDiagnosticCode::Raw(ResourceRawDiagnosticCode::OwnershipViolation)` を確定する。
 - 2026-04-29: `passes/move_check/context_state.rs` の move / borrow diagnostics を code-first helper へ移行した。use/drop/possibly moved/loop escape と shared/unique borrow conflict/borrow escape は、生成時点で `ResourceMoveDiagnosticCode` または `ResourceBorrowDiagnosticCode` を確定する。
 - 2026-04-29: `passes/move_check/visitor.rs` の deref borrow violation と loop body merge diagnostics を code-first helper へ移行した。non-Copy deref は `ResourceBorrowDiagnosticCode::MoveFromShared`、while body で発生する possibly moved state は `ResourceMoveDiagnosticCode::LoopPossiblyMoved` を生成時点で確定し、2 系統の while lowering 経路は同じ helper で診断する。
+- 2026-04-29: `passes/codegen_precheck.rs` の wasm / llvm precheck diagnostics を code-first helper へ移行した。wasm backend precheck は `WasmDiagnosticCode`、LLVM precheck の型境界は `TypeDiagnosticCode` を生成時点で確定する。`IndirectSignatureMissing` は現行の signature set 生成では到達しにくいことが判明したため、別 issue で signature source 分離または variant 整理を追跡する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

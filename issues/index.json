@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T10:09:14.522Z",
+  "generated_at": "2026-04-29T10:13:07.960Z",
   "counts": {
-    "total": 360,
-    "open": 12,
+    "total": 361,
+    "open": 13,
     "resolved": 348,
     "by_area": {
       "core": {
-        "total": 172,
-        "open": 5,
+        "total": 173,
+        "open": 6,
         "resolved": 167
       },
       "stdlib": {
@@ -203,6 +203,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
+    },
+    {
+      "id": "ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB",
+      "title": "Wasm indirect signature missing diagnostic is unreachable from current precheck",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/wasm_shared.rs, nepl-core/src/passes/codegen_precheck.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

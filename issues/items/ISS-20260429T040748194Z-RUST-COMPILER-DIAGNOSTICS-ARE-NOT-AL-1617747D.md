@@ -693,3 +693,25 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 49 --dist web/dist`: pass。`resource.move.loop_possibly_moved` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 codegen precheck diagnostics follow-up 追記
+
+`passes/codegen_precheck.rs` には wasm backend precheck と LLVM precheck の診断で `Diagnostic::error(...).with_code(...)` が残っていた。backend precheck は target-specific な `WasmDiagnosticCode` と type boundary の `TypeDiagnosticCode` が混在するため、message 文字列に後から code を付けるのではなく、helper を分けて生成時点で code を確定する必要がある。
+
+今回の対応で module-local `wasm_error(...)` / `type_error(...)` helper を追加した。wasm extern/function signature、return value missing、LLVM IR body unsupported、indirect call signature、unknown wasm intrinsic は `WasmDiagnosticCode` を、LLVM precheck の return mismatch と unknown intrinsic は `TypeDiagnosticCode` を `Diagnostic::error_with_code(...)` 経由で生成する。
+
+回帰として `codegen_diagnostics.rs` に precheck を直接叩く enum code regression を追加した。source 経由では typecheck に先に捕まる診断があるため、precheck 境界そのものの code を固定する単体テストとしている。
+
+調査中に、現行 `collect_wasm_signature_set` が supported indirect call signature を前段で set に追加するため `WasmDiagnosticCode::IndirectSignatureMissing` が公開 precheck 経路から到達しにくいことを確認した。これは今回の code-first 移行とは別の backend precheck 設計問題として、`ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB` で追跡する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/passes/codegen_precheck.rs`: no matches
+- `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 3 --dist web/dist`: pass。`backend.wasm.raw_line_parse_error` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
