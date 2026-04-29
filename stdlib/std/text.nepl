@@ -371,11 +371,22 @@ fn text_utf8_encode_char <(char)*>Result<ByteBuf, StdErrorKind>> (c):
 //: [計算量/けいさんりょう]:
 //: - O(n)
 fn text_bytebuf_to_utf8_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
-    let data <MemPtr<u8>> get buf "ptr"
     let byte_len <i32> get buf "len"
-    match text_utf8_validate_mem data byte_len:
-        Result::Ok _:
-            io_bytebuf_to_str_result buf
-        Result::Err e:
-            io_bytebuf_free buf
-            Result<str, StdErrorKind>::Err e
+    match get buf "ptr":
+        Option::None:
+            if:
+                eq byte_len 0
+                then:
+                    Result<str, StdErrorKind>::Ok ""
+                else:
+                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some data:
+            match text_utf8_validate_mem data byte_len:
+                Result::Ok _:
+                    io_bytebuf_to_str_result io_bytebuf_from_owned_ptr data byte_len
+                Result::Err e:
+                    match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
+                        Result::Ok _:
+                            Result<str, StdErrorKind>::Err e
+                        Result::Err _free:
+                            Result<str, StdErrorKind>::Err e

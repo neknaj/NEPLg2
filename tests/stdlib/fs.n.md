@@ -104,6 +104,7 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -117,7 +118,7 @@ fn main <()*>i32> ():
             store_u8 raw 65;
             store_u8 add raw 1 0;
             store_u8 add raw 2 66;
-            match fs_write_to_bytes path ByteBuf data 3:
+            match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 3:
                 Result::Err _e:
                     set checks checks_push checks Result<(),str>::Err "binary write failed"
                 Result::Ok _:
@@ -125,12 +126,22 @@ fn main <()*>i32> ():
                         Result::Err _e:
                             set checks checks_push checks Result<(),str>::Err "binary read failed"
                         Result::Ok read_buf:
-                            let read_ptr <MemPtr<u8>> get read_buf "ptr"
-                            let read_raw <i32> mem_ptr_addr read_ptr
-                            set checks checks_push checks check_eq_i32 3 get read_buf "len";
-                            set checks checks_push checks check_eq_i32 65 load_u8 read_raw;
-                            set checks checks_push checks check_eq_i32 0 load_u8 add read_raw 1;
-                            set checks checks_push checks check_eq_i32 66 load_u8 add read_raw 2;
+                            set checks checks_push checks check_eq_i32 3 io_bytebuf_len_ref &read_buf;
+                            match io_bytebuf_byte_at &read_buf 0:
+                                Option::Some b0:
+                                    set checks checks_push checks check_eq_i32 65 b0;
+                                Option::None:
+                                    set checks checks_push checks Result<(),str>::Err "missing byte 0";
+                            match io_bytebuf_byte_at &read_buf 1:
+                                Option::Some b1:
+                                    set checks checks_push checks check_eq_i32 0 b1;
+                                Option::None:
+                                    set checks checks_push checks Result<(),str>::Err "missing byte 1";
+                            match io_bytebuf_byte_at &read_buf 2:
+                                Option::Some b2:
+                                    set checks checks_push checks check_eq_i32 66 b2;
+                                Option::None:
+                                    set checks checks_push checks Result<(),str>::Err "missing byte 2";
                             io_bytebuf_free read_buf;
     let shown checks_print_report checks;
     checks_exit_code shown

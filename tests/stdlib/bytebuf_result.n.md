@@ -59,7 +59,7 @@ ret: 1
 #import "core/mem" as *
 
 fn main <()*>i32> ():
-    let huge <ByteBuf> ByteBuf mem_ptr_wrap 0 2147483647;
+    let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;
     match io_bytebuf_to_str_result huge:
         Result::Ok _text:
             0
@@ -110,7 +110,7 @@ ret: 1
 #import "std/fs" as *
 
 fn main <()*>i32> ():
-    let huge <ByteBuf> ByteBuf mem_ptr_wrap 0 2147483647;
+    let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;
     match fs_bytes_to_string_result huge:
         Result::Ok _text:
             0

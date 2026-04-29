@@ -20,7 +20,7 @@
 //:
 //: impl ByteWriter for CountSink:
 //:     fn write_bytes <(CountSink,ByteBuf)*>Result<CountSink, StdErrorKind>> (sink, bytes):
-//:         let n <i32> get bytes "len";
+//:         let n <i32> io_bytebuf_len_ref &bytes;
 //:         io_bytebuf_free bytes;
 //:         Result::Ok CountSink add get sink "total" n
 //:
@@ -38,7 +38,9 @@
 #import "alloc/diag/error" as *
 #import "alloc/string" as *
 #import "core/char" as *
+#import "core/field" as *
 #import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
 
 //: ## ByteBuf
@@ -48,31 +50,125 @@
 //: - `Vec<u8>` の[内部表現/ないぶひょうげん]に[依存/いそん]せず、binary I/O の[媒体/ばいたい]を[明示的/めいじてき]に[表/あらわ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - `ptr` は `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。
+//: - `ptr` は `Some` のときだけ `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。
+//: - 空 buffer は `ptr=None` / `len=0` で表し、null pointer を所有 field として混ぜません。
 //: - [使/つか]い[終/お]わったら `io_bytebuf_free` で[解放/かいほう]してください。
 struct ByteBuf:
-    ptr <MemPtr<u8>>
+    ptr <Option<MemPtr<u8>>>
     len <i32>
 
 fn io_bytebuf_empty <()->ByteBuf> ():
-    ByteBuf mem_ptr_wrap 0 0
+    ByteBuf none<MemPtr<u8>> 0
+
+fn io_bytebuf_from_owned_ptr <(MemPtr<u8>,i32)->ByteBuf> (ptr, byte_len):
+    if:
+        le byte_len 0
+        then:
+            io_bytebuf_empty
+        else:
+            ByteBuf some<MemPtr<u8>> ptr byte_len
 
 fn io_bytebuf_len <(ByteBuf)->i32> (buf):
     get buf "len"
 
-fn io_bytebuf_free <(ByteBuf)->()> (buf):
-    let ptr <MemPtr<u8>> get buf "ptr"
-    let len <i32> get buf "len"
+fn io_bytebuf_len_ref <(&ByteBuf)->i32> (buf):
+    *get_ref buf "len"
+
+fn io_bytebuf_ptr_ref <(&ByteBuf)->Option<MemPtr<u8>>> (buf):
+    *get_ref buf "ptr"
+
+fn io_bytebuf_storage_size <(i32)->i32> (byte_len):
     if:
-        gt len 0
+        le byte_len 0
         then:
-            match dealloc_ptr<u8> ptr len:
+            0
+        else:
+            byte_len
+
+fn io_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (buf, idx):
+    let n <i32> io_bytebuf_len_ref buf
+    if:
+        or lt idx 0 ge idx n
+        then:
+            none<i32>
+        else:
+            match *get_ref buf "ptr":
+                Option::Some ptr:
+                    load_u8 mem_ptr_add ptr idx
+                Option::None:
+                    none<i32>
+
+fn io_bytebuf_free <(ByteBuf)->()> (buf):
+    let len <i32> get buf "len"
+    match get buf "ptr":
+        Option::Some ptr:
+            match dealloc_ptr<u8> ptr io_bytebuf_storage_size len:
                 Result::Ok _:
                     ()
                 Result::Err _e:
                     ()
-        else:
+        Option::None:
             ()
+
+//: io_bytebuf_alloc_region: `ByteBuf` 用の byte 領域を確保する
+//:
+//: [目的/もくてき]:
+//: - `ByteBuf` の本文になる領域を `RegionToken<u8>` として確保し、確定前の所有権を token に集約します。
+//:
+//: [実装/じっそう]:
+//: - `alloc_region_bytes<u8>` に必要 byte 数を渡します。`ByteBuf` は header を持たないため、確保 size はそのまま byte 数です。
+//:
+//: [注意/ちゅうい]:
+//: - 空 buffer は `io_bytebuf_empty` を使うため、この helper は正の byte 数に使います。
+//: - 確定前に失敗した場合は `dealloc_region` で token を解放してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 確保器に依存します。平均 O(1)、free list 探索時は最悪 O(n) です。
+fn io_bytebuf_alloc_region <(i32)->Result<RegionToken<u8>, StdErrorKind>> (byte_len):
+    if:
+        lt byte_len 0
+        then:
+            Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            match alloc_region_bytes<u8> byte_len:
+                Result::Ok region:
+                    Result<RegionToken<u8>, StdErrorKind>::Ok region
+                Result::Err _e:
+                    Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: io_bytebuf_region_ptr: 確定前 `ByteBuf` 領域の本文 pointer を参照から得る
+//:
+//: [目的/もくてき]:
+//: - `RegionToken` の所有権を動かさず、copy 先として使う `MemPtr<u8>` だけを得ます。
+//:
+//: [実装/じっそう]:
+//: - token の `ptr` field を `get_ref` 経由で読み、`MemPtr` の copy 値を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った pointer は領域を所有しません。確定または解放は元の token に対して一度だけ行ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn io_bytebuf_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
+    *get_ref region "ptr"
+
+//: io_bytebuf_finish_region: 確保済み領域を `ByteBuf` として確定する
+//:
+//: [目的/もくてき]:
+//: - `RegionToken` が持つ領域所有権を、公開 I/O buffer 型の `ByteBuf` へ移します。
+//:
+//: [実装/じっそう]:
+//: - token の基底 pointer を取り出し、同じ byte length とともに `ByteBuf` を構築します。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し後は token を再利用しません。
+//: - `byte_len` は確保時の size と一致している必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn io_bytebuf_finish_region <(RegionToken<u8>,i32)->ByteBuf> (region, byte_len):
+    let ptr <MemPtr<u8>> get region "ptr"
+    io_bytebuf_from_owned_ptr ptr byte_len
 
 //: io_bytebuf_from_str_result: `str` を `ByteBuf` へ複製する
 //:
@@ -81,30 +177,30 @@ fn io_bytebuf_free <(ByteBuf)->()> (buf):
 //:
 //: [実装/じっそう]:
 //: - 空文字列は確保せず `io_bytebuf_empty` を返します。
-//: - 非空の場合は `alloc_ptr<u8>` で本文長ぶんの領域を確保し、bulk copy で byte 表現を複製します。
+//: - 非空の場合は `io_bytebuf_alloc_region` で本文長ぶんの領域を確保し、参照から得た pointer へ bulk copy します。
+//: - copy 後に `io_bytebuf_finish_region` で領域所有権を `ByteBuf` へ一度だけ移します。
 //:
 //: [注意/ちゅうい]:
 //: - 返った `ByteBuf` は呼び出し側が所有し、使い終わったら `io_bytebuf_free` してください。
 //: - UTF-8 検証や変換は行わず、`str` の byte 表現をそのまま複製します。
+//: - 出力領域の raw address を中間値として保持しません。owner は確定まで `RegionToken` に残します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
 fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
     let byte_len <i32> len text
-    let data <MemPtr<u8>> string_data_ptr text
     if:
         eq byte_len 0
         then:
             Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
         else:
-            match alloc_ptr<u8> byte_len:
-                Result::Err _e:
-                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                Result::Ok out:
-                    let out_raw <i32> mem_ptr_addr out
-                    let data_raw <i32> mem_ptr_addr data
-                    mem_copy out_raw data_raw byte_len
-                    Result<ByteBuf, StdErrorKind>::Ok ByteBuf out byte_len
+            match io_bytebuf_alloc_region byte_len:
+                Result::Err e:
+                    Result<ByteBuf, StdErrorKind>::Err e
+                Result::Ok region:
+                    let out_data <MemPtr<u8>> io_bytebuf_region_ptr &region
+                    mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr text byte_len
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region byte_len
 
 //: io_bytebuf_from_str: `str` を `ByteBuf` へ複製する互換 facade
 //:
@@ -143,25 +239,41 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //: - 入力長 n に対して O(n) です。
 fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
     let byte_len <i32> get buf "len"
-    let data <MemPtr<u8>> get buf "ptr"
-    if:
-        and gt byte_len 0 le mem_ptr_addr data 0
-        then:
-            io_bytebuf_free buf
-            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-        else:
-            match string_utf8_validate_mem data byte_len:
-                Result::Err _e:
-                    io_bytebuf_free buf
-                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
-                Result::Ok _:
-                    match string_from_mem_unchecked_result data byte_len:
+    match get buf "ptr":
+        Option::None:
+            if:
+                eq byte_len 0
+                then:
+                    Result<str, StdErrorKind>::Ok ""
+                else:
+                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Option::Some data:
+            if:
+                le mem_ptr_addr data 0
+                then:
+                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                else:
+                    match string_utf8_validate_mem data byte_len:
                         Result::Err _e:
-                            io_bytebuf_free buf
-                            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                        Result::Ok text:
-                            io_bytebuf_free buf
-                            Result<str, StdErrorKind>::Ok text
+                            match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
+                                Result::Ok _:
+                                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                Result::Err _free:
+                                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                        Result::Ok _:
+                            match string_from_mem_unchecked_result data byte_len:
+                                Result::Err _e:
+                                    match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
+                                        Result::Ok _:
+                                            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                        Result::Err _free:
+                                            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                Result::Ok text:
+                                    match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
+                                        Result::Ok _:
+                                            Result<str, StdErrorKind>::Ok text
+                                        Result::Err _free:
+                                            Result<str, StdErrorKind>::Ok text
 
 //: io_bytebuf_to_str: `ByteBuf` を `str` へ変換する互換 facade
 //:
@@ -427,11 +539,23 @@ fn byte_builder_push_bytes_ref <(ByteBuilder,MemPtr<u8>,i32)*>Result<ByteBuilder
 
 //: byte_builder_push_bytebuf: `ByteBuf` の[内容/ないよう]を[追加/ついか]して入力 buffer を[解放/かいほう]する
 fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)*>Result<ByteBuilder, StdErrorKind>> (builder, bytes):
-    let src <MemPtr<u8>> get bytes "ptr"
     let data_len <i32> get bytes "len"
-    let res <Result<ByteBuilder, StdErrorKind>> byte_builder_push_bytes_ref builder src data_len
-    io_bytebuf_free bytes
-    res
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok builder
+                else:
+                    byte_builder_free builder
+                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some src:
+            let res <Result<ByteBuilder, StdErrorKind>> byte_builder_push_bytes_ref builder src data_len
+            match dealloc_ptr<u8> src io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    res
+                Result::Err _e:
+                    res
 
 //: byte_builder_push_leb_u32: u32 LEB128 を[追加/ついか]する
 //:
@@ -464,7 +588,7 @@ fn byte_builder_push_leb_u32 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKin
 //: byte_builder_finish: builder を exact-size の `ByteBuf` へ[変換/へんかん]する
 //:
 //: [目的/もくてき]:
-//: - growable builder の capacity を[隠/かく]し、`ByteBuf.ptr` が `ByteBuf.len` byte の[所有領域/しょゆうりょういき]を[指/さ]す invariant に[戻/もど]します。
+//: - growable builder の capacity を[隠/かく]し、`ByteBuf.ptr` が `Some` の場合だけ `ByteBuf.len` byte の[所有領域/しょゆうりょういき]を[指/さ]す invariant に[戻/もど]します。
 //:
 //: [注意/ちゅうい]:
 //: - 返った `ByteBuf` は caller が `io_bytebuf_free` で[解放/かいほう]してください。
@@ -480,11 +604,11 @@ fn byte_builder_finish <(ByteBuilder)*>Result<ByteBuf, StdErrorKind>> (builder):
             if:
                 eq len0 cap0
                 then:
-                    Result<ByteBuf, StdErrorKind>::Ok ByteBuf get builder "ptr" len0
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr get builder "ptr" len0
                 else:
                     match realloc_ptr<u8> get builder "ptr" cap0 len0:
                         Result::Ok ptr:
-                            Result<ByteBuf, StdErrorKind>::Ok ByteBuf ptr len0
+                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len0
                         Result::Err _e:
                             byte_builder_free builder
                             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory

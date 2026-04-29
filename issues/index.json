@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T13:35:35.961Z",
+  "generated_at": "2026-04-29T14:26:22.798Z",
   "counts": {
     "total": 376,
-    "open": 17,
-    "resolved": 359,
+    "open": 16,
+    "resolved": 360,
     "by_area": {
       "core": {
         "total": 174,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 111,
-        "open": 9,
-        "resolved": 102
+        "open": 8,
+        "resolved": 103
       },
       "TEST": {
         "total": 4,
@@ -243,21 +243,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D.md"
-    },
-    {
-      "id": "ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE",
-      "title": "io_bytebuf_from_str_result loses ByteBuf owner under Resource IR",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/io.nepl, tests/stdlib/streamio.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3978,6 +3963,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497.md"
+    },
+    {
+      "id": "ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE",
+      "title": "io_bytebuf_from_str_result loses ByteBuf owner under Resource IR",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/io.nepl, tests/stdlib/streamio.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

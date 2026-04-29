@@ -44,6 +44,7 @@ ret: 0
 #import "alloc/io" as *
 #import "core/char" as *
 #import "core/field" as *
+#import "core/option" as *
 #import "core/result" as *
 
 fn expect_decoded <(str,Result<CharUtf8Step,StdErrorKind>,i32,i32)*>Result<(),str>> (label, got, expected_code, expected_next):
@@ -61,13 +62,16 @@ fn expect_decoded <(str,Result<CharUtf8Step,StdErrorKind>,i32,i32)*>Result<(),st
 
 fn main <()*>i32> ():
     let bytes <ByteBuf> io_bytebuf_from_str "Aあ"
-    let data <MemPtr<u8>> get bytes "ptr"
-    let byte_len <i32> get bytes "len"
     let checks:
-        checks_new
-        |> checks_push expect_decoded "decode A" text_utf8_decode_next data byte_len 0 'A' 1
-        |> checks_push expect_decoded "decode hira" text_utf8_decode_next data byte_len 1 0x3042 4
-        |> checks_push assert is_err<CharUtf8Step,StdErrorKind> text_utf8_decode_next data byte_len 4
+        match io_bytebuf_ptr_ref &bytes:
+            Option::Some data:
+                let byte_len <i32> io_bytebuf_len_ref &bytes
+                checks_new
+                |> checks_push expect_decoded "decode A" text_utf8_decode_next data byte_len 0 'A' 1
+                |> checks_push expect_decoded "decode hira" text_utf8_decode_next data byte_len 1 0x3042 4
+                |> checks_push assert is_err<CharUtf8Step,StdErrorKind> text_utf8_decode_next data byte_len 4
+            Option::None:
+                checks_push checks_new Result<(),str>::Err "missing byte buffer"
     io_bytebuf_free bytes
     checks_exit_code checks
 ```
@@ -128,7 +132,7 @@ fn main <()*>i32> ():
         Result::Ok data:
             let raw <i32> mem_ptr_addr data
             store_u8 raw 128;
-            match text_bytebuf_to_utf8_str_result ByteBuf data 1:
+            match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 1:
                 Result::Ok _text:
                     set checks checks_push checks Result<(),str>::Err "invalid leading byte was accepted"
                 Result::Err e:
@@ -162,7 +166,7 @@ fn main <()*>i32> ():
         Result::Ok data:
             let raw <i32> mem_ptr_addr data
             store_u8 raw 128;
-            match io_bytebuf_to_str_result ByteBuf data 1:
+            match io_bytebuf_to_str_result io_bytebuf_from_owned_ptr data 1:
                 Result::Ok _text:
                     set checks checks_push checks Result<(),str>::Err "invalid ByteBuf was accepted as str"
                 Result::Err e:
@@ -199,7 +203,7 @@ fn main <()*>i32> ():
             store_u8 raw 224;
             store_u8 add raw 1 128;
             store_u8 add raw 2 128;
-            match text_bytebuf_to_utf8_str_result ByteBuf data 3:
+            match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 3:
                 Result::Ok _text:
                     set checks checks_push checks Result<(),str>::Err "overlong sequence was accepted"
                 Result::Err e:
@@ -235,7 +239,7 @@ fn main <()*>i32> ():
         Result::Ok data:
             let raw <i32> mem_ptr_addr data
             store_u8 raw 128;
-            match fs_write_to_bytes path ByteBuf data 1:
+            match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
                 Result::Err _e:
                     set checks checks_push checks Result<(),str>::Err "write failed"
                 Result::Ok _:
@@ -275,7 +279,7 @@ fn main <()*>i32> ():
         Result::Ok data:
             let raw <i32> mem_ptr_addr data
             store_u8 raw 128;
-            match fs_write_to_bytes path ByteBuf data 1:
+            match fs_write_to_bytes path io_bytebuf_from_owned_ptr data 1:
                 Result::Err _e:
                     set checks checks_push checks Result<(),str>::Err "write failed"
                 Result::Ok _:
@@ -315,7 +319,7 @@ fn main <()*>i32> ():
         Result::Ok data:
             let raw <i32> mem_ptr_addr data
             store_u8 raw 128;
-            let target <ReadStream> ReadStream::Bytes ByteBuf data 1
+            let target <ReadStream> ReadStream::Bytes io_bytebuf_from_owned_ptr data 1
             let text_result <Result<str, StdErrorKind>> read target;
             match text_result:
                 Result::Ok _text:

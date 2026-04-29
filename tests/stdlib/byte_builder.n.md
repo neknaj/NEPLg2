@@ -15,7 +15,15 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
+
+fn expect_byte <(&ByteBuf,i32,i32)->Result<(),str>> (bytes, idx, expected):
+    match io_bytebuf_byte_at bytes idx:
+        Option::Some actual:
+            check_eq_i32 expected actual
+        Option::None:
+            Result<(),str>::Err "missing byte"
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -59,17 +67,15 @@ fn main <()*>i32> ():
                                                                                 Result::Err _e:
                                                                                     set checks checks_push checks Result<(),str>::Err "finish failed"
                                                                                 Result::Ok bytes:
-                                                                                    let ptr <MemPtr<u8>> get bytes "ptr"
-                                                                                    let raw <i32> mem_ptr_addr ptr
-                                                                                    set checks checks_push checks check_eq_i32 8 get bytes "len";
-                                                                                    set checks checks_push checks check_eq_i32 0 load_u8 raw;
-                                                                                    set checks checks_push checks check_eq_i32 'a' load_u8 add raw 1;
-                                                                                    set checks checks_push checks check_eq_i32 's' load_u8 add raw 2;
-                                                                                    set checks checks_push checks check_eq_i32 'm' load_u8 add raw 3;
-                                                                                    set checks checks_push checks check_eq_i32 1 load_u8 add raw 4;
-                                                                                    set checks checks_push checks check_eq_i32 0 load_u8 add raw 5;
-                                                                                    set checks checks_push checks check_eq_i32 0 load_u8 add raw 6;
-                                                                                    set checks checks_push checks check_eq_i32 0 load_u8 add raw 7;
+                                                                                    set checks checks_push checks check_eq_i32 8 io_bytebuf_len_ref &bytes;
+                                                                                    set checks checks_push checks expect_byte &bytes 0 0;
+                                                                                    set checks checks_push checks expect_byte &bytes 1 'a';
+                                                                                    set checks checks_push checks expect_byte &bytes 2 's';
+                                                                                    set checks checks_push checks expect_byte &bytes 3 'm';
+                                                                                    set checks checks_push checks expect_byte &bytes 4 1;
+                                                                                    set checks checks_push checks expect_byte &bytes 5 0;
+                                                                                    set checks checks_push checks expect_byte &bytes 6 0;
+                                                                                    set checks checks_push checks expect_byte &bytes 7 0;
                                                                                     io_bytebuf_free bytes;
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -90,7 +96,15 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
+
+fn expect_byte <(&ByteBuf,i32,i32)->Result<(),str>> (bytes, idx, expected):
+    match io_bytebuf_byte_at bytes idx:
+        Option::Some actual:
+            check_eq_i32 expected actual
+        Option::None:
+            Result<(),str>::Err "missing byte"
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -106,12 +120,10 @@ fn main <()*>i32> ():
                         Result::Err _e:
                             set checks checks_push checks Result<(),str>::Err "finish failed"
                         Result::Ok bytes:
-                            let ptr <MemPtr<u8>> get bytes "ptr"
-                            let raw <i32> mem_ptr_addr ptr
-                            set checks checks_push checks check_eq_i32 3 get bytes "len";
-                            set checks checks_push checks check_eq_i32 229 load_u8 raw;
-                            set checks checks_push checks check_eq_i32 142 load_u8 add raw 1;
-                            set checks checks_push checks check_eq_i32 38 load_u8 add raw 2;
+                            set checks checks_push checks check_eq_i32 3 io_bytebuf_len_ref &bytes;
+                            set checks checks_push checks expect_byte &bytes 0 229;
+                            set checks checks_push checks expect_byte &bytes 1 142;
+                            set checks checks_push checks expect_byte &bytes 2 38;
                             io_bytebuf_free bytes;
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -132,7 +144,15 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
+
+fn expect_byte <(&ByteBuf,i32,i32)->Result<(),str>> (bytes, idx, expected):
+    match io_bytebuf_byte_at bytes idx:
+        Option::Some actual:
+            check_eq_i32 expected actual
+        Option::None:
+            Result<(),str>::Err "missing byte"
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -178,12 +198,10 @@ fn main <()*>i32> ():
                                 Result::Err _e:
                                     set checks checks_push checks Result<(),str>::Err "finish failed"
                                 Result::Ok bytes:
-                                    let ptr <MemPtr<u8>> get bytes "ptr"
-                                    let raw <i32> mem_ptr_addr ptr
-                                    set checks checks_push checks check_eq_i32 10 get bytes "len";
-                                    set checks checks_push checks check_eq_i32 'A' load_u8 raw;
-                                    set checks checks_push checks check_eq_i32 'E' load_u8 add raw 4;
-                                    set checks checks_push checks check_eq_i32 'J' load_u8 add raw 9;
+                                    set checks checks_push checks check_eq_i32 10 io_bytebuf_len_ref &bytes;
+                                    set checks checks_push checks expect_byte &bytes 0 'A';
+                                    set checks checks_push checks expect_byte &bytes 4 'E';
+                                    set checks checks_push checks expect_byte &bytes 9 'J';
                                     io_bytebuf_free bytes;
     let shown checks_print_report checks;
     checks_exit_code shown

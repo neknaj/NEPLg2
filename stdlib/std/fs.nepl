@@ -1117,7 +1117,11 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                                         else:
                                                             if:
                                                                 eq err 0
-                                                                then Result<ByteBuf,i32>::Ok ByteBuf buf read_len
+                                                                then:
+                                                                    if:
+                                                                        eq read_len 0
+                                                                        then Result<ByteBuf,i32>::Ok io_bytebuf_empty
+                                                                        else Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr buf read_len
                                                                 else Result<ByteBuf,i32>::Err err
                                                     match dealloc_ptr<u8> nread_buf 4:
                                                         Result::Ok _:
@@ -1130,7 +1134,7 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                                         Result::Err _e:
                                                             ();
                                                     if:
-                                                        or eq alloc_failed 1 ne err 0
+                                                        or or eq alloc_failed 1 ne err 0 eq read_len 0
                                                         then:
                                                             match dealloc_ptr<u8> buf cap:
                                                                 Result::Ok _:
@@ -1303,18 +1307,14 @@ fn fs_close <(i32)*>Result<(),i32>> (fd):
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
-    let data <MemPtr<u8>> get bytes "ptr"
-    let data_len <i32> get bytes "len"
+fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
     if:
         le data_len 0
         then:
-            io_bytebuf_free bytes
             Result<(),i32>::Ok ()
         else:
             match alloc_ptr<u8> 8:
                 Result::Err _e:
-                    io_bytebuf_free bytes
                     Result<(),i32>::Err 12
                 Result::Ok iov_buf:
                     match fs_i32_ptr iov_buf 8 0:
@@ -1324,7 +1324,6 @@ fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
                                     ()
                                 Result::Err _:
                                     ()
-                            io_bytebuf_free bytes
                             Result<(),i32>::Err 12
                         Result::Ok iov_base:
                             match fs_i32_ptr iov_buf 8 4:
@@ -1334,7 +1333,6 @@ fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
                                             ()
                                         Result::Err _:
                                             ()
-                                    io_bytebuf_free bytes
                                     Result<(),i32>::Err 12
                                 Result::Ok iov_len:
                                     match alloc_ptr<u8> 4:
@@ -1344,7 +1342,6 @@ fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
                                                     ()
                                                 Result::Err _:
                                                     ()
-                                            io_bytebuf_free bytes
                                             Result<(),i32>::Err 12
                                         Result::Ok nwritten_buf:
                                             match fs_i32_ptr nwritten_buf 4 0:
@@ -1359,7 +1356,6 @@ fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
                                                             ()
                                                         Result::Err _:
                                                             ()
-                                                    io_bytebuf_free bytes
                                                     Result<(),i32>::Err 12
                                                 Result::Ok nwritten:
                                                     let data_ptr <i32> mem_ptr_addr data
@@ -1417,13 +1413,30 @@ fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
                                                             ()
                                                         Result::Err _:
                                                             ()
-                                                    io_bytebuf_free bytes
                                                     if:
                                                         eq err 0
                                                         then:
                                                             Result<(),i32>::Ok ()
                                                         else:
                                                             Result<(),i32>::Err err
+
+fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
+    let data_len <i32> get bytes "len"
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<(),i32>::Ok ()
+                else:
+                    Result<(),i32>::Err 22
+        Option::Some data:
+            let result <Result<(),i32>> fs_write_fd_mem_result fd data data_len
+            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    result
+                Result::Err _:
+                    result
 
 //: fs_write_to_bytes: path へ `ByteBuf` を create/truncate して書き込む
 //:
