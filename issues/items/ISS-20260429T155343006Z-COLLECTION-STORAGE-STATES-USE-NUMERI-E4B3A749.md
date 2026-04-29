@@ -78,3 +78,21 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - Vec / Stack / BinaryHeap などの null/raw owner sentinel 設計は別途段階的に typed owner state へ移す必要がある。
 - `tests/stdlib/collections_diag.n.md` の HashMap/HashSet missing-key diagnostic fixture は `Diag.message` owner contract 問題で失敗する。これは `ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF` へ分離済み。
+
+## 2026-04-30 HashMap source policy 追加
+
+`nodesrc/test_stdlib_hashmap_storage_contract.js` を追加し、HashMap が typed storage から raw header / numeric sentinel へ戻らないことを CI の source policy として固定した。
+
+固定した契約:
+
+- bucket state は `HashMapBucketState::Empty/Full/Tombstone` enum で表す。
+- insertion slot state は `HashMapInsertSlotState::EmptySlot/TombstoneSlot` enum で表す。
+- backing storage は `HashMapStorage<K,V>` の `Vec<HashMapBucketState>` / `Vec<Option<K>>` / `Vec<Option<V>>` owner として保持する。
+- HashMap 本体は `count/cap/tombstones/storage/hasher` を持ち、`MemPtr` / `alloc_raw` / `load_i32` / `store_i32` を HashMap 実装に戻さない。
+- lookup / insertion slot search は `match` で bucket state を網羅する。
+- `get` / `contains` / `len` は `&HashMap` を受け取る read API のままにする。
+- rehash / insert / free は storage owner を明示的に移動または解放する。
+
+検証:
+
+- `node nodesrc/test_stdlib_hashmap_storage_contract.js`: passed

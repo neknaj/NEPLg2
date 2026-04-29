@@ -21,6 +21,28 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-30 メモ (ISS-20260429T155343006Z HashMap storage source policy)
+
+- [同期]:
+  - `origin/main` の `b49d933` を pull し、別 agent の HashMap typed storage 修正を main に取り込んだ。
+  - 自分の branch `work/hashmap-read-free-contract` の `9c67bdf` は raw header/entries owner 分離までの設計で、main の `HashMapStorage` + enum state 設計より後退するため main へ merge しない。
+- [原因]:
+  - main の HashMap は `HashMapBucketState` / `HashMapInsertSlotState` / `HashMapStorage<K,V>` に移行済みだが、CI でこの契約を直接監視する source policy がなかった。
+  - 静的検査の大規模修正方針では、数値 sentinel や raw pointer layout に戻さず、enum と `match` の網羅性が効く形に固定する必要がある。
+- [修正]:
+  - `nodesrc/test_stdlib_hashmap_storage_contract.js` を追加した。
+  - HashMap 実装が `alloc_raw` / `dealloc_raw` / `load_i32` / `store_i32` / `MemPtr` へ戻らないことを検査する。
+  - bucket state / insertion slot state が enum であること、lookup / insertion slot search が `match` で enum 分岐することを検査する。
+  - `HashMapStorage` が `states/keys/values` を typed `Vec` owner として持つこと、rehash / insert / free が storage owner を明示的に移動・解放することを検査する。
+  - CI の source policy step と `doc/testing.md` に新規 policy を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_hashmap_storage_contract.js`: passed
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に HashMap source policy 追加を記録した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - HashMap 部分について、typed owner state と enum/match 契約をCIで固定した。
+
 # 2026-04-30 メモ (ISS-20260429T120339805Z HashMap owner contract)
 
 - [同期]:
