@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T13:49:46.330Z",
+  "generated_at": "2026-04-29T14:00:53.190Z",
   "counts": {
-    "total": 377,
+    "total": 378,
     "open": 16,
-    "resolved": 361,
+    "resolved": 362,
     "by_area": {
       "core": {
-        "total": 175,
-        "open": 6,
+        "total": 176,
+        "open": 7,
         "resolved": 169
       },
       "stdlib": {
         "total": 111,
-        "open": 7,
-        "resolved": 104
+        "open": 6,
+        "resolved": 105
       },
       "TEST": {
         "total": 4,
@@ -155,6 +155,21 @@
       "file": "items/ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2.md"
     },
     {
+      "id": "ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E",
+      "title": "Resource owner_flow exceeds checker responsibility source policy limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/owner_flow.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -228,21 +243,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
-    },
-    {
-      "id": "ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D",
-      "title": "std fs WASI out pointer reads fail RawMemoryLoadCell gate",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/std/fs.nepl, tests/stdlib/stdin.n.md, tests/stdlib/streamio.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3963,6 +3963,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T124935636Z-STDIO-READ-BUFFER-FINISH-LEAKS-BYTEB-84BA0440.md"
+    },
+    {
+      "id": "ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D",
+      "title": "std fs WASI out pointer reads fail RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/fs.nepl, tests/stdlib/stdin.n.md, tests/stdlib/streamio.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D.md"
     },
     {
       "id": "ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497",

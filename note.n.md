@@ -26066,6 +26066,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
   - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
 
+# 2026-04-29 メモ (ISS-20260429T125010191Z fs WASI out pointer boundary)
+
+- [同期]:
+  - `origin/main` の `3e21dc5` まで同期した main から `work/fs-wasi-out-pointer-boundary` branch を作成した。
+- [原因]:
+  - `fs_open_with_flags` は fd out scratch を `MemPtr<i32>` に変換してから `load_i32 fd_out` で読み戻しており、Resource IR が同じ raw scratch cell の初期化を関数境界/typed pointer conversion 越しに証明できなかった。
+  - `fs_read_fd_bytes` の nread scratch と `fs_write_fd_bytes` の nwritten scratch も同じ out pointer pattern を持っていた。
+  - `fs_read_fd_bytes` は短い read / EOF でも capacity 65536 の buffer を `ByteBuf len=read_len` として返しており、ByteBuf の exact-size owner invariant から外れていた。
+- [修正]:
+  - `fs_open_with_flags` は fd out scratch を raw address local で初期化/読み戻しする形へ変更した。
+  - `fs_fd_read_into_result` と `fs_fd_write_from_result` を追加し、WASI iovec と nread/nwritten の scratch 初期化・読み戻しを operation-specific helper 内に閉じ込めた。
+  - `fs_finish_read_buffer` を追加し、empty read は buffer を解放して `io_bytebuf_empty`、short read は exact-size shrink、full read はそのまま owner transfer する形へ整理した。
+  - `fs_i32_ptr` は typed out-pointer helper として不要になったため削除した。
+- [追加 issue]:
+  - `node nodesrc/test_resource_checker_responsibility.js` が `owner_flow.rs has 693 lines; responsibility split limit is 620` で失敗するため、`ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E` を追加した。これは本修正とは別 issue として扱う。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-raw-outparam-after.json -j 1 --dist web/dist`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdin-after-fs-raw-outparam.json -j 1 --dist web/dist`: `total=5`, `passed=5`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-after-fs-raw-outparam.json -j 1 --dist web/dist`: `total=14`, `passed=11`, `failed=3`。残りは assertion/ByteBuf conversion path の owner leak であり、fs raw out pointer ではない。
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: failed。新規 issue に分離。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4/6 として、fs の raw out pointer を checker-visible boundary へ閉じ、ByteBuf read result を exact-size owner invariant に寄せた。
+
 # 2026-04-29 メモ (ISS-20260429T124935636Z stdio read buffer owner boundary)
 
 - [同期]:
