@@ -19,22 +19,34 @@
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D2 の typed Resource IR mapping の一部として扱う。
 
-# 2026-04-29 メモ (ISS-20260429T041244376Z facade alias-qualified lookup)
+# 2026-04-29 メモ (ISS-20260429T041244376Z facade alias same-name call)
 
 - [同期]:
-  - 作業開始時点で `origin/main` と同期済みの `work/fix-facade-alias-qualified-lookup` branch で作業した。
+  - 作業再開時に `origin/main` の `8ad9fa8` まで取得し、`git merge --ff-only --autostash origin/main` で remote main を取り込んだ。
+  - remote main 側で `DiagnosticId` から `DiagnosticCode` への移行が入っていたため、typecheck driver の衝突は新しい diagnostic enum に合わせて解消した。
+  - main に先行して入った同 issue の最小修正 `3ea068a` を取り込み、同一 file duplicate replacement の修正は保持したまま、symbol disambiguation と apply lookup visibility の follow-up を最新 main 上に載せ直した。
+  - merge 直前に remote main が `323ab96` まで進んだため再度 rebase し、diagnostic raw identity escape の変更を取り込んだ状態で再検証した。
 - [原因]:
-  - `Env::remove_duplicate_func` が同名・同シグネチャの callable binding を source file / module 境界なしに削除していた。
-  - loader が import graph を flat env として typecheck へ渡すため、facade wrapper と実装 submodule の同名関数は同じ callable scope に並ぶ。
-  - facade 側の wrapper 登録時に実装 submodule 側の binding が消え、alias target file は分かっていても `impls::scan` の qualified lookup 候補が残らなかった。
+  - `Env::remove_duplicate_func` が file 境界を見ずに同名同シグネチャ callable を削除していたため、facade wrapper 登録時に alias import 側の実装 binding が消え得た。
+  - 同名同シグネチャの別 file 関数が共存しても symbol が `name + signature` だけで同一になり、`lookup_all_callables_by_symbol` と関数本体 typecheck がどちらの定義かを安定して区別できなかった。
+  - `apply_function` の lookup が raw `Env` lookup に戻る経路を持ち、alias-qualified call と unqualified import visibility / local shadowing の規則が分離されていなかった。
 - [修正]:
-  - `remove_duplicate_func` に defining file id を渡し、同一 source file 内の同名・同シグネチャ関数だけを置換するようにした。
-  - 別 module / 別 file の同名関数は flat env 内に保持し、qualified lookup と import visibility の判断に使えるようにした。
-  - `nepl-core/tests/import_clause.rs::alias_qualified_call_survives_same_name_facade_wrapper` を追加し、facade wrapper が同名実装関数へ alias-qualified call できることを固定した。
+  - 同名同シグネチャ callable の削除は same file 内に限定し、cross-file 共存時だけ既存 binding と新規 binding の symbol を定義 span 付きにして衝突を避けるようにした。
+  - 関数本体 typecheck と HIR symbol 決定は定義 span で hoist binding を優先するようにした。
+  - `apply_function` 経路を `lookup_qualified_bindings` / `lookup_all_unqualified_callables` に通し、alias-qualified call と未修飾 call の visibility を統一した。
+  - 未修飾 callable lookup は local 同シグネチャを imported 同シグネチャより優先しつつ、異なるシグネチャの imported overload は残すようにした。
+  - `noshadow` 同シグネチャ検査も import visibility を見て、`as *` の visible import と `as alias` の hidden import を区別した。
 - [検証]:
-  - `cargo test -p nepl-core --test import_clause alias_qualified_call_survives_same_name_facade_wrapper -- --nocapture`
-  - `cargo test -p nepl-core --test import_clause -- --nocapture`
-  - `cargo check -p nepl-core --tests`
+  - `cargo test -p nepl-core --test import_clause alias_qualified_call_survives_same_name_facade_wrapper -- --nocapture`: pass
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resolve facade_wrapper_can_call_same_named_alias_member -- --exact`: pass
+  - `cargo test -p nepl-core --test resolve hir_user_call_keeps_local_def_id_when_open_import_is_shadowed -- --exact`: pass
+  - `cargo test -p nepl-core --test resolve`: 17 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --no-tree -o tmp/facade-alias-shadowing-rebased2.json -j 1`: total=27 passed=27
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/facade-alias-import-spec-rebased2.json -j 1`: total=3 passed=3
+  - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md --no-tree -o tmp/facade-alias-list-dot-map-rebased2.json -j 1`: total=4 passed=3 failed=1。失敗は `free__List_T_T__unit__pure_i32` の `resource.raw.ownership_violation` で、既存の raw-memory-backed collection / Resource IR 移行残件として扱う。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

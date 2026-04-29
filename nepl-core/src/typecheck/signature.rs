@@ -4,11 +4,10 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
+use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-pub(super) fn mangle_function_symbol(base: &str, func_ty: TypeId, ctx: &TypeCtx) -> String {
-    let mut s = String::new();
-    s.push_str(base);
+fn append_function_signature_suffix(s: &mut String, func_ty: TypeId, ctx: &TypeCtx) {
     if let TypeKind::Function {
         params,
         result,
@@ -34,6 +33,32 @@ pub(super) fn mangle_function_symbol(base: &str, func_ty: TypeId, ctx: &TypeCtx)
             Effect::Impure => s.push_str("__imp"),
         }
     }
+}
+
+pub(super) fn mangle_function_symbol(base: &str, func_ty: TypeId, ctx: &TypeCtx) -> String {
+    let mut s = String::new();
+    s.push_str(base);
+    append_function_signature_suffix(&mut s, func_ty, ctx);
+    s
+}
+
+pub(super) fn mangle_function_symbol_for_def(
+    base: &str,
+    func_ty: TypeId,
+    ctx: &TypeCtx,
+    span: Span,
+) -> String {
+    let mut s = String::new();
+    s.push_str(base);
+    if span != Span::dummy() {
+        s.push_str("__def");
+        s.push_str(&span.file_id.0.to_string());
+        s.push('_');
+        s.push_str(&span.start.to_string());
+        s.push('_');
+        s.push_str(&span.end.to_string());
+    }
+    append_function_signature_suffix(&mut s, func_ty, ctx);
     s
 }
 

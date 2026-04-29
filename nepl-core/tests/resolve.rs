@@ -106,6 +106,24 @@ fn entry_call_def_id(hir: &HirModule) -> Option<DefId> {
     *def_id
 }
 
+fn first_call_def_id_for_file(hir: &HirModule, file_id: u32) -> Option<DefId> {
+    let function = hir
+        .functions
+        .iter()
+        .find(|f| f.span.file_id.0 == file_id)
+        .unwrap_or_else(|| panic!("function for file id {} not found", file_id));
+    let HirBody::Block(block) = &function.body else {
+        panic!("function body is not a block")
+    };
+    let HirExprKind::Call { callee, .. } = &block.lines[0].expr.kind else {
+        panic!("function first expression is not a call")
+    };
+    let FuncRef::User(_, _, def_id) = callee else {
+        panic!("callee is not a user function")
+    };
+    *def_id
+}
+
 #[test]
 fn parse_prelude_directives() {
     let src = r#"
@@ -305,6 +323,47 @@ fn main <()->i32> ():
     let expected = def_id_for_name(&source_map, main_file, "pick");
 
     assert_eq!(entry_call_def_id(&hir), Some(expected));
+}
+
+#[test]
+fn facade_wrapper_can_call_same_named_alias_member() {
+    const DEP: &str = r#"
+#indent 4
+#no_prelude
+
+pub fn pick <()->i32> ():
+    41
+"#;
+    const FACADE: &str = r#"
+#indent 4
+#no_prelude
+
+#import "dep" as dep
+
+pub fn pick <()->i32> ():
+    dep::pick
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "facade" as facade
+
+fn main <()->i32> ():
+    facade::pick
+"#;
+    let (hir, source_map) = typecheck_virtual(main, &[("dep.nepl", DEP), ("facade.nepl", FACADE)]);
+    let dep_file = source_file_id(&source_map, "dep.nepl");
+    let facade_file = source_file_id(&source_map, "facade.nepl");
+    let dep_pick = def_id_for_name(&source_map, dep_file, "pick");
+    let facade_pick = def_id_for_name(&source_map, facade_file, "pick");
+
+    assert_eq!(
+        first_call_def_id_for_file(&hir, facade_file),
+        Some(dep_pick)
+    );
+    assert_eq!(entry_call_def_id(&hir), Some(facade_pick));
 }
 
 #[test]

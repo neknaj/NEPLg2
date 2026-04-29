@@ -19,13 +19,14 @@ impl<'a> BlockChecker<'a> {
         symbol_resolved: bool,
         span: Span,
     ) -> CallableApplyLookup {
+        let id = Ident {
+            name: alloc::string::String::from(name),
+            span,
+        };
         let qualified_call = if symbol_resolved {
             None
         } else {
-            self.lookup_qualified_bindings(&Ident {
-                name: alloc::string::String::from(name),
-                span,
-            })
+            self.lookup_qualified_bindings(&id)
         };
         let bindings = if symbol_resolved {
             self.env
@@ -36,8 +37,7 @@ impl<'a> BlockChecker<'a> {
         } else if let Some((_, qualified)) = &qualified_call {
             qualified.clone()
         } else {
-            self.env
-                .lookup_all_callables(name)
+            self.lookup_all_unqualified_callables(&id)
                 .into_iter()
                 .cloned()
                 .collect::<Vec<_>>()
@@ -45,8 +45,7 @@ impl<'a> BlockChecker<'a> {
         let has_function_value_binding = if symbol_resolved || qualified_call.is_some() {
             false
         } else {
-            self.env
-                .lookup_value(name)
+            self.lookup_unqualified_value_any(&id)
                 .map(|b| {
                     let rty = self.ctx.resolve_id(b.ty);
                     matches!(self.ctx.get(rty), TypeKind::Function { .. })

@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use crate::ast::Ident;
 
 use super::env::Binding;
+use super::signature::same_function_signature;
 use super::syntax_helpers::parse_variant_name;
 use super::BlockChecker;
 
@@ -40,20 +41,36 @@ impl<'a> BlockChecker<'a> {
         )
     }
 
+    fn binding_is_local_to_lookup_file(&self, id: &Ident, binding: &Binding) -> bool {
+        binding.span.file_id == id.span.file_id
+    }
+
     pub(super) fn lookup_all_unqualified_any_defined(&self, id: &Ident) -> Vec<&Binding> {
         let names = self.unqualified_lookup_names(id);
         for scope in self.env.scopes.iter().rev() {
-            let mut items = Vec::new();
+            let mut local_items = Vec::new();
+            let mut import_items = Vec::new();
             for name in &names {
-                items.extend(scope.values.iter().filter(|b| {
-                    b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
-                }));
-                items.extend(scope.callables.iter().filter(|b| {
-                    b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
-                }));
+                for binding in scope
+                    .values
+                    .iter()
+                    .chain(scope.callables.iter())
+                    .filter(|b| {
+                        b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
+                    })
+                {
+                    if self.binding_is_local_to_lookup_file(id, binding) {
+                        local_items.push(binding);
+                    } else {
+                        import_items.push(binding);
+                    }
+                }
             }
-            if !items.is_empty() {
-                return items;
+            if !local_items.is_empty() {
+                return local_items;
+            }
+            if !import_items.is_empty() {
+                return import_items;
             }
         }
         Vec::new()
@@ -61,26 +78,55 @@ impl<'a> BlockChecker<'a> {
 
     pub(super) fn lookup_all_unqualified_callables(&self, id: &Ident) -> Vec<&Binding> {
         let names = self.unqualified_lookup_names(id);
-        let mut items = Vec::new();
         for scope in self.env.scopes.iter().rev() {
+            let mut local_items = Vec::new();
+            let mut import_items = Vec::new();
             for name in &names {
-                items.extend(scope.callables.iter().filter(|b| {
+                for binding in scope.callables.iter().filter(|b| {
                     b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
-                }));
+                }) {
+                    if self.binding_is_local_to_lookup_file(id, binding) {
+                        local_items.push(binding);
+                    } else {
+                        import_items.push(binding);
+                    }
+                }
+            }
+            if !local_items.is_empty() {
+                import_items.retain(|imported| {
+                    !local_items.iter().any(|local| {
+                        local.name == imported.name
+                            && same_function_signature(self.ctx, local.ty, imported.ty)
+                    })
+                });
+                local_items.extend(import_items);
+                return local_items;
+            }
+            if !import_items.is_empty() {
+                return import_items;
             }
         }
-        items
+        Vec::new()
     }
 
     pub(super) fn lookup_unqualified_callable_any(&self, id: &Ident) -> Option<&Binding> {
         let names = self.unqualified_lookup_names(id);
         for scope in self.env.scopes.iter().rev() {
+            let mut imported = None;
             for name in &names {
                 if let Some(binding) = scope.callables.iter().rev().find(|b| {
                     b.name == *name && b.defined && self.binding_is_visible_unqualified(id, b)
                 }) {
-                    return Some(binding);
+                    if self.binding_is_local_to_lookup_file(id, binding) {
+                        return Some(binding);
+                    }
+                    if imported.is_none() {
+                        imported = Some(binding);
+                    }
                 }
+            }
+            if imported.is_some() {
+                return imported;
             }
         }
         None
@@ -89,6 +135,7 @@ impl<'a> BlockChecker<'a> {
     pub(super) fn lookup_unqualified_value_any(&self, id: &Ident) -> Option<&Binding> {
         let names = self.unqualified_lookup_names(id);
         for scope in self.env.scopes.iter().rev() {
+            let mut imported = None;
             for name in &names {
                 if let Some(binding) = scope
                     .values
@@ -96,8 +143,16 @@ impl<'a> BlockChecker<'a> {
                     .rev()
                     .find(|b| b.name == *name && self.binding_is_visible_unqualified(id, b))
                 {
-                    return Some(binding);
+                    if self.binding_is_local_to_lookup_file(id, binding) {
+                        return Some(binding);
+                    }
+                    if imported.is_none() {
+                        imported = Some(binding);
+                    }
                 }
+            }
+            if imported.is_some() {
+                return imported;
             }
         }
         None
@@ -110,6 +165,7 @@ impl<'a> BlockChecker<'a> {
     ) -> Option<&Binding> {
         let names = self.unqualified_lookup_names(id);
         for scope in self.env.scopes.iter().rev() {
+            let mut imported = None;
             for name in &names {
                 if let Some(binding) = scope.values.iter().rev().find(|b| {
                     if b.name != *name || !self.binding_is_visible_unqualified(id, b) {
@@ -117,8 +173,16 @@ impl<'a> BlockChecker<'a> {
                     }
                     b.defined || (allow_undefined_nonmut && !b.mutable)
                 }) {
-                    return Some(binding);
+                    if self.binding_is_local_to_lookup_file(id, binding) {
+                        return Some(binding);
+                    }
+                    if imported.is_none() {
+                        imported = Some(binding);
+                    }
                 }
+            }
+            if imported.is_some() {
+                return imported;
             }
         }
         None
