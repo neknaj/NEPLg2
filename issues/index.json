@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T23:04:37.838Z",
+  "generated_at": "2026-04-29T23:07:48.002Z",
   "counts": {
-    "total": 407,
+    "total": 408,
     "open": 12,
-    "resolved": 395,
+    "resolved": 396,
     "by_area": {
       "core": {
         "total": 186,
@@ -37,9 +37,9 @@
         "resolved": 1
       },
       "examples": {
-        "total": 13,
+        "total": 14,
         "open": 0,
-        "resolved": 13
+        "resolved": 14
       },
       "nodesrc": {
         "total": 6,
@@ -3008,6 +3008,21 @@
       "legacy_id": "RV-EXAMPLE-011",
       "source": "doc/review20260425/examples.md#rv-example-011",
       "file": "items/ISS-20260425T000000Z-RV-EXAMPLE-011-8A10DEED.md"
+    },
+    {
+      "id": "ISS-20260429T230100004Z-GETTING-STARTED-GENERICS-TUTORIAL-US-614E80C3",
+      "title": "getting_started generics tutorial uses unconstrained owner generic example",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "tutorials/getting_started/18_generics.n.md, nodesrc/test_tutorial_getting_started_current_style.js, .github/workflows/ci.yml",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T230100004Z-GETTING-STARTED-GENERICS-TUTORIAL-US-614E80C3.md"
     },
     {
       "id": "ISS-20260428T121641554Z-NODESRC-TESTS-DEFAULT-CASE-TIMEOUT-I-089ABC53",

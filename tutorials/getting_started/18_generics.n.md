@@ -11,26 +11,22 @@ ret: 0
 |
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "std/test" as *
 
-fn identity <.T> <(.T)->.T> (x):
+fn identity <.T: Copy> <(.T)->.T> (x):
     x
 
-fn or_default <.T> <(Option<.T>,.T)->.T> (value, default):
-    match value:
-        Option::Some inner:
-            inner
-        Option::None:
-            default
-
 fn main <()*>i32> ():
+    let maybe <Option<i32>> identity some<i32> 7
+    let answer <Result<i32,str>> identity ok<i32,str> 1
     let checks:
         checks_new
         |> checks_push check_eq_i32 42 identity 42
-        |> checks_push check_str_eq "nepl" identity "nepl"
-        |> checks_push check_eq_i32 7 or_default some<i32> 7 0
-        |> checks_push check_eq_i32 9 or_default none<i32> 9
+        |> checks_push check identity true
+        |> checks_push check is_some<i32> maybe
+        |> checks_push check is_ok<i32,str> answer
     checks_exit_code checks
 ```
 
-generic 関数は型ごとの処理を共通化できます。ただし、値を複製する処理には `Copy` や `Clone` の bound が必要です。
+この例では `Copy` bound を付け、`i32`、`bool`、`Option<i32>`、`Result<i32,str>` のような copy できる値だけを受け取ります。所有権を持つ値まで generic に扱う場合は、move / borrow / Clone の境界を別に設計します。

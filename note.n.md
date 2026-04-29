@@ -1,3 +1,25 @@
+# 2026-04-30 メモ (ISS-20260429T230100004Z getting_started generics Copy boundary)
+
+- [同期]:
+  - `main` の `bd14e845` から `work/tutorial-generics-current-style-owner-boundary` branch を作成して作業した。
+  - `gh api repos/neknaj/NEPLg2/actions/jobs/73679186492/logs` で GitHub Actions run `25137357734` の `tutorials-test` 失敗を確認した。
+- [原因]:
+  - `tutorials/getting_started/18_generics.n.md` が、`.T` に ownership 境界を付けないまま `str` identity や unconstrained `Option<.T>` helper を quiet checks に渡していた。
+  - 現在の getting_started は、copy できる値と owner を持つ値の境界を明示する方針なので、basic generics 例では `.T: Copy` を明示する必要がある。
+- [修正]:
+  - `18_generics.n.md` に `core/traits/copy` import を追加し、`identity <.T: Copy>` の Copy-bound example へ更新した。
+  - `Option<i32>` / `Result<i32,str>` は typed local として明示し、`is_some` / `is_ok` で確認する形にした。
+  - `nodesrc/test_tutorial_getting_started_current_style.js` に generics 章の Copy-bound / Option / Result source policy を追加し、CI source policy regressions に接続した。
+- [issue]:
+  - `ISS-20260429T230100004Z-GETTING-STARTED-GENERICS-TUTORIAL-US-614E80C3` を追加し、対応後に fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/test_tutorial_getting_started_current_style.js`: passed
+  - `node nodesrc/tests.js -i tutorials/getting_started/18_generics.n.md --no-tree -o tmp/agent1-tutorial-18-generics-current-copy-style.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/agent1-tutorial-getting-started-current-style.json -j 4 --dist web/dist`: total=24, passed=24
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 入門 tutorial を現在の static checking / ownership 方針に合わせる例示修正であり、compiler の検査は弱めていない。
+
 # 2026-04-30 メモ (ISS-20260429T224043452Z nm JSON builder Option storage)
 
 - [同期]:
