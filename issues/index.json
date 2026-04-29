@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T21:58:26.883Z",
+  "generated_at": "2026-04-29T22:02:37.937Z",
   "counts": {
     "total": 404,
-    "open": 15,
-    "resolved": 389,
+    "open": 14,
+    "resolved": 390,
     "by_area": {
       "core": {
         "total": 185,
-        "open": 5,
-        "resolved": 180
+        "open": 4,
+        "resolved": 181
       },
       "stdlib": {
         "total": 124,
@@ -128,21 +128,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B",
-      "title": "Resource IR gate regresses neplg2 generic aggregate and collection integration tests",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource, nepl-core/tests/neplg2.rs, stdlib/alloc/collections",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2738,6 +2723,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T054411082Z-RESOURCE-EFFECT-CHECKER-KEEPS-RAW-ID-F3C413F2.md"
+    },
+    {
+      "id": "ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B",
+      "title": "Resource IR gate regresses neplg2 generic aggregate and collection integration tests",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource, nepl-core/tests/neplg2.rs, stdlib/alloc/collections",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B.md"
     },
     {
       "id": "ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE",

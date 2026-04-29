@@ -2,12 +2,12 @@
 id: ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B
 title: "Resource IR gate regresses neplg2 generic aggregate and collection integration tests"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
-updated: 2026-04-29
+updated: 2026-04-30
 target: "nepl-core/src/resource, nepl-core/tests/neplg2.rs, stdlib/alloc/collections"
 ---
 
@@ -97,3 +97,21 @@ generic aggregate subcase の後に残っていた Resource IR 側の誤検出�
 
 - `cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture`: pass
 - HashMap 2 件は header / entries owner leak として引き続き失敗し、`ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` の残件として扱う。
+
+## 2026-04-30 最終確認
+
+現行 main で `cargo test -p nepl-core --test neplg2 -- --nocapture` を再実行し、99 件すべてが pass することを確認した。
+
+この issue で追跡していた Resource IR gate regression は次の状態になった。
+
+- generic aggregate store/load 系: pass。
+- `list_get_out_of_bounds_err`: pass。
+- `hashmap_custom_struct_key_roundtrips_value`: pass。
+- `llvm_hashmap_string_key_preserves_explicit_hasher_type_args`: pass。
+- `neplg2` integration suite 全体: pass。
+
+generic aggregate の test helper leak、Resource IR projection/raw owner summary、inactive Result payload owner、HashMap typed storage などの個別原因は別 commit / 別 issue で修正済みであり、現時点でこの親 issue の完了条件を満たしているため fixed/resolved とする。
+
+検証:
+
+- `cargo test -p nepl-core --test neplg2 -- --nocapture`: 99 passed / 0 failed

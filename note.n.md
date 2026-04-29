@@ -1,3 +1,19 @@
+# 2026-04-30 メモ (ISS-20260429T071452715Z Resource IR neplg2 gate)
+
+- [同期]:
+  - `main` の `2a6215f` から `work/resource-ir-gate-neplg2-audit` branch を作成して作業した。
+- [確認]:
+  - Resource IR gate regression 親 issue の残件確認として `cargo test -p nepl-core --test neplg2 -- --nocapture` を実行した。
+  - 現行 main では generic aggregate、List、HashMap、LLVM HashMap の該当 test を含む 99 件すべてが pass した。
+- [issue]:
+  - `ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` を fixed/resolved に更新した。
+  - この issue で追跡していた regressions は、generic aggregate helper leak、Resource IR projection/raw owner summary、inactive Result payload owner、HashMap typed storage 等の修正により解消済みである。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: 99 passed / 0 failed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画 Stage 4 Resource check の regression gate 完了確認であり、仕様変更はない。
+
 # 2026-04-30 メモ (ISS-20260429T215616519Z StringBuilder source policy)
 
 - [同期]:
