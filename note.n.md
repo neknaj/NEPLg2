@@ -1,3 +1,27 @@
+# 2026-04-30 メモ (ISS-20260429T142213822Z ByteBuilder/StringBuilder owner boundary)
+
+- [同期]:
+  - `main` を `origin/main` と同期したあと、`stdlib/builder-owner-boundary` branch で作業した。
+- [原因]:
+  - `ByteBuilder` / `StringBuilder` は空 storage と所有 storage を裸 `MemPtr<u8>` field で表しており、`Result::Ok Builder` の境界で owner が戻り値へ一度だけ移ることを ResourceIR が証明しにくかった。
+  - 最初の `Option<MemPtr<u8>>` 化だけでは、`reserve` 後の builder から `Some(ptr)` payload を取り出して再度 builder に包み直す append 実装が残り、`reserved` aggregate の field owner obligation が未消費として検出された。
+- [修正]:
+  - `ByteBuilder.ptr` と `StringBuilder.data` を `Option<MemPtr<u8>>` に変更し、空は `None`、所有領域は `Some(ptr)` として型に出した。
+  - allocation / reallocation 後の builder construction を `byte_builder_from_owned_ptr` / `string_builder_from_owned_ptr` に集約した。
+  - append 成功後は `byte_builder_with_len` / `string_builder_with_len` で `Option<MemPtr<u8>>` field 全体を次の builder へ移し、payload pointer の unwrap/rewrap を避けるようにした。
+  - append 中の書き込み pointer は `get_ref` で借用し、所有権移動と raw byte 書き込みを分離した。
+  - `nodesrc/test_stdlib_builder_owner_boundary.js` を追加し、null owning pointer 表現、direct constructor return、append 中の owner payload unwrap/rewrap への回帰を CI/source policy で監視するようにした。
+- [検証]:
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: pass
+  - `git diff --check`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/byte-builder-owner-boundary-after2.json -j 1 --dist web/dist`: total=3 failed=3。残件は `std/test` の `check_eq_i32` `TestAssertion` owner obligation で、ByteBuilder owner leak は消えた。
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-builder-owner-boundary-after2.json -j 1 --dist web/dist`: total=8 passed=5 failed=3。残件は `std/test` / fixture mismatch 側で、StringBuilder owner leak は消えた。
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text-utf8-builder-owner-boundary-after2.json -j 1 --dist web/dist`: total=9 failed=9。残件は `std/test` の `check_*` helper owner obligation で、`byte_builder_push_u8` / `sb_append_result` の owner leak は消えた。
+- [残件]:
+  - `std/test` の互換 `check_*` helper が `TestAssertion` を作って status/message だけを取り出し、label/expected/actual/message の str owner を未消費にする問題が表面化している。builder issue とは別根なので次 issue として扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T131646897Z ByteBuf empty/non-empty invariant)
 
 - [同期]:

@@ -309,12 +309,34 @@ fn io_bytebuf_to_str <(ByteBuf)*>str> (buf):
 //: - `push_*` / `reserve` / `finish` は builder を[消費/しょうひ]し、成功時は[新/あたら]しい builder または `ByteBuf` を[返/かえ]します。
 //: - 失敗時は builder 内部 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
 struct ByteBuilder:
-    ptr <MemPtr<u8>>
+    ptr <Option<MemPtr<u8>>>
     len <i32>
     cap <i32>
 
 fn byte_builder_empty <()->ByteBuilder> ():
-    ByteBuilder mem_ptr_wrap 0 0 0
+    ByteBuilder none<MemPtr<u8>> 0 0
+
+//: byte_builder_from_owned_ptr: 所有 byte 領域を `ByteBuilder` に包む
+//:
+//: [目的/もくてき]:
+//: - `alloc_ptr` / `realloc_ptr` で得た所有 pointer を、空/非空が型に現れる builder 表現へ集約します。
+//:
+//: [注意/ちゅうい]:
+//: - `cap0` は正でなければなりません。空 builder は `byte_builder_empty` を使ってください。
+//: - 呼び出し後、`ptr` は返った builder が所有します。
+fn byte_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->ByteBuilder> (ptr, len0, cap0):
+    ByteBuilder some<MemPtr<u8>> ptr len0 cap0
+
+//: byte_builder_with_len: builder の storage owner を保ったまま length だけ更新する
+//:
+//: [目的/もくてき]:
+//: - append が書き込みに成功したあと、`ptr` field の owner を取り出して包み直さず、`Option<MemPtr<u8>>` field 全体を次の builder へ移します。
+//:
+//: [注意/ちゅうい]:
+//: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `byte_builder_reserve` で済ませます。
+fn byte_builder_with_len <(ByteBuilder,i32)->ByteBuilder> (builder, new_len):
+    let cap0 <i32> get builder "cap"
+    ByteBuilder get builder "ptr" new_len cap0
 
 //: byte_builder_with_capacity: 指定 capacity の builder を[作/つく]る
 //:
@@ -336,7 +358,7 @@ fn byte_builder_with_capacity <(i32)->Result<ByteBuilder, StdErrorKind>> (capaci
                 else:
                     match alloc_ptr<u8> capacity:
                         Result::Ok ptr:
-                            Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr 0 capacity
+                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_ptr ptr 0 capacity
                         Result::Err _e:
                             Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
@@ -349,15 +371,14 @@ fn byte_builder_len <(ByteBuilder)->i32> (builder):
 
 fn byte_builder_free <(ByteBuilder)->()> (builder):
     let cap <i32> get builder "cap"
-    if:
-        gt cap 0
-        then:
-            match dealloc_ptr<u8> get builder "ptr" cap:
+    match get builder "ptr":
+        Option::Some ptr:
+            match dealloc_ptr<u8> ptr cap:
                 Result::Ok _:
                     ()
                 Result::Err _e:
                     ()
-        else:
+        Option::None:
             ()
 
 fn byte_builder_next_capacity <(i32,i32)->Result<i32, StdErrorKind>> (cap, needed):
@@ -421,18 +442,35 @@ fn byte_builder_reserve <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (
                             if:
                                 le cap0 0
                                 then:
-                                    match alloc_ptr<u8> next_cap:
-                                        Result::Ok ptr:
-                                            Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr len0 next_cap
-                                        Result::Err _e:
-                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                    match get builder "ptr":
+                                        Option::Some ptr:
+                                            match dealloc_ptr<u8> ptr 0:
+                                                Result::Ok _:
+                                                    ()
+                                                Result::Err _e:
+                                                    ()
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                        Option::None:
+                                            match alloc_ptr<u8> next_cap:
+                                                Result::Ok ptr:
+                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_ptr ptr len0 next_cap
+                                                Result::Err _e:
+                                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
                                 else:
-                                    match realloc_ptr<u8> get builder "ptr" cap0 next_cap:
-                                        Result::Ok ptr:
-                                            Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr len0 next_cap
-                                        Result::Err _e:
-                                            byte_builder_free builder
-                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                    match get builder "ptr":
+                                        Option::None:
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                        Option::Some old:
+                                            match realloc_ptr<u8> old cap0 next_cap:
+                                                Result::Ok ptr:
+                                                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_ptr ptr len0 next_cap
+                                                Result::Err _e:
+                                                    match dealloc_ptr<u8> old cap0:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _free:
+                                                            ()
+                                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: byte_builder_push_u8: 1 byte を[末尾/まつび]へ[追加/ついか]する
 fn byte_builder_push_u8 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, byte):
@@ -440,14 +478,18 @@ fn byte_builder_push_u8 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (
         Result::Err e:
             Result<ByteBuilder, StdErrorKind>::Err e
         Result::Ok reserved:
-            let ptr <MemPtr<u8>> get reserved "ptr"
             let len0 <i32> get reserved "len"
-            match store_u8 mem_ptr_add ptr len0 byte:
-                Result::Ok _:
-                    Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder ptr add len0 1 get reserved "cap"
-                Result::Err _e:
+            match *get_ref &reserved "ptr":
+                Option::None:
                     byte_builder_free reserved
                     Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                Option::Some ptr:
+                    match store_u8 mem_ptr_add ptr len0 byte:
+                        Result::Ok _:
+                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 1
+                        Result::Err _e:
+                            byte_builder_free reserved
+                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 //: byte_builder_push_ascii: ASCII char を 1 byte として[追加/ついか]する
 //:
@@ -529,13 +571,19 @@ fn byte_builder_push_bytes_ref <(ByteBuilder,MemPtr<u8>,i32)*>Result<ByteBuilder
                         Result::Err e:
                             Result<ByteBuilder, StdErrorKind>::Err e
                         Result::Ok reserved:
-                            let dst <MemPtr<u8>> mem_ptr_add get reserved "ptr" get reserved "len"
-                            match mem_copy<u8> dst src data_len:
-                                Result::Ok _:
-                                    Result<ByteBuilder, StdErrorKind>::Ok ByteBuilder get reserved "ptr" add get reserved "len" data_len get reserved "cap"
-                                Result::Err _e:
+                            let len0 <i32> get reserved "len"
+                            match *get_ref &reserved "ptr":
+                                Option::None:
                                     byte_builder_free reserved
                                     Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                Option::Some ptr:
+                                    let dst <MemPtr<u8>> mem_ptr_add ptr len0
+                                    match mem_copy<u8> dst src data_len:
+                                        Result::Ok _:
+                                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 data_len
+                                        Result::Err _e:
+                                            byte_builder_free reserved
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 //: byte_builder_push_bytebuf: `ByteBuf` の[内容/ないよう]を[追加/ついか]して入力 buffer を[解放/かいほう]する
 fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)*>Result<ByteBuilder, StdErrorKind>> (builder, bytes):
@@ -604,14 +652,26 @@ fn byte_builder_finish <(ByteBuilder)*>Result<ByteBuf, StdErrorKind>> (builder):
             if:
                 eq len0 cap0
                 then:
-                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr get builder "ptr" len0
-                else:
-                    match realloc_ptr<u8> get builder "ptr" cap0 len0:
-                        Result::Ok ptr:
+                    match get builder "ptr":
+                        Option::Some ptr:
                             Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len0
-                        Result::Err _e:
-                            byte_builder_free builder
-                            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                        Option::None:
+                            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                else:
+                    match get builder "ptr":
+                        Option::None:
+                            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                        Option::Some old:
+                            match realloc_ptr<u8> old cap0 len0:
+                                Result::Ok ptr:
+                                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len0
+                                Result::Err _e:
+                                    match dealloc_ptr<u8> old cap0:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _free:
+                                            ()
+                                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: io_bytebuf_from_char_utf8_result: char 1 つを UTF-8 `ByteBuf` へ encode する
 //:

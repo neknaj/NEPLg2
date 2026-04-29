@@ -94,6 +94,7 @@ node nodesrc/test_selfhost_cli_file_io_boundary.js
 node nodesrc/test_selfhost_cli_reporter_boundary.js
 node nodesrc/test_selfhost_outcome_no_raw_result_cell.js
 node nodesrc/test_llvm_runner_return_value.js
+node nodesrc/test_stdlib_builder_owner_boundary.js
 node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js
 node nodesrc/test_stdlib_string_no_unsafe_unwraps.js
 ```

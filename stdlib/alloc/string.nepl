@@ -596,7 +596,7 @@ fn concat3 <(str,str,str)->str> (a,b,c):
 //: [計算量/けいさんりょう]:
 //: - append はならし O(len(s))、build は O(total_bytes) です。
 struct StringBuilder:
-    data <MemPtr<u8>>
+    data <Option<MemPtr<u8>>>
     len <i32>
     cap <i32>
 
@@ -606,7 +606,7 @@ struct StringBuilder:
 //: - allocation failure 時の fallback や、capacity 0 の内部状態として使う空 builder を作ります。
 //:
 //: [実装/じっそう]:
-//: - data は null 相当の `MemPtr<u8>`、len/cap は 0 にします。
+//: - data は `None`、len/cap は 0 にします。
 //:
 //: [注意/ちゅうい]:
 //: - この builder に append する場合は `string_builder_reserve_result` が初回 allocation を行います。
@@ -614,7 +614,29 @@ struct StringBuilder:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_builder_empty <()->StringBuilder> ():
-    StringBuilder mem_ptr_wrap 0 0 0
+    StringBuilder none<MemPtr<u8>> 0 0
+
+//: string_builder_from_owned_ptr: 所有 byte 領域を `StringBuilder` に包む
+//:
+//: [目的/もくてき]:
+//: - builder 本文 buffer の所有権を `Option<MemPtr<u8>>` field に集約し、空 builder と所有 builder を型で区別します。
+//:
+//: [注意/ちゅうい]:
+//: - `cap0` は正でなければなりません。空 builder は `string_builder_empty` を使ってください。
+//: - `data` は返った builder が所有します。
+fn string_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->StringBuilder> (data, len0, cap0):
+    StringBuilder some<MemPtr<u8>> data len0 cap0
+
+//: string_builder_with_len: builder の storage owner を保ったまま length だけ更新する
+//:
+//: [目的/もくてき]:
+//: - append が本文 byte の書き込みに成功したあと、`data` field の owner を取り出して包み直さず、`Option<MemPtr<u8>>` field 全体を次の builder へ移します。
+//:
+//: [注意/ちゅうい]:
+//: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `string_builder_reserve_result` で済ませます。
+fn string_builder_with_len <(StringBuilder,i32)->StringBuilder> (sb, new_len):
+    let cap0 <i32> get sb "cap";
+    StringBuilder get sb "data" new_len cap0
 
 //: string_builder_free: builder が保持する byte buffer を解放する
 //:
@@ -622,7 +644,7 @@ fn string_builder_empty <()->StringBuilder> ():
 //: - `StringBuilder` owner を消費し、内部 buffer があれば allocator へ返します。
 //:
 //: [実装/じっそう]:
-//: - cap が 0 より大きい場合だけ `dealloc_ptr<u8>` を呼びます。
+//: - data が `Some` の場合だけ `dealloc_ptr<u8>` を呼びます。
 //:
 //: [注意/ちゅうい]:
 //: - cleanup 用 helper なので、dealloc failure は戻り値にせず破棄します。
@@ -632,15 +654,14 @@ fn string_builder_empty <()->StringBuilder> ():
 //: - allocator に依存します。
 fn string_builder_free <(StringBuilder)->()> (sb):
     let cap0 <i32> get sb "cap";
-    if:
-        gt cap0 0
-        then:
-            match dealloc_ptr<u8> get sb "data" cap0:
+    match get sb "data":
+        Option::Some data:
+            match dealloc_ptr<u8> data cap0:
                 Result::Ok _:
                     ()
                 Result::Err _e:
                     ()
-        else:
+        Option::None:
             ()
 
 //: string_builder_next_capacity: append に必要な次 capacity を計算する
@@ -703,7 +724,7 @@ fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (capac
                 else:
                     match alloc_ptr<u8> capacity:
                         Result::Ok data:
-                            Result<StringBuilder,str>::Ok StringBuilder data 0 capacity
+                            Result<StringBuilder,str>::Ok string_builder_from_owned_ptr data 0 capacity
                         Result::Err _e:
                             Result<StringBuilder,str>::Err "string.builder allocation failed"
 
@@ -751,18 +772,35 @@ fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>
                                     if:
                                         le cap0 0
                                         then:
-                                            match alloc_ptr<u8> next_cap:
-                                                Result::Ok data:
-                                                    Result<StringBuilder,str>::Ok StringBuilder data len0 next_cap
-                                                Result::Err _e:
-                                                    Result<StringBuilder,str>::Err "string.builder allocation failed"
+                                            match get sb "data":
+                                                Option::Some data:
+                                                    match dealloc_ptr<u8> data 0:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _free:
+                                                            ()
+                                                    Result<StringBuilder,str>::Err "string.builder invalid reserve"
+                                                Option::None:
+                                                    match alloc_ptr<u8> next_cap:
+                                                        Result::Ok data:
+                                                            Result<StringBuilder,str>::Ok string_builder_from_owned_ptr data len0 next_cap
+                                                        Result::Err _e:
+                                                            Result<StringBuilder,str>::Err "string.builder allocation failed"
                                         else:
-                                            match realloc_ptr<u8> get sb "data" cap0 next_cap:
-                                                Result::Ok data:
-                                                    Result<StringBuilder,str>::Ok StringBuilder data len0 next_cap
-                                                Result::Err _e:
-                                                    string_builder_free sb;
-                                                    Result<StringBuilder,str>::Err "string.builder allocation failed"
+                                            match get sb "data":
+                                                Option::None:
+                                                    Result<StringBuilder,str>::Err "string.builder invalid reserve"
+                                                Option::Some old:
+                                                    match realloc_ptr<u8> old cap0 next_cap:
+                                                        Result::Ok data:
+                                                            Result<StringBuilder,str>::Ok string_builder_from_owned_ptr data len0 next_cap
+                                                        Result::Err _e:
+                                                            match dealloc_ptr<u8> old cap0:
+                                                                Result::Ok _:
+                                                                    ()
+                                                                Result::Err _free:
+                                                                    ()
+                                                            Result<StringBuilder,str>::Err "string.builder allocation failed"
 
 //: string_builder_new_result: 空の StringBuilder を作る
 //:
@@ -813,16 +851,28 @@ fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s):
                 Result::Err e:
                     Result<StringBuilder,str>::Err e
                 Result::Ok reserved:
-                    let dst <MemPtr<u8>> mem_ptr_add get reserved "data" get reserved "len";
-                    match mem_copy<u8> dst string_data_ptr s s_len:
-                        Result::Ok _:
-                            Result<StringBuilder,str>::Ok StringBuilder get reserved "data" add get reserved "len" s_len get reserved "cap"
-                        Result::Err _e:
+                    let len0 <i32> get reserved "len";
+                    match *get_ref &reserved "data":
+                        Option::None:
                             string_builder_free reserved;
-                            Result<StringBuilder,str>::Err "string.builder append copy failed"
+                            Result<StringBuilder,str>::Err "string.builder append invalid storage"
+                        Option::Some data:
+                            let dst <MemPtr<u8>> mem_ptr_add data len0;
+                            match mem_copy<u8> dst string_data_ptr s s_len:
+                                Result::Ok _:
+                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 s_len
+                                Result::Err _e:
+                                    string_builder_free reserved;
+                                    Result<StringBuilder,str>::Err "string.builder append copy failed"
 
 fn sb_finish_char_append <(StringBuilder,i32)->Result<StringBuilder,str>> (reserved, count):
-    Result<StringBuilder,str>::Ok StringBuilder get reserved "data" add get reserved "len" count get reserved "cap"
+    let len0 <i32> get reserved "len"
+    match *get_ref &reserved "data":
+        Option::Some _data:
+            Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
+        Option::None:
+            string_builder_free reserved
+            Result<StringBuilder,str>::Err "string.builder append invalid storage"
 
 //: sb_append_char_result: builder に char を UTF-8 として追加する
 //:
@@ -840,43 +890,49 @@ fn sb_append_char_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb, 
         Result::Err e:
             Result<StringBuilder,str>::Err e
         Result::Ok reserved:
-            let dst <MemPtr<u8>> mem_ptr_add get reserved "data" get reserved "len"
-            match store_u8 dst char_utf8_byte0 c:
-                Result::Err _e:
+            let len0 <i32> get reserved "len"
+            match *get_ref &reserved "data":
+                Option::None:
                     string_builder_free reserved
-                    Result<StringBuilder,str>::Err "string.builder append char failed"
-                Result::Ok _:
-                    if:
-                        eq count 1
-                        then:
-                            sb_finish_char_append reserved count
-                        else:
-                            match store_u8 mem_ptr_add dst 1 char_utf8_byte1 c:
-                                Result::Err _e:
-                                    string_builder_free reserved
-                                    Result<StringBuilder,str>::Err "string.builder append char failed"
-                                Result::Ok _:
-                                    if:
-                                        eq count 2
-                                        then:
-                                            sb_finish_char_append reserved count
-                                        else:
-                                            match store_u8 mem_ptr_add dst 2 char_utf8_byte2 c:
-                                                Result::Err _e:
-                                                    string_builder_free reserved
-                                                    Result<StringBuilder,str>::Err "string.builder append char failed"
-                                                Result::Ok _:
-                                                    if:
-                                                        eq count 3
-                                                        then:
-                                                            sb_finish_char_append reserved count
-                                                        else:
-                                                            match store_u8 mem_ptr_add dst 3 char_utf8_byte3 c:
-                                                                Result::Err _e:
-                                                                    string_builder_free reserved
-                                                                    Result<StringBuilder,str>::Err "string.builder append char failed"
-                                                                Result::Ok _:
-                                                                    sb_finish_char_append reserved count
+                    Result<StringBuilder,str>::Err "string.builder append invalid storage"
+                Option::Some data:
+                    let dst <MemPtr<u8>> mem_ptr_add data len0
+                    match store_u8 dst char_utf8_byte0 c:
+                        Result::Err _e:
+                            string_builder_free reserved
+                            Result<StringBuilder,str>::Err "string.builder append char failed"
+                        Result::Ok _:
+                            if:
+                                eq count 1
+                                then:
+                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
+                                else:
+                                    match store_u8 mem_ptr_add dst 1 char_utf8_byte1 c:
+                                        Result::Err _e:
+                                            string_builder_free reserved
+                                            Result<StringBuilder,str>::Err "string.builder append char failed"
+                                        Result::Ok _:
+                                            if:
+                                                eq count 2
+                                                then:
+                                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
+                                                else:
+                                                    match store_u8 mem_ptr_add dst 2 char_utf8_byte2 c:
+                                                        Result::Err _e:
+                                                            string_builder_free reserved
+                                                            Result<StringBuilder,str>::Err "string.builder append char failed"
+                                                        Result::Ok _:
+                                                            if:
+                                                                eq count 3
+                                                                then:
+                                                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
+                                                                else:
+                                                                    match store_u8 mem_ptr_add dst 3 char_utf8_byte3 c:
+                                                                        Result::Err _e:
+                                                                            string_builder_free reserved
+                                                                            Result<StringBuilder,str>::Err "string.builder append char failed"
+                                                                        Result::Ok _:
+                                                                            Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 count
 
 //: sb_append_ascii_result: builder に ASCII char を 1 byte として追加する
 //:
@@ -893,13 +949,19 @@ fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb,
                 Result::Err e:
                     Result<StringBuilder,str>::Err e
                 Result::Ok reserved:
-                    let dst <MemPtr<u8>> mem_ptr_add get reserved "data" get reserved "len"
-                    match store_u8 dst char_to_i32 c:
-                        Result::Ok _:
-                            sb_finish_char_append reserved 1
-                        Result::Err _e:
+                    let len0 <i32> get reserved "len"
+                    match *get_ref &reserved "data":
+                        Option::None:
                             string_builder_free reserved
-                            Result<StringBuilder,str>::Err "string.builder append ascii failed"
+                            Result<StringBuilder,str>::Err "string.builder append invalid storage"
+                        Option::Some data:
+                            let dst <MemPtr<u8>> mem_ptr_add data len0
+                            match store_u8 dst char_to_i32 c:
+                                Result::Ok _:
+                                    Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 1
+                                Result::Err _e:
+                                    string_builder_free reserved
+                                    Result<StringBuilder,str>::Err "string.builder append ascii failed"
         else:
             string_builder_free sb
             Result<StringBuilder,str>::Err "string.builder non-ascii char"
@@ -969,25 +1031,47 @@ fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
 //: - O(total_bytes)
 fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
     let len0 <i32> get sb "len";
+    let cap0 <i32> get sb "cap";
     if:
         le len0 0
         then:
             string_builder_free sb;
             Result<str,str>::Ok ""
         else:
-            match string_alloc_region len0:
-                Result::Err e:
-                    string_builder_free sb;
-                    Result<str,str>::Err e
-                Result::Ok out_region:
-                    let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
-                    match mem_copy<u8> out_data get sb "data" len0:
-                        Result::Ok _:
-                            string_builder_free sb;
-                            Result<str,str>::Ok string_finish out_region len0
-                        Result::Err _e:
-                            string_builder_free sb;
-                            Result<str,str>::Err "string.builder build copy failed"
+            match get sb "data":
+                Option::None:
+                    Result<str,str>::Err "string.builder build invalid storage"
+                Option::Some data:
+                    match string_alloc_region len0:
+                        Result::Err e:
+                            match dealloc_ptr<u8> data cap0:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _free:
+                                    ()
+                            Result<str,str>::Err e
+                        Result::Ok out_region:
+                            let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
+                            match mem_copy<u8> out_data data len0:
+                                Result::Ok _:
+                                    match dealloc_ptr<u8> data cap0:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _free:
+                                            ()
+                                    Result<str,str>::Ok string_finish out_region len0
+                                Result::Err _e:
+                                    match dealloc_ptr<u8> data cap0:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _free:
+                                            ()
+                                    match dealloc_region<u8> out_region:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _free_out:
+                                            ()
+                                    Result<str,str>::Err "string.builder build copy failed"
 
 fn sb_build <(StringBuilder)->str> (sb):
     match sb_build_result sb:
