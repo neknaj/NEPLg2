@@ -69,7 +69,7 @@ fn main <()->i32> ():
 ## i32_duplicate_literal_is_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3008
+diag_code: type.match.duplicate_arm
 ```neplg2
 #target wasm
 #entry main
@@ -89,7 +89,7 @@ fn main <()->i32> ():
 ## i32_literal_match_requires_wildcard
 
 neplg2:test[compile_fail]
-diag_id: 3009
+diag_code: type.match.non_exhaustive
 ```neplg2
 #target wasm
 #entry main
@@ -107,7 +107,7 @@ fn main <()->i32> ():
 ## wildcard_must_be_last
 
 neplg2:test[compile_fail]
-diag_id: 3098
+diag_code: type.match.wildcard_not_last
 ```neplg2
 #target wasm
 #entry main
@@ -165,7 +165,7 @@ fn main <()->i32> ():
 ## char_match_rejects_integer_arm
 
 neplg2:test[compile_fail]
-diag_id: 3097
+diag_code: type.match.pattern_unsupported
 ```neplg2
 #target wasm
 #entry main

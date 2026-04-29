@@ -54,7 +54,7 @@ fn main <()->i32> ():
 ## enum_wildcard_must_be_last
 
 neplg2:test[compile_fail]
-diag_id: 3098
+diag_code: type.match.wildcard_not_last
 ```neplg2
 #target wasm
 #entry main
@@ -76,7 +76,7 @@ fn main <()->i32> ():
 ## enum_duplicate_wildcard_is_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3008
+diag_code: type.match.duplicate_arm
 ```neplg2
 #target wasm
 #entry main

@@ -33,7 +33,7 @@ fn main <()->i32> ():
 - impl target 型そのものが generic な通常 trait impl は、従来通り concrete target 診断で[拒否/きょひ]することを[固定/こてい]します。
 
 neplg2:test[compile_fail]
-diag_id: 3084
+diag_code: type.impl.target_not_concrete
 ```neplg2
 #entry main
 #indent 4

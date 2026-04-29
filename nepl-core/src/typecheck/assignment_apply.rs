@@ -4,7 +4,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::TypeKind;
 
@@ -51,8 +51,11 @@ impl<'a> BlockChecker<'a> {
     ) -> Option<StackEntry> {
         if args.len() != 1 {
             self.diagnostics.push(
-                Diagnostic::error("assignment expects one argument", func.expr.span)
-                    .with_id(DiagnosticId::TypeAssignmentArityMismatch),
+                Diagnostic::error("assignment expects one argument", func.expr.span).with_code(
+                    DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::AssignmentArityMismatch,
+                    ),
+                ),
             );
             return None;
         }
@@ -89,7 +92,9 @@ impl<'a> BlockChecker<'a> {
                             ),
                             args[0].expr.span,
                         )
-                        .with_id(DiagnosticId::TypeInvalidDeref),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::DerefInvalid,
+                        )),
                     );
                     self.ctx.never()
                 }
@@ -117,8 +122,11 @@ impl<'a> BlockChecker<'a> {
             let b_defined = b.defined;
             if let Err(_) = self.ctx.unify(b_ty, args[0].ty) {
                 self.diagnostics.push(
-                    Diagnostic::error("type mismatch in assignment", func.expr.span)
-                        .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
+                    Diagnostic::error("type mismatch in assignment", func.expr.span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::AssignmentMismatch,
+                        ),
+                    ),
                 );
             }
             match assign {
@@ -146,13 +154,18 @@ impl<'a> BlockChecker<'a> {
                     if !b_defined {
                         self.diagnostics.push(
                             Diagnostic::error("cannot set undefined variable", func.expr.span)
-                                .with_id(DiagnosticId::TypeUndefinedVariable),
+                                .with_code(DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::VariableUndefined,
+                                )),
                         );
                     }
                     if !b_mut {
                         self.diagnostics.push(
-                            Diagnostic::error("variable is not mutable", func.expr.span)
-                                .with_id(DiagnosticId::TypeImmutableMutation),
+                            Diagnostic::error("variable is not mutable", func.expr.span).with_code(
+                                DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::MutationImmutable,
+                                ),
+                            ),
                         );
                     }
                     Some(StackEntry {
@@ -178,7 +191,9 @@ impl<'a> BlockChecker<'a> {
                     format!("undefined variable for assignment: {}", name),
                     func.expr.span,
                 )
-                .with_id(DiagnosticId::TypeAssignmentUndefinedVariable),
+                .with_code(DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::AssignmentUndefinedVariable,
+                )),
             );
             None
         }

@@ -86,10 +86,10 @@ fn main <()->i32> ():
 
 ## cast_ambiguous_without_expected_type
 
-`let v cast 1` の `v` に型注釈がなく `cast` のオーバーロードが曖昧なはずだが、コンパイラが `v` を未使用として処理しているためコンパイルが通る。D3005 が発生しないためスキップ。
+`let v cast 1` の `v` に型注釈がなく `cast` のオーバーロードが曖昧なはずだが、コンパイラが `v` を未使用として処理しているためコンパイルが通る。type.overload.ambiguous が発生しないためスキップ。
 
 neplg2:test[skip]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4

@@ -19,7 +19,7 @@ use wasm_encoder::{
 };
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::*;
 use crate::layout::{
     enum_payload_offset_bytes, intrinsic_storage_type, is_aggregate_storage_type,
@@ -51,8 +51,8 @@ pub struct CodegenResult {
 
 type LowerResult<T> = Result<T, Diagnostic>;
 
-fn codegen_error(message: impl Into<String>, span: Span, id: DiagnosticId) -> Diagnostic {
-    Diagnostic::error(message.into(), span).with_id(id)
+fn codegen_error(message: impl Into<String>, span: Span, code: DiagnosticCode) -> Diagnostic {
+    Diagnostic::error(message.into(), span).with_code(code)
 }
 
 #[derive(Debug, Clone)]
@@ -148,7 +148,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
                     ext.local_name
                 ),
                 ext.span,
-                DiagnosticId::CodegenWasmUnsupportedExternSignature,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                    crate::diagnostic_codes::WasmDiagnosticCode::ExternSignatureUnsupported,
+                )),
             )]);
         };
         imports.push(ImportLower::function(
@@ -180,7 +182,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
                     f.name
                 ),
                 f.span,
-                DiagnosticId::CodegenWasmUnsupportedFunctionSignature,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                    crate::diagnostic_codes::WasmDiagnosticCode::FunctionSignatureUnsupported,
+                )),
             )]);
         };
         functions.push(FuncLower::user(f, sig));
@@ -237,7 +241,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
             return Err(vec![codegen_error(
                 format!("missing lowered wasm signature for import '{}'", imp.name),
                 Span::dummy(),
-                DiagnosticId::CodegenWasmMissingLoweredSignature,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                    crate::diagnostic_codes::WasmDiagnosticCode::LoweredSignatureMissing,
+                )),
             )]);
         };
         import_section.import(&imp.module, &imp.field, EntityType::Function(type_idx));
@@ -250,7 +256,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
             return Err(vec![codegen_error(
                 format!("missing lowered wasm signature for function '{}'", f.name),
                 Span::dummy(),
-                DiagnosticId::CodegenWasmMissingLoweredSignature,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                    crate::diagnostic_codes::WasmDiagnosticCode::LoweredSignatureMissing,
+                )),
             )]);
         };
         func_section.function(type_idx);
@@ -534,7 +542,9 @@ fn emit_scalar_store(
             return Err(codegen_error(
                 "unsupported scalar address valtype reached wasm codegen",
                 span,
-                DiagnosticId::CodegenWasmUnsupportedFieldValueType,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                    crate::diagnostic_codes::WasmDiagnosticCode::FieldValueTypeUnsupported,
+                )),
             ));
         }
     }
@@ -609,7 +619,9 @@ fn lower_user(
                         func.name
                     ),
                     func.span,
-                    DiagnosticId::CodegenWasmMissingReturnValue,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::ReturnValueMissing,
+                    )),
                 ));
             }
         }
@@ -624,7 +636,11 @@ fn lower_user(
                                 func.name, msg
                             ),
                             wb.span,
-                            DiagnosticId::CodegenWasmRawLineParseError,
+                            DiagnosticCode::Backend(
+                                crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                    crate::diagnostic_codes::WasmDiagnosticCode::RawLineParseError,
+                                ),
+                            ),
                         ));
                     }
                 }
@@ -637,7 +653,9 @@ fn lower_user(
                     func.name
                 ),
                 func.span,
-                DiagnosticId::CodegenWasmLlvmIrBodyNotSupported,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                    crate::diagnostic_codes::WasmDiagnosticCode::LlvmIrBodyUnsupported,
+                )),
             ));
         }
     }
@@ -776,7 +794,9 @@ fn emit_direct_call(
                 missing_direct_call_name(ctx, callee)
             ),
             span,
-            DiagnosticId::CodegenWasmUnknownFunction,
+            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                crate::diagnostic_codes::WasmDiagnosticCode::FunctionUnknown,
+            )),
         ))
     }
 }
@@ -842,77 +862,81 @@ fn gen_simple_expr_iteratively(
     stack.push(SimpleExprFrame::Expr(expr));
     while let Some(frame) = stack.pop() {
         match frame {
-            SimpleExprFrame::Expr(expr) => match &expr.kind {
-                HirExprKind::LiteralI32(v) => {
-                    insts.push(Instruction::I32Const(*v));
-                }
-                HirExprKind::LiteralF32(v) => {
-                    insts.push(Instruction::F32Const((*v).into()));
-                }
-                HirExprKind::LiteralBool(b) => {
-                    insts.push(Instruction::I32Const(if *b { 1 } else { 0 }));
-                }
-                HirExprKind::LiteralStr(id) => {
-                    if let Some(off) = strings.offset(*id) {
-                        insts.push(Instruction::I32Const(off as i32));
-                    } else {
-                        return Err(codegen_error(
+            SimpleExprFrame::Expr(expr) => {
+                match &expr.kind {
+                    HirExprKind::LiteralI32(v) => {
+                        insts.push(Instruction::I32Const(*v));
+                    }
+                    HirExprKind::LiteralF32(v) => {
+                        insts.push(Instruction::F32Const((*v).into()));
+                    }
+                    HirExprKind::LiteralBool(b) => {
+                        insts.push(Instruction::I32Const(if *b { 1 } else { 0 }));
+                    }
+                    HirExprKind::LiteralStr(id) => {
+                        if let Some(off) = strings.offset(*id) {
+                            insts.push(Instruction::I32Const(off as i32));
+                        } else {
+                            return Err(codegen_error(
                             "string literal not found during codegen",
                             expr.span,
-                            DiagnosticId::CodegenWasmStringLiteralNotFound,
+                            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::StringLiteralNotFound, )),
                         ));
-                    }
-                }
-                HirExprKind::Unit | HirExprKind::Drop { .. } => {}
-                HirExprKind::Var(name) => {
-                    if let Some(idx) = locals.lookup(name) {
-                        if valtype(&ctx.get(expr.ty)).is_some() {
-                            insts.push(Instruction::LocalGet(idx));
                         }
-                    } else if let Some(fidx) = find_function_value_index(name_map, name) {
-                        insts.push(Instruction::I32Const(fidx as i32));
-                    } else {
-                        return Err(codegen_error(
+                    }
+                    HirExprKind::Unit | HirExprKind::Drop { .. } => {}
+                    HirExprKind::Var(name) => {
+                        if let Some(idx) = locals.lookup(name) {
+                            if valtype(&ctx.get(expr.ty)).is_some() {
+                                insts.push(Instruction::LocalGet(idx));
+                            }
+                        } else if let Some(fidx) = find_function_value_index(name_map, name) {
+                            insts.push(Instruction::I32Const(fidx as i32));
+                        } else {
+                            return Err(codegen_error(
                             format!("unknown variable '{}' reached wasm codegen", name),
                             expr.span,
-                            DiagnosticId::CodegenWasmUnknownVariable,
+                            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(crate::diagnostic_codes::WasmDiagnosticCode::VariableUnknown)),
                         ));
+                        }
                     }
-                }
-                HirExprKind::FnValue(name) => {
-                    if let Some(fidx) = find_function_value_index(name_map, name) {
-                        insts.push(Instruction::I32Const(fidx as i32));
-                    } else {
-                        return Err(codegen_error(
+                    HirExprKind::FnValue(name) => {
+                        if let Some(fidx) = find_function_value_index(name_map, name) {
+                            insts.push(Instruction::I32Const(fidx as i32));
+                        } else {
+                            return Err(codegen_error(
                             format!("unknown function value '{}' reached wasm codegen", name),
                             expr.span,
-                            DiagnosticId::CodegenWasmUnknownFunctionValue,
+                            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::FunctionValueUnknown, )),
                         ));
+                        }
+                    }
+                    HirExprKind::Call { callee, args } => {
+                        stack.push(SimpleExprFrame::FinishCall {
+                            callee,
+                            span: expr.span,
+                        });
+                        for arg in args.iter().rev() {
+                            stack.push(SimpleExprFrame::Expr(arg));
+                        }
+                    }
+                    HirExprKind::CallIndirect { .. }
+                    | HirExprKind::If { .. }
+                    | HirExprKind::While { .. }
+                    | HirExprKind::Block(_)
+                    | HirExprKind::Intrinsic { .. }
+                    | HirExprKind::EnumConstruct { .. }
+                    | HirExprKind::StructConstruct { .. }
+                    | HirExprKind::TupleConstruct { .. }
+                    | HirExprKind::Match { .. }
+                    | HirExprKind::Let { .. }
+                    | HirExprKind::Set { .. }
+                    | HirExprKind::AddrOf(_)
+                    | HirExprKind::Deref(_) => {
+                        unreachable!("iterative wasm lowering precheck failed")
                     }
                 }
-                HirExprKind::Call { callee, args } => {
-                    stack.push(SimpleExprFrame::FinishCall {
-                        callee,
-                        span: expr.span,
-                    });
-                    for arg in args.iter().rev() {
-                        stack.push(SimpleExprFrame::Expr(arg));
-                    }
-                }
-                HirExprKind::CallIndirect { .. }
-                | HirExprKind::If { .. }
-                | HirExprKind::While { .. }
-                | HirExprKind::Block(_)
-                | HirExprKind::Intrinsic { .. }
-                | HirExprKind::EnumConstruct { .. }
-                | HirExprKind::StructConstruct { .. }
-                | HirExprKind::TupleConstruct { .. }
-                | HirExprKind::Match { .. }
-                | HirExprKind::Let { .. }
-                | HirExprKind::Set { .. }
-                | HirExprKind::AddrOf(_)
-                | HirExprKind::Deref(_) => unreachable!("iterative wasm lowering precheck failed"),
-            },
+            }
             SimpleExprFrame::FinishCall { callee, span } => {
                 emit_direct_call(ctx, callee, span, name_map, insts)?;
             }
@@ -1015,7 +1039,9 @@ fn gen_expr(
                 return Err(codegen_error(
                     "string literal not found during codegen",
                     expr.span,
-                    DiagnosticId::CodegenWasmStringLiteralNotFound,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::StringLiteralNotFound,
+                    )),
                 ));
             }
         }
@@ -1035,7 +1061,9 @@ fn gen_expr(
                 return Err(codegen_error(
                     format!("unknown variable '{}' reached wasm codegen", name),
                     expr.span,
-                    DiagnosticId::CodegenWasmUnknownVariable,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::VariableUnknown,
+                    )),
                 ));
             }
         }
@@ -1047,7 +1075,9 @@ fn gen_expr(
                 return Err(codegen_error(
                     format!("unknown function value '{}' reached wasm codegen", name),
                     expr.span,
-                    DiagnosticId::CodegenWasmUnknownFunctionValue,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::FunctionValueUnknown,
+                    )),
                 ));
             }
         }
@@ -1078,14 +1108,16 @@ fn gen_expr(
                     return Err(codegen_error(
                         "missing wasm signature for indirect call",
                         expr.span,
-                        DiagnosticId::CodegenWasmMissingIndirectSignature,
+                        DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::IndirectSignatureMissing, )),
                     ));
                 }
             } else {
                 return Err(codegen_error(
                     "unsupported indirect call signature for wasm",
                     expr.span,
-                    DiagnosticId::CodegenWasmUnsupportedIndirectSignature,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::IndirectSignatureUnsupported,
+                    )),
                 ));
             }
             valtype(&ctx.get(expr.ty))
@@ -1315,7 +1347,11 @@ fn gen_expr(
                     return Err(codegen_error(
                         "intrinsic get_field requires two args",
                         expr.span,
-                        DiagnosticId::CodegenWasmIntrinsicArityMismatch,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicArityMismatch,
+                            ),
+                        ),
                     ));
                 }
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
@@ -1413,7 +1449,7 @@ fn gen_expr(
                     return Err(codegen_error(
                         "unsupported get_field selector reached wasm codegen",
                         expr.span,
-                        DiagnosticId::CodegenWasmUnsupportedFieldSelector,
+                        DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::FieldSelectorUnsupported, )),
                     ));
                 }
                 gen_expr(ctx, &args[1], name_map, sig_map, strings, locals, insts)?;
@@ -1495,7 +1531,7 @@ fn gen_expr(
                                 return Err(codegen_error(
                                     "unsupported runtime get_field valtype reached wasm codegen",
                                     expr.span,
-                                    DiagnosticId::CodegenWasmUnsupportedFieldValueType,
+                                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::FieldValueTypeUnsupported, )),
                                 ));
                             }
                         }
@@ -1509,7 +1545,11 @@ fn gen_expr(
                     return Err(codegen_error(
                         "intrinsic get_field_ref requires two args",
                         expr.span,
-                        DiagnosticId::CodegenWasmIntrinsicArityMismatch,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicArityMismatch,
+                            ),
+                        ),
                     ));
                 }
                 let base_ty = match ctx.get(ctx.resolve_id(args[0].ty)) {
@@ -1522,7 +1562,7 @@ fn gen_expr(
                     return Err(codegen_error(
                         "unsupported get_field_ref selector reached wasm codegen",
                         expr.span,
-                        DiagnosticId::CodegenWasmUnsupportedFieldSelector,
+                        DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::FieldSelectorUnsupported, )),
                     ));
                 };
                 gen_expr(ctx, &args[0], name_map, sig_map, strings, locals, insts)?;
@@ -1536,7 +1576,11 @@ fn gen_expr(
                     return Err(codegen_error(
                         "intrinsic set_field requires three args",
                         expr.span,
-                        DiagnosticId::CodegenWasmIntrinsicArityMismatch,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicArityMismatch,
+                            ),
+                        ),
                     ));
                 }
                 let Some((_field_ty, offset)) =
@@ -1545,7 +1589,7 @@ fn gen_expr(
                     return Err(codegen_error(
                         "unsupported set_field selector reached wasm codegen",
                         expr.span,
-                        DiagnosticId::CodegenWasmUnsupportedFieldSelector,
+                        DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::FieldSelectorUnsupported, )),
                     ));
                 };
                 let field_ty = args[2].ty;
@@ -1731,7 +1775,9 @@ fn gen_expr(
                 return Err(codegen_error(
                     format!("unknown intrinsic '{}' reached wasm codegen", name),
                     expr.span,
-                    DiagnosticId::CodegenWasmUnknownIntrinsic,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicUnknown,
+                    )),
                 ));
             }
         }
@@ -1805,7 +1851,7 @@ fn gen_expr(
                                     return Err(codegen_error(
                                         "unsupported enum payload valtype reached wasm codegen",
                                         expr.span,
-                                        DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
+                                        DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::EnumPayloadTypeUnsupported, )),
                                     ));
                                 }
                             }
@@ -1912,7 +1958,7 @@ fn gen_expr(
                                 return Err(codegen_error(
                                     "unsupported struct field valtype reached wasm codegen",
                                     expr.span,
-                                    DiagnosticId::CodegenWasmUnsupportedStructFieldType,
+                                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::StructFieldTypeUnsupported, )),
                                 ));
                             }
                         }
@@ -2012,7 +2058,7 @@ fn gen_expr(
                                 return Err(codegen_error(
                                     "unsupported tuple element valtype reached wasm codegen",
                                     expr.span,
-                                    DiagnosticId::CodegenWasmUnsupportedTupleElementType,
+                                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::TupleElementTypeUnsupported, )),
                                 ));
                             }
                         }
@@ -2123,7 +2169,7 @@ fn gen_expr(
                                         return Err(codegen_error(
                                             "unsupported enum payload valtype in match reached wasm codegen",
                                             expr.span,
-                                            DiagnosticId::CodegenWasmUnsupportedEnumPayloadType,
+                                            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::EnumPayloadTypeUnsupported, )),
                                         ));
                                     }
                                 }
@@ -2209,7 +2255,9 @@ fn gen_expr(
                 return Err(codegen_error(
                     format!("unknown variable '{}' in set reached wasm codegen", name),
                     expr.span,
-                    DiagnosticId::CodegenWasmUnknownVariable,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::VariableUnknown,
+                    )),
                 ));
             }
             None

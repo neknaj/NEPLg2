@@ -55,7 +55,7 @@ assert.equal(signaled.return_value, null);
 assert.equal(signaled.ok, false);
 
 const diagSpans = extractDiagSpansFromCompileError(
-    'Error: failed to typecheck module for llvm lowering: [D3001] undefined identifier (file=0, start=38, end=50)',
+    'Error: failed to typecheck module for llvm lowering: [resolve.identifier.undefined] undefined identifier (file=0, start=38, end=50)',
     {
         source: '#entry main\nfn main <()->i32> ():\n    missing_name\n',
     },

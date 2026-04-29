@@ -598,14 +598,14 @@ impl<'a> BlockChecker<'a> {
         }
         // In a pure context, prefer pure overloads over impure ones.
         // When selecting by arity, a pure lower-arity overload beats an impure
-        // higher-arity one to prevent false D3025 errors from name collisions
+        // higher-arity one to prevent false pure-call diagnostics from name collisions
         // across modules (e.g. math::add vs fenwick::add in a pure fold).
         let in_pure_context = matches!(self.current_effect, Effect::Pure);
 
         // Also proceed when arities are uniform but purity is mixed — e.g.
         // vec::with_capacity (pure) vs ringbuffer::with_capacity (impure) both
         // have arity 1.  In a pure context we must pick the pure variant to
-        // avoid a spurious D3025 before full overload resolution runs.
+        // avoid a spurious pure-call diagnostic before full overload resolution runs.
         let has_mixed_purity_among_applicable = in_pure_context && {
             let mut has_pure = false;
             let mut has_impure = false;

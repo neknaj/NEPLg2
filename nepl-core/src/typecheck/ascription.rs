@@ -1,7 +1,7 @@
 use alloc::format;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::HirExprKind;
 use crate::span::Span;
 use crate::types::TypeId;
@@ -24,8 +24,11 @@ impl<'a> BlockChecker<'a> {
                 }
                 Some(Err(())) => {
                     self.diagnostics.push(
-                        Diagnostic::error("char literal does not fit in u8", span)
-                            .with_id(DiagnosticId::TypeAnnotationMismatch),
+                        Diagnostic::error("char literal does not fit in u8", span).with_code(
+                            DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::AnnotationMismatch,
+                            ),
+                        ),
                     );
                     return;
                 }
@@ -42,7 +45,9 @@ impl<'a> BlockChecker<'a> {
                         ),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeAnnotationMismatch),
+                    .with_code(DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::AnnotationMismatch,
+                    )),
                 );
             } else {
                 let resolved = self.ctx.resolve_id(target);

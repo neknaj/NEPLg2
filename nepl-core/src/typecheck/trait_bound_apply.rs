@@ -3,7 +3,7 @@ use alloc::format;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -100,7 +100,9 @@ impl<'a> BlockChecker<'a> {
                             ),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied,
+                        )),
                     );
                 } else {
                     self.pending_trait_bound_checks

@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
@@ -27,7 +27,7 @@ pub(super) fn apply_indirect_function_call(
                         "capturing function cannot be used as a function value yet",
                         func.expr.span,
                     )
-                    .with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported),
+                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)),
                 );
                 false
             } else {
@@ -49,7 +49,7 @@ pub(super) fn apply_indirect_function_call(
                             "capturing function cannot be passed as a function value yet",
                             func.expr.span,
                         )
-                        .with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported),
+                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)),
                     );
                     false
                 } else {
@@ -61,8 +61,11 @@ pub(super) fn apply_indirect_function_call(
     };
     if !allow_indirect {
         checker.diagnostics.push(
-            Diagnostic::error("indirect call requires a function value", func.expr.span)
-                .with_id(DiagnosticId::TypeIndirectCallRequiresFunctionValue),
+            Diagnostic::error("indirect call requires a function value", func.expr.span).with_code(
+                DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::IndirectCallRequiresFunctionValue,
+                ),
+            ),
         );
         return None;
     }

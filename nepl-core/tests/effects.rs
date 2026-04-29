@@ -1,6 +1,6 @@
 use nepl_core::ast::Effect;
 use nepl_core::diagnostic::Severity;
-use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::effects::{
     internal_effect_surface_fold, intrinsic_effect, raw_callee_internal_effect,
     raw_memory_callee_internal_effect, InternalEffect,
@@ -66,12 +66,12 @@ fn check_source_as_core_mem_boundary(
     check_module_with_source_map(module, Some(&source_map), options(target))
 }
 
-fn assert_has_diag(result: Result<(), CoreError>, id: DiagnosticId) {
+fn assert_has_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
     match result {
         Err(CoreError::Diagnostics(diags)) => assert!(
-            diags.iter().any(|d| d.id == Some(id)),
+            diags.iter().any(|d| d.code == Some(code)),
             "expected diagnostic {:?}, got {:?}",
-            id,
+            code,
             diags
         ),
         other => panic!("expected diagnostics, got {:?}", other),
@@ -149,7 +149,10 @@ fn main <()->i32> ():
 "#;
 
     let result = compile_wasm(FileId(0), src, options(CompileTarget::Wasm)).map(|_| ());
-    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
@@ -171,7 +174,10 @@ fn main <()->i32> ():
 "#;
 
     let result = compile_wasm(FileId(0), src, options(CompileTarget::Wasm)).map(|_| ());
-    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
@@ -191,7 +197,10 @@ fn main <()->i32> ():
 "#;
 
     let result = compile_wasm(FileId(0), src, options(CompileTarget::Wasm)).map(|_| ());
-    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
@@ -215,7 +224,10 @@ fn main <()->i32> ():
 "#;
 
     let result = compile_wasm(FileId(0), src, options(CompileTarget::Wasm)).map(|_| ());
-    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
@@ -239,7 +251,10 @@ fn main <()->i32> ():
 "#;
 
     let result = compile_wasm(FileId(0), src, options(CompileTarget::Wasm)).map(|_| ());
-    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
@@ -258,7 +273,7 @@ fn main <()->i32> ():
 
     assert_has_diag(
         check_source(src, CompileTarget::Wasm),
-        DiagnosticId::TypePureCallsImpureFunction,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
     );
 }
 
@@ -279,7 +294,7 @@ fn main <()->i32> ():
 
     assert_has_diag(
         check_source(src, CompileTarget::Wasm),
-        DiagnosticId::TypePureCallsImpureFunction,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
     );
 }
 
@@ -367,7 +382,7 @@ fn main <()->i32> ():
 
     assert_has_diag(
         check_source(src, CompileTarget::Llvm),
-        DiagnosticId::TypePureCallsImpureFunction,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
     );
 }
 
@@ -394,7 +409,7 @@ fn main <()->i32> ():
 
     assert_has_diag(
         check_source(src, CompileTarget::Llvm),
-        DiagnosticId::TypePureCallsImpureFunction,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
     );
 }
 
@@ -421,7 +436,7 @@ fn main <()->i32> ():
 
     assert_has_diag(
         check_source(src, CompileTarget::Llvm),
-        DiagnosticId::TypePureCallsImpureFunction,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
     );
 }
 
@@ -483,7 +498,10 @@ fn raw_store <(i32,i32)->()> (p, v):
 
     let result =
         check_source_with_path(src, "/tmp/custom_stdlib/core/mem.nepl", CompileTarget::Wasm);
-    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
@@ -583,5 +601,8 @@ fn raw_store <(i32,i32)->()> (p, v):
         Some(&loaded.source_map),
         options(CompileTarget::Wasm),
     );
-    assert_has_diag(result, DiagnosticId::TypePureCallsImpureFunction);
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }

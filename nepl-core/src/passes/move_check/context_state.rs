@@ -4,7 +4,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::HirModule;
 use crate::span::Span;
 use crate::types::TypeId;
@@ -658,7 +658,11 @@ impl<'m> MoveCheckContext<'m> {
                 ),
                 span,
             )
-            .with_id(DiagnosticId::TypeBorrowEscapesScope),
+            .with_code(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::ReturnEscape,
+                ),
+            )),
         );
     }
 
@@ -729,7 +733,11 @@ impl<'m> MoveCheckContext<'m> {
                                 alloc::format!("use of partially moved value: `{}`", name),
                                 span,
                             )
-                            .with_id(DiagnosticId::TypeUseMovedValue),
+                            .with_code(DiagnosticCode::Resource(
+                                crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                                    crate::diagnostic_codes::ResourceMoveDiagnosticCode::UseMoved,
+                                ),
+                            )),
                         );
                     } else {
                         self.set_state(name, VarState::Moved);
@@ -743,7 +751,7 @@ impl<'m> MoveCheckContext<'m> {
                             alloc::format!("cannot move out of shared borrowed value: `{}`", name),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeMoveFromSharedBorrowedValue),
+                        .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::MoveFromShared, ))),
                     );
                 }
             }
@@ -753,13 +761,21 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("use of uniquely borrowed value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeUseUniquelyBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                            crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UseDuringUnique,
+                        ),
+                    )),
                 );
             }
             Some(VarState::Moved) => {
                 self.diagnostics.push(
                     Diagnostic::error(alloc::format!("use of moved value: `{}`", name), span)
-                        .with_id(DiagnosticId::TypeUseMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                                crate::diagnostic_codes::ResourceMoveDiagnosticCode::UseMoved,
+                            ),
+                        )),
                 );
             }
             Some(VarState::PossiblyMoved) => {
@@ -768,7 +784,11 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("use of potentially moved value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeUsePossiblyMovedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                            crate::diagnostic_codes::ResourceMoveDiagnosticCode::UsePossiblyMoved,
+                        ),
+                    )),
                 );
             }
             None => {}
@@ -794,7 +814,7 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("cannot assign to shared borrowed value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeAssignSharedBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::AssignDuringShared, ))),
                 );
             }
             Some(VarState::BorrowedUnique) => {
@@ -803,7 +823,7 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("cannot assign to uniquely borrowed value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeAssignUniquelyBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::AssignDuringUnique, ))),
                 );
             }
             _ => {
@@ -822,7 +842,11 @@ impl<'m> MoveCheckContext<'m> {
                             alloc::format!("drop of partially moved value: `{}`", name),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeDropMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                                crate::diagnostic_codes::ResourceMoveDiagnosticCode::DropMoved,
+                            ),
+                        )),
                     );
                 } else {
                     self.set_state(name, VarState::Moved);
@@ -834,7 +858,11 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("cannot drop shared borrowed value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeDropSharedBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                            crate::diagnostic_codes::ResourceBorrowDiagnosticCode::DropDuringShared,
+                        ),
+                    )),
                 );
             }
             Some(VarState::BorrowedUnique) => {
@@ -843,13 +871,21 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("cannot drop uniquely borrowed value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeDropUniquelyBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                            crate::diagnostic_codes::ResourceBorrowDiagnosticCode::DropDuringUnique,
+                        ),
+                    )),
                 );
             }
             Some(VarState::Moved) => {
                 self.diagnostics.push(
                     Diagnostic::error(alloc::format!("drop of moved value: `{}`", name), span)
-                        .with_id(DiagnosticId::TypeDropMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                                crate::diagnostic_codes::ResourceMoveDiagnosticCode::DropMoved,
+                            ),
+                        )),
                 );
             }
             Some(VarState::PossiblyMoved) => {
@@ -858,7 +894,11 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("drop of potentially moved value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeDropPossiblyMovedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                            crate::diagnostic_codes::ResourceMoveDiagnosticCode::DropPossiblyMoved,
+                        ),
+                    )),
                 );
             }
             None => {}
@@ -874,7 +914,11 @@ impl<'m> MoveCheckContext<'m> {
                             alloc::format!("borrow of partially moved value: `{}`", name),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeBorrowMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                                crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowMoved,
+                            ),
+                        )),
                     );
                 }
             }
@@ -888,7 +932,7 @@ impl<'m> MoveCheckContext<'m> {
                             ),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue),
+                        .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UniqueDuringShared, ))),
                     );
                 }
             }
@@ -898,13 +942,17 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("cannot borrow uniquely borrowed value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowDuringUnique, ))),
                 );
             }
             Some(VarState::Moved) => {
                 self.diagnostics.push(
                     Diagnostic::error(alloc::format!("borrow of moved value: `{}`", name), span)
-                        .with_id(DiagnosticId::TypeBorrowMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                                crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowMoved,
+                            ),
+                        )),
                 );
             }
             Some(VarState::PossiblyMoved) => {
@@ -913,7 +961,7 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("borrow of potentially moved value: `{}`", name),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
+                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowPossiblyMoved, ))),
                 );
             }
             None => {}
@@ -933,7 +981,11 @@ impl<'m> MoveCheckContext<'m> {
                             ),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeUseMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                                crate::diagnostic_codes::ResourceMoveDiagnosticCode::UseMoved,
+                            ),
+                        )),
                     );
                 } else {
                     self.mark_field_moved(path);
@@ -948,7 +1000,11 @@ impl<'m> MoveCheckContext<'m> {
                         ),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeMoveFromSharedBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                            crate::diagnostic_codes::ResourceBorrowDiagnosticCode::MoveFromShared,
+                        ),
+                    )),
                 );
             }
             Some(VarState::BorrowedUnique) => {
@@ -957,13 +1013,21 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("use of uniquely borrowed value: `{}`", path.owner),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeUseUniquelyBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                            crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UseDuringUnique,
+                        ),
+                    )),
                 );
             }
             Some(VarState::Moved) => {
                 self.diagnostics.push(
                     Diagnostic::error(alloc::format!("use of moved value: `{}`", path.owner), span)
-                        .with_id(DiagnosticId::TypeUseMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                                crate::diagnostic_codes::ResourceMoveDiagnosticCode::UseMoved,
+                            ),
+                        )),
                 );
             }
             Some(VarState::PossiblyMoved) => {
@@ -972,7 +1036,11 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("use of potentially moved value: `{}`", path.owner),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeUsePossiblyMovedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Move(
+                            crate::diagnostic_codes::ResourceMoveDiagnosticCode::UsePossiblyMoved,
+                        ),
+                    )),
                 );
             }
             None => {}
@@ -997,7 +1065,11 @@ impl<'m> MoveCheckContext<'m> {
                             ),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeBorrowMovedValue),
+                        .with_code(DiagnosticCode::Resource(
+                            crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                                crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowMoved,
+                            ),
+                        )),
                     );
                 }
             }
@@ -1011,7 +1083,7 @@ impl<'m> MoveCheckContext<'m> {
                             ),
                             span,
                         )
-                        .with_id(DiagnosticId::TypeUniqueBorrowSharedBorrowedValue),
+                        .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UniqueDuringShared, ))),
                     );
                 }
             }
@@ -1021,7 +1093,7 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("cannot borrow uniquely borrowed value: `{}`", path.owner),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeBorrowUniquelyBorrowedValue),
+                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowDuringUnique, ))),
                 );
             }
             Some(VarState::Moved) => {
@@ -1030,7 +1102,11 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("borrow of moved value: `{}`", path.owner),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeBorrowMovedValue),
+                    .with_code(DiagnosticCode::Resource(
+                        crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                            crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowMoved,
+                        ),
+                    )),
                 );
             }
             Some(VarState::PossiblyMoved) => {
@@ -1039,7 +1115,7 @@ impl<'m> MoveCheckContext<'m> {
                         alloc::format!("borrow of potentially moved value: `{}`", path.owner),
                         span,
                     )
-                    .with_id(DiagnosticId::TypeBorrowPossiblyMovedValue),
+                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow( crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowPossiblyMoved, ))),
                 );
             }
             None => {}

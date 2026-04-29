@@ -24,7 +24,7 @@ fn main <()->i32> ():
 ## move_use_after_move
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -45,7 +45,7 @@ fn main <()->i32> ():
 ## move_in_branch
 
 neplg2:test[compile_fail]
-diag_id: 3054
+diag_code: resource.move.use_possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -72,7 +72,7 @@ fn main <()->i32> ():
 ## move_in_loop
 
 neplg2:test[compile_fail]
-diag_id: 3065
+diag_code: resource.move.loop_possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -163,7 +163,7 @@ fn main <()->i32> ():
 ## move_live_reference_blocks_move
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -215,7 +215,7 @@ fn main <()->i32> ():
 ## move_branch_retained_borrow_blocks_later_move
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -300,7 +300,7 @@ fn main <()->i32> ():
 ## move_call_mut_and_shared_reference_args_overlap_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3062
+diag_code: resource.borrow.borrow_during_unique
 ```neplg2
 #entry main
 #indent 4
@@ -323,7 +323,7 @@ fn main <()->i32> ():
 ## move_call_shared_and_mut_reference_args_overlap_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3061
+diag_code: resource.borrow.unique_during_shared
 ```neplg2
 #entry main
 #indent 4
@@ -346,7 +346,7 @@ fn main <()->i32> ():
 ## move_struct_mut_and_shared_reference_fields_overlap_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3062
+diag_code: resource.borrow.borrow_during_unique
 ```neplg2
 #entry main
 #indent 4
@@ -371,7 +371,7 @@ fn main <()->i32> ():
 ## move_tuple_mut_and_shared_reference_items_overlap_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3062
+diag_code: resource.borrow.borrow_during_unique
 ```neplg2
 #entry main
 #indent 4
@@ -394,7 +394,7 @@ fn main <()->i32> ():
 ## move_unique_reference_blocks_owner_move_while_live
 
 neplg2:test[compile_fail]
-diag_id: 3052
+diag_code: resource.borrow.use_during_unique
 ```neplg2
 #entry main
 #indent 4
@@ -440,7 +440,7 @@ fn main <()->i32> ():
 ## move_mut_reference_is_not_copy
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -463,7 +463,7 @@ fn main <()->i32> ():
 ## move_shared_borrow_blocks_unique_borrow
 
 neplg2:test[compile_fail]
-diag_id: 3061
+diag_code: resource.borrow.unique_during_shared
 ```neplg2
 #entry main
 #indent 4
@@ -486,7 +486,7 @@ fn main <()->i32> ():
 ## move_unique_borrow_blocks_shared_borrow
 
 neplg2:test[compile_fail]
-diag_id: 3062
+diag_code: resource.borrow.borrow_during_unique
 ```neplg2
 #entry main
 #indent 4
@@ -509,7 +509,7 @@ fn main <()->i32> ():
 ## move_copy_unique_borrow_blocks_shared_borrow
 
 neplg2:test[compile_fail]
-diag_id: 3062
+diag_code: resource.borrow.borrow_during_unique
 ```neplg2
 #entry main
 #indent 4
@@ -526,7 +526,7 @@ fn main <()->i32> ():
 ## move_copy_shared_borrow_blocks_unique_borrow
 
 neplg2:test[compile_fail]
-diag_id: 3061
+diag_code: resource.borrow.unique_during_shared
 ```neplg2
 #entry main
 #indent 4
@@ -560,7 +560,7 @@ fn main <()->i32> ():
 ## move_borrow_after_move_err
 
 neplg2:test[compile_fail]
-diag_id: 3063
+diag_code: resource.borrow.borrow_moved
 ```neplg2
 #entry main
 #indent 4
@@ -581,7 +581,7 @@ fn main <()->()> ():
 ## move_pass_to_function_err
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -605,7 +605,7 @@ fn main <()->()> ():
 ## move_struct_field_err
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -660,7 +660,7 @@ fn main <()->i32> ():
 ## move_same_owned_struct_field_twice_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -686,7 +686,7 @@ fn main <()->()> ():
 ## move_owner_after_partial_field_move_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -715,7 +715,7 @@ fn main <()->()> ():
 ## move_field_from_borrowed_owner_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -761,7 +761,7 @@ fn main <()->i32> ():
 ## move_deref_non_copy_reference_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -781,7 +781,7 @@ fn main <()->()> ():
 ## move_deref_non_copy_field_reference_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -806,7 +806,7 @@ fn main <()->()> ():
 ## move_branch_reinit_mixed
 
 neplg2:test[compile_fail]
-diag_id: 3054
+diag_code: resource.move.use_possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -832,7 +832,7 @@ fn main <()->()> ():
 ## move_nested_match_potentially_moved
 
 neplg2:test[compile_fail]
-diag_id: 3054
+diag_code: resource.move.use_possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -865,7 +865,7 @@ fn main <()->()> ():
 ## move_in_match_arms
 
 neplg2:test[compile_fail]
-diag_id: 3054
+diag_code: resource.move.use_possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -894,7 +894,7 @@ fn main <()->()> ():
 ## move_match_reference_payload_blocks_owner_move_while_live
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -956,7 +956,7 @@ fn main <()->i32> ():
 ## move_return_local_reference_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -980,7 +980,7 @@ fn main <()->i32> ():
 ## move_block_local_reference_escape_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -1002,7 +1002,7 @@ fn main <()->i32> ():
 ## move_set_outer_reference_to_inner_local_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -1026,7 +1026,7 @@ fn main <()->i32> ():
 ## move_return_local_reference_inside_struct_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -1054,7 +1054,7 @@ fn main <()->i32> ():
 ## move_block_local_reference_inside_struct_escape_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -1080,7 +1080,7 @@ fn main <()->i32> ():
 ## move_set_outer_struct_reference_to_inner_local_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -1108,7 +1108,7 @@ fn main <()->i32> ():
 ## move_call_return_reference_to_block_local_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -1133,7 +1133,7 @@ fn main <()->i32> ():
 ## move_call_return_struct_reference_to_block_local_err
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4
@@ -1194,7 +1194,7 @@ fn main <()->i32> ():
 ## move_loop_owned_accumulator_err_continue_without_reinit_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3065
+diag_code: resource.move.loop_possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -1261,7 +1261,7 @@ fn main <()->i32> ():
 ## move_borrowed_field_projection_blocks_owner_move_while_live
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -1294,7 +1294,7 @@ fn main <()->i32> ():
 ## move_borrowed_field_projection_escape_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3099
+diag_code: resource.borrow.return_escape
 ```neplg2
 #entry main
 #indent 4

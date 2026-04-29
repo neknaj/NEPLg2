@@ -3,7 +3,7 @@
 ## wasm_target_rejects_llvmir_body
 
 neplg2:test[compile_fail]
-diag_id: 3095
+diag_code: effect.raw_body.target_mismatch
 ```neplg2
 #target core
 #entry main
@@ -20,7 +20,7 @@ fn main <()->i32> ():
 ## llvm_target_rejects_wasm_body
 
 neplg2:test[llvm_cli, compile_fail]
-diag_id: 3095
+diag_code: effect.raw_body.target_mismatch
 ```neplg2
 #target llvm
 #entry main
@@ -34,7 +34,7 @@ fn main <()->i32> ():
 ## active_raw_bodies_conflict_reports_diag
 
 neplg2:test[compile_fail]
-diag_id: 3094
+diag_code: effect.raw_body.multiple_active
 ```neplg2
 #target core
 #entry main
@@ -55,7 +55,7 @@ fn main <()->i32> ():
 ## wasm_precheck_rejects_invalid_raw_line
 
 neplg2:test[compile_fail]
-diag_id: 4004
+diag_code: backend.wasm.raw_line_parse_error
 ```neplg2
 #target core
 #entry main
@@ -69,7 +69,7 @@ fn main <()->i32> ():
 ## pure_wasm_raw_memory_store_is_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #target core
 #entry main
@@ -89,7 +89,7 @@ fn main <()->i32> ():
 ## pure_wasm_raw_helper_call_is_rejected
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #target core
 #entry main
@@ -110,7 +110,7 @@ fn main <()->i32> ():
 ## pure_llvm_raw_memory_store_is_rejected
 
 neplg2:test[llvm_cli, compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #target llvm
 #entry main
@@ -133,7 +133,7 @@ fn main <()->i32> ():
 ## pure_llvm_raw_helper_call_is_rejected
 
 neplg2:test[llvm_cli, compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #target llvm
 #entry main
@@ -155,7 +155,7 @@ fn main <()->i32> ():
 ## wasm_precheck_rejects_unsupported_extern_signature
 
 neplg2:test[compile_fail]
-diag_id: 4001
+diag_code: backend.wasm.extern_signature_unsupported
 ```neplg2
 #target core
 #entry main
@@ -171,7 +171,7 @@ fn main <()->i32> ():
 ## wasm_precheck_rejects_unsupported_function_result
 
 neplg2:test[compile_fail]
-diag_id: 4002
+diag_code: backend.wasm.function_signature_unsupported
 ```neplg2
 #target core
 #entry main

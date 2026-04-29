@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 use crate::ast;
 use crate::codegen_wasm;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::error::CoreError;
 use crate::lexer;
 use crate::monomorphize;
@@ -288,7 +288,11 @@ fn resource_coverage_diagnostic_to_error(
                 format!("resource ir lowering did not produce function '{}'", name),
                 *span,
             )
-            .with_id(DiagnosticId::TypeResourceLoweringIncomplete)
+            .with_code(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Lower(
+                    crate::diagnostic_codes::ResourceLowerDiagnosticCode::Incomplete,
+                ),
+            ))
         }
         crate::resource::ResourceCoverageDiagnostic::CountMismatch {
             function,
@@ -303,7 +307,11 @@ fn resource_coverage_diagnostic_to_error(
             ),
             *span,
         )
-        .with_id(DiagnosticId::TypeResourceLoweringIncomplete),
+        .with_code(DiagnosticCode::Resource(
+            crate::diagnostic_codes::ResourceDiagnosticCode::Lower(
+                crate::diagnostic_codes::ResourceLowerDiagnosticCode::Incomplete,
+            ),
+        )),
         crate::resource::ResourceCoverageDiagnostic::UnknownPlace {
             function,
             operation,
@@ -316,7 +324,11 @@ fn resource_coverage_diagnostic_to_error(
             ),
             *span,
         )
-        .with_id(DiagnosticId::TypeResourceLoweringIncomplete),
+        .with_code(DiagnosticCode::Resource(
+            crate::diagnostic_codes::ResourceDiagnosticCode::Lower(
+                crate::diagnostic_codes::ResourceLowerDiagnosticCode::Incomplete,
+            ),
+        )),
     }
 }
 
@@ -363,7 +375,7 @@ fn resource_raw_cell_diagnostic_to_error(
                 ),
                 *span,
             )
-            .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Raw( crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation, ))),
         ),
         _ => None,
     }
@@ -436,7 +448,11 @@ fn resource_owner_diagnostic_to_error(
             ),
                 *span,
             )
-            .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            .with_code(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                ),
+            )),
         ),
         crate::resource::ResourceOwnerDiagnostic::OwnerLeaked {
             function,
@@ -451,7 +467,11 @@ fn resource_owner_diagnostic_to_error(
                 ),
                 *span,
             )
-            .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            .with_code(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                ),
+            )),
         ),
         crate::resource::ResourceOwnerDiagnostic::OwnerMaybeLeaked {
             function,
@@ -465,7 +485,11 @@ fn resource_owner_diagnostic_to_error(
                 ),
                 *span,
             )
-            .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+            .with_code(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                ),
+            )),
         ),
     }
 }
@@ -502,7 +526,7 @@ fn resource_borrow_diagnostic_to_error(
                 resource_borrow_conflict_message(function, *operation, place, active),
                 *span,
             )
-            .with_id(resource_borrow_conflict_diagnostic_id(*operation, active)),
+            .with_code(resource_borrow_conflict_diagnostic_code(*operation, active)),
         ),
     }
 }
@@ -525,55 +549,81 @@ fn resource_borrow_conflict_message(
     }
 }
 
-fn resource_borrow_conflict_diagnostic_id(
+fn resource_borrow_conflict_diagnostic_code(
     operation: crate::resource::ResourceBorrowOperation,
     active: &crate::resource::BorrowState,
-) -> DiagnosticId {
+) -> DiagnosticCode {
     match operation {
         crate::resource::ResourceBorrowOperation::ReturnValue => {
-            DiagnosticId::TypeBorrowEscapesScope
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                crate::diagnostic_codes::ResourceBorrowDiagnosticCode::ReturnEscape,
+            ))
         }
         crate::resource::ResourceBorrowOperation::SharedBorrow => {
-            DiagnosticId::TypeBorrowUniquelyBorrowedValue
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowDuringUnique,
+            ))
         }
         crate::resource::ResourceBorrowOperation::UniqueBorrow => match active {
             crate::resource::BorrowState::Shared { .. } => {
-                DiagnosticId::TypeUniqueBorrowSharedBorrowedValue
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UniqueDuringShared,
+                ))
             }
             crate::resource::BorrowState::Unique { .. }
             | crate::resource::BorrowState::Unborrowed
             | crate::resource::BorrowState::Released => {
-                DiagnosticId::TypeBorrowUniquelyBorrowedValue
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowDuringUnique,
+                ))
             }
         },
         crate::resource::ResourceBorrowOperation::Read => {
-            DiagnosticId::TypeUseUniquelyBorrowedValue
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UseDuringUnique,
+            ))
         }
         crate::resource::ResourceBorrowOperation::Move => match active {
             crate::resource::BorrowState::Shared { .. } => {
-                DiagnosticId::TypeMoveFromSharedBorrowedValue
-            }
-            crate::resource::BorrowState::Unique { .. }
-            | crate::resource::BorrowState::Unborrowed
-            | crate::resource::BorrowState::Released => DiagnosticId::TypeUseUniquelyBorrowedValue,
-        },
-        crate::resource::ResourceBorrowOperation::Assign => match active {
-            crate::resource::BorrowState::Shared { .. } => {
-                DiagnosticId::TypeAssignSharedBorrowedValue
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::MoveFromShared,
+                ))
             }
             crate::resource::BorrowState::Unique { .. }
             | crate::resource::BorrowState::Unborrowed
             | crate::resource::BorrowState::Released => {
-                DiagnosticId::TypeAssignUniquelyBorrowedValue
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UseDuringUnique,
+                ))
+            }
+        },
+        crate::resource::ResourceBorrowOperation::Assign => match active {
+            crate::resource::BorrowState::Shared { .. } => {
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::AssignDuringShared,
+                ))
+            }
+            crate::resource::BorrowState::Unique { .. }
+            | crate::resource::BorrowState::Unborrowed
+            | crate::resource::BorrowState::Released => {
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::AssignDuringUnique,
+                ))
             }
         },
         crate::resource::ResourceBorrowOperation::Drop => match active {
             crate::resource::BorrowState::Shared { .. } => {
-                DiagnosticId::TypeDropSharedBorrowedValue
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::DropDuringShared,
+                ))
             }
             crate::resource::BorrowState::Unique { .. }
             | crate::resource::BorrowState::Unborrowed
-            | crate::resource::BorrowState::Released => DiagnosticId::TypeDropUniquelyBorrowedValue,
+            | crate::resource::BorrowState::Released => {
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::DropDuringUnique,
+                ))
+            }
         },
     }
 }
@@ -608,8 +658,12 @@ mod tests {
                 .expect("raw memory cell diagnostic should become a compiler error");
 
             assert_eq!(
-                error.id,
-                Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+                error.code,
+                Some(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    )
+                ))
             );
             assert!(error
                 .message
@@ -648,8 +702,12 @@ mod tests {
             .expect("owner unavailable diagnostic should become a compiler error");
 
         assert_eq!(
-            error.id,
-            Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+            error.code,
+            Some(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                )
+            ))
         );
         assert!(error
             .message
@@ -671,8 +729,12 @@ mod tests {
             .expect("owner leak diagnostic should become a compiler error");
 
         assert_eq!(
-            error.id,
-            Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+            error.code,
+            Some(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                )
+            ))
         );
         assert!(error.message.contains("resource ir owner obligation leak"));
     }
@@ -693,8 +755,12 @@ mod tests {
             .expect("owned-storage no-free diagnostic should become a compiler error");
 
         assert_eq!(
-            error.id,
-            Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+            error.code,
+            Some(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                )
+            ))
         );
         assert!(error
             .message
@@ -716,7 +782,14 @@ mod tests {
         let error = resource_borrow_diagnostic_to_error(&diagnostic)
             .expect("borrow return escape should become a compiler error");
 
-        assert_eq!(error.id, Some(DiagnosticId::TypeBorrowEscapesScope));
+        assert_eq!(
+            error.code,
+            Some(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::ReturnEscape,
+                )
+            ))
+        );
         assert!(error
             .message
             .contains("resource ir borrow lifetime violation"));
@@ -732,36 +805,48 @@ mod tests {
                 BorrowState::Unique {
                     source: Box::new(place.clone()),
                 },
-                DiagnosticId::TypeUseUniquelyBorrowedValue,
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UseDuringUnique,
+                )),
             ),
             (
                 ResourceBorrowOperation::Move,
                 BorrowState::Shared { count: 1 },
-                DiagnosticId::TypeMoveFromSharedBorrowedValue,
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::MoveFromShared,
+                )),
             ),
             (
                 ResourceBorrowOperation::Assign,
                 BorrowState::Shared { count: 1 },
-                DiagnosticId::TypeAssignSharedBorrowedValue,
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::AssignDuringShared,
+                )),
             ),
             (
                 ResourceBorrowOperation::Drop,
                 BorrowState::Unique {
                     source: Box::new(place.clone()),
                 },
-                DiagnosticId::TypeDropUniquelyBorrowedValue,
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::DropDuringUnique,
+                )),
             ),
             (
                 ResourceBorrowOperation::SharedBorrow,
                 BorrowState::Unique {
                     source: Box::new(place.clone()),
                 },
-                DiagnosticId::TypeBorrowUniquelyBorrowedValue,
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::BorrowDuringUnique,
+                )),
             ),
             (
                 ResourceBorrowOperation::UniqueBorrow,
                 BorrowState::Shared { count: 1 },
-                DiagnosticId::TypeUniqueBorrowSharedBorrowedValue,
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::UniqueDuringShared,
+                )),
             ),
         ] {
             let diagnostic = ResourceBorrowDiagnostic::BorrowConflict {
@@ -775,7 +860,7 @@ mod tests {
             let error = resource_borrow_diagnostic_to_error(&diagnostic)
                 .expect("borrow conflict should become a compiler error");
 
-            assert_eq!(error.id, Some(expected));
+            assert_eq!(error.code, Some(expected));
             assert!(error.message.contains("resource ir borrow conflict"));
         }
     }
@@ -806,7 +891,7 @@ fn run_resource_effect_boundary_gate(
                     ),
                     *span,
                 )
-                .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                .with_code(DiagnosticCode::Effect(crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure)),
             );
         }
     }
@@ -878,8 +963,9 @@ pub fn prepare_module_for_codegen_with_source_map(
                 ),
                 call.span,
             )
-            .with_id(DiagnosticId::CodegenUnresolvedTraitCall)
-            .with_code("D4107")
+            .with_code(DiagnosticCode::Backend(
+                crate::diagnostic_codes::BackendDiagnosticCode::TraitCallUnresolved,
+            ))
         }));
         return Err(CoreError::from_diagnostics(diagnostics));
     }
@@ -978,7 +1064,9 @@ fn resolve_hir_entry_name(
         ),
         find_entry_directive_span(module, entry).unwrap_or_else(Span::dummy),
     )
-    .with_id(DiagnosticId::TypeEntryFunctionMissingOrAmbiguous)]))
+    .with_code(DiagnosticCode::Resolve(
+        crate::diagnostic_codes::ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous,
+    ))]))
 }
 
 fn find_entry_directive_span(module: &ast::Module, entry: &str) -> Option<Span> {
@@ -1404,7 +1492,7 @@ fn resolve_target(
                 if let Some((_, prev_span)) = found {
                     diags.push(
                         Diagnostic::error("multiple #target directives are not allowed", *span)
-                            .with_id(DiagnosticId::MultipleTargetDirective)
+                            .with_code(DiagnosticCode::Loader(crate::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
                             .with_secondary_label(prev_span, Some("previous #target here".into())),
                     );
                 } else {
@@ -1412,8 +1500,11 @@ fn resolve_target(
                 }
             } else {
                 diags.push(
-                    Diagnostic::error("unknown target in #target", *span)
-                        .with_id(DiagnosticId::UnknownTargetDirective),
+                    Diagnostic::error("unknown target in #target", *span).with_code(
+                        DiagnosticCode::Loader(
+                            crate::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown,
+                        ),
+                    ),
                 );
             }
         }
@@ -1429,7 +1520,7 @@ fn resolve_target(
                     if let Some((_, prev_span)) = found {
                         diags.push(
                             Diagnostic::error("multiple #target directives are not allowed", *span)
-                                .with_id(DiagnosticId::MultipleTargetDirective)
+                                .with_code(DiagnosticCode::Loader(crate::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
                                 .with_secondary_label(
                                     prev_span,
                                     Some("previous #target here".into()),
@@ -1440,8 +1531,11 @@ fn resolve_target(
                     }
                 } else {
                     diags.push(
-                        Diagnostic::error("unknown target in #target", *span)
-                            .with_id(DiagnosticId::UnknownTargetDirective),
+                        Diagnostic::error("unknown target in #target", *span).with_code(
+                            DiagnosticCode::Loader(
+                                crate::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown,
+                            ),
+                        ),
                     );
                 }
             }

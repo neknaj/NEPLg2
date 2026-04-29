@@ -255,7 +255,7 @@ fn main <()->i32> ():
 ## load_i32 は MemPtr<i32> だけを受け付ける
 
 neplg2:test[compile_fail]
-diag_id: D3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -272,7 +272,7 @@ fn main <()->i32> ():
 ## store_u8 は MemPtr<u8> だけを受け付ける
 
 neplg2:test[compile_fail]
-diag_id: D3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -289,7 +289,7 @@ fn main <()->i32> ():
 ## dealloc_region は RegionToken を要求する
 
 neplg2:test[compile_fail]
-diag_id: D3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4

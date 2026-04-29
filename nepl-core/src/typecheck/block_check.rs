@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Block, PrefixExpr, PrefixItem, Stmt, Symbol};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirBlock, HirExpr, HirExprKind, HirLine};
 use crate::resolve::DefId;
 use crate::types::{TypeId, TypeKind};
@@ -82,11 +82,11 @@ impl<'a> BlockChecker<'a> {
                                 format!("cannot shadow non-shadowable symbol '{}'", name.name),
                                 name.span,
                             )
-                            .with_id(DiagnosticId::TypeNoShadowViolation),
+                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                         );
                         self.diagnostics.push(
                             Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                                .with_id(DiagnosticId::TypeNoShadowViolation)
+                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                 .with_secondary_label(name.span, Some("shadow attempt".into())),
                         );
                         continue;
@@ -100,7 +100,7 @@ impl<'a> BlockChecker<'a> {
                                 ),
                                 name.span,
                             )
-                            .with_id(DiagnosticId::TypeNoShadowConflict),
+                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict)),
                         );
                         continue;
                     }
@@ -159,14 +159,14 @@ impl<'a> BlockChecker<'a> {
                                         ),
                                         f.name.span,
                                     )
-                                    .with_id(DiagnosticId::TypeNoShadowViolation),
+                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                                 );
                                 self.diagnostics.push(
                                     Diagnostic::error(
                                         "non-shadowable function declaration is here",
                                         conflict.span,
                                     )
-                                    .with_id(DiagnosticId::TypeNoShadowViolation)
+                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                     .with_secondary_label(
                                         f.name.span,
                                         Some("shadow attempt".into()),
@@ -184,14 +184,14 @@ impl<'a> BlockChecker<'a> {
                                     ),
                                     f.name.span,
                                 )
-                                .with_id(DiagnosticId::TypeNoShadowViolation),
+                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                             );
                             self.diagnostics.push(
                                 Diagnostic::error(
                                     "non-shadowable declaration is here",
                                     blocked.span,
                                 )
-                                .with_id(DiagnosticId::TypeNoShadowViolation)
+                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                 .with_secondary_label(f.name.span, Some("shadow attempt".into())),
                             );
                             continue;
@@ -214,7 +214,7 @@ impl<'a> BlockChecker<'a> {
                                 ),
                                 f.name.span,
                             )
-                            .with_id(DiagnosticId::TypeNoShadowConflict),
+                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict)),
                         );
                         continue;
                     }
@@ -328,7 +328,7 @@ impl<'a> BlockChecker<'a> {
                                         "expression left extra values on the stack",
                                         typed.span,
                                     )
-                                    .with_id(DiagnosticId::TypeStackExtraValues),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::StackExtraValues)),
                                 );
                             }
 
@@ -343,7 +343,7 @@ impl<'a> BlockChecker<'a> {
                                             "statement must leave exactly one value on the stack",
                                             sp,
                                         )
-                                        .with_id(DiagnosticId::TypeStackExtraValues),
+                                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::StackExtraValues)),
                                     );
                                     while stack.len() > base_depth {
                                         stack.pop();
@@ -418,7 +418,7 @@ impl<'a> BlockChecker<'a> {
                                                     b.args.len()
                                                 ),
                                                 b.name.span,
-                                            ).with_id(DiagnosticId::TypeTraitTypeParamsUnsupported));
+                                            ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported)));
                                             continue;
                                         }
                                         let arg_tys: Vec<TypeId> = b

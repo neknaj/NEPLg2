@@ -3,7 +3,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind};
 use crate::layout::storage_size_bytes;
 use crate::span::Span;
@@ -232,10 +232,14 @@ fn check_non_copy_deref(
     } else {
         "cannot move non-Copy value out of shared reference".to_string()
     };
-    ctx.diagnostics.push(
-        Diagnostic::error(message, expr.span)
-            .with_id(DiagnosticId::TypeMoveFromSharedBorrowedValue),
-    );
+    ctx.diagnostics
+        .push(
+            Diagnostic::error(message, expr.span).with_code(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::MoveFromShared,
+                ),
+            )),
+        );
 }
 
 pub(super) fn visit_block_with_escape(
@@ -868,7 +872,7 @@ fn visit_expr_with_escape(
                                         alloc::format!("potentially moved value: `{}`", name),
                                         args[1].span,
                                     )
-                                    .with_id(DiagnosticId::TypeLoopPotentiallyMovedValue),
+                                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Move( crate::diagnostic_codes::ResourceMoveDiagnosticCode::LoopPossiblyMoved, ))),
                                 );
                             }
                         }
@@ -987,7 +991,7 @@ fn visit_expr_with_escape(
                             alloc::format!("potentially moved value: `{}`", name),
                             expr.span,
                         )
-                        .with_id(DiagnosticId::TypeLoopPotentiallyMovedValue),
+                        .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Move( crate::diagnostic_codes::ResourceMoveDiagnosticCode::LoopPossiblyMoved, ))),
                     );
                 }
             }

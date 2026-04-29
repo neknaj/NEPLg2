@@ -3,7 +3,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::TypeKind;
@@ -48,7 +48,9 @@ impl<'a> BlockChecker<'a> {
                             "get_ref expects a reference to a composite value",
                             obj.span,
                         )
-                        .with_id(DiagnosticId::TypeInvalidFieldAccess),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::FieldInvalidAccess,
+                        )),
                     );
                     self.ctx.never()
                 }

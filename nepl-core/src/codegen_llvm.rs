@@ -14,7 +14,7 @@ use crate::ast::Directive;
 use crate::ast::{Block, FnBody, Ident, Literal, Module, PrefixExpr, PrefixItem, Stmt, TypeExpr};
 use crate::compiler::{self, BuildProfile, CompileTarget, PreparedLlvmProgram};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
 };
@@ -73,10 +73,10 @@ impl core::fmt::Display for LlvmCodegenError {
 fn llvm_codegen_error(
     message: impl Into<String>,
     span: Span,
-    id: DiagnosticId,
+    code: DiagnosticCode,
 ) -> LlvmCodegenError {
     LlvmCodegenError::CodegenDiagnostic {
-        diagnostic: Diagnostic::error(message.into(), span).with_id(id),
+        diagnostic: Diagnostic::error(message.into(), span).with_code(code),
     }
 }
 
@@ -85,7 +85,7 @@ macro_rules! llvm_codegen_bail {
         return Err(llvm_codegen_error(
             format!($($arg)*),
             Span::dummy(),
-            DiagnosticId::CodegenLlvmUnsupportedHir,
+            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(crate::diagnostic_codes::LlvmDiagnosticCode::HirUnsupported)),
         ));
     }};
 }
@@ -199,7 +199,7 @@ pub fn emit_ll_from_module_for_target_with_source_map(
                                     def.name.name
                                 ),
                                 def.name.span,
-                                DiagnosticId::CodegenLlvmRawBodyMismatch,
+                                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(crate::diagnostic_codes::LlvmDiagnosticCode::RawBodyMismatch)),
                             ));
                         }
                         Ok(None) => {
@@ -229,7 +229,11 @@ pub fn emit_ll_from_module_for_target_with_source_map(
                                 def.name.name
                             ),
                             def.name.span,
-                            DiagnosticId::CodegenLlvmRawBodyMismatch,
+                            DiagnosticCode::Backend(
+                                crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                                    crate::diagnostic_codes::LlvmDiagnosticCode::RawBodyMismatch,
+                                ),
+                            ),
                         ));
                     }
                 }
@@ -1680,7 +1684,9 @@ fn lower_hir_expr(
                 return Err(llvm_codegen_error(
                     format!("unknown variable '{}' reached llvm codegen", name),
                     expr.span,
-                    DiagnosticId::CodegenLlvmUnknownVariable,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::VariableUnknown,
+                    )),
                 ));
             };
             let bty = binding.ty;
@@ -1736,7 +1742,9 @@ fn lower_hir_expr(
                 return Err(llvm_codegen_error(
                     format!("set on unknown variable '{}' reached llvm codegen", name),
                     expr.span,
-                    DiagnosticId::CodegenLlvmUnknownVariable,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::VariableUnknown,
+                    )),
                 ));
             };
             let Some(v) = lower_hir_expr(types, ctx, value)? else {
@@ -1774,7 +1782,9 @@ fn lower_hir_expr(
                 Err(llvm_codegen_error(
                     format!("unknown function value '{}' reached llvm codegen", name),
                     expr.span,
-                    DiagnosticId::CodegenLlvmUnknownFunctionValue,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::FunctionValueUnknown,
+                    )),
                 ))
             }
         }
@@ -1790,7 +1800,11 @@ fn lower_hir_expr(
                             trait_name, method
                         ),
                         expr.span,
-                        DiagnosticId::CodegenLlvmUnknownFunction,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                                crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                            ),
+                        ),
                     ));
                 }
             };
@@ -1807,7 +1821,9 @@ fn lower_hir_expr(
                         callee_name
                     ),
                     expr.span,
-                    DiagnosticId::CodegenLlvmUnknownFunction,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                    )),
                 ));
             };
             let mut args_ir = Vec::new();
@@ -2131,7 +2147,9 @@ fn lower_hir_expr(
                         ctx.function_name
                     ),
                     Span::dummy(),
-                    DiagnosticId::CodegenLlvmUnknownFunction,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                    )),
                 ));
             };
 
@@ -2244,7 +2262,9 @@ fn lower_hir_expr(
                         ctx.function_name
                     ),
                     Span::dummy(),
-                    DiagnosticId::CodegenLlvmUnknownFunction,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                    )),
                 ));
             };
             let ptr = ctx.next_tmp();
@@ -2357,7 +2377,9 @@ fn lower_hir_expr(
                         ctx.function_name
                     ),
                     Span::dummy(),
-                    DiagnosticId::CodegenLlvmUnknownFunction,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                    )),
                 ));
             };
             let ptr = ctx.next_tmp();
@@ -2562,7 +2584,7 @@ fn lower_hir_expr(
                                                 ctx.function_name
                                             ),
                                             Span::dummy(),
-                                            DiagnosticId::CodegenLlvmUnknownFunction,
+                                            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown)),
                                         ));
                                     };
                                     let payload_size = storage_size_bytes(types, payload_ty) as i64;
@@ -2747,7 +2769,11 @@ fn lower_hir_expr(
                                 ctx.function_name
                             ),
                             Span::dummy(),
-                            DiagnosticId::CodegenLlvmUnknownFunction,
+                            DiagnosticCode::Backend(
+                                crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                                    crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                                ),
+                            ),
                         ));
                     };
                     let dst = ctx.next_tmp();
@@ -2942,7 +2968,11 @@ fn lower_hir_expr(
                                 ctx.function_name
                             ),
                             Span::dummy(),
-                            DiagnosticId::CodegenLlvmUnknownFunction,
+                            DiagnosticCode::Backend(
+                                crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                                    crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                                ),
+                            ),
                         ));
                     };
                     let dst = ctx.next_tmp();
@@ -3417,7 +3447,9 @@ fn lower_hir_expr(
                     name, ctx.function_name
                 ),
                 expr.span,
-                DiagnosticId::CodegenLlvmUnknownIntrinsic,
+                DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                    crate::diagnostic_codes::LlvmDiagnosticCode::IntrinsicUnknown,
+                )),
             ))
         }
         HirExprKind::AddrOf(inner) => {
@@ -3451,7 +3483,9 @@ fn lower_hir_expr(
                         ctx.function_name
                     ),
                     Span::dummy(),
-                    DiagnosticId::CodegenLlvmUnknownFunction,
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                        crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                    )),
                 ));
             };
             let ptr = ctx.next_tmp();
@@ -3522,7 +3556,11 @@ fn lower_hir_expr(
                             ctx.function_name
                         ),
                         Span::dummy(),
-                        DiagnosticId::CodegenLlvmUnknownFunction,
+                        DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                                crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+                            ),
+                        ),
                     ));
                 };
                 let dst = ctx.next_tmp();
@@ -3595,7 +3633,9 @@ fn lower_hir_string_literal(
                 ctx.function_name
             ),
             Span::dummy(),
-            DiagnosticId::CodegenLlvmUnknownFunction,
+            DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Llvm(
+                crate::diagnostic_codes::LlvmDiagnosticCode::FunctionUnknown,
+            )),
         ));
     };
     let ptr_tmp = ctx.next_tmp();
@@ -3818,13 +3858,13 @@ fn summarize_diagnostics_for_message(diags: &[crate::diagnostic::Diagnostic]) ->
     }
     let mut uniq = BTreeSet::new();
     for d in errs.iter().take(8) {
-        let id_prefix = match d.id {
-            Some(id) => format!("[D{}] ", id.as_u32()),
+        let code_prefix = match d.code {
+            Some(code) => format!("[{}] ", code.as_str()),
             None => String::new(),
         };
         uniq.insert(format!(
             "{}{} (file={}, start={}, end={})",
-            id_prefix,
+            code_prefix,
             d.message,
             d.primary.span.file_id.0,
             d.primary.span.start,

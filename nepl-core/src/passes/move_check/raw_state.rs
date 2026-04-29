@@ -2,7 +2,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::span::Span;
 
 use super::raw_place::{
@@ -23,7 +23,11 @@ impl<'m> MoveCheckContext<'m> {
                     alloc::format!("use of moved raw memory place: `{}`", place),
                     span,
                 )
-                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                .with_code(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    ),
+                )),
             );
             return;
         }
@@ -69,7 +73,11 @@ impl<'m> MoveCheckContext<'m> {
                     ),
                     span,
                 )
-                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                .with_code(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    ),
+                )),
             );
             return;
         }
@@ -106,7 +114,11 @@ impl<'m> MoveCheckContext<'m> {
                     ),
                     span,
                 )
-                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                .with_code(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    ),
+                )),
             );
         }
     }
@@ -135,7 +147,11 @@ impl<'m> MoveCheckContext<'m> {
                     ),
                     span,
                 )
-                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                .with_code(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    ),
+                )),
             );
         }
     }
@@ -164,7 +180,11 @@ impl<'m> MoveCheckContext<'m> {
                     ),
                     span,
                 )
-                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                .with_code(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    ),
+                )),
             );
         }
     }
@@ -194,7 +214,11 @@ impl<'m> MoveCheckContext<'m> {
                     ),
                     span,
                 )
-                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                .with_code(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    ),
+                )),
             );
             return;
         }
@@ -217,7 +241,11 @@ impl<'m> MoveCheckContext<'m> {
                     ),
                     span,
                 )
-                .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+                .with_code(DiagnosticCode::Resource(
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    ),
+                )),
             );
         }
     }

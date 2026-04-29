@@ -62,7 +62,7 @@ const SOURCE_EXTS = new Set([
     ".tsx", ".wat", ".wast", ".wasm", ".yaml", ".yml",
 ]);
 const MARKDOWN_EXTS = new Set([".md", ".n.md"]);
-const DOCTEST_META_RE = /^\s*(stdin|argv|stdout|stderr|ret|diag_id|diag_ids|diag_span|diag_spans)\s*:\s*(.*?)\s*$/;
+const DOCTEST_META_RE = /^\s*(stdin|argv|stdout|stderr|ret|diag_code|diag_codes|diag_span|diag_spans)\s*:\s*(.*?)\s*$/;
 const DOCTEST_RE = /^\s*neplg2:test(?:\[[^\]]+\])?\s*$/;
 const DOCTEST_FENCE_OPEN_RE = /^\s*```neplg2\s*$/;
 const DOCTEST_FENCE_CLOSE_RE = /^\s*```\s*$/;

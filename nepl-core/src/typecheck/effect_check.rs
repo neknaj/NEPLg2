@@ -3,7 +3,7 @@ use alloc::string::String;
 
 use crate::ast::{Block, Effect, Stmt};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::effects::{
     intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callees,
     raw_body_memory_operations, raw_callee_is_raw_memory_effect,
@@ -32,7 +32,9 @@ impl<'a> BlockChecker<'a> {
                         ),
                         span,
                     )
-                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                    .with_code(DiagnosticCode::Effect(
+                        crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+                    )),
                 );
                 return false;
             }
@@ -44,7 +46,9 @@ impl<'a> BlockChecker<'a> {
                                 format!("pure raw body cannot call raw memory helper '{}'", callee),
                                 span,
                             )
-                            .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                            .with_code(DiagnosticCode::Effect(
+                                crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+                            )),
                         );
                         return false;
                     }
@@ -53,7 +57,9 @@ impl<'a> BlockChecker<'a> {
                 if self.raw_callee_is_impure(&callee) {
                     self.diagnostics.push(
                         Diagnostic::error("pure context cannot call impure function", span)
-                            .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                            .with_code(DiagnosticCode::Effect(
+                                crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+                            )),
                     );
                     return false;
                 }

@@ -140,10 +140,10 @@ fn main <()->i32> ():
     if and kept moved 0 1
 ```
 
-## intrinsic_argument_type_mismatch_reports_diag_id
+## intrinsic_argument_type_mismatch_reports_diag_code
 
 neplg2:test[compile_fail]
-diag_id: 3048
+diag_code: type.intrinsic.arg_type_mismatch
 ```neplg2
 #target core
 #entry main

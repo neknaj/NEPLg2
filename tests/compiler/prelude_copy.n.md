@@ -54,7 +54,7 @@ fn main <()->i32> ():
 ## no_prelude_disables_copy_trait_supply
 
 neplg2:test[compile_fail]
-diag_id: 3073
+diag_code: type.trait_bound.unknown
 ```neplg2
 #entry main
 #target core

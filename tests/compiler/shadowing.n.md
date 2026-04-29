@@ -213,7 +213,7 @@ fn main <()->i32> ():
 
 ## imported_function_name_shadowed_by_parameter
 
-パラメータ`add`がインポートされた`add`関数を完全にシャドーし`add add 1`がD3016を起こすため、スキップ
+パラメータ`add`がインポートされた`add`関数を完全にシャドーし`add add 1`がtype.stack.extra_valuesを起こすため、スキップ
 
 neplg2:test[skip]
 ret: 8
@@ -320,7 +320,7 @@ fn main <()->i32> ():
 ## let_noshadow_rejects_shadowing
 
 neplg2:test[compile_fail]
-diag_id: 3014
+diag_code: resolve.shadow.no_shadow_violation
 ```neplg2
 #entry main
 #indent 4
@@ -356,7 +356,7 @@ fn main <()->i32> ():
 ## fn_noshadow_same_signature_redefinition_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3014
+diag_code: resolve.shadow.no_shadow_violation
 ```neplg2
 #entry main
 #indent 4
@@ -396,7 +396,7 @@ fn main <()->i32> ():
 ## std_test_noshadow_same_signature_redefinition_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3014
+diag_code: resolve.shadow.no_shadow_violation
 ```neplg2
 #entry main
 #indent 4
@@ -431,7 +431,7 @@ fn main <()->i32> ():
 ## std_stdio_noshadow_same_signature_redefinition_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3014
+diag_code: resolve.shadow.no_shadow_violation
 ```neplg2
 #entry main
 #indent 4

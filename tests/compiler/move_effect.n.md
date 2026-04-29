@@ -26,7 +26,7 @@ fn main <()->i32> ():
 ## pure から alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -43,7 +43,7 @@ fn main <()->i32> ():
 ## pure から alloc_raw の raw address を struct に包んで返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -65,7 +65,7 @@ fn main <()->i32> ():
 ## pure helper 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -86,7 +86,7 @@ fn main <()->i32> ():
 ## function value 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -108,7 +108,7 @@ fn main <()->i32> ():
 ## higher-order helper 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -132,7 +132,7 @@ fn main <()->i32> ():
 ## raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -152,7 +152,7 @@ fn main <()->i32> ():
 ## realloc 後の raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -173,7 +173,7 @@ fn main <()->i32> ():
 ## mem_copy 後の raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -195,7 +195,7 @@ fn main <()->i32> ():
 ## parameter raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -215,7 +215,7 @@ fn main <()->i32> ():
 ## copied parameter raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -236,7 +236,7 @@ fn main <()->i32> ():
 ## helper に渡した raw identity も parameter raw slot 経由で返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -256,7 +256,7 @@ fn main <()->i32> ():
 ## helper から返った raw slot pointer 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -280,7 +280,7 @@ fn main <()->i32> ():
 ## function value から返った raw slot pointer 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -305,7 +305,7 @@ fn main <()->i32> ():
 ## pure から raw load intrinsic を直接呼べない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -321,7 +321,7 @@ fn main <()->i32> ():
 ## pure から raw store intrinsic を直接呼べない
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -338,7 +338,7 @@ fn main <()->i32> ():
 ## non-Copy raw load は同じ place から二重に所有値を作れない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -361,7 +361,7 @@ fn main <()->i32> ():
 ## non-Copy raw load は alias した place から二重に所有値を作れない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -385,7 +385,7 @@ fn main <()->i32> ():
 ## non-Copy raw load は同じ MemPtr 由来 address から二重に所有値を作れない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -410,7 +410,7 @@ fn main <()->i32> ():
 ## non-Copy raw load は copy した MemPtr 由来 address から二重に所有値を作れない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -434,7 +434,7 @@ fn main <()->i32> ():
 ## non-Copy raw load は mem_ptr_add した同じ MemPtr place から二重に所有値を作れない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -459,7 +459,7 @@ fn main <()->i32> ():
 ## dealloc_ptr は mem_ptr_add した same-place live non-Copy payload を捨てられない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -510,7 +510,7 @@ fn main <()->i32> ():
 ## non-literal mem_ptr_add offset は same-base raw place として保守的に扱う
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -539,7 +539,7 @@ fn main <()->i32> ():
 ## non-literal mem_ptr_add offset は既知の nonzero offset とも overlap する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -569,7 +569,7 @@ fn main <()->i32> ():
 ## non-literal mem_ptr_add store は same-base live non-Copy payload を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -597,7 +597,7 @@ fn main <()->i32> ():
 ## non-literal mem_ptr_add dealloc_ptr は same-base live non-Copy payload を捨てられない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -626,7 +626,7 @@ fn main <()->i32> ():
 ## non-literal raw address add は same-base raw place として保守的に扱う
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -655,7 +655,7 @@ fn main <()->i32> ():
 ## signed raw address sub は base provenance を保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -709,7 +709,7 @@ fn main <()->i32> ():
 ## non-literal raw address helper offset は same-base raw place として保守的に扱う
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -740,7 +740,7 @@ fn main <()->i32> ():
 ## non-Copy raw store は未moveの place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -787,7 +787,7 @@ fn main <()->i32> ():
 ## raw dealloc は initialized non-Copy place を捨てられない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -834,7 +834,7 @@ fn main <()->i32> ():
 ## dealloc_ptr は initialized non-Copy MemPtr place を捨てられない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -858,7 +858,7 @@ fn main <()->i32> ():
 ## dealloc_region は initialized non-Copy RegionToken place を捨てられない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -909,7 +909,7 @@ fn main <()->i32> ():
 ## region_ptr_at の Ok bind は RegionToken raw place として扱う
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -939,7 +939,7 @@ fn main <()->i32> ():
 ## region_ptr_at の non-literal Ok bind は unknown-offset raw place として扱う
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -972,7 +972,7 @@ fn main <()->i32> ():
 ## enum payload 変数の MemPtr alias は match bind へ引き継ぐ
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1002,7 +1002,7 @@ fn main <()->i32> ():
 ## enum payload alias は branch merge 後も一致する場合だけ保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1037,7 +1037,7 @@ fn main <()->i32> ():
 ## aggregate field の MemPtr alias は field get 後も保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1067,7 +1067,7 @@ fn main <()->i32> ():
 ## aggregate field alias は branch merge 後も一致する場合だけ保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1102,7 +1102,7 @@ fn main <()->i32> ():
 ## enum payload 内 aggregate field の MemPtr alias は match bind 後も保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1138,7 +1138,7 @@ fn main <()->i32> ():
 ## enum payload 内 aggregate field alias は branch merge 後も一致する場合だけ保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1179,7 +1179,7 @@ fn main <()->i32> ():
 ## 関数が返した MemPtr alias は raw place の同一性を保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1207,7 +1207,7 @@ fn main <()->i32> ():
 ## 関数が返した aggregate field の MemPtr alias は保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1240,7 +1240,7 @@ fn main <()->i32> ():
 ## 関数が返した Result payload の MemPtr alias は match bind 後も保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1273,7 +1273,7 @@ fn main <()->i32> ():
 ## 関数が返した Result payload 内 aggregate field alias は保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1312,7 +1312,7 @@ fn main <()->i32> ():
 ## if で返した関数戻り値の MemPtr alias は両分岐一致時に保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1344,7 +1344,7 @@ fn main <()->i32> ():
 ## 関数が返した Result を直接 match しても payload alias は保持する
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1376,7 +1376,7 @@ fn main <()->i32> ():
 ## raw realloc は initialized non-Copy place を byte move できない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1424,7 +1424,7 @@ fn main <()->i32> ():
 ## realloc_ptr は initialized non-Copy MemPtr place を byte move できない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1448,7 +1448,7 @@ fn main <()->i32> ():
 ## raw mem_copy は initialized non-Copy source を複製できない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1472,7 +1472,7 @@ fn main <()->i32> ():
 ## raw mem_move は initialized non-Copy source を byte move できない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1496,7 +1496,7 @@ fn main <()->i32> ():
 ## raw mem_copy は initialized non-Copy destination を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1520,7 +1520,7 @@ fn main <()->i32> ():
 ## MemPtr mem_copy は initialized non-Copy destination を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1590,7 +1590,7 @@ fn main <()->i32> ():
 ## raw store_i32 は initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1613,7 +1613,7 @@ fn main <()->i32> ():
 ## MemPtr store_i32 は initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1637,7 +1637,7 @@ fn main <()->i32> ():
 ## 関数内の MemPtr store_i32 は caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1665,7 +1665,7 @@ fn main <()->i32> ():
 ## if 条件内の helper raw write も caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1700,7 +1700,7 @@ fn main <()->i32> ():
 ## higher-order helper の function value raw write も caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1731,7 +1731,7 @@ fn main <()->i32> ():
 ## 多段 higher-order helper の function value raw write も caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1765,7 +1765,7 @@ fn main <()->i32> ():
 ## 分岐で選ばれた function value raw write も caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1802,7 +1802,7 @@ fn main <()->i32> ():
 ## aggregate field に保存した function value raw write も caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1839,7 +1839,7 @@ fn main <()->i32> ():
 ## enum payload の function value raw write も caller の initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1875,7 +1875,7 @@ fn main <()->i32> ():
 ## generic raw store の Copy 値でも initialized non-Copy place は上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1898,7 +1898,7 @@ fn main <()->i32> ():
 ## raw memset_u8 は initialized non-Copy place を byte overwrite できない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -1921,7 +1921,7 @@ fn main <()->i32> ():
 ## raw fill_i32 は initialized non-Copy place を上書きできない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -2141,7 +2141,7 @@ fn main <()->i32> ():
 ## raw aggregate field から move した non-Copy field は二重に取り出せない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -2170,7 +2170,7 @@ fn main <()->i32> ():
 ## raw aggregate field から non-Copy field を move した後は aggregate 全体を取り出せない
 
 neplg2:test[compile_fail]
-diag_id: 3100
+diag_code: resource.raw.ownership_violation
 ```neplg2
 #entry main
 #indent 4
@@ -2199,7 +2199,7 @@ fn main <()->i32> ():
 ## pure から impure 関数を呼ぶと拒否
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -2221,7 +2221,7 @@ fn main <()->i32> ():
 ## pure の raw body で I/O を含む場合は拒否
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -2371,7 +2371,7 @@ fn main <()->i32> ():
 ## Copy bound つき generic Copy impl は非 Copy の具体型へ適用しない
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -2451,7 +2451,7 @@ fn main <()->i32> ():
 ## 関数内で未定義変数を set すると拒否
 
 neplg2:test[compile_fail]
-diag_id: 3002
+diag_code: type.variable.undefined
 ```neplg2
 #entry main
 #indent 4
@@ -2470,7 +2470,7 @@ fn main <()->i32> ():
 ## 非Copy値の shared borrow 中 move は拒否
 
 neplg2:test[compile_fail]
-diag_id: 3051
+diag_code: resource.borrow.move_from_shared
 ```neplg2
 #entry main
 #indent 4
@@ -2510,7 +2510,7 @@ fn main <()->i32> ():
 ## Copy impl の対象が非Copy型なら拒否
 
 neplg2:test[compile_fail]
-diag_id: 3050
+diag_code: type.copy_impl.requires_clone
 ```neplg2
 #entry main
 #indent 4
@@ -2541,7 +2541,7 @@ fn main <()->i32> ():
 ## Copy impl には Clone impl が必要
 
 neplg2:test[compile_fail]
-diag_id: 3050
+diag_code: type.copy_impl.requires_clone
 ```neplg2
 #entry main
 #indent 4
@@ -2601,7 +2601,7 @@ fn main <()->i32> ():
 ## Copy trait 有効時は copy-eligible 型も impl がなければ move 扱い
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -2669,7 +2669,7 @@ fn main <()->i32> ():
 ## 同一 trait と同一対象型への impl 重複は拒否
 
 neplg2:test[compile_fail]
-diag_id: 3093
+diag_code: type.impl.duplicate_for_trait_target
 ```neplg2
 #entry main
 #indent 4
@@ -2736,7 +2736,7 @@ fn main <()->i32> ():
 ## 不明 capability 名は診断ID付きで拒否
 
 neplg2:test[compile_fail]
-diag_id: 3096
+diag_code: type.trait_capability.unknown
 ```neplg2
 #entry main
 #indent 4
@@ -2754,7 +2754,7 @@ fn main <()->i32> ():
 ## LocalToken は非Copyとして move 後再利用不可
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4
@@ -2778,7 +2778,7 @@ fn main <()->()> ():
 ## move 後の borrow は拒否
 
 neplg2:test[compile_fail]
-diag_id: 3063
+diag_code: resource.borrow.borrow_moved
 ```neplg2
 #entry main
 #indent 4
@@ -2799,7 +2799,7 @@ fn main <()->()> ():
 ## 分岐で move された可能性のある値の使用は拒否
 
 neplg2:test[compile_fail]
-diag_id: 3054
+diag_code: resource.move.use_possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -2827,7 +2827,7 @@ fn main <()->i32> ():
 ## 非複合型への field access は拒否
 
 neplg2:test[compile_fail]
-diag_id: 3011
+diag_code: type.field.invalid_access
 ```neplg2
 #entry main
 #indent 4
@@ -2841,7 +2841,7 @@ fn main <()->i32> ():
 ## Writer は非Copyとして move 後再利用不可
 
 neplg2:test[compile_fail, skip_llvm]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4

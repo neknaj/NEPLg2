@@ -208,7 +208,7 @@ function collectTestsFromPath(inputPath) {
                 expected_stdout: dt.stdout ?? null,
                 expected_stderr: dt.stderr ?? null,
                 expected_ret: Object.prototype.hasOwnProperty.call(dt, 'ret') ? dt.ret : null,
-                expected_diag_ids: Array.isArray(dt.diag_ids) ? dt.diag_ids : [],
+                expected_diag_codes: Array.isArray(dt.diag_codes) ? dt.diag_codes : [],
                 expected_diag_spans: Array.isArray(dt.diag_spans) ? dt.diag_spans : [],
             });
         }
@@ -616,8 +616,8 @@ function diagSpanMatches(expected, actual) {
 function applyDoctestExpectations(result, testCase, options = {}) {
     const r = { ...result };
     const tags = testCase?.tags || r.tags || [];
-    const expectedDiagIds = Array.isArray(testCase?.expected_diag_ids)
-        ? testCase.expected_diag_ids.filter((v) => Number.isFinite(v)).map((v) => Number(v))
+    const expectedDiagCodes = Array.isArray(testCase?.expected_diag_codes)
+        ? testCase.expected_diag_codes.map((v) => String(v).trim()).filter(Boolean)
         : [];
     const expectedDiagSpans = Array.isArray(testCase?.expected_diag_spans)
         ? testCase.expected_diag_spans.filter((v) => v && Number.isFinite(Number(v.line)) && Number.isFinite(Number(v.col)))
@@ -633,16 +633,16 @@ function applyDoctestExpectations(result, testCase, options = {}) {
     if (r.phase === 'skip') return r;
     if (hasTag(tags, 'compile_fail')) {
         const compileError = String(r.compile_error || '');
-        if (expectedDiagIds.length > 0) {
-            const missing = expectedDiagIds.filter((id) => !compileError.includes(`[D${id}]`));
+        if (expectedDiagCodes.length > 0) {
+            const missing = expectedDiagCodes.filter((code) => !compileError.includes(`[${code}]`));
             if (missing.length > 0) {
                 r.ok = false;
                 r.status = 'fail';
                 r.phase = r.phase || 'compile';
                 r.error = [
-                    'compile_fail diagnostic id mismatch',
-                    `expected ids: ${JSON.stringify(expectedDiagIds)}`,
-                    `missing ids: ${JSON.stringify(missing)}`,
+                    'compile_fail diagnostic code mismatch',
+                    `expected codes: ${JSON.stringify(expectedDiagCodes)}`,
+                    `missing codes: ${JSON.stringify(missing)}`,
                     `compile_error: ${JSON.stringify(compileError)}`,
                 ].join('\n');
                 return r;

@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::HirExprKind;
 use crate::types::{TypeId, TypeKind};
 
@@ -42,7 +42,9 @@ impl<'a> BlockChecker<'a> {
         if matches!(self.current_effect, Effect::Pure) && matches!(effect, Effect::Impure) {
             self.diagnostics.push(
                 Diagnostic::error("pure context cannot call impure function", func.expr.span)
-                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                    .with_code(DiagnosticCode::Effect(
+                        crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+                    )),
             );
             return None;
         }
@@ -119,8 +121,11 @@ impl<'a> BlockChecker<'a> {
             } else if self.env.lookup_value(name).is_some() {
                 if !matches!(self.ctx.get(func.ty), TypeKind::Function { .. }) {
                     self.diagnostics.push(
-                        Diagnostic::error("variable is not callable", func.expr.span)
-                            .with_id(DiagnosticId::TypeVariableNotCallable),
+                        Diagnostic::error("variable is not callable", func.expr.span).with_code(
+                            DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::VariableNotCallable,
+                            ),
+                        ),
                     );
                     return None;
                 }

@@ -91,7 +91,7 @@ fn main <()*>i32> ():
 ## cliarg_cstr_requires_mem_ptr
 
 neplg2:test[compile_fail]
-diag_id: D3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -106,7 +106,7 @@ fn main <()*>()> ():
 ## cliarg_cstr_to_str_requires_mem_ptr
 
 neplg2:test[compile_fail]
-diag_id: D3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4

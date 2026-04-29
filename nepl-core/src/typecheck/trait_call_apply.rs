@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::TypeId;
@@ -149,7 +149,9 @@ impl<'a> BlockChecker<'a> {
                     "trait method call requires receiver argument or expected self type",
                     span,
                 )
-                .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
+                .with_code(DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied,
+                )),
             );
             return TraitMethodApplyResult::Handled(None);
         };
@@ -159,14 +161,19 @@ impl<'a> BlockChecker<'a> {
                     format!("type does not satisfy trait bound '{}'", applied_trait_name),
                     span,
                 )
-                .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
+                .with_code(DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied,
+                )),
             );
             return TraitMethodApplyResult::Handled(None);
         }
         if matches!(self.current_effect, Effect::Pure) && matches!(effect, Effect::Impure) {
             self.diagnostics.push(
-                Diagnostic::error("pure context cannot call impure function", span)
-                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                Diagnostic::error("pure context cannot call impure function", span).with_code(
+                    DiagnosticCode::Effect(
+                        crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+                    ),
+                ),
             );
             return TraitMethodApplyResult::Handled(None);
         }

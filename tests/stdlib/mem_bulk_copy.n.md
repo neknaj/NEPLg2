@@ -81,7 +81,7 @@ fn main <()->i32> ():
 ## typed_mem_copy_rejects_non_copy_owner
 
 neplg2:test[compile_fail]
-diag_id: 3069
+diag_code: type.trait_bound.unsatisfied
 ```neplg2
 #entry main
 #indent 4
@@ -105,7 +105,7 @@ fn main <()->i32> ():
 ## typed_mem_move_rejects_non_copy_owner
 
 neplg2:test[compile_fail]
-diag_id: 3069
+diag_code: type.trait_bound.unsatisfied
 ```neplg2
 #entry main
 #indent 4

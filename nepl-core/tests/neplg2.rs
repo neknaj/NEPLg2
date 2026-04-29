@@ -1,4 +1,4 @@
-use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
@@ -482,9 +482,10 @@ fn main <() -> i32> ():
         panic!("expected diagnostics");
     };
     assert!(
-        diags
-            .iter()
-            .any(|diag| diag.id == Some(DiagnosticId::InvalidConditionalGate)),
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Loader(
+                nepl_core::diagnostic_codes::LoaderDiagnosticCode::ConditionalGateInvalid
+            ))),
         "missing invalid conditional gate diagnostic: {:?}",
         diags
     );
@@ -516,9 +517,10 @@ fn main <() -> i32> ():
         panic!("expected diagnostics");
     };
     assert!(
-        diags
-            .iter()
-            .any(|diag| diag.id == Some(DiagnosticId::InvalidConditionalGate)),
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Loader(
+                nepl_core::diagnostic_codes::LoaderDiagnosticCode::ConditionalGateInvalid
+            ))),
         "missing invalid conditional gate diagnostic: {:?}",
         diags
     );
@@ -553,9 +555,10 @@ fn main <() -> i32> ():
         panic!("expected diagnostics");
     };
     assert!(
-        diags
-            .iter()
-            .any(|diag| diag.id == Some(DiagnosticId::InvalidConditionalGate)),
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Loader(
+                nepl_core::diagnostic_codes::LoaderDiagnosticCode::ConditionalGateInvalid
+            ))),
         "missing invalid conditional gate diagnostic: {:?}",
         diags
     );
@@ -1512,7 +1515,12 @@ fn main <()->i32> ():
     };
     let diag = diags
         .iter()
-        .find(|d| d.id == Some(DiagnosticId::TypeImplTargetMustBeConcrete))
+        .find(|d| {
+            d.code
+                == Some(DiagnosticCode::Type(
+                    nepl_core::diagnostic_codes::TypeDiagnosticCode::ImplTargetNotConcrete,
+                ))
+        })
         .unwrap_or_else(|| panic!("missing concrete impl target diagnostic: {:?}", diags));
     assert_eq!(diag.primary.span.file_id, FileId(0));
     assert_eq!(diag.primary.span.start, target_start);

@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
@@ -293,7 +293,7 @@ impl<'a> BlockChecker<'a> {
                                                 self.diagnostics.push(Diagnostic::error(
                                                     "capturing function cannot be used as a function value yet",
                                                     id.span,
-                                                ).with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported));
+                                                ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)));
                                                 return None;
                                             }
                                         }
@@ -301,7 +301,7 @@ impl<'a> BlockChecker<'a> {
                                             self.diagnostics.push(Diagnostic::error(
                                                 "only callable symbols can be referenced with '@'",
                                                 id.span,
-                                            ).with_id(DiagnosticId::TypeAtRequiresCallable));
+                                            ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionRefRequiresCallable)));
                                             return None;
                                         }
                                     }
@@ -343,8 +343,8 @@ impl<'a> BlockChecker<'a> {
                                                     "type arguments are not allowed for variables",
                                                     id.span,
                                                 )
-                                                .with_id(
-                                                    DiagnosticId::TypeVariableTypeArgsNotAllowed,
+                                                .with_code(
+                                                    DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::VariableTypeArgsNotAllowed),
                                                 ),
                                             );
                                         }
@@ -452,7 +452,7 @@ impl<'a> BlockChecker<'a> {
                                                 "type arguments are not allowed for variables",
                                                 id.span,
                                             )
-                                            .with_id(DiagnosticId::TypeVariableTypeArgsNotAllowed),
+                                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::VariableTypeArgsNotAllowed)),
                                         );
                                     }
                                     let ty = binding.ty;
@@ -555,7 +555,7 @@ impl<'a> BlockChecker<'a> {
                                             self.diagnostics.push(Diagnostic::error(
                                             "only callable symbols can be referenced with '@'",
                                             id.span,
-                                        ).with_id(DiagnosticId::TypeAtRequiresCallable));
+                                        ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionRefRequiresCallable)));
                                             return None;
                                         }
                                         if !type_args.is_empty() {
@@ -564,8 +564,8 @@ impl<'a> BlockChecker<'a> {
                                                     "type arguments are not allowed for variables",
                                                     id.span,
                                                 )
-                                                .with_id(
-                                                    DiagnosticId::TypeVariableTypeArgsNotAllowed,
+                                                .with_code(
+                                                    DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::VariableTypeArgsNotAllowed),
                                                 ),
                                             );
                                         }
@@ -648,7 +648,7 @@ impl<'a> BlockChecker<'a> {
                                                                 self.diagnostics.push(Diagnostic::error(
                                                             "capturing function cannot be used as a function value yet",
                                                             id.span,
-                                                        ).with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported));
+                                                        ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)));
                                                                 return None;
                                                             }
                                                         }
@@ -692,8 +692,8 @@ impl<'a> BlockChecker<'a> {
                                                             "ambiguous overload",
                                                             id.span,
                                                         )
-                                                        .with_id(
-                                                            DiagnosticId::TypeAmbiguousOverload,
+                                                        .with_code(
+                                                            DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous),
                                                         ),
                                                     );
                                                     return None;
@@ -735,7 +735,7 @@ impl<'a> BlockChecker<'a> {
                                             self.diagnostics.push(Diagnostic::error(
                                             "capturing function cannot be used as a function value yet",
                                             id.span,
-                                        ).with_id(DiagnosticId::TypeCapturingFunctionValueUnsupported));
+                                        ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)));
                                             return None;
                                         }
                                         let mut explicit_args = Vec::new();
@@ -792,7 +792,7 @@ impl<'a> BlockChecker<'a> {
                                             self.diagnostics.push(Diagnostic::error(
                                                 "type arguments are not supported for trait methods yet",
                                                 id.span,
-                                            ).with_id(DiagnosticId::TypeTraitMethodTypeArgsNotSupported));
+                                            ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodTypeArgsUnsupported)));
                                             return None;
                                         }
                                         if let Some(sig) = trait_info.methods.get(method_name) {
@@ -842,20 +842,20 @@ impl<'a> BlockChecker<'a> {
                                                     ),
                                                     id.span,
                                                 )
-                                                .with_id(DiagnosticId::TypeTraitMethodNotFound),
+                                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodNotFound)),
                                             );
                                             return None;
                                         }
                                     } else {
                                         self.diagnostics.push(
                                             Diagnostic::error("undefined identifier", id.span)
-                                                .with_id(DiagnosticId::TypeUndefinedIdentifier),
+                                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::IdentifierUndefined)),
                                         );
                                     }
                                 } else {
                                     self.diagnostics.push(
                                         Diagnostic::error("undefined identifier", id.span)
-                                            .with_id(DiagnosticId::TypeUndefinedIdentifier),
+                                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::IdentifierUndefined)),
                                     );
                                 }
                             }
@@ -878,11 +878,11 @@ impl<'a> BlockChecker<'a> {
                                         ),
                                         name.span,
                                     )
-                                    .with_id(DiagnosticId::TypeNoShadowViolation),
+                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                                 );
                                 self.diagnostics.push(
                                     Diagnostic::error("non-shadowable declaration is here", b.span)
-                                        .with_id(DiagnosticId::TypeNoShadowViolation)
+                                        .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                         .with_secondary_label(
                                             name.span,
                                             Some("shadow attempt".into()),
@@ -902,14 +902,14 @@ impl<'a> BlockChecker<'a> {
                                         ),
                                         name.span,
                                     )
-                                    .with_id(DiagnosticId::TypeNoShadowViolation),
+                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                                 );
                                 self.diagnostics.push(
                                     Diagnostic::error(
                                         "non-shadowable declaration is here",
                                         blocked.span,
                                     )
-                                    .with_id(DiagnosticId::TypeNoShadowViolation)
+                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                     .with_secondary_label(name.span, Some("shadow attempt".into())),
                                 );
                                 return None;
@@ -923,7 +923,7 @@ impl<'a> BlockChecker<'a> {
                                     ),
                                         name.span,
                                     )
-                                    .with_id(DiagnosticId::TypeNoShadowConflict),
+                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict)),
                                 );
                                 return None;
                             }
@@ -971,7 +971,7 @@ impl<'a> BlockChecker<'a> {
                             if !binding.mutable {
                                 self.diagnostics.push(
                                     Diagnostic::error("cannot set immutable variable", name.span)
-                                        .with_id(DiagnosticId::TypeImmutableMutation),
+                                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::MutationImmutable)),
                                 );
                             }
                             let effect = if scope_index == 0 {
@@ -1001,7 +1001,9 @@ impl<'a> BlockChecker<'a> {
                         } else {
                             self.diagnostics.push(
                                 Diagnostic::error("undefined variable", name.span)
-                                    .with_id(DiagnosticId::TypeUndefinedVariable),
+                                    .with_code(DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::VariableUndefined,
+                                )),
                             );
                         }
                     }
@@ -1096,7 +1098,9 @@ impl<'a> BlockChecker<'a> {
                     {
                         self.diagnostics.push(
                             Diagnostic::error("pure context cannot call impure function", *sp)
-                                .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                                .with_code(DiagnosticCode::Effect(
+                                    crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+                                )),
                         );
                         return None;
                     }
@@ -1132,7 +1136,7 @@ impl<'a> BlockChecker<'a> {
                         } else {
                             self.diagnostics.push(
                                 Diagnostic::error("callsite_span expects 1 type arg", *sp)
-                                    .with_id(DiagnosticId::TypeIntrinsicTypeArgArityMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicTypeArgArityMismatch)),
                             );
                             self.ctx.unit()
                         }
@@ -1191,8 +1195,11 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.unit()
                     } else {
                         self.diagnostics.push(
-                            Diagnostic::error("unknown intrinsic", *sp)
-                                .with_id(DiagnosticId::TypeUnknownIntrinsic),
+                            Diagnostic::error("unknown intrinsic", *sp).with_code(
+                                DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicUnknown,
+                                ),
+                            ),
                         );
                         self.ctx.unit()
                     };
@@ -1248,7 +1255,7 @@ impl<'a> BlockChecker<'a> {
                                         "get_field_ref expects a reference to a composite value",
                                         obj.span,
                                     )
-                                    .with_id(DiagnosticId::TypeInvalidFieldAccess),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FieldInvalidAccess)),
                                 );
                                 self.ctx.never()
                             }
@@ -1329,7 +1336,7 @@ impl<'a> BlockChecker<'a> {
                                         ),
                                         *sp,
                                     )
-                                    .with_id(DiagnosticId::TypeAssignmentTypeMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::AssignmentMismatch)),
                                 );
                             }
 
@@ -1385,7 +1392,7 @@ impl<'a> BlockChecker<'a> {
                         if args.len() != 1 {
                             self.diagnostics.push(
                                 Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
                             );
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.i32()) {
                             self.diagnostics.push(
@@ -1393,14 +1400,14 @@ impl<'a> BlockChecker<'a> {
                                     "intrinsic argument type mismatch (expected i32)",
                                     *sp,
                                 )
-                                .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
                             );
                         }
                     } else if intrin.name == "char_to_i32" {
                         if args.len() != 1 {
                             self.diagnostics.push(
                                 Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
                             );
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.char()) {
                             self.diagnostics.push(
@@ -1408,14 +1415,14 @@ impl<'a> BlockChecker<'a> {
                                     "intrinsic argument type mismatch (expected char)",
                                     *sp,
                                 )
-                                .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
                             );
                         }
                     } else if intrin.name == "f32_to_i32" || intrin.name == "reinterpret_f32_i32" {
                         if args.len() != 1 {
                             self.diagnostics.push(
                                 Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
                             );
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.f32()) {
                             self.diagnostics.push(
@@ -1423,14 +1430,14 @@ impl<'a> BlockChecker<'a> {
                                     "intrinsic argument type mismatch (expected f32)",
                                     *sp,
                                 )
-                                .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
                             );
                         }
                     } else if intrin.name == "u8_to_i32" || intrin.name == "u32_to_i32" {
                         if args.len() != 1 {
                             self.diagnostics.push(
                                 Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
                             );
                         } else {
                             let expected = if intrin.name == "u8_to_i32" {
@@ -1452,7 +1459,7 @@ impl<'a> BlockChecker<'a> {
                                         ),
                                         *sp,
                                     )
-                                    .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
                                 );
                             }
                         }
@@ -1460,7 +1467,7 @@ impl<'a> BlockChecker<'a> {
                         if args.len() != 1 {
                             self.diagnostics.push(
                                 Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
                             );
                         } else {
                             let expected = if intrin.name == "i64_to_u64" {
@@ -1487,7 +1494,7 @@ impl<'a> BlockChecker<'a> {
                                         ),
                                         *sp,
                                     )
-                                    .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
                                 );
                             }
                         }
@@ -1496,7 +1503,7 @@ impl<'a> BlockChecker<'a> {
                         if args.len() != 1 {
                             self.diagnostics.push(
                                 Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_id(DiagnosticId::TypeIntrinsicArgArityMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
                             );
                         } else {
                             let expected = if intrin.name == "str_addr" {
@@ -1513,7 +1520,7 @@ impl<'a> BlockChecker<'a> {
                                         ),
                                         *sp,
                                     )
-                                    .with_id(DiagnosticId::TypeIntrinsicArgTypeMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
                                 );
                             }
                         }
@@ -1629,7 +1636,9 @@ impl<'a> BlockChecker<'a> {
                                 "pipe already pending; consecutive |> not allowed",
                                 *sp,
                             )
-                            .with_id(DiagnosticId::TypePipeError),
+                            .with_code(DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
+                            )),
                         );
                         continue;
                     }
@@ -1643,8 +1652,11 @@ impl<'a> BlockChecker<'a> {
                         self.pipe_pending_base(stack.as_slice(), &open_calls, default_pipe_base);
                     if stack.len() == pipe_base {
                         self.diagnostics.push(
-                            Diagnostic::error("pipe requires a value on the stack", *sp)
-                                .with_id(DiagnosticId::TypePipeError),
+                            Diagnostic::error("pipe requires a value on the stack", *sp).with_code(
+                                DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
+                                ),
+                            ),
                         );
                         continue;
                     }
@@ -1672,7 +1684,9 @@ impl<'a> BlockChecker<'a> {
                                         "pipe left-hand side did not reduce to a single value",
                                         expr.span,
                                     )
-                                    .with_id(DiagnosticId::TypePipeError),
+                                    .with_code(DiagnosticCode::Type(
+                                        crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
+                                    )),
                                 );
                                 continue;
                             };
@@ -1690,14 +1704,19 @@ impl<'a> BlockChecker<'a> {
                                     "pipe target must be a callable expression",
                                     expr.span,
                                 )
-                                .with_id(DiagnosticId::TypePipeError),
+                                .with_code(DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
+                                )),
                             );
                             stack.extend(pending);
                         }
                     } else {
                         self.diagnostics.push(
-                            Diagnostic::error("pipe target missing", expr.span)
-                                .with_id(DiagnosticId::TypePipeError),
+                            Diagnostic::error("pipe target missing", expr.span).with_code(
+                                DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
+                                ),
+                            ),
                         );
                         stack.extend(pending);
                     }
@@ -1791,8 +1810,9 @@ impl<'a> BlockChecker<'a> {
 
         if pipe_pending.is_some() {
             self.diagnostics.push(
-                Diagnostic::error("pipe has no target", expr.span)
-                    .with_id(DiagnosticId::TypePipeError),
+                Diagnostic::error("pipe has no target", expr.span).with_code(DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
+                )),
             );
         }
 

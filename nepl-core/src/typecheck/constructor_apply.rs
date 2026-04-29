@@ -4,7 +4,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
@@ -105,15 +105,21 @@ impl<'a> BlockChecker<'a> {
         }
         if c_params.len() == 1 && args.len() != 1 {
             self.diagnostics.push(
-                Diagnostic::error("constructor expects one argument", span)
-                    .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                Diagnostic::error("constructor expects one argument", span).with_code(
+                    DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
+                    ),
+                ),
             );
             return Some(None);
         }
         if c_params.is_empty() && !args.is_empty() {
             self.diagnostics.push(
-                Diagnostic::error("constructor takes no arguments", span)
-                    .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                Diagnostic::error("constructor takes no arguments", span).with_code(
+                    DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
+                    ),
+                ),
             );
             return Some(None);
         }
@@ -162,8 +168,11 @@ impl<'a> BlockChecker<'a> {
         let field_names = info.field_names.clone();
         if args.len() != c_params.len() {
             self.diagnostics.push(
-                Diagnostic::error("struct constructor arity mismatch", span)
-                    .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                Diagnostic::error("struct constructor arity mismatch", span).with_code(
+                    DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
+                    ),
+                ),
             );
             return Some(None);
         }

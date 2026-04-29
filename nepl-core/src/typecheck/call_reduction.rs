@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Ident, MatchPattern};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
@@ -207,7 +207,9 @@ impl<'a> BlockChecker<'a> {
                             "call reduction found non-function after instantiation",
                             stack[func_pos].expr.span,
                         )
-                        .with_id(DiagnosticId::TypeCallReductionLimitExceeded),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::CallReductionLimitExceeded,
+                        )),
                     );
                     break;
                 }
@@ -324,7 +326,7 @@ impl<'a> BlockChecker<'a> {
                             .unwrap_or_else(Span::dummy);
                         self.diagnostics.push(
                             Diagnostic::error("call reduction made no progress", span)
-                                .with_id(DiagnosticId::TypeCallReductionLimitExceeded),
+                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::CallReductionLimitExceeded)),
                         );
                         break;
                     }

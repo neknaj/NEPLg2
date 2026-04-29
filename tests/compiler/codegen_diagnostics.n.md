@@ -5,7 +5,7 @@ backend の未対応経路がプロセス panic ではなく compile_fail diagno
 ## unsupported_intrinsic_is_compile_fail
 
 neplg2:test[compile_fail]
-diag_id: 3012
+diag_code: type.intrinsic.unknown
 ```neplg2
 #target core
 #entry main
@@ -19,7 +19,7 @@ fn main <()->i32> ():
 ## unknown_field_selector_is_compile_fail
 
 neplg2:test[compile_fail]
-diag_id: 3011
+diag_code: type.field.invalid_access
 ```neplg2
 #target core
 #entry main
@@ -37,7 +37,7 @@ fn main <()->i32> ():
 ## invalid_raw_wasm_is_compile_fail
 
 neplg2:test[compile_fail, skip_llvm]
-diag_id: 4004
+diag_code: backend.wasm.raw_line_parse_error
 ```neplg2
 #target core
 #entry main

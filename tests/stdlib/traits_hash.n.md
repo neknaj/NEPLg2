@@ -32,7 +32,7 @@ fn main <()*>i32> ():
 - key の[複製/ふくせい]・copy [可能性/かのうせい]は標準 `Clone` / `Copy` trait で[表現/ひょうげん]します。
 
 neplg2:test[compile_fail]
-diag_id: 3089
+diag_code: type.impl.method_not_in_trait
 ```neplg2
 #entry main
 #target core
@@ -64,7 +64,7 @@ fn main <()->i32> ():
 - hash collection が copy を[必要/ひつよう]とする[箇所/かしょ]では、`.T: HashKey&Copy` のように標準 `Copy` を[明示/めいじ]します。
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #target core
@@ -101,7 +101,7 @@ fn main <()->i32> ():
 - stateless hasher を繰り返し使う collection API は、`.H: Hasher<.K>&Copy` を[明示/めいじ]します。
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #target core

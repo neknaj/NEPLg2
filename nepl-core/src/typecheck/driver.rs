@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::ast::*;
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
@@ -152,7 +152,9 @@ pub fn typecheck(
             {
                 diagnostics.push(
                     Diagnostic::error("WASI import is only allowed for #target wasi", *span)
-                        .with_id(DiagnosticId::TypeWasiImportTargetMismatch),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ExternWasiTargetMismatch,
+                        )),
                 );
                 return;
             }
@@ -193,8 +195,11 @@ pub fn typecheck(
                 });
             } else {
                 diagnostics.push(
-                    Diagnostic::error("extern signature must be a function type", *span)
-                        .with_id(DiagnosticId::TypeExternSignatureMustBeFunction),
+                    Diagnostic::error("extern signature must be a function type", *span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ExternSignatureNotFunction,
+                        ),
+                    ),
                 );
             }
         }
@@ -255,7 +260,9 @@ pub fn typecheck(
                 {
                     diagnostics.push(
                         Diagnostic::error("name already used by another item", e.name.span)
-                            .with_id(DiagnosticId::TypeItemNameConflict),
+                            .with_code(DiagnosticCode::Resolve(
+                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
+                            )),
                     );
                     continue;
                 }
@@ -266,7 +273,7 @@ pub fn typecheck(
                                 "enum type parameter bounds are not supported yet",
                                 p.name.span,
                             )
-                            .with_id(DiagnosticId::TypeEnumTypeParamBoundsUnsupported),
+                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::EnumTypeParamBoundsUnsupported)),
                         );
                     }
                 }
@@ -372,7 +379,9 @@ pub fn typecheck(
                 {
                     diagnostics.push(
                         Diagnostic::error("name already used by another item", s.name.span)
-                            .with_id(DiagnosticId::TypeItemNameConflict),
+                            .with_code(DiagnosticCode::Resolve(
+                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
+                            )),
                     );
                     continue;
                 }
@@ -383,7 +392,7 @@ pub fn typecheck(
                                 "struct type parameter bounds are not supported yet",
                                 p.name.span,
                             )
-                            .with_id(DiagnosticId::TypeStructTypeParamBoundsUnsupported),
+                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::StructTypeParamBoundsUnsupported)),
                         );
                     }
                 }
@@ -490,7 +499,9 @@ pub fn typecheck(
                                     format!("unknown trait capability '{}'", name.trim()),
                                     t.name.span,
                                 )
-                                .with_id(DiagnosticId::TypeUnknownTraitCapability),
+                                .with_code(DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::TraitCapabilityUnknown,
+                                )),
                             );
                         }
                     }
@@ -518,7 +529,7 @@ pub fn typecheck(
                                 "trait methods cannot have type parameters yet",
                                 m.name.span,
                             )
-                            .with_id(DiagnosticId::TypeTraitMethodTypeParamsUnsupported),
+                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodTypeParamsUnsupported)),
                         );
                         continue;
                     }
@@ -598,8 +609,11 @@ pub fn typecheck(
         if let Stmt::Impl(i) = item {
             if i.trait_ref.is_none() {
                 diagnostics.push(
-                    Diagnostic::error("inherent impl is not supported yet", i.span)
-                        .with_id(DiagnosticId::TypeInherentImplUnsupported),
+                    Diagnostic::error("inherent impl is not supported yet", i.span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ImplInherentUnsupported,
+                        ),
+                    ),
                 );
                 continue;
             }
@@ -608,8 +622,11 @@ pub fn typecheck(
             if let Some(tn) = &trait_name {
                 if !traits.contains_key(tn) {
                     diagnostics.push(
-                        Diagnostic::error(format!("unknown trait '{}'", tn), i.span)
-                            .with_id(DiagnosticId::TypeUnknownTrait),
+                        Diagnostic::error(format!("unknown trait '{}'", tn), i.span).with_code(
+                            DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::TraitUnknown,
+                            ),
+                        ),
                     );
                     continue;
                 }
@@ -637,7 +654,9 @@ pub fn typecheck(
                             ),
                             trait_ref.name.span,
                         )
-                        .with_id(DiagnosticId::TypeTraitTypeParamsUnsupported),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                        )),
                     );
                     continue;
                 }
@@ -659,7 +678,9 @@ pub fn typecheck(
             {
                 diagnostics.push(
                     Diagnostic::error("impl target type must be concrete", i.target_ty.span())
-                        .with_id(DiagnosticId::TypeImplTargetMustBeConcrete),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ImplTargetNotConcrete,
+                        )),
                 );
                 continue;
             }
@@ -670,7 +691,9 @@ pub fn typecheck(
                             "copy impl target type is not copyable",
                             i.target_ty.span(),
                         )
-                        .with_id(DiagnosticId::TypeCopyImplTargetNotCopy),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::CopyImplTargetNotCopy,
+                        )),
                     );
                     push_unique_type(&ctx, &mut rejected_copy_targets, target_ty);
                     continue;
@@ -685,7 +708,9 @@ pub fn typecheck(
             }) {
                 diagnostics.push(
                     Diagnostic::error("duplicate impl for same trait and target type", i.span)
-                        .with_id(DiagnosticId::TypeDuplicateImplForTraitTarget),
+                        .with_code(DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::ImplDuplicateForTraitTarget,
+                    )),
                 );
                 duplicate_impl_spans.insert((i.span.file_id.0, i.span.start, i.span.end));
                 continue;
@@ -720,7 +745,9 @@ pub fn typecheck(
                     "copy impl requires clone impl for the same target type",
                     span,
                 )
-                .with_id(DiagnosticId::TypeCopyImplRequiresClone),
+                .with_code(DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::CopyImplRequiresClone,
+                )),
             );
             push_unique_type(&ctx, &mut rejected_copy_targets, target_ty);
         }
@@ -819,14 +846,18 @@ pub fn typecheck(
                 if env.lookup_value(&f.name.name).is_some() {
                     diagnostics.push(
                         Diagnostic::error("name already used by another item", f.name.span)
-                            .with_id(DiagnosticId::TypeItemNameConflict),
+                            .with_code(DiagnosticCode::Resolve(
+                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
+                            )),
                     );
                     continue;
                 }
                 if enums.contains_key(&f.name.name) || structs.contains_key(&f.name.name) {
                     diagnostics.push(
                         Diagnostic::error("name already used by another item", f.name.span)
-                            .with_id(DiagnosticId::TypeItemNameConflict),
+                            .with_code(DiagnosticCode::Resolve(
+                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
+                            )),
                     );
                     continue;
                 }
@@ -853,7 +884,9 @@ pub fn typecheck(
                 {
                     diagnostics.push(
                         Diagnostic::error("ambiguous overload", f.name.span)
-                            .with_id(DiagnosticId::TypeAmbiguousOverload)
+                            .with_code(DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous,
+                            ))
                             .with_secondary_label(
                                 prev.span,
                                 Some("conflicting overload is defined here".into()),
@@ -874,14 +907,14 @@ pub fn typecheck(
                                     ),
                                     f.name.span,
                                 )
-                                .with_id(DiagnosticId::TypeNoShadowViolation),
+                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                             );
                             diagnostics.push(
                                 Diagnostic::error(
                                     "non-shadowable function declaration is here",
                                     conflict.span,
                                 )
-                                .with_id(DiagnosticId::TypeNoShadowViolation)
+                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                 .with_secondary_label(f.name.span, Some("shadow attempt".into())),
                             );
                             continue;
@@ -893,11 +926,11 @@ pub fn typecheck(
                                 format!("cannot shadow non-shadowable symbol '{}'", f.name.name),
                                 f.name.span,
                             )
-                            .with_id(DiagnosticId::TypeNoShadowViolation),
+                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                         );
                         diagnostics.push(
                             Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                                .with_id(DiagnosticId::TypeNoShadowViolation)
+                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                 .with_secondary_label(f.name.span, Some("shadow attempt".into())),
                         );
                         continue;
@@ -918,7 +951,9 @@ pub fn typecheck(
                             ),
                             f.name.span,
                         )
-                        .with_id(DiagnosticId::TypeNoShadowConflict),
+                        .with_code(DiagnosticCode::Resolve(
+                            crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict,
+                        )),
                     );
                     continue;
                 }
@@ -951,7 +986,9 @@ pub fn typecheck(
             } else {
                 diagnostics.push(
                     Diagnostic::error("function signature must be a function type", f.name.span)
-                        .with_id(DiagnosticId::TypeFunctionSignatureMustBeFunction),
+                        .with_code(DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureNotFunction,
+                    )),
                 );
             }
         }
@@ -960,16 +997,22 @@ pub fn typecheck(
     for alias in &fn_aliases {
         if enums.contains_key(&alias.name.name) || structs.contains_key(&alias.name.name) {
             diagnostics.push(
-                Diagnostic::error("name already used by another item", alias.name.span)
-                    .with_id(DiagnosticId::TypeItemNameConflict),
+                Diagnostic::error("name already used by another item", alias.name.span).with_code(
+                    DiagnosticCode::Resolve(
+                        crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
+                    ),
+                ),
             );
             continue;
         }
         let targets = env.lookup_all_callables(&alias.target.name);
         if targets.is_empty() {
             diagnostics.push(
-                Diagnostic::error("alias target not found", alias.target.span)
-                    .with_id(DiagnosticId::TypeAliasTargetNotFound),
+                Diagnostic::error("alias target not found", alias.target.span).with_code(
+                    DiagnosticCode::Resolve(
+                        crate::diagnostic_codes::ResolveDiagnosticCode::AliasTargetNotFound,
+                    ),
+                ),
             );
             continue;
         }
@@ -1027,7 +1070,9 @@ pub fn typecheck(
             if env.lookup_value(&alias.name.name).is_some() {
                 diagnostics.push(
                     Diagnostic::error("name already used by another item", alias.name.span)
-                        .with_id(DiagnosticId::TypeItemNameConflict),
+                        .with_code(DiagnosticCode::Resolve(
+                            crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
+                        )),
                 );
                 break;
             }
@@ -1044,14 +1089,14 @@ pub fn typecheck(
                                 ),
                                 alias.name.span,
                             )
-                            .with_id(DiagnosticId::TypeNoShadowViolation),
+                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
                         );
                         diagnostics.push(
                             Diagnostic::error(
                                 "non-shadowable function declaration is here",
                                 conflict.span,
                             )
-                            .with_id(DiagnosticId::TypeNoShadowViolation)
+                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                             .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
                         );
                         break;
@@ -1063,11 +1108,13 @@ pub fn typecheck(
                             format!("cannot shadow non-shadowable symbol '{}'", alias.name.name),
                             alias.name.span,
                         )
-                        .with_id(DiagnosticId::TypeNoShadowViolation),
+                        .with_code(DiagnosticCode::Resolve(
+                            crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation,
+                        )),
                     );
                     diagnostics.push(
                         Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                            .with_id(DiagnosticId::TypeNoShadowViolation)
+                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                             .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
                     );
                     break;
@@ -1088,7 +1135,9 @@ pub fn typecheck(
                         ),
                         alias.name.span,
                     )
-                    .with_id(DiagnosticId::TypeNoShadowConflict),
+                    .with_code(DiagnosticCode::Resolve(
+                        crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict,
+                    )),
                 );
                 break;
             }
@@ -1176,7 +1225,7 @@ pub fn typecheck(
                                     "function signature does not match any overload",
                                     f.name.span,
                                 )
-                                .with_id(DiagnosticId::TypeFunctionSignatureOverloadNotFound),
+                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureOverloadNotFound)),
                             );
                             continue;
                         }
@@ -1202,7 +1251,7 @@ pub fn typecheck(
                                             ),
                                             b.name.span,
                                         )
-                                        .with_id(DiagnosticId::TypeTraitTypeParamsUnsupported),
+                                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported)),
                                     );
                                     continue;
                                 }
@@ -1304,7 +1353,9 @@ pub fn typecheck(
                 None => {
                     diagnostics.push(
                         Diagnostic::error("inherent impl is not supported yet", i.span)
-                            .with_id(DiagnosticId::TypeInherentImplUnsupported),
+                            .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ImplInherentUnsupported,
+                        )),
                     );
                     continue;
                 }
@@ -1315,7 +1366,9 @@ pub fn typecheck(
                 None => {
                     diagnostics.push(
                         Diagnostic::error(format!("unknown trait '{}'", trait_name), i.span)
-                            .with_id(DiagnosticId::TypeUnknownTrait),
+                            .with_code(DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::TraitUnknown,
+                            )),
                     );
                     continue;
                 }
@@ -1341,7 +1394,9 @@ pub fn typecheck(
                         ),
                         trait_ref.name.span,
                     )
-                    .with_id(DiagnosticId::TypeTraitTypeParamsUnsupported),
+                    .with_code(DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                    )),
                 );
                 continue;
             }
@@ -1358,7 +1413,9 @@ pub fn typecheck(
             {
                 diagnostics.push(
                     Diagnostic::error("impl target type must be concrete", i.target_ty.span())
-                        .with_id(DiagnosticId::TypeImplTargetMustBeConcrete),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ImplTargetNotConcrete,
+                        )),
                 );
                 continue;
             }
@@ -1374,8 +1431,11 @@ pub fn typecheck(
             for m in &i.methods {
                 if !seen_methods.insert(m.name.name.clone()) {
                     diagnostics.push(
-                        Diagnostic::error("duplicate method in impl", m.name.span)
-                            .with_id(DiagnosticId::TypeDuplicateImplMethod),
+                        Diagnostic::error("duplicate method in impl", m.name.span).with_code(
+                            DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::ImplDuplicateMethod,
+                            ),
+                        ),
                     );
                     continue;
                 }
@@ -1385,7 +1445,7 @@ pub fn typecheck(
                             "impl methods cannot have type parameters yet",
                             m.name.span,
                         )
-                        .with_id(DiagnosticId::TypeTraitMethodTypeParamsUnsupported),
+                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodTypeParamsUnsupported)),
                     );
                     continue;
                 }
@@ -1400,7 +1460,9 @@ pub fn typecheck(
                                 ),
                                 m.name.span,
                             )
-                            .with_id(DiagnosticId::TypeImplMethodNotFoundInTrait),
+                            .with_code(DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::ImplMethodNotInTrait,
+                            )),
                         );
                         continue;
                     }
@@ -1421,7 +1483,7 @@ pub fn typecheck(
                             "impl method signature does not match trait",
                             m.name.span,
                         )
-                        .with_id(DiagnosticId::TypeImplMethodSignatureMismatch),
+                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::ImplMethodSignatureMismatch)),
                     );
                     continue;
                 }
@@ -1485,7 +1547,9 @@ pub fn typecheck(
                             ),
                             i.span,
                         )
-                        .with_id(DiagnosticId::TypeImplMissingTraitMethod),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ImplMissingTraitMethod,
+                        )),
                     );
                 }
             }

@@ -5,7 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirModule};
 use crate::types::TypeCtx;
 use crate::wasm_shared;
@@ -42,8 +42,11 @@ pub fn precheck_wasm_codegen(ctx: &TypeCtx, module: &HirModule) -> Vec<Diagnosti
     for ext in &module.externs {
         if wasm_shared::wasm_sig_ids(ctx, ext.result, &ext.params).is_none() {
             out.push(
-                Diagnostic::error("unsupported extern signature for wasm", ext.span)
-                    .with_id(DiagnosticId::CodegenWasmUnsupportedExternSignature),
+                Diagnostic::error("unsupported extern signature for wasm", ext.span).with_code(
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::ExternSignatureUnsupported,
+                    )),
+                ),
             );
         }
     }
@@ -57,8 +60,11 @@ pub fn precheck_wasm_codegen(ctx: &TypeCtx, module: &HirModule) -> Vec<Diagnosti
             && !wasm_shared::should_skip_wasm_codegen_for_generic(ctx, f)
         {
             out.push(
-                Diagnostic::error("unsupported function signature for wasm", f.span)
-                    .with_id(DiagnosticId::CodegenWasmUnsupportedFunctionSignature),
+                Diagnostic::error("unsupported function signature for wasm", f.span).with_code(
+                    DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                        crate::diagnostic_codes::WasmDiagnosticCode::FunctionSignatureUnsupported,
+                    )),
+                ),
             );
         }
         if !wasm_shared::should_skip_wasm_codegen_for_generic(ctx, f) {
@@ -68,7 +74,11 @@ pub fn precheck_wasm_codegen(ctx: &TypeCtx, module: &HirModule) -> Vec<Diagnosti
                     if !block_produces_value(ctx, block) {
                         out.push(
                             Diagnostic::error("function expected to return value", f.span)
-                                .with_id(DiagnosticId::CodegenWasmMissingReturnValue),
+                                .with_code(DiagnosticCode::Backend(
+                                crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                    crate::diagnostic_codes::WasmDiagnosticCode::ReturnValueMissing,
+                                ),
+                            )),
                         );
                     }
                 }
@@ -76,7 +86,11 @@ pub fn precheck_wasm_codegen(ctx: &TypeCtx, module: &HirModule) -> Vec<Diagnosti
             if matches!(f.body, HirBody::LlvmIr(_)) {
                 out.push(
                     Diagnostic::error("llvm ir block cannot be compiled by wasm backend", f.span)
-                        .with_id(DiagnosticId::CodegenWasmLlvmIrBodyNotSupported),
+                        .with_code(DiagnosticCode::Backend(
+                            crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                crate::diagnostic_codes::WasmDiagnosticCode::LlvmIrBodyUnsupported,
+                            ),
+                        )),
                 );
             }
             if let HirBody::Block(block) = &f.body {
@@ -105,8 +119,11 @@ pub fn precheck_llvm_codegen(
                 && !block_produces_value(ctx, block)
             {
                 out.push(
-                    Diagnostic::error("function expected to return value", f.span)
-                        .with_id(DiagnosticId::TypeReturnTypeMismatch),
+                    Diagnostic::error("function expected to return value", f.span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ReturnTypeMismatch,
+                        ),
+                    ),
                 );
             }
             precheck_llvm_expr_tree(block, &mut out);
@@ -129,8 +146,11 @@ fn check_llvm_expr(expr: &HirExpr, out: &mut Vec<Diagnostic>) {
                 .any(|n| *n == name.as_str())
             {
                 out.push(
-                    Diagnostic::error("unknown codegen intrinsic for llvm", expr.span)
-                        .with_id(DiagnosticId::TypeUnknownIntrinsic),
+                    Diagnostic::error("unknown codegen intrinsic for llvm", expr.span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicUnknown,
+                        ),
+                    ),
                 );
             }
             for arg in args {
@@ -244,7 +264,7 @@ fn check_indirect_sig_expr(
                                 "missing wasm signature for indirect call",
                                 expr.span,
                             )
-                            .with_id(DiagnosticId::CodegenWasmMissingIndirectSignature),
+                            .with_code(DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::IndirectSignatureMissing, ))),
                         );
                     }
                 } else {
@@ -253,7 +273,7 @@ fn check_indirect_sig_expr(
                             "unsupported indirect call signature for wasm",
                             expr.span,
                         )
-                        .with_id(DiagnosticId::CodegenWasmUnsupportedIndirectSignature),
+                        .with_code(DiagnosticCode::Backend(crate::diagnostic_codes::BackendDiagnosticCode::Wasm( crate::diagnostic_codes::WasmDiagnosticCode::IndirectSignatureUnsupported, ))),
                     );
                 }
                 for arg in args.iter().rev() {
@@ -269,8 +289,13 @@ fn check_indirect_sig_expr(
             HirExprKind::Intrinsic { name, args, .. } => {
                 if !wasm_shared::is_supported_wasm_intrinsic(name) {
                     out.push(
-                        Diagnostic::error("unknown codegen intrinsic", expr.span)
-                            .with_id(DiagnosticId::CodegenWasmUnknownIntrinsic),
+                        Diagnostic::error("unknown codegen intrinsic", expr.span).with_code(
+                            DiagnosticCode::Backend(
+                                crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
+                                    crate::diagnostic_codes::WasmDiagnosticCode::IntrinsicUnknown,
+                                ),
+                            ),
+                        ),
                     );
                 }
                 for arg in args.iter().rev() {

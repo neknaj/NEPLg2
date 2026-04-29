@@ -1051,7 +1051,7 @@ fn main <()->i32> ():
     v
 ```
 
-## if_layout_invalid_marker_order_reports_diag_id
+## if_layout_invalid_marker_order_reports_diag_code
 
 neplg2:test[compile_fail]
 ```neplg2
@@ -1142,10 +1142,10 @@ fn main <()->i32> ():
     v
 ```
 
-## if_condition_must_be_bool_reports_diag_id
+## if_condition_must_be_bool_reports_diag_code
 
 neplg2:test[compile_fail]
-diag_id: 3039
+diag_code: type.if.condition_mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -1155,10 +1155,10 @@ fn main <()->i32> ():
     if 1 10 20
 ```
 
-## while_body_must_be_unit_reports_diag_id
+## while_body_must_be_unit_reports_diag_code
 
 neplg2:test[compile_fail]
-diag_id: 3042
+diag_code: type.while.body_mismatch
 ```neplg2
 #entry main
 #indent 4

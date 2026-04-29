@@ -103,7 +103,7 @@ Resource IR は CFG を持つ中間表現とし、少なくとも次を第一級
 5. initialized value を持つ cell を storage-only free することは禁止する。
 6. `load<T>` は `T: Copy` の read と、non-Copy の move-out を分ける。
 7. `store<T>` は uninitialized cell の initialize と、initialized cell の overwrite を分ける。non-Copy overwrite は既存 value の drop/consume が証明された場合だけ許可する。
-8. raw address `i32` は compiler-owned internal boundary 外へ出さない。移行中は既存 API を D3100 / D3025 系の検査で保守的に塞ぐ。
+8. raw address `i32` は compiler-owned internal boundary 外へ出さない。移行中は既存 API を `resource.raw.ownership_violation` / `effect.pure.calls_impure` 系の検査で保守的に塞ぐ。
 
 ### function effect と resource summary
 
@@ -125,8 +125,8 @@ function value、enum payload、aggregate field、branch merge を別々の alia
 
 作業:
 
-- `tests/compiler/move_effect.n.md` の D3100 / D3025 regression を現行 baseline として維持する。
-- raw memory / borrow / function effect 関連の compile_fail に diagnostic id を可能な範囲で固定する。
+- `tests/compiler/move_effect.n.md` の raw ownership / raw effect regression を現行 baseline として維持する。
+- raw memory / borrow / function effect 関連の compile_fail に `diag_code` を可能な範囲で固定する。
 - `node nodesrc/issues.js check` と focused compiler test を CI / local の確認手順へ明記する。
 
 commit 単位:
@@ -194,7 +194,7 @@ commit 単位:
 - `BorrowState` による shared / unique / lifetime end 検査を実装する。
 - branch / loop merge を Resource IR state merge に統一する。
 - old `move_check` は比較用に残し、差分がある場合は issue 化する。
-- Resource IR diagnostic を legacy `D3100` bucket へ押し込むだけでなく、[compiler diagnostic 再設計計画](./compiler_diagnostics_redesign_plan.md)に従って cell / owner / borrow / lowering の stable code を保持する。
+- Resource IR diagnostic を粗い互換 bucket へ押し込まず、[compiler diagnostic 再設計計画](./compiler_diagnostics_redesign_plan.md)に従って cell / owner / borrow / lowering の stable code を保持する。
 
 commit 単位:
 
@@ -212,9 +212,9 @@ commit 単位:
 
 - internal effect と surface fold を導入する。
 - raw memory primitive は compiler-owned boundary では `InternalAlloc` / `UnsafeMemory` として扱う。
-- public pure API から raw identity が漏れた場合は fold 不可として D3025 系 diagnostic にする。
+- public pure API から raw identity が漏れた場合は fold 不可として `resource.raw.*` / `effect.*` の diagnostic にする。
 - user source から raw address escape を構成できる経路を compile_fail にする。
-- raw identity escape と ordinary impure call を同じ `D3025` 表示だけに依存させず、[compiler diagnostic 再設計計画](./compiler_diagnostics_redesign_plan.md)の `resource.raw.*` / `effect.*` code へ分ける。
+- raw identity escape と ordinary impure call を同じ表示 bucket に依存させず、[compiler diagnostic 再設計計画](./compiler_diagnostics_redesign_plan.md)の `resource.raw.*` / `effect.*` code へ分ける。
 
 commit 単位:
 
@@ -317,7 +317,7 @@ self-host 実装側の禁止事項:
 
 - 既存 `Vec` / `StringBuilder` を使った S1/S2 実装。
 - raw-backed implementation を internal module に閉じた wrapper として使う。
-- Resource IR 導入前の暫定 compiler regression を維持するための保守的 D3100。
+- Resource IR 導入前の暫定 compiler regression を維持するための保守的 `resource.raw.ownership_violation`。
 
 ## 完了条件
 

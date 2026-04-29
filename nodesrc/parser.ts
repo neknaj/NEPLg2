@@ -66,7 +66,7 @@ interface Doctest {
   stdout: string | null;
   stderr: string | null;
   ret: unknown;
-  diag_ids: number[];
+  diag_codes: string[];
   diag_spans: DiagSpan[];
 }
 
@@ -197,7 +197,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       stdout: string | null;
       stderr: string | null;
       ret: unknown;
-      diag_ids: number[];
+      diag_codes: string[];
       diag_spans: DiagSpan[];
     } = {
       stdin: null,
@@ -205,7 +205,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       stdout: null,
       stderr: null,
       ret: null,
-      diag_ids: [],
+      diag_codes: [],
       diag_spans: [],
     };
 
@@ -215,7 +215,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       const l2 = opts.lineTransform(raw2);
       if (/^\s*neplg2:test(?:\[[^\]]+\])?\s*$/.test(l2)) break;
       const mm = l2.match(
-        /^\s*(stdin|argv|stdout|stderr|ret|diag_id|diag_ids|diag_span|diag_spans)\s*:\s*(.*?)\s*$/,
+        /^\s*(stdin|argv|stdout|stderr|ret|diag_code|diag_codes|diag_span|diag_spans)\s*:\s*(.*?)\s*$/,
       );
       if (mm) {
         const k = mm[1];
@@ -224,17 +224,17 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
           const parsed = parseMlstrMeta(lines, j + 1, opts);
           meta[k] = parsed.value;
           j = parsed.nextIndex - 1;
-        } else if (k === "diag_id") {
-          const v = parseInt(String(parseMetaValue(rawValue)).trim(), 10);
-          if (Number.isFinite(v)) meta.diag_ids.push(v);
-        } else if (k === "diag_ids") {
+        } else if (k === "diag_code") {
+          const v = String(parseMetaValue(rawValue)).trim();
+          if (v) meta.diag_codes.push(v);
+        } else if (k === "diag_codes") {
           const rawVals = parseMetaValue(rawValue);
           const vals: unknown[] = Array.isArray(rawVals)
             ? rawVals
             : String(rawVals).split(",").map(x => x.trim()).filter(Boolean);
           for (const x of vals) {
-            const v = parseInt(String(x).trim(), 10);
-            if (Number.isFinite(v)) meta.diag_ids.push(v);
+            const v = String(x).trim();
+            if (v) meta.diag_codes.push(v);
           }
         } else if (k === "diag_span") {
           const one = parseDiagSpanEntry(parseMetaValue(rawValue));
@@ -266,7 +266,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
           stdout: meta.stdout,
           stderr: meta.stderr,
           ret: meta.ret,
-          diag_ids: meta.diag_ids,
+          diag_codes: meta.diag_codes,
           diag_spans: meta.diag_spans,
         });
         i = j - 1;
@@ -297,7 +297,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       stdout: meta.stdout,
       stderr: meta.stderr,
       ret: meta.ret,
-      diag_ids: meta.diag_ids,
+      diag_codes: meta.diag_codes,
       diag_spans: meta.diag_spans,
     });
 

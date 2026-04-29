@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::span::{FileId, Span};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -216,7 +216,7 @@ impl LexState {
                             );
                             self.diagnostics.push(
                                 Diagnostic::error("tabs are not allowed for indentation", span)
-                                    .with_id(DiagnosticId::LexerIndentTabsNotAllowed),
+                                    .with_code(DiagnosticCode::Lexer(crate::diagnostic_codes::LexerDiagnosticCode::IndentTabsNotAllowed)),
                             );
                             width += self.indent_unit;
                             idx += 1;
@@ -258,8 +258,11 @@ impl LexState {
                         (line_start + idx + 1) as u32,
                     );
                     self.diagnostics.push(
-                        Diagnostic::error("tabs are not allowed for indentation", span)
-                            .with_id(DiagnosticId::LexerIndentTabsNotAllowed),
+                        Diagnostic::error("tabs are not allowed for indentation", span).with_code(
+                            DiagnosticCode::Lexer(
+                                crate::diagnostic_codes::LexerDiagnosticCode::IndentTabsNotAllowed,
+                            ),
+                        ),
                     );
                     width += self.indent_unit;
                     idx += 1;
@@ -295,8 +298,11 @@ impl LexState {
             if actual_indent < expected {
                 let span = Span::new(self.file_id, line_start as u32, line_start as u32);
                 self.diagnostics.push(
-                    Diagnostic::error("expected indented block after #wasm", span)
-                        .with_id(DiagnosticId::LexerExpectedIndentedBlock),
+                    Diagnostic::error("expected indented block after #wasm", span).with_code(
+                        DiagnosticCode::Lexer(
+                            crate::diagnostic_codes::LexerDiagnosticCode::RawBlockExpectedIndent,
+                        ),
+                    ),
                 );
             } else {
                 self.wasm_base = Some(expected);
@@ -309,8 +315,11 @@ impl LexState {
             if actual_indent < expected {
                 let span = Span::new(self.file_id, line_start as u32, line_start as u32);
                 self.diagnostics.push(
-                    Diagnostic::error("expected indented block after #llvmir", span)
-                        .with_id(DiagnosticId::LexerExpectedIndentedBlock),
+                    Diagnostic::error("expected indented block after #llvmir", span).with_code(
+                        DiagnosticCode::Lexer(
+                            crate::diagnostic_codes::LexerDiagnosticCode::RawBlockExpectedIndent,
+                        ),
+                    ),
                 );
             } else {
                 self.llvmir_base = Some(expected);
@@ -351,7 +360,9 @@ impl LexState {
                             );
                             self.diagnostics.push(
                                 Diagnostic::error("pub prefix is only allowed for #import", span)
-                                    .with_id(DiagnosticId::LexerInvalidPubDirectivePrefix),
+                                    .with_code(DiagnosticCode::Lexer(
+                                    crate::diagnostic_codes::LexerDiagnosticCode::PubPrefixInvalid,
+                                )),
                             );
                             directive_text = Some(after_pub_trim.to_string());
                         }
@@ -431,7 +442,9 @@ impl LexState {
                 let span = Span::new(self.file_id, line_start as u32, line_start as u32);
                 self.diagnostics.push(
                     Diagnostic::error("indentation is not aligned to #indent width", span)
-                        .with_id(DiagnosticId::LexerIndentWidthMismatch),
+                        .with_code(DiagnosticCode::Lexer(
+                            crate::diagnostic_codes::LexerDiagnosticCode::IndentWidthMismatch,
+                        )),
                 );
             }
             self.indent_stack.push(indent);
@@ -448,7 +461,9 @@ impl LexState {
                 let span = Span::new(self.file_id, line_start as u32, line_start as u32);
                 self.diagnostics.push(
                     Diagnostic::error("indentation level does not match any previous indent", span)
-                        .with_id(DiagnosticId::LexerIndentLevelMismatch),
+                        .with_code(DiagnosticCode::Lexer(
+                            crate::diagnostic_codes::LexerDiagnosticCode::IndentLevelMismatch,
+                        )),
                 );
                 self.indent_stack.push(indent);
             }
@@ -497,8 +512,11 @@ impl LexState {
                     (line_offset + body.len()) as u32,
                 );
                 self.diagnostics.push(
-                    Diagnostic::error("invalid #indent argument", span)
-                        .with_id(DiagnosticId::ParserExpectedToken),
+                    Diagnostic::error("invalid #indent argument", span).with_code(
+                        DiagnosticCode::Lexer(
+                            crate::diagnostic_codes::LexerDiagnosticCode::IndentArgumentInvalid,
+                        ),
+                    ),
                 );
             }
         } else if body.starts_with("import") {
@@ -640,10 +658,12 @@ impl LexState {
                     span,
                 });
             } else {
-                self.diagnostics.push(
-                    Diagnostic::error("invalid #extern syntax", span)
-                        .with_id(DiagnosticId::ParserInvalidExternSignature),
-                );
+                self.diagnostics
+                    .push(Diagnostic::error("invalid #extern syntax", span).with_code(
+                        DiagnosticCode::Parser(
+                            crate::diagnostic_codes::ParserDiagnosticCode::ExternSignatureInvalid,
+                        ),
+                    ));
             }
         } else if body.starts_with("wasm") {
             // expect trailing colon
@@ -691,10 +711,12 @@ impl LexState {
                 line_offset as u32,
                 (line_offset + content_len) as u32,
             );
-            self.diagnostics.push(
-                Diagnostic::error("unknown directive", span)
-                    .with_id(DiagnosticId::LexerUnknownDirective),
-            );
+            self.diagnostics
+                .push(Diagnostic::error("unknown directive", span).with_code(
+                    DiagnosticCode::Lexer(
+                        crate::diagnostic_codes::LexerDiagnosticCode::DirectiveUnknown,
+                    ),
+                ));
         }
     }
 
@@ -838,7 +860,7 @@ impl LexState {
                                                 (offset + i + 2) as u32,
                                             ),
                                         )
-                                        .with_id(DiagnosticId::LexerInvalidStringEscape),
+                                        .with_code(DiagnosticCode::Lexer(crate::diagnostic_codes::LexerDiagnosticCode::StringInvalidEscape)),
                                     );
                                     buf.push('x');
                                     i += 2;
@@ -861,7 +883,7 @@ impl LexState {
                                                     (offset + i + 2) as u32,
                                                 ),
                                             )
-                                            .with_id(DiagnosticId::LexerInvalidStringEscape),
+                                            .with_code(DiagnosticCode::Lexer(crate::diagnostic_codes::LexerDiagnosticCode::StringInvalidEscape)),
                                         );
                                         other as char
                                     }
@@ -891,7 +913,9 @@ impl LexState {
                                     (offset + i) as u32,
                                 ),
                             )
-                            .with_id(DiagnosticId::LexerUnterminatedStringLiteral),
+                            .with_code(DiagnosticCode::Lexer(
+                                crate::diagnostic_codes::LexerDiagnosticCode::StringUnterminated,
+                            )),
                         );
                     }
                 }
@@ -1023,7 +1047,12 @@ impl LexState {
         };
         *i += ch.len_utf8();
         if *i < bytes.len() && bytes[*i] != b'\'' {
-            self.invalid_char_literal(*i, *i + 1, offset, "char literal must contain one character");
+            self.invalid_char_literal(
+                *i,
+                *i + 1,
+                offset,
+                "char literal must contain one character",
+            );
             return None;
         }
         Some(ch as u32)
@@ -1095,7 +1124,12 @@ impl LexState {
             };
             digits += 1;
             if digits > 6 {
-                self.invalid_char_literal(start, *i + 1, offset, "unicode char escape is too large");
+                self.invalid_char_literal(
+                    start,
+                    *i + 1,
+                    offset,
+                    "unicode char escape is too large",
+                );
                 return None;
             }
             value = value.saturating_mul(16).saturating_add(hex as u32);
@@ -1107,7 +1141,12 @@ impl LexState {
         }
         *i += 1;
         if digits_start == *i || char::from_u32(value).is_none() {
-            self.invalid_char_literal(start, *i, offset, "unicode char escape is not a scalar value");
+            self.invalid_char_literal(
+                start,
+                *i,
+                offset,
+                "unicode char escape is not a scalar value",
+            );
             return None;
         }
         Some(value)
@@ -1126,15 +1165,20 @@ impl LexState {
                 message,
                 Span::new(self.file_id, (offset + start) as u32, (offset + end) as u32),
             )
-            .with_id(DiagnosticId::LexerInvalidCharLiteral),
+            .with_code(DiagnosticCode::Lexer(
+                crate::diagnostic_codes::LexerDiagnosticCode::CharInvalid,
+            )),
         );
     }
 
     fn unknown(&mut self, start: usize, end: usize) {
         let span = Span::new(self.file_id, start as u32, end as u32);
-        self.diagnostics.push(
-            Diagnostic::error("unknown token", span).with_id(DiagnosticId::LexerUnknownToken),
-        );
+        self.diagnostics
+            .push(
+                Diagnostic::error("unknown token", span).with_code(DiagnosticCode::Lexer(
+                    crate::diagnostic_codes::LexerDiagnosticCode::TokenUnknown,
+                )),
+            );
     }
 
     fn flush_dedent(&mut self, pos: usize) {

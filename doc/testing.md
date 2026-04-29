@@ -136,7 +136,7 @@ node nodesrc/playground_shell_worker_test_runner.js
 Compiler-facing regression cases.
 
 - parse / name resolution / typecheck / diagnostics
-- `compile_fail` cases with `diag_id`
+- `compile_fail` cases with `diag_code`
 - target-specific behavior such as LLVM / WASM / WASIX checks
 
 ### `tests/stdlib/*.n.md`
@@ -207,7 +207,7 @@ WASMER_BIN=/path/to/wasmer node nodesrc/run_doctest.js -i tests/stdlib/features_
 - `stdout:`
 - `stderr:`
 - `ret:`
-- `diag_id:`
+- `diag_code:`
 
 If a doctest includes `stdout:` or `stderr:`, `nodesrc/tests.js` checks those
 expectations by default. `--assert-io` is optional and only makes the intent

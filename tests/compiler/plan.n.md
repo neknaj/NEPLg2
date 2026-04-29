@@ -23,7 +23,7 @@ fn main <()->i32> ():
 ## plan_block_trailing_semicolon_makes_unit_and_breaks_i32_return
 
 neplg2:test[compile_fail]
-diag_id: 3003
+diag_code: type.return.mismatch
 ```neplg2
 
 #entry main
@@ -38,7 +38,7 @@ fn main <()->i32> ():
 ## plan_semicolon_requires_exactly_one_value_growth
 
 neplg2:test[compile_fail]
-diag_id: 3016
+diag_code: type.stack.extra_values
 ```neplg2
 
 #entry main
@@ -360,7 +360,7 @@ fn main <()->i32> ():
 ## plan_block_colon_rejects_tokens_after_colon
 
 neplg2:test[compile_fail]
-diag_id: 2001
+diag_code: parser.token.expected
 ```neplg2
 
 #entry main
@@ -500,7 +500,7 @@ fn main <()->i32> ():
 ## plan_single_line_block_cannot_contain_multiline_block
 
 neplg2:test[compile_fail]
-diag_id: 2002
+diag_code: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -515,7 +515,7 @@ fn main <()->i32> ():
 ## plan_if_colon_consumes_exactly_three_expressions
 
 neplg2:test[compile_fail]
-diag_id: 2001
+diag_code: parser.token.expected
 ```neplg2
 
 #entry main
@@ -546,7 +546,7 @@ fn main <()->i32> ():
 ## plan_single_line_block_trailing_semicolon_makes_unit
 
 neplg2:test[compile_fail]
-diag_id: 3004
+diag_code: type.annotation.mismatch
 ```neplg2
 
 #entry main
@@ -561,7 +561,7 @@ fn main <()->i32> ():
 ## plan_block_line_with_two_statements_without_separator_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3016
+diag_code: type.stack.extra_values
 ```neplg2
 
 #entry main

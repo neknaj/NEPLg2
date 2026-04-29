@@ -1,6 +1,6 @@
 use nepl_core::ast::Effect;
 use nepl_core::codegen_wasm;
-use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule};
 use nepl_core::span::Span;
 use nepl_core::types::{TypeCtx, TypeId};
@@ -37,14 +37,14 @@ fn zero_arg_function(ctx: &mut TypeCtx, name: &str, result: TypeId, expr: HirExp
     }
 }
 
-fn first_error_id(
+fn first_error_code(
     err: Result<codegen_wasm::CodegenResult, Vec<nepl_core::diagnostic::Diagnostic>>,
-) -> DiagnosticId {
+) -> DiagnosticCode {
     let diagnostics = err.expect_err("codegen should return diagnostics");
     diagnostics
         .first()
-        .and_then(|diag| diag.id)
-        .expect("diagnostic id should be attached")
+        .and_then(|diag| diag.code)
+        .expect("diagnostic code should be attached")
 }
 
 #[test]
@@ -66,8 +66,10 @@ fn wasm_codegen_reports_unsupported_function_signature_without_panicking() {
     let module = empty_module(vec![function], Some("main"));
 
     assert_eq!(
-        first_error_id(codegen_wasm::generate_wasm(&ctx, &module)),
-        DiagnosticId::CodegenWasmUnsupportedFunctionSignature
+        first_error_code(codegen_wasm::generate_wasm(&ctx, &module)),
+        DiagnosticCode::Backend(nepl_core::diagnostic_codes::BackendDiagnosticCode::Wasm(
+            nepl_core::diagnostic_codes::WasmDiagnosticCode::FunctionSignatureUnsupported,
+        ))
     );
 }
 
@@ -89,8 +91,10 @@ fn wasm_codegen_reports_unknown_variable_without_panicking() {
     let module = empty_module(vec![function], Some("main"));
 
     assert_eq!(
-        first_error_id(codegen_wasm::generate_wasm(&ctx, &module)),
-        DiagnosticId::CodegenWasmUnknownVariable
+        first_error_code(codegen_wasm::generate_wasm(&ctx, &module)),
+        DiagnosticCode::Backend(nepl_core::diagnostic_codes::BackendDiagnosticCode::Wasm(
+            nepl_core::diagnostic_codes::WasmDiagnosticCode::VariableUnknown
+        ))
     );
 }
 
@@ -112,7 +116,9 @@ fn wasm_codegen_reports_missing_string_literal_without_panicking() {
     let module = empty_module(vec![function], Some("main"));
 
     assert_eq!(
-        first_error_id(codegen_wasm::generate_wasm(&ctx, &module)),
-        DiagnosticId::CodegenWasmStringLiteralNotFound
+        first_error_code(codegen_wasm::generate_wasm(&ctx, &module)),
+        DiagnosticCode::Backend(nepl_core::diagnostic_codes::BackendDiagnosticCode::Wasm(
+            nepl_core::diagnostic_codes::WasmDiagnosticCode::StringLiteralNotFound,
+        ))
     );
 }

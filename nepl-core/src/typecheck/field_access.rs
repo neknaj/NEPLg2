@@ -4,7 +4,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::layout::composite_field_offset_bytes;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
@@ -35,9 +35,13 @@ impl<'a> BlockChecker<'a> {
             message: String,
         ) -> Option<(TypeId, usize)> {
             if emit_diagnostics {
-                checker.diagnostics.push(
-                    Diagnostic::error(message, span).with_id(DiagnosticId::TypeInvalidFieldAccess),
-                );
+                checker
+                    .diagnostics
+                    .push(
+                        Diagnostic::error(message, span).with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::FieldInvalidAccess,
+                        )),
+                    );
             }
             None
         }

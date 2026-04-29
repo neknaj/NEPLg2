@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use crate::ast::{Module, Stmt};
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::span::Span;
 
 use super::env::{BindingKind, Env};
@@ -32,7 +32,9 @@ pub(super) fn resolve_entry_function(
         } else {
             diagnostics.push(
                 Diagnostic::error("entry function is missing or ambiguous", entry_span)
-                    .with_id(DiagnosticId::TypeEntryFunctionMissingOrAmbiguous),
+                    .with_code(DiagnosticCode::Resolve(
+                    crate::diagnostic_codes::ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous,
+                )),
             );
             None
         }

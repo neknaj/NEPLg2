@@ -463,7 +463,7 @@ fn main <()->i32> ():
 ターゲットを `#target core` と明示し、`compile_fail` として扱います。
 
 neplg2:test[compile_fail]
-diag_id: 3074
+diag_code: type.extern.wasi_target_mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -476,7 +476,7 @@ fn main <()->()> ():
 ## name_conflict_enum_fn_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3076
+diag_code: resolve.item.name_conflict
 ```neplg2
 
 #entry main
@@ -492,10 +492,10 @@ fn main <()->i32> ():
     Foo
 ```
 
-## wasm_rejects_llvmir_body_with_diag_id
+## wasm_rejects_llvmir_body_with_diag_code
 
 neplg2:test[compile_fail]
-diag_id: 3095
+diag_code: effect.raw_body.target_mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -509,10 +509,10 @@ fn main <()->i32> ():
         }
 ```
 
-## raw_body_conflict_reports_diag_id
+## raw_body_conflict_reports_diag_code
 
 neplg2:test[compile_fail]
-diag_id: 3094
+diag_code: effect.raw_body.multiple_active
 ```neplg2
 #entry main
 #indent 4
@@ -607,7 +607,7 @@ fn main <()* >i32> ():
 ## non_exhaustive_match_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3009
+diag_code: type.match.non_exhaustive
 ```neplg2
 
 #entry main
@@ -644,7 +644,7 @@ fn main <()* >()> ():
 テスト名どおり「#target ディレクティブの重複はエラー」を確認したいので `compile_fail` に変更します。
 
 neplg2:test[compile_fail]
-diag_id: 1001
+diag_code: loader.target.multiple_directive
 ```neplg2
 #target core
 #target std
@@ -656,7 +656,7 @@ fn main <()->i32> ():
 ## unknown_target_directive_is_error
 
 neplg2:test[compile_fail]
-diag_id: 1002
+diag_code: loader.target.unknown
 ```neplg2
 #target wasi2
 #entry main
@@ -689,10 +689,10 @@ fn main <()->i32> ():
 ## overloads_with_different_arity_are_error
 
 Rust integration test と同じく、同じ名前の overload は arity が違っても曖昧定義として扱われます。
-この fixture は成功実行ではなく `D3005` の診断を期待します。
+この fixture は成功実行ではなく `type.overload.ambiguous` の診断を期待します。
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 
 #entry main
@@ -779,7 +779,7 @@ fn main <()->i32> ():
 ## trait_bound_missing_impl_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3069
+diag_code: type.trait_bound.unsatisfied
 ```neplg2
 
 #entry main

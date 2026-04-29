@@ -1,5 +1,5 @@
 use nepl_core::diagnostic::Diagnostic;
-use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::error::CoreError;
 use nepl_core::loader::{Loader, LoaderError};
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
@@ -88,9 +88,10 @@ fn expect_compile_err(main: &str) -> Vec<Diagnostic> {
 
 fn assert_undefined_identifier(diags: &[Diagnostic]) {
     assert!(
-        diags
-            .iter()
-            .any(|diag| diag.id == Some(DiagnosticId::TypeUndefinedIdentifier)),
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Resolve(
+                nepl_core::diagnostic_codes::ResolveDiagnosticCode::IdentifierUndefined
+            ))),
         "expected undefined identifier diagnostic, got {:?}",
         diags
     );

@@ -60,7 +60,7 @@ function buildCase(inputPath, index) {
         expected_stdout: dt.stdout ?? null,
         expected_stderr: dt.stderr ?? null,
         expected_ret: Object.prototype.hasOwnProperty.call(dt, 'ret') ? dt.ret : null,
-        expected_diag_ids: Array.isArray(dt.diag_ids) ? dt.diag_ids : [],
+        expected_diag_codes: Array.isArray(dt.diag_codes) ? dt.diag_codes : [],
         expected_diag_spans: Array.isArray(dt.diag_spans) ? dt.diag_spans : [],
     };
 }
@@ -79,14 +79,14 @@ function normalizeOutputByTags(s, tags) {
     return out;
 }
 
-function extractActualDiagIds(compileErrorText) {
-    const ids = [];
-    const re = /error\[D(\d+)\]/g;
+function extractActualDiagCodes(compileErrorText) {
+    const codes = [];
+    const re = /(?:error|warning)\[([a-z][a-z0-9_.]*)\]/g;
     let m;
     while ((m = re.exec(String(compileErrorText || ''))) !== null) {
-        ids.push(parseInt(m[1], 10));
+        codes.push(m[1]);
     }
-    return ids;
+    return codes;
 }
 
 function extractActualDiagSpans(compileErrorText) {
@@ -112,17 +112,17 @@ function applyExpectations(result, testCase) {
     if (tags.includes('compile_fail')) {
         if (!r.ok) {
             const compileError = String(r.compile_error || r.error || '');
-            if (testCase.expected_diag_ids.length > 0) {
-                const actualIds = extractActualDiagIds(compileError);
-                const missing = testCase.expected_diag_ids.filter((id) => !actualIds.includes(id));
+            if (testCase.expected_diag_codes.length > 0) {
+                const actualCodes = extractActualDiagCodes(compileError);
+                const missing = testCase.expected_diag_codes.filter((code) => !actualCodes.includes(code));
                 if (missing.length > 0) {
                     r.ok = false;
                     r.status = 'fail';
                     r.error = [
-                        'compile_fail diagnostic id mismatch',
-                        `expected ids: ${JSON.stringify(testCase.expected_diag_ids)}`,
-                        `missing ids: ${JSON.stringify(missing)}`,
-                        `actual ids: ${JSON.stringify(actualIds)}`,
+                        'compile_fail diagnostic code mismatch',
+                        `expected codes: ${JSON.stringify(testCase.expected_diag_codes)}`,
+                        `missing codes: ${JSON.stringify(missing)}`,
+                        `actual codes: ${JSON.stringify(actualCodes)}`,
                     ].join('\n');
                 }
             }

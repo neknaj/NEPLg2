@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use crate::ast::TypeParam;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -147,7 +147,9 @@ pub(super) fn collect_type_params(
                             ),
                             b.name.span,
                         )
-                        .with_id(DiagnosticId::TypeTraitTypeParamsUnsupported),
+                        .with_code(DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                        )),
                     );
                     continue;
                 }
@@ -175,7 +177,9 @@ pub(super) fn collect_type_params(
                         format!("unknown trait bound '{}'", b.name.name),
                         p.name.span,
                     )
-                    .with_id(DiagnosticId::TypeUnknownTraitBound),
+                    .with_code(DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnknown,
+                    )),
                 );
             }
         }

@@ -289,7 +289,7 @@ fn main <()*>i32> ():
 ## stream_scanner_rejects_unsupported_read_type
 
 neplg2:test[compile_fail]
-diag_id: 3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4

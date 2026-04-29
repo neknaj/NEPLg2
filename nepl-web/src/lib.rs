@@ -7,7 +7,7 @@ use nepl_core::ast::{
 };
 use nepl_core::compiler::compile_module_with_source_map;
 use nepl_core::diagnostic::{Diagnostic, Severity};
-use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::error::CoreError;
 use nepl_core::hir::{HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::lexer::{lex, Token, TokenKind};
@@ -488,21 +488,14 @@ fn diagnostics_to_js(source: &str, diagnostics: &[Diagnostic]) -> JsValue {
             &obj,
             &JsValue::from_str("code"),
             &d.code
-                .map(JsValue::from_str)
+                .map(|code| JsValue::from_str(code.as_str()))
                 .unwrap_or(JsValue::NULL),
         );
         let _ = Reflect::set(
             &obj,
-            &JsValue::from_str("id"),
-            &d.id
-                .map(|v| JsValue::from_f64(v.as_u32() as f64))
-                .unwrap_or(JsValue::NULL),
-        );
-        let _ = Reflect::set(
-            &obj,
-            &JsValue::from_str("id_message"),
-            &d.id
-                .map(|v| JsValue::from_str(v.message()))
+            &JsValue::from_str("code_message"),
+            &d.code
+                .map(|code| JsValue::from_str(code.message()))
                 .unwrap_or(JsValue::NULL),
         );
         let _ = Reflect::set(
@@ -1876,7 +1869,7 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
                 if let Some((_, prev_span)) = found {
                     diags.push(
                         Diagnostic::error("multiple #target directives are not allowed", *span)
-                            .with_id(DiagnosticId::MultipleTargetDirective)
+                            .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
                             .with_secondary_label(prev_span, Some("previous #target here".into())),
                     );
                 } else {
@@ -1885,7 +1878,7 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
             } else {
                 diags.push(
                     Diagnostic::error("unknown target in #target", *span)
-                        .with_id(DiagnosticId::UnknownTargetDirective),
+                        .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown)),
                 );
             }
         }
@@ -1904,7 +1897,7 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
                     if let Some((_, prev_span)) = found {
                         diags.push(
                             Diagnostic::error("multiple #target directives are not allowed", *span)
-                                .with_id(DiagnosticId::MultipleTargetDirective)
+                                .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
                                 .with_secondary_label(
                                     prev_span,
                                     Some("previous #target here".into()),
@@ -1916,7 +1909,7 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
                 } else {
                     diags.push(
                         Diagnostic::error("unknown target in #target", *span)
-                            .with_id(DiagnosticId::UnknownTargetDirective),
+                            .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown)),
                     );
                 }
             }
@@ -2170,7 +2163,7 @@ pub fn analyze_name_resolution_with_vfs(
             let mut ds = Vec::new();
             ds.push(
                 Diagnostic::error(format!("loader error: {}", e), Span::dummy())
-                    .with_id(DiagnosticId::LoaderFailure),
+                    .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::SourceFailure)),
             );
             let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(false));
             let _ = Reflect::set(
@@ -2565,7 +2558,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
             let mut ds = all_diags;
             ds.push(
                 Diagnostic::error(format!("loader error: {}", e), Span::dummy())
-                    .with_id(DiagnosticId::LoaderFailure),
+                    .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::SourceFailure)),
             );
             let diagnostics = diagnostics_to_js(source, &ds);
             let _ = Reflect::set(&out, &JsValue::from_str("diagnostics"), &diagnostics);
@@ -3229,10 +3222,9 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
             Severity::Error => ("error", RED),
             Severity::Warning => ("warning", YELLOW),
         };
-        let code = d.code.unwrap_or("");
-        let id_display = d
-            .id
-            .map(|v| format!("[D{}]", v.as_u32()))
+        let code_display = d
+            .code
+            .map(|code| format!("[{}]", code.as_str()))
             .unwrap_or_default();
         let primary = &d.primary;
         let (line, col) = sm
@@ -3242,14 +3234,7 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
             .path(primary.span.file_id)
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "<unknown>".into());
-        let code_display = if code.is_empty() {
-            id_display
-        } else if id_display.is_empty() {
-            format!("[{code}]")
-        } else {
-            format!("{id_display}[{code}]")
-        };
-        
+
         // エラーヘッダ
         out.push_str(&format!(
             "{color}{bold}{sev}{code_disp}{reset}: {bold}{message}{reset}\n",

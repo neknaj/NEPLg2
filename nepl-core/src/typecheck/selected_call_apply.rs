@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
@@ -67,8 +67,11 @@ impl<'a> BlockChecker<'a> {
             };
             if type_params.len() != explicit_type_args.len() {
                 self.diagnostics.push(
-                    Diagnostic::error("type arguments do not match overload", span)
-                        .with_id(DiagnosticId::TypeOverloadTypeArgsMismatch),
+                    Diagnostic::error("type arguments do not match overload", span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::OverloadTypeArgsMismatch,
+                        ),
+                    ),
                 );
                 return None;
             }
@@ -114,8 +117,9 @@ impl<'a> BlockChecker<'a> {
         let user_params = &c_params[captures.len()..];
         if user_params.len() != args.len() {
             self.diagnostics.push(
-                Diagnostic::error("argument count mismatch", span)
-                    .with_id(DiagnosticId::TypeArgumentArityMismatch),
+                Diagnostic::error("argument count mismatch", span).with_code(DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
+                )),
             );
             return None;
         }
@@ -128,8 +132,11 @@ impl<'a> BlockChecker<'a> {
                 }
                 Some(Err(())) => {
                     self.diagnostics.push(
-                        Diagnostic::error("argument type mismatch", arg.expr.span)
-                            .with_id(DiagnosticId::TypeArgumentTypeMismatch),
+                        Diagnostic::error("argument type mismatch", arg.expr.span).with_code(
+                            DiagnosticCode::Type(
+                                crate::diagnostic_codes::TypeDiagnosticCode::ArgumentMismatch,
+                            ),
+                        ),
                     );
                     continue;
                 }
@@ -137,15 +144,21 @@ impl<'a> BlockChecker<'a> {
             }
             if self.ctx.unify(arg.ty, *param_ty).is_err() {
                 self.diagnostics.push(
-                    Diagnostic::error("argument type mismatch", arg.expr.span)
-                        .with_id(DiagnosticId::TypeArgumentTypeMismatch),
+                    Diagnostic::error("argument type mismatch", arg.expr.span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::ArgumentMismatch,
+                        ),
+                    ),
                 );
             }
         }
         if matches!(self.current_effect, Effect::Pure) && matches!(c_effect, Effect::Impure) {
             self.diagnostics.push(
-                Diagnostic::error("pure context cannot call impure function", span)
-                    .with_id(DiagnosticId::TypePureCallsImpureFunction),
+                Diagnostic::error("pure context cannot call impure function", span).with_code(
+                    DiagnosticCode::Effect(
+                        crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+                    ),
+                ),
             );
             return None;
         }
@@ -279,7 +292,9 @@ impl<'a> BlockChecker<'a> {
                         if ambiguous {
                             self.diagnostics.push(
                                 Diagnostic::error("ambiguous overload", arg_expr.span)
-                                    .with_id(DiagnosticId::TypeAmbiguousOverload),
+                                    .with_code(DiagnosticCode::Type(
+                                    crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous,
+                                )),
                             );
                             return None;
                         }

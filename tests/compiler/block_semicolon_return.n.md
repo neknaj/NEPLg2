@@ -24,7 +24,7 @@ fn main <()->i32> ():
 ## block_colon_last_semicolon_makes_unit_and_causes_type_error
 
 neplg2:test[compile_fail]
-diag_id: 3004
+diag_code: type.annotation.mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -39,7 +39,7 @@ fn main <()->i32> ():
 ## single_line_block_last_semicolon_makes_unit_and_causes_type_error
 
 neplg2:test[compile_fail]
-diag_id: 3004
+diag_code: type.annotation.mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -69,7 +69,7 @@ fn main <()->i32> ():
 ## semicolon_requires_single_stack_growth_before_drop
 
 neplg2:test[compile_fail]
-diag_id: 3016
+diag_code: type.stack.extra_values
 ```neplg2
 #entry main
 #indent 4
@@ -105,7 +105,7 @@ fn main <()->i32> ():
 ## if_result_expected_i32_but_then_branch_semicolon_makes_unit
 
 neplg2:test[compile_fail]
-diag_id: 3004
+diag_code: type.annotation.mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -125,7 +125,7 @@ fn main <()->i32> ():
 ## block_last_semicolon_breaks_function_return_type
 
 neplg2:test[compile_fail]
-diag_id: 3004
+diag_code: type.annotation.mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -158,7 +158,7 @@ fn main <()->i32> ():
 ## multiline_let_with_trailing_semicolon_is_rejected
 
 neplg2:test[compile_fail]
-diag_id: 2002
+diag_code: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4

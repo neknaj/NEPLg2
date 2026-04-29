@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
@@ -229,7 +229,7 @@ impl<'a> BlockChecker<'a> {
         }
 
         // In a pure context, if both pure and impure candidates match,
-        // prefer pure ones to avoid false D3025 from name collisions
+        // prefer pure ones to avoid false pure-call diagnostics from name collisions
         // between different modules' overloads of the same function.
         if candidates.len() > 1 && matches!(self.current_effect, Effect::Pure) {
             let pure_only: Vec<OverloadCandidate<'_>> = candidates
@@ -271,13 +271,19 @@ impl<'a> BlockChecker<'a> {
             }
             if mismatch_count {
                 self.diagnostics.push(
-                    Diagnostic::error("type arguments do not match any overload", span)
-                        .with_id(DiagnosticId::TypeOverloadTypeArgsMismatch),
+                    Diagnostic::error("type arguments do not match any overload", span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::OverloadTypeArgsMismatch,
+                        ),
+                    ),
                 );
             } else {
                 self.diagnostics.push(
-                    Diagnostic::error("no matching overload found", span)
-                        .with_id(DiagnosticId::TypeNoMatchingOverload),
+                    Diagnostic::error("no matching overload found", span).with_code(
+                        DiagnosticCode::Type(
+                            crate::diagnostic_codes::TypeDiagnosticCode::OverloadNoMatch,
+                        ),
+                    ),
                 );
             }
             return None;
@@ -360,10 +366,12 @@ impl<'a> BlockChecker<'a> {
             candidates = narrowed;
         }
         if candidates.len() > 1 {
-            self.diagnostics.push(
-                Diagnostic::error("ambiguous overload", span)
-                    .with_id(DiagnosticId::TypeAmbiguousOverload),
-            );
+            self.diagnostics
+                .push(Diagnostic::error("ambiguous overload", span).with_code(
+                    DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous,
+                    ),
+                ));
             return None;
         }
 

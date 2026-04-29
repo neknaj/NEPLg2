@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T04:10:17.454Z",
+  "generated_at": "2026-04-29T04:51:35.366Z",
   "counts": {
     "total": 354,
     "open": 10,
@@ -104,7 +104,7 @@
       "type": "architecture",
       "created": "2026-04-29",
       "updated": "2026-04-29",
-      "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_ids.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"

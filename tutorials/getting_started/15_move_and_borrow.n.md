@@ -3,7 +3,7 @@
 非 Copy の値を別名へ束縛すると、所有権は移動します。移動後の値を再利用するコードは静的検査で拒否されます。
 
 neplg2:test[compile_fail]
-diag_id: 3053
+diag_code: resource.move.use_moved
 ```neplg2
 #entry main
 #indent 4

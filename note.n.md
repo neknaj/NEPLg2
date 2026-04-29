@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z diagnostic enum registry)
+
+- [方針]:
+  - 後方互換を残さず、Rust core 内部の診断識別子を数値 ID / 自由文字列から `DiagnosticCode` と下位 enum へ移行する。
+  - CLI / web / doctest など外部境界だけが `DiagnosticCode::as_str()` の stable string を扱う。
+- [修正]:
+  - `nepl-core/src/diagnostic_ids.rs` を削除し、`nepl-core/src/diagnostic_codes.rs` に階層 enum registry を追加した。
+  - `Diagnostic` から数値 ID field を削除し、`with_code` は `DiagnosticCode` だけを受け取る形にした。
+  - Rust call site、CLI / web 表示、nodesrc doctest metadata、active compile_fail fixture を `diag_code` / `diag_codes` に移行した。
+  - enum 化で見つかった `#indent xx` の parser token error 誤分類を `lexer.indent.argument_invalid` に分離した。
+- [検証]:
+  - `cargo check -p nepl-core --tests`
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 1`
+  - `node nodesrc/tests.js -i tests/compiler/compile_fail_diag_location.n.md --no-tree -o tmp/agent1-diagnostic-code-location.json -j 1`
+  - `node nodesrc/test_llvm_runner_return_value.js`
+  - `node nodesrc/issues.js check`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` の Stage D0 として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T021254285Z Resource owner summary false owner propagation)
 
 - [同期]:

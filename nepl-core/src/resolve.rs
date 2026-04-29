@@ -26,7 +26,7 @@ use crate::ast::{EnumDef, FnAlias, FnDef, StructDef, Visibility};
 #[cfg(not(target_os = "none"))]
 use crate::diagnostic::Diagnostic;
 #[cfg(not(target_os = "none"))]
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 #[cfg(not(target_os = "none"))]
 use crate::module_graph::{ExportTable, ModuleGraph, ModuleId};
 
@@ -747,7 +747,9 @@ pub fn build_visible_map(
                     ),
                     crate::span::Span::dummy(),
                 )
-                .with_id(DiagnosticId::AmbiguousImport),
+                .with_code(DiagnosticCode::Resolve(
+                    crate::diagnostic_codes::ResolveDiagnosticCode::ImportAmbiguous,
+                )),
             );
         }
         for (n, info) in seen_open {

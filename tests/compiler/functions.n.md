@@ -125,7 +125,7 @@ fn main <()->i32> ():
 ## function_alias_target_not_found
 
 neplg2:test[compile_fail]
-diag_id: 3086
+diag_code: resolve.alias.target_not_found
 ```neplg2
 
 #entry main

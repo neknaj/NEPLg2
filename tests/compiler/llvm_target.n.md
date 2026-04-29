@@ -30,7 +30,7 @@ fn c <()->i32> ():
 ## llvm_rejects_wasm_body
 
 neplg2:test[llvm_cli, compile_fail]
-diag_id: 3095
+diag_code: effect.raw_body.target_mismatch
 ```neplg2
 #target llvm
 #entry main
@@ -80,7 +80,7 @@ neplg2:test[llvm_cli]
 ## llvm_precheck_rejects_wasm_only_intrinsic
 
 neplg2:test[llvm_cli, compile_fail]
-diag_id: 3012
+diag_code: type.intrinsic.unknown
 ```neplg2
 #target llvm
 #entry main

@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::ast::{FnBody, FnDef};
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::{HirBody, HirFunction, HirParam};
 use crate::resolve::ImportResolution;
 use crate::source_map::SourceMap;
@@ -87,15 +87,20 @@ pub(super) fn check_function(
         _ => {
             diags.push(
                 Diagnostic::error("function signature must be a function type", f.name.span)
-                    .with_id(DiagnosticId::TypeFunctionSignatureMustBeFunction),
+                    .with_code(DiagnosticCode::Type(
+                        crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureNotFunction,
+                    )),
             );
             return Err(diags);
         }
     };
     if params_ty.len() != captured_params.len() + f.params.len() {
         diags.push(
-            Diagnostic::error("parameter count mismatch with signature", f.name.span)
-                .with_id(DiagnosticId::TypeArgumentArityMismatch),
+            Diagnostic::error("parameter count mismatch with signature", f.name.span).with_code(
+                DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
+                ),
+            ),
         );
         return Err(diags);
     }
@@ -178,7 +183,7 @@ pub(super) fn check_function(
                                         "return type does not match signature",
                                         f.name.span,
                                     )
-                                    .with_id(DiagnosticId::TypeReturnTypeMismatch),
+                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::ReturnTypeMismatch)),
                                 );
                             }
                             HirBody::Block(blk)
@@ -238,7 +243,9 @@ pub(super) fn check_function(
                     format!("type does not satisfy trait bound '{}'", bound.name),
                     span,
                 )
-                .with_id(DiagnosticId::TypeTraitBoundUnsatisfied),
+                .with_code(DiagnosticCode::Type(
+                    crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied,
+                )),
             );
         }
     }

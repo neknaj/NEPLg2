@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use crate::ast::{Block, Directive, FnBody, FnDef, LlvmIrBlock, Module, Stmt, WasmBlock};
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_ids::DiagnosticId;
+use crate::diagnostic_codes::DiagnosticCode;
 use crate::span::Span;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,7 +134,9 @@ pub fn multiple_active_raw_bodies_diagnostic(span: Span, owner_name: &str) -> Di
         ),
         span,
     )
-    .with_id(DiagnosticId::TypeMultipleActiveRawBodies)
+    .with_code(DiagnosticCode::Effect(
+        crate::diagnostic_codes::EffectDiagnosticCode::RawBodyMultipleActive,
+    ))
 }
 
 pub fn raw_body_target_mismatch_diagnostic(
@@ -152,7 +154,9 @@ pub fn raw_body_target_mismatch_diagnostic(
         ),
         span,
     )
-    .with_id(DiagnosticId::TypeRawBodyTargetMismatch)
+    .with_code(DiagnosticCode::Effect(
+        crate::diagnostic_codes::EffectDiagnosticCode::RawBodyTargetMismatch,
+    ))
 }
 
 pub fn precheck_function_raw_body_target(
@@ -227,13 +231,18 @@ pub fn precheck_module_target_directives(module: &Module) -> Vec<Diagnostic> {
         if let Directive::Target { target, span } = d {
             if !is_known_target_name(target.as_str()) {
                 out.push(
-                    Diagnostic::error("unknown target in #target", *span)
-                        .with_id(DiagnosticId::UnknownTargetDirective),
+                    Diagnostic::error("unknown target in #target", *span).with_code(
+                        DiagnosticCode::Loader(
+                            crate::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown,
+                        ),
+                    ),
                 );
             } else if found {
                 out.push(
                     Diagnostic::error("multiple #target directives are not allowed", *span)
-                        .with_id(DiagnosticId::MultipleTargetDirective),
+                        .with_code(DiagnosticCode::Loader(
+                            crate::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective,
+                        )),
                 );
             } else {
                 found = true;
@@ -246,13 +255,18 @@ pub fn precheck_module_target_directives(module: &Module) -> Vec<Diagnostic> {
             if let Stmt::Directive(Directive::Target { target, span }) = stmt {
                 if !is_known_target_name(target.as_str()) {
                     out.push(
-                        Diagnostic::error("unknown target in #target", *span)
-                            .with_id(DiagnosticId::UnknownTargetDirective),
+                        Diagnostic::error("unknown target in #target", *span).with_code(
+                            DiagnosticCode::Loader(
+                                crate::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown,
+                            ),
+                        ),
                     );
                 } else if found {
                     out.push(
                         Diagnostic::error("multiple #target directives are not allowed", *span)
-                            .with_id(DiagnosticId::MultipleTargetDirective),
+                            .with_code(DiagnosticCode::Loader(
+                            crate::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective,
+                        )),
                     );
                 } else {
                     found = true;

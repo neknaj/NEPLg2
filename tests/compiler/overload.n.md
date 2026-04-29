@@ -118,7 +118,7 @@ fn main <()->i32> ():
 ## overload_new_ambiguous_without_expected_type
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4
@@ -174,7 +174,7 @@ fn main <()->i32> ():
 ## overload_zero_arg_result_ambiguous_without_expected_type
 
 neplg2:test[compile_fail]
-diag_id: 3025
+diag_code: effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -324,7 +324,7 @@ fn main <()*>i32> ():
 ## overload_different_arity_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4
@@ -349,7 +349,7 @@ fn main <()->i32> ():
 ## overload_different_arity_unary_simple_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4
@@ -515,7 +515,7 @@ fn main <()->i32> ():
 ## overload_different_arity_from_param_context_unary_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4
@@ -538,7 +538,7 @@ fn main <()->i32> ():
 ## overload_different_arity_from_param_context_binary_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4
@@ -561,7 +561,7 @@ fn main <()->i32> ():
 ## overload_different_arity_with_pipe_unary_is_error
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4
@@ -631,7 +631,7 @@ fn main <()->i32> ():
 ## overload_ambiguous_same_input_no_context
 
 neplg2:test[compile_fail]
-diag_id: 3005
+diag_code: type.overload.ambiguous
 ```neplg2
 #entry main
 #indent 4
@@ -652,7 +652,7 @@ fn main <()->i32> ():
 ## overload_no_matching_by_argument_type
 
 neplg2:test[compile_fail]
-diag_id: 3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -671,7 +671,7 @@ fn main <()->i32> ():
 ## overload_too_many_arguments_reports_stack_extra
 
 neplg2:test[compile_fail]
-diag_id: 3016
+diag_code: type.stack.extra_values
 ```neplg2
 #entry main
 #indent 4
@@ -734,7 +734,7 @@ fn main <()->i32> ():
 ## overload_pipe_type_mismatch_reports_no_matching
 
 neplg2:test[compile_fail]
-diag_id: 3006
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -871,7 +871,7 @@ fn main <()->i32> ():
 ## overload_trait_method_type_args_not_supported
 
 neplg2:test[compile_fail]
-diag_id: 3066
+diag_code: type.trait_method.type_args_unsupported
 ```neplg2
 #entry main
 #indent 4
@@ -888,7 +888,7 @@ fn main <()->i32> ():
 ## overload_trait_method_not_found
 
 neplg2:test[compile_fail]
-diag_id: 3067
+diag_code: type.trait_method.not_found
 ```neplg2
 #entry main
 #indent 4
@@ -905,7 +905,7 @@ fn main <()->i32> ():
 ## overload_trait_bound_unsatisfied
 
 neplg2:test[compile_fail]
-diag_id: 3069
+diag_code: type.trait_bound.unsatisfied
 ```neplg2
 #entry main
 #indent 4
@@ -967,7 +967,7 @@ fn main <()->i32> ():
 ## overload_invalid_field_access_reports_field_diag
 
 neplg2:test[compile_fail]
-diag_id: 3011
+diag_code: type.field.invalid_access
 ```neplg2
 #entry main
 #indent 4
@@ -981,7 +981,7 @@ fn main <()->i32> ():
 ## capability_directive_is_trait_local_only
 
 neplg2:test[compile_fail]
-diag_id: 2002
+diag_code: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4

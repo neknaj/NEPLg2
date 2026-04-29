@@ -320,7 +320,7 @@ fn main <()->i32> ():
 ## block_sl_single_line_block_cannot_contain_multiline_if
 
 neplg2:test[compile_fail]
-diag_id: 2002
+diag_code: parser.token.unexpected
 ```neplg2
 
 #entry main

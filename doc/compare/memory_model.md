@@ -87,7 +87,7 @@
 
 - `tests/move_effect.n.md`: effect 検査回帰
 - `tests/memory_safety.n.md`: OOB / UAF / double free の検出
-- `compile_fail` テストに diag_id 固定検証を追加
+- `compile_fail` テストに `diag_code` 固定検証を追加
 
 ---
 
