@@ -195,3 +195,20 @@ parser には layout block、type expression、extern signature など 42 箇所
 - `cargo check -p nepl-core --tests`: pass
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 effect checker boundary follow-up 追記
+
+`typecheck/effect_check.rs` には pure raw body / pure context の effect safety 診断で `Diagnostic::error(...).with_code(...)` が残っていた。また、同じ effect checker boundary の raw body 多重有効化診断は message だけで発行され、既に registry に存在する `EffectDiagnosticCode::RawBodyMultipleActive` に接続されていなかった。
+
+今回の対応で module-local `effect_error(...)` helper を追加し、pure context が impure function / raw memory helper / raw memory instruction へ到達する診断を生成時点で `EffectDiagnosticCode::PureCallsImpure` に固定した。raw body が wasm / llvm の複数 active body を持つ場合も `EffectDiagnosticCode::RawBodyMultipleActive` を必ず持つ。
+
+これにより effect checker boundary から `.with_code(...)` は消え、raw body の安全境界エラーがコード無し診断として外部へ漏れない。typecheck 全体には call application / match / prefix / driver などの D1 残件が残るため、この issue は open のまま継続する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code" nepl-core/src/typecheck/effect_check.rs`: no matches
+- `cargo test -p nepl-core --test effects -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

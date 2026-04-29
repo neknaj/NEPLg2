@@ -3,7 +3,7 @@ use alloc::string::String;
 
 use crate::ast::{Block, Effect, Stmt};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, EffectDiagnosticCode};
 use crate::effects::{
     intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callees,
     raw_body_memory_operations, raw_callee_is_raw_memory_effect,
@@ -15,6 +15,10 @@ use super::env::BindingKind;
 use super::syntax_helpers::gate_allows;
 use super::BlockChecker;
 
+fn effect_error(code: EffectDiagnosticCode, message: impl Into<String>, span: Span) -> Diagnostic {
+    Diagnostic::error_with_code(DiagnosticCode::Effect(code), message, span)
+}
+
 impl<'a> BlockChecker<'a> {
     pub(super) fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {
         if matches!(self.current_effect, Effect::Pure) {
@@ -24,43 +28,34 @@ impl<'a> BlockChecker<'a> {
                     .first()
                     .map(String::as_str)
                     .unwrap_or("raw memory operation");
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        format!(
-                            "pure raw body cannot access raw memory instruction '{}'",
-                            op
-                        ),
-                        span,
-                    )
-                    .with_code(DiagnosticCode::Effect(
-                        crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
-                    )),
-                );
+                self.diagnostics.push(effect_error(
+                    EffectDiagnosticCode::PureCallsImpure,
+                    format!(
+                        "pure raw body cannot access raw memory instruction '{}'",
+                        op
+                    ),
+                    span,
+                ));
                 return false;
             }
             for callee in raw_body_direct_callees(body) {
                 if raw_callee_is_raw_memory_effect(&callee) {
                     if !self.raw_body_memory_operations_allowed(span) {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                format!("pure raw body cannot call raw memory helper '{}'", callee),
-                                span,
-                            )
-                            .with_code(DiagnosticCode::Effect(
-                                crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
-                            )),
-                        );
+                        self.diagnostics.push(effect_error(
+                            EffectDiagnosticCode::PureCallsImpure,
+                            format!("pure raw body cannot call raw memory helper '{}'", callee),
+                            span,
+                        ));
                         return false;
                     }
                     continue;
                 }
                 if self.raw_callee_is_impure(&callee) {
-                    self.diagnostics.push(
-                        Diagnostic::error("pure context cannot call impure function", span)
-                            .with_code(DiagnosticCode::Effect(
-                                crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
-                            )),
-                    );
+                    self.diagnostics.push(effect_error(
+                        EffectDiagnosticCode::PureCallsImpure,
+                        "pure context cannot call impure function",
+                        span,
+                    ));
                     return false;
                 }
             }
@@ -129,7 +124,8 @@ impl<'a> BlockChecker<'a> {
             match stmt {
                 Stmt::Wasm(w) => {
                     if selected.is_some() {
-                        self.diagnostics.push(Diagnostic::error(
+                        self.diagnostics.push(effect_error(
+                            EffectDiagnosticCode::RawBodyMultipleActive,
                             "multiple active raw bodies in one function",
                             w.span,
                         ));
@@ -139,7 +135,8 @@ impl<'a> BlockChecker<'a> {
                 }
                 Stmt::LlvmIr(l) => {
                     if selected.is_some() {
-                        self.diagnostics.push(Diagnostic::error(
+                        self.diagnostics.push(effect_error(
+                            EffectDiagnosticCode::RawBodyMultipleActive,
                             "multiple active raw bodies in one function",
                             l.span,
                         ));

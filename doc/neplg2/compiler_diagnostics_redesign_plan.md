@@ -163,6 +163,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `codegen_wasm.rs` / `codegen_llvm.rs` の backend diagnostic helper を code-first constructor へ移行した。backend は個別 call site で `Diagnostic` を直接組み立てず helper へ `BackendDiagnosticCode` を渡す構造なので、この boundary で code を生成時点に固定する。
 - 2026-04-29: `parser.rs` の shared `error_with_code` / `push_error_with_code` と、再帰上限、no-progress recovery、raw block、intrinsic、tuple、match scrutinee の parser recovery boundary を code-first constructor へ移行した。この時点では layout/type expression/extern signature 系の直接 `.with_code(...)` が残っていたため、後続 D1 で同じ方針に揃える対象として切り出した。
 - 2026-04-29: `parser.rs` に残っていた layout、type expression、identifier、mlstr、extern signature 診断を code-first constructor へ移行し、parser module 内の `.with_code(...)` を 0 件にした。
+- 2026-04-29: `typecheck/effect_check.rs` の pure context / raw body effect 診断を code-first constructor へ移行し、未コード化だった raw body 多重有効化診断も `EffectDiagnosticCode::RawBodyMultipleActive` へ接続した。これにより effect checker boundary では `.with_code(...)` とコード無し raw-body effect error が残らない。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

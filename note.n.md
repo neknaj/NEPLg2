@@ -1,3 +1,25 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z effect checker code-first diagnostics)
+
+- [同期]:
+  - `main` が `origin/main` と一致していることを確認し、`work/typecheck-effect-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `nepl-core/src/typecheck/effect_check.rs` には pure raw body / pure context の effect safety 診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - raw body 多重有効化診断は message だけで発行され、既存の `EffectDiagnosticCode::RawBodyMultipleActive` へ接続されていなかった。
+- [修正]:
+  - `effect_error(...)` helper を追加し、effect checker boundary の診断を `Diagnostic::error_with_code(...)` 経由に統一した。
+  - pure context が impure function / raw memory helper / raw memory instruction へ到達する診断を `EffectDiagnosticCode::PureCallsImpure` に固定した。
+  - wasm / llvm raw body が複数 active になる診断を `EffectDiagnosticCode::RawBodyMultipleActive` に固定した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code" nepl-core/src/typecheck/effect_check.rs`: no matches
+  - `cargo test -p nepl-core --test effects -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の effect checker boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z compiler boundary code-first diagnostics)
 
 - [同期]:
