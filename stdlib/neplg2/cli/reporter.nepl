@@ -1,0 +1,229 @@
+#indent 4
+
+//: # reporter
+//: NEPLg2.0 self-host CLI の diagnostic reporter 境界です。
+//:
+//: [目的/もくてき]:
+//: - compiler core が返す `SelfhostDiagnostic` / `SelfhostDiagnostics` を、CLI の出力形式へ変換します。
+//: - 人間向け diagnostic は stderr、機械判定向け diagnostic JSON は stdout に分けます。
+//: - core/infra は filesystem や stdio に依存せず、stdio への書き出しはこの module に閉じ込めます。
+//:
+//: [実装/じっそう]:
+//: - human 表示は `severity[code]: message` を 1 行目に置き、primary label と note を続けます。
+//: - JSON 表示は deterministic な compact object / array とし、文字列 field は `alloc/encoding/json` の escape を使います。
+//: - write helper は `std/stdio` の Result 付き stdout/stderr API をそのまま返します。
+//:
+//: [注意/ちゅうい]:
+//: - source file path と line/column 変換は `SourceText` / source map が CLI driver に接続された後で追加します。
+//: - 現段階では byte span を `file_id:start..end` として出力し、Rust 側 parity fixture と比較しやすい安定形式にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - single diagnostic rendering は message / label / note の byte 数を n として O(n) です。
+//: - diagnostic collection rendering は件数 k、総出力 byte 数 n として O(k + n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/reporter" as *
+//:| #import "neplg2/core/infra/diag" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let span <SelfhostSourceSpan> source_span_new 2 4 8
+//:     let label <SelfhostDiagnosticLabel> selfhost_diag_label_new span "near `let`"
+//:     let diag0 <SelfhostDiagnostic> selfhost_diag_error "demo.error" "bad input"
+//:     let diag1 <SelfhostDiagnostic> selfhost_diag_with_primary_label diag0 label
+//:     let diag2 <SelfhostDiagnostic> selfhost_diag_with_note diag1 "try another expression"
+//:     let human <str> selfhost_cli_render_diagnostic_human diag2
+//:     let json <str> selfhost_cli_render_diagnostic_json diag2
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_str_eq "error[demo.error]: bad input\n  --> file 2:4..8\n  = label: near `let`\n  = note: try another expression\n" human
+//:         |> checks_push assert_str_eq "{\"severity\":\"error\",\"code\":\"demo.error\",\"message\":\"bad input\",\"primary_label\":{\"file_id\":2,\"start\":4,\"end\":8,\"message\":\"near `let`\"},\"note\":\"try another expression\"}" json
+//:     checks_exit_code checks
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/encoding/json" as *
+#import "alloc/string" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "std/stdio" as *
+
+//: selfhost_cli_append_human_label: human diagnostic に primary label 行を追加する
+//:
+//: [目的/もくてき]:
+//: - span の byte range と label message を、stderr で読みやすい安定形式へ変換します。
+//:
+//: [注意/ちゅうい]:
+//: - line/column 変換が未接続の間は byte offset をそのまま出します。
+fn selfhost_cli_append_human_label <(StringBuilder,SelfhostDiagnosticLabel)->StringBuilder> (sb, label):
+    let span <SelfhostSourceSpan> field::get label "span"
+    let mut out <StringBuilder> sb
+    set out sb_append out "  --> file "
+    set out sb_append_i32 out field::get span "file_id"
+    set out sb_append out ":"
+    set out sb_append_i32 out field::get span "start"
+    set out sb_append out ".."
+    set out sb_append_i32 out field::get span "end"
+    set out sb_append out "\n"
+    set out sb_append out "  = label: "
+    set out sb_append out field::get label "message"
+    set out sb_append out "\n"
+    out
+
+//: selfhost_cli_append_human_note: human diagnostic に note 行を追加する
+fn selfhost_cli_append_human_note <(StringBuilder,str)->StringBuilder> (sb, note):
+    let mut out <StringBuilder> sb
+    set out sb_append out "  = note: "
+    set out sb_append out note
+    set out sb_append out "\n"
+    out
+
+//: selfhost_cli_render_diagnostic_human: diagnostic 1 件を stderr 用 text にする
+//:
+//: [目的/もくてき]:
+//: - CLI が人間向けに表示する diagnostic の最小安定形式を作ります。
+//: - stdout artifact / JSON と混ざらないよう、戻り値は `selfhost_cli_write_human_diagnostics_stderr` から stderr へ流します。
+pub fn selfhost_cli_render_diagnostic_human <(SelfhostDiagnostic)->str> (diag):
+    let mut sb <StringBuilder> string_builder_new
+    set sb sb_append sb selfhost_diag_severity_name field::get diag "severity"
+    set sb sb_append sb "["
+    set sb sb_append sb field::get diag "code"
+    set sb sb_append sb "]: "
+    set sb sb_append sb field::get diag "message"
+    set sb sb_append sb "\n"
+    match field::get diag "primary_label":
+        Option::Some label:
+            set sb selfhost_cli_append_human_label sb label
+        Option::None:
+            ()
+    match field::get diag "note":
+        Option::Some note:
+            set sb selfhost_cli_append_human_note sb note
+        Option::None:
+            ()
+    sb_build sb
+
+//: selfhost_cli_append_json_label: JSON diagnostic object に primary label field を追加する
+fn selfhost_cli_append_json_label <(StringBuilder,Option<SelfhostDiagnosticLabel>)->StringBuilder> (sb, maybe_label):
+    let mut out <StringBuilder> sb
+    set out sb_append out "\"primary_label\":"
+    match maybe_label:
+        Option::Some label:
+            let span <SelfhostSourceSpan> field::get label "span"
+            set out sb_append out "{\"file_id\":"
+            set out sb_append_i32 out field::get span "file_id"
+            set out sb_append out ",\"start\":"
+            set out sb_append_i32 out field::get span "start"
+            set out sb_append out ",\"end\":"
+            set out sb_append_i32 out field::get span "end"
+            set out sb_append out ",\"message\":"
+            set out sb_append out json_quote_string field::get label "message"
+            set out sb_append out "}"
+        Option::None:
+            set out sb_append out "null"
+    out
+
+//: selfhost_cli_append_json_note: JSON diagnostic object に note field を追加する
+fn selfhost_cli_append_json_note <(StringBuilder,Option<str>)->StringBuilder> (sb, maybe_note):
+    let mut out <StringBuilder> sb
+    set out sb_append out "\"note\":"
+    match maybe_note:
+        Option::Some note:
+            set out sb_append out json_quote_string note
+        Option::None:
+            set out sb_append out "null"
+    out
+
+//: selfhost_cli_render_diagnostic_json: diagnostic 1 件を compact JSON object にする
+//:
+//: [目的/もくてき]:
+//: - bootstrap comparison や CLI JSON mode が使う、順序の安定した machine readable diagnostic を作ります。
+//: - field 順は `severity`, `code`, `message`, `primary_label`, `note` で固定します。
+pub fn selfhost_cli_render_diagnostic_json <(SelfhostDiagnostic)->str> (diag):
+    let mut sb <StringBuilder> string_builder_new
+    set sb sb_append sb "{\"severity\":"
+    set sb sb_append sb json_quote_string selfhost_diag_severity_name field::get diag "severity"
+    set sb sb_append sb ",\"code\":"
+    set sb sb_append sb json_quote_string field::get diag "code"
+    set sb sb_append sb ",\"message\":"
+    set sb sb_append sb json_quote_string field::get diag "message"
+    set sb sb_append sb ","
+    set sb selfhost_cli_append_json_label sb field::get diag "primary_label"
+    set sb sb_append sb ","
+    set sb selfhost_cli_append_json_note sb field::get diag "note"
+    set sb sb_append sb "}"
+    sb_build sb
+
+//: selfhost_cli_render_diagnostics_human: diagnostic collection を stderr 用 text にする
+pub fn selfhost_cli_render_diagnostics_human <(&SelfhostDiagnostics)->str> (diagnostics):
+    let n <i32> selfhost_diagnostics_len diagnostics
+    let mut sb <StringBuilder> string_builder_new
+    let mut i <i32> 0
+    while lt i n:
+        do:
+            match selfhost_diagnostics_get diagnostics i:
+                Option::Some diag:
+                    set sb sb_append sb selfhost_cli_render_diagnostic_human diag
+                Option::None:
+                    ()
+            set i add i 1
+    sb_build sb
+
+//: selfhost_cli_render_diagnostics_json: diagnostic collection を compact JSON array にする
+pub fn selfhost_cli_render_diagnostics_json <(&SelfhostDiagnostics)->str> (diagnostics):
+    let n <i32> selfhost_diagnostics_len diagnostics
+    let mut sb <StringBuilder> string_builder_new
+    set sb sb_append sb "["
+    let mut i <i32> 0
+    while lt i n:
+        do:
+            if:
+                lt 0 i
+                then:
+                    set sb sb_append sb ","
+                else:
+                    ()
+            match selfhost_diagnostics_get diagnostics i:
+                Option::Some diag:
+                    set sb sb_append sb selfhost_cli_render_diagnostic_json diag
+                Option::None:
+                    set sb sb_append sb "null"
+            set i add i 1
+    set sb sb_append sb "]"
+    sb_build sb
+
+//: selfhost_cli_write_human_diagnostic_stderr: diagnostic 1 件の human text を stderr へ書く
+//:
+//: [目的/もくてき]:
+//: - artifact / JSON 用の stdout と diagnostic 用 stderr を API レベルで分けます。
+//: - write failure は `StdErrorKind` として caller に返します。
+pub fn selfhost_cli_write_human_diagnostic_stderr <(SelfhostDiagnostic)*>Result<(), StdErrorKind>> (diag):
+    stdio_write_stderr_str_result selfhost_cli_render_diagnostic_human diag
+
+//: selfhost_cli_write_human_diagnostics_stderr: diagnostic collection の human text を stderr へ書く
+pub fn selfhost_cli_write_human_diagnostics_stderr <(&SelfhostDiagnostics)*>Result<(), StdErrorKind>> (diagnostics):
+    stdio_write_stderr_str_result selfhost_cli_render_diagnostics_human diagnostics
+
+//: selfhost_cli_write_json_diagnostic_stdout: diagnostic 1 件の JSON を stdout へ書く
+//:
+//: [目的/もくてき]:
+//: - machine readable diagnostic を stdout へ流し、human stderr と分離します。
+//: - driver が file output を持つようになったら、同じ render 結果を file writer へ渡します。
+pub fn selfhost_cli_write_json_diagnostic_stdout <(SelfhostDiagnostic)*>Result<(), StdErrorKind>> (diag):
+    stdio_write_str_result selfhost_cli_render_diagnostic_json diag
+
+//: selfhost_cli_write_json_diagnostics_stdout: diagnostic collection の JSON array を stdout へ書く
+pub fn selfhost_cli_write_json_diagnostics_stdout <(&SelfhostDiagnostics)*>Result<(), StdErrorKind>> (diagnostics):
+    stdio_write_str_result selfhost_cli_render_diagnostics_json diagnostics
+
+//: selfhost_cli_reporter_stage0: reporter 境界の smoke API
+pub fn selfhost_cli_reporter_stage0 <()*>i32> ():
+    let diag <SelfhostDiagnostic> selfhost_diag_warning "stage0.warning" "reporter"
+    let rendered <str> selfhost_cli_render_diagnostic_json diag
+    if str_eq rendered "{\"severity\":\"warning\",\"code\":\"stage0.warning\",\"message\":\"reporter\",\"primary_label\":null,\"note\":null}" 0 1

@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-28T23:58:27.415Z",
+  "generated_at": "2026-04-29T00:19:23.559Z",
   "counts": {
     "total": 334,
-    "open": 11,
-    "resolved": 323,
+    "open": 10,
+    "resolved": 324,
     "by_area": {
       "core": {
         "total": 155,
         "open": 4,
         "resolved": 151
       },
-      "selfhost": {
-        "total": 42,
-        "open": 2,
-        "resolved": 40
-      },
       "stdlib": {
         "total": 100,
         "open": 5,
         "resolved": 95
+      },
+      "selfhost": {
+        "total": 42,
+        "open": 1,
+        "resolved": 41
       },
       "cli": {
         "total": 19,
@@ -108,21 +108,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B.md"
-    },
-    {
-      "id": "ISS-20260428T235630333Z-SELF-HOST-CLI-LACKS-DIAGNOSTIC-REPOR-DF540D85",
-      "title": "self-host CLI lacks diagnostic reporter boundary",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "stdlib/neplg2/cli/reporter.nepl, stdlib/neplg2/cli/main.nepl, tests/stdlib/selfhost_cli_reporter.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T235630333Z-SELF-HOST-CLI-LACKS-DIAGNOSTIC-REPOR-DF540D85.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2853,6 +2838,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T232624608Z-SELFHOSTOUTCOME-STORES-RESULT-IN-RAW-219628DB.md"
+    },
+    {
+      "id": "ISS-20260428T235630333Z-SELF-HOST-CLI-LACKS-DIAGNOSTIC-REPOR-DF540D85",
+      "title": "self-host CLI lacks diagnostic reporter boundary",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/cli/reporter.nepl, stdlib/neplg2/cli/main.nepl, tests/stdlib/selfhost_cli_reporter.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T235630333Z-SELF-HOST-CLI-LACKS-DIAGNOSTIC-REPOR-DF540D85.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

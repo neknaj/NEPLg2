@@ -24198,3 +24198,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の initialized / moved state 分離として、`RegionToken` value state と pointee raw cell state の境界を明確化した。
+
+# 2026-04-29 メモ (ISS-20260428T235630333Z self-host CLI reporter boundary)
+
+- [同期]:
+  - `main` は `origin/main` の `10a12c8 issues: track selfhost cli reporter boundary` まで同期済みで、`selfhost/s6-cli-reporter` branch を作成して作業した。
+  - merge 前に remote main の `21770a2 fix(core): preserve external vec backing raw cells` を取り込み、branch を rebase して `trunk build` から再検証した。
+- [原因]:
+  - `doc/neplg2/self_host_plan.md` の S6 は `cli/reporter.nepl` が stderr human diagnostic と JSON output を分けると定義しているが、現行 `stdlib/neplg2/cli/` には reporter 境界がなかった。
+  - Result 付き stdout/stderr API は stdlib 側で整備済みなので、次の不足は core diagnostic を stdio 非依存のまま CLI 表示へ変換する層だった。
+- [修正]:
+  - `stdlib/neplg2/cli/reporter.nepl` を追加し、`SelfhostDiagnostic` を human text と compact JSON object へ変換する API を実装した。
+  - 単一 diagnostic と collection の両方に対して、human stderr / JSON stdout の Result-returning write helper を追加した。
+  - `nodesrc/test_selfhost_cli_reporter_boundary.js` と `tests/stdlib/selfhost_cli_reporter.n.md` を追加し、Result 付き stdio API、core diagnostic の stdio 非依存、stdout/stderr 分離を固定した。
+  - remote main の Vec provenance 修正を取り込んだ後、collection diagnostic の human / JSON fixture も同じ regression に追加した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc\test_selfhost_cli_reporter_boundary.js`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\cli\reporter.nepl --no-tree -o tmp\selfhost-cli-reporter-rebased-module-collection.json -j 1`: total=1 passed=1
+  - `node nodesrc\tests.js -i tests\stdlib\selfhost_cli_reporter.n.md --no-tree -o tmp\selfhost-cli-reporter-rebased-fixture-collection.json -j 1`: total=3 passed=3
+  - `node nodesrc\tests.js -i stdlib\neplg2\cli\args.nepl -i stdlib\neplg2\cli\args\types.nepl -i stdlib\neplg2\cli\reporter.nepl -i tests\stdlib\selfhost_cliarg_parser.n.md -i tests\stdlib\selfhost_cli_reporter.n.md --no-tree -o tmp\selfhost-cli-reporter-rebased-cli-focused.json -j 2`: total=19 passed=19
+  - `node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-reporter-rebased-neplg2.json -j 2`: total=34 passed=34
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の S6 に沿い、driver 実装前に diagnostic reporter の stdout/stderr 境界を追加した。
