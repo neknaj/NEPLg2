@@ -1,3 +1,26 @@
+# 2026-04-30 メモ (ISS-20260429T162554932Z generics/shadowing fixture cleanup)
+
+- [同期]:
+  - `main` を `origin/main` と同期した状態から、`tests/generics-shadowing-fixtures` branch で作業した。
+- [原因]:
+  - `tests/compiler/generics.n.md` は compiler generics の fixture だが、不要な `core/mem` open import や default prelude により stdlib `Option` が見える状態で local `Option` を定義していた。
+  - `core/math` も `core/field -> core/mem -> core/option` を読むため、`as *` でなくても同名 local `Option` を使う fixture では衝突が表面化していた。
+  - `tests/compiler/shadowing.n.md` の `std_test_noshadow_same_signature_redefinition_is_error` は、`std/test` の `assert_eq_i32` が `TestAssertion` を返す設計に変わった後も旧 `Result<(), str>` signature を再定義していたため、同一 signature の shadowing test ではなくなっていた。
+- [修正]:
+  - `generics.n.md` の各 doctest に `#no_prelude` を追加し、generics 検証を prelude の名前集合から切り離した。
+  - 不要な `core/mem` import を削除し、`core/math` は alias import と `m::add` に寄せた。
+  - `core/math` が必要で local `Option` を定義していた fixture は `LocalOption` に改名し、generic enum / constructor / match の検証意図を維持した。
+  - `shadowing.n.md` の `std/test` noshadow fixture を現在の `(i32, i32) -> TestAssertion` signature に合わせた。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md --no-tree -o tmp/generics-fixture-cleanup6.json -j 1 --dist web/dist`: total=24, passed=24
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --no-tree -o tmp/shadowing-fixture-cleanup3.json -j 1 --dist web/dist`: total=27, passed=27
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md -i tests/compiler/shadowing.n.md --no-tree -o tmp/generics-shadowing-fixture-cleanup-final.json -j 1 --dist web/dist`: total=51, passed=51
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-after-generics-shadowing-cleanup.json -j 4 --dist web/dist`: total=649, passed=635, failed=14。残りは `drop_overwrite` の `resource.borrow.assign_during_shared` と ResourceIR owner obligation 系で、generics/shadowing fixture 由来の失敗は解消。
+- [issue]:
+  - `ISS-20260429T162554932Z-RESOLVER-NAME-CONFLICT-REGRESSES-GEN-CC8CE1E8` は実態に合わせて TEST area の fixture issue として fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (compiler gate 別件 regression issue 登録)
 
 - [同期]:
