@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T01:42:11.662Z",
+  "generated_at": "2026-04-29T01:49:32.348Z",
   "counts": {
-    "total": 340,
+    "total": 341,
     "open": 10,
-    "resolved": 330,
+    "resolved": 331,
     "by_area": {
       "core": {
         "total": 159,
@@ -37,9 +37,9 @@
         "resolved": 13
       },
       "nodesrc": {
-        "total": 3,
+        "total": 4,
         "open": 0,
-        "resolved": 3
+        "resolved": 4
       },
       "compiler": {
         "total": 1,
@@ -2613,6 +2613,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T121641554Z-NODESRC-TESTS-DEFAULT-CASE-TIMEOUT-I-089ABC53.md"
+    },
+    {
+      "id": "ISS-20260429T014659694Z-STD-TEST-SOURCE-POLICY-STILL-REQUIRE-2D5EEDED",
+      "title": "std/test source policy still requires removed Vec accumulator",
+      "area": "nodesrc",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js, stdlib/std/test.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T014659694Z-STD-TEST-SOURCE-POLICY-STILL-REQUIRE-2D5EEDED.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",

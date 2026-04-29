@@ -24365,3 +24365,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の `MemPtr = non-owning pointer` と `Storage/OwnedRegion = free obligation owner` の分離に沿い、free obligation owner と raw pointer alias の責務を Resource IR owner gate 側で分離した。
+
+# 2026-04-29 メモ (ISS-20260429T014659694Z std/test source policy)
+
+- [原因]:
+  - `stdlib/std/test.nepl` は `Checks` value accumulator へ移行済みだが、`nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js` は旧 `Vec<Result<(),str>>` accumulator と `alloc/collections/vec` import を必須にしたままだった。
+  - そのため GitHub Actions の Source policy regressions が現行の正しい std/test 実装を拒否し、逆に raw backing-store scan の再導入を促す policy になっていた。
+- [修正]:
+  - std/test policy を `Checks` value accumulator 契約へ更新した。
+  - `alloc/collections/vec` import、`Vec<Result<(),str>>`、`checks_empty_vec`、旧 loop helper、`load<Result<(),str>>` の再導入を禁止した。
+  - `Checks` fields、Copy 実装、allocation-free `checks_empty`、`checks_single_error`、value 更新型の `checks_push`、`finish_checks` を確認するようにした。
+- [検証]:
+  - `node nodesrc\test_stdlib_std_test_no_unsafe_unwraps.js`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - std/test の raw memory backed accumulator 廃止を source policy 側にも反映し、Resource IR raw memory gate を弱めずに CI policy を現行設計へ合わせた。
