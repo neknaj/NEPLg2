@@ -26857,6 +26857,41 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 
 # 2026-04-30 メモ (ISS-20260429T170552181Z intrinsic raw dealloc fixture)
 
+# 2026-04-30 メモ (ISS-20260429T120339805Z HashMap owner field contract)
+
+- [同期]:
+  - `main` を `origin/main` と同期した状態から `work/hashmap-read-free-contract` branch で作業した。
+- [原因]:
+  - `HashMap` の旧 layout は header raw cell に entries pointer を保存していたため、ResourceIR から見ると backing storage の free obligation が struct field として見えなかった。
+  - `get` / `contains` / `len` が by-value API のままだったため、read 後に map owner を返すのか caller が free するのかが曖昧になり、caller-side owner leak が残っていた。
+  - doc/test fixture には `std/test` の owned `TestAssertion` を生成して捨てる箇所もあり、HashMap grow 検証とは別の owner leak を誘発していた。
+- [修正]:
+  - `HashMap<.K,.V,.H>` を `hdr <MemPtr<u8>>` / `entries <MemPtr<u8>>` / `hasher <.H>` に変更し、header は count/cap/tombstones の 12 byte metadata に整理した。
+  - `hashmap_alloc_entries` は `Result<MemPtr<u8>, Diag>` を返し、constructor / rehash / insert / free が entries owner を明示的に移動するようにした。
+  - `get` / `contains` / `len` は `&HashMap` を受け取る read API に変更し、`.V: Copy` bound を追加した。
+  - HashMap 利用 fixture は read 後に `free` するよう更新し、HashMap grow fixture の ignored `TestAssertion` は所有値を作らない直接比較へ変更した。
+  - `nodesrc/test_stdlib_hashmap_owner_contract.js` を追加し、CI と `doc/testing.md` の source policy 一覧へ追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 hashmap -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8 passed
+  - `trunk build`: passed
+  - `node nodesrc/test_stdlib_hashmap_owner_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md --no-tree -o tmp/hashmap-owner-contract-stdlib-only.json -j 1 --dist web/dist`: total=11, passed=11
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 3 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 5 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 5 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/traits_hash.n.md -n 5 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 4 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 6 --dist web/dist`: passed
+  - `cargo test -p nepl-core --test selfhost_req req -- --nocapture`: 3 passed / 3 failed。HashMap 関連 2 件は pass、残りは既存の ByteBuf/String/FS owner 問題。
+- [issue]:
+  - `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` を fixed/resolved に更新した。
+  - 検証中に `Diag` の by-value observer が owned message payload を閉じられない別問題を確認し、`ISS-20260429T191522911Z-DIAG-BY-VALUE-OBSERVERS-LEAVE-OWNED--9A8FBE5F` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib HashMap は ResourceIR が header と entries の owner を直接追跡できる形になり、self-host に必要な collection memory safety contract を強めた。
+
 - [同期]:
   - `main` を `origin/main` と同期した状態から、`tests/intrinsic-raw-dealloc-fixture` branch で作業した。
 - [原因]:

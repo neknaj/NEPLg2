@@ -18,7 +18,6 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/hash" as *
-#import "std/test" as *
 
 fn main <()*>i32> ():
     let mut hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
@@ -27,12 +26,13 @@ fn main <()*>i32> ():
         do:
             set hm unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i mul i 10;
             set i add i 1;
-    match get hm 39:
+    let out <i32> match get &hm 39:
         Option::Some v:
-            assert_eq_i32 390 v;
-            0
+            if eq 390 v 0 2
         Option::None:
             1
+    free hm;
+    out
 ```
 
 ## hashset_grows_past_initial_capacity
@@ -78,7 +78,6 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/hash" as *
-#import "std/test" as *
 
 fn main <()*>i32> ():
     let mut hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 32;
@@ -87,12 +86,13 @@ fn main <()*>i32> ():
         do:
             set hm unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i add i 1;
             set i add i 1;
-    match get hm 159:
+    let out <i32> match get &hm 159:
         Option::Some v:
-            assert_eq_i32 160 v;
-            0
+            if eq 160 v 0 2
         Option::None:
             1
+    free hm;
+    out
 ```
 
 ## hashset_many_inserts_for_runtime_observation
@@ -137,7 +137,6 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/hash" as *
-#import "std/test" as *
 
 fn hashmap_after_tombstones <()*>HashMap<i32,i32,DefaultHash32>> ():
     let mut hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 8;
@@ -156,18 +155,24 @@ fn hashmap_after_tombstones <()*>HashMap<i32,i32,DefaultHash32>> ():
 
 fn main <()*>i32> ():
     let hm5 <HashMap<i32,i32,DefaultHash32>> hashmap_after_tombstones;
-    match get hm5 5:
+    let out5 <i32> match get &hm5 5:
         Option::Some v5:
-            assert_eq_i32 105 v5;
-            let hm100 <HashMap<i32,i32,DefaultHash32>> hashmap_after_tombstones;
-            match get hm100 100:
-                Option::Some v100:
-                    assert_eq_i32 1000 v100;
-                    0
-                Option::None:
-                    1
+            if eq 105 v5 0 3
         Option::None:
             2
+    free hm5;
+    if:
+        ne out5 0
+        then out5
+        else:
+            let hm100 <HashMap<i32,i32,DefaultHash32>> hashmap_after_tombstones;
+            let out100 <i32> match get &hm100 100:
+                Option::Some v100:
+                    if eq 1000 v100 0 4
+                Option::None:
+                    1
+            free hm100;
+            out100
 ```
 
 ## hashset_rehashes_tombstones

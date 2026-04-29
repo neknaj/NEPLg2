@@ -203,25 +203,28 @@ fn main <()*>i32> ():
         |> must_hm
         |> insert 9 90
         |> must_hm
-    set checks checks_push checks check_eq_i32 2 len hm0;
+    set checks checks_push checks check_eq_i32 2 len &hm0;
+    free hm0;
     let hm1 <HashMap<i32,i32,DefaultHash32>>:
         must_hm new DefaultHash32
         |> insert 7 70
         |> must_hm
         |> insert 9 90
         |> must_hm
-    match get hm1 9:
+    match get &hm1 9:
         Option::Some v:
             set checks checks_push checks check_eq_i32 90 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "pipe hashmap get failed";
+    free hm1;
     let hm2 <HashMap<i32,i32,DefaultHash32>>:
         must_hm new DefaultHash32
         |> insert 7 70
         |> must_hm
         |> insert 9 90
         |> must_hm
-    set checks checks_push checks check contains hm2 7;
+    set checks checks_push checks check contains &hm2 7;
+    free hm2;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

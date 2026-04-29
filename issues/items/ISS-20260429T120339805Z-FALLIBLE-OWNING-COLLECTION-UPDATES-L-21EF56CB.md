@@ -2,13 +2,13 @@
 id: ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB
 title: "Fallible owning collection updates lose input owners on allocation failure"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
-updated: 2026-04-29
-target: "stdlib/alloc/collections/list.nepl, stdlib/alloc/collections/hashmap.nepl"
+updated: 2026-04-30
+target: "stdlib/alloc/collections/list.nepl, stdlib/alloc/collections/hashmap.nepl, nodesrc/test_stdlib_hashmap_owner_contract.js, stdlib/tests/hashmap.n.md, stdlib/tests/hashmap_str.n.md, tests/stdlib/hash_collection_rehash.n.md, tests/stdlib/pipe_collections.n.md, tests/stdlib/traits_hash.n.md, tests/stdlib/selfhost_req.n.md, tests/stdlib/collections_diag.n.md"
 ---
 
 # ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB: Fallible owning collection updates lose input owners on allocation failure
@@ -78,3 +78,36 @@ Run focused List/HashMap neplg2 tests and Resource IR owner regressions after th
 `insert...` の `hdr.StorageOffset(8).Deref` owner may leak は、core Resource owner checker が raw address alias graph と owner table を別々に merge し、さらに projected alias copy 時に基底 pointer alias を落としていた問題だった。`ISS-20260429T174311311Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-8E245CC4` で修正済み。
 
 この修正後、`cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture` は `insert...` 内部では失敗しなくなり、残件は `main` 側の `map1` header / entries owner leak に絞られた。これは HashMap を `get` / `contains` / `len` などの read API に渡した後、所有者を返すのか明示的に `free` するのかが fixture/API 契約として閉じていない問題として扱う。
+
+## 2026-04-30 修正内容
+
+HashMap の read/free API 契約を、ResourceIR が検査できる形に整理した。
+
+- `HashMap<.K,.V,.H>` の layout を `hdr <MemPtr<u8>>`, `entries <MemPtr<u8>>`, `hasher <.H>` に変更し、entries owner を header raw cell に隠さないようにした。
+- header は count/cap/tombstones の 12 byte metadata に縮小し、entries owner は struct field として保持する。
+- `hashmap_alloc_entries` は `Result<MemPtr<u8>, Diag>` を返すようにし、constructor / rehash / insert / free が entries owner を明示的に移動できるようにした。
+- `hashmap_rehash_to` は成功時に旧 entries を解放して新 entries owner を返却 HashMap へ移し、確保失敗時は消費済みの旧 entries と header を解放してから `Err` を返す。
+- `get` / `contains` / `len` は `&HashMap` を受け取る read API に変更し、読み取りで map owner を消費しない契約にした。
+- key/value の deep drop を行わない設計を明確化し、`.V: Copy` bound を public API に追加した。
+- caller fixture は read 後に `free` を呼ぶように更新した。
+- `collections_diag` の HashMap unexpected `Ok` branch は、返ってきた map owner を捨てずに `free` するようにした。
+- `nodesrc/test_stdlib_hashmap_owner_contract.js` を追加し、header/entries owner 分離、borrow read API、rehash failure cleanup、free の owner 解放を source policy として固定した。
+
+`tests/stdlib/collections_diag.n.md::doctest#1` では、HashMap remove の `Err(Diag)` を観測したあと `Diag` の `str` payload owner が残る別問題を発見した。これは HashMap owner contract ではなく diagnostic ownership contract の問題として `ISS-20260429T191522911Z-DIAG-BY-VALUE-OBSERVERS-LEAVE-OWNED--9A8FBE5F` に分離した。
+
+## 検証結果
+
+- `cargo test -p nepl-core --test neplg2 hashmap -- --nocapture`: 2 passed
+- `cargo test -p nepl-core --test overload -- --nocapture`: 8 passed
+- `trunk build`: passed
+- `node nodesrc/test_stdlib_hashmap_owner_contract.js`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md --no-tree -o tmp/hashmap-owner-contract-stdlib-only.json -j 1 --dist web/dist`: total=11, passed=11
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 1 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 3 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 5 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 5 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/traits_hash.n.md -n 5 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 4 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_req.n.md -n 6 --dist web/dist`: passed
+
+補足: `cargo test -p nepl-core --test selfhost_req req -- --nocapture` は既存の ByteBuf/String/FS owner 問題 3 件で fail したが、HashMap 関連の `test_req_string_map` と `test_req_trait_extensions` は pass した。
