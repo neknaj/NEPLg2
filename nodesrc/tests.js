@@ -252,7 +252,8 @@ function collectChangedTestInputs(baseRef) {
         });
 }
 
-async function runAllLegacy(cases, jobs, distHint) {
+async function runAllLegacy(cases, jobs, distHint, options = {}) {
+    const { onResult } = options;
     const results = [];
     let idx = 0;
 
@@ -267,7 +268,7 @@ async function runAllLegacy(cases, jobs, distHint) {
                 idx++;
                 if (i >= cases.length) break;
                 const c = cases[i];
-                results.push({
+                const result = {
                     ok: false,
                     id: c.id,
                     file: c.file,
@@ -276,7 +277,9 @@ async function runAllLegacy(cases, jobs, distHint) {
                     status: 'error',
                     error: err,
                     worker: workerId,
-                });
+                };
+                results.push(result);
+                if (onResult) onResult(result);
             }
             return;
         }
@@ -305,7 +308,9 @@ async function runAllLegacy(cases, jobs, distHint) {
                 tags: c.tags,
                 worker: workerId,
             };
-            results.push(applyDoctestExpectations(wrapped, c));
+            const checked = applyDoctestExpectations(wrapped, c);
+            results.push(checked);
+            if (onResult) onResult(checked);
         }
     }
 
@@ -322,9 +327,10 @@ async function runAllLegacy(cases, jobs, distHint) {
     return results;
 }
 
-async function runAllThreadPool(cases, jobs, distHint) {
+async function runAllThreadPool(cases, jobs, distHint, options = {}) {
     if (!Array.isArray(cases) || cases.length === 0) return [];
 
+    const { onResult } = options;
     const workerScript = path.resolve(__dirname, 'tests_wasm_worker.js');
     const workerCount = Math.max(1, Math.min(jobs, cases.length));
     const caseTimeoutMs = (() => {
@@ -340,6 +346,7 @@ async function runAllThreadPool(cases, jobs, distHint) {
         const workers = [];
         const timers = new Map();
         const running = new Map();
+        const retiringWorkers = new Set();
 
         function shutdownAll() {
             for (const timer of timers.values()) {
@@ -356,6 +363,18 @@ async function runAllThreadPool(cases, jobs, distHint) {
             const timer = timers.get(w);
             if (timer) clearTimeout(timer);
             timers.delete(w);
+        }
+
+        function acceptResult(idx, result) {
+            results[idx] = result;
+            if (onResult) onResult(result);
+            finished++;
+            if (finished >= cases.length) {
+                shutdownAll();
+                resolve(results.filter(Boolean));
+                return true;
+            }
+            return false;
         }
 
         function spawnWorker(slot) {
@@ -376,7 +395,7 @@ async function runAllThreadPool(cases, jobs, distHint) {
                     status: 'error',
                     error: 'worker returned empty result',
                 };
-                results[idx] = {
+                const result = {
                     ...r,
                     id: c.id,
                     file: c.file,
@@ -384,12 +403,7 @@ async function runAllThreadPool(cases, jobs, distHint) {
                     tags: c.tags,
                     worker: slot + 1,
                 };
-                finished++;
-                if (finished >= cases.length) {
-                    shutdownAll();
-                    resolve(results.filter(Boolean));
-                    return;
-                }
+                if (acceptResult(idx, result)) return;
                 schedule(w);
             });
 
@@ -404,11 +418,15 @@ async function runAllThreadPool(cases, jobs, distHint) {
             w.on('exit', (code) => {
                 if (aborted) return;
                 clearWorkerTimer(w);
+                if (retiringWorkers.has(w)) {
+                    retiringWorkers.delete(w);
+                    return;
+                }
                 const active = running.get(w);
                 running.delete(w);
                 if (active && active.index < cases.length) {
                     const c = cases[active.index];
-                    results[active.index] = {
+                    const result = {
                         ok: false,
                         id: c.id,
                         file: c.file,
@@ -418,12 +436,7 @@ async function runAllThreadPool(cases, jobs, distHint) {
                         error: `wasm test worker exited unexpectedly: code=${code}`,
                         worker: slot + 1,
                     };
-                    finished++;
-                    if (finished >= cases.length) {
-                        shutdownAll();
-                        resolve(results.filter(Boolean));
-                        return;
-                    }
+                    if (acceptResult(active.index, result)) return;
                     const next = spawnWorker(slot);
                     schedule(next);
                     return;
@@ -466,8 +479,9 @@ async function runAllThreadPool(cases, jobs, distHint) {
                 const idx = active.index;
                 const timedCase = cases[idx];
                 running.delete(w);
+                retiringWorkers.add(w);
                 try { w.terminate(); } catch {}
-                results[idx] = {
+                const result = {
                     ok: false,
                     id: timedCase.id,
                     file: timedCase.file,
@@ -477,12 +491,7 @@ async function runAllThreadPool(cases, jobs, distHint) {
                     error: `wasm test case timeout after ${caseTimeoutMs}ms`,
                     worker: (workers.indexOf(w) + 1) || 0,
                 };
-                finished++;
-                if (finished >= cases.length) {
-                    shutdownAll();
-                    resolve(results.filter(Boolean));
-                    return;
-                }
+                if (acceptResult(idx, result)) return;
                 const slot = workers.indexOf(w);
                 if (slot >= 0) {
                     const next = spawnWorker(slot);
@@ -499,22 +508,28 @@ async function runAllThreadPool(cases, jobs, distHint) {
     });
 }
 
-async function runAll(cases, jobs, distHint) {
+async function runAll(cases, jobs, distHint, options = {}) {
     const useThreadPool = (process.env.NEPL_WASM_THREAD_POOL || '1') !== '0';
     // compiler wasm の JS stack 条件を jobs 数に依存させないため、既定では 1 job でも worker runner を使う。
     if (!useThreadPool) {
-        return runAllLegacy(cases, jobs, distHint);
+        return runAllLegacy(cases, jobs, distHint, options);
     }
     try {
-        const results = await runAllThreadPool(cases, jobs, distHint);
+        const results = await runAllThreadPool(cases, jobs, distHint, options);
         results.sort((a, b) => {
             if (a.file < b.file) return -1;
             if (a.file > b.file) return 1;
             return (a.index || 0) - (b.index || 0);
         });
         return results;
-    } catch {
-        return runAllLegacy(cases, jobs, distHint);
+    } catch (threadPoolError) {
+        try {
+            return await runAllLegacy(cases, jobs, distHint, options);
+        } catch (legacyError) {
+            const detail = String(threadPoolError?.stack || threadPoolError?.message || threadPoolError);
+            legacyError.message = `${legacyError.message}\nworker runner fallback reason: ${detail}`;
+            throw legacyError;
+        }
     }
 }
 
@@ -1256,6 +1271,18 @@ function ensureDir(p) {
     fs.mkdirSync(p, { recursive: true });
 }
 
+function writeJsonFileAtomic(outAbs, obj) {
+    const dir = path.dirname(outAbs);
+    ensureDir(dir);
+    const base = path.basename(outAbs);
+    const tmp = path.join(
+        dir,
+        `.${base}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`,
+    );
+    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
+    fs.renameSync(tmp, outAbs);
+}
+
 function pickTopIssues(results, limit) {
     const failed = results.filter(r => r.status === 'fail');
     const errored = results.filter(r => r.status === 'error');
@@ -1367,7 +1394,7 @@ async function main() {
         };
         const outAbs = path.resolve(outPath);
         ensureDir(path.dirname(outAbs));
-        fs.writeFileSync(outAbs, JSON.stringify(out, null, 2));
+        writeJsonFileAtomic(outAbs, out);
         console.log(JSON.stringify({
             dist: { hint: distHint || null, resolved: [] },
             summary: out.summary,
@@ -1443,7 +1470,7 @@ async function main() {
         };
         const outAbs = path.resolve(outPath);
         ensureDir(path.dirname(outAbs));
-        fs.writeFileSync(outAbs, JSON.stringify(out, null, 2));
+        writeJsonFileAtomic(outAbs, out);
         const topIssues = pickTopIssues(results, 5);
         console.log(JSON.stringify({
             dist: { hint: distHint || null, resolved: [] },
@@ -1495,40 +1522,67 @@ async function main() {
                 last_result_phase: last?.phase || null,
             },
             summary: summarize(partialResults),
+            top_issues: pickTopIssues(partialResults, 5),
             results: partialResults,
         };
-        fs.writeFileSync(outAbs, JSON.stringify(out, null, 2));
+        writeJsonFileAtomic(outAbs, out);
     };
     const recordProgress = (result) => {
         partialResults.push(result);
-        if (partialResults.length % flushEvery === 0) {
+        const shouldFlushFailure = result?.status === 'fail' || result?.status === 'error';
+        if (shouldFlushFailure || partialResults.length % flushEvery === 0) {
             writePartialOutput('progress');
         }
     };
     writePartialOutput('started');
 
     let results = [];
-    if (runner === 'wasm') {
-        results = await runAll(wasmCases, jobs, distHint);
-        const wasmCaseMap = buildCaseMap(wasmCases);
-        results = results.map((r) => {
-            const c = wasmCaseMap.get(r.id);
-            return c ? applyDoctestExpectations(r, c, { assertIo }) : r;
-        });
-    } else if (runner === 'llvm') {
-        results = await runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly, onResult: recordProgress });
-    } else {
-        const [wasmResults, llvmResults] = await Promise.all([
-            runAll(wasmCases, jobs, distHint),
-            runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly, onResult: recordProgress }),
-        ]);
-        const wasmCaseMap = buildCaseMap(wasmCases);
-        const checkedWasm = wasmResults.map((r) => {
-            const c = wasmCaseMap.get(r.id);
-            return c ? applyDoctestExpectations(r, c, { assertIo }) : r;
-        });
-        const compared = compareWasmLlvmResults(checkedWasm, llvmResults, { strictDual });
-        results = [...checkedWasm, ...llvmResults, ...compared];
+    try {
+        if (runner === 'wasm') {
+            const wasmCaseMap = buildCaseMap(wasmCases);
+            const recordWasmProgress = (r) => {
+                const c = wasmCaseMap.get(r.id);
+                recordProgress(c ? applyDoctestExpectations({ ...r }, c, { assertIo }) : r);
+            };
+            results = await runAll(wasmCases, jobs, distHint, { onResult: recordWasmProgress });
+            results = results.map((r) => {
+                const c = wasmCaseMap.get(r.id);
+                return c ? applyDoctestExpectations(r, c, { assertIo }) : r;
+            });
+        } else if (runner === 'llvm') {
+            results = await runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly, onResult: recordProgress });
+        } else {
+            const wasmCaseMap = buildCaseMap(wasmCases);
+            const recordWasmProgress = (r) => {
+                const c = wasmCaseMap.get(r.id);
+                recordProgress(c ? applyDoctestExpectations({ ...r }, c, { assertIo }) : r);
+            };
+            const [wasmResults, llvmResults] = await Promise.all([
+                runAll(wasmCases, jobs, distHint, { onResult: recordWasmProgress }),
+                runAllLlvm(llvmCases, jobs, { assertIo, llvmCompileOnly, onResult: recordProgress }),
+            ]);
+            const checkedWasm = wasmResults.map((r) => {
+                const c = wasmCaseMap.get(r.id);
+                return c ? applyDoctestExpectations(r, c, { assertIo }) : r;
+            });
+            const compared = compareWasmLlvmResults(checkedWasm, llvmResults, { strictDual });
+            results = [...checkedWasm, ...llvmResults, ...compared];
+        }
+    } catch (e) {
+        const errorResult = {
+            ok: false,
+            id: 'nodesrc/tests/internal-error',
+            file: 'nodesrc/tests.js',
+            index: 0,
+            tags: ['harness'],
+            status: 'error',
+            phase: 'harness',
+            error: String(e?.stack || e?.message || e),
+            worker: 0,
+        };
+        recordProgress(errorResult);
+        writePartialOutput('error');
+        results = partialResults.slice();
     }
 
     if (effectiveIncludeTree && runner !== 'llvm') {
@@ -1585,7 +1639,7 @@ async function main() {
     };
 
     ensureDir(path.dirname(outAbs));
-    fs.writeFileSync(outAbs, JSON.stringify(out, null, 2));
+    writeJsonFileAtomic(outAbs, out);
 
     const topIssues = pickTopIssues(results, 5);
     console.log(JSON.stringify({

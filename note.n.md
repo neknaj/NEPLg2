@@ -27509,3 +27509,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 方針は「メモリ安全と型安全は必達」「状態は enum / Option / typed wrapper で表し、分岐は `match` の網羅性検査を効かせる」に揃えた。
+
+# 2026-04-30 メモ (ISS-20260429T210219258Z tests.js concurrent progress JSON)
+
+- [同期]:
+  - main の `abeb01b` から `test/tests-js-concurrent-progress-json` branch を作成して継続した。
+  - commit 前に remote main の `bb749ff` へ rebase し、diagnostics web 側の別 agent 変更を取り込んだ。
+  - 前回の `tests.js` concurrent result file 修正 WIP を最新 main に適用し、stdlib / static checker 側の作業とは分離した。
+- [原因]:
+  - `nodesrc/tests.js` は `partial_reason: started` の JSON を先に書く一方、wasm runner の case 完了結果を final 生成まで partial JSON に流していなかった。
+  - process / worker / harness error が final 生成前に起きると、`completed_results: 0` かつ `top_issues` なしの JSON が残り、test failure と harness failure を区別できなかった。
+  - output JSON を final path へ直接書いていたため、並行実行や中断時の JSON 境界が弱かった。
+  - timeout 後に意図的に terminate した worker の exit を、通常の worker crash と同じ扱いにできる構造が残っていた。
+- [修正]:
+  - final / partial JSON 書き込みを temp file + rename の atomic write に統一した。
+  - wasm threadpool / legacy runner に per-case `onResult` callback を追加し、case completion / worker error / timeout を partial progress に記録するようにした。
+  - wasm progress は `applyDoctestExpectations` 適用後の status を記録し、期待値 mismatch も partial `top_issues` に出るようにした。
+  - fail / error result は progress flush interval を待たず、即座に partial JSON へ反映するようにした。
+  - harness exception は `nodesrc/tests/internal-error` result として JSON 化し、`partial_reason: error` を出すようにした。
+  - timeout で明示的に terminate した worker を `retiringWorkers` で区別し、別の worker crash として扱わないようにした。
+  - source policy と concurrent smoke regression を追加した。
+- [検証]:
+  - `node nodesrc/test_tests_js_partial_progress_policy.js`: passed
+  - `node nodesrc/test_tests_js_concurrent_runs_complete_json.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7` を verified/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host / stdlib 本体ではなく、複数 agent が使う doctest harness の出力信頼性を改善した。
