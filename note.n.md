@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z match checker code-first diagnostics)
+
+- [同期]:
+  - `main` が `origin/main` と一致していることを確認し、`work/typecheck-match-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/match_check.rs` には enum / scalar match の型安全診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - match boundary は scrutinee type、pattern validity、payload binding、網羅性、arm result type を分類するため、診断 code を後付けにすると self-host parity と regression の分類が弱くなる。
+- [修正]:
+  - `match_check.rs` の診断生成を `typecheck/diagnostics.rs` の `type_error(...)` helper 経由へ移行した。
+  - scrutinee type、wildcard order、duplicate arm、unknown variant、payload binding、non-exhaustive、unsupported literal pattern、arm result mismatch の各診断で生成時点に `TypeDiagnosticCode` を確定するようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/match_check.rs`: no matches
+  - `cargo test -p nepl-core match -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md -i tests/compiler/match_enum_wildcard_patterns.n.md --no-tree -o tmp/agent1-match-diagnostics-after-trunk.json -j 1`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の match checker boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z typecheck call boundary code-first diagnostics)
 
 - [同期]:

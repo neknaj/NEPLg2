@@ -228,3 +228,22 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
 - `cargo test -p nepl-core --test effects --test functions --test overload -- --nocapture`: `effects` pass, `overload` pass, `functions` は `print_i32__i32__unit__imp` の RawMemoryLoadCell ownership violation で別件 failure。`ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7` として起票した。
 - `cargo check -p nepl-core --tests`: pass
+
+## 2026-04-29 Stage D1 match checker boundary follow-up 追記
+
+`typecheck/match_check.rs` には enum match / scalar match の診断が直接 `Diagnostic::error(...).with_code(...)` を組み立てる形で残っていた。match は型安全の中心的な boundary であり、scrutinee type、arm pattern、payload binding、網羅性、arm result type の分類が後付けになると、self-host parity や regression が粗い bucket に戻りやすい。
+
+今回の対応で `match_check.rs` は既存の typecheck shared helper `type_error(...)` を使うようにした。`MatchScrutineeNotEnum`、`MatchWildcardNotLast`、`MatchDuplicateArm`、`MatchVariantUnknown`、`MatchPayloadBindingInvalid`、`MatchNonExhaustive`、`MatchPatternUnsupported`、`MatchArmsMismatch` は、診断生成時点で `TypeDiagnosticCode` として確定する。
+
+これにより match checker boundary から直接 `.with_code(...)` と `Diagnostic::error(...)` は消えた。typecheck 全体では `prefix_check.rs` / `driver.rs` / `block_check.rs` などの D1 残件が残るため、この issue は open のまま継続する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/match_check.rs`: no matches
+- `cargo test -p nepl-core match -- --nocapture`: pass
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/match_literal_patterns.n.md -i tests/compiler/match_enum_wildcard_patterns.n.md --no-tree -o tmp/agent1-match-diagnostics-after-trunk.json -j 1`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

@@ -3,13 +3,13 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use crate::ast::{MatchArm, MatchExpr, MatchPattern};
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind, HirMatchArm, HirMatchPattern};
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeId, TypeKind};
 
 use super::binding_rules::emit_shadow_warning;
+use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::parse_i32_literal;
 use super::{BlockChecker, ScalarMatchKind};
@@ -41,15 +41,11 @@ impl<'a> BlockChecker<'a> {
             if let Some(kind) = scalar {
                 return self.check_scalar_match_expr(m, scrut_expr, kind);
             }
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "match scrutinee must be an enum, bool, char, i32, or u8",
-                    m.span,
-                )
-                .with_code(DiagnosticCode::Type(
-                    crate::diagnostic_codes::TypeDiagnosticCode::MatchScrutineeNotEnum,
-                )),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::MatchScrutineeNotEnum,
+                "match scrutinee must be an enum, bool, char, i32, or u8",
+                m.span,
+            ));
         }
         None
     }
@@ -109,21 +105,18 @@ impl<'a> BlockChecker<'a> {
                 MatchPattern::Variant { name, bind } => (name, bind),
                 MatchPattern::Wildcard { span } => {
                     if idx + 1 != m.arms.len() {
-                        self.diagnostics.push(
-                            Diagnostic::error("wildcard match arm must be last", *span)
-                                .with_code(DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::MatchWildcardNotLast,
-                            )),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::MatchWildcardNotLast,
+                            "wildcard match arm must be last",
+                            *span,
+                        ));
                     }
                     if saw_wildcard {
-                        self.diagnostics.push(
-                            Diagnostic::error("duplicate match arm", *span).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::MatchDuplicateArm,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::MatchDuplicateArm,
+                            "duplicate match arm",
+                            *span,
+                        ));
                         continue;
                     }
                     saw_wildcard = true;
@@ -145,10 +138,11 @@ impl<'a> BlockChecker<'a> {
                     continue;
                 }
                 _ => {
-                    self.diagnostics.push(
-                        Diagnostic::error("unsupported match pattern for enum scrutinee", arm.span)
-                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported)),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "unsupported match pattern for enum scrutinee",
+                        arm.span,
+                    ));
                     continue;
                 }
             };
@@ -158,26 +152,20 @@ impl<'a> BlockChecker<'a> {
                 &variant.name
             };
             if !seen.insert(arm_var_name.to_string()) {
-                self.diagnostics.push(
-                    Diagnostic::error("duplicate match arm", variant.span).with_code(
-                        DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchDuplicateArm,
-                        ),
-                    ),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::MatchDuplicateArm,
+                    "duplicate match arm",
+                    variant.span,
+                ));
                 continue;
             }
             let var_info = variants.iter().find(|v| v.name == arm_var_name);
             if var_info.is_none() {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        alloc::format!("unknown enum variant '{}' in match", variant.name),
-                        variant.span,
-                    )
-                    .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::MatchVariantUnknown,
-                    )),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::MatchVariantUnknown,
+                    alloc::format!("unknown enum variant '{}' in match", variant.name),
+                    variant.span,
+                ));
                 continue;
             }
             let var_info = var_info.unwrap();
@@ -202,12 +190,11 @@ impl<'a> BlockChecker<'a> {
                         kind: BindingKind::Var,
                     });
                 } else {
-                    self.diagnostics.push(
-                        Diagnostic::error("variant has no payload to bind", bind.span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPayloadBindingInvalid,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPayloadBindingInvalid,
+                        "variant has no payload to bind",
+                        bind.span,
+                    ));
                 }
             }
             let (blk, val_ty) = self.check_block(&arm.body, 0, false, None)?;
@@ -228,13 +215,11 @@ impl<'a> BlockChecker<'a> {
         if !saw_wildcard {
             for v in variants {
                 if !seen.contains(&v.name) {
-                    self.diagnostics.push(
-                        Diagnostic::error("non-exhaustive match", m.span).with_code(
-                            DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::MatchNonExhaustive,
-                            ),
-                        ),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchNonExhaustive,
+                        "non-exhaustive match",
+                        m.span,
+                    ));
                     break;
                 }
             }
@@ -274,51 +259,43 @@ impl<'a> BlockChecker<'a> {
             match &hir_pattern {
                 HirMatchPattern::IntLiteral(v) => {
                     if !seen_i32.insert(*v) {
-                        self.diagnostics.push(
-                            Diagnostic::error("duplicate match arm", arm.span).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::MatchDuplicateArm,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::MatchDuplicateArm,
+                            "duplicate match arm",
+                            arm.span,
+                        ));
                         continue;
                     }
                 }
                 HirMatchPattern::BoolLiteral(true) => {
                     if seen_true {
-                        self.diagnostics.push(
-                            Diagnostic::error("duplicate match arm", arm.span).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::MatchDuplicateArm,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::MatchDuplicateArm,
+                            "duplicate match arm",
+                            arm.span,
+                        ));
                         continue;
                     }
                     seen_true = true;
                 }
                 HirMatchPattern::BoolLiteral(false) => {
                     if seen_false {
-                        self.diagnostics.push(
-                            Diagnostic::error("duplicate match arm", arm.span).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::MatchDuplicateArm,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::MatchDuplicateArm,
+                            "duplicate match arm",
+                            arm.span,
+                        ));
                         continue;
                     }
                     seen_false = true;
                 }
                 HirMatchPattern::Wildcard => {
                     if saw_wildcard {
-                        self.diagnostics.push(
-                            Diagnostic::error("duplicate match arm", arm.span).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::MatchDuplicateArm,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::MatchDuplicateArm,
+                            "duplicate match arm",
+                            arm.span,
+                        ));
                         continue;
                     }
                     saw_wildcard = true;
@@ -346,12 +323,11 @@ impl<'a> BlockChecker<'a> {
             ScalarMatchKind::I32 | ScalarMatchKind::U8 | ScalarMatchKind::Char => saw_wildcard,
         };
         if !exhaustive {
-            self.diagnostics
-                .push(Diagnostic::error("non-exhaustive match", m.span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::MatchNonExhaustive,
-                    ),
-                ));
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::MatchNonExhaustive,
+                "non-exhaustive match",
+                m.span,
+            ));
         }
         let rty = result_ty.unwrap_or(self.ctx.unit());
         Some((
@@ -376,114 +352,94 @@ impl<'a> BlockChecker<'a> {
         match &arm.pattern {
             MatchPattern::IntLiteral { text, span } => {
                 if kind == ScalarMatchKind::Bool {
-                    self.diagnostics.push(
-                        Diagnostic::error("integer literal match arm cannot match bool", *span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "integer literal match arm cannot match bool",
+                        *span,
+                    ));
                     return None;
                 }
                 if kind == ScalarMatchKind::Char {
-                    self.diagnostics.push(
-                        Diagnostic::error("integer literal match arm cannot match char", *span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "integer literal match arm cannot match char",
+                        *span,
+                    ));
                     return None;
                 }
                 let Some(value) = parse_i32_literal(text) else {
-                    self.diagnostics.push(
-                        Diagnostic::error("invalid integer literal in match arm", *span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "invalid integer literal in match arm",
+                        *span,
+                    ));
                     return None;
                 };
                 if kind == ScalarMatchKind::U8 && !(0..=255).contains(&value) {
-                    self.diagnostics.push(
-                        Diagnostic::error("u8 match literal must be in 0..=255", *span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "u8 match literal must be in 0..=255",
+                        *span,
+                    ));
                     return None;
                 }
                 Some(HirMatchPattern::IntLiteral(value))
             }
             MatchPattern::BoolLiteral { value, span } => {
                 if kind != ScalarMatchKind::Bool {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "bool literal match arm cannot match this scrutinee type",
-                            *span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "bool literal match arm cannot match this scrutinee type",
+                        *span,
+                    ));
                     return None;
                 }
                 Some(HirMatchPattern::BoolLiteral(*value))
             }
             MatchPattern::CharLiteral { value, span } => {
                 if kind == ScalarMatchKind::Bool {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "char literal match arm cannot match this scrutinee type",
-                            *span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "char literal match arm cannot match this scrutinee type",
+                        *span,
+                    ));
                     return None;
                 }
                 if *value > i32::MAX as u32 {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "char literal is outside current i32-backed codegen range",
-                            *span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "char literal is outside current i32-backed codegen range",
+                        *span,
+                    ));
                     return None;
                 }
                 if kind == ScalarMatchKind::U8 && *value > 255 {
-                    self.diagnostics.push(
-                        Diagnostic::error("char literal match arm does not fit in u8", *span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "char literal match arm does not fit in u8",
+                        *span,
+                    ));
                     return None;
                 }
                 Some(HirMatchPattern::IntLiteral(*value as i32))
             }
             MatchPattern::Wildcard { span } => {
                 if !is_last {
-                    self.diagnostics.push(
-                        Diagnostic::error("wildcard match arm must be last", *span).with_code(
-                            DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::MatchWildcardNotLast,
-                            ),
-                        ),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchWildcardNotLast,
+                        "wildcard match arm must be last",
+                        *span,
+                    ));
                 }
                 Some(HirMatchPattern::Wildcard)
             }
             MatchPattern::Variant { name, bind } => {
                 if bind.is_some() {
-                    self.diagnostics.push(
-                        Diagnostic::error("literal match arms cannot bind payloads", name.span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPayloadBindingInvalid,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPayloadBindingInvalid,
+                        "literal match arms cannot bind payloads",
+                        name.span,
+                    ));
                     return None;
                 }
                 if kind == ScalarMatchKind::Bool {
@@ -491,34 +447,27 @@ impl<'a> BlockChecker<'a> {
                         "true" => Some(HirMatchPattern::BoolLiteral(true)),
                         "false" => Some(HirMatchPattern::BoolLiteral(false)),
                         _ => {
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "bool match arms must be true, false, or _",
-                                    name.span,
-                                )
-                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::MatchPatternUnsupported,
+                                "bool match arms must be true, false, or _",
+                                name.span,
+                            ));
                             None
                         }
                     }
                 } else if kind == ScalarMatchKind::Char {
-                    self.diagnostics.push(
-                        Diagnostic::error("char match arms must be char literals or _", name.span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "char match arms must be char literals or _",
+                        name.span,
+                    ));
                     None
                 } else {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "integer match arms must be integer literals or _",
-                            name.span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::MatchPatternUnsupported,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::MatchPatternUnsupported,
+                        "integer match arms must be integer literals or _",
+                        name.span,
+                    ));
                     None
                 }
             }
@@ -533,19 +482,15 @@ impl<'a> BlockChecker<'a> {
     ) {
         if let Some(t) = *result_ty {
             if let Err(_) = self.ctx.unify(t, body_ty) {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        alloc::format!(
-                            "match arms have incompatible types: {} and {}",
-                            self.ctx.type_to_string(t),
-                            self.ctx.type_to_string(body_ty)
-                        ),
-                        span,
-                    )
-                    .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::MatchArmsMismatch,
-                    )),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::MatchArmsMismatch,
+                    alloc::format!(
+                        "match arms have incompatible types: {} and {}",
+                        self.ctx.type_to_string(t),
+                        self.ctx.type_to_string(body_ty)
+                    ),
+                    span,
+                ));
             }
         } else {
             *result_ty = Some(body_ty);
