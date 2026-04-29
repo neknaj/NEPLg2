@@ -23,6 +23,17 @@
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の owner token / free obligation summary へ沿って、Resource IR owner summary の caller 伝播を修正した。
 
+# 2026-04-29 メモ (ISS-20260429T024412130Z scanner D3100 follow-up)
+
+- [確認]:
+  - `f57c0a0 fix(core): stabilize resource owner call summaries` 後に、別 issue として remote main に追加されていた scanner D3100 fixture を確認した。
+  - `tests\stdlib\neplg2_import_spec.n.md` は 3/3 passed。
+  - `tests\stdlib\neplg2_lexer.n.md` は初回 180 秒 timeout したため残留 node process を停止し、単独 360 秒枠で再実行して 13/13 passed を確認した。
+- [issue]:
+  - `ISS-20260429T024412130Z-RESOURCE-OWNER-GATE-REPORTS-D3100-IN-7A19FECC` は同じ root cause の修正で解消済みのため、status fixed / resolved true に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T021254285Z Resource owner obligation leak in self-host)
 
 - [同期]:

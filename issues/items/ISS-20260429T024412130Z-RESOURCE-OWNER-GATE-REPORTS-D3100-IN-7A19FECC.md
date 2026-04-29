@@ -2,8 +2,8 @@
 id: ISS-20260429T024412130Z-RESOURCE-OWNER-GATE-REPORTS-D3100-IN-7A19FECC
 title: "Resource owner gate reports D3100 in self-host lexer and import scanner helpers"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -39,6 +39,15 @@ Self-host scanner refactors cannot be validated through behavioral fixtures; new
 
 Trace the Resource IR owner flow for scanner Result/Vec temporaries, branch values, and string helper call results without weakening D3100. Add focused regression coverage for lex_all_loop and import_spec once the owner flow is corrected.
 
+## 対応
+
+`f57c0a0 fix(core): stabilize resource owner call summaries` で Resource owner summary の false owner propagation を修正した結果、この issue の lexer / import scanner fixture に出ていた D3100 も解消した。
+
+- `MaybeFreed` return summary を definite fresh owner として caller へ伝播しないようにし、recursive scanner helper の copy-like return が owner obligation を持つ値として扱われないようにした。
+- user-call wrapper の consumed parameter summary と direct raw memory effect の責務分離により、StringBuilder / raw memory helper を含む scanner fixture でも D3100 が scanner behavior を覆わなくなった。
+
 ## 検証
 
-node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg2-lexer-resource-owner-fixed.json -j 1; node nodesrc/tests.js -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/neplg2-import-spec-resource-owner-fixed.json -j 1; D3100 should not mask scanner behavior.
+- `node nodesrc\tests.js -i tests\stdlib\neplg2_lexer.n.md --no-tree -o tmp\agent1-owner-summary-lexer-resource-owner-fixed.json -j 1`: total=13 passed=13
+- `node nodesrc\tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\agent1-owner-summary-import-spec-resource-owner-fixed.json -j 1`: total=3 passed=3
+- D3100 は scanner behavior fixture を mask しなくなった。
