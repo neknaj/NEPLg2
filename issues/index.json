@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T11:58:12.633Z",
+  "generated_at": "2026-04-29T12:21:29.482Z",
   "counts": {
-    "total": 367,
+    "total": 368,
     "open": 13,
-    "resolved": 354,
+    "resolved": 355,
     "by_area": {
       "core": {
         "total": 173,
@@ -12,9 +12,9 @@
         "resolved": 168
       },
       "stdlib": {
-        "total": 104,
+        "total": 105,
         "open": 6,
-        "resolved": 98
+        "resolved": 99
       },
       "TEST": {
         "total": 4,
@@ -200,8 +200,8 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
-      "id": "ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658",
-      "title": "stdio read helpers trigger RawMemoryLoadCell ownership violations",
+      "id": "ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131",
+      "title": "streamio scanner raw byte loads fail RawMemoryLoadCell gate",
       "area": "stdlib",
       "status": "open",
       "resolved": false,
@@ -209,10 +209,10 @@
       "type": "bug",
       "created": "2026-04-29",
       "updated": "2026-04-29",
-      "target": "stdlib/std/stdio.nepl",
+      "target": "stdlib/std/streamio.nepl, tests/stdlib/stdin.n.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658.md"
+      "file": "items/ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3843,6 +3843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
+    },
+    {
+      "id": "ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658",
+      "title": "stdio read helpers trigger RawMemoryLoadCell ownership violations",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/stdio.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

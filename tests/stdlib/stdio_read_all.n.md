@@ -59,7 +59,8 @@ text 変換や UTF-8 検証へ進む前の I/O 境界で、成功と失敗を区
 
 neplg2:test
 stdin: "abc"
-ret: 0
+stdout: "abcChecked [ok]\n[0] ok\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -68,7 +69,6 @@ ret: 0
 #import "std/stdio" as *
 #import "std/test" as *
 #import "alloc/io" as *
-#import "core/mem" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -77,13 +77,12 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "stdio_read_all_bytes_result failed"
         Result::Ok bytes:
-            let ptr <MemPtr<u8>> get bytes "ptr"
-            let raw <i32> mem_ptr_addr ptr
             set checks checks_push checks check_eq_i32 3 get bytes "len";
-            set checks checks_push checks check_eq_i32 97 load_u8 raw;
-            set checks checks_push checks check_eq_i32 98 load_u8 add raw 1;
-            set checks checks_push checks check_eq_i32 99 load_u8 add raw 2;
-            io_bytebuf_free bytes;
+            match stdio_write_bytes_result bytes:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    set checks checks_push checks Result<(),str>::Err "stdio_write_bytes_result failed";
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

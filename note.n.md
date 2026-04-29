@@ -26086,3 +26086,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdio の整数出力は独自 raw-memory formatter ではなく `alloc/string` の標準文字列化 API を使う形へ整理した。
+
+# 2026-04-29 メモ (ISS-20260429T115652973Z stdio read helper raw cell)
+
+- [同期]:
+  - `origin/main` の `69b1a7b` まで同期した `main` から `stdlib/stdio-read-raw-cell-boundary` branch を作成した。
+- [原因]:
+  - `std_load_i32_at` は任意 `MemPtr<u8>` から `region_ptr_at` で `MemPtr<i32>` を作って読み込む汎用 helper で、caller 側の初期化済み事実を ResourceIR が関数境界越しに証明できなかった。
+  - `read_line` は stdio 内で string layout を手作りし、WASI `fd_read` が書いた想定の byte を raw `load_u8` で読んでいたため、fd_read out buffer の初期化 provenance が静的検査に残らなかった。
+  - `stdio_read_all_bytes_result` は capacity 65536 の buffer を `ByteBuf len=read_len` として返しており、`ByteBuf.ptr` が `ByteBuf.len` byte の所有領域を指す invariant から外れていた。
+- [修正]:
+  - 任意 pointer を読む `std_load_i32_at` / `std_store_i32_at` helper を削除した。
+  - `stdio_fd_read_into_result` を追加し、WASI `fd_read` の iov/nread scratch を同一関数内で初期化して読み戻す境界へ閉じ込めた。
+  - `stdio_finish_read_buffer` を追加し、read buffer を exact-size `ByteBuf` へ shrink してから返すようにした。
+  - `stdio_read_all_bytes_result` を新しい read helper と finish helper へ移行した。
+  - `stdio_read_line_result` を追加し、`read_line` は raw string layout ではなく raw bytes -> exact-size `ByteBuf` -> checked UTF-8 `str` の経路へ変更した。
+  - `tests/stdlib/stdio_read_all.n.md` の byte 内容検証は raw `load_u8` を使わず、`stdio_write_bytes_result` で stdout に流して確認する形に直した。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` を追加し、汎用 raw i32 helper と read_line の inline raw string layout 復活を禁止した。
+- [追加 issue]:
+  - `tests/stdlib/stdin.n.md` の StreamScanner 経路で別の RawMemoryLoadCell が残るため、`ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131` として分離した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-read-helper-after-2.json -j 1 --dist web/dist`: `total=28`, `passed=28`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-read-helper-read-all-3.json -j 1 --dist web/dist`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md --no-tree -o tmp/stdio-read-helper-functions.json -j 1 --dist web/dist`: `total=24`, `passed=24`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdio-read-helper-stdin.json -j 1 --dist web/dist`: `total=5`, `passed=4`, `failed=1`。失敗は新規 streamio issue へ分離。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdio の stdin read 境界を、WASI scratch / ByteBuf ownership / text conversion の責務に分けて整理した。
