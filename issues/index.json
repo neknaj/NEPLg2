@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T13:33:21.196Z",
+  "generated_at": "2026-04-29T13:35:35.961Z",
   "counts": {
-    "total": 375,
-    "open": 16,
+    "total": 376,
+    "open": 17,
     "resolved": 359,
     "by_area": {
       "core": {
@@ -20,6 +20,11 @@
         "total": 4,
         "open": 1,
         "resolved": 3
+      },
+      "compiler": {
+        "total": 2,
+        "open": 1,
+        "resolved": 1
       },
       "selfhost": {
         "total": 44,
@@ -52,11 +57,6 @@
         "resolved": 1
       },
       "STDLIB-TEST": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
-      },
-      "compiler": {
         "total": 1,
         "open": 0,
         "resolved": 1
@@ -273,6 +273,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37",
+      "title": "Explicit Clone::clone on MemPtr remains unresolved after monomorphize",
+      "area": "compiler",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core, stdlib/core/traits/copy.nepl, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
