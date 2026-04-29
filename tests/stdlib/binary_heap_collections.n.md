@@ -20,13 +20,14 @@ ret: 1
 #target std
 
 #import "alloc/collections/binary_heap" as *
+#import "alloc/diag/error" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>>:
-        unwrap_ok<BinaryHeap<i32>, StdErrorKind> new<i32>
+        unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 3 |> uwok
         |> push 8 |> uwok
         |> push 5 |> uwok
@@ -36,7 +37,7 @@ fn main <()*>i32> ():
         Option::None:
             false
     let hp1 <BinaryHeap<i32>>:
-        unwrap_ok<BinaryHeap<i32>, StdErrorKind> new<i32>
+        unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 3 |> uwok
         |> push 8 |> uwok
         |> push 5 |> uwok
@@ -61,10 +62,11 @@ ret: 1
 #target std
 
 #import "alloc/collections/binary_heap" as *
+#import "alloc/diag/error" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, StdErrorKind> with_capacity<i32> 0;
+    let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
     free<i32> hp;
     1
 ```
@@ -82,12 +84,13 @@ ret: 1
 #target std
 
 #import "alloc/collections/binary_heap" as *
+#import "alloc/diag/error" as *
 #import "core/option" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, StdErrorKind> with_capacity<i32> 0;
-    let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, StdErrorKind> push<i32> hp0 42;
+    let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
+    let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 42;
     match peek<i32> hp1:
         Option::Some v:
             if eq v 42 1 0

@@ -246,3 +246,31 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `Vec` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
 - `tests.js` を複数プロセスで同時実行したとき、partial JSON のまま終了する harness 問題を `ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7` として分離した。
+
+## 2026-04-30 BinaryHeap 部分進捗
+
+`stdlib/alloc/collections/binary_heap.nepl` は旧 raw header + raw element pointer layout を廃止し、typed `Vec<Option<T>>` storage へ移行した。
+
+進捗:
+
+- BinaryHeap 本体は `len/cap/items` を直接持ち、`items` は `Vec<Option<T>>` として全 slot を初期化する。
+- live slot は `Some(value)`、inactive slot は `None` で表すため、push / grow / pop_max / sift が raw memory cell の初期化状態に依存しない。
+- payload は現行 stdlib の drop traversal 未整備に合わせて `.T: Copy` に限定した。非 Copy payload は collection-wide drop 設計で扱う。
+- `BinaryHeapPop<T>` と `pop_max` を追加し、更新後 owner と取り出した `Option<T>` を同時に返せるようにした。
+- terminal `len` / `cap` / `is_empty` / `peek` / `pop` は by-value で owner を消費し、内部 storage を閉じる。owner を残す読み取りは `*_ref` API を使う。
+- `new` / `with_capacity` / `push` / `pop_max` / `pop` は allocation や slot replacement を伴うため impure API として明示し、fallible API は collection 側の現在の契約に合わせて `Result<_, Diag>` を返す。
+- `heap_sift_down` は初期化済み slot を `match` で確認しながら左右の子を直接比較する形にし、best-index の不要な中間値と if 式による曖昧な Resource IR 経路をなくした。
+- `nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js` を更新し、BinaryHeap が raw header / raw element storage へ戻らないことを source policy で固定した。
+
+検証:
+
+- `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl --no-tree -o tmp/binary-heap-typed-storage-docs.json -j 1 --dist web/dist`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/tests/binary_heap.n.md --no-tree -o tmp/binary-heap-typed-storage-tests.json -j 1 --dist web/dist`: total=5, passed=5
+- `node nodesrc/tests.js -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-collections-typed-storage.json -j 1 --dist web/dist`: total=3, passed=3
+- `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-binary-heap.json -j 1 --dist web/dist`: total=8, passed=8
+
+残件:
+
+- `Vec` の null/raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+- typed `Vec<Option<T>>` storage に移行した collection は Copy payload 前提であり、非 Copy payload の drop traversal は collection-wide drop 設計で扱う。

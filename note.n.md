@@ -1,3 +1,32 @@
+# 2026-04-30 メモ (ISS-20260429T155343006Z BinaryHeap typed storage)
+
+- [同期]:
+  - `main` の `55589b0` から `stdlib/binary-heap-owner-state` branch を作成して作業した。
+  - 作業開始時に `origin/main` を fetch し、remote main が同じ `55589b0` であることを確認した。
+  - commit 前に remote main の `8bf3db1` (List reverse owner-preserving) を取り込み、BinaryHeap 変更と独立していることを確認した。
+- [原因]:
+  - BinaryHeap は raw header に `len/cap/data_ptr` を詰め、heap slot の初期化状態を `len` と raw memory discipline だけで管理していた。
+  - そのため Resource IR は live slot と inactive slot を型として確認できず、raw pointer / null sentinel に依存する設計が残っていた。
+  - mutation helper を pure に見せると effect check をすり抜ける設計になるため、slot replacement / grow / pop は impure API として明示する必要があった。
+- [修正]:
+  - `BinaryHeap<T>` を `len/cap/items` の struct field と `Vec<Option<T>>` storage に再実装した。
+  - live slot は `Some(value)`、inactive slot は `None` で表し、push / pop_max / grow は typed replacement で処理するようにした。
+  - payload は現行 stdlib の drop traversal 未整備に合わせて `.T: Copy` に限定した。
+  - `BinaryHeapPop<T>` と `pop_max` を追加し、更新後 owner と取り出した `Option<T>` を同時に返せるようにした。
+  - terminal `len` / `cap` / `is_empty` / `peek` / `pop` は by-value で owner を消費し、内部 storage を閉じる。owner を残す読み取りは `*_ref` API を使う。
+  - `heap_sift_down` は初期化済み slot を `match` で確認しながら左右の子を直接比較する形にし、不要な best-index 中間値をなくした。
+  - BinaryHeap の source policy を typed storage 契約へ更新し、raw header / raw element storage へ戻らないことを固定した。
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に BinaryHeap 部分進捗を追記した。issue 全体は Vec の raw/null owner sentinel 残件があるため open のまま。
+- [検証]:
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl --no-tree -o tmp/binary-heap-typed-storage-docs.json -j 1 --dist web/dist`: 6 passed
+  - `node nodesrc/tests.js -i stdlib/tests/binary_heap.n.md --no-tree -o tmp/binary-heap-typed-storage-tests.json -j 1 --dist web/dist`: 5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-collections-typed-storage.json -j 1 --dist web/dist`: 3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-binary-heap.json -j 1 --dist web/dist`: 8 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T155343006Z BTreeMap/BTreeSet typed storage)
 
 - [同期]:
