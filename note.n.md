@@ -27295,3 +27295,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 4 の memory safety 方針に合わせ、List reverse を raw owner を複製しない消費型操作へ修正した。
+
+# 2026-04-30 メモ (ISS-20260429T135959086Z owner_flow responsibility regression)
+
+- [同期]:
+  - main の `8bf3db1` から `work/owner-flow-responsibility-regression` branch を作成して継続した。
+  - GH Actions run `25134527785` は List source policy までは通過し、その後 `owner_flow.rs has 700 lines; responsibility split limit is 620` で失敗した。
+- [原因]:
+  - BTree storage owner-safe 化の取り込み後、call return / indirect call return / owner return summary 適用が `owner_flow.rs` に再集約されていた。
+  - その分離後に `owner_summary.rs` も 391 行となり、projection/source 記録 helper が summary fixed-point 本体へ残っていることが見えた。
+- [修正]:
+  - `owner_return.rs` を追加し、call return owner 適用、indirect call return 適用、owner return summary の適用を分離した。
+  - `owner_summary_record.rs` を追加し、projection owner return / maybe owner / marker / source 記録 helper と `OwnerParameterStorageSource` を分離した。
+  - `resource/mod.rs` と `nodesrc/test_resource_checker_responsibility.js` に新モジュールを登録し、責務境界を source policy で固定した。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/owner_flow.rs nepl-core/src/resource/owner_return.rs nepl-core/src/resource/owner_summary.rs nepl-core/src/resource/owner_summary_record.rs`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 40 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の ResourceIR owner checker を、flow / return summary application / summary record の分離境界へ戻した。

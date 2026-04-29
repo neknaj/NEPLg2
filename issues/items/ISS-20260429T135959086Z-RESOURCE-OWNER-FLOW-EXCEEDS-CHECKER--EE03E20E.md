@@ -7,8 +7,8 @@ resolved: true
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-04-29
-target: "nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/summary.rs, nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-04-30
+target: "nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_record.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E: Resource owner_flow exceeds checker responsibility source policy limit
@@ -73,3 +73,20 @@ Split owner_flow.rs and summary.rs by responsibility instead of raising the limi
 - owner_flow.rs から alias/raw-address/transfer helper を分離し、raw address return 分類は enum を `match` する形で flow 適用本体へ責務を戻した。
 - summary.rs から borrow summary / owner summary / owner leaf projection を分離し、summary.rs は data model と入口 re-export のみへ縮小した。
 - source policy test に新モジュールの存在と行数上限を追加し、owner/summary 責務の再集約を検出できるようにした。
+
+## 2026-04-30 再発対応
+
+`fix(stdlib): make btree storage owner-safe` の取り込み後、main CI の Source policy regressions で `owner_flow.rs has 700 lines; responsibility split limit is 620` が再発した。owner return summary 適用が `owner_flow.rs` に再集約され、さらに分離後の確認で `owner_summary.rs` も 391 行となり 380 行上限を超えていた。
+
+修正:
+
+- call return / indirect call return / owner return summary 適用を `owner_return.rs` へ分離した。
+- owner summary の projection/source 記録 helper と `OwnerParameterStorageSource` を `owner_summary_record.rs` へ分離した。
+- `resource/mod.rs` と `nodesrc/test_resource_checker_responsibility.js` に新モジュール境界と行数上限を追加した。
+
+検証:
+
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/owner_flow.rs nepl-core/src/resource/owner_return.rs nepl-core/src/resource/owner_summary.rs nepl-core/src/resource/owner_summary_record.rs`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 40 passed

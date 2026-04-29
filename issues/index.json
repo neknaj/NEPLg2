@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T21:19:00.019Z",
+  "generated_at": "2026-04-29T21:31:24.962Z",
   "counts": {
     "total": 403,
     "open": 15,
@@ -2778,8 +2778,8 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_record.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E.md"

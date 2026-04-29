@@ -65,6 +65,8 @@ for (const moduleName of [
     'owner_flow.rs',
     'owner_summary.rs',
     'owner_summary_leaf.rs',
+    'owner_summary_record.rs',
+    'owner_return.rs',
     'summary.rs',
     'effect.rs',
     'effect_check.rs',
@@ -92,6 +94,8 @@ for (const moduleDecl of [
     'mod owner_flow;',
     'mod owner_summary;',
     'mod owner_summary_leaf;',
+    'mod owner_summary_record;',
+    'mod owner_return;',
     'mod summary;',
     'mod effect;',
     'mod effect_check;',
@@ -118,6 +122,7 @@ const borrowCheck = readResource('borrow_check.rs');
 const borrowSummary = readResource('borrow_summary.rs');
 const ownerCheck = readResource('owner_check.rs');
 const ownerSummary = readResource('owner_summary.rs');
+const ownerReturn = readResource('owner_return.rs');
 const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
@@ -167,6 +172,12 @@ assertUsesResourceModuleSymbol(
     'owner_summary.rs',
 );
 assertUsesResourceModuleSymbol(
+    ownerReturn,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'owner_return.rs',
+);
+assertUsesResourceModuleSymbol(
     effectSummary,
     'effect_check',
     'ResourceEffectBoundaryEngine',
@@ -182,6 +193,8 @@ const maxLines = new Map([
     ['owner_flow.rs', 620],
     ['owner_summary.rs', 380],
     ['owner_summary_leaf.rs', 260],
+    ['owner_summary_record.rs', 260],
+    ['owner_return.rs', 400],
     ['effect_check.rs', 700],
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
