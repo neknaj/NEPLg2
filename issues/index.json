@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T17:33:08.780Z",
+  "generated_at": "2026-04-29T18:01:19.174Z",
   "counts": {
-    "total": 393,
+    "total": 394,
     "open": 14,
-    "resolved": 379,
+    "resolved": 380,
     "by_area": {
       "core": {
         "total": 182,
@@ -12,9 +12,9 @@
         "resolved": 177
       },
       "stdlib": {
-        "total": 118,
+        "total": 119,
         "open": 7,
-        "resolved": 111
+        "resolved": 112
       },
       "TEST": {
         "total": 6,
@@ -4188,6 +4188,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T171742927Z-VEC-CONSUMING-HELPERS-COPY-STORAGE-O-CA186B8E.md"
+    },
+    {
+      "id": "ISS-20260429T173910888Z-STACK-RAW-HEADER-INITIALIZATION-LEAK-3EDC7712",
+      "title": "Stack raw header initialization leaks helper pointer owners",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/stack.nepl, nodesrc/test_stdlib_stack_no_unsafe_unwraps.js, tests/compiler/overload.n.md, tests/compiler/sizeof.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T173910888Z-STACK-RAW-HEADER-INITIALIZATION-LEAK-3EDC7712.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
