@@ -1,3 +1,31 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z move visitor diagnostic code-first)
+
+- [同期]:
+  - `fc9e70f` まで反映した `main` を `origin/main` と同期し、`work/move-check-visitor-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `passes/move_check/visitor.rs` に non-Copy deref の borrow violation と while body merge の loop possibly moved diagnostics が `Diagnostic::error(...).with_code(...)` として残っていた。
+  - while は builtin call 経路と `HirExprKind::While` 経路の 2 つで同じ判定を重複実装しており、message 文字列と enum code の組み合わせが分散していた。
+- [修正]:
+  - module-local `resource_move_error(...)` / `resource_borrow_error(...)` helper を追加した。
+  - non-Copy deref は `ResourceBorrowDiagnosticCode::MoveFromShared`、loop merge は `ResourceMoveDiagnosticCode::LoopPossiblyMoved` を `Diagnostic::error_with_code(...)` 経由で生成するようにした。
+  - while body merge の診断判定を `report_loop_possibly_moved(...)` にまとめ、2 経路が同じ enum code を生成するようにした。
+  - Rust regression は `move_in_loop` で message ではなく `ResourceMoveDiagnosticCode::LoopPossiblyMoved` を直接検査するように強化した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/passes/move_check/visitor.rs`: no matches
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 4 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 33 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 49 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の move visitor diagnostics 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z move/borrow context diagnostic code-first)
 
 - [同期]:

@@ -3,7 +3,10 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{
+    DiagnosticCode, ResourceBorrowDiagnosticCode, ResourceDiagnosticCode,
+    ResourceMoveDiagnosticCode,
+};
 use crate::hir::{FuncRef, HirBlock, HirExpr, HirExprKind};
 use crate::layout::storage_size_bytes;
 use crate::span::Span;
@@ -23,7 +26,7 @@ use super::raw_memory_args::{
     raw_bulk_copy_size_arg_bytes, raw_byte_write_size_arg_bytes, raw_dealloc_place_key,
     raw_dealloc_size_arg_bytes, raw_store_write_size_bytes,
 };
-use super::state::{BorrowBinding, BorrowKind, ExprBorrow, VarState};
+use super::state::{BorrowBinding, BorrowKind, ExprBorrow, ResourceStateSnapshot, VarState};
 use super::summary::RawMemoryEffectSummary;
 use super::{
     aggregate_field_function_aliases_from_value, aggregate_field_raw_aliases_from_value,
@@ -213,6 +216,56 @@ fn reference_source_name(expr: &HirExpr) -> Option<String> {
     }
 }
 
+fn resource_move_error(
+    code: ResourceMoveDiagnosticCode,
+    message: impl Into<String>,
+    span: Span,
+) -> Diagnostic {
+    Diagnostic::error_with_code(
+        DiagnosticCode::Resource(ResourceDiagnosticCode::Move(code)),
+        message,
+        span,
+    )
+}
+
+fn resource_borrow_error(
+    code: ResourceBorrowDiagnosticCode,
+    message: impl Into<String>,
+    span: Span,
+) -> Diagnostic {
+    Diagnostic::error_with_code(
+        DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(code)),
+        message,
+        span,
+    )
+}
+
+fn report_loop_possibly_moved(
+    ctx: &mut MoveCheckContext,
+    saved: &ResourceStateSnapshot,
+    body_state: &ResourceStateSnapshot,
+    span: Span,
+) {
+    for name in changed_state_names(saved, body_state) {
+        let start_state = snapshot_top_state(saved, name.as_str()).unwrap_or(VarState::Valid);
+        let end_state = snapshot_top_state(body_state, name.as_str()).unwrap_or(start_state);
+        let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
+        if matches!(merged, VarState::PossiblyMoved)
+            && matches!(
+                start_state,
+                VarState::Valid | VarState::BorrowedShared | VarState::BorrowedUnique
+            )
+            && matches!(end_state, VarState::Moved | VarState::PossiblyMoved)
+        {
+            ctx.diagnostics.push(resource_move_error(
+                ResourceMoveDiagnosticCode::LoopPossiblyMoved,
+                alloc::format!("potentially moved value: `{}`", name),
+                span,
+            ));
+        }
+    }
+}
+
 fn check_non_copy_deref(
     expr: &HirExpr,
     inner: &HirExpr,
@@ -232,14 +285,11 @@ fn check_non_copy_deref(
     } else {
         "cannot move non-Copy value out of shared reference".to_string()
     };
-    ctx.diagnostics
-        .push(
-            Diagnostic::error(message, expr.span).with_code(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
-                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::MoveFromShared,
-                ),
-            )),
-        );
+    ctx.diagnostics.push(resource_borrow_error(
+        ResourceBorrowDiagnosticCode::MoveFromShared,
+        message,
+        expr.span,
+    ));
 }
 
 pub(super) fn visit_block_with_escape(
@@ -852,30 +902,7 @@ fn visit_expr_with_escape(
                         visit_expr(&args[1], ctx, tctx);
                         let body_state = ctx.snapshot_resource_state();
 
-                        for name in changed_state_names(&saved, &body_state) {
-                            let start_state = snapshot_top_state(&saved, name.as_str())
-                                .unwrap_or(VarState::Valid);
-                            let end_state = snapshot_top_state(&body_state, name.as_str())
-                                .unwrap_or(start_state);
-                            let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
-                            if matches!(merged, VarState::PossiblyMoved)
-                                && matches!(
-                                    start_state,
-                                    VarState::Valid
-                                        | VarState::BorrowedShared
-                                        | VarState::BorrowedUnique
-                                )
-                                && matches!(end_state, VarState::Moved | VarState::PossiblyMoved)
-                            {
-                                ctx.diagnostics.push(
-                                    Diagnostic::error(
-                                        alloc::format!("potentially moved value: `{}`", name),
-                                        args[1].span,
-                                    )
-                                    .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Move( crate::diagnostic_codes::ResourceMoveDiagnosticCode::LoopPossiblyMoved, ))),
-                                );
-                            }
-                        }
+                        report_loop_possibly_moved(ctx, &saved, &body_state, args[1].span);
                         let branches = [
                             BranchStateSnapshot {
                                 continues: true,
@@ -973,28 +1000,7 @@ fn visit_expr_with_escape(
             visit_expr(body, ctx, tctx);
             let body_state = ctx.snapshot_resource_state();
 
-            for name in changed_state_names(&saved, &body_state) {
-                let start_state =
-                    snapshot_top_state(&saved, name.as_str()).unwrap_or(VarState::Valid);
-                let end_state =
-                    snapshot_top_state(&body_state, name.as_str()).unwrap_or(start_state);
-                let merged = MoveCheckContext::merge_state_pair(start_state, end_state);
-                if matches!(merged, VarState::PossiblyMoved)
-                    && matches!(
-                        start_state,
-                        VarState::Valid | VarState::BorrowedShared | VarState::BorrowedUnique
-                    )
-                    && matches!(end_state, VarState::Moved | VarState::PossiblyMoved)
-                {
-                    ctx.diagnostics.push(
-                        Diagnostic::error(
-                            alloc::format!("potentially moved value: `{}`", name),
-                            expr.span,
-                        )
-                        .with_code(DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Move( crate::diagnostic_codes::ResourceMoveDiagnosticCode::LoopPossiblyMoved, ))),
-                    );
-                }
-            }
+            report_loop_possibly_moved(ctx, &saved, &body_state, expr.span);
             let branches = [
                 BranchStateSnapshot {
                     continues: true,

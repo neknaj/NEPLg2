@@ -143,7 +143,9 @@ fn main <()*>()>():
         let y <Wrapper> x; // moved in first iteration, error in next
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
+    assert!(errs
+        .iter()
+        .any(|d| is_move_diag(d, ResourceMoveDiagnosticCode::LoopPossiblyMoved)));
 }
 
 #[test]

@@ -671,3 +671,25 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/block_diagnostics.n.md -n 2 --dist web/dist`: pass。`type.raw_block.invalid_placement` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 move visitor diagnostics follow-up 追記
+
+`passes/move_check/visitor.rs` には non-Copy deref の borrow violation と while body merge の loop possibly moved diagnostics が `Diagnostic::error(...).with_code(...)` として残っていた。ここは実際の HIR traversal 中に move / borrow state を観測する境界なので、message 文字列に後から code を貼るのではなく、診断生成時点で `ResourceBorrowDiagnosticCode` / `ResourceMoveDiagnosticCode` を確定する必要がある。
+
+今回の対応で module-local `resource_move_error(...)` / `resource_borrow_error(...)` helper を追加した。non-Copy deref は `ResourceBorrowDiagnosticCode::MoveFromShared`、while body merge は `ResourceMoveDiagnosticCode::LoopPossiblyMoved` を `Diagnostic::error_with_code(...)` 経由で生成する。さらに builtin `while` call 経路と `HirExprKind::While` 経路の重複判定を `report_loop_possibly_moved(...)` へまとめ、同じ state merge 条件から同じ enum code が出るようにした。
+
+Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCode::Resource(ResourceDiagnosticCode::Move(ResourceMoveDiagnosticCode::LoopPossiblyMoved))` を直接検査するように強化した。web/doctest 側では loop と non-Copy deref の stable string code を確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/passes/move_check/visitor.rs`: no matches
+- `cargo test -p nepl-core --test move_check -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 4 --dist web/dist`: pass。`resource.move.loop_possibly_moved` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 33 --dist web/dist`: pass。`resource.borrow.move_from_shared` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 49 --dist web/dist`: pass。`resource.move.loop_possibly_moved` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

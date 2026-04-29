@@ -188,6 +188,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `typecheck/driver.rs` の function / alias hoist 境界を `type_error(...)` / `resolve_error(...)` 経由へ移行した。function signature、overload ambiguity、alias target、item conflict、no-shadow conflict / violation、function type parameter bound mismatch は生成時点で `TypeDiagnosticCode` または `ResolveDiagnosticCode` を確定する。
 - 2026-04-29: `passes/move_check/raw_state.rs` の raw memory ownership diagnostics を code-first helper へ移行した。non-Copy raw load / store / dealloc / realloc / byte write / bulk copy の violation は、後付け `.with_code(...)` ではなく生成時点で `ResourceDiagnosticCode::Raw(ResourceRawDiagnosticCode::OwnershipViolation)` を確定する。
 - 2026-04-29: `passes/move_check/context_state.rs` の move / borrow diagnostics を code-first helper へ移行した。use/drop/possibly moved/loop escape と shared/unique borrow conflict/borrow escape は、生成時点で `ResourceMoveDiagnosticCode` または `ResourceBorrowDiagnosticCode` を確定する。
+- 2026-04-29: `passes/move_check/visitor.rs` の deref borrow violation と loop body merge diagnostics を code-first helper へ移行した。non-Copy deref は `ResourceBorrowDiagnosticCode::MoveFromShared`、while body で発生する possibly moved state は `ResourceMoveDiagnosticCode::LoopPossiblyMoved` を生成時点で確定し、2 系統の while lowering 経路は同じ helper で診断する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 
