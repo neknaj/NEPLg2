@@ -1,3 +1,28 @@
+# 2026-04-30 メモ (ISS-20260429T155343006Z Stack typed storage)
+
+- [同期]:
+  - `main` の `bd7d163` から `stdlib/stack-owner-state` branch を作成して作業した。
+- [原因]:
+  - Stack は raw header + data pointer owner を持ち、`pipe_collections` の Stack doctest で Resource IR が raw owner obligation leak を検出していた。
+  - borrowed destructive update の `push_ref` / `pop_ref` は raw header mutation に依存しており、typed owner state へ移行する設計と衝突していた。
+- [修正]:
+  - Stack を `len/cap/items` の struct field と `Vec<Option<T>>` storage に再実装した。
+  - slot state は `Some(value)` / `None` の enum で表し、push / pop_top / clear / grow は typed replacement で処理するようにした。
+  - payload は現行 stdlib の drop traversal 未整備に合わせて `.T: Copy` に限定した。
+  - `StackPop<T>` と `pop_top` を追加し、更新後 owner と取り出した `Option<T>` を同時に返せるようにした。
+  - 旧 `push_ref` / `pop_ref` は raw header に依存するため廃止し、owner を返す `push` / `pop_top` を正規 API とした。
+  - Stack の source policy を typed storage 契約へ更新し、raw header / raw element storage へ戻らないことを固定した。
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に Stack 部分進捗を追記した。issue 全体は BTreeMap / BTreeSet / Deque / Vec / BinaryHeap などが残るため open のまま。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/stack.n.md --no-tree -o tmp/stack-typed-storage-stdlib.json -j 1 --dist web/dist`: 9 passed
+  - `node nodesrc/tests.js -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-typed-storage-tests.json -j 1 --dist web/dist`: 9 passed
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-stack-typed-storage.json -j 1 --dist web/dist`: 6 passed / 2 failed。失敗は BTreeMap / BTreeSet の既存 raw owner state 残件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T155343006Z Queue/RingBuffer typed storage)
 
 - [同期]:

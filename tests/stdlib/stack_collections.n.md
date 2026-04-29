@@ -225,6 +225,7 @@ ret: 1
 
 #import "alloc/collections/stack" as *
 #import "alloc/diag/error" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -233,10 +234,14 @@ fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
-    let a <Option<i32>> pop_ref<i32> &s;
-    let b <Option<i32>> pop_ref<i32> &s;
-    let empty_ok <bool> eq len_ref<i32> &s 0;
-    set s unwrap_ok<Stack<i32>, Diag> push<i32> s 30;
+    let p0 <StackPop<i32>> pop_top<i32> s;
+    let a <Option<i32>> *field::get_ref &p0 "item";
+    let s1 <Stack<i32>> field::get p0 "stack";
+    let p1 <StackPop<i32>> pop_top<i32> s1;
+    let b <Option<i32>> *field::get_ref &p1 "item";
+    let s2 <Stack<i32>> field::get p1 "stack";
+    let empty_ok <bool> eq len_ref<i32> &s2 0;
+    let s3 <Stack<i32>> unwrap_ok<Stack<i32>, Diag> push<i32> s2 30;
     let a_ok <bool> match a:
         Option::Some v:
             eq v 20
@@ -247,8 +252,8 @@ fn main <()*>i32> ():
             eq v 10
         Option::None:
             false
-    let ok <bool> and a_ok and b_ok and empty_ok eq len_ref<i32> &s 1;
-    free<i32> s;
+    let ok <bool> and a_ok and b_ok and empty_ok eq len_ref<i32> &s3 1;
+    free<i32> s3;
     if ok 1 0
 ```
 

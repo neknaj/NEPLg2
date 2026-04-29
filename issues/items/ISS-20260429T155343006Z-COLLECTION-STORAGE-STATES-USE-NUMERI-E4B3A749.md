@@ -168,3 +168,30 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `Deque` / `Vec` / `Stack` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
 - `tests/stdlib/pipe_collections.n.md` 全体では Stack / BTreeMap / BTreeSet の既存 raw owner state 残件が残る。Queue / RingBuffer の focused doctest は passed。
+
+## 2026-04-30 Stack 部分進捗
+
+`stdlib/alloc/collections/stack.nepl` は、旧 raw header + data pointer owner を廃止し、typed `Vec<Option<T>>` storage へ移行した。
+
+進捗:
+
+- Stack 本体は `len/cap/items` を直接持ち、`items` は `Vec<Option<T>>` として全 slot を初期化する。
+- live slot は `Some(value)`、inactive slot は `None` で表すため、push / pop / clear / grow が raw memory cell の初期化状態に依存しない。
+- payload は現行 stdlib の drop traversal 未整備に合わせて `.T: Copy` に限定した。
+- `StackPop<T>` と `pop_top` を追加し、更新後 owner と `Option<T>` を同時に返せるようにした。
+- terminal `pop` / `peek` / `len` / `is_empty` は by-value で owner を消費し、内部 storage を閉じる。owner を残す読み取りは `*_ref` API を使う。
+- 旧 `push_ref` / `pop_ref` の borrowed destructive update は raw header に依存していたため廃止し、owner を返す `push` / `pop_top` を正規 API にした。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` を更新し、Stack が raw header / raw element storage へ戻らないことを source policy で固定した。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 2 --dist web/dist`: passed
+- `node nodesrc/tests.js -i stdlib/tests/stack.n.md --no-tree -o tmp/stack-typed-storage-stdlib.json -j 1 --dist web/dist`: total=9, passed=9
+- `node nodesrc/tests.js -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-typed-storage-tests.json -j 1 --dist web/dist`: total=9, passed=9
+- `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: passed
+- `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-stack-typed-storage.json -j 1 --dist web/dist`: total=8, passed=6, failed=2
+
+残件:
+
+- `BTreeMap` / `BTreeSet` の raw storage owner state が `tests/stdlib/pipe_collections.n.md` で残る。
+- `Deque` / `Vec` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
