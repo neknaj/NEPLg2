@@ -212,6 +212,20 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` を `Effect(PureCallsImpure)` から分離し、`Resource(Raw(IdentityEscape))` / `resource.raw.identity_escape` として compiler diagnostic へ写像するようにした。raw identity escape の compile_fail regression は `effect.pure.calls_impure` ではなく `resource.raw.identity_escape` を期待する。
 - `UnsafeMemoryInPureFunction` は現行 stdlib の raw-memory-backed API 移行と衝突するため、これまで通り shadow-only に残す。ordinary impure call や raw body I/O は `effect.pure.calls_impure` のまま維持する。
 
+2026-04-30 追記:
+
+[静的検査設計確認 2026-04-30](./static_check_design_verification_20260430.md) で、現在の Resource IR gate mapping を再確認した。
+
+現状では `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` が compiler diagnostic では `ResourceRawDiagnosticCode::OwnershipViolation` へ写像されている。これは旧 D3100 bucket から enum-first へ移行する途中状態としては意味があるが、D2 の完了条件にはできない。
+
+今後の D2 完了条件に次を追加する。
+
+- `ResourceDiagnosticCode` に cell / owner category を追加する。
+- raw memory 上で起きた violation でも、原因が initialized cell state なのか owner/free obligation なのかを stable code 上で失わない。
+- `resource.raw.*` は raw identity escape、unsafe boundary、pointer provenance そのものの問題に限定する。
+- `resource.cell.*` と `resource.owner.*` の `as_str()` / `message()` は wildcard なしの exhaustive match で管理する。
+- self-host S3 以降の diagnostic category も、この Rust taxonomy と同じ構造で追加する。
+
 ### Stage D3: CLI / JSON / web 表示の整理
 
 目的: 人間向け表示と機械判定を同じ diagnostic value から安定生成する。
