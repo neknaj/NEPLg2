@@ -129,6 +129,23 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 
+## 2026-04-29 Stage D1 parser direct diagnostics follow-up 追記
+
+前回の parser recovery boundary 移行後、`parser.rs` には layout block、type expression、identifier、mlstr、extern signature など 42 箇所の直接 `.with_code(...)` が残っていた。
+
+今回の対応で module-level `parser_error(...)` helper を追加し、戻り値で `Diagnostic` を返す layout / extern signature 系と、`self.diagnostics` に push する type expression / identifier / mlstr 系の直接構築を code-first constructor へ移行した。
+
+これにより `nepl-core/src/parser.rs` から `.with_code(...)` は消えた。parser 内では `ParserDiagnosticCode` を生成時点で確定し、外部表示用 string code は `DiagnosticCode::as_str()` 境界だけに残る。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code" nepl-core/src/parser.rs`: no matches
+- `cargo test -p nepl-core parser -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+
 ## 2026-04-29 Stage D1 parser recovery boundary follow-up 追記
 
 `parser.rs` の shared `error_with_code` / `push_error_with_code` は名前上 code-aware だったが、内部実装は `Diagnostic::error(...).with_code(...)` で code を後付けしていた。また parser の再帰上限、no-progress recovery、raw block、intrinsic、tuple、match scrutinee の回復境界にも直接 `.with_code(...)` が残っていた。
