@@ -26356,3 +26356,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 実装ではなく、静的検査と stdlib memory-safety 境界を監視する source policy の古い前提を現在の設計へ合わせた。
+
+# 2026-04-29 メモ (ISS-20260428T224138753Z string_finish source policy alignment)
+
+- [同期]:
+  - `origin/main` の `7e38f0c` まで同期した `main` から `work/string-finish-policy-alignment` branch を作成した。
+- [原因]:
+  - Source policy 一式で `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` が `string_finish` の `get region "ptr"` を検出して失敗した。
+  - 旧 policy は「RegionToken ptr direct get はすべて禁止」としていたが、現在の設計では `string_finish` が `RegionToken<u8>` を値で消費し、その owner を `str` に移す最終境界である。
+  - 通常の pointer projection は引き続き `get_ref` が正しいが、`string_finish` だけは `RegionToken` の free obligation を返却 `str` へ移すため direct `get` が正しい。
+- [修正]:
+  - `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` を更新し、`string_finish` では `get region "ptr"` と `string_finish_base base byte_len` を要求するようにした。
+  - `string_finish` 以外では `get region "ptr"` / `get out_region "ptr"` の再導入を禁止し続けるよう、対象範囲を分けた。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer -- --nocapture`: passed
+- [追加で確認した残件]:
+  - `cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture` は現在の main の別 owner leak で失敗した。失敗は `main__unit__i32__imp` の `Err` payload owner obligation leak で、今回の source policy 更新では stdlib/compiler 実装を変更していないため別 issue で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - RegionToken projection と string owner transfer の source policy を、現在の Resource IR owner model に合わせた。
