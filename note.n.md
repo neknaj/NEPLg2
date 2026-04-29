@@ -25410,3 +25410,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix intrinsic / effect boundary 移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z prefix pipe diagnostic code-first)
+
+- [原因]:
+  - `typecheck/prefix_check.rs` の pipe pending、source missing、target mismatch、target missing、unreduced left-hand side 診断に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - pipe は prefix expression の stack reduction と call injection の境界なので、`PipeInvalid` を生成時点で確定させる必要がある。
+- [修正]:
+  - pipe boundary の全 `PipeInvalid` 診断を `type_error(...)` helper 経由へ移行した。
+  - `nepl-core/tests/neplg2.rs` の `pipe_requires_callable_target` と `pipe_target_missing_after_annotation_is_error` を enum code regression に強化した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test neplg2 pipe_requires_callable_target -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 pipe_target_missing_after_annotation_is_error -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 22 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 25 --dist web/dist`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix pipe boundary 移行を進めた。

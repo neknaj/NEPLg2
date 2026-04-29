@@ -483,3 +483,19 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 2 --dist web/dist`: pass。`type.field.invalid_access` が出ることを確認した。
 - `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 7 --dist web/dist`: pass。`type.intrinsic.arg_type_mismatch` が出ることを確認した。
 - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 15 --dist web/dist`: pass。`effect.pure.calls_impure` が出ることを確認した。
+
+## 2026-04-29 Stage D1 prefix pipe boundary follow-up 追記
+
+`typecheck/prefix_check.rs` には pipe pending、source missing、target mismatch、target missing、unreduced left-hand side の診断で `Diagnostic::error(...).with_code(...)` が残っていた。pipe は prefix expression の stack reduction と call injection の境界なので、`PipeInvalid` を後付けせず生成時点で確定する。
+
+今回の対応で pipe boundary の全 `PipeInvalid` 診断を `type_error(...)` 経由へ移行した。既存 Rust tests の `pipe_requires_callable_target` と `pipe_target_missing_after_annotation_is_error` は error-only から enum code 直接確認へ強化した。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test neplg2 pipe_requires_callable_target -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 pipe_target_missing_after_annotation_is_error -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 22 --dist web/dist`: pass。`type.pipe.invalid` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 25 --dist web/dist`: pass。`type.pipe.invalid` が出ることを確認した。

@@ -7,9 +7,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::{
-    DiagnosticCode, EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode,
-};
+use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
@@ -1602,15 +1600,11 @@ impl<'a> BlockChecker<'a> {
                 }
                 PrefixItem::Pipe(sp) => {
                     if pipe_pending.is_some() {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                "pipe already pending; consecutive |> not allowed",
-                                *sp,
-                            )
-                            .with_code(DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
-                            )),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::PipeInvalid,
+                            "pipe already pending; consecutive |> not allowed",
+                            *sp,
+                        ));
                         continue;
                     }
                     // Don't drain past any let/set binding on the stack.
@@ -1622,13 +1616,11 @@ impl<'a> BlockChecker<'a> {
                     let pipe_base =
                         self.pipe_pending_base(stack.as_slice(), &open_calls, default_pipe_base);
                     if stack.len() == pipe_base {
-                        self.diagnostics.push(
-                            Diagnostic::error("pipe requires a value on the stack", *sp).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::PipeInvalid,
+                            "pipe requires a value on the stack",
+                            *sp,
+                        ));
                         continue;
                     }
                     let pending = stack.drain(pipe_base..).collect::<Vec<_>>();
@@ -1650,15 +1642,11 @@ impl<'a> BlockChecker<'a> {
                                 top,
                                 pending_ascription.map(|(target, _)| target),
                             ) else {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        "pipe left-hand side did not reduce to a single value",
-                                        expr.span,
-                                    )
-                                    .with_code(DiagnosticCode::Type(
-                                        crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
-                                    )),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::PipeInvalid,
+                                    "pipe left-hand side did not reduce to a single value",
+                                    expr.span,
+                                ));
                                 continue;
                             };
                             // pipe では「関数を積んだ直後に引数を注入」するため、
@@ -1670,25 +1658,19 @@ impl<'a> BlockChecker<'a> {
                             stack.push(lowered_val);
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "pipe target must be a callable expression",
-                                    expr.span,
-                                )
-                                .with_code(DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
-                                )),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::PipeInvalid,
+                                "pipe target must be a callable expression",
+                                expr.span,
+                            ));
                             stack.extend(pending);
                         }
                     } else {
-                        self.diagnostics.push(
-                            Diagnostic::error("pipe target missing", expr.span).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::PipeInvalid,
+                            "pipe target missing",
+                            expr.span,
+                        ));
                         stack.extend(pending);
                     }
                 }
@@ -1780,11 +1762,11 @@ impl<'a> BlockChecker<'a> {
         }
 
         if pipe_pending.is_some() {
-            self.diagnostics.push(
-                Diagnostic::error("pipe has no target", expr.span).with_code(DiagnosticCode::Type(
-                    crate::diagnostic_codes::TypeDiagnosticCode::PipeInvalid,
-                )),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::PipeInvalid,
+                "pipe has no target",
+                expr.span,
+            ));
         }
 
         let leading_let = matches!(

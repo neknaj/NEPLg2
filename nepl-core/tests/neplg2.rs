@@ -830,7 +830,7 @@ fn pipe_requires_callable_target() {
 fn main <()->i32> ():
     1 |> 2
 "#;
-    compile_err(src);
+    compile_err_has_type_code(src, TypeDiagnosticCode::PipeInvalid);
 }
 
 #[test]
@@ -880,7 +880,7 @@ fn pipe_target_missing_after_annotation_is_error() {
 fn main <()->i32> ():
     1 |> <i32> 2
 "#;
-    compile_err(src);
+    compile_err_has_type_code(src, TypeDiagnosticCode::PipeInvalid);
 }
 
 #[test]
