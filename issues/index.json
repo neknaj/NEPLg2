@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T12:50:18.648Z",
+  "generated_at": "2026-04-29T12:50:57.943Z",
   "counts": {
-    "total": 373,
-    "open": 17,
+    "total": 374,
+    "open": 18,
     "resolved": 356,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 168
       },
       "stdlib": {
-        "total": 110,
-        "open": 10,
+        "total": 111,
+        "open": 11,
         "resolved": 100
       },
       "TEST": {
@@ -273,6 +273,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D.md"
+    },
+    {
+      "id": "ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497",
+      "title": "string_from_mem_unchecked_result leaks output region owner under Resource IR",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/string.nepl, tests/stdlib/stdin.n.md, tests/stdlib/streamio.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
