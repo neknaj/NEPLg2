@@ -42,6 +42,8 @@ pub struct EditorDiagnostic {
     pub severity: Severity,
     pub code: Option<&'static str>,
     pub message: String,
+    pub notes: Vec<String>,
+    pub helps: Vec<String>,
     pub range: TextRange,
 }
 
@@ -840,6 +842,8 @@ fn diagnostics_to_editor(
             severity: diagnostic.severity,
             code: diagnostic.code.map(DiagnosticCode::as_str),
             message: diagnostic.message.clone(),
+            notes: diagnostic.notes.clone(),
+            helps: diagnostic.helps.clone(),
             range: range_from_span(source, source_map, diagnostic.primary.span),
         })
         .collect()

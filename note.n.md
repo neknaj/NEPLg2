@@ -1,3 +1,24 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z diagnostic code-first builder)
+
+- [同期]:
+  - `27f452e` まで反映した `main` から `work/diagnostic-coded-builders` branch を作成して作業した。
+- [原因]:
+  - Stage D0 で診断の主識別子は `DiagnosticCode` enum へ移行済みだったが、active code path には `Diagnostic::error(...).with_code(...)` が残っていた。
+  - この形では diagnostic value を作った後に code を付けるため、code/message/notes の組み合わせを call site が個別に管理し続ける。Resource IR gate のような静的検査境界では、診断生成時点で enum code が確定する形に寄せる必要がある。
+- [修正]:
+  - `DiagnosticSpec` と `Diagnostic::error_code` / `error_with_code` / `warning_code` / `warning_with_code` を追加した。
+  - `Diagnostic` に `notes` / `helps` を追加し、CLI / web / language / LSP でも保持・表示できるようにした。
+  - Resource IR gate の lowering / raw ownership / owner obligation / borrow conflict / raw identity escape 変換を code-first constructor に移行した。
+- [検証]:
+  - `cargo test -p nepl-core diagnostic -- --nocapture`: pass
+  - `cargo check -p nepl-core -p nepl-cli -p nepl-language -p nepl-lsp --tests`: pass
+  - `trunk build`: pass
+- [CI確認]:
+  - GitHub Actions run `25092323380` は bootstrap build が pass し、Source policy regressions の `stdlib/nm/parser.nepl must document line scanner contract` で failure。これは今回の diagnostic builder 変更とは別 issue として次に扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の builder/note/help foundation として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z nepl-language/LSP diagnostic code migration)
 
 - [同期]:

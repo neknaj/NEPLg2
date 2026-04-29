@@ -509,7 +509,11 @@ fn editor_diagnostic_to_lsp(diagnostic: &EditorDiagnostic) -> Value {
         },
         "code": diagnostic.code,
         "source": "nepl-lsp",
-        "message": diagnostic.message
+        "message": diagnostic.message,
+        "data": {
+            "notes": diagnostic.notes,
+            "helps": diagnostic.helps
+        }
     })
 }
 

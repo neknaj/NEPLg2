@@ -528,6 +528,18 @@ fn diagnostics_to_js(source: &str, diagnostics: &[Diagnostic]) -> JsValue {
             secondary.push(&sub);
         }
         let _ = Reflect::set(&obj, &JsValue::from_str("secondary"), &secondary);
+
+        let notes = js_sys::Array::new();
+        for note in &d.notes {
+            notes.push(&JsValue::from_str(note));
+        }
+        let _ = Reflect::set(&obj, &JsValue::from_str("notes"), &notes);
+
+        let helps = js_sys::Array::new();
+        for help in &d.helps {
+            helps.push(&JsValue::from_str(help));
+        }
+        let _ = Reflect::set(&obj, &JsValue::from_str("helps"), &helps);
         arr.push(&obj);
     }
     arr.into()

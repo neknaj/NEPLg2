@@ -95,3 +95,19 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `cargo check -p nepl-language -p nepl-lsp`
 - `cargo test -p nepl-language -- --nocapture`
 - `cargo test -p nepl-lsp -- --nocapture`
+
+## 2026-04-29 Stage D1 code-first builder 追記
+
+`Diagnostic::error(...).with_code(...)` が active code path に広く残っているため、diagnostic code と message の組み合わせが call site ごとの後付けになる問題が残っていた。これは enum registry 導入後も、不適切な code/message の組み合わせを作れる設計上の弱さである。
+
+`DiagnosticSpec` と `Diagnostic::error_code` / `error_with_code` / `warning_code` / `warning_with_code` を追加し、compiler-owned enum code を診断生成時点で渡す code-first constructor を導入した。`Diagnostic` には `notes` / `helps` を追加し、CLI / web / language / LSP の外部境界でも保持するようにした。
+
+代表移行として、Resource IR gate の lowering coverage、raw cell ownership、owner obligation、borrow conflict、raw identity escape の compiler diagnostic 変換を `error_with_code` へ移行した。Resource IR の typed diagnostic が compiler diagnostic へ入る境界では、code が構築時に必ず決まる形になった。
+
+この issue はまだ open のままとする。D1 follow-up で lexer/parser/typecheck の代表診断も builder へ移行し、D3 で JSON 表示の note/help contract をさらに固定する。
+
+検証:
+
+- `cargo test -p nepl-core diagnostic -- --nocapture`
+- `cargo check -p nepl-core -p nepl-cli -p nepl-language -p nepl-lsp --tests`
+- `trunk build`

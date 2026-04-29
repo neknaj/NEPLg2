@@ -153,6 +153,12 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - note/help/related label の保存先を設ける。
 - lexer/parser/typecheck の代表診断から builder へ移行する。
 
+進捗:
+
+- 2026-04-29: `DiagnosticSpec` と `Diagnostic::error_code` / `error_with_code` / `warning_code` / `warning_with_code` を追加し、compiler-owned enum code を診断生成時点で渡す builder 経路を導入した。これにより、少なくとも移行済み call site では `Diagnostic::error(...).with_code(...)` の後付け組み合わせを避けられる。
+- 2026-04-29: `Diagnostic` に `notes` / `helps` を追加し、CLI / web / language / LSP の外部境界で保持するようにした。補助説明は識別子ではなく structured display value として扱う。
+- 2026-04-29: Resource IR gate の lowering / raw ownership / borrow conflict / raw identity escape 変換を code-first constructor へ移行した。動的な詳細文は現時点では message に残し、次の D1 follow-up で note/help へ段階的に分離する。
+
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 
 目的: Stage 4/5 の Resource IR gate が、意味分類を失わず compiler diagnostic へ接続されるようにする。

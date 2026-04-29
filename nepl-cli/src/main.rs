@@ -1980,6 +1980,12 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) {
             let msg = label.message.as_ref().map(|m| m.as_str()).unwrap_or("");
             eprintln!(" note: {p}:{line}:{col}: {msg}", line = l + 1, col = c + 1);
         }
+        for note in &d.notes {
+            eprintln!(" note: {note}");
+        }
+        for help in &d.helps {
+            eprintln!(" help: {help}");
+        }
         eprintln!();
     }
 }
