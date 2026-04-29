@@ -1,0 +1,123 @@
+#indent 4
+
+#import "core/option" as *
+#import "neplg2/core/options" as *
+#import "./emit" as *
+#import "./types" as *
+
+//: # args/options
+//: NEPLg2.0 self-host CLI の option value 構築と core option 変換を[集/あつ]める module です。
+//:
+//: [目的/もくてき]:
+//: - parser state から `SelfhostCliOptions` を組み立てる低レベル constructor を提供します。
+//: - CLI option model を compiler core の `SelfhostCompileOptions` へ変換します。
+//: - parser loop から target/profile 変換の詳細を分離し、driver はこの境界だけを使って core pipeline へ渡します。
+//:
+//: [注意/ちゅうい]:
+//: - core option は target / profile / verbose だけを持ち、emit、input、output、run は CLI/driver 層の責務として残します。
+//: - `emit` の既定値は Rust CLI と同じく wasm です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/args/options" as *
+//:| #import "core/field" as *
+//: fn main <()*>i32> ():
+//:     let opts <SelfhostCliOptions> selfhost_cli_default_options;
+//:     if selfhost_cli_emit_is_wasm get opts "emit" 0 1
+//: ```
+
+//: selfhost_cli_options_new: parser state から options を組み立てる
+//:
+//: [目的/もくてき]:
+//: - 走査中の値を `SelfhostCliOptions` へ変換します。
+//:
+//: [実装/じっそう]:
+//: - struct constructor にそのまま渡します。
+pub fn selfhost_cli_options_new <(bool,bool,bool,bool,bool,SelfhostCliEmitSet,Option<SelfhostCliTarget>,Option<SelfhostCliProfile>,Option<str>,Option<str>,Option<str>,Option<i32>)->SelfhostCliOptions> (check, run, attach_source, lib, verbose, emit, target, profile, stdlib_root, output, input, run_args_start):
+    SelfhostCliOptions check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
+
+//: selfhost_cli_default_options: 既定の option set を返す
+//:
+//: [目的/もくてき]:
+//: - 引数なしの状態を明示し、parser と doctest が同じ初期値を共有できるようにします。
+pub fn selfhost_cli_default_options <()->SelfhostCliOptions> ():
+    selfhost_cli_options_new false false false false false selfhost_cli_emit_set_default none<SelfhostCliTarget> none<SelfhostCliProfile> none<str> none<str> none<str> none<i32>
+
+//: selfhost_cli_target_to_compile_target: CLI target を core compile target へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - CLI parser の option record と compiler core の option record を分離したまま、driver が target override を渡せるようにします。
+pub fn selfhost_cli_target_to_compile_target <(SelfhostCliTarget)->SelfhostCompileTarget> (target):
+    match target:
+        SelfhostCliTarget::Wasm:
+            SelfhostCompileTarget::Wasm
+        SelfhostCliTarget::Wasi:
+            SelfhostCompileTarget::Wasi
+        SelfhostCliTarget::Wasix:
+            SelfhostCompileTarget::Wasix
+        SelfhostCliTarget::Llvm:
+            SelfhostCompileTarget::Llvm
+
+//: selfhost_cli_profile_to_build_profile: CLI profile を core build profile へ[変換/へんかん]する
+pub fn selfhost_cli_profile_to_build_profile <(SelfhostCliProfile)->SelfhostBuildProfile> (profile):
+    match profile:
+        SelfhostCliProfile::Debug:
+            SelfhostBuildProfile::Debug
+        SelfhostCliProfile::Release:
+            SelfhostBuildProfile::Release
+
+//: selfhost_cli_options_to_compile_options: parsed CLI options から core compile options を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - driver が `SelfhostCliOptions` の内部 field を直接読まず、core pipeline に渡す option value を 1 箇所で作れるようにします。
+//: - core option は target / profile / verbose だけを持ち、emit、input、output、run は CLI/driver 層の責務として残します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/args" as *
+//:| #import "neplg2/core/options" as *
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let args <Vec<str>>:
+//:         unwrap_ok v::new<str>
+//:         |> v::push<str> "--target" |> uwok
+//:         |> v::push<str> "std" |> uwok
+//:         |> v::push<str> "--profile" |> uwok
+//:         |> v::push<str> "release" |> uwok
+//:         |> v::push<str> "--verbose" |> uwok
+//:     match selfhost_cli_parse_args &args:
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok opts:
+//:             let compile_options <SelfhostCompileOptions> selfhost_cli_options_to_compile_options opts
+//:             let target <SelfhostCompileTarget> selfhost_compile_resolve_target compile_options none<SelfhostCompileTarget>
+//:             let profile <SelfhostBuildProfile> selfhost_compile_resolve_profile compile_options SelfhostBuildProfile::Debug
+//:             let ok <bool> and:
+//:                 selfhost_compile_target_is_wasi target
+//:                 and:
+//:                     selfhost_build_profile_is_release profile
+//:                     selfhost_compile_options_verbose compile_options
+//:             if ok 0 1
+//: ```
+pub fn selfhost_cli_options_to_compile_options <(SelfhostCliOptions)->SelfhostCompileOptions> (options):
+    let base0 <SelfhostCompileOptions> selfhost_compile_options_default
+    let base1 <SelfhostCompileOptions> match options.target:
+        Option::Some target:
+            selfhost_compile_options_with_target base0 selfhost_cli_target_to_compile_target target
+        Option::None:
+            base0
+    let base2 <SelfhostCompileOptions> match options.profile:
+        Option::Some profile:
+            selfhost_compile_options_with_profile base1 selfhost_cli_profile_to_build_profile profile
+        Option::None:
+            base1
+    selfhost_compile_options_with_verbose base2 options.verbose

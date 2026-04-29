@@ -9,10 +9,12 @@ const argsRel = 'stdlib/neplg2/cli/args.nepl';
 const typesRel = 'stdlib/neplg2/cli/args/types.nepl';
 const classifyRel = 'stdlib/neplg2/cli/args/classify.nepl';
 const emitRel = 'stdlib/neplg2/cli/args/emit.nepl';
+const optionsRel = 'stdlib/neplg2/cli/args/options.nepl';
 const argsSrc = fs.readFileSync(path.join(repoRoot, argsRel), 'utf8');
 const typesSrc = fs.readFileSync(path.join(repoRoot, typesRel), 'utf8');
 const classifySrc = fs.readFileSync(path.join(repoRoot, classifyRel), 'utf8');
 const emitSrc = fs.readFileSync(path.join(repoRoot, emitRel), 'utf8');
+const optionsSrc = fs.readFileSync(path.join(repoRoot, optionsRel), 'utf8');
 
 assert.match(
     argsSrc,
@@ -30,6 +32,12 @@ assert.match(
     argsSrc,
     /pub\s+#import\s+"\.(?:\/|\\)args(?:\/|\\)emit"\s+as\s+\*/,
     'neplg2/cli/args must re-export cli/args/emit as the emit option facade',
+);
+
+assert.match(
+    argsSrc,
+    /pub\s+#import\s+"\.(?:\/|\\)args(?:\/|\\)options"\s+as\s+\*/,
+    'neplg2/cli/args must re-export cli/args/options as the CLI-to-core option boundary',
 );
 
 for (const name of [
@@ -77,6 +85,25 @@ for (const name of [
         emitSrc,
         new RegExp(`\\bpub\\s+fn\\s+${name}\\b`),
         `${name} must live in cli/args/emit.nepl`,
+    );
+    assert.doesNotMatch(
+        argsSrc,
+        new RegExp(`\\bpub\\s+fn\\s+${name}\\b`),
+        `${name} must not be reintroduced into cli/args.nepl`,
+    );
+}
+
+for (const name of [
+    'selfhost_cli_options_new',
+    'selfhost_cli_default_options',
+    'selfhost_cli_target_to_compile_target',
+    'selfhost_cli_profile_to_build_profile',
+    'selfhost_cli_options_to_compile_options',
+]) {
+    assert.match(
+        optionsSrc,
+        new RegExp(`\\bpub\\s+fn\\s+${name}\\b`),
+        `${name} must live in cli/args/options.nepl`,
     );
     assert.doesNotMatch(
         argsSrc,

@@ -42,6 +42,30 @@
   - `plan.md` 自体は変更していない。
   - 診断設計の進捗は `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 follow-up として扱う。
 
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-STDLIB-009 selfhost CLI args options split)
+
+- [同期]:
+  - `main` を `origin/main` と fast-forward 同期した後、`stdlib/cli-args-options-split` branch で作業した。
+- [原因]:
+  - `stdlib/neplg2/cli/args.nepl` は classifier / emit 分離後も、parser state machine と `SelfhostCliOptions` 構築、既定値、CLI target/profile から core compile option への変換を同じ file に残していた。
+  - core option 変換は driver と core pipeline の境界であり、argv index 走査とは別責務なので、parser file に残すと self-host CLI の境界が再び肥大化する構造だった。
+- [修正]:
+  - `stdlib/neplg2/cli/args/options.nepl` を追加し、`selfhost_cli_options_new`、`selfhost_cli_default_options`、target/profile 変換、`selfhost_cli_options_to_compile_options` を移した。
+  - `args.nepl` は `args/options` を `pub #import` で再 export し、parser loop から同じ constructor を使う形にした。
+  - `nodesrc/test_selfhost_cli_args_types_split.js` を更新し、option constructor / conversion helper が `args.nepl` に戻らないことを固定した。
+  - `stdlib/neplg2/README.md` と `args/types.nepl` の責務説明を更新した。
+- [検証]:
+  - `node nodesrc/test_selfhost_cli_args_types_split.js`
+  - `node nodesrc/test_selfhost_cli_driver_boundary.js`
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/options.nepl --no-tree -o tmp/cli-args-options-direct.json -j 1`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/cli-args-options-facade.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/cli-args-options-parser.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/cli-args-options-driver.json -j 1`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host CLI stdlib の分割は `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として扱う。この issue は他の巨大 stdlib file が残るため open のまま。
+
 # 2026-04-29 メモ (ISS-20260425T000000Z-RV-STDLIB-009 selfhost CLI args emit split)
 
 - [同期]:
