@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T15:01:37.528Z",
+  "generated_at": "2026-04-29T15:03:32.251Z",
   "counts": {
-    "total": 379,
+    "total": 380,
     "open": 15,
-    "resolved": 364,
+    "resolved": 365,
     "by_area": {
       "core": {
         "total": 176,
@@ -12,9 +12,9 @@
         "resolved": 171
       },
       "stdlib": {
-        "total": 112,
+        "total": 113,
         "open": 7,
-        "resolved": 105
+        "resolved": 106
       },
       "TEST": {
         "total": 4,
@@ -4023,6 +4023,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE.md"
+    },
+    {
+      "id": "ISS-20260429T143605389Z-STD-CLIARG-WASI-OUT-POINTER-READS-FA-B9DCD161",
+      "title": "std cliarg WASI out pointer reads fail RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/env/cliarg.nepl, nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js, examples/nm.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T143605389Z-STD-CLIARG-WASI-OUT-POINTER-READS-FA-B9DCD161.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
