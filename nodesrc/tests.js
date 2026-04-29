@@ -208,6 +208,7 @@ function collectTestsFromPath(inputPath) {
                 expected_stdout: dt.stdout ?? null,
                 expected_stderr: dt.stderr ?? null,
                 expected_ret: Object.prototype.hasOwnProperty.call(dt, 'ret') ? dt.ret : null,
+                expected_exit_code: Object.prototype.hasOwnProperty.call(dt, 'exit_code') ? dt.exit_code : null,
                 expected_diag_codes: Array.isArray(dt.diag_codes) ? dt.diag_codes : [],
                 expected_diag_spans: Array.isArray(dt.diag_spans) ? dt.diag_spans : [],
             });
@@ -625,6 +626,9 @@ function applyDoctestExpectations(result, testCase, options = {}) {
     const wantsRet = Object.prototype.hasOwnProperty.call(testCase || {}, 'expected_ret')
         && testCase.expected_ret !== null
         && testCase.expected_ret !== undefined;
+    const wantsExitCode = Object.prototype.hasOwnProperty.call(testCase || {}, 'expected_exit_code')
+        && testCase.expected_exit_code !== null
+        && testCase.expected_exit_code !== undefined;
     const wantsStdout = testCase?.expected_stdout !== null && testCase?.expected_stdout !== undefined;
     const wantsStderr = testCase?.expected_stderr !== null && testCase?.expected_stderr !== undefined;
     const importsStdTest = /#import\s+"std\/test"\s+as\s+\*/.test(String(testCase?.source || ''));
@@ -672,6 +676,33 @@ function applyDoctestExpectations(result, testCase, options = {}) {
     if (options.llvmCompileOnly && r.phase === 'compile_llvm_cli') {
         return r;
     }
+    if (wantsExitCode) {
+        const expected = testCase.expected_exit_code;
+        if (!Object.prototype.hasOwnProperty.call(r, 'exit_code')
+            || r.exit_code === null
+            || r.exit_code === undefined) {
+            r.ok = false;
+            r.status = 'fail';
+            r.phase = r.phase || 'run';
+            r.error = [
+                'exit code result missing',
+                `expected: ${JSON.stringify(expected)}`,
+            ].join('\n');
+            return r;
+        }
+        const actual = r.exit_code;
+        if (expected !== actual) {
+            r.ok = false;
+            r.status = 'fail';
+            r.phase = r.phase || 'run';
+            r.error = [
+                'exit code mismatch',
+                `expected: ${JSON.stringify(expected)}`,
+                `actual:   ${JSON.stringify(actual)}`,
+            ].join('\n');
+            return r;
+        }
+    }
     if (wantsRet) {
         const expected = testCase.expected_ret;
         const actual = Object.prototype.hasOwnProperty.call(r, 'return_value') ? r.return_value : null;
@@ -687,7 +718,7 @@ function applyDoctestExpectations(result, testCase, options = {}) {
             return r;
         }
     }
-    if (!wantsRet && !wantsStdout && !wantsStderr) return r;
+    if (!wantsRet && !wantsExitCode && !wantsStdout && !wantsStderr) return r;
     const strictIo = wantsStdout
         || wantsStderr
         || !!options.assertIo
@@ -833,6 +864,7 @@ function runCommand(cmd, args, options = {}) {
 
 function buildLlvmRunResult(c, workerId, llPath, exePath, runWithArgs, t0) {
     const abnormal = llvmProgramTerminatedAbnormally(runWithArgs);
+    const exitCode = llvmReturnValueFromProcessResult(runWithArgs);
     const base = {
         id: `${c.id}::llvm`,
         file: c.file,
@@ -860,7 +892,8 @@ function buildLlvmRunResult(c, workerId, llPath, exePath, runWithArgs, t0) {
         ...base,
         ok,
         status: ok ? 'pass' : 'fail',
-        return_value: llvmReturnValueFromProcessResult(runWithArgs),
+        return_value: exitCode,
+        exit_code: exitCode,
         error: ok ? null : `llvm program terminated by signal=${runWithArgs.signal ?? 'null'}`,
     };
 }

@@ -90,7 +90,7 @@ exit code だけでは、失敗した assertion の label、kind、expected、ac
 - `stdout:`: assertion report や program output を検査する。
 - `stderr:`: diagnostic や CLI error output を検査する。
 
-短期的には runner 内部の `return_value` を `exit_code:` へ map する case があるが、manifest 上の意味は分離する。後方互換のために `ret:` を exit code として使い続ける設計にはしない。
+短期的には runner 内部で取得した `return_value` 相当値を、実行結果 schema の明示 field `exit_code` として出す case がある。ただし expectation logic は `exit_code:` を `return_value` へ fallback して検査してはならない。manifest 上の意味は分離し、後方互換のために `ret:` を exit code として使い続ける設計にはしない。
 
 ### 2. assertion suite は stdout report を必須にする
 
@@ -222,7 +222,7 @@ assertion kind、status、render mode、exit decision は enum で表現する�
 ### P0: metadata parser を修正する
 
 - `diag_code:` / `diag_codes:` を `parser.js` へ反映する。
-- `exit_code:` を `parser.ts` / `parser.js` の metadata に追加する。
+- `exit_code:` を `parser.ts` / generated `parser.js` の metadata に追加する。
 - `parser.ts` と `parser.js` の drift check を CI に入れる。
 
 ### P1: expectation logic を共通化する
@@ -348,15 +348,22 @@ test_report_exit_code shown
 
 ## 進捗状況
 
-- `nodesrc/tests.js`: `.n.md` compile/run は稼働中。stdout/stderr/ret/diagnostic expectation を持つが、`exit_code:` は未実装。
-- `nodesrc/run_doctest.js`: focused reproduction は稼働中。expectation logic の共通化が必要。
-- `nodesrc/parser.ts`: `diag_code:` は実装済みだが、`exit_code:` は未実装。
-- `nodesrc/parser.js`: `diag_code:` 未追従。`exit_code:` も未実装。
+- `nodesrc/tests.js`: `.n.md` compile/run は稼働中。stdout/stderr/ret/diagnostic/exit_code expectation を持つ。expectation logic の共通化は残る。
+- `nodesrc/run_doctest.js`: focused reproduction は稼働中。`diag_code:` / `diag_span:` / `exit_code:` expectation を検査する。expectation logic の共通化は残る。
+- `nodesrc/parser.ts`: `diag_code:` と `exit_code:` を実装済み。
+- `nodesrc/parser.js`: generated artifact として扱う。`npx tsc -p nodesrc/tsconfig.json` 後の runtime parser behavior を `nodesrc/test_doctest_diag_code_metadata.js` と `nodesrc/test_doctest_exit_code_metadata.js` で固定済み。
 - `stdlib/std/test.nepl`: `Checks` と `checks_print_report` はあるが、assertion/report/exit code の責務境界が不十分。
 - `stdlib/core/test.nepl`: core trap helper として存在するが、std report API と名前が近く、分離方針を明文化した段階。
 - `tests/stdlib/std_test_collect.n.md`: 現行 `Checks` の report fixture はある。新 API の canonical fixture へ更新予定。
 - `tutorials/getting_started`: `checks_exit_code` 中心の説明が多く、新 assert/report 設計に合わせて tutorial rewrite 対象。
 - `stdlib/neplg2`: selfhost runner は未完成。`.n.md` manifest の stdout/exit_code schema を先に固定する。
+
+## 2026-04-29 実装メモ
+
+- `diag_code:` / `diag_codes:` の runtime parser drift と focused runner enforcement を修正した。
+- `exit_code:` metadata を parser / focused runner / aggregate runner に追加した。
+- `ret:` は言語戻り値、`exit_code:` は runner/process の終了可否として扱う schema に分離した。
+- 既存 assertion suite の移行と `std/test` 再設計は継続作業である。
 
 ## 完了条件
 

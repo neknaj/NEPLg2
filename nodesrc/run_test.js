@@ -82,6 +82,17 @@ function decodeExpectedReturn(expectedRet, rawValue, memory) {
     return rawValue;
 }
 
+function decodeExitCode(rawValue) {
+    if (typeof rawValue === 'bigint') {
+        const minSafe = BigInt(Number.MIN_SAFE_INTEGER);
+        const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
+        if (rawValue >= minSafe && rawValue <= maxSafe) return Number(rawValue);
+        return null;
+    }
+    if (typeof rawValue === 'number' && Number.isFinite(rawValue)) return rawValue;
+    return null;
+}
+
 function runWasiBytes(wasmBytes, stdinText, argv = []) {
     return {
         ...runWasiBytesWithImports(wasmBytes, stdinText, argv),
@@ -509,6 +520,7 @@ async function runSingle(req, preloaded) {
             runRes.returnValue,
             runRes.memory,
         );
+        const decodedExitCode = decodeExitCode(runRes.returnValue);
 
         if (hasTag(tags, 'should_panic')) {
             const ok = runRes.trapped;
@@ -520,6 +532,7 @@ async function runSingle(req, preloaded) {
                 stdout: runRes.stdout,
                 stderr: runRes.stderr,
                 return_value: decodedReturn,
+                exit_code: decodedExitCode,
                 error: ok ? null : 'expected should_panic, but program finished without trap',
                 runtime: {
                     trapped: runRes.trapped,
@@ -541,6 +554,7 @@ async function runSingle(req, preloaded) {
             stdout: runRes.stdout,
             stderr: runRes.stderr,
             return_value: decodedReturn,
+            exit_code: decodedExitCode,
             error: ok ? null : (runRes.trapError || 'program trapped'),
             runtime: {
                 trapped: runRes.trapped,

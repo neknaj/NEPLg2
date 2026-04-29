@@ -25972,3 +25972,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` 共通 test manifest の diagnostic code expectation が実際に runner で効くようにした。
+
+# 2026-04-29 メモ (ISS-20260429T105448222Z doctest exit_code metadata)
+
+- [同期]:
+  - `080c2f1` まで反映した `main` へ rebase し、`test/doctest-exit-code-metadata` branch で作業した。
+- [調査]:
+  - `.n.md` stdout assertion report 計画では、`ret:` と `exit_code:` を分離する方針にしている。
+  - `nodesrc/parser.ts` は `exit_code:` metadata を受け付けず、`run_doctest.js` / `tests.js` も `expected_exit_code` を持っていなかった。
+  - `run_test.js` の runtime result は `return_value` だけで、exit-code 相当値を明示する field がなかった。
+- [修正]:
+  - `nodesrc/parser.ts` の `Doctest` と metadata scan に `exit_code` を追加した。
+  - `nodesrc/run_test.js` の run result に `exit_code` を追加した。現行 WASM/WASI runner では raw `main` return value を exit-code 相当値にする。
+  - `nodesrc/run_doctest.js` と `nodesrc/tests.js` に `expected_exit_code` を追加し、actual の `exit_code` が明示されている場合だけ比較するようにした。`return_value` への fallback は入れない。
+  - LLVM CLI runner は process exit code を `exit_code` にも出すようにした。
+  - `nodesrc/test_doctest_exit_code_metadata.js` を追加し、parser / focused runner / aggregate runner の enforcement と `return_value` fallback 禁止を固定した。
+  - CI Source policy regressions に `node nodesrc/test_doctest_exit_code_metadata.js` を追加した。
+  - `doc/neplg2/nmd_assert_output_plan.md` と関連 issue を更新した。
+- [検証]:
+  - `npx tsc -p nodesrc/tsconfig.json`
+  - `node nodesrc/test_doctest_exit_code_metadata.js`
+  - `node nodesrc/test_doctest_diag_code_metadata.js`
+  - `node nodesrc/issues.js check`
+  - `git diff --check`
+  - `node nodesrc/cli.js -i doc/neplg2/nmd_assert_output_plan.md -o html=tmp/nmd-assert-output-plan-html`
+  - `trunk build`
+  - `node nodesrc/test_doctest_exit_code_metadata.js` (`trunk build` 後)
+  - `node nodesrc/test_doctest_diag_code_metadata.js` (`trunk build` 後)
+  - `node nodesrc/tests.js -i tmp/doctest-exit-code-good.n.md --no-tree -o tmp/doctest-exit-code-good-manual.json -j 1 --dist web/dist`: `total=1`, `passed=1`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` 共通 test manifest の runtime expectation に `exit_code:` を追加した。

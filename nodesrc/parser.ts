@@ -66,6 +66,7 @@ interface Doctest {
   stdout: string | null;
   stderr: string | null;
   ret: unknown;
+  exit_code: unknown;
   diag_codes: string[];
   diag_spans: DiagSpan[];
 }
@@ -197,6 +198,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       stdout: string | null;
       stderr: string | null;
       ret: unknown;
+      exit_code: unknown;
       diag_codes: string[];
       diag_spans: DiagSpan[];
     } = {
@@ -205,6 +207,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       stdout: null,
       stderr: null,
       ret: null,
+      exit_code: null,
       diag_codes: [],
       diag_spans: [],
     };
@@ -215,7 +218,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       const l2 = opts.lineTransform(raw2);
       if (/^\s*neplg2:test(?:\[[^\]]+\])?\s*$/.test(l2)) break;
       const mm = l2.match(
-        /^\s*(stdin|argv|stdout|stderr|ret|diag_code|diag_codes|diag_span|diag_spans)\s*:\s*(.*?)\s*$/,
+        /^\s*(stdin|argv|stdout|stderr|ret|exit_code|diag_code|diag_codes|diag_span|diag_spans)\s*:\s*(.*?)\s*$/,
       );
       if (mm) {
         const k = mm[1];
@@ -242,9 +245,11 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
         } else if (k === "diag_spans") {
           meta.diag_spans.push(...parseDiagSpanList(rawValue));
         } else {
-          const mk = k as "stdin" | "argv" | "stdout" | "stderr" | "ret";
+          const mk = k as "stdin" | "argv" | "stdout" | "stderr" | "ret" | "exit_code";
           if (mk === "ret") {
             meta.ret = parseRetValue(rawValue);
+          } else if (mk === "exit_code") {
+            meta.exit_code = parseRetValue(rawValue);
           } else {
             meta[mk] = parseMetaValue(rawValue) as string | null;
           }
@@ -266,6 +271,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
           stdout: meta.stdout,
           stderr: meta.stderr,
           ret: meta.ret,
+          exit_code: meta.exit_code,
           diag_codes: meta.diag_codes,
           diag_spans: meta.diag_spans,
         });
@@ -297,6 +303,7 @@ function scanForDoctests(lines: string[], opts: ScanOptions): Doctest[] {
       stdout: meta.stdout,
       stderr: meta.stderr,
       ret: meta.ret,
+      exit_code: meta.exit_code,
       diag_codes: meta.diag_codes,
       diag_spans: meta.diag_spans,
     });

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T10:51:24.108Z",
+  "generated_at": "2026-04-29T11:06:48.957Z",
   "counts": {
-    "total": 365,
+    "total": 366,
     "open": 15,
-    "resolved": 350,
+    "resolved": 351,
     "by_area": {
       "core": {
         "total": 173,
@@ -22,9 +22,9 @@
         "resolved": 97
       },
       "TEST": {
-        "total": 3,
+        "total": 4,
         "open": 1,
-        "resolved": 2
+        "resolved": 3
       },
       "selfhost": {
         "total": 44,
@@ -3873,6 +3873,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T101530928Z-N-MD-SHARED-TEST-OPERATION-FOR-RUST--52938450.md"
+    },
+    {
+      "id": "ISS-20260429T105448222Z-N-MD-RUNNER-LACKS-EXIT-CODE-METADATA-5A5AEFD1",
+      "title": ".n.md runner lacks exit_code metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nodesrc/parser.ts, nodesrc/run_doctest.js, nodesrc/tests.js, nodesrc/run_test.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T105448222Z-N-MD-RUNNER-LACKS-EXIT-CODE-METADATA-5A5AEFD1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

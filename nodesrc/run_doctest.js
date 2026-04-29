@@ -60,6 +60,7 @@ function buildCase(inputPath, index) {
         expected_stdout: dt.stdout ?? null,
         expected_stderr: dt.stderr ?? null,
         expected_ret: Object.prototype.hasOwnProperty.call(dt, 'ret') ? dt.ret : null,
+        expected_exit_code: Object.prototype.hasOwnProperty.call(dt, 'exit_code') ? dt.exit_code : null,
         expected_diag_codes: Array.isArray(dt.diag_codes) ? dt.diag_codes : [],
         expected_diag_spans: Array.isArray(dt.diag_spans) ? dt.diag_spans : [],
     };
@@ -111,6 +112,12 @@ function extractActualDiagSpans(compileErrorText) {
     return out;
 }
 
+function hasActualExitCode(result) {
+    return Object.prototype.hasOwnProperty.call(result, 'exit_code')
+        && result.exit_code !== null
+        && result.exit_code !== undefined;
+}
+
 function applyExpectations(result, testCase) {
     const r = { ...result };
     const tags = Array.isArray(testCase.tags) ? testCase.tags : [];
@@ -159,6 +166,32 @@ function applyExpectations(result, testCase) {
 
     if (tags.includes('should_panic')) {
         return r;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(testCase, 'expected_exit_code')
+        && testCase.expected_exit_code !== null
+        && testCase.expected_exit_code !== undefined) {
+        const expected = testCase.expected_exit_code;
+        if (!hasActualExitCode(r)) {
+            r.ok = false;
+            r.status = 'fail';
+            r.error = [
+                'exit code result missing',
+                `expected: ${JSON.stringify(expected)}`,
+            ].join('\n');
+            return r;
+        }
+        const actual = r.exit_code;
+        if (expected !== actual) {
+            r.ok = false;
+            r.status = 'fail';
+            r.error = [
+                'exit code mismatch',
+                `expected: ${JSON.stringify(expected)}`,
+                `actual:   ${JSON.stringify(actual)}`,
+            ].join('\n');
+            return r;
+        }
     }
 
     if (Object.prototype.hasOwnProperty.call(testCase, 'expected_ret')
@@ -237,6 +270,7 @@ async function main() {
         stdin: testCase.stdin,
         argv: testCase.argv,
         expected_ret: testCase.expected_ret,
+        expected_exit_code: testCase.expected_exit_code,
         distHint,
     });
     const result = applyExpectations(raw, testCase);
