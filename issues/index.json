@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T16:12:32.618Z",
+  "generated_at": "2026-04-29T16:23:39.947Z",
   "counts": {
     "total": 386,
-    "open": 16,
-    "resolved": 370,
+    "open": 15,
+    "resolved": 371,
     "by_area": {
       "core": {
         "total": 178,
@@ -20,11 +20,6 @@
         "total": 4,
         "open": 1,
         "resolved": 3
-      },
-      "compiler": {
-        "total": 2,
-        "open": 1,
-        "resolved": 1
       },
       "selfhost": {
         "total": 44,
@@ -60,6 +55,11 @@
         "total": 1,
         "open": 0,
         "resolved": 1
+      },
+      "compiler": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       }
     }
   },
@@ -258,21 +258,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37",
-      "title": "Explicit Clone::clone on MemPtr remains unresolved after monomorphize",
-      "area": "compiler",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core, stdlib/core/traits/copy.nepl, stdlib/core/mem.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -4263,6 +4248,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T061837095Z-WILDCARD-RESULT-I64-PATTERN-CAN-GENE-C5C0C655.md"
+    },
+    {
+      "id": "ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37",
+      "title": "Explicit Clone::clone on MemPtr remains unresolved after monomorphize",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core, stdlib/core/traits/copy.nepl, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-010-05C6281D",
