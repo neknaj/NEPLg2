@@ -27063,3 +27063,36 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib collection の owner を ResourceIR が追跡できる構造体 field として明示し、self-host に必要なメモリ安全契約を強めた。
+
+# 2026-04-30 メモ (ISS-20260429T155343006Z HashSet typed storage)
+
+- [同期]:
+  - `main` の `aa48d81` から `work/hashset-storage-contract` branch で継続した。
+  - HashMap は typed storage / enum bucket state へ移行済みだったが、HashSet は raw header / entries pointer と `0/1/2` bucket status を保持していた。
+- [原因]:
+  - HashSet の `hdr` field は count/cap/entries/tombstones と storage owner を raw layout に押し込み、Resource IR から key storage owner と bucket state が見えなかった。
+  - bucket state が数値だったため、Empty / Full / Tombstone の有限状態に対する `match` 網羅性検査が効かなかった。
+  - `contains` / `len` が `HashSet` を by-value で受け取っており、読み取り API が storage owner を消費する形になっていた。
+- [修正]:
+  - `HashSetBucketState` / `HashSetInsertSlotState` / `HashSetStorage<T>` を導入し、`HashSet` 本体を `count/cap/tombstones/storage/hasher` の owner 明示 struct にした。
+  - key slot は `Vec<Option<T>>` にし、Full bucket の initialized key を Option と bucket state の組で表すようにした。
+  - lookup / insert-slot search / rehash は `HashSetBucketState` に対する `match` で分岐する形にした。
+  - `contains` / `len` は `&HashSet` read API へ変更し、関連 doctest / fixture を borrow read と明示 `free` に合わせた。
+  - `nodesrc/test_stdlib_hashset_storage_contract.js` を追加し、HashSet 実装に raw storage API や unsafe unwrap helper が戻らないようにした。
+- [検証]:
+  - `node nodesrc/test_stdlib_hashset_storage_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hashset-main-after-rebase.json -j 1 --dist web/dist`: `total=4`, `passed=4`
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 2 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 4 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 6 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 6 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/traits_hash.n.md -n 6 --dist web/dist`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashset.nepl -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/pipe_collections.n.md -i tests/stdlib/traits_hash.n.md -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/hashset-storage-contract-focused.json -j 1 --dist web/dist`: `total=34`, `passed=17`, `failed=17`
+- [既知の失敗]:
+  - `stdlib/alloc/collections/hashset.nepl` doctest は `stdlib/alloc/string.nepl::from_f64_result` の Resource IR raw cell 所有権違反で失敗しており、HashSet storage 実装由来ではない。
+  - `tests/stdlib/collections_diag.n.md` の missing-key diagnostic 検証は `Diag.message` owner contract 問題で失敗しており、`ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF` の残件。
+  - `pipe_collections.n.md` の HashSet 以外の doctest には Stack / BTree / RingBuffer / Queue の既存 Resource IR owner 問題が混在するため、HashSet focused の `-n 6` で確認した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の stdlib storage owner visibility を強め、self-host に raw numeric bucket discipline を持ち込まない方向へ進めた。

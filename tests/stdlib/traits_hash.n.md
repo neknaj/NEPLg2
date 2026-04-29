@@ -258,11 +258,7 @@ neplg2:test
 #import "core/traits/hash_key" as *
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
-    match r:
-        Result::Ok hs:
-            hs
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
 
 struct ModKey:
     raw <i32>
@@ -298,11 +294,7 @@ impl Hasher<ModKey> for ModHasher:
         rem_s field::get key "raw" 7
 
 fn must_hsk <(Result<HashSet<ModKey,ModHasher>, Diag>)*>HashSet<ModKey,ModHasher>> (r):
-    match r:
-        Result::Ok hs:
-            hs
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+    unwrap_ok<HashSet<ModKey,ModHasher>, Diag> r
 
 fn main <()*>i32> ():
     let mut checks checks_new;

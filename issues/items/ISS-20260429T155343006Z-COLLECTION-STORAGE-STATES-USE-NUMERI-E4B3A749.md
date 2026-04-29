@@ -59,7 +59,7 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 この時点の残件:
 
-- `stdlib/alloc/collections/hashset.nepl` はまだ 0/1/2 status と raw header/entries layout を持つ。
+- `stdlib/alloc/collections/hashset.nepl` の同根問題は 2026-04-30 の HashSet 部分進捗で typed storage へ移行済み。
 - Vec / Stack / BinaryHeap などの null/raw owner sentinel 設計は別途段階的に typed owner state へ移す必要がある。
 
 ## 2026-04-30 HashSet 部分進捗
@@ -96,3 +96,47 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 検証:
 
 - `node nodesrc/test_stdlib_hashmap_storage_contract.js`: passed
+
+## 2026-04-30 HashSet 部分進捗
+
+`stdlib/alloc/collections/hashset.nepl` は旧 raw header + entries layout と `0/1/2` bucket status を廃止し、`HashSetBucketState` enum と `HashSetStorage<T>` へ移行した。
+
+進捗:
+
+- HashSet bucket state は `Empty` / `Full` / `Tombstone` の enum になり、探索・挿入 slot 探索・rehash は `match` で網羅的に扱う。
+- key payload は `Vec<Option<T>>` で初期化済み状態を表す。
+- HashSet 本体は `count/cap/tombstones/storage/hasher` を直接持ち、raw header pointer と entries pointer を持たない。
+- `contains` / `len` は `&HashSet` を受け取る read API になり、読み取りで storage owner を移動しない。
+- `remove` の missing key path は入力 HashSet を消費し、storage を解放してから `Err(Diag)` を返す。
+- HashSet call site と doctest は borrow read API と明示 `free` に合わせて更新した。
+
+残件:
+
+- `Vec` / `Queue` / `Deque` / `BinaryHeap` などの null/raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+- HashMap / HashSet は Copy payload 前提であり、非 Copy payload の drop traversal は別設計で扱う。
+- `tests/stdlib/collections_diag.n.md` の HashMap/HashSet missing-key diagnostic fixture は `Diag.message` owner contract 問題で失敗する。これは `ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF` へ分離済み。
+
+## 2026-04-30 HashSet source policy 追加
+
+`nodesrc/test_stdlib_hashset_storage_contract.js` を追加し、HashSet が typed storage から raw header / numeric sentinel へ戻らないことを CI の source policy として固定した。
+
+固定した契約:
+
+- bucket state は `HashSetBucketState::Empty/Full/Tombstone` enum で表す。
+- insertion slot state は `HashSetInsertSlotState::EmptySlot/TombstoneSlot` enum で表す。
+- backing storage は `HashSetStorage<T>` の `Vec<HashSetBucketState>` / `Vec<Option<T>>` owner として保持する。
+- HashSet 本体は `count/cap/tombstones/storage/hasher` を持ち、`MemPtr` / `alloc_raw` / `load_i32` / `store_i32` を HashSet 実装に戻さない。
+- lookup / insertion slot search は `match` で bucket state を網羅する。
+- `contains` / `len` は `&HashSet` を受け取る read API のままにする。
+- rehash / insert / free は storage owner を明示的に移動または解放する。
+
+検証:
+
+- `node nodesrc/test_stdlib_hashset_storage_contract.js`: passed
+- `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hashset-main-after-rebase.json -j 1 --dist web/dist`: total=4, passed=4
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 2 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 4 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 6 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 6 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/traits_hash.n.md -n 6 --dist web/dist`: passed
+- `node nodesrc/issues.js check`: passed

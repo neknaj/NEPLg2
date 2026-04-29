@@ -6,7 +6,7 @@
 //: - key [比較/ひかく]は `HashKey` trait に、hash [計算/けいさん]は hasher value へ[対/たい]する `hash32` overload に[委譲/いじょう]します。
 //:
 //: ### [実装/じっそう]
-//: - open addressing + linear probing を[用/もち]いる hash table です。
+//: - open addressing + linear probing の hash table です。
 //: - bucket [状態/じょうたい]は `HashSetBucketState` enum で[管理/かんり]し、numeric sentinel ではなく `match` の[網羅性/もうらせい]を[使/つか]います。
 //: - key storage は `Vec<Option<.T>>` とし、全 slot を `None` で初期化します。
 //: - `Full` 状態の slot では key が `Some` であることを HashSet の内部不変条件とします。
@@ -16,7 +16,8 @@
 //: - hasher 型 `.H` は `Hasher<.T>` と標準 `Copy` を impl する[必要/ひつよう]があります。
 //:
 //: ### [計算量/けいさんりょう]
-//: - [平均/へいきん] `insert` / `contains` / `remove` は O(1)、[最悪/さいあく]は O(n) です。
+//: - [平均/へいきん] `insert` / `contains` / `remove` は O(1) です。
+//: - [最悪/さいあく]は probe が[全体/ぜんたい]を[走査/そうさ]して O(n) です。
 
 #indent 4
 
@@ -50,6 +51,9 @@ impl Copy for HashSetBucketState:
 
 //: ## HashSetInsertSlotState
 //: insertion 先 slot が empty 由来か tombstone 由来かを[表/あらわ]す
+//:
+//: ### [目的/もくてき]
+//: - tombstone を[再利用/さいりよう]した[場合/ばあい]だけ tombstone count を[減/へ]らせるようにします。
 enum HashSetInsertSlotState:
     EmptySlot
     TombstoneSlot
@@ -64,12 +68,18 @@ impl Copy for HashSetInsertSlotState:
 
 //: ## HashSetInsertSlot
 //: insertion 先の index と[状態/じょうたい]
+//:
+//: ### [目的/もくてき]
+//: - linear probing の[結果/けっか]を index と slot state の組として[返/かえ]します。
 struct HashSetInsertSlot:
     index <i32>
     state <HashSetInsertSlotState>
 
 //: ## HashSetStorage
 //: HashSet の backing storage
+//:
+//: ### [目的/もくてき]
+//: - 状態配列と key 配列の owner を 1 [値/あたい]にまとめます。
 //:
 //: ### [注意/ちゅうい]
 //: - `states.len == keys.len == cap` を内部不変条件とします。
@@ -79,6 +89,9 @@ struct HashSetStorage<.T>:
 
 //: ## HashSet
 //: hash set [本体/ほんたい]
+//:
+//: ### [目的/もくてき]
+//: - [要素数/ようそすう]・[容量/ようりょう]・tombstone 数・storage・hasher をまとめて[保持/ほじ]します。
 struct HashSet<.T,.H>:
     count <i32>
     cap <i32>
@@ -95,6 +108,9 @@ fn hashset_storage_keys <.T> <(&HashSetStorage<.T>)->&Vec<Option<.T>>> (storage)
     field::get_ref storage "keys"
 
 //: hashset_bucket_index: hash から bucket index を[計算/けいさん]する
+//:
+//: ### [実装/じっそう]
+//: - hasher の `hash32` を unsigned remainder として capacity に[収/おさ]めます。
 fn hashset_bucket_index <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(i32,.H,.T)->i32> (cap, hasher, key):
     rem_u hash_with<.T,.H> hasher key cap
 
@@ -107,10 +123,16 @@ fn hashset_normalize_capacity <(i32)->i32> (requested):
     if lt requested 4 4 requested
 
 //: hashset_load_limit: grow / rehash の[閾値/しきいち]を[計算/けいさん]する
+//:
+//: ### [実装/じっそう]
+//: - 75% を[超/こ]える[前/まえ]に rehash するため、`cap * 3 / 4` を[返/かえ]します。
 fn hashset_load_limit <(i32)->i32> (cap):
     div_u mul cap 3 4
 
 //: hashset_state_at: bucket state を[読/よ]み[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 呼び出し側は `0 <= idx < cap` を[守/まも]る設計です。`Option::None` は不変条件破れの防護として empty に[倒/たお]します。
 fn hashset_state_at <(&Vec<HashSetBucketState>,i32)->HashSetBucketState> (states, idx):
     match vec::get_ref<HashSetBucketState> states idx:
         Option::Some state:
@@ -135,6 +157,9 @@ fn hashset_store_key <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (keys, i
     vec::replace_ref<Option<.T>> keys idx key
 
 //: hashset_store_full: slot を Full にして key を[格納/かくのう]する
+//:
+//: ### [目的/もくてき]
+//: - state と key option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
 fn hashset_store_full <.T: Copy> <(&HashSetStorage<.T>,i32,.T)*>()> (storage, idx, key):
     hashset_store_key<.T> hashset_storage_keys<.T> storage idx some<.T> key
     hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Full
@@ -145,6 +170,9 @@ fn hashset_store_tombstone <.T: Copy> <(&HashSetStorage<.T>,i32)*>()> (storage, 
     hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Tombstone
 
 //: hashset_free_storage: backing storage を[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - states / keys の 2 本の Vec owner を[閉/と]じます。
 fn hashset_free_storage <.T: Copy> <(HashSetStorage<.T>)->()> (storage):
     let states <Vec<HashSetBucketState>> field::get storage "states"
     let keys <Vec<Option<.T>>> field::get storage "keys"
@@ -152,6 +180,12 @@ fn hashset_free_storage <.T: Copy> <(HashSetStorage<.T>)->()> (storage):
     vec::free<Option<.T>> keys
 
 //: hashset_alloc_storage: empty storage を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - 全 slot を初期化済み enum / Option として[確保/かくほ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
 fn hashset_alloc_storage <.T: Copy> <(i32)*>Result<HashSetStorage<.T>, Diag>> (cap):
     match vec::filled<HashSetBucketState> cap HashSetBucketState::Empty:
         Result::Err _e:
@@ -165,6 +199,10 @@ fn hashset_alloc_storage <.T: Copy> <(i32)*>Result<HashSetStorage<.T>, Diag>> (c
                     ok<HashSetStorage<.T>, Diag> HashSetStorage<.T> states keys
 
 //: hashset_find_present: key が[存在/そんざい]する slot を[探/さが]す
+//:
+//: ### [実装/じっそう]
+//: - hash index から linear probing し、`Empty` で chain 終端、`Tombstone` は[通過/つうか]、`Full` は key equality で[判定/はんてい]します。
+//: - [見/み]つからなければ -1 を[返/かえ]します。
 fn hashset_find_present <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)->i32> (storage, cap, hasher, key):
     let states <&Vec<HashSetBucketState>> hashset_storage_states<.T> storage
     let keys <&Vec<Option<.T>>> hashset_storage_keys<.T> storage
@@ -194,6 +232,9 @@ fn hashset_find_present <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage
     found
 
 //: hashset_find_insert_slot: 新規 key の[挿入/そうにゅう]先 slot を[探/さが]す
+//:
+//: ### [実装/じっそう]
+//: - 最初の tombstone を[覚/おぼ]えつつ probe し、empty に[到達/とうたつ]したら tombstone 優先で[返/かえ]します。
 fn hashset_find_insert_slot <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)->HashSetInsertSlot> (storage, cap, hasher, key):
     let states <&Vec<HashSetBucketState>> hashset_storage_states<.T> storage
     let start <i32> hashset_bucket_index<.T,.H> cap hasher key
@@ -224,12 +265,21 @@ fn hashset_find_insert_slot <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetSto
     HashSetInsertSlot result_idx result_state
 
 //: hashset_insert_entry_into_storage: rehash [中/ちゅう]の新 table へ key を[移/うつ]す
+//:
+//: ### [目的/もくてき]
+//: - 既存 key を新しい empty storage へ[再配置/さいはいち]します。
 fn hashset_insert_entry_into_storage <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)*>()> (storage, cap, hasher, key):
     let slot <HashSetInsertSlot> hashset_find_insert_slot<.T,.H> storage cap hasher key
     let idx <i32> field::get slot "index"
     hashset_store_full<.T> storage idx key
 
 //: hashset_rehash_to: live key だけを新しい storage へ[再配置/さいはいち]する
+//:
+//: ### [目的/もくてき]
+//: - grow または tombstone cleanup のために新しい capacity の table を[作/つく]り、Full key だけを[移/うつ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]、入力 HashSet はこの[関数/かんすう]が[消費/しょうひ]し、旧 storage を[解放/かいほう]してから Err を[返/かえ]します。
 fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, Diag>> (hs, requested_cap):
     let count0 <i32> *field::get_ref &hs "count"
     let old_cap <i32> *field::get_ref &hs "cap"
@@ -262,6 +312,9 @@ fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32
             ok<HashSet<.T,.H>, Diag> HashSet<.T,.H> count0 new_cap 0 new_storage hasher
 
 //: hashset_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
+//:
+//: ### [目的/もくてき]
+//: - 既存 key では容量を変えません。新規 key では count と tombstone を合わせた occupied 数を見て、必要なら同容量 rehash または 2 倍 grow を選びます。
 fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     let count0 <i32> *field::get_ref &hs "count"
     let cap0 <i32> *field::get_ref &hs "cap"
@@ -286,6 +339,9 @@ fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H
                     ok<HashSet<.T,.H>, Diag> hs
 
 //: hashset_new_with_capacity: `new` と `with_capacity` が[共有/きょうゆう]する constructor
+//:
+//: ### [目的/もくてき]
+//: - 公開 API 名の overload 解決に依存せず、容量正規化と storage 初期化を 1 [箇所/かしょ]に[集約/しゅうやく]します。
 fn hashset_new_with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
     let cap0 <i32> hashset_normalize_capacity requested
     match hashset_alloc_storage<.T> cap0:
@@ -296,16 +352,65 @@ fn hashset_new_with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>R
 
 //: ## new
 //: [空/から]の `HashSet<.T, .H>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - hasher [値/あたい]を[受/う]け[取/と]り、[空/から]の hash set を[初期化/しょきか]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
+//:
+//: neplg2:test
+//: ```
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let ok <i32> if eq len &hs 0 1 0;
+//:     free hs;
+//:     ok
+//: ```
 fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
     hashset_new_with_capacity<.T,.H> hasher 16
 
 //: ## with_capacity
 //: [指定/してい]した[初期容量/しょきようりょう]で `HashSet<.T, .H>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - self-host compiler の visited set など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。
 fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
     hashset_new_with_capacity<.T,.H> hasher requested
 
 //: ## insert
 //: [要素/ようそ]を[追加/ついか]する
+//:
+//: ### [目的/もくてき]
+//: - key を[集合/しゅうごう]へ[追加/ついか]し、[既存/きそん]なら[状態/じょうたい]を[保/たも]ったまま[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - 必要なら grow / rehash し、linear probing で slot を[探索/たんさく]し、empty か first tombstone に[配置/はいち]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+//:
+//: neplg2:test
+//: ```
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 7;
+//:     let ok <i32> if contains &hs1 7 1 0;
+//:     free hs1;
+//:     ok
+//: ```
 fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     match hashset_prepare_insert<.T,.H> hs key:
         Result::Err d:
@@ -336,6 +441,29 @@ fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<Ha
 
 //: ## contains
 //: [要素/ようそ]の[存在/そんざい]を[確/たし]かめる
+//:
+//: ### [目的/もくてき]
+//: - key が[集合/しゅうごう]に[含/ふく]まれるかどうかだけを[判定/はんてい]します。
+//: - `&HashSet` を受け取り、table owner を移動せずに値を[読/よ]みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+//:
+//: neplg2:test
+//: ```
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 9;
+//:     let ok <i32> if contains &hs1 9 1 0;
+//:     free hs1;
+//:     ok
+//: ```
 fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> (hs, key):
     let cap0 <i32> *field::get_ref hs "cap"
     let hasher <.H> *field::get_ref hs "hasher"
@@ -344,6 +472,32 @@ fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> 
 
 //: ## remove
 //: [要素/ようそ]を[削除/さくじょ]する
+//:
+//: ### [目的/もくてき]
+//: - key が[存在/そんざい]する[場合/ばあい]は bucket を tombstone にし、probe chain を[保/たも]ちます。
+//:
+//: ### [注意/ちゅうい]
+//: - key が[存在/そんざい]しない[場合/ばあい]、入力 HashSet はこの[関数/かんすう]が[消費/しょうひ]して storage を[解放/かいほう]した上で `Err(Diag)` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+//:
+//: neplg2:test
+//: ```
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 5;
+//:     let hs2 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> remove hs1 5;
+//:     let ok <i32> if contains &hs2 5 0 1;
+//:     free hs2;
+//:     ok
+//: ```
 fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     let count0 <i32> *field::get_ref &hs "count"
     let cap0 <i32> *field::get_ref &hs "cap"
@@ -362,11 +516,58 @@ fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<Ha
 
 //: ## len
 //: [要素数/ようそすう]を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `&HashSet` から[現在/げんざい][登録/とうろく]されている[要素/ようそ]の[個数/こすう]を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test
+//: ```
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 1;
+//:     let hs2 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs1 2;
+//:     let ok <i32> if eq len &hs2 2 1 0;
+//:     free hs2;
+//:     ok
+//: ```
 fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
     *field::get_ref hs "count"
 
 //: ## free
 //: [内部/ないぶ]メモリを[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - HashSet が[所有/しょゆう]する storage Vec 群を[解放/かいほう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T` は Copy 前提のため payload drop traversal は[行/おこな]いません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
+//:
+//: neplg2:test
+//: ```
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 1;
+//:     free hs1;
+//:     0
+//: ```
 fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>)->()> (hs):
     let storage <HashSetStorage<.T>> field::get hs "storage"
     hashset_free_storage<.T> storage

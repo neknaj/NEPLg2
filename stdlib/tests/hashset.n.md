@@ -18,11 +18,7 @@ ret: 0
 #import "std/test" as *
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
-    match r:
-        Result::Ok hs:
-            hs
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -88,9 +84,7 @@ fn main <()*>i32> ():
     let hs4 <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
     let hs4 <HashSet<i32,DefaultHash32>> must_hs insert hs4 5;
     let er <Result<HashSet<i32,DefaultHash32>, Diag>> remove hs4 99;
-    let er_is_err <bool> is_err<HashSet<i32,DefaultHash32>, Diag> er;
-    let c7 <Result<(),str>> check er_is_err;
-    set checks checks_push checks c7;
+    set checks checks_push checks check is_err<HashSet<i32,DefaultHash32>, Diag> er;
 
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -111,11 +105,7 @@ ret: 0
 #import "core/result" as *
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
-    match r:
-        Result::Ok hs:
-            hs
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
 
 fn main <()*>i32> ():
     let hsf <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;

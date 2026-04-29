@@ -244,11 +244,7 @@ neplg2:test
 #import "core/result" as *
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>,Diag>)*>HashSet<i32,DefaultHash32>> (r):
-    match r:
-        Result::Ok hs:
-            hs
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
+    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
 
 fn new_hs <()*>Result<HashSet<i32,DefaultHash32>,Diag>> ():
     new DefaultHash32
