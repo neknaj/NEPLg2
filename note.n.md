@@ -26141,3 +26141,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdio の stdin read 境界を、WASI scratch / ByteBuf ownership / text conversion の責務に分けて整理した。
+
+# 2026-04-29 メモ (ISS-20260429T121949904Z streamio scanner raw cell)
+
+- [同期]:
+  - `origin/main` の `e1e4c5c` まで同期した `main` から `stdlib/streamio-scanner-raw-cell-boundary` branch を作成した。
+- [原因]:
+  - `stream_scanner_load_header_result` は `region_ptr_at` で作った `MemPtr<i32>` を任意 header pointer から読み、scanner 初期化時の header store と後続 read の関係を ResourceIR が追跡できなかった。
+  - scanner buffer は header 内の raw `i32` address から読み出され、そのまま `load_u8 add buf p` で直接読まれていたため、`ByteBuf` として初期化済みである provenance が失われていた。
+  - `scan_token_impl` は token string layout を手作りし、raw buffer byte load と raw string store を scanner 側に重複して持っていた。
+- [修正]:
+  - scanner header load/store は `region_ptr_at` helper を廃止し、scanner state boundary として raw offset を直接扱う形へ整理した。
+  - scanner buffer は `MemPtr<u8>` に戻し、`stream_scanner_byte_at` へ byte access を集約した。
+  - `skip_ws` / `skip` / `scan_token_impl` / numeric scanner の raw `load_u8 add buf ...` を削除した。
+  - `scan_token_impl` は `string_from_mem_unchecked_result (mem_ptr_add buf start) tlen` へ委譲し、scanner 側の raw string layout 手組みを削除した。
+  - `nodesrc/test_stdlib_streamio_scanner_boundary.js` を追加し、scanner raw byte load と raw string layout の再導入を禁止した。
+- [追加 issue]:
+  - `tests/stdlib/streamio.n.md` には StreamWriter 側の別 RawMemoryLoadCell が残るため、`ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3` として分離した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/streamio-scanner-stdin-final.json -j 1 --dist web/dist`: `total=5`, `passed=5`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-streamio-final.json -j 1 --dist web/dist`: `total=14`, `passed=6`, `failed=8`。残りは新規 StreamWriter issue に分離。
+  - remote main の `78f310e` へ同期してから `trunk build`: passed
+  - 同期後の `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - 同期後の `node nodesrc/issues.js check`: passed
+  - 同期後の `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/streamio-scanner-stdin-after-sync.json -j 1 --dist web/dist`: `total=5`, `passed=0`, `failed=5`。失敗は `stdio_finish_read_buffer` / `string_from_mem_unchecked_result` / `fs_open_with_flags` / `fs_read_fd_bytes` の ResourceIR owner/raw cell 問題で、scanner raw byte load の再発ではない。
+  - 同期後の `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-streamio-after-sync.json -j 1 --dist web/dist`: `total=14`, `passed=2`, `failed=12`。失敗は StreamWriter / stdio / fs / string / alloc io 側の別問題で、scanner source policy は clean。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - StreamScanner の byte access は raw address 直読みではなく、`MemPtr<u8>` と scanner-local helper の境界へ寄せた。
