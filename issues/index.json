@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T03:25:19.697Z",
+  "generated_at": "2026-04-29T03:41:55.505Z",
   "counts": {
-    "total": 349,
+    "total": 350,
     "open": 10,
-    "resolved": 339,
+    "resolved": 340,
     "by_area": {
       "core": {
-        "total": 164,
+        "total": 165,
         "open": 3,
-        "resolved": 161
+        "resolved": 162
       },
       "stdlib": {
         "total": 102,
@@ -2568,6 +2568,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T031855408Z-RESOURCE-IR-COVERAGE-COMPARISON-CONC-E23BB5D9.md"
+    },
+    {
+      "id": "ISS-20260429T033205536Z-RESOURCE-IR-LOWERING-RAW-ADDRESS-ALI-24A36D2A",
+      "title": "Resource IR lowering raw address alias logic is concentrated in lower.rs",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/lower_raw_memory.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T033205536Z-RESOURCE-IR-LOWERING-RAW-ADDRESS-ALI-24A36D2A.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

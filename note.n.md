@@ -24577,3 +24577,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4/5 の authoritative gate 前提として、Resource IR lowering coverage の責務境界を明確化した。
+
+# 2026-04-29 メモ (ISS-20260429T033205536Z Resource IR lower raw address split)
+
+- [原因]:
+  - `nepl-core/src/resource/lower.rs` が HIR traversal、raw memory operation classification、`MemPtr` / `RegionToken` wrapper aliasing、helper return raw address summary、literal offset arithmetic、raw aggregate field projection を同じ file に持っていた。
+  - Stage 4 の `MemPtr = non-owning pointer` 方針では raw address alias は owner transfer ではなく pointer projection として扱う必要があり、general lowering traversal 内にこの意味論が埋まると監査しづらい。
+  - Source policy は checker / coverage 分割は守っていたが、Resource IR lowering の raw address alias logic が main lowering file に戻る退行は検出していなかった。
+- [修正]:
+  - raw memory operation classification を `lower_raw_memory.rs` へ分離した。
+  - `MemPtr` / `RegionToken` wrapper aliasing と raw address helper return summary を `lower_raw_address.rs` へ分離した。
+  - `nodesrc/test_resource_checker_responsibility.js` に lowering module の存在確認、`lower.rs` から `RawAddressSource` が再導入されないこと、line limit を追加した。
+- [検証]:
+  - `rustfmt --check nepl-core\src\resource\lower.rs nepl-core\src\resource\lower_raw_address.rs nepl-core\src\resource\lower_raw_memory.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\test_resource_checker_responsibility.js`: pass
+  - `cargo test -p nepl-core --test resource_ir coverage -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test resource_ir raw -- --nocapture`: 36 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-resource-lower-raw-address-split-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR lowering 入力として、raw address alias / `MemPtr` non-owning pointer semantics の責務境界を明確化した。

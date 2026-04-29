@@ -24,6 +24,8 @@ mod initialized_alias;
 mod initialized_alias_flow;
 mod initialized_raw_memory;
 mod lower;
+mod lower_raw_address;
+mod lower_raw_memory;
 mod model;
 mod owner_check;
 mod owner_flow;

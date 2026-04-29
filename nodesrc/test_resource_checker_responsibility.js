@@ -70,6 +70,8 @@ for (const moduleName of [
     'coverage.rs',
     'coverage_hir.rs',
     'coverage_resource.rs',
+    'lower_raw_address.rs',
+    'lower_raw_memory.rs',
     'report.rs',
     'shadow.rs',
     'initialized_alias.rs',
@@ -92,6 +94,8 @@ for (const moduleDecl of [
     'mod coverage;',
     'mod coverage_hir;',
     'mod coverage_resource;',
+    'mod lower_raw_address;',
+    'mod lower_raw_memory;',
     'mod report;',
     'mod shadow;',
     'mod initialized_alias;',
@@ -113,6 +117,9 @@ const effectSummary = readResource('effect_summary.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
 const coverageResource = readResource('coverage_resource.rs');
+const lower = readResource('lower.rs');
+const lowerRawAddress = readResource('lower_raw_address.rs');
+const lowerRawMemory = readResource('lower_raw_memory.rs');
 
 assertContains(initialized, 'struct ResourceCheckEngine', 'initialized.rs');
 assertContains(borrowCheck, 'struct ResourceBorrowCheckEngine', 'borrow_check.rs');
@@ -128,6 +135,17 @@ assertContains(
     'pub(super) fn resource_function_coverage',
     'coverage_resource.rs',
 );
+assertContains(
+    lowerRawAddress,
+    'pub(super) fn push_user_raw_address_return_semantics',
+    'lower_raw_address.rs',
+);
+assertContains(
+    lowerRawMemory,
+    'pub(super) fn raw_memory_op_from_name',
+    'lower_raw_memory.rs',
+);
+assertNotContains(lower, 'struct RawAddressSource', 'lower.rs');
 assertUsesResourceModuleSymbol(
     summary,
     'borrow_check',
@@ -159,6 +177,9 @@ const maxLines = new Map([
     ['coverage.rs', 280],
     ['coverage_hir.rs', 420],
     ['coverage_resource.rs', 520],
+    ['lower.rs', 1300],
+    ['lower_raw_address.rs', 700],
+    ['lower_raw_memory.rs', 120],
     ['initialized_alias.rs', 550],
     ['initialized_alias_flow.rs', 550],
     ['initialized_raw_memory.rs', 300],
