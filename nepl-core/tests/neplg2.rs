@@ -1730,7 +1730,9 @@ struct Point:
 fn roundtrip <.T> <(.T)->.T> (x):
     let p <i32> alloc_raw size_of<.T>;
     store<.T> p x;
-    load<.T> p
+    let out <.T> load<.T> p;
+    dealloc_raw p size_of<.T>;
+    out
 
 fn main <()*>i32> ():
     let p <Point> roundtrip<Point> Point 10 20;
@@ -1778,6 +1780,7 @@ fn same_after_store <.T: HashKey> <(.T,.T)->bool> (a, b):
     let p <i32> alloc_raw size_of<.T>;
     store<.T> p a;
     let saved <.T> load<.T> p;
+    dealloc_raw p size_of<.T>;
     hashkey_eq saved b
 
 fn main <()*>i32> ():
@@ -1825,7 +1828,9 @@ fn hash_then_store <.T: HashKey&Copy> <(.T)->.T> (x):
     let _h <i32> hashkey_hash32 x;
     let p <i32> alloc_raw size_of<.T>;
     store<.T> p x;
-    load<.T> p
+    let out <.T> load<.T> p;
+    dealloc_raw p size_of<.T>;
+    out
 
 fn main <()*>i32> ():
     let p <Point> hash_then_store<Point> Point 10 20;
@@ -2056,7 +2061,9 @@ fn write_after_probe <.T: HashKey&Copy,.V> <(.T,.V)->.T> (key, value):
     let p <i32> alloc_raw add size_of<.T> size_of<.V>;
     store<.T> p key;
     store<.V> add p size_of<.T> value;
-    load<.T> p
+    let out <.T> load<.T> p;
+    dealloc_raw p add size_of<.T> size_of<.V>;
+    out
 
 fn main <()*>i32> ():
     let p <Point> write_after_probe<Point,i32> (Point 10 20) 99;
@@ -2086,7 +2093,9 @@ fn write_nested <.T,.V> <(.T,.V)->.T> (key, value):
     let p <i32> alloc_raw add size_of<.T> size_of<.V>;
     store<.T> slot_ptr<.T,.V> p 0 key;
     store<.V> add p size_of<.T> value;
-    load<.T> p
+    let out <.T> load<.T> p;
+    dealloc_raw p add size_of<.T> size_of<.V>;
+    out
 
 fn main <()*>i32> ():
     let p <Point> write_nested<Point,i32> (Point 10 20) 99;

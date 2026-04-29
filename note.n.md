@@ -1,3 +1,23 @@
+# 2026-04-29 メモ (ISS-20260429T071452715Z generic aggregate owner obligation)
+
+- [同期]:
+  - `6c8d283` まで反映した `main` を `origin/main` と同期し、`work/resource-ir-generic-owner-leak` branch で作業した。
+- [原因]:
+  - `generic_intrinsic_store_load_struct_preserves_fields` などの test helper が `alloc_raw` 後に `store<T>` / `load<T>` だけを行い、raw storage を `dealloc_raw` していなかった。
+  - Resource IR owner checker の owner obligation leak は正しい診断であり、検査を弱めるべきではない。
+- [修正]:
+  - `roundtrip`、`same_after_store`、`hash_then_store`、`write_after_probe`、`write_nested` で `load<T>` の結果を local に保持し、`dealloc_raw` 後に戻り値を返すようにした。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` と issue に、generic aggregate subcase は test 側の storage lifetime 不備だったことを追記した。
+- [検証]:
+  - `cargo test -p nepl-core --test neplg2 generic_intrinsic_store_load_struct_preserves_fields -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 generic_hashkey_eq_after_load_uses_concrete_impl -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 generic_hashkey_value_survives_hash_before_store -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 generic_store_uses_nested_address_call_without_stealing_value_arg -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 generic_ -- --nocapture`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の free obligation model を弱めず、test sample を strict owner obligation に合わせた。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z compiler boundary diagnostic code-first final)
 
 - [同期]:

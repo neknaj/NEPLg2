@@ -44,3 +44,19 @@ Trace Resource IR owner and cell-state propagation for generic aggregate paramet
 ## 検証
 
 cargo test -p nepl-core --test neplg2 generic_intrinsic_store_load_struct_preserves_fields generic_store_uses_nested_address_call_without_stealing_value_arg generic_hashkey_value_survives_hash_before_store generic_hashkey_eq_after_load_uses_concrete_impl generic_store_after_generic_trait_probe_preserves_struct list_get_out_of_bounds_err hashmap_custom_struct_key_roundtrips_value llvm_hashmap_string_key_preserves_explicit_hasher_type_args -- --nocapture; then cargo test -p nepl-core --test neplg2 -- --nocapture
+
+## 2026-04-29 generic aggregate subcase 追記
+
+現行 main で generic aggregate 系を再確認したところ、`roundtrip`、`same_after_store`、`hash_then_store`、`write_after_probe`、`write_nested` の test helper は `alloc_raw` で確保した一時 storage へ `store<T>` / `load<T>` した後、storage を `dealloc_raw` していなかった。
+
+これは Resource IR owner checker の誤検出ではなく、Stage 4 の free obligation model が正しく検出した storage owner leak である。検査を弱めるのではなく、test helper 側で `load<T>` の戻り値を local に受け、raw storage を `dealloc_raw` してから戻り値を返すように修正した。
+
+検証:
+
+- `cargo test -p nepl-core --test neplg2 generic_intrinsic_store_load_struct_preserves_fields -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 generic_hashkey_eq_after_load_uses_concrete_impl -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 generic_hashkey_value_survives_hash_before_store -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 generic_store_uses_nested_address_call_without_stealing_value_arg -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 generic_ -- --nocapture`: 8 passed
+
+collection 系の `List` / `HashMap` `RawMemoryLoadCell ... found Uninit` はこの test helper leak とは別の stdlib raw-memory-backed collection / Resource IR lowering 問題として残る。stdlib 側修正は別作業方針のため、この commit では generic aggregate subcase のみを整理する。

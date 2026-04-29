@@ -204,6 +204,10 @@ commit 単位:
 4. branch / loop merge。
 5. old checker との gating 切り替え。
 
+進捗:
+
+- 2026-04-29: Resource IR owner obligation gate が generic aggregate store/load regression を拒否していた件を再確認し、原因が compiler 側の false positive ではなく test helper の `alloc_raw` storage leak であることを切り分けた。generic helper は `load<T>` 結果を保持してから `dealloc_raw` する形へ直し、free obligation model を弱めずに generic aggregate 回帰を通した。`List` / `HashMap` の `RawMemoryLoadCell Uninit` は stdlib raw-memory-backed collection / Resource IR lowering の別残件として扱う。
+
 ### Stage 5: effect model の拡張
 
 目的: raw memory を safe surface から閉じつつ、stdlib 内部の正当な allocation を表現する。
