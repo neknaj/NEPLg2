@@ -6639,6 +6639,160 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_keeps_aggregate_raw_cell_root_through_loop_address_views() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct HeaderBox:
+    hdr <i32>
+
+fn make_box <()*>HeaderBox> ():
+    let hdr <i32> alloc_raw 16
+    if:
+        cond:
+            eq hdr 0
+        then:
+            #intrinsic "unreachable" <> ()
+        else:
+            let entries <i32> alloc_raw 8
+            if:
+                cond:
+                    eq entries 0
+                then:
+                    dealloc_raw hdr 16
+                    #intrinsic "unreachable" <> ()
+                else:
+                    store_i32 add hdr 8 entries
+                    HeaderBox hdr
+
+fn slot_ptr <(i32)->i32> (entries):
+    add entries 0
+
+fn touch_entries_loop <()*>HeaderBox> ():
+    let ready <HeaderBox> make_box
+    let hdr <i32> field::get ready "hdr"
+    let entries <i32> load_i32 add hdr 8
+    let mut placed <bool> false
+    while not placed:
+        do:
+            let slot <i32> slot_ptr entries
+            store_i32 slot 123
+            set placed true
+    ready
+
+fn main <()*>()> ():
+    let box1 <HeaderBox> touch_entries_loop
+    let hdr <i32> field::get box1 "hdr"
+    let entries <i32> load_i32 add hdr 8
+    dealloc_raw entries 8
+    dealloc_raw hdr 16
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_box__")
+                || function.starts_with("touch_entries_loop__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "loop address views must not re-root a returned aggregate raw cell owner under a local alias: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_moves_aliased_raw_cell_owner_into_enum_payload() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/result" as *
+
+struct HeaderBox:
+    hdr <i32>
+
+fn make_box <()*>HeaderBox> ():
+    let hdr <i32> alloc_raw 16
+    if:
+        cond:
+            eq hdr 0
+        then:
+            #intrinsic "unreachable" <> ()
+        else:
+            let entries <i32> alloc_raw 8
+            if:
+                cond:
+                    eq entries 0
+                then:
+                    dealloc_raw hdr 16
+                    #intrinsic "unreachable" <> ()
+                else:
+                    store_i32 add hdr 8 entries
+                    HeaderBox hdr
+
+fn wrap_box <()*>Result<HeaderBox, i32>> ():
+    let ready <HeaderBox> make_box
+    let hdr <i32> field::get ready "hdr"
+    let entries <i32> load_i32 add hdr 8
+    store_i32 entries 7
+    Result::Ok ready
+
+fn main <()*>()> ():
+    match wrap_box:
+        Result::Ok box1:
+            let hdr <i32> field::get box1 "hdr"
+            let entries <i32> load_i32 add hdr 8
+            dealloc_raw entries 8
+            dealloc_raw hdr 16
+        Result::Err _code:
+            #intrinsic "unreachable" <> ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_box__")
+                || function.starts_with("wrap_box__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "aliased raw cell owner must move with an aggregate when it is wrapped in an enum payload: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_consumes_only_used_aggregate_owner_projection() {
     let source = r#"
 #entry main

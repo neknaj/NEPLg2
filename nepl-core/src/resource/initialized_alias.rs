@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
-use super::model::{Place, PlaceRoot};
+use super::model::{Place, PlaceProjection, PlaceRoot};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
 };
@@ -20,11 +20,13 @@ pub(super) struct ProjectedRawCellAddressAlias {
 #[derive(Debug, Clone, Default)]
 pub(super) struct RawCellAddressAliases {
     groups: Vec<Vec<Place>>,
+    marked: Vec<Place>,
 }
 
 impl RawCellAddressAliases {
     pub(super) fn mark(&mut self, place: &Place) {
         self.clear(place);
+        push_unique_place(&mut self.marked, place);
         self.union_group(core::slice::from_ref(place));
     }
 
@@ -36,6 +38,39 @@ impl RawCellAddressAliases {
         self.clear(target);
         for group in groups {
             self.union_group(&group);
+        }
+        self.union_group(&[source.clone(), target.clone()]);
+    }
+
+    pub(super) fn move_owner_aliases(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            push_unique_place(&mut self.marked, target);
+            self.union_group(core::slice::from_ref(target));
+            return;
+        }
+        let moved_marks = self
+            .marked
+            .iter()
+            .filter(|marked| owner_alias_place_has_raw_projection(marked, source))
+            .filter_map(|marked| replace_place_prefix(marked, source, target))
+            .collect::<Vec<_>>();
+        let groups = self
+            .groups_with_replaced_prefix_or_singleton(source, target)
+            .into_iter()
+            .filter(|group| {
+                group
+                    .iter()
+                    .any(|place| owner_alias_place_has_raw_projection(place, target))
+            })
+            .collect::<Vec<_>>();
+        self.clear(target);
+        for group in groups {
+            self.union_group(&group);
+        }
+        self.clear(source);
+        push_unique_place(&mut self.marked, target);
+        for moved in moved_marks {
+            push_unique_place(&mut self.marked, &moved);
         }
     }
 
@@ -61,6 +96,12 @@ impl RawCellAddressAliases {
         self.groups
             .iter()
             .any(|group| group.iter().any(|alias| alias == place))
+    }
+
+    pub(super) fn contains_marked_alias(&self, place: &Place) -> bool {
+        self.aliases_for(place)
+            .iter()
+            .any(|alias| self.marked.iter().any(|marked| marked == alias))
     }
 
     pub(super) fn aliases_for(&self, place: &Place) -> Vec<Place> {
@@ -137,6 +178,8 @@ impl RawCellAddressAliases {
             group.retain(|existing| place_suffix_after_prefix(existing, place).is_none());
         }
         self.groups.retain(|group| !group.is_empty());
+        self.marked
+            .retain(|existing| place_suffix_after_prefix(existing, place).is_none());
     }
 
     pub(super) fn merge_paths(paths: &[RawCellAddressAliases]) -> Self {
@@ -144,6 +187,9 @@ impl RawCellAddressAliases {
         for path in paths {
             for group in &path.groups {
                 out.union_group(group);
+            }
+            for marked in &path.marked {
+                push_unique_place(&mut out.marked, marked);
             }
         }
         out
@@ -335,6 +381,22 @@ fn owner_cell_projection_rank(place: &Place) -> u8 {
     } else {
         2
     }
+}
+
+fn owner_alias_place_has_raw_projection(place: &Place, base: &Place) -> bool {
+    place.projections.iter().any(|projection| {
+        matches!(
+            projection,
+            PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
+        )
+    }) || place_suffix_after_prefix(place, base).is_some_and(|suffix| {
+        suffix.iter().any(|projection| {
+            matches!(
+                projection,
+                PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
+            )
+        })
+    })
 }
 
 fn canonical_place_rank(place: &Place) -> u8 {

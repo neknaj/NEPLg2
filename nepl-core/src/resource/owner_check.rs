@@ -228,6 +228,7 @@ impl ResourceOwnerCheckEngine<'_> {
 
     fn raw_memory_load_is_non_owning_raw_address_view(
         &self,
+        owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
         cell: &Place,
         output_ty: TypeId,
@@ -235,7 +236,13 @@ impl ResourceOwnerCheckEngine<'_> {
         matches!(
             self.types.get_ref(self.types.resolve_id(output_ty)),
             TypeKind::I32
-        ) && (raw_aliases.contains_exact(cell) || raw_aliases.aliases_for(cell).len() > 1)
+        ) && (raw_aliases.contains_marked_alias(cell)
+            || raw_aliases.aliases_for(cell).iter().any(|alias| {
+                matches!(
+                    owners.state(alias),
+                    Some(OwnerState::Live { .. } | OwnerState::MaybeFreed { .. })
+                )
+            }))
     }
 
     fn check_op(
@@ -368,6 +375,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, output.ty);
                         if self.raw_memory_load_is_non_owning_raw_address_view(
+                            owners,
                             raw_aliases,
                             &cell,
                             output.ty,
@@ -497,9 +505,11 @@ impl ResourceOwnerCheckEngine<'_> {
                     storage_origin_paths.push(else_storage_origins);
                 }
                 if !owner_paths.is_empty() {
-                    *owners = OwnerTable::merge_paths(&owner_paths);
+                    let merged_raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
+                    *owners =
+                        OwnerTable::merge_paths_with_raw_aliases(&owner_paths, &merged_raw_aliases);
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-                    *raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
+                    *raw_aliases = merged_raw_aliases;
                     *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
                 }
             }
@@ -530,13 +540,17 @@ impl ResourceOwnerCheckEngine<'_> {
                     &mut body_storage_origins,
                     body_ops,
                 );
-                *owners = OwnerTable::merge_paths(&[condition_owners, body_owners]);
+                let merged_raw_aliases =
+                    RawCellAddressAliases::merge_paths(&[condition_raw_aliases, body_raw_aliases]);
+                *owners = OwnerTable::merge_paths_with_raw_aliases(
+                    &[condition_owners, body_owners],
+                    &merged_raw_aliases,
+                );
                 *function_aliases = FunctionAliasTable::merge_paths(&[
                     condition_function_aliases,
                     body_function_aliases,
                 ]);
-                *raw_aliases =
-                    RawCellAddressAliases::merge_paths(&[condition_raw_aliases, body_raw_aliases]);
+                *raw_aliases = merged_raw_aliases;
                 *storage_origins = StorageOriginTable::merge_paths(&[
                     condition_storage_origins,
                     body_storage_origins,
@@ -621,9 +635,11 @@ impl ResourceOwnerCheckEngine<'_> {
                     }
                 }
                 if !arm_paths.is_empty() {
-                    *owners = OwnerTable::merge_paths(&arm_paths);
+                    let merged_raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
+                    *owners =
+                        OwnerTable::merge_paths_with_raw_aliases(&arm_paths, &merged_raw_aliases);
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-                    *raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
+                    *raw_aliases = merged_raw_aliases;
                     *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
                 }
             }

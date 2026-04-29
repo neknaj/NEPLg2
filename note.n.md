@@ -1,3 +1,33 @@
+# 2026-04-30 メモ (ISS-20260429T174311311Z aggregate raw cell owner root)
+
+- [同期]:
+  - `origin/main` と同じ `958e3b2` から `work/hashmap-insert-owner-root` branch で作業した。
+- [原因]:
+  - `HashMap insert` の戻り値 aggregate は `field::get ready "hdr"` / `load_i32 add hdr 8` / helper call / loop / branch を通って backing entries pointer を扱う。
+  - 旧実装では raw alias graph と owner table を別々に merge していたため、同じ backing entries owner が `ready.field0.StorageOffset(8).Deref` と `hdr.StorageOffset(8).Deref` に分裂した。
+  - raw pointer copy で projected alias group が存在する場合、基底 pointer の direct alias が seed されず、ただの `field::get` が owner move と誤認される経路もあった。
+  - 戻り値側へ移動済みの旧 alias `Moved` entry を aliased descendant として再診断しており、正しい移動後の stale alias が false positive になっていた。
+- [修正]:
+  - raw pointer copy は projected alias に加えて基底 pointer alias も保持するようにした。
+  - branch / loop / match の合流では、merge 済み raw alias graph で raw owner cell address を canonicalize してから owner state を merge するようにした。
+  - owner transfer / move / summary は raw alias 経由の descendant owner を扱い、`Moved` / `Freed` の stale alias は実 owner として扱わないようにした。
+  - loop address view、enum payload、field alias replacement の ResourceIR 回帰を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_aggregate_raw_cell_root_through_loop_address_views -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_aliased_raw_cell_owner_into_enum_payload -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reinitializes_self_update_report_projection_returns -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 40 passed
+  - `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: まだ fail だが、`insert... hdr.StorageOffset(8).Deref` leak は消えた。残りは `main` 側の `map1` header / entries owner leak。
+  - `cargo fmt --check`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [issue]:
+  - `ISS-20260429T174311311Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-8E245CC4` を fixed/resolved に更新した。
+  - `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` に HashMap 残件が caller-side read/free API 契約へ絞られたことを追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T173344520Z raw address load non-owning view)
 
 - [同期]:

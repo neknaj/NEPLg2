@@ -8,7 +8,7 @@ use super::model::{
     OwnerState, Place, PlaceProjection, ResourceFunction, ResourceModule, ResourceTerminator,
     StorageId,
 };
-use super::owner_alias::resolve_owner_alias_place;
+use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_state::OwnerTable;
 use super::owner_summary_leaf::owner_leaf_places;
@@ -176,6 +176,47 @@ fn function_owner_return_summary(
                         }
                         OwnerState::Moved | OwnerState::Freed => {}
                     }
+                }
+            }
+            for aliased in aliased_owner_descendant_entries(&owners, &raw_aliases, &resolved_value)
+            {
+                match aliased.entry.state {
+                    OwnerState::Live { storage } => {
+                        record_projection_owner_return(
+                            &mut projection_returns,
+                            aliased.suffix,
+                            aliased.entry.place.ty,
+                            storage,
+                            &parameter_storage_sources,
+                            &mut returned_sources,
+                        );
+                    }
+                    OwnerState::NoFreeObligation => {
+                        record_projection_marker(
+                            &mut projection_markers,
+                            aliased.suffix,
+                            aliased.entry.place.ty,
+                        );
+                    }
+                    OwnerState::MaybeFreed { storage } => {
+                        if let Some(storage) = storage {
+                            record_projection_owner_return(
+                                &mut projection_returns,
+                                aliased.suffix,
+                                aliased.entry.place.ty,
+                                storage,
+                                &parameter_storage_sources,
+                                &mut returned_sources,
+                            );
+                        } else {
+                            record_projection_maybe_owner_return(
+                                &mut projection_returns,
+                                aliased.suffix,
+                                aliased.entry.place.ty,
+                            );
+                        }
+                    }
+                    OwnerState::Moved | OwnerState::Freed => {}
                 }
             }
         }

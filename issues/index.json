@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T18:02:53.178Z",
+  "generated_at": "2026-04-29T18:36:19.684Z",
   "counts": {
-    "total": 395,
+    "total": 396,
     "open": 14,
-    "resolved": 381,
+    "resolved": 382,
     "by_area": {
       "core": {
-        "total": 183,
+        "total": 184,
         "open": 5,
-        "resolved": 178
+        "resolved": 179
       },
       "stdlib": {
         "total": 119,
@@ -2868,6 +2868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T173344520Z-RESOURCE-OWNER-CHECKER-MOVES-RAW-ADD-D665B59D.md"
+    },
+    {
+      "id": "ISS-20260429T174311311Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-8E245CC4",
+      "title": "Resource owner checker loses aggregate raw cell root through loop address views",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/owner_alias.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_state.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_transfer.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T174311311Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-8E245CC4.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

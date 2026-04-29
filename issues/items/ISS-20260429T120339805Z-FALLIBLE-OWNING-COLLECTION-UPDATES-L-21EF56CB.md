@@ -72,3 +72,9 @@ Run focused List/HashMap neplg2 tests and Resource IR owner regressions after th
 - caller 側の `map1` / `hms` / `hmk` header と entries owner leak。
 
 次は `insert` 内で helper call / loop / raw slot address 計算を通った後も、entries owner cell が `ready.field0 + 8` 配下に残るべきか、あるいは stdlib API が明示的な borrow/view helper を必要とするかを切り分ける。
+
+## 2026-04-30 状況更新 4
+
+`insert...` の `hdr.StorageOffset(8).Deref` owner may leak は、core Resource owner checker が raw address alias graph と owner table を別々に merge し、さらに projected alias copy 時に基底 pointer alias を落としていた問題だった。`ISS-20260429T174311311Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-8E245CC4` で修正済み。
+
+この修正後、`cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture` は `insert...` 内部では失敗しなくなり、残件は `main` 側の `map1` header / entries owner leak に絞られた。これは HashMap を `get` / `contains` / `len` などの read API に渡した後、所有者を返すのか明示的に `free` するのかが fixture/API 契約として閉じていない問題として扱う。

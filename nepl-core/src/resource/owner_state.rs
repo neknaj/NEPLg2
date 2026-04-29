@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, OwnerStateEntry, Place, PlaceProjection, StorageId};
 use super::place_utils::{place_suffix_after_prefix, replace_place_prefix, should_track};
 
@@ -10,6 +11,10 @@ pub(super) struct OwnerTable {
 }
 
 impl OwnerTable {
+    pub(super) fn entries(&self) -> &[OwnerStateEntry] {
+        &self.owners
+    }
+
     pub(super) fn into_entries(self) -> Vec<OwnerStateEntry> {
         self.owners
     }
@@ -151,6 +156,35 @@ impl OwnerTable {
         out
     }
 
+    pub(super) fn merge_paths_with_raw_aliases(
+        paths: &[OwnerTable],
+        raw_aliases: &RawCellAddressAliases,
+    ) -> Self {
+        let canonical_paths = paths
+            .iter()
+            .map(|path| path.canonicalize_raw_owner_aliases(raw_aliases))
+            .collect::<Vec<_>>();
+        Self::merge_paths(&canonical_paths)
+    }
+
+    fn canonicalize_raw_owner_aliases(&self, raw_aliases: &RawCellAddressAliases) -> Self {
+        let mut out = OwnerTable::default();
+        out.next_storage = self.next_storage;
+        for entry in &self.owners {
+            let place = if place_has_raw_owner_projection(&entry.place) {
+                raw_aliases.canonicalize_owner_cell_address(&entry.place)
+            } else {
+                entry.place.clone()
+            };
+            let state = match out.state(&place) {
+                Some(existing) => merge_owner_states(existing, entry.state.clone()),
+                None => entry.state.clone(),
+            };
+            out.set_state(&place, state);
+        }
+        out
+    }
+
     fn state_for_variant_merge(&self, place: &Place) -> Option<OwnerState> {
         if let Some(state) = self.state(place) {
             return Some(state);
@@ -196,6 +230,15 @@ fn push_unique_owner_place(places: &mut Vec<Place>, place: &Place) {
     {
         places.push(place.clone());
     }
+}
+
+fn place_has_raw_owner_projection(place: &Place) -> bool {
+    place.projections.iter().any(|projection| {
+        matches!(
+            projection,
+            PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
+        )
+    })
 }
 
 fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
