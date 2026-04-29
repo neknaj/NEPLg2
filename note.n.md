@@ -26211,3 +26211,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - StreamScanner の byte access は raw address 直読みではなく、`MemPtr<u8>` と scanner-local helper の境界へ寄せた。
+
+# 2026-04-29 メモ (ISS-20260429T123427866Z streamio writer raw cell)
+
+- [同期]:
+  - `origin/main` の `2122dac` まで同期した `main` から `stdlib/streamio-writer-raw-cell-boundary` branch を作成した。
+- [原因]:
+  - StreamWriter は非 Copy の owning sink であるにもかかわらず、buffer pointer / capacity / write length / target kind を raw header に格納していた。
+  - `stream_writer_load_header` は scanner と同様に raw header load を行い、初期化と読み戻しの provenance が ResourceIR から見えなかった。
+  - target kind は数値 code と `if` で分岐しており、enum / match による静的検査が効いていなかった。
+  - `append_str_impl` / `append_bytebuf_impl` は source buffer から直接 `load_u8` しており、文字列 API / ByteBuf の所有権境界を迂回していた。
+- [修正]:
+  - raw header 設計を破棄し、`StreamWriter` を `buf` / `cap` / `write_len` / `target` field を持つ非 Copy owning struct へ再設計した。
+  - `StreamWriterTargetKind` に `Clone` / `Copy` を実装し、flush 時は `match target` で stdout/stderr を分岐するようにした。
+  - `stream_writer_header_*` / `stream_writer_load_header*` / `stream_writer_store_header` / numeric target code helper を削除した。
+  - `stream_writer_new` は buffer owner を直接 `StreamWriter.buf` field に入れて返すようにした。
+  - `drain_impl` / `reserve_impl` / `push_u8_impl` は struct field を `get_ref` で観測し、更新時だけ新しい `StreamWriter` を構築する形へ変更した。
+  - `append_str_impl` は `string_byte_at_unchecked`、`append_bytebuf_impl` は `stream_writer_bytebuf_byte_at &bytes i` へ移行した。
+  - `nodesrc/test_stdlib_streamio_writer_boundary.js` を追加し、raw header helper、numeric target code 分岐、append の直接 raw byte load 復活を禁止した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-writer-owning-struct-after-sync.json -j 1 --dist web/dist`: `total=14`, `passed=5`, `failed=9`。StreamWriter raw header / raw buffer failure は解消し、残りは既存の `alloc/io` / `stdio` / `fs` owner/raw cell issue。
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - StreamWriter は raw mutable header ではなく、所有権が field として静的検査に見える owning struct として扱う設計に改めた。

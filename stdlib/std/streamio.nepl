@@ -168,81 +168,42 @@ enum StreamScannerHeaderField:
 //: - target kind は stdout/stderr を[保持/ほじ]し、flush [時/じ]に[対応/たいおう]する fd へ[流/なが]します。
 //: - [各/かく] writer は[独立/どくりつ]した buffer を[持/も]つため、[複数/ふくすう]の reader / writer を[同時/どうじ]に[保持/ほじ]できます。
 struct StreamWriter:
-    header <MemPtr<u8>>
-    marker <(i32)->i32>
-
-struct StreamWriterBuf:
-    ptr <MemPtr<u8>>
+    buf <MemPtr<u8>>
     cap <i32>
-
-enum StreamWriterHeaderField:
-    BufPtr
-    Cap
-    WriteLen
-    TargetKind
+    write_len <i32>
+    target <StreamWriterTargetKind>
+    marker <(i32)->i32>
 
 enum StreamWriterTargetKind:
     Stdout
     Stderr
 
-fn stream_writer_target_kind_code <(StreamWriterTargetKind)->i32> (target):
-    match target:
-        StreamWriterTargetKind::Stdout:
-            0
-        StreamWriterTargetKind::Stderr:
-            1
+impl Clone for StreamWriterTargetKind:
+    fn clone <(&StreamWriterTargetKind)->StreamWriterTargetKind> (target):
+        *target
+
+impl Copy for StreamWriterTargetKind:
+    fn copy_mark <(StreamWriterTargetKind)->StreamWriterTargetKind> (target):
+        target
 
 fn stream_writer_noncopy_marker <(i32)->i32> (x):
     x
 
-fn stream_writer_wrap <(MemPtr<u8>)->StreamWriter> (raw):
-    StreamWriter raw @stream_writer_noncopy_marker
-
-fn stream_writer_header_region <(MemPtr<u8>)->RegionToken<u8>> (w_mem):
-    region_new w_mem 16
-
-fn stream_writer_header_off <(StreamWriterHeaderField)->i32> (field):
-    match field:
-        StreamWriterHeaderField::BufPtr:
-            0
-        StreamWriterHeaderField::Cap:
-            4
-        StreamWriterHeaderField::WriteLen:
-            8
-        StreamWriterHeaderField::TargetKind:
-            12
-
-fn stream_writer_header_ptr <(MemPtr<u8>,StreamWriterHeaderField)->Result<MemPtr<i32>,str>> (w_mem, field):
-    region_ptr_at<u8,i32> stream_writer_header_region w_mem stream_writer_header_off field
-
-fn stream_writer_load_header <(MemPtr<u8>,StreamWriterHeaderField)->Result<i32,str>> (w_mem, field):
-    match stream_writer_header_ptr w_mem field:
-        Result::Err _e:
-            Result<i32,str>::Err "streamio.stream_writer_load_header failed"
-        Result::Ok p:
-            match load_i32 p:
-                Option::Some v:
-                    Result<i32,str>::Ok v
-                Option::None:
-                    Result<i32,str>::Err "streamio.stream_writer_load_header failed"
-
-fn stream_writer_store_header <(MemPtr<u8>,StreamWriterHeaderField,i32)->Result<(),str>> (w_mem, field, v):
-    match stream_writer_header_ptr w_mem field:
-        Result::Err _e:
-            Result<(),str>::Err "streamio.stream_writer_store_header failed"
-        Result::Ok p:
-            match store_i32 p v:
-                Result::Ok _:
-                    Result<(),str>::Ok ()
-                Result::Err _e:
-                    Result<(),str>::Err "streamio.stream_writer_store_header failed"
-
-fn stream_writer_load_header_ptr <(MemPtr<u8>,StreamWriterHeaderField)->Result<MemPtr<u8>,str>> (w_mem, field):
-    match stream_writer_load_header w_mem field:
-        Result::Ok v:
-            Result<MemPtr<u8>,str>::Ok mem_ptr_wrap v
-        Result::Err e:
-            Result<MemPtr<u8>,str>::Err e
+//: ## stream_writer_bytebuf_byte_at
+//: borrowed ByteBuf から 1 byte を読む
+//:
+//: ### [目的/もくてき]
+//: - `append_bytebuf_impl` が `ByteBuf` owner を消費前に保持したまま、範囲内 byte だけを読めるようにします。
+//: - `ByteBuf` の field を `get_ref` で読むため、append loop 中に buffer owner を移動しません。
+fn stream_writer_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (bytes, idx):
+    let n <i32> *get_ref bytes "len"
+    if:
+        or lt idx 0 ge idx n
+        then:
+            none<i32>
+        else:
+            let src <MemPtr<u8>> *get_ref bytes "ptr"
+            load_u8 mem_ptr_add src idx
 
 fn stream_writer_try_free_ptr <.T> <(MemPtr<.T>,i32)*>()> (ptr, size):
     match dealloc_ptr<.T> ptr size:
@@ -251,58 +212,18 @@ fn stream_writer_try_free_ptr <.T> <(MemPtr<.T>,i32)*>()> (ptr, size):
         Result::Err _e:
             ()
 
-fn stream_writer_alloc_buf <()*>Result<StreamWriterBuf,str>> ():
+//: ## stream_writer_new
+//: StreamWriter の buffer を確保して owning handle を作る
+//:
+//: ### [目的/もくてき]
+//: - `StreamWriter` は非 Copy の owning struct として buffer pointer / capacity / pending length / target enum を直接保持します。
+//: - scanner のような共有 cursor ではないため raw header を持たず、所有権は struct field として静的検査に見える形で管理します。
+fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (target):
     match alloc_ptr<u8> 4096:
-        Result::Ok p0:
-            Result<StreamWriterBuf,str>::Ok StreamWriterBuf p0 4096
-        Result::Err _e0:
-            match alloc_ptr<u8> 1024:
-                Result::Ok p1:
-                    Result<StreamWriterBuf,str>::Ok StreamWriterBuf p1 1024
-                Result::Err _e1:
-                    match alloc_ptr<u8> 256:
-                        Result::Ok p2:
-                            Result<StreamWriterBuf,str>::Ok StreamWriterBuf p2 256
-                        Result::Err _e2:
-                            Result<StreamWriterBuf,str>::Err "streamio.stream_writer_new buffer alloc failed"
-
-fn stream_writer_new_header <(StreamWriterTargetKind)*>Result<MemPtr<u8>,str>> (target):
-    match stream_writer_alloc_buf:
-        Result::Err e:
-            Result<MemPtr<u8>,str>::Err e
-        Result::Ok b:
-            let buf <MemPtr<u8>> get b "ptr";
-            let cap <i32> get b "cap";
-            match alloc_ptr<u8> 16:
-                Result::Err _e:
-                    stream_writer_try_free_ptr<u8> buf cap;
-                    Result<MemPtr<u8>,str>::Err "streamio.stream_writer_new header alloc failed"
-                Result::Ok w:
-                    match stream_writer_store_header w StreamWriterHeaderField::BufPtr mem_ptr_addr buf:
-                        Result::Err _e:
-                            stream_writer_try_free_ptr<u8> w 16;
-                            stream_writer_try_free_ptr<u8> buf cap;
-                            Result<MemPtr<u8>,str>::Err "streamio.stream_writer_new header init failed"
-                        Result::Ok _:
-                            match stream_writer_store_header w StreamWriterHeaderField::Cap cap:
-                                Result::Err _e:
-                                    stream_writer_try_free_ptr<u8> w 16;
-                                    stream_writer_try_free_ptr<u8> buf cap;
-                                    Result<MemPtr<u8>,str>::Err "streamio.stream_writer_new header init failed"
-                                Result::Ok _:
-                                    match stream_writer_store_header w StreamWriterHeaderField::WriteLen 0:
-                                        Result::Err _e:
-                                            stream_writer_try_free_ptr<u8> w 16;
-                                            stream_writer_try_free_ptr<u8> buf cap;
-                                            Result<MemPtr<u8>,str>::Err "streamio.stream_writer_new header init failed"
-                                        Result::Ok _:
-                                            match stream_writer_store_header w StreamWriterHeaderField::TargetKind stream_writer_target_kind_code target:
-                                                Result::Err _e:
-                                                    stream_writer_try_free_ptr<u8> w 16;
-                                                    stream_writer_try_free_ptr<u8> buf cap;
-                                                    Result<MemPtr<u8>,str>::Err "streamio.stream_writer_new header init failed"
-                                                Result::Ok _:
-                                                    Result<MemPtr<u8>,str>::Ok w
+        Result::Ok buf:
+            Result<StreamWriter,str>::Ok StreamWriter buf 4096 0 target @stream_writer_noncopy_marker
+        Result::Err _e:
+            Result<StreamWriter,str>::Err "streamio.stream_writer_new buffer alloc failed"
 
 fn stream_scanner_wrap <(MemPtr<u8>)->StreamScanner> (raw):
     StreamScanner raw
@@ -1058,24 +979,22 @@ fn scan_f32_impl <(StreamScanner)*>f32> (sc):
 //: - `WriteStream` だけを[受/う]け[付/つ]けることで、`open ReadStream::Stdio` のような[誤用/ごよう]を compile error にします。
 //:
 //: ### [実装/じっそう]
-//: - `WriteStream::Stdio` と `WriteStream::Stderr` を[受/う]け[付/つ]け、header に target kind を[記録/きろく]します。
+//: - `WriteStream::Stdio` と `WriteStream::Stderr` を[受/う]け[付/つ]け、writer field に target enum を[記録/きろく]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [未対応/みたいおう] target は `Result::Err` を[返/かえ]します。
 fn open <(WriteStream)*>Result<StreamWriter,str>> (target):
     match target:
         WriteStream::Stdio:
-            let raw_res <Result<MemPtr<u8>,str>> stream_writer_new_header StreamWriterTargetKind::Stdout;
-            match raw_res:
-                Result::Ok raw:
-                    Result<StreamWriter,str>::Ok stream_writer_wrap raw
+            match stream_writer_new StreamWriterTargetKind::Stdout:
+                Result::Ok w:
+                    Result<StreamWriter,str>::Ok w
                 Result::Err e:
                     Result<StreamWriter,str>::Err e
         WriteStream::Stderr:
-            let raw_res <Result<MemPtr<u8>,str>> stream_writer_new_header StreamWriterTargetKind::Stderr;
-            match raw_res:
-                Result::Ok raw:
-                    Result<StreamWriter,str>::Ok stream_writer_wrap raw
+            match stream_writer_new StreamWriterTargetKind::Stderr:
+                Result::Ok w:
+                    Result<StreamWriter,str>::Ok w
                 Result::Err e:
                     Result<StreamWriter,str>::Err e
         WriteStream::Fs:
@@ -1087,37 +1006,9 @@ fn open <(WriteStream)*>Result<StreamWriter,str>> (target):
 //: ### [注意/ちゅうい]
 //: - 未 flush の[内容/ないよう]は[捨/す]てられます。[必要/ひつよう]なら[先/さき]に `flush` を[呼/よ]んでください。
 fn close <(StreamWriter)*>()> (w):
-    let w_mem <MemPtr<u8>> get w "header";
-    let mut can_free_parts <bool> true;
-    let mut buf <MemPtr<u8>> mem_ptr_wrap 0;
-    let mut cap <i32> 0;
-
-    match stream_writer_load_header_ptr w_mem StreamWriterHeaderField::BufPtr:
-        Result::Ok v:
-            set buf v;
-            ()
-        Result::Err _e:
-            set can_free_parts false;
-            ();
-    match stream_writer_load_header w_mem StreamWriterHeaderField::Cap:
-        Result::Ok v:
-            set cap v;
-            ()
-        Result::Err _e:
-            set can_free_parts false;
-            ();
-
-    if:
-        can_free_parts
-        then:
-            stream_writer_try_free_ptr<u8> buf cap
-        else:
-            ()
-    match dealloc_ptr<u8> w_mem 16:
-        Result::Ok _:
-            ()
-        Result::Err _e:
-            ()
+    let cap <i32> *get_ref &w "cap";
+    let buf <MemPtr<u8>> get w "buf";
+    stream_writer_try_free_ptr<u8> buf cap
     ()
 
 //: ## drain_impl
@@ -1129,41 +1020,20 @@ fn close <(StreamWriter)*>()> (w):
 //: ### [計算量/けいさんりょう]
 //: - [現在/げんざい]の[書/か]き[込/こ]み[長/なが]さを n として O(n) です。
 fn drain_impl <(StreamWriter)*>StreamWriter> (w):
-    let w_mem <MemPtr<u8>> get w "header";
-    match stream_writer_load_header_ptr w_mem StreamWriterHeaderField::BufPtr:
-        Result::Err _e:
+    let write_len <i32> *get_ref &w "write_len";
+    if:
+        le write_len 0
+        then:
             w
-        Result::Ok buf:
-            match stream_writer_load_header w_mem StreamWriterHeaderField::TargetKind:
-                Result::Err _e:
-                    w
-                Result::Ok target_kind:
-                    match stream_writer_load_header w_mem StreamWriterHeaderField::WriteLen:
-                        Result::Err _e:
-                            w
-                        Result::Ok write_len:
-                            if:
-                                le write_len 0
-                                then:
-                                    w
-                                else:
-                                    if:
-                                        eq target_kind 0
-                                        then:
-                                            stdio_write_mem buf write_len
-                                        else:
-                                            if:
-                                                eq target_kind 1
-                                                then:
-                                                    stdio_write_stderr_mem buf write_len
-                                                else:
-                                                    ();
-                                    match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen 0:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e:
-                                            ();
-                                    w
+        else:
+            let target <StreamWriterTargetKind> *get_ref &w "target";
+            match target:
+                StreamWriterTargetKind::Stdout:
+                    stdio_write_mem *get_ref &w "buf" write_len
+                StreamWriterTargetKind::Stderr:
+                    stdio_write_stderr_mem *get_ref &w "buf" write_len
+            let cap <i32> *get_ref &w "cap";
+            StreamWriter get w "buf" cap 0 target @stream_writer_noncopy_marker
 
 //: ## reserve_impl
 //: need byte [分/ぶん]の[空/あ]きを[確保/かくほ]する
@@ -1171,22 +1041,15 @@ fn drain_impl <(StreamWriter)*>StreamWriter> (w):
 //: ### [注意/ちゅうい]
 //: - need が capacity を[超/こ]える case は[呼/よ]び[出/だ]し[側/がわ]で[避/さ]けてください。この[版/ばん]では buffer [拡張/かくちょう]ではなく flush を[選/えら]びます。
 fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
-    let w_mem <MemPtr<u8>> get w "header";
-    match stream_writer_load_header w_mem StreamWriterHeaderField::Cap:
-        Result::Err _e:
+    let cap <i32> *get_ref &w "cap";
+    let write_len <i32> *get_ref &w "write_len";
+    let required <i32> add write_len need;
+    if:
+        le required cap
+        then:
             w
-        Result::Ok cap:
-            match stream_writer_load_header w_mem StreamWriterHeaderField::WriteLen:
-                Result::Err _e:
-                    w
-                Result::Ok write_len:
-                    let required <i32> add write_len need;
-                    if:
-                        le required cap
-                        then:
-                            w
-                        else:
-                            drain_impl w
+        else:
+            drain_impl w
 
 //: ## push_u8_impl
 //: 1 byte [追記/ついき]する
@@ -1194,35 +1057,21 @@ fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
 //: ### [計算量/けいさんりょう]
 //: - [通常/つうじょう]は O(1) で、flush が[入/はい]ると O(len) です。
 fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
-    let w_mem <MemPtr<u8>> get w "header";
-    match stream_writer_load_header w_mem StreamWriterHeaderField::Cap:
-        Result::Err _e:
+    let cap0 <i32> *get_ref &w "cap";
+    if:
+        le cap0 0
+        then:
             w
-        Result::Ok cap:
-            if:
-                le cap 0
-                then:
-                    w
-                else:
-                    let w1 <StreamWriter> reserve_impl w 1;
-                    match stream_writer_load_header_ptr w_mem StreamWriterHeaderField::BufPtr:
-                        Result::Err _e:
-                            w1
-                        Result::Ok buf:
-                            match stream_writer_load_header w_mem StreamWriterHeaderField::WriteLen:
-                                Result::Err _e:
-                                    w1
-                                Result::Ok write_len:
-                                    match store_u8 mem_ptr_add buf write_len b:
-                                        Result::Ok _:
-                                            match stream_writer_store_header w_mem StreamWriterHeaderField::WriteLen add write_len 1:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _e:
-                                                    ()
-                                        Result::Err _e:
-                                            ()
-                                    w1
+        else:
+            let w1 <StreamWriter> reserve_impl w 1;
+            let write_len <i32> *get_ref &w1 "write_len";
+            let cap <i32> *get_ref &w1 "cap";
+            let target <StreamWriterTargetKind> *get_ref &w1 "target";
+            match store_u8 mem_ptr_add *get_ref &w1 "buf" write_len b:
+                Result::Ok _:
+                    StreamWriter get w1 "buf" cap add write_len 1 target @stream_writer_noncopy_marker
+                Result::Err _e:
+                    w1
 
 //: ## push_newline_impl
 //: [改行/かいぎょう] `\n` を 1 byte [出力/しゅつりょく]する
@@ -1237,18 +1086,13 @@ fn push_newline_impl <(StreamWriter)*>StreamWriter> (w):
 //: - writer buffer の capacity を[超/こ]える文字列でも、1 byte ずつ `push_u8_impl` に通して flush 境界を保ちます。
 fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
     let n <i32> len s;
-    let src <MemPtr<u8>> string_data_ptr s;
     let mut ww <StreamWriter> w;
     let mut i <i32> 0;
-    let mut done <i32> 0;
-    while and eq done 0 lt i n:
+    while lt i n:
         do:
-            match load_u8 mem_ptr_add src i:
-                Option::Some ch:
-                    set ww push_u8_impl ww ch;
-                    set i add i 1;
-                Option::None:
-                    set done 1;
+            let ch <i32> string_byte_at_unchecked s i;
+            set ww push_u8_impl ww ch;
+            set i add i 1;
     ww
 
 //: ## append_bytebuf_impl
@@ -1262,13 +1106,12 @@ fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
 //: - writer の[内部/ないぶ] capacity を[超/こ]える入力でも、1 byte [単位/たんい]で必要に応じて flush するため overflow しません。
 fn append_bytebuf_impl <(StreamWriter,ByteBuf)*>StreamWriter> (w, bytes):
     let n <i32> get bytes "len";
-    let src <MemPtr<u8>> get bytes "ptr";
     let mut ww <StreamWriter> w;
     let mut i <i32> 0;
     let mut done <i32> 0;
     while and eq done 0 lt i n:
         do:
-            match load_u8 mem_ptr_add src i:
+            match stream_writer_bytebuf_byte_at &bytes i:
                 Option::Some ch:
                     set ww push_u8_impl ww ch;
                     set i add i 1;
@@ -1282,7 +1125,7 @@ fn append_bytebuf_impl <(StreamWriter,ByteBuf)*>StreamWriter> (w, bytes):
 //:
 //: ### [実装/じっそう]
 //: - 上位 digit を再帰で先に出し、各 digit は `push_u8_impl` に通します。
-//: - 直接 buffer に書かないため、checked store 失敗時も writer header の長さだけが先に進むことを避けます。
+//: - 直接 length field を進めず `push_u8_impl` に通すため、checked store 失敗時も writer の長さだけが先に進むことを避けます。
 fn append_i32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
     if:
         ge x 10

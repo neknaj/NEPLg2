@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T13:01:24.271Z",
+  "generated_at": "2026-04-29T13:33:21.196Z",
   "counts": {
     "total": 375,
-    "open": 17,
-    "resolved": 358,
+    "open": 16,
+    "resolved": 359,
     "by_area": {
       "core": {
         "total": 174,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 111,
-        "open": 10,
-        "resolved": 101
+        "open": 9,
+        "resolved": 102
       },
       "TEST": {
         "total": 4,
@@ -213,21 +213,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
-    },
-    {
-      "id": "ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3",
-      "title": "streamio writer raw buffer loads fail RawMemoryLoadCell gate",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3.md"
     },
     {
       "id": "ISS-20260429T124935636Z-STDIO-READ-BUFFER-FINISH-LEAKS-BYTEB-84BA0440",
@@ -3948,6 +3933,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131.md"
+    },
+    {
+      "id": "ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3",
+      "title": "streamio writer raw buffer loads fail RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3.md"
     },
     {
       "id": "ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497",
