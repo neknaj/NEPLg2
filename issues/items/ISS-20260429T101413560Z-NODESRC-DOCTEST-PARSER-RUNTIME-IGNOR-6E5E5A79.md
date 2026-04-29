@@ -2,8 +2,8 @@
 id: ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79
 title: "nodesrc doctest parser runtime ignores diag_code metadata"
 area: TEST
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -48,3 +48,35 @@ target: "nodesrc/parser.js, nodesrc/parser.ts, nodesrc/tests.js, nodesrc/run_doc
 - `node nodesrc/test_doctest_diag_code_metadata.js` のような source regression を追加し、`diag_code:` が `diag_codes` として収集されることを固定する。
 - `node nodesrc/run_doctest.js -i <diag_code fixture> -n <case>` で、期待 code と異なる compile error が fail になることを確認する。
 - `node nodesrc/tests.js -i <diag_code fixture> --no-tree -o tmp/doctest-diag-code-metadata.json -j 1` で aggregate runner でも同じ expectation が効くことを確認する。
+
+## 2026-04-29 解決メモ
+
+原因は 2 層あった。
+
+1. `nodesrc/parser.ts` は `diag_code:` / `diag_codes:` を扱うが、runtime が読む generated `nodesrc/parser.js` が古い `diag_id:` 実装のままになる drift を検出していなかった。
+2. focused runner の `nodesrc/run_doctest.js` は `compile_fail` の raw result が `ok: true` / `status: pass` になった場合、diagnostic code / span expectation を検査していなかった。
+3. `nodesrc/run_doctest.js` の diagnostic span 抽出は ANSI escape sequence 付きの `--> file:line:col` 行を処理できず、aggregate runner と focused runner の結果がずれていた。
+
+`nodesrc/parser.js` は `.gitignore` 対象の generated artifact であり、repository には tracked しない設計である。そのため、修正は source と CI regression に入れた。`npx tsc -p nodesrc/tsconfig.json` で生成される runtime parser が `diag_codes` を返すことを `nodesrc/test_doctest_diag_code_metadata.js` で固定した。
+
+同じ regression で次を確認する。
+
+- `.n.md` の `diag_code:` と `diag_codes:` が `diag_codes` 配列に入る。
+- `.nepl` doc comment の `diag_code:` と `diag_codes:` も同じ形で入る。
+- 旧 `diag_ids` property が doctest case に残らない。
+- `run_doctest.js` が wrong `diag_code` を `compile_fail diagnostic code mismatch` として fail にする。
+- `run_doctest.js` が ANSI 付き compile error から `diag_span:` を抽出できる。
+- `nodesrc/tests.js` aggregate runner も wrong `diag_code` を fail にする。
+
+`run_doctest.js` は `compile_fail` case では `compile_error` が存在する限り、raw result の `ok` に関係なく diagnostic code / span expectation を検査するようにした。span 抽出は aggregate runner と同じく ANSI escape sequence を除去してから `--> file:line:col` を読む。
+
+CI の Source policy regressions に `node nodesrc/test_doctest_diag_code_metadata.js` を追加し、bootstrap build 後の generated parser と focused / aggregate runner の両方を検査する。
+
+### 2026-04-29 検証
+
+- `npx tsc -p nodesrc/tsconfig.json`: passed
+- `node nodesrc/test_doctest_diag_code_metadata.js`: passed
+- `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 1 --dist web/dist`: passed
+- `node nodesrc/tests.js -i tests/compiler/compile_fail_diag_location.n.md --no-tree -o tmp/doctest-diag-code-existing.json -j 1 --dist web/dist`: total=3 passed=3
+- `trunk build`: passed
+- `git diff --check`: passed

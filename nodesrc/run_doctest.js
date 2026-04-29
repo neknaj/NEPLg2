@@ -79,6 +79,10 @@ function normalizeOutputByTags(s, tags) {
     return out;
 }
 
+function stripAnsi(s) {
+    return String(s || '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
+}
+
 function extractActualDiagCodes(compileErrorText) {
     const codes = [];
     const re = /(?:error|warning)\[([a-z][a-z0-9_.]*)\]/g;
@@ -91,14 +95,17 @@ function extractActualDiagCodes(compileErrorText) {
 
 function extractActualDiagSpans(compileErrorText) {
     const out = [];
-    const lines = String(compileErrorText || '').split(/\r?\n/);
+    const lines = stripAnsi(compileErrorText).replace(/\r\n/g, '\n').split('\n');
     for (let i = 0; i < lines.length; i++) {
-        const m = lines[i].match(/^\s*-->\s+([^:]+):(\d+):(\d+)\s*$/);
+        const m = lines[i].match(/^\s*-->\s+(.+)\s*$/);
         if (!m) continue;
+        const loc = String(m[1] || '').trim();
+        const lm = loc.match(/^(.*):(\d+):(\d+)$/);
+        if (!lm) continue;
         out.push({
-            file: String(m[1]).trim(),
-            line: parseInt(m[2], 10),
-            col: parseInt(m[3], 10),
+            file: String(lm[1] || '').trim(),
+            line: parseInt(lm[2], 10),
+            col: parseInt(lm[3], 10),
         });
     }
     return out;
@@ -110,41 +117,41 @@ function applyExpectations(result, testCase) {
     const importsStdTest = /#import\s+"std\/test"\s+as\s+\*/.test(String(testCase.source || ''));
 
     if (tags.includes('compile_fail')) {
-        if (!r.ok) {
-            const compileError = String(r.compile_error || r.error || '');
-            if (testCase.expected_diag_codes.length > 0) {
-                const actualCodes = extractActualDiagCodes(compileError);
-                const missing = testCase.expected_diag_codes.filter((code) => !actualCodes.includes(code));
-                if (missing.length > 0) {
-                    r.ok = false;
-                    r.status = 'fail';
-                    r.error = [
-                        'compile_fail diagnostic code mismatch',
-                        `expected codes: ${JSON.stringify(testCase.expected_diag_codes)}`,
-                        `missing codes: ${JSON.stringify(missing)}`,
-                        `actual codes: ${JSON.stringify(actualCodes)}`,
-                    ].join('\n');
-                }
+        const compileError = String(r.compile_error || '');
+        if (!compileError) return r;
+        if (testCase.expected_diag_codes.length > 0) {
+            const actualCodes = extractActualDiagCodes(compileError);
+            const missing = testCase.expected_diag_codes.filter((code) => !actualCodes.includes(code));
+            if (missing.length > 0) {
+                r.ok = false;
+                r.status = 'fail';
+                r.error = [
+                    'compile_fail diagnostic code mismatch',
+                    `expected codes: ${JSON.stringify(testCase.expected_diag_codes)}`,
+                    `missing codes: ${JSON.stringify(missing)}`,
+                    `actual codes: ${JSON.stringify(actualCodes)}`,
+                ].join('\n');
+                return r;
             }
-            if (r.ok && testCase.expected_diag_spans.length > 0) {
-                const actualSpans = extractActualDiagSpans(compileError);
-                const missing = testCase.expected_diag_spans.filter((want) => {
-                    return !actualSpans.some((got) => {
-                        const wantFile = want.file ? String(want.file).replace(/\\/g, '/') : null;
-                        const gotFile = got.file ? String(got.file).replace(/\\/g, '/') : null;
-                        return (!wantFile || wantFile === gotFile) && want.line === got.line && want.col === got.col;
-                    });
+        }
+        if (testCase.expected_diag_spans.length > 0) {
+            const actualSpans = extractActualDiagSpans(compileError);
+            const missing = testCase.expected_diag_spans.filter((want) => {
+                return !actualSpans.some((got) => {
+                    const wantFile = want.file ? String(want.file).replace(/\\/g, '/') : null;
+                    const gotFile = got.file ? String(got.file).replace(/\\/g, '/') : null;
+                    return (!wantFile || wantFile === gotFile) && want.line === got.line && want.col === got.col;
                 });
-                if (missing.length > 0) {
-                    r.ok = false;
-                    r.status = 'fail';
-                    r.error = [
-                        'compile_fail diagnostic span mismatch',
-                        `expected spans: ${JSON.stringify(testCase.expected_diag_spans)}`,
-                        `missing spans: ${JSON.stringify(missing)}`,
-                        `actual spans: ${JSON.stringify(actualSpans)}`,
-                    ].join('\n');
-                }
+            });
+            if (missing.length > 0) {
+                r.ok = false;
+                r.status = 'fail';
+                r.error = [
+                    'compile_fail diagnostic span mismatch',
+                    `expected spans: ${JSON.stringify(testCase.expected_diag_spans)}`,
+                    `missing spans: ${JSON.stringify(missing)}`,
+                    `actual spans: ${JSON.stringify(actualSpans)}`,
+                ].join('\n');
             }
         }
         return r;

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T10:38:33.824Z",
+  "generated_at": "2026-04-29T10:51:24.108Z",
   "counts": {
     "total": 365,
-    "open": 16,
-    "resolved": 349,
+    "open": 15,
+    "resolved": 350,
     "by_area": {
       "core": {
         "total": 173,
@@ -23,8 +23,8 @@
       },
       "TEST": {
         "total": 3,
-        "open": 2,
-        "resolved": 1
+        "open": 1,
+        "resolved": 2
       },
       "selfhost": {
         "total": 44,
@@ -228,21 +228,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
-    },
-    {
-      "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
-      "title": "nodesrc doctest parser runtime ignores diag_code metadata",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nodesrc/parser.js, nodesrc/parser.ts, nodesrc/tests.js, nodesrc/run_doctest.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3858,6 +3843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T021745990Z-STDLIB-LACKS-ERGONOMIC-STRING-OFFSET-6CD44AAB.md"
+    },
+    {
+      "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
+      "title": "nodesrc doctest parser runtime ignores diag_code metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nodesrc/parser.js, nodesrc/parser.ts, nodesrc/tests.js, nodesrc/run_doctest.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79.md"
     },
     {
       "id": "ISS-20260429T101530928Z-N-MD-SHARED-TEST-OPERATION-FOR-RUST--52938450",

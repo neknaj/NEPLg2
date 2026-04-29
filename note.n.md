@@ -25923,3 +25923,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - selfhost 共通 `.n.md` manifest の runtime expectation に stdout report と exit code 分離を追加した。
+
+# 2026-04-29 メモ (ISS-20260429T101413560Z doctest diag_code metadata)
+
+- [同期]:
+  - `6c8d283` まで反映した `main` へ rebase し、`test/doctest-diag-code-metadata` branch で作業した。
+- [調査]:
+  - `nodesrc/parser.ts` は `diag_code:` / `diag_codes:` を `diag_codes` として parse する実装だった。
+  - `nodesrc/parser.js` は generated artifact で `.gitignore` 対象のため、tracked source ではなく build artifact として扱われている。
+  - `npx tsc -p nodesrc/tsconfig.json` で生成される current runtime parser は `diag_codes` を返すが、この drift を固定する regression がなかった。
+  - 追加調査で、`nodesrc/run_doctest.js` は `compile_fail` raw result が `ok: true` / `status: pass` のとき diagnostic code / span expectation を検査していないことを確認した。
+  - focused runner の span 抽出は ANSI escape sequence 付きの `--> file:line:col` 行を読めず、aggregate runner と結果がずれていた。
+  - `nodesrc/tests.js` aggregate runner は `status: pass` の compile_fail に対して diagnostic code を検査する実装になっていた。
+- [修正]:
+  - `nodesrc/run_doctest.js` の compile_fail expectation 適用を、`compile_error` がある場合は raw result の `ok` に関係なく diagnostic code / span を検査する形に変更した。
+  - `run_doctest.js` の span 抽出を ANSI 除去後に `--> file:line:col` を読む形へ揃えた。
+  - `nodesrc/test_doctest_diag_code_metadata.js` を追加し、`.n.md` / `.nepl` metadata parser、focused runner、aggregate runner の diag_code enforcement を固定した。
+  - `.github/workflows/ci.yml` の Source policy regressions に `node nodesrc/test_doctest_diag_code_metadata.js` を追加した。
+  - `ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79` を fixed に更新した。
+- [検証]:
+  - `npx tsc -p nodesrc/tsconfig.json`
+  - `node nodesrc/test_doctest_diag_code_metadata.js`
+  - `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 1 --dist web/dist`
+  - `node nodesrc/tests.js -i tests/compiler/compile_fail_diag_location.n.md --no-tree -o tmp/doctest-diag-code-existing.json -j 1 --dist web/dist`
+  - `trunk build`
+  - `node nodesrc/issues.js check`
+  - `git diff --check`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` 共通 test manifest の diagnostic code expectation が実際に runner で効くようにした。
