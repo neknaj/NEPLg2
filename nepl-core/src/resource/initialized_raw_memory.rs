@@ -1,10 +1,10 @@
 use crate::span::Span;
-use crate::types::TypeKind;
+use crate::types::{TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{CellState, Place, RawMemoryOp};
+use super::model::{CellState, Place, PlaceProjection, RawMemoryOp, ResourceOffset};
 use super::place_utils::raw_memory_cell_place;
 use super::report::ResourceCheckOperation;
 
@@ -198,6 +198,10 @@ impl ResourceCheckEngine<'_> {
                 );
                 if address_available && cells_released {
                     cells.clear_raw_cells_under(&address);
+                    if let Some(value) = args.get(2) {
+                        let cell = raw_memory_unknown_offset_cell_place(&address, value.ty);
+                        cells.mark_initialized(&cell);
+                    }
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                 }
@@ -266,6 +270,14 @@ impl ResourceCheckEngine<'_> {
     fn output_can_hold_raw_address(&self, ty: crate::types::TypeId) -> bool {
         matches!(self.types.get_ref(self.types.resolve_id(ty)), TypeKind::I32)
     }
+}
+
+fn raw_memory_unknown_offset_cell_place(address: &Place, ty: TypeId) -> Place {
+    let address = address.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+        ty,
+    );
+    raw_memory_cell_place(&address, ty)
 }
 
 fn raw_cell_value_is_known_raw_address(raw_aliases: &RawCellAddressAliases, place: &Place) -> bool {

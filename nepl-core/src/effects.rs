@@ -75,6 +75,9 @@ pub const RAW_MEMORY_HELPER_EFFECT_MARKERS: &[&str] = &[
     "store_u8",
     "mem_copy",
     "mem_move",
+    "memset_u8",
+    "fill_u8",
+    "fill_i32",
     "mem_fill",
 ];
 

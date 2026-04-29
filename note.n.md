@@ -1,3 +1,33 @@
+# 2026-04-30 メモ (ISS-20260429T233515324Z raw fill initialized cell summary)
+
+- [同期]:
+  - `main` の `cddf69e7` から `work/resource-raw-fill-initialized-summary` branch を作成して作業した。
+  - 直前 commit 後に `git pull --ff-only origin main` で remote main と同期済みであることを確認した。
+- [原因]:
+  - Resource IR lowering は `load_i32` / `store_i32` / `mem_fill` を raw memory operation として扱っていたが、stdlib の public helper `memset_u8` / `fill_u8` / `fill_i32` を `RawMemoryOp::Fill` として分類していなかった。
+  - そのため `memset_u8 p ...` / `fill_i32 p ...` の caller-visible raw cell 初期化が `main` 側の CellState に反映されず、直後の `load_u8` / `load_i32` が `resource.cell.uninit` になっていた。
+- [修正]:
+  - `RAW_MEMORY_HELPER_EFFECT_MARKERS` と Resource IR の raw memory name 分類に `memset_u8` / `fill_u8` / `fill_i32` を追加した。
+  - `RawMemoryOp::Fill` が live non-Copy cell overwrite を従来通り拒否したうえで、fill value 型の unknown-offset raw cell を initialized として記録するようにした。
+  - `CellTable` の initialized flow は raw cell の同一 projection で型一致を要求し、byte/i32 fill が non-Copy cell を構築した扱いにならないようにした。
+  - Resource IR regression を追加し、Copy cell は通し、non-Copy cell は `RawMemoryLoadCell` のまま拒否することを固定した。
+- [issue]:
+  - `ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939` を fixed/resolved にした。
+  - 親 issue `ISS-20260425T000000Z-RV-CORE-009` に対応結果を追記した。
+- [検証]:
+  - `rustfmt --check nepl-core/src/effects.rs nepl-core/src/resource/lower_raw_memory.rs nepl-core/src/resource/initialized_raw_memory.rs nepl-core/src/resource/cell_state.rs nepl-core/tests/resource_ir.rs`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 30 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 126 passed
+  - `trunk build`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 5 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 6 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 72 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 73 --dist web/dist`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4 Resource IR の initialized cell gate を弱めず、compiler-owned raw helper の効果分類を補完した。
+
 # 2026-04-30 メモ (ISS-20260429T231611047Z std/test assertion report policy)
 
 - [同期]:

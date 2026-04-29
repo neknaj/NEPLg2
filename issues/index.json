@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T23:38:50.193Z",
+  "generated_at": "2026-04-29T23:54:07.704Z",
   "counts": {
     "total": 412,
-    "open": 13,
-    "resolved": 399,
+    "open": 12,
+    "resolved": 400,
     "by_area": {
       "core": {
         "total": 189,
-        "open": 5,
-        "resolved": 184
+        "open": 4,
+        "resolved": 185
       },
       "stdlib": {
         "total": 126,
@@ -128,21 +128,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939",
-      "title": "Resource IR does not summarize raw fill helpers as initialized cell writes",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource, stdlib/core/mem.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2933,6 +2918,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5.md"
+    },
+    {
+      "id": "ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939",
+      "title": "Resource IR does not summarize raw fill helpers as initialized cell writes",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

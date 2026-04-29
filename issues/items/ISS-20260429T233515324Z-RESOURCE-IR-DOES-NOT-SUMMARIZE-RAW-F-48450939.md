@@ -2,8 +2,8 @@
 id: ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939
 title: "Resource IR does not summarize raw fill helpers as initialized cell writes"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -55,3 +55,23 @@ Add focused Resource IR regressions for alloc_raw -> memset_u8/fill_i32 -> load_
 - 親 issue: `ISS-20260425T000000Z-RV-CORE-009-58589A3F`
 - 発見元 issue: `ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736`
 - 関連計画: `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 Resource check
+
+## 対応結果
+
+Resource IR lowering で `memset_u8` / `fill_u8` / `fill_i32` を `RawMemoryOp::Fill` として扱うようにした。これにより、compiler-owned `core/mem` raw fill helper call が普通の pure call ではなく caller-visible raw memory operation として Resource IR に残る。
+
+`RawMemoryOp::Fill` の CellState 遷移では、対象 raw storage 配下の live non-Copy cell を既存通り `RawMemoryFillCell` で拒否したうえで、fill value の型を持つ unknown-offset raw cell を initialized として記録する。これにより `alloc_raw -> fill_i32 -> load_i32 add p 12` のような Copy cell load は通る。
+
+同時に `CellTable` の initialized flow は raw cell の同一 projection に対して型一致を要求するようにした。byte/i32 fill が `LocalToken` のような non-Copy cell を構築した扱いにならないため、RawMemoryLoadCell gate は弱めていない。
+
+## 検証結果
+
+- `rustfmt --check nepl-core/src/effects.rs nepl-core/src/resource/lower_raw_memory.rs nepl-core/src/resource/initialized_raw_memory.rs nepl-core/src/resource/cell_state.rs nepl-core/tests/resource_ir.rs`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill -- --nocapture`: 2 passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 30 passed
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 126 passed
+- `trunk build`: passed
+- `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 5 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 6 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 72 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 73 --dist web/dist`: passed

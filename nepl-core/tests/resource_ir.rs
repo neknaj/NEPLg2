@@ -8244,6 +8244,122 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_raw_fill_helpers_initialize_copy_cells() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn fill_bytes <()->i32> ():
+    let p <i32> alloc_raw 8
+    memset_u8 p 8 65
+    let a <i32> load_u8 add p 0
+    let b <i32> load_u8 add p 7
+    dealloc_raw p 8
+    add a b
+
+fn fill_words <()->i32> ():
+    let p <i32> alloc_raw 16
+    fill_i32 p 4 42
+    let a <i32> load_i32 add p 0
+    let b <i32> load_i32 add p 12
+    dealloc_raw p 16
+    add a b
+
+fn main <()->i32> ():
+    add fill_bytes fill_words
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let fill_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("fill_bytes__")
+                        || function.starts_with("fill_words__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        fill_diagnostics.is_empty(),
+        "raw fill helpers must initialize Copy raw cells for caller-visible loads: {:#?}\nresource:\n{}",
+        fill_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_raw_fill_does_not_initialize_non_copy_cell() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let len = Place::temporary(ResourceId(1), i32_ty);
+    let fill_value = Place::temporary(ResourceId(2), i32_ty);
+    let fill_out = Place::temporary(ResourceId(3), unit_ty);
+    let loaded = Place::temporary(ResourceId(4), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: ptr.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fill_value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Fill,
+                output: fill_out,
+                args: vec![ptr.clone(), len, fill_value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![ptr],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place.ty == owned_ty
+        )),
+        "raw fill must not construct a non-Copy cell: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets() {
     let source = r#"
 #entry main

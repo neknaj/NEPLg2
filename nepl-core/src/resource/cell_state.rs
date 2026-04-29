@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::types::TypeCtx;
+use crate::types::{TypeCtx, TypeId};
 
 use super::model::{CellState, CellStateEntry, Place, PlaceProjection};
 use super::place_utils::{
@@ -42,11 +42,12 @@ impl CellTable {
         if let Some(state @ CellState::Initialized(_)) = self.state(place) {
             return state;
         }
-        if self.ancestor_entries(place).iter().any(|entry| {
-            matches!(entry.state, CellState::Initialized(_))
-                && cell_initialized_state_flows(&entry.place, place)
-        }) {
-            return CellState::Initialized(place.ty);
+        for entry in &self.cells {
+            if let CellState::Initialized(ty) = entry.state {
+                if initialized_state_flows_to(&entry.place, place, ty) {
+                    return CellState::Initialized(place.ty);
+                }
+            }
         }
         if self.raw_cell_place_is_untracked_external(place) {
             return CellState::Initialized(place.ty);
@@ -259,14 +260,27 @@ impl CellTable {
     }
 }
 
-fn cell_initialized_state_flows(prefix: &Place, place: &Place) -> bool {
-    place_suffix_after_prefix(place, prefix)
-        .map(|suffix| {
-            suffix
-                .iter()
-                .all(|projection| !matches!(projection, PlaceProjection::Deref))
-        })
-        .unwrap_or(false)
+fn initialized_state_flows_to(prefix: &Place, place: &Place, initialized_ty: TypeId) -> bool {
+    let Some(suffix) = place_suffix_after_prefix(place, prefix)
+        .or_else(|| place_suffix_after_address_prefix(place, prefix))
+    else {
+        return false;
+    };
+    if suffix
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::Deref))
+    {
+        return false;
+    }
+    if suffix.is_empty()
+        && prefix
+            .projections
+            .iter()
+            .any(|projection| matches!(projection, PlaceProjection::Deref))
+    {
+        return initialized_ty == place.ty;
+    }
+    true
 }
 
 fn cell_descendant_state_flows(prefix: &Place, place: &Place) -> bool {

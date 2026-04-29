@@ -38,6 +38,7 @@ pub(super) fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
         "store" => RawMemoryOp::Store,
         "mem_copy" => RawMemoryOp::BulkCopy,
         "mem_move" => RawMemoryOp::BulkMove,
+        "memset_u8" | "fill_u8" | "fill_i32" => RawMemoryOp::Fill,
         "mem_size" => RawMemoryOp::MemorySize,
         "mem_grow" => RawMemoryOp::MemoryGrow,
         "mem_fill" => RawMemoryOp::Fill,
