@@ -26741,6 +26741,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner/resource summary 周辺の正確性を改善し、`std/test` 側の一時回避を撤去した。
 
+# 2026-04-30 メモ (ISS-20260429T170552181Z intrinsic raw dealloc fixture)
+
+- [同期]:
+  - `main` を `origin/main` と同期した状態から、`tests/intrinsic-raw-dealloc-fixture` branch で作業した。
+- [原因]:
+  - `tests/compiler/intrinsic.n.md::intrinsic_zero_sized_struct_constructor_keeps_heap_pointer` は `alloc_raw 16` で `p0` / `p1` を確保した後、`dealloc_raw` していなかった。
+  - Resource IR owner gate の `p0` / `p1` leak diagnostic は正しく、検査を弱めるべきではない。
+- [修正]:
+  - `kept` / `moved` の判定値を保存した後、結果判定前に `dealloc_raw p0 16` と `dealloc_raw p1 16` を追加した。
+  - zero-sized struct constructor が既存 heap pointer を壊さないことを検証する意図は維持した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/intrinsic-raw-dealloc-fixture.json -j 1 --dist web/dist`: total=8, passed=8
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-after-intrinsic-raw-dealloc.json -j 4 --dist web/dist`: total=649, passed=637, failed=12。`intrinsic.n.md::doctest#6` は解消し、残りは既存の ResourceIR owner obligation 系。
+- [issue]:
+  - `ISS-20260429T170552181Z-INTRINSIC-ZERO-SIZED-CONSTRUCTOR-FIX-A6947D3C` を追加し、fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T165748888Z ResourceIR call local borrow token scope)
 
 - [同期]:

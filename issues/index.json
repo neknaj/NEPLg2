@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T17:02:13.990Z",
+  "generated_at": "2026-04-29T17:09:33.448Z",
   "counts": {
-    "total": 389,
+    "total": 390,
     "open": 14,
-    "resolved": 375,
+    "resolved": 376,
     "by_area": {
       "core": {
         "total": 180,
@@ -17,9 +17,9 @@
         "resolved": 110
       },
       "TEST": {
-        "total": 5,
+        "total": 6,
         "open": 1,
-        "resolved": 4
+        "resolved": 5
       },
       "selfhost": {
         "total": 44,
@@ -4203,6 +4203,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T162554932Z-RESOLVER-NAME-CONFLICT-REGRESSES-GEN-CC8CE1E8.md"
+    },
+    {
+      "id": "ISS-20260429T170552181Z-INTRINSIC-ZERO-SIZED-CONSTRUCTOR-FIX-A6947D3C",
+      "title": "intrinsic zero-sized constructor fixture leaks raw allocations",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "tests/compiler/intrinsic.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T170552181Z-INTRINSIC-ZERO-SIZED-CONSTRUCTOR-FIX-A6947D3C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
