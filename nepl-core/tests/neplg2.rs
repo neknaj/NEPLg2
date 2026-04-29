@@ -913,6 +913,36 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn missing_entry_function_has_resolve_code() {
+    let src = r#"
+#entry missing
+
+fn main <()->i32> ():
+    0
+"#;
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("missing entry should fail") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Resolve(
+                nepl_core::diagnostic_codes::ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous
+            ))),
+        "missing entry resolve diagnostic code: {:?}",
+        diags
+    );
+}
+
+#[test]
 fn overloads_by_param_type_are_allowed() {
     let src = r#"
 #entry main

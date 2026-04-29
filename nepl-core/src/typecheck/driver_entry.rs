@@ -4,9 +4,10 @@ use alloc::vec::Vec;
 use crate::ast::{Module, Stmt};
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::ResolveDiagnosticCode;
 use crate::span::Span;
 
+use super::diagnostics::resolve_error;
 use super::env::{BindingKind, Env};
 
 pub(super) fn resolve_entry_function(
@@ -30,12 +31,11 @@ pub(super) fn resolve_entry_function(
         } else if top_level_llvmir_defines_entry(module, target, profile, name.as_str()) {
             None
         } else {
-            diagnostics.push(
-                Diagnostic::error("entry function is missing or ambiguous", entry_span)
-                    .with_code(DiagnosticCode::Resolve(
-                    crate::diagnostic_codes::ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous,
-                )),
-            );
+            diagnostics.push(resolve_error(
+                ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous,
+                "entry function is missing or ambiguous",
+                entry_span,
+            ));
             None
         }
     } else {

@@ -146,6 +146,23 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 
+## 2026-04-29 Stage D1 entry resolve boundary follow-up 追記
+
+`typecheck/driver_entry.rs` には `#entry` が missing / ambiguous の場合に `Diagnostic::error(...).with_code(...)` を直接組み立てる処理が残っていた。entry 解決は resolve diagnostic の境界であり、message string ではなく `ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous` を生成時点で確定する必要がある。
+
+今回の対応で `typecheck/diagnostics.rs` に `resolve_error(...)` helper を追加し、entry resolve diagnostic を code-first にした。回帰テストとして missing entry が `DiagnosticCode::Resolve(EntryFunctionMissingOrAmbiguous)` を返す Rust test を追加した。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/driver_entry.rs`: no matches
+- `cargo test -p nepl-core --test neplg2 missing_entry_function_has_resolve_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/agent1-entry-diagnostics-after-trunk.json -j 1`: failed 44/45。失敗は `tests/compiler/neplg2.n.md::doctest#33` の `List` RawMemoryLoadCell Uninit で、`ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` に記録済み。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+
 ## 2026-04-29 Stage D1 parser recovery boundary follow-up 追記
 
 `parser.rs` の shared `error_with_code` / `push_error_with_code` は名前上 code-aware だったが、内部実装は `Diagnostic::error(...).with_code(...)` で code を後付けしていた。また parser の再帰上限、no-progress recovery、raw block、intrinsic、tuple、match scrutinee の回復境界にも直接 `.with_code(...)` が残っていた。

@@ -1,3 +1,27 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z entry resolve code-first diagnostics)
+
+- [同期]:
+  - `6bcd59d` を `main` / `origin/main` へ push した後、`work/typecheck-entry-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/driver_entry.rs` には `#entry` が missing / ambiguous の場合に `Diagnostic::error(...).with_code(...)` を直接組み立てる処理が残っていた。
+  - entry 解決は resolve diagnostic の境界なので、message string ではなく生成時点で `ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous` を確定する必要がある。
+- [修正]:
+  - `typecheck/diagnostics.rs` に `resolve_error(...)` helper を追加した。
+  - `driver_entry.rs` の entry missing / ambiguous 診断を `resolve_error(...)` 経由にした。
+  - missing entry が `DiagnosticCode::Resolve(EntryFunctionMissingOrAmbiguous)` を返す Rust 回帰テストを追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/driver_entry.rs`: no matches
+  - `cargo test -p nepl-core --test neplg2 missing_entry_function_has_resolve_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/neplg2.n.md --no-tree -o tmp/agent1-entry-diagnostics-after-trunk.json -j 1`: failed 44/45。失敗は `tests/compiler/neplg2.n.md::doctest#33` の `List` RawMemoryLoadCell Uninit で、`ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` に記録済み。
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の entry resolve boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z assignment code-first diagnostics)
 
 - [同期]:
