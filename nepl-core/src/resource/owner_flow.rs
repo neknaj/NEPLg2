@@ -125,7 +125,12 @@ impl ResourceOwnerCheckEngine<'_> {
         args: &[Place],
         span: Span,
     ) {
-        for arg in args.iter().filter(|arg| arg.ty == output.ty) {
+        let mut returned_index = None;
+        for (index, arg) in args
+            .iter()
+            .enumerate()
+            .filter(|(_, arg)| arg.ty == output.ty)
+        {
             if self.has_transferable_owner(owners, raw_aliases, arg) {
                 self.transfer_owner(
                     owners,
@@ -136,8 +141,15 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::ReturnValue,
                     span,
                 );
-                return;
+                returned_index = Some(index);
+                break;
             }
+        }
+        for (index, arg) in args.iter().enumerate() {
+            if returned_index == Some(index) {
+                continue;
+            }
+            self.consume_call_argument_owner(owners, raw_aliases, storage_origins, arg, span);
         }
     }
 
@@ -188,6 +200,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
         }
+        self.consume_owner_summary_parameters(
+            owners,
+            raw_aliases,
+            storage_origins,
+            args,
+            summary,
+            span,
+        );
     }
 
     fn apply_owner_projection_return_summary(
@@ -224,6 +244,44 @@ impl ResourceOwnerCheckEngine<'_> {
             owners.allocate(output);
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);
+        }
+    }
+
+    fn consume_owner_summary_parameters(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        storage_origins: &mut StorageOriginTable,
+        args: &[Place],
+        summary: &OwnerReturnSummary,
+        span: Span,
+    ) {
+        for arg in summary
+            .consumed_parameter_indices
+            .iter()
+            .filter_map(|index| args.get(*index))
+        {
+            self.consume_call_argument_owner(owners, raw_aliases, storage_origins, arg, span);
+        }
+    }
+
+    fn consume_call_argument_owner(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        storage_origins: &mut StorageOriginTable,
+        arg: &Place,
+        span: Span,
+    ) {
+        if self.has_transferable_owner(owners, raw_aliases, arg) {
+            self.move_owner_out(
+                owners,
+                raw_aliases,
+                storage_origins,
+                arg,
+                ResourceOwnerOperation::CallArgument,
+                span,
+            );
         }
     }
 

@@ -1,3 +1,28 @@
+# 2026-04-29 メモ (ISS-20260429T021254285Z Resource owner summary false owner propagation)
+
+- [同期]:
+  - `origin/main` の `fcfa89b issues: track stdlib byte scanner helpers` と同期した `work/resource-owner-call-consume` branch で作業した。
+- [原因]:
+  - `compute_owner_return_summaries` が summary 生成時に全 parameter を仮 owner として seed し、recursive function の初回 fixed-point で `MaybeFreed` になった return を definite fresh owner として caller へ伝播していた。
+  - そのため `Fnv1a32` や `SelfhostCliArgKind`、`i32` のような free obligation を持たない値まで、関数呼び出し後に owner leak として D3100 になった。
+  - 一方で `StringBuilder` のように owner 引数を戻り値へ返さず `sb_build` で消費する wrapper については、caller 側へ consumed parameter effect が伝わっていなかった。
+  - direct raw memory helper は `Call` と `ResourceOp::RawMemory` の両方に lower されるため、call summary 側でも消費すると `dealloc_raw` / `realloc_raw` が同じ owner を二重消費していた。
+- [修正]:
+  - owner return summary では `MaybeFreed` を fresh owner として確定しないようにし、未確定 state から存在しない free obligation を作らない形にした。
+  - `OwnerReturnSummary` に consumed parameter indices を追加し、通常の user-call wrapper が owner 引数を消費した事実を caller 側へ伝えるようにした。
+  - `EffectOp::InternalAlloc` / `EffectOp::UnsafeMemory` の direct raw memory call では summary を適用せず、対応する `ResourceOp::RawMemory` 側だけで owner state を進めるようにした。
+  - recursive copy summary、wrapper consume、direct raw memory consume の回帰テストを `nepl-core/tests/resource_ir.rs` に追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check -- --nocapture`: 21 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-owner-summary-rebased-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i stdlib\neplg2\cli\reporter.nepl --no-tree -o tmp\agent1-owner-summary-rebased-reporter.json -j 1`: total=1 passed=1
+  - `node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\agent1-owner-summary-rebased-neplg2.json -j 2`: total=36 passed=36
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の owner token / free obligation summary へ沿って、Resource IR owner summary の caller 伝播を修正した。
+
 # 2026-04-29 メモ (ISS-20260429T021254285Z Resource owner obligation leak in self-host)
 
 - [同期]:

@@ -28,6 +28,7 @@ pub(super) struct BorrowTokenReturnSummary {
 pub(super) struct OwnerReturnSummary {
     pub(super) function: String,
     pub(super) parameter_indices: Vec<usize>,
+    pub(super) consumed_parameter_indices: Vec<usize>,
     pub(super) returns_fresh_owner: bool,
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
 }
@@ -107,6 +108,7 @@ pub(super) fn compute_owner_return_summaries(module: &ResourceModule) -> Vec<Own
             let summary = function_owner_return_summary(function, &summaries);
             if summary.returns_fresh_owner
                 || !summary.parameter_indices.is_empty()
+                || !summary.consumed_parameter_indices.is_empty()
                 || !summary.projection_returns.is_empty()
             {
                 next.push(summary);
@@ -171,9 +173,7 @@ fn function_owner_return_summary(
                         returns_fresh_owner = true;
                     }
                 }
-                Some(OwnerState::MaybeFreed) => {
-                    returns_fresh_owner = true;
-                }
+                Some(OwnerState::MaybeFreed) => {}
                 Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed)
                 | None => {}
             }
@@ -193,12 +193,29 @@ fn function_owner_return_summary(
         }
     }
 
+    let consumed_parameter_indices = consumed_owner_parameter_indices(function, &owners);
     OwnerReturnSummary {
         function: function.name.clone(),
         parameter_indices,
+        consumed_parameter_indices,
         returns_fresh_owner,
         projection_returns,
     }
+}
+
+fn consumed_owner_parameter_indices(
+    function: &ResourceFunction,
+    owners: &OwnerTable,
+) -> Vec<usize> {
+    function
+        .params
+        .iter()
+        .enumerate()
+        .filter_map(|(index, param)| match owners.state(&param.place) {
+            Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed) => Some(index),
+            Some(OwnerState::Live { .. } | OwnerState::NoFreeObligation) | None => None,
+        })
+        .collect()
 }
 
 fn record_projection_owner_return(

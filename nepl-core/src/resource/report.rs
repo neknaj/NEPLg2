@@ -162,6 +162,7 @@ pub enum ResourceOwnerOperation {
     ReturnValue,
     Dealloc,
     ReallocInput,
+    CallArgument,
     BranchValue,
     MatchValue,
     ConstructInput,

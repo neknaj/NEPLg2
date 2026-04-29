@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T02:46:54.514Z",
+  "generated_at": "2026-04-29T02:57:29.238Z",
   "counts": {
     "total": 348,
-    "open": 12,
-    "resolved": 336,
+    "open": 11,
+    "resolved": 337,
     "by_area": {
       "core": {
         "total": 163,
-        "open": 5,
-        "resolved": 158
+        "open": 4,
+        "resolved": 159
       },
       "stdlib": {
         "total": 102,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260429T021254285Z-RESOURCE-OWNER-GATE-LEAKS-OBLIGATION-8F3BD354",
-      "title": "Resource owner gate leaks obligations in self-host hash and diagnostic rendering",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource, stdlib/alloc/hash/hash32.nepl, stdlib/neplg2/cli/reporter.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T021254285Z-RESOURCE-OWNER-GATE-LEAKS-OBLIGATION-8F3BD354.md"
     },
     {
       "id": "ISS-20260429T024412130Z-RESOURCE-OWNER-GATE-REPORTS-D3100-IN-7A19FECC",
@@ -2553,6 +2538,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E.md"
+    },
+    {
+      "id": "ISS-20260429T021254285Z-RESOURCE-OWNER-GATE-LEAKS-OBLIGATION-8F3BD354",
+      "title": "Resource owner gate leaks obligations in self-host hash and diagnostic rendering",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource, stdlib/alloc/hash/hash32.nepl, stdlib/neplg2/cli/reporter.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T021254285Z-RESOURCE-OWNER-GATE-LEAKS-OBLIGATION-8F3BD354.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

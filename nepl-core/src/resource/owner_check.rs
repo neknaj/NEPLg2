@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    OwnerStateEntry, RawMemoryOp, ResourceBlock, ResourceFunction, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    EffectOp, OwnerStateEntry, RawMemoryOp, ResourceBlock, ResourceFunction, ResourceModule,
+    ResourceOp, ResourceTerminator,
 };
 use super::owner_state::OwnerTable;
 use super::report::{
@@ -380,17 +380,22 @@ impl ResourceOwnerCheckEngine<'_> {
                 output,
                 target,
                 args,
+                effect,
                 span,
                 ..
-            } => self.apply_call_return_owner(
-                owners,
-                raw_aliases,
-                storage_origins,
-                output,
-                target,
-                args,
-                *span,
-            ),
+            } => {
+                if !direct_raw_memory_effect(effect) {
+                    self.apply_call_return_owner(
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        output,
+                        target,
+                        args,
+                        *span,
+                    );
+                }
+            }
             ResourceOp::IndirectCall {
                 output,
                 callee,
@@ -443,4 +448,11 @@ fn merge_owner_deferred(
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;
     target.match_merges += source.match_merges;
+}
+
+fn direct_raw_memory_effect(effect: &EffectOp) -> bool {
+    matches!(
+        effect,
+        EffectOp::InternalAlloc | EffectOp::UnsafeMemory { .. }
+    )
 }
