@@ -1,5 +1,6 @@
 use nepl_core::diagnostic_codes::{
-    DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode,
+    BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
+    TypeDiagnosticCode,
 };
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
@@ -94,6 +95,25 @@ fn compile_err_has_resolve_code(src: &str, code: ResolveDiagnosticCode) {
             .iter()
             .any(|diag| diag.code == Some(DiagnosticCode::Resolve(code))),
         "missing resolve diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
+}
+
+fn compile_err_has_backend_code_with_options(
+    src: &str,
+    options: CompileOptions,
+    code: BackendDiagnosticCode,
+) {
+    let result = compile_wasm(FileId(0), src, options);
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == Some(DiagnosticCode::Backend(code))),
+        "missing backend diagnostic {:?}: {:?}",
         code,
         diags
     );
@@ -197,6 +217,25 @@ fn load_inline_with_stdlib(src: &str) -> nepl_core::loader::LoadResult {
     loader
         .load_inline(std::path::PathBuf::from("test.nepl"), src.to_string())
         .expect("load")
+}
+
+#[test]
+fn llvm_target_in_wasm_pipeline_has_backend_code() {
+    let src = r#"
+#entry main
+
+fn main <() -> i32> ():
+    0
+"#;
+    compile_err_has_backend_code_with_options(
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Llvm),
+            verbose: false,
+            profile: None,
+        },
+        BackendDiagnosticCode::TargetRequiresCli,
+    );
 }
 
 #[test]

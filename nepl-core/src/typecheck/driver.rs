@@ -19,7 +19,7 @@ use super::binding_rules::{
     is_callable_binding, shadow_blocked_by_nonshadow,
 };
 use super::check_function;
-use super::diagnostics::{resolve_error, type_error};
+use super::diagnostics::{resolve_error, resolve_warning, type_error};
 use super::driver_entry::resolve_entry_function;
 use super::env::{Binding, BindingKind, Env};
 use super::model::{EnumInfo, StructInfo};
@@ -838,7 +838,8 @@ pub fn typecheck(
                     find_same_signature_func_in_file(&env, &f.name.name, ty, f.name.span, &ctx)
                 {
                     diagnostics.push(
-                        Diagnostic::warning(
+                        resolve_warning(
+                            ResolveDiagnosticCode::ShadowSameSignatureCallable,
                             format!(
                                 "function '{}' with same signature is redefined (treated as shadowing)",
                                 f.name.name
@@ -1040,7 +1041,8 @@ pub fn typecheck(
                 find_same_signature_func_in_file(&env, &alias.name.name, ty, alias.name.span, &ctx)
             {
                 diagnostics.push(
-                    Diagnostic::warning(
+                    resolve_warning(
+                        ResolveDiagnosticCode::ShadowSameSignatureCallable,
                         format!(
                             "function alias '{}' with same signature is redefined (treated as shadowing)",
                             alias.name.name

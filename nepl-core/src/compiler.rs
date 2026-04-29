@@ -10,7 +10,7 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{
     BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
     ResourceBorrowDiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
-    ResourceRawDiagnosticCode,
+    ResourceRawDiagnosticCode, WasmDiagnosticCode,
 };
 use crate::error::CoreError;
 use crate::lexer;
@@ -120,7 +120,8 @@ pub fn compile_module_with_source_map(
     let target = resolve_target(&module, options)?;
     if matches!(target, CompileTarget::Llvm) {
         let mut diags = Vec::new();
-        diags.push(Diagnostic::error(
+        diags.push(Diagnostic::error_with_code(
+            DiagnosticCode::Backend(BackendDiagnosticCode::TargetRequiresCli),
             "llvm target is CLI-only and is not handled by the wasm backend; use nepl-cli LLVM pipeline",
             Span::dummy(),
         ));
@@ -1278,7 +1279,13 @@ fn emit_wasm(
     let mut validator = Validator::new();
     if let Err(err) = validator.validate_all(&bytes) {
         let err_msg = alloc::format!("invalid wasm generated: {}", err);
-        diagnostics.push(Diagnostic::error(err_msg.clone(), Span::dummy()));
+        let mut diag = Diagnostic::error_with_code(
+            DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
+                WasmDiagnosticCode::ValidationFailed,
+            )),
+            err_msg.clone(),
+            Span::dummy(),
+        );
         if let Some(offset) = parse_wasm_error_offset(&err_msg) {
             if let Some(loc) = locate_wasm_function_at_offset(&bytes, offset) {
                 let near_name = hir_module
@@ -1286,15 +1293,13 @@ fn emit_wasm(
                     .get(loc.defined_func_index as usize)
                     .map(|f| f.name.as_str())
                     .unwrap_or("<unknown>");
-                diagnostics.push(Diagnostic::warning(
-                    alloc::format!(
-                        "validation failed near function body: func_index={}, defined_func_index={}, name={}, body_range=0x{:x}..0x{:x}",
+                diag.notes.push(alloc::format!(
+                    "validation failed near function body: func_index={}, defined_func_index={}, name={}, body_range=0x{:x}..0x{:x}",
                         loc.func_index, loc.defined_func_index, near_name, loc.body_start, loc.body_end
-                    ),
-                    Span::dummy(),
                 ));
             }
         }
+        diagnostics.push(diag);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
     Ok(CompilationArtifact {

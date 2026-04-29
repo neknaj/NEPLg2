@@ -1,3 +1,28 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z compiler boundary diagnostic code-first final)
+
+- [同期]:
+  - `38efce6` まで反映した `main` を `origin/main` と同期し、`work/compiler-boundary-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `compiler.rs` に LLVM target が wasm artifact pipeline へ渡った場合の code-less error と、生成済み wasm validation failure の code-less error が残っていた。
+  - typecheck の shadow warning / same-signature callable shadow warning も code-less warning で、error 側だけ code-first 化しても診断分類の網羅性が不完全だった。
+- [修正]:
+  - `BackendDiagnosticCode::TargetRequiresCli`、`WasmDiagnosticCode::ValidationFailed`、`ResolveDiagnosticCode::ShadowImportantSymbol`、`ResolveDiagnosticCode::ShadowSameSignatureCallable` を追加した。
+  - compiler boundary error と typecheck warning を生成時点で enum code に接続した。
+  - wasm validation failure の function body 推定情報は、別 warning ではなく `backend.wasm.validation_failed` の note に畳み込んだ。
+  - active compiler pass call site に残っていた code-less diagnostic 監査用の stale debug comment を削除した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "Diagnostic::error\(|Diagnostic::warning\(|\.with_code\(" nepl-core/src -g "*.rs"`: active pass call site は no matches
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_target_in_wasm_pipeline_has_backend_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の compiler boundary 最終残件を完了し、次は静的検査大規模修正へ戻る。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z wasm shared diagnostic code-first)
 
 - [同期]:

@@ -4,10 +4,12 @@ use alloc::vec::Vec;
 
 use crate::ast::{FnBody, FnDef, PrefixItem, Stmt};
 use crate::diagnostic::Diagnostic;
+use crate::diagnostic_codes::ResolveDiagnosticCode;
 use crate::resolve::ImportResolution;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+use super::diagnostics::resolve_warning;
 use super::env::{Binding, BindingKind, Env};
 use super::signature::same_function_signature;
 use super::FieldAccessorKind;
@@ -43,14 +45,15 @@ pub(super) fn emit_shadow_warning(
             return;
         }
         let message = format!("important symbol '{}' is shadowed by local {}", name, kind);
-        let mut diag = Diagnostic::warning(message, span);
+        let mut diag = resolve_warning(ResolveDiagnosticCode::ShadowImportantSymbol, message, span);
         diag = diag.with_secondary_label(
             shadowed.span,
             Some(String::from("shadowed definition is here")),
         );
         diagnostics.push(diag);
     } else if is_important_shadow_symbol(name) {
-        diagnostics.push(Diagnostic::warning(
+        diagnostics.push(resolve_warning(
+            ResolveDiagnosticCode::ShadowImportantSymbol,
             format!(
                 "definition '{}' may shadow important stdlib symbol ({})",
                 name, kind

@@ -54,6 +54,8 @@ pub enum ResolveDiagnosticCode {
     IdentifierUndefined,
     ShadowNoShadowViolation,
     ShadowNoShadowConflict,
+    ShadowImportantSymbol,
+    ShadowSameSignatureCallable,
     ItemNameConflict,
     AliasTargetNotFound,
     EntryFunctionMissingOrAmbiguous,
@@ -188,6 +190,7 @@ pub enum BackendDiagnosticCode {
     Wasm(WasmDiagnosticCode),
     Llvm(LlvmDiagnosticCode),
     TraitCallUnresolved,
+    TargetRequiresCli,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -211,6 +214,7 @@ pub enum WasmDiagnosticCode {
     FieldSelectorUnsupported,
     FieldValueTypeUnsupported,
     LoweredSignatureMissing,
+    ValidationFailed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -267,6 +271,8 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::RawBlockInvalidPlacement),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowViolation),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowConflict),
+    DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowImportantSymbol),
+    DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable),
     DiagnosticCode::Type(TypeDiagnosticCode::FunctionValueCapturingUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::IndirectCallRequiresFunctionValue),
     DiagnosticCode::Type(TypeDiagnosticCode::VariableNotCallable),
@@ -438,6 +444,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
         WasmDiagnosticCode::LoweredSignatureMissing,
     )),
+    DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
+        WasmDiagnosticCode::ValidationFailed,
+    )),
     DiagnosticCode::Backend(BackendDiagnosticCode::Llvm(
         LlvmDiagnosticCode::RawBodyMismatch,
     )),
@@ -457,6 +466,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
         LlvmDiagnosticCode::HirUnsupported,
     )),
     DiagnosticCode::Backend(BackendDiagnosticCode::TraitCallUnresolved),
+    DiagnosticCode::Backend(BackendDiagnosticCode::TargetRequiresCli),
 ];
 
 impl DiagnosticCode {
@@ -582,6 +592,10 @@ impl ResolveDiagnosticCode {
             ResolveDiagnosticCode::IdentifierUndefined => "resolve.identifier.undefined",
             ResolveDiagnosticCode::ShadowNoShadowViolation => "resolve.shadow.no_shadow_violation",
             ResolveDiagnosticCode::ShadowNoShadowConflict => "resolve.shadow.no_shadow_conflict",
+            ResolveDiagnosticCode::ShadowImportantSymbol => "resolve.shadow.important_symbol",
+            ResolveDiagnosticCode::ShadowSameSignatureCallable => {
+                "resolve.shadow.same_signature_callable"
+            }
             ResolveDiagnosticCode::ItemNameConflict => "resolve.item.name_conflict",
             ResolveDiagnosticCode::AliasTargetNotFound => "resolve.alias.target_not_found",
             ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous => {
@@ -596,6 +610,10 @@ impl ResolveDiagnosticCode {
             ResolveDiagnosticCode::IdentifierUndefined => "undefined identifier",
             ResolveDiagnosticCode::ShadowNoShadowViolation => "cannot shadow non-shadowable symbol",
             ResolveDiagnosticCode::ShadowNoShadowConflict => "noshadow declaration conflicts",
+            ResolveDiagnosticCode::ShadowImportantSymbol => "important symbol is shadowed",
+            ResolveDiagnosticCode::ShadowSameSignatureCallable => {
+                "same signature callable is redefined"
+            }
             ResolveDiagnosticCode::ItemNameConflict => "name already used by another item",
             ResolveDiagnosticCode::AliasTargetNotFound => "alias target not found",
             ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous => {
@@ -993,6 +1011,7 @@ impl BackendDiagnosticCode {
             BackendDiagnosticCode::Wasm(code) => code.as_str(),
             BackendDiagnosticCode::Llvm(code) => code.as_str(),
             BackendDiagnosticCode::TraitCallUnresolved => "backend.codegen.trait_call_unresolved",
+            BackendDiagnosticCode::TargetRequiresCli => "backend.codegen.target_requires_cli",
         }
     }
 
@@ -1003,6 +1022,7 @@ impl BackendDiagnosticCode {
             BackendDiagnosticCode::TraitCallUnresolved => {
                 "unresolved trait call remained after monomorphize"
             }
+            BackendDiagnosticCode::TargetRequiresCli => "target requires CLI backend",
         }
     }
 }
@@ -1047,6 +1067,7 @@ impl WasmDiagnosticCode {
                 "backend.wasm.field_value_type_unsupported"
             }
             WasmDiagnosticCode::LoweredSignatureMissing => "backend.wasm.lowered_signature_missing",
+            WasmDiagnosticCode::ValidationFailed => "backend.wasm.validation_failed",
         }
     }
 
@@ -1093,6 +1114,7 @@ impl WasmDiagnosticCode {
             WasmDiagnosticCode::LoweredSignatureMissing => {
                 "missing lowered wasm function signature"
             }
+            WasmDiagnosticCode::ValidationFailed => "generated wasm failed validation",
         }
     }
 }
@@ -1144,6 +1166,30 @@ mod tests {
             assert!(
                 !code.message().is_empty(),
                 "empty diagnostic message for {text}"
+            );
+        }
+    }
+
+    #[test]
+    fn compiler_boundary_codes_are_registered() {
+        let codes = [
+            DiagnosticCode::Backend(BackendDiagnosticCode::TargetRequiresCli),
+            DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
+                WasmDiagnosticCode::ValidationFailed,
+            )),
+            DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowImportantSymbol),
+            DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable),
+        ];
+        for code in codes {
+            assert!(
+                ALL_DIAGNOSTIC_CODES.contains(&code),
+                "missing diagnostic registry entry for {:?}",
+                code
+            );
+            assert!(
+                !code.as_str().is_empty() && !code.message().is_empty(),
+                "invalid diagnostic registry metadata for {:?}",
+                code
             );
         }
     }

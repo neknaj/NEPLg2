@@ -795,7 +795,6 @@ fn visit_expr_with_escape(
     }
 
     let is_copy = tctx.is_copy(expr.ty);
-    // ctx.diagnostics.push(Diagnostic::warning(alloc::format!("DEBUG: visiting kind {:?}", expr.kind), expr.span));
 
     match &expr.kind {
         HirExprKind::Var(name) => {

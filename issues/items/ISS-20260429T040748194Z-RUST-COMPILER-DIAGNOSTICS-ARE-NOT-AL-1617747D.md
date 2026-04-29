@@ -777,3 +777,22 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `node nodesrc/run_doctest.js -i tests/compiler/raw_body_precheck.n.md -n 4 --dist web/dist`: pass。`backend.wasm.raw_line_parse_error` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 compiler boundary final code-first 追記
+
+`compiler.rs` には、LLVM target を wasm artifact pipeline で処理しようとした場合の error と、生成済み wasm validation failure の error が、まだ code-less な `Diagnostic::error(...)` として残っていた。さらに typecheck の shadow warning / same-signature callable shadow warning も code-less な `Diagnostic::warning(...)` であり、warning 側だけ診断分類が外れる状態だった。
+
+今回の対応で `BackendDiagnosticCode::TargetRequiresCli`、`WasmDiagnosticCode::ValidationFailed`、`ResolveDiagnosticCode::ShadowImportantSymbol`、`ResolveDiagnosticCode::ShadowSameSignatureCallable` を追加し、それぞれ生成時点で `Diagnostic::error_with_code(...)` / `warning_with_code(...)` に接続した。wasm validation failure の function body 推定情報は別 warning とせず、`backend.wasm.validation_failed` diagnostic の note として保持する。
+
+これにより active compiler pass call site から code-less error / warning と後付け `.with_code(...)` は除去された。`diagnostic.rs` 内には public constructor 自体とその unit test が残るが、pass 側の診断生成は enum code-first に揃っている。
+
+検証:
+
+- `rg -n "Diagnostic::error\\(|Diagnostic::warning\\(|\\.with_code\\(" nepl-core/src -g "*.rs"`: active pass call site は no matches。残件は `diagnostic.rs` の constructor unit test のみ。
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 llvm_target_in_wasm_pipeline_has_backend_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
