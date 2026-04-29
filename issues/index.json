@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T03:12:42.571Z",
+  "generated_at": "2026-04-29T03:25:19.697Z",
   "counts": {
-    "total": 348,
+    "total": 349,
     "open": 10,
-    "resolved": 338,
+    "resolved": 339,
     "by_area": {
       "core": {
-        "total": 163,
+        "total": 164,
         "open": 3,
-        "resolved": 160
+        "resolved": 161
       },
       "stdlib": {
         "total": 102,
@@ -2553,6 +2553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T024412130Z-RESOURCE-OWNER-GATE-REPORTS-D3100-IN-7A19FECC.md"
+    },
+    {
+      "id": "ISS-20260429T031855408Z-RESOURCE-IR-COVERAGE-COMPARISON-CONC-E23BB5D9",
+      "title": "Resource IR coverage comparison concentrates HIR and Resource IR responsibilities",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_hir.rs, nepl-core/src/resource/coverage_resource.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T031855408Z-RESOURCE-IR-COVERAGE-COMPARISON-CONC-E23BB5D9.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

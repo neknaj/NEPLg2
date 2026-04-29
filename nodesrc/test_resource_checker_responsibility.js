@@ -67,6 +67,9 @@ for (const moduleName of [
     'effect_check.rs',
     'effect_summary.rs',
     'effect_identity.rs',
+    'coverage.rs',
+    'coverage_hir.rs',
+    'coverage_resource.rs',
     'report.rs',
     'shadow.rs',
     'initialized_alias.rs',
@@ -86,6 +89,9 @@ for (const moduleDecl of [
     'mod effect_check;',
     'mod effect_summary;',
     'mod effect_identity;',
+    'mod coverage;',
+    'mod coverage_hir;',
+    'mod coverage_resource;',
     'mod report;',
     'mod shadow;',
     'mod initialized_alias;',
@@ -104,6 +110,9 @@ const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
 const effectSummary = readResource('effect_summary.rs');
+const coverage = readResource('coverage.rs');
+const coverageHir = readResource('coverage_hir.rs');
+const coverageResource = readResource('coverage_resource.rs');
 
 assertContains(initialized, 'struct ResourceCheckEngine', 'initialized.rs');
 assertContains(borrowCheck, 'struct ResourceBorrowCheckEngine', 'borrow_check.rs');
@@ -112,6 +121,13 @@ assertContains(effectCheck, 'struct ResourceEffectBoundaryEngine', 'effect_check
 
 assertNotContains(effect, 'struct ResourceEffectBoundaryEngine', 'effect.rs');
 assertContains(effect, 'pub fn check_resource_effect_boundaries', 'effect.rs');
+assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
+assertContains(coverageHir, 'pub(super) fn hir_body_coverage', 'coverage_hir.rs');
+assertContains(
+    coverageResource,
+    'pub(super) fn resource_function_coverage',
+    'coverage_resource.rs',
+);
 assertUsesResourceModuleSymbol(
     summary,
     'borrow_check',
@@ -140,6 +156,9 @@ const maxLines = new Map([
     ['effect_check.rs', 700],
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
+    ['coverage.rs', 280],
+    ['coverage_hir.rs', 420],
+    ['coverage_resource.rs', 520],
     ['initialized_alias.rs', 550],
     ['initialized_alias_flow.rs', 550],
     ['initialized_raw_memory.rs', 300],

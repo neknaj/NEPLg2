@@ -11,6 +11,8 @@ mod borrow_check;
 mod borrow_state;
 mod cell_state;
 mod coverage;
+mod coverage_hir;
+mod coverage_resource;
 mod dump;
 mod effect;
 mod effect_check;

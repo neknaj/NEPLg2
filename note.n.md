@@ -24554,3 +24554,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource owner checker 分割として、検査 traversal と owner state mutation / storage origin flow を分離した。
+
+# 2026-04-29 メモ (ISS-20260429T031855408Z Resource IR coverage split)
+
+- [原因]:
+  - `nepl-core/src/resource/coverage.rs` が 1047 行まで増え、public coverage 型、HIR coverage walker、Resource IR coverage walker、unknown-place diagnostic、count mismatch diagnostic を同じ file に抱えていた。
+  - Stage 4/5 の compiler gate は Resource IR lowering coverage を前提に動くため、coverage comparison 自体が巨大化すると静的検査入力の欠落を検出する境界が監査しづらくなる。
+  - 既存 Source policy は checker 本体の分割を守っていたが、coverage comparison の責務集中は検出していなかった。
+- [修正]:
+  - `coverage.rs` を public data shape と compare orchestration に限定した。
+  - HIR 側 walker を `coverage_hir.rs`、Resource IR 側 walker / unknown-place diagnostic を `coverage_resource.rs` に分離した。
+  - `nodesrc/test_resource_checker_responsibility.js` に coverage module の存在確認と line limit を追加し、同じ退行を CI Source policy で検出できるようにした。
+- [検証]:
+  - `rustfmt --check nepl-core\src\resource\coverage.rs nepl-core\src\resource\coverage_hir.rs nepl-core\src\resource\coverage_resource.rs nepl-core\src\resource\mod.rs`: pass
+  - `node nodesrc\test_resource_checker_responsibility.js`: pass
+  - `cargo test -p nepl-core --test resource_ir coverage -- --nocapture`: 1 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-resource-coverage-split-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4/5 の authoritative gate 前提として、Resource IR lowering coverage の責務境界を明確化した。
