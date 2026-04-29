@@ -128,3 +128,20 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `cargo check -p nepl-core --tests`: pass
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 lexer boundary follow-up 追記
+
+`compiler.rs` の D1 移行後も、lexer は `Diagnostic::error(...).with_code(...)` を多数使っており、indent、raw block、directive、string/char literal、unknown token の各診断で code と message が後付け結合のままだった。
+
+今回の対応で `nepl-core/src/lexer.rs` に `lexer_error` / `parser_error` helper を導入し、lexer 内の active diagnostic construction を `Diagnostic::error_with_code(...)` 経由に統一した。`#extern` の構文診断だけは lexer 入口で発生するが、意味分類は既存通り `ParserDiagnosticCode::ExternSignatureInvalid` に固定する。
+
+これにより `lexer.rs` から `.with_code(...)` は消え、Stage D1 の「生成時点で enum code を確定する」方針が compiler boundary だけでなく lexer boundary にも適用された。parser/typecheck/backend の残件はこの issue の後続 D1 として維持する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code" nepl-core/src/lexer.rs`: no matches
+- `cargo test -p nepl-core lexer -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

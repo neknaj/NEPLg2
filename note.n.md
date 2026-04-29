@@ -24933,3 +24933,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - Linked the plan from the static check plan and related Resource IR / raw memory / MemPtr issues.
 - [plan.md difference]:
   - `plan.md` was not modified.
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z lexer diagnostic code-first)
+
+- [原因]:
+  - diagnostics redesign Stage D1 で `compiler.rs` は code-first constructor へ移行済みだったが、`lexer.rs` には `Diagnostic::error(...).with_code(...)` が残っていた。
+  - これでは indent / directive / literal / unknown token の診断で、enum code が診断生成後に後付けされ、設計上は message と code の不適切な組み合わせを作れる状態が残る。
+- [修正]:
+  - `nepl-core/src/lexer.rs` に `lexer_error` / `parser_error` helper を追加した。
+  - lexer 内の active diagnostic construction を `Diagnostic::error_with_code(...)` 経由に統一し、`LexerDiagnosticCode` / `ParserDiagnosticCode` を生成時点で確定させた。
+  - `rg -n "\\.with_code" nepl-core/src/lexer.rs` で lexer 内に後付け code 付与が残っていないことを確認した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code" nepl-core/src/lexer.rs`: no matches
+  - `cargo test -p nepl-core lexer -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の lexer 代表移行を進めた。
