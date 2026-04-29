@@ -69,7 +69,7 @@ impl Copy for Document:
 //: [計算量/けいさんりょう]:
 //: - O(line_length)
 fn nm_read_line <(str,i32)->str> (s, pos):
-    str_trim_suffix_cr str_slice s pos scanner::str_line_end s pos
+    str_slice_trim_suffix_cr s pos scanner::str_line_end s pos
 
 //: nm_heading_level: ATX heading の level を判定する
 //:
@@ -195,6 +195,77 @@ fn nm_deepest_level <(bool,bool,bool,bool,bool,bool)->i32> (open1, open2, open3,
                                                 then 1
                                                 else 0
 
+//: json_escape_byte_into: JSON 文字列用に 1 byte を builder へ追加する
+//:
+//: [目的/もくてき]:
+//: - JSON string literal 内の 1 byte を、必要なら escape sequence に変換して追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn json_escape_byte_into <(StringBuilder,i32)->StringBuilder> (sb, ch):
+    match ch:
+        '\\':
+            sb_append sb "\\\\"
+        '"':
+            sb_append sb "\\\""
+        '\n':
+            sb_append sb "\\n"
+        '\r':
+            sb_append sb "\\r"
+        '\t':
+            sb_append sb "\\t"
+        '\b':
+            sb_append sb "\\b"
+        '\f':
+            sb_append sb "\\f"
+        _:
+            sb_append_byte sb ch
+
+//: json_escape_mem_into: byte 列を JSON escape しながら builder へ追加する
+//:
+//: [目的/もくてき]:
+//: - 既に UTF-8 として扱える byte 列を、新しい `str` を作らずに JSON string literal 用へ escape して追加します。
+//:
+//: [実装/じっそう]:
+//: - source byte を順に読み、`json_escape_byte_into` へ渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn json_escape_mem_into <(StringBuilder,MemPtr<u8>,i32)->StringBuilder> (sb, data, byte_len):
+    let mut out <StringBuilder> sb;
+    let mut i <i32> 0;
+    while lt i byte_len:
+        do:
+            let ch <i32> load_u8 <i32> add mem_ptr_addr data i;
+            set out json_escape_byte_into out ch;
+            set i add i 1;
+    out
+
+//: json_escape_into: JSON escape した内容を既存 builder へ追加する
+//:
+//: [目的/もくてき]:
+//: - 一時 `str` を返さず、呼び出し側の builder に直接 escaped byte を追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn json_escape_into <(StringBuilder,str)->StringBuilder> (sb, s):
+    json_escape_mem_into sb string_data_ptr s len s
+
+//: json_escape_builder_into: builder の内容を JSON escape して別 builder へ移す
+//:
+//: [目的/もくてき]:
+//: - 一時 `str` を作らず、source builder の byte 列を escape して destination builder へ追加します。
+//:
+//: [実装/じっそう]:
+//: - source builder の buffer を走査し、追加後に source builder を解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn json_escape_builder_into <(StringBuilder,StringBuilder)->StringBuilder> (sb, src):
+    let out <StringBuilder> json_escape_mem_into sb get src "data" get src "len";
+    string_builder_free src;
+    out
+
 //: json_escape: JSON 文字列用に byte を escape する
 //:
 //: [目的/もくてき]:
@@ -206,31 +277,7 @@ fn nm_deepest_level <(bool,bool,bool,bool,bool,bool)->i32> (open1, open2, open3,
 //: [計算量/けいさんりょう]:
 //: - O(n)
 fn json_escape <(str)->str> (s):
-    let mut sb <StringBuilder> string_builder_new;
-    let n <i32> len s;
-    let mut i <i32> 0;
-    while lt i n:
-        do:
-            let ch <i32> string_byte_at_unchecked s i;
-            match ch:
-                '\\':
-                    set sb sb_append sb "\\\\"
-                '"':
-                    set sb sb_append sb "\\\""
-                '\n':
-                    set sb sb_append sb "\\n"
-                '\r':
-                    set sb sb_append sb "\\r"
-                '\t':
-                    set sb sb_append sb "\\t"
-                '\b':
-                    set sb sb_append sb "\\b"
-                '\f':
-                    set sb sb_append sb "\\f"
-                _:
-                    set sb sb_append sb str_slice s i add i 1;
-            set i add i 1;
-    sb_build sb
+    sb_build json_escape_into string_builder_new s
 
 //: nm_find_math_end: math delimiter の閉じ位置を探す
 //:
@@ -298,19 +345,19 @@ fn nm_find_gloss_slash <(str,i32,i32)->i32> (s, start, end):
             set i add i 1;
     found
 
-//: nm_inline_to_json: inline markup を JSON array に変換する
+//: nm_inline_to_json_into: inline markup を JSON array として builder へ追加する
 //:
 //: [目的/もくてき]:
-//: - 1 行分の inline markup を `[{...}]` 形式の JSON array へ直接変換します。
+//: - 1 行分の inline markup を `[{...}]` 形式の JSON array として既存 builder へ追加します。
 //:
 //: [実装/じっそう]:
 //: - pending text を marker の直前で flush し、ruby/gloss/math を object として追加します。
-//: - raw storage に inline AST を置かないため、strict move checking と衝突しません。
+//: - raw storage に inline AST を置かず、返却用の一時 `str` も作らないため、Resource IR の owner 境界が明確です。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + m)
-fn nm_inline_to_json <(str)->str> (s):
-    let mut sb <StringBuilder> string_builder_new;
+fn nm_inline_to_json_into <(StringBuilder,str)->StringBuilder> (out, s):
+    let mut sb <StringBuilder> out;
     set sb sb_append sb "[";
     let n <i32> len s;
     let mut i <i32> 0;
@@ -336,7 +383,7 @@ fn nm_inline_to_json <(str)->str> (s):
                                 then:
                                     if has then set sb sb_append sb "," else ()
                                     set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-                                    set sb sb_append sb json_escape seg;
+                                    set sb json_escape_into sb seg;
                                     set sb sb_append sb "\"}";
                                     set has true
                                 else ()
@@ -344,7 +391,7 @@ fn nm_inline_to_json <(str)->str> (s):
                             let m <str> str_slice s i endpos;
                             if has then set sb sb_append sb "," else ()
                             set sb sb_append sb "{\"t\":\"math\",\"s\":\"";
-                            set sb sb_append sb json_escape m;
+                            set sb json_escape_into sb m;
                             set sb sb_append sb "\"}";
                             set has true;
                             set i endpos;
@@ -372,7 +419,7 @@ fn nm_inline_to_json <(str)->str> (s):
                                 then:
                                     if has then set sb sb_append sb "," else ()
                                     set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-                                    set sb sb_append sb json_escape seg;
+                                    set sb json_escape_into sb seg;
                                     set sb sb_append sb "\"}";
                                     set has true
                                 else ()
@@ -380,9 +427,9 @@ fn nm_inline_to_json <(str)->str> (s):
                             let rub <str> str_slice s add slash 1 close;
                             if has then set sb sb_append sb "," else ()
                             set sb sb_append sb "{\"t\":\"ruby\",\"base\":\"";
-                            set sb sb_append sb json_escape base;
+                            set sb json_escape_into sb base;
                             set sb sb_append sb "\",\"ruby\":\"";
-                            set sb sb_append sb json_escape rub;
+                            set sb json_escape_into sb rub;
                             set sb sb_append sb "\"}";
                             set has true;
                             set i add close 1;
@@ -405,14 +452,14 @@ fn nm_inline_to_json <(str)->str> (s):
                                 then:
                                     if has then set sb sb_append sb "," else ()
                                     set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-                                    set sb sb_append sb json_escape seg;
+                                    set sb json_escape_into sb seg;
                                     set sb sb_append sb "\"}";
                                     set has true
                                 else ()
                             let main <str> str_slice s add i 1 first_slash;
                             if has then set sb sb_append sb "," else ()
                             set sb sb_append sb "{\"t\":\"gloss\",\"main\":\"";
-                            set sb sb_append sb json_escape main;
+                            set sb json_escape_into sb main;
                             set sb sb_append sb "\",\"subs\":[";
                             let mut sub_start <i32> add first_slash 1;
                             let mut k <i32> sub_start;
@@ -428,7 +475,7 @@ fn nm_inline_to_json <(str)->str> (s):
                                     let part <str> str_slice s sub_start part_end;
                                     if sub_has then set sb sb_append sb "," else ()
                                     set sb sb_append sb "\"";
-                                    set sb sb_append sb json_escape part;
+                                    set sb json_escape_into sb part;
                                     set sb sb_append sb "\"";
                                     set sub_has true;
                                     if:
@@ -452,11 +499,24 @@ fn nm_inline_to_json <(str)->str> (s):
         then:
             if has then set sb sb_append sb "," else ()
             set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-            set sb sb_append sb json_escape tail;
+            set sb json_escape_into sb tail;
             set sb sb_append sb "\"}"
         else ()
     set sb sb_append sb "]";
-    sb_build sb
+    sb
+
+//: nm_inline_to_json: inline markup を JSON array に変換する
+//:
+//: [目的/もくてき]:
+//: - 1 行分の inline markup を `[{...}]` 形式の JSON array へ変換します。
+//:
+//: [実装/じっそう]:
+//: - 実処理は `nm_inline_to_json_into` に委譲し、単独 API として必要なときだけ最後に `str` を構築します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n + m)
+fn nm_inline_to_json <(str)->str> (s):
+    sb_build nm_inline_to_json_into string_builder_new s
 
 //: nm_json_begin_node: 現在 container に JSON node を追加する前処理を行う
 //:
@@ -557,7 +617,7 @@ pub fn document_to_json <(Document)->str> (doc):
     while lt pos n:
         do:
             let line_end <i32> scanner::str_line_end src pos;
-            let raw <str> str_trim_suffix_cr str_slice src pos line_end;
+            let raw <str> str_slice_trim_suffix_cr src pos line_end;
             let t <str> str_trim raw;
             set pos scanner::str_next_line_pos src line_end;
             if:
@@ -637,7 +697,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                             while and lt pos n not done:
                                                 do:
                                                     let cend <i32> scanner::str_line_end src pos;
-                                                    let craw <str> str_trim_suffix_cr str_slice src pos cend;
+                                                    let craw <str> str_slice_trim_suffix_cr src pos cend;
                                                     let ct <str> str_trim craw;
                                                     set pos scanner::str_next_line_pos src cend;
                                                     if:
@@ -663,9 +723,9 @@ pub fn document_to_json <(Document)->str> (doc):
                                                 _:
                                                     set has6 true
                                             set sb sb_append sb "{\"t\":\"code\",\"info\":\"";
-                                            set sb sb_append sb json_escape info;
+                                            set sb json_escape_into sb info;
                                             set sb sb_append sb "\",\"code\":\"";
-                                            set sb sb_append sb json_escape sb_build code_sb;
+                                            set sb json_escape_builder_into sb code_sb;
                                             set sb sb_append sb "\"}"
                                         else:
                                             let hlevel <i32> nm_heading_level t;
@@ -711,7 +771,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     set sb sb_append sb ",\"heading\":{\"level\":";
                                                     set sb sb_append_i32 sb hlevel;
                                                     set sb sb_append sb ",\"inl\":";
-                                                    set sb sb_append sb nm_inline_to_json htext;
+                                                    set sb nm_inline_to_json_into sb htext;
                                                     set sb sb_append sb "},\"children\":[";
                                                     match hlevel:
                                                         1:
@@ -734,7 +794,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     while and lt pos n not done:
                                                         do:
                                                             let pend <i32> scanner::str_line_end src pos;
-                                                            let praw <str> str_trim_suffix_cr str_slice src pos pend;
+                                                            let praw <str> str_slice_trim_suffix_cr src pos pend;
                                                             let pt <str> str_trim praw;
                                                             if:
                                                                 nm_is_block_boundary pt
@@ -760,7 +820,8 @@ pub fn document_to_json <(Document)->str> (doc):
                                                         _:
                                                             set has6 true
                                                     set sb sb_append sb "{\"t\":\"p\",\"inl\":";
-                                                    set sb sb_append sb nm_inline_to_json sb_build para_sb;
+                                                    let para_text <str> sb_build para_sb;
+                                                    set sb nm_inline_to_json_into sb para_text;
                                                     set sb sb_append sb "}"
 
     while gt current_level 0:

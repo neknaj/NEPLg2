@@ -26458,3 +26458,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib の CLI argv 境界を、Resource IR の initialized-cell / owner 境界に見える形へ寄せた。
+
+# 2026-04-29 メモ (ISS-20260429T144908106Z scalar owner summary / nm JSON)
+
+- [同期]:
+  - `origin/main` の `8b03a28` まで同期した `main` から `work/nm-string-builder-owner-boundary` branch を作成した。
+- [原因]:
+  - `examples/nm.nepl` の `nm-compile` は `document_to_json` の `Temporary(ResourceId(...))` と `sb_build_result` の `out_region` owner leak で停止していた。
+  - Resource IR dump で `document_to_json` の temporary は `nm_json_needs_comma` の `bool` 戻り値であり、文字列 owner ではないことを確認した。
+  - 根本原因は `owner_summary_leaf.rs` が `Bool` / `U8` / `F32` / `Char` / function value まで owner leaf として扱い、scalar parameter return を free obligation transfer と誤要約していたことだった。
+  - `sb_build_result` には、出力領域確保後の `mem_copy<u8>` 失敗 path で `out_region` を解放しない実 leak もあった。
+- [修正]:
+  - owner summary leaf から non-owning scalar (`Bool` / `U8` / `F32` / `Char`) と function value を除外した。現行 raw pointer 互換のため `I32` はこの issue では維持した。
+  - `resource_ir_owner_summary_does_not_treat_bool_parameters_as_owners` を追加し、bool helper が owner obligation を作らないことを固定した。
+  - `sb_build_result` の copy failure path で `dealloc_region<u8> out_region` を呼ぶようにした。
+  - `sb_append_byte(_result)`、`json_escape_into`、`json_escape_builder_into`、`nm_inline_to_json_into`、`str_slice_trim_suffix_cr` を追加し、NM JSON 出力の不要な中間 `str` を減らした。
+- [検証]:
+  - `cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output target/ci-nm`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_ -- --nocapture`: 33 passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-owner-boundary.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-owner-boundary.json -j 1 --dist web/dist`: `total=8`, `passed=5`, `failed=3`。残りは checks owner leak と既存 doctest 型不一致で、この issue の `sb_build_result` / nm compile 失敗とは別扱い。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4 Resource owner summary の owner leaf 分類を、non-owning scalar と raw owner を混同しない方向へ修正した。

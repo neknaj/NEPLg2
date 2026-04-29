@@ -76,18 +76,17 @@ fn owner_leaf_projections_mapped(
                     ty: mapped,
                 }]
             }),
-        TypeKind::I32
-        | TypeKind::U8
+        TypeKind::U8
         | TypeKind::F32
         | TypeKind::Bool
         | TypeKind::Char
-        | TypeKind::Str
-        | TypeKind::Named(_)
-        | TypeKind::Function { .. }
-        | TypeKind::Box(_) => vec![OwnerLeafProjection {
-            suffix: Vec::new(),
-            ty: mapped,
-        }],
+        | TypeKind::Function { .. } => Vec::new(),
+        TypeKind::I32 | TypeKind::Str | TypeKind::Named(_) | TypeKind::Box(_) => {
+            vec![OwnerLeafProjection {
+                suffix: Vec::new(),
+                ty: mapped,
+            }]
+        }
     };
     seen.remove(&mapped);
     out

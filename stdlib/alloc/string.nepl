@@ -904,6 +904,36 @@ fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb,
             string_builder_free sb
             Result<StringBuilder,str>::Err "string.builder non-ascii char"
 
+//: sb_append_byte_result: builder に検証済みの 1 byte を追加する
+//:
+//: [目的/もくてき]:
+//: - 既存の UTF-8 文字列や byte buffer から読んだ byte を、追加の `str` 確保なしで builder へ追加します。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は byte の UTF-8 妥当性を検証しません。呼び出し側は元の byte 列が UTF-8 として妥当であることを保証してください。
+//: - `byte` が 0..255 の範囲外なら入力 builder を解放して `Err` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
+fn sb_append_byte_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, byte):
+    if:
+        or lt byte 0 gt byte 255
+        then:
+            string_builder_free sb
+            Result<StringBuilder,str>::Err "string.builder invalid byte"
+        else:
+            match string_builder_reserve_result sb 1:
+                Result::Err e:
+                    Result<StringBuilder,str>::Err e
+                Result::Ok reserved:
+                    let dst <MemPtr<u8>> mem_ptr_add get reserved "data" get reserved "len"
+                    match store_u8 dst byte:
+                        Result::Ok _:
+                            sb_finish_char_append reserved 1
+                        Result::Err _e:
+                            string_builder_free reserved
+                            Result<StringBuilder,str>::Err "string.builder append byte failed"
+
 fn sb_append_char <(StringBuilder,char)->StringBuilder> (sb, c):
     match sb_append_char_result sb c:
         Result::Ok next:
@@ -913,6 +943,13 @@ fn sb_append_char <(StringBuilder,char)->StringBuilder> (sb, c):
 
 fn sb_append_ascii <(StringBuilder,char)->StringBuilder> (sb, c):
     match sb_append_ascii_result sb c:
+        Result::Ok next:
+            next
+        Result::Err _e:
+            string_builder_empty
+
+fn sb_append_byte <(StringBuilder,i32)->StringBuilder> (sb, byte):
+    match sb_append_byte_result sb byte:
         Result::Ok next:
             next
         Result::Err _e:
@@ -986,6 +1023,11 @@ fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
                             string_builder_free sb;
                             Result<str,str>::Ok string_finish out_region len0
                         Result::Err _e:
+                            match dealloc_region<u8> out_region:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
                             string_builder_free sb;
                             Result<str,str>::Err "string.builder build copy failed"
 
@@ -1200,6 +1242,40 @@ fn str_trim_suffix_cr <(str)->str> (s):
         and gt n 0 eq string_byte_at_unchecked s sub n 1 '\r'
         then str_slice s 0 sub n 1
         else s
+
+//: str_slice_trim_suffix_cr: 範囲切り出しと末尾 CR 除去を 1 回の str 構築にまとめる
+//:
+//: [目的/もくてき]:
+//: - `str_trim_suffix_cr str_slice s start end` と同じ結果を、不要な中間 `str` を作らずに返します。
+//:
+//: [実装/じっそう]:
+//: - `str_slice` と同じ境界丸めを行い、丸め後の末尾 byte が CR なら end を 1 byte 戻してから切り出します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 境界検査と失敗時 fallback は最終的な `str_slice` に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
+    let n <i32> len s
+    let mut s0 <i32> start
+    let mut e0 <i32> end
+    if:
+        lt s0 0
+        then set s0 0
+        else ()
+    if:
+        lt e0 s0
+        then set e0 s0
+        else ()
+    if:
+        lt n e0
+        then set e0 n
+        else ()
+    if:
+        and gt e0 s0 eq string_byte_at_unchecked s sub e0 1 '\r'
+        then str_slice s s0 sub e0 1
+        else str_slice s s0 e0
 
 //: str_ends_with: 末尾 byte 列が suffix と一致するか判定する
 //:

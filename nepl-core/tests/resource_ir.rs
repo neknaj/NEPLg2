@@ -4703,6 +4703,82 @@ fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
 }
 
 #[test]
+fn resource_ir_owner_summary_does_not_treat_bool_parameters_as_owners() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let helper_param = Place::local("flag".to_string(), bool_ty);
+    let flag = Place::temporary(ResourceId(0), bool_ty);
+    let returned = Place::temporary(ResourceId(1), bool_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "bool_id".to_string(),
+                params: vec![ResourceLocal {
+                    name: "flag".to_string(),
+                    ty: bool_ty,
+                    mutable: false,
+                    place: helper_param.clone(),
+                }],
+                result: bool_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return {
+                        value: Some(helper_param),
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            output: flag.clone(),
+                            kind: ResourceExprKind::Literal,
+                            ty: bool_ty,
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: returned,
+                            target: ResourceCallTarget::User {
+                                name: "bool_id".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![flag],
+                            effect: EffectOp::UserCall {
+                                name: "bool_id".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_owner_check_does_not_freshen_recursive_copy_summary() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();

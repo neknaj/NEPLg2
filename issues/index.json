@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T15:03:32.251Z",
+  "generated_at": "2026-04-29T15:09:23.691Z",
   "counts": {
-    "total": 380,
+    "total": 381,
     "open": 15,
-    "resolved": 365,
+    "resolved": 366,
     "by_area": {
       "core": {
-        "total": 176,
+        "total": 177,
         "open": 5,
-        "resolved": 171
+        "resolved": 172
       },
       "stdlib": {
         "total": 113,
@@ -2778,6 +2778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E.md"
+    },
+    {
+      "id": "ISS-20260429T144908106Z-NM-JSON-STRING-BUILDER-TEMPORARIES-L-6EA83723",
+      "title": "Resource owner summary treats scalar bool returns as free obligation owners in nm JSON",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/owner_summary_leaf.rs, nepl-core/tests/resource_ir.rs, stdlib/nm/parser.nepl, stdlib/alloc/string.nepl, examples/nm.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T144908106Z-NM-JSON-STRING-BUILDER-TEMPORARIES-L-6EA83723.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
