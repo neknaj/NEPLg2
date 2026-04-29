@@ -258,18 +258,18 @@ fn hashmap_free_storage <.K: Copy,.V: Copy> <(HashMapStorage<.K,.V>)->()> (stora
 fn hashmap_alloc_storage <.K: Copy,.V: Copy> <(i32)*>Result<HashMapStorage<.K,.V>, Diag>> (cap):
     match vec::filled<HashMapBucketState> cap HashMapBucketState::Empty:
         Result::Err _e:
-            diag_err<HashMapStorage<.K,.V>> diag_out_of_memory "hashmap_alloc_storage(states)"
+            diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
         Result::Ok states:
             match vec::filled<Option<.K>> cap none<.K>:
                 Result::Err _e:
                     vec::free<HashMapBucketState> states
-                    diag_err<HashMapStorage<.K,.V>> diag_out_of_memory "hashmap_alloc_storage(keys)"
+                    diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
                 Result::Ok keys:
                     match vec::filled<Option<.V>> cap none<.V>:
                         Result::Err _e:
                             vec::free<HashMapBucketState> states
                             vec::free<Option<.K>> keys
-                            diag_err<HashMapStorage<.K,.V>> diag_out_of_memory "hashmap_alloc_storage(values)"
+                            diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
                         Result::Ok values:
                             ok<HashMapStorage<.K,.V>, Diag> HashMapStorage<.K,.V> states keys values
 
@@ -573,7 +573,7 @@ fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K
         lt idx 0
         then:
             hashmap_free_storage<.K,.V> storage
-            diag_err<HashMap<.K,.V,.H>> diag_key_not_found "hashmap_remove"
+            diag_err<HashMap<.K,.V,.H>> diag_key_not_found
         else:
             hashmap_store_tombstone<.K,.V> &storage idx
             ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> sub count0 1 cap0 add tombstones0 1 storage hasher

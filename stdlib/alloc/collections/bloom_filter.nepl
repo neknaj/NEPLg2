@@ -46,9 +46,8 @@ struct BloomFilter<.T,.H>:
     bits <MemPtr<u8>>
     hasher <.H>
 
-fn bloom_invalid_len_diag <(i32)*>Diag> (nbits):
-    let msg0 <str> concat "bloom_filter new invalid bit length " from_i32 nbits
-    diag_error StdErrorKind::CapacityExceeded msg0
+fn bloom_invalid_len_diag <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid bloom filter bit length"
 
 fn bloom_hash0 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
     hash_with hasher key
@@ -103,12 +102,12 @@ fn bloom_test_bit <(MemPtr<u8>,i32)->bool> (bits, bit_idx):
 fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<.T,.H>, Diag>> (hasher, nbits):
     if:
         le nbits 0
-        then diag_err<BloomFilter<.T,.H>> bloom_invalid_len_diag nbits
+        then diag_err<BloomFilter<.T,.H>> bloom_invalid_len_diag
         else:
             let nbytes <i32> div_s add nbits 7 8
             match alloc_ptr<u8> nbytes:
                 Result::Err _e:
-                    diag_err<BloomFilter<.T,.H>> diag_out_of_memory "bloom_filter_new(bits)"
+                    diag_err<BloomFilter<.T,.H>> diag_out_of_memory
                 Result::Ok bits:
                     let mut i <i32> 0
                     while lt i nbytes:

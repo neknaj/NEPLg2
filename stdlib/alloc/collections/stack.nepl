@@ -259,12 +259,12 @@ fn new <.T> <()*>Result<Stack<.T>, Diag>> ():
     let cap <i32> 8
     match alloc_ptr<u8> 12:
         Result::Err _e:
-            diag_err<Stack<.T>> diag_out_of_memory "new(header)"
+            diag_err<Stack<.T>> diag_out_of_memory
         Result::Ok header:
             match alloc_ptr<.T> mul cap size_of<.T>:
                 Result::Err _e:
                     dealloc_raw mem_ptr_addr header 12
-                    diag_err<Stack<.T>> diag_out_of_memory "new(data)"
+                    diag_err<Stack<.T>> diag_out_of_memory
                 Result::Ok data:
                     let header_addr <i32> mem_ptr_addr header
                     let data_addr <i32> *field::get_ref &data "raw"
@@ -322,7 +322,7 @@ fn push <.T> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
                 Result::Err _e:
                     dealloc_raw data_addr mul cap size_of<.T>
                     dealloc_raw hdr_addr 12
-                    diag_err<Stack<.T>> diag_out_of_memory "push(realloc_raw)"
+                    diag_err<Stack<.T>> diag_out_of_memory
                 Result::Ok new_data:
                     let new_data_addr <i32> *field::get_ref &new_data "raw"
                     store_i32 add hdr_addr 4 new_cap
@@ -395,7 +395,7 @@ fn push_ref <.T: Copy> <(&Stack<.T>,.T)*>Result<(), Diag>> (stk, item):
     if:
         eq len cap
         then:
-            Result<(), Diag>::Err diag_out_of_memory "push_ref(capacity)"
+            Result<(), Diag>::Err diag_out_of_memory
         else:
             let off <i32> mul len size_of<.T>
             store<.T> add mem_ptr_addr data off item

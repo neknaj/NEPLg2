@@ -42,16 +42,11 @@ struct DisjointSet:
     parent <MemPtr<i32>>
     sizes <MemPtr<i32>>
 
-fn dsu_diag_len <(i32)*>Diag> (n):
-    let msg0 <str> concat "disjoint_set new invalid length " from_i32 n
-    diag_error StdErrorKind::CapacityExceeded msg0
+fn dsu_diag_len <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid disjoint set length"
 
-fn dsu_diag_index <(str,i32,i32)*>Diag> (op, idx, n):
-    let msg0 <str> concat op ": index out of bounds "
-    let msg1 <str> concat msg0 from_i32 idx
-    let msg2 <str> concat msg1 " for len "
-    let msg3 <str> concat msg2 from_i32 n
-    diag_error StdErrorKind::IndexOutOfBounds msg3
+fn dsu_diag_index <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "disjoint set index out of bounds"
 
 fn dsu_slot_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (base, idx):
     mem_ptr_wrap add mem_ptr_addr base mul idx 4
@@ -103,7 +98,7 @@ fn dsu_size_raw <(MemPtr<i32>,i32)->i32> (sizes, root):
 fn new <(i32)*>Result<DisjointSet, Diag>> (n):
     if:
         lt n 0
-        then diag_err<DisjointSet> dsu_diag_len n
+        then diag_err<DisjointSet> dsu_diag_len
         else:
             if:
                 eq n 0
@@ -112,12 +107,12 @@ fn new <(i32)*>Result<DisjointSet, Diag>> (n):
                 else:
                     match alloc_ptr<i32> mul n 4:
                         Result::Err _e:
-                            diag_err<DisjointSet> diag_out_of_memory "disjoint_set_new(parent)"
+                            diag_err<DisjointSet> diag_out_of_memory
                         Result::Ok parent:
                             match alloc_ptr<i32> mul n 4:
                                 Result::Err _e:
                                     dealloc_raw mem_ptr_addr parent mul n 4
-                                    diag_err<DisjointSet> diag_out_of_memory "disjoint_set_new(sizes)"
+                                    diag_err<DisjointSet> diag_out_of_memory
                                 Result::Ok sizes:
                                     let mut i <i32> 0
                                     while lt i n:
@@ -166,7 +161,7 @@ fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
             let root <i32> dsu_root_raw parent idx
             ok<i32, Diag> root
         else:
-            let d <Diag> dsu_diag_index "disjoint_set_find" idx n
+            let d <Diag> dsu_diag_index
             err<i32, Diag> d
 
 //: ## union
@@ -217,7 +212,7 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
                     ok<DisjointSet, Diag> dsu
         else:
             let bad <i32> if and le 0 a lt a n b a
-            let d <Diag> dsu_diag_index "disjoint_set_union" bad n
+            let d <Diag> dsu_diag_index
             free dsu
             err<DisjointSet, Diag> d
 
@@ -255,7 +250,7 @@ fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
             ok<bool, Diag> eq ra rb
         else:
             let bad <i32> if and le 0 a lt a n b a
-            let d <Diag> dsu_diag_index "disjoint_set_same" bad n
+            let d <Diag> dsu_diag_index
             err<bool, Diag> d
 
 //: ## size
@@ -289,7 +284,7 @@ fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
             let out <i32> dsu_size_raw sizes root
             ok<i32, Diag> out
         else:
-            let d <Diag> dsu_diag_index "disjoint_set_size" idx n
+            let d <Diag> dsu_diag_index
             err<i32, Diag> d
 
 //: ## free

@@ -127,12 +127,12 @@ fn with_capacity <.T> <(i32)*>Result<Deque<.T>, Diag>> (cap):
     let cap0 <i32> if lt cap 1 1 cap
     match alloc_ptr<u8> 16:
         Result::Err _e:
-            diag_err<Deque<.T>> diag_out_of_memory "deque_with_capacity(header)"
+            diag_err<Deque<.T>> diag_out_of_memory
         Result::Ok header:
             match alloc_ptr<.T> mul cap0 size_of<.T>:
                 Result::Err _e:
                     dealloc_raw mem_ptr_addr header 16
-                    diag_err<Deque<.T>> diag_out_of_memory "deque_with_capacity(data)"
+                    diag_err<Deque<.T>> diag_out_of_memory
                 Result::Ok data:
                     deque_store_header_i32 deque_header_len_ptr header 0
                     deque_store_header_i32 deque_header_cap_ptr header cap0
@@ -179,7 +179,7 @@ fn deque_grow_front <.T> <(Deque<.T>, .T)*>Result<Deque<.T>, Diag>> (dq, item):
     let cap1 <i32> mul cap0 2
     match alloc_ptr<.T> mul cap1 size_of<.T>:
         Result::Err _e:
-            diag_err<Deque<.T>> diag_out_of_memory "push_front(grow)"
+            diag_err<Deque<.T>> diag_out_of_memory
         Result::Ok data1:
             store<.T> mem_ptr_addr data1 item
             let mut i <i32> 0
@@ -206,7 +206,7 @@ fn deque_grow_back <.T> <(Deque<.T>, .T)*>Result<Deque<.T>, Diag>> (dq, item):
     let cap1 <i32> mul cap0 2
     match alloc_ptr<.T> mul cap1 size_of<.T>:
         Result::Err _e:
-            diag_err<Deque<.T>> diag_out_of_memory "push_back(grow)"
+            diag_err<Deque<.T>> diag_out_of_memory
         Result::Ok data1:
             let mut i <i32> 0
             while lt i len0:

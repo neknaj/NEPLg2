@@ -40,42 +40,32 @@ struct Fenwick:
     n <i32>
     bit <MemPtr<i32>>
 
-fn fenwick_diag_index <(str,i32,i32)*>Diag> (op, idx, n):
-    let msg0 <str> concat op ": index out of bounds ";
-    let msg1 <str> concat msg0 from_i32 idx;
-    let msg2 <str> concat msg1 " for len ";
-    let msg3 <str> concat msg2 from_i32 n;
-    diag_error StdErrorKind::IndexOutOfBounds msg3
+fn fenwick_diag_index <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "fenwick index out of bounds"
 
-fn fenwick_diag_range <(str,i32,i32,i32)*>Diag> (op, l, r, n):
-    let msg0 <str> concat op ": invalid range [";
-    let msg1 <str> concat msg0 from_i32 l;
-    let msg2 <str> concat msg1 ", ";
-    let msg3 <str> concat msg2 from_i32 r;
-    let msg4 <str> concat msg3 ") for len ";
-    let msg5 <str> concat msg4 from_i32 n;
-    diag_error StdErrorKind::IndexOutOfBounds msg5
+fn fenwick_diag_range <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "fenwick range out of bounds"
 
 fn fenwick_check_index <(str,Fenwick,i32)*>Result<(), Diag>> (op, fw, idx):
     let n <i32> field::get fw "n"
     if:
         and le 0 idx lt idx n
         then ok<(), Diag> ()
-        else diag_err<()> fenwick_diag_index op idx n
+        else diag_err<()> fenwick_diag_index
 
 fn fenwick_check_prefix <(str,Fenwick,i32)*>Result<(), Diag>> (op, fw, r):
     let n <i32> field::get fw "n"
     if:
         and le 0 r le r n
         then ok<(), Diag> ()
-        else diag_err<()> fenwick_diag_index op r n
+        else diag_err<()> fenwick_diag_index
 
 fn fenwick_check_range <(str,Fenwick,i32,i32)*>Result<(), Diag>> (op, fw, l, r):
     let n <i32> field::get fw "n"
     if:
         and and le 0 l le l r le r n
         then ok<(), Diag> ()
-        else diag_err<()> fenwick_diag_range op l r n
+        else diag_err<()> fenwick_diag_range
 
 fn fenwick_ptr_at <(MemPtr<i32>,i32)->MemPtr<i32>> (bit, idx):
     mem_ptr_wrap add mem_ptr_addr bit mul idx 4
@@ -123,7 +113,7 @@ fn new <(i32)*>Result<Fenwick, Diag>> (n):
     let bit_len <i32> add n 1
     match alloc_ptr<i32> mul bit_len 4:
         Result::Err _e:
-            diag_err<Fenwick> diag_out_of_memory "fenwick_new(bit)"
+            diag_err<Fenwick> diag_out_of_memory
         Result::Ok bit:
             let mut i <i32> 0
             while lt i bit_len:
@@ -179,7 +169,7 @@ fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
                     set i add i lb
             ok<Fenwick, Diag> fw
         else:
-            let d <Diag> fenwick_diag_index "fenwick_add" idx n
+            let d <Diag> fenwick_diag_index
             err<Fenwick, Diag> d
 
 //: ## sum_prefix
@@ -216,7 +206,7 @@ fn sum_prefix <(Fenwick,i32)*>Result<i32, Diag>> (fw, r):
             let acc <i32> fenwick_sum_prefix_raw bit r
             ok<i32, Diag> acc
         else:
-            let d <Diag> fenwick_diag_index "fenwick_sum_prefix" r n
+            let d <Diag> fenwick_diag_index
             err<i32, Diag> d
 
 //: ## sum_range
@@ -252,7 +242,7 @@ fn sum_range <(Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
             let sl <i32> fenwick_sum_prefix_raw bit l
             ok<i32, Diag> sub sr sl
         else:
-            let d <Diag> fenwick_diag_range "fenwick_sum_range" l r n
+            let d <Diag> fenwick_diag_range
             err<i32, Diag> d
 
 //: ## free

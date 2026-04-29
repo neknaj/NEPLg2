@@ -1,3 +1,32 @@
+# 2026-04-30 メモ (ISS-20260429T190939510Z Diag owner contract)
+
+- [同期]:
+  - `main` / `origin/main` が `b5a1d9b` で一致していることを確認し、`stdlib/diag-owner-contract` branch で作業した。
+- [原因]:
+  - `Diag` は Copy 値として扱われる一方、`diag_out_of_memory` / `diag_key_not_found` や `diag_add_note` / `diag_add_help` が `concat` で作った owned `str` を `Diag.message` / `notes` / `help` に保持していた。
+  - そのため `Result::Err d` から `diag_std_error_kind_str d` のように kind だけを読むと、未使用の `Diag.message` owner が残り、Resource IR が leak として正しく拒否していた。
+  - `Diags` の by-value helper も内部 `Vec<Diag>` owner を閉じずに観測だけして返っていた。
+- [修正]:
+  - `Diag` 内では note/help を連結済み text block にせず、1 件分の text fragment として保持するようにした。
+  - `diag_to_string` renderer 側で note の改行と `help: ` prefix を付け、表示結果は維持した。
+  - 標準 error helper と collection-specific diag helper は、operation 名や数値を `concat` した owned message を返さず、値引数を受け取らない静的な標準メッセージを返すようにした。
+  - `diags_len` / `diags_has_errors` / `diags_to_string` の by-value overload は、観測後に `diags_free` で backing `Vec<Diag>` を閉じるようにした。
+  - `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` を owner-neutral な Diag contract に更新し、`concat` に戻らないことを source policy で固定した。
+  - `stdlib/tests/error.n.md` は `diags_has_errors ds1` の by-value 経路で `Diags` owner を閉じる regression にした。
+- [issue]:
+  - `ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF` を fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md --no-tree -o tmp/diag-owner-contract.json -j 1 --dist web/dist`: 5 passed
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md -i stdlib/tests/error.n.md --no-tree -o tmp/diag-owner-contract-2.json -j 1 --dist web/dist`: 5 passed
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/collections-diag-owner-contract.json -j 1 --dist web/dist`: 2 passed / 2 failed。HashMap/HashSet の Diag 回帰は pass。残りは Queue/RingBuffer `pop` の RawMemoryLoadCell で、既存の collection raw owner state 残件。
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/adjacency_matrix.nepl -i stdlib/alloc/collections/bloom_filter.nepl -i stdlib/alloc/collections/counting_bloom_filter.nepl --no-tree -o tmp/diag-owner-collections-a.json -j 1 --dist web/dist`: 20 passed / 5 failed。失敗は doctest 側が owner collection を `free` していない既存の raw owner state 残件。
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/alloc/collections/sparse_set.nepl --no-tree -o tmp/diag-owner-collections-b.json -j 1 --dist web/dist`: 10 passed / 13 failed。失敗は doctest 側が owner collection を `free` していない既存の raw owner state 残件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T155343006Z HashSet enum storage)
 
 - [同期]:

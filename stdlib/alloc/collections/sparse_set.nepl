@@ -40,16 +40,11 @@
 struct SparseSet:
     hdr <i32>
 
-fn sparse_set_diag_len <(i32)*>Diag> (n):
-    let msg0 <str> concat "sparse_set new invalid length " from_i32 n
-    diag_error StdErrorKind::CapacityExceeded msg0
+fn sparse_set_diag_len <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid sparse set length"
 
-fn sparse_set_diag_index <(str,i32,i32)*>Diag> (op, idx, n):
-    let msg0 <str> concat op ": index out of bounds "
-    let msg1 <str> concat msg0 from_i32 idx
-    let msg2 <str> concat msg1 " for universe_len "
-    let msg3 <str> concat msg2 from_i32 n
-    diag_error StdErrorKind::IndexOutOfBounds msg3
+fn sparse_set_diag_index <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "sparse set index out of bounds"
 
 fn sparse_set_valid_index <(i32,i32)->bool> (idx, n):
     and le 0 idx lt idx n
@@ -150,11 +145,11 @@ fn sparse_set_hdr_set_sparse <(i32,MemPtr<i32>)->()> (hdr, sparse):
 fn new <(i32)*>Result<SparseSet, Diag>> (n):
     if:
         lt n 0
-        then diag_err<SparseSet> sparse_set_diag_len n
+        then diag_err<SparseSet> sparse_set_diag_len
         else:
             match alloc_ptr<u8> 16:
                 Result::Err _e:
-                    diag_err<SparseSet> diag_out_of_memory "sparse_set_new(hdr)"
+                    diag_err<SparseSet> diag_out_of_memory
                 Result::Ok hdr:
                     let hdr_raw <i32> mem_ptr_addr hdr
                     if:
@@ -169,13 +164,13 @@ fn new <(i32)*>Result<SparseSet, Diag>> (n):
                             match alloc_ptr<i32> mul n 4:
                                 Result::Err _e:
                                     dealloc_raw mem_ptr_addr hdr 16
-                                    diag_err<SparseSet> diag_out_of_memory "sparse_set_new(dense)"
+                                    diag_err<SparseSet> diag_out_of_memory
                                 Result::Ok dense:
                                     match alloc_ptr<i32> mul n 4:
                                         Result::Err _e:
                                             dealloc_raw mem_ptr_addr dense mul n 4
                                             dealloc_raw mem_ptr_addr hdr 16
-                                            diag_err<SparseSet> diag_out_of_memory "sparse_set_new(sparse)"
+                                            diag_err<SparseSet> diag_out_of_memory
                                         Result::Ok sparse:
                                             let mut i <i32> 0
                                             while lt i n:
@@ -239,7 +234,7 @@ fn contains <(SparseSet,i32)*>Result<bool, Diag>> (s, value):
         then:
             ok<bool, Diag> sparse_set_contains_raw n dense sparse len0 value
         else:
-            let d <Diag> sparse_set_diag_index "sparse_set_contains" value n
+            let d <Diag> sparse_set_diag_index
             err<bool, Diag> d
 
 //: ## insert
@@ -268,7 +263,7 @@ fn insert <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
     if:
         not sparse_set_valid_index value n
         then:
-            let d <Diag> sparse_set_diag_index "sparse_set_insert" value n
+            let d <Diag> sparse_set_diag_index
             err<SparseSet, Diag> d
         else:
             if:
@@ -308,7 +303,7 @@ fn remove <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
     if:
         not sparse_set_valid_index value n
         then:
-            let d <Diag> sparse_set_diag_index "sparse_set_remove" value n
+            let d <Diag> sparse_set_diag_index
             err<SparseSet, Diag> d
         else:
             if:

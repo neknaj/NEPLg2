@@ -46,9 +46,8 @@ struct CountingBloomFilter<.T,.H>:
     counters <MemPtr<u8>>
     hasher <.H>
 
-fn counting_bloom_invalid_len_diag <(i32)*>Diag> (nslots):
-    let msg0 <str> concat "counting_bloom_filter new invalid counter length " from_i32 nslots
-    diag_error StdErrorKind::CapacityExceeded msg0
+fn counting_bloom_invalid_len_diag <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid counting bloom filter counter length"
 
 fn counting_bloom_hash0 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
     hash_with hasher key
@@ -112,11 +111,11 @@ fn counting_bloom_counter_nonzero <(MemPtr<u8>,i32)->bool> (counters, idx):
 fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<CountingBloomFilter<.T,.H>, Diag>> (hasher, nslots):
     if:
         le nslots 0
-        then diag_err<CountingBloomFilter<.T,.H>> counting_bloom_invalid_len_diag nslots
+        then diag_err<CountingBloomFilter<.T,.H>> counting_bloom_invalid_len_diag
         else:
             match alloc_ptr<u8> nslots:
                 Result::Err _e:
-                    diag_err<CountingBloomFilter<.T,.H>> diag_out_of_memory "counting_bloom_filter_new(counters)"
+                    diag_err<CountingBloomFilter<.T,.H>> diag_out_of_memory
                 Result::Ok counters:
                     let mut i <i32> 0
                     while lt i nslots:

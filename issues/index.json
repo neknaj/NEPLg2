@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T19:21:47.864Z",
+  "generated_at": "2026-04-29T20:00:45.306Z",
   "counts": {
     "total": 398,
-    "open": 14,
-    "resolved": 384,
+    "open": 13,
+    "resolved": 385,
     "by_area": {
       "core": {
         "total": 185,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 120,
-        "open": 7,
-        "resolved": 113
+        "open": 6,
+        "resolved": 114
       },
       "TEST": {
         "total": 6,
@@ -213,21 +213,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
-    },
-    {
-      "id": "ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF",
-      "title": "Diag is Copy while carrying owned string fields and lacks a consumption contract",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/diag/error.nepl, tests/stdlib/collections_diag.n.md, stdlib/alloc/collections/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -4263,6 +4248,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T173910888Z-STACK-RAW-HEADER-INITIALIZATION-LEAK-3EDC7712.md"
+    },
+    {
+      "id": "ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF",
+      "title": "Diag is Copy while carrying owned string fields and lacks a consumption contract",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/diag/error.nepl, tests/stdlib/collections_diag.n.md, stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

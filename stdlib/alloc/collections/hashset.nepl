@@ -189,12 +189,12 @@ fn hashset_free_storage <.T: Copy> <(HashSetStorage<.T>)->()> (storage):
 fn hashset_alloc_storage <.T: Copy> <(i32)*>Result<HashSetStorage<.T>, Diag>> (cap):
     match vec::filled<HashSetBucketState> cap HashSetBucketState::Empty:
         Result::Err _e:
-            diag_err<HashSetStorage<.T>> diag_out_of_memory "hashset_alloc_storage(states)"
+            diag_err<HashSetStorage<.T>> diag_out_of_memory
         Result::Ok states:
             match vec::filled<Option<.T>> cap none<.T>:
                 Result::Err _e:
                     vec::free<HashSetBucketState> states
-                    diag_err<HashSetStorage<.T>> diag_out_of_memory "hashset_alloc_storage(keys)"
+                    diag_err<HashSetStorage<.T>> diag_out_of_memory
                 Result::Ok keys:
                     ok<HashSetStorage<.T>, Diag> HashSetStorage<.T> states keys
 
@@ -509,7 +509,7 @@ fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<Ha
         lt idx 0
         then:
             hashset_free_storage<.T> storage
-            diag_err<HashSet<.T,.H>> diag_key_not_found "hashset_remove"
+            diag_err<HashSet<.T,.H>> diag_key_not_found
         else:
             hashset_store_tombstone<.T> &storage idx
             ok<HashSet<.T,.H>, Diag> HashSet<.T,.H> sub count0 1 cap0 add tombstones0 1 storage hasher

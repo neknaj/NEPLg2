@@ -72,7 +72,7 @@ fn btreeset_grow <.T> <(BTreeSet<.T>)*>Result<BTreeSet<.T>, Diag>> (set0):
     let keys1 <i32> alloc_raw mul cap1 size_of<.T>
     if:
         eq keys1 0
-        then diag_err<BTreeSet<.T>> diag_out_of_memory "btreeset_grow(keys)"
+        then diag_err<BTreeSet<.T>> diag_out_of_memory
         else:
             let mut i <i32> 0
             while lt i len0:
@@ -103,14 +103,14 @@ fn new <.T> <()*>Result<BTreeSet<.T>, Diag>> ():
     let keys <i32> alloc_raw mul cap size_of<.T>
     if:
         eq keys 0
-        then diag_err<BTreeSet<.T>> diag_out_of_memory "btreeset_new(keys)"
+        then diag_err<BTreeSet<.T>> diag_out_of_memory
         else:
             let hdr <i32> alloc_raw 12
             if:
                 eq hdr 0
                 then:
                     dealloc_raw keys mul cap size_of<.T>
-                    diag_err<BTreeSet<.T>> diag_out_of_memory "btreeset_new(header)"
+                    diag_err<BTreeSet<.T>> diag_out_of_memory
                 else:
                     store_i32 hdr 0
                     store_i32 add hdr 4 cap

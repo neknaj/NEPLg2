@@ -5,7 +5,8 @@
 //: - std target では[標準/ひょうじゅん][出力/しゅつりょく]へ[流/なが]す helper も[提供/ていきょう]します。
 //:
 //: [実装/じっそう]:
-//: - [重大度/じゅうだいど]・error kind・message・span・notes・help を[順番/じゅんばん]に[連結/れんけつ]して[組/く]み[立/た]てます。
+//: - [重大度/じゅうだいど]・error kind・message・span・note・help を[順番/じゅんばん]に[連結/れんけつ]して[組/く]み[立/た]てます。
+//: - `Diag` の note/help は[未整形/みせいけい] fragment なので、この renderer が prefix と[改行/かいぎょう]を[付/つ]けます。
 //:
 //: [注意/ちゅうい]:
 //: - ここは stringify/rendering の[暫定/ざんてい] helper です。
@@ -77,10 +78,23 @@ fn diag_to_string <(&Diag)->str> (d):
             ()
 
     let notes <str> *field::get_ref d "notes";
-    set out concat out notes;
+    if:
+        gt len notes 0
+        then:
+            set out concat out notes;
+            set out concat out "\n";
+        else:
+            ()
 
     let help <str> *field::get_ref d "help";
-    set out concat out help;
+    if:
+        gt len help 0
+        then:
+            set out concat out "help: ";
+            set out concat out help;
+            set out concat out "\n";
+        else:
+            ()
 
     match *field::get_ref d "source":
         Option::Some src:
@@ -100,7 +114,9 @@ fn diags_to_string <(&Diags)->str> (ds):
     diags_to_string_loop items_data items_len 0 ""
 
 fn diags_to_string <(Diags)->str> (ds):
-    diags_to_string &ds
+    let s <str> diags_to_string &ds
+    diags_free ds
+    s
 
 fn diags_to_string_loop <(i32,i32,i32,str)->str> (items_data, n, i, acc):
     if:

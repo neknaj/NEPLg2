@@ -150,15 +150,15 @@ struct List<.T>:
 //: - `size_of<.T> + 4` byte を[確保/かくほ]し、先頭に `head`、末尾 4 byte に `tail_ptr` を[格納/かくのう]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [確保/かくほ][失敗/しっぱい]では `op` を[含/ふく]む `Diag` を `Err` で[返/かえ]します。
+//: - [確保/かくほ][失敗/しっぱい]では `StdErrorKind::OutOfMemory` の `Diag` を `Err` で[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
-fn list_alloc_node <.T> <(.T,i32,str)*>Result<i32, Diag>> (head, tail_ptr, op):
+fn list_alloc_node <.T> <(.T,i32)*>Result<i32, Diag>> (head, tail_ptr):
     let node_size <i32> add size_of<.T> 4
     match alloc_ptr<u8> node_size:
         Result::Err _e:
-            diag_err<i32> diag_out_of_memory op
+            diag_err<i32> diag_out_of_memory
         Result::Ok node_ptr:
             let node <i32> mem_ptr_addr node_ptr
             store<.T> node head
@@ -204,7 +204,7 @@ fn new <.T> <()*>Result<List<.T>, Diag>> ():
 //: - `size_of<.T> + 4` byte のノード[領域/りょういき]を[確保/かくほ]し、`[value][next]` を[順番/じゅんばん]に[格納/かくのう]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [確保/かくほ][失敗/しっぱい]では `diag_out_of_memory "list_cons(node)"` を[返/かえ]します。
+//: - [確保/かくほ][失敗/しっぱい]では `diag_out_of_memory` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -225,7 +225,7 @@ fn new <.T> <()*>Result<List<.T>, Diag>> ():
 //: ```
 fn cons <.T> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
     let tail_ptr <i32> field::get tail "ptr"
-    match list_alloc_node<.T> head tail_ptr "list_cons(node)":
+    match list_alloc_node<.T> head tail_ptr:
         Result::Ok node:
             ok<List<.T>, Diag> List node
         Result::Err e:
@@ -560,7 +560,7 @@ fn reverse <.T> <(List<.T>)*>Result<List<.T>, Diag>> (lst):
         do:
             let value <.T> load<.T> cur
             let next_ptr <i32> load_i32 add cur size_of<.T>
-            match list_alloc_node<.T> value new_head "list_reverse(node)":
+            match list_alloc_node<.T> value new_head:
                 Result::Ok node:
                     set new_head node
                     set cur next_ptr
@@ -582,7 +582,7 @@ fn list_map_impl <.T,.U> <(i32, (.T)->.U)*>Result<List<.U>, Diag>> (lst_ptr, f):
                 Result::Ok mapped_tail:
                     let mapped_head <.U> f load<.T> lst_ptr
                     let mapped_tail_ptr <i32> field::get mapped_tail "ptr"
-                    match list_alloc_node<.U> mapped_head mapped_tail_ptr "list_map(node)":
+                    match list_alloc_node<.U> mapped_head mapped_tail_ptr:
                         Result::Ok node:
                             ok<List<.U>, Diag> List node
                         Result::Err e:
@@ -606,7 +606,7 @@ fn list_filter_impl <.T> <(i32, (.T)->bool)*>Result<List<.T>, Diag>> (lst_ptr, p
                             p load<.T> lst_ptr
                         then:
                             let filtered_tail_ptr <i32> field::get filtered_tail "ptr"
-                            match list_alloc_node<.T> load<.T> lst_ptr filtered_tail_ptr "list_filter(node)":
+                            match list_alloc_node<.T> load<.T> lst_ptr filtered_tail_ptr:
                                 Result::Ok node:
                                     ok<List<.T>, Diag> List node
                                 Result::Err e:

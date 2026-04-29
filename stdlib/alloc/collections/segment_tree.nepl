@@ -38,25 +38,14 @@ struct SegmentTree:
     base <i32>
     data <MemPtr<i32>>
 
-fn seg_diag_len <(i32)*>Diag> (n):
-    let msg0 <str> concat "segment_tree new invalid length " from_i32 n
-    diag_error StdErrorKind::CapacityExceeded msg0
+fn seg_diag_len <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid segment tree length"
 
-fn seg_diag_index <(str,i32,i32)*>Diag> (op, idx, n):
-    let msg0 <str> concat op ": index out of bounds "
-    let msg1 <str> concat msg0 from_i32 idx
-    let msg2 <str> concat msg1 " for len "
-    let msg3 <str> concat msg2 from_i32 n
-    diag_error StdErrorKind::IndexOutOfBounds msg3
+fn seg_diag_index <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "segment tree index out of bounds"
 
-fn seg_diag_range <(str,i32,i32,i32)*>Diag> (op, l, r, n):
-    let msg0 <str> concat op ": invalid range ["
-    let msg1 <str> concat msg0 from_i32 l
-    let msg2 <str> concat msg1 ", "
-    let msg3 <str> concat msg2 from_i32 r
-    let msg4 <str> concat msg3 ") for len "
-    let msg5 <str> concat msg4 from_i32 n
-    diag_error StdErrorKind::IndexOutOfBounds msg5
+fn seg_diag_range <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "segment tree range out of bounds"
 
 fn seg_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (data, idx):
     mem_ptr_wrap add mem_ptr_addr data mul idx 4
@@ -95,13 +84,13 @@ fn seg_next_pow2 <(i32)->i32> (n):
 fn new <(i32)*>Result<SegmentTree, Diag>> (n):
     if:
         lt n 0
-        then diag_err<SegmentTree> seg_diag_len n
+        then diag_err<SegmentTree> seg_diag_len
         else:
             let base <i32> seg_next_pow2 if eq n 0 1 n
             let cells <i32> mul base 2
             match alloc_ptr<i32> mul cells 4:
                 Result::Err _e:
-                    diag_err<SegmentTree> diag_out_of_memory "segment_tree_new(data)"
+                    diag_err<SegmentTree> diag_out_of_memory
                 Result::Ok data:
                     let mut i <i32> 0
                     while lt i cells:
@@ -151,7 +140,7 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
                     seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
             ok<SegmentTree, Diag> st
         else:
-            let d <Diag> seg_diag_index "segment_tree_replace" idx n
+            let d <Diag> seg_diag_index
             free st
             err<SegmentTree, Diag> d
 
@@ -192,7 +181,7 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
                     seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
             ok<SegmentTree, Diag> st
         else:
-            let d <Diag> seg_diag_index "segment_tree_add" idx n
+            let d <Diag> seg_diag_index
             free st
             err<SegmentTree, Diag> d
 
@@ -247,7 +236,7 @@ fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
                     set right div_s right 2
             ok<i32, Diag> add acc_l acc_r
         else:
-            let d <Diag> seg_diag_range "segment_tree_sum_range" l r n
+            let d <Diag> seg_diag_range
             err<i32, Diag> d
 
 //: ## free

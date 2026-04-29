@@ -40,16 +40,11 @@ struct BitSet:
     nbytes <i32>
     bits <MemPtr<u8>>
 
-fn bitset_invalid_len_diag <(i32)*>Diag> (nbits):
-    let msg0 <str> concat "bitset new invalid bit length " from_i32 nbits
-    diag_error StdErrorKind::CapacityExceeded msg0
+fn bitset_invalid_len_diag <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid bitset length"
 
-fn bitset_index_diag <(str,i32,i32)*>Diag> (who, idx, nbits):
-    let msg0 <str> concat who " index "
-    let msg1 <str> concat msg0 from_i32 idx
-    let msg2 <str> concat msg1 " out of range for len "
-    let msg3 <str> concat msg2 from_i32 nbits
-    diag_error StdErrorKind::IndexOutOfBounds msg3
+fn bitset_index_diag <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "bitset index out of bounds"
 
 fn bitset_byte_index <(i32)->i32> (bit_idx):
     div_s bit_idx 8
@@ -89,12 +84,12 @@ fn new <(i32)*>Result<BitSet, Diag>> (nbits):
     if:
         le nbits 0
         then:
-            diag_err<BitSet> bitset_invalid_len_diag nbits
+            diag_err<BitSet> bitset_invalid_len_diag
         else:
             let nbytes <i32> div_s add nbits 7 8
             match alloc_ptr<u8> nbytes:
                 Result::Err _e:
-                    diag_err<BitSet> diag_out_of_memory "bitset_new(bits)"
+                    diag_err<BitSet> diag_out_of_memory
                 Result::Ok bits:
                     bitset_fill_bytes bits nbytes 0
                     ok<BitSet, Diag> BitSet nbits nbytes bits
@@ -132,7 +127,7 @@ fn contains <(BitSet,i32)*>Result<bool, Diag>> (bs, idx):
             let cur <i32> load_u8 mem_ptr_addr ptr
             ok<bool, Diag> ne and cur mask 0
         else:
-            diag_err<bool> bitset_index_diag "bitset_contains" idx nbits
+            diag_err<bool> bitset_index_diag
 
 //: ## insert
 //: bit を 1 に[設定/せってい]する
@@ -162,7 +157,7 @@ fn insert <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
             store_u8 mem_ptr_addr ptr or cur mask
             ok<BitSet, Diag> bs
         else:
-            diag_err<BitSet> bitset_index_diag "bitset_insert" idx nbits
+            diag_err<BitSet> bitset_index_diag
 
 //: ## remove
 //: bit を 0 に[戻/もど]す
@@ -194,7 +189,7 @@ fn remove <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
             store_u8 mem_ptr_addr ptr and cur xor mask 255
             ok<BitSet, Diag> bs
         else:
-            diag_err<BitSet> bitset_index_diag "bitset_remove" idx nbits
+            diag_err<BitSet> bitset_index_diag
 
 //: ## clear
 //: [全/すべ]ての bit を 0 に[戻/もど]す

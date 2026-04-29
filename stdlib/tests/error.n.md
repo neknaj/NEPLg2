@@ -65,7 +65,7 @@ fn main <()*>i32> ():
     let ds0 <Diags> diags_one d4;
     let ds1 <Diags> diags_push ds0 diag_warn "careful";
     set checks checks_push checks check_eq_i32 2 diags_len &ds1;
-    set checks checks_push checks check diags_has_errors &ds1;
+    set checks checks_push checks check diags_has_errors ds1;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

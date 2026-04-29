@@ -227,12 +227,12 @@ fn with_capacity <.T> <(i32)*>Result<RingBuffer<.T>, Diag>> (initial_cap):
     let cap <i32> if lt initial_cap 1 1 initial_cap
     match alloc_ptr<u8> 16:
         Result::Err _e:
-            diag_err<RingBuffer<.T>> diag_out_of_memory "with_capacity(header)"
+            diag_err<RingBuffer<.T>> diag_out_of_memory
         Result::Ok header:
             match alloc_ptr<.T> mul cap size_of<.T>:
                 Result::Err _e:
                     dealloc_raw mem_ptr_addr header 16
-                    diag_err<RingBuffer<.T>> diag_out_of_memory "with_capacity(data)"
+                    diag_err<RingBuffer<.T>> diag_out_of_memory
                 Result::Ok data:
                     let rb <RingBuffer<.T>> RingBuffer header
                     let hdr <MemPtr<u8>> get rb "hdr"
@@ -363,7 +363,7 @@ fn push <.T> <(RingBuffer<.T>, .T)*>Result<RingBuffer<.T>, Diag>> (rb, item):
             let new_cap <i32> mul cap 2
             match alloc_ptr<.T> mul new_cap size_of<.T>:
                 Result::Err _e:
-                    diag_err<RingBuffer<.T>> diag_out_of_memory "push(grow)"
+                    diag_err<RingBuffer<.T>> diag_out_of_memory
                 Result::Ok new_data:
                     let mut i <i32> 0
                     while lt i len:

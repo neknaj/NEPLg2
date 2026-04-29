@@ -40,16 +40,11 @@ struct AdjacencyMatrix:
     nbytes <i32>
     bits <MemPtr<u8>>
 
-fn adjacency_matrix_invalid_len_diag <(i32)*>Diag> (nverts):
-    let msg0 <str> concat "adjacency_matrix new invalid vertex length " from_i32 nverts
-    diag_error StdErrorKind::CapacityExceeded msg0
+fn adjacency_matrix_invalid_len_diag <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid adjacency matrix vertex length"
 
-fn adjacency_matrix_vertex_diag <(str,i32,i32)*>Diag> (who, idx, nverts):
-    let msg0 <str> concat who " vertex "
-    let msg1 <str> concat msg0 from_i32 idx
-    let msg2 <str> concat msg1 " out of range for len "
-    let msg3 <str> concat msg2 from_i32 nverts
-    diag_error StdErrorKind::IndexOutOfBounds msg3
+fn adjacency_matrix_vertex_diag <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "adjacency matrix vertex out of bounds"
 
 fn adjacency_matrix_bit_index <(i32,i32,i32)->i32> (nverts, from, to):
     add mul from nverts to
@@ -95,13 +90,13 @@ fn new <(i32)*>Result<AdjacencyMatrix, Diag>> (nverts):
     if:
         le nverts 0
         then:
-            diag_err<AdjacencyMatrix> adjacency_matrix_invalid_len_diag nverts
+            diag_err<AdjacencyMatrix> adjacency_matrix_invalid_len_diag
         else:
             let nbits <i32> mul nverts nverts
             let nbytes <i32> div_s add nbits 7 8
             match alloc_ptr<u8> nbytes:
                 Result::Err _e:
-                    diag_err<AdjacencyMatrix> diag_out_of_memory "adjacency_matrix_new(bits)"
+                    diag_err<AdjacencyMatrix> diag_out_of_memory
                 Result::Ok bits:
                     adjacency_matrix_fill_bytes bits nbytes 0
                     ok<AdjacencyMatrix, Diag> AdjacencyMatrix nverts nbytes bits
@@ -143,9 +138,9 @@ fn contains <(AdjacencyMatrix,i32,i32)*>Result<bool, Diag>> (g, from, to):
             if:
                 not adjacency_matrix_valid_vertex from nverts
                 then:
-                    diag_err<bool> adjacency_matrix_vertex_diag "adjacency_matrix_contains" from nverts
+                    diag_err<bool> adjacency_matrix_vertex_diag
                 else:
-                    diag_err<bool> adjacency_matrix_vertex_diag "adjacency_matrix_contains" to nverts
+                    diag_err<bool> adjacency_matrix_vertex_diag
 
 //: ## insert
 //: directed edge を 1 に[設定/せってい]する
@@ -179,9 +174,9 @@ fn insert <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, Diag>> (g, from, t
             if:
                 not adjacency_matrix_valid_vertex from nverts
                 then:
-                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag "adjacency_matrix_insert" from nverts
+                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag
                 else:
-                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag "adjacency_matrix_insert" to nverts
+                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag
 
 //: ## remove
 //: directed edge を 0 に[戻/もど]す
@@ -217,9 +212,9 @@ fn remove <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, Diag>> (g, from, t
             if:
                 not adjacency_matrix_valid_vertex from nverts
                 then:
-                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag "adjacency_matrix_remove" from nverts
+                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag
                 else:
-                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag "adjacency_matrix_remove" to nverts
+                    diag_err<AdjacencyMatrix> adjacency_matrix_vertex_diag
 
 //: ## clear
 //: [全/すべ]ての edge を 0 に[戻/もど]す

@@ -6,6 +6,7 @@
 //:
 //: [実装/じっそう]:
 //: - `Diag` は `kind/message/span/notes/help/source` を[持/も]つ Copy [可能/かのう]な struct です。
+//: - `message` / `notes` / `help` / `source` は[診断/しんだん][値/あたい]の[中/なか]では[連結/れんけつ]せず、表示時に renderer が[整形/せいけい]します。
 //: - `Diags` は `Vec<Diag>` を[包/つつ]む struct とし、[順序/じゅんじょ][付/づ]きで[複数/ふくすう]の[診断/しんだん]を[保持/ほじ]します。
 //: - `Outcome<T, E>` は `result` と `diags` を[持/も]ち、[値/あたい]の[成否/せいひ]と[診断/しんだん]を[別軸/べつじく]で[運/はこ]びます。
 //:
@@ -105,7 +106,7 @@ impl Copy for DiagKind:
 //: - [診断/しんだん] 1 [件/けん]ぶんの[分類/ぶんるい]・[本文/ほんぶん]・[補足/ほそく][情報/じょうほう]をまとめます。
 //:
 //: [実装/じっそう]:
-//: - `notes` と `help` は[整形/せいけい][済/ず]みの[改行/かいぎょう][区切/くぎ]り text block として[保持/ほじ]します。
+//: - `notes` と `help` は 1 [件/けん]ぶんの text fragment として[保持/ほじ]し、prefix や[改行/かいぎょう]は renderer が[付/つ]けます。
 //: - `source` は[由来/ゆらい]の[記述/きじゅつ]を[指/さ]す[任意/にんい]の[文字列/もじれつ]です。
 //:
 //: [注意/ちゅうい]:
@@ -218,18 +219,11 @@ fn diag_with_source <(Diag,str)->Diag> (d, src):
 
 //: diag_add_note: note を 1 [件/けん][追加/ついか]する
 fn diag_add_note <(Diag,str)*>Diag> (d, note):
-    let notes0 <str> *field::get_ref &d "notes";
-    let notes1 <str> concat notes0 note;
-    let notes2 <str> concat notes1 "\n";
-    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" notes2 *field::get_ref &d "help" *field::get_ref &d "source"
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" note *field::get_ref &d "help" *field::get_ref &d "source"
 
 //: diag_add_help: help を 1 [件/けん][追加/ついか]する
 fn diag_add_help <(Diag,str)*>Diag> (d, help_item):
-    let help0 <str> *field::get_ref &d "help";
-    let help1 <str> concat help0 "help: ";
-    let help2 <str> concat help1 help_item;
-    let help3 <str> concat help2 "\n";
-    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" help3 *field::get_ref &d "source"
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" help_item *field::get_ref &d "source"
 
 //: diag_level: [重大度/じゅうだいど]を[取/と]り[出/だ]す
 fn diag_level <(&Diag)->DiagLevel> (d):
@@ -267,24 +261,20 @@ fn diag_err <.T> <(Diag)->Result<.T, Diag>> (d):
     err<.T, Diag> d
 
 //: diag_out_of_memory: [確保/かくほ][失敗/しっぱい]を[表/あらわ]す error [診断/しんだん]を[作/つく]る
-fn diag_out_of_memory <(str)*>Diag> (op):
-    let msg <str> concat op ": allocation failed";
-    diag_error StdErrorKind::OutOfMemory msg
+fn diag_out_of_memory <()*>Diag> ():
+    diag_error StdErrorKind::OutOfMemory "allocation failed"
 
 //: diag_empty_collection: [空/から]コレクション[操作/そうさ]の error [診断/しんだん]を[作/つく]る
-fn diag_empty_collection <(str)*>Diag> (op):
-    let msg <str> concat op ": collection is empty";
-    diag_error StdErrorKind::EmptyCollection msg
+fn diag_empty_collection <()*>Diag> ():
+    diag_error StdErrorKind::EmptyCollection "collection is empty"
 
 //: diag_capacity_exceeded: [容量/ようりょう][超過/ちょうか]の error [診断/しんだん]を[作/つく]る
-fn diag_capacity_exceeded <(str)*>Diag> (op):
-    let msg <str> concat op ": capacity exceeded";
-    diag_error StdErrorKind::CapacityExceeded msg
+fn diag_capacity_exceeded <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "capacity exceeded"
 
 //: diag_key_not_found: [欠落/けつらく] key の error [診断/しんだん]を[作/つく]る
-fn diag_key_not_found <(str)*>Diag> (op):
-    let msg <str> concat op ": key not found";
-    diag_error StdErrorKind::KeyNotFound msg
+fn diag_key_not_found <()*>Diag> ():
+    diag_error StdErrorKind::KeyNotFound "key not found"
 
 //: diags_new: [空/から]の `Diags` を[作/つく]る
 fn diags_new <()*>Diags> ():
@@ -322,7 +312,9 @@ fn diags_len <(&Diags)->i32> (ds):
     v::len_ref<Diag> items
 
 fn diags_len <(Diags)->i32> (ds):
-    diags_len &ds
+    let n <i32> diags_len &ds
+    diags_free ds
+    n
 
 //: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
 fn diags_has_errors <(&Diags)->bool> (ds):
@@ -333,7 +325,9 @@ fn diags_has_errors <(&Diags)->bool> (ds):
     diags_has_errors_loop items_data items_len 0
 
 fn diags_has_errors <(Diags)->bool> (ds):
-    diags_has_errors &ds
+    let ok <bool> diags_has_errors &ds
+    diags_free ds
+    ok
 
 fn diags_has_errors_loop <(i32,i32,i32)->bool> (items_data, n, i):
     if:
@@ -351,6 +345,14 @@ fn diags_has_errors_loop <(i32,i32,i32)->bool> (items_data, n, i):
                     diags_has_errors_loop items_data n add i 1
                 DiagLevel::Warn:
                     diags_has_errors_loop items_data n add i 1
+
+//: diags_free: `Diags` が[所有/しょゆう]する[内部/ないぶ] Vec buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - `Diags` を[値/あたい]として[消費/しょうひ]し、`items` の backing storage を[閉/と]じます。
+//: - `Diag` 本体は Copy な text fragment だけを[保持/ほじ]するため、要素ごとの drop traversal は[行/おこな]いません。
+fn diags_free <(Diags)->()> (ds):
+    v::free<Diag> field::get ds "items"
 
 //: outcome_ok: [診断/しんだん]なしの[成功/せいこう][結果/けっか]を[作/つく]る
 fn outcome_ok <.T, .E> <(.T)->Outcome<.T, .E>> (v):

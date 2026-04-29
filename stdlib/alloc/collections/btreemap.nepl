@@ -77,14 +77,14 @@ fn grow <.K,.V> <(BTreeMap<.K,.V>)*>Result<BTreeMap<.K,.V>, Diag>> (hm):
     let keys1 <i32> alloc_raw mul cap1 size_of<.K>
     if:
         eq keys1 0
-        then diag_err<BTreeMap<.K,.V>> diag_out_of_memory "btreemap_grow(keys)"
+        then diag_err<BTreeMap<.K,.V>> diag_out_of_memory
         else:
             let vals1 <i32> alloc_raw mul cap1 size_of<.V>
             if:
                 eq vals1 0
                 then:
                     dealloc_raw keys1 mul cap1 size_of<.K>
-                    diag_err<BTreeMap<.K,.V>> diag_out_of_memory "btreemap_grow(values)"
+                    diag_err<BTreeMap<.K,.V>> diag_out_of_memory
                 else:
                     let mut i <i32> 0
                     while lt i len0:
@@ -118,14 +118,14 @@ fn new <.K,.V> <()*>Result<BTreeMap<.K,.V>, Diag>> ():
     let keys <i32> alloc_raw mul cap size_of<.K>
     if:
         eq keys 0
-        then diag_err<BTreeMap<.K,.V>> diag_out_of_memory "btreemap_new(keys)"
+        then diag_err<BTreeMap<.K,.V>> diag_out_of_memory
         else:
             let vals <i32> alloc_raw mul cap size_of<.V>
             if:
                 eq vals 0
                 then:
                     dealloc_raw keys mul cap size_of<.K>
-                    diag_err<BTreeMap<.K,.V>> diag_out_of_memory "btreemap_new(values)"
+                    diag_err<BTreeMap<.K,.V>> diag_out_of_memory
                 else:
                     let hdr <i32> alloc_raw 16
                     if:
@@ -133,7 +133,7 @@ fn new <.K,.V> <()*>Result<BTreeMap<.K,.V>, Diag>> ():
                         then:
                             dealloc_raw keys mul cap size_of<.K>
                             dealloc_raw vals mul cap size_of<.V>
-                            diag_err<BTreeMap<.K,.V>> diag_out_of_memory "btreemap_new(header)"
+                            diag_err<BTreeMap<.K,.V>> diag_out_of_memory
                         else:
                             store_i32 hdr 0
                             store_i32 add hdr 4 cap
