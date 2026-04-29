@@ -1,20 +1,30 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T10:13:07.960Z",
+  "generated_at": "2026-04-29T10:38:33.824Z",
   "counts": {
-    "total": 361,
-    "open": 13,
-    "resolved": 348,
+    "total": 365,
+    "open": 16,
+    "resolved": 349,
     "by_area": {
       "core": {
         "total": 173,
         "open": 6,
         "resolved": 167
       },
+      "STDLIB-TEST": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
+      },
       "stdlib": {
         "total": 103,
         "open": 6,
         "resolved": 97
+      },
+      "TEST": {
+        "total": 3,
+        "open": 2,
+        "resolved": 1
       },
       "selfhost": {
         "total": 44,
@@ -130,6 +140,21 @@
       "file": "items/ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B.md"
     },
     {
+      "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
+      "title": "stdlib assert API mixes assertion, reporting, and exit-code responsibilities",
+      "area": "STDLIB-TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/test.nepl, stdlib/core/test.nepl, tests/stdlib/std_test_collect.n.md, doc/neplg2/nmd_assert_output_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -203,6 +228,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
+    },
+    {
+      "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
+      "title": "nodesrc doctest parser runtime ignores diag_code metadata",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nodesrc/parser.js, nodesrc/parser.ts, nodesrc/tests.js, nodesrc/run_doctest.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79.md"
+    },
+    {
+      "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
+      "title": ".n.md tests rely on return values instead of stdout assertion reports",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
     },
     {
       "id": "ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB",
@@ -3803,6 +3858,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T021745990Z-STDLIB-LACKS-ERGONOMIC-STRING-OFFSET-6CD44AAB.md"
+    },
+    {
+      "id": "ISS-20260429T101530928Z-N-MD-SHARED-TEST-OPERATION-FOR-RUST--52938450",
+      "title": ".n.md shared test operation for Rust and selfhost is undefined",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "doc/neplg2, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/neplg2",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T101530928Z-N-MD-SHARED-TEST-OPERATION-FOR-RUST--52938450.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

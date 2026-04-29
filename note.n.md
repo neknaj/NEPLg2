@@ -25848,3 +25848,53 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host diagnostic code は Rust diagnostic redesign Stage D5 の前提に合わせた。parser / resolver / checker 本体の parity diagnostic 追加は各 stage の実装 issue で継続する。
+
+# 2026-04-29 メモ (ISS-20260429T101530928Z Rust/selfhost shared .n.md test operation)
+
+- [同期]:
+  - `34684b1` まで反映した `main` へ rebase し、`test-plan/shared-nmd-rust-selfhost` branch で作業した。
+- [調査]:
+  - `nodesrc/tests.js` / `nodesrc/run_doctest.js` は `.n.md` / `.nepl` の `neplg2:test` を収集し、Rust-built web compiler bundle で compile/run する既存入口である。
+  - `nodesrc/run_test.js` は Rust compiler bundle、WASM/WASI/WASIX 実行、`ret` / `stdout` / `stderr` / `compile_fail` 期待値を扱う。
+  - `nodesrc/analyze_source.js` は Rust 側の lex / parse / resolve / semantics stage JSON を取得できるため、selfhost stage parity runner の Rust backend として使える。
+  - `nepl-core/tests/*.rs` は Rust 内部 API に直接触る integration test が多く、言語仕様や diagnostic contract の外部期待値は `.n.md` へ寄せるべきと判断した。
+  - 調査中に `nodesrc/parser.js` が古い `diag_id` metadata 実装のままで `.n.md` の `diag_code:` を runner へ渡していないことを確認し、`ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79` を追加した。
+- [修正]:
+  - `ISS-20260429T101530928Z-N-MD-SHARED-TEST-OPERATION-FOR-RUST--52938450` を追加し、`.n.md` 共通テスト運用の未定義状態を issue 化した。
+  - `doc/neplg2/shared_nmd_test_plan.md` を追加し、`.n.md` を Rust / selfhost 共通の case manifest として扱う方針を定義した。
+  - 計画では `DoctestCase` manifest、Rust compile/run backend、Rust stage JSON backend、selfhost stage JSON backend、selfhost compile/run backend、dual comparison backend の段階導入を示した。
+  - `diag_code` metadata parser drift を共通化前 blocker として明記し、旧 `diag_id` / `diag_ids` は受け付けない方針を固定した。
+- [検証]:
+  - `node nodesrc/issues.js check`
+  - `git diff --check`
+  - `trunk build`
+  - `node nodesrc/cli.js -i doc/neplg2/shared_nmd_test_plan.md -o html=tmp/shared-nmd-test-plan-html`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の S1/S2/S3/S4/S5/S7 parity 条件を、`.n.md` 共通 manifest と stage backend の運用計画へ落とした。
+
+# 2026-04-29 メモ (stdout assertion report / stdlib assert redesign plan)
+
+- [調査]:
+  - `tests` / `tutorials` / `stdlib` の doctest 1481 件中、`ret:` を持つものは 719 件、stdout expectation を持つものは 98 件だった。
+  - `ret:` だけで stdout/stderr を持たない doctest は 710 件あり、`std/test` / `checks_exit_code` / `assert_*` 系 227 件のうち 116 件が stdout report を期待していなかった。
+  - `checks_exit_code` は 171 箇所で使われている一方、`checks_print_report` は 101 箇所で、assertion suite の詳細 report が必ず出る運用にはなっていない。
+  - `stdlib/std/test.nepl` の `assert_*` は `Result<(),str>` を返しながら失敗時に `FAIL:` を stdout に出すため、assertion 評価、表示、集約、exit code 変換の責務が混在している。
+  - `stdlib/core/test.nepl` は stdout を持たない core target 用の trap helper であり、std の report 型 assertion と同名で扱うべきではない。
+- [Issue]:
+  - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` を追加し、`.n.md` assertion suite が stdout report ではなく return value に依存している問題を分離した。
+  - `ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A` を追加し、`std/test` assert API の責務混在を分離した。
+  - 追加 Issue の内容は Discord に本文で報告済み。
+  - 調査報告書と計画書の要点も Discord に本文で報告済み。
+- [計画]:
+  - `doc/neplg2/nmd_assert_output_plan.md` を追加し、`.n.md` に `exit_code:` を導入して `ret:` を言語戻り値に限定する計画をまとめた。
+  - `std/test` は `AssertionStatus` / `AssertionKind` / `AssertionFailure` / `TestAssertion` / `TestReport` のような enum/struct で assertion data を保持し、report rendering と exit code 変換を別 API に分ける方針にした。
+  - `doc/neplg2/shared_nmd_test_plan.md` に stdout report / exit code 方針を追記した。
+- [検証]:
+  - `node nodesrc/issues.js check`
+  - `trunk build`
+  - `node nodesrc/cli.js -i doc/neplg2/shared_nmd_test_plan.md -o html=tmp/shared-nmd-test-plan-html`
+  - `node nodesrc/cli.js -i doc/neplg2/nmd_assert_output_plan.md -o html=tmp/nmd-assert-output-plan-html`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost 共通 `.n.md` manifest の runtime expectation に stdout report と exit code 分離を追加した。
