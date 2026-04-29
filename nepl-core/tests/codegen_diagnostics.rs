@@ -4,7 +4,7 @@ use nepl_core::diagnostic_codes::{
     BackendDiagnosticCode, DiagnosticCode, TypeDiagnosticCode, WasmDiagnosticCode,
 };
 use nepl_core::hir::{
-    HirBlock, HirBody, HirExpr, HirExprKind, HirExtern, HirFunction, HirLine, HirModule,
+    HirBlock, HirBody, HirExpr, HirExprKind, HirExtern, HirFunction, HirLine, HirModule, HirParam,
 };
 use nepl_core::passes::codegen_precheck::{precheck_llvm_codegen, precheck_wasm_codegen};
 use nepl_core::span::Span;
@@ -29,6 +29,38 @@ fn zero_arg_function(ctx: &mut TypeCtx, name: &str, result: TypeId, expr: HirExp
         name: name.to_string(),
         func_ty,
         params: Vec::new(),
+        result,
+        effect: Effect::Pure,
+        body: HirBody::Block(HirBlock {
+            lines: vec![HirLine {
+                expr,
+                drop_result: false,
+            }],
+            ty: result,
+            span: Span::dummy(),
+        }),
+        span: Span::dummy(),
+    }
+}
+
+fn one_arg_function(
+    ctx: &mut TypeCtx,
+    name: &str,
+    param_name: &str,
+    param_ty: TypeId,
+    result: TypeId,
+    expr: HirExpr,
+) -> HirFunction {
+    let func_ty = ctx.function(Vec::new(), vec![param_ty], result, Effect::Pure);
+    HirFunction {
+        doc: None,
+        name: name.to_string(),
+        func_ty,
+        params: vec![HirParam {
+            name: param_name.to_string(),
+            ty: param_ty,
+            mutable: false,
+        }],
         result,
         effect: Effect::Pure,
         body: HirBody::Block(HirBlock {
@@ -219,6 +251,84 @@ fn wasm_precheck_reports_indirect_signature_unsupported_code() {
     assert_eq!(
         first_diagnostic_code(precheck_wasm_codegen(&ctx, &module)),
         wasm_code(WasmDiagnosticCode::IndirectSignatureUnsupported)
+    );
+}
+
+#[test]
+fn wasm_precheck_reports_indirect_signature_missing_code() {
+    let mut ctx = TypeCtx::new();
+    let i32_ty = ctx.i32();
+    let unit_ty = ctx.unit();
+    let callee_ty = ctx.function(Vec::new(), vec![i32_ty], i32_ty, Effect::Pure);
+    let function = one_arg_function(
+        &mut ctx,
+        "main",
+        "f",
+        callee_ty,
+        unit_ty,
+        HirExpr {
+            ty: i32_ty,
+            kind: HirExprKind::CallIndirect {
+                callee: Box::new(HirExpr {
+                    ty: callee_ty,
+                    kind: HirExprKind::Var("f".to_string()),
+                    span: Span::dummy(),
+                }),
+                params: vec![i32_ty],
+                result: i32_ty,
+                args: vec![HirExpr {
+                    ty: i32_ty,
+                    kind: HirExprKind::LiteralI32(1),
+                    span: Span::dummy(),
+                }],
+            },
+            span: Span::dummy(),
+        },
+    );
+    let module = empty_module(vec![function], Some("main"));
+
+    assert_eq!(
+        first_diagnostic_code(precheck_wasm_codegen(&ctx, &module)),
+        wasm_code(WasmDiagnosticCode::IndirectSignatureMissing)
+    );
+}
+
+#[test]
+fn wasm_codegen_reports_indirect_signature_missing_without_panicking() {
+    let mut ctx = TypeCtx::new();
+    let i32_ty = ctx.i32();
+    let unit_ty = ctx.unit();
+    let callee_ty = ctx.function(Vec::new(), vec![i32_ty], i32_ty, Effect::Pure);
+    let function = one_arg_function(
+        &mut ctx,
+        "main",
+        "f",
+        callee_ty,
+        unit_ty,
+        HirExpr {
+            ty: i32_ty,
+            kind: HirExprKind::CallIndirect {
+                callee: Box::new(HirExpr {
+                    ty: callee_ty,
+                    kind: HirExprKind::Var("f".to_string()),
+                    span: Span::dummy(),
+                }),
+                params: vec![i32_ty],
+                result: i32_ty,
+                args: vec![HirExpr {
+                    ty: i32_ty,
+                    kind: HirExprKind::LiteralI32(1),
+                    span: Span::dummy(),
+                }],
+            },
+            span: Span::dummy(),
+        },
+    );
+    let module = empty_module(vec![function], Some("main"));
+
+    assert_eq!(
+        first_error_code(codegen_wasm::generate_wasm(&ctx, &module)),
+        wasm_code(WasmDiagnosticCode::IndirectSignatureMissing)
     );
 }
 

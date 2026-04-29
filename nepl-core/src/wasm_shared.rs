@@ -329,112 +329,6 @@ pub(crate) fn collect_reachable_wasm_functions(module: &HirModule) -> BTreeSet<S
     reachable
 }
 
-fn collect_indirect_sigs(
-    expr: &HirExpr,
-    out: &mut Vec<(Vec<ValType>, Vec<ValType>)>,
-    ctx: &TypeCtx,
-) {
-    let mut stack = vec![expr];
-    while let Some(expr) = stack.pop() {
-        match &expr.kind {
-            HirExprKind::CallIndirect {
-                callee,
-                params,
-                result,
-                args,
-            } => {
-                let mut param_types = Vec::new();
-                let mut ok = true;
-                for ty in params {
-                    let kind = ctx.get(ctx.resolve_id(*ty));
-                    if let Some(vt) = valtype(&kind) {
-                        param_types.push(vt);
-                    } else {
-                        ok = false;
-                        break;
-                    }
-                }
-                if ok {
-                    let res_kind = ctx.get(ctx.resolve_id(*result));
-                    let results = if let Some(vt) = valtype(&res_kind) {
-                        vec![vt]
-                    } else {
-                        Vec::new()
-                    };
-                    out.push((param_types, results));
-                }
-                for arg in args.iter().rev() {
-                    stack.push(arg);
-                }
-                stack.push(callee);
-            }
-            HirExprKind::Call { args, .. } => {
-                for arg in args.iter().rev() {
-                    stack.push(arg);
-                }
-            }
-            HirExprKind::If {
-                cond,
-                then_branch,
-                else_branch,
-            } => {
-                stack.push(else_branch);
-                stack.push(then_branch);
-                stack.push(cond);
-            }
-            HirExprKind::While { cond, body } => {
-                stack.push(body);
-                stack.push(cond);
-            }
-            HirExprKind::Match { scrutinee, arms } => {
-                for arm in arms.iter().rev() {
-                    stack.push(&arm.body);
-                }
-                stack.push(scrutinee);
-            }
-            HirExprKind::EnumConstruct { payload, .. } => {
-                if let Some(payload) = payload {
-                    stack.push(payload);
-                }
-            }
-            HirExprKind::StructConstruct { fields, .. } => {
-                for field in fields.iter().rev() {
-                    stack.push(field);
-                }
-            }
-            HirExprKind::TupleConstruct { items } => {
-                for item in items.iter().rev() {
-                    stack.push(item);
-                }
-            }
-            HirExprKind::Block(block) => {
-                for line in block.lines.iter().rev() {
-                    stack.push(&line.expr);
-                }
-            }
-            HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
-                stack.push(value);
-            }
-            HirExprKind::Intrinsic { args, .. } => {
-                for arg in args.iter().rev() {
-                    stack.push(arg);
-                }
-            }
-            HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
-                stack.push(inner);
-            }
-            HirExprKind::Unit
-            | HirExprKind::LiteralI32(_)
-            | HirExprKind::LiteralF32(_)
-            | HirExprKind::LiteralBool(_)
-            | HirExprKind::LiteralStr(_)
-            | HirExprKind::Var(_)
-            | HirExprKind::FnValue(_)
-            | HirExprKind::Drop { .. } => {}
-        }
-    }
-}
-
 pub(crate) fn collect_wasm_signature_set(
     ctx: &TypeCtx,
     module: &HirModule,
@@ -453,17 +347,6 @@ pub(crate) fn collect_wasm_signature_set(
         if let Some((params, results)) = wasm_sig(ctx, f.result, &f.params) {
             out.insert((params, results));
         }
-    }
-    let mut indirect_sigs = Vec::new();
-    for f in &module.functions {
-        if let HirBody::Block(b) = &f.body {
-            for line in &b.lines {
-                collect_indirect_sigs(&line.expr, &mut indirect_sigs, ctx);
-            }
-        }
-    }
-    for (params, results) in indirect_sigs {
-        out.insert((params, results));
     }
     out
 }

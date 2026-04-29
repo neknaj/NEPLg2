@@ -26039,3 +26039,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
   - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
+
+# 2026-04-29 メモ (ISS-20260429T100747827Z wasm indirect signature missing)
+
+- [同期]:
+  - `origin/main` の `3071dc5` まで同期した `main` から `core/wasm-indirect-signature-missing` branch を作成した。
+  - `.n.md` assertion report 移行を調査したが、stdout fixture 生成まで含む対象件数が大きいため、別 issue として継続し、今回の checkpoint では独立して検証可能な wasm indirect signature diagnostic を修正した。
+- [原因]:
+  - `wasm_shared::collect_wasm_signature_set` が extern / function の実在 signature だけでなく、`CallIndirect` call-site が要求する signature も type set に追加していた。
+  - そのため `codegen_precheck` の `IndirectSignatureMissing` 分岐は、同じ要求 signature を自分で set に追加した後で存在確認しており、公開 precheck 経路から到達しにくい dead diagnostic になっていた。
+- [修正]:
+  - `collect_wasm_signature_set` から `CallIndirect` 要求 signature の収集を削除し、Wasm type section の source を extern と到達可能 function signature に限定した。
+  - `IndirectSignatureUnsupported` は表現不能な signature、`IndirectSignatureMissing` は表現可能だが実在 function / extern signature に存在しない signature として意味を分離した。
+  - `nepl-core/tests/codegen_diagnostics.rs` に precheck と wasm codegen の両方で `IndirectSignatureMissing` が到達する回帰テストを追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test codegen_diagnostics`: 10 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/codegen_diagnostics.n.md --no-tree -o tmp/wasm-indirect-codegen-diagnostics.json -j 1 --dist web/dist`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed (CRLF warning only)
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md --no-tree -o tmp/wasm-indirect-signature-functions.json -j 1 --dist web/dist`: `total=24`, `passed=23`, `failed=1`。失敗は既知の `ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7` の `stdio print_i32` RawMemoryLoadCell ownership violation。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - wasm backend diagnostic enum の到達性を、実在 signature source と call-site requirement の分離で修正した。
