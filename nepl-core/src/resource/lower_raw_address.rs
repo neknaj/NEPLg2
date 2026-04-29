@@ -336,6 +336,9 @@ fn raw_address_source_from_named_call(
         "str_addr" if args.len() == 1 => {
             raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
         }
+        "str_from_addr_unchecked" if args.len() == 1 => {
+            raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
+        }
         "region_new" if args.len() >= 2 => {
             raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
         }

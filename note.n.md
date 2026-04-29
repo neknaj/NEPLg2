@@ -26066,6 +26066,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
   - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
 
+# 2026-04-29 メモ (ISS-20260429T122447197Z string concat_result owner contract)
+
+- [同期]:
+  - `origin/main` と同期済みの `work/string-concat-result-owner-contract` branch で対応した。
+- [原因]:
+  - `str_from_addr_unchecked` は raw address を `str` 表現へ戻す境界だが、Resource IR の raw address lowering では `str_addr` の逆向き alias として扱われていなかった。
+  - `stdlib/alloc/string.nepl` の `concat_result` などは `string_alloc_region` で得た `RegionToken` から `*get_ref` 経由で `out_base` を取り出し、`string_finish_base` に渡していた。そのため Resource IR owner checker は `out_region.ptr.raw` の free obligation が返却 `str` へ移ったことを証明できなかった。
+- [修正]:
+  - Resource IR raw address lowering に `str_from_addr_unchecked(addr)` の alias を追加した。
+  - `string_finish` は `RegionToken<u8>` を値で消費して `get region "ptr"` から基底 pointer を取り出し、`RegionToken` owner を返却 `str` へ移す境界にした。
+  - `string_from_mem_unchecked_result` / `concat_result` / `sb_build_result` / `from_u128_radix` は確保した `RegionToken` を `string_finish` に渡す形へ統一した。
+  - Resource IR owner 回帰として `str_from_addr_unchecked` 経由の raw owner transfer と `concat_result` の output region transfer を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 28 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_ -- --nocapture`: 19 passed
+  - `cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: `concat_result` の owner leak は解消。次の既知問題として `hashmap_rehash_to...` の backing entries owner leak に進む。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の Resource owner check と stdlib string ownership contract の整合性を改善した。
+
 # 2026-04-29 メモ (ISS-20260429T100747827Z wasm indirect signature missing)
 
 - [同期]:

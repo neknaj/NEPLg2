@@ -5801,6 +5801,90 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_transfers_raw_owner_through_str_from_addr() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+fn finish_region <(RegionToken<u8>)->str> (region):
+    let base <MemPtr<u8>> get region "ptr"
+    #intrinsic "str_from_addr_unchecked" <> (mem_ptr_addr base)
+
+fn main <()* >str> ():
+    match alloc_region_bytes<u8> 4:
+        Result::Ok region:
+            finish_region region
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("finish_region__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "str_from_addr_unchecked must transfer the raw allocation owner into returned str: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_concat_result_output_region_transfer() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn main <()* >str> ():
+    match concat_result "a" "b":
+        Result::Ok s:
+            s
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("concat_result__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "concat_result must move the output RegionToken owner into the returned Result::Ok str: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node() {
     let source = r#"
 #entry main

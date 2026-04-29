@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T12:51:34.210Z",
+  "generated_at": "2026-04-29T12:55:02.031Z",
   "counts": {
     "total": 375,
-    "open": 19,
-    "resolved": 356,
+    "open": 18,
+    "resolved": 357,
     "by_area": {
       "core": {
-        "total": 173,
+        "total": 174,
         "open": 5,
-        "resolved": 168
+        "resolved": 169
       },
       "stdlib": {
-        "total": 112,
-        "open": 12,
+        "total": 111,
+        "open": 11,
         "resolved": 100
       },
       "TEST": {
@@ -213,21 +213,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
-    },
-    {
-      "id": "ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE",
-      "title": "String concat_result leaks output region owner under Resource IR",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/string.nepl, stdlib/core/mem",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE.md"
     },
     {
       "id": "ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3",
@@ -2793,6 +2778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T054411082Z-RESOURCE-EFFECT-CHECKER-KEEPS-RAW-ID-F3C413F2.md"
+    },
+    {
+      "id": "ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE",
+      "title": "String concat_result leaks output region owner under Resource IR",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/lower_raw_address.rs, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

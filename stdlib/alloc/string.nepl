@@ -143,7 +143,7 @@ fn string_data_ptr <(str)->MemPtr<u8>> (s):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
-    let base <MemPtr<u8>> *get_ref &region "ptr"
+    let base <MemPtr<u8>> get region "ptr"
     string_finish_base base byte_len
 
 //: string_from_addr_unchecked: 文字列レイアウト済み領域を `str` として扱う
@@ -187,7 +187,7 @@ fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
 //:
 //: [実装/じっそう]:
 //: - `string_alloc_region` で `[len][bytes...]` layout の領域を確保し、本文へ `mem_copy` します。
-//: - 長さヘッダは `string_finish_base` で raw store し、checked store の `unwrap` に依存しません。
+//: - 長さヘッダは `string_finish` で raw store し、確保領域の所有権を返却する `str` へ移します。
 //:
 //: [注意/ちゅうい]:
 //: - UTF-8 検証は行いません。外部入力には `string_from_utf8_mem_result` を使ってください。
@@ -205,7 +205,6 @@ fn string_from_mem_unchecked_result <(MemPtr<u8>,i32)->Result<str,str>> (src, by
                 Result::Err e:
                     Result<str,str>::Err e
                 Result::Ok region:
-                    let out_base <MemPtr<u8>> *get_ref &region "ptr"
                     let out_data <MemPtr<u8>> string_region_data_ptr &region
                     if:
                         gt byte_len 0
@@ -213,7 +212,7 @@ fn string_from_mem_unchecked_result <(MemPtr<u8>,i32)->Result<str,str>> (src, by
                             mem_copy mem_ptr_addr out_data mem_ptr_addr src byte_len
                         else:
                             ()
-                    Result<str,str>::Ok string_finish_base out_base byte_len
+                    Result<str,str>::Ok string_finish region byte_len
 
 //: StringUtf8LeadKind: UTF-8 leading byte の分類
 //:
@@ -549,11 +548,10 @@ fn concat_result <(str,str)->Result<str,str>> (a,b):
         Result::Err e:
             Result<str,str>::Err e
         Result::Ok out_region:
-            let out_base <MemPtr<u8>> *get_ref &out_region "ptr";
             let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
             mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr a la;
             mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
-            Result<str,str>::Ok string_finish_base out_base total
+            Result<str,str>::Ok string_finish out_region total
 
 fn concat <(str,str)->str> (a,b):
     match concat_result a b:
@@ -982,12 +980,11 @@ fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
                     string_builder_free sb;
                     Result<str,str>::Err e
                 Result::Ok out_region:
-                    let out_base <MemPtr<u8>> *get_ref &out_region "ptr";
-                    let out_data <MemPtr<u8>> mem_ptr_add out_base 4;
+                    let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
                     match mem_copy<u8> out_data get sb "data" len0:
                         Result::Ok _:
                             string_builder_free sb;
-                            Result<str,str>::Ok string_finish_base out_base len0
+                            Result<str,str>::Ok string_finish out_region len0
                         Result::Err _e:
                             string_builder_free sb;
                             Result<str,str>::Err "string.builder build copy failed"
@@ -2502,7 +2499,6 @@ fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
                         Result::Err _e:
                             Result::Err<str,i32> 12
                         Result::Ok out_region:
-                            let out_base <MemPtr<u8>> *get_ref &out_region "ptr";
                             let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
                             let out_raw <i32> mem_ptr_addr out_data;
                             let mut pos <i32> digit_count;
@@ -2513,7 +2509,7 @@ fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
                                     set pos sub pos 1;
                                     store_u8 add out_raw pos digit_to_char_lower get qr_write "remainder";
                                     set write_n get qr_write "quotient";
-                            Result::Ok<str,i32> string_finish_base out_base digit_count
+                            Result::Ok<str,i32> string_finish out_region digit_count
 
 // to_u128: 10 進文字列を u128 に変換する
 //
