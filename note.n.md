@@ -27458,3 +27458,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 4 の stdlib owner visibility に合わせ、List functional helpers を raw node traversal から owner flow が見える構造へ変更した。
+
+# 2026-04-30 メモ (stdlib collection/mem/string static safety design review)
+
+- [同期]:
+  - remote main の `bbaf2a5` まで取り込み、`docs/stdlib-mem-string-static-safety-design` branch で設計確認を実施した。
+- [確認対象]:
+  - `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md`
+  - `doc/neplg2/static_check_design_verification_20260430.md`
+  - `stdlib/core/mem.nepl`
+  - `stdlib/alloc/string.nepl`
+  - `stdlib/alloc/io.nepl`
+  - `stdlib/alloc/collections/**`
+- [確認結果]:
+  - `HashMap` / `HashSet` は enum bucket state と typed storage へ移行済み。
+  - `Queue` / `Deque` / `RingBuffer` / `Stack` / `BinaryHeap` / `BTreeMap` / `BTreeSet` は raw header / raw pointer layout から `Vec<Option<T>>` slot state へ移行済み。
+  - `Vec` は依然として `MemPtr<T>` owner field と `mem_ptr_wrap 0` empty sentinel を持つため、collection storage owner state の根本残件。
+  - `List` は `reverse` / `map` / `filter` の owner flow は改善済みだが、node storage 自体は raw address discipline。
+  - bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet / SparseSet は Copy payload 中心だが、raw storage owner が残る。
+  - `core/mem` は raw API / `MemPtr` / `RegionToken` が同居し、`RegionToken` は forge 可能なので compiler-issued capability ではない。
+  - `ByteBuf` / `ByteBuilder` / `StringBuilder` は `Option<MemPtr<u8>>` により短期 self-host では使用可能だが、理想は `OwnedBytes` / `OwnedStringRegion`。
+- [doc更新]:
+  - `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に `bbaf2a5` 基準の再レビュー結果、現状実装、理想、self-host 利用制限を追記した。
+  - `doc/neplg2/static_check_design_verification_20260430.md` の stdlib collections 行を現状に合わせて更新した。
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に今回の再レビュー結果を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 方針は「メモリ安全と型安全は必達」「状態は enum / Option / typed wrapper で表し、分岐は `match` の網羅性検査を効かせる」に揃えた。

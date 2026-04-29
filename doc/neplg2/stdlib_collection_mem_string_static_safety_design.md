@@ -26,11 +26,44 @@
 | `alloc/string` `str` | `string_alloc_region` / `string_finish` で `RegionToken` を使う経路が増えた。UTF-8 と char API も進んでいる。 | 部分的に良い。`str` 確定境界は改善済みだが、raw address helper はまだ内部 discipline に依存する。 | `str` 生成 API を `OwnedStringRegion` に寄せ、unchecked helper を internal boundary に閉じる。 |
 | `alloc/string` `StringBuilder` | `data: Option<MemPtr<u8>>` で空/所有領域を型に出した。append は借用 pointer で書き込み、owner field はそのまま移す。 | 良い方向。短期 self-host の text builder として使用可能。 | `ByteBuilder` と同じく owner wrapper 化し、panic/fallback API と Result API の責務を分ける。 |
 | `alloc/collections/Vec` | `len/cap/data: MemPtr<T>`。空は `mem_ptr_wrap 0`。`get_ref<T: Copy>` はあるが、`get(Vec<T>) -> Option<T>` など non-Copy move-out と storage state が混在する。 | 再設計対象。`MemPtr` が owner field であり、空状態も null pointer discipline。 | `OwnedBuffer<T>` + initialized prefix へ移行し、read/copy/move/drop/free を分離する。 |
-| `Stack` / `Queue` / `Deque` / `BinaryHeap` | header raw storage に len/cap/data pointer を詰める実装が多い。 | 再設計対象。header pointer が owner token と raw layout を兼ねる。 | `Vec` または `OwnedBuffer` 上の薄い wrapper に戻し、header raw layout をなくす。 |
+| `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` | raw header は廃止済みで、`len/cap/head/items: Vec<Option<T>>` 系へ移行済み。live/inactive slot は `Some` / `None` で表す。 | 良い方向。ただし現行 `Vec` 自体が `MemPtr<T>` owner を持つため、最終形ではない。 | `OwnedBuffer<T>` 再実装後、`Vec<Option<T>>` 依存を新 buffer model に移す。 |
 | `HashMap` / `HashSet` | `BucketState` enum と typed bucket storage を導入済み。key/value/key-only storage は `Vec<Option<...>>` で初期化状態を表す。 | 良い方向。Copy payload 前提では Resource IR が storage owner と initialized slot を追いやすい。 | source policy で raw header / numeric sentinel への退行を防ぎ、非 Copy payload は別設計で扱う。 |
 | bitset 系 collection | payload は `u8` buffer なので owner payload 問題は小さいが、裸 `MemPtr<u8>` owner field が残る。 | 中程度。Copy byte storage としては移行しやすい。 | `OwnedBytes` に移行し、null pointer discipline をやめる。 |
 | Rust Resource IR | `CellState` / `OwnerState` / `BorrowState` / `StorageOrigin` があり、raw memory op、aggregate projection、enum payload、branch merge を追跡している。 | 方向は正しい。現状は stdlib の曖昧な所有権表現を補うための alias 処理が多い。 | stdlib 側の owner wrapper 化に合わせ、特例的 alias summary を減らす。 |
-| self-host stdlib 利用 | ByteBuf / builders / Copy-only Vec は使えるが、non-Copy payload collection や fallible update は危険。 | 制限付き開始は可能。ただし ResourceIR / typecheck 実装で raw collection discipline を増やしてはいけない。 | token stream / diagnostics / symbol table は安全 subset か専用 typed collection を使う。 |
+| self-host stdlib 利用 | ByteBuf / builders / Copy-only Vec / typed slot collection は使えるが、non-Copy payload collection や fallible update は危険。 | 制限付き開始は可能。ただし ResourceIR / typecheck 実装で raw collection discipline を増やしてはいけない。 | token stream / diagnostics / symbol table は安全 subset か専用 typed collection を使う。 |
+
+## 2026-04-30 再レビュー結果
+
+基準: remote main `bbaf2a5` 取り込み後。
+
+今回の再確認では、collection 改善が進み、以前の「raw header が多い」という記述は古くなっている。一方で、`Vec` と `core/mem` の根本設計が未完であるため、最終的な memory safety / type safety 設計はまだ完了していない。
+
+| 分類 | 現状の実装 | 安全性判定 | 理想 |
+|---|---|---|---|
+| hash collection | `HashMap` / `HashSet` は bucket state enum と `Vec<Option<T>>` storage。 | 良い。数値 status ではなく enum / `match` で検査できる。 | non-Copy payload 用 owner-preserving update / drop traversal を追加する。 |
+| derived linear collection | `Queue` / `Deque` / `RingBuffer` / `Stack` / `BinaryHeap` は `Vec<Option<T>>` storage。 | 良い方向。raw header は消えたが `Vec` 依存なので基礎 storage owner は未完。 | `OwnedBuffer<T>` 上の slot-state collection へ移す。 |
+| ordered table | `BTreeMap` / `BTreeSet` は sorted-array typed storage。 | 良い方向。名前上は BTree だが実装は ordered array table。 | self-host 用には用途を小規模 ordered table と明記し、大規模 map は別設計にする。 |
+| raw node collection | `List` は raw node chain。`reverse` / `map` / `filter` の owner flow は改善済み。 | 部分的に安全。node owner が raw address に残る。 | node owner wrapper または `OwnedBuffer` based persistent/linked structure へ再設計する。 |
+| byte/bit collection | bitset / bloom / adjacency matrix は `MemPtr<u8>` raw byte storage。 | payload は Copy byte なので危険は限定的だが、owner field は未分離。 | `OwnedBytes` に移行し、`MemPtr` を view に限定する。 |
+| numeric array collection | Fenwick / SegmentTree / DisjointSet / SparseSet は raw i32 storage が残る。 | payload は Copy だが、storage owner と raw pointer が混在する。 | `Vec<i32>` ではなく `OwnedBuffer<i32>` / typed index API へ移す。 |
+| `Vec<T>` | `len/cap/data: MemPtr<T>`、空は `mem_ptr_wrap 0`。 | 最重要残件。`MemPtr` が owner と view を兼ねる。 | `OwnedBuffer<T>` + `StorageState<T>` + initialized prefix に再実装する。 |
+| `core/mem` | raw allocator、`MemPtr<T>`、`RegionToken<T>`、load/store が同居。 | 過渡。token forging と owner/view 混同が残る。 | public safe API と internal raw API を分離し、compiler-issued owner token にする。 |
+| `alloc/string` / `alloc/io` | `RegionToken` と `Option<MemPtr<u8>>` builder で owner flow を改善済み。 | 短期 self-host では使用可能。 | `OwnedBytes` / `OwnedStringRegion` へ移し、unchecked raw conversion を internal boundary に閉じる。 |
+
+現状実装の粗い集計:
+
+- raw memory pattern が残る collection: `Vec`, `List`, `AdjacencyMatrix`, `BitSet`, `BloomFilter`, `CountingBloomFilter`, `DisjointSet`, `Fenwick`, `SegmentTree`, `SparseSet`。
+- raw memory pattern が消えた主要 collection: `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `Queue`, `Deque`, `RingBuffer`, `Stack`, `BinaryHeap`。
+- enum state が明示されている主要 collection: `HashMap`, `HashSet`。
+- slot state を `Option<T>` で明示している collection: `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `Queue`, `Deque`, `RingBuffer`, `Stack`, `BinaryHeap`, 一部 `Vec` 利用 API。
+
+この状態での設計判断:
+
+1. derived collection の raw header 廃止は正しい。Resource IR が raw header 内の疑似 field を復元する必要がなくなり、所有権検査の入力が構造化された。
+2. `Vec<Option<T>>` は改善だが完成形ではない。`Vec` 自体が `MemPtr<T>` owner field を持つため、最終的な static check authority は `OwnedBuffer<T>` まで進めて初めて確立する。
+3. `RegionToken<T>` は builder / string で raw address owner を局所化する効果があるが、stdlib から forge 可能な struct である限り compiler capability ではない。self-host の memory model へそのまま移植してはいけない。
+4. type safety の観点では、state を enum / Option へ出した領域は良い。逆に raw `i32` address、numeric length/state、string diagnostic code へ依存する領域は再設計対象である。
+5. memory safety の観点では、allocation failure 時の owner contract が API 型に出ていない `Result<Collection<T>, E>` は non-Copy payload では不十分である。Err で collection / item owner を返す専用 enum が必要である。
 
 ## 現状の設計と実装
 
@@ -91,10 +124,12 @@ collections は self-host に必要な基礎構造だが、現状は安全設計
 
 現状:
 
-- `stdlib/alloc/collections/**` には `MemPtr` 参照がまだ残り、`Vec` / `Queue` / `Deque` / `BinaryHeap` などで storage owner と raw projection が混在している。`HashMap` / `HashSet` は typed storage へ移行済みである。
-- `Vec<T>` は `len/cap/data: MemPtr<T>` で、空 Vec は `data = mem_ptr_wrap 0` になる経路がある。
-- `Stack<T>` / `BinaryHeap<T>` は header 領域を raw byte storage として確保し、その中に data pointer address を保存する。
 - `HashMap` / `HashSet` は `Empty` / `Full` / `Tombstone` の enum と typed storage へ移行済みで、raw bucket status に戻さない source policy を持つ。
+- `Queue` / `Deque` / `RingBuffer` / `Stack` / `BinaryHeap` は raw header を廃止し、`Vec<Option<T>>` storage へ移行済みである。live slot と inactive slot は `Some` / `None` で表す。
+- `BTreeMap` / `BTreeSet` は sorted-array 形式の typed `Vec<Option<T>>` storage へ移行済みであり、raw key/value pointer layout ではない。
+- `List` は raw node chain を保持する。`reverse` は node relink、`map` / `filter` は owner accumulator へ改善済みだが、node storage 自体はまだ raw address discipline である。
+- bitset 系、BloomFilter 系、AdjacencyMatrix、Fenwick、SegmentTree、DisjointSet、SparseSet は `MemPtr` / raw byte or i32 storage を保持する。payload は主に Copy だが、owner field は型としてはまだ `MemPtr` である。
+- `Vec<T>` は `len/cap/data: MemPtr<T>` で、空 Vec は `data = mem_ptr_wrap 0` になる経路がある。derived collection の改善後も、基礎型 `Vec` が未完であるため owner model の根は残っている。
 - `get_ref<T: Copy>` のように Copy 読み取りへ制限した API はあるが、`get(Vec<T>) -> Option<T>` や `pop` などは move-out と owner state の扱いが明確でない。
 - `free<T>(Vec<T>)` などの storage free は、要素の Drop / consume と storage-only dealloc を完全には分けていない。
 
@@ -288,7 +323,7 @@ Resource IR / typecheck / match check は次を必須にする。
 使用を避けるもの:
 
 - non-Copy payload を入れる `Vec` / `Stack` / `HashMap`。
-- raw header を持つ collection を ResourceIR / typecheck の中核データ構造に使うこと。
+- raw header / raw node / raw byte storage discipline を ResourceIR / typecheck の中核データ構造に使うこと。
 - `MemPtr` / raw address / `RegionToken` を self-host compiler core の public data structure に持つこと。
 - failure path で owner を返さない fallible collection update。
 

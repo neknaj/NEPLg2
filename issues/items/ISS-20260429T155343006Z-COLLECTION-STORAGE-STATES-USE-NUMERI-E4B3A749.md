@@ -274,3 +274,18 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `Vec` の null/raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
 - typed `Vec<Option<T>>` storage に移行した collection は Copy payload 前提であり、非 Copy payload の drop traversal は collection-wide drop 設計で扱う。
+
+## 2026-04-30 stdlib collection/mem/string 静的検査再レビュー
+
+`doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` を remote main `bbaf2a5` 基準で更新し、collection / mem / string と Resource IR の現状、理想設計、self-host 利用制限を再整理した。
+
+判定:
+
+- `HashMap` / `HashSet` は enum bucket state と typed storage へ移行済みで、数値 status への退行を source policy で防げている。
+- `Queue` / `Deque` / `RingBuffer` / `Stack` / `BinaryHeap` / `BTreeMap` / `BTreeSet` は raw header / raw pointer layout から `Vec<Option<T>>` slot state へ移行済みである。
+- `Vec` は依然として `len/cap/data: MemPtr<T>` と `mem_ptr_wrap 0` に依存しており、collection storage owner state の根本残件である。
+- `List` は owner flow が改善されたが、node chain 自体は raw address discipline に残る。
+- bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet / SparseSet は Copy payload 中心だが、storage owner は `MemPtr` / raw pointer に残る。
+- `core/mem` と string / byte builder は過渡的に改善しているが、`MemPtr` が owner と view を兼ねる設計を最終形としては採用しない。
+
+この issue の残件は `Vec` / raw byte or numeric collection / List node storage の owner state を、`OwnedBuffer<T>` / `OwnedBytes` / `StorageState<T>` / enum + `match` へ移すことに絞る。
