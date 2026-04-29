@@ -6,13 +6,14 @@ use alloc::vec::Vec;
 use crate::ast::{FnBody, FnDef};
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirBody, HirFunction, HirParam};
 use crate::resolve::ImportResolution;
 use crate::source_map::SourceMap;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::binding_rules::emit_shadow_warning;
+use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind, Env};
 use super::hir_finalize::resolve_type_ids_in_function;
 use super::model::{CheckedFunction, EnumInfo, StructInfo};
@@ -85,23 +86,20 @@ pub(super) fn check_function(
             ..
         } => (params, result, effect),
         _ => {
-            diags.push(
-                Diagnostic::error("function signature must be a function type", f.name.span)
-                    .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureNotFunction,
-                    )),
-            );
+            diags.push(type_error(
+                TypeDiagnosticCode::FunctionSignatureNotFunction,
+                "function signature must be a function type",
+                f.name.span,
+            ));
             return Err(diags);
         }
     };
     if params_ty.len() != captured_params.len() + f.params.len() {
-        diags.push(
-            Diagnostic::error("parameter count mismatch with signature", f.name.span).with_code(
-                DiagnosticCode::Type(
-                    crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
-                ),
-            ),
-        );
+        diags.push(type_error(
+            TypeDiagnosticCode::ArgumentArityMismatch,
+            "parameter count mismatch with signature",
+            f.name.span,
+        ));
         return Err(diags);
     }
     diags.extend(crate::target_precheck::precheck_function_raw_body_target(
@@ -178,13 +176,11 @@ pub(super) fn check_function(
                     match checker.check_block(b, 0, true, Some(result_ty)) {
                         Some((blk, _val)) => {
                             if checker.ctx.unify(blk.ty, result_ty).is_err() {
-                                checker.diagnostics.push(
-                                    Diagnostic::error(
-                                        "return type does not match signature",
-                                        f.name.span,
-                                    )
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::ReturnTypeMismatch)),
-                                );
+                                checker.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::ReturnTypeMismatch,
+                                    "return type does not match signature",
+                                    f.name.span,
+                                ));
                             }
                             HirBody::Block(blk)
                         }
@@ -238,15 +234,11 @@ pub(super) fn check_function(
                     && ctx.type_pattern_matches(imp.target_ty, resolved)
             });
         if !satisfied {
-            diag_out.push(
-                Diagnostic::error(
-                    format!("type does not satisfy trait bound '{}'", bound.name),
-                    span,
-                )
-                .with_code(DiagnosticCode::Type(
-                    crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied,
-                )),
-            );
+            diag_out.push(type_error(
+                TypeDiagnosticCode::TraitBoundUnsatisfied,
+                format!("type does not satisfy trait bound '{}'", bound.name),
+                span,
+            ));
         }
     }
     env.pop_scope();

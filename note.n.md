@@ -1,3 +1,28 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z function checker code-first diagnostics)
+
+- [同期]:
+  - `078c551` を `main` / `origin/main` へ push した後、`work/typecheck-function-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/function_check.rs` には function signature、parameter count、return type、pending trait bound の診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - function checking boundary は関数型安全と trait bound の基本境界なので、診断 code を後付けせず生成時点で `TypeDiagnosticCode` を確定する必要がある。
+- [修正]:
+  - `FunctionSignatureNotFunction`、`ArgumentArityMismatch`、`ReturnTypeMismatch`、`TraitBoundUnsatisfied` を `type_error(...)` helper 経由へ移行した。
+  - Rust 回帰テストで各 function diagnostic が `DiagnosticCode::Type(...)` を返すことを固定した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/function_check.rs`: no matches
+  - `cargo test -p nepl-core --test functions has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_bound_missing_impl_is_error -- --nocapture`: pass
+  - `cargo test -p nepl-core --test functions function_ -- --nocapture`: failed 15/16。失敗は stdio `print_i32` の RawMemoryLoadCell MaybeMoved で、`ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7` に記録済み。
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 43 --dist web/dist`: pass。`type.trait_bound.unsatisfied` が出ることを確認した。
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の function checker boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z entry resolve code-first diagnostics)
 
 - [同期]:

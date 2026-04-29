@@ -1489,7 +1489,26 @@ fn call_show <.T: Show> <(.T)->i32> (x):
 fn main <()->i32> ():
     call_show 1
 "#;
-    compile_err(src);
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("missing trait impl should fail") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Type(
+                nepl_core::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied
+            ))),
+        "missing trait bound diagnostic code: {:?}",
+        diags
+    );
 }
 
 #[test]

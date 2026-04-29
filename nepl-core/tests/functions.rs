@@ -1,6 +1,8 @@
 mod harness;
 use harness::{run_main_i32, run_main_wasi_i32};
 
+use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
+use nepl_core::error::CoreError;
 use nepl_core::span::FileId;
 use nepl_core::{compile_wasm, CompileOptions};
 
@@ -15,6 +17,29 @@ fn compile_err(src: &str) {
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
+}
+
+fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: None,
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == Some(DiagnosticCode::Type(code))),
+        "missing type diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
 }
 
 #[test]
@@ -125,6 +150,54 @@ fn main <()->i32> ():
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 15);
+}
+
+#[test]
+fn function_signature_not_function_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn bad <i32> ():
+    0
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::FunctionSignatureNotFunction);
+}
+
+#[test]
+fn function_parameter_count_mismatch_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn bad <(i32)->i32> ():
+    0
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::ArgumentArityMismatch);
+}
+
+#[test]
+fn function_return_type_mismatch_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn bad <()->i32> ():
+    ()
+
+fn main <()->i32> ():
+    bad
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::ReturnTypeMismatch);
 }
 
 #[test]
