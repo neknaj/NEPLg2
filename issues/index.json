@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T21:45:51.513Z",
+  "generated_at": "2026-04-29T21:58:26.883Z",
   "counts": {
-    "total": 403,
+    "total": 404,
     "open": 15,
-    "resolved": 388,
+    "resolved": 389,
     "by_area": {
       "core": {
         "total": 185,
@@ -27,9 +27,9 @@
         "resolved": 43
       },
       "test": {
-        "total": 1,
+        "total": 2,
         "open": 1,
-        "resolved": 0
+        "resolved": 1
       },
       "cli": {
         "total": 19,
@@ -4418,6 +4418,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T170552181Z-INTRINSIC-ZERO-SIZED-CONSTRUCTOR-FIX-A6947D3C.md"
+    },
+    {
+      "id": "ISS-20260429T215616519Z-STRINGBUILDER-SOURCE-POLICY-KEEPS-ST-256D72FD",
+      "title": "StringBuilder source policy keeps stale raw MemPtr owner contract",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nodesrc/test_stdlib_string_no_unsafe_unwraps.js, nodesrc/test_stdlib_builder_owner_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T215616519Z-STRINGBUILDER-SOURCE-POLICY-KEEPS-ST-256D72FD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

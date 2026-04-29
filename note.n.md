@@ -1,3 +1,25 @@
+# 2026-04-30 メモ (ISS-20260429T215616519Z StringBuilder source policy)
+
+- [同期]:
+  - `main` / `origin/main` が `dbb9e13` で一致していることを確認し、`work/string-builder-source-policy-option` branch で作業した。
+  - 直前の CI 失敗は core diagnostic taxonomy 変更ではなく、Source policy regressions の stale `StringBuilder` contract によるものと切り分けた。
+- [原因]:
+  - `StringBuilder` は Resource IR owner-boundary 修正で `data <Option<MemPtr<u8>>>` に移行済みだった。
+  - `nodesrc/test_stdlib_builder_owner_boundary.js` は新しい `Option<MemPtr<u8>>` 契約を見ていたが、`nodesrc/test_stdlib_string_no_unsafe_unwraps.js` は旧 `data <MemPtr<u8>>` 直持ちを要求していた。
+  - 同じ owner contract を複数 test が別々の regex で持ったことで policy drift が起き、CI が正しい設計を失敗扱いにしていた。
+- [修正]:
+  - `nodesrc/source_policy/stdlib_builder_owner.js` を追加し、ByteBuilder / StringBuilder の owner-boundary source policy を共通 helper に集約した。
+  - `StringBuilder` policy は `Option<MemPtr<u8>>` storage、centralized owned pointer constructor、owner-preserving len update、`get_ref` 経由の storage borrow を要求する形にした。
+  - `nodesrc/test_stdlib_builder_owner_boundary.js` と `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` の両方が同じ `assertStringBuilderOwnerBoundary` を使うようにした。
+- [issue]:
+  - `ISS-20260429T215616519Z-STRINGBUILDER-SOURCE-POLICY-KEEPS-ST-256D72FD` を追加し、対応後に fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画 Stage 6 の builder owner model を監視する source policy の整合性修正であり、設計方針は変えていない。
+
 # 2026-04-30 メモ (ISS-20260429T155343006Z BinaryHeap typed storage)
 
 - [同期]:

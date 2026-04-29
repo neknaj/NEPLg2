@@ -3,15 +3,16 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+    stripNeplComments,
+    assertStringBuilderOwnerBoundary,
+} = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/alloc/string.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const code = stripNeplComments(src);
 const fromU128Radix = code.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
 const stringFinish = code.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const codeWithoutStringFinish = stringFinish ? code.replace(stringFinish, '') : code;
@@ -35,8 +36,7 @@ assert.match(code, /fn\s+str_utf8_is_boundary\s+/, 'alloc/string must validate U
 assert.match(code, /fn\s+concat_result\s+/, 'alloc/string must keep allocation-bearing concat available as Result');
 assert.match(code, /fn\s+str_slice_result\s+/, 'alloc/string must keep allocation-bearing slice available as Result');
 assert.match(code, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
-assert.doesNotMatch(code, /struct\s+StringBuilder:[\s\S]*parts\s+<Vec<str>>/, 'StringBuilder must not store non-Copy str payloads in Vec raw storage');
-assert.match(code, /struct\s+StringBuilder:[\s\S]*data\s+<MemPtr<u8>>[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>/, 'StringBuilder must use owned byte storage');
+assertStringBuilderOwnerBoundary(code);
 assert.match(code, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
 assert.match(code, /fn\s+string_finish_base[\s\S]*store_i32\s+mem_ptr_addr\s+base\s+byte_len/, 'string_finish_base must use owned raw header store');
 assert.match(stringFinish, /\bget\s+region\s+"ptr"/, 'string_finish must consume RegionToken at the final str ownership boundary');
