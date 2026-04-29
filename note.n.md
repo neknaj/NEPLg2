@@ -14,6 +14,33 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (Resource IR borrow return gate / get_field alias)
+
+- [同期]:
+  - `origin/main` の `b7bed09 fix(core): preserve generic field move identity` まで取り込んだ `work/resource-owner-borrow-gate` branch で作業した。
+- [対象]:
+  - `ISS-20260429T004211995Z-RESOURCE-BORROW-RETURN-ESCAPE-GATE-R-298B4E8A`
+  - `ISS-20260429T005109303Z-GET-FIELD-INTRINSIC-LOSES-AGGREGATE--37C1AFA1`
+  - blocker として `ISS-20260429T004144320Z-RESOURCE-OWNER-GATE-TREATS-RAW-POINT-216A5E25` を追加した。
+- [原因]:
+  - Resource IR borrow checker は active borrow token の return escape を `ReturnValue` conflict として検出できるが、compiler pipeline では shadow report のみに残っていた。
+  - 直前の selector-preserving `get_field` 変更により、`field::get` が HIR 上の intrinsic `get_field` として残る一方、move_check の function alias recovery は intrinsic projection を見ていなかった。
+  - Resource owner gate は試験的に有効化すると、raw pointer read/copy を owner transfer と誤解し、正しい `load_i32 p` / `dealloc_raw p` まで D3100 にした。
+- [修正]:
+  - `compiler.rs` で旧 `move_check` と Resource IR lowering / raw cell gate の後に `check_resource_borrow_lifetimes` を実行し、`ReturnValue` の borrow conflict だけを D3099 へ昇格した。
+  - `move_check/alias.rs` で intrinsic `get_field` を source-level `field::get` と同じ field projection として扱い、aggregate field function alias / raw alias の復元を raw load fallback より先に行うようにした。
+  - owner obligation gate の authoritative 化は、`MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` の分離が未完了なため blocker issue へ切り分けた。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_borrow_check -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core compiler::tests::resource_borrow_gate -- --nocapture`: 2 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-resource-borrow-gate-alias-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-resource-borrow-gate-alias-move-check.json -j 1`: total=52 passed=52
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource check 移行として、borrow return escape の compiler gate を一段進めた。
+
 # 2026-04-29 メモ (ISS-20260428T233410073Z generic aggregate field move identity)
 
 - [同期]:

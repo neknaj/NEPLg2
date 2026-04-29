@@ -256,6 +256,8 @@ fn run_move_check(
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
     run_resource_raw_cell_gate(&initialized_moves, diagnostics, source_map)?;
+    let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource);
+    run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
     run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)
 }
@@ -380,12 +382,55 @@ fn resource_check_operation_is_raw_memory_cell(
     )
 }
 
+fn run_resource_borrow_lifetime_gate(
+    report: &crate::resource::ResourceBorrowCheckReport,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CoreError> {
+    let mut borrow_errors = Vec::new();
+    for diagnostic in &report.diagnostics {
+        if let Some(error) = resource_borrow_diagnostic_to_error(diagnostic) {
+            borrow_errors.push(error);
+        }
+    }
+    if borrow_errors.is_empty() {
+        return Ok(());
+    }
+    diagnostics.extend(borrow_errors);
+    Err(CoreError::from_diagnostics(diagnostics.clone()))
+}
+
+fn resource_borrow_diagnostic_to_error(
+    diagnostic: &crate::resource::ResourceBorrowDiagnostic,
+) -> Option<Diagnostic> {
+    match diagnostic {
+        crate::resource::ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: crate::resource::ResourceBorrowOperation::ReturnValue,
+            place,
+            active,
+            span,
+        } => Some(
+            Diagnostic::error(
+                format!(
+                    "resource ir borrow lifetime violation in function '{}': returning {:?} escapes active borrow {:?}",
+                    function, place, active
+                ),
+                *span,
+            )
+            .with_id(DiagnosticId::TypeBorrowEscapesScope),
+        ),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::resource::{
-        CellState, Place, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceId,
+        BorrowState, CellState, Place, ResourceBorrowDiagnostic, ResourceBorrowOperation,
+        ResourceCheckDiagnostic, ResourceCheckOperation, ResourceId,
     };
+    use alloc::boxed::Box;
 
     #[test]
     fn resource_raw_cell_gate_maps_raw_cell_diagnostic_to_d3100() {
@@ -429,6 +474,44 @@ mod tests {
         };
 
         assert!(resource_raw_cell_diagnostic_to_error(&diagnostic).is_none());
+    }
+
+    #[test]
+    fn resource_borrow_gate_maps_return_escape_to_d3099() {
+        let types = crate::types::TypeCtx::new();
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let diagnostic = ResourceBorrowDiagnostic::BorrowConflict {
+            function: String::from("main"),
+            operation: ResourceBorrowOperation::ReturnValue,
+            place,
+            active: BorrowState::Shared { count: 1 },
+            span: Span::dummy(),
+        };
+
+        let error = resource_borrow_diagnostic_to_error(&diagnostic)
+            .expect("borrow return escape should become a compiler error");
+
+        assert_eq!(error.id, Some(DiagnosticId::TypeBorrowEscapesScope));
+        assert!(error
+            .message
+            .contains("resource ir borrow lifetime violation"));
+    }
+
+    #[test]
+    fn resource_borrow_gate_keeps_non_return_conflicts_shadow_only() {
+        let types = crate::types::TypeCtx::new();
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let diagnostic = ResourceBorrowDiagnostic::BorrowConflict {
+            function: String::from("main"),
+            operation: ResourceBorrowOperation::UniqueBorrow,
+            place: place.clone(),
+            active: BorrowState::Unique {
+                source: Box::new(place),
+            },
+            span: Span::dummy(),
+        };
+
+        assert!(resource_borrow_diagnostic_to_error(&diagnostic).is_none());
     }
 }
 

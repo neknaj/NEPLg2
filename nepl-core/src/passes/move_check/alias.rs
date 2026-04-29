@@ -45,8 +45,15 @@ pub(super) fn function_value_aliases_from_value(
                 aliases
             }
         }
-        HirExprKind::Intrinsic { name, args, .. } if name == "load" && args.len() == 1 => {
-            function_value_aliases_from_field_load(value, ctx, tctx)
+        HirExprKind::Intrinsic { name, args, .. } => {
+            let aliases = function_value_aliases_from_field_projection(value, ctx, tctx);
+            if !aliases.is_empty() {
+                aliases
+            } else if name == "load" && args.len() == 1 {
+                function_value_aliases_from_field_load(value, ctx, tctx)
+            } else {
+                BTreeSet::new()
+            }
         }
         _ => BTreeSet::new(),
     }
@@ -1240,14 +1247,18 @@ pub(super) fn field_get_projection<'a>(
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> Option<(&'a HirExpr, usize, TypeId)> {
-    let HirExprKind::Call { callee, args } = &expr.kind else {
-        return None;
+    let args = match &expr.kind {
+        HirExprKind::Call { callee, args } => {
+            let name = func_ref_name(callee)?;
+            if !is_field_get_name(name) {
+                return None;
+            }
+            args
+        }
+        HirExprKind::Intrinsic { name, args, .. } if name == "get_field" => args,
+        _ => return None,
     };
     if args.len() < 2 {
-        return None;
-    }
-    let name = func_ref_name(callee)?;
-    if !is_field_get_name(name) {
         return None;
     }
     let (offset, field_ty) = aggregate_field_layout_from_selector(args[0].ty, &args[1], ctx, tctx)?;
@@ -1589,7 +1600,11 @@ pub(super) fn aggregate_field_raw_aliases_from_value(
             }
         }
         HirExprKind::Intrinsic { .. } => {
-            aggregate_field_raw_aliases_from_field_load(value, ctx, tctx)
+            if let Some((owner, offset, field_ty)) = field_get_projection(value, ctx, tctx) {
+                aggregate_field_raw_aliases_from_projection(owner, offset, field_ty, ctx, tctx)
+            } else {
+                aggregate_field_raw_aliases_from_field_load(value, ctx, tctx)
+            }
         }
         _ => BTreeMap::new(),
     }
@@ -1699,7 +1714,11 @@ pub(super) fn aggregate_field_function_aliases_from_value(
             }
         }
         HirExprKind::Intrinsic { .. } => {
-            aggregate_field_function_aliases_from_field_load(value, ctx, tctx)
+            if let Some((owner, offset, field_ty)) = field_get_projection(value, ctx, tctx) {
+                aggregate_field_function_aliases_from_projection(owner, offset, field_ty, ctx, tctx)
+            } else {
+                aggregate_field_function_aliases_from_field_load(value, ctx, tctx)
+            }
         }
         _ => BTreeMap::new(),
     }
