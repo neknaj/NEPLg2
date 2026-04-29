@@ -26,7 +26,7 @@ use crate::ast::{EnumDef, FnAlias, FnDef, StructDef, Visibility};
 #[cfg(not(target_os = "none"))]
 use crate::diagnostic::Diagnostic;
 #[cfg(not(target_os = "none"))]
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode};
 #[cfg(not(target_os = "none"))]
 use crate::module_graph::{ExportTable, ModuleGraph, ModuleId};
 
@@ -739,18 +739,14 @@ pub fn build_visible_map(
             }
         }
         for name in ambiguous {
-            diags.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "ambiguous import: `{}` is provided by multiple open imports",
-                        name
-                    ),
-                    crate::span::Span::dummy(),
-                )
-                .with_code(DiagnosticCode::Resolve(
-                    crate::diagnostic_codes::ResolveDiagnosticCode::ImportAmbiguous,
-                )),
-            );
+            diags.push(Diagnostic::error_with_code(
+                DiagnosticCode::Resolve(ResolveDiagnosticCode::ImportAmbiguous),
+                alloc::format!(
+                    "ambiguous import: `{}` is provided by multiple open imports",
+                    name
+                ),
+                crate::span::Span::dummy(),
+            ));
         }
         for (n, info) in seen_open {
             map.entry(n.clone()).or_insert(info);

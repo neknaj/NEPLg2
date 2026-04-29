@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z resolve diagnostic code-first)
+
+- [同期]:
+  - `2f8308d` まで反映した `main` を `origin/main` と同期し、`work/resolve-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `resolve.rs` の host-side `build_visible_map` に open import ambiguity diagnostic の `Diagnostic::error(...).with_code(...)` が残っていた。
+  - module graph / visible map 構築は resolver の責務なので、message ではなく `ResolveDiagnosticCode::ImportAmbiguous` を生成時点で確定する必要がある。
+- [修正]:
+  - open import ambiguity diagnostic を `Diagnostic::error_with_code(...)` へ移行した。
+  - `build_visible_map_reports_ambiguous_open` regression は message 部分ではなく `DiagnosticCode::Resolve(ResolveDiagnosticCode::ImportAmbiguous)` を直接検査するように強化した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/resolve.rs`: no matches
+  - `cargo test -p nepl-core --test resolve build_visible_map_reports_ambiguous_open -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の resolve diagnostics 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z target precheck diagnostic code-first)
 
 - [同期]:

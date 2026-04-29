@@ -1,5 +1,6 @@
 use nepl_core::ast::{Directive, ImportClause};
 use nepl_core::diagnostic::Severity;
+use nepl_core::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode};
 use nepl_core::hir::{FuncRef, HirBody, HirExprKind, HirModule};
 use nepl_core::lexer;
 use nepl_core::loader::{Loader, LoaderError, SourceMap};
@@ -436,7 +437,10 @@ fn build_visible_map_reports_ambiguous_open() {
     assert_ne!(a_foo, b_foo);
 
     assert!(
-        diags.iter().any(|d| d.message.contains("ambiguous import")),
+        diags.iter().any(|d| d.code
+            == Some(DiagnosticCode::Resolve(
+                ResolveDiagnosticCode::ImportAmbiguous
+            ))),
         "expected ambiguous import diagnostic, got {:?}",
         diags
     );

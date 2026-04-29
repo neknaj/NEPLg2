@@ -742,3 +742,20 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 37 --dist web/dist`: pass。`loader.target.unknown` が 1 件だけ出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 resolve diagnostic follow-up 追記
+
+`resolve.rs` の host-side `build_visible_map` には open import ambiguity diagnostic の `Diagnostic::error(...).with_code(...)` が残っていた。module graph / visible map 構築は resolver の責務なので、message 文字列に後から code を貼るのではなく、`ResolveDiagnosticCode::ImportAmbiguous` を生成時点で確定する必要がある。
+
+今回の対応で open import ambiguity diagnostic を `Diagnostic::error_with_code(...)` へ移行した。`build_visible_map_reports_ambiguous_open` regression は message 部分ではなく `DiagnosticCode::Resolve(ResolveDiagnosticCode::ImportAmbiguous)` を直接検査するように強化した。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/resolve.rs`: no matches
+- `cargo test -p nepl-core --test resolve build_visible_map_reports_ambiguous_open -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
