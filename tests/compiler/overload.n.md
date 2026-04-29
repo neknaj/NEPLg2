@@ -209,7 +209,9 @@ fn size <(str)->i32> (s):
     add 1000 1
 
 fn size <(Vec<i32>)->i32> (vec):
-    v::len<i32> vec
+    let n <i32> v::len_ref<i32> &vec;
+    v::free<i32> vec;
+    n
 
 fn main <()->i32> ():
     let v <Vec<i32>>:
@@ -247,7 +249,9 @@ fn main <()*>i32> ():
         <Vec<i32>> new
         |> v::push 1 |> uwok
         |> v::push 2 |> uwok
-    v::len v
+    let n <i32> v::len_ref<i32> &v;
+    v::free<i32> v;
+    n
 ```
 
 ## overload_pair_field_from_generic_result_keeps_tuple_type
@@ -275,8 +279,12 @@ fn main <()*>i32> ():
         |> uwok
         |> v::push<i32> 1 |> uwok
     let parts unwrap_ok pair_with_empty<i32> xs;
-    let evens get parts 0;
-    if eq v::len<i32> evens 1 1 0
+    let evens <Vec<i32>> get parts 0;
+    let rest <Vec<i32>> get parts 1;
+    let n <i32> v::len_ref<i32> &evens;
+    v::free<i32> evens;
+    v::free<i32> rest;
+    if eq n 1 1 0
 ```
 
 ## overload_result_inferred_from_outer_arg_context
@@ -318,7 +326,9 @@ fn new <()*>Vec<i32>> ():
 
 fn main <()*>i32> ():
     let v <Vec<i32>> <Vec<i32>> new;
-    v::len v
+    let n <i32> v::len_ref<i32> &v;
+    v::free<i32> v;
+    n
 ```
 
 ## overload_different_arity_is_error

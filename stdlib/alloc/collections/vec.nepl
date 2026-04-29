@@ -549,7 +549,7 @@ fn is_empty_ref <.T> <(&Vec<.T>)->bool> (v):
 //: - `item` を[末尾/まつび]へ[追加/ついか]し、[必要/ひつよう]なら[再確保/さいかくほ]した `Vec<.T>` を[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - `Vec` header は `&v` から Copy field として[読/よ]み、owner 本体から field を[移動/いどう]しません。
+//: - `len` / `cap` は `&v` から Copy field として[読/よ]み、`data` owner は[戻/もど]り[値/ち]または dealloc/realloc へ[移動/いどう]します。
 //: - [容量/ようりょう][不足/ぶそく]なら 2 [倍/ばい]へ[拡張/かくちょう]し、typed `realloc_ptr<.T>` を[用/もち]います。
 //: - [空/から][容量/ようりょう] 0 の `Vec` に対しては 1 [要素分/ようそぶん]から[開始/かいし]します。
 //:
@@ -577,7 +577,7 @@ fn is_empty_ref <.T> <(&Vec<.T>)->bool> (v):
 fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
-    let v_data <MemPtr<.T>> *field::get_ref &v "data"
+    let v_data <MemPtr<.T>> field::get v "data"
     if:
         eq v_len v_cap
         then:
@@ -798,7 +798,7 @@ fn replace_ref <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
 fn pop <.T> <(Vec<.T>)->.Pair> (v):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
-    let v_data <MemPtr<.T>> *field::get_ref &v "data"
+    let v_data <MemPtr<.T>> field::get v "data"
     if:
         eq v_len 0
         then:
@@ -843,7 +843,7 @@ fn pop <.T> <(Vec<.T>)->.Pair> (v):
 //: ```
 fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
     let v_cap <i32> *field::get_ref &v "cap"
-    let v_data <MemPtr<.T>> *field::get_ref &v "data"
+    let v_data <MemPtr<.T>> field::get v "data"
     Vec<.T> 0 v_cap v_data
 
 //: ## vec_read_at
@@ -1181,19 +1181,21 @@ fn vec_write_prefix_impl <.T> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data
 //: ```
 fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
     let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
-    let alloc_r <Result<Vec<.U>, StdErrorKind>> with_capacity<.U> src_len
-    match alloc_r:
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_data <MemPtr<.T>> field::get v "data"
+    match with_capacity<.U> src_len:
         Result::Err e:
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Err<Vec<.U>, StdErrorKind> e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
-            let out_data <MemPtr<.U>> *field::get_ref &out0 "data"
+            let out_data <MemPtr<.U>> field::get out0 "data"
             let mut i <i32> 0
             while lt i src_len:
                 do:
                     vec_write_at<.U> out_data i f vec_read_at<.T> src_data i
                     set i add i 1
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Ok<Vec<.U>, StdErrorKind> Vec<.U> src_len out_cap out_data
 
 //: ## filter
@@ -1236,7 +1238,8 @@ fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
 //: ```
 fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_data <MemPtr<.T>> field::get v "data"
     let mut keep_len <i32> 0
     let mut i <i32> 0
     while lt i src_len:
@@ -1245,13 +1248,13 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
                 then set keep_len add keep_len 1
                 else ()
             set i add i 1
-    let alloc_r <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> keep_len
-    match alloc_r:
+    match with_capacity<.T> keep_len:
         Result::Err e:
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Err<Vec<.T>, StdErrorKind> e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
-            let out_data <MemPtr<.T>> *field::get_ref &out0 "data"
+            let out_data <MemPtr<.T>> field::get out0 "data"
             let mut read_i <i32> 0
             let mut write_i <i32> 0
             while lt read_i src_len:
@@ -1264,6 +1267,7 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
                             set write_i add write_i 1
                         else ()
                     set read_i add read_i 1
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_data
 
 //: ## partition
@@ -1306,7 +1310,8 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
 //: ```
 fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_data <MemPtr<.T>> field::get v "data"
     let mut left_len <i32> 0
     let mut i <i32> 0
     while lt i src_len:
@@ -1316,23 +1321,23 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
                 else ()
             set i add i 1
     let right_len <i32> sub src_len left_len
-    let alloc_left <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> left_len
-    match alloc_left:
+    match with_capacity<.T> left_len:
         Result::Err e:
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Err<.Pair, StdErrorKind> e
         Result::Ok left0:
-            let alloc_right <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> right_len
-            match alloc_right:
+            match with_capacity<.T> right_len:
                 Result::Err e:
                     let left0_cap <i32> *field::get_ref &left0 "cap"
-                    let left0_data <MemPtr<.T>> *field::get_ref &left0 "data"
+                    let left0_data <MemPtr<.T>> field::get left0 "data"
                     dealloc_raw mem_ptr_addr left0_data mul left0_cap size_of<.T>
+                    dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
                     Result::Err<.Pair, StdErrorKind> e
                 Result::Ok right0:
                     let left_cap <i32> *field::get_ref &left0 "cap"
-                    let left_data <MemPtr<.T>> *field::get_ref &left0 "data"
+                    let left_data <MemPtr<.T>> field::get left0 "data"
                     let right_cap <i32> *field::get_ref &right0 "cap"
-                    let right_data <MemPtr<.T>> *field::get_ref &right0 "data"
+                    let right_data <MemPtr<.T>> field::get right0 "data"
                     let mut read_i <i32> 0
                     let mut left_i <i32> 0
                     let mut right_i <i32> 0
@@ -1348,6 +1353,7 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
                                     vec_write_at<.T> right_data right_i item
                                     set right_i add right_i 1
                             set read_i add read_i 1
+                    dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
                     Result::Ok<.Pair, StdErrorKind> Tuple:
                         Vec<.T> left_len left_cap left_data
                         Vec<.T> right_len right_cap right_data
@@ -1388,16 +1394,18 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
 //: ```
 fn take_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_data <MemPtr<.T>> field::get v "data"
     let keep_len <i32> vec_take_while_len_impl<.T> src_data src_len 0 p
-    let alloc_r <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> keep_len
-    match alloc_r:
+    match with_capacity<.T> keep_len:
         Result::Err e:
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Err<Vec<.T>, StdErrorKind> e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
-            let out_data <MemPtr<.T>> *field::get_ref &out0 "data"
+            let out_data <MemPtr<.T>> field::get out0 "data"
             vec_write_prefix_impl<.T> src_data out_data 0 keep_len
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_data
 
 //: ## drop_while
@@ -1441,17 +1449,19 @@ fn take_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p)
 //: ```
 fn drop_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_data <MemPtr<.T>> field::get v "data"
     let drop_len <i32> vec_take_while_len_impl<.T> src_data src_len 0 p
     let keep_len <i32> sub src_len drop_len
-    let alloc_r <Result<Vec<.T>, StdErrorKind>> with_capacity<.T> keep_len
-    match alloc_r:
+    match with_capacity<.T> keep_len:
         Result::Err e:
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Err<Vec<.T>, StdErrorKind> e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
-            let out_data <MemPtr<.T>> *field::get_ref &out0 "data"
+            let out_data <MemPtr<.T>> field::get out0 "data"
             vec_write_prefix_impl<.T> src_data out_data drop_len keep_len
+            dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
             Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_data
 
 //: ## count
@@ -1720,7 +1730,7 @@ fn all <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
 //: - `Vec<.T>` が[所有/しょゆう]する `data` [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
-//: - `cap` と `data` は `&v` から Copy field として[読/よ]み、`cap * size_of<.T>` byte を owner invariant に[基/もと]づいて `dealloc_raw` へ[渡/わた]します。
+//: - `cap` は `&v` から Copy field として[読/よ]み、`data` owner は `dealloc_raw` へ[移動/いどう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
@@ -1743,5 +1753,5 @@ fn all <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
 //: ```
 fn free <.T> <(Vec<.T>)->()> (v):
     let v_cap <i32> *field::get_ref &v "cap"
-    let v_data <MemPtr<.T>> *field::get_ref &v "data"
+    let v_data <MemPtr<.T>> field::get v "data"
     dealloc_raw mem_ptr_addr v_data mul v_cap size_of<.T>

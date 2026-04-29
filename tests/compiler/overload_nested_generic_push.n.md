@@ -23,7 +23,9 @@ fn main <()->i32> ():
     let v0 <Vec<Result<(),str>>> unwrap_ok new<Result<(),str>>;
     let r <Result<(),str>> Result::Ok ();
     let v1 <Vec<Result<(),str>>> uwok push v0 r;
-    if eq len v1 1 1 0
+    let n <i32> len_ref<Result<(),str>> &v1;
+    free<Result<(),str>> v1;
+    if eq n 1 1 0
 ```
 
 ## nested_generic_push_pipe
@@ -47,5 +49,7 @@ fn main <()->i32> ():
         unwrap_ok new<Result<(),str>>
         |> push (Result::Ok ()) |> uwok
         |> push (Result::Err "oops") |> uwok
-    if eq len v 2 1 0
+    let n <i32> len_ref<Result<(),str>> &v;
+    free<Result<(),str>> v;
+    if eq n 2 1 0
 ```
