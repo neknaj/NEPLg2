@@ -26620,3 +26620,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - NM JSON serializer の中間 `str` 削減設計に source policy を追従させた。
+
+# 2026-04-29 メモ (ISS-20260429T160211032Z std/test report owner boundary)
+
+- [同期]:
+  - `main` の `03601f0` から `work/std-test-check-quiet-results` branch で継続した。
+  - GitHub Actions の `tutorials-test` 失敗を local で確認し、`tutorials/getting_started/02_test_harness.n.md` の `checks_exit_code` が `TestReport` owner leak で止まることを再現した。
+- [原因]:
+  - `TestAssertion` / `TestReport` が `str` を含む aggregate であるにもかかわらず浅い `Copy` / `Clone` を持っており、Resource IR が「どこで report owner を最後に消費するか」を検査できない形になっていた。
+  - `check_eq_i32` / `check_str_eq` / `check_ok_i32` / `check_err_i32` は quiet `Result<(),str>` helper なのに `TestAssertion` を中間生成しており、成功 path でも不要な report 用文字列 owner を作る設計になっていた。
+  - `test_report_render` / `test_report_legacy_status` / `test_report_assertion_line` が値渡しで aggregate を読むため、表示用観測と owner 消費が混ざっていた。
+- [修正]:
+  - `TestAssertion` / `TestReport` の `Copy` / `Clone` を削除した。
+  - status/render helper は `&TestAssertion` / `&TestReport` を受け取り、field は `get_ref` で観測するようにした。
+  - `test_assertion_release` / `test_report_release` を追加し、`test_report_push` と `test_report_exit_code` / `finish_checks` で owner を最終消費する境界を明示した。
+  - quiet `check_*` helper は `TestAssertion` を作らず、失敗時だけ message `str` を作るようにした。
+  - `tests/stdlib/std_test_collect.n.md` の文字列 allocation 継続 regression は、現時点の Resource IR self-update assignment 問題を避けるため pipeline 形へ戻した。self-update assignment 問題は `ISS-20260429T160211035Z-RESOURCE-OWNER-ASSIGN-MISSES-SELF-UP-01475305` として別 issue 化した。
+- [検証]:
+  - `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-owner-boundary-3.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i tutorials/getting_started/02_test_harness.n.md --no-tree -o tmp/tutorial-02-owner-boundary-2.json -j 1 --dist web/dist`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i tutorials --no-tree -o tmp/tutorials-owner-boundary-1.json -j 4 --dist web/dist`: `total=24`, `passed=19`, `failed=5`。`std/test` quiet harness 由来の failure は解消し、残りは Vec / ByteBuilder / generic Result owner 系の別 issue 領域。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4/6 の方針に沿って、report helper の表示観測と owner 消費を分離した。
