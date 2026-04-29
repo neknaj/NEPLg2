@@ -1,3 +1,63 @@
+# 2026-04-29 メモ (ISS-20260429T131646897Z ByteBuf empty/non-empty invariant)
+
+- [同期]:
+  - `origin/main` の ResourceIR 分割と fs raw pointer 境界修正を merge した後、remote main で追加されていた ByteBuf empty/non-empty invariant issue を確認した。
+- [原因]:
+  - 旧 `ByteBuf` は空 buffer と所有領域あり buffer をどちらも裸 `MemPtr<u8>` field で表していた。
+  - `len == 0` なら owner なし、`len > 0` なら owner ありという不変条件が型に現れず、ResourceIR は `MaybeFreed` 合流に頼る必要があった。
+- [修正]:
+  - 既に実装した `ByteBuf.ptr <Option<MemPtr<u8>>>` 化により、空は `None`、所有領域は `Some(ptr)` として表現するようにした。
+  - `fs_finish_read_buffer` / `std/stdio` / `std/text` / `std/streamio` / doctest も helper 経由へ更新し、direct constructor/read を避けた。
+  - `resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view` fixture も新しい `io_bytebuf_from_owned_ptr` 境界に合わせた。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-result-owner-after-test-cleanup.json -j 1 --dist web/dist`: total=6 passed=6
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-after-read-helper-cleanup.json -j 1 --dist web/dist`: total=14 passed=14
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view -- --nocapture`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-04-29 メモ (ISS-20260429T142213822Z builder owner boundary issue 登録)
+
+- [同期]:
+  - `ISS-20260429T125126519Z` の修正コミット後、同じ branch 上で新規 issue だけを別コミットとして登録した。
+- [発見内容]:
+  - ByteBuf owner boundary 修正後も `tests/stdlib/byte_builder.n.md` は `byte_builder_with_capacity` の `Result::Ok(ByteBuilder)` owner obligation violation で失敗する。
+  - `tests/stdlib/fs.n.md` / `tests/stdlib/text_utf8.n.md` の広い検証でも `sb_build_result` / `string_builder_with_capacity_result` の owner leak が残る。
+  - `ByteBuilder` / `StringBuilder` は空 sentinel と owning pointer を同じ裸 `MemPtr` field に混在させており、ByteBuf と同じ根を持つ ResourceIR 不一致として扱う必要がある。
+- [対応]:
+  - `ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB` を追加した。
+  - 今回の ByteBuf fix に混ぜず、builder contract の再設計 issue として切り分けた。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-04-29 メモ (ISS-20260429T125126519Z io ByteBuf owner boundary)
+
+- [同期]:
+  - `main` を `origin/main` と同期済みの `stdlib/io-bytebuf-from-str-owner` branch で作業した。
+- [原因]:
+  - `io_bytebuf_from_str_result` は `alloc_ptr<u8>` の戻り値を `out_raw` / `data_raw` の raw address local に分解してから `ByteBuf out byte_len` を構築していた。
+  - そのため Resource IR から見ると、確保領域 owner が raw address local と `ByteBuf.ptr` field の間で分断され、`Result::Ok(ByteBuf)` へ一度だけ移ることを証明できなかった。
+  - 空 `ByteBuf` も `MemPtr(0)` と `len=0` で表しており、所有領域の有無が型に現れていなかった。
+  - `fs_read_fd_bytes` の 0 byte 成功読み取りも、scratch buffer owner を解放せずに空 `ByteBuf` へ丸める同根の問題を持っていた。
+- [修正]:
+  - `ByteBuf.ptr` を `Option<MemPtr<u8>>` に変更し、空 buffer は `None`、実領域は `Some(ptr)` として表すようにした。
+  - `io_bytebuf_alloc_region` / `io_bytebuf_region_ptr` / `io_bytebuf_finish_region` を追加し、`io_bytebuf_from_str_result` は `RegionToken<u8>` で owner を保持したまま copy し、最後に `ByteBuf` へ移す設計にした。
+  - `std/stdio` / `std/fs` / `std/text` / `std/streamio` と stdlib doctest の direct `ByteBuf ptr len` construction / direct `ptr` field read を helper 経由へ移した。
+  - `fs_read_fd_bytes` は 0 byte 成功時に scratch buffer を解放して `io_bytebuf_empty` を返すようにした。
+  - `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` を追加し、raw pointer intermediate と null-owning pointer 表現への回帰を防ぐ。
+- [検証]:
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: pass
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/alloc-io-bytebuf-owner-after.json -j 1 --dist web/dist`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-result-owner-after.json -j 1 --dist web/dist`: total=6 passed=5 failed=1。残件は既存 `std/fs` out pointer issue。
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-after-alloc-io-bytebuf.json -j 1 --dist web/dist`: total=14 passed=8 failed=6。`io_bytebuf_from_str_result` 由来の failure は解消済みで、残件は既存 `stdio_finish_read_buffer` / `std/fs` out pointer issue。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Binary I/O buffer の空/所有領域区別を型に出す stdlib 契約へ更新した。
+
 # 2026-04-29 メモ (ISS-20260429T071452715Z Resource IR projection owner/raw alias)
 
 - [同期]:

@@ -59,10 +59,10 @@ ret: 1
 #import "core/mem" as *
 
 fn main <()*>i32> ():
-    let huge <ByteBuf> ByteBuf mem_ptr_wrap 0 2147483647;
+    let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;
     match io_bytebuf_to_str_result huge:
-        Result::Ok _text:
-            0
+        Result::Ok text:
+            if str_eq text "" 0 0
         Result::Err kind:
             if str_eq std_error_kind_str kind "OutOfMemory" 1 0
 ```
@@ -84,8 +84,7 @@ ret: 1
 #import "std/iotarget" as *
 
 fn main <()*>i32> ():
-    let r <Result<ByteBuf, StdErrorKind>> read ReadStream::Text "abc";
-    match r:
+    match read ReadStream::Text "abc":
         Result::Ok bytes:
             match io_bytebuf_to_str_result bytes:
                 Result::Ok text:
@@ -110,10 +109,10 @@ ret: 1
 #import "std/fs" as *
 
 fn main <()*>i32> ():
-    let huge <ByteBuf> ByteBuf mem_ptr_wrap 0 2147483647;
+    let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;
     match fs_bytes_to_string_result huge:
-        Result::Ok _text:
-            0
+        Result::Ok text:
+            if str_eq text "" 0 0
         Result::Err errno:
             if eq errno 12 1 0
 ```

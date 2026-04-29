@@ -15,6 +15,7 @@
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/cast" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "std/text" as *
 
@@ -125,11 +126,11 @@ fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorKind>
                     if:
                         eq data_len cap
                         then:
-                            Result<ByteBuf, StdErrorKind>::Ok ByteBuf buf data_len
+                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr buf data_len
                         else:
                             match realloc_ptr<u8> buf cap data_len:
                                 Result::Ok exact:
-                                    Result<ByteBuf, StdErrorKind>::Ok ByteBuf exact data_len
+                                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr exact data_len
                                 Result::Err _e:
                                     match dealloc_ptr<u8> buf cap:
                                         Result::Ok _:
@@ -394,11 +395,22 @@ fn stdio_write_stderr_str_result <(str)*>Result<(), StdErrorKind>> (s):
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
 fn stdio_write_bytes_result <(ByteBuf)*>Result<(), StdErrorKind>> (bytes):
-    let data <MemPtr<u8>> get bytes "ptr";
     let data_len <i32> get bytes "len";
-    let result <Result<(), StdErrorKind>> stdio_write_mem_result data data_len;
-    io_bytebuf_free bytes;
-    result
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<(), StdErrorKind>::Ok ()
+                else:
+                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some data:
+            let result <Result<(), StdErrorKind>> stdio_write_mem_result data data_len;
+            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    result
+                Result::Err _e:
+                    result
 
 //: ## stdio_write_stderr_bytes_result
 //: `ByteBuf` を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
@@ -406,11 +418,22 @@ fn stdio_write_bytes_result <(ByteBuf)*>Result<(), StdErrorKind>> (bytes):
 //: ### [注意/ちゅうい]
 //: - `bytes` の[所有権/しょゆうけん]を[受/う]け[取/と]り、成功/失敗にかかわらず最後に解放します。
 fn stdio_write_stderr_bytes_result <(ByteBuf)*>Result<(), StdErrorKind>> (bytes):
-    let data <MemPtr<u8>> get bytes "ptr";
     let data_len <i32> get bytes "len";
-    let result <Result<(), StdErrorKind>> stdio_write_stderr_mem_result data data_len;
-    io_bytebuf_free bytes;
-    result
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<(), StdErrorKind>::Ok ()
+                else:
+                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some data:
+            let result <Result<(), StdErrorKind>> stdio_write_stderr_mem_result data data_len;
+            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    result
+                Result::Err _e:
+                    result
 
 //: ## stdio_write_bytes
 //: `ByteBuf` を stdout へ[書/か]き[出/だ]す互換 facade

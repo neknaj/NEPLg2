@@ -184,7 +184,7 @@ fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i
 //: fs_finish_read_buffer: capacity 付き読み込み buffer を ByteBuf の所有権 invariant へ詰め直す
 //:
 //: 目的:
-//: - `alloc_ptr` / `realloc_ptr` で確保した一時読み込み buffer を、`ByteBuf.ptr` が `ByteBuf.len` byte の所有領域を指す形へ戻します。
+//: - `alloc_ptr` / `realloc_ptr` で確保した一時読み込み buffer を、`ByteBuf.ptr` が `Some` の場合だけ `ByteBuf.len` byte の所有領域を指す形へ戻します。
 //:
 //: 実装(アルゴリズム):
 //: - 読み込み長が 0 の場合は元 buffer を解放し、空 `ByteBuf` を返します。
@@ -230,11 +230,11 @@ fn fs_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, cap, 
                     if:
                         eq data_len cap
                         then:
-                            Result<ByteBuf,i32>::Ok ByteBuf buf data_len
+                            Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr buf data_len
                         else:
                             match realloc_ptr<u8> buf cap data_len:
                                 Result::Ok exact:
-                                    Result<ByteBuf,i32>::Ok ByteBuf exact data_len
+                                    Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr exact data_len
                                 Result::Err _e:
                                     match dealloc_ptr<u8> buf cap:
                                         Result::Ok _:
@@ -1382,18 +1382,14 @@ fn fs_close <(i32)*>Result<(),i32>> (fd):
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
-    let data <MemPtr<u8>> get bytes "ptr"
-    let data_len <i32> get bytes "len"
+fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
     if:
         le data_len 0
         then:
-            io_bytebuf_free bytes
             Result<(),i32>::Ok ()
         else:
             match alloc_ptr<u8> 8:
                 Result::Err _e:
-                    io_bytebuf_free bytes
                     Result<(),i32>::Err 12
                 Result::Ok iov_buf:
                     match alloc_ptr<u8> 4:
@@ -1403,7 +1399,6 @@ fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
                                     ()
                                 Result::Err _:
                                     ()
-                            io_bytebuf_free bytes
                             Result<(),i32>::Err 12
                         Result::Ok nwritten_buf:
                             let mut off <i32> 0
@@ -1438,13 +1433,30 @@ fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
                                     ()
                                 Result::Err _:
                                     ()
-                            io_bytebuf_free bytes
                             if:
                                 eq err 0
                                 then:
                                     Result<(),i32>::Ok ()
                                 else:
                                     Result<(),i32>::Err err
+
+fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
+    let data_len <i32> get bytes "len"
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<(),i32>::Ok ()
+                else:
+                    Result<(),i32>::Err 22
+        Option::Some data:
+            let result <Result<(),i32>> fs_write_fd_mem_result fd data data_len
+            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    result
+                Result::Err _:
+                    result
 
 //: fs_write_to_bytes: path へ `ByteBuf` を create/truncate して書き込む
 //:

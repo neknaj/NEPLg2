@@ -5945,7 +5945,7 @@ fn make_nonempty <()* >Result<ByteBuf, StdErrorKind>> ():
             let data <MemPtr<u8>> string_data_ptr "abc"
             let data_raw <i32> mem_ptr_addr data
             mem_copy out_raw data_raw 3
-            Result<ByteBuf, StdErrorKind>::Ok ByteBuf out 3
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr out 3
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
 

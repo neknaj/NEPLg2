@@ -79,6 +79,7 @@ jobs:
                   node nodesrc/test_doctest_diag_code_metadata.js
                   node nodesrc/test_doctest_exit_code_metadata.js
                   node nodesrc/test_llvm_runner_return_value.js
+                  node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js
                   node nodesrc/test_stdlib_string_no_unsafe_unwraps.js
                   node nodesrc/test_stdlib_stdio_print_i32_boundary.js
                   node nodesrc/test_stdlib_stdio_read_boundary.js
