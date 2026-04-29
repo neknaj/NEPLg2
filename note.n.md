@@ -24382,3 +24382,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - std/test の raw memory backed accumulator 廃止を source policy 側にも反映し、Resource IR raw memory gate を弱めずに CI policy を現行設計へ合わせた。
+
+# 2026-04-29 メモ (ISS-20260429T015312801Z move_check provenance responsibility split)
+
+- [原因]:
+  - GitHub Actions Source policy regressions 相当の `nodesrc/test_static_check_boundary_responsibility.js` が、`nepl-core/src/passes/move_check/provenance.rs` 645 行で上限 620 行を超えたことを検出していた。
+  - `provenance.rs` が field / `MemPtr` / `RegionToken` の provenance 復元だけでなく、raw memory operation の対象 place 判定と size 引数解析も持ち始め、Stage 1 の責務分割が再び曖昧になっていた。
+- [修正]:
+  - `nepl-core/src/passes/move_check/raw_memory_args.rs` を追加し、`raw_dealloc_place_key`、raw dealloc/store/fill/bulk-copy の size helper、`MemPtr<T>` element size 補助を移動した。
+  - `summary_build.rs` と `visitor.rs` は raw memory operation 引数解析を `raw_memory_args` から import し、`provenance.rs` は address/provenance 復元に集中する構造へ戻した。
+  - Source policy に `raw_memory_args` module と 180 行上限を追加し、同じ責務逆流を回帰として検出できるようにした。
+- [検証]:
+  - `rustfmt --check nepl-core\src\passes\move_check.rs nepl-core\src\passes\move_check\provenance.rs nepl-core\src\passes\move_check\raw_memory_args.rs nepl-core\src\passes\move_check\summary_build.rs nepl-core\src\passes\move_check\visitor.rs`: pass
+  - `node nodesrc\test_static_check_boundary_responsibility.js`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-provenance-split-move-effect-after-trunk.json -j 1`: total=110 passed=110
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 1 の module 境界維持として、HIR 直走査層の raw memory 引数解析を provenance 復元から分離した。

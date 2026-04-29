@@ -5,6 +5,7 @@ mod branch_merge;
 mod context_state;
 mod provenance;
 mod raw_memory;
+mod raw_memory_args;
 mod raw_place;
 mod raw_state;
 mod state;

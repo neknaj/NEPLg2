@@ -9,12 +9,14 @@ use crate::types::TypeId;
 use super::provenance::{
     i32_const_from_value, is_field_get_name, is_mem_ptr_add_name, is_mem_ptr_addr_name,
     is_mem_ptr_wrap_name, is_raw_address_add_name, is_region_new_name, is_region_ptr_at_name,
-    is_region_ptr_name, raw_bulk_copy_size_arg_bytes, raw_byte_write_size_arg_bytes,
-    raw_dealloc_place_key, raw_dealloc_size_arg_bytes, raw_memory_place_key,
-    raw_store_write_size_bytes,
+    is_region_ptr_name, raw_memory_place_key,
 };
 use super::raw_memory::{
     raw_memory_call_kind, raw_memory_helper_name_is_tracked, RawMemoryCallKind,
+};
+use super::raw_memory_args::{
+    raw_bulk_copy_size_arg_bytes, raw_byte_write_size_arg_bytes, raw_dealloc_place_key,
+    raw_dealloc_size_arg_bytes, raw_store_write_size_bytes,
 };
 use super::summary::{
     add_child_raw_memory_effects, extend_unique_raw_memory_effects,

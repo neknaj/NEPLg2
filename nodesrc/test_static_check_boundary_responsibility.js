@@ -102,6 +102,7 @@ for (const moduleName of [
     'context_state',
     'provenance',
     'raw_memory',
+    'raw_memory_args',
     'raw_place',
     'raw_state',
     'state',
@@ -123,6 +124,7 @@ for (const [moduleName, limit] of [
     ['summary_build.rs', 820],
     ['branch_merge.rs', 760],
     ['provenance.rs', 620],
+    ['raw_memory_args.rs', 180],
     ['raw_state.rs', 360],
 ]) {
     assertLineLimit(path.join(MOVE_CHECK_DIR, moduleName), `passes/move_check/${moduleName}`, limit);

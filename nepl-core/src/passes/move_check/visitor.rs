@@ -16,11 +16,13 @@ use super::provenance::{
     field_move_path_from_addr, field_move_path_from_selector, field_reference_path_from_addr,
     i32_const_from_value, is_field_get_name, raw_addr_alias_from_value,
     raw_aggregate_field_projection_from_get_call, raw_aggregate_field_projection_from_get_field,
-    raw_bulk_copy_size_arg_bytes, raw_byte_write_size_arg_bytes, raw_dealloc_place_key,
-    raw_dealloc_size_arg_bytes, raw_memory_place_key, raw_store_write_size_bytes,
-    RawAggregateFieldProjection,
+    raw_memory_place_key, RawAggregateFieldProjection,
 };
 use super::raw_memory::{raw_memory_call_kind, RawMemoryCallKind};
+use super::raw_memory_args::{
+    raw_bulk_copy_size_arg_bytes, raw_byte_write_size_arg_bytes, raw_dealloc_place_key,
+    raw_dealloc_size_arg_bytes, raw_store_write_size_bytes,
+};
 use super::state::{BorrowBinding, BorrowKind, ExprBorrow, VarState};
 use super::summary::RawMemoryEffectSummary;
 use super::{

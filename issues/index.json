@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T01:49:32.348Z",
+  "generated_at": "2026-04-29T02:00:03.318Z",
   "counts": {
-    "total": 341,
+    "total": 342,
     "open": 10,
-    "resolved": 331,
+    "resolved": 332,
     "by_area": {
       "core": {
-        "total": 159,
+        "total": 160,
         "open": 3,
-        "resolved": 156
+        "resolved": 157
       },
       "selfhost": {
         "total": 44,
@@ -2493,6 +2493,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T012328323Z-RESOURCE-IR-LACKS-STORAGE-ORIGIN-FOR-549F82A4.md"
+    },
+    {
+      "id": "ISS-20260429T015312801Z-MOVE-CHECK-PROVENANCE-MODULE-EXCEEDS-6F5A378F",
+      "title": "move_check provenance module exceeds responsibility split limit",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/passes/move_check/provenance.rs, nepl-core/src/passes/move_check/raw_memory_args.rs, nepl-core/src/passes/move_check.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T015312801Z-MOVE-CHECK-PROVENANCE-MODULE-EXCEEDS-6F5A378F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
