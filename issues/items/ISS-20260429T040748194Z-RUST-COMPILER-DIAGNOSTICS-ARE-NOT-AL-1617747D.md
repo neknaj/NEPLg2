@@ -391,3 +391,21 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `trunk build`: pass
 - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 39 --dist web/dist`: pass。call reduction を含む overload diagnostic path が維持されることを確認した。
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 block stack / nested bound follow-up 追記
+
+`typecheck/block_check.rs` には block stack extra values と nested function trait-bound arity mismatch の型診断で `Diagnostic::error(...).with_code(...)` が残っていた。block stack と nested function bound collection は型安全の境界なので、診断 code を後付けにしない。
+
+今回の対応で `StackExtraValues` と `TraitTypeParamsUnsupported` を `type_error(...)` helper 経由へ移行した。`block_check.rs` には shadow/resolve と raw block placement の直接診断がまだ残るため、これは別 boundary として続ける。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test block_if_semantics -- --nocapture`: pass
+- `cargo test -p nepl-core --test block_single_line -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 trait_bound_type_arg_count_mismatch_has_type_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/block_semicolon_return.n.md -n 5 --dist web/dist`: pass。`type.stack.extra_values` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

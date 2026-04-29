@@ -1,3 +1,27 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z block stack code-first diagnostics)
+
+- [同期]:
+  - `36e52c3` を `main` / `origin/main` へ push した後、`work/typecheck-block-stack-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/block_check.rs` には block stack extra values と nested function trait-bound arity mismatch の型診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - block stack と nested function bound collection は型安全境界なので、diagnostic code を後付けせず生成時点で `TypeDiagnosticCode` を確定する必要がある。
+- [修正]:
+  - `StackExtraValues` と `TraitTypeParamsUnsupported` を `type_error(...)` helper 経由へ移行した。
+  - `block_check.rs` の shadow/resolve と raw block placement の直接診断は別 boundary として残した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test block_if_semantics -- --nocapture`: pass
+  - `cargo test -p nepl-core --test block_single_line -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_bound_type_arg_count_mismatch_has_type_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/block_semicolon_return.n.md -n 5 --dist web/dist`: pass。`type.stack.extra_values` が出ることを確認した。
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の block stack / nested bound boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z call reduction code-first diagnostics)
 
 - [同期]:

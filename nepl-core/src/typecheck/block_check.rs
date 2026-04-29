@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Block, PrefixExpr, PrefixItem, Stmt, Symbol};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use crate::hir::{HirBlock, HirExpr, HirExprKind, HirLine};
 use crate::resolve::DefId;
 use crate::types::{TypeId, TypeKind};
@@ -13,6 +13,7 @@ use super::binding_rules::{
     detect_field_accessor_fn, emit_shadow_warning, find_visible_nonshadow_same_signature_func,
     find_visible_same_signature_func, is_callable_binding, shadow_blocked_by_nonshadow,
 };
+use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::gate_allows;
 use super::traits::{format_trait_ref_name, TraitBoundRef};
@@ -332,13 +333,11 @@ impl<'a> BlockChecker<'a> {
                             }
 
                             if dropped_from_prefix {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        "expression left extra values on the stack",
-                                        typed.span,
-                                    )
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::StackExtraValues)),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::StackExtraValues,
+                                    "expression left extra values on the stack",
+                                    typed.span,
+                                ));
                             }
 
                             // If there was an explicit semicolon token, require that the
@@ -347,13 +346,11 @@ impl<'a> BlockChecker<'a> {
                             if let Stmt::ExprSemi(_, semi_span) = stmt {
                                 if stack.len() != base_depth + 1 {
                                     let sp = semi_span.unwrap_or(typed.span);
-                                    self.diagnostics.push(
-                                        Diagnostic::error(
-                                            "statement must leave exactly one value on the stack",
-                                            sp,
-                                        )
-                                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::StackExtraValues)),
-                                    );
+                                    self.diagnostics.push(type_error(
+                                        TypeDiagnosticCode::StackExtraValues,
+                                        "statement must leave exactly one value on the stack",
+                                        sp,
+                                    ));
                                     while stack.len() > base_depth {
                                         stack.pop();
                                     }
@@ -419,7 +416,8 @@ impl<'a> BlockChecker<'a> {
                                 for b in &p_node.bounds {
                                     if let Some(info) = self.traits.get(&b.name.name) {
                                         if info.type_params.len() != b.args.len() {
-                                            self.diagnostics.push(Diagnostic::error(
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::TraitTypeParamsUnsupported,
                                                 format!(
                                                     "trait bound '{}' expects {} type arguments, found {}",
                                                     b.name.name,
@@ -427,7 +425,7 @@ impl<'a> BlockChecker<'a> {
                                                     b.args.len()
                                                 ),
                                                 b.name.span,
-                                            ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported)));
+                                            ));
                                             continue;
                                         }
                                         let arg_tys: Vec<TypeId> = b
