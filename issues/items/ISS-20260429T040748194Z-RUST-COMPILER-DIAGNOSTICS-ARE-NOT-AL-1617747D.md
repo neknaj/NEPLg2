@@ -264,3 +264,21 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `cargo check -p nepl-core --tests`: pass
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 ascription boundary follow-up 追記
+
+`typecheck/ascription.rs` には char literal の `u8` range mismatch と、一般の type annotation mismatch で `Diagnostic::error(...).with_code(...)` が残っていた。type annotation は期待型を確定させる boundary なので、mismatch の分類を後付けにしない。
+
+今回の対応で `AnnotationMismatch` を `type_error(...)` helper 経由へ移行した。これにより `ascription.rs` から直接 `.with_code(...)` と `Diagnostic::error(...)` は消えた。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/ascription.rs`: no matches
+- `cargo test -p nepl-core --test char -- --nocapture`: pass
+- `cargo test -p nepl-core --test typeannot -- --nocapture`: pass
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/plan.n.md -i tests/compiler/generics.n.md --no-tree -o tmp/agent1-ascription-diagnostics-after-trunk.json -j 1`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

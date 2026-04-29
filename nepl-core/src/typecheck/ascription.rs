@@ -1,11 +1,11 @@
 use alloc::format;
 
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::HirExprKind;
 use crate::span::Span;
 use crate::types::TypeId;
 
+use super::diagnostics::type_error;
 use super::{BlockChecker, StackEntry};
 
 impl<'a> BlockChecker<'a> {
@@ -23,13 +23,11 @@ impl<'a> BlockChecker<'a> {
                     return;
                 }
                 Some(Err(())) => {
-                    self.diagnostics.push(
-                        Diagnostic::error("char literal does not fit in u8", span).with_code(
-                            DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::AnnotationMismatch,
-                            ),
-                        ),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::AnnotationMismatch,
+                        "char literal does not fit in u8",
+                        span,
+                    ));
                     return;
                 }
                 None => {}
@@ -37,18 +35,14 @@ impl<'a> BlockChecker<'a> {
             if let Err(_) = self.ctx.unify(top.ty, target) {
                 let actual_ty = self.ctx.type_to_string(top.ty);
                 let expected_ty = self.ctx.type_to_string(target);
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        format!(
-                            "type annotation mismatch (expected {}, got {})",
-                            expected_ty, actual_ty
-                        ),
-                        span,
-                    )
-                    .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::AnnotationMismatch,
-                    )),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::AnnotationMismatch,
+                    format!(
+                        "type annotation mismatch (expected {}, got {})",
+                        expected_ty, actual_ty
+                    ),
+                    span,
+                ));
             } else {
                 let resolved = self.ctx.resolve_id(target);
                 top.ty = resolved;
