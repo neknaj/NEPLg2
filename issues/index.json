@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T04:56:19.761Z",
+  "generated_at": "2026-04-29T05:04:21.113Z",
   "counts": {
     "total": 355,
-    "open": 11,
-    "resolved": 344,
+    "open": 10,
+    "resolved": 345,
     "by_area": {
       "core": {
         "total": 170,
-        "open": 5,
-        "resolved": 165
+        "open": 4,
+        "resolved": 166
       },
       "stdlib": {
         "total": 102,
@@ -168,21 +168,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260429T041244376Z-FACADE-MODULE-CANNOT-DISAMBIGUATE-SA-7F898FA5",
-      "title": "facade module cannot disambiguate same-name imported implementation with alias-qualified call",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resolve.rs, nepl-core/src/module_graph.rs, stdlib/alloc/string.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T041244376Z-FACADE-MODULE-CANNOT-DISAMBIGUATE-SA-7F898FA5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -4143,6 +4128,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T141727754Z-ENUM-MATCH-WILDCARD-ARM-IS-REJECTED--B1684C75.md"
+    },
+    {
+      "id": "ISS-20260429T041244376Z-FACADE-MODULE-CANNOT-DISAMBIGUATE-SA-7F898FA5",
+      "title": "facade module cannot disambiguate same-name imported implementation with alias-qualified call",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/typecheck/env.rs, nepl-core/src/typecheck/driver.rs, nepl-core/tests/import_clause.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T041244376Z-FACADE-MODULE-CANNOT-DISAMBIGUATE-SA-7F898FA5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

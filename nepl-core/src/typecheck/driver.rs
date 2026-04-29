@@ -957,7 +957,7 @@ pub fn typecheck(
                     );
                     continue;
                 }
-                env.remove_duplicate_func(&f.name.name, ty, &ctx);
+                env.remove_duplicate_func(&f.name.name, ty, f.name.span.file_id.0, &ctx);
                 let symbol = mangle_function_symbol(&f.name.name, ty, &ctx);
                 if crate::log::is_verbose() && f.name.name == "new" {
                     driver_log!(
@@ -1141,7 +1141,7 @@ pub fn typecheck(
                 );
                 break;
             }
-            env.remove_duplicate_func(&alias.name.name, ty, &ctx);
+            env.remove_duplicate_func(&alias.name.name, ty, alias.name.span.file_id.0, &ctx);
             env.insert_global(Binding {
                 name: alias.name.name.clone(),
                 ty,

@@ -91,13 +91,19 @@ impl Env {
         }
     }
 
-    pub(super) fn remove_duplicate_func(&mut self, name: &str, ty: TypeId, ctx: &TypeCtx) {
+    pub(super) fn remove_duplicate_func(
+        &mut self,
+        name: &str,
+        ty: TypeId,
+        defining_file_id: u32,
+        ctx: &TypeCtx,
+    ) {
         if let Some(scope) = self.scopes.first_mut() {
             scope.callables.retain(|b| {
                 if b.name != name || !b.kind.is_callable() {
                     return true;
                 }
-                !same_function_signature(ctx, b.ty, ty)
+                b.span.file_id.0 != defining_file_id || !same_function_signature(ctx, b.ty, ty)
             });
         }
     }

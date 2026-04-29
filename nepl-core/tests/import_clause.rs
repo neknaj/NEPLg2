@@ -154,6 +154,41 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn alias_qualified_call_survives_same_name_facade_wrapper() {
+    let implementation = r#"
+#indent 4
+#no_prelude
+
+fn scan <(i32)->i32> (x):
+    x
+"#;
+    let facade = r#"
+#indent 4
+#no_prelude
+
+#import "impls" as impls
+
+fn scan <(i32)->i32> (x):
+    impls::scan x
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "facade_same" as *
+
+fn main <()->i32> ():
+    scan 40
+"#;
+    compile_with_virtual_sources(
+        main,
+        &[("impls.nepl", implementation), ("facade_same.nepl", facade)],
+    )
+    .expect("facade wrapper should keep alias-qualified access to same-name implementation");
+}
+
+#[test]
 fn default_import_hides_unqualified_symbols_but_keeps_default_alias() {
     let unqualified = r#"
 #entry main

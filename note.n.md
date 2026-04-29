@@ -1,3 +1,22 @@
+# 2026-04-29 メモ (ISS-20260429T041244376Z facade alias-qualified lookup)
+
+- [同期]:
+  - 作業開始時点で `origin/main` と同期済みの `work/fix-facade-alias-qualified-lookup` branch で作業した。
+- [原因]:
+  - `Env::remove_duplicate_func` が同名・同シグネチャの callable binding を source file / module 境界なしに削除していた。
+  - loader が import graph を flat env として typecheck へ渡すため、facade wrapper と実装 submodule の同名関数は同じ callable scope に並ぶ。
+  - facade 側の wrapper 登録時に実装 submodule 側の binding が消え、alias target file は分かっていても `impls::scan` の qualified lookup 候補が残らなかった。
+- [修正]:
+  - `remove_duplicate_func` に defining file id を渡し、同一 source file 内の同名・同シグネチャ関数だけを置換するようにした。
+  - 別 module / 別 file の同名関数は flat env 内に保持し、qualified lookup と import visibility の判断に使えるようにした。
+  - `nepl-core/tests/import_clause.rs::alias_qualified_call_survives_same_name_facade_wrapper` を追加し、facade wrapper が同名実装関数へ alias-qualified call できることを固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test import_clause alias_qualified_call_survives_same_name_facade_wrapper -- --nocapture`
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`
+  - `cargo check -p nepl-core --tests`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z diagnostic enum registry)
 
 - [方針]:
