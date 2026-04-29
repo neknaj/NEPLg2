@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T22:22:16.623Z",
+  "generated_at": "2026-04-29T22:32:46.051Z",
   "counts": {
     "total": 404,
-    "open": 13,
-    "resolved": 391,
+    "open": 12,
+    "resolved": 392,
     "by_area": {
       "core": {
         "total": 185,
@@ -25,11 +25,6 @@
         "total": 44,
         "open": 1,
         "resolved": 43
-      },
-      "test": {
-        "total": 2,
-        "open": 1,
-        "resolved": 1
       },
       "cli": {
         "total": 19,
@@ -60,6 +55,11 @@
         "total": 1,
         "open": 0,
         "resolved": 1
+      },
+      "test": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       },
       "compiler": {
         "total": 2,
@@ -248,21 +248,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",
-      "title": "tests.js concurrent runs can leave partial result files without diagnostics",
-      "area": "test",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -5993,6 +5978,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T024625042Z-STDLIB-LACKS-REUSABLE-BYTE-SCANNER-A-3453D5E0.md"
+    },
+    {
+      "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",
+      "title": "tests.js concurrent runs can leave partial result files without diagnostics",
+      "area": "test",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",
