@@ -24,6 +24,28 @@
   - `node nodesrc/tests.js -i stdlib/tests/binary_heap.n.md --no-tree -o tmp/binary-heap-typed-storage-tests.json -j 1 --dist web/dist`: 5 passed
   - `node nodesrc/tests.js -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-collections-typed-storage.json -j 1 --dist web/dist`: 3 passed
   - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-binary-heap.json -j 1 --dist web/dist`: 8 passed
+
+# 2026-04-30 メモ (ISS-20260429T040748194Z Resource diagnostic taxonomy)
+
+- [同期]:
+  - `main` の `2f71803` から `work/resource-diagnostic-taxonomy` branch を作成して作業した。
+- [原因]:
+  - `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` が compiler boundary で `resource.raw.ownership_violation` に潰れており、CellState と OwnerState の原因分類が stable code 上で失われていた。
+  - legacy raw memory move checker も non-Copy raw cell state violation を raw ownership bucket として出していたため、`resource.raw.*` が raw provenance 問題と cell/owner 問題を混在させていた。
+- [修正]:
+  - `ResourceDiagnosticCode::Cell(...)` / `ResourceDiagnosticCode::Owner(...)` を追加し、`DiagnosticCode::as_str()` / `message()` を wildcard なしの match で管理するようにした。
+  - cell state は `resource.cell.uninit` / `moved` / `dropped` / `possibly_moved` / `initialized_conflict` に分けた。
+  - owner state は `resource.owner.no_free_obligation` / `use_after_move` / `double_free` / `maybe_freed` / `unavailable` / `leak` / `maybe_leak` に分けた。
+  - `ResourceRawDiagnosticCode::OwnershipViolation` は削除し、raw category を raw identity escape など raw provenance / unsafe boundary の意味に限定した。
+  - `tests/compiler/move_effect.n.md` は旧 raw bucket ではなく実際の cell state code を期待するように更新した。
+- [issue]:
+  - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` に Stage D2 の対応結果を追記した。issue は self-host parity と表示 contract の親 issue として open のまま維持する。
+- [検証]:
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo test -p nepl-core compiler::tests::resource_ -- --nocapture`: pass
+  - `cargo test -p nepl-core --test move_check move_raw_aggregate_non_copy_field_move_blocks_whole_load -- --nocapture`: pass
+  - `cargo test -p nepl-core --test effects pure_raw_load_intrinsic_is_rejected_outside_core_mem -- --nocapture`: pass
+  - `trunk build`: pass
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

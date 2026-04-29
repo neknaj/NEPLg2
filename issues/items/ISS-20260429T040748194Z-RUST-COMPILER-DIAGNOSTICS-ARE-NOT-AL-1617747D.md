@@ -88,7 +88,7 @@ Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pur
 
 `doc/neplg2/static_check_design_verification_20260430.md` で Resource IR diagnostic mapping を再確認した。
 
-現状の `DiagnosticCode` enum 化と `resource.raw.identity_escape` の分離は正しい方向である。しかし、`ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler boundary で `ResourceRawDiagnosticCode::OwnershipViolation` へ写像されている。これは旧 D3100 相当の粗い bucket を enum 化しただけであり、Resource IR diagnostic の意味分類を完全には保持していない。
+この時点では `DiagnosticCode` enum 化と `resource.raw.identity_escape` の分離は正しい方向だったが、`ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler boundary で `ResourceRawDiagnosticCode::OwnershipViolation` へ写像されていた。これは旧 D3100 相当の粗い bucket を enum 化しただけであり、Resource IR diagnostic の意味分類を完全には保持していなかった。
 
 D2 の残件として、次を明確にする。
 
@@ -97,6 +97,17 @@ D2 の残件として、次を明確にする。
 - `resource.owner.*` は no-free-obligation / leak / maybe-leak / double-free を区別する。
 - `resource.raw.*` は raw identity escape、unsafe memory boundary、pointer provenance そのものの問題に限定する。
 - Rust と self-host の diagnostic taxonomy は、S3 以降で同じ stable string contract へ揃える。
+
+## 2026-04-30 Stage D2 cell / owner taxonomy 対応
+
+`ResourceDiagnosticCode::Cell(...)` と `ResourceDiagnosticCode::Owner(...)` を追加し、`ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` を `resource.raw.ownership_violation` に潰さずに compiler diagnostic へ写像するようにした。
+
+- cell state は `resource.cell.uninit`、`resource.cell.moved`、`resource.cell.dropped`、`resource.cell.possibly_moved`、`resource.cell.initialized_conflict` に分ける。
+- owner state は `resource.owner.no_free_obligation`、`resource.owner.use_after_move`、`resource.owner.double_free`、`resource.owner.maybe_freed`、`resource.owner.unavailable`、`resource.owner.leak`、`resource.owner.maybe_leak` に分ける。
+- legacy raw-memory move checker の non-Copy raw cell diagnostics も `resource.cell.*` へ移行し、`ResourceRawDiagnosticCode::OwnershipViolation` は削除した。
+- `tests/compiler/move_effect.n.md` の regression は、旧 raw bucket ではなく実際の cell state code を期待するように更新した。
+
+これにより `resource.raw.*` は raw identity escape など raw provenance / unsafe boundary そのものを表す category に限定される。issue は self-host parity、note/help/related label contract、未移行の diagnostic display 整理を追跡する親 issue として open のまま維持する。
 
 ## 2026-04-29 Stage D0 nepl-language/LSP 追記
 
@@ -242,9 +253,9 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 
 ## 2026-04-29 Stage D1 raw move check diagnostics follow-up 追記
 
-`passes/move_check/raw_state.rs` には raw memory ownership violation を報告する箇所が 7 箇所あり、すべて `Diagnostic::error(...).with_code(...)` で `resource.raw.ownership_violation` を後付けしていた。raw memory ownership はメモリ安全に直結するため、message 文字列ではなく `ResourceRawDiagnosticCode::OwnershipViolation` を生成時点で確定する必要がある。
+`passes/move_check/raw_state.rs` には raw memory ownership violation を報告する箇所が 7 箇所あり、すべて `Diagnostic::error(...).with_code(...)` で `resource.raw.ownership_violation` を後付けしていた。当時は raw memory ownership がメモリ安全に直結するため、message 文字列ではなく生成時点で diagnostic code を確定する必要があった。
 
-今回の対応で module-local `raw_ownership_error(...)` helper を追加し、non-Copy raw load / store / dealloc / realloc / byte write / bulk copy source / bulk copy destination の violation を `Diagnostic::error_with_code(...)` 経由へ移行した。Rust regression は message 部分ではなく `DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(ResourceRawDiagnosticCode::OwnershipViolation))` を直接検査する。
+今回の対応で module-local `raw_ownership_error(...)` helper を追加し、non-Copy raw load / store / dealloc / realloc / byte write / bulk copy source / bulk copy destination の violation を `Diagnostic::error_with_code(...)` 経由へ移行した。後続の Stage D2 でこの helper は `ResourceDiagnosticCode::Cell(...)` へ移行され、旧 raw ownership bucket は削除済みである。
 
 検証:
 
@@ -253,7 +264,7 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
 - `cargo check -p nepl-core --tests`: pass
 - `trunk build`: pass
-- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 17 --dist web/dist`: pass。`resource.raw.ownership_violation` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 17 --dist web/dist`: pass。後続の Stage D2 では同じ regression は `resource.cell.moved` へ更新済み。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 

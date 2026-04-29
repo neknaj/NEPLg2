@@ -146,6 +146,8 @@ pub enum EffectDiagnosticCode {
 pub enum ResourceDiagnosticCode {
     Move(ResourceMoveDiagnosticCode),
     Borrow(ResourceBorrowDiagnosticCode),
+    Cell(ResourceCellDiagnosticCode),
+    Owner(ResourceOwnerDiagnosticCode),
     Raw(ResourceRawDiagnosticCode),
     Lower(ResourceLowerDiagnosticCode),
 }
@@ -175,8 +177,27 @@ pub enum ResourceBorrowDiagnosticCode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ResourceCellDiagnosticCode {
+    Uninit,
+    Moved,
+    Dropped,
+    PossiblyMoved,
+    InitializedConflict,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ResourceOwnerDiagnosticCode {
+    NoFreeObligation,
+    UseAfterMove,
+    DoubleFree,
+    MaybeFreed,
+    Unavailable,
+    Leak,
+    MaybeLeak,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceRawDiagnosticCode {
-    OwnershipViolation,
     IdentityEscape,
 }
 
@@ -378,8 +399,41 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::ReturnEscape,
     )),
-    DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-        ResourceRawDiagnosticCode::OwnershipViolation,
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
+        ResourceCellDiagnosticCode::Uninit,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
+        ResourceCellDiagnosticCode::Moved,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
+        ResourceCellDiagnosticCode::Dropped,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
+        ResourceCellDiagnosticCode::PossiblyMoved,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
+        ResourceCellDiagnosticCode::InitializedConflict,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::NoFreeObligation,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::UseAfterMove,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::DoubleFree,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::MaybeFreed,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::Unavailable,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::Leak,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::MaybeLeak,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
         ResourceRawDiagnosticCode::IdentityEscape,
@@ -878,6 +932,8 @@ impl ResourceDiagnosticCode {
         match self {
             ResourceDiagnosticCode::Move(code) => code.as_str(),
             ResourceDiagnosticCode::Borrow(code) => code.as_str(),
+            ResourceDiagnosticCode::Cell(code) => code.as_str(),
+            ResourceDiagnosticCode::Owner(code) => code.as_str(),
             ResourceDiagnosticCode::Raw(code) => code.as_str(),
             ResourceDiagnosticCode::Lower(code) => code.as_str(),
         }
@@ -887,6 +943,8 @@ impl ResourceDiagnosticCode {
         match self {
             ResourceDiagnosticCode::Move(code) => code.message(),
             ResourceDiagnosticCode::Borrow(code) => code.message(),
+            ResourceDiagnosticCode::Cell(code) => code.message(),
+            ResourceDiagnosticCode::Owner(code) => code.message(),
             ResourceDiagnosticCode::Raw(code) => code.message(),
             ResourceDiagnosticCode::Lower(code) => code.message(),
         }
@@ -971,17 +1029,65 @@ impl ResourceBorrowDiagnosticCode {
     }
 }
 
+impl ResourceCellDiagnosticCode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            ResourceCellDiagnosticCode::Uninit => "resource.cell.uninit",
+            ResourceCellDiagnosticCode::Moved => "resource.cell.moved",
+            ResourceCellDiagnosticCode::Dropped => "resource.cell.dropped",
+            ResourceCellDiagnosticCode::PossiblyMoved => "resource.cell.possibly_moved",
+            ResourceCellDiagnosticCode::InitializedConflict => "resource.cell.initialized_conflict",
+        }
+    }
+
+    const fn message(self) -> &'static str {
+        match self {
+            ResourceCellDiagnosticCode::Uninit => "use of uninitialized resource cell",
+            ResourceCellDiagnosticCode::Moved => "use of moved resource cell",
+            ResourceCellDiagnosticCode::Dropped => "use of dropped resource cell",
+            ResourceCellDiagnosticCode::PossiblyMoved => "use of potentially moved resource cell",
+            ResourceCellDiagnosticCode::InitializedConflict => {
+                "operation conflicts with initialized non-Copy resource cell"
+            }
+        }
+    }
+}
+
+impl ResourceOwnerDiagnosticCode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            ResourceOwnerDiagnosticCode::NoFreeObligation => "resource.owner.no_free_obligation",
+            ResourceOwnerDiagnosticCode::UseAfterMove => "resource.owner.use_after_move",
+            ResourceOwnerDiagnosticCode::DoubleFree => "resource.owner.double_free",
+            ResourceOwnerDiagnosticCode::MaybeFreed => "resource.owner.maybe_freed",
+            ResourceOwnerDiagnosticCode::Unavailable => "resource.owner.unavailable",
+            ResourceOwnerDiagnosticCode::Leak => "resource.owner.leak",
+            ResourceOwnerDiagnosticCode::MaybeLeak => "resource.owner.maybe_leak",
+        }
+    }
+
+    const fn message(self) -> &'static str {
+        match self {
+            ResourceOwnerDiagnosticCode::NoFreeObligation => "storage has no free obligation",
+            ResourceOwnerDiagnosticCode::UseAfterMove => "owner obligation was already moved",
+            ResourceOwnerDiagnosticCode::DoubleFree => "owner obligation was already freed",
+            ResourceOwnerDiagnosticCode::MaybeFreed => "owner obligation may already be freed",
+            ResourceOwnerDiagnosticCode::Unavailable => "owner obligation is unavailable",
+            ResourceOwnerDiagnosticCode::Leak => "owner obligation leaks",
+            ResourceOwnerDiagnosticCode::MaybeLeak => "owner obligation may leak",
+        }
+    }
+}
+
 impl ResourceRawDiagnosticCode {
     const fn as_str(self) -> &'static str {
         match self {
-            ResourceRawDiagnosticCode::OwnershipViolation => "resource.raw.ownership_violation",
             ResourceRawDiagnosticCode::IdentityEscape => "resource.raw.identity_escape",
         }
     }
 
     const fn message(self) -> &'static str {
         match self {
-            ResourceRawDiagnosticCode::OwnershipViolation => "raw memory place ownership violation",
             ResourceRawDiagnosticCode::IdentityEscape => {
                 "raw address identity escapes the pure surface"
             }

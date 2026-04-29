@@ -9,8 +9,9 @@ use crate::codegen_wasm;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{
     BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
-    ResourceBorrowDiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
-    ResourceRawDiagnosticCode, WasmDiagnosticCode,
+    ResourceBorrowDiagnosticCode, ResourceCellDiagnosticCode, ResourceDiagnosticCode,
+    ResourceLowerDiagnosticCode, ResourceOwnerDiagnosticCode, ResourceRawDiagnosticCode,
+    WasmDiagnosticCode,
 };
 use crate::error::CoreError;
 use crate::lexer;
@@ -331,12 +332,6 @@ fn resource_lower_incomplete_code() -> DiagnosticCode {
     ))
 }
 
-fn resource_raw_ownership_violation_code() -> DiagnosticCode {
-    DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-        ResourceRawDiagnosticCode::OwnershipViolation,
-    ))
-}
-
 fn resource_raw_identity_escape_code() -> DiagnosticCode {
     DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
         ResourceRawDiagnosticCode::IdentityEscape,
@@ -380,7 +375,7 @@ fn resource_raw_cell_diagnostic_to_error(
             span,
         } if resource_check_operation_is_raw_memory_cell(*operation) => Some(
             Diagnostic::error_with_code(
-                resource_raw_ownership_violation_code(),
+                resource_cell_diagnostic_code(state),
                 format!(
                     "resource ir raw memory cell ownership violation in function '{}': {:?} on {:?} found {:?}",
                     function, operation, place, state
@@ -405,6 +400,19 @@ fn resource_check_operation_is_raw_memory_cell(
             | crate::resource::ResourceCheckOperation::RawMemoryBulkDestinationCell
             | crate::resource::ResourceCheckOperation::RawMemoryBulkSourceCell
     )
+}
+
+fn resource_cell_diagnostic_code(state: &crate::resource::CellState) -> DiagnosticCode {
+    let code = match state {
+        crate::resource::CellState::Uninit => ResourceCellDiagnosticCode::Uninit,
+        crate::resource::CellState::Initialized(_) => {
+            ResourceCellDiagnosticCode::InitializedConflict
+        }
+        crate::resource::CellState::Moved => ResourceCellDiagnosticCode::Moved,
+        crate::resource::CellState::Dropped => ResourceCellDiagnosticCode::Dropped,
+        crate::resource::CellState::MaybeMoved => ResourceCellDiagnosticCode::PossiblyMoved,
+    };
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(code))
 }
 
 fn run_resource_owner_obligation_gate(
@@ -452,7 +460,7 @@ fn resource_owner_diagnostic_to_error(
             state,
             span,
         } => Some(Diagnostic::error_with_code(
-            resource_raw_ownership_violation_code(),
+            resource_owner_state_diagnostic_code(state),
             format!(
                 "resource ir owner obligation violation in function '{}': {:?} on {:?} found {:?}",
                 function, operation, place, state
@@ -465,7 +473,9 @@ fn resource_owner_diagnostic_to_error(
             storage,
             span,
         } => Some(Diagnostic::error_with_code(
-            resource_raw_ownership_violation_code(),
+            DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+                ResourceOwnerDiagnosticCode::Leak,
+            )),
             format!(
                 "resource ir owner obligation leak in function '{}': {:?} still owns {:?}",
                 function, place, storage
@@ -477,7 +487,9 @@ fn resource_owner_diagnostic_to_error(
             place,
             span,
         } => Some(Diagnostic::error_with_code(
-            resource_raw_ownership_violation_code(),
+            DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+                ResourceOwnerDiagnosticCode::MaybeLeak,
+            )),
             format!(
                 "resource ir owner obligation may leak in function '{}': {:?}",
                 function, place
@@ -485,6 +497,19 @@ fn resource_owner_diagnostic_to_error(
             *span,
         )),
     }
+}
+
+fn resource_owner_state_diagnostic_code(state: &crate::resource::OwnerState) -> DiagnosticCode {
+    let code = match state {
+        crate::resource::OwnerState::NoFreeObligation => {
+            ResourceOwnerDiagnosticCode::NoFreeObligation
+        }
+        crate::resource::OwnerState::Live { .. } => ResourceOwnerDiagnosticCode::Unavailable,
+        crate::resource::OwnerState::Moved => ResourceOwnerDiagnosticCode::UseAfterMove,
+        crate::resource::OwnerState::Freed => ResourceOwnerDiagnosticCode::DoubleFree,
+        crate::resource::OwnerState::MaybeFreed { .. } => ResourceOwnerDiagnosticCode::MaybeFreed,
+    };
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(code))
 }
 
 fn run_resource_borrow_lifetime_gate(
@@ -609,7 +634,7 @@ mod tests {
     use alloc::boxed::Box;
 
     #[test]
-    fn resource_raw_cell_gate_maps_raw_cell_diagnostic_to_raw_ownership_code() {
+    fn resource_raw_cell_gate_maps_raw_cell_diagnostic_to_cell_code() {
         let types = crate::types::TypeCtx::new();
         for operation in [
             ResourceCheckOperation::RawMemoryLoadCell,
@@ -630,8 +655,8 @@ mod tests {
             assert_eq!(
                 error.code,
                 Some(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                    crate::diagnostic_codes::ResourceDiagnosticCode::Cell(
+                        crate::diagnostic_codes::ResourceCellDiagnosticCode::Moved,
                     )
                 ))
             );
@@ -657,7 +682,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_owner_gate_maps_owner_diagnostics_to_raw_ownership_code() {
+    fn resource_owner_gate_maps_owner_diagnostics_to_owner_code() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -674,8 +699,8 @@ mod tests {
         assert_eq!(
             error.code,
             Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::DoubleFree,
                 )
             ))
         );
@@ -685,7 +710,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_owner_gate_maps_leaks_to_raw_ownership_code() {
+    fn resource_owner_gate_maps_leaks_to_owner_code() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceOwnerDiagnostic::OwnerLeaked {
@@ -701,8 +726,8 @@ mod tests {
         assert_eq!(
             error.code,
             Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::Leak,
                 )
             ))
         );
@@ -710,7 +735,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_owner_gate_maps_no_free_obligation_to_raw_ownership_code() {
+    fn resource_owner_gate_maps_no_free_obligation_to_owner_code() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -727,8 +752,8 @@ mod tests {
         assert_eq!(
             error.code,
             Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                    crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
+                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::NoFreeObligation,
                 )
             ))
         );

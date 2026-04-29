@@ -1,7 +1,7 @@
 use nepl_core::diagnostic::Diagnostic;
 use nepl_core::diagnostic_codes::{
-    DiagnosticCode, ResourceBorrowDiagnosticCode, ResourceDiagnosticCode,
-    ResourceMoveDiagnosticCode, ResourceRawDiagnosticCode,
+    DiagnosticCode, ResourceBorrowDiagnosticCode, ResourceCellDiagnosticCode,
+    ResourceDiagnosticCode, ResourceMoveDiagnosticCode,
 };
 use nepl_core::loader::Loader;
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
@@ -44,10 +44,10 @@ fn stdlib_root() -> PathBuf {
         .join("stdlib")
 }
 
-fn is_raw_ownership_violation(diag: &Diagnostic) -> bool {
+fn is_raw_cell_possibly_moved(diag: &Diagnostic) -> bool {
     diag.code
-        == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-            ResourceRawDiagnosticCode::OwnershipViolation,
+        == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
+            ResourceCellDiagnosticCode::PossiblyMoved,
         )))
 }
 
@@ -1028,7 +1028,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(is_raw_ownership_violation));
+    assert!(errs.iter().any(is_raw_cell_possibly_moved));
 }
 
 #[test]

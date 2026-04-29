@@ -91,7 +91,8 @@ CLI、web、JSON、doctest は `DiagnosticCode::as_str()` の結果を使う。
 - `resolve.identifier.undefined`
 - `effect.pure.calls_impure`
 - `resource.borrow.return_escape`
-- `resource.raw.ownership_violation`
+- `resource.cell.moved`
+- `resource.owner.leak`
 - `resource.lower.incomplete`
 - `backend.wasm.variable_unknown`
 
@@ -110,7 +111,9 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 | Resource IR diagnostic | DiagnosticCode |
 |---|---|
 | lowering completeness lost input | `Resource(Lower(Incomplete))` |
-| raw storage ownership violation | `Resource(Raw(OwnershipViolation))` |
+| raw cell is moved/uninit/dropped | `Resource(Cell(...))` |
+| storage owner obligation leak/double free | `Resource(Owner(...))` |
+| raw address identity escapes pure surface | `Resource(Raw(IdentityEscape))` |
 | use after move | `Resource(Move(UseMoved))` |
 | possible use after move | `Resource(Move(UsePossiblyMoved))` |
 | active borrow escapes return | `Resource(Borrow(ReturnEscape))` |
@@ -158,7 +161,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 
 - 2026-04-29: `DiagnosticSpec` と `Diagnostic::error_code` / `error_with_code` / `warning_code` / `warning_with_code` を追加し、compiler-owned enum code を診断生成時点で渡す builder 経路を導入した。これにより、少なくとも移行済み call site では `Diagnostic::error(...).with_code(...)` の後付け組み合わせを避けられる。
 - 2026-04-29: `Diagnostic` に `notes` / `helps` を追加し、CLI / web / language / LSP の外部境界で保持するようにした。補助説明は識別子ではなく structured display value として扱う。
-- 2026-04-29: Resource IR gate の lowering / raw ownership / borrow conflict / raw identity escape 変換を code-first constructor へ移行した。動的な詳細文は現時点では message に残し、次の D1 follow-up で note/help へ段階的に分離する。
+- 2026-04-29: Resource IR gate の lowering / raw cell / owner obligation / borrow conflict / raw identity escape 変換を code-first constructor へ移行した。動的な詳細文は現時点では message に残し、次の D1 follow-up で note/help へ段階的に分離する。
 - 2026-04-29: `compiler.rs` に残っていた unresolved trait call、lowered entry 解決、target directive の compiler boundary 診断を code-first constructor へ移行した。これにより `compiler.rs` 内の active diagnostic construction は `Diagnostic::error(...).with_code(...)` を使わず、enum code を生成時点で渡す形に揃った。
 - 2026-04-29: `lexer.rs` に module-local な `lexer_error` / `parser_error` helper を導入し、lexer 内の active diagnostic construction を code-first constructor へ移行した。indent / raw block / directive / string / char / unknown token 診断は、後付け `.with_code(...)` ではなく生成時点で `LexerDiagnosticCode` または `ParserDiagnosticCode` を確定する。
 - 2026-04-29: `codegen_wasm.rs` / `codegen_llvm.rs` の backend diagnostic helper を code-first constructor へ移行した。backend は個別 call site で `Diagnostic` を直接組み立てず helper へ `BackendDiagnosticCode` を渡す構造なので、この boundary で code を生成時点に固定する。
@@ -187,7 +190,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `typecheck/driver.rs` の trait declaration 境界に残っていた unknown capability と trait method type parameters 診断を `type_error(...)` 経由へ移行した。trait safety の capability/associated method shape は生成時点で `TypeDiagnosticCode` を確定する。
 - 2026-04-29: `typecheck/driver.rs` の impl collection / impl validation 境界を `type_error(...)` 経由へ移行した。前段で拒否した impl を `rejected_impl_spans` として保持し、後段 validation が同じ impl を再診断しないようにしたため、inherent impl / unknown trait / trait type argument count mismatch の重複診断も解消された。impl method shape / signature / missing method 診断も生成時点で `TypeDiagnosticCode` を確定する。
 - 2026-04-29: `typecheck/driver.rs` の function / alias hoist 境界を `type_error(...)` / `resolve_error(...)` 経由へ移行した。function signature、overload ambiguity、alias target、item conflict、no-shadow conflict / violation、function type parameter bound mismatch は生成時点で `TypeDiagnosticCode` または `ResolveDiagnosticCode` を確定する。
-- 2026-04-29: `passes/move_check/raw_state.rs` の raw memory ownership diagnostics を code-first helper へ移行した。non-Copy raw load / store / dealloc / realloc / byte write / bulk copy の violation は、後付け `.with_code(...)` ではなく生成時点で `ResourceDiagnosticCode::Raw(ResourceRawDiagnosticCode::OwnershipViolation)` を確定する。
+- 2026-04-29: `passes/move_check/raw_state.rs` の raw memory cell diagnostics を code-first helper へ移行した。non-Copy raw load / store / dealloc / realloc / byte write / bulk copy の violation は、後付け `.with_code(...)` ではなく生成時点で `ResourceDiagnosticCode::Cell(...)` を確定する。
 - 2026-04-29: `passes/move_check/context_state.rs` の move / borrow diagnostics を code-first helper へ移行した。use/drop/possibly moved/loop escape と shared/unique borrow conflict/borrow escape は、生成時点で `ResourceMoveDiagnosticCode` または `ResourceBorrowDiagnosticCode` を確定する。
 - 2026-04-29: `passes/move_check/visitor.rs` の deref borrow violation と loop body merge diagnostics を code-first helper へ移行した。non-Copy deref は `ResourceBorrowDiagnosticCode::MoveFromShared`、while body で発生する possibly moved state は `ResourceMoveDiagnosticCode::LoopPossiblyMoved` を生成時点で確定し、2 系統の while lowering 経路は同じ helper で診断する。
 - 2026-04-29: `passes/codegen_precheck.rs` の wasm / llvm precheck diagnostics を code-first helper へ移行した。wasm backend precheck は `WasmDiagnosticCode`、LLVM precheck の型境界は `TypeDiagnosticCode` を生成時点で確定する。`IndirectSignatureMissing` は現行の signature set 生成では到達しにくいことが判明したため、別 issue で signature source 分離または variant 整理を追跡する。
@@ -211,16 +214,17 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 
 - 2026-04-29: `ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` を `Effect(PureCallsImpure)` から分離し、`Resource(Raw(IdentityEscape))` / `resource.raw.identity_escape` として compiler diagnostic へ写像するようにした。raw identity escape の compile_fail regression は `effect.pure.calls_impure` ではなく `resource.raw.identity_escape` を期待する。
 - `UnsafeMemoryInPureFunction` は現行 stdlib の raw-memory-backed API 移行と衝突するため、これまで通り shadow-only に残す。ordinary impure call や raw body I/O は `effect.pure.calls_impure` のまま維持する。
+- 2026-04-30: `ResourceDiagnosticCode::Cell(...)` と `ResourceDiagnosticCode::Owner(...)` を追加し、Resource IR の `CellState` / `OwnerState` 診断を `resource.raw.ownership_violation` bucket へ潰さないようにした。raw-memory-backed 旧 move checker の non-Copy raw cell diagnostics も `resource.cell.*` へ移行したため、`resource.raw.*` は raw identity escape など raw provenance / unsafe boundary そのものへ限定する。
 
 2026-04-30 追記:
 
 [静的検査設計確認 2026-04-30](./static_check_design_verification_20260430.md) で、現在の Resource IR gate mapping を再確認した。
 
-現状では `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` が compiler diagnostic では `ResourceRawDiagnosticCode::OwnershipViolation` へ写像されている。これは旧 D3100 bucket から enum-first へ移行する途中状態としては意味があるが、D2 の完了条件にはできない。
+`ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は、compiler diagnostic で `resource.cell.*` / `resource.owner.*` へ分離済みである。旧 D3100 相当の互換 bucket は残さず、原因分類を enum と stable string code の両方で保持する。
 
-今後の D2 完了条件に次を追加する。
+D2 の完了条件は次の通り。
 
-- `ResourceDiagnosticCode` に cell / owner category を追加する。
+- `ResourceDiagnosticCode` に cell / owner category を追加済みであること。
 - raw memory 上で起きた violation でも、原因が initialized cell state なのか owner/free obligation なのかを stable code 上で失わない。
 - `resource.raw.*` は raw identity escape、unsafe boundary、pointer provenance そのものの問題に限定する。
 - `resource.cell.*` と `resource.owner.*` の `as_str()` / `message()` は wildcard なしの exhaustive match で管理する。

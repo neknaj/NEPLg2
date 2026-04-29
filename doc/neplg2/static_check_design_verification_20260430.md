@@ -46,7 +46,7 @@ NEPLg2 の静的検査が、型安全・メモリ安全を「実装上も設計�
 
 1. `passes::move_check::run` がまだ先に authoritative で走り、その後に Resource IR gate が追加で走る。
 2. `passes::insert_drops` が Resource IR check より前に HIR 上で drop を挿入している。
-3. Resource IR の `CellState` / `OwnerState` diagnostic が compiler diagnostic では `resource.raw.ownership_violation` に潰れている。
+3. Resource IR の `CellState` / `OwnerState` diagnostic は `resource.cell.*` / `resource.owner.*` へ分離されたが、旧 `passes::move_check::run` との二重 authority はまだ残っている。
 4. `UnsafeMemoryInPureFunction` が stdlib 移行都合で shadow-only のまま残っている。
 5. `MemPtr<T>` / `RegionToken<T>` が stdlib struct として forge 可能で、owner token と non-owning pointer の分離が完了していない。
 6. collections が safety-critical state を enum ではなく null pointer / numeric status / raw header layout で表している。

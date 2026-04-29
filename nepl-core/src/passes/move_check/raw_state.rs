@@ -2,7 +2,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::{DiagnosticCode, ResourceDiagnosticCode, ResourceRawDiagnosticCode};
+use crate::diagnostic_codes::{DiagnosticCode, ResourceCellDiagnosticCode, ResourceDiagnosticCode};
 use crate::span::Span;
 
 use super::raw_place::{
@@ -10,26 +10,37 @@ use super::raw_place::{
 };
 use super::MoveCheckContext;
 
-fn raw_ownership_error(message: impl Into<String>, span: Span) -> Diagnostic {
+fn raw_cell_error(
+    code: ResourceCellDiagnosticCode,
+    message: impl Into<String>,
+    span: Span,
+) -> Diagnostic {
     Diagnostic::error_with_code(
-        DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-            ResourceRawDiagnosticCode::OwnershipViolation,
-        )),
+        DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(code)),
         message,
         span,
     )
 }
 
+fn raw_place_state_cell_code(state: RawPlaceState) -> ResourceCellDiagnosticCode {
+    match state {
+        RawPlaceState::Initialized => ResourceCellDiagnosticCode::InitializedConflict,
+        RawPlaceState::Moved => ResourceCellDiagnosticCode::Moved,
+        RawPlaceState::PossiblyMoved => ResourceCellDiagnosticCode::PossiblyMoved,
+    }
+}
+
 impl<'m> MoveCheckContext<'m> {
     pub(super) fn check_raw_non_copy_load(&mut self, place: &str, size: usize, span: Span) {
         let overlapping = self.overlapping_raw_places(place, size);
-        if overlapping.iter().any(|(_, info)| {
+        if let Some((_, info)) = overlapping.iter().find(|(_, info)| {
             matches!(
                 info.state,
                 RawPlaceState::Moved | RawPlaceState::PossiblyMoved
             )
         }) {
-            self.diagnostics.push(raw_ownership_error(
+            self.diagnostics.push(raw_cell_error(
+                raw_place_state_cell_code(info.state),
                 alloc::format!("use of moved raw memory place: `{}`", place),
                 span,
             ));
@@ -59,17 +70,18 @@ impl<'m> MoveCheckContext<'m> {
     }
 
     pub(super) fn check_raw_non_copy_store(&mut self, place: &str, size: usize, span: Span) {
-        if self
-            .overlapping_raw_places(place, size)
-            .iter()
-            .any(|(_, info)| {
-                matches!(
-                    info.state,
-                    RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
-                )
-            })
+        if let Some((_, info)) =
+            self.overlapping_raw_places(place, size)
+                .iter()
+                .find(|(_, info)| {
+                    matches!(
+                        info.state,
+                        RawPlaceState::Initialized | RawPlaceState::PossiblyMoved
+                    )
+                })
         {
-            self.diagnostics.push(raw_ownership_error(
+            self.diagnostics.push(raw_cell_error(
+                raw_place_state_cell_code(info.state),
                 alloc::format!(
                     "overwrite of raw memory place containing non-Copy value: `{}`",
                     place
@@ -93,7 +105,7 @@ impl<'m> MoveCheckContext<'m> {
         size: Option<usize>,
         span: Span,
     ) {
-        if let Some((live_place, _)) = self
+        if let Some((live_place, info)) = self
             .raw_places_overlapping_dealloc(place, size)
             .into_iter()
             .find(|(_, info)| {
@@ -103,7 +115,8 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(raw_ownership_error(
+            self.diagnostics.push(raw_cell_error(
+                raw_place_state_cell_code(info.state),
                 alloc::format!(
                     "deallocating raw memory place containing non-Copy value: `{}`",
                     live_place
@@ -119,7 +132,7 @@ impl<'m> MoveCheckContext<'m> {
         size: Option<usize>,
         span: Span,
     ) {
-        if let Some((live_place, _)) = self
+        if let Some((live_place, info)) = self
             .raw_places_overlapping_dealloc(place, size)
             .into_iter()
             .find(|(_, info)| {
@@ -129,7 +142,8 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(raw_ownership_error(
+            self.diagnostics.push(raw_cell_error(
+                raw_place_state_cell_code(info.state),
                 alloc::format!(
                     "reallocating raw memory place containing non-Copy value: `{}`",
                     live_place
@@ -145,7 +159,7 @@ impl<'m> MoveCheckContext<'m> {
         size: Option<usize>,
         span: Span,
     ) {
-        if let Some((live_place, _)) = self
+        if let Some((live_place, info)) = self
             .raw_places_overlapping_dealloc(place, size)
             .into_iter()
             .find(|(_, info)| {
@@ -155,7 +169,8 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(raw_ownership_error(
+            self.diagnostics.push(raw_cell_error(
+                raw_place_state_cell_code(info.state),
                 alloc::format!(
                     "overwriting raw memory place containing non-Copy value: `{}`",
                     live_place
@@ -172,7 +187,7 @@ impl<'m> MoveCheckContext<'m> {
         size: Option<usize>,
         span: Span,
     ) {
-        if let Some((live_place, _)) = self
+        if let Some((live_place, info)) = self
             .raw_places_overlapping_dealloc(src, size)
             .into_iter()
             .find(|(_, info)| {
@@ -182,7 +197,8 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(raw_ownership_error(
+            self.diagnostics.push(raw_cell_error(
+                raw_place_state_cell_code(info.state),
                 alloc::format!(
                     "copying raw memory place containing non-Copy value: `{}`",
                     live_place
@@ -192,7 +208,7 @@ impl<'m> MoveCheckContext<'m> {
             return;
         }
 
-        if let Some((live_place, _)) = self
+        if let Some((live_place, info)) = self
             .raw_places_overlapping_dealloc(dst, size)
             .into_iter()
             .find(|(_, info)| {
@@ -202,7 +218,8 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(raw_ownership_error(
+            self.diagnostics.push(raw_cell_error(
+                raw_place_state_cell_code(info.state),
                 alloc::format!(
                     "overwriting raw memory place containing non-Copy value: `{}`",
                     live_place

@@ -103,7 +103,7 @@ Resource IR は CFG を持つ中間表現とし、少なくとも次を第一級
 5. initialized value を持つ cell を storage-only free することは禁止する。
 6. `load<T>` は `T: Copy` の read と、non-Copy の move-out を分ける。
 7. `store<T>` は uninitialized cell の initialize と、initialized cell の overwrite を分ける。non-Copy overwrite は既存 value の drop/consume が証明された場合だけ許可する。
-8. raw address `i32` は compiler-owned internal boundary 外へ出さない。移行中は既存 API を `resource.raw.ownership_violation` / `effect.pure.calls_impure` 系の検査で保守的に塞ぐ。
+8. raw address `i32` は compiler-owned internal boundary 外へ出さない。移行中は既存 API を `resource.cell.*` / `resource.owner.*` / `resource.raw.*` / `effect.*` 系の検査で保守的に塞ぎ、cell state と owner obligation の原因分類を混ぜない。
 
 ### function effect と resource summary
 
@@ -321,7 +321,7 @@ self-host 実装側の禁止事項:
 
 - 既存 `Vec` / `StringBuilder` を使った S1/S2 実装。
 - raw-backed implementation を internal module に閉じた wrapper として使う。
-- Resource IR 導入前の暫定 compiler regression を維持するための保守的 `resource.raw.ownership_violation`。
+- Resource IR 導入前の暫定 compiler regression を維持するための保守的 `resource.cell.*` / `resource.owner.*`。
 
 ## 2026-04-30 設計確認
 
@@ -331,7 +331,7 @@ self-host 実装側の禁止事項:
 
 - Resource IR の data model、coverage gate、CellState / OwnerState / BorrowState gate、enum-first diagnostic の方向性は妥当である。
 - ただし、現行 pipeline は `passes::insert_drops` を Resource IR check より前に HIR 上で実行し、旧 `passes::move_check::run` を先に authoritative として通した後に Resource IR gate を追加する構造である。これは移行途中の防壁であり、最終設計ではない。
-- `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler diagnostic では `resource.raw.ownership_violation` に潰れている。D2 の途中状態としては許容するが、完了条件にはできない。`resource.cell.*` と `resource.owner.*` を第一級 diagnostic category にする。
+- `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler diagnostic で `resource.cell.*` と `resource.owner.*` に分離済みである。今後も D3100 相当の粗い raw bucket に戻さず、原因分類を enum-first で維持する。
 - `UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行のため shadow-only に残っている。最終的には public pure surface から unsafe memory を構成できないよう gate 化する。
 - self-host の S1/S2 は進められるが、S3 以降の typecheck / Resource IR / diagnostic aggregation では raw header collection や `MemPtr` owner discipline を中核に持ち込まない。
 
